@@ -94,6 +94,31 @@ public sealed partial class ToolAgentOrchestrator
         return SerializeToolResults(BuildWriterToolResults(plan, toolResults, userMessage));
     }
 
+    internal static string SerializeWriterRagResultsForTests(
+        IReadOnlyList<(string ToolName, string Json)> results,
+        string userMessage)
+    {
+        var toolResults = new ToolResults();
+        foreach (var (toolName, json) in results)
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
+            toolResults.Items.Add(new ToolResults.Item
+            {
+                ToolName = toolName,
+                Result = doc.RootElement.Clone()
+            });
+        }
+
+        var plan = new RouterPlan
+        {
+            Intent = "rag.answer",
+            Language = "fr",
+            Mode = "strict"
+        };
+
+        return SerializeToolResults(BuildWriterToolResults(plan, toolResults, userMessage));
+    }
+
     internal static string BuildProbeRagToolResultsJsonForTests(IReadOnlyList<RagItem> hits)
     {
         var toolResults = BuildProbeRagToolResults(hits);
@@ -329,6 +354,190 @@ public sealed partial class ToolAgentOrchestrator
         return JsonSerializer.Serialize(BuildSourcesPayload([source]));
     }
 
+    internal static string BuildDuplicatePageSourcesPayloadForTests()
+    {
+        var sources = new List<ToolMemory.SourceRef>
+        {
+            new()
+            {
+                DocId = "doc-v1",
+                DocPath = "Knowledge/guide.pdf",
+                DocName = "guide.pdf",
+                PageStart = 10,
+                PageEnd = 10,
+                Label = "guide.pdf"
+            },
+            new()
+            {
+                DocPath = "Knowledge/archive/guide.pdf",
+                DocName = "guide.pdf",
+                PageStart = 10,
+                PageEnd = 12,
+                Label = "guide.pdf",
+                SourceHash = "archive456",
+                DocLanguage = "en"
+            },
+            new()
+            {
+                DocId = "doc-v2",
+                DocPath = "Knowledge/guide.pdf",
+                DocName = "guide.pdf",
+                PageStart = 10,
+                PageEnd = 12,
+                Label = "guide.pdf",
+                SourceHash = "abc123",
+                DocLanguage = "fr"
+            },
+            new()
+            {
+                DocPath = "Knowledge/manual.pdf",
+                DocName = "manual.pdf",
+                PageStart = 4,
+                PageEnd = 4,
+                Label = "manual.pdf"
+            }
+        };
+
+        return JsonSerializer.Serialize(BuildSourcesPayload(sources));
+    }
+
+    internal static string BuildAliasedDuplicatePageSourcesPayloadForTests()
+    {
+        var sources = new List<ToolMemory.SourceRef>
+        {
+            new()
+            {
+                DocPath = "Knowledge/guide.pdf",
+                DocName = "guide.pdf",
+                PageStart = 10,
+                PageEnd = 10,
+                Label = "guide.pdf",
+                SourceHash = "same-source",
+                DocLanguage = "fr"
+            },
+            new()
+            {
+                DocPath = "C:/saaia-repo/documents/Knowledge/guide.pdf",
+                DocName = "guide.pdf",
+                PageStart = 10,
+                PageEnd = 11,
+                Label = "guide.pdf",
+                SourceHash = "same-source",
+                DocLanguage = "fr"
+            },
+            new()
+            {
+                DocPath = "Knowledge/archive/guide.pdf",
+                DocName = "guide.pdf",
+                PageStart = 10,
+                PageEnd = 10,
+                Label = "guide.pdf",
+                SourceHash = "archive-source",
+                DocLanguage = "en"
+            }
+        };
+
+        return JsonSerializer.Serialize(BuildSourcesPayload(sources));
+    }
+
+    internal static string BuildFilenameOnlyDuplicatePageSourcesPayloadForTests()
+    {
+        return JsonSerializer.Serialize(BuildSourcesPayload(BuildFilenameOnlyDuplicatePageSourcesForTests()));
+    }
+
+    internal static string BuildFilenameOnlyDuplicatePageSourcesMemoryPayloadForTests()
+        => JsonSerializer.Serialize(new
+        {
+            sources = NormalizeVisibleSourceRefsForMemory(BuildFilenameOnlyDuplicatePageSourcesForTests())
+                .Select(static source => new
+                {
+                    source.DocPath,
+                    source.PageStart,
+                    source.PageEnd,
+                    source.SourceHash
+                })
+        });
+
+    internal static string BuildQualifiedHashDuplicatePageSourcesPayloadForTests()
+    {
+        var sources = new List<ToolMemory.SourceRef>
+        {
+            new()
+            {
+                DocPath = "Knowledge/manual.pdf",
+                DocName = "manual.pdf",
+                PageStart = 16,
+                PageEnd = 16,
+                Label = "manual.pdf",
+                SourceHash = "same-source",
+                CategoryPath = "Knowledge",
+                DocLanguage = "fr"
+            },
+            new()
+            {
+                DocPath = "C:/saaia-repo/documents/Knowledge/manual.pdf",
+                DocName = "manual.pdf",
+                PageStart = 16,
+                PageEnd = 16,
+                Label = "manual.pdf",
+                SourceHash = "same-source",
+                CategoryPath = "Knowledge",
+                DocLanguage = "fr"
+            },
+            new()
+            {
+                DocPath = "Knowledge/archive/manual.pdf",
+                DocName = "manual.pdf",
+                PageStart = 16,
+                PageEnd = 16,
+                Label = "manual.pdf",
+                SourceHash = "archive-source",
+                CategoryPath = "Knowledge/archive",
+                DocLanguage = "en"
+            }
+        };
+
+        return JsonSerializer.Serialize(BuildSourcesPayload(sources));
+    }
+
+    private static List<ToolMemory.SourceRef> BuildFilenameOnlyDuplicatePageSourcesForTests()
+        => new()
+        {
+            new()
+            {
+                DocPath = "Knowledge/manual.pdf",
+                DocName = "manual.pdf",
+                PageStart = 16,
+                PageEnd = 16,
+                Label = "manual.pdf",
+                SourceHash = "same-source",
+                CategoryPath = "Knowledge",
+                DocLanguage = "fr"
+            },
+            new()
+            {
+                DocPath = "manual.pdf",
+                DocName = "manual.pdf",
+                PageStart = 16,
+                PageEnd = 16,
+                Label = "manual.pdf",
+                SourceHash = "same-source",
+                CategoryPath = "Knowledge",
+                DocLanguage = "fr"
+            },
+            new()
+            {
+                DocPath = "Knowledge/manual.pdf",
+                DocName = "manual.pdf",
+                PageStart = 42,
+                PageEnd = 42,
+                Label = "manual.pdf",
+                SourceHash = "same-source",
+                CategoryPath = "Knowledge",
+                DocLanguage = "fr"
+            }
+        };
+
     internal async Task<(bool Queued, string? JobId, string? Error)> TryQueueAdminSummaryGenerationForTests(
         string docRef,
         CancellationToken ct)
@@ -358,6 +567,81 @@ public sealed partial class ToolAgentOrchestrator
     internal static string BuildSourceBackedPlanningOrExtractiveAnswerForTests(ToolResults toolResults, string query, string language)
         => BuildSourceBackedPlanningOrExtractiveAnswer(toolResults, query, language);
 
+    internal static string[] BuildPlanningExplorationRetrievalQueriesForTests(string query)
+        => BuildPlanningExplorationRetrievalQueries(query);
+
+    internal static bool ShouldExpandSourceBackedPlanningRetrievalForTests(ToolResults toolResults, string query, string language)
+        => ShouldExpandSourceBackedPlanningRetrieval(toolResults, query, language);
+
+    internal static bool IsBetterSourceBackedPlanningCoverageForTests(
+        ToolResults current,
+        ToolResults candidate,
+        string query,
+        string language)
+        => IsBetterSourceBackedPlanningCoverage(current, candidate, query, language);
+
+    internal static bool ShouldExpandSourceBackedEvidenceRetrievalForTests(
+        ToolResults toolResults,
+        string query,
+        string language)
+        => ShouldExpandSourceBackedEvidenceRetrieval(toolResults, query, language);
+
+    internal static bool IsBetterSourceBackedEvidenceCoverageForTests(
+        ToolResults current,
+        ToolResults candidate,
+        string query,
+        string language)
+        => IsBetterSourceBackedEvidenceCoverage(current, candidate, query, language);
+
+    internal static string[] BuildDocumentaryProbeRetrievalQueriesForTests(string query)
+        => BuildDocumentaryProbeRetrievalQueries(query);
+
+    internal static bool ShouldExpandDocumentaryProbeRetrievalForTests(ToolResults toolResults, string query, string language)
+        => ShouldExpandDocumentaryProbeRetrieval(toolResults, query, language);
+
+    internal static bool ShouldUseWriterForDocumentaryProbeAnswerForTests(ToolResults toolResults, string query)
+        => ShouldUseWriterForDocumentaryProbeAnswer(toolResults, query);
+
+    internal static bool IsBetterDocumentaryProbeCoverageForTests(
+        ToolResults current,
+        ToolResults candidate,
+        string query,
+        string language)
+        => IsBetterDocumentaryProbeCoverage(current, candidate, query, language);
+
+    internal static string[] BuildSourceBackedEvidenceExpansionRetrievalQueriesForTests(string query)
+        => BuildSourceBackedEvidenceExpansionRetrievalQueries(query);
+
+    internal static string RemoveTrailingModelEmittedSourceListForTests(string answer)
+        => RemoveTrailingModelEmittedSourceList(answer);
+
+    internal static bool ShouldUseWriterForBroadSourceBackedPlanningForTests(ToolResults toolResults, string query)
+        => ShouldUseWriterForBroadSourceBackedPlanning(toolResults, query);
+
+    internal static bool ShouldAllowWriterForPartialSourceBackedPlanningForTests(ToolResults toolResults, string query, string language = "fr")
+        => ShouldAllowWriterForPartialSourceBackedPlanning(toolResults, query, language);
+
+    internal static bool ShouldUseWriterForBroadSourceBackedSynthesisForTests(ToolResults toolResults, string query)
+        => ShouldUseWriterForBroadSourceBackedSynthesis(toolResults, query);
+
+    internal static bool ShouldUseAdvisoryEvidenceGuardForBroadSynthesisForTests(ToolResults toolResults, string query)
+        => ShouldUseAdvisoryEvidenceGuardForBroadSynthesis(toolResults, query);
+
+    internal static bool ShouldOfferBroadenedSourceSearchForTests(string query)
+        => ShouldOfferBroadenedSourceSearch(query);
+
+    internal static string BuildAnswerShapeGuidanceForWriterForTests(string query, string language)
+        => BuildAnswerShapeGuidanceForWriter(query, language);
+
+    internal static string BuildSourceBackedCoverageHintsForWriterForTests(ToolResults toolResults, string query, string language)
+        => BuildSourceBackedCoverageHintsForWriter(toolResults, query, language);
+
+    internal static bool LooksLikeRawExcerptDumpPlanningAnswerForTests(string answer, string query)
+        => LooksLikeRawExcerptDumpPlanningAnswer(answer, query);
+
+    internal static bool LooksLikePoorPlanningFallbackAnswerForTests(string answer, string query)
+        => LooksLikePoorPlanningFallbackAnswer(answer, query);
+
     internal static string BuildSourceBackedOptionAnswerForTests(ToolResults toolResults, string query, string language)
         => BuildSourceBackedOptionAnswer(toolResults, language, query: query);
 
@@ -372,6 +656,12 @@ public sealed partial class ToolAgentOrchestrator
 
     internal static string BuildRagEvidenceFallbackAnswerForTests(ToolResults toolResults, string query, string language)
         => BuildRagEvidenceFallbackAnswer(toolResults, query, language);
+
+    internal static string BuildReadablePartialPlanningEvidenceAnswerForTests(ToolResults toolResults, string query, string language)
+        => BuildReadablePartialPlanningEvidenceAnswer(
+            EnumerateRagHitSummaries(toolResults).ToList(),
+            query,
+            language);
 
     internal static string TryBuildSourcePolicyGuardAnswerForTests(ToolResults toolResults, string query, string language)
         => TryBuildSourcePolicyGuardAnswer(toolResults, query, language);
@@ -460,6 +750,12 @@ public sealed partial class ToolAgentOrchestrator
     internal static bool LooksLikeSourceBackedPlanningRequestForTests(string query)
         => LooksLikeSourceBackedPlanningRequest(query);
 
+    internal static bool LooksLikeDocumentContentSelectionExplanationRequestForTests(string query)
+        => LooksLikeDocumentContentSelectionExplanationRequest(query);
+
+    internal static bool LooksLikeUnresolvedSourceBackedDeicticFollowupForTests(string query)
+        => LooksLikeUnresolvedSourceBackedDeicticFollowup(query);
+
     internal static string? TryExtractRequestedItemTitleForTests(string query)
         => TryExtractRequestedItemTitle(query);
 
@@ -472,6 +768,18 @@ public sealed partial class ToolAgentOrchestrator
     internal static bool LooksLikeNoRagDataAnswerForTests(string answer)
         => LooksLikeNoRagDataAnswer(answer);
 
+    internal static bool ShouldFallbackFromNoRagDataAnswerForTests(string answer)
+        => ShouldFallbackFromNoRagDataAnswer(answer);
+
+    internal static string TryBuildNoRagEvidenceAnswerForTests(ToolResults toolResults, string language, string query)
+        => TryBuildNoRagEvidenceAnswerForEmptySearch(toolResults, language, query);
+
+    internal static bool ShouldReplaceOverPromotedSourceBackedOptionAnswerForTests(
+        string answer,
+        ToolResults toolResults,
+        string query)
+        => ShouldReplaceOverPromotedSourceBackedOptionAnswer(answer, toolResults, query);
+
     internal static bool LooksLikeMissingExactItemWithoutSourceLeadsForTests(string answer)
         => LooksLikeMissingExactItemWithoutSourceLeads(answer);
 
@@ -483,6 +791,15 @@ public sealed partial class ToolAgentOrchestrator
 
     internal static string[] BuildSourceBackedActionRetrievalQueriesForTests(string query)
         => BuildSourceBackedActionRetrievalQueries(query);
+
+    internal static int NormalizeSourceBackedActionTopKForTests(int? requestedTopK, string query)
+        => NormalizeSourceBackedActionTopK(requestedTopK, query);
+
+    internal static int ResolveSourceBackedActionRetrievalQueryLimitForTests(string query)
+        => ResolveSourceBackedActionRetrievalQueryLimit(query);
+
+    internal static int ResolveRagMultiSearchQueryBudgetForTests(int topK, int availableQueries)
+        => ResolveRagMultiSearchQueryBudget(topK, availableQueries);
 
     internal static string[] BuildPreciseRetrievalQueriesForTests(string exactTitle, string retrievalQuery, string? originalQuery = null)
         => BuildPreciseRetrievalQueries(exactTitle, retrievalQuery, originalQuery);
@@ -525,5 +842,24 @@ public sealed partial class ToolAgentOrchestrator
 
     internal static string BuildDocumentContentSearchAnswerForTests(ToolResults toolResults, string topic, string language)
         => BuildDocumentContentSearchAnswer(toolResults, topic, language);
+
+    internal static bool ShouldExpandDocumentContentSearchForTests(string query, string json)
+    {
+        using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
+        return ShouldExpandDocumentContentSearch(query, doc.RootElement);
+    }
+
+    internal static bool ShouldUseWriterForDocumentContentSearchAnswerForTests(string query, string json)
+    {
+        using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(json) ? "{}" : json);
+        return ShouldUseWriterForDocumentContentSearchAnswer(query, doc.RootElement);
+    }
+
+    internal static bool IsBetterDocumentContentSearchCoverageForTests(string currentJson, string candidateJson)
+    {
+        using var current = JsonDocument.Parse(string.IsNullOrWhiteSpace(currentJson) ? "{}" : currentJson);
+        using var candidate = JsonDocument.Parse(string.IsNullOrWhiteSpace(candidateJson) ? "{}" : candidateJson);
+        return IsBetterDocumentContentSearchCoverage(current.RootElement, candidate.RootElement);
+    }
 }
 #endif

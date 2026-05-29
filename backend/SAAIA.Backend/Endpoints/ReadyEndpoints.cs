@@ -37,6 +37,7 @@ public static class ReadyEndpoints
         SignedConfigStatus? cfgStatus,
         IMemoryCache cache,
         RagSearchBulkhead ragSearchBulkhead,
+        TeiWorkloadGovernor teiGovernor,
         CancellationToken ct)
     {
         var requestId = ctx.GetRequestId();
@@ -44,7 +45,7 @@ public static class ReadyEndpoints
         // 1) Cache rapide
         if (cache.TryGetValue(ReadyCacheKey, out ReadinessSnapshot? cached) && cached is not null)
         {
-            var freshPayload = WithFreshRagSearchReadiness(cached.Payload, ragOpt.Value, ragSearchBulkhead);
+            var freshPayload = WithFreshRagSearchReadiness(cached.Payload, ragOpt.Value, ingestionOpt.Value, ragSearchBulkhead, teiGovernor);
             return cached.Ok
                 ? Results.Ok(freshPayload)
                 : Results.Json(freshPayload, statusCode: 503);
@@ -56,7 +57,7 @@ public static class ReadyEndpoints
         {
             if (cache.TryGetValue(ReadyCacheKey, out cached) && cached is not null)
             {
-                var freshPayload = WithFreshRagSearchReadiness(cached.Payload, ragOpt.Value, ragSearchBulkhead);
+                var freshPayload = WithFreshRagSearchReadiness(cached.Payload, ragOpt.Value, ingestionOpt.Value, ragSearchBulkhead, teiGovernor);
                 return cached.Ok
                     ? Results.Ok(freshPayload)
                     : Results.Json(freshPayload, statusCode: 503);
@@ -95,6 +96,7 @@ public static class ReadyEndpoints
                     rag.EmbeddingsModel,
                     "ping",
                     TeiClient.EmbeddingInputKind.Query);
+                using var teiLease = await teiGovernor.AcquireReadyProbeAsync(teiCts.Token);
                 var vectors = await TeiClient.EmbedAsync(tei, rag.EmbeddingsModel, new[] { probeInput }, teiCts.Token);
                 teiDim = (vectors is { Length: > 0 }) ? vectors[0].Length : 0;
 
@@ -162,6 +164,7 @@ public static class ReadyEndpoints
             ApplyBackofficeLlmReadinessPolicy(chatOpt.Value, llmReady, details);
             ProbeIngestionReadiness(ingestionOpt.Value, details);
             ProbeRagSearchReadiness(ragOpt.Value, ragSearchBulkhead, details);
+            ProbeTeiWorkloadReadiness(ingestionOpt.Value, teiGovernor, details);
             if (!ProbeOcrReadiness(ingestionOpt.Value, details))
                 ok = false;
 
@@ -191,10 +194,13 @@ public static class ReadyEndpoints
     private static ReadinessPayload WithFreshRagSearchReadiness(
         ReadinessPayload payload,
         RagOptions rag,
-        RagSearchBulkhead ragSearchBulkhead)
+        IngestionOptions ingestion,
+        RagSearchBulkhead ragSearchBulkhead,
+        TeiWorkloadGovernor teiGovernor)
     {
         var details = new Dictionary<string, object?>(payload.Details, StringComparer.OrdinalIgnoreCase);
         ProbeRagSearchReadiness(rag, ragSearchBulkhead, details);
+        ProbeTeiWorkloadReadiness(ingestion, teiGovernor, details);
         return payload with { Details = details };
     }
 
@@ -437,6 +443,19 @@ public static class ReadyEndpoints
                 : "budgeted";
         details["ingestion_tei_timeout_seconds"] = Math.Max(1, ingestion.TeiTimeoutSeconds);
         details["ingestion_qdrant_timeout_seconds"] = Math.Max(1, ingestion.QdrantTimeoutSeconds);
+        details["ingestion_tei_interactive_quiet_period_ms"] = Math.Clamp(ingestion.TeiInteractiveQuietPeriodMs, 0, 30000);
+    }
+
+    private static void ProbeTeiWorkloadReadiness(
+        IngestionOptions ingestion,
+        TeiWorkloadGovernor teiGovernor,
+        Dictionary<string, object?> details)
+    {
+        var snapshot = teiGovernor.GetSnapshot();
+        details["tei_workload_active_interactive_requests"] = snapshot.ActiveInteractiveRequests;
+        details["tei_workload_available_slots"] = snapshot.AvailableSlots;
+        details["tei_workload_last_interactive_activity_utc"] = snapshot.LastInteractiveActivityUtc?.ToString("O", CultureInfo.InvariantCulture);
+        details["tei_workload_ingestion_quiet_period_ms"] = Math.Clamp(ingestion.TeiInteractiveQuietPeriodMs, 0, 30000);
     }
 
     private static void ProbeRagSearchReadiness(

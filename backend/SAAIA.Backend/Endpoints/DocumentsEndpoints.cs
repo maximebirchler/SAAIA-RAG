@@ -920,7 +920,7 @@ enrichment_state AS (
     SELECT
       p.document_profile_id,
       CASE
-        WHEN COALESCE(p.metadata ->> 'contentCardEvidenceSchemaVersion', '') ~ '^[0-9]+$'
+        WHEN COALESCE(p.metadata ->> 'contentCardEvidenceSchemaVersion', '') ~ '^[0-9]{1,9}$'
           THEN (p.metadata ->> 'contentCardEvidenceSchemaVersion')::int
         ELSE 0
       END AS content_card_evidence_schema_version
@@ -956,11 +956,11 @@ page_rows AS (
     pi.page_number,
     COALESCE(pi.char_count, 0)::int AS char_count,
     CASE
-      WHEN COALESCE(pi.metadata ->> 'wordCount', '') ~ '^[0-9]+$' THEN (pi.metadata ->> 'wordCount')::int
+      WHEN COALESCE(pi.metadata ->> 'wordCount', '') ~ '^[0-9]{1,9}$' THEN (pi.metadata ->> 'wordCount')::int
       ELSE 0
     END AS word_count,
     CASE
-      WHEN COALESCE(pi.metadata ->> 'imageCount', '') ~ '^[0-9]+$' THEN (pi.metadata ->> 'imageCount')::int
+      WHEN COALESCE(pi.metadata ->> 'imageCount', '') ~ '^[0-9]{1,9}$' THEN (pi.metadata ->> 'imageCount')::int
       ELSE 0
     END AS image_count
   FROM scoped_docs sd
@@ -1055,7 +1055,7 @@ doc_quality_base AS (
     END AS ""OcrApplied"",
     lr.payload ->> 'ocrLanguages' AS ""OcrLanguages"",
     CASE
-      WHEN COALESCE(lr.payload ->> 'ocrDurationMs', '') ~ '^[0-9]+$'
+      WHEN COALESCE(lr.payload ->> 'ocrDurationMs', '') ~ '^[0-9]{1,18}$'
         THEN (lr.payload ->> 'ocrDurationMs')::bigint
       ELSE NULL
     END AS ""OcrDurationMs"",
@@ -1072,25 +1072,25 @@ doc_quality_base AS (
       ELSE NULL
     END AS ""RunOcrRecommended"",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,pageCount}}', '') ~ '^[0-9]+$'
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,pageCount}}', '') ~ '^[0-9]{1,9}$'
         THEN (lr.payload #>> '{{extractionQuality,pageCount}}')::int ELSE NULL END,
       pq.page_count,
       0
     ) AS ""PageCount"",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,textPageCount}}', '') ~ '^[0-9]+$'
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,textPageCount}}', '') ~ '^[0-9]{1,9}$'
         THEN (lr.payload #>> '{{extractionQuality,textPageCount}}')::int ELSE NULL END,
       pq.text_page_count,
       0
     ) AS ""TextPageCount"",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,emptyPageCount}}', '') ~ '^[0-9]+$'
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,emptyPageCount}}', '') ~ '^[0-9]{1,9}$'
         THEN (lr.payload #>> '{{extractionQuality,emptyPageCount}}')::int ELSE NULL END,
       pq.empty_page_count,
       0
     ) AS ""EmptyPageCount"",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,sparsePageCount}}', '') ~ '^[0-9]+$'
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,sparsePageCount}}', '') ~ '^[0-9]{1,9}$'
         THEN (lr.payload #>> '{{extractionQuality,sparsePageCount}}')::int ELSE NULL END,
       pq.sparse_page_count,
       0
@@ -1099,13 +1099,13 @@ doc_quality_base AS (
     COALESCE(pq.page_warning_count, 0) AS ""PageWarningCount"",
     COALESCE(pq.page_review_recommended_count, 0) AS ""PageReviewRecommendedCount"",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,totalWordCount}}', '') ~ '^[0-9]+$'
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,totalWordCount}}', '') ~ '^[0-9]{1,9}$'
         THEN (lr.payload #>> '{{extractionQuality,totalWordCount}}')::int ELSE NULL END,
       pq.total_word_count,
       0
     ) AS ""TotalWordCount"",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,totalCharCount}}', '') ~ '^[0-9]+$'
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,totalCharCount}}', '') ~ '^[0-9]{1,9}$'
         THEN (lr.payload #>> '{{extractionQuality,totalCharCount}}')::int ELSE NULL END,
       pq.total_char_count,
       0
@@ -1113,14 +1113,35 @@ doc_quality_base AS (
     COALESCE(es.summary_enrichment_pending, true) AS ""SummaryEnrichmentPending"",
     COALESCE(es.profile_enrichment_pending, true) AS ""ProfileEnrichmentPending"",
     COALESCE(es.content_card_enrichment_pending, true) AS ""ContentCardEvidencePending"",
+    NULLIF((lr.payload -> 'retrievalChunkQuality')::text, 'null') AS ""RetrievalChunkQualityJson"",
+    CASE
+      WHEN COALESCE(lr.payload #>> '{{retrievalChunkQuality,totalChunkCount}}', '') ~ '^[0-9]{{1,9}}$'
+        THEN (lr.payload #>> '{{retrievalChunkQuality,totalChunkCount}}')::int
+      ELSE NULL
+    END AS ""RetrievalTotalChunkCount"",
+    CASE
+      WHEN COALESCE(lr.payload #>> '{{retrievalChunkQuality,searchableChunkCount}}', '') ~ '^[0-9]{{1,9}}$'
+        THEN (lr.payload #>> '{{retrievalChunkQuality,searchableChunkCount}}')::int
+      ELSE NULL
+    END AS ""RetrievalSearchableChunkCount"",
+    CASE
+      WHEN COALESCE(lr.payload #>> '{{retrievalChunkQuality,rejectedChunkCount}}', '') ~ '^[0-9]{{1,9}}$'
+        THEN (lr.payload #>> '{{retrievalChunkQuality,rejectedChunkCount}}')::int
+      ELSE NULL
+    END AS ""RetrievalRejectedChunkCount"",
+    CASE
+      WHEN LOWER(COALESCE(NULLIF(lr.payload #>> '{{retrievalChunkQuality,manualReviewRecommended}}', ''), '')) IN ('true','false')
+        THEN LOWER(lr.payload #>> '{{retrievalChunkQuality,manualReviewRecommended}}')::boolean
+      ELSE false
+    END AS ""RetrievalManualReviewRecommended"",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,averageWordsPerPage}}', '') ~ '^[0-9]+([.][0-9]+)?$'
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,averageWordsPerPage}}', '') ~ '^[0-9]{1,9}([.][0-9]{1,6})?$'
         THEN (lr.payload #>> '{{extractionQuality,averageWordsPerPage}}')::double precision ELSE NULL END,
       ROUND((COALESCE(pq.total_word_count, 0)::numeric / GREATEST(COALESCE(pq.page_count, 0), 1)), 2)::double precision,
       0
     ) AS ""AverageWordsPerPage"",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,textPageRatio}}', '') ~ '^[0-9]+([.][0-9]+)?$'
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,textPageRatio}}', '') ~ '^(0([.][0-9]{1,6})?|1([.]0{1,6})?)$'
         THEN (lr.payload #>> '{{extractionQuality,textPageRatio}}')::double precision ELSE NULL END,
       ROUND((COALESCE(pq.text_page_count, 0)::numeric / GREATEST(COALESCE(pq.page_count, 0), 1)), 4)::double precision,
       0
@@ -1221,6 +1242,9 @@ SELECT
   COALESCE(SUM(""PageReviewRecommendedCount""), 0)::int AS ""PageReviewRecommendedPages"",
   COUNT(*) FILTER (WHERE ""PageWarningCount"" > 0)::int AS ""PageWarningDocuments"",
   COALESCE(SUM(""PageWarningCount""), 0)::int AS ""PageWarningPages"",
+  COUNT(*) FILTER (WHERE COALESCE(""RetrievalRejectedChunkCount"", 0) > 0)::int AS ""DocumentsWithRejectedChunks"",
+  COUNT(*) FILTER (WHERE ""RetrievalChunkQualityJson"" IS NOT NULL AND COALESCE(""RetrievalSearchableChunkCount"", 0) = 0)::int AS ""DocumentsWithNoSearchableChunks"",
+  COUNT(*) FILTER (WHERE ""RetrievalManualReviewRecommended"")::int AS ""DocumentsWithRetrievalReviewRecommended"",
   COUNT(*) FILTER (WHERE ""LlmEnrichmentPending"")::int AS ""LlmEnrichmentPendingDocuments"",
   COUNT(*) FILTER (WHERE ""SummaryEnrichmentPending"")::int AS ""SummaryEnrichmentPendingDocuments"",
   COUNT(*) FILTER (WHERE ""ProfileEnrichmentPending"")::int AS ""ProfileEnrichmentPendingDocuments"",
@@ -1262,6 +1286,9 @@ SELECT
   COALESCE(SUM(""PageReviewRecommendedCount""), 0)::int AS ""PageReviewRecommendedPages"",
   COUNT(*) FILTER (WHERE ""PageWarningCount"" > 0)::int AS ""PageWarningDocuments"",
   COALESCE(SUM(""PageWarningCount""), 0)::int AS ""PageWarningPages"",
+  COUNT(*) FILTER (WHERE COALESCE(""RetrievalRejectedChunkCount"", 0) > 0)::int AS ""DocumentsWithRejectedChunks"",
+  COUNT(*) FILTER (WHERE ""RetrievalChunkQualityJson"" IS NOT NULL AND COALESCE(""RetrievalSearchableChunkCount"", 0) = 0)::int AS ""DocumentsWithNoSearchableChunks"",
+  COUNT(*) FILTER (WHERE ""RetrievalManualReviewRecommended"")::int AS ""DocumentsWithRetrievalReviewRecommended"",
   COUNT(*) FILTER (WHERE ""LlmEnrichmentPending"")::int AS ""LlmEnrichmentPendingDocuments"",
   COUNT(*) FILTER (WHERE ""SummaryEnrichmentPending"")::int AS ""SummaryEnrichmentPendingDocuments"",
   COUNT(*) FILTER (WHERE ""ProfileEnrichmentPending"")::int AS ""ProfileEnrichmentPendingDocuments"",
@@ -1310,6 +1337,9 @@ LIMIT 500;";
                 pageReviewRecommendedPages = summary.PageReviewRecommendedPages,
                 pageWarningDocuments = summary.PageWarningDocuments,
                 pageWarningPages = summary.PageWarningPages,
+                documentsWithRejectedChunks = summary.DocumentsWithRejectedChunks,
+                documentsWithNoSearchableChunks = summary.DocumentsWithNoSearchableChunks,
+                documentsWithRetrievalReviewRecommended = summary.DocumentsWithRetrievalReviewRecommended,
                 llmEnrichmentPendingDocuments = summary.LlmEnrichmentPendingDocuments,
                 summaryEnrichmentPendingDocuments = summary.SummaryEnrichmentPendingDocuments,
                 profileEnrichmentPendingDocuments = summary.ProfileEnrichmentPendingDocuments,
@@ -1330,6 +1360,9 @@ LIMIT 500;";
                 pageReviewRecommendedPages = row.PageReviewRecommendedPages,
                 pageWarningDocuments = row.PageWarningDocuments,
                 pageWarningPages = row.PageWarningPages,
+                documentsWithRejectedChunks = row.DocumentsWithRejectedChunks,
+                documentsWithNoSearchableChunks = row.DocumentsWithNoSearchableChunks,
+                documentsWithRetrievalReviewRecommended = row.DocumentsWithRetrievalReviewRecommended,
                 llmEnrichmentPendingDocuments = row.LlmEnrichmentPendingDocuments,
                 summaryEnrichmentPendingDocuments = row.SummaryEnrichmentPendingDocuments,
                 profileEnrichmentPendingDocuments = row.ProfileEnrichmentPendingDocuments,
@@ -1363,6 +1396,11 @@ LIMIT 500;";
                 imagePageCount = row.ImagePageCount,
                 pageWarningCount = row.PageWarningCount,
                 pageReviewRecommendedCount = row.PageReviewRecommendedCount,
+                retrievalChunkQuality = ParseOptionalJsonElement(row.RetrievalChunkQualityJson),
+                retrievalTotalChunkCount = row.RetrievalTotalChunkCount,
+                retrievalSearchableChunkCount = row.RetrievalSearchableChunkCount,
+                retrievalRejectedChunkCount = row.RetrievalRejectedChunkCount,
+                retrievalManualReviewRecommended = row.RetrievalManualReviewRecommended,
                 llmEnrichmentPending = row.LlmEnrichmentPending,
                 summaryEnrichmentPending = row.SummaryEnrichmentPending,
                 profileEnrichmentPending = row.ProfileEnrichmentPending,
@@ -1946,6 +1984,9 @@ WHERE d.tenant_id=@tenant
         public int PageReviewRecommendedPages { get; set; }
         public int PageWarningDocuments { get; set; }
         public int PageWarningPages { get; set; }
+        public int DocumentsWithRejectedChunks { get; set; }
+        public int DocumentsWithNoSearchableChunks { get; set; }
+        public int DocumentsWithRetrievalReviewRecommended { get; set; }
         public int LlmEnrichmentPendingDocuments { get; set; }
         public int SummaryEnrichmentPendingDocuments { get; set; }
         public int ProfileEnrichmentPendingDocuments { get; set; }
@@ -1967,6 +2008,9 @@ WHERE d.tenant_id=@tenant
         public int PageReviewRecommendedPages { get; set; }
         public int PageWarningDocuments { get; set; }
         public int PageWarningPages { get; set; }
+        public int DocumentsWithRejectedChunks { get; set; }
+        public int DocumentsWithNoSearchableChunks { get; set; }
+        public int DocumentsWithRetrievalReviewRecommended { get; set; }
         public int LlmEnrichmentPendingDocuments { get; set; }
         public int SummaryEnrichmentPendingDocuments { get; set; }
         public int ProfileEnrichmentPendingDocuments { get; set; }
@@ -2001,6 +2045,11 @@ WHERE d.tenant_id=@tenant
         public int ImagePageCount { get; set; }
         public int PageWarningCount { get; set; }
         public int PageReviewRecommendedCount { get; set; }
+        public string? RetrievalChunkQualityJson { get; set; }
+        public int? RetrievalTotalChunkCount { get; set; }
+        public int? RetrievalSearchableChunkCount { get; set; }
+        public int? RetrievalRejectedChunkCount { get; set; }
+        public bool RetrievalManualReviewRecommended { get; set; }
         public bool LlmEnrichmentPending { get; set; }
         public bool SummaryEnrichmentPending { get; set; }
         public bool ProfileEnrichmentPending { get; set; }

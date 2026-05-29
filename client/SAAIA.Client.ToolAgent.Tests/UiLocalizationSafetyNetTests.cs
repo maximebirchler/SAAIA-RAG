@@ -107,10 +107,72 @@ public sealed class UiLocalizationSafetyNetTests
 
         Assert.Contains(expectedIdsLabel, metadata);
         Assert.Contains("card-abcde", metadata);
-        Assert.Contains("LLM", metadata);
+        Assert.Contains(LocalizedStrings.Get("source_card.content_card_kind.llm", language), metadata);
+        Assert.DoesNotContain("LLM", metadata);
         Assert.Contains(expectedEvidence, metadata);
         Assert.Contains("audit cadence", metadata);
         Assert.Contains("revision owner", metadata);
+        AssertNoRawSourceCardMetadata(metadata);
+    }
+
+    [Theory]
+    [InlineData("fr")]
+    [InlineData("en")]
+    [InlineData("es")]
+    [InlineData("pt")]
+    [InlineData("de")]
+    [InlineData("it")]
+    public void Sources_cards_metadata_shows_section_context(string language)
+    {
+        var source = new SourceCard
+        {
+            HeadingPath = "Manual > Validation",
+            SectionTitle = "Validation"
+        };
+
+        var metadata = SourcesCardsControl.GetMetadataLabel(source, language);
+
+        Assert.Contains($"{LocalizedStrings.Get("source_card.heading", language)} Manual > Validation", metadata);
+        Assert.Contains($"{LocalizedStrings.Get("source_card.section", language)} Validation", metadata);
+        AssertNoRawSourceCardMetadata(metadata);
+    }
+
+    [Theory]
+    [InlineData("fr")]
+    [InlineData("en")]
+    [InlineData("es")]
+    [InlineData("pt")]
+    [InlineData("de")]
+    [InlineData("it")]
+    public void Sources_cards_metadata_shows_retrieval_chunk_quality(string language)
+    {
+        var source = new SourceCard
+        {
+            ExtractionDiagnosticSummary = new SourceExtractionDiagnosticSummary
+            {
+                RetrievalChunkQuality = new SourceRetrievalChunkQualitySummary
+                {
+                    TotalChunkCount = 12,
+                    SearchableChunkCount = 9,
+                    RejectedChunkCount = 3,
+                    ManualReviewRecommended = true,
+                    RejectionReasons = new()
+                    {
+                        ["sparseText"] = 2,
+                        ["ocrNoise"] = 1
+                    }
+                }
+            }
+        };
+
+        var metadata = SourcesCardsControl.GetMetadataLabel(source, language);
+
+        Assert.Contains($"{LocalizedStrings.Get("source_card.indexed_chunks", language)} 9/12", metadata);
+        Assert.Contains($"{LocalizedStrings.Get("source_card.rejected_chunks", language)} 3", metadata);
+        Assert.Contains(LocalizedStrings.Get("source_card.rejection_reasons", language), metadata);
+        Assert.Contains("sparse", metadata, System.StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ocr", metadata, System.StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(LocalizedStrings.Get("source_card.retrieval_review", language), metadata);
         AssertNoRawSourceCardMetadata(metadata);
     }
 
@@ -140,12 +202,12 @@ public sealed class UiLocalizationSafetyNetTests
     }
 
     [Theory]
-    [InlineData("fr", "profil termes pressure envelope, accumulator", "mots-clés audit cadence", "thèmes maintenance", "version llm backoffice v1", "correspondances 4")]
-    [InlineData("en", "profile terms pressure envelope, accumulator", "keywords audit cadence", "topics maintenance", "version llm backoffice v1", "matches 4")]
-    [InlineData("es", "perfil términos pressure envelope, accumulator", "palabras clave audit cadence", "temas maintenance", "versión llm backoffice v1", "coincidencias 4")]
-    [InlineData("pt", "perfil termos pressure envelope, accumulator", "palavras-chave audit cadence", "temas maintenance", "versão llm backoffice v1", "correspondências 4")]
-    [InlineData("de", "Profil Begriffe pressure envelope, accumulator", "Schlüsselwörter audit cadence", "Themen maintenance", "Version llm backoffice v1", "Treffer 4")]
-    [InlineData("it", "profilo termini pressure envelope, accumulator", "parole chiave audit cadence", "temi maintenance", "versione llm backoffice v1", "corrispondenze 4")]
+    [InlineData("fr", "profil termes pressure envelope, accumulator", "mots-clés audit cadence", "thèmes maintenance", "version profil serveur IA", "correspondances 4")]
+    [InlineData("en", "profile terms pressure envelope, accumulator", "keywords audit cadence", "topics maintenance", "version server AI profile", "matches 4")]
+    [InlineData("es", "perfil términos pressure envelope, accumulator", "palabras clave audit cadence", "temas maintenance", "versión perfil IA del servidor", "coincidencias 4")]
+    [InlineData("pt", "perfil termos pressure envelope, accumulator", "palavras-chave audit cadence", "temas maintenance", "versão perfil IA do servidor", "correspondências 4")]
+    [InlineData("de", "Profil Begriffe pressure envelope, accumulator", "Schlüsselwörter audit cadence", "Themen maintenance", "Version Server-KI-Profil", "Treffer 4")]
+    [InlineData("it", "profilo termini pressure envelope, accumulator", "parole chiave audit cadence", "temi maintenance", "versione profilo IA server", "corrispondenze 4")]
     public void Sources_cards_metadata_shows_profile_signals(
         string language,
         string expectedTerms,
@@ -1345,6 +1407,204 @@ public sealed class UiLocalizationSafetyNetTests
     }
 
     [Fact]
+    public void Source_card_parser_accepts_page_aliases_and_merges_same_visible_page()
+    {
+        const string json = """
+        {
+          "sources": [
+            {
+              "docId": "backend-a",
+              "docPath": "Cuisine/facilitemps.pdf",
+              "docName": "facilitemps.pdf",
+              "pageNumber": 16,
+              "snippet": "premier extrait"
+            },
+            {
+              "docId": "backend-b",
+              "docPath": "Cuisine/facilitemps.pdf",
+              "docName": "facilitemps.pdf",
+              "page_start": 16,
+              "snippet": "deuxieme extrait plus riche",
+              "sourceHash": "abc123"
+            },
+            {
+              "docPath": "Cuisine/facilitemps.pdf",
+              "docName": "facilitemps.pdf",
+              "startPage": 42,
+              "endPage": 43
+            }
+          ]
+        }
+        """;
+
+        var cards = SourceCardParser.Parse(json)
+            .OrderBy(static card => card.PageStart)
+            .ToArray();
+
+        Assert.Equal(2, cards.Length);
+        Assert.Equal(16, cards[0].PageStart);
+        Assert.Equal("abc123", cards[0].SourceHash);
+        Assert.Equal(42, cards[1].PageStart);
+        Assert.Equal(43, cards[1].PageEnd);
+    }
+
+    [Fact]
+    public void Source_card_parser_merges_same_visible_page_when_one_payload_only_has_filename()
+    {
+        const string json = """
+        {
+          "sources": [
+            {
+              "docId": "backend-a",
+              "docPath": "Knowledge/manual.pdf",
+              "docName": "manual.pdf",
+              "pageStart": 10,
+              "snippet": "premier extrait"
+            },
+            {
+              "docId": "backend-b",
+              "docPath": "manual.pdf",
+              "docName": "manual.pdf",
+              "pageStart": 10,
+              "sourceHash": "hash-plus-rich-metadata"
+            }
+          ]
+        }
+        """;
+
+        var card = Assert.Single(SourceCardParser.Parse(json));
+
+        Assert.Equal("manual.pdf", card.DocName);
+        Assert.Equal(10, card.PageStart);
+        Assert.Equal("hash-plus-rich-metadata", card.SourceHash);
+    }
+
+    [Theory]
+    [InlineData("fr")]
+    [InlineData("en")]
+    [InlineData("es")]
+    [InlineData("pt")]
+    [InlineData("de")]
+    [InlineData("it")]
+    public void Admin_console_document_tools_are_localized_and_exposed(string language)
+    {
+        var keys = new[]
+        {
+            "admin.console.nav.tools",
+            "admin.console.nav.retrieval",
+            "admin.console.retrieval.title",
+            "admin.console.retrieval.subtitle",
+            "admin.console.retrieval.help",
+            "admin.console.retrieval.query.placeholder",
+            "admin.console.retrieval.category.placeholder",
+            "admin.console.retrieval.mode.balanced",
+            "admin.console.retrieval.mode.broad",
+            "admin.console.retrieval.mode.focused",
+            "admin.console.retrieval.run",
+            "admin.console.retrieval.empty",
+            "admin.console.retrieval.no_query",
+            "admin.console.retrieval.loading",
+            "admin.console.retrieval.failed",
+            "admin.console.retrieval.no_result",
+            "admin.console.retrieval.no_sources",
+            "admin.console.retrieval.sources",
+            "admin.console.retrieval.retrievers",
+            "admin.console.retrieval.degraded_errors",
+            "admin.console.retrieval.metric.duration",
+            "admin.console.retrieval.metric.returned",
+            "admin.console.retrieval.metric.candidates",
+            "admin.console.retrieval.metric.degraded",
+            "admin.console.retrieval.item.title_page",
+            "admin.console.retrieval.item.score",
+            "admin.console.retrieval.item.retriever",
+            "admin.console.retrieval.item.heading",
+            "admin.console.retrieval.item.quality",
+            "admin.console.retrieval.item.hash",
+            "admin.console.retrieval.item.snippet",
+            "admin.console.retrieval.method.exact",
+            "admin.console.retrieval.method.keywords",
+            "admin.console.retrieval.method.vector",
+            "admin.console.retrieval.method.profile",
+            "admin.console.retrieval.method.linked",
+            "admin.console.retrieval.method.fusion",
+            "admin.console.retrieval.method.selection",
+            "admin.console.retrieval.method.busy",
+            "admin.console.retrieval.method.unknown",
+            "admin.console.retrieval.quality.ok",
+            "admin.console.retrieval.quality.ocr",
+            "admin.console.retrieval.quality.ocr_warning",
+            "admin.console.retrieval.quality.review",
+            "admin.console.retrieval.quality.incomplete",
+            "admin.console.retrieval.quality.unknown",
+            "admin.console.tools.title",
+            "admin.console.tools.subtitle",
+            "admin.console.tools.help",
+            "admin.console.tools.categories.help",
+            "admin.console.tools.tree.help",
+            "admin.console.tools.stats.help",
+            "admin.console.tools.search.help",
+            "admin.console.tools.open_in_chat",
+            "admin.console.tools.open_help",
+            "admin.console.tools.note",
+            "admin.jobs.type.unknown",
+            "admin.jobs.job_type.unknown",
+            "admin.jobs.status.unknown"
+        };
+
+        foreach (var key in keys)
+        {
+            var value = ClientUiText.Get(key, language);
+
+            Assert.False(string.IsNullOrWhiteSpace(value), key);
+            Assert.NotEqual(key, value);
+        }
+
+        var categoryPlaceholder = ClientUiText.Get("admin.console.retrieval.category.placeholder", language);
+        foreach (var forbidden in new[] { "Cuisine", "Cocina", "Cozinha", "Küche", "Cucina" })
+            Assert.DoesNotContain(forbidden, categoryPlaceholder, StringComparison.OrdinalIgnoreCase);
+
+        var repoRoot = FindRepoRoot();
+        var adminConsole = File.ReadAllText(Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "MainWindow", "AdminConsoleWindow.cs"));
+
+        Assert.Contains("AdminConsoleSection.DocumentTools", adminConsole);
+        Assert.Contains("AdminConsoleSection.RetrievalLab", adminConsole);
+        Assert.Contains("AdminRagTestRetrievalAsync", adminConsole);
+        Assert.Contains("HumanizeAdminConsoleRetrievalMethod", adminConsole);
+        Assert.Contains("HumanizeAdminConsoleQualityStatus", adminConsole);
+        Assert.Contains("DirectCommandCatalog.CatalogCategoriesList", adminConsole);
+        Assert.Contains("DirectCommandCatalog.CatalogTreeView", adminConsole);
+        Assert.Contains("DirectCommandCatalog.CatalogStatsView", adminConsole);
+    }
+
+    [Theory]
+    [InlineData("fr")]
+    [InlineData("en")]
+    [InlineData("es")]
+    [InlineData("pt")]
+    [InlineData("de")]
+    [InlineData("it")]
+    public void Admin_console_referenced_localization_keys_exist(string language)
+    {
+        var repoRoot = FindRepoRoot();
+        var adminConsole = File.ReadAllText(Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "MainWindow", "AdminConsoleWindow.cs"));
+        var keys = Regex
+            .Matches(adminConsole, "ClientUiText\\.(?:Get|Format)\\(\\\"([^\\\"]+)\\\"")
+            .Select(static match => match.Groups[1].Value)
+            .Distinct()
+            .OrderBy(static key => key)
+            .ToArray();
+
+        Assert.NotEmpty(keys);
+        foreach (var key in keys)
+        {
+            var value = ClientUiText.Get(key, language);
+
+            Assert.False(string.IsNullOrWhiteSpace(value), key);
+            Assert.NotEqual(key, value);
+        }
+    }
+
+    [Fact]
     public void Tool_agent_runtime_avoids_corpus_specific_retrieval_terms()
     {
         var repoRoot = FindRepoRoot();
@@ -1520,6 +1780,78 @@ public sealed class UiLocalizationSafetyNetTests
     }
 
     [Fact]
+    public void MainWindow_user_mode_keeps_admin_entry_and_removes_guided_tools_button()
+    {
+        var repoRoot = FindRepoRoot();
+        var file = Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "MainWindow", "AdminAndSettings.cs");
+        var source = File.ReadAllText(file);
+        var xamlSource = File.ReadAllText(Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "MainWindow.xaml"));
+        var helpSource = File.ReadAllText(Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "MainWindow", "HelpAndLocalization.cs"));
+        var jobsPanelSource = File.ReadAllText(Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "MainWindow", "AdminJobsPanel.cs"));
+        var startupSource = File.ReadAllText(Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "MainWindow", "StartupSetup.cs"));
+
+        Assert.Contains("HeaderAdminConsoleButton.Visibility = _api.HasAdminKey ? Visibility.Visible : Visibility.Collapsed", jobsPanelSource);
+        Assert.Contains("HeaderHelpButton.Visibility = Visibility.Visible", source);
+        Assert.Contains("Click=\"HelpButton_Click\"", xamlSource);
+        Assert.Contains("Click=\"HeaderAdminConsoleButton_Click\"", xamlSource);
+        Assert.Contains("ShowAdminConsoleWindowAsync", jobsPanelSource);
+        Assert.Contains("HeaderAdminConsoleButton", xamlSource);
+        Assert.DoesNotContain("HeaderJobsButton", xamlSource);
+        Assert.DoesNotContain("HeaderRuntimeButton", xamlSource);
+        Assert.DoesNotContain("HeaderRuntimeButton", jobsPanelSource);
+        Assert.DoesNotContain("HeaderRuntimeButton", startupSource);
+        Assert.DoesNotContain("ToolTipService.ToolTip=\"Console admin\"", xamlSource);
+        Assert.DoesNotContain("HeaderToolsButton", xamlSource);
+        Assert.DoesNotContain("HeaderToolsButton", source);
+        Assert.DoesNotContain("HeaderToolsButton", helpSource);
+    }
+
+    [Fact]
+    public void Runtime_diagnostics_unknown_states_use_localized_fallbacks()
+    {
+        var repoRoot = FindRepoRoot();
+        var file = Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "MainWindow", "LocalLlmRuntimeDiagnostics.cs");
+        var source = File.ReadAllText(file);
+
+        Assert.Contains("unknown state", source);
+        Assert.DoesNotContain("_ => state", source);
+    }
+
+    [Fact]
+    public void Inline_source_links_surface_document_open_failures()
+    {
+        var repoRoot = FindRepoRoot();
+        var file = Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "Controls", "LinkifiedTextBlock.Documents.cs");
+        var source = File.ReadAllText(file);
+        var launcher = File.ReadAllText(Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "Services", "DocumentLauncher.cs"));
+
+        Assert.Contains("DocumentLauncher.TryOpenAsync", source);
+        Assert.Contains("ShowOpenErrorAsync", source);
+        Assert.Contains("ClientLog.Exception(\"LinkifiedTextBlock.OpenDocument\"", source);
+        Assert.Contains("BuildOpenLinkFailureUserMessage", source);
+        Assert.Contains("ClientLog.Exception(\"DocumentLauncher.Open\"", launcher);
+        Assert.Contains("BuildOpenFailureUserMessage", launcher);
+        Assert.DoesNotContain("_ = await DocumentLauncher.TryOpenAsync", source);
+        Assert.DoesNotContain("ex.Message);", source);
+        Assert.DoesNotContain("ex.Message);", launcher);
+    }
+
+    [Fact]
+    public void Pdf_launcher_builds_page_fragment_and_prefers_page_aware_browser()
+    {
+        var uri = DocumentLauncher.BuildPdfPageUriForTests(@"C:\SAAIA\documents\manual.pdf", 38);
+        var repoRoot = FindRepoRoot();
+        var file = Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "Services", "DocumentLauncher.cs");
+        var source = File.ReadAllText(file);
+
+        Assert.EndsWith("#page=38", uri);
+        Assert.Contains("manual.pdf", uri);
+        Assert.Contains("TryLaunchKnownEdge", source);
+        Assert.Contains("microsoft-edge:", source);
+        Assert.Contains("StorageFile.GetFileFromPathAsync", source);
+    }
+
+    [Fact]
     public void Session_menu_labels_are_localized_on_open()
     {
         var repoRoot = FindRepoRoot();
@@ -1620,6 +1952,8 @@ public sealed class UiLocalizationSafetyNetTests
             "no_indexable_text",
             "ocr_disabled",
             "ocr_output_missing",
+            "llm_backoffice_v1",
+            "llm backoffice",
             "OCR?"
         })
         {

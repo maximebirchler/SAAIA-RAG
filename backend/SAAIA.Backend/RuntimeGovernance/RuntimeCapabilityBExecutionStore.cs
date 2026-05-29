@@ -114,11 +114,13 @@ WHERE job_type='summary.generate'
   AND COALESCE(
         CASE
           WHEN jsonb_typeof(payload -> 'executionHeartbeatAt') = 'string'
+            AND COALESCE(payload ->> 'executionHeartbeatAt', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}:[0-9]{2}'
             THEN (payload ->> 'executionHeartbeatAt')::timestamptz
           ELSE NULL::timestamptz
         END,
         CASE
           WHEN jsonb_typeof(payload -> 'executionClaimedAt') = 'string'
+            AND COALESCE(payload ->> 'executionClaimedAt', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}:[0-9]{2}'
             THEN (payload ->> 'executionClaimedAt')::timestamptz
           ELSE NULL::timestamptz
         END,
@@ -309,15 +311,17 @@ SELECT
   payload ->> 'executionLeaseToken' AS "ExecutionLeaseToken",
   payload ->> 'executionClaimedBy' AS "ExecutionClaimedBy",
   CASE
-    WHEN jsonb_typeof(payload->'executionClaimedAt')='string' THEN (payload->>'executionClaimedAt')::timestamptz
+    WHEN jsonb_typeof(payload->'executionClaimedAt')='string'
+         AND COALESCE(payload->>'executionClaimedAt', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}:[0-9]{2}'
+      THEN (payload->>'executionClaimedAt')::timestamptz
     ELSE NULL::timestamptz
   END AS "ExecutionClaimedAt",
   CASE
-    WHEN jsonb_typeof(payload->'campaignId')='string' THEN (payload->>'campaignId')::uuid
+    WHEN COALESCE(payload->>'campaignId', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN (payload->>'campaignId')::uuid
     ELSE NULL::uuid
   END AS "CampaignId",
   CASE
-    WHEN jsonb_typeof(payload->'priorityScore')='number' THEN (payload->>'priorityScore')::int
+    WHEN COALESCE(payload->>'priorityScore', '') ~ '^-?[0-9]{1,9}$' THEN (payload->>'priorityScore')::int
     ELSE NULL::int
   END AS "PriorityScore",
   payload::text AS "PayloadJson"
@@ -356,15 +360,17 @@ SELECT
   payload ->> 'executionLeaseToken' AS "ExecutionLeaseToken",
   payload ->> 'executionClaimedBy' AS "ExecutionClaimedBy",
   CASE
-    WHEN jsonb_typeof(payload->'executionClaimedAt')='string' THEN (payload->>'executionClaimedAt')::timestamptz
+    WHEN jsonb_typeof(payload->'executionClaimedAt')='string'
+         AND COALESCE(payload->>'executionClaimedAt', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}:[0-9]{2}'
+      THEN (payload->>'executionClaimedAt')::timestamptz
     ELSE NULL::timestamptz
   END AS "ExecutionClaimedAt",
   CASE
-    WHEN jsonb_typeof(payload->'campaignId')='string' THEN (payload->>'campaignId')::uuid
+    WHEN COALESCE(payload->>'campaignId', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN (payload->>'campaignId')::uuid
     ELSE NULL::uuid
   END AS "CampaignId",
   CASE
-    WHEN jsonb_typeof(payload->'priorityScore')='number' THEN (payload->>'priorityScore')::int
+    WHEN COALESCE(payload->>'priorityScore', '') ~ '^-?[0-9]{1,9}$' THEN (payload->>'priorityScore')::int
     ELSE NULL::int
   END AS "PriorityScore",
   payload::text AS "PayloadJson"
@@ -376,7 +382,7 @@ WHERE tenant_id=@tenant
 ORDER BY
   COALESCE(
     CASE
-      WHEN jsonb_typeof(payload->'priorityScore')='number' THEN (payload->>'priorityScore')::int
+      WHEN COALESCE(payload->>'priorityScore', '') ~ '^-?[0-9]{1,9}$' THEN (payload->>'priorityScore')::int
       ELSE NULL::int
     END,
     0
@@ -416,37 +422,37 @@ SELECT
     ELSE NULL::boolean
   END AS "RunOcrRecommended",
   CASE
-    WHEN COALESCE(run.payload #>> '{extractionQuality,pageCount}', '') ~ '^[0-9]+$'
+    WHEN COALESCE(run.payload #>> '{extractionQuality,pageCount}', '') ~ '^[0-9]{1,9}$'
       THEN (run.payload #>> '{extractionQuality,pageCount}')::int
     ELSE NULL::int
   END AS "RunPageCount",
   CASE
-    WHEN COALESCE(run.payload #>> '{extractionQuality,textPageCount}', '') ~ '^[0-9]+$'
+    WHEN COALESCE(run.payload #>> '{extractionQuality,textPageCount}', '') ~ '^[0-9]{1,9}$'
       THEN (run.payload #>> '{extractionQuality,textPageCount}')::int
     ELSE NULL::int
   END AS "RunTextPageCount",
   CASE
-    WHEN COALESCE(run.payload #>> '{extractionQuality,emptyPageCount}', '') ~ '^[0-9]+$'
+    WHEN COALESCE(run.payload #>> '{extractionQuality,emptyPageCount}', '') ~ '^[0-9]{1,9}$'
       THEN (run.payload #>> '{extractionQuality,emptyPageCount}')::int
     ELSE NULL::int
   END AS "RunEmptyPageCount",
   CASE
-    WHEN COALESCE(run.payload #>> '{extractionQuality,sparsePageCount}', '') ~ '^[0-9]+$'
+    WHEN COALESCE(run.payload #>> '{extractionQuality,sparsePageCount}', '') ~ '^[0-9]{1,9}$'
       THEN (run.payload #>> '{extractionQuality,sparsePageCount}')::int
     ELSE NULL::int
   END AS "RunSparsePageCount",
   CASE
-    WHEN COALESCE(run.payload #>> '{extractionQuality,totalWordCount}', '') ~ '^[0-9]+$'
+    WHEN COALESCE(run.payload #>> '{extractionQuality,totalWordCount}', '') ~ '^[0-9]{1,9}$'
       THEN (run.payload #>> '{extractionQuality,totalWordCount}')::int
     ELSE NULL::int
   END AS "RunTotalWordCount",
   CASE
-    WHEN COALESCE(run.payload #>> '{extractionQuality,totalCharCount}', '') ~ '^[0-9]+$'
+    WHEN COALESCE(run.payload #>> '{extractionQuality,totalCharCount}', '') ~ '^[0-9]{1,9}$'
       THEN (run.payload #>> '{extractionQuality,totalCharCount}')::int
     ELSE NULL::int
   END AS "RunTotalCharCount",
   CASE
-    WHEN COALESCE(run.payload #>> '{extractionQuality,textPageRatio}', '') ~ '^[0-9]+(\.[0-9]+)?$'
+    WHEN COALESCE(run.payload #>> '{extractionQuality,textPageRatio}', '') ~ '^(0(\.[0-9]{1,12})?|1(\.0{1,12})?)$'
       THEN (run.payload #>> '{extractionQuality,textPageRatio}')::double precision
     ELSE NULL::double precision
   END AS "RunTextPageRatio",

@@ -76,7 +76,7 @@ services:
       Ingestion__ChunkMaxWords: ${SAAIA_INGESTION_CHUNK_MAX_WORDS:-200}
       Ingestion__ChunkOverlapWords: ${SAAIA_INGESTION_CHUNK_OVERLAP_WORDS:-35}
       Ingestion__ChunkMinWords: ${SAAIA_INGESTION_CHUNK_MIN_WORDS:-25}
-      Ingestion__EmbeddingsBatchSize: ${SAAIA_INGESTION_EMBEDDINGS_BATCH_SIZE:-32}
+      Ingestion__EmbeddingsBatchSize: ${SAAIA_INGESTION_EMBEDDINGS_BATCH_SIZE:-16}
       Ingestion__WorkerConcurrency: ${SAAIA_INGESTION_WORKER_CONCURRENCY:-2}
       Ingestion__WorkerEmptyDelayMs: ${SAAIA_INGESTION_WORKER_EMPTY_DELAY_MS:-500}
       Ingestion__StaleRunningMinutes: ${SAAIA_INGESTION_STALE_RUNNING_MINUTES:-60}
@@ -86,8 +86,9 @@ services:
       Ingestion__MaxFilesPerScan: ${SAAIA_INGESTION_MAX_FILES_PER_SCAN:-5000}
       Ingestion__TeiTimeoutSeconds: ${SAAIA_INGESTION_TEI_TIMEOUT_SECONDS:-180}
       Ingestion__QdrantTimeoutSeconds: ${SAAIA_INGESTION_QDRANT_TIMEOUT_SECONDS:-180}
-      Ingestion__TeiMaxConcurrency: ${SAAIA_INGESTION_TEI_MAX_CONCURRENCY:-2}
+      Ingestion__TeiMaxConcurrency: ${SAAIA_INGESTION_TEI_MAX_CONCURRENCY:-1}
       Ingestion__QdrantMaxConcurrency: ${SAAIA_INGESTION_QDRANT_MAX_CONCURRENCY:-4}
+      Ingestion__TeiInteractiveQuietPeriodMs: ${SAAIA_INGESTION_TEI_INTERACTIVE_QUIET_PERIOD_MS:-1500}
       Ingestion__BulkheadAcquireTimeoutSeconds: ${SAAIA_INGESTION_BULKHEAD_ACQUIRE_TIMEOUT_SECONDS:-30}
       Ingestion__OcrBulkheadQueueWaitTimeoutSeconds: ${SAAIA_INGESTION_OCR_BULKHEAD_QUEUE_WAIT_TIMEOUT_SECONDS:-1800}
       Ingestion__OcrEnabled: ${SAAIA_OCR_ENABLED:-true}

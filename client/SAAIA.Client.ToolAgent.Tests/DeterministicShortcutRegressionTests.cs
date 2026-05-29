@@ -700,7 +700,7 @@ public sealed class DeterministicShortcutRegressionTests
         var message = DeterministicAgentText.AdminReindexDocumentTargetIsCategory("fr", "Siemens");
         Assert.Contains("dossier", message);
         Assert.Contains("catégorie", message);
-        Assert.Contains("PDF", message);
+        Assert.Contains("document", message);
     }
 
 

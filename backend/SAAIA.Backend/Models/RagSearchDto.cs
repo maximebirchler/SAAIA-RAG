@@ -69,6 +69,14 @@ public sealed record RagItemContextDto(
 /// Lightweight extraction/OCR quality hints attached to a retrieved item.
 /// They qualify evidence confidence without exposing heavy admin diagnostics payloads.
 /// </summary>
+public sealed record RagItemRetrievalChunkQualityDto(
+    int? TotalChunkCount = null,
+    int? SearchableChunkCount = null,
+    int? RejectedChunkCount = null,
+    bool? ManualReviewRecommended = null,
+    IReadOnlyDictionary<string, int>? RejectionReasons = null
+);
+
 public sealed record RagItemExtractionDiagnosticSummaryDto(
     string? NativeTextStatus = null,
     bool? NativeOcrRecommended = null,
@@ -87,7 +95,8 @@ public sealed record RagItemExtractionDiagnosticSummaryDto(
     int? SparsePageCount = null,
     int? ImagePageCount = null,
     int? PageWarningCount = null,
-    int? PageReviewRecommendedCount = null
+    int? PageReviewRecommendedCount = null,
+    RagItemRetrievalChunkQualityDto? RetrievalChunkQuality = null
 );
 
 /// <summary>

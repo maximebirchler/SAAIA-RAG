@@ -63,6 +63,35 @@ public sealed class RagExtractionQualityScoringTests
     }
 
     [Fact]
+    public void ApplyExtractionQualityScorePenalty_uses_document_retrieval_chunk_quality_summary()
+    {
+        var quality = new RagItemExtractionQualityDto(
+            DocumentQualityStatus: "extraction_ok",
+            DocumentExtractionConfidence: 0.96,
+            DocumentManualReviewRecommended: false,
+            PageQualityStatus: "page_ok",
+            PageExtractionConfidence: 0.94,
+            PageManualReviewRecommended: false,
+            DiagnosticSummary: new RagItemExtractionDiagnosticSummaryDto(
+                RetrievalChunkQuality: new RagItemRetrievalChunkQualityDto(
+                    TotalChunkCount: 10,
+                    SearchableChunkCount: 0,
+                    RejectedChunkCount: 10,
+                    ManualReviewRecommended: true,
+                    RejectionReasons: new Dictionary<string, int>(StringComparer.Ordinal)
+                    {
+                        ["sparse_text"] = 10
+                    })));
+
+        var score = RagEndpoints.ComputeRetrievalQualityScore(quality);
+        var adjusted = RagEndpoints.ApplyExtractionQualityScorePenalty(0.91, quality);
+
+        Assert.True(score.ManualReviewRecommended);
+        Assert.Equal(3, score.SelectionPenalty);
+        Assert.InRange(adjusted, 0.85, 0.86);
+    }
+
+    [Fact]
     public void ComputeRetrievalQualityScore_centralizes_document_page_and_chunk_penalties()
     {
         var quality = new RagItemExtractionQualityDto(

@@ -34,17 +34,20 @@ sealed class IngestionWorker : BackgroundService
     private readonly IServiceProvider _sp;
     private readonly ILogger<IngestionWorker> _log;
     private readonly IngestionBulkheads _bulkheads;
+    private readonly TeiWorkloadGovernor _teiGovernor;
     private readonly IngestionJobCancellationRegistry _cancelRegistry;
 
     public IngestionWorker(
         IServiceProvider sp,
         ILogger<IngestionWorker> log,
         IngestionBulkheads bulkheads,
+        TeiWorkloadGovernor teiGovernor,
         IngestionJobCancellationRegistry cancelRegistry)
     {
         _sp = sp;
         _log = log;
         _bulkheads = bulkheads;
+        _teiGovernor = teiGovernor;
         _cancelRegistry = cancelRegistry;
     }
 
@@ -643,6 +646,7 @@ WHERE job_id=@job_id
 
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
         await ThrowIfJobCanceledAsync(ds, job, ct);
+        using (await _teiGovernor.AcquireIngestionAsync(ingest.TeiInteractiveQuietPeriodMs, bTeiToken))
         using (await _bulkheads.AcquireTeiAsync(bTeiToken))
         {
             return await TeiClient.EmbedAsync(tei, model, inputs, bTeiToken);
@@ -1107,6 +1111,7 @@ WHERE job_id=@job_id
         var swTeiWarmup = Stopwatch.StartNew();
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
         await ThrowIfJobCanceledAsync(ds, job, ct);
+        using (await _teiGovernor.AcquireIngestionAsync(ingest.TeiInteractiveQuietPeriodMs, teiToken))
         using (await _bulkheads.AcquireTeiAsync(teiToken))
         {
             dim = await TeiClient.GetVectorDimAsync(tei, rag.EmbeddingsModel, teiToken);

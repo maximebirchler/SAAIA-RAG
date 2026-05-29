@@ -57,7 +57,7 @@ public sealed class LlamaCppProcessManagerTests
 
         var args = LlamaCppProcessManager.BuildArgs(settings);
 
-        Assert.Contains("--ctx-size 3072", args);
+        Assert.Contains("--ctx-size 8192", args);
         Assert.Contains("-b 1024", args);
         Assert.Contains("-ngl 36", args);
         Assert.Contains("--ubatch-size 256", args);

@@ -175,6 +175,7 @@ public static class ServiceCollectionExtensions
         // ---------- Bulkheads / job runtime state ----------
         services.AddSingleton<IngestionBulkheads>();
         services.AddSingleton<RagSearchBulkhead>();
+        services.AddSingleton<TeiWorkloadGovernor>();
         services.AddSingleton<IngestionJobCancellationRegistry>();
         services.AddSingleton<RuntimeLlmCapacityPlanService>();
         services.AddSingleton<RuntimeLlmQueueManager>();

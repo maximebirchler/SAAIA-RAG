@@ -126,8 +126,8 @@ ranked_chunks AS (
           WHEN 'mixed_navigation_content' THEN 1
           ELSE 2
         END,
-        COALESCE(NULLIF(rc.metadata->>'navigationScore', '')::double precision, 0) ASC,
-        COALESCE(NULLIF(rc.metadata->>'contentDensityScore', '')::double precision, 0) DESC,
+        CASE WHEN (rc.metadata->>'navigationScore') ~ '^-?[0-9]{1,3}([.][0-9]{1,12})?$' THEN (rc.metadata->>'navigationScore')::double precision ELSE 0 END ASC,
+        CASE WHEN (rc.metadata->>'contentDensityScore') ~ '^-?[0-9]{1,3}([.][0-9]{1,12})?$' THEN (rc.metadata->>'contentDensityScore')::double precision ELSE 0 END DESC,
         rc.chunk_index ASC
     ) AS quality_rank
   FROM revision r
@@ -192,8 +192,8 @@ source_candidates AS (
       WHEN 'mixed_navigation_content' THEN 1
       ELSE 2
     END AS role_rank,
-    COALESCE(NULLIF(rc.metadata->>'navigationScore', '')::double precision, 0) AS navigation_score,
-    COALESCE(NULLIF(rc.metadata->>'contentDensityScore', '')::double precision, 0) AS content_density_score
+    CASE WHEN (rc.metadata->>'navigationScore') ~ '^-?[0-9]{1,3}([.][0-9]{1,12})?$' THEN (rc.metadata->>'navigationScore')::double precision ELSE 0 END AS navigation_score,
+    CASE WHEN (rc.metadata->>'contentDensityScore') ~ '^-?[0-9]{1,3}([.][0-9]{1,12})?$' THEN (rc.metadata->>'contentDensityScore')::double precision ELSE 0 END AS content_density_score
   FROM revision r
   JOIN retrieval_chunks rc ON rc.revision_id = r.revision_id
   WHERE length(trim(rc.text_content)) > 0
@@ -324,8 +324,8 @@ JOIN LATERAL (
           WHEN 'mixed_navigation_content' THEN 1
           ELSE 2
         END AS role_rank,
-        COALESCE(NULLIF(rc.metadata->>'navigationScore', '')::double precision, 0) AS navigation_score,
-        COALESCE(NULLIF(rc.metadata->>'contentDensityScore', '')::double precision, 0) AS content_density_score
+        CASE WHEN (rc.metadata->>'navigationScore') ~ '^-?[0-9]{1,3}([.][0-9]{1,12})?$' THEN (rc.metadata->>'navigationScore')::double precision ELSE 0 END AS navigation_score,
+        CASE WHEN (rc.metadata->>'contentDensityScore') ~ '^-?[0-9]{1,3}([.][0-9]{1,12})?$' THEN (rc.metadata->>'contentDensityScore')::double precision ELSE 0 END AS content_density_score
       FROM retrieval_chunks rc
       WHERE rc.revision_id = dr.revision_id
         AND length(trim(rc.text_content)) > 0

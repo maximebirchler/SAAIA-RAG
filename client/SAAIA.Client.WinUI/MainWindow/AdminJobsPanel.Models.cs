@@ -47,6 +47,8 @@ public sealed partial class MainWindow
         public List<AdminJobListItem> Items { get; set; } = new();
         public HashSet<string> SelectedTerminalJobIds { get; } = new(StringComparer.OrdinalIgnoreCase);
         public bool IsRefreshing { get; set; }
+        public bool RefreshPending { get; set; }
+        public CancellationToken LifecycleToken { get; init; } = CancellationToken.None;
         public int HistoryTake { get; set; } = 50;
         public string? SelectedJobId { get; set; }
         public string? LastVisibleRenderSignature { get; set; }

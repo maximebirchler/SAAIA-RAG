@@ -12,6 +12,17 @@ public sealed partial class MainWindow
 
         try
         {
+            if (Root?.ActualTheme == ElementTheme.Light)
+                return true;
+            if (Root?.ActualTheme == ElementTheme.Dark)
+                return false;
+        }
+        catch
+        {
+        }
+
+        try
+        {
             return Application.Current.RequestedTheme == ApplicationTheme.Light;
         }
         catch
@@ -104,8 +115,7 @@ public sealed partial class MainWindow
     {
         TrySoftUi("ConfigureHeaderChrome.ChatsToggleButton", () => ApplyHeaderButtonChrome(ChatsToggleButton));
         TrySoftUi("ConfigureHeaderChrome.SetupButton", () => ApplyHeaderButtonChrome(SetupButton));
-        TrySoftUi("ConfigureHeaderChrome.HeaderJobsButton", () => ApplyHeaderButtonChrome(HeaderJobsButton));
-        TrySoftUi("ConfigureHeaderChrome.HeaderRuntimeButton", () => ApplyHeaderButtonChrome(HeaderRuntimeButton));
+        TrySoftUi("ConfigureHeaderChrome.HeaderAdminConsoleButton", () => ApplyHeaderButtonChrome(HeaderAdminConsoleButton));
         TrySoftUi("ConfigureHeaderChrome.HeaderHelpButton", () => ApplyHeaderButtonChrome(HeaderHelpButton));
         TrySoftUi("ConfigureHeaderChrome.HeaderSettingsButton", () => ApplyHeaderButtonChrome(HeaderSettingsButton));
     }
@@ -156,7 +166,9 @@ public sealed partial class MainWindow
         SendCancelButton.IsHitTestVisible = canInvoke;
         SendCancelButton.Opacity = canInvoke ? 1d : 0.96d;
         SendCancelIcon.Glyph = showCancelState ? "" : "";
-        ToolTipService.SetToolTip(SendCancelButton, showCancelState ? ClientUiText.Get("button.cancel", _appSettings.UiLanguage) : ClientUiText.Get("button.send", _appSettings.UiLanguage));
+        var label = showCancelState ? ClientUiText.Get("button.cancel", _appSettings.UiLanguage) : ClientUiText.Get("button.send", _appSettings.UiLanguage);
+        ToolTipService.SetToolTip(SendCancelButton, label);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(SendCancelButton, label);
 
         SolidColorBrush background;
         SolidColorBrush border;

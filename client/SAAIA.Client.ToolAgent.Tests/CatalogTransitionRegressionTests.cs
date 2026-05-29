@@ -115,7 +115,7 @@ public sealed class CatalogTransitionRegressionTests
         Assert.Contains("profile_missing", item.CapabilityBReasons);
 
         var rendered = ToolAgentOrchestrator.RenderDeterministicInventoryFromData("summary_status_list", doc.RootElement, "en");
-        Assert.Contains("[missing LLM profile]", rendered);
+        Assert.Contains("[missing server profile]", rendered);
     }
 
     [Fact]
@@ -182,10 +182,14 @@ public sealed class CatalogTransitionRegressionTests
         Assert.Equal(42.5, replayItem.GetProperty("capabilityBPriorityScore").GetDouble());
 
         var rendered = ToolAgentOrchestrator.RenderDeterministicInventoryFromData("summary_status_list", replayJson, "en");
-        Assert.Contains("[stale]", rendered);
-        Assert.Contains("[active job running]", rendered);
-        Assert.Contains("[Capability B enqueue_profile_refresh]", rendered);
-        Assert.Contains("[last job issue: failed / timeout]", rendered);
+        Assert.Contains("[summary to update]", rendered);
+        Assert.Contains("[processing in progress running]", rendered);
+        Assert.Contains("[server summary ready to prepare]", rendered);
+        Assert.Contains("[last processing issue (failed); details in logs]", rendered);
         Assert.Contains("[priority 42.5]", rendered);
+        Assert.DoesNotContain("[stale]", rendered);
+        Assert.DoesNotContain("Capability B", rendered);
+        Assert.DoesNotContain("enqueue_profile_refresh", rendered);
+        Assert.DoesNotContain("timeout", rendered);
     }
 }

@@ -3,7 +3,7 @@ sealed class IngestionOptions
     public const int DefaultAutoOcrMaxLanguages = 5;
     public const int AbsoluteAutoOcrMaxLanguages = 32;
     public const int MinEmbeddingsBatchSize = 1;
-    public const int DefaultEmbeddingsBatchSize = 32;
+    public const int DefaultEmbeddingsBatchSize = 16;
     public const int MaxEmbeddingsBatchSize = 256;
 
     public string DocumentsRoot { get; set; } = "";
@@ -43,8 +43,9 @@ sealed class IngestionOptions
     public int QdrantTimeoutSeconds { get; set; } = 180;
 
     // Bulkheads (limite la concurrence réelle TEI/Qdrant)
-    public int TeiMaxConcurrency { get; set; } = 2;
+    public int TeiMaxConcurrency { get; set; } = 1;
     public int QdrantMaxConcurrency { get; set; } = 4;
+    public int TeiInteractiveQuietPeriodMs { get; set; } = 1500;
 
     // Temps max d'attente pour entrer dans un bulkhead (évite deadlocks)
     public int BulkheadAcquireTimeoutSeconds { get; set; } = 30;

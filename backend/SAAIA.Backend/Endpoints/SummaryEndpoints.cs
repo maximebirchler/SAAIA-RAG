@@ -355,7 +355,9 @@ LEFT JOIN LATERAL (
     aj.payload ->> 'runtimeCapabilityStatus' AS "ActiveSummaryJobRuntimeCapabilityStatus",
     aj.payload ->> 'source' AS "ActiveSummaryJobEnqueueSource",
     CASE
-      WHEN jsonb_typeof(aj.payload->'campaignId')='string' THEN (aj.payload->>'campaignId')::uuid
+      WHEN jsonb_typeof(aj.payload->'campaignId')='string'
+           AND (aj.payload->>'campaignId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        THEN (aj.payload->>'campaignId')::uuid
       ELSE NULL::uuid
     END AS "ActiveSummaryJobCampaignId"
   FROM admin_jobs aj
@@ -733,7 +735,9 @@ LEFT JOIN LATERAL (
     aj.payload ->> 'runtimeCapabilityStatus' AS "ActiveSummaryJobRuntimeCapabilityStatus",
     aj.payload ->> 'source' AS "ActiveSummaryJobEnqueueSource",
     CASE
-      WHEN jsonb_typeof(aj.payload->'campaignId')='string' THEN (aj.payload->>'campaignId')::uuid
+      WHEN jsonb_typeof(aj.payload->'campaignId')='string'
+           AND (aj.payload->>'campaignId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        THEN (aj.payload->>'campaignId')::uuid
       ELSE NULL::uuid
     END AS "ActiveSummaryJobCampaignId"
   FROM admin_jobs aj
@@ -1041,11 +1045,13 @@ WHERE tenant_id=@tenant
   AND COALESCE(
         CASE
           WHEN jsonb_typeof(payload -> 'executionHeartbeatAt') = 'string'
+               AND COALESCE(payload ->> 'executionHeartbeatAt', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}:[0-9]{2}'
             THEN (payload ->> 'executionHeartbeatAt')::timestamptz
           ELSE NULL::timestamptz
         END,
         CASE
           WHEN jsonb_typeof(payload -> 'executionClaimedAt') = 'string'
+               AND COALESCE(payload ->> 'executionClaimedAt', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}:[0-9]{2}'
             THEN (payload ->> 'executionClaimedAt')::timestamptz
           ELSE NULL::timestamptz
         END,
@@ -1151,7 +1157,9 @@ SELECT
     ELSE NULL::boolean
   END AS "RuntimeCapabilitySelected",
   CASE
-    WHEN jsonb_typeof(payload->'campaignId')='string' THEN (payload->>'campaignId')::uuid
+    WHEN jsonb_typeof(payload->'campaignId')='string'
+         AND (payload->>'campaignId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      THEN (payload->>'campaignId')::uuid
     ELSE NULL::uuid
   END AS "CampaignId",
   CASE
@@ -1164,7 +1172,9 @@ SELECT
   END AS "ResultStored",
   result ->> 'sourceHash' AS "ResultSourceHash",
   CASE
-    WHEN jsonb_typeof(result->'summaryLength')='number' THEN (result->>'summaryLength')::int
+    WHEN jsonb_typeof(result->'summaryLength')='number'
+         AND (result->>'summaryLength') ~ '^-?[0-9]{1,9}$'
+      THEN (result->>'summaryLength')::int
     ELSE NULL::int
   END AS "ResultSummaryLength",
   result ->> 'completedBy' AS "ResultCompletedBy",
@@ -1368,15 +1378,21 @@ SELECT
   payload ->> 'executionLeaseToken' AS "ExecutionLeaseToken",
   payload ->> 'executionClaimedBy' AS "ExecutionClaimedBy",
   CASE
-    WHEN jsonb_typeof(payload->'executionClaimedAt')='string' THEN (payload->>'executionClaimedAt')::timestamptz
+    WHEN jsonb_typeof(payload->'executionClaimedAt')='string'
+         AND COALESCE(payload->>'executionClaimedAt', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}:[0-9]{2}'
+      THEN (payload->>'executionClaimedAt')::timestamptz
     ELSE NULL::timestamptz
   END AS "ExecutionClaimedAt",
   CASE
-    WHEN jsonb_typeof(payload->'executionHeartbeatAt')='string' THEN (payload->>'executionHeartbeatAt')::timestamptz
+    WHEN jsonb_typeof(payload->'executionHeartbeatAt')='string'
+         AND COALESCE(payload->>'executionHeartbeatAt', '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}:[0-9]{2}'
+      THEN (payload->>'executionHeartbeatAt')::timestamptz
     ELSE NULL::timestamptz
   END AS "ExecutionHeartbeatAt",
   CASE
-    WHEN jsonb_typeof(payload->'campaignId')='string' THEN (payload->>'campaignId')::uuid
+    WHEN jsonb_typeof(payload->'campaignId')='string'
+         AND (payload->>'campaignId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      THEN (payload->>'campaignId')::uuid
     ELSE NULL::uuid
   END AS "CampaignId"
 FROM admin_jobs
@@ -1502,8 +1518,40 @@ LIMIT 1;
     {
         var jobId = Guid.NewGuid();
         var payloadJson = JsonSerializer.Serialize(payload);
-        const string sql = "INSERT INTO admin_jobs(job_id, tenant_id, job_type, status, doc_id, level, payload, created_at) VALUES(@jobId, @tenant, @jobType, 'queued', @docId, @level, @payload::jsonb, now()) RETURNING job_id;";
-        return await conn.ExecuteScalarAsync<Guid>(new CommandDefinition(sql, new { jobId, tenant = tenantId, jobType, docId, level, payload = payloadJson }, cancellationToken: ct));
+        var docPath = TryReadPayloadString(payloadJson, "docPath");
+        const string sql = "INSERT INTO admin_jobs(job_id, tenant_id, job_type, status, doc_id, doc_path, level, payload, created_at) VALUES(@jobId, @tenant, @jobType, 'queued', @docId, @docPath, @level, @payload::jsonb, now()) RETURNING job_id;";
+        return await conn.ExecuteScalarAsync<Guid>(new CommandDefinition(sql, new { jobId, tenant = tenantId, jobType, docId, docPath, level, payload = payloadJson }, cancellationToken: ct));
+    }
+
+    private static string? TryReadPayloadString(string payloadJson, string propertyName)
+    {
+        if (string.IsNullOrWhiteSpace(payloadJson) || string.IsNullOrWhiteSpace(propertyName))
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(payloadJson);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                return null;
+
+            foreach (var property in doc.RootElement.EnumerateObject())
+            {
+                if (property.NameEquals(propertyName)
+                    && property.Value.ValueKind == JsonValueKind.String)
+                {
+                    var value = property.Value.GetString();
+                    return string.IsNullOrWhiteSpace(value)
+                        ? null
+                        : value.Trim().Replace('\\', '/').TrimStart('/');
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        return null;
     }
     private static string NormalizeStoredSummaryLevel(string? level)
     {

@@ -8,6 +8,7 @@ public sealed partial class MainWindow
 
     private readonly object _localGovernanceInitGate = new();
     private Task? _localGovernanceInitTask;
+    private string? _lastLocalLlmStartupFailure;
 
     private void LoadLocalLlmUiFromSettings()
     {
@@ -116,25 +117,62 @@ public sealed partial class MainWindow
     private async Task<bool> EnsureLocalLlmStartedFromSettingsAsync(CancellationToken ct, ChatMessageItem? assistantMsg = null)
     {
         _appSettings = AppSettings.Load();
+        _lastLocalLlmStartupFailure = null;
 
         if (string.IsNullOrWhiteSpace(_appSettings.LlamaExePath) || string.IsNullOrWhiteSpace(_appSettings.ModelPath))
+        {
+            _lastLocalLlmStartupFailure = LocalLlmText(
+                "L'assistant local n'est pas configure : chemin du moteur ou du modele manquant.",
+                "The local assistant is not configured: the engine or model path is missing.",
+                "El asistente local no esta configurado: falta la ruta del motor o del modelo.",
+                "O assistente local nao esta configurado: falta o caminho do motor ou do modelo.",
+                "Der lokale Assistent ist nicht konfiguriert: Engine- oder Modellpfad fehlt.",
+                "L'assistente locale non e configurato: manca il percorso del motore o del modello.",
+                UiLang);
             return false;
+        }
 
         await TrySoftUiAsync("EnsureLocalLlmStartedFromSettingsAsync.StatusText.Starting", () =>
             RunOnUiThreadAsync(() =>
                 LocalLlmStatusText.Text = LocalLlmText("Demarrage de llama.cpp...", "Starting llama.cpp...", "Iniciando llama.cpp...", "A iniciar llama.cpp...", "llama.cpp wird gestartet...", "Avvio di llama.cpp...", UiLang)));
 
+        var qualifiedProfileRefreshed = RefreshLocalQualifiedProfileFromCurrentReference(_appSettings);
+
         var (ok, msg) = await _llmProc.StartAsync(_appSettings, ct);
+        if (!ok)
+        {
+            _lastLocalLlmStartupFailure = LocalLlmText(
+                "Le moteur local n'a pas pu demarrer. ",
+                "The local engine could not start. ",
+                "El motor local no pudo iniciarse. ",
+                "O motor local nao conseguiu iniciar. ",
+                "Die lokale Engine konnte nicht starten. ",
+                "Il motore locale non e riuscito ad avviarsi. ",
+                UiLang) + FormatLocalLlmStartFailureMessage(msg, UiLang);
+        }
 
         await TrySoftUiAsync("EnsureLocalLlmStartedFromSettingsAsync.SyncUi", () =>
             RunOnUiThreadAsync(() =>
             {
                 LocalLlmCmdLineBox.Text = _llmProc.LastCommandLine ?? "";
-                LocalLlmStatusText.Text = msg;
+                LocalLlmStatusText.Text = ok
+                    ? LocalLlmText(
+                        "Assistant local demarre.",
+                        "Local assistant started.",
+                        "Asistente local iniciado.",
+                        "Assistente local iniciado.",
+                        "Lokaler Assistent gestartet.",
+                        "Assistente locale avviato.",
+                        UiLang)
+                    : (_lastLocalLlmStartupFailure ?? msg);
             }));
 
-        if (ok)
+        if (ok
+            && (qualifiedProfileRefreshed
+                || await ShouldRunLocalLlmWarmupQualificationAsync(_appSettings, ct).ConfigureAwait(false)))
+        {
             ok = await RunLocalLlmWarmupQualificationAsync(_appSettings, assistantMsg, ct).ConfigureAwait(false);
+        }
 
         await TrySoftUiAsync("EnsureLocalLlmStartedFromSettingsAsync.ReflectEndpoint", () =>
             RunOnUiThreadAsync(() =>
@@ -144,6 +182,66 @@ public sealed partial class MainWindow
             }));
 
         return ok;
+    }
+
+    private static bool RefreshLocalQualifiedProfileFromCurrentReference(AppSettings settings)
+    {
+        if (settings.QualifiedProfile is null)
+            return false;
+
+        var reference = WarmupProfileStore.FindProfile(settings.QualifiedProfile.ProfileId)?.Candidate;
+        if (reference is null)
+            return false;
+
+        if (!string.Equals(settings.QualifiedProfile.Runtime, reference.Runtime, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(settings.QualifiedProfile.ModelId, reference.ModelId, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!RequalificationTriggerService.HasProfileConfigurationDrift(settings.QualifiedProfile, reference))
+            return false;
+
+        settings.QualifiedProfile = reference;
+        settings.Save();
+        return true;
+    }
+
+    private static async Task<bool> ShouldRunLocalLlmWarmupQualificationAsync(AppSettings settings, CancellationToken ct)
+    {
+        if (settings.QualifiedProfile is null)
+            return false;
+
+        if (WarmupProfileStore.FindProfile(settings.QualifiedProfile.ProfileId) is null)
+            return false;
+
+        var drift = RequalificationTriggerService.EvaluateProfileDrift(settings);
+        if (drift.Required)
+            return true;
+
+        var read = await GovernanceArtifactStore.ReadAsync<WarmupResultsArtifact>(
+            GovernanceArtifactStore.WarmupResultsFile,
+            ct: ct).ConfigureAwait(false);
+        if (read.Status != GovernanceArtifactReadStatus.Ok || read.Value is null)
+            return true;
+
+        var currentRuntime = RequalificationTriggerService.DetectRuntimeKey(settings.LlamaExePath);
+        var currentModelId = ModelCatalogStore.ResolveCanonicalModelId(settings.ModelId)
+            ?? ModelCatalogStore.ResolveCanonicalModelId(settings.ModelPath is null ? null : System.IO.Path.GetFileName(settings.ModelPath))
+            ?? settings.ModelId;
+
+        var matching = read.Value.Items
+            .Where(item =>
+                string.Equals(item.ProfileId, settings.QualifiedProfile.ProfileId, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(item.Runtime, currentRuntime, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(item.ModelId, currentModelId, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(static item => item.At)
+            .ToArray();
+
+        if (matching.Any(static item => item.Status is WarmupGateStatus.Pass or WarmupGateStatus.PassDegraded))
+            return false;
+
+        return matching.Length == 0;
     }
 
     private async Task<bool> EnsureLocalLlmAwakeForRequestAsync(ChatMessageItem? assistantMsg, CancellationToken ct)
@@ -177,7 +275,7 @@ public sealed partial class MainWindow
         await TrySoftUiAsync("EnsureLocalLlmAwakeForRequestAsync.Progress", () =>
             RunOnUiThreadAsync(() =>
             {
-                var loadingText = LocalLlmText("Chargement du modele en cours...", "Loading model...", "Cargando modelo...", "A carregar o modelo...", "Modell wird geladen...", "Caricamento modello...", UiLang);
+                var loadingText = LocalLlmText("L'assistant local démarre le modèle...", "The local assistant is starting the model...", "El asistente local está iniciando el modelo...", "O assistente local está a iniciar o modelo...", "Der lokale Assistent startet das Modell...", "L'assistente locale sta avviando il modello...", UiLang);
                 SetAssistantProgress(assistantMsg, loadingText);
                 LocalLlmStatusText.Text = loadingText;
             }));
@@ -189,11 +287,28 @@ public sealed partial class MainWindow
                 if (ok)
                 {
                     var loadMs = _llmProc.LastStartupLoadMs;
-                    SetAssistantProgress(
-                        assistantMsg,
-                        loadMs is > 0
-                            ? $"Modele pret en {loadMs.Value / 1000d:0.0}s. Je prepare la reponse..."
-                            : "Modele pret. Je prepare la reponse...");
+                    var readyText = loadMs is > 0
+                        ? LocalLlmText(
+                            $"Assistant prêt en {loadMs.Value / 1000d:0.0}s. Je prépare la réponse...",
+                            $"Assistant ready in {loadMs.Value / 1000d:0.0}s. Preparing the reply...",
+                            $"Asistente listo en {loadMs.Value / 1000d:0.0}s. Preparando la respuesta...",
+                            $"Assistente pronto em {loadMs.Value / 1000d:0.0}s. A preparar a resposta...",
+                            $"Assistent bereit in {loadMs.Value / 1000d:0.0}s. Antwort wird vorbereitet...",
+                            $"Assistente pronto in {loadMs.Value / 1000d:0.0}s. Preparazione della risposta...",
+                            UiLang)
+                        : LocalLlmText(
+                            "Assistant prêt. Je prépare la réponse...",
+                            "Assistant ready. Preparing the reply...",
+                            "Asistente listo. Preparando la respuesta...",
+                            "Assistente pronto. A preparar a resposta...",
+                            "Assistent bereit. Antwort wird vorbereitet...",
+                            "Assistente pronto. Preparazione della risposta...",
+                            UiLang);
+                    SetAssistantProgress(assistantMsg, readyText);
+                }
+                else if (!string.IsNullOrWhiteSpace(_lastLocalLlmStartupFailure))
+                {
+                    SetAssistantProgress(assistantMsg, _lastLocalLlmStartupFailure);
                 }
             }));
 
@@ -205,7 +320,7 @@ public sealed partial class MainWindow
         await TrySoftUiAsync("WaitForExistingLocalLlmReadyAsync.Progress", () =>
             RunOnUiThreadAsync(() =>
             {
-                var loadingText = LocalLlmText("Chargement du modele en cours...", "Loading model...", "Cargando modelo...", "A carregar o modelo...", "Modell wird geladen...", "Caricamento modello...", UiLang);
+                var loadingText = LocalLlmText("L'assistant local charge le modèle...", "The local assistant is loading the model...", "El asistente local está cargando el modelo...", "O assistente local está a carregar o modelo...", "Der lokale Assistent lädt das Modell...", "L'assistente locale sta caricando il modello...", UiLang);
                 SetAssistantProgress(assistantMsg, loadingText);
                 LocalLlmStatusText.Text = loadingText;
             }));
@@ -246,7 +361,7 @@ public sealed partial class MainWindow
         await TrySoftUiAsync("RunLocalLlmWarmupQualificationAsync.Progress", () =>
             RunOnUiThreadAsync(() =>
             {
-                var checkingText = LocalLlmText("Verification de compatibilite en cours...", "Checking compatibility...", "Comprobando compatibilidad...", "A verificar a compatibilidade...", "Kompatibilitaet wird geprueft...", "Verifica compatibilita in corso...", UiLang);
+                var checkingText = LocalLlmText("Vérification de l'assistant local avant réponse...", "Checking the local assistant before replying...", "Comprobando el asistente local antes de responder...", "A verificar o assistente local antes da resposta...", "Der lokale Assistent wird vor der Antwort geprüft...", "Verifica dell'assistente locale prima della risposta...", UiLang);
                 SetAssistantProgress(assistantMsg, checkingText);
                 LocalLlmStatusText.Text = checkingText;
             }));
@@ -273,6 +388,14 @@ public sealed partial class MainWindow
 
         if (result.Status is WarmupGateStatus.FailBlock or WarmupGateStatus.FailFallback)
         {
+            if (await TryAllowSoftWarmupFallbackForActiveRequestAsync(result, settings, assistantMsg, ct).ConfigureAwait(false))
+            {
+                await RefreshLocalLlmGovernanceStatusAsync().ConfigureAwait(false);
+                return true;
+            }
+
+            var failureText = BuildLocalLlmWarmupFailureText(result, settings, UiLang);
+            _lastLocalLlmStartupFailure = failureText;
             TrySoftUi("RunLocalLlmWarmupQualificationAsync.Stop", _llmProc.Stop);
 
             if (LlamaCppReleaseDownloader.TryRollbackPendingRuntime(runtimeId, out var rollbackExe, out var rollbackBuild)
@@ -286,26 +409,35 @@ public sealed partial class MainWindow
                     {
                         LocalLlmExePathBox.Text = rollbackExe;
                         LocalLlmStatusText.Text = LocalLlmText(
-                            $"Qualification echouee. Runtime precedent reactive ({rollbackBuild ?? "rollback"}).",
-                            $"Qualification failed. Previous runtime restored ({rollbackBuild ?? "rollback"}).",
-                            $"La cualificacion fallo. Runtime anterior reactivado ({rollbackBuild ?? "rollback"}).",
-                            $"A qualificacao falhou. Runtime anterior reativado ({rollbackBuild ?? "rollback"}).",
-                            $"Qualifizierung fehlgeschlagen. Vorherige Runtime wiederhergestellt ({rollbackBuild ?? "rollback"}).",
-                            $"Qualificazione non riuscita. Runtime precedente riattivato ({rollbackBuild ?? "rollback"}).",
+                            $"Verification echouee. Moteur precedent reactive ({rollbackBuild ?? "rollback"}).",
+                            $"Check failed. Previous engine restored ({rollbackBuild ?? "rollback"}).",
+                            $"La verificacion fallo. Motor anterior reactivado ({rollbackBuild ?? "rollback"}).",
+                            $"A verificacao falhou. Motor anterior reativado ({rollbackBuild ?? "rollback"}).",
+                            $"Pruefung fehlgeschlagen. Vorherige Engine wiederhergestellt ({rollbackBuild ?? "rollback"}).",
+                            $"Verifica non riuscita. Motore precedente riattivato ({rollbackBuild ?? "rollback"}).",
                             UiLang);
                         SetAssistantProgress(assistantMsg, LocalLlmText(
-                            "Compatibilite non validee. Retour au runtime precedent.",
-                            "Compatibility not validated. Returning to the previous runtime.",
-                            "Compatibilidad no validada. Volviendo al runtime anterior.",
-                            "Compatibilidade nao validada. Regresso ao runtime anterior.",
-                            "Kompatibilitaet nicht bestaetigt. Rueckkehr zur vorherigen Runtime.",
-                            "Compatibilita non validata. Ritorno al runtime precedente.",
+                            "La verification de l'assistant local a echoue. Retour a la version precedente.",
+                            "The local assistant check failed. Returning to the previous version.",
+                            "La verificacion del asistente local fallo. Volviendo a la version anterior.",
+                            "A verificacao do assistente local falhou. Regresso a versao anterior.",
+                            "Die Pruefung des lokalen Assistenten ist fehlgeschlagen. Rueckkehr zur vorherigen Version.",
+                            "La verifica dell'assistente locale non e riuscita. Ritorno alla versione precedente.",
                             UiLang));
                     }));
 
                 ClientLog.Warn(
                     $"[RuntimeCompatibility] Qualification failed for '{runtimeId}'. "
                     + $"Rolled back active runtime to build '{rollbackBuild ?? "unknown"}'.");
+            }
+            else
+            {
+                await TrySoftUiAsync("RunLocalLlmWarmupQualificationAsync.FailureUi", () =>
+                    RunOnUiThreadAsync(() =>
+                    {
+                        LocalLlmStatusText.Text = failureText;
+                        SetAssistantProgress(assistantMsg, failureText);
+                    }));
             }
 
             await RefreshLocalLlmGovernanceStatusAsync().ConfigureAwait(false);
@@ -314,6 +446,131 @@ public sealed partial class MainWindow
 
         await RefreshLocalLlmGovernanceStatusAsync().ConfigureAwait(false);
         return true;
+    }
+
+    private async Task<bool> TryAllowSoftWarmupFallbackForActiveRequestAsync(
+        Services.WarmupGateResult result,
+        Services.AppSettings settings,
+        ChatMessageItem? assistantMsg,
+        CancellationToken ct)
+    {
+        if (result.Status != Services.WarmupGateStatus.FailFallback)
+            return false;
+
+        if (result.Reasons.Any(IsBlockingLocalLlmWarmupReason))
+            return false;
+
+        var probe = await Services.LlmEndpointProbe.GetModelsStatusAsync(
+            settings.LlmBaseUrl,
+            TimeSpan.FromSeconds(4),
+            ct).ConfigureAwait(false);
+        if (probe.Status != Services.LlmModelsStatus.Ok)
+            return false;
+
+        _lastLocalLlmStartupFailure = null;
+        ClientLog.Warn(
+            "[RuntimeCompatibility] Warmup qualification was below the strict target, "
+            + "but the local model is running and responsive. Allowing this user request "
+            + "and keeping the runtime available. Reasons: "
+            + string.Join(";", result.Reasons));
+
+        await TrySoftUiAsync("RunLocalLlmWarmupQualificationAsync.SoftFallbackUi", () =>
+            RunOnUiThreadAsync(() =>
+            {
+                var readyText = LocalLlmText(
+                    "Assistant prêt. Les performances sont surveillées, mais je prépare la réponse.",
+                    "Assistant ready. Performance is being monitored, but the reply is being prepared.",
+                    "Asistente listo. Se están vigilando las prestaciones, pero se prepara la respuesta.",
+                    "Assistente pronto. O desempenho está a ser monitorizado, mas a resposta está a ser preparada.",
+                    "Assistent bereit. Die Leistung wird überwacht, aber die Antwort wird vorbereitet.",
+                    "Assistente pronto. Le prestazioni sono monitorate, ma la risposta è in preparazione.",
+                    UiLang);
+                LocalLlmStatusText.Text = readyText;
+                SetAssistantProgress(assistantMsg, readyText);
+            })).ConfigureAwait(false);
+
+        return true;
+    }
+
+    private static bool IsBlockingLocalLlmWarmupReason(string reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            return false;
+
+        var normalized = reason.Trim().ToLowerInvariant();
+        return normalized.StartsWith("blacklisted:", StringComparison.Ordinal)
+            || normalized.StartsWith("hard_gate_", StringComparison.Ordinal)
+            || normalized.StartsWith("warmup_run_failed", StringComparison.Ordinal)
+            || normalized == "warmup_profile_missing"
+            || normalized == "no_last_known_good";
+    }
+
+    private static string BuildLocalLlmWarmupFailureText(
+        WarmupGateResult result,
+        AppSettings settings,
+        string? lang)
+    {
+        var details = BuildLocalLlmWarmupReasonSummary(result.Reasons, lang);
+        var passText = $"{result.PassCount}";
+        var profile = settings.QualifiedProfile?.ProfileId ?? settings.ModelId ?? "-";
+        return LocalLlmText(
+            $"Le modele local a demarre, mais il n'a pas passe la verification de stabilite ({passText} passage(s) valide(s)). Profil: {profile}. Detail: {details}. Essaie de relancer; si cela se repete, ouvre le diagnostic de l'assistant local ou choisis un profil plus leger.",
+            $"The local model started, but it did not pass the stability check ({passText} valid pass(es)). Profile: {profile}. Detail: {details}. Try again; if it repeats, open local assistant diagnostics or choose a lighter profile.",
+            $"El modelo local se inicio, pero no paso la comprobacion de estabilidad ({passText} paso(s) valido(s)). Perfil: {profile}. Detalle: {details}. Vuelve a intentarlo; si se repite, abre el diagnostico del asistente local o elige un perfil mas ligero.",
+            $"O modelo local iniciou, mas nao passou a verificacao de estabilidade ({passText} passagem(ns) valida(s)). Perfil: {profile}. Detalhe: {details}. Tenta novamente; se se repetir, abre o diagnostico do assistente local ou escolhe um perfil mais leve.",
+            $"Das lokale Modell wurde gestartet, hat die Stabilitaetspruefung aber nicht bestanden ({passText} gueltige(r) Lauf/Laeufe). Profil: {profile}. Detail: {details}. Versuche es erneut; wenn es wieder passiert, oeffne die Diagnose des lokalen Assistenten oder waehle ein leichteres Profil.",
+            $"Il modello locale si e avviato, ma non ha superato il controllo di stabilita ({passText} passaggio/i valido/i). Profilo: {profile}. Dettaglio: {details}. Riprova; se succede ancora, apri la diagnostica dell'assistente locale o scegli un profilo piu leggero.",
+            lang);
+    }
+
+    private static string BuildLocalLlmWarmupReasonSummary(IReadOnlyList<string> reasons, string? lang)
+    {
+        if (reasons.Count == 0)
+        {
+            return LocalLlmText(
+                "aucune raison detaillee n'a ete fournie",
+                "no detailed reason was provided",
+                "no se proporciono ningun detalle",
+                "nenhum detalhe foi fornecido",
+                "kein Detailgrund wurde geliefert",
+                "nessun dettaglio fornito",
+                lang);
+        }
+
+        return string.Join("; ", reasons
+            .Where(static reason => !string.IsNullOrWhiteSpace(reason))
+            .Select(reason => TranslateLocalLlmWarmupReason(reason, lang))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(4));
+    }
+
+    private static string TranslateLocalLlmWarmupReason(string reason, string? lang)
+    {
+        if (reason.StartsWith("warmup_tok_per_sec_below:", StringComparison.OrdinalIgnoreCase))
+            return LocalLlmText("debit de generation trop bas (" + LastReasonSegment(reason) + " tok/s)", "generation speed too low (" + LastReasonSegment(reason) + " tok/s)", "velocidad de generacion demasiado baja (" + LastReasonSegment(reason) + " tok/s)", "velocidade de geracao demasiado baixa (" + LastReasonSegment(reason) + " tok/s)", "Generierung zu langsam (" + LastReasonSegment(reason) + " tok/s)", "velocita di generazione troppo bassa (" + LastReasonSegment(reason) + " tok/s)", lang);
+        if (reason.StartsWith("warmup_ttft_ms_above:", StringComparison.OrdinalIgnoreCase))
+            return LocalLlmText("premier token trop lent (" + LastReasonSegment(reason) + " ms)", "first token too slow (" + LastReasonSegment(reason) + " ms)", "primer token demasiado lento (" + LastReasonSegment(reason) + " ms)", "primeiro token demasiado lento (" + LastReasonSegment(reason) + " ms)", "erster Token zu langsam (" + LastReasonSegment(reason) + " ms)", "primo token troppo lento (" + LastReasonSegment(reason) + " ms)", lang);
+        if (reason.StartsWith("warmup_load_ms_above:", StringComparison.OrdinalIgnoreCase))
+            return LocalLlmText("chargement trop lent (" + LastReasonSegment(reason) + " ms)", "loading too slow (" + LastReasonSegment(reason) + " ms)", "carga demasiado lenta (" + LastReasonSegment(reason) + " ms)", "carregamento demasiado lento (" + LastReasonSegment(reason) + " ms)", "Laden zu langsam (" + LastReasonSegment(reason) + " ms)", "caricamento troppo lento (" + LastReasonSegment(reason) + " ms)", lang);
+        if (reason.StartsWith("hard_gate_dxgi_budget_insufficient:", StringComparison.OrdinalIgnoreCase))
+            return LocalLlmText("memoire GPU disponible insuffisante", "not enough available GPU memory", "memoria GPU disponible insuficiente", "memoria GPU disponivel insuficiente", "nicht genug verfuegbarer GPU-Speicher", "memoria GPU disponibile insufficiente", lang);
+        if (reason.StartsWith("hard_gate_available_ram_insufficient:", StringComparison.OrdinalIgnoreCase))
+            return LocalLlmText("RAM disponible insuffisante", "not enough available RAM", "RAM disponible insuficiente", "RAM disponivel insuficiente", "nicht genug verfuegbarer RAM", "RAM disponibile insufficiente", lang);
+
+        return reason switch
+        {
+            "rollback_to_last_known_good" => LocalLlmText("retour au dernier profil connu comme stable", "returned to the last known stable profile", "vuelta al ultimo perfil estable conocido", "regresso ao ultimo perfil estavel conhecido", "Rueckkehr zum letzten bekannten stabilen Profil", "ritorno all'ultimo profilo stabile noto", lang),
+            "no_last_known_good" => LocalLlmText("aucun profil de secours stable disponible", "no stable backup profile is available", "no hay perfil de respaldo estable", "nao ha perfil de contingencia estavel", "kein stabiles Ersatzprofil verfuegbar", "nessun profilo di ripiego stabile disponibile", lang),
+            "insufficient_runs" => LocalLlmText("verification interrompue avant la fin", "check stopped before enough runs completed", "comprobacion interrumpida antes del final", "verificacao interrompida antes do fim", "Pruefung vor Abschluss unterbrochen", "verifica interrotta prima del completamento", lang),
+            "warmup_run_failed" => LocalLlmText("un scenario de verification a echoue", "one check scenario failed", "un escenario de comprobacion fallo", "um cenario de verificacao falhou", "ein Pruefszenario ist fehlgeschlagen", "uno scenario di verifica non e riuscito", lang),
+            _ => HumanizeRuntimeIdentifier(reason)
+        };
+    }
+
+    private static string LastReasonSegment(string reason)
+    {
+        var parts = reason.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return parts.Length == 0 ? reason : parts[^1];
     }
 
     private async Task RefreshLocalLlmGovernanceStatusAsync()
@@ -359,7 +616,16 @@ public sealed partial class MainWindow
         var (ok, msg) = await _llmProc.StartAsync(_appSettings, ct);
 
         LocalLlmCmdLineBox.Text = _llmProc.LastCommandLine ?? "";
-        LocalLlmStatusText.Text = msg;
+        LocalLlmStatusText.Text = ok
+            ? LocalLlmText(
+                "Assistant local demarre.",
+                "Local assistant started.",
+                "Asistente local iniciado.",
+                "Assistente local iniciado.",
+                "Lokaler Assistent gestartet.",
+                "Assistente locale avviato.",
+                UiLang)
+            : FormatLocalLlmStartFailureMessage(msg, UiLang);
 
         if (ok)
             ok = await RunLocalLlmWarmupQualificationAsync(_appSettings, null, ct).ConfigureAwait(false);
@@ -383,7 +649,8 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
-            LocalLlmStatusText.Text = LocalLlmText("Echec du demarrage : ", "Start failed: ", "Error al iniciar: ", "Falha ao iniciar: ", "Start fehlgeschlagen: ", "Avvio non riuscito: ", UiLang) + ex.Message;
+            ClientLog.Exception("LocalLlm.Start.Click", ex);
+            LocalLlmStatusText.Text = LocalLlmText("Echec du demarrage : ", "Start failed: ", "Error al iniciar: ", "Falha ao iniciar: ", "Start fehlgeschlagen: ", "Avvio non riuscito: ", UiLang) + FormatLocalLlmUserActionError(ex, UiLang);
         }
     }
 
@@ -396,7 +663,8 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
-            LocalLlmStatusText.Text = LocalLlmText("Echec de l'arret : ", "Stop failed: ", "Error al detener: ", "Falha ao parar: ", "Stop fehlgeschlagen: ", "Arresto non riuscito: ", UiLang) + ex.Message;
+            ClientLog.Exception("LocalLlm.Stop.Click", ex);
+            LocalLlmStatusText.Text = LocalLlmText("Echec de l'arret : ", "Stop failed: ", "Error al detener: ", "Falha ao parar: ", "Stop fehlgeschlagen: ", "Arresto non riuscito: ", UiLang) + FormatLocalLlmUserActionError(ex, UiLang);
         }
     }
 
@@ -415,7 +683,8 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
-            LocalLlmStatusText.Text = LocalLlmText("Echec de l'enregistrement : ", "Save failed: ", "Error al guardar: ", "Falha ao guardar: ", "Speichern fehlgeschlagen: ", "Salvataggio non riuscito: ", UiLang) + ex.Message;
+            ClientLog.Exception("LocalLlm.Save.Click", ex);
+            LocalLlmStatusText.Text = LocalLlmText("Echec de l'enregistrement : ", "Save failed: ", "Error al guardar: ", "Falha ao guardar: ", "Speichern fehlgeschlagen: ", "Salvataggio non riuscito: ", UiLang) + FormatLocalLlmUserActionError(ex, UiLang);
         }
     }
 
@@ -490,7 +759,8 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
-            LocalLlmStatusText.Text = LocalLlmText("Echec de la selection : ", "Browse failed: ", "Error al explorar: ", "Falha ao procurar: ", "Auswahl fehlgeschlagen: ", "Sfoglia non riuscita: ", UiLang) + ex.Message;
+            ClientLog.Exception("LocalLlm.BrowseExe", ex);
+            LocalLlmStatusText.Text = LocalLlmText("Echec de la selection : ", "Browse failed: ", "Error al explorar: ", "Falha ao procurar: ", "Auswahl fehlgeschlagen: ", "Sfoglia non riuscita: ", UiLang) + FormatLocalLlmUserActionError(ex, UiLang);
         }
     }
 
@@ -510,7 +780,8 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
-            LocalLlmStatusText.Text = LocalLlmText("Echec de la selection : ", "Browse failed: ", "Error al explorar: ", "Falha ao procurar: ", "Auswahl fehlgeschlagen: ", "Sfoglia non riuscita: ", UiLang) + ex.Message;
+            ClientLog.Exception("LocalLlm.BrowseModel", ex);
+            LocalLlmStatusText.Text = LocalLlmText("Echec de la selection : ", "Browse failed: ", "Error al explorar: ", "Falha ao procurar: ", "Auswahl fehlgeschlagen: ", "Sfoglia non riuscita: ", UiLang) + FormatLocalLlmUserActionError(ex, UiLang);
         }
     }
 
@@ -552,7 +823,8 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
-            LocalLlmStatusText.Text = LocalLlmText("Echec de l'import : ", "Import failed: ", "Error de importacion: ", "Falha na importacao: ", "Import fehlgeschlagen: ", "Importazione non riuscita: ", UiLang) + ex.Message;
+            ClientLog.Exception("LocalLlm.ImportModel", ex);
+            LocalLlmStatusText.Text = LocalLlmText("Echec de l'import : ", "Import failed: ", "Error de importacion: ", "Falha na importacao: ", "Import fehlgeschlagen: ", "Importazione non riuscita: ", UiLang) + FormatLocalLlmUserActionError(ex, UiLang);
         }
     }
 
@@ -570,8 +842,28 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
-            LocalLlmStatusText.Text = LocalLlmText("Impossible d'ouvrir le dossier : ", "Open folder failed: ", "Error al abrir la carpeta: ", "Falha ao abrir a pasta: ", "Ordner konnte nicht geoeffnet werden: ", "Impossibile aprire la cartella: ", UiLang) + ex.Message;
+            ClientLog.Exception("LocalLlm.OpenModelsFolder", ex);
+            LocalLlmStatusText.Text = LocalLlmText("Impossible d'ouvrir le dossier : ", "Open folder failed: ", "Error al abrir la carpeta: ", "Falha ao abrir a pasta: ", "Ordner konnte nicht geoeffnet werden: ", "Impossibile aprire la cartella: ", UiLang) + FormatLocalLlmUserActionError(ex, UiLang);
         }
+    }
+
+    private static string FormatLocalLlmStartFailureMessage(string? message, string lang)
+    {
+        var normalized = (message ?? string.Empty).Trim().ToLowerInvariant();
+        if (normalized.Length == 0)
+            return LocalLlmText("Aucun detail disponible.", "No detail available.", "Sin detalle disponible.", "Sem detalhe disponivel.", "Kein Detail verfuegbar.", "Nessun dettaglio disponibile.", lang);
+        if (normalized.Contains("runtime not found") || normalized.Contains("runtime path") || normalized.Contains("server executable"))
+            return LocalLlmText("Le moteur llama.cpp est introuvable. Verifie le chemin du moteur local.", "The llama.cpp engine was not found. Check the local engine path.", "No se encontro el motor llama.cpp. Revisa la ruta del motor local.", "O motor llama.cpp nao foi encontrado. Verifica o caminho do motor local.", "Die llama.cpp-Engine wurde nicht gefunden. Pruefe den Pfad zur lokalen Engine.", "Il motore llama.cpp non e stato trovato. Controlla il percorso del motore locale.", lang);
+        if (normalized.Contains("model not found") || normalized.Contains("missing model") || normalized.Contains("model file not found"))
+            return LocalLlmText("Le modele local est introuvable. Verifie le fichier .gguf selectionne.", "The local model was not found. Check the selected .gguf file.", "No se encontro el modelo local. Revisa el archivo .gguf seleccionado.", "O modelo local nao foi encontrado. Verifica o ficheiro .gguf selecionado.", "Das lokale Modell wurde nicht gefunden. Pruefe die ausgewaehlte .gguf-Datei.", "Il modello locale non e stato trovato. Controlla il file .gguf selezionato.", lang);
+        if (normalized.Contains("blacklisted") || normalized.Contains("incompatible"))
+            return LocalLlmText("Cette combinaison moteur/modele n'est pas validee. Ouvre le diagnostic de l'assistant local pour reverifier ou changer de modele.", "This engine/model combination is not approved. Open local assistant diagnostics to recheck or choose another model.", "Esta combinacion motor/modelo no esta validada. Abre el diagnostico del asistente local para revisar o cambiar de modelo.", "Esta combinacao motor/modelo nao esta validada. Abre o diagnostico do assistente local para reverificar ou trocar de modelo.", "Diese Engine/Modell-Kombination ist nicht freigegeben. Oeffne die Diagnose des lokalen Assistenten, um neu zu pruefen oder das Modell zu wechseln.", "Questa combinazione motore/modello non e validata. Apri la diagnostica dell'assistente locale per ricontrollare o cambiare modello.", lang);
+        if (normalized.Contains("port") || normalized.Contains("already used"))
+            return LocalLlmText("Le port de l'assistant local est déjà utilisé. Ferme l'autre processus ou change le port.", "The local assistant port is already in use. Close the other process or change the port.", "El puerto del asistente local ya está en uso. Cierra el otro proceso o cambia el puerto.", "A porta do assistente local já está em uso. Fecha o outro processo ou muda a porta.", "Der Port des lokalen Assistenten wird bereits verwendet. Beende den anderen Prozess oder aendere den Port.", "La porta dell'assistente locale è già in uso. Chiudi l'altro processo o cambia porta.", lang);
+        if (normalized.Contains("did not become ready") || normalized.Contains("exited before readiness") || normalized.Contains("failed to start"))
+            return LocalLlmText("Le moteur s'est lance mais n'a pas repondu correctement. Le log technique est conserve dans le dossier local SAAIA.", "The engine started but did not answer correctly. The technical log is kept in the local SAAIA folder.", "El motor arranco pero no respondio correctamente. El log tecnico queda en la carpeta local de SAAIA.", "O motor arrancou mas nao respondeu corretamente. O log tecnico fica na pasta local SAAIA.", "Die Engine wurde gestartet, hat aber nicht korrekt geantwortet. Das technische Log liegt im lokalen SAAIA-Ordner.", "Il motore si e avviato ma non ha risposto correttamente. Il log tecnico e nella cartella locale SAAIA.", lang);
+
+        return LocalLlmText("Le moteur local a refuse de demarrer. Ouvre le diagnostic de l'assistant local pour voir le detail.", "The local engine refused to start. Open local assistant diagnostics for details.", "El motor local rechazo el arranque. Abre el diagnostico del asistente local para ver el detalle.", "O motor local recusou arrancar. Abre o diagnostico do assistente local para ver o detalhe.", "Die lokale Engine konnte nicht starten. Oeffne die Diagnose des lokalen Assistenten fuer Details.", "Il motore locale non si e avviato. Apri la diagnostica dell'assistente locale per i dettagli.", lang);
     }
 
 }

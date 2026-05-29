@@ -143,7 +143,7 @@ WHERE d.status='indexed'
     OR llm_profile.document_profile_id IS NULL
     OR COALESCE(
       CASE
-        WHEN COALESCE(llm_profile.metadata ->> 'contentCardEvidenceSchemaVersion', '') ~ '^[0-9]+$'
+        WHEN COALESCE(llm_profile.metadata ->> 'contentCardEvidenceSchemaVersion', '') ~ '^[0-9]{1,9}$'
           THEN (llm_profile.metadata ->> 'contentCardEvidenceSchemaVersion')::int
         ELSE 0
       END,

@@ -98,7 +98,7 @@ public sealed partial class SetupWizardDialog : ContentDialog
     {
         var s = settings ?? AppSettings.Load();
 
-        // End-user mode: hide advanced LLM section (paths/process management).
+        // End-user mode: hide advanced local assistant section (paths/process management).
         // Integrator mode: show it.
         LlmSection.Visibility = s.ShowAdvancedUi ? Visibility.Visible : Visibility.Collapsed;
 
@@ -112,7 +112,7 @@ public sealed partial class SetupWizardDialog : ContentDialog
         ExtraArgsBox.Text = s.ExtraArgs ?? "";
 
         // Show "lancer un processus local" UI only when an llama-server.exe is actually
-        // configured. Otherwise the LLM is reached via Docker / remote and the Démarrer
+        // configured. Otherwise the assistant is reached via Docker / remote and the Démarrer
         // button would just produce the contradictory "no executable configured" hint.
         UpdateLocalProcessSectionVisibility();
         LlamaExeBox.TextChanged += (_, __) => UpdateLocalProcessSectionVisibility();
@@ -191,16 +191,16 @@ public sealed partial class SetupWizardDialog : ContentDialog
         ApiKeyBox.PlaceholderText = "saaia_…";
         TestApiKeyButton.Content = SZ("Tester la clé API", "Test API key", "Probar la clave API", "Testar a chave API", "API-Schluessel testen", "Testa la chiave API");
 
-        LlmSectionTitleText.Text = SZ("LLM local (intégrateur)", "Local LLM (integrator)", "LLM local (integrador)", "LLM local (integrador)", "Lokales LLM (Integrator)", "LLM locale (integratore)");
+        LlmSectionTitleText.Text = SZ("Assistant local (intégrateur)", "Local assistant (integrator)", "Asistente local (integrador)", "Assistente local (integrador)", "Lokaler Assistent (Integrator)", "Assistente locale (integratore)");
         LlmSectionNoteText.Text = SZ(
-            "Réservé à l'intégrateur. Laissez tel quel si le LLM tourne déjà (Docker, serveur distant).",
-            "Integrator-only. Leave as-is if the LLM already runs (Docker, remote server).",
-            "Solo integrador. Dejar como está si el LLM ya está en marcha (Docker, servidor remoto).",
-            "Apenas integrador. Deixe como está se o LLM já estiver a correr (Docker, servidor remoto).",
-            "Nur Integrator. Unveraendert lassen, wenn das LLM bereits laeuft (Docker, Remote-Server).",
-            "Solo integratore. Lasciare invariato se il LLM è già in esecuzione (Docker, server remoto).");
-        UseLocalLlmCheck.Content = SZ("Activer l'assistant (LLM)", "Enable assistant (LLM)", "Activar asistente (LLM)", "Ativar assistente (LLM)", "Assistenten aktivieren (LLM)", "Attiva assistente (LLM)");
-        AutoStartCheck.Content = SZ("Démarrer automatiquement le processus LLM local à la connexion", "Auto-start local LLM process on Connect", "Iniciar automaticamente el proceso LLM local al conectar", "Iniciar automaticamente o processo LLM local ao ligar", "Lokalen LLM-Prozess beim Verbinden automatisch starten", "Avvia automaticamente il processo LLM locale alla connessione");
+            "Réservé à l'intégrateur. Laissez tel quel si l'assistant local tourne déjà ailleurs (Docker, serveur distant).",
+            "Integrator-only. Leave as-is if the local assistant already runs elsewhere (Docker, remote server).",
+            "Solo integrador. Dejar como está si el asistente local ya está en marcha en otro lugar (Docker, servidor remoto).",
+            "Apenas integrador. Deixe como está se o assistente local já estiver a correr noutro lado (Docker, servidor remoto).",
+            "Nur Integrator. Unveraendert lassen, wenn der lokale Assistent bereits woanders laeuft (Docker, Remote-Server).",
+            "Solo integratore. Lasciare invariato se l'assistente locale è già in esecuzione altrove (Docker, server remoto).");
+        UseLocalLlmCheck.Content = SZ("Activer l'assistant local", "Enable local assistant", "Activar asistente local", "Ativar assistente local", "Lokalen Assistenten aktivieren", "Attiva assistente locale");
+        AutoStartCheck.Content = SZ("Démarrer automatiquement l'assistant local à la connexion", "Auto-start the local assistant on Connect", "Iniciar automáticamente el asistente local al conectar", "Iniciar automaticamente o assistente local ao ligar", "Lokalen Assistenten beim Verbinden automatisch starten", "Avvia automaticamente l'assistente locale alla connessione");
         LlamaExeLabelText.Text = SZ("Exécutable serveur (llama-server.exe)", "Server executable (llama-server.exe)", "Ejecutable del servidor (llama-server.exe)", "Executavel do servidor (llama-server.exe)", "Server-Executable (llama-server.exe)", "Eseguibile server (llama-server.exe)");
         LlamaExeBox.PlaceholderText = SZ(@"C:\SAAIA\llm\llama-server.exe", @"C:\SAAIA\llm\llama-server.exe", @"C:\SAAIA\llm\llama-server.exe", @"C:\SAAIA\llm\llama-server.exe", @"C:\SAAIA\llm\llama-server.exe", @"C:\SAAIA\llm\llama-server.exe");
         ModelPathLabelText.Text = SZ("Modèle (.gguf)", "Model (.gguf)", "Modelo (.gguf)", "Modelo (.gguf)", "Modell (.gguf)", "Modello (.gguf)");
@@ -213,7 +213,7 @@ public sealed partial class SetupWizardDialog : ContentDialog
         ModelIdBox.PlaceholderText = SZ("model-id.gguf", "model-id.gguf", "model-id.gguf", "model-id.gguf", "model-id.gguf", "model-id.gguf");
         ExtraArgsLabelText.Text = SZ("Arguments supplémentaires (optionnel)", "Extra args (optional)", "Argumentos extra (opcional)", "Argumentos extra (opcional)", "Zusaetzliche Argumente (optional)", "Argomenti extra (opzionale)");
         TestModelsButton.Content = SZ("Tester /v1/models", "Test /v1/models", "Probar /v1/models", "Testar /v1/models", "Test /v1/models", "Test /v1/models");
-        StartLocalLlmButton.Content = SZ("Démarrer le LLM local", "Start local LLM", "Iniciar LLM local", "Iniciar LLM local", "Lokales LLM starten", "Avvia LLM locale");
+        StartLocalLlmButton.Content = SZ("Démarrer l'assistant local", "Start local assistant", "Iniciar asistente local", "Iniciar assistente local", "Lokalen Assistenten starten", "Avvia assistente locale");
         StopLocalLlmButton.Content = SZ("Arrêter", "Stop", "Detener", "Parar", "Stoppen", "Ferma");
     }
 

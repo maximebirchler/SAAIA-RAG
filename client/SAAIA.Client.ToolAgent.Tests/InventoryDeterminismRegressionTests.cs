@@ -391,9 +391,11 @@ public sealed class InventoryDeterminismRegressionTests
 
         var rendered = ToolAgentOrchestrator.RenderDeterministicInventoryFromData("summary_status_list", data, "en");
         Assert.Contains("[[open|Neutral/governance.pdf|1|governance.pdf]]", rendered);
-        Assert.Contains("[missing LLM profile]", rendered);
-        Assert.Contains("[active job running]", rendered);
-        Assert.Contains("[Capability B enqueue_profile_refresh]", rendered);
+        Assert.Contains("[missing server profile]", rendered);
+        Assert.Contains("[processing in progress running]", rendered);
+        Assert.Contains("[server summary ready to prepare]", rendered);
+        Assert.DoesNotContain("Capability B", rendered);
+        Assert.DoesNotContain("enqueue_profile_refresh", rendered);
     }
 
     [Fact]
@@ -411,7 +413,10 @@ public sealed class InventoryDeterminismRegressionTests
             "ocrRecommendedDocuments": 1,
             "ocrAppliedDocuments": 1,
             "manualReviewRecommendedDocuments": 1,
-            "pageWarningPages": 2
+            "pageWarningPages": 2,
+            "documentsWithRejectedChunks": 1,
+            "documentsWithNoSearchableChunks": 0,
+            "documentsWithRetrievalReviewRecommended": 1
           },
           "items": [
             {
@@ -434,6 +439,15 @@ public sealed class InventoryDeterminismRegressionTests
               "textPageRatio": 0.8,
               "pageWarningCount": 2,
               "pageReviewRecommendedCount": 1,
+              "retrievalChunkQuality": {
+                "totalChunkCount": 5,
+                "searchableChunkCount": 3,
+                "rejectedChunkCount": 2,
+                "manualReviewRecommended": true,
+                "rejectionReasons": {
+                  "sparse_text": 2
+                }
+              },
               "signals": ["low_text_density"]
             }
           ],
@@ -465,6 +479,10 @@ public sealed class InventoryDeterminismRegressionTests
         Assert.Contains("OCR languages fra+eng", rendered);
         Assert.Contains("OCR duration 1.5s", rendered);
         Assert.Contains("native text low_text", rendered);
+        Assert.Contains("RAG index: 1 document(s) with rejected passages", rendered);
+        Assert.Contains("RAG passages 3/5 usable, rejected 2", rendered);
+        Assert.Contains("index review recommended", rendered);
+        Assert.Contains("reasons sparse_text=2", rendered);
         Assert.Contains("signals low_text_density", rendered);
         Assert.Contains("850 words", rendered);
         Assert.Contains("OCR applied", rendered);

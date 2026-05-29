@@ -56,13 +56,128 @@ public static class SourceCardParser
             return new List<SourceCard>();
         }
 
+        CanonicalizeFilenameOnlySourceAliases(result);
+
         // micro-dedup
         return result
             .Where(s => !string.IsNullOrWhiteSpace(s.DocName) || !string.IsNullOrWhiteSpace(s.DocPath))
-            .GroupBy(s => $"{s.DocPath}::{s.DocName}::{s.PageStart}::{s.PageEnd}::{s.Snippet}")
+            .GroupBy(BuildSourceCardVisiblePageMergeKey, StringComparer.OrdinalIgnoreCase)
             .Select(MergeSourceCardGroup)
             .ToList();
     }
+
+    private static void CanonicalizeFilenameOnlySourceAliases(List<SourceCard> sources)
+    {
+        foreach (var source in sources)
+        {
+            var normalizedPath = NormalizeVisibleSourcePathIdentity(source.DocPath);
+            if (string.IsNullOrWhiteSpace(normalizedPath) || normalizedPath.Contains('/'))
+                continue;
+
+            var fileName = FirstNonEmptyNormalized(SafeFileName(source.DocPath ?? string.Empty), source.DocName);
+            if (string.IsNullOrWhiteSpace(fileName))
+                continue;
+
+            if (source.PageStart is not { } sourcePageStart || sourcePageStart <= 0)
+                continue;
+            var pageStart = sourcePageStart;
+            var pageEnd = Math.Max(pageStart, source.PageEnd ?? pageStart);
+            var category = FirstNonEmptyNormalized(source.CategoryPath, source.Category, source.CategoryRef);
+            var sourceHash = NormalizeSourceIdentity(source.SourceHash);
+
+            var matchingPaths = sources
+                .Where(candidate => !ReferenceEquals(candidate, source))
+                .Where(candidate =>
+                {
+                    var candidatePath = NormalizeVisibleSourcePathIdentity(candidate.DocPath);
+                    if (string.IsNullOrWhiteSpace(candidatePath) || !candidatePath.Contains('/'))
+                        return false;
+
+                    var candidateFile = FirstNonEmptyNormalized(SafeFileName(candidate.DocPath ?? string.Empty), candidate.DocName);
+                    if (!string.Equals(candidateFile, fileName, StringComparison.OrdinalIgnoreCase))
+                        return false;
+
+                    if (candidate.PageStart is not { } rawCandidatePageStart || rawCandidatePageStart <= 0)
+                        return false;
+                    var candidatePageStart = rawCandidatePageStart;
+                    var candidatePageEnd = Math.Max(candidatePageStart, candidate.PageEnd ?? candidatePageStart);
+                    if (candidatePageStart != pageStart || candidatePageEnd != pageEnd)
+                        return false;
+
+                    var candidateHash = NormalizeSourceIdentity(candidate.SourceHash);
+                    if (!string.IsNullOrWhiteSpace(sourceHash)
+                        && !string.IsNullOrWhiteSpace(candidateHash)
+                        && !string.Equals(sourceHash, candidateHash, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+
+                    var candidateCategory = FirstNonEmptyNormalized(candidate.CategoryPath, candidate.Category, candidate.CategoryRef);
+                    return string.IsNullOrWhiteSpace(category)
+                        || string.IsNullOrWhiteSpace(candidateCategory)
+                        || string.Equals(candidateCategory, category, StringComparison.OrdinalIgnoreCase);
+                })
+                .Select(candidate => candidate.DocPath)
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(2)
+                .ToList();
+
+            if (matchingPaths.Count == 1)
+                source.DocPath = matchingPaths[0];
+        }
+    }
+
+    private static string BuildSourceCardVisiblePageMergeKey(SourceCard source)
+    {
+        var hasKnownPage = source.PageStart is > 0;
+        var pageStart = hasKnownPage ? source.PageStart!.Value : 0;
+        var pageEnd = hasKnownPage ? Math.Max(pageStart, source.PageEnd ?? pageStart) : 0;
+        var category = FirstNonEmptyNormalized(source.CategoryPath, source.Category, source.CategoryRef);
+        var docPath = NormalizeVisibleSourcePathIdentity(source.DocPath);
+        var docName = NormalizeSourceIdentity(source.DocName);
+        var fileName = FirstNonEmptyNormalized(SafeFileName(source.DocPath ?? string.Empty), source.DocName);
+        var sourceHash = NormalizeSourceIdentity(source.SourceHash);
+
+        string identity;
+        if (!string.IsNullOrWhiteSpace(docPath))
+        {
+            identity = $"path:{docPath}";
+        }
+        else if (!string.IsNullOrWhiteSpace(sourceHash))
+        {
+            var filePart = string.IsNullOrWhiteSpace(fileName) ? "unknown" : fileName;
+            identity = $"hash:{sourceHash}|file:{filePart}";
+        }
+        else if (!string.IsNullOrWhiteSpace(category) && !string.IsNullOrWhiteSpace(fileName))
+        {
+            identity = $"category:{category}|file:{fileName}";
+        }
+        else if (!string.IsNullOrWhiteSpace(fileName)
+                 && (string.IsNullOrWhiteSpace(docPath)
+                     || string.Equals(docPath, fileName, StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(docName, fileName, StringComparison.OrdinalIgnoreCase)))
+        {
+            identity = $"file:{fileName}";
+        }
+        else if (!string.IsNullOrWhiteSpace(docName))
+        {
+            identity = $"name:{docName}";
+        }
+        else
+        {
+            identity = "unknown";
+        }
+
+        return hasKnownPage
+            ? $"{identity}::p:{pageStart}-{pageEnd}"
+            : $"{identity}::p:unknown";
+    }
+
+    private static string FirstNonEmptyNormalized(params string?[] values)
+        => values
+            .Select(NormalizeSourceIdentity)
+            .FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
 
     private static SourceCard MergeSourceCardGroup(IEnumerable<SourceCard> group)
     {
@@ -329,7 +444,10 @@ public static class SourceCardParser
             SparsePageCount = diagnostics.Select(static summary => summary.SparsePageCount).FirstOrDefault(static value => value.HasValue),
             ImagePageCount = diagnostics.Select(static summary => summary.ImagePageCount).FirstOrDefault(static value => value.HasValue),
             PageWarningCount = diagnostics.Select(static summary => summary.PageWarningCount).FirstOrDefault(static value => value.HasValue),
-            PageReviewRecommendedCount = diagnostics.Select(static summary => summary.PageReviewRecommendedCount).FirstOrDefault(static value => value.HasValue)
+            PageReviewRecommendedCount = diagnostics.Select(static summary => summary.PageReviewRecommendedCount).FirstOrDefault(static value => value.HasValue),
+            RetrievalChunkQuality = diagnostics
+                .Select(static summary => summary.RetrievalChunkQuality)
+                .FirstOrDefault(static value => value is not null)
         };
     }
 
@@ -376,6 +494,7 @@ public static class SourceCardParser
         score += diagnostics.PageWarningCount is null ? 0 : 2;
         score += diagnostics.PageReviewRecommendedCount is null ? 0 : 3;
         score += diagnostics.ImagePageCount is null ? 0 : 1;
+        score += diagnostics.RetrievalChunkQuality is null ? 0 : 4;
         return score;
     }
 
@@ -399,9 +518,26 @@ public static class SourceCardParser
         var docPath = GetStringAny(el, "doc_path", "docPath", "DocPath", "doc", "Doc", "path", "Path", "file", "File", "source", "Source") ?? "";
         var docName = GetStringAny(el, "doc_name", "docName", "DocName", "label", "Label", "title", "Title", "name", "Name") ?? SafeFileName(docPath);
 
-        var page = GetIntAny(el, "page", "Page", "p", "P");
-        var pageStart = GetIntAny(el, "page_start", "pageStart", "PageStart", "fromPage", "FromPage", "page_from") ?? page;
-        var pageEnd = GetIntAny(el, "page_end", "pageEnd", "PageEnd", "toPage", "ToPage", "page_to") ?? page;
+        var page = GetIntAny(el, "page", "Page", "p", "P", "pageNumber", "page_number", "PageNumber");
+        var pageStart = GetIntAny(
+            el,
+            "page_start", "pageStart", "PageStart",
+            "fromPage", "FromPage", "page_from",
+            "startPage", "start_page", "StartPage",
+            "firstPage", "first_page", "FirstPage")
+            ?? page;
+        var pageEnd = GetIntAny(
+            el,
+            "page_end", "pageEnd", "PageEnd",
+            "toPage", "ToPage", "page_to",
+            "endPage", "end_page", "EndPage",
+            "lastPage", "last_page", "LastPage")
+            ?? page
+            ?? pageStart;
+        if (pageStart is <= 0)
+            pageStart = null;
+        if (pageEnd is <= 0)
+            pageEnd = null;
 
         var snippet = GetStringAny(el, "excerpt", "Excerpt", "snippet", "Snippet", "text", "Text", "chunk", "Chunk", "content", "Content", "contextualSnippet", "ContextualSnippet", "contextual_snippet") ?? "";
         var score = GetDoubleAny(el, "score", "Score", "similarity", "Similarity", "rerankScore", "RerankScore");
@@ -690,7 +826,8 @@ public static class SourceCardParser
             SparsePageCount = GetIntAny(value, "sparsePageCount", "sparse_page_count", "SparsePageCount"),
             ImagePageCount = GetIntAny(value, "imagePageCount", "image_page_count", "ImagePageCount"),
             PageWarningCount = GetIntAny(value, "pageWarningCount", "page_warning_count", "PageWarningCount"),
-            PageReviewRecommendedCount = GetIntAny(value, "pageReviewRecommendedCount", "page_review_recommended_count", "PageReviewRecommendedCount")
+            PageReviewRecommendedCount = GetIntAny(value, "pageReviewRecommendedCount", "page_review_recommended_count", "PageReviewRecommendedCount"),
+            RetrievalChunkQuality = ParseRetrievalChunkQuality(value)
         };
 
         return HasDiagnosticValue(summary) ? summary : null;
@@ -714,7 +851,61 @@ public static class SourceCardParser
            || summary.SparsePageCount is not null
            || summary.ImagePageCount is not null
            || summary.PageWarningCount is not null
-           || summary.PageReviewRecommendedCount is not null;
+           || summary.PageReviewRecommendedCount is not null
+           || summary.RetrievalChunkQuality is not null;
+
+    private static SourceRetrievalChunkQualitySummary? ParseRetrievalChunkQuality(JsonElement value)
+    {
+        var quality = TryGetObjectAny(value, "retrievalChunkQuality", "retrieval_chunk_quality", "RetrievalChunkQuality");
+        if (quality is null)
+            return null;
+
+        var root = quality.Value;
+        var summary = new SourceRetrievalChunkQualitySummary
+        {
+            TotalChunkCount = GetNonNegativeInt(root, "totalChunkCount", "total_chunk_count", "TotalChunkCount"),
+            SearchableChunkCount = GetNonNegativeInt(root, "searchableChunkCount", "searchable_chunk_count", "SearchableChunkCount"),
+            RejectedChunkCount = GetNonNegativeInt(root, "rejectedChunkCount", "rejected_chunk_count", "RejectedChunkCount"),
+            ManualReviewRecommended = GetBoolAny(root, "manualReviewRecommended", "manual_review_recommended", "ManualReviewRecommended"),
+            RejectionReasons = ReadRetrievalChunkRejectionReasons(root)
+        };
+
+        return HasRetrievalChunkQualityValue(summary) ? summary : null;
+    }
+
+    private static Dictionary<string, int> ReadRetrievalChunkRejectionReasons(JsonElement root)
+    {
+        var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var reasons = TryGetObjectAny(root, "rejectionReasons", "rejection_reasons", "RejectionReasons");
+        if (reasons is null)
+            return result;
+
+        foreach (var property in reasons.Value.EnumerateObject())
+        {
+            var value = property.Value.ValueKind == JsonValueKind.Number && property.Value.TryGetInt32(out var number)
+                ? number
+                : property.Value.ValueKind == JsonValueKind.String && int.TryParse(property.Value.GetString(), out number)
+                    ? number
+                    : 0;
+            if (value > 0 && property.Name.Length <= 80)
+                result[property.Name] = value;
+        }
+
+        return result;
+    }
+
+    private static int? GetNonNegativeInt(JsonElement value, params string[] keys)
+    {
+        var result = GetIntAny(value, keys);
+        return result is >= 0 ? result : null;
+    }
+
+    private static bool HasRetrievalChunkQualityValue(SourceRetrievalChunkQualitySummary summary)
+        => summary.TotalChunkCount.HasValue
+           || summary.SearchableChunkCount.HasValue
+           || summary.RejectedChunkCount.HasValue
+           || summary.ManualReviewRecommended.HasValue
+           || summary.RejectionReasons.Count > 0;
 
     private static JsonElement? TryGetArray(JsonElement root, params string[] names)
     {
@@ -990,5 +1181,27 @@ public static class SourceCardParser
         path = path.Replace('\\', '/');
         var idx = path.LastIndexOf('/');
         return idx >= 0 ? path[(idx + 1)..] : path;
+    }
+
+    private static string NormalizeSourceIdentity(string? value)
+        => (value ?? string.Empty).Trim().Replace('\\', '/').TrimStart('/').ToLowerInvariant();
+
+    private static string NormalizeVisibleSourcePathIdentity(string? path)
+    {
+        var normalized = NormalizeSourceIdentity(path);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return string.Empty;
+
+        const string documentsMarker = "/documents/";
+        var markerIndex = normalized.LastIndexOf(documentsMarker, StringComparison.Ordinal);
+        if (markerIndex >= 0)
+            return normalized[(markerIndex + documentsMarker.Length)..].TrimStart('/');
+
+        const string repoDocumentsMarker = "saaia-repo/documents/";
+        markerIndex = normalized.LastIndexOf(repoDocumentsMarker, StringComparison.Ordinal);
+        if (markerIndex >= 0)
+            return normalized[(markerIndex + repoDocumentsMarker.Length)..].TrimStart('/');
+
+        return normalized;
     }
 }

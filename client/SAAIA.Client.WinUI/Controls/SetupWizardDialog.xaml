@@ -116,7 +116,7 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Local LLM card (integrator-only) -->
+                    <!-- Local assistant card (integrator-only) -->
                     <Border x:Name="LlmSection"
                             CornerRadius="16"
                             Padding="18,14,18,14"
@@ -124,15 +124,15 @@
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                             BorderThickness="1">
                         <StackPanel Spacing="10">
-                            <TextBlock x:Name="LlmSectionTitleText" Text="LLM local (intégrateur)" FontWeight="SemiBold" FontSize="15"/>
+                            <TextBlock x:Name="LlmSectionTitleText" Text="Assistant local (intégrateur)" FontWeight="SemiBold" FontSize="15"/>
                             <TextBlock x:Name="LlmSectionNoteText" Opacity="0.75" TextWrapping="Wrap"
-                                       Text="Réservé à l'intégrateur. Laissez tel quel si le LLM tourne déjà (Docker, serveur distant)."/>
+                                       Text="Réservé à l'intégrateur. Laissez tel quel si l'assistant local tourne déjà ailleurs (Docker, serveur distant)."/>
 
-                            <CheckBox x:Name="UseLocalLlmCheck" Content="Activer l'assistant (LLM)"/>
+                            <CheckBox x:Name="UseLocalLlmCheck" Content="Activer l'assistant local"/>
 
                             <!-- Sub-section: only meaningful when LlamaExePath is set. -->
                             <StackPanel x:Name="LocalLlmProcessSection" Spacing="10">
-                                <CheckBox x:Name="AutoStartCheck" Content="Démarrer automatiquement le processus LLM local à la connexion"/>
+                                <CheckBox x:Name="AutoStartCheck" Content="Démarrer automatiquement l'assistant local à la connexion"/>
 
                                 <TextBlock x:Name="LlamaExeLabelText" Text="Exécutable serveur (llama-server.exe)" FontWeight="SemiBold"/>
                                 <TextBox x:Name="LlamaExeBox" PlaceholderText="C:\SAAIA\llm\llama-server.exe"/>
@@ -166,7 +166,7 @@
 
                             <StackPanel Orientation="Horizontal" Spacing="10">
                                 <Button x:Name="TestModelsButton" Content="Tester /v1/models" Click="TestModels_Click" MinWidth="140"/>
-                                <Button x:Name="StartLocalLlmButton" Content="Démarrer le LLM local" Click="StartLocalLlm_Click" MinWidth="140"/>
+                                <Button x:Name="StartLocalLlmButton" Content="Démarrer l'assistant local" Click="StartLocalLlm_Click" MinWidth="140"/>
                                 <Button x:Name="StopLocalLlmButton" Content="Arrêter" Click="StopLocalLlm_Click" MinWidth="90"/>
                             </StackPanel>
 

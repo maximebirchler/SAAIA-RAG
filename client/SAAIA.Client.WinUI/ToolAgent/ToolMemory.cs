@@ -473,6 +473,16 @@ public sealed class ToolMemory
         public int? ImagePageCount { get; set; }
         public int? PageWarningCount { get; set; }
         public int? PageReviewRecommendedCount { get; set; }
+        public SourceRetrievalChunkQualityRef? RetrievalChunkQuality { get; set; }
+    }
+
+    public sealed class SourceRetrievalChunkQualityRef
+    {
+        public int? TotalChunkCount { get; set; }
+        public int? SearchableChunkCount { get; set; }
+        public int? RejectedChunkCount { get; set; }
+        public bool? ManualReviewRecommended { get; set; }
+        public Dictionary<string, int> RejectionReasons { get; set; } = new();
     }
 
     public sealed class SourceContentCardRef

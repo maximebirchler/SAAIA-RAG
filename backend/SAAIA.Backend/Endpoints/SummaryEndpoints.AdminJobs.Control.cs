@@ -1,4 +1,4 @@
-using Dapper;
+﻿using Dapper;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using SAAIA.Backend.Auth;
@@ -127,7 +127,7 @@ SELECT
   i.job_id AS "JobId",
   i.doc_path AS "DocPath",
   i.status AS "Status",
-  COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested",
+  (LOWER(COALESCE(i.payload #>> '{control,cancelRequested}', '')) = 'true') AS "CancelRequested",
   i.payload #>> '{control,requestedAction}' AS "RequestedAction",
   i.action AS "Action",
   COALESCE(d.indexed_version, 0) AS "DocumentIndexedVersion",
@@ -324,7 +324,7 @@ WHERE tenant_id=@tenant
             """
 SELECT
     i.status AS "Status",
-    COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested",
+    (LOWER(COALESCE(i.payload #>> '{control,cancelRequested}', '')) = 'true') AS "CancelRequested",
     i.payload #>> '{control,requestedAction}' AS "RequestedAction",
     i.action AS "Action",
     COALESCE(d.indexed_version, 0) AS "DocumentIndexedVersion",

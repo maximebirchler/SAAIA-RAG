@@ -21,7 +21,7 @@ public sealed partial class SetupWizardDialog
 
             if (!s.UseLocalLlm)
             {
-                LlmStatusText.Text = SZ("Le LLM local est désactivé.", "Local LLM is disabled.", "El LLM local está desactivado.", "O LLM local está desativado.", "Lokales LLM ist deaktiviert.", "Il LLM locale è disattivato.");
+                LlmStatusText.Text = SZ("L'assistant local est désactivé.", "Local assistant is disabled.", "El asistente local está desactivado.", "O assistente local está desativado.", "Lokaler Assistent ist deaktiviert.", "L'assistente locale è disattivato.");
                 return;
             }
 
@@ -30,7 +30,7 @@ public sealed partial class SetupWizardDialog
 
             if (string.IsNullOrWhiteSpace(baseUrl))
             {
-                LlmStatusText.Text = SZ("URL de base LLM manquante.", "Missing LLM base url.", "Falta la URL base del LLM.", "Falta o URL base do LLM.", "LLM-Basis-URL fehlt.", "URL base LLM mancante.");
+                LlmStatusText.Text = SZ("URL de l'assistant local manquante.", "Missing local assistant URL.", "Falta la URL del asistente local.", "Falta o URL do assistente local.", "URL des lokalen Assistenten fehlt.", "URL assistente locale mancante.");
                 return;
             }
 
@@ -66,7 +66,8 @@ public sealed partial class SetupWizardDialog
         }
         catch (Exception ex)
         {
-            LlmStatusText.Text = SZ("Échec /v1/models : ", "/v1/models failed: ", "Error /v1/models: ", "Falha /v1/models: ", "/v1/models fehlgeschlagen: ", "Errore /v1/models: ") + ex.Message;
+            ClientLog.Exception("SetupWizard.LocalLlm.TestModels", ex);
+            LlmStatusText.Text = SZ("Impossible de joindre l'assistant local. Vérifiez qu'il est démarré, puis réessayez.", "Could not reach the local assistant. Check that it is running, then try again.", "No se pudo contactar con el asistente local. Comprueba que esté iniciado y vuelve a intentarlo.", "Não foi possível contactar o assistente local. Verifica se está iniciado e tenta novamente.", "Der lokale Assistent ist nicht erreichbar. Prüfe, ob er läuft, und versuche es erneut.", "Impossibile raggiungere l'assistente locale. Verifica che sia avviato, poi riprova.");
         }
     }
 
@@ -79,29 +80,38 @@ public sealed partial class SetupWizardDialog
             var s = ReadSettingsFromUi();
             s.UseLocalLlm = true;
 
-            // Guard against the most common confusing failure ("Missing LLM runtime path"):
+            // Guard against the most common confusing failure ("Missing local engine path"):
             // if the user has no llama-server.exe configured but tries to launch one, give a
             // friendly hint instead of leaking the internal error string.
             if (string.IsNullOrWhiteSpace(s.LlamaExePath))
             {
                 LlmStatusText.Text = SZ(
-                    "Aucun exécutable LLM local configuré. Si l'assistant tourne ailleurs (Docker ou serveur distant), décochez « Activer l'assistant (LLM) » — pas besoin de démarrer quoi que ce soit ici.",
-                    "No local LLM executable configured. If the assistant runs elsewhere (Docker or remote server), uncheck 'Enable assistant (LLM)' — nothing to start here.",
-                    "Sin ejecutable LLM local configurado. Si el asistente corre en otro lugar (Docker o servidor remoto), desmarque 'Activar asistente (LLM)' — no hay que iniciar nada aquí.",
-                    "Sem executável LLM local configurado. Se o assistente correr noutro lado (Docker ou servidor remoto), desmarque 'Ativar assistente (LLM)' — nada para iniciar aqui.",
-                    "Keine lokale LLM-Executable konfiguriert. Laeuft der Assistent woanders (Docker oder Remote-Server), deaktivieren Sie 'Assistenten aktivieren (LLM)' — hier ist nichts zu starten.",
-                    "Nessun eseguibile LLM locale configurato. Se l'assistente gira altrove (Docker o server remoto), deseleziona 'Attiva assistente (LLM)' — niente da avviare qui.");
+                    "Aucun moteur local configuré. Si l'assistant tourne ailleurs (Docker ou serveur distant), décochez « Activer l'assistant local » : rien n'est à démarrer ici.",
+                    "No local engine is configured. If the assistant runs elsewhere (Docker or remote server), uncheck 'Enable local assistant': there is nothing to start here.",
+                    "No hay motor local configurado. Si el asistente corre en otro lugar (Docker o servidor remoto), desmarca 'Activar asistente local': aquí no hay nada que iniciar.",
+                    "Sem motor local configurado. Se o assistente corre noutro lado (Docker ou servidor remoto), desmarca 'Ativar assistente local': aqui não há nada para iniciar.",
+                    "Keine lokale Engine konfiguriert. Laeuft der Assistent woanders (Docker oder Remote-Server), deaktiviere 'Lokalen Assistenten aktivieren': hier ist nichts zu starten.",
+                    "Nessun motore locale configurato. Se l'assistente gira altrove (Docker o server remoto), deseleziona 'Attiva assistente locale': qui non c'è nulla da avviare.");
                 return;
             }
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Max(5, s.StartupTimeoutSeconds)));
             var (ok, msg) = await _llmProc.StartAsync(s, cts.Token);
 
-            LlmStatusText.Text = ok ? msg : SZ("Échec : ", "Failed: ", "Error: ", "Falha: ", "Fehler: ", "Errore: ") + msg;
+            if (ok)
+            {
+                LlmStatusText.Text = SZ("Assistant local démarré.", "Local assistant started.", "Asistente local iniciado.", "Assistente local iniciado.", "Lokaler Assistent gestartet.", "Assistente locale avviato.");
+            }
+            else
+            {
+                ClientLog.Warn("[SetupWizard.LocalLlm.Start] " + msg);
+                LlmStatusText.Text = SZ("L'assistant local n'a pas pu démarrer. Vérifiez le chemin du moteur, le modèle et le port.", "The local assistant could not start. Check the engine path, model and port.", "El asistente local no pudo iniciarse. Revisa la ruta del motor, el modelo y el puerto.", "O assistente local não conseguiu iniciar. Verifica o caminho do motor, o modelo e a porta.", "Der lokale Assistent konnte nicht starten. Prüfe Engine-Pfad, Modell und Port.", "L'assistente locale non è riuscito ad avviarsi. Controlla percorso del motore, modello e porta.");
+            }
         }
         catch (Exception ex)
         {
-            LlmStatusText.Text = SZ("Échec du démarrage : ", "Start failed: ", "Error al iniciar: ", "Falha ao iniciar: ", "Start fehlgeschlagen: ", "Avvio non riuscito: ") + ex.Message;
+            ClientLog.Exception("SetupWizard.LocalLlm.Start", ex);
+            LlmStatusText.Text = SZ("L'assistant local n'a pas pu démarrer. Le détail technique est dans les logs.", "The local assistant could not start. Technical details are in the logs.", "El asistente local no pudo iniciarse. El detalle técnico está en los logs.", "O assistente local não conseguiu iniciar. O detalhe técnico está nos logs.", "Der lokale Assistent konnte nicht starten. Details stehen in den Logs.", "L'assistente locale non è riuscito ad avviarsi. I dettagli tecnici sono nei log.");
         }
     }
 
@@ -114,7 +124,8 @@ public sealed partial class SetupWizardDialog
         }
         catch (Exception ex)
         {
-            LlmStatusText.Text = SZ("Échec de l'arrêt : ", "Stop failed: ", "Error al detener: ", "Falha ao parar: ", "Stop fehlgeschlagen: ", "Arresto non riuscito: ") + ex.Message;
+            ClientLog.Exception("SetupWizard.LocalLlm.Stop", ex);
+            LlmStatusText.Text = SZ("Impossible d'arrêter l'assistant local. Le détail technique est dans les logs.", "Could not stop the local assistant. Technical details are in the logs.", "No se pudo detener el asistente local. El detalle técnico está en los logs.", "Não foi possível parar o assistente local. O detalhe técnico está nos logs.", "Der lokale Assistent konnte nicht gestoppt werden. Details stehen in den Logs.", "Impossibile arrestare l'assistente locale. I dettagli tecnici sono nei log.");
         }
     }
 }

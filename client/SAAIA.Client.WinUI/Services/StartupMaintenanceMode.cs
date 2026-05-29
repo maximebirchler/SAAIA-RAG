@@ -128,7 +128,8 @@ internal static class StartupMaintenanceMode
 
         if (settings.QualifiedProfile is null
             || !string.Equals(settings.QualifiedProfile.Runtime, reference.Runtime, StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(settings.QualifiedProfile.ModelId, reference.ModelId, StringComparison.OrdinalIgnoreCase))
+            || !string.Equals(settings.QualifiedProfile.ModelId, reference.ModelId, StringComparison.OrdinalIgnoreCase)
+            || RequalificationTriggerService.HasProfileConfigurationDrift(settings.QualifiedProfile, reference.Candidate))
         {
             settings.QualifiedProfile = reference.Candidate;
             settings.Save();

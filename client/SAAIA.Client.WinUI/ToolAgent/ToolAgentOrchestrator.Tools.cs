@@ -820,6 +820,16 @@ public sealed partial class ToolAgentOrchestrator
         if (string.IsNullOrWhiteSpace(s))
             return null;
 
+        var explicitSourceOrdinal = Regex.Match(s, @"(?i)^\s*(?:source|citation|reference|r[eÃ©]f(?:[eÃ©]rence)?\.?)\s*(?:n[Â°o]\s*)?#?\s*0*(?<n>\d{1,4})\s*$");
+        if (explicitSourceOrdinal.Success
+            && int.TryParse(explicitSourceOrdinal.Groups["n"].Value, out var sourceOrdinal)
+            && sourceOrdinal > 0
+            && _mem.LastSourcesUsed is { Count: > 0 }
+            && sourceOrdinal <= _mem.LastSourcesUsed.Count)
+        {
+            return _mem.LastSourcesUsed[sourceOrdinal - 1];
+        }
+
         var mPdf = Regex.Match(s, @"(?i)\bPDF\s*0*(?<n>\d{1,4})\b");
         if (mPdf.Success && int.TryParse(mPdf.Groups["n"].Value, out var nPdf) && nPdf > 0)
         {

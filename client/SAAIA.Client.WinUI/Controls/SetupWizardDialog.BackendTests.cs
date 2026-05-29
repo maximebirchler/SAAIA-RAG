@@ -184,7 +184,7 @@ public sealed partial class SetupWizardDialog
         if (s.Tei is bool t) parts.Add("TEI " + Mark(t));
         if (s.Qdrant is bool q) parts.Add("Qdrant " + Mark(q));
         if (s.OcrEnabled == true && s.OcrReady is bool ocr) parts.Add("OCR " + Mark(ocr));
-        if (!string.IsNullOrWhiteSpace(s.Llm)) parts.Add("LLM " + s.Llm);
+        if (!string.IsNullOrWhiteSpace(s.Llm)) parts.Add(SZ("Moteur résumés ", "Summary engine ", "Motor de resúmenes ", "Motor de resumos ", "Zusammenfassungs-Engine ", "Motore riassunti ") + s.Llm);
 
         if (parts.Count == 0)
             return SZ("réponse non interprétable", "unparseable response", "respuesta no interpretable", "resposta não interpretável", "Antwort nicht interpretierbar", "risposta non interpretabile");

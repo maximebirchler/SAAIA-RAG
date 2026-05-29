@@ -27,6 +27,7 @@ SET payload = jsonb_set(
             'documentIngestionVersion', (
                 CASE
                     WHEN jsonb_typeof(j.payload->'version') = 'number'
+                         AND (j.payload->>'version') ~ '^-?[0-9]{1,9}$'
                         THEN (j.payload->>'version')::int
                     ELSE (
                         SELECT d.ingestion_version
@@ -47,6 +48,7 @@ SET payload = jsonb_set(
                         LIMIT 1
                     )
                     WHEN jsonb_typeof(j.payload->'indexedVersionBefore') = 'number'
+                         AND (j.payload->>'indexedVersionBefore') ~ '^-?[0-9]{1,9}$'
                         THEN (j.payload->>'indexedVersionBefore')::int
                     ELSE (
                         SELECT d.indexed_version
@@ -74,16 +76,19 @@ SET payload = jsonb_set(
             'progressPhase', j.payload #>> '{progress,phase}',
             'progressCurrent', CASE
                 WHEN jsonb_typeof(j.payload->'progress'->'current') = 'number'
+                    AND (j.payload->'progress'->>'current') ~ '^-?[0-9]{1,9}$'
                     THEN (j.payload->'progress'->>'current')::int
                 ELSE NULL
             END,
             'progressTotal', CASE
                 WHEN jsonb_typeof(j.payload->'progress'->'total') = 'number'
+                    AND (j.payload->'progress'->>'total') ~ '^-?[0-9]{1,9}$'
                     THEN (j.payload->'progress'->>'total')::int
                 ELSE NULL
             END,
             'progressPercent', CASE
                 WHEN jsonb_typeof(j.payload->'progress'->'percent') = 'number'
+                    AND (j.payload->'progress'->>'percent') ~ '^-?[0-9]{1,9}$'
                     THEN (j.payload->'progress'->>'percent')::int
                 ELSE NULL
             END,
@@ -167,11 +172,11 @@ WHERE job_id=@job_id;";
         await using var conn = await ds.OpenConnectionAsync(ct);
         const string sql = """
 SELECT
-    CASE WHEN jsonb_typeof(payload->'progress'->'current')='number' THEN (payload->'progress'->>'current')::int ELSE NULL END AS "ProgressCurrent",
-    CASE WHEN jsonb_typeof(payload->'progress'->'total')='number' THEN (payload->'progress'->>'total')::int ELSE NULL END AS "ProgressTotal",
+    CASE WHEN jsonb_typeof(payload->'progress'->'current')='number' AND (payload->'progress'->>'current') ~ '^-?[0-9]{1,9}$' THEN (payload->'progress'->>'current')::int ELSE NULL END AS "ProgressCurrent",
+    CASE WHEN jsonb_typeof(payload->'progress'->'total')='number' AND (payload->'progress'->>'total') ~ '^-?[0-9]{1,9}$' THEN (payload->'progress'->>'total')::int ELSE NULL END AS "ProgressTotal",
     payload #>> '{resume,sourceHash}' AS "SourceHash",
-    CASE WHEN jsonb_typeof(payload->'resume'->'fileSize')='number' THEN (payload->'resume'->>'fileSize')::bigint ELSE NULL END AS "FileSize",
-    CASE WHEN jsonb_typeof(payload->'resume'->'chunkTotal')='number' THEN (payload->'resume'->>'chunkTotal')::int ELSE NULL END AS "ChunkTotal",
+    CASE WHEN jsonb_typeof(payload->'resume'->'fileSize')='number' AND (payload->'resume'->>'fileSize') ~ '^[0-9]{1,18}$' THEN (payload->'resume'->>'fileSize')::bigint ELSE NULL END AS "FileSize",
+    CASE WHEN jsonb_typeof(payload->'resume'->'chunkTotal')='number' AND (payload->'resume'->>'chunkTotal') ~ '^-?[0-9]{1,9}$' THEN (payload->'resume'->>'chunkTotal')::int ELSE NULL END AS "ChunkTotal",
     payload #>> '{resume,embeddingModel}' AS "EmbeddingModel",
     payload #>> '{resume,embeddingInputFormat}' AS "EmbeddingInputFormat"
 FROM ingestion_jobs

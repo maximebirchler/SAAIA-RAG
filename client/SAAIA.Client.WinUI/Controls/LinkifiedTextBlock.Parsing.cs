@@ -18,7 +18,21 @@ public sealed partial class LinkifiedTextBlock
 
         return lines.Any(x =>
             !string.IsNullOrWhiteSpace(x) &&
-            x.TrimStart().StartsWith("Source", StringComparison.OrdinalIgnoreCase));
+            LooksLikeSourceHeadingLine(x));
+    }
+
+    private static bool LooksLikeSourceHeadingLine(string line)
+    {
+        var trimmed = (line ?? string.Empty).TrimStart();
+        return trimmed.StartsWith("Source", StringComparison.OrdinalIgnoreCase)
+               || trimmed.StartsWith("Sources", StringComparison.OrdinalIgnoreCase)
+               || trimmed.StartsWith("Fuente", StringComparison.OrdinalIgnoreCase)
+               || trimmed.StartsWith("Fuentes", StringComparison.OrdinalIgnoreCase)
+               || trimmed.StartsWith("Fonte", StringComparison.OrdinalIgnoreCase)
+               || trimmed.StartsWith("Fontes", StringComparison.OrdinalIgnoreCase)
+               || trimmed.StartsWith("Quelle", StringComparison.OrdinalIgnoreCase)
+               || trimmed.StartsWith("Quellen", StringComparison.OrdinalIgnoreCase)
+               || trimmed.StartsWith("Fonti", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool TryParseListLine(string line, bool singleSourceBlock, out int level, out string marker, out string rest, out bool isNumber)
@@ -103,6 +117,7 @@ public sealed partial class LinkifiedTextBlock
             return label;
         });
 
+        s = MarkdownBoldRegex.Replace(s, m => m.Groups["text"].Value);
         s = s.Replace("\r\n", "\n").Replace("\r", "\n");
         return s;
     }

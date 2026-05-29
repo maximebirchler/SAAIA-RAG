@@ -49,6 +49,44 @@ public sealed class AdminJobDiagnosticsTextTests
         }
     }
 
+    [Theory]
+    [MemberData(nameof(AllLanguages))]
+    public void Admin_job_status_unknown_falls_back_to_localized_text(string language)
+    {
+        var text = MainWindow.TranslateAdminJobStatusForDiagnostics("future_backend_status", language);
+
+        Assert.False(string.IsNullOrWhiteSpace(text));
+        Assert.DoesNotContain("future_backend_status", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("admin.jobs.status.", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("_", text);
+    }
+
+    [Theory]
+    [MemberData(nameof(AllLanguages))]
+    public void Admin_job_resume_reason_unknown_never_leaks_backend_token(string language)
+    {
+        var text = MainWindow.TranslateAdminJobResumeReasonForDiagnostics("future_backend_reason", language);
+
+        Assert.False(string.IsNullOrWhiteSpace(text));
+        Assert.DoesNotContain("future_backend_reason", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("future backend reason", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("_", text);
+    }
+
+    [Theory]
+    [MemberData(nameof(AllLanguages))]
+    public void Admin_job_resume_reason_maps_known_server_reasons(string language)
+    {
+        foreach (var reason in new[] { "not_paused", "missing_file", "invalid_state", "not_owner" })
+        {
+            var text = MainWindow.TranslateAdminJobResumeReasonForDiagnostics(reason, language);
+
+            Assert.False(string.IsNullOrWhiteSpace(text));
+            Assert.DoesNotContain(reason, text, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("_", text);
+        }
+    }
+
     [Fact]
     public void Admin_job_diagnostic_reason_prefers_failure_reason_over_ocr_failure()
     {

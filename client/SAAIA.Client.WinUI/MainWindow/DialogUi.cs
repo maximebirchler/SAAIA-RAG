@@ -4,30 +4,150 @@ namespace SAAIA.Client.WinUI;
 
 public sealed partial class MainWindow
 {
-    // Turn an HttpRequestException's opaque "Response status code does not indicate success."
-    // into a humane "GET /admin/x → HTTP 401 (clé admin invalide ?)" so admin panels show
-    // the integrator something actionable instead of the raw .NET message.
-    private static string FormatAdminLoadError(System.Exception ex, string endpoint, string lang)
+    private static string FormatAdminLoadErrorForUser(System.Exception ex, string endpoint, string lang)
     {
         if (ex is TaskCanceledException)
-            return endpoint + " — timeout";
+        {
+            return lang switch
+            {
+                "en" => "The server did not answer in time. Try again in a moment; if it keeps happening, check the server load.",
+                "es" => "El servidor no respondió a tiempo. Inténtalo de nuevo en un momento; si continúa, revisa la carga del servidor.",
+                "pt" => "O servidor não respondeu a tempo. Tenta novamente daqui a pouco; se continuar, verifica a carga do servidor.",
+                "de" => "Der Server hat nicht rechtzeitig geantwortet. Versuche es gleich erneut; falls es bleibt, prüfe die Serverlast.",
+                "it" => "Il server non ha risposto in tempo. Riprova tra poco; se continua, controlla il carico del server.",
+                _ => "Le serveur n'a pas répondu à temps. Réessaie dans un instant ; si cela continue, vérifie la charge serveur."
+            };
+        }
 
         if (ex is HttpRequestException http && http.StatusCode is { } code)
         {
-            var hint = (int)code switch
+            return (int)code switch
             {
-                401 => lang switch { "en" => "missing or invalid admin key", "es" => "clave admin inválida o ausente", "pt" => "chave admin inválida ou ausente", "de" => "Admin-Key fehlt oder ungueltig", "it" => "chiave admin mancante o non valida", _ => "clé admin invalide ou absente" },
-                403 => lang switch { "en" => "admin key not authorized", "es" => "clave admin no autorizada", "pt" => "chave admin não autorizada", "de" => "Admin-Key nicht autorisiert", "it" => "chiave admin non autorizzata", _ => "clé admin non autorisée" },
-                404 => lang switch { "en" => "endpoint missing on backend", "es" => "endpoint ausente en backend", "pt" => "endpoint ausente no backend", "de" => "Endpoint fehlt im Backend", "it" => "endpoint assente nel backend", _ => "endpoint absent côté backend" },
-                503 => lang switch { "en" => "backend service unavailable", "es" => "servicio backend no disponible", "pt" => "serviço backend indisponível", "de" => "Backend-Dienst nicht verfuegbar", "it" => "servizio backend non disponibile", _ => "service backend indisponible" },
-                _ => lang switch { "en" => "see server logs", "es" => "ver logs del servidor", "pt" => "ver logs do servidor", "de" => "Server-Logs ansehen", "it" => "vedi log server", _ => "voir logs serveur" }
+                401 => lang switch
+                {
+                    "en" => "The admin session is not accepted by the server. Check the admin/API key in the configuration.",
+                    "es" => "El servidor no acepta la sesión de administración. Revisa la clave admin/API en la configuración.",
+                    "pt" => "O servidor não aceita a sessão de administração. Verifica a chave admin/API na configuração.",
+                    "de" => "Der Server akzeptiert die Admin-Sitzung nicht. Prüfe den Admin/API-Schlüssel in der Konfiguration.",
+                    "it" => "Il server non accetta la sessione admin. Controlla la chiave admin/API nella configurazione.",
+                    _ => "Le serveur n'accepte pas la session d'administration. Vérifie la clé admin/API dans la configuration."
+                },
+                403 => lang switch
+                {
+                    "en" => "The admin key is recognized but not allowed to open this view.",
+                    "es" => "La clave admin se reconoce, pero no tiene permiso para abrir esta vista.",
+                    "pt" => "A chave admin é reconhecida, mas não tem autorização para abrir esta vista.",
+                    "de" => "Der Admin-Schlüssel wurde erkannt, darf diese Ansicht aber nicht öffnen.",
+                    "it" => "La chiave admin è riconosciuta, ma non può aprire questa vista.",
+                    _ => "La clé admin est reconnue, mais elle n'a pas le droit d'ouvrir cet écran."
+                },
+                404 => lang switch
+                {
+                    "en" => "This server version does not provide this admin view yet.",
+                    "es" => "Esta versión del servidor todavía no ofrece esta vista de administración.",
+                    "pt" => "Esta versão do servidor ainda não fornece esta vista de administração.",
+                    "de" => "Diese Serverversion stellt diese Admin-Ansicht noch nicht bereit.",
+                    "it" => "Questa versione del server non fornisce ancora questa vista admin.",
+                    _ => "Cette version du serveur ne fournit pas encore cet écran d'administration."
+                },
+                400 => lang switch
+                {
+                    "en" => "The server refused this action in its current state. Refresh the server state, then try again.",
+                    "es" => "El servidor rechazo esta accion en su estado actual. Actualiza el estado del servidor y vuelve a intentarlo.",
+                    "pt" => "O servidor recusou esta acao no estado atual. Atualiza o estado do servidor e tenta novamente.",
+                    "de" => "Der Server hat diese Aktion im aktuellen Zustand abgelehnt. Serverstatus aktualisieren und erneut versuchen.",
+                    "it" => "Il server ha rifiutato questa azione nello stato attuale. Aggiorna lo stato del server e riprova.",
+                    _ => "Le serveur refuse cette action dans son etat actuel. Actualise l'etat serveur, puis reessaie."
+                },
+                500 => lang switch
+                {
+                    "en" => "The server failed while preparing this view. I kept the technical detail in the logs.",
+                    "es" => "El servidor falló al preparar esta vista. El detalle técnico queda en los logs.",
+                    "pt" => "O servidor falhou ao preparar esta vista. O detalhe técnico ficou nos logs.",
+                    "de" => "Der Server konnte diese Ansicht nicht vorbereiten. Details stehen in den Logs.",
+                    "it" => "Il server non è riuscito a preparare questa vista. I dettagli tecnici sono nei log.",
+                    _ => "Le serveur a échoué en préparant cet écran. Le détail technique est conservé dans les logs."
+                },
+                503 => lang switch
+                {
+                    "en" => "The server is temporarily unavailable. Wait for the current processing to calm down, then refresh.",
+                    "es" => "El servidor no está disponible temporalmente. Espera a que baje la actividad y actualiza.",
+                    "pt" => "O servidor está temporariamente indisponível. Aguarda que a atividade baixe e atualiza.",
+                    "de" => "Der Server ist vorübergehend nicht verfügbar. Warte kurz und aktualisiere danach.",
+                    "it" => "Il server è temporaneamente non disponibile. Attendi che l'attività cali e aggiorna.",
+                    _ => "Le serveur est temporairement indisponible. Attends que les traitements se calment, puis actualise."
+                },
+                _ => lang switch
+                {
+                    "en" => "The server returned an unexpected response. The technical detail is available in the logs.",
+                    "es" => "El servidor devolvió una respuesta inesperada. El detalle técnico está en los logs.",
+                    "pt" => "O servidor devolveu uma resposta inesperada. O detalhe técnico está nos logs.",
+                    "de" => "Der Server hat unerwartet geantwortet. Details stehen in den Logs.",
+                    "it" => "Il server ha restituito una risposta inattesa. I dettagli tecnici sono nei log.",
+                    _ => "Le serveur a renvoyé une réponse inattendue. Le détail technique est disponible dans les logs."
+                }
             };
-            return $"GET {endpoint} → HTTP {(int)code} ({hint})";
         }
 
-        var msg = ex.Message ?? string.Empty;
-        if (msg.Length > 160) msg = msg.Substring(0, 157) + "…";
-        return $"{endpoint} — {msg}";
+        return lang switch
+        {
+            "en" => "This action could not be completed. Check the connection and try again.",
+            "es" => "No se pudo completar esta acción. Revisa la conexión e inténtalo de nuevo.",
+            "pt" => "Não foi possível concluir esta ação. Verifica a ligação e tenta novamente.",
+            "de" => "Diese Aktion konnte nicht abgeschlossen werden. Prüfe die Verbindung und versuche es erneut.",
+            "it" => "Non è stato possibile completare questa azione. Controlla la connessione e riprova.",
+            _ => "L'action n'a pas pu être terminée. Vérifie la connexion, puis réessaie."
+        };
+    }
+
+    private static string FormatLocalLlmUserActionError(System.Exception ex, string lang)
+    {
+        if (ex is UnauthorizedAccessException)
+            return lang switch { "en" => "Access denied. Check the file or folder permissions.", "es" => "Acceso denegado. Revisa los permisos del archivo o de la carpeta.", "pt" => "Acesso negado. Verifica as permissões do ficheiro ou da pasta.", "de" => "Zugriff verweigert. Prüfe die Datei- oder Ordnerrechte.", "it" => "Accesso negato. Controlla i permessi del file o della cartella.", _ => "Accès refusé. Vérifie les droits du fichier ou du dossier." };
+        if (ex is FileNotFoundException or DirectoryNotFoundException)
+            return lang switch { "en" => "The selected file or folder no longer exists.", "es" => "El archivo o la carpeta seleccionados ya no existen.", "pt" => "O ficheiro ou a pasta selecionados já não existem.", "de" => "Die ausgewählte Datei oder der Ordner existiert nicht mehr.", "it" => "Il file o la cartella selezionati non esistono più.", _ => "Le fichier ou le dossier sélectionné n'existe plus." };
+        if (ex is IOException)
+            return lang switch { "en" => "Windows could not access the file. Close any program using it, then try again.", "es" => "Windows no pudo acceder al archivo. Cierra el programa que lo usa e inténtalo de nuevo.", "pt" => "O Windows não conseguiu aceder ao ficheiro. Fecha o programa que o usa e tenta novamente.", "de" => "Windows konnte nicht auf die Datei zugreifen. Schließe Programme, die sie nutzen, und versuche es erneut.", "it" => "Windows non ha potuto accedere al file. Chiudi il programma che lo usa e riprova.", _ => "Windows n'a pas pu accéder au fichier. Ferme le programme qui l'utilise, puis réessaie." };
+
+        return lang switch
+        {
+            "en" => "The local assistant action failed. The technical detail was written to the logs.",
+            "es" => "La acción del asistente local falló. El detalle técnico se escribió en los logs.",
+            "pt" => "A ação do assistente local falhou. O detalhe técnico foi escrito nos logs.",
+            "de" => "Die Aktion des lokalen Assistenten ist fehlgeschlagen. Details wurden in die Logs geschrieben.",
+            "it" => "L'azione dell'assistente locale non è riuscita. I dettagli tecnici sono stati scritti nei log.",
+            _ => "L'action de l'assistant local a échoué. Le détail technique a été écrit dans les logs."
+        };
+    }
+
+    private static string BuildAdminRuntimeActionErrorDetail(System.Exception ex, string lang)
+    {
+        if (ex is TaskCanceledException)
+        {
+            return lang switch
+            {
+                "en" => "request timed out",
+                "es" => "la solicitud ha expirado",
+                "pt" => "o pedido excedeu o tempo limite",
+                "de" => "Anfrage mit Zeitueberschreitung",
+                "it" => "richiesta scaduta",
+                _ => "delai d'attente depasse"
+            };
+        }
+
+        var message = ex.Message ?? string.Empty;
+        var lower = message.ToLowerInvariant();
+        if (lower.Contains("capability_not_qualified") || lower.Contains("not_qualified"))
+            return lang switch { "en" => "this server feature has not been checked yet; run a server recheck first", "es" => "esta funcion del servidor aun no esta validada; lanza primero una revision del servidor", "pt" => "esta funcao do servidor ainda nao foi verificada; executa primeiro uma reverificacao do servidor", "de" => "diese Serverfunktion wurde noch nicht geprueft; zuerst den Server erneut pruefen", "it" => "questa funzione server non e ancora verificata; esegui prima una verifica server", _ => "cette fonction serveur n'est pas encore verifiee ; lance d'abord une verification serveur" };
+        if (lower.Contains("capability_not_selected") || lower.Contains("not_selected"))
+            return lang switch { "en" => "this server feature is checked but not enabled for execution", "es" => "esta funcion del servidor esta validada pero no activada para ejecucion", "pt" => "esta funcao do servidor esta verificada mas nao ativada para execucao", "de" => "diese Serverfunktion ist geprueft, aber nicht zur Ausfuehrung aktiviert", "it" => "questa funzione server e verificata ma non attivata per l'esecuzione", _ => "cette fonction serveur est verifiee mais pas activee pour l'execution" };
+        if (lower.Contains("capability_stale") || lower.Contains("stale"))
+            return lang switch { "en" => "the server state is outdated; refresh or repair blocked states before launching", "es" => "el estado del servidor esta obsoleto; actualiza o repara los estados bloqueados antes de lanzar", "pt" => "o estado do servidor esta obsoleto; atualiza ou repara os estados bloqueados antes de lancar", "de" => "der Serverstatus ist veraltet; vor dem Start aktualisieren oder blockierte Zustaende reparieren", "it" => "lo stato del server e obsoleto; aggiorna o ripara gli stati bloccati prima di avviare", _ => "l'etat serveur est obsolete ; actualise ou repare les etats bloques avant de demarrer" };
+        if (lower.Contains("documents_root_not_found") || lower.Contains("documents_root_not_configured"))
+            return lang switch { "en" => "the server documents folder is not configured or not reachable", "es" => "la carpeta de documentos del servidor no esta configurada o no es accesible", "pt" => "a pasta de documentos do servidor nao esta configurada ou nao esta acessivel", "de" => "der Dokumentenordner des Servers ist nicht konfiguriert oder nicht erreichbar", "it" => "la cartella documenti del server non e configurata o non e raggiungibile", _ => "le dossier documents du serveur n'est pas configure ou n'est pas accessible" };
+
+        ClientLog.Exception("AdminRuntime.Action", ex);
+        return FormatAdminLoadErrorForUser(ex, "/admin/runtime/action", lang);
     }
 
     private Border BuildDialogBadge(string badgeText)
@@ -323,6 +443,41 @@ public sealed partial class MainWindow
         return BuildDialogSurfaceCard(box, new Thickness(14, 12, 14, 12));
     }
 
+    private void ApplyDialogInputChrome(Control control)
+    {
+        var light = UseLightPalette();
+        var background = light ? UiBrush(0xF8, 0xFB, 0xFE) : UiBrush(0x19, 0x1F, 0x29);
+        var disabledBackground = light ? UiBrush(0xE8, 0xEE, 0xF5) : UiBrush(0x12, 0x17, 0x20);
+        var foreground = light ? UiBrush(0x11, 0x18, 0x27) : UiBrush(0xF5, 0xF7, 0xFB);
+        var disabledForeground = light ? UiBrush(0x5F, 0x70, 0x84) : UiBrush(0x92, 0x9A, 0xA8);
+        var border = light ? UiBrush(0xC5, 0xD0, 0xDD) : UiBrush(0x35, 0x42, 0x50);
+
+        control.Background = background;
+        control.Foreground = foreground;
+        control.BorderBrush = border;
+        control.BorderThickness = new Thickness(1);
+        control.Resources["TextControlBackground"] = background;
+        control.Resources["TextControlBackgroundPointerOver"] = background;
+        control.Resources["TextControlBackgroundFocused"] = background;
+        control.Resources["TextControlBackgroundDisabled"] = disabledBackground;
+        control.Resources["TextControlForeground"] = foreground;
+        control.Resources["TextControlForegroundPointerOver"] = foreground;
+        control.Resources["TextControlForegroundFocused"] = foreground;
+        control.Resources["TextControlForegroundDisabled"] = disabledForeground;
+        control.Resources["ComboBoxBackground"] = background;
+        control.Resources["ComboBoxBackgroundPointerOver"] = background;
+        control.Resources["ComboBoxBackgroundFocused"] = background;
+        control.Resources["ComboBoxBackgroundDisabled"] = disabledBackground;
+        control.Resources["ComboBoxForeground"] = foreground;
+        control.Resources["ComboBoxForegroundPointerOver"] = foreground;
+        control.Resources["ComboBoxForegroundFocused"] = foreground;
+        control.Resources["ComboBoxForegroundDisabled"] = disabledForeground;
+        control.Resources["CalendarDatePickerBackground"] = background;
+        control.Resources["CalendarDatePickerBackgroundPointerOver"] = background;
+        control.Resources["CalendarDatePickerForeground"] = foreground;
+        control.Resources["CalendarDatePickerForegroundDisabled"] = disabledForeground;
+    }
+
     private Button BuildDialogFooterButton(string text, bool primary = false, bool destructive = false)
     {
         var light = UseLightPalette();
@@ -345,6 +500,9 @@ public sealed partial class MainWindow
         var foreground = destructive || primary
             ? UiBrush(0xFF, 0xFF, 0xFF)
             : (light ? UiBrush(0x11, 0x18, 0x27) : UiBrush(0xF5, 0xF7, 0xFB));
+        var disabledBackground = light ? UiBrush(0xE2, 0xE8, 0xF0) : UiBrush(0x1B, 0x21, 0x2A);
+        var disabledForeground = light ? UiBrush(0x5F, 0x70, 0x84) : UiBrush(0x91, 0x9A, 0xA8);
+        var disabledBorder = light ? UiBrush(0xCF, 0xD9, 0xE6) : UiBrush(0x30, 0x38, 0x44);
 
         var button = new Button
         {
@@ -375,6 +533,9 @@ public sealed partial class MainWindow
         button.Resources["ButtonBorderBrushPressed"] = border;
         button.Resources["ButtonForegroundPointerOver"] = foreground;
         button.Resources["ButtonForegroundPressed"] = foreground;
+        button.Resources["ButtonBackgroundDisabled"] = disabledBackground;
+        button.Resources["ButtonBorderBrushDisabled"] = disabledBorder;
+        button.Resources["ButtonForegroundDisabled"] = disabledForeground;
         return button;
     }
 

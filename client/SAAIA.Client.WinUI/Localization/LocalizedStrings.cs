@@ -150,12 +150,12 @@ internal static class LocalizedStrings
             },
             ["summary_store_backoffice_unavailable"] = new(StringComparer.OrdinalIgnoreCase)
             {
-                ["fr"] = "Le serveur ne peut pas générer ce résumé réutilisable pour le moment : le LLM backoffice n'est pas disponible.",
-                ["en"] = "The server cannot generate this reusable summary right now because the backoffice LLM is unavailable.",
-                ["es"] = "El servidor no puede generar este resumen reutilizable ahora porque el LLM backoffice no está disponible.",
-                ["pt"] = "O servidor não pode gerar este resumo reutilizável agora porque o LLM backoffice não está disponível.",
-                ["de"] = "Der Server kann diese wiederverwendbare Zusammenfassung gerade nicht erstellen, weil das Backoffice-LLM nicht verfügbar ist.",
-                ["it"] = "Il server non può generare ora questo riassunto riutilizzabile perché il LLM backoffice non è disponibile."
+                ["fr"] = "Le serveur ne peut pas générer ce résumé réutilisable pour le moment : le moteur de résumés n'est pas disponible.",
+                ["en"] = "The server cannot generate this reusable summary right now because the summary engine is unavailable.",
+                ["es"] = "El servidor no puede generar este resumen reutilizable ahora porque el motor de resúmenes no está disponible.",
+                ["pt"] = "O servidor não pode gerar este resumo reutilizável agora porque o motor de resumos não está disponível.",
+                ["de"] = "Der Server kann diese wiederverwendbare Zusammenfassung gerade nicht erstellen, weil die Zusammenfassungs-Engine nicht verfügbar ist.",
+                ["it"] = "Il server non può generare ora questo riassunto riutilizzabile perché il motore dei riassunti non è disponibile."
             },
             ["summary_store_failed"] = new(StringComparer.OrdinalIgnoreCase)
             {
@@ -445,6 +445,42 @@ internal static class LocalizedStrings
                 ["pt"] = "páginas escassas",
                 ["de"] = "seiten mit wenig Text",
                 ["it"] = "pagine scarne"
+            },
+            ["source_card.indexed_chunks"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "passages indexés",
+                ["en"] = "indexed passages",
+                ["es"] = "pasajes indexados",
+                ["pt"] = "trechos indexados",
+                ["de"] = "indexierte Passagen",
+                ["it"] = "passaggi indicizzati"
+            },
+            ["source_card.rejected_chunks"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "passages écartés",
+                ["en"] = "skipped passages",
+                ["es"] = "pasajes descartados",
+                ["pt"] = "trechos ignorados",
+                ["de"] = "übersprungene Passagen",
+                ["it"] = "passaggi scartati"
+            },
+            ["source_card.rejection_reasons"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "raisons",
+                ["en"] = "reasons",
+                ["es"] = "motivos",
+                ["pt"] = "motivos",
+                ["de"] = "Gründe",
+                ["it"] = "motivi"
+            },
+            ["source_card.retrieval_review"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "contrôle index conseillé",
+                ["en"] = "index review advised",
+                ["es"] = "revisión del índice recomendada",
+                ["pt"] = "revisão do índice recomendada",
+                ["de"] = "Indexprüfung empfohlen",
+                ["it"] = "revisione indice consigliata"
             },
             ["source_card.ocr_mode.image_page"] = new(StringComparer.OrdinalIgnoreCase)
             {
@@ -743,6 +779,24 @@ internal static class LocalizedStrings
                 ["de"] = "Rev.",
                 ["it"] = "rev."
             },
+            ["source_card.heading"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "chemin",
+                ["en"] = "heading",
+                ["es"] = "ruta",
+                ["pt"] = "caminho",
+                ["de"] = "Pfad",
+                ["it"] = "percorso"
+            },
+            ["source_card.section"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "section",
+                ["en"] = "section",
+                ["es"] = "sección",
+                ["pt"] = "secção",
+                ["de"] = "Abschnitt",
+                ["it"] = "sezione"
+            },
             ["source_card.content_cards"] = new(StringComparer.OrdinalIgnoreCase)
             {
                 ["fr"] = "cartes",
@@ -781,12 +835,12 @@ internal static class LocalizedStrings
             },
             ["source_card.content_card_kind.llm"] = new(StringComparer.OrdinalIgnoreCase)
             {
-                ["fr"] = "LLM",
-                ["en"] = "LLM",
-                ["es"] = "LLM",
-                ["pt"] = "LLM",
-                ["de"] = "LLM",
-                ["it"] = "LLM"
+                ["fr"] = "assisté par serveur",
+                ["en"] = "server-assisted",
+                ["es"] = "asistido por servidor",
+                ["pt"] = "assistido pelo servidor",
+                ["de"] = "servergestützt",
+                ["it"] = "assistito dal server"
             },
             ["source_card.content_card_kind.deterministic"] = new(StringComparer.OrdinalIgnoreCase)
             {
@@ -940,6 +994,24 @@ internal static class LocalizedStrings
                 ["pt"] = "versão",
                 ["de"] = "Version",
                 ["it"] = "versione"
+            },
+            ["source_card.profile_version.llm_server"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "profil serveur IA",
+                ["en"] = "server AI profile",
+                ["es"] = "perfil IA del servidor",
+                ["pt"] = "perfil IA do servidor",
+                ["de"] = "Server-KI-Profil",
+                ["it"] = "profilo IA server"
+            },
+            ["source_card.profile_version.deterministic"] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["fr"] = "profil déterministe",
+                ["en"] = "deterministic profile",
+                ["es"] = "perfil determinista",
+                ["pt"] = "perfil determinístico",
+                ["de"] = "deterministisches Profil",
+                ["it"] = "profilo deterministico"
             },
             ["source_card.profile_matches"] = new(StringComparer.OrdinalIgnoreCase)
             {

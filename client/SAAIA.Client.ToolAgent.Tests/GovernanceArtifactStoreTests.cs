@@ -17,7 +17,7 @@ public sealed class GovernanceArtifactStoreTests
         Assert.NotNull(restored);
         Assert.Equal("llama.cpp-cuda", restored!.Runtime);
         Assert.Equal("qwen2.5-3b-instruct-q4-k-m", restored.ModelId);
-        Assert.Equal(4096, restored.CtxSize);
+        Assert.Equal(8192, restored.CtxSize);
         Assert.Equal(1024, restored.BatchSize);
         Assert.Equal(256, restored.UbatchSize);
         Assert.Equal(6, restored.ThreadsBatch);
@@ -122,7 +122,7 @@ public sealed class GovernanceArtifactStoreTests
                 item.ProfileId == "qwen25-3b-q4km-cuda-p520-interactive");
 
             Assert.Equal(GovernanceArtifactReadStatus.Ok, upgraded.Status);
-            Assert.Equal(4096, nominal.Candidate.CtxSize);
+            Assert.Equal(8192, nominal.Candidate.CtxSize);
         }
         finally
         {
@@ -911,6 +911,25 @@ public sealed class GovernanceArtifactStoreTests
         Assert.Contains("runtime_changed", runtimeDrift.Reason);
         Assert.True(modelDrift.Required);
         Assert.Contains("model_changed", modelDrift.Reason);
+    }
+
+    [Fact]
+    public void RequalificationTriggerService_requires_requalification_when_profile_contract_changes()
+    {
+        var settings = new AppSettings
+        {
+            QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile() with
+            {
+                CtxSize = 4096
+            },
+            LlamaExePath = @"C:\llm\llama-server-cuda.exe",
+            ModelId = "Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+        };
+
+        var drift = RequalificationTriggerService.EvaluateProfileDrift(settings);
+
+        Assert.True(drift.Required);
+        Assert.Contains("profile_changed", drift.Reason);
     }
 
     [Fact]

@@ -39,8 +39,31 @@ internal static class RequalificationTriggerService
                 $"model_changed:{settings.QualifiedProfile.ModelId}->{currentModelId}");
         }
 
+        var reference = WarmupProfileStore.FindProfile(settings.QualifiedProfile.ProfileId)?.Candidate;
+        if (reference is not null && HasProfileConfigurationDrift(settings.QualifiedProfile, reference))
+        {
+            return new RequalificationDecision(
+                true,
+                $"profile_changed:{settings.QualifiedProfile.ProfileId}");
+        }
+
         return new RequalificationDecision(false, "profile_unchanged");
     }
+
+    internal static bool HasProfileConfigurationDrift(QualifiedProfile stored, QualifiedProfile reference)
+        => !string.Equals(stored.ProfileId, reference.ProfileId, StringComparison.OrdinalIgnoreCase)
+           || !string.Equals(stored.Runtime, reference.Runtime, StringComparison.OrdinalIgnoreCase)
+           || !string.Equals(stored.ModelId, reference.ModelId, StringComparison.OrdinalIgnoreCase)
+           || stored.CtxSize != reference.CtxSize
+           || stored.BatchSize != reference.BatchSize
+           || stored.UbatchSize != reference.UbatchSize
+           || stored.Threads != reference.Threads
+           || stored.ThreadsBatch != reference.ThreadsBatch
+           || stored.Ngl != reference.Ngl
+           || stored.FlashAttn != reference.FlashAttn
+           || stored.Mlock != reference.Mlock
+           || !string.Equals(stored.BatteryPolicyRef, reference.BatteryPolicyRef, StringComparison.OrdinalIgnoreCase)
+           || !string.Equals(stored.FallbackProfileRef, reference.FallbackProfileRef, StringComparison.OrdinalIgnoreCase);
 
     public static RequalificationDecision EvaluateWarmupHistory(
         IReadOnlyList<WarmupResultItem> items,

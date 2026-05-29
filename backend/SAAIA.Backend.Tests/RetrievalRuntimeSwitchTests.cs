@@ -4222,6 +4222,21 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Theory]
+    [InlineData("Je cherche a avoir un plan de maintenance pour la semaine.", "balanced", true)]
+    [InlineData("I need a weekly onboarding plan from the available sources.", "balanced", true)]
+    [InlineData("Welche Option empfiehlst du fuer den Start der Wartung?", "balanced", true)]
+    [InlineData("Traduis les noms et garde les parametres en francais.", "balanced", false)]
+    [InlineData("Je veux un dossier avec options adaptees pour 15 personnes.", "balanced", false)]
+    [InlineData("Combien de vis M6 pour assembler le kit Alpha ?", "balanced", false)]
+    public void ShouldUseDocumentProfileSearchForBroadSynthesis_requires_broad_concrete_source_work(
+        string query,
+        string mode,
+        bool expected)
+    {
+        Assert.Equal(expected, RagEndpoints.ShouldUseDocumentProfileSearchForBroadSynthesis(query, mode));
+    }
+
+    [Theory]
     [InlineData("Est-ce que la sauce aux 4 fromages vient de Chefbot ou Moulinex ?", true)]
     [InlineData("Tu as la recette du boeuf bourguingnon ?", true)]
     [InlineData("Donne-moi le one pot pasta brocoli dinde bacon.", true)]

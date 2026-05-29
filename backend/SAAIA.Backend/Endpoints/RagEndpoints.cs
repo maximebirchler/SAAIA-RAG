@@ -27,6 +27,7 @@ public static class RagEndpoints
         app.MapGet("/rag/categories", CategoriesAsync);
         app.MapPost("/rag/search", SearchAsync);
         app.MapPost("/rag/query", QueryAsync);
+        app.MapPost("/admin/rag/test-retrieval", TestRetrievalAsync).RequireAdminKey();
         app.MapGet("/rag/debug/scroll", ScrollAsync).RequireAdminKey();
     }
 
@@ -83,15 +84,17 @@ ORDER BY display_order, name;
         IOptions<RagOptions> ragOpt,
         IHttpClientFactory httpFactory,
         RagSearchBulkhead searchBulkhead,
+        TeiWorkloadGovernor teiGovernor,
         RagSearchRequestDto req)
     {
+        using var interactiveTei = teiGovernor.BeginInteractiveRequest();
+        using var interactiveRetrieval = RuntimeCapabilityBRagIdleCoordinator.BeginInteractiveRetrieval(
+            ctx.RequestServices.GetService<IOptions<RuntimeGovernanceOptions>>()?.Value);
         using var admission = await searchBulkhead.AcquireAsync(ctx.RequestAborted);
         if (admission is null)
             return BuildRagSearchBusyResult(ctx, ragOpt.Value, searchBulkhead);
 
         AddRagSearchAdmissionHeaders(ctx, admission, searchBulkhead.GetSnapshot());
-        using var interactiveRetrieval = RuntimeCapabilityBRagIdleCoordinator.BeginInteractiveRetrieval(
-            ctx.RequestServices.GetService<IOptions<RuntimeGovernanceOptions>>()?.Value);
         var responseDto = await BuildSearchResponseDtoAsync(ctx, ds, ragOpt.Value, httpFactory, req);
         return Results.Ok(new
         {
@@ -111,15 +114,38 @@ ORDER BY display_order, name;
         IOptions<RagOptions> ragOpt,
         IHttpClientFactory httpFactory,
         RagSearchBulkhead searchBulkhead,
+        TeiWorkloadGovernor teiGovernor,
         RagSearchRequestDto req)
     {
+        using var interactiveTei = teiGovernor.BeginInteractiveRequest();
+        using var interactiveRetrieval = RuntimeCapabilityBRagIdleCoordinator.BeginInteractiveRetrieval(
+            ctx.RequestServices.GetService<IOptions<RuntimeGovernanceOptions>>()?.Value);
         using var admission = await searchBulkhead.AcquireAsync(ctx.RequestAborted);
         if (admission is null)
             return BuildRagSearchBusyResult(ctx, ragOpt.Value, searchBulkhead);
 
         AddRagSearchAdmissionHeaders(ctx, admission, searchBulkhead.GetSnapshot());
+        var responseDto = await BuildSearchResponseDtoAsync(ctx, ds, ragOpt.Value, httpFactory, req);
+        return Results.Ok(responseDto);
+    }
+
+    private static async Task<IResult> TestRetrievalAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        IOptions<RagOptions> ragOpt,
+        IHttpClientFactory httpFactory,
+        RagSearchBulkhead searchBulkhead,
+        TeiWorkloadGovernor teiGovernor,
+        RagSearchRequestDto req)
+    {
+        using var interactiveTei = teiGovernor.BeginInteractiveRequest();
         using var interactiveRetrieval = RuntimeCapabilityBRagIdleCoordinator.BeginInteractiveRetrieval(
             ctx.RequestServices.GetService<IOptions<RuntimeGovernanceOptions>>()?.Value);
+        using var admission = await searchBulkhead.AcquireAsync(ctx.RequestAborted);
+        if (admission is null)
+            return BuildRagSearchBusyResult(ctx, ragOpt.Value, searchBulkhead);
+
+        AddRagSearchAdmissionHeaders(ctx, admission, searchBulkhead.GetSnapshot());
         var responseDto = await BuildSearchResponseDtoAsync(ctx, ds, ragOpt.Value, httpFactory, req);
         return Results.Ok(responseDto);
     }
@@ -474,11 +500,11 @@ page_rows AS (
     pi.page_number,
     COALESCE(pi.char_count, 0)::int AS char_count,
     CASE
-      WHEN COALESCE(pi.metadata ->> 'wordCount', '') ~ '^[0-9]+$' THEN (pi.metadata ->> 'wordCount')::int
+      WHEN COALESCE(pi.metadata ->> 'wordCount', '') ~ '^[0-9]{1,9}$' THEN (pi.metadata ->> 'wordCount')::int
       ELSE 0
     END AS word_count,
     CASE
-      WHEN COALESCE(pi.metadata ->> 'imageCount', '') ~ '^[0-9]+$' THEN (pi.metadata ->> 'imageCount')::int
+      WHEN COALESCE(pi.metadata ->> 'imageCount', '') ~ '^[0-9]{1,9}$' THEN (pi.metadata ->> 'imageCount')::int
       ELSE 0
     END AS image_count
   FROM scoped_docs sd
@@ -566,7 +592,7 @@ doc_quality_base AS (
     END AS "OcrApplied",
     NULLIF(lr.payload ->> 'ocrLanguages', '') AS "OcrLanguages",
     CASE
-      WHEN COALESCE(lr.payload ->> 'ocrDurationMs', '') ~ '^[0-9]+$'
+      WHEN COALESCE(lr.payload ->> 'ocrDurationMs', '') ~ '^[0-9]{1,18}$'
         THEN (lr.payload ->> 'ocrDurationMs')::bigint
       ELSE NULL
     END AS "OcrDurationMs",
@@ -584,30 +610,30 @@ doc_quality_base AS (
       ELSE NULL
     END AS "RunOcrRecommended",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,pageCount}', '') ~ '^[0-9]+$' THEN (lr.payload #>> '{extractionQuality,pageCount}')::int ELSE NULL END,
+      CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,pageCount}', '') ~ '^[0-9]{1,9}$' THEN (lr.payload #>> '{extractionQuality,pageCount}')::int ELSE NULL END,
       pq.page_count,
       0) AS "PageCount",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,textPageCount}', '') ~ '^[0-9]+$' THEN (lr.payload #>> '{extractionQuality,textPageCount}')::int ELSE NULL END,
+      CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,textPageCount}', '') ~ '^[0-9]{1,9}$' THEN (lr.payload #>> '{extractionQuality,textPageCount}')::int ELSE NULL END,
       pq.text_page_count,
       0) AS "TextPageCount",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,emptyPageCount}', '') ~ '^[0-9]+$' THEN (lr.payload #>> '{extractionQuality,emptyPageCount}')::int ELSE NULL END,
+      CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,emptyPageCount}', '') ~ '^[0-9]{1,9}$' THEN (lr.payload #>> '{extractionQuality,emptyPageCount}')::int ELSE NULL END,
       pq.empty_page_count,
       0) AS "EmptyPageCount",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,sparsePageCount}', '') ~ '^[0-9]+$' THEN (lr.payload #>> '{extractionQuality,sparsePageCount}')::int ELSE NULL END,
+      CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,sparsePageCount}', '') ~ '^[0-9]{1,9}$' THEN (lr.payload #>> '{extractionQuality,sparsePageCount}')::int ELSE NULL END,
       pq.sparse_page_count,
       0) AS "SparsePageCount",
     COALESCE(pq.image_page_count, 0) AS "ImagePageCount",
     COALESCE(pq.page_warning_count, 0) AS "PageWarningCount",
     COALESCE(pq.page_review_recommended_count, 0) AS "PageReviewRecommendedCount",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,totalWordCount}', '') ~ '^[0-9]+$' THEN (lr.payload #>> '{extractionQuality,totalWordCount}')::int ELSE NULL END,
+      CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,totalWordCount}', '') ~ '^[0-9]{1,9}$' THEN (lr.payload #>> '{extractionQuality,totalWordCount}')::int ELSE NULL END,
       pq.total_word_count,
       0) AS "TotalWordCount",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,totalCharCount}', '') ~ '^[0-9]+$' THEN (lr.payload #>> '{extractionQuality,totalCharCount}')::int ELSE NULL END,
+      CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,totalCharCount}', '') ~ '^[0-9]{1,9}$' THEN (lr.payload #>> '{extractionQuality,totalCharCount}')::int ELSE NULL END,
       pq.total_char_count,
       0) AS "TotalCharCount",
     CASE
@@ -619,7 +645,8 @@ doc_quality_base AS (
       WHEN (COALESCE(pq.total_word_count, 0)::double precision / GREATEST(COALESCE(pq.page_count, 0), 1)) < 10 THEN 'low_text'
       ELSE 'ok'
     END AS "ComputedTextStatus",
-    lr.payload #>> '{extractionQuality,signals}' AS "RunSignalsJson"
+    lr.payload #>> '{extractionQuality,signals}' AS "RunSignalsJson",
+    (lr.payload -> 'retrievalChunkQuality')::text AS "RetrievalChunkQualityJson"
   FROM scoped_docs sd
   LEFT JOIN latest_runs lr ON lr.doc_id=sd.doc_id
   LEFT JOIN page_quality pq ON pq.doc_id=sd.doc_id
@@ -702,7 +729,8 @@ SELECT
   "PageReviewRecommendedCount",
   "TextStatus",
   "OcrRecommended",
-  "SignalsJson"
+  "SignalsJson",
+  "RetrievalChunkQualityJson"
 FROM doc_quality_scored;
 """;
 
@@ -731,11 +759,11 @@ SELECT
   pi.page_number AS "PageNumber",
   COALESCE(pi.char_count, 0)::int AS "CharCount",
   CASE
-    WHEN COALESCE(pi.metadata ->> 'wordCount', '') ~ '^[0-9]+$' THEN (pi.metadata ->> 'wordCount')::int
+    WHEN COALESCE(pi.metadata ->> 'wordCount', '') ~ '^[0-9]{1,9}$' THEN (pi.metadata ->> 'wordCount')::int
     ELSE 0
   END AS "WordCount",
   CASE
-    WHEN COALESCE(pi.metadata ->> 'imageCount', '') ~ '^[0-9]+$' THEN (pi.metadata ->> 'imageCount')::int
+    WHEN COALESCE(pi.metadata ->> 'imageCount', '') ~ '^[0-9]{1,9}$' THEN (pi.metadata ->> 'imageCount')::int
     ELSE 0
   END AS "ImageCount",
   COALESCE(uc.unit_count, 0) AS "UnitCount",
@@ -1187,6 +1215,21 @@ WHERE d.tenant_id=@tenant
             multiplier *= Math.Clamp(1.0 - (chunkPenalty * 0.0125), 0.70, 1.0);
         selectionPenalty += Math.Min(10, chunkPenalty);
 
+        var retrievalChunkQuality = quality.DiagnosticSummary?.RetrievalChunkQuality;
+        var retrievalHasNoSearchableChunks =
+            retrievalChunkQuality is not null
+            && retrievalChunkQuality.SearchableChunkCount == 0
+            && (retrievalChunkQuality.TotalChunkCount.GetValueOrDefault() > 0
+                || retrievalChunkQuality.RejectedChunkCount.GetValueOrDefault() > 0);
+        var retrievalReviewRecommended =
+            retrievalChunkQuality?.ManualReviewRecommended == true
+            || retrievalHasNoSearchableChunks;
+        if (retrievalReviewRecommended)
+        {
+            selectionPenalty += 3;
+            multiplier *= 0.94;
+        }
+
         return new RagRetrievalQualityScore(
             SelectionPenalty: Math.Clamp(selectionPenalty, 0, 24),
             ChunkPenalty: chunkPenalty,
@@ -1194,7 +1237,8 @@ WHERE d.tenant_id=@tenant
             ScoreOffset: 0.0,
             ManualReviewRecommended: quality.DocumentManualReviewRecommended == true
                 || quality.PageManualReviewRecommended == true
-                || manualReviewStatus,
+                || manualReviewStatus
+                || retrievalReviewRecommended,
             OcrLikelyNeeded: ocrLikelyNeeded);
     }
 
@@ -1415,6 +1459,7 @@ WHERE d.tenant_id=@tenant
     private static RagItemExtractionDiagnosticSummaryDto? BuildRagExtractionDiagnosticSummary(RagExtractionDocumentQualityRow row)
     {
         var ocrDiagnostics = ParseRagOcrDiagnostics(row.OcrDiagnosticsJson);
+        var retrievalChunkQuality = BuildRagRetrievalChunkQuality(row.RetrievalChunkQualityJson);
         var summary = new RagItemExtractionDiagnosticSummaryDto(
             NativeTextStatus: NullIfWhiteSpace(row.NativeTextStatus),
             NativeOcrRecommended: row.NativeOcrRecommended,
@@ -1433,7 +1478,8 @@ WHERE d.tenant_id=@tenant
             SparsePageCount: row.PageCount > 0 ? row.SparsePageCount : null,
             ImagePageCount: PositiveOrNull(row.ImagePageCount),
             PageWarningCount: PositiveOrNull(row.PageWarningCount),
-            PageReviewRecommendedCount: PositiveOrNull(row.PageReviewRecommendedCount));
+            PageReviewRecommendedCount: PositiveOrNull(row.PageReviewRecommendedCount),
+            RetrievalChunkQuality: retrievalChunkQuality);
 
         return HasRagExtractionDiagnosticValue(summary) ? summary : null;
     }
@@ -1453,7 +1499,66 @@ WHERE d.tenant_id=@tenant
            || summary.PageCount is not null
            || summary.ImagePageCount is not null
            || summary.PageWarningCount is not null
-           || summary.PageReviewRecommendedCount is not null;
+           || summary.PageReviewRecommendedCount is not null
+           || summary.RetrievalChunkQuality is not null;
+
+    private static RagItemRetrievalChunkQualityDto? BuildRagRetrievalChunkQuality(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json) || string.Equals(json, "null", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+                return null;
+
+            var reasons = ReadRagRetrievalChunkRejectionReasons(root);
+            var summary = new RagItemRetrievalChunkQualityDto(
+                TotalChunkCount: NonNegativeOrNull(GetRagJsonInt(root, "totalChunkCount")),
+                SearchableChunkCount: NonNegativeOrNull(GetRagJsonInt(root, "searchableChunkCount")),
+                RejectedChunkCount: NonNegativeOrNull(GetRagJsonInt(root, "rejectedChunkCount")),
+                ManualReviewRecommended: GetRagJsonBool(root, "manualReviewRecommended"),
+                RejectionReasons: reasons.Count == 0 ? null : reasons);
+
+            return HasRagRetrievalChunkQualityValue(summary) ? summary : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static Dictionary<string, int> ReadRagRetrievalChunkRejectionReasons(JsonElement root)
+    {
+        var result = new Dictionary<string, int>(StringComparer.Ordinal);
+        if (!root.TryGetProperty("rejectionReasons", out var reasons) || reasons.ValueKind != JsonValueKind.Object)
+            return result;
+
+        foreach (var property in reasons.EnumerateObject())
+        {
+            var value = property.Value.ValueKind == JsonValueKind.Number && property.Value.TryGetInt32(out var count)
+                ? count
+                : property.Value.ValueKind == JsonValueKind.String && int.TryParse(property.Value.GetString(), out count)
+                    ? count
+                    : 0;
+            if (value > 0 && property.Name.Length <= 80)
+                result[property.Name] = value;
+        }
+
+        return result;
+    }
+
+    private static bool HasRagRetrievalChunkQualityValue(RagItemRetrievalChunkQualityDto summary)
+        => summary.TotalChunkCount.HasValue
+           || summary.SearchableChunkCount.HasValue
+           || summary.RejectedChunkCount.HasValue
+           || summary.ManualReviewRecommended.HasValue
+           || summary.RejectionReasons is { Count: > 0 };
+
+    private static int? NonNegativeOrNull(int? value)
+        => value is >= 0 ? value : null;
 
     private static RagOcrDiagnosticsSummary ParseRagOcrDiagnostics(string? json)
     {
@@ -1687,6 +1792,7 @@ ORDER BY d.doc_path;
     {
         var tenantId = ctx.GetTenantId();
         var ct = ctx.RequestAborted;
+        var teiGovernor = ctx.RequestServices.GetService<TeiWorkloadGovernor>();
 
         if (string.IsNullOrWhiteSpace(req.Query))
             throw new BadHttpRequestException("query is required");
@@ -2188,7 +2294,8 @@ ORDER BY d.doc_path;
                         qdrantMsRef: value => qdrantMs = value,
                         qdrantStatusRef: value => qdrantStatus = value,
                         categoryPath: categoryPath,
-                        degradedRetrieverRef: MarkRetrieverDegraded),
+                        degradedRetrieverRef: MarkRetrieverDegraded,
+                        teiGovernor: teiGovernor),
                     getReturnedCount: static matches => matches.Count);
             var skipDocumentProfileSearchForPreciseLookup =
                 !skipChunkRetrieversForDocumentOverview
@@ -2321,7 +2428,8 @@ ORDER BY d.doc_path;
                         retrievalQuery,
                         fusedMatches,
                         ct,
-                        rerankMsRef: value => rerankMs = value),
+                        rerankMsRef: value => rerankMs = value,
+                        teiGovernor: teiGovernor),
                     getReturnedCount: static attempt => attempt.Matches.Count);
                 rerankPhaseMs += measuredRerankPhaseMs;
                 if (rerankAttempt.Applied)
@@ -3899,7 +4007,8 @@ ORDER BY d.doc_path;
                         qdrantMsRef: value => qdrantMs += value,
                         qdrantStatusRef: value => qdrantStatus = value,
                         categoryPath: categoryPath,
-                        degradedRetrieverRef: MarkRetrieverDegraded));
+                        degradedRetrieverRef: MarkRetrieverDegraded,
+                        teiGovernor: teiGovernor));
 
                     return recovery
                         .GroupBy(BuildMatchDedupKey, StringComparer.OrdinalIgnoreCase)
@@ -4006,7 +4115,8 @@ ORDER BY d.doc_path;
                             qdrantMsRef: value => qdrantMs += value,
                             qdrantStatusRef: value => qdrantStatus = value,
                             categoryPath: categoryPath,
-                            degradedRetrieverRef: MarkRetrieverDegraded));
+                            degradedRetrieverRef: MarkRetrieverDegraded,
+                            teiGovernor: teiGovernor));
                     }
 
                     return recovery
@@ -4198,7 +4308,8 @@ ORDER BY d.doc_path;
                                     qdrantMsRef: value => qdrantMs += value,
                                     qdrantStatusRef: value => qdrantStatus = value,
                                     categoryPath: categoryPath,
-                                    degradedRetrieverRef: MarkRetrieverDegraded));
+                                    degradedRetrieverRef: MarkRetrieverDegraded,
+                                    teiGovernor: teiGovernor));
                             }
 
                             return backfill
@@ -4744,7 +4855,8 @@ ORDER BY d.doc_path;
                             qdrantMsRef: value => qdrantMs += value,
                             qdrantStatusRef: value => qdrantStatus = value,
                             categoryPath: categoryPath,
-                            degradedRetrieverRef: MarkRetrieverDegraded));
+                            degradedRetrieverRef: MarkRetrieverDegraded,
+                            teiGovernor: teiGovernor));
                     }
 
                     return recovery
@@ -5318,6 +5430,9 @@ ORDER BY d.doc_path;
         }
 
         var normalized = " " + FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant() + " ";
+        if (ShouldUseDocumentProfileSearchForBroadSynthesis(query, mode, normalized))
+            return false;
+
         return ContainsDocumentOverviewIntent(query)
             || ContainsExplicitBroadScopedSynthesisIntent(normalized)
             || ContainsBroadScopedSynthesisIntent(normalized)
@@ -5340,6 +5455,8 @@ ORDER BY d.doc_path;
         var normalized = " " + FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant() + " ";
         if (ShouldAllowDocumentProfileAssistForComparativeLookup(query))
             return false;
+        if (ShouldUseDocumentProfileSearchForBroadSynthesis(query, mode, normalized))
+            return false;
 
         return ContainsExplicitBroadScopedSynthesisIntent(normalized)
             || ContainsBroadScopedSynthesisIntent(normalized)
@@ -5347,6 +5464,107 @@ ORDER BY d.doc_path;
             || ContainsQuantityComputationIntent(normalized)
             || (string.Equals(mode, "broad", StringComparison.Ordinal) && ShouldPreferDocumentDiversity(query));
     }
+
+    internal static bool ShouldUseDocumentProfileSearchForBroadSynthesis(string query, string mode)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return false;
+
+        var normalized = " " + FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant() + " ";
+        return ShouldUseDocumentProfileSearchForBroadSynthesis(query, mode, normalized);
+    }
+
+    private static bool ShouldUseDocumentProfileSearchForBroadSynthesis(string query, string mode, string normalized)
+    {
+        if (string.IsNullOrWhiteSpace(query)
+            || string.Equals(mode, "focused", StringComparison.Ordinal)
+            || ExtractQuotedLookupPhrases(query).Count > 0
+            || ContainsUnsupportedClaimVerificationIntent(normalized)
+            || ContainsQuantityComputationIntent(normalized)
+            || ContainsAny(
+                normalized,
+                " traduis ",
+                " traduire ",
+                " translate ",
+                " traduce ",
+                " traducir ",
+                " traduz ",
+                " traduzir ",
+                " ubersetze ",
+                " uebersetze "))
+        {
+            return false;
+        }
+
+        if (HasReferenceLikeQueryToken(query)
+            && !ShouldAllowReferenceLikeComparativeDiversity(query, normalized))
+        {
+            return false;
+        }
+
+        var hasBroadSynthesisIntent = ContainsExplicitBroadScopedSynthesisIntent(normalized)
+            || ContainsBroadScopedSynthesisIntent(normalized)
+            || ContainsSituationalBroadSelectionIntent(normalized)
+            || IsRecommendationSelectionQuery(normalized);
+        if (!hasBroadSynthesisIntent)
+            return false;
+
+        var concreteTokenCount = CountConcreteDocumentProfileSynthesisTokens(query);
+        if (concreteTokenCount >= 2)
+            return true;
+
+        return concreteTokenCount >= 1
+            && (ContainsPlanningOrScheduleIntent(normalized) || IsRecommendationSelectionQuery(normalized));
+    }
+
+    private static int CountConcreteDocumentProfileSynthesisTokens(string query)
+        => BuildDocumentProfileSpecificityTokens(query)
+            .Where(static token => !BroadDiversityGenericSubjectTokens.Contains(token))
+            .Where(static token => !BroadDiversityAbstractAssistTokens.Contains(token))
+            .Where(static token => !DocumentOverviewTopicStopwords.Contains(token))
+            .Where(static token => !PrimaryAnchorStopwords.Contains(token))
+            .Where(static token => !SpecificAnchorStopwords.Contains(token))
+            .Where(static token => !ComparativeSubjectStopwords.Contains(token))
+            .Where(static token => !IsGenericDocumentProfileSpecificityToken(token))
+            .Where(static token => !IsGenericBroadSynthesisToken(token))
+            .Distinct(StringComparer.Ordinal)
+            .Count();
+
+    private static bool ContainsPlanningOrScheduleIntent(string normalized)
+        => ContainsAny(
+            normalized,
+            " plan ",
+            " planning ",
+            " planifier ",
+            " programme ",
+            " programmer ",
+            " organiser ",
+            " organise ",
+            " schedule ",
+            " agenda ",
+            " weekly ",
+            " week ",
+            " semaine ",
+            " semanal ",
+            " semana ",
+            " settimanale ",
+            " settimana ",
+            " wochenplan ",
+            " woche ",
+            " rotation ",
+            " wochenplan ");
+
+    private static bool IsGenericBroadSynthesisToken(string token)
+        => token is "adapte" or "adaptee" or "adaptees" or "adapter" or "adapted" or "adaptar" or "adequado" or "adequada"
+            or "option" or "options" or "opcion" or "opciones" or "opcao" or "opcoes" or "opzione" or "opzioni"
+            or "dossier" or "dossiers" or "personne" or "personnes" or "people" or "usuarios" or "utilisateurs"
+            or "plan" or "planning" or "programme" or "schedule" or "agenda" or "rotation"
+            or "semaine" or "weekly" or "semana" or "settimanale" or "woche"
+            or "menu" or "menus" or "complet" or "complete"
+            or "mode" or "modes" or "utilisant" or "using" or "concus" or "concu" or "designed"
+            or "rends" or "robuste" or "pretendre" or "officiel" or "official"
+            or "propose" or "proposer" or "recommend" or "recommande" or "conseille" or "choisir" or "choice"
+            or "utile" or "utiles" or "useful" or "disponible" or "disponibles" or "available";
 
     internal static bool ShouldTreatAsBroadDiversityQuery(string query)
     {
@@ -13165,7 +13383,8 @@ LIMIT @candidate_limit;
         Action<long> qdrantMsRef,
         Action<int> qdrantStatusRef,
         string? categoryPath = null,
-        Action<string, string?>? degradedRetrieverRef = null)
+        Action<string, string?>? degradedRetrieverRef = null,
+        TeiWorkloadGovernor? teiGovernor = null)
     {
         var tei = httpFactory.CreateClient("tei");
         tei.BaseAddress = new Uri(rag.EmbeddingsBaseUrl);
@@ -13185,6 +13404,9 @@ LIMIT @candidate_limit;
             denseEmbeddingCts?.CancelAfter(TimeSpan.FromSeconds(denseEmbeddingTimeoutSeconds));
             var denseEmbeddingToken = denseEmbeddingCts?.Token ?? ct;
 
+            using var teiLease = teiGovernor is null
+                ? null
+                : await teiGovernor.AcquireInteractiveAsync(denseEmbeddingToken);
             emb = await TeiClient.EmbedAsync(tei, rag.EmbeddingsModel, [queryEmbeddingInput], denseEmbeddingToken);
             swTei.Stop();
             teiMsRef(swTei.ElapsedMilliseconds);
@@ -13341,7 +13563,8 @@ LIMIT @candidate_limit;
         string query,
         IReadOnlyList<RagMatch> candidates,
         CancellationToken ct,
-        Action<long> rerankMsRef)
+        Action<long> rerankMsRef,
+        TeiWorkloadGovernor? teiGovernor = null)
     {
         if (!rag.EnableRerank || candidates.Count <= 1)
         {
@@ -13364,6 +13587,9 @@ LIMIT @candidate_limit;
         var sw = Stopwatch.StartNew();
         try
         {
+            using var teiLease = teiGovernor is null
+                ? null
+                : await teiGovernor.AcquireInteractiveAsync(ct);
             var reranked = await TeiClient.RerankAsync(tei, rag.RerankModel, query, texts, ct);
             return new RerankAttempt(ApplyRerankScores(candidates, reranked, rerankSlice.Count), Applied: true);
         }
@@ -18939,6 +19165,7 @@ GROUP BY d.doc_id;
         public string TextStatus { get; set; } = "unknown";
         public bool OcrRecommended { get; set; }
         public string? SignalsJson { get; set; }
+        public string? RetrievalChunkQualityJson { get; set; }
     }
 
     private sealed class RagExtractionPageQualityRow
@@ -28364,12 +28591,41 @@ LIMIT @top_k;
                 " recommandes ",
                 " recommendation ",
                 " recommendations ",
+                " recomendar ",
+                " recomienda ",
+                " recomiendas ",
+                " sugerir ",
+                " sugiere ",
+                " elegir ",
+                " escolha ",
+                " escolher ",
+                " recomenda ",
+                " recomendas ",
+                " suggerire ",
+                " suggerisci ",
+                " consiglia ",
+                " consigliare ",
+                " scegliere ",
+                " scegli ",
+                " empfiehl ",
+                " empfiehlst ",
+                " empfehlen ",
+                " empfehlung ",
+                " raten ",
                 " adaptee ",
                 " adaptees ",
                 " adapte ",
                 " adaptes ",
+                " adecuado ",
+                " adecuada ",
+                " adequadas ",
+                " adequado ",
+                " adatto ",
+                " adatta ",
+                " geeignet ",
                 " suitable ",
                 " best ",
+                " beste ",
                 " meilleur ",
                 " meilleure ",
                 " meilleurs ",

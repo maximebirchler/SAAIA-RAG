@@ -286,7 +286,6 @@
                     Background="Transparent"
                     BorderThickness="0"
                     Click="ChatsToggle_Click"
-                    ToolTipService.ToolTip="Chats"
                     Style="{StaticResource AppIconButtonStyle}"
                     IsTabStop="False">
                 <FontIcon Glyph="&#xE700;" FontSize="18" />
@@ -305,41 +304,24 @@
                         BorderThickness="0"
                         Padding="0"
                         Click="SetupWizard_Click"
-                        ToolTipService.ToolTip="Configuration"
                         Style="{StaticResource AppIconButtonStyle}"
                         Visibility="Collapsed"
                         IsTabStop="False">
                     <FontIcon Glyph="&#xE90F;" FontSize="18" />
                 </Button>
 
-                <Button x:Name="HeaderJobsButton"
+                <Button x:Name="HeaderAdminConsoleButton"
                         Width="40"
                         Height="40"
                         Margin="0,0,0,0"
                         Background="Transparent"
                         BorderThickness="0"
                         Padding="0"
-                        Click="HeaderJobsButton_Click"
-                        ToolTipService.ToolTip="Jobs admin"
+                        Click="HeaderAdminConsoleButton_Click"
                         Style="{StaticResource AppIconButtonStyle}"
                         Visibility="Collapsed"
                         IsTabStop="False">
                     <FontIcon Glyph="&#xE821;" FontSize="18" />
-                </Button>
-
-                <Button x:Name="HeaderRuntimeButton"
-                        Width="40"
-                        Height="40"
-                        Margin="0,0,0,0"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Padding="0"
-                        Click="HeaderRuntimeButton_Click"
-                        ToolTipService.ToolTip="Pilotage runtime"
-                        Style="{StaticResource AppIconButtonStyle}"
-                        Visibility="Collapsed"
-                        IsTabStop="False">
-                    <FontIcon Glyph="&#xE9CE;" FontSize="18" />
                 </Button>
 
                 <Button x:Name="HeaderHelpButton"
@@ -350,8 +332,8 @@
                         BorderThickness="0"
                         Padding="0"
                         Click="HelpButton_Click"
-                        ToolTipService.ToolTip="Aide"
                         Style="{StaticResource AppIconButtonStyle}"
+                        Visibility="Collapsed"
                         IsTabStop="False">
                     <TextBlock Text="?" FontSize="18" FontWeight="SemiBold" />
                 </Button>
@@ -367,7 +349,6 @@
                         BorderThickness="0"
                         Padding="8"
                         Click="UserSettings_Click"
-                        ToolTipService.ToolTip="Paramètres"
                         Style="{StaticResource AppIconButtonStyle}"
                         IsTabStop="False">
                     <FontIcon Glyph="&#xE713;" FontSize="19" />
@@ -394,14 +375,14 @@
                 <ColumnDefinition Width="2*"/>
                 <ColumnDefinition Width="1.2*"/>
                 <ColumnDefinition Width="Auto"/> <!-- Connect -->
-                <ColumnDefinition Width="Auto"/> <!-- LLM -->
+                <ColumnDefinition Width="Auto"/> <!-- Local assistant -->
                 <ColumnDefinition Width="Auto"/> <!-- Sources -->
             </Grid.ColumnDefinitions>
 
             <TextBlock x:Name="ServerUrlLabelText" Grid.Row="0" Grid.Column="0" Text="Server URL" FontWeight="SemiBold" Visibility="Collapsed"/>
             <TextBlock x:Name="ApiKeyLabelText" Grid.Row="0" Grid.Column="1" Text="API Key (X-Api-Key)" FontWeight="SemiBold" Visibility="Collapsed"/>
-            <TextBlock x:Name="LlmUrlLabelText" Grid.Row="0" Grid.Column="2" Text="LLM URL (OpenAI compat)" FontWeight="SemiBold" Visibility="Collapsed"/>
-            <TextBlock x:Name="LlmModelLabelText" Grid.Row="0" Grid.Column="3" Text="LLM Model" FontWeight="SemiBold" Visibility="Collapsed"/>
+            <TextBlock x:Name="LlmUrlLabelText" Grid.Row="0" Grid.Column="2" Text="Assistant URL" FontWeight="SemiBold" Visibility="Collapsed"/>
+            <TextBlock x:Name="LlmModelLabelText" Grid.Row="0" Grid.Column="3" Text="Assistant model" FontWeight="SemiBold" Visibility="Collapsed"/>
 
             <TextBox Grid.Row="1" Grid.Column="0" x:Name="ServerUrlBox" IsReadOnly="True" Visibility="Collapsed"/>
             <PasswordBox Grid.Row="1" Grid.Column="1" x:Name="ApiKeyBox" Visibility="Collapsed"/>
@@ -433,7 +414,7 @@
 
                 <Button
                                     x:Name="LlmSettingsButton"
-                                    Content="LLM"
+                                    Content="Assistant"
                                     MinWidth="80"
                                     VerticalAlignment="Bottom"
                                     Visibility="Collapsed">
@@ -444,10 +425,10 @@
                                                       VerticalScrollBarVisibility="Auto">
                                             <StackPanel Spacing="10" Padding="12">
                 
-                                                <TextBlock x:Name="LocalLlmPanelTitleText" Text="Local LLM (llama.cpp)" FontWeight="SemiBold" FontSize="16"/>
+                                                <TextBlock x:Name="LocalLlmPanelTitleText" Text="Local assistant (llama.cpp)" FontWeight="SemiBold" FontSize="16"/>
                 
-                                                <CheckBox x:Name="LocalLlmEnabledCheck" Content="Enable local LLM (llama.cpp)" />
-                                                <CheckBox x:Name="LocalLlmAutoStartCheck" Content="Auto-start local LLM on Connect" />
+                                                <CheckBox x:Name="LocalLlmEnabledCheck" Content="Enable local assistant (llama.cpp)" />
+                                                <CheckBox x:Name="LocalLlmAutoStartCheck" Content="Auto-start local assistant on Connect" />
                 
                                                 <TextBlock x:Name="LocalLlmExeLabelText" Text="Server executable (llama-server.exe)" FontWeight="SemiBold"/>
                                                 <TextBox x:Name="LocalLlmExePathBox" PlaceholderText="C:\SAAIA\llm\llama-server.exe"/>
@@ -500,7 +481,7 @@
                                                     <Button x:Name="LocalLlmStartButton" Content="Start now" Click="LocalLlmStart_Click" MinWidth="110"/>
                                                     <Button x:Name="LocalLlmStopButton" Content="Stop" Click="LocalLlmStop_Click" MinWidth="80"/>
                                                     <Button x:Name="LocalLlmSaveButton" Content="Save" Click="LocalLlmSave_Click" MinWidth="80"/>
-                                                    <Button x:Name="LocalLlmRuntimeDiagnosticsButton" Content="Diagnostic runtime" Click="LocalLlmRuntimeDiagnostics_Click" MinWidth="160"/>
+                                                    <Button x:Name="LocalLlmRuntimeDiagnosticsButton" Content="Diagnostic de l'assistant" Click="LocalLlmRuntimeDiagnostics_Click" MinWidth="160"/>
                                                 </StackPanel>
                 
                                                 <TextBlock x:Name="LocalLlmStatusText" Opacity="0.8" TextWrapping="Wrap"/>
@@ -715,7 +696,6 @@
                                 Height="44"
                                 HorizontalAlignment="Right"
                                 VerticalAlignment="Bottom"
-                                ToolTipService.ToolTip="Envoyer"
                                 IsTabStop="False"
                                 CornerRadius="14"
                                 Padding="0"

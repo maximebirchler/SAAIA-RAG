@@ -1422,3 +1422,364 @@ Une reponse est consideree bonne si :
 - [!] Le multilingue retrieval FR<->EN doit etre teste serieusement.
 - [!] Nettoyage Git et nettoyage serveur doivent etre faits prudemment pour ne pas supprimer des sources utiles.
 - [!] Les 31 themes futurs vont exposer des cas que Cuisine ne couvre pas.
+
+---
+
+## 17. Update 2026-05-28 - analyse projets RAG externes, writer libre et observabilite
+
+### 17.1 Verdict architecture
+
+- [x] Conserver l'architecture SAAIA existante : client Windows avec LLM local pour le chat utilisateur, backend serveur pour ingestion/RAG/backoffice, LLM serveur strictement backoffice.
+- [x] Ne pas repartir de zero : SAAIA possede deja un contrat RAG riche, une ingestion avancee, des profils documentaires, des content cards, des signaux OCR/qualite et un ToolAgent prudent.
+- [ ] Rendre ces signaux observables, testables et pilotables au lieu de creer un nouveau `EvidencePack` concurrent.
+- [ ] Appliquer le principe directeur : sources strictes, redaction libre.
+
+### 17.2 Inspirations externes a reprendre
+
+- [ ] RAGFlow :
+  - ingestion avancee ;
+  - chunking parent-child ;
+  - parsing PDF/OCR/layout ;
+  - tests retrieval ;
+  - contexte table/image/section ;
+  - extraction de table des matieres en signal documentaire.
+- [ ] Dify :
+  - retrieval lab administrable ;
+  - test de requete avec chunks, scores, seuils, rerank et citations ;
+  - parent-child retrieval ;
+  - metadonnees et filtrage query-time.
+- [ ] Open WebUI :
+  - configuration RAG pragmatique ;
+  - hybrid search BM25 + vecteur ;
+  - rerank configurable ;
+  - seuils, topK, citations, reindex.
+- [ ] paperless-gpt :
+  - OCR/enrichissement documentaire securise ;
+  - modes `append`, `update`, `replace` ;
+  - prompts configurables mais gouvernes ;
+  - validation manuelle ;
+  - garde-fous avant actions destructives.
+- [ ] Haystack :
+  - pipeline explicite, testable et tracable ;
+  - composants converter/cleaner/splitter/retriever/ranker/evaluator.
+- [ ] AnythingLLM :
+  - provenance/resync documents ;
+  - separation source brute, chunks et metadonnees.
+- [~] paperless-ai :
+  - conserver les idees de workflow auto/manual, regles de traitement et chat documentaire ;
+  - ne pas le prendre comme base produit car projet indique comme non maintenu.
+
+Sources consultees :
+
+- `https://github.com/icereed/paperless-gpt`
+- `https://github.com/clusterzx/paperless-ai`
+- `https://docs.dify.ai/en/use-dify/knowledge`
+- `https://github.com/infiniflow/ragflow`
+- `https://docs.openwebui.com/features/chat-conversations/rag/`
+- `https://haystack.deepset.ai/`
+- `https://github.com/Mintplex-Labs/anything-llm`
+
+### 17.3 Ce que SAAIA a deja et doit capitaliser
+
+- [x] Contrat RAG riche dans `contracts/SAAIA.Contracts/ApiContracts.cs` :
+  - timings TEI/Qdrant/rerank ;
+  - qualite extraction/OCR ;
+  - content cards ;
+  - selection hints ;
+  - source hash ;
+  - pages ;
+  - chunks ;
+  - signaux de provenance.
+- [x] Ingestion deja fortement instrumentee dans `backend/SAAIA.Backend/Ingestion/DocumentFoundationRepo.cs` :
+  - qualite OCR/page/chunk ;
+  - artefacts de revision ;
+  - profils documentaires ;
+  - content cards ;
+  - diagnostics extraction.
+- [x] ToolAgent deja capable de :
+  - `rag.multi_search` ;
+  - prudence source-backed ;
+  - fallback sans hallucination ;
+  - propagation de nombreuses metadonnees sources.
+- [~] Console admin en cours :
+  - utile mais encore trop eclatee ;
+  - a transformer en vrai RAG Workbench coherent.
+
+### 17.4 Vrai manque identifie
+
+- [!] Le probleme principal n'est pas "le LLM est nul".
+- [!] Le probleme principal est que le writer recoit parfois un paquet de preuves trop pauvre, trop redondant, trop peu diversifie ou trop mal controle.
+- [ ] Avant le writer, verifier automatiquement :
+  - nombre de sources utiles ;
+  - diversite documents/pages/chunks ;
+  - presence des elements demandes ;
+  - qualite extraction/OCR ;
+  - contenu reel vs navigation/sommaire/index ;
+  - risque de repetition excessive ;
+  - coherence avec la forme attendue de la question.
+- [ ] Si une demande large exige de nombreux elements distincts, ne pas laisser le writer remplir par repetition ou extrapolation.
+- [ ] Si les preuves sont insuffisantes :
+  - relancer une recherche elargie ;
+  - utiliser profils, content cards, categories et contexte parent ;
+  - si toujours insuffisant, expliquer clairement la limite et proposer une recherche etendue.
+
+### 17.5 RAG Diagnostics / Retrieval Lab
+
+- [ ] Ajouter une page admin "Test Retrieval" dans la console admin.
+- [ ] Pour une requete donnee, afficher :
+  - requete originale ;
+  - expansions ;
+  - langue detectee ;
+  - categorie/corpus utilise ;
+  - exact match ;
+  - sparse/BM25 ;
+  - dense/Qdrant ;
+  - RRF/fusion ;
+  - rerank ;
+  - autocut ;
+  - candidats gardes ;
+  - candidats rejetes ;
+  - raison de selection/rejet ;
+  - score dense ;
+  - score lexical ;
+  - score rerank ;
+  - source ;
+  - page ;
+  - chunk ;
+  - section/parent ;
+  - timings TEI/Qdrant/rerank ;
+  - paquet de preuves final envoye au client/writer.
+- [ ] Ajouter une vue "Chunks" :
+  - `chunk_text` ;
+  - `contextual_text` ;
+  - page ;
+  - section ;
+  - type logique ;
+  - qualite ;
+  - OCR ;
+  - source hash ;
+  - content cards liees.
+- [ ] Ajouter une vue "documents faibles" :
+  - sans profil ;
+  - sans content cards ;
+  - OCR faible ;
+  - trop de chunks rejetes ;
+  - doublons probables ;
+  - table des matieres/index dominants.
+
+### 17.6 Evidence Gate avant Writer
+
+- [ ] Ajouter un `SourceBackedEvidenceGate` generique avant l'appel writer.
+- [ ] Mesurer :
+  - sources utiles ;
+  - documents distincts ;
+  - pages distinctes ;
+  - chunks distincts ;
+  - actionability/support score ;
+  - roles `actionable_item`, `supporting_context`, `advisory`, `navigation`, `low_confidence` ;
+  - qualite OCR/extraction ;
+  - presence de contraintes utilisateur.
+- [ ] Pour les syntheses larges :
+  - exiger une diversite minimale ;
+  - limiter les doublons document/page ;
+  - declencher une expansion retrieval si couverture insuffisante.
+- [ ] Pour les questions exactes :
+  - preferer la meilleure source primaire ;
+  - ne pas melanger des valeurs/etapes de plusieurs documents sauf comparaison explicite.
+- [ ] Pour les demandes sans preuves suffisantes :
+  - ne pas inventer ;
+  - ne pas faire une reponse maigre remplie de repetitions ;
+  - demander si l'utilisateur veut une recherche elargie ou expliquer la limite.
+
+### 17.7 Writer plus libre, faits stricts
+
+- [ ] Separer les roles LLM :
+  - router/planner : strict, temperature basse ;
+  - evidence gate : deterministe ;
+  - writer : redaction libre et utile ;
+  - critic : controle factuel sans casser le style.
+- [ ] Autoriser le Markdown simple dans les reponses utilisateur :
+  - titres courts ;
+  - `**gras**` ;
+  - listes propres ;
+  - tableaux simples quand utile.
+- [ ] Remplacer les consignes trop bloquantes type `Return plain text only` pour les reponses finales RAG par un contrat de rendu plus humain.
+- [ ] Demander au writer :
+  - de repondre directement ;
+  - de ne pas repeter la question ;
+  - de structurer selon la demande ;
+  - de corriger les degats OCR evidents sans changer les faits ;
+  - de corriger accents, espaces casses et mots colles quand c'est sans risque ;
+  - de ne pas faire un dump brut des extraits ;
+  - de mettre les limites apres la proposition utile, pas en ouverture defensive.
+- [ ] Garder interdiction stricte d'inventer :
+  - sources ;
+  - pages ;
+  - quantites ;
+  - etapes ;
+  - valeurs ;
+  - compatibilites ;
+  - obligations ;
+  - conclusions certifiees.
+- [ ] Ajuster les temperatures par role :
+  - planner/router : `0.0-0.2` ;
+  - writer : `0.35-0.5` ;
+  - critic : `0.0-0.2` ;
+  - resume/enrichissement backoffice : `0.2-0.35`.
+
+### 17.8 Critic intelligent
+
+- [ ] Le critic doit corriger seulement si :
+  - fait invente ;
+  - source absente ;
+  - page fausse ;
+  - quantite non sourcee ;
+  - etape non sourcee ;
+  - conclusion trop forte ;
+  - contrainte utilisateur ignoree ;
+  - citation/document invente.
+- [ ] Le critic ne doit pas transformer une bonne reponse en reponse froide.
+- [ ] Ajouter des tests ou le writer produit une reponse belle et correcte que le critic doit laisser intacte.
+
+### 17.9 Manifest d'ingestion unifie
+
+- [ ] Creer un manifest lisible par document/job/revision avec :
+  - hash source ;
+  - taille/mtime ;
+  - version parser ;
+  - version OCR ;
+  - version chunking ;
+  - modele embedding ;
+  - pages extraites ;
+  - pages OCRisees ;
+  - chunks crees ;
+  - chunks rejetes ;
+  - raisons de rejet ;
+  - sections detectees ;
+  - profils produits ;
+  - content cards produites ;
+  - erreurs ;
+  - timings ;
+  - etat Capability B / resume serveur.
+- [ ] Exposer le manifest dans l'admin.
+- [ ] Ajouter telemetry ingestion :
+  - compteurs ;
+  - histogrammes par phase ;
+  - erreurs normalisees ;
+  - durees OCR/parser/chunk/embed/qdrant.
+
+### 17.10 Parent-child retrieval
+
+- [ ] Formaliser :
+  - child = chunk precis optimise retrieval ;
+  - parent = section/unite/paragraphe voisin pour contexte writer.
+- [ ] Rechercher sur child, fournir parent au writer si utile.
+- [ ] Garder citation exacte au niveau document/page/chunk.
+- [ ] Ne pas gonfler le contexte avec des parents non pertinents.
+- [ ] Ajouter tests :
+  - question exacte ;
+  - question large ;
+  - procedure ;
+  - comparaison ;
+  - source avec table des matieres bruitee.
+
+### 17.11 LLM serveur backoffice
+
+- [ ] Utiliser le LLM serveur uniquement pour ameliorer l'index, pas pour repondre directement aux utilisateurs.
+- [ ] En idle/backoffice, generer :
+  - resumes documentaires ;
+  - mots-cles ;
+  - titres normalises ;
+  - questions hypothetique par section ;
+  - detection table des matieres vs contenu reel ;
+  - validation/nettoyage de chunks ;
+  - captions images/tableaux si OCR/layout disponible ;
+  - mini-profils documentaires.
+- [ ] Mettre en place modes de mise a jour inspires paperless-gpt :
+  - `append` par defaut ;
+  - `update` sous score de confiance suffisant ;
+  - `replace` admin only avec confirmation, diff, audit et rollback.
+
+### 17.12 Recherche elargie generique
+
+- [ ] Detecter la forme de demande :
+  - planning ;
+  - recommandation ;
+  - comparaison ;
+  - checklist ;
+  - procedure ;
+  - liste de documents ;
+  - resume ;
+  - question exacte.
+- [ ] Adapter le retrieval sans hardcoding metier :
+  - exact ;
+  - large ;
+  - categorie ;
+  - profils ;
+  - content cards ;
+  - parent/context ;
+  - multilingue.
+- [ ] Pour les demandes larges :
+  - chercher plusieurs candidats distincts ;
+  - ne pas remplir une grille par repetitions faibles ;
+  - proposer une banque de candidats quand le corpus ne couvre pas assez ;
+  - demander recherche elargie si necessaire.
+
+### 17.13 Tests et validation
+
+- [ ] Tests cuisine :
+  - planning semaine ;
+  - idees rapides ;
+  - recette ingredients/etapes/source ;
+  - sauce/accompagnement ;
+  - exclusion `sans X` ;
+  - document inexistant ;
+  - question ambigue ;
+  - source faible/OCR faible.
+- [ ] Tests generiques hors cuisine :
+  - planning maintenance ;
+  - planning formation ;
+  - comparaison fournisseurs/documents ;
+  - procedure securite ;
+  - checklist ;
+  - resume ;
+  - recherche de documents.
+- [ ] Tests multilingues client :
+  - FR ;
+  - EN ;
+  - ES ;
+  - PT ;
+  - DE ;
+  - IT.
+- [ ] Tests UI :
+  - Markdown simple rendu correctement ;
+  - gras lisible ;
+  - tableaux lisibles ;
+  - sources cliquables ;
+  - PDF ouvert a la bonne page ;
+  - theme clair/sombre ;
+  - textes localises.
+
+### 17.14 A ne pas faire
+
+- [!] Ne pas importer Dify/RAGFlow/Open WebUI comme dependances lourdes.
+- [!] Ne pas coder des regles cuisine/planning/recette/PDF en dur.
+- [!] Ne pas laisser le LLM inventer quand les sources sont faibles.
+- [!] Ne pas augmenter `topK` partout sans controle.
+- [!] Ne pas remplacer PDF ou metadonnees sans mode audit/rollback.
+- [!] Ne pas rendre les prompts admin libres sans versioning et garde-fous.
+- [!] Ne pas deplacer le chat utilisateur vers le LLM serveur.
+- [!] Ne pas confondre "redaction libre" et "faits libres".
+
+### 17.15 Ordre prioritaire recommande
+
+1. [ ] Writer plus libre + Markdown simple.
+2. [ ] Critic factuel qui preserve le style.
+3. [ ] Evidence Gate avant writer.
+4. [ ] Expansion retrieval generique si preuves insuffisantes.
+5. [ ] Deduplication sources/pages/chunks avant writer.
+6. [ ] Tests cuisine representatifs.
+7. [ ] RAG Diagnostics / Retrieval Lab.
+8. [ ] Manifest d'ingestion unifie.
+9. [ ] Parent-child retrieval.
+10. [ ] Enrichissements LLM serveur backoffice.

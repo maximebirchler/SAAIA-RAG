@@ -207,6 +207,28 @@ public sealed partial class ApiClient
     public Task<JsonElement> AdminQdrantHealthAsync(CancellationToken ct)
         => SendJsonAsync(HttpMethod.Get, "/admin/qdrant/health", null, admin: true, ct);
 
+    public Task<JsonElement> AdminRagTestRetrievalAsync(
+        string query,
+        string? category,
+        int topK,
+        string? mode,
+        CancellationToken ct)
+    {
+        var categoryScope = BuildRagCategoryScope(category);
+        var body = JsonSerializer.Serialize(new
+        {
+            query,
+            category = categoryScope.LegacyCategory,
+            categoryPath = categoryScope.CategoryPath,
+            categoryRef = categoryScope.CategoryRef,
+            topK = Math.Clamp(topK, 1, 50),
+            mode = NormalizeRagSearchApiMode(mode),
+            includeContextualSnippet = true
+        }, JsonOpts);
+
+        return SendJsonAsync(HttpMethod.Post, "/admin/rag/test-retrieval", body, admin: true, ct);
+    }
+
     public Task<JsonElement> AdminRuntimeOperationalSummaryAsync(CancellationToken ct)
         => SendJsonAsync(HttpMethod.Get, "/admin/runtime/operational-summary", null, admin: true, ct);
 

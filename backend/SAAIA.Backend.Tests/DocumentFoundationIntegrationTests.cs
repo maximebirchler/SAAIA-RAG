@@ -7349,6 +7349,30 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
                     sourceHash = ready.source_hash,
                     profileId = Guid.Parse("cdde0000-9999-8888-7777-666666666666")
                 });
+
+            await conn.ExecuteAsync(
+                """
+                UPDATE document_processing_runs
+                SET payload = jsonb_set(
+                  COALESCE(payload, '{}'::jsonb),
+                  '{retrievalChunkQuality}',
+                  '{
+                    "totalChunkCount": 12,
+                    "searchableChunkCount": 0,
+                    "rejectedChunkCount": 12,
+                    "manualReviewRecommended": true,
+                    "rejectionReasons": {
+                      "sparse_text": 12
+                    }
+                  }'::jsonb,
+                  true
+                )
+                WHERE tenant_id=@tenant
+                  AND doc_id=@docId
+                  AND action='upsert'
+                  AND status='done';
+                """,
+                new { tenant = tenantId, docId = pendingDocId });
         }
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -7365,6 +7389,9 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
         Assert.Equal(1, summary.GetProperty("summaryEnrichmentPendingDocuments").GetInt32());
         Assert.Equal(1, summary.GetProperty("profileEnrichmentPendingDocuments").GetInt32());
         Assert.Equal(1, summary.GetProperty("contentCardEvidencePendingDocuments").GetInt32());
+        Assert.Equal(1, summary.GetProperty("documentsWithRejectedChunks").GetInt32());
+        Assert.Equal(1, summary.GetProperty("documentsWithNoSearchableChunks").GetInt32());
+        Assert.Equal(1, summary.GetProperty("documentsWithRetrievalReviewRecommended").GetInt32());
 
         var category = Assert.Single(payload.RootElement.GetProperty("categories").EnumerateArray());
         Assert.Equal("Diagnostics", category.GetProperty("categoryPath").GetString());
@@ -7372,6 +7399,9 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
         Assert.Equal(1, category.GetProperty("summaryEnrichmentPendingDocuments").GetInt32());
         Assert.Equal(1, category.GetProperty("profileEnrichmentPendingDocuments").GetInt32());
         Assert.Equal(1, category.GetProperty("contentCardEvidencePendingDocuments").GetInt32());
+        Assert.Equal(1, category.GetProperty("documentsWithRejectedChunks").GetInt32());
+        Assert.Equal(1, category.GetProperty("documentsWithNoSearchableChunks").GetInt32());
+        Assert.Equal(1, category.GetProperty("documentsWithRetrievalReviewRecommended").GetInt32());
 
         var items = payload.RootElement.GetProperty("items").EnumerateArray().ToArray();
         var readyItem = Assert.Single(
@@ -7395,6 +7425,11 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
         Assert.True(pendingItem.GetProperty("summaryEnrichmentPending").GetBoolean());
         Assert.True(pendingItem.GetProperty("profileEnrichmentPending").GetBoolean());
         Assert.True(pendingItem.GetProperty("contentCardEvidencePending").GetBoolean());
+        var retrievalChunkQuality = pendingItem.GetProperty("retrievalChunkQuality");
+        Assert.Equal(12, retrievalChunkQuality.GetProperty("totalChunkCount").GetInt32());
+        Assert.Equal(0, retrievalChunkQuality.GetProperty("searchableChunkCount").GetInt32());
+        Assert.Equal(12, retrievalChunkQuality.GetProperty("rejectedChunkCount").GetInt32());
+        Assert.True(retrievalChunkQuality.GetProperty("manualReviewRecommended").GetBoolean());
     }
 
     [Fact]

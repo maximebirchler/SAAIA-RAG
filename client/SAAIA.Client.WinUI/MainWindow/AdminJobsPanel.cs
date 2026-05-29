@@ -4,29 +4,20 @@ public sealed partial class MainWindow
 {
     private void RefreshAdminJobsUiVisibility()
     {
-        if (HeaderJobsButton is not null)
+        if (HeaderAdminConsoleButton is not null)
         {
-            HeaderJobsButton.Visibility = _api.HasAdminKey ? Visibility.Visible : Visibility.Collapsed;
-            HeaderJobsButton.IsEnabled = _api.HasAdminKey && !_isGenerating;
-            TrySoftUi("RefreshAdminJobsUiVisibility.ApplyHeaderChrome", () => ApplyHeaderButtonChrome(HeaderJobsButton));
-            HeaderJobsButton.Opacity = _api.HasAdminKey ? 1d : 0d;
-            TrySoftUi("RefreshAdminJobsUiVisibility.UpdateLayout", () => HeaderJobsButton.UpdateLayout());
-            try { DispatcherQueue.TryEnqueue(() => { try { ApplyHeaderButtonChrome(HeaderJobsButton); } catch { } try { HeaderJobsButton.UpdateLayout(); } catch { } }); } catch { }
-        }
-
-        if (HeaderRuntimeButton is not null)
-        {
-            HeaderRuntimeButton.Visibility = _api.HasAdminKey ? Visibility.Visible : Visibility.Collapsed;
-            HeaderRuntimeButton.IsEnabled = _api.HasAdminKey && !_isGenerating;
-            TrySoftUi("RefreshAdminJobsUiVisibility.ApplyHeaderChrome.Runtime", () => ApplyHeaderButtonChrome(HeaderRuntimeButton));
-            HeaderRuntimeButton.Opacity = _api.HasAdminKey ? 1d : 0d;
-            TrySoftUi("RefreshAdminJobsUiVisibility.UpdateLayout.Runtime", () => HeaderRuntimeButton.UpdateLayout());
-            try { DispatcherQueue.TryEnqueue(() => { try { ApplyHeaderButtonChrome(HeaderRuntimeButton); } catch { } try { HeaderRuntimeButton.UpdateLayout(); } catch { } }); } catch { }
+            HeaderAdminConsoleButton.Visibility = _api.HasAdminKey ? Visibility.Visible : Visibility.Collapsed;
+            HeaderAdminConsoleButton.IsEnabled = _api.HasAdminKey && !_isGenerating;
+            TrySoftUi("RefreshAdminJobsUiVisibility.ApplyHeaderChrome", () => ApplyHeaderButtonChrome(HeaderAdminConsoleButton));
+            HeaderAdminConsoleButton.Opacity = _api.HasAdminKey ? 1d : 0d;
+            TrySoftUi("RefreshAdminJobsUiVisibility.UpdateLayout", () => HeaderAdminConsoleButton.UpdateLayout());
+            try { DispatcherQueue.TryEnqueue(() => { try { ApplyHeaderButtonChrome(HeaderAdminConsoleButton); } catch { } try { HeaderAdminConsoleButton.UpdateLayout(); } catch { } }); } catch { }
         }
 
         if (!_api.HasAdminKey)
         {
             CloseAdminJobsWindow();
+            CloseAdminConsoleWindow();
             _activeAdminRuntimeOverlay?.Close();
             _activeAdminRuntimeOverlay = null;
         }
@@ -45,9 +36,9 @@ public sealed partial class MainWindow
         return ClientUiText.Format("admin.jobs.detached.launch", UiLang, label, trackedJob.JobId);
     }
 
-    private async void HeaderJobsButton_Click(object sender, RoutedEventArgs e)
+    private async void HeaderAdminConsoleButton_Click(object sender, RoutedEventArgs e)
     {
-        await ShowAdminJobsOverlayAsync();
+        await ShowAdminConsoleWindowAsync();
     }
 
     private static string GetAdminJobsLaunchSearchTerm(AdminJobsLaunchMode launchMode, string? focusJobId)
@@ -57,14 +48,31 @@ public sealed partial class MainWindow
 
         return launchMode switch
         {
-            AdminJobsLaunchMode.CapabilityAEnrichment => "capability_a",
-            AdminJobsLaunchMode.CapabilityBBackoffice => "capability_b",
             _ => string.Empty
         };
     }
 
+    private static readonly string[] AdminJobsDefaultMetricFilters =
+    {
+        "queued",
+        "running",
+        "paused",
+        "failed",
+        "canceled",
+        "done"
+    };
+
+    private static void SelectAllAdminJobMetricFilters(AdminJobsOverlayContext context)
+    {
+        context.SelectedMetricFilters.Clear();
+        foreach (var filter in AdminJobsDefaultMetricFilters)
+            context.SelectedMetricFilters.Add(filter);
+        context.HasMetricFilterInteraction = true;
+    }
+
     private static void ApplyAdminJobsLaunchMode(AdminJobsOverlayContext context, AdminJobsLaunchMode launchMode, string? focusJobId)
     {
+        var shouldInitializeStatusFilters = !context.HasMetricFilterInteraction && context.SelectedMetricFilters.Count == 0;
         context.LaunchMode = launchMode;
         context.CapabilityAKpiButton.Visibility = launchMode == AdminJobsLaunchMode.CapabilityAEnrichment
             ? Visibility.Visible
@@ -77,8 +85,7 @@ public sealed partial class MainWindow
         {
             context.SelectedJobId = null;
             context.SelectedTerminalJobIds.Clear();
-            context.SelectedMetricFilters.Clear();
-            context.HasMetricFilterInteraction = false;
+            SelectAllAdminJobMetricFilters(context);
 
             if (launchMode == AdminJobsLaunchMode.CapabilityAEnrichment)
             {
@@ -90,6 +97,10 @@ public sealed partial class MainWindow
                 context.IncludeIngestionCategory = false;
                 context.IncludeSummaryCategory = true;
             }
+        }
+        else if (shouldInitializeStatusFilters)
+        {
+            SelectAllAdminJobMetricFilters(context);
         }
 
         context.SearchBox.Text = GetAdminJobsLaunchSearchTerm(launchMode, focusJobId);
@@ -106,7 +117,7 @@ public sealed partial class MainWindow
         if (_adminJobsWindow is not null && _adminJobsOverlayContext is not null)
         {
             ApplyAdminJobsLaunchMode(_adminJobsOverlayContext, launchMode, focusJobId);
-            await RefreshAdminJobsOverlayAsync(_adminJobsOverlayContext, CancellationToken.None).ConfigureAwait(true);
+            await RefreshAdminJobsOverlayAsync(_adminJobsOverlayContext, _adminJobsOverlayContext.LifecycleToken).ConfigureAwait(true);
 
             try
             {
@@ -220,6 +231,15 @@ public sealed partial class MainWindow
         statusCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.status.failed", UiLang), Tag = "failed" });
         statusCombo.Items.Add(new ComboBoxItem { Content = ClientUiText.Get("admin.jobs.status.canceled", UiLang), Tag = "canceled" });
         statusCombo.SelectedIndex = 0;
+
+        ApplyDialogInputChrome(searchBox);
+        ApplyDialogInputChrome(typeCombo);
+        ApplyDialogInputChrome(dateFieldCombo);
+        ApplyDialogInputChrome(datePresetCombo);
+        ApplyDialogInputChrome(sortDirectionCombo);
+        ApplyDialogInputChrome(dateFromPicker);
+        ApplyDialogInputChrome(dateToPicker);
+        ApplyDialogInputChrome(statusCombo);
 
         var autoRefreshToggle = new ToggleSwitch
         {
@@ -481,19 +501,23 @@ public sealed partial class MainWindow
         pageRoot.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         pageRoot.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         pageRoot.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        pageRoot.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         pageRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         pageRoot.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         var metricsCard = BuildDialogSurfaceCard(metricsHost, new Thickness(10));
         var toolbarCard = BuildDialogSurfaceCard(toolbarLayoutGrid, new Thickness(12));
+        var helpCard = BuildDialogInfoBanner(ClientUiText.Get("admin.jobs.help.body", UiLang));
         var footerCard = BuildDialogSurfaceCard(footer, new Thickness(14));
         Grid.SetRow(pageHeaderGrid, 0);
         Grid.SetRow(metricsCard, 1);
         Grid.SetRow(toolbarCard, 2);
-        Grid.SetRow(bodyGrid, 3);
-        Grid.SetRow(footerCard, 4);
+        Grid.SetRow(helpCard, 3);
+        Grid.SetRow(bodyGrid, 4);
+        Grid.SetRow(footerCard, 5);
         pageRoot.Children.Add(pageHeaderGrid);
         pageRoot.Children.Add(metricsCard);
         pageRoot.Children.Add(toolbarCard);
+        pageRoot.Children.Add(helpCard);
         pageRoot.Children.Add(bodyGrid);
         pageRoot.Children.Add(footerCard);
 
@@ -592,9 +616,11 @@ public sealed partial class MainWindow
         detailsHeader.Children.Add(closeDetailsButton);
         detailsHost.Children.Add(detailsHeader);
 
+        var lifecycleCts = new CancellationTokenSource();
         var context = new AdminJobsOverlayContext
         {
             Shell = new Border(),
+            LifecycleToken = lifecycleCts.Token,
             SummaryText = summaryText,
             SelectionText = selectionText,
             SearchBox = searchBox,
@@ -639,8 +665,8 @@ public sealed partial class MainWindow
             var light = UseLightPalette();
             ingestionTypeButton.BorderThickness = new Thickness(context.IncludeIngestionCategory ? 2 : 1);
             summaryTypeButton.BorderThickness = new Thickness(context.IncludeSummaryCategory ? 2 : 1);
-            ingestionTypeButton.Opacity = context.IncludeIngestionCategory ? 1d : 0.55d;
-            summaryTypeButton.Opacity = context.IncludeSummaryCategory ? 1d : 0.55d;
+            ingestionTypeButton.Opacity = context.IncludeIngestionCategory ? 1d : 0.72d;
+            summaryTypeButton.Opacity = context.IncludeSummaryCategory ? 1d : 0.72d;
             ingestionTypeButton.BorderBrush = context.IncludeIngestionCategory
                 ? GetAdminJobStatusBorder("running", light)
                 : (light ? UiBrush(0xC6, 0xD0, 0xDD) : UiBrush(0x3A, 0x45, 0x52));
@@ -656,7 +682,7 @@ public sealed partial class MainWindow
             ApplyCategoryButtonVisuals();
             RenderAdminJobsOverlay(context);
             if (context.IncludeIngestionCategory || context.IncludeSummaryCategory)
-                await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+                await RefreshAdminJobsOverlayAsync(context, context.LifecycleToken).ConfigureAwait(true);
         };
         summaryTypeButton.Click += async (_, __) =>
         {
@@ -665,7 +691,7 @@ public sealed partial class MainWindow
             ApplyCategoryButtonVisuals();
             RenderAdminJobsOverlay(context);
             if (context.IncludeIngestionCategory || context.IncludeSummaryCategory)
-                await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+                await RefreshAdminJobsOverlayAsync(context, context.LifecycleToken).ConfigureAwait(true);
         };
         ApplyAdminJobsLaunchMode(context, launchMode, focusJobId);
         ApplyCategoryButtonVisuals();
@@ -674,21 +700,21 @@ public sealed partial class MainWindow
         {
             SyncAdminJobsDateFilters(context);
             UpdateToolbarFiltersLayout();
-            await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+            await RefreshAdminJobsOverlayAsync(context, context.LifecycleToken).ConfigureAwait(true);
         };
         datePresetCombo.SelectionChanged += async (_, __) =>
         {
             SyncAdminJobsDateFilters(context);
             UpdateToolbarFiltersLayout();
             RenderAdminJobsOverlay(context);
-            await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+            await RefreshAdminJobsOverlayAsync(context, context.LifecycleToken).ConfigureAwait(true);
         };
         sortDirectionCombo.SelectionChanged += async (_, __) =>
         {
             SyncAdminJobsDateFilters(context);
             UpdateToolbarFiltersLayout();
             RenderAdminJobsOverlay(context);
-            await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+            await RefreshAdminJobsOverlayAsync(context, context.LifecycleToken).ConfigureAwait(true);
         };
         dateFromPicker.DateChanged += async (_, __) =>
         {
@@ -696,7 +722,7 @@ public sealed partial class MainWindow
             UpdateToolbarFiltersLayout();
             RenderAdminJobsOverlay(context);
             if (string.Equals(context.DatePreset, "custom", StringComparison.OrdinalIgnoreCase))
-                await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+                await RefreshAdminJobsOverlayAsync(context, context.LifecycleToken).ConfigureAwait(true);
         };
         dateToPicker.DateChanged += async (_, __) =>
         {
@@ -704,20 +730,22 @@ public sealed partial class MainWindow
             UpdateToolbarFiltersLayout();
             RenderAdminJobsOverlay(context);
             if (string.Equals(context.DatePreset, "custom", StringComparison.OrdinalIgnoreCase))
-                await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+                await RefreshAdminJobsOverlayAsync(context, context.LifecycleToken).ConfigureAwait(true);
         };
         autoRefreshToggle.Toggled += (_, __) =>
         {
             UpdateAdminJobsRefreshTimer();
             UpdateAdminJobsRefreshControls(context);
         };
-        refreshButton.Click += async (_, __) => await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+        refreshButton.Click += async (_, __) => await RefreshAdminJobsOverlayAsync(context, context.LifecycleToken).ConfigureAwait(true);
         deleteSelectionButton.Click += async (_, __) => await DeleteSelectedAdminJobsAsync(context).ConfigureAwait(true);
         var purgeFlyout = BuildAdminJobsPurgeFlyout(context);
         purgeButton.Click += (_, __) => purgeFlyout.ShowAt(purgeButton);
         window.Closed += (_, __) =>
         {
             try { _adminJobsRefreshTimer?.Stop(); } catch { }
+            try { lifecycleCts.Cancel(); } catch { }
+            lifecycleCts.Dispose();
             _adminJobsRefreshTimer = null;
             _adminJobsWindow = null;
             _adminJobsOverlayContext = null;
@@ -731,7 +759,7 @@ public sealed partial class MainWindow
         UpdateAdminJobsRefreshTimer();
 
         window.Activate();
-        await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+        await RefreshAdminJobsOverlayAsync(context, context.LifecycleToken).ConfigureAwait(true);
     }
 
     private MenuFlyout BuildAdminJobsPurgeFlyout(AdminJobsOverlayContext context)
@@ -796,9 +824,14 @@ public sealed partial class MainWindow
             _adminJobsRefreshTimer.Tick += async (_, __) =>
             {
                 var context = _adminJobsOverlayContext;
-                if (context is null || context.IsRefreshing)
+                if (context is null)
                     return;
-                await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+                if (context.IsRefreshing)
+                {
+                    context.RefreshPending = true;
+                    return;
+                }
+                await RefreshAdminJobsOverlayAsync(context, context.LifecycleToken).ConfigureAwait(true);
             };
             _adminJobsRefreshTimer.Start();
         }
@@ -832,7 +865,10 @@ public sealed partial class MainWindow
     private async Task RefreshAdminJobsOverlayAsync(AdminJobsOverlayContext context, CancellationToken ct)
     {
         if (context.IsRefreshing)
+        {
+            context.RefreshPending = true;
             return;
+        }
 
         if (!context.IncludeIngestionCategory && !context.IncludeSummaryCategory)
         {
@@ -840,26 +876,120 @@ public sealed partial class MainWindow
             return;
         }
 
-        context.IsRefreshing = true;
-        UpdateAdminJobsRefreshControls(context);
-        var previousSummary = context.SummaryText.Text;
-        context.SummaryText.Text = ClientUiText.Get("admin.jobs.loading", UiLang);
-
-        try
+        do
         {
-            SyncAdminJobsDateFilters(context);
-            var useClientSideDateFiltering = IsAdminJobsDateFilterActive(context);
-            if (HasInvalidAdminJobsDateRange(context))
+            if (ct.IsCancellationRequested || context.LifecycleToken.IsCancellationRequested)
+                return;
+
+            context.RefreshPending = false;
+            context.IsRefreshing = true;
+            UpdateAdminJobsRefreshControls(context);
+            var previousSummary = context.SummaryText.Text;
+            context.SummaryText.Text = ClientUiText.Get("admin.jobs.loading", UiLang);
+
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, context.LifecycleToken);
+            var effectiveToken = linkedCts.Token;
+
+            try
             {
-                context.Items = new List<AdminJobListItem>();
-                context.HasMetricFilterInteraction = context.SelectedMetricFilters.Count == 0;
-                context.SelectedTerminalJobIds.Clear();
+                SyncAdminJobsDateFilters(context);
+                var useClientSideDateFiltering = IsAdminJobsDateFilterActive(context);
+                if (HasInvalidAdminJobsDateRange(context))
+                {
+                    context.Items = new List<AdminJobListItem>();
+                    context.SelectedTerminalJobIds.Clear();
+                    RenderAdminJobsOverlay(context);
+                    return;
+                }
+
+                var items = await LoadAdminJobsForSelectedCategoriesAsync(
+                        context,
+                        useClientSideDateFiltering,
+                        effectiveToken)
+                    .ConfigureAwait(true);
+
+                if (effectiveToken.IsCancellationRequested)
+                    return;
+
+                context.Items = items;
+                context.SelectedTerminalJobIds.IntersectWith(items.Where(x => x.IsTerminal).Select(x => x.JobId));
                 RenderAdminJobsOverlay(context);
+            }
+            catch (OperationCanceledException) when (effectiveToken.IsCancellationRequested)
+            {
                 return;
             }
+            catch (Exception ex)
+            {
+                ClientLog.Exception("AdminJobs.Refresh", ex);
+                if (IsAdminJobsDateFilterActive(context))
+                {
+                    try
+                    {
+                        var fallbackItems = await LoadAdminJobsForSelectedCategoriesAsync(
+                                context,
+                                useClientSideDateFiltering: true,
+                                effectiveToken)
+                            .ConfigureAwait(true);
+                        if (effectiveToken.IsCancellationRequested)
+                            return;
+                        context.Items = fallbackItems;
+                        context.SelectedTerminalJobIds.IntersectWith(fallbackItems.Where(x => x.IsTerminal).Select(x => x.JobId));
+                        RenderAdminJobsOverlay(context);
+                    }
+                    catch (OperationCanceledException) when (effectiveToken.IsCancellationRequested)
+                    {
+                        return;
+                    }
+                    catch
+                    {
+                        context.Items = new List<AdminJobListItem>();
+                        context.SelectedTerminalJobIds.Clear();
+                        RenderAdminJobsOverlay(context);
+                    }
+                }
+                else
+                {
+                    if (context.Items.Count > 0)
+                    {
+                        context.SummaryText.Text = previousSummary + " - " + ClientUiText.Get("admin.jobs.refresh_failed_soft", UiLang) + ": " + FormatAdminLoadErrorForUser(ex, "/admin/jobs", UiLang);
+                        context.AutoRefreshToggle.IsOn = false;
+                        try { _adminJobsRefreshTimer?.Stop(); } catch { }
+                    }
+                    else
+                    {
+                        context.GroupsHost.Children.Clear();
+                        context.GroupsHost.Children.Add(new TextBlock
+                        {
+                            Text = ClientUiText.Get("admin.jobs.refresh_failed", UiLang) + FormatAdminLoadErrorForUser(ex, "/admin/jobs", UiLang),
+                            TextWrapping = TextWrapping.WrapWholeWords,
+                            Foreground = UseLightPalette() ? UiBrush(0xB4, 0x23, 0x18) : UiBrush(0xFF, 0x8A, 0x80)
+                        });
+                        context.SummaryText.Text = ClientUiText.Get("admin.jobs.refresh_failed", UiLang) + FormatAdminLoadErrorForUser(ex, "/admin/jobs", UiLang);
+                        UpdateAdminJobsSelectionState(context, Array.Empty<AdminJobListItem>());
+                    }
+                }
+            }
+            finally
+            {
+                context.IsRefreshing = false;
+                if (!effectiveToken.IsCancellationRequested)
+                    UpdateAdminJobsRefreshControls(context);
+            }
+        } while (context.RefreshPending && !ct.IsCancellationRequested && !context.LifecycleToken.IsCancellationRequested);
+    }
 
+    private async Task<List<AdminJobListItem>> LoadAdminJobsForSelectedCategoriesAsync(
+        AdminJobsOverlayContext context,
+        bool useClientSideDateFiltering,
+        CancellationToken ct)
+    {
+        var requestedTypes = ResolveAdminJobsRequestedTypes(context);
+        var items = new List<AdminJobListItem>();
+        foreach (var requestedType in requestedTypes)
+        {
             var root = await _api.AdminJobsListAsync(
-                    null,
+                    requestedType,
                     500,
                     0,
                     context.DateField,
@@ -868,71 +998,24 @@ public sealed partial class MainWindow
                     context.SortDirection,
                     ct)
                 .ConfigureAwait(true);
-            var items = ParseAdminJobs(root);
+            items.AddRange(ParseAdminJobs(root));
+        }
 
-            context.Items = items;
-            context.HasMetricFilterInteraction = context.SelectedMetricFilters.Count == 0;
-            context.SelectedTerminalJobIds.IntersectWith(items.Where(x => x.IsTerminal).Select(x => x.JobId));
-            RenderAdminJobsOverlay(context);
-        }
-        catch (Exception ex)
-        {
-            ClientLog.Exception("AdminJobs.Refresh", ex);
-            if (IsAdminJobsDateFilterActive(context))
-            {
-                try
-                {
-                    var fallbackRoot = await _api.AdminJobsListAsync(
-                            null,
-                            500,
-                            0,
-                            context.DateField,
-                            null,
-                            null,
-                            context.SortDirection,
-                            ct)
-                        .ConfigureAwait(true);
-                    var fallbackItems = ParseAdminJobs(fallbackRoot);
-                    context.Items = fallbackItems;
-                    context.HasMetricFilterInteraction = context.SelectedMetricFilters.Count == 0;
-                    context.SelectedTerminalJobIds.IntersectWith(fallbackItems.Where(x => x.IsTerminal).Select(x => x.JobId));
-                    RenderAdminJobsOverlay(context);
-                }
-                catch
-                {
-                    context.Items = new List<AdminJobListItem>();
-                    context.HasMetricFilterInteraction = context.SelectedMetricFilters.Count == 0;
-                    context.SelectedTerminalJobIds.Clear();
-                    RenderAdminJobsOverlay(context);
-                }
-            }
-            else
-            {
-                if (context.Items.Count > 0)
-                {
-                    context.SummaryText.Text = previousSummary + " • " + ClientUiText.Get("admin.jobs.refresh_failed_soft", UiLang) + ": " + ex.Message;
-                    context.AutoRefreshToggle.IsOn = false;
-                    try { _adminJobsRefreshTimer?.Stop(); } catch { }
-                }
-                else
-                {
-                    context.GroupsHost.Children.Clear();
-                    context.GroupsHost.Children.Add(new TextBlock
-                    {
-                        Text = ClientUiText.Get("admin.jobs.refresh_failed", UiLang) + ex.Message,
-                        TextWrapping = TextWrapping.WrapWholeWords,
-                        Foreground = UseLightPalette() ? UiBrush(0xB4, 0x23, 0x18) : UiBrush(0xFF, 0x8A, 0x80)
-                    });
-                    context.SummaryText.Text = ClientUiText.Get("admin.jobs.refresh_failed", UiLang) + ex.Message;
-                    UpdateAdminJobsSelectionState(context, Array.Empty<AdminJobListItem>());
-                }
-            }
-        }
-        finally
-        {
-            context.IsRefreshing = false;
-            UpdateAdminJobsRefreshControls(context);
-        }
+        return items
+            .GroupBy(static item => item.JobId, StringComparer.OrdinalIgnoreCase)
+            .Select(static group => group.First())
+            .ToList();
+    }
+
+    private static IReadOnlyList<string?> ResolveAdminJobsRequestedTypes(AdminJobsOverlayContext context)
+    {
+        if (context.IncludeIngestionCategory && context.IncludeSummaryCategory)
+            return new string?[] { "ingestion", "summary" };
+        if (context.IncludeIngestionCategory)
+            return new string?[] { "ingestion" };
+        if (context.IncludeSummaryCategory)
+            return new string?[] { "summary" };
+        return Array.Empty<string?>();
     }
 
     private async Task<string?> WaitForAdminJobCancellationSettlementAsync(

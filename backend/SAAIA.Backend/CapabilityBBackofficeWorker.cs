@@ -460,7 +460,9 @@ internal sealed class CapabilityBBackofficeWorker : BackgroundService
 ORDER BY
   COALESCE(
     CASE
-      WHEN jsonb_typeof(payload->'priorityScore')='number' THEN (payload->>'priorityScore')::int
+      WHEN jsonb_typeof(payload->'priorityScore')='number'
+           AND (payload->>'priorityScore') ~ '^-?[0-9]{1,9}$'
+        THEN (payload->>'priorityScore')::int
       ELSE NULL::int
     END,
     0

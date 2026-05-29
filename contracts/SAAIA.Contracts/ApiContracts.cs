@@ -72,6 +72,42 @@ public sealed class RagMetrics
 
     [JsonPropertyName("degradedRetrievers")]
     public List<string>? DegradedRetrievers { get; set; }
+
+    [JsonPropertyName("degradedRetrieverErrors")]
+    public Dictionary<string, string>? DegradedRetrieverErrors { get; set; }
+
+    [JsonPropertyName("exactMs")]
+    public long? ExactMs { get; set; }
+
+    [JsonPropertyName("quotedTitleMs")]
+    public long? QuotedTitleMs { get; set; }
+
+    [JsonPropertyName("localTitleTokenMs")]
+    public long? LocalTitleTokenMs { get; set; }
+
+    [JsonPropertyName("titleAnchorRouteMs")]
+    public long? TitleAnchorRouteMs { get; set; }
+
+    [JsonPropertyName("sparsePhaseMs")]
+    public long? SparsePhaseMs { get; set; }
+
+    [JsonPropertyName("denseMs")]
+    public long? DenseMs { get; set; }
+
+    [JsonPropertyName("profileMs")]
+    public long? ProfileMs { get; set; }
+
+    [JsonPropertyName("linkedMs")]
+    public long? LinkedMs { get; set; }
+
+    [JsonPropertyName("fusionMs")]
+    public long? FusionMs { get; set; }
+
+    [JsonPropertyName("rerankPhaseMs")]
+    public long? RerankPhaseMs { get; set; }
+
+    [JsonPropertyName("selectionMs")]
+    public long? SelectionMs { get; set; }
 }
 
 public sealed class RagItemProvenance
@@ -246,6 +282,27 @@ public sealed class RagItemExtractionDiagnosticSummary
 
     [JsonPropertyName("pageReviewRecommendedCount")]
     public int? PageReviewRecommendedCount { get; set; }
+
+    [JsonPropertyName("retrievalChunkQuality")]
+    public RagItemRetrievalChunkQuality? RetrievalChunkQuality { get; set; }
+}
+
+public sealed class RagItemRetrievalChunkQuality
+{
+    [JsonPropertyName("totalChunkCount")]
+    public int? TotalChunkCount { get; set; }
+
+    [JsonPropertyName("searchableChunkCount")]
+    public int? SearchableChunkCount { get; set; }
+
+    [JsonPropertyName("rejectedChunkCount")]
+    public int? RejectedChunkCount { get; set; }
+
+    [JsonPropertyName("manualReviewRecommended")]
+    public bool? ManualReviewRecommended { get; set; }
+
+    [JsonPropertyName("rejectionReasons")]
+    public Dictionary<string, int>? RejectionReasons { get; set; }
 }
 
 public sealed class RagItemContentCard

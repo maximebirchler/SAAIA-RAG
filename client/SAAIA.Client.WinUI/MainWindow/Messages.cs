@@ -142,7 +142,7 @@ public sealed partial class MainWindow
         if (!string.IsNullOrWhiteSpace(assistantMsg.Content))
             return;
 
-        // Try to recognise the most common root cause (LLM endpoint unreachable / refused)
+        // Try to recognise the most common root cause (local assistant unreachable / refused)
         // and tell the user something actionable instead of the generic "try again".
         var hint = ClassifyAssistantFailure(cause);
         assistantMsg.Content = hint;
@@ -154,22 +154,32 @@ public sealed partial class MainWindow
         var msg = ex?.Message ?? string.Empty;
         var lower = msg.ToLowerInvariant();
 
+        if (ex is InvalidOperationException
+            && (lower.Contains("modele local")
+                || lower.Contains("local model")
+                || lower.Contains("warmup")
+                || lower.Contains("verification de stabilite")
+                || lower.Contains("stability check")))
+        {
+            return msg;
+        }
+
         if (lower.Contains("exceeds the available context size")
             || (lower.Contains("context size") && lower.Contains("exceed"))
             || lower.Contains("context window")
             || lower.Contains("n_ctx"))
         {
             return LocalRuntimeText(
-                "Le contexte documentaire est trop volumineux pour le profil LLM actuel. Essaie une question plus ciblée ou qualifie un profil avec une fenêtre de contexte plus grande.",
-                "The document context is too large for the current LLM profile. Try a more focused question or qualify a profile with a larger context window.",
-                "El contexto documental es demasiado grande para el perfil LLM actual. Prueba con una pregunta más concreta o valida un perfil con una ventana de contexto mayor.",
-                "O contexto documental é demasiado grande para o perfil LLM atual. Tenta uma pergunta mais focada ou qualifica um perfil com uma janela de contexto maior.",
-                "Der Dokumentkontext ist zu gross fuer das aktuelle LLM-Profil. Stelle eine gezieltere Frage oder qualifiziere ein Profil mit groesserem Kontextfenster.",
-                "Il contesto documentale è troppo grande per il profilo LLM attuale. Prova con una domanda più mirata o qualifica un profilo con una finestra di contesto più ampia.",
+                "Le contexte documentaire est trop volumineux pour l'assistant local actuel. Essaie une question plus ciblée ou utilise un profil avec une fenêtre de contexte plus grande.",
+                "The document context is too large for the current local assistant. Try a more focused question or use a profile with a larger context window.",
+                "El contexto documental es demasiado grande para el asistente local actual. Prueba con una pregunta más concreta o usa un perfil con una ventana de contexto mayor.",
+                "O contexto documental é demasiado grande para o assistente local atual. Tenta uma pergunta mais focada ou usa um perfil com uma janela de contexto maior.",
+                "Der Dokumentkontext ist zu gross fuer den aktuellen lokalen Assistenten. Stelle eine gezieltere Frage oder nutze ein Profil mit groesserem Kontextfenster.",
+                "Il contesto documentale è troppo grande per l'assistente locale attuale. Prova con una domanda più mirata o usa un profilo con una finestra di contesto più ampia.",
                 lang);
         }
 
-        // Network errors talking to the local LLM endpoint (most common: nothing listening on
+        // Network errors talking to the local assistant endpoint (most common: nothing listening on
         // 127.0.0.1:1234 because Docker/llama-server isn't up, or wrong port/host configured).
         if (ex is HttpRequestException || ex is TaskCanceledException
             || lower.Contains("connection refused") || lower.Contains("no connection could be made")
@@ -178,12 +188,12 @@ public sealed partial class MainWindow
             || lower.Contains("name resolution"))
         {
             return LocalRuntimeText(
-                "Le moteur local (LLM) n'a pas répondu. Vérifie qu'il tourne (Docker / llama-server) et que l'URL côté paramètres est correcte.",
-                "The local engine (LLM) did not respond. Check it is running (Docker / llama-server) and that the URL in settings is correct.",
-                "El motor local (LLM) no respondió. Comprueba que está activo (Docker / llama-server) y que la URL en ajustes es correcta.",
-                "O motor local (LLM) não respondeu. Verifica se está a correr (Docker / llama-server) e que o URL nas definições está correto.",
-                "Die lokale Engine (LLM) hat nicht geantwortet. Pruefe, ob sie laeuft (Docker / llama-server) und dass die URL in den Einstellungen stimmt.",
-                "Il motore locale (LLM) non ha risposto. Verifica che sia in esecuzione (Docker / llama-server) e che l'URL nelle impostazioni sia corretto.",
+                "L'assistant local n'a pas répondu. Vérifie qu'il est démarré et que son URL est correcte dans les paramètres.",
+                "The local assistant did not respond. Check that it is running and that its URL is correct in settings.",
+                "El asistente local no respondió. Comprueba que esté iniciado y que su URL sea correcta en ajustes.",
+                "O assistente local não respondeu. Verifica se está iniciado e se o URL está correto nas definições.",
+                "Der lokale Assistent hat nicht geantwortet. Pruefe, ob er laeuft und ob seine URL in den Einstellungen stimmt.",
+                "L'assistente locale non ha risposto. Verifica che sia avviato e che l'URL sia corretto nelle impostazioni.",
                 lang);
         }
 
@@ -535,7 +545,12 @@ public sealed partial class MainWindow
             var replyStarted = 0;
 
             if (!await EnsureLocalLlmAwakeForRequestAsync(assistantMsg, _cts.Token))
-                throw new InvalidOperationException(LocalRuntimeText("Assistant temporairement indisponible : le modele local n'a pas pu demarrer.", "Assistant temporarily unavailable: the local model could not start.", "Asistente temporalmente no disponible: el modelo local no pudo iniciarse.", "Assistente temporariamente indisponivel: nao foi possivel iniciar o modelo local.", "Assistent voruebergehend nicht verfuegbar: das lokale Modell konnte nicht gestartet werden.", "Assistente temporaneamente non disponibile: il modello locale non e riuscito ad avviarsi.", UiLang));
+            {
+                var startupFailure = string.IsNullOrWhiteSpace(_lastLocalLlmStartupFailure)
+                    ? LocalRuntimeText("Assistant temporairement indisponible : le modele local n'a pas pu demarrer.", "Assistant temporarily unavailable: the local model could not start.", "Asistente temporalmente no disponible: el modelo local no pudo iniciarse.", "Assistente temporariamente indisponivel: nao foi possivel iniciar o modelo local.", "Assistent voruebergehend nicht verfuegbar: das lokale Modell konnte nicht gestartet werden.", "Assistente temporaneamente non disponibile: il modello locale non e riuscito ad avviarsi.", UiLang)
+                    : _lastLocalLlmStartupFailure!;
+                throw new InvalidOperationException(startupFailure);
+            }
 
             assistantMsg.IsStreaming = true;
             var (finalAnswer, sourcesObj) = await _agent.RunAsync(
@@ -588,7 +603,7 @@ public sealed partial class MainWindow
                 }
                 else if (string.IsNullOrWhiteSpace(assistantMsg.Content))
                 {
-                    assistantMsg.Content = LocalRuntimeText("Reponse vide cote LLM. Voir les sources.", "Empty reply from the LLM. Check the sources.", "Respuesta vacia del LLM. Revisa las fuentes.", "Resposta vazia do LLM. Consulta as fontes.", "Leere Antwort vom LLM. Pruefe die Quellen.", "Risposta vuota dal LLM. Controlla le fonti.", UiLang);
+                    assistantMsg.Content = LocalRuntimeText("Réponse vide de l'assistant local. Vérifie les sources affichées.", "Empty reply from the local assistant. Check the displayed sources.", "Respuesta vacía del asistente local. Revisa las fuentes mostradas.", "Resposta vazia do assistente local. Consulta as fontes apresentadas.", "Leere Antwort vom lokalen Assistenten. Pruefe die angezeigten Quellen.", "Risposta vuota dall'assistente locale. Controlla le fonti mostrate.", UiLang);
                 }
 
                 assistantMsg.StatusNote = null;

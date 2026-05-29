@@ -8,6 +8,9 @@ public sealed partial class MainWindow
 {
     private void RenderAdminJobsOverlay(AdminJobsOverlayContext context)
     {
+        if (context.LifecycleToken.IsCancellationRequested)
+            return;
+
         var visibleItems = ApplyAdminJobsFilters(context);
         if (!string.IsNullOrWhiteSpace(context.SelectedJobId)
             && !visibleItems.Any(item => string.Equals(item.JobId, context.SelectedJobId, StringComparison.OrdinalIgnoreCase)))
@@ -80,13 +83,9 @@ public sealed partial class MainWindow
         }
 
         if (context.SelectedMetricFilters.Count > 0)
-        {
             items = items.Where(item => context.SelectedMetricFilters.Any(filterTag => MatchesAdminJobsStatusFilter(item, filterTag)));
-        }
         else
-        {
             items = Enumerable.Empty<AdminJobListItem>();
-        }
 
         return SortAdminJobs(items, context).ToList();
     }
@@ -325,11 +324,20 @@ public sealed partial class MainWindow
             catch (Exception ex)
             {
                 ClientLog.Exception($"AdminJobs.BuildCard[{item.JobId}]", ex);
-                stack.Children.Add(BuildDialogInfoBanner(ClientUiText.Get("admin.jobs.card_error", UiLang)));
+                stack.Children.Add(BuildDialogInfoBanner(ClientUiText.Format("admin.jobs.card_error", UiLang, ShortAdminJobId(item.JobId))));
             }
         }
 
         return stack;
+    }
+
+    private string ShortAdminJobId(string? jobId)
+    {
+        if (string.IsNullOrWhiteSpace(jobId))
+            return ClientUiText.Get("ui.not_available", UiLang);
+
+        var trimmed = jobId.Trim();
+        return trimmed.Length <= 8 ? trimmed : trimmed[..8];
     }
 
     private UIElement BuildAdminJobCard(AdminJobListItem item, AdminJobsOverlayContext context)
@@ -501,7 +509,7 @@ public sealed partial class MainWindow
                 try
                 {
                     resumeButton.IsEnabled = false;
-                    var response = await _api.AdminJobsResumeAsync(item.JobId, CancellationToken.None).ConfigureAwait(true);
+                    var response = await _api.AdminJobsResumeAsync(item.JobId, context.LifecycleToken).ConfigureAwait(true);
                     var resumed = (TryGetBool(response, "resumed") ?? false);
                     var reason = (TryGetString(response, "reason") ?? string.Empty).Trim().ToLowerInvariant();
                     if (resumed)
@@ -509,13 +517,14 @@ public sealed partial class MainWindow
                     else if (reason == "not_paused")
                         Status(ClientUiText.Get("admin.jobs.resume_not_paused", UiLang));
                     else
-                        Status(ClientUiText.Get("admin.jobs.resume_failed", UiLang) + reason);
+                        Status(ClientUiText.Get("admin.jobs.resume_failed", UiLang) + TranslateAdminJobResumeReasonForDiagnostics(reason, UiLang));
 
-                    await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+                    await RefreshAdminJobsOverlayAsync(context, context.LifecycleToken).ConfigureAwait(true);
                 }
                 catch (Exception ex)
                 {
-                    Status(ClientUiText.Get("admin.jobs.resume_failed", UiLang) + ex.Message);
+                    Status(ClientUiText.Get("admin.jobs.resume_failed", UiLang)
+                        + FormatAdminLoadErrorForUser(ex, "/admin/jobs/resume", UiLang));
                 }
                 finally
                 {
@@ -550,8 +559,8 @@ public sealed partial class MainWindow
                         var optimisticRequestedAction = isInitialIngestion ? "pause" : "cancel";
                         ApplyOptimisticAdminJobAction(context, item, optimisticRequestedAction);
                         var response = isInitialIngestion
-                            ? await _api.AdminJobsPauseAsync(item.JobId, CancellationToken.None).ConfigureAwait(true)
-                            : await _api.AdminJobsCancelAsync(item.JobId, CancellationToken.None).ConfigureAwait(true);
+                            ? await _api.AdminJobsPauseAsync(item.JobId, context.LifecycleToken).ConfigureAwait(true)
+                            : await _api.AdminJobsCancelAsync(item.JobId, context.LifecycleToken).ConfigureAwait(true);
 
                         var result = (TryGetString(response, "result") ?? string.Empty).Trim().ToLowerInvariant();
                         var status = NormalizeTrackedJobStatus(TryGetString(response, "status") ?? string.Empty);
@@ -565,7 +574,7 @@ public sealed partial class MainWindow
                         {
                             Status(ClientUiText.Get("admin.jobs.pause", UiLang) + "...");
                             status = NormalizeTrackedJobStatus(
-                                await WaitForAdminJobCancellationSettlementAsync(context, item.JobId, requestedAction, CancellationToken.None).ConfigureAwait(true)
+                                await WaitForAdminJobCancellationSettlementAsync(context, item.JobId, requestedAction, context.LifecycleToken).ConfigureAwait(true)
                                 ?? status);
                             cancelRequested = status == "cancel_requested";
                         }
@@ -573,13 +582,13 @@ public sealed partial class MainWindow
                         {
                             Status(ClientUiText.Get("admin.jobs.cancel_requested", UiLang));
                             status = NormalizeTrackedJobStatus(
-                                await WaitForAdminJobCancellationSettlementAsync(context, item.JobId, requestedAction, CancellationToken.None).ConfigureAwait(true)
+                                await WaitForAdminJobCancellationSettlementAsync(context, item.JobId, requestedAction, context.LifecycleToken).ConfigureAwait(true)
                                 ?? status);
                             cancelRequested = status == "cancel_requested";
                         }
                         else
                         {
-                            await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+                            await RefreshAdminJobsOverlayAsync(context, context.LifecycleToken).ConfigureAwait(true);
                         }
 
                         if (cancelRequested && requestedAction == "pause")
@@ -599,8 +608,9 @@ public sealed partial class MainWindow
                     }
                     catch (Exception ex)
                     {
-                        await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
-                        Status(ClientUiText.Get("admin.jobs.refresh_failed", UiLang) + ex.Message);
+                        await RefreshAdminJobsOverlayAsync(context, context.LifecycleToken).ConfigureAwait(true);
+                        Status(ClientUiText.Get("admin.jobs.refresh_failed", UiLang)
+                            + FormatAdminLoadErrorForUser(ex, "/admin/jobs/action", UiLang));
                     }
                     finally
                     {
@@ -702,7 +712,7 @@ public sealed partial class MainWindow
             context.DetailsColumn.Width = new GridLength(380);
             context.DetailsCard.Visibility = Visibility.Visible;
             context.DetailsScrollViewer.ChangeView(null, 0d, null, true);
-            context.DetailsHost.Children.Add(BuildDialogInfoBanner(ClientUiText.Get("admin.jobs.detail_error", UiLang)));
+            context.DetailsHost.Children.Add(BuildDialogInfoBanner(ClientUiText.Get("admin.jobs.detail.error", UiLang)));
         }
     }
 
@@ -713,15 +723,15 @@ public sealed partial class MainWindow
         AddFact(facts, ClientUiText.Get("admin.jobs.details.job_id", UiLang), item.JobId);
         AddFact(facts, ClientUiText.Get("admin.jobs.details.type", UiLang), TranslateAdminJobFamily(item.Type));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.job_type", UiLang), TranslateAdminJobType(item.JobType));
-        AddFact(facts, ClientUiText.Get("admin.jobs.details.status", UiLang), ClientUiText.Get("admin.jobs.status." + NormalizeTrackedJobStatus(item.Status), UiLang));
+        AddFact(facts, ClientUiText.Get("admin.jobs.details.status", UiLang), TranslateAdminJobStatus(item.Status));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.doc_id", UiLang), item.DocId);
         AddFact(facts, ClientUiText.Get("admin.jobs.details.doc_path", UiLang), item.DocPath);
         AddFact(facts, ClientUiText.Get("admin.jobs.details.phase", UiLang), TranslateAdminJobPhase(item.ProgressPhase));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.progress", UiLang), BuildAdminJobProgressLine(item));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.cancel_requested_flag", UiLang), item.CancelRequested.HasValue ? (item.CancelRequested.Value ? ClientUiText.Get("admin.jobs.value.yes", UiLang) : ClientUiText.Get("admin.jobs.value.no", UiLang)) : null);
         AddFact(facts, ClientUiText.Get("admin.jobs.details.enqueue_source", UiLang), TranslateAdminJobEnqueueSource(item.EnqueueSource));
-        AddFact(facts, ClientUiText.Get("admin.jobs.details.runtime_capability", UiLang), item.RuntimeCapabilityKey);
-        AddFact(facts, ClientUiText.Get("admin.jobs.details.execution_mode", UiLang), item.ExecutionMode);
+        AddFact(facts, ClientUiText.Get("admin.jobs.details.runtime_capability", UiLang), TranslateAdminJobRuntimeCapability(item.RuntimeCapabilityKey));
+        AddFact(facts, ClientUiText.Get("admin.jobs.details.execution_mode", UiLang), TranslateAdminJobExecutionMode(item.ExecutionMode));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.doc_status", UiLang), TranslateAdminJobDocumentStatus(item.DocumentStatus));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.doc_versions", UiLang), BuildAdminJobDocumentVersionsLine(item));
         AddFact(facts, ClientUiText.Get("admin.jobs.details.auto_pause", UiLang), BuildAdminJobAutoPauseLine(item));
@@ -819,12 +829,12 @@ public sealed partial class MainWindow
             context.DeleteSelectionButton.IsEnabled = false;
             context.PurgeButton.IsEnabled = false;
 
-            var response = await _api.AdminJobsPurgeAsync(scope, null, CancellationToken.None).ConfigureAwait(true);
+            var response = await _api.AdminJobsPurgeAsync(scope, null, context.LifecycleToken).ConfigureAwait(true);
             var deleted = TryGetInt(response, "deleted") ?? TryGetInt(response, "Deleted") ?? 0;
 
             if (deleted > 0)
             {
-                await RefreshAdminJobsOverlayAsync(context, CancellationToken.None).ConfigureAwait(true);
+                await RefreshAdminJobsOverlayAsync(context, context.LifecycleToken).ConfigureAwait(true);
                 Status(ClientUiText.Format("admin.jobs.delete_done", UiLang, deleted));
             }
             else
@@ -835,7 +845,8 @@ public sealed partial class MainWindow
         catch (Exception ex)
         {
             ClientLog.Exception("AdminJobs.PurgeHistory", ex);
-            Status(ClientUiText.Get("admin.jobs.delete_failed", UiLang) + ex.Message);
+            Status(ClientUiText.Get("admin.jobs.delete_failed", UiLang)
+                + FormatAdminLoadErrorForUser(ex, "/admin/jobs/history", UiLang));
         }
         finally
         {
@@ -851,7 +862,7 @@ public sealed partial class MainWindow
             context.DeleteSelectionButton.IsEnabled = false;
             context.PurgeButton.IsEnabled = false;
 
-            var response = await _api.AdminJobsDeleteHistoryAsync(jobIds, CancellationToken.None).ConfigureAwait(true);
+            var response = await _api.AdminJobsDeleteHistoryAsync(jobIds, context.LifecycleToken).ConfigureAwait(true);
             var deleted = TryGetInt(response, "deleted") ?? TryGetInt(response, "Deleted") ?? 0;
             var responseDeletedIds = ReadStringArray(response, "deletedIds");
             var deletedIds = new HashSet<string>(
@@ -877,7 +888,8 @@ public sealed partial class MainWindow
         catch (Exception ex)
         {
             ClientLog.Exception("AdminJobs.DeleteHistory", ex);
-            Status(ClientUiText.Get("admin.jobs.delete_failed", UiLang) + ex.Message);
+            Status(ClientUiText.Get("admin.jobs.delete_failed", UiLang)
+                + FormatAdminLoadErrorForUser(ex, "/admin/jobs/history", UiLang));
         }
         finally
         {

@@ -24,21 +24,27 @@ public sealed partial class ToolAgentOrchestrator
 
     private sealed record RagMultiSearchHitCandidate(JsonElement Hit, int QueryIndex, int HitRank, int QuerySpecificity, string Query);
 
+    private static int ResolveRagMultiSearchQueryBudget(int topK, int availableQueries)
+    {
+        if (availableQueries <= 0)
+            return 0;
+
+        var budget = topK >= 12
+            ? 12
+            : topK >= 10
+                ? 10
+                : 8;
+        return Math.Clamp(Math.Min(availableQueries, budget), 1, 12);
+    }
+
     private static string BuildRagHitDedupeKey(JsonElement hit)
     {
         var docPath =
             TryGetString(hit, "docPath")
             ?? TryGetString(hit, "doc_path")
             ?? string.Empty;
-        var pageStart =
-            TryGetInt(hit, "pageStart")
-            ?? TryGetInt(hit, "page_start")
-            ?? TryGetInt(hit, "page")
-            ?? 1;
-        var pageEnd =
-            TryGetInt(hit, "pageEnd")
-            ?? TryGetInt(hit, "page_end")
-            ?? pageStart;
+        var pageStart = ReadRagHitPageStart(hit);
+        var pageEnd = ReadRagHitPageEnd(hit, pageStart);
         var chunkId =
             TryGetString(hit, "chunkId")
             ?? TryGetString(hit, "chunk_id")
@@ -338,6 +344,18 @@ public sealed partial class ToolAgentOrchestrator
             TryGetInt(summary, "pageWarningPages") ?? 0,
             language));
 
+        var rejectedChunkDocs = TryGetInt(summary, "documentsWithRejectedChunks") ?? 0;
+        var noSearchableChunkDocs = TryGetInt(summary, "documentsWithNoSearchableChunks") ?? 0;
+        var retrievalReviewDocs = TryGetInt(summary, "documentsWithRetrievalReviewRecommended") ?? 0;
+        if (rejectedChunkDocs > 0 || noSearchableChunkDocs > 0 || retrievalReviewDocs > 0)
+        {
+            sb.AppendLine(DeterministicAgentText.ExtractionRetrievalChunkSummary(
+                rejectedChunkDocs,
+                noSearchableChunkDocs,
+                retrievalReviewDocs,
+                language));
+        }
+
         if (data.TryGetProperty("categories", out var categories) && categories.ValueKind == JsonValueKind.Array && categories.GetArrayLength() > 0)
         {
             sb.AppendLine(DeterministicAgentText.ExtractionCategoriesHeader(language));
@@ -400,6 +418,7 @@ public sealed partial class ToolAgentOrchestrator
             var reviewPages = TryGetInt(entry, "pageReviewRecommendedCount") ?? 0;
             if (warningPages > 0 || reviewPages > 0)
                 AddNonEmptyPart(parts, DeterministicAgentText.ExtractionPageIssues(warningPages, reviewPages, language));
+            AddNonEmptyPart(parts, FormatRetrievalChunkQualityPart(entry, language));
             AddNonEmptyPart(parts, FormatWordStatsPart(
                 TryGetInt(entry, "totalWordCount"),
                 TryGetDouble(entry, "averageWordsPerPage"),
@@ -412,6 +431,51 @@ public sealed partial class ToolAgentOrchestrator
         }
 
         return sb.ToString().TrimEnd();
+    }
+
+    private static string? FormatRetrievalChunkQualityPart(JsonElement entry, string? language)
+    {
+        var quality = TryGetObject(entry, "retrievalChunkQuality")
+                      ?? TryGetObject(entry, "RetrievalChunkQuality")
+                      ?? TryGetObject(entry, "retrieval_chunk_quality");
+        var total = quality.HasValue
+            ? TryGetInt(quality.Value, "totalChunkCount") ?? TryGetInt(quality.Value, "TotalChunkCount")
+            : TryGetInt(entry, "retrievalTotalChunkCount") ?? TryGetInt(entry, "RetrievalTotalChunkCount");
+        var searchable = quality.HasValue
+            ? TryGetInt(quality.Value, "searchableChunkCount") ?? TryGetInt(quality.Value, "SearchableChunkCount")
+            : TryGetInt(entry, "retrievalSearchableChunkCount") ?? TryGetInt(entry, "RetrievalSearchableChunkCount");
+        var rejected = quality.HasValue
+            ? TryGetInt(quality.Value, "rejectedChunkCount") ?? TryGetInt(quality.Value, "RejectedChunkCount")
+            : TryGetInt(entry, "retrievalRejectedChunkCount") ?? TryGetInt(entry, "RetrievalRejectedChunkCount");
+        var review = (quality.HasValue
+            ? TryGetBool(quality.Value, "manualReviewRecommended") ?? TryGetBool(quality.Value, "ManualReviewRecommended")
+            : TryGetBool(entry, "retrievalManualReviewRecommended") ?? TryGetBool(entry, "RetrievalManualReviewRecommended")) == true;
+
+        if (!total.HasValue && !searchable.HasValue && !rejected.HasValue && !review)
+            return null;
+
+        var reasonParts = new List<string>();
+        if (quality.HasValue)
+        {
+            foreach (var pair in ExtractCompactIntMap(quality.Value, "rejectionReasons")
+                         .Concat(ExtractCompactIntMap(quality.Value, "RejectionReasons"))
+                         .GroupBy(static pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+                         .Select(static group => new { Reason = group.Key, Count = group.Sum(static pair => pair.Value) })
+                         .OrderByDescending(static pair => pair.Count)
+                         .ThenBy(static pair => pair.Reason, StringComparer.OrdinalIgnoreCase)
+                         .Take(3))
+            {
+                reasonParts.Add($"{ShortenInventoryValue(pair.Reason, 36)}={pair.Count}");
+            }
+        }
+
+        return DeterministicAgentText.ExtractionRetrievalChunkQuality(
+            total,
+            searchable,
+            rejected,
+            review,
+            reasonParts.Count == 0 ? null : string.Join(", ", reasonParts),
+            language);
     }
 
     private static string RenderExtractionPagesFromReplayData(JsonElement data, string language)
@@ -650,7 +714,7 @@ public sealed partial class ToolAgentOrchestrator
             label = (label ?? string.Empty).Replace("|", " ").Replace("]", ")");
             var suffixes = new List<string>();
             if (state.Equals("stale", StringComparison.OrdinalIgnoreCase))
-                suffixes.Add("stale");
+                suffixes.Add(DeterministicAgentText.SummaryStatusStaleSuffix(language));
             if (profileMissing)
                 suffixes.Add(DeterministicAgentText.BackofficeProfileMissingSuffix(language));
             if (TryGetBool(entry, "hasActiveSummaryJob") == true || TryGetBool(entry, "HasActiveSummaryJob") == true)
@@ -1059,7 +1123,7 @@ public sealed partial class ToolAgentOrchestrator
             var degradedRetrievers = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
             object? selectedGuidance = null;
             string? selectedGuidanceBehavior = null;
-            var selectedQueries = queries.Take(8).ToArray();
+            var selectedQueries = queries.Take(ResolveRagMultiSearchQueryBudget(topK, queries.Count)).ToArray();
             var querySpecificities = selectedQueries
                 .Select(ComputeRagMultiSearchQuerySpecificity)
                 .ToArray();
@@ -1226,7 +1290,7 @@ public sealed partial class ToolAgentOrchestrator
                 guidance = selectedGuidance,
                 meta = new
                 {
-                    queries = queries.Take(8).ToArray(),
+                    queries = selectedQueries,
                     mode = (mode ?? "balanced"),
                     category = scope,
                     categoryPath = scope,
@@ -1259,7 +1323,7 @@ public sealed partial class ToolAgentOrchestrator
             }
         }
 
-        RememberLastRagDiagnostics(queries.Take(8), result);
+        RememberLastRagDiagnostics(queries.Take(ResolveRagMultiSearchQueryBudget(topK, queries.Count)), result);
         return result;
     }
 

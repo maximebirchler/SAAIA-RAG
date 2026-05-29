@@ -29,9 +29,30 @@ public sealed partial class MainWindow
 
     private void MainWindow_Closed(object sender, WindowEventArgs args)
     {
+        _llmProc.SetIdleStopSuppressionProvider(null);
         CloseTransientDialogs();
         CloseAdminJobsWindow();
+        CloseAdminConsoleWindow();
         TryRemoveDynamicMinimumWindowSize();
+    }
+
+    private void MainWindow_AppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
+    {
+        _llmProc.NotifyIdlePolicyChanged();
+    }
+
+    private bool IsLocalLlmIdleStopSuppressedByWindow()
+    {
+        try
+        {
+            if (AppWindow?.Presenter is OverlappedPresenter presenter)
+                return presenter.State != OverlappedPresenterState.Minimized;
+        }
+        catch
+        {
+        }
+
+        return true;
     }
 
     private void TryInstallDynamicMinimumWindowSize()

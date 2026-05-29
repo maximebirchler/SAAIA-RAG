@@ -24,10 +24,67 @@ public sealed partial class ApiClient
             () => admin ? NewAdminRequest(method, path, jsonBody) : NewRequest(method, path, jsonBody),
             ct).ConfigureAwait(false);
 
-        resp.EnsureSuccessStatusCode();
+        if (!resp.IsSuccessStatusCode)
+        {
+            var body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            throw new HttpRequestException(
+                BuildHttpErrorMessage(method, path, resp.StatusCode, body),
+                inner: null,
+                statusCode: resp.StatusCode);
+        }
+
         var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(json))
+            json = "{}";
         using var doc = JsonDocument.Parse(json);
         return doc.RootElement.Clone();
+    }
+
+    private static string BuildHttpErrorMessage(HttpMethod method, string path, HttpStatusCode statusCode, string? body)
+    {
+        var detail = ExtractHttpErrorDetail(body);
+        var prefix = $"{method.Method} {path} returned HTTP {(int)statusCode} ({statusCode}).";
+        return string.IsNullOrWhiteSpace(detail)
+            ? prefix
+            : $"{prefix} {detail}";
+    }
+
+    private static string? ExtractHttpErrorDetail(string? body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return null;
+
+        var trimmed = body.Trim();
+        try
+        {
+            using var doc = JsonDocument.Parse(trimmed);
+            var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.Object)
+            {
+                var parts = new List<string>();
+                AddErrorPart(parts, root, "error");
+                AddErrorPart(parts, root, "message");
+                AddErrorPart(parts, root, "detail");
+                AddErrorPart(parts, root, "capabilityKey");
+                if (parts.Count > 0)
+                    return string.Join(" | ", parts.Distinct(StringComparer.OrdinalIgnoreCase));
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return trimmed.Length <= 500 ? trimmed : trimmed[..497] + "...";
+    }
+
+    private static void AddErrorPart(ICollection<string> parts, JsonElement root, string propertyName)
+    {
+        if (!root.TryGetProperty(propertyName, out var value) || value.ValueKind != JsonValueKind.String)
+            return;
+
+        var text = value.GetString();
+        if (!string.IsNullOrWhiteSpace(text))
+            parts.Add($"{propertyName}={text.Trim()}");
     }
 
 

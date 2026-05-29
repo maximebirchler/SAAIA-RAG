@@ -1,4 +1,4 @@
-using Dapper;
+﻿using Dapper;
 using Npgsql;
 
 static partial class JobRepo
@@ -41,7 +41,7 @@ WHERE tenant_id = @tenant_id
         const string sql = """
 SELECT
     status AS "Status",
-    COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested",
+    (LOWER(COALESCE(payload #>> '{control,cancelRequested}', '')) = 'true') AS "CancelRequested",
     payload #>> '{control,requestedAction}' AS "RequestedAction"
 FROM ingestion_jobs
 WHERE job_id=@job_id
@@ -64,7 +64,7 @@ LIMIT 1;
         const string sql = """
 SELECT
     COALESCE(j.status, '') AS "JobStatus",
-    COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false) AS "JobCancelRequested",
+    (LOWER(COALESCE(j.payload #>> '{control,cancelRequested}', '')) = 'true') AS "JobCancelRequested",
     j.payload #>> '{control,requestedAction}' AS "RequestedAction",
     COALESCE(d.auto_ingest_paused, false) AS "DocumentAutoIngestPaused",
     d.auto_ingest_pause_reason AS "DocumentAutoIngestPauseReason"

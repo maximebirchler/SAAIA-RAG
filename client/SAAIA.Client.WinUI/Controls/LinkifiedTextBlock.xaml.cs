@@ -24,6 +24,10 @@ public sealed partial class LinkifiedTextBlock : UserControl
         @"^(?<indent>\s*)(?<num>\d{1,4})\.\s+(?<rest>.*)$",
         RegexOptions.Compiled);
 
+    private static readonly Regex MarkdownBoldRegex = new(
+        @"\*\*(?<text>[^\r\n]+?)\*\*",
+        RegexOptions.Compiled);
+
     // ---------------- Visual tuning ----------------
     // Edit these values if you want tighter/looser tree spacing.
     private static readonly string[] TreeBullets = new[] { "•", "◦", "▪", "–" };

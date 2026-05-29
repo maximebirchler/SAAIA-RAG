@@ -152,6 +152,98 @@ Continue the previous request using the clarification as the intended topic or s
         Assert.Contains(expectedHeader, answer, StringComparison.Ordinal);
         Assert.Contains("- GuideA.pdf", answer, StringComparison.Ordinal);
         Assert.Contains("- GuideB.pdf", answer, StringComparison.Ordinal);
+        Assert.Contains("Use the roasting probe", answer, StringComparison.Ordinal);
         Assert.DoesNotContain("GuideA.pdf\n- GuideA.pdf", answer, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Document_content_search_expands_sparse_reason_requests()
+    {
+        var singleDocPayload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/GuideA.pdf",
+                    docName = "GuideA.pdf",
+                    pageStart = 12,
+                    excerpt = "A short passage about the requested topic.",
+                    score = 0.99
+                }
+            }
+        });
+        var richerPayload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/GuideA.pdf",
+                    docName = "GuideA.pdf",
+                    pageStart = 12,
+                    excerpt = "A short passage about the requested topic.",
+                    score = 0.99
+                },
+                new
+                {
+                    docPath = "Knowledge/GuideB.pdf",
+                    docName = "GuideB.pdf",
+                    pageStart = 5,
+                    excerpt = "A second document explains why this topic matters.",
+                    score = 0.92
+                },
+                new
+                {
+                    docPath = "Knowledge/GuideC.pdf",
+                    docName = "GuideC.pdf",
+                    pageStart = 8,
+                    excerpt = "A third document gives another relevant angle.",
+                    score = 0.89
+                }
+            }
+        });
+
+        Assert.True(ToolAgentOrchestrator.ShouldExpandDocumentContentSearchForTests(
+            "Which documents are useful for this topic and why?",
+            singleDocPayload));
+        Assert.True(ToolAgentOrchestrator.IsBetterDocumentContentSearchCoverageForTests(singleDocPayload, richerPayload));
+        Assert.False(ToolAgentOrchestrator.ShouldExpandDocumentContentSearchForTests(
+            "Which documents mention this topic?",
+            richerPayload));
+    }
+
+    [Fact]
+    public void Document_content_selection_explanations_use_writer_when_sources_exist()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/GuideA.pdf",
+                    docName = "GuideA.pdf",
+                    pageStart = 12,
+                    excerpt = "This passage explains the topic and why it matters.",
+                    score = 0.99
+                },
+                new
+                {
+                    docPath = "Knowledge/GuideB.pdf",
+                    docName = "GuideB.pdf",
+                    pageStart = 5,
+                    excerpt = "This second document gives another useful angle.",
+                    score = 0.92
+                }
+            }
+        });
+
+        Assert.True(ToolAgentOrchestrator.ShouldUseWriterForDocumentContentSearchAnswerForTests(
+            "Which documents are useful for this topic and why?",
+            payload));
+        Assert.False(ToolAgentOrchestrator.ShouldUseWriterForDocumentContentSearchAnswerForTests(
+            "Which documents mention this topic?",
+            payload));
     }
 }

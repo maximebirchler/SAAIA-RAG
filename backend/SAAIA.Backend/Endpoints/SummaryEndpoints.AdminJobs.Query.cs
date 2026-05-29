@@ -77,7 +77,7 @@ SELECT * FROM (
     job_type     AS "JobType",
     status       AS "Status",
     doc_id       AS "DocId",
-    payload ->> 'docPath' AS "DocPath",
+    COALESCE(payload ->> 'docPath', doc_path) AS "DocPath",
     level        AS "Level",
     last_error   AS "LastError",
     created_at   AS "CreatedAt",
@@ -103,7 +103,9 @@ SELECT * FROM (
       ELSE NULL::boolean
     END AS "RuntimeCapabilitySelected",
     CASE
-      WHEN jsonb_typeof(payload->'campaignId')='string' THEN (payload->>'campaignId')::uuid
+      WHEN jsonb_typeof(payload->'campaignId')='string'
+           AND (payload->>'campaignId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        THEN (payload->>'campaignId')::uuid
       ELSE NULL::uuid
     END AS "CampaignId",
     CASE
@@ -116,7 +118,9 @@ SELECT * FROM (
     END AS "ResultStored",
     result ->> 'sourceHash' AS "ResultSourceHash",
     CASE
-      WHEN jsonb_typeof(result->'summaryLength')='number' THEN (result->>'summaryLength')::int
+      WHEN jsonb_typeof(result->'summaryLength')='number'
+           AND (result->>'summaryLength') ~ '^-?[0-9]{1,9}$'
+        THEN (result->>'summaryLength')::int
       ELSE NULL::int
     END AS "ResultSummaryLength",
     result ->> 'completedBy' AS "ResultCompletedBy"
@@ -132,7 +136,11 @@ SELECT * FROM (
     CASE
       WHEN i.status='paused' THEN 'paused'
       WHEN i.status='running'
-           AND COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false)
+           AND CASE
+             WHEN lower(COALESCE(i.payload #>> '{control,cancelRequested}', '')) IN ('true','false')
+               THEN (i.payload #>> '{control,cancelRequested}')::boolean
+             ELSE false
+           END
            AND COALESCE(d.status, '') NOT IN ('missing','deleted')
            AND (
              COALESCE(i.payload #>> '{control,requestedAction}', '') = 'pause'
@@ -144,10 +152,19 @@ SELECT * FROM (
              )
            )
         THEN 'paused'
-      WHEN i.status='running' AND COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false) THEN 'cancel_requested'
+      WHEN i.status='running' AND CASE
+             WHEN lower(COALESCE(i.payload #>> '{control,cancelRequested}', '')) IN ('true','false')
+               THEN (i.payload #>> '{control,cancelRequested}')::boolean
+             ELSE false
+           END THEN 'cancel_requested'
       ELSE i.status
     END            AS "Status",
-    CASE WHEN jsonb_typeof(i.payload->'docId')='string' THEN (i.payload->>'docId')::uuid ELSE NULL::uuid END AS "DocId",
+    CASE
+      WHEN jsonb_typeof(i.payload->'docId')='string'
+           AND (i.payload->>'docId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        THEN (i.payload->>'docId')::uuid
+      ELSE NULL::uuid
+    END AS "DocId",
     i.doc_path     AS "DocPath",
     NULL::text   AS "Level",
     i.last_error   AS "LastError",
@@ -163,43 +180,57 @@ SELECT * FROM (
     CASE
       WHEN i.status IN ('done','failed','canceled','cancelled')
            AND jsonb_typeof(i.payload #> '{snapshot,progressCurrent}')='number'
+             AND (i.payload #>> '{snapshot,progressCurrent}') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload #>> '{snapshot,progressCurrent}')::int
       WHEN jsonb_typeof(i.payload->'progress'->'current')='number'
+             AND (i.payload->'progress'->>'current') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload->'progress'->>'current')::int
       ELSE NULL
     END AS "ProgressCurrent",
     CASE
       WHEN i.status IN ('done','failed','canceled','cancelled')
            AND jsonb_typeof(i.payload #> '{snapshot,progressTotal}')='number'
+             AND (i.payload #>> '{snapshot,progressTotal}') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload #>> '{snapshot,progressTotal}')::int
       WHEN jsonb_typeof(i.payload->'progress'->'total')='number'
+             AND (i.payload->'progress'->>'total') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload->'progress'->>'total')::int
       ELSE NULL
     END AS "ProgressTotal",
     CASE
       WHEN i.status IN ('done','failed','canceled','cancelled')
            AND jsonb_typeof(i.payload #> '{snapshot,progressPercent}')='number'
+             AND (i.payload #>> '{snapshot,progressPercent}') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload #>> '{snapshot,progressPercent}')::int
       WHEN jsonb_typeof(i.payload->'progress'->'percent')='number'
+             AND (i.payload->'progress'->>'percent') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload->'progress'->>'percent')::int
       ELSE NULL
     END AS "ProgressPercent",
-    COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested",
+    CASE
+      WHEN lower(COALESCE(i.payload #>> '{control,cancelRequested}', '')) IN ('true','false')
+        THEN (i.payload #>> '{control,cancelRequested}')::boolean
+      ELSE false
+    END AS "CancelRequested",
     i.payload ->> 'source' AS "EnqueueSource",
     COALESCE(i.payload #>> '{snapshot,documentStatus}', d.status) AS "DocumentStatus",
     CASE
       WHEN jsonb_typeof(i.payload #> '{snapshot,documentIngestionVersion}')='number'
+             AND (i.payload #>> '{snapshot,documentIngestionVersion}') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload #>> '{snapshot,documentIngestionVersion}')::int
       WHEN jsonb_typeof(i.payload->'version')='number'
+             AND (i.payload->>'version') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload->>'version')::int
       ELSE d.ingestion_version
     END AS "DocumentIngestionVersion",
     CASE
       WHEN jsonb_typeof(i.payload #> '{snapshot,documentIndexedVersion}')='number'
+             AND (i.payload #>> '{snapshot,documentIndexedVersion}') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload #>> '{snapshot,documentIndexedVersion}')::int
       WHEN i.status='done'
         THEN d.indexed_version
       WHEN jsonb_typeof(i.payload->'indexedVersionBefore')='number'
+             AND (i.payload->>'indexedVersionBefore') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload->>'indexedVersionBefore')::int
       ELSE d.indexed_version
     END AS "DocumentIndexedVersion",
@@ -266,7 +297,7 @@ SELECT * FROM (
     job_type     AS "JobType",
     status       AS "Status",
     doc_id       AS "DocId",
-    payload ->> 'docPath' AS "DocPath",
+    COALESCE(payload ->> 'docPath', doc_path) AS "DocPath",
     level        AS "Level",
     last_error   AS "LastError",
     created_at   AS "CreatedAt",
@@ -292,7 +323,9 @@ SELECT * FROM (
       ELSE NULL::boolean
     END AS "RuntimeCapabilitySelected",
     CASE
-      WHEN jsonb_typeof(payload->'campaignId')='string' THEN (payload->>'campaignId')::uuid
+      WHEN jsonb_typeof(payload->'campaignId')='string'
+           AND (payload->>'campaignId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        THEN (payload->>'campaignId')::uuid
       ELSE NULL::uuid
     END AS "CampaignId",
     CASE
@@ -305,7 +338,9 @@ SELECT * FROM (
     END AS "ResultStored",
     result ->> 'sourceHash' AS "ResultSourceHash",
     CASE
-      WHEN jsonb_typeof(result->'summaryLength')='number' THEN (result->>'summaryLength')::int
+      WHEN jsonb_typeof(result->'summaryLength')='number'
+           AND (result->>'summaryLength') ~ '^-?[0-9]{1,9}$'
+        THEN (result->>'summaryLength')::int
       ELSE NULL::int
     END AS "ResultSummaryLength",
     result ->> 'completedBy' AS "ResultCompletedBy"
@@ -321,7 +356,11 @@ SELECT * FROM (
     CASE
       WHEN i.status='paused' THEN 'paused'
       WHEN i.status='running'
-           AND COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false)
+           AND CASE
+             WHEN lower(COALESCE(i.payload #>> '{control,cancelRequested}', '')) IN ('true','false')
+               THEN (i.payload #>> '{control,cancelRequested}')::boolean
+             ELSE false
+           END
            AND COALESCE(d.status, '') NOT IN ('missing','deleted')
            AND (
              COALESCE(i.payload #>> '{control,requestedAction}', '') = 'pause'
@@ -333,10 +372,19 @@ SELECT * FROM (
              )
            )
         THEN 'paused'
-      WHEN i.status='running' AND COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false) THEN 'cancel_requested'
+      WHEN i.status='running' AND CASE
+             WHEN lower(COALESCE(i.payload #>> '{control,cancelRequested}', '')) IN ('true','false')
+               THEN (i.payload #>> '{control,cancelRequested}')::boolean
+             ELSE false
+           END THEN 'cancel_requested'
       ELSE i.status
     END            AS "Status",
-    CASE WHEN jsonb_typeof(i.payload->'docId')='string' THEN (i.payload->>'docId')::uuid ELSE NULL::uuid END AS "DocId",
+    CASE
+      WHEN jsonb_typeof(i.payload->'docId')='string'
+           AND (i.payload->>'docId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        THEN (i.payload->>'docId')::uuid
+      ELSE NULL::uuid
+    END AS "DocId",
     i.doc_path     AS "DocPath",
     NULL::text   AS "Level",
     i.last_error   AS "LastError",
@@ -352,43 +400,57 @@ SELECT * FROM (
     CASE
       WHEN i.status IN ('done','failed','canceled','cancelled')
            AND jsonb_typeof(i.payload #> '{snapshot,progressCurrent}')='number'
+             AND (i.payload #>> '{snapshot,progressCurrent}') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload #>> '{snapshot,progressCurrent}')::int
       WHEN jsonb_typeof(i.payload->'progress'->'current')='number'
+             AND (i.payload->'progress'->>'current') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload->'progress'->>'current')::int
       ELSE NULL
     END AS "ProgressCurrent",
     CASE
       WHEN i.status IN ('done','failed','canceled','cancelled')
            AND jsonb_typeof(i.payload #> '{snapshot,progressTotal}')='number'
+             AND (i.payload #>> '{snapshot,progressTotal}') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload #>> '{snapshot,progressTotal}')::int
       WHEN jsonb_typeof(i.payload->'progress'->'total')='number'
+             AND (i.payload->'progress'->>'total') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload->'progress'->>'total')::int
       ELSE NULL
     END AS "ProgressTotal",
     CASE
       WHEN i.status IN ('done','failed','canceled','cancelled')
            AND jsonb_typeof(i.payload #> '{snapshot,progressPercent}')='number'
+             AND (i.payload #>> '{snapshot,progressPercent}') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload #>> '{snapshot,progressPercent}')::int
       WHEN jsonb_typeof(i.payload->'progress'->'percent')='number'
+             AND (i.payload->'progress'->>'percent') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload->'progress'->>'percent')::int
       ELSE NULL
     END AS "ProgressPercent",
-    COALESCE((i.payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested",
+    CASE
+      WHEN lower(COALESCE(i.payload #>> '{control,cancelRequested}', '')) IN ('true','false')
+        THEN (i.payload #>> '{control,cancelRequested}')::boolean
+      ELSE false
+    END AS "CancelRequested",
     i.payload ->> 'source' AS "EnqueueSource",
     COALESCE(i.payload #>> '{snapshot,documentStatus}', d.status) AS "DocumentStatus",
     CASE
       WHEN jsonb_typeof(i.payload #> '{snapshot,documentIngestionVersion}')='number'
+             AND (i.payload #>> '{snapshot,documentIngestionVersion}') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload #>> '{snapshot,documentIngestionVersion}')::int
       WHEN jsonb_typeof(i.payload->'version')='number'
+             AND (i.payload->>'version') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload->>'version')::int
       ELSE d.ingestion_version
     END AS "DocumentIngestionVersion",
     CASE
       WHEN jsonb_typeof(i.payload #> '{snapshot,documentIndexedVersion}')='number'
+             AND (i.payload #>> '{snapshot,documentIndexedVersion}') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload #>> '{snapshot,documentIndexedVersion}')::int
       WHEN i.status='done'
         THEN d.indexed_version
       WHEN jsonb_typeof(i.payload->'indexedVersionBefore')='number'
+             AND (i.payload->>'indexedVersionBefore') ~ '^-?[0-9]{1,9}$'
         THEN (i.payload->>'indexedVersionBefore')::int
       ELSE d.indexed_version
     END AS "DocumentIndexedVersion",

@@ -1,3 +1,4 @@
+using System;
 using SAAIA.Client.WinUI.Localization;
 using Xunit;
 
@@ -161,6 +162,34 @@ public sealed class DeterministicLocalizationTests
 
         Assert.False(string.IsNullOrWhiteSpace(DeterministicAgentText.ExtractionDocumentStatus("error", language)));
         Assert.False(string.IsNullOrWhiteSpace(DeterministicAgentText.ExtractionProcessingRunStatus("failed", language)));
+    }
+
+    [Theory]
+    [InlineData("fr")]
+    [InlineData("en")]
+    [InlineData("es")]
+    [InlineData("pt")]
+    [InlineData("de")]
+    [InlineData("it")]
+    public void Summary_status_suffixes_do_not_leak_server_tokens(string language)
+    {
+        var texts = new[]
+        {
+            DeterministicAgentText.SummaryStatusStaleSuffix(language),
+            DeterministicAgentText.SummaryStatusActiveJobSuffix("enqueue_profile_refresh", language),
+            DeterministicAgentText.SummaryStatusCapabilityActionSuffix("enqueue_profile_refresh", language),
+            DeterministicAgentText.SummaryStatusPolicyBlockedSuffix("runtime_unqualified", language),
+            DeterministicAgentText.SummaryStatusLastJobIssueSuffix("failed", "timeout while calling worker", language)
+        };
+
+        foreach (var text in texts)
+        {
+            Assert.DoesNotContain("Capability B", text, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("enqueue_profile_refresh", text, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("runtime_unqualified", text, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("timeout while calling worker", text, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("_", text);
+        }
     }
 
 }

@@ -71,7 +71,7 @@ public sealed partial class SourcesCardsControl : UserControl
             return;
 
         await ShowErrorAsync(
-            result.ErrorTitle ?? ST("Impossible d'ouvrir le fichier", "Could not open the file", "No se pudo abrir el archivo", "Nao foi possivel abrir o ficheiro", "Datei konnte nicht geoeffnet werden", "Impossibile aprire il file", _uiLanguage),
+            result.ErrorTitle ?? ST("Impossible d'ouvrir le fichier", "Could not open the file", "No se pudo abrir el archivo", "Não foi possível abrir o ficheiro", "Datei konnte nicht geöffnet werden", "Impossibile aprire il file", _uiLanguage),
             result.ErrorMessage ?? ST("Erreur inconnue.", "Unknown error.", "Error desconocido.", "Erro desconhecido.", "Unbekannter Fehler.", "Errore sconosciuto.", _uiLanguage));
     }
 
@@ -294,6 +294,17 @@ public sealed partial class SourcesCardsControl : UserControl
         if (!string.IsNullOrWhiteSpace(sourceHash))
             parts.Add($"{SourceCardLabel("hash", uiLanguage)} {sourceHash}");
 
+        var headingPath = FirstNonBlank(source.HeadingPath);
+        var sectionTitle = FirstNonBlank(source.SectionTitle);
+        if (!string.IsNullOrWhiteSpace(headingPath)
+            && !string.Equals(headingPath, sectionTitle, StringComparison.OrdinalIgnoreCase))
+        {
+            parts.Add($"{SourceCardLabel("heading", uiLanguage)} {Shorten(headingPath!, 72)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(sectionTitle))
+            parts.Add($"{SourceCardLabel("section", uiLanguage)} {Shorten(sectionTitle!, 56)}");
+
         if (source.MatchedContentCards is { Count: > 0 } matchedContentCards)
         {
             var cardsPart = BuildMatchedContentCardsMetadataPart(matchedContentCards, uiLanguage, source.DocLanguage);
@@ -376,7 +387,7 @@ public sealed partial class SourcesCardsControl : UserControl
         AddProfileSignalList(parts, "profile_keywords", signals.Keywords, uiLanguage, maxItems: 3);
         AddProfileSignalList(parts, "profile_topics", signals.Topics, uiLanguage, maxItems: 2);
 
-        var version = FormatBackendReason(signals.ProfileVersion);
+        var version = LocalizedProfileVersion(signals.ProfileVersion, uiLanguage);
         if (!string.IsNullOrWhiteSpace(version))
             parts.Add($"{SourceCardLabel("profile_version", uiLanguage)} {Shorten(version, 32)}");
 
@@ -888,6 +899,43 @@ public sealed partial class SourcesCardsControl : UserControl
 
         if (diagnostics.ImagePageCount is > 0)
             parts.Add($"{SourceCardLabel("image_pages", uiLanguage)} {diagnostics.ImagePageCount.Value.ToString(CultureInfo.InvariantCulture)}");
+
+        AddRetrievalChunkQualityMetadataParts(parts, diagnostics.RetrievalChunkQuality, uiLanguage);
+    }
+
+    private static void AddRetrievalChunkQualityMetadataParts(
+        List<string> parts,
+        SourceRetrievalChunkQualitySummary? quality,
+        string? uiLanguage)
+    {
+        if (quality is null)
+            return;
+
+        if (quality.SearchableChunkCount.HasValue || quality.TotalChunkCount.HasValue)
+        {
+            var value = quality.SearchableChunkCount.HasValue && quality.TotalChunkCount.HasValue
+                ? $"{quality.SearchableChunkCount.Value.ToString(CultureInfo.InvariantCulture)}/{quality.TotalChunkCount.Value.ToString(CultureInfo.InvariantCulture)}"
+                : (quality.SearchableChunkCount ?? quality.TotalChunkCount)!.Value.ToString(CultureInfo.InvariantCulture);
+            parts.Add($"{SourceCardLabel("indexed_chunks", uiLanguage)} {value}");
+        }
+
+        if (quality.RejectedChunkCount is > 0)
+            parts.Add($"{SourceCardLabel("rejected_chunks", uiLanguage)} {quality.RejectedChunkCount.Value.ToString(CultureInfo.InvariantCulture)}");
+
+        if (quality.RejectionReasons is { Count: > 0 })
+        {
+            var reasons = string.Join(", ", quality.RejectionReasons
+                .Where(static reason => reason.Value > 0)
+                .OrderByDescending(static reason => reason.Value)
+                .ThenBy(static reason => reason.Key, StringComparer.OrdinalIgnoreCase)
+                .Take(3)
+                .Select(reason => $"{FormatBackendReason(reason.Key)} {reason.Value.ToString(CultureInfo.InvariantCulture)}"));
+            if (!string.IsNullOrWhiteSpace(reasons))
+                parts.Add($"{SourceCardLabel("rejection_reasons", uiLanguage)} {Shorten(reasons, 72)}");
+        }
+
+        if (quality.ManualReviewRecommended == true)
+            parts.Add(SourceCardLabel("retrieval_review", uiLanguage));
     }
 
     private static int? GetSelectionScore(SourceCard source)
@@ -990,6 +1038,20 @@ public sealed partial class SourcesCardsControl : UserControl
         {
             "llm_content_card" => SourceCardLabel("content_card_kind.llm", uiLanguage),
             "deterministic_content_card" => SourceCardLabel("content_card_kind.deterministic", uiLanguage),
+            _ => FormatBackendReason(normalized)
+        };
+    }
+
+    private static string LocalizedProfileVersion(string? version, string? uiLanguage)
+    {
+        var normalized = NormalizeBackendIdentifier(version);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return string.Empty;
+
+        return normalized switch
+        {
+            "llm_backoffice_v1" or "llm_backoffice" or "server_llm_profile" => SourceCardLabel("profile_version.llm_server", uiLanguage),
+            "deterministic_profile_v1" or "deterministic_profile" => SourceCardLabel("profile_version.deterministic", uiLanguage),
             _ => FormatBackendReason(normalized)
         };
     }

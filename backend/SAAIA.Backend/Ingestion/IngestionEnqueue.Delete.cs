@@ -1,4 +1,4 @@
-using Dapper;
+﻿using Dapper;
 using Npgsql;
 
 static partial class IngestionEnqueue
@@ -91,7 +91,7 @@ DO UPDATE SET
   payload = CASE
       WHEN ingestion_jobs.status='running'
           THEN ingestion_jobs.payload
-      WHEN COALESCE((ingestion_jobs.payload #>> '{control,cancelRequested}')::boolean, false)
+      WHEN (LOWER(COALESCE(ingestion_jobs.payload #>> '{control,cancelRequested}', '')) = 'true')
           THEN jsonb_set(
               jsonb_set(EXCLUDED.payload, '{control,cancelRequested}', 'true'::jsonb, true),
               '{control,requestedAction}',

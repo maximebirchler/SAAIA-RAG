@@ -15,34 +15,64 @@ internal static class RuntimeCapabilityBQualityReviewStore
     {
         var aggregate = await conn.QuerySingleAsync<CapabilityBQualityReviewSummaryRow>(new CommandDefinition(
             """
+WITH scored_summaries AS (
+  SELECT
+    s.*,
+    CASE
+      WHEN jsonb_typeof(s.summary_meta -> 'qualityScore') IN ('number', 'string')
+       AND btrim(s.summary_meta ->> 'qualityScore') ~ '^(0(\.[0-9]{1,12})?|1(\.0{1,12})?)$'
+        THEN btrim(s.summary_meta ->> 'qualityScore')::double precision
+      ELSE NULL
+    END AS quality_score,
+    CASE
+      WHEN jsonb_typeof(s.summary_meta -> 'fallbackUsed') = 'boolean'
+        THEN (s.summary_meta ->> 'fallbackUsed')::boolean
+      WHEN jsonb_typeof(s.summary_meta -> 'fallbackUsed') = 'string'
+       AND btrim(lower(s.summary_meta ->> 'fallbackUsed')) IN ('true', 'false')
+        THEN btrim(lower(s.summary_meta ->> 'fallbackUsed'))::boolean
+      ELSE false
+    END AS fallback_used
+  FROM document_summaries s
+  WHERE s.tenant_id = @tenantId
+    AND s.summary_meta IS NOT NULL
+    AND s.summary_meta ->> 'generator' = 'capability_b_worker_v2'
+)
 SELECT
   COUNT(*)::int AS "TotalLowQualitySummaries",
-  COUNT(*) FILTER (WHERE COALESCE((s.summary_meta ->> 'fallbackUsed')::boolean, false))::int AS "FallbackSummaryCount",
-  COUNT(*) FILTER (WHERE COALESCE((s.summary_meta ->> 'fallbackUsed')::boolean, false) = false)::int AS "LiveLlmSummaryCount",
+  COUNT(*) FILTER (WHERE fallback_used)::int AS "FallbackSummaryCount",
+  COUNT(*) FILTER (WHERE fallback_used = false)::int AS "LiveLlmSummaryCount",
   COUNT(*) FILTER (WHERE s.summary_meta ->> 'runtimeCapabilityStatus' = 'runtime_unavailable')::int AS "RuntimeUnavailableCount",
-  MIN((s.summary_meta ->> 'qualityScore')::double precision) AS "LowestQualityScore",
+  MIN(quality_score) AS "LowestQualityScore",
   MAX(s.updated_at) AS "LatestUpdatedAt"
-FROM document_summaries s
-WHERE s.tenant_id = @tenantId
-  AND s.summary_meta IS NOT NULL
-  AND s.summary_meta ->> 'generator' = 'capability_b_worker_v2'
-  AND jsonb_typeof(s.summary_meta -> 'qualityScore') = 'number'
-  AND (s.summary_meta ->> 'qualityScore')::double precision < @qualityThreshold;
+FROM scored_summaries s
+WHERE quality_score IS NOT NULL
+  AND quality_score < @qualityThreshold;
 """,
             new { tenantId, qualityThreshold },
             cancellationToken: ct));
 
         var strategyRows = await conn.QueryAsync<NamedCountRow>(new CommandDefinition(
             """
+WITH scored_summaries AS (
+  SELECT
+    s.*,
+    CASE
+      WHEN jsonb_typeof(s.summary_meta -> 'qualityScore') IN ('number', 'string')
+       AND btrim(s.summary_meta ->> 'qualityScore') ~ '^(0(\.[0-9]{1,12})?|1(\.0{1,12})?)$'
+        THEN btrim(s.summary_meta ->> 'qualityScore')::double precision
+      ELSE NULL
+    END AS quality_score
+  FROM document_summaries s
+  WHERE s.tenant_id = @tenantId
+    AND s.summary_meta IS NOT NULL
+    AND s.summary_meta ->> 'generator' = 'capability_b_worker_v2'
+)
 SELECT
   COALESCE(NULLIF(s.summary_meta ->> 'strategy', ''), 'unknown') AS "Key",
   COUNT(*)::int AS "Count"
-FROM document_summaries s
-WHERE s.tenant_id = @tenantId
-  AND s.summary_meta IS NOT NULL
-  AND s.summary_meta ->> 'generator' = 'capability_b_worker_v2'
-  AND jsonb_typeof(s.summary_meta -> 'qualityScore') = 'number'
-  AND (s.summary_meta ->> 'qualityScore')::double precision < @qualityThreshold
+FROM scored_summaries s
+WHERE quality_score IS NOT NULL
+  AND quality_score < @qualityThreshold
 GROUP BY COALESCE(NULLIF(s.summary_meta ->> 'strategy', ''), 'unknown')
 ORDER BY "Count" DESC, "Key" ASC;
 """,
@@ -51,15 +81,26 @@ ORDER BY "Count" DESC, "Key" ASC;
 
         var runtimeStatusRows = await conn.QueryAsync<NamedCountRow>(new CommandDefinition(
             """
+WITH scored_summaries AS (
+  SELECT
+    s.*,
+    CASE
+      WHEN jsonb_typeof(s.summary_meta -> 'qualityScore') IN ('number', 'string')
+       AND btrim(s.summary_meta ->> 'qualityScore') ~ '^(0(\.[0-9]{1,12})?|1(\.0{1,12})?)$'
+        THEN btrim(s.summary_meta ->> 'qualityScore')::double precision
+      ELSE NULL
+    END AS quality_score
+  FROM document_summaries s
+  WHERE s.tenant_id = @tenantId
+    AND s.summary_meta IS NOT NULL
+    AND s.summary_meta ->> 'generator' = 'capability_b_worker_v2'
+)
 SELECT
   COALESCE(NULLIF(s.summary_meta ->> 'runtimeCapabilityStatus', ''), 'unknown') AS "Key",
   COUNT(*)::int AS "Count"
-FROM document_summaries s
-WHERE s.tenant_id = @tenantId
-  AND s.summary_meta IS NOT NULL
-  AND s.summary_meta ->> 'generator' = 'capability_b_worker_v2'
-  AND jsonb_typeof(s.summary_meta -> 'qualityScore') = 'number'
-  AND (s.summary_meta ->> 'qualityScore')::double precision < @qualityThreshold
+FROM scored_summaries s
+WHERE quality_score IS NOT NULL
+  AND quality_score < @qualityThreshold
 GROUP BY COALESCE(NULLIF(s.summary_meta ->> 'runtimeCapabilityStatus', ''), 'unknown')
 ORDER BY "Count" DESC, "Key" ASC;
 """,
@@ -87,15 +128,37 @@ ORDER BY "Count" DESC, "Key" ASC;
     {
         var rows = await conn.QueryAsync<CapabilityBQualityReviewRow>(new CommandDefinition(
             """
+WITH scored_summaries AS (
+  SELECT
+    s.*,
+    CASE
+      WHEN jsonb_typeof(s.summary_meta -> 'qualityScore') IN ('number', 'string')
+       AND btrim(s.summary_meta ->> 'qualityScore') ~ '^(0(\.[0-9]{1,12})?|1(\.0{1,12})?)$'
+        THEN btrim(s.summary_meta ->> 'qualityScore')::double precision
+      ELSE NULL
+    END AS quality_score,
+    CASE
+      WHEN jsonb_typeof(s.summary_meta -> 'fallbackUsed') = 'boolean'
+        THEN (s.summary_meta ->> 'fallbackUsed')::boolean
+      WHEN jsonb_typeof(s.summary_meta -> 'fallbackUsed') = 'string'
+       AND btrim(lower(s.summary_meta ->> 'fallbackUsed')) IN ('true', 'false')
+        THEN btrim(lower(s.summary_meta ->> 'fallbackUsed'))::boolean
+      ELSE false
+    END AS fallback_used
+  FROM document_summaries s
+  WHERE s.tenant_id = @tenantId
+    AND s.summary_meta IS NOT NULL
+    AND s.summary_meta ->> 'generator' = 'capability_b_worker_v2'
+)
 SELECT
   d.doc_id AS "DocId",
   d.doc_path AS "DocPath",
   d.doc_name AS "DocName",
   d.category AS "Category",
   s.level AS "Level",
-  (s.summary_meta ->> 'qualityScore')::double precision AS "QualityScore",
+  s.quality_score AS "QualityScore",
   s.summary_meta ->> 'strategy' AS "Strategy",
-  COALESCE((s.summary_meta ->> 'fallbackUsed')::boolean, false) AS "FallbackUsed",
+  s.fallback_used AS "FallbackUsed",
   s.summary_meta ->> 'fallbackReason' AS "FallbackReason",
   s.summary_meta ->> 'runtimeCapabilityStatus' AS "RuntimeCapabilityStatus",
   char_length(COALESCE(s.summary_text, '')) AS "SummaryLength",
@@ -104,16 +167,13 @@ SELECT
     WHEN s.summary_meta ? 'qualitySignals' THEN (s.summary_meta -> 'qualitySignals')::text
     ELSE NULL
   END AS "QualitySignalsJson"
-FROM document_summaries s
+FROM scored_summaries s
 JOIN documents d
   ON d.tenant_id = s.tenant_id
  AND d.doc_id = s.doc_id
-WHERE s.tenant_id = @tenantId
-  AND s.summary_meta IS NOT NULL
-  AND s.summary_meta ->> 'generator' = 'capability_b_worker_v2'
-  AND jsonb_typeof(s.summary_meta -> 'qualityScore') = 'number'
-  AND (s.summary_meta ->> 'qualityScore')::double precision < @qualityThreshold
-ORDER BY (s.summary_meta ->> 'qualityScore')::double precision ASC, s.updated_at DESC
+WHERE s.quality_score IS NOT NULL
+  AND s.quality_score < @qualityThreshold
+ORDER BY s.quality_score ASC, s.updated_at DESC
 LIMIT @limit;
 """,
             new
@@ -160,18 +220,28 @@ LIMIT @limit;
         if (string.IsNullOrWhiteSpace(json))
             return new AdminRuntimeCapabilityBQualitySignalsDto(null, null, null, null, null, null, null, null, null);
 
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-        return new AdminRuntimeCapabilityBQualitySignalsDto(
-            ReadInt(root, "lineCount"),
-            ReadDouble(root, "lengthScore"),
-            ReadDouble(root, "structureScore"),
-            ReadDouble(root, "sectionCoverageScore"),
-            ReadInt(root, "matchedSectionCount"),
-            ReadInt(root, "expectedSectionCount"),
-            ReadDouble(root, "keywordCoverageScore"),
-            ReadInt(root, "matchedKeywordCount"),
-            ReadInt(root, "expectedKeywordCount"));
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+                return new AdminRuntimeCapabilityBQualitySignalsDto(null, null, null, null, null, null, null, null, null);
+
+            return new AdminRuntimeCapabilityBQualitySignalsDto(
+                ReadInt(root, "lineCount"),
+                ReadDouble(root, "lengthScore"),
+                ReadDouble(root, "structureScore"),
+                ReadDouble(root, "sectionCoverageScore"),
+                ReadInt(root, "matchedSectionCount"),
+                ReadInt(root, "expectedSectionCount"),
+                ReadDouble(root, "keywordCoverageScore"),
+                ReadInt(root, "matchedKeywordCount"),
+                ReadInt(root, "expectedKeywordCount"));
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
+        {
+            return new AdminRuntimeCapabilityBQualitySignalsDto(null, null, null, null, null, null, null, null, null);
+        }
     }
 
     private static string[] BuildRecommendations(
@@ -282,30 +352,36 @@ LIMIT @limit;
             ? parsed
             : null;
 
-    private sealed record CapabilityBQualityReviewRow(
-        Guid DocId,
-        string DocPath,
-        string DocName,
-        string? Category,
-        string Level,
-        double QualityScore,
-        string? Strategy,
-        bool FallbackUsed,
-        string? FallbackReason,
-        string? RuntimeCapabilityStatus,
-        int SummaryLength,
-        DateTimeOffset UpdatedAt,
-        string? QualitySignalsJson);
+    private sealed class CapabilityBQualityReviewRow
+    {
+        public Guid DocId { get; init; }
+        public string DocPath { get; init; } = string.Empty;
+        public string DocName { get; init; } = string.Empty;
+        public string? Category { get; init; }
+        public string Level { get; init; } = string.Empty;
+        public double QualityScore { get; init; }
+        public string? Strategy { get; init; }
+        public bool FallbackUsed { get; init; }
+        public string? FallbackReason { get; init; }
+        public string? RuntimeCapabilityStatus { get; init; }
+        public int SummaryLength { get; init; }
+        public DateTimeOffset UpdatedAt { get; init; }
+        public string? QualitySignalsJson { get; init; }
+    }
 
-    private sealed record CapabilityBQualityReviewSummaryRow(
-        int TotalLowQualitySummaries,
-        int FallbackSummaryCount,
-        int LiveLlmSummaryCount,
-        int RuntimeUnavailableCount,
-        double? LowestQualityScore,
-        DateTimeOffset? LatestUpdatedAt);
+    private sealed class CapabilityBQualityReviewSummaryRow
+    {
+        public int TotalLowQualitySummaries { get; init; }
+        public int FallbackSummaryCount { get; init; }
+        public int LiveLlmSummaryCount { get; init; }
+        public int RuntimeUnavailableCount { get; init; }
+        public double? LowestQualityScore { get; init; }
+        public DateTimeOffset? LatestUpdatedAt { get; init; }
+    }
 
-    private sealed record NamedCountRow(
-        string Key,
-        int Count);
+    private sealed class NamedCountRow
+    {
+        public string Key { get; init; } = string.Empty;
+        public int Count { get; init; }
+    }
 }

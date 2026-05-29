@@ -76,6 +76,12 @@ sealed class RagOptions
     public int SearchDenseEmbeddingTimeoutSeconds { get; set; } = DefaultSearchDenseEmbeddingTimeoutSeconds;
 
     /// <summary>
+    /// Quiet period after an interactive query before ingestion may start another TEI batch.
+    /// This protects the single TEI runtime on small servers without stopping ingestion forever.
+    /// </summary>
+    public int TeiInteractiveQuietPeriodMs { get; set; } = 1500;
+
+    /// <summary>
     /// Per sparse/profile-card SQL command budget for interactive RAG. Slow lexical
     /// expansions degrade instead of consuming the whole request while exact/dense/title routes continue.
     /// </summary>

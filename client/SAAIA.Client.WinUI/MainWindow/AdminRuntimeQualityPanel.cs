@@ -146,7 +146,7 @@ public sealed partial class MainWindow
                 var jobId = TryGetFirstQueuedJobId(response);
                 if (queuedCount > 0)
                 {
-                    var jobLabel = jobId.HasValue ? ShortJobId(jobId.Value) : "n/a";
+                    var jobLabel = jobId.HasValue ? ShortJobId(jobId.Value) : ClientUiText.Get("ui.not_available", lang);
                     Status(ClientUiText.Format("admin.runtime.quality.regenerate_done_detailed", lang, queuedCount, candidateCount, skippedCount, jobLabel));
                 }
                 else
@@ -160,7 +160,7 @@ public sealed partial class MainWindow
             catch (Exception ex)
             {
                 ClientLog.Exception("AdminRuntimeQuality.Regenerate", ex);
-                Status(ClientUiText.Get("admin.runtime.quality.regenerate_failed", lang) + ex.Message);
+                Status(ClientUiText.Get("admin.runtime.quality.regenerate_failed", lang) + BuildAdminRuntimeActionErrorDetail(ex, lang));
             }
             finally
             {
@@ -207,7 +207,7 @@ public sealed partial class MainWindow
                 BuildMetricTile(ClientUiText.Get("admin.runtime.quality.metric.runtime_unavailable", lang), summary.RuntimeUnavailableCount.ToString(CultureInfo.InvariantCulture)),
                 BuildMetricTile(
                     ClientUiText.Get("admin.runtime.quality.metric.lowest_score", lang),
-                    summary.LowestQualityScore.HasValue ? summary.LowestQualityScore.Value.ToString("0.00", CultureInfo.InvariantCulture) : "n/a")
+                    summary.LowestQualityScore.HasValue ? summary.LowestQualityScore.Value.ToString("0.00", CultureInfo.InvariantCulture) : ClientUiText.Get("ui.not_available", lang))
             };
 
             for (var index = 0; index < tiles.Length; index++)
@@ -218,7 +218,95 @@ public sealed partial class MainWindow
             }
         }
 
-        FrameworkElement BuildDistributionCard(string title, IReadOnlyList<AdminRuntimeNamedCountItem> items)
+        string QualitySeverityLabel(string? severity)
+            => (severity ?? string.Empty).Trim().ToLowerInvariant() switch
+            {
+                "critical" => LocalRuntimeText("critique", "critical", "critico", "critico", "kritisch", "critico", lang),
+                "high" => LocalRuntimeText("eleve", "high", "alto", "alto", "hoch", "alto", lang),
+                "medium" => LocalRuntimeText("moyen", "medium", "medio", "medio", "mittel", "medio", lang),
+                "low" => LocalRuntimeText("faible", "low", "bajo", "baixo", "niedrig", "basso", lang),
+                "" => LocalRuntimeText("inconnu", "unknown", "desconocido", "desconhecido", "unbekannt", "sconosciuto", lang),
+                _ => LocalRuntimeText("a verifier", "to review", "por revisar", "a rever", "zu pruefen", "da verificare", lang)
+            };
+
+        string QualityActionLabel(string? action)
+            => (action ?? string.Empty).Trim().ToLowerInvariant() switch
+            {
+                "stabilize_runtime_then_regenerate" => LocalRuntimeText("stabiliser le moteur serveur puis regenerer", "stabilize the server engine, then regenerate", "estabilizar el motor servidor y regenerar", "estabilizar o motor servidor e regenerar", "Server-Engine stabilisieren, dann neu generieren", "stabilizzare il motore server, poi rigenerare", lang),
+                "regenerate_with_context_review" => LocalRuntimeText("verifier le contexte puis regenerer", "check context, then regenerate", "revisar el contexto y regenerar", "verificar o contexto e regenerar", "Kontext pruefen, dann neu generieren", "controllare il contesto e rigenerare", lang),
+                "regenerate_summary" => LocalRuntimeText("regenerer le resume", "regenerate the summary", "regenerar el resumen", "regenerar o resumo", "Zusammenfassung neu generieren", "rigenerare il riepilogo", lang),
+                "manual_review" => LocalRuntimeText("revue manuelle", "manual review", "revision manual", "revisao manual", "manuelle Pruefung", "revisione manuale", lang),
+                "" => LocalRuntimeText("a confirmer", "to confirm", "por confirmar", "a confirmar", "zu bestaetigen", "da confermare", lang),
+                _ => LocalRuntimeText("a verifier", "to review", "por revisar", "a rever", "zu pruefen", "da verificare", lang)
+            };
+
+        string QualityStrategyLabel(string? strategy)
+            => (strategy ?? string.Empty).Trim().ToLowerInvariant() switch
+            {
+                "about" => LocalRuntimeText("resume court du document", "short document summary", "resumen corto del documento", "resumo curto do documento", "kurze Dokumentzusammenfassung", "riepilogo breve del documento", lang),
+                "summary" => LocalRuntimeText("resume documentaire", "document summary", "resumen documental", "resumo documental", "Dokumentzusammenfassung", "riepilogo documentale", lang),
+                "store" => LocalRuntimeText("resume stocke", "stored summary", "resumen almacenado", "resumo armazenado", "gespeicherte Zusammenfassung", "riepilogo archiviato", lang),
+                "unknown" or "" => LocalRuntimeText("strategie inconnue", "unknown strategy", "estrategia desconocida", "estrategia desconhecida", "unbekannte Strategie", "strategia sconosciuta", lang),
+                _ => LocalRuntimeText("strategie a verifier", "strategy to review", "estrategia por revisar", "estrategia a rever", "Strategie pruefen", "strategia da verificare", lang)
+            };
+
+        string QualityRuntimeStatusLabel(string? status)
+            => (status ?? string.Empty).Trim().ToLowerInvariant() switch
+            {
+                "runtime_available" or "ok" => LocalRuntimeText("moteur serveur disponible", "server engine available", "motor servidor disponible", "motor servidor disponivel", "Server-Engine verfuegbar", "motore server disponibile", lang),
+                "runtime_unavailable" => LocalRuntimeText("moteur serveur indisponible", "server engine unavailable", "motor servidor no disponible", "motor servidor indisponivel", "Server-Engine nicht verfuegbar", "motore server non disponibile", lang),
+                "fallback" or "fallback_used" => LocalRuntimeText("resume de secours utilise", "backup summary used", "resumen de respaldo usado", "resumo de contingencia usado", "Ersatz-Zusammenfassung genutzt", "riepilogo di riserva usato", lang),
+                "unknown" or "" => LocalRuntimeText("etat a verifier", "state to review", "estado por revisar", "estado a rever", "Status pruefen", "stato da verificare", lang),
+                _ => LocalRuntimeText("etat a verifier", "state to review", "estado por revisar", "estado a rever", "Status pruefen", "stato da verificare", lang)
+            };
+
+        string QualityFallbackReasonLabel(string? reason)
+            => (reason ?? string.Empty).Trim().ToLowerInvariant() switch
+            {
+                "runtime_unavailable" => LocalRuntimeText("moteur serveur indisponible", "server engine unavailable", "motor servidor no disponible", "motor servidor indisponivel", "Server-Engine nicht verfuegbar", "motore server non disponibile", lang),
+                "timeout" => LocalRuntimeText("delai depasse", "timeout", "tiempo agotado", "tempo excedido", "Zeitueberschreitung", "timeout", lang),
+                "empty_response" or "empty" => LocalRuntimeText("reponse vide", "empty response", "respuesta vacia", "resposta vazia", "leere Antwort", "risposta vuota", lang),
+                "quality_too_low" => LocalRuntimeText("qualite trop faible", "quality too low", "calidad demasiado baja", "qualidade demasiado baixa", "Qualitaet zu niedrig", "qualita troppo bassa", lang),
+                "unknown" or "" => LocalRuntimeText("raison a verifier", "reason to review", "motivo por revisar", "razao a rever", "Grund pruefen", "motivo da verificare", lang),
+                _ => LocalRuntimeText("raison a verifier", "reason to review", "motivo por revisar", "razao a rever", "Grund pruefen", "motivo da verificare", lang)
+            };
+
+        string QualityRecommendationLabel(string? recommendation)
+        {
+            var normalized = (recommendation ?? string.Empty).Trim().ToLowerInvariant();
+            if (normalized.Length == 0)
+                return string.Empty;
+
+            if (normalized.Contains("deterministic fallback", StringComparison.OrdinalIgnoreCase) || normalized.Contains("fallback", StringComparison.OrdinalIgnoreCase))
+                return LocalRuntimeText("Verifier pourquoi un resume de secours a ete utilise au lieu du moteur serveur.", "Check why a backup summary was used instead of the server engine.", "Revisar por que se uso un resumen de respaldo en lugar del motor servidor.", "Verificar porque foi usado um resumo de contingencia em vez do motor servidor.", "Pruefen, warum eine Ersatz-Zusammenfassung statt der Server-Engine verwendet wurde.", "Verificare perche e stato usato un riepilogo di riserva invece del motore server.", lang);
+            if (normalized.Contains("section coverage", StringComparison.OrdinalIgnoreCase))
+                return LocalRuntimeText("Regenerer avec un meilleur contexte : le resume ne reprend pas assez les sections du document.", "Regenerate with better context: the summary does not reflect enough document sections.", "Regenerar con mejor contexto: el resumen no refleja suficientes secciones del documento.", "Regenerar com melhor contexto: o resumo nao reflete secoes suficientes do documento.", "Mit besserem Kontext neu generieren: die Zusammenfassung spiegelt zu wenige Dokumentabschnitte wider.", "Rigenerare con un contesto migliore: il riepilogo non riflette abbastanza sezioni del documento.", lang);
+            if (normalized.Contains("keyword", StringComparison.OrdinalIgnoreCase) || normalized.Contains("excerpt", StringComparison.OrdinalIgnoreCase))
+                return LocalRuntimeText("Regenerer avec plus d'extraits utiles : trop peu de mots importants sont repris.", "Regenerate with more useful excerpts: too few important terms are reflected.", "Regenerar con mas extractos utiles: aparecen pocos terminos importantes.", "Regenerar com mais excertos uteis: aparecem poucos termos importantes.", "Mit mehr relevanten Auszuegen neu generieren: zu wenige wichtige Begriffe werden abgedeckt.", "Rigenerare con piu estratti utili: pochi termini importanti sono ripresi.", lang);
+            if (normalized.Contains("structure", StringComparison.OrdinalIgnoreCase))
+                return LocalRuntimeText("Regenerer le resume : la structure attendue n'est pas respectee.", "Regenerate the summary: the expected structure is not respected.", "Regenerar el resumen: no respeta la estructura esperada.", "Regenerar o resumo: a estrutura esperada nao foi respeitada.", "Zusammenfassung neu generieren: die erwartete Struktur wird nicht eingehalten.", "Rigenerare il riepilogo: la struttura prevista non e rispettata.", lang);
+            if (normalized.Contains("length", StringComparison.OrdinalIgnoreCase))
+                return LocalRuntimeText("Regenerer le resume : il est trop court ou trop long.", "Regenerate the summary: it is too short or too long.", "Regenerar el resumen: es demasiado corto o demasiado largo.", "Regenerar o resumo: esta demasiado curto ou demasiado longo.", "Zusammenfassung neu generieren: sie ist zu kurz oder zu lang.", "Rigenerare il riepilogo: e troppo corto o troppo lungo.", lang);
+            if (normalized.Contains("no low-quality", StringComparison.OrdinalIgnoreCase))
+                return LocalRuntimeText("Aucun resume faible n'est actuellement detecte.", "No weak summary is currently detected.", "No se detecta ningun resumen debil.", "Nenhum resumo fraco foi detetado.", "Aktuell wurde keine schwache Zusammenfassung erkannt.", "Nessun riepilogo debole rilevato.", lang);
+            if (normalized.Contains("runtime availability", StringComparison.OrdinalIgnoreCase))
+                return LocalRuntimeText("Verifier d'abord la disponibilite du moteur serveur.", "Check server engine availability first.", "Comprobar primero la disponibilidad del motor servidor.", "Verificar primeiro a disponibilidade do motor servidor.", "Zuerst die Verfuegbarkeit der Server-Engine pruefen.", "Verificare prima la disponibilita del motore server.", lang);
+            if (normalized.Contains("worst summaries", StringComparison.OrdinalIgnoreCase))
+                return LocalRuntimeText("Traiter d'abord les resumes avec les scores les plus faibles.", "Handle the lowest-scoring summaries first.", "Tratar primero los resumenes con peor puntuacion.", "Tratar primeiro os resumos com pior pontuacao.", "Zuerst die am schlechtesten bewerteten Zusammenfassungen behandeln.", "Gestire prima i riepiloghi con punteggio piu basso.", lang);
+            if (normalized.Contains("prompt drift", StringComparison.OrdinalIgnoreCase) || normalized.Contains("retrieval context", StringComparison.OrdinalIgnoreCase))
+                return LocalRuntimeText("Verifier le prompt et le contexte de recuperation des documents concernes.", "Check the prompt and retrieval context for the affected documents.", "Revisar el prompt y el contexto de recuperacion de los documentos afectados.", "Verificar o prompt e o contexto de recuperacao dos documentos afetados.", "Prompt und Suchkontext der betroffenen Dokumente pruefen.", "Controllare prompt e contesto di recupero dei documenti interessati.", lang);
+
+            return LocalRuntimeText(
+                "Revoir ce resume : le serveur a signale un point qualite non classe.",
+                "Review this summary: the server reported an unclassified quality signal.",
+                "Revisar este resumen: el servidor senalo una alerta de calidad no clasificada.",
+                "Rever este resumo: o servidor sinalizou um ponto de qualidade sem categoria.",
+                "Diese Zusammenfassung pruefen: der Server meldete ein nicht klassifiziertes Qualitaetssignal.",
+                "Rivedere questo riepilogo: il server ha segnalato un punto qualita non classificato.",
+                lang);
+        }
+
+        FrameworkElement BuildDistributionCard(string title, IReadOnlyList<AdminRuntimeNamedCountItem> items, Func<string, string> labelFormatter)
         {
             var stack = new StackPanel { Spacing = 6 };
             stack.Children.Add(new TextBlock
@@ -242,7 +330,7 @@ public sealed partial class MainWindow
                 {
                     stack.Children.Add(new TextBlock
                     {
-                        Text = $"{item.Key}: {item.Count}",
+                        Text = $"{labelFormatter(item.Key)}: {item.Count}",
                         Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
                         TextWrapping = TextWrapping.WrapWholeWords
                     });
@@ -277,20 +365,20 @@ public sealed partial class MainWindow
             });
             facts.Children.Add(new TextBlock
             {
-                Text = ClientUiText.Format("admin.runtime.quality.fact.severity", lang, item.Severity)
+                Text = ClientUiText.Format("admin.runtime.quality.fact.severity", lang, QualitySeverityLabel(item.Severity))
             });
             facts.Children.Add(new TextBlock
             {
-                Text = ClientUiText.Format("admin.runtime.quality.fact.recommended_action", lang, item.RecommendedAction),
+                Text = ClientUiText.Format("admin.runtime.quality.fact.recommended_action", lang, QualityActionLabel(item.RecommendedAction)),
                 TextWrapping = TextWrapping.WrapWholeWords
             });
             facts.Children.Add(new TextBlock
             {
-                Text = ClientUiText.Format("admin.runtime.quality.fact.strategy", lang, item.Strategy ?? "unknown")
+                Text = ClientUiText.Format("admin.runtime.quality.fact.strategy", lang, QualityStrategyLabel(item.Strategy))
             });
             facts.Children.Add(new TextBlock
             {
-                Text = ClientUiText.Format("admin.runtime.quality.fact.runtime_status", lang, item.RuntimeCapabilityStatus ?? "unknown")
+                Text = ClientUiText.Format("admin.runtime.quality.fact.runtime_status", lang, QualityRuntimeStatusLabel(item.RuntimeCapabilityStatus))
             });
             facts.Children.Add(new TextBlock
             {
@@ -308,14 +396,14 @@ public sealed partial class MainWindow
             {
                 facts.Children.Add(new TextBlock
                 {
-                    Text = ClientUiText.Format("admin.runtime.quality.fact.fallback", lang, item.FallbackReason ?? "unknown")
+                    Text = ClientUiText.Format("admin.runtime.quality.fact.fallback", lang, QualityFallbackReasonLabel(item.FallbackReason))
                 });
             }
 
             if (item.Signals.SectionCoverageScore.HasValue || item.Signals.KeywordCoverageScore.HasValue)
             {
-                var sectionCoverage = item.Signals.SectionCoverageScore?.ToString("0.00", CultureInfo.InvariantCulture) ?? "n/a";
-                var keywordCoverage = item.Signals.KeywordCoverageScore?.ToString("0.00", CultureInfo.InvariantCulture) ?? "n/a";
+                var sectionCoverage = item.Signals.SectionCoverageScore?.ToString("0.00", CultureInfo.InvariantCulture) ?? ClientUiText.Get("ui.not_available", lang);
+                var keywordCoverage = item.Signals.KeywordCoverageScore?.ToString("0.00", CultureInfo.InvariantCulture) ?? ClientUiText.Get("ui.not_available", lang);
                 facts.Children.Add(new TextBlock
                 {
                     Text = ClientUiText.Format("admin.runtime.quality.fact.coverage", lang, sectionCoverage, keywordCoverage),
@@ -336,9 +424,13 @@ public sealed partial class MainWindow
 
                 foreach (var recommendation in item.Recommendations.Take(3))
                 {
+                    var recommendationText = QualityRecommendationLabel(recommendation);
+                    if (string.IsNullOrWhiteSpace(recommendationText))
+                        continue;
+
                     stack.Children.Add(new TextBlock
                     {
-                        Text = "- " + recommendation,
+                        Text = "- " + recommendationText,
                         TextWrapping = TextWrapping.WrapWholeWords,
                         Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE)
                     });
@@ -387,10 +479,12 @@ public sealed partial class MainWindow
             summaryHost.Children.Clear();
             summaryHost.Children.Add(BuildDistributionCard(
                 ClientUiText.Get("admin.runtime.quality.section.strategies", lang),
-                snapshot.Summary.StrategyCounts));
+                snapshot.Summary.StrategyCounts,
+                QualityStrategyLabel));
             summaryHost.Children.Add(BuildDistributionCard(
                 ClientUiText.Get("admin.runtime.quality.section.statuses", lang),
-                snapshot.Summary.RuntimeStatusCounts));
+                snapshot.Summary.RuntimeStatusCounts,
+                QualityRuntimeStatusLabel));
 
             if (snapshot.Summary.Recommendations.Count > 0)
             {
@@ -403,9 +497,13 @@ public sealed partial class MainWindow
                 });
                 foreach (var recommendation in snapshot.Summary.Recommendations.Take(3))
                 {
+                    var recommendationText = QualityRecommendationLabel(recommendation);
+                    if (string.IsNullOrWhiteSpace(recommendationText))
+                        continue;
+
                     recommendationStack.Children.Add(new TextBlock
                     {
-                        Text = "- " + recommendation,
+                        Text = "- " + recommendationText,
                         TextWrapping = TextWrapping.WrapWholeWords,
                         Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE)
                     });
@@ -448,7 +546,10 @@ public sealed partial class MainWindow
             {
                 ClientLog.Exception("AdminRuntimeQuality.Load", ex);
                 SetStateBanner(ClientUiText.Get("admin.runtime.quality.load_failed", lang));
-                itemsHost.Children.Add(BuildDialogInfoBanner(ex.Message));
+                itemsHost.Children.Add(BuildDialogInfoBanner(FormatAdminLoadErrorForUser(
+                    ex,
+                    "/admin/runtime/capabilities/capability_b.backoffice_generation/quality-review",
+                    lang)));
             }
             finally
             {
@@ -472,6 +573,7 @@ public sealed partial class MainWindow
                 new UIElement[]
                 {
                     generatedText,
+                    BuildDialogInfoBanner(ClientUiText.Get("admin.runtime.quality.help.body", lang)),
                     stateHost,
                     BuildDialogSurfaceCard(metricsGrid, new Thickness(12)),
                     BuildDialogSurfaceCard(summaryHost, new Thickness(12)),

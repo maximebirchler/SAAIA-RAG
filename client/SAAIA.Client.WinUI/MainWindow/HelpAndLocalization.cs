@@ -28,12 +28,11 @@ public sealed partial class MainWindow
     {
         var lang = UiLang;
 
-        TrySoftUi("ApplyUiLanguage.Tooltip.ChatsToggleButton", () => ToolTipService.SetToolTip(ChatsToggleButton, ClientUiText.Get("header.chats", lang)));
-        TrySoftUi("ApplyUiLanguage.Tooltip.SetupButton", () => ToolTipService.SetToolTip(SetupButton, ClientUiText.Get("button.setup", lang)));
-        TrySoftUi("ApplyUiLanguage.Tooltip.HeaderJobsButton", () => ToolTipService.SetToolTip(HeaderJobsButton, ClientUiText.Get("header.jobs", lang)));
-        TrySoftUi("ApplyUiLanguage.Tooltip.HeaderRuntimeButton", () => ToolTipService.SetToolTip(HeaderRuntimeButton, ClientUiText.Get("header.runtime", lang)));
-        TrySoftUi("ApplyUiLanguage.Tooltip.HeaderHelpButton", () => ToolTipService.SetToolTip(HeaderHelpButton, ClientUiText.Get("header.help", lang)));
-        TrySoftUi("ApplyUiLanguage.Tooltip.HeaderSettingsButton", () => ToolTipService.SetToolTip(HeaderSettingsButton, ClientUiText.Get("header.settings", lang)));
+        ApplyIconButtonText(ChatsToggleButton, ClientUiText.Get("header.chats", lang));
+        ApplyIconButtonText(SetupButton, ClientUiText.Get("button.setup", lang));
+        ApplyIconButtonText(HeaderAdminConsoleButton, ClientUiText.Get("header.admin_console", lang));
+        ApplyIconButtonText(HeaderHelpButton, ClientUiText.Get("header.help", lang));
+        ApplyIconButtonText(HeaderSettingsButton, ClientUiText.Get("header.settings", lang));
         TrySoftUi("ApplyUiLanguage.ChatsHeaderText", () => ChatsHeaderText.Text = ClientUiText.Get("panel.chats", lang));
         TrySoftUi("ApplyUiLanguage.NewChatButton", () => NewChatButton.Content = ClientUiText.Get("button.new", lang));
         TrySoftUi("ApplyUiLanguage.JumpBottomButton", () => JumpBottomButton.Content = ClientUiText.Get("button.jump_bottom", lang));
@@ -42,27 +41,27 @@ public sealed partial class MainWindow
         TrySoftUi("ApplyUiLanguage.ConnectButton", () => ConnectButton.Content = ClientUiText.Get("button.connect", lang));
         TrySoftUi("ApplyUiLanguage.ServerUrlLabelText", () => ServerUrlLabelText.Text = LocalLlmText("URL serveur", "Server URL", "URL del servidor", "URL do servidor", "Server-URL", "URL server", lang));
         TrySoftUi("ApplyUiLanguage.ApiKeyLabelText", () => ApiKeyLabelText.Text = LocalLlmText("Cle API (X-Api-Key)", "API key (X-Api-Key)", "Clave API (X-Api-Key)", "Chave API (X-Api-Key)", "API-Schluessel (X-Api-Key)", "Chiave API (X-Api-Key)", lang));
-        TrySoftUi("ApplyUiLanguage.LlmUrlLabelText", () => LlmUrlLabelText.Text = LocalLlmText("URL LLM (compatible OpenAI)", "LLM URL (OpenAI compatible)", "URL del LLM (compatible OpenAI)", "URL do LLM (compativel OpenAI)", "LLM-URL (OpenAI-kompatibel)", "URL LLM (compatibile OpenAI)", lang));
-        TrySoftUi("ApplyUiLanguage.LlmModelLabelText", () => LlmModelLabelText.Text = LocalLlmText("Modele LLM", "LLM model", "Modelo LLM", "Modelo LLM", "LLM-Modell", "Modello LLM", lang));
+        TrySoftUi("ApplyUiLanguage.LlmUrlLabelText", () => LlmUrlLabelText.Text = LocalLlmText("URL de l'assistant local", "Local assistant URL", "URL del asistente local", "URL do assistente local", "URL des lokalen Assistenten", "URL assistente locale", lang));
+        TrySoftUi("ApplyUiLanguage.LlmModelLabelText", () => LlmModelLabelText.Text = LocalLlmText("Modèle de l'assistant", "Assistant model", "Modelo del asistente", "Modelo do assistente", "Assistentenmodell", "Modello assistente", lang));
         TrySoftUi("ApplyUiLanguage.UserSettingsButton", () => UserSettingsButton.Content = ClientUiText.Get("header.settings", lang));
         TrySoftUi("ApplyUiLanguage.LlmSettingsButton", () => LlmSettingsButton.Content = ClientUiText.Get("button.local_llm", lang));
         TrySoftUi("ApplyUiLanguage.SourcesToggleButton", () => SourcesToggleButton.Content = ClientUiText.Get("panel.sources", lang));
         TrySoftUi("ApplyUiLanguage.SourcesPanelTitleText", () => SourcesPanelTitleText.Text = ClientUiText.Get("panel.sources", lang));
         TrySoftUi("ApplyUiLanguage.SourcesCards", () => SourcesCards.ApplyUiLanguage(lang));
-        TrySoftUi("ApplyUiLanguage.LocalLlmPanelTitleText", () => LocalLlmPanelTitleText.Text = LocalLlmText("LLM local (llama.cpp)", "Local LLM (llama.cpp)", "LLM local (llama.cpp)", "LLM local (llama.cpp)", "Lokales LLM (llama.cpp)", "LLM locale (llama.cpp)", lang));
-        TrySoftUi("ApplyUiLanguage.LocalLlmEnabledCheck", () => LocalLlmEnabledCheck.Content = LocalLlmText("Activer le LLM local (llama.cpp)", "Enable local LLM (llama.cpp)", "Activar LLM local (llama.cpp)", "Ativar LLM local (llama.cpp)", "Lokales LLM aktivieren (llama.cpp)", "Attiva LLM locale (llama.cpp)", lang));
-        TrySoftUi("ApplyUiLanguage.LocalLlmAutoStartCheck", () => LocalLlmAutoStartCheck.Content = LocalLlmText("Demarrer automatiquement le LLM local a la connexion", "Auto-start local LLM on Connect", "Iniciar automaticamente el LLM local al conectar", "Iniciar automaticamente o LLM local ao ligar", "Lokales LLM beim Verbinden automatisch starten", "Avvia automaticamente il LLM locale alla connessione", lang));
-        TrySoftUi("ApplyUiLanguage.LocalLlmExeLabelText", () => LocalLlmExeLabelText.Text = LocalLlmText("Executable serveur (llama-server.exe)", "Server executable (llama-server.exe)", "Ejecutable del servidor (llama-server.exe)", "Executavel do servidor (llama-server.exe)", "Server-Executable (llama-server.exe)", "Eseguibile server (llama-server.exe)", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmPanelTitleText", () => LocalLlmPanelTitleText.Text = LocalLlmText("Assistant local (llama.cpp)", "Local assistant (llama.cpp)", "Asistente local (llama.cpp)", "Assistente local (llama.cpp)", "Lokaler Assistent (llama.cpp)", "Assistente locale (llama.cpp)", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmEnabledCheck", () => LocalLlmEnabledCheck.Content = LocalLlmText("Activer l'assistant local (llama.cpp)", "Enable local assistant (llama.cpp)", "Activar asistente local (llama.cpp)", "Ativar assistente local (llama.cpp)", "Lokalen Assistenten aktivieren (llama.cpp)", "Attiva assistente locale (llama.cpp)", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmAutoStartCheck", () => LocalLlmAutoStartCheck.Content = LocalLlmText("Demarrer automatiquement l'assistant local a la connexion", "Auto-start local assistant on Connect", "Iniciar automaticamente el asistente local al conectar", "Iniciar automaticamente o assistente local ao ligar", "Lokalen Assistenten beim Verbinden automatisch starten", "Avvia automaticamente l'assistente locale alla connessione", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmExeLabelText", () => LocalLlmExeLabelText.Text = LocalLlmText("Moteur local (llama-server.exe)", "Local engine (llama-server.exe)", "Motor local (llama-server.exe)", "Motor local (llama-server.exe)", "Lokale Engine (llama-server.exe)", "Motore locale (llama-server.exe)", lang));
         TrySoftUi("ApplyUiLanguage.LocalLlmModelLabelText", () => LocalLlmModelLabelText.Text = LocalLlmText("Modele (.gguf)", "Model (.gguf)", "Modelo (.gguf)", "Modelo (.gguf)", "Modell (.gguf)", "Modello (.gguf)", lang));
         TrySoftUi("ApplyUiLanguage.LocalLlmHostLabelText", () => LocalLlmHostLabelText.Text = LocalLlmText("Hote", "Host", "Host", "Host", "Host", "Host", lang));
         TrySoftUi("ApplyUiLanguage.LocalLlmPortLabelText", () => LocalLlmPortLabelText.Text = LocalLlmText("Port", "Port", "Puerto", "Porta", "Port", "Porta", lang));
-        TrySoftUi("ApplyUiLanguage.LocalLlmModelIdLabelText", () => LocalLlmModelIdLabelText.Text = LocalLlmText("ID modele (OpenAI 'model')", "Model ID (OpenAI 'model')", "ID del modelo (OpenAI 'model')", "ID do modelo (OpenAI 'model')", "Modell-ID (OpenAI 'model')", "ID modello (OpenAI 'model')", lang));
-        TrySoftUi("ApplyUiLanguage.LocalLlmExtraArgsLabelText", () => LocalLlmExtraArgsLabelText.Text = LocalLlmText("Arguments supplementaires (optionnel)", "Extra args (optional)", "Argumentos extra (opcional)", "Argumentos extra (opcional)", "Zusaetzliche Argumente (optional)", "Argomenti extra (opzionale)", lang));
-        TrySoftUi("ApplyUiLanguage.LocalLlmCommandLineLabelText", () => LocalLlmCommandLineLabelText.Text = LocalLlmText("Ligne de commande (support)", "Command line (for support)", "Linea de comandos (soporte)", "Linha de comandos (suporte)", "Befehlszeile (Support)", "Riga di comando (supporto)", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmModelIdLabelText", () => LocalLlmModelIdLabelText.Text = LocalLlmText("Nom du modèle à utiliser", "Model name to use", "Nombre del modelo a usar", "Nome do modelo a usar", "Zu verwendender Modellname", "Nome modello da usare", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmExtraArgsLabelText", () => LocalLlmExtraArgsLabelText.Text = LocalLlmText("Options avancées (optionnel)", "Advanced options (optional)", "Opciones avanzadas (opcional)", "Opções avançadas (opcional)", "Erweiterte Optionen (optional)", "Opzioni avanzate (opzionale)", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmCommandLineLabelText", () => LocalLlmCommandLineLabelText.Text = LocalLlmText("Commande technique (support)", "Technical command (support)", "Comando técnico (soporte)", "Comando técnico (suporte)", "Technischer Befehl (Support)", "Comando tecnico (supporto)", lang));
         TrySoftUi("ApplyUiLanguage.LocalLlmBrowseExeButton", () => LocalLlmBrowseExeButton.Content = LocalLlmText("Parcourir...", "Browse...", "Examinar...", "Procurar...", "Durchsuchen...", "Sfoglia...", lang));
         TrySoftUi("ApplyUiLanguage.LocalLlmBrowseModelButton", () => LocalLlmBrowseModelButton.Content = LocalLlmText("Parcourir...", "Browse...", "Examinar...", "Procurar...", "Durchsuchen...", "Sfoglia...", lang));
         TrySoftUi("ApplyUiLanguage.LocalLlmImportModelButton", () => LocalLlmImportModelButton.Content = LocalLlmText("Importer dans la bibliotheque", "Import to library", "Importar a la biblioteca", "Importar para a biblioteca", "In Bibliothek importieren", "Importa nella libreria", lang));
-        TrySoftUi("ApplyUiLanguage.LocalLlmOpenModelsFolderButton", () => LocalLlmOpenModelsFolderButton.Content = LocalLlmText("Ouvrir le dossier", "Open folder", "Abrir carpeta", "Abrir pasta", "Ordner oeffnen", "Apri cartella", lang));
+        TrySoftUi("ApplyUiLanguage.LocalLlmOpenModelsFolderButton", () => LocalLlmOpenModelsFolderButton.Content = LocalLlmText("Ouvrir les modèles", "Open models folder", "Abrir carpeta de modelos", "Abrir pasta de modelos", "Modellordner oeffnen", "Apri cartella modelli", lang));
         TrySoftUi("ApplyUiLanguage.LocalLlmStartButton", () => LocalLlmStartButton.Content = LocalLlmText("Demarrer", "Start now", "Iniciar ahora", "Iniciar agora", "Jetzt starten", "Avvia ora", lang));
         TrySoftUi("ApplyUiLanguage.LocalLlmStopButton", () => LocalLlmStopButton.Content = LocalLlmText("Arreter", "Stop", "Detener", "Parar", "Stoppen", "Ferma", lang));
         TrySoftUi("ApplyUiLanguage.LocalLlmSaveButton", () => LocalLlmSaveButton.Content = ClientUiText.Get("button.save", lang));
@@ -70,6 +69,15 @@ public sealed partial class MainWindow
         TrySoftUi("ApplyUiLanguage.ApplyLocalizedDefaultSessionTitles", ApplyLocalizedDefaultSessionTitles);
 
         UpdateUiState(_isGenerating);
+    }
+
+    private static void ApplyIconButtonText(Button? button, string text)
+    {
+        if (button is null || string.IsNullOrWhiteSpace(text))
+            return;
+
+        ToolTipService.SetToolTip(button, text);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(button, text);
     }
 
     private void CopyButton_Loaded(object sender, RoutedEventArgs e)
@@ -183,6 +191,7 @@ public sealed partial class MainWindow
                 }
                 catch (Exception ex)
                 {
+                    ClientLog.Exception("Help.Categories.Load", ex);
                     categoriesLoadError = ex;
                 }
             }
@@ -194,7 +203,9 @@ public sealed partial class MainWindow
                 {
                     resultsPanel.Children.Add(new TextBlock
                     {
-                        Text = categoriesLoadError is null ? ClientUiText.Get("help.loading", lang) : categoriesLoadError.Message,
+                        Text = categoriesLoadError is null
+                            ? ClientUiText.Get("help.loading", lang)
+                            : FormatAdminLoadErrorForUser(categoriesLoadError, "/catalog/snapshot", lang),
                         Opacity = 0.72,
                         TextWrapping = TextWrapping.WrapWholeWords
                     });
@@ -332,10 +343,11 @@ public sealed partial class MainWindow
                 }
                 catch (Exception ex)
                 {
+                    ClientLog.Exception("Help.Documents.Search", ex);
                     resultsPanel.Children.Clear();
                     resultsPanel.Children.Add(new TextBlock
                     {
-                        Text = ex.Message,
+                        Text = FormatAdminLoadErrorForUser(ex, "/documents/catalog", lang),
                         Opacity = 0.72,
                         TextWrapping = TextWrapping.WrapWholeWords
                     });
@@ -540,7 +552,8 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
-            Status(ClientUiText.Get("status.help_send_failed", UiLang) + ex.Message);
+            ClientLog.Exception("Help.Show", ex);
+            Status(ClientUiText.Get("status.help_send_failed", UiLang) + ClientUiText.Get("help.direct.error_short", UiLang));
         }
     }
 
@@ -599,7 +612,7 @@ public sealed partial class MainWindow
 
             assistantMsg.ProgressText = null;
             assistantMsg.Content = string.IsNullOrWhiteSpace(result.FinalAnswer)
-                ? "Réponse vide."
+                ? ClientUiText.Get("help.direct.empty_response", UiLang)
                 : DecodeEscapedUiText(result.FinalAnswer);
             assistantMsg.StatusNote = null;
 
@@ -660,8 +673,9 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
+            ClientLog.Exception("Help.DirectCommand", ex);
             EnsureAssistantMessageHasFailureText(assistantMsg, ex);
-            Status(ClientUiText.Get("status.help_send_failed", UiLang) + ex.Message);
+            Status(ClientUiText.Get("status.help_send_failed", UiLang) + ClientUiText.Get("help.direct.error_short", UiLang));
             return false;
         }
         finally

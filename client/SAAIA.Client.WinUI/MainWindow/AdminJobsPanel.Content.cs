@@ -116,7 +116,14 @@ public sealed partial class MainWindow
             "source_removed_during_ingestion" => ClientUiText.Get("admin.jobs.error.source_removed_during_ingestion", uiLanguage),
             _ when normalized.Contains("timeout", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.error.timeout", uiLanguage),
             _ when normalized.Contains("bulkhead", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.error.timeout", uiLanguage),
-            _ => raw
+            _ => LocalRuntimeText(
+                "Erreur non classee. Le detail technique est conserve dans les logs.",
+                "Unclassified error. The technical detail was kept in the logs.",
+                "Error no clasificado. El detalle tecnico queda en los logs.",
+                "Erro nao classificado. O detalhe tecnico ficou nos logs.",
+                "Nicht klassifizierter Fehler. Die technischen Details stehen in den Logs.",
+                "Errore non classificato. Il dettaglio tecnico e nei log.",
+                uiLanguage)
         };
     }
 
@@ -137,7 +144,7 @@ public sealed partial class MainWindow
 
         if (status == "queued" || status == "paused")
         {
-            var pausedBits = new List<string> { ClientUiText.Get("admin.jobs.status." + status, UiLang) };
+            var pausedBits = new List<string> { TranslateAdminJobStatus(status) };
             var pausedPhase = TranslateAdminJobPhase(item.ProgressPhase);
             if (!string.IsNullOrWhiteSpace(pausedPhase))
                 pausedBits.Add(pausedPhase!);
@@ -165,7 +172,7 @@ public sealed partial class MainWindow
         if (item.ProgressCurrent.HasValue || item.ProgressTotal.HasValue)
             activeBits.Add($"{item.ProgressCurrent?.ToString(CultureInfo.InvariantCulture) ?? "?"}/{item.ProgressTotal?.ToString(CultureInfo.InvariantCulture) ?? "?"}");
         if (activeBits.Count == 0)
-            activeBits.Add(ClientUiText.Get("admin.jobs.status." + status, UiLang));
+            activeBits.Add(TranslateAdminJobStatus(status));
         bits = activeBits;
         return string.Join(" • ", bits);
     }
@@ -232,61 +239,111 @@ public sealed partial class MainWindow
 
     private string TranslateAdminJobFamily(string? type)
     {
-        var normalized = (type ?? string.Empty).Trim().ToLowerInvariant();
+        var normalized = NormalizeAdminUiToken(type);
         return normalized switch
         {
             "ingestion" => ClientUiText.Get("admin.jobs.type.ingestion", UiLang),
             "summary" => ClientUiText.Get("admin.jobs.type.summary", UiLang),
-            _ => type ?? string.Empty
+            _ => ClientUiText.Get("admin.jobs.type.unknown", UiLang)
         };
     }
 
     private string TranslateAdminJobType(string? jobType)
     {
-        var normalized = (jobType ?? string.Empty).Trim().ToLowerInvariant();
+        var normalized = NormalizeAdminUiToken(jobType);
         return normalized switch
         {
             "upsert" => ClientUiText.Get("admin.jobs.job_type.upsert", UiLang),
             "delete" => ClientUiText.Get("admin.jobs.job_type.delete", UiLang),
             "summary" => ClientUiText.Get("admin.jobs.job_type.summary", UiLang),
-            _ => jobType ?? string.Empty
+            _ => ClientUiText.Get("admin.jobs.job_type.unknown", UiLang)
+        };
+    }
+
+    private string TranslateAdminJobStatus(string? status)
+        => TranslateAdminJobStatusForDiagnostics(status, UiLang);
+
+    internal static string TranslateAdminJobStatusForDiagnostics(string? status, string uiLanguage)
+    {
+        var normalized = NormalizeTrackedJobStatus(status);
+        return normalized switch
+        {
+            "queued" => ClientUiText.Get("admin.jobs.status.queued", uiLanguage),
+            "running" => ClientUiText.Get("admin.jobs.status.running", uiLanguage),
+            "cancel_requested" => ClientUiText.Get("admin.jobs.status.cancel_requested", uiLanguage),
+            "paused" => ClientUiText.Get("admin.jobs.status.paused", uiLanguage),
+            "done" => ClientUiText.Get("admin.jobs.status.done", uiLanguage),
+            "failed" => ClientUiText.Get("admin.jobs.status.failed", uiLanguage),
+            "canceled" => ClientUiText.Get("admin.jobs.status.canceled", uiLanguage),
+            _ => ClientUiText.Get("admin.jobs.status.unknown", uiLanguage)
         };
     }
 
     private string? TranslateAdminJobPhase(string? phase)
     {
-        var normalized = (phase ?? string.Empty).Trim().ToLowerInvariant();
-        return normalized switch
+        var normalized = NormalizeAdminUiToken(phase);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return null;
+
+        var compact = normalized
+            .Replace('é', 'e')
+            .Replace('è', 'e')
+            .Replace('ê', 'e')
+            .Replace('à', 'a')
+            .Replace('ù', 'u')
+            .Replace('ç', 'c');
+
+        return compact switch
         {
             "preparing" => ClientUiText.Get("admin.jobs.phase.preparing", UiLang),
-            "extracting" => ClientUiText.Get("admin.jobs.phase.extracting", UiLang),
-            "chunking" => ClientUiText.Get("admin.jobs.phase.chunking", UiLang),
-            "embedding" => ClientUiText.Get("admin.jobs.phase.embedding", UiLang),
-            "upserting" => ClientUiText.Get("admin.jobs.phase.upserting", UiLang),
+            "extracting" or "text_extraction" => ClientUiText.Get("admin.jobs.phase.extracting", UiLang),
+            "ocr" or "ocr_extracting" => ClientUiText.Get("admin.jobs.phase.ocr", UiLang),
+            "image_ocr" or "image-ocr" or "imageocr" => ClientUiText.Get("admin.jobs.phase.image_ocr", UiLang),
+            "structuring" or "structure" or "structure_analysis" or "structure-analysis" => ClientUiText.Get("admin.jobs.phase.structuring", UiLang),
+            "chunking" or "splitting" or "segmenting" => ClientUiText.Get("admin.jobs.phase.chunking", UiLang),
+            "projecting" or "projection" or "contextualizing" or "contextualising" => ClientUiText.Get("admin.jobs.phase.projecting", UiLang),
+            "embedding" or "tei" or "vectorizing" => ClientUiText.Get("admin.jobs.phase.embedding", UiLang),
+            "upserting" or "indexing" or "index_update" or "index-update" => ClientUiText.Get("admin.jobs.phase.upserting", UiLang),
             "deleting" => ClientUiText.Get("admin.jobs.phase.deleting", UiLang),
             "resuming" => ClientUiText.Get("admin.jobs.phase.resuming", UiLang),
-            "finalizing" or "finalize" => ClientUiText.Get("admin.jobs.phase.finalizing", UiLang),
+            "finalizing" or "finalize" or "finalisation" => ClientUiText.Get("admin.jobs.phase.finalizing", UiLang),
             "completed" => ClientUiText.Get("admin.jobs.phase.completed", UiLang),
-            _ => phase
+            "failed_no_searchable_chunks" or "no_searchable_chunks" or "no-searchable-chunks" => ClientUiText.Get("admin.jobs.phase.no_searchable_text", UiLang),
+            _ when compact.Contains("extract", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.phase.extracting", UiLang),
+            _ when compact.Contains("image", StringComparison.OrdinalIgnoreCase) && compact.Contains("ocr", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.phase.image_ocr", UiLang),
+            _ when compact.Contains("ocr", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.phase.ocr", UiLang),
+            _ when compact.Contains("structur", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.phase.structuring", UiLang),
+            _ when compact.Contains("chunk", StringComparison.OrdinalIgnoreCase) || compact.Contains("split", StringComparison.OrdinalIgnoreCase) || compact.Contains("segment", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.phase.chunking", UiLang),
+            _ when compact.Contains("project", StringComparison.OrdinalIgnoreCase) || compact.Contains("contextual", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.phase.projecting", UiLang),
+            _ when compact.Contains("embed", StringComparison.OrdinalIgnoreCase) || compact.Contains("tei", StringComparison.OrdinalIgnoreCase) || compact.Contains("vector", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.phase.embedding", UiLang),
+            _ when compact.Contains("upsert", StringComparison.OrdinalIgnoreCase) || compact.Contains("index", StringComparison.OrdinalIgnoreCase) || compact.Contains("mise a jour", StringComparison.OrdinalIgnoreCase) || compact.Contains("mise_a_jour", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.phase.upserting", UiLang),
+            _ when compact.Contains("summary", StringComparison.OrdinalIgnoreCase) || compact.Contains("resume", StringComparison.OrdinalIgnoreCase) || compact.Contains("summar", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.phase.summarizing", UiLang),
+            _ when compact.Contains("profile", StringComparison.OrdinalIgnoreCase) || compact.Contains("card", StringComparison.OrdinalIgnoreCase) || compact.Contains("enrich", StringComparison.OrdinalIgnoreCase) || compact.Contains("quality", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.phase.enriching", UiLang),
+            _ when compact.Contains("wait", StringComparison.OrdinalIgnoreCase) || compact.Contains("queued", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.phase.waiting", UiLang),
+            _ when compact.Contains("final", StringComparison.OrdinalIgnoreCase) || compact.Contains("commit", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.phase.finalizing", UiLang),
+            _ when compact.Contains("no_searchable", StringComparison.OrdinalIgnoreCase) || compact.Contains("searchable_chunks", StringComparison.OrdinalIgnoreCase) => ClientUiText.Get("admin.jobs.phase.no_searchable_text", UiLang),
+            _ => ClientUiText.Get("admin.jobs.phase.processing", UiLang)
         };
     }
 
     private string? TranslateAdminJobEnqueueSource(string? enqueueSource)
     {
-        var normalized = (enqueueSource ?? string.Empty).Trim().ToLowerInvariant();
+        var normalized = NormalizeAdminUiToken(enqueueSource);
         return normalized switch
         {
             "admin" => ClientUiText.Get("admin.jobs.enqueue_source.admin", UiLang),
             "api" => ClientUiText.Get("admin.jobs.enqueue_source.api", UiLang),
             "scanner" => ClientUiText.Get("admin.jobs.enqueue_source.scanner", UiLang),
             "watcher" => ClientUiText.Get("admin.jobs.enqueue_source.watcher", UiLang),
-            _ => enqueueSource
+            _ => string.IsNullOrWhiteSpace(enqueueSource)
+                ? null
+                : LocalRuntimeText("Origine non reconnue", "Unknown origin", "Origen no reconocido", "Origem nao reconhecida", "Unbekannte Quelle", "Origine non riconosciuta", UiLang)
         };
     }
 
     private string? TranslateAdminJobDocumentStatus(string? documentStatus)
     {
-        var normalized = (documentStatus ?? string.Empty).Trim().ToLowerInvariant();
+        var normalized = NormalizeAdminUiToken(documentStatus);
         return normalized switch
         {
             "indexed" => ClientUiText.Get("admin.jobs.document_status.indexed", UiLang),
@@ -298,7 +355,71 @@ public sealed partial class MainWindow
             "failed" => ClientUiText.Get("admin.jobs.document_status.failed", UiLang),
             "active" => ClientUiText.Get("admin.jobs.document_status.active", UiLang),
             "inactive" => ClientUiText.Get("admin.jobs.document_status.inactive", UiLang),
-            _ => documentStatus
+            _ => string.IsNullOrWhiteSpace(documentStatus)
+                ? null
+                : LocalRuntimeText("Etat document a verifier", "Document state to check", "Estado del documento por revisar", "Estado do documento a verificar", "Dokumentenstatus pruefen", "Stato documento da verificare", UiLang)
+        };
+    }
+
+    private string? TranslateAdminJobRuntimeCapability(string? runtimeCapabilityKey)
+    {
+        var normalized = NormalizeAdminUiToken(runtimeCapabilityKey);
+        return normalized switch
+        {
+            "capability_a.corpus_enrichment" => LocalRuntimeText(
+                "Enrichissement de l'index (A)",
+                "Index enrichment (A)",
+                "Enriquecimiento del indice (A)",
+                "Enriquecimento do indice (A)",
+                "Index-Anreicherung (A)",
+                "Arricchimento indice (A)",
+                UiLang),
+            "capability_b.backoffice_generation" => LocalRuntimeText(
+                "Resumes serveur (B)",
+                "Server summaries (B)",
+                "Resumenes servidor (B)",
+                "Resumos servidor (B)",
+                "Server-Zusammenfassungen (B)",
+                "Riepiloghi server (B)",
+                UiLang),
+            _ => string.IsNullOrWhiteSpace(runtimeCapabilityKey)
+                ? null
+                : LocalRuntimeText("Fonction serveur a verifier", "Server feature to review", "Funcion servidor por revisar", "Funcao servidor a verificar", "Serverfunktion pruefen", "Funzione server da verificare", UiLang)
+        };
+    }
+
+    private string? TranslateAdminJobExecutionMode(string? executionMode)
+    {
+        var normalized = NormalizeAdminUiToken(executionMode);
+        return normalized switch
+        {
+            "client_admin" => LocalRuntimeText(
+                "Lance depuis le client admin",
+                "Started from the admin client",
+                "Lanzado desde el cliente admin",
+                "Lançado pelo cliente admin",
+                "Vom Admin-Client gestartet",
+                "Avviato dal client admin",
+                UiLang),
+            "server_worker" or "backend_worker" or "worker" => LocalRuntimeText(
+                "Traite par le serveur",
+                "Processed by the server",
+                "Procesado por el servidor",
+                "Tratado pelo servidor",
+                "Vom Server verarbeitet",
+                "Elaborato dal server",
+                UiLang),
+            "idle_scheduler" or "auto_idle" => LocalRuntimeText(
+                "Lance automatiquement quand l'ingestion est calme",
+                "Started automatically when ingestion is quiet",
+                "Lanzado automaticamente cuando la ingesta esta tranquila",
+                "Lançado automaticamente quando a ingestao esta calma",
+                "Automatisch gestartet, wenn die Ingestion ruhig ist",
+                "Avviato automaticamente quando l'ingestione e tranquilla",
+                UiLang),
+            _ => string.IsNullOrWhiteSpace(executionMode)
+                ? null
+                : LocalRuntimeText("Origine a verifier", "Origin to review", "Origen por revisar", "Origem a verificar", "Quelle pruefen", "Origine da verificare", UiLang)
         };
     }
 
@@ -307,14 +428,50 @@ public sealed partial class MainWindow
 
     internal static string? TranslateAdminJobAutoPauseReasonForDiagnostics(string? reason, string uiLanguage)
     {
-        var normalized = (reason ?? string.Empty).Trim().ToLowerInvariant();
+        var normalized = NormalizeAdminUiToken(reason);
         return normalized switch
         {
             "admin_cancel" => ClientUiText.Get("admin.jobs.auto_pause.reason.admin_cancel", uiLanguage),
             "admin_pause" => ClientUiText.Get("admin.jobs.auto_pause.reason.admin_pause", uiLanguage),
             "repeated_failures" => ClientUiText.Get("admin.jobs.auto_pause.reason.repeated_failures", uiLanguage),
             _ when IsKnownAdminJobExtractionDiagnosticReason(normalized) => DeterministicAgentText.ExtractionStatusLabel(normalized, uiLanguage),
-            _ => reason
+            _ => string.IsNullOrWhiteSpace(reason)
+                ? null
+                : LocalRuntimeText("Pause automatique a verifier", "Automatic pause to check", "Pausa automatica por revisar", "Pausa automatica a verificar", "Automatische Pause pruefen", "Pausa automatica da verificare", uiLanguage)
+        };
+    }
+
+    internal static string TranslateAdminJobResumeReasonForDiagnostics(string? reason, string uiLanguage)
+    {
+        var normalized = NormalizeAdminUiToken(reason);
+        return normalized switch
+        {
+            "not_paused" => ClientUiText.Get("admin.jobs.resume_not_paused", uiLanguage),
+            "missing_file" or "file_missing" or "source_missing" => ClientUiText.Get("admin.jobs.resume_missing_file", uiLanguage),
+            "invalid_state" or "not_resumable" or "not_resumeable" => LocalRuntimeText(
+                "Ce traitement ne peut pas etre repris dans son etat actuel.",
+                "This processing item cannot be resumed in its current state.",
+                "Este proceso no puede reanudarse en su estado actual.",
+                "Este processamento nao pode ser retomado no estado atual.",
+                "Diese Verarbeitung kann im aktuellen Zustand nicht fortgesetzt werden.",
+                "Questa elaborazione non puo essere ripresa nello stato attuale.",
+                uiLanguage),
+            "not_owner" or "forbidden" or "unauthorized" => LocalRuntimeText(
+                "La session admin actuelle ne peut pas reprendre ce traitement.",
+                "The current admin session cannot resume this processing item.",
+                "La sesion admin actual no puede reanudar este proceso.",
+                "A sessao admin atual nao pode retomar este processamento.",
+                "Die aktuelle Admin-Sitzung kann diese Verarbeitung nicht fortsetzen.",
+                "La sessione admin corrente non puo riprendere questa elaborazione.",
+                uiLanguage),
+            _ => LocalRuntimeText(
+                "raison serveur a verifier",
+                "server reason to review",
+                "motivo servidor por revisar",
+                "motivo servidor a verificar",
+                "Servergrund pruefen",
+                "motivo server da verificare",
+                uiLanguage)
         };
     }
 
@@ -329,7 +486,7 @@ public sealed partial class MainWindow
 
     internal static string? ResolveAdminJobDiagnosticReasonCode(string? value)
     {
-        var normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        var normalized = NormalizeAdminUiToken(value);
         if (string.IsNullOrWhiteSpace(normalized))
             return null;
 
@@ -364,9 +521,26 @@ public sealed partial class MainWindow
         return null;
     }
 
+    private static string NormalizeAdminUiToken(string? value)
+    {
+        var text = (value ?? string.Empty).Trim().ToLowerInvariant();
+        if (text.Length == 0)
+            return string.Empty;
+
+        var decomposed = text.Normalize(System.Text.NormalizationForm.FormD);
+        var chars = new List<char>(decomposed.Length);
+        foreach (var ch in decomposed)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
+                chars.Add(ch);
+        }
+
+        return new string(chars.ToArray()).Normalize(System.Text.NormalizationForm.FormC);
+    }
+
     private static bool IsKnownAdminJobExtractionDiagnosticReason(string? value)
         => !string.IsNullOrWhiteSpace(value)
-           && AdminJobExtractionDiagnosticReasonCodes.Contains(value.Trim().ToLowerInvariant());
+           && AdminJobExtractionDiagnosticReasonCodes.Contains(NormalizeAdminUiToken(value));
 
     private static readonly HashSet<string> AdminJobExtractionDiagnosticReasonCodes = new(StringComparer.Ordinal)
     {
@@ -527,9 +701,13 @@ public sealed partial class MainWindow
     {
         var light = UseLightPalette();
         var normalized = NormalizeTrackedJobStatus(status);
+        var statusKey = "admin.jobs.status." + normalized;
+        var statusLabel = ClientUiText.Get(statusKey, UiLang);
+        if (string.Equals(statusLabel, statusKey, StringComparison.Ordinal))
+            statusLabel = ClientUiText.Get("admin.jobs.status.unknown", UiLang);
         return new TextBlock
         {
-            Text = ClientUiText.Get("admin.jobs.status." + normalized, UiLang),
+            Text = statusLabel,
             FontSize = 12,
             FontWeight = FontWeights.SemiBold,
             Foreground = GetAdminJobStatusForeground(normalized, light),

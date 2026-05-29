@@ -118,10 +118,8 @@ public sealed partial class MainWindow
         InputBox.IsEnabled = IsConnected && !_isGenerating && !string.IsNullOrWhiteSpace(_sessionId);
         if (HeaderHelpButton is not null)
             HeaderHelpButton.IsEnabled = !_isGenerating;
-        if (HeaderJobsButton is not null)
-            HeaderJobsButton.IsEnabled = !_isGenerating && _api.HasAdminKey;
-        if (HeaderRuntimeButton is not null)
-            HeaderRuntimeButton.IsEnabled = !_isGenerating && _api.HasAdminKey;
+        if (HeaderAdminConsoleButton is not null)
+            HeaderAdminConsoleButton.IsEnabled = !_isGenerating && _api.HasAdminKey;
         RefreshAdminJobsUiVisibility();
 
         SessionsList.IsEnabled = IsConnected && !_isGenerating;

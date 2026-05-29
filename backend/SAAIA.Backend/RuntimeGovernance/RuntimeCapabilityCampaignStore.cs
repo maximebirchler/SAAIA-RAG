@@ -21,18 +21,27 @@ SELECT
   capability_key AS "CapabilityKey",
   profile_key AS "ProfileKey",
   event_type AS "EventType",
-  COALESCE((details ->> 'dryRun')::boolean, false) AS "DryRun",
-  COALESCE((details ->> 'allowUnsafeCandidates')::boolean, false) AS "AllowUnsafeCandidates",
-  COALESCE((details ->> 'candidateCount')::integer, 0) AS "CandidateCount",
-  COALESCE((details ->> 'plannedCount')::integer, 0) AS "PlannedCount",
-  COALESCE((details ->> 'queuedCount')::integer, 0) AS "QueuedCount",
-  COALESCE((details ->> 'skippedCount')::integer, 0) AS "SkippedCount",
+  CASE
+    WHEN jsonb_typeof(details -> 'dryRun')='boolean' THEN (details ->> 'dryRun')::boolean
+    WHEN jsonb_typeof(details -> 'dryRun')='string' AND lower(details ->> 'dryRun') IN ('true','false') THEN (details ->> 'dryRun')::boolean
+    ELSE false
+  END AS "DryRun",
+  CASE
+    WHEN jsonb_typeof(details -> 'allowUnsafeCandidates')='boolean' THEN (details ->> 'allowUnsafeCandidates')::boolean
+    WHEN jsonb_typeof(details -> 'allowUnsafeCandidates')='string' AND lower(details ->> 'allowUnsafeCandidates') IN ('true','false') THEN (details ->> 'allowUnsafeCandidates')::boolean
+    ELSE false
+  END AS "AllowUnsafeCandidates",
+  CASE WHEN (details ->> 'candidateCount') ~ '^[0-9]{1,9}$' THEN (details ->> 'candidateCount')::integer ELSE 0 END AS "CandidateCount",
+  CASE WHEN (details ->> 'plannedCount') ~ '^[0-9]{1,9}$' THEN (details ->> 'plannedCount')::integer ELSE 0 END AS "PlannedCount",
+  CASE WHEN (details ->> 'queuedCount') ~ '^[0-9]{1,9}$' THEN (details ->> 'queuedCount')::integer ELSE 0 END AS "QueuedCount",
+  CASE WHEN (details ->> 'skippedCount') ~ '^[0-9]{1,9}$' THEN (details ->> 'skippedCount')::integer ELSE 0 END AS "SkippedCount",
   occurred_at AS "OccurredAt",
   details AS "DetailsJson"
 FROM runtime_capability_events
 WHERE capability_key = @capabilityKey
   AND event_type IN ('capability_a_campaign_dry_run', 'capability_a_campaign_executed')
   AND details ? 'campaignId'
+  AND details ->> 'campaignId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
 ORDER BY occurred_at DESC
 LIMIT @limit;
 """,
@@ -54,24 +63,34 @@ SELECT
   capability_key AS "CapabilityKey",
   profile_key AS "ProfileKey",
   event_type AS "EventType",
-  COALESCE((details ->> 'dryRun')::boolean, false) AS "DryRun",
-  COALESCE((details ->> 'allowUnsafeCandidates')::boolean, false) AS "AllowUnsafeCandidates",
-  COALESCE((details ->> 'candidateCount')::integer, 0) AS "CandidateCount",
-  COALESCE((details ->> 'plannedCount')::integer, 0) AS "PlannedCount",
-  COALESCE((details ->> 'queuedCount')::integer, 0) AS "QueuedCount",
-  COALESCE((details ->> 'skippedCount')::integer, 0) AS "SkippedCount",
+  CASE
+    WHEN jsonb_typeof(details -> 'dryRun')='boolean' THEN (details ->> 'dryRun')::boolean
+    WHEN jsonb_typeof(details -> 'dryRun')='string' AND lower(details ->> 'dryRun') IN ('true','false') THEN (details ->> 'dryRun')::boolean
+    ELSE false
+  END AS "DryRun",
+  CASE
+    WHEN jsonb_typeof(details -> 'allowUnsafeCandidates')='boolean' THEN (details ->> 'allowUnsafeCandidates')::boolean
+    WHEN jsonb_typeof(details -> 'allowUnsafeCandidates')='string' AND lower(details ->> 'allowUnsafeCandidates') IN ('true','false') THEN (details ->> 'allowUnsafeCandidates')::boolean
+    ELSE false
+  END AS "AllowUnsafeCandidates",
+  CASE WHEN (details ->> 'candidateCount') ~ '^[0-9]{1,9}$' THEN (details ->> 'candidateCount')::integer ELSE 0 END AS "CandidateCount",
+  CASE WHEN (details ->> 'plannedCount') ~ '^[0-9]{1,9}$' THEN (details ->> 'plannedCount')::integer ELSE 0 END AS "PlannedCount",
+  CASE WHEN (details ->> 'queuedCount') ~ '^[0-9]{1,9}$' THEN (details ->> 'queuedCount')::integer ELSE 0 END AS "QueuedCount",
+  CASE WHEN (details ->> 'skippedCount') ~ '^[0-9]{1,9}$' THEN (details ->> 'skippedCount')::integer ELSE 0 END AS "SkippedCount",
   occurred_at AS "OccurredAt",
   details AS "DetailsJson"
 FROM runtime_capability_events
 WHERE capability_key = @capabilityKey
   AND event_type IN ('capability_a_campaign_dry_run', 'capability_a_campaign_executed')
-  AND details ->> 'campaignId' = @campaignId
+  AND details ? 'campaignId'
+  AND details ->> 'campaignId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  AND (details ->> 'campaignId')::uuid = @campaignId
 LIMIT 1;
 """,
             new
             {
                 capabilityKey,
-                campaignId = campaignId.ToString()
+                campaignId
             },
             cancellationToken: ct));
 
@@ -109,18 +128,27 @@ SELECT
   capability_key AS "CapabilityKey",
   profile_key AS "ProfileKey",
   event_type AS "EventType",
-  COALESCE((details ->> 'dryRun')::boolean, false) AS "DryRun",
-  COALESCE((details ->> 'force')::boolean, false) AS "Force",
-  COALESCE((details ->> 'candidateCount')::integer, 0) AS "CandidateCount",
-  COALESCE((details ->> 'plannedCount')::integer, 0) AS "PlannedCount",
-  COALESCE((details ->> 'queuedCount')::integer, 0) AS "QueuedCount",
-  COALESCE((details ->> 'skippedCount')::integer, 0) AS "SkippedCount",
+  CASE
+    WHEN jsonb_typeof(details -> 'dryRun')='boolean' THEN (details ->> 'dryRun')::boolean
+    WHEN jsonb_typeof(details -> 'dryRun')='string' AND lower(details ->> 'dryRun') IN ('true','false') THEN (details ->> 'dryRun')::boolean
+    ELSE false
+  END AS "DryRun",
+  CASE
+    WHEN jsonb_typeof(details -> 'force')='boolean' THEN (details ->> 'force')::boolean
+    WHEN jsonb_typeof(details -> 'force')='string' AND lower(details ->> 'force') IN ('true','false') THEN (details ->> 'force')::boolean
+    ELSE false
+  END AS "Force",
+  CASE WHEN (details ->> 'candidateCount') ~ '^[0-9]{1,9}$' THEN (details ->> 'candidateCount')::integer ELSE 0 END AS "CandidateCount",
+  CASE WHEN (details ->> 'plannedCount') ~ '^[0-9]{1,9}$' THEN (details ->> 'plannedCount')::integer ELSE 0 END AS "PlannedCount",
+  CASE WHEN (details ->> 'queuedCount') ~ '^[0-9]{1,9}$' THEN (details ->> 'queuedCount')::integer ELSE 0 END AS "QueuedCount",
+  CASE WHEN (details ->> 'skippedCount') ~ '^[0-9]{1,9}$' THEN (details ->> 'skippedCount')::integer ELSE 0 END AS "SkippedCount",
   occurred_at AS "OccurredAt",
   details AS "DetailsJson"
 FROM runtime_capability_events
 WHERE capability_key = @capabilityKey
   AND event_type IN ('capability_b_campaign_dry_run', 'capability_b_campaign_executed')
   AND details ? 'campaignId'
+  AND details ->> 'campaignId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
 ORDER BY occurred_at DESC
 LIMIT @limit;
 """,
@@ -147,24 +175,34 @@ SELECT
   capability_key AS "CapabilityKey",
   profile_key AS "ProfileKey",
   event_type AS "EventType",
-  COALESCE((details ->> 'dryRun')::boolean, false) AS "DryRun",
-  COALESCE((details ->> 'force')::boolean, false) AS "Force",
-  COALESCE((details ->> 'candidateCount')::integer, 0) AS "CandidateCount",
-  COALESCE((details ->> 'plannedCount')::integer, 0) AS "PlannedCount",
-  COALESCE((details ->> 'queuedCount')::integer, 0) AS "QueuedCount",
-  COALESCE((details ->> 'skippedCount')::integer, 0) AS "SkippedCount",
+  CASE
+    WHEN jsonb_typeof(details -> 'dryRun')='boolean' THEN (details ->> 'dryRun')::boolean
+    WHEN jsonb_typeof(details -> 'dryRun')='string' AND lower(details ->> 'dryRun') IN ('true','false') THEN (details ->> 'dryRun')::boolean
+    ELSE false
+  END AS "DryRun",
+  CASE
+    WHEN jsonb_typeof(details -> 'force')='boolean' THEN (details ->> 'force')::boolean
+    WHEN jsonb_typeof(details -> 'force')='string' AND lower(details ->> 'force') IN ('true','false') THEN (details ->> 'force')::boolean
+    ELSE false
+  END AS "Force",
+  CASE WHEN (details ->> 'candidateCount') ~ '^[0-9]{1,9}$' THEN (details ->> 'candidateCount')::integer ELSE 0 END AS "CandidateCount",
+  CASE WHEN (details ->> 'plannedCount') ~ '^[0-9]{1,9}$' THEN (details ->> 'plannedCount')::integer ELSE 0 END AS "PlannedCount",
+  CASE WHEN (details ->> 'queuedCount') ~ '^[0-9]{1,9}$' THEN (details ->> 'queuedCount')::integer ELSE 0 END AS "QueuedCount",
+  CASE WHEN (details ->> 'skippedCount') ~ '^[0-9]{1,9}$' THEN (details ->> 'skippedCount')::integer ELSE 0 END AS "SkippedCount",
   occurred_at AS "OccurredAt",
   details AS "DetailsJson"
 FROM runtime_capability_events
 WHERE capability_key = @capabilityKey
   AND event_type IN ('capability_b_campaign_dry_run', 'capability_b_campaign_executed')
-  AND details ->> 'campaignId' = @campaignId
+  AND details ? 'campaignId'
+  AND details ->> 'campaignId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  AND (details ->> 'campaignId')::uuid = @campaignId
 LIMIT 1;
 """,
             new
             {
                 capabilityKey,
-                campaignId = campaignId.ToString()
+                campaignId
             },
             cancellationToken: ct));
 
@@ -228,65 +266,77 @@ LIMIT 1;
         if (string.IsNullOrWhiteSpace(detailsJson))
             return [];
 
-        using var doc = JsonDocument.Parse(detailsJson);
-        if (!doc.RootElement.TryGetProperty("items", out var itemsElement) || itemsElement.ValueKind != JsonValueKind.Array)
-            return [];
-
-        var items = new List<AdminRuntimeCapabilityAEnqueueItemDto>();
-        foreach (var itemElement in itemsElement.EnumerateArray())
+        JsonDocument doc;
+        try
         {
-            if (itemElement.ValueKind != JsonValueKind.Object)
-                continue;
-
-            Guid? docId = null;
-            if (itemElement.TryGetProperty("docId", out var docIdElement)
-                && docIdElement.ValueKind == JsonValueKind.String
-                && Guid.TryParse(docIdElement.GetString(), out var parsedDocId))
-            {
-                docId = parsedDocId;
-            }
-
-            Guid? jobId = null;
-            if (itemElement.TryGetProperty("jobId", out var jobIdElement)
-                && jobIdElement.ValueKind == JsonValueKind.String
-                && Guid.TryParse(jobIdElement.GetString(), out var parsedJobId))
-            {
-                jobId = parsedJobId;
-            }
-
-            var docPath = itemElement.TryGetProperty("docPath", out var docPathElement) && docPathElement.ValueKind == JsonValueKind.String
-                ? docPathElement.GetString()
-                : null;
-            var reason = itemElement.TryGetProperty("reason", out var reasonElement) && reasonElement.ValueKind == JsonValueKind.String
-                ? reasonElement.GetString()
-                : null;
-            var queued = itemElement.TryGetProperty("queued", out var queuedElement) && queuedElement.ValueKind is JsonValueKind.True or JsonValueKind.False
-                ? queuedElement.GetBoolean()
-                : false;
-            var previewText = itemElement.TryGetProperty("previewText", out var previewTextElement) && previewTextElement.ValueKind == JsonValueKind.String
-                ? previewTextElement.GetString()
-                : null;
-            var keySectionTitles = TryReadStringArray(itemElement, "keySectionTitles");
-            var suggestedTags = TryReadStringArray(itemElement, "suggestedTags");
-            var hypotheticalQuestions = TryReadStringArray(itemElement, "hypotheticalQuestions");
-            var qualityScore = TryReadDouble(itemElement, "qualityScore");
-            var qualitySignals = TryReadCapabilityAQualitySignals(itemElement, "qualitySignals");
-
-            items.Add(new AdminRuntimeCapabilityAEnqueueItemDto(
-                DocId: docId,
-                DocPath: docPath,
-                Queued: queued,
-                JobId: jobId,
-                Reason: reason,
-                PreviewText: previewText,
-                KeySectionTitles: keySectionTitles,
-                SuggestedTags: suggestedTags,
-                HypotheticalQuestions: hypotheticalQuestions,
-                QualityScore: qualityScore,
-                QualitySignals: qualitySignals));
+            doc = JsonDocument.Parse(detailsJson);
+        }
+        catch (JsonException)
+        {
+            return [];
         }
 
-        return items.ToArray();
+        using (doc)
+        {
+            if (!doc.RootElement.TryGetProperty("items", out var itemsElement) || itemsElement.ValueKind != JsonValueKind.Array)
+                return [];
+
+            var items = new List<AdminRuntimeCapabilityAEnqueueItemDto>();
+            foreach (var itemElement in itemsElement.EnumerateArray())
+            {
+                if (itemElement.ValueKind != JsonValueKind.Object)
+                    continue;
+
+                Guid? docId = null;
+                if (itemElement.TryGetProperty("docId", out var docIdElement)
+                    && docIdElement.ValueKind == JsonValueKind.String
+                    && Guid.TryParse(docIdElement.GetString(), out var parsedDocId))
+                {
+                    docId = parsedDocId;
+                }
+
+                Guid? jobId = null;
+                if (itemElement.TryGetProperty("jobId", out var jobIdElement)
+                    && jobIdElement.ValueKind == JsonValueKind.String
+                    && Guid.TryParse(jobIdElement.GetString(), out var parsedJobId))
+                {
+                    jobId = parsedJobId;
+                }
+
+                var docPath = itemElement.TryGetProperty("docPath", out var docPathElement) && docPathElement.ValueKind == JsonValueKind.String
+                    ? docPathElement.GetString()
+                    : null;
+                var reason = itemElement.TryGetProperty("reason", out var reasonElement) && reasonElement.ValueKind == JsonValueKind.String
+                    ? reasonElement.GetString()
+                    : null;
+                var queued = itemElement.TryGetProperty("queued", out var queuedElement) && queuedElement.ValueKind is JsonValueKind.True or JsonValueKind.False
+                    ? queuedElement.GetBoolean()
+                    : false;
+                var previewText = itemElement.TryGetProperty("previewText", out var previewTextElement) && previewTextElement.ValueKind == JsonValueKind.String
+                    ? previewTextElement.GetString()
+                    : null;
+                var keySectionTitles = TryReadStringArray(itemElement, "keySectionTitles");
+                var suggestedTags = TryReadStringArray(itemElement, "suggestedTags");
+                var hypotheticalQuestions = TryReadStringArray(itemElement, "hypotheticalQuestions");
+                var qualityScore = TryReadDouble(itemElement, "qualityScore");
+                var qualitySignals = TryReadCapabilityAQualitySignals(itemElement, "qualitySignals");
+
+                items.Add(new AdminRuntimeCapabilityAEnqueueItemDto(
+                    DocId: docId,
+                    DocPath: docPath,
+                    Queued: queued,
+                    JobId: jobId,
+                    Reason: reason,
+                    PreviewText: previewText,
+                    KeySectionTitles: keySectionTitles,
+                    SuggestedTags: suggestedTags,
+                    HypotheticalQuestions: hypotheticalQuestions,
+                    QualityScore: qualityScore,
+                    QualitySignals: qualitySignals));
+            }
+
+            return items.ToArray();
+        }
     }
 
     private static AdminRuntimeCapabilityBEnqueueItemDto[] ParseCapabilityBCampaignItems(string? detailsJson)
@@ -294,51 +344,63 @@ LIMIT 1;
         if (string.IsNullOrWhiteSpace(detailsJson))
             return [];
 
-        using var doc = JsonDocument.Parse(detailsJson);
-        if (!doc.RootElement.TryGetProperty("items", out var itemsElement) || itemsElement.ValueKind != JsonValueKind.Array)
-            return [];
-
-        var items = new List<AdminRuntimeCapabilityBEnqueueItemDto>();
-        foreach (var itemElement in itemsElement.EnumerateArray())
+        JsonDocument doc;
+        try
         {
-            if (itemElement.ValueKind != JsonValueKind.Object)
-                continue;
-
-            Guid? docId = null;
-            if (itemElement.TryGetProperty("docId", out var docIdElement)
-                && docIdElement.ValueKind == JsonValueKind.String
-                && Guid.TryParse(docIdElement.GetString(), out var parsedDocId))
-            {
-                docId = parsedDocId;
-            }
-
-            Guid? jobId = null;
-            if (itemElement.TryGetProperty("jobId", out var jobIdElement)
-                && jobIdElement.ValueKind == JsonValueKind.String
-                && Guid.TryParse(jobIdElement.GetString(), out var parsedJobId))
-            {
-                jobId = parsedJobId;
-            }
-
-            var docPath = itemElement.TryGetProperty("docPath", out var docPathElement) && docPathElement.ValueKind == JsonValueKind.String
-                ? docPathElement.GetString()
-                : null;
-            var reason = itemElement.TryGetProperty("reason", out var reasonElement) && reasonElement.ValueKind == JsonValueKind.String
-                ? reasonElement.GetString()
-                : null;
-            var queued = itemElement.TryGetProperty("queued", out var queuedElement) && queuedElement.ValueKind is JsonValueKind.True or JsonValueKind.False
-                ? queuedElement.GetBoolean()
-                : false;
-
-            items.Add(new AdminRuntimeCapabilityBEnqueueItemDto(
-                DocId: docId,
-                DocPath: docPath,
-                Queued: queued,
-                JobId: jobId,
-                Reason: reason));
+            doc = JsonDocument.Parse(detailsJson);
+        }
+        catch (JsonException)
+        {
+            return [];
         }
 
-        return items.ToArray();
+        using (doc)
+        {
+            if (!doc.RootElement.TryGetProperty("items", out var itemsElement) || itemsElement.ValueKind != JsonValueKind.Array)
+                return [];
+
+            var items = new List<AdminRuntimeCapabilityBEnqueueItemDto>();
+            foreach (var itemElement in itemsElement.EnumerateArray())
+            {
+                if (itemElement.ValueKind != JsonValueKind.Object)
+                    continue;
+
+                Guid? docId = null;
+                if (itemElement.TryGetProperty("docId", out var docIdElement)
+                    && docIdElement.ValueKind == JsonValueKind.String
+                    && Guid.TryParse(docIdElement.GetString(), out var parsedDocId))
+                {
+                    docId = parsedDocId;
+                }
+
+                Guid? jobId = null;
+                if (itemElement.TryGetProperty("jobId", out var jobIdElement)
+                    && jobIdElement.ValueKind == JsonValueKind.String
+                    && Guid.TryParse(jobIdElement.GetString(), out var parsedJobId))
+                {
+                    jobId = parsedJobId;
+                }
+
+                var docPath = itemElement.TryGetProperty("docPath", out var docPathElement) && docPathElement.ValueKind == JsonValueKind.String
+                    ? docPathElement.GetString()
+                    : null;
+                var reason = itemElement.TryGetProperty("reason", out var reasonElement) && reasonElement.ValueKind == JsonValueKind.String
+                    ? reasonElement.GetString()
+                    : null;
+                var queued = itemElement.TryGetProperty("queued", out var queuedElement) && queuedElement.ValueKind is JsonValueKind.True or JsonValueKind.False
+                    ? queuedElement.GetBoolean()
+                    : false;
+
+                items.Add(new AdminRuntimeCapabilityBEnqueueItemDto(
+                    DocId: docId,
+                    DocPath: docPath,
+                    Queued: queued,
+                    JobId: jobId,
+                    Reason: reason));
+            }
+
+            return items.ToArray();
+        }
     }
 
     private static string[]? TryReadStringArray(JsonElement itemElement, string propertyName)
@@ -390,16 +452,23 @@ LIMIT 1;
         if (string.IsNullOrWhiteSpace(json))
             return null;
 
-        using var doc = JsonDocument.Parse(json);
-        return doc.RootElement.ValueKind != JsonValueKind.Array
-            ? null
-            : doc.RootElement
-                .EnumerateArray()
-                .Where(static value => value.ValueKind == JsonValueKind.String)
-                .Select(static value => value.GetString())
-                .Where(static value => !string.IsNullOrWhiteSpace(value))
-                .Cast<string>()
-                .ToArray();
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.ValueKind != JsonValueKind.Array
+                ? null
+                : doc.RootElement
+                    .EnumerateArray()
+                    .Where(static value => value.ValueKind == JsonValueKind.String)
+                    .Select(static value => value.GetString())
+                    .Where(static value => !string.IsNullOrWhiteSpace(value))
+                    .Cast<string>()
+                    .ToArray();
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private static AdminRuntimeCapabilityACampaignDto MapCapabilityACampaignRow(CapabilityACampaignRow row)
@@ -434,13 +503,15 @@ LIMIT 1;
             """
 SELECT
   CASE
-    WHEN details ? 'docId' AND NULLIF(details ->> 'docId', '') IS NOT NULL
+    WHEN details ? 'docId'
+         AND details ->> 'docId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
       THEN CAST(details ->> 'docId' AS uuid)
     ELSE NULL
   END AS "DocId",
   details ->> 'docPath' AS "DocPath",
   CASE
-    WHEN details ? 'jobId' AND NULLIF(details ->> 'jobId', '') IS NOT NULL
+    WHEN details ? 'jobId'
+         AND details ->> 'jobId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
       THEN CAST(details ->> 'jobId' AS uuid)
     ELSE NULL
   END AS "JobId",
@@ -458,7 +529,8 @@ SELECT
     ELSE NULL
   END AS "HypotheticalQuestionsJson",
   CASE
-    WHEN details ? 'qualityScore' AND jsonb_typeof(details -> 'qualityScore') = 'number'
+    WHEN details ? 'qualityScore'
+         AND (details ->> 'qualityScore') ~ '^(0(\.[0-9]{1,12})?|1(\.0{1,12})?)$'
       THEN (details ->> 'qualityScore')::double precision
     ELSE NULL
   END AS "QualityScore",
@@ -470,13 +542,15 @@ SELECT
 FROM runtime_capability_events
 WHERE capability_key = @capabilityKey
   AND event_type = 'capability_a_enqueued'
-  AND details ->> 'campaignId' = @campaignId
+  AND details ? 'campaignId'
+  AND details ->> 'campaignId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  AND (details ->> 'campaignId')::uuid = @campaignId
 ORDER BY occurred_at ASC;
 """,
             new
             {
                 capabilityKey,
-                campaignId = campaignId.ToString()
+                campaignId
             },
             cancellationToken: ct)))
             .Select(static row => new AdminRuntimeCapabilityAEnqueueItemDto(
@@ -498,19 +572,26 @@ ORDER BY occurred_at ASC;
         if (string.IsNullOrWhiteSpace(json))
             return null;
 
-        using var doc = JsonDocument.Parse(json);
-        return TryReadCapabilityAQualitySignals(doc.RootElement, propertyName: string.Empty)
-            ?? (doc.RootElement.ValueKind == JsonValueKind.Object
-                ? new AdminRuntimeCapabilityAQualitySignalsDto(
-                    SectionTitleCount: TryReadInt(doc.RootElement, "sectionTitleCount") ?? 0,
-                    ExcerptCount: TryReadInt(doc.RootElement, "excerptCount") ?? 0,
-                    SuggestedTagCount: TryReadInt(doc.RootElement, "suggestedTagCount") ?? 0,
-                    HypotheticalQuestionCount: TryReadInt(doc.RootElement, "hypotheticalQuestionCount") ?? 0,
-                    SectionCoverageScore: TryReadDouble(doc.RootElement, "sectionCoverageScore") ?? 0d,
-                    TagScore: TryReadDouble(doc.RootElement, "tagScore") ?? 0d,
-                    QuestionScore: TryReadDouble(doc.RootElement, "questionScore") ?? 0d,
-                    PreviewScore: TryReadDouble(doc.RootElement, "previewScore") ?? 0d)
-                : null);
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return TryReadCapabilityAQualitySignals(doc.RootElement, propertyName: string.Empty)
+                ?? (doc.RootElement.ValueKind == JsonValueKind.Object
+                    ? new AdminRuntimeCapabilityAQualitySignalsDto(
+                        SectionTitleCount: TryReadInt(doc.RootElement, "sectionTitleCount") ?? 0,
+                        ExcerptCount: TryReadInt(doc.RootElement, "excerptCount") ?? 0,
+                        SuggestedTagCount: TryReadInt(doc.RootElement, "suggestedTagCount") ?? 0,
+                        HypotheticalQuestionCount: TryReadInt(doc.RootElement, "hypotheticalQuestionCount") ?? 0,
+                        SectionCoverageScore: TryReadDouble(doc.RootElement, "sectionCoverageScore") ?? 0d,
+                        TagScore: TryReadDouble(doc.RootElement, "tagScore") ?? 0d,
+                        QuestionScore: TryReadDouble(doc.RootElement, "questionScore") ?? 0d,
+                        PreviewScore: TryReadDouble(doc.RootElement, "previewScore") ?? 0d)
+                    : null);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private static AdminRuntimeCapabilityBCampaignDto MapCapabilityBCampaignRow(
@@ -555,13 +636,15 @@ ORDER BY occurred_at ASC;
             """
 SELECT
   CASE
-    WHEN details ? 'docId' AND NULLIF(details ->> 'docId', '') IS NOT NULL
+    WHEN details ? 'docId'
+         AND details ->> 'docId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
       THEN CAST(details ->> 'docId' AS uuid)
     ELSE NULL
   END AS "DocId",
   details ->> 'docPath' AS "DocPath",
   CASE
-    WHEN details ? 'jobId' AND NULLIF(details ->> 'jobId', '') IS NOT NULL
+    WHEN details ? 'jobId'
+         AND details ->> 'jobId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
       THEN CAST(details ->> 'jobId' AS uuid)
     ELSE NULL
   END AS "JobId",
@@ -569,10 +652,12 @@ SELECT
 FROM runtime_capability_events
 WHERE capability_key = @capabilityKey
   AND event_type = 'capability_b_enqueued'
-  AND details ->> 'campaignId' = @campaignId
+  AND details ? 'campaignId'
+  AND details ->> 'campaignId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  AND (details ->> 'campaignId')::uuid = @campaignId
 ORDER BY occurred_at ASC;
 """,
-            new { capabilityKey, campaignId = campaignId.ToString() },
+            new { capabilityKey, campaignId },
             cancellationToken: ct)))
             .Select(static row => new AdminRuntimeCapabilityBEnqueueItemDto(
                 row.DocId,
@@ -714,6 +799,7 @@ FROM admin_jobs a
 WHERE a.payload ->> 'source' = 'capability_b'
   AND a.payload ? 'campaignId'
   AND a.payload ->> 'campaignId' = ANY(@campaignIds)
+  AND a.payload ->> 'campaignId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
 GROUP BY CAST(a.payload ->> 'campaignId' AS uuid), a.status;
 """,
             new { campaignIds = keys },

@@ -19,5 +19,7 @@ internal sealed record IngestionRetrievalChunkQualitySummary(
            + OtherRejectedChunkCount;
 
     public bool ManualReviewRecommended
-        => TotalChunkCount == 0 || SearchableChunkCount == 0;
+        => TotalChunkCount == 0
+           || SearchableChunkCount == 0
+           || QualityRejectedChunkCount >= Math.Max(8, SearchableChunkCount * 3);
 }

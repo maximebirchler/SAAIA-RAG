@@ -148,12 +148,12 @@ internal static class DeterministicAgentText
 
     public static string DegradedNoLlm(string? language)
         => Pick(language,
-            "Je ne peux pas utiliser le LLM local pour rédiger la réponse pour le moment (mode dégradé). Regarde les sources à droite.",
-            "I cannot use the local LLM to draft the reply right now (degraded mode). Check the sources on the right.",
-            "No puedo usar el LLM local para redactar la respuesta en este momento (modo degradado). Mira las fuentes a la derecha.",
-            "Não consigo usar o LLM local para redigir a resposta agora (modo degradado). Veja as fontes à direita.",
-            "Ich kann das lokale LLM im Moment nicht verwenden, um die Antwort zu formulieren (degradierter Modus). Sieh dir rechts die Quellen an.",
-            "Non posso usare il LLM locale per redigere la risposta in questo momento (modalità degradata). Guarda le fonti a destra.");
+            "Je ne peux pas utiliser l'assistant local pour rédiger la réponse pour le moment (mode dégradé). Regarde les sources à droite.",
+            "I cannot use the local assistant to draft the reply right now (degraded mode). Check the sources on the right.",
+            "No puedo usar el asistente local para redactar la respuesta en este momento (modo degradado). Mira las fuentes a la derecha.",
+            "Não consigo usar o assistente local para redigir a resposta agora (modo degradado). Veja as fontes à direita.",
+            "Ich kann den lokalen Assistenten im Moment nicht verwenden, um die Antwort zu formulieren (degradierter Modus). Sieh dir rechts die Quellen an.",
+            "Non posso usare l'assistente locale per redigere la risposta in questo momento (modalità degradata). Guarda le fonti a destra.");
 
     public static string AnswerNotEnoughUsableInfo(string? language)
         => Pick(language,
@@ -164,6 +164,15 @@ internal static class DeterministicAgentText
             "Ich habe nicht genügend verwertbare Informationen, um klar zu antworten.",
             "Non ho informazioni utilizzabili sufficienti per rispondere chiaramente.");
 
+    public static string RagSearchBusy(string? language)
+        => Pick(language,
+            "La recherche documentaire est momentanement occupee. Reessaie dans quelques instants : je prefere attendre les bonnes sources plutot que repondre avec des resultats incomplets.",
+            "Document search is temporarily busy. Please retry in a moment: I would rather wait for the right sources than answer from incomplete results.",
+            "La busqueda documental esta ocupada temporalmente. Vuelve a intentarlo en unos instantes: prefiero esperar las fuentes correctas antes que responder con resultados incompletos.",
+            "A pesquisa documental esta temporariamente ocupada. Tenta novamente dentro de instantes: prefiro esperar pelas fontes certas em vez de responder com resultados incompletos.",
+            "Die Dokumentensuche ist voruebergehend ausgelastet. Bitte versuche es gleich erneut: Ich warte lieber auf die richtigen Quellen, statt mit unvollstaendigen Ergebnissen zu antworten.",
+            "La ricerca documentale e temporaneamente occupata. Riprova tra poco: preferisco aspettare le fonti corrette invece di rispondere con risultati incompleti.");
+
     public static string SourceBackedClarificationRequest(string? language)
         => Pick(language,
             "Peux-tu préciser le document, le sujet, l'élément ou le périmètre à vérifier dans les sources ?",
@@ -172,6 +181,15 @@ internal static class DeterministicAgentText
             "Podes especificar o documento, tema, item ou ambito a verificar nas fontes?",
             "Kannst du das Dokument, Thema, Element oder den Umfang nennen, den ich in den Quellen prüfen soll?",
             "Puoi precisare il documento, l'argomento, l'elemento o l'ambito da verificare nelle fonti?");
+
+    public static string SourceBackedExpandedSearchOffer(string? language)
+        => Pick(language,
+            "Les sources récupérées ne suffisent pas à construire une réponse fiable sans inventer. Si tu veux, je peux lancer une recherche plus large dans le corpus ou tu peux préciser le périmètre à explorer.",
+            "The retrieved sources are not enough to build a reliable answer without inventing. If you want, I can run a broader corpus search, or you can specify the scope to explore.",
+            "Las fuentes recuperadas no bastan para construir una respuesta fiable sin inventar. Si quieres, puedo lanzar una búsqueda más amplia en el corpus o puedes precisar el alcance que debo explorar.",
+            "As fontes recuperadas não chegam para construir uma resposta fiável sem inventar. Se quiseres, posso lançar uma pesquisa mais ampla no corpus ou podes indicar o âmbito a explorar.",
+            "Die gefundenen Quellen reichen nicht aus, um ohne Erfindungen verlässlich zu antworten. Wenn du möchtest, kann ich eine breitere Suche im Korpus starten, oder du gibst den zu prüfenden Umfang genauer an.",
+            "Le fonti recuperate non bastano per costruire una risposta affidabile senza inventare. Se vuoi, posso avviare una ricerca più ampia nel corpus oppure puoi precisare l'ambito da esplorare.");
 
     public static string DocumentsCount(int total, string? language)
         => Pick(language,
@@ -465,6 +483,49 @@ internal static class DeterministicAgentText
     public static string ExtractionReviewRecommended(string? language)
         => Pick(language, "revue manuelle conseillee", "manual review recommended", "revision manual recomendada", "revisao manual recomendada", "manuelle Pruefung empfohlen", "revisione manuale consigliata");
 
+    public static string ExtractionRetrievalChunkSummary(int rejectedDocuments, int noSearchableDocuments, int reviewDocuments, string? language)
+        => Pick(language,
+            $"- Index RAG : {rejectedDocuments} document(s) avec passages rejetes, {noSearchableDocuments} sans passage exploitable, {reviewDocuments} a revoir pour l'index.",
+            $"- RAG index: {rejectedDocuments} document(s) with rejected passages, {noSearchableDocuments} with no usable passage, {reviewDocuments} to review for indexing.",
+            $"- Indice RAG: {rejectedDocuments} documento(s) con pasajes rechazados, {noSearchableDocuments} sin pasaje utilizable, {reviewDocuments} a revisar para el indice.",
+            $"- Indice RAG: {rejectedDocuments} documento(s) com trechos rejeitados, {noSearchableDocuments} sem trecho utilizavel, {reviewDocuments} a rever para o indice.",
+            $"- RAG-Index: {rejectedDocuments} Dokument(e) mit verworfenen Passagen, {noSearchableDocuments} ohne nutzbare Passage, {reviewDocuments} fuer den Index zu pruefen.",
+            $"- Indice RAG: {rejectedDocuments} documento/i con passaggi scartati, {noSearchableDocuments} senza passaggio utilizzabile, {reviewDocuments} da rivedere per l'indice.");
+
+    public static string ExtractionRetrievalChunkQuality(
+        int? total,
+        int? searchable,
+        int? rejected,
+        bool reviewRecommended,
+        string? reasons,
+        string? language)
+    {
+        var totalText = total.HasValue ? total.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "?";
+        var searchableText = searchable.HasValue ? searchable.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "?";
+        var rejectedText = rejected.HasValue ? rejected.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "?";
+        var baseText = Pick(language,
+            $"passages RAG {searchableText}/{totalText} exploitables, rejetes {rejectedText}",
+            $"RAG passages {searchableText}/{totalText} usable, rejected {rejectedText}",
+            $"pasajes RAG {searchableText}/{totalText} utilizables, rechazados {rejectedText}",
+            $"trechos RAG {searchableText}/{totalText} utilizaveis, rejeitados {rejectedText}",
+            $"RAG-Passagen {searchableText}/{totalText} nutzbar, verworfen {rejectedText}",
+            $"passaggi RAG {searchableText}/{totalText} utilizzabili, scartati {rejectedText}");
+        if (reviewRecommended)
+        {
+            baseText += Pick(language,
+                ", revue index conseillee",
+                ", index review recommended",
+                ", revision del indice recomendada",
+                ", revisao do indice recomendada",
+                ", Indexpruefung empfohlen",
+                ", revisione indice consigliata");
+        }
+
+        return string.IsNullOrWhiteSpace(reasons)
+            ? baseText
+            : baseText + Pick(language, $", raisons {reasons}", $", reasons {reasons}", $", razones {reasons}", $", razoes {reasons}", $", Gruende {reasons}", $", motivi {reasons}");
+    }
+
     public static string ExtractionCategoriesHeader(string? language)
         => Pick(language, "- Categories a surveiller :", "- Categories to watch:", "- Categorias a vigilar:", "- Categorias a observar:", "- Zu beobachtende Kategorien:", "- Categorie da monitorare:");
 
@@ -668,70 +729,81 @@ internal static class DeterministicAgentText
 
     public static string BackofficeProfilesMissingCount(int total, string? language)
         => Pick(language,
-            $"Dont {total} document(s) avec un profil backoffice LLM manquant.",
-            $"Including {total} document(s) with a missing LLM backoffice profile.",
-            $"Incluye {total} documento(s) con un perfil LLM backoffice faltante.",
-            $"Inclui {total} documento(s) com perfil LLM backoffice em falta.",
-            $"Davon {total} Dokument(e) mit fehlendem LLM-Backoffice-Profil.",
-            $"Inclusi {total} documento/i con profilo LLM backoffice mancante.");
+            $"Dont {total} document(s) avec un profil serveur manquant.",
+            $"Including {total} document(s) with a missing server profile.",
+            $"Incluye {total} documento(s) con un perfil de servidor faltante.",
+            $"Inclui {total} documento(s) com perfil de servidor em falta.",
+            $"Davon {total} Dokument(e) mit fehlendem Serverprofil.",
+            $"Inclusi {total} documento/i con profilo server mancante.");
 
     public static string BackofficeProfileMissingSuffix(string? language)
         => Pick(language,
-            "profil LLM manquant",
-            "missing LLM profile",
-            "perfil LLM faltante",
-            "perfil LLM em falta",
-            "LLM-Profil fehlt",
-            "profilo LLM mancante");
+            "profil serveur manquant",
+            "missing server profile",
+            "perfil de servidor faltante",
+            "perfil de servidor em falta",
+            "Serverprofil fehlt",
+            "profilo server mancante");
 
     public static string SummaryStatusActiveJobSuffix(string? status, string? language)
     {
-        status = string.IsNullOrWhiteSpace(status) ? Pick(language, "actif", "active", "activo", "ativo", "aktiv", "attivo") : status.Trim();
+        status = SummaryProcessingStatusLabel(status, language);
         return Pick(language,
-            $"job actif {status}",
-            $"active job {status}",
-            $"job activo {status}",
-            $"job ativo {status}",
-            $"aktiver Job {status}",
-            $"job attivo {status}");
+            $"traitement en cours {status}",
+            $"processing in progress {status}",
+            $"proceso en curso {status}",
+            $"processamento em curso {status}",
+            $"Verarbeitung laeuft {status}",
+            $"elaborazione in corso {status}");
     }
 
     public static string SummaryStatusCapabilityActionSuffix(string? action, string? language)
     {
-        action = string.IsNullOrWhiteSpace(action) ? Pick(language, "pret", "ready", "listo", "pronto", "bereit", "pronto") : action.Trim();
+        action = SummaryRecommendedActionLabel(action, language);
         return Pick(language,
-            $"Capability B {action}",
-            $"Capability B {action}",
-            $"Capability B {action}",
-            $"Capability B {action}",
-            $"Capability B {action}",
-            $"Capability B {action}");
+            $"résumé serveur {action}",
+            $"server summary {action}",
+            $"resumen servidor {action}",
+            $"resumo servidor {action}",
+            $"Serverzusammenfassung {action}",
+            $"riepilogo server {action}");
     }
 
     public static string SummaryStatusPolicyBlockedSuffix(string? reason, string? language)
     {
-        reason = string.IsNullOrWhiteSpace(reason) ? string.Empty : $": {reason.Trim()}";
+        reason = SummaryPolicyReasonLabel(reason, language);
         return Pick(language,
-            $"politique bloquee{reason}",
-            $"policy blocked{reason}",
-            $"politica bloqueada{reason}",
-            $"politica bloqueada{reason}",
-            $"Policy blockiert{reason}",
-            $"policy bloccata{reason}");
+            $"bloqué par règle serveur{reason}",
+            $"blocked by server rule{reason}",
+            $"bloqueado por regla del servidor{reason}",
+            $"bloqueado por regra do servidor{reason}",
+            $"durch Serverregel blockiert{reason}",
+            $"bloccato da regola server{reason}");
     }
 
     public static string SummaryStatusLastJobIssueSuffix(string? status, string? error, string? language)
     {
-        var details = string.Join(" / ", new[] { status, error }.Where(static value => !string.IsNullOrWhiteSpace(value)).Select(static value => value!.Trim()));
-        details = string.IsNullOrWhiteSpace(details) ? string.Empty : $": {details}";
+        var details = !string.IsNullOrWhiteSpace(error)
+            ? Pick(language, " ; détail dans les logs", "; details in logs", "; detalle en logs", "; detalhe nos logs", "; Details in den Logs", "; dettagli nei log")
+            : string.Empty;
+        var statusLabel = SummaryProcessingStatusLabel(status, language);
         return Pick(language,
-            $"dernier job en anomalie{details}",
-            $"last job issue{details}",
-            $"anomalia ultimo job{details}",
-            $"anomalia no ultimo job{details}",
-            $"letzter Job auffaellig{details}",
-            $"anomalia ultimo job{details}");
+            $"dernier traitement en anomalie ({statusLabel}){details}",
+            $"last processing issue ({statusLabel}){details}",
+            $"anomalia del ultimo proceso ({statusLabel}){details}",
+            $"anomalia no ultimo processamento ({statusLabel}){details}",
+            $"letzte Verarbeitung auffaellig ({statusLabel}){details}",
+            $"anomalia nell'ultima elaborazione ({statusLabel}){details}");
     }
+
+    public static string SummaryStatusStaleSuffix(string? language)
+        => Pick(language,
+            "résumé à mettre à jour",
+            "summary to update",
+            "resumen por actualizar",
+            "resumo a atualizar",
+            "Zusammenfassung zu aktualisieren",
+            "riepilogo da aggiornare");
 
     public static string SummaryStatusPrioritySuffix(double score, string? language)
     {
@@ -743,6 +815,49 @@ internal static class DeterministicAgentText
             $"prioridade {rounded}",
             $"Prioritaet {rounded}",
             $"priorita {rounded}");
+    }
+
+    private static string SummaryProcessingStatusLabel(string? status, string? language)
+    {
+        var normalized = (status ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "queued" or "pending" => Pick(language, "en attente", "waiting", "en espera", "em espera", "wartet", "in attesa"),
+            "running" or "in_progress" or "processing" => Pick(language, "en cours", "running", "en curso", "em curso", "laeuft", "in corso"),
+            "completed" or "succeeded" or "done" => Pick(language, "terminé", "completed", "terminado", "terminado", "abgeschlossen", "terminato"),
+            "failed" or "error" => Pick(language, "en erreur", "failed", "con error", "com erro", "fehlgeschlagen", "errore"),
+            "canceled" or "cancelled" => Pick(language, "annulé", "canceled", "cancelado", "cancelado", "abgebrochen", "annullato"),
+            _ => Pick(language, "à vérifier", "to review", "por revisar", "a rever", "zu pruefen", "da verificare")
+        };
+    }
+
+    private static string SummaryRecommendedActionLabel(string? action, string? language)
+    {
+        var normalized = (action ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "" or "ready" or "enqueue" or "enqueue_profile_refresh" or "enqueue_summary" => Pick(language, "prêt à préparer", "ready to prepare", "listo para preparar", "pronto a preparar", "bereit zur Vorbereitung", "pronto da preparare"),
+            "skip" or "wait" => Pick(language, "en attente", "waiting", "en espera", "em espera", "wartet", "in attesa"),
+            "review" or "manual_review" => Pick(language, "à revoir", "to review", "por revisar", "a rever", "zu pruefen", "da verificare"),
+            _ => Pick(language, "à préparer", "to prepare", "por preparar", "a preparar", "vorzubereiten", "da preparare")
+        };
+    }
+
+    private static string SummaryPolicyReasonLabel(string? reason, string? language)
+    {
+        var normalized = (reason ?? string.Empty).Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalized))
+            return string.Empty;
+
+        var label = normalized switch
+        {
+            "active_job" or "job_active" => Pick(language, "traitement déjà en cours", "processing already running", "proceso ya en curso", "processamento ja em curso", "Verarbeitung laeuft bereits", "elaborazione gia in corso"),
+            "cooldown" or "policy_cooldown" => Pick(language, "temporisation active", "temporary delay active", "espera temporal activa", "espera temporaria ativa", "Wartezeit aktiv", "attesa temporanea attiva"),
+            "runtime_unqualified" or "runtime_degraded" => Pick(language, "serveur à revérifier", "server to recheck", "servidor por revisar", "servidor a rever", "Server erneut pruefen", "server da ricontrollare"),
+            _ => Pick(language, "raison serveur à vérifier", "server reason to review", "razón del servidor por revisar", "razao do servidor a rever", "Servergrund zu pruefen", "ragione server da verificare")
+        };
+
+        return $": {label}";
     }
 
     public static string NoMissingSummaries(string? language)
@@ -862,9 +977,9 @@ internal static class DeterministicAgentText
             "documents.list" or "documents.search" or "documents.get" or "documents.count" or "documents.categories" or "documents.tree" or "documents.stats" or "documents.empty_count" or "documents.empty_list"
                 => Pick(language, "Recherche documents…", "Document search…", "Búsqueda de documentos…", "Pesquisa de documentos…", "Dokumentsuche…", "Ricerca documenti…"),
             "rag.search" or "rag.multi_search"
-                => Pick(language, "Recherche RAG…", "RAG search…", "Búsqueda RAG…", "Pesquisa RAG…", "RAG-Suche…", "Ricerca RAG…"),
+                => Pick(language, "Recherche documentaire…", "Document retrieval…", "Búsqueda documental…", "Pesquisa documental…", "Dokumentrecherche…", "Ricerca documentale…"),
             "sources.resolve"
-                => Pick(language, "Résolution source…", "Source resolution…", "Resolución de fuente…", "Resolução de fonte…", "Quellenauflösung…", "Risoluzione fonte…"),
+                => Pick(language, "Ouverture de la source…", "Opening source…", "Abriendo la fuente…", "A abrir a fonte…", "Quelle wird geöffnet…", "Apertura fonte…"),
             "summary.get" or "summary.exists" or "summary.search"
                 => Pick(language, "Chargement résumé…", "Loading summary…", "Cargando resumen…", "Carregando resumo…", "Zusammenfassung wird geladen…", "Caricamento riassunto…"),
             "admin.summary.missing" or "admin.summary.request" or "admin.summary.submit" or "admin.summary.status" or "admin.summary.delete" or "admin.summary.generate"
@@ -874,7 +989,7 @@ internal static class DeterministicAgentText
             "admin.ingestion.reindex"
                 => Pick(language, "Relance ingestion…", "Restarting ingestion…", "Reinicio de ingestión…", "Reiniciando ingestão…", "Ingestion wird neu gestartet…", "Riavvio ingestione…"),
             "admin.jobs.list" or "admin.jobs.cancel"
-                => Pick(language, "Gestion jobs admin…", "Admin job management…", "Gestión de trabajos admin…", "Gestão de jobs admin…", "Admin-Jobverwaltung…", "Gestione job admin…"),
+                => Pick(language, "Traitements serveur…", "Server processing…", "Procesos del servidor…", "Processamentos servidor…", "Serververarbeitung…", "Elaborazioni server…"),
             "diagnostic.performance"
                 => Pick(language, "Diagnostic…", "Diagnostics…", "Diagnóstico…", "Diagnóstico…", "Diagnose…", "Diagnostica…"),
             "export.create"
@@ -882,7 +997,7 @@ internal static class DeterministicAgentText
             "support.bundle"
                 => Pick(language, "Support…", "Support…", "Soporte…", "Suporte…", "Support…", "Supporto…"),
             "rag.debug.scroll"
-                => Pick(language, "Debug…", "Debug…", "Depuración…", "Depuração…", "Debug…", "Debug…"),
+                => Pick(language, "Diagnostic…", "Diagnostics…", "Diagnóstico…", "Diagnóstico…", "Diagnose…", "Diagnostica…"),
             _ => PhaseTools(language)
         };
 
@@ -1072,24 +1187,24 @@ internal static class DeterministicAgentText
     {
         var label = string.IsNullOrWhiteSpace(documentRef) ? Pick(language, "cette référence", "this reference", "esta referencia", "esta referência", "diese Referenz", "questo riferimento") : documentRef.Trim();
         return Pick(language,
-            $"La référence {label} correspond à un dossier ou une catégorie, pas à un document réindexable. Précise le nom exact du PDF.",
-            $"The reference {label} points to a folder or category, not to a reindexable document. Please provide the exact PDF name.",
-            $"La referencia {label} corresponde a una carpeta o categoría, no a un documento reindexable. Indica el nombre exacto del PDF.",
-            $"A referência {label} corresponde a uma pasta ou categoria, não a um documento reindexável. Indique o nome exato do PDF.",
-            $"Die Referenz {label} verweist auf einen Ordner oder eine Kategorie, nicht auf ein neu zu indexierendes Dokument. Bitte gib den genauen PDF-Namen an.",
-            $"Il riferimento {label} corrisponde a una cartella o categoria, non a un documento reindicizzabile. Indica il nome esatto del PDF.");
+            $"La référence {label} correspond à un dossier ou une catégorie, pas à un document réindexable. Précise le nom exact du document.",
+            $"The reference {label} points to a folder or category, not to a reindexable document. Please provide the exact document name.",
+            $"La referencia {label} corresponde a una carpeta o categoría, no a un documento reindexable. Indica el nombre exacto del documento.",
+            $"A referência {label} corresponde a uma pasta ou categoria, não a um documento reindexável. Indique o nome exato do documento.",
+            $"Die Referenz {label} verweist auf einen Ordner oder eine Kategorie, nicht auf ein neu zu indexierendes Dokument. Bitte gib den genauen Dokumentnamen an.",
+            $"Il riferimento {label} corrisponde a una cartella o categoria, non a un documento reindicizzabile. Indica il nome esatto del documento.");
     }
 
     public static string DocumentTargetAmbiguous(string? language, string? documentRef)
     {
         var label = string.IsNullOrWhiteSpace(documentRef) ? Pick(language, "ce document", "this document", "este documento", "este documento", "dieses Dokument", "questo documento") : documentRef.Trim();
         return Pick(language,
-            $"La référence {label} est ambiguë. Précise le nom exact du PDF.",
-            $"The reference {label} is ambiguous. Please provide the exact PDF name.",
-            $"La referencia {label} es ambigua. Indica el nombre exacto del PDF.",
-            $"A referência {label} é ambígua. Indique o nome exato do PDF.",
-            $"Die Referenz {label} ist mehrdeutig. Bitte gib den genauen PDF-Namen an.",
-            $"Il riferimento {label} è ambiguo. Indica il nome esatto del PDF.");
+            $"La référence {label} est ambiguë. Précise le nom exact du document.",
+            $"The reference {label} is ambiguous. Please provide the exact document name.",
+            $"La referencia {label} es ambigua. Indica el nombre exacto del documento.",
+            $"A referência {label} é ambígua. Indique o nome exato do documento.",
+            $"Die Referenz {label} ist mehrdeutig. Bitte gib den genauen Dokumentnamen an.",
+            $"Il riferimento {label} è ambiguo. Indica il nome esatto del documento.");
     }
 
 

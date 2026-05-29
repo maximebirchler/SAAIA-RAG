@@ -52,16 +52,16 @@ SELECT
   END AS ""OcrApplied"",
   lr.payload ->> 'ocrLanguages' AS ""OcrLanguages"",
   CASE
-    WHEN COALESCE(lr.payload ->> 'ocrDurationMs', '') ~ '^[0-9]+$'
+    WHEN COALESCE(lr.payload ->> 'ocrDurationMs', '') ~ '^[0-9]{1,18}$'
       THEN (lr.payload ->> 'ocrDurationMs')::bigint
     ELSE NULL
   END AS ""OcrDurationMs"",
   (lr.payload -> 'ocrDiagnostics')::text AS ""OcrDiagnosticsJson"",
-  CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,pageCount}', '') ~ '^[0-9]+$'
+  CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,pageCount}', '') ~ '^[0-9]{1,9}$'
     THEN (lr.payload #>> '{extractionQuality,pageCount}')::int ELSE 0 END AS ""RunPageCount"",
-  CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,emptyPageCount}', '') ~ '^[0-9]+$'
+  CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,emptyPageCount}', '') ~ '^[0-9]{1,9}$'
     THEN (lr.payload #>> '{extractionQuality,emptyPageCount}')::int ELSE 0 END AS ""RunEmptyPageCount"",
-  CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,sparsePageCount}', '') ~ '^[0-9]+$'
+  CASE WHEN COALESCE(lr.payload #>> '{extractionQuality,sparsePageCount}', '') ~ '^[0-9]{1,9}$'
     THEN (lr.payload #>> '{extractionQuality,sparsePageCount}')::int ELSE 0 END AS ""RunSparsePageCount"",
   CASE
     WHEN LOWER(COALESCE(NULLIF(lr.payload #>> '{extractionQuality,ocrRecommended}', ''), '')) IN ('true','false')
@@ -224,11 +224,11 @@ SELECT
   pi.page_number AS ""PageNumber"",
   pi.char_count AS ""CharCount"",
   CASE
-    WHEN COALESCE(pi.metadata ->> 'wordCount', '') ~ '^[0-9]+$' THEN (pi.metadata ->> 'wordCount')::int
+    WHEN COALESCE(pi.metadata ->> 'wordCount', '') ~ '^[0-9]{1,9}$' THEN (pi.metadata ->> 'wordCount')::int
     ELSE 0
   END AS ""WordCount"",
   CASE
-    WHEN COALESCE(pi.metadata ->> 'imageCount', '') ~ '^[0-9]+$' THEN (pi.metadata ->> 'imageCount')::int
+    WHEN COALESCE(pi.metadata ->> 'imageCount', '') ~ '^[0-9]{1,9}$' THEN (pi.metadata ->> 'imageCount')::int
     ELSE 0
   END AS ""ImageCount"",
   pi.metadata #>> '{extractionQuality,signals}' AS ""SignalsJson""

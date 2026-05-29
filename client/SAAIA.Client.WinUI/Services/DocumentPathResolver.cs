@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -42,60 +43,10 @@ internal static class DocumentPathResolver
     /// </summary>
     public static string GetDocumentsRoot()
     {
-        // 1) Explicit documents root override (only if it exists)
-        var envDocs = NormalizeEnvPath(Environment.GetEnvironmentVariable(EnvDocumentsRoot));
-        if (!string.IsNullOrWhiteSpace(envDocs) && Directory.Exists(envDocs))
-            return Path.GetFullPath(envDocs);
+        foreach (var root in EnumerateCandidateDocumentRoots())
+            return root;
 
-        // 2) Canonical install root (from infra/.env) => <installRoot>/documents
-        // IMPORTANT: only accept candidate if the documents folder exists.
-        // Also accept when EnvInstallRoot already points to the documents folder.
-        var envInstall = NormalizeEnvPath(Environment.GetEnvironmentVariable(EnvInstallRoot));
-        if (!string.IsNullOrWhiteSpace(envInstall))
-        {
-            try
-            {
-                var installFull = Path.GetFullPath(envInstall);
-                var installName = Path.GetFileName(installFull.TrimEnd(Path.DirectorySeparatorChar, '/'));
-
-                // If it already points to ...\documents, use it directly.
-                if (string.Equals(installName, "documents", StringComparison.OrdinalIgnoreCase) && Directory.Exists(installFull))
-                    return installFull;
-
-                var candidate = Path.GetFullPath(Path.Combine(installFull, "documents"));
-                if (Directory.Exists(candidate))
-                    return candidate;
-            }
-            catch
-            {
-                // ignore and continue
-            }
-        }
-
-        // 3) Default prod location (works for the common Windows install)
-        try
-        {
-            var prodDocs = Path.GetFullPath(DefaultDocumentsRoot);
-            if (Directory.Exists(prodDocs))
-                return prodDocs;
-        }
-        catch
-        {
-            // ignore
-        }
-
-        // 4) Dev heuristic: walk up from exe and look for a "documents" folder
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        for (int i = 0; i < 10 && dir is not null; i++)
-        {
-            var candidate = Path.Combine(dir.FullName, "documents");
-            if (Directory.Exists(candidate))
-                return Path.GetFullPath(candidate);
-
-            dir = dir.Parent;
-        }
-
-        // 5) Fallback
+        // Fallback used only for diagnostics when no known document root exists locally.
         return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "documents"));
     }
 
@@ -107,44 +58,31 @@ internal static class DocumentPathResolver
         if (string.IsNullOrWhiteSpace(docPath))
             return null;
 
-        // normalize separators + trim leading slashes
-        var rel = docPath
-            .Trim()
-            .TrimStart('\\', '/')
-            .Replace('/', Path.DirectorySeparatorChar)
-            .Replace('\\', Path.DirectorySeparatorChar);
+        var raw = docPath.Trim().Trim('"', '\'');
 
         // already absolute?
         try
         {
-            if (Path.IsPathRooted(rel) && File.Exists(rel))
-                return Path.GetFullPath(rel);
+            var absoluteCandidate = raw.Replace('/', Path.DirectorySeparatorChar);
+            if (Path.IsPathRooted(absoluteCandidate) && File.Exists(absoluteCandidate))
+                return Path.GetFullPath(absoluteCandidate);
         }
         catch
         {
             // ignore
         }
 
-        // Try under the selected root
-        var root = GetDocumentsRoot();
-        var resolved = TryResolveUnderRoot(root, rel);
-        if (!string.IsNullOrWhiteSpace(resolved))
-            return resolved;
+        // normalize separators + trim leading slashes only after checking rooted paths.
+        var rel = raw
+            .TrimStart('\\', '/')
+            .Replace('/', Path.DirectorySeparatorChar)
+            .Replace('\\', Path.DirectorySeparatorChar);
 
-        // Safety net: also try the default prod root if different.
-        try
+        foreach (var root in EnumerateCandidateDocumentRoots())
         {
-            var prod = Path.GetFullPath(DefaultDocumentsRoot);
-            if (!string.Equals(Path.GetFullPath(root), prod, StringComparison.OrdinalIgnoreCase))
-            {
-                resolved = TryResolveUnderRoot(prod, rel);
-                if (!string.IsNullOrWhiteSpace(resolved))
-                    return resolved;
-            }
-        }
-        catch
-        {
-            // ignore
+            var resolved = TryResolveUnderRoot(root, rel);
+            if (!string.IsNullOrWhiteSpace(resolved))
+                return resolved;
         }
 
         return null;
@@ -203,18 +141,15 @@ internal static class DocumentPathResolver
     {
         var abs = Path.GetFullPath(absFullPath);
 
-        // Prefer the currently selected documents root if the file is under it.
-        var primaryRoot = Path.GetFullPath(GetDocumentsRoot());
-        var prodRoot = Path.GetFullPath(DefaultDocumentsRoot);
-
         string rel;
-        if (IsUnder(primaryRoot, abs))
+        var matchingRoot = EnumerateCandidateDocumentRoots().FirstOrDefault(root => IsUnder(root, abs));
+        if (!string.IsNullOrWhiteSpace(matchingRoot))
         {
-            rel = Path.GetRelativePath(primaryRoot, abs);
+            rel = Path.GetRelativePath(matchingRoot, abs);
         }
-        else if (IsUnder(prodRoot, abs))
+        else if (IsUnder(Path.GetFullPath(DefaultDocumentsRoot), abs))
         {
-            rel = Path.GetRelativePath(prodRoot, abs);
+            rel = Path.GetRelativePath(Path.GetFullPath(DefaultDocumentsRoot), abs);
         }
         else
         {
@@ -274,28 +209,161 @@ internal static class DocumentPathResolver
         return string.Join("/", clean);
     }
 
+    private static IEnumerable<string> EnumerateCandidateDocumentRoots()
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var candidate in EnumerateCandidateDocumentRootStrings())
+        {
+            var existing = NormalizeExistingDirectory(candidate);
+            if (string.IsNullOrWhiteSpace(existing))
+                continue;
+
+            if (seen.Add(existing))
+                yield return existing;
+        }
+    }
+
+    private static IEnumerable<string?> EnumerateCandidateDocumentRootStrings()
+    {
+        // 1) Explicit documents root override.
+        yield return NormalizeEnvPath(Environment.GetEnvironmentVariable(EnvDocumentsRoot));
+
+        // 2) Canonical install root (from infra/.env) => <installRoot>/documents.
+        // Also accept when EnvInstallRoot already points to a documents/docs folder.
+        var envInstall = NormalizeEnvPath(Environment.GetEnvironmentVariable(EnvInstallRoot));
+        if (!string.IsNullOrWhiteSpace(envInstall))
+        {
+            var installName = Path.GetFileName(envInstall.TrimEnd(Path.DirectorySeparatorChar, '/'));
+            if (string.Equals(installName, "documents", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(installName, "docs", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return envInstall;
+            }
+
+            yield return Path.Combine(envInstall, "documents");
+            yield return Path.Combine(envInstall, "docs");
+        }
+
+        // 3) Default prod location.
+        yield return DefaultDocumentsRoot;
+
+        // 4) Dev roots near the executable/current directory. Some local workspaces use
+        // "docs" while production installs use "documents".
+        foreach (var root in EnumerateDevDocumentRootStrings(new DirectoryInfo(AppContext.BaseDirectory)))
+            yield return root;
+
+        DirectoryInfo? currentDirectory = null;
+        try
+        {
+            currentDirectory = new DirectoryInfo(Environment.CurrentDirectory);
+        }
+        catch
+        {
+            // ignore
+        }
+
+        foreach (var root in EnumerateDevDocumentRootStrings(currentDirectory))
+            yield return root;
+
+        // 5) Network shares derived from configured backend URLs. This lets a Windows
+        // client open sources stored on a server share without hard-coding a machine IP.
+        foreach (var root in EnumerateBackendShareRootStrings())
+            yield return root;
+    }
+
+    private static IEnumerable<string> EnumerateDevDocumentRootStrings(DirectoryInfo? start)
+    {
+        var dir = start;
+        for (var i = 0; i < 12 && dir is not null; i++)
+        {
+            yield return Path.Combine(dir.FullName, "documents");
+            yield return Path.Combine(dir.FullName, "docs");
+            yield return Path.Combine(dir.FullName, "saaia-repo", "documents");
+            yield return Path.Combine(dir.FullName, "saaia-repo", "docs");
+
+            dir = dir.Parent;
+        }
+    }
+
+    private static IEnumerable<string> EnumerateBackendShareRootStrings()
+    {
+        IEnumerable<string> urls;
+        try
+        {
+            urls = AppSettings.Load().AllBackendUrlCandidates().ToArray();
+        }
+        catch
+        {
+            yield break;
+        }
+
+        var hosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var raw in urls)
+        {
+            if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri))
+                continue;
+
+            var host = uri.Host?.Trim();
+            if (string.IsNullOrWhiteSpace(host) || IsLocalLoopbackHost(host))
+                continue;
+
+            if (!hosts.Add(host))
+                continue;
+
+            yield return $@"\\{host}\saaia-repo\documents";
+            yield return $@"\\{host}\saaia-repo\docs";
+            yield return $@"\\{host}\documents";
+            yield return $@"\\{host}\docs";
+        }
+    }
+
+    private static bool IsLocalLoopbackHost(string host)
+    {
+        return string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(host, "127.0.0.1", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(host, "::1", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? NormalizeExistingDirectory(string? candidate)
+    {
+        if (string.IsNullOrWhiteSpace(candidate))
+            return null;
+
+        try
+        {
+            var full = Path.GetFullPath(candidate.Trim().Trim('"', '\''));
+            return Directory.Exists(full) ? full.TrimEnd(Path.DirectorySeparatorChar, '/') : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static string? TryResolveUnderRoot(string root, string rel)
     {
         try
         {
+            var rootFull = Path.GetFullPath(root);
+
             // root + relative path
-            var candidate = Path.GetFullPath(Path.Combine(root, rel));
-            if (File.Exists(candidate))
+            var candidate = Path.GetFullPath(Path.Combine(rootFull, rel));
+            if (IsUnder(rootFull, candidate) && File.Exists(candidate))
                 return candidate;
 
             // root + filename
             var fileName = Path.GetFileName(rel);
             if (!string.IsNullOrWhiteSpace(fileName))
             {
-                var candidate2 = Path.GetFullPath(Path.Combine(root, fileName));
-                if (File.Exists(candidate2))
+                var candidate2 = Path.GetFullPath(Path.Combine(rootFull, fileName));
+                if (IsUnder(rootFull, candidate2) && File.Exists(candidate2))
                     return candidate2;
 
                 // best-effort search (exact filename)
-                if (Directory.Exists(root))
+                if (Directory.Exists(rootFull))
                 {
-                    var found = Directory.EnumerateFiles(root, fileName, SearchOption.AllDirectories).FirstOrDefault();
-                    if (!string.IsNullOrWhiteSpace(found) && File.Exists(found))
+                    var found = Directory.EnumerateFiles(rootFull, fileName, SearchOption.AllDirectories).FirstOrDefault();
+                    if (!string.IsNullOrWhiteSpace(found) && IsUnder(rootFull, found) && File.Exists(found))
                         return found;
                 }
             }

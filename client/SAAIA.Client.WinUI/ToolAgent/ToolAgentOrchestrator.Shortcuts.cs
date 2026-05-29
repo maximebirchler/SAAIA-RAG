@@ -240,10 +240,11 @@ public sealed partial class ToolAgentOrchestrator
             var primaryQuery = BuildDocumentContentSearchPrimaryQuery(documentContentTopic);
             if (string.IsNullOrWhiteSpace(primaryQuery))
                 primaryQuery = CollapseWhitespace(documentContentTopic);
+            var shouldPreferExplainedDocumentAnswer = LooksLikeDocumentContentSelectionExplanationRequest(effectiveUserMessage);
             var singleArgs = CreateJsonArgs(new
             {
                 query = primaryQuery,
-                topK = 4,
+                topK = shouldPreferExplainedDocumentAnswer ? 8 : 4,
                 category = categoryScope,
                 mode = "balanced"
             });
@@ -258,7 +259,7 @@ public sealed partial class ToolAgentOrchestrator
                 }
             }
 
-            if (!HasRagHits(ragResult))
+            if (ShouldExpandDocumentContentSearch(effectiveUserMessage, ragResult))
             {
                 var queries = BuildDocumentContentSearchQueries(effectiveUserMessage, documentContentTopic)
                     .Where(query => !string.Equals(NormalizeRagQueryForRetrieval(query), primaryQuery, StringComparison.OrdinalIgnoreCase))
@@ -269,15 +270,19 @@ public sealed partial class ToolAgentOrchestrator
                     var args = CreateJsonArgs(new
                     {
                         queries,
-                        topK = 4,
+                        topK = shouldPreferExplainedDocumentAnswer ? 6 : 4,
                         category = categoryScope,
                         mode = "balanced"
                     });
-                    ragResult = await TryExecRagMultiSearchOrEmptyAsync(args, ct).ConfigureAwait(false);
-                    toolName = "rag.multi_search";
+                    var expandedResult = await TryExecRagMultiSearchOrEmptyAsync(args, ct).ConfigureAwait(false);
+                    if (IsBetterDocumentContentSearchCoverage(ragResult, expandedResult))
+                    {
+                        ragResult = expandedResult;
+                        toolName = "rag.multi_search";
+                    }
                 }
 
-                if (!HasRagHits(ragResult))
+                if (!HasRagHits(ragResult) || ShouldExpandDocumentContentSearch(effectiveUserMessage, ragResult))
                 {
                     var expandedQueries = await TryBuildTranslatedDocumentContentSearchQueriesAsync(
                         documentContentTopic,
@@ -291,12 +296,16 @@ public sealed partial class ToolAgentOrchestrator
                         var expandedArgs = CreateJsonArgs(new
                         {
                             queries = queries.Take(8).ToArray(),
-                            topK = 4,
+                            topK = shouldPreferExplainedDocumentAnswer ? 6 : 4,
                             category = categoryScope,
                             mode = "balanced"
                         });
-                        ragResult = await TryExecRagMultiSearchOrEmptyAsync(expandedArgs, ct).ConfigureAwait(false);
-                        toolName = "rag.multi_search";
+                        var translatedResult = await TryExecRagMultiSearchOrEmptyAsync(expandedArgs, ct).ConfigureAwait(false);
+                        if (IsBetterDocumentContentSearchCoverage(ragResult, translatedResult))
+                        {
+                            ragResult = translatedResult;
+                            toolName = "rag.multi_search";
+                        }
                     }
                 }
             }
@@ -309,8 +318,47 @@ public sealed partial class ToolAgentOrchestrator
             });
 
             var sources = DeriveSourcesFromRagHits(toolResults);
-            var answer = BuildDocumentContentSearchAnswer(toolResults, documentContentTopic, interactionLanguage);
-            _mem.LastSourcesUsed = sources;
+            var answer = string.Empty;
+            if (ShouldUseWriterForDocumentContentSearchAnswer(effectiveUserMessage, ragResult))
+            {
+                var writerPlan = new RouterPlan
+                {
+                    Mode = "auto",
+                    Language = interactionLanguage,
+                    Intent = "rag.answer",
+                    ResponseFormat = "auto",
+                    ToolCalls =
+                    [
+                        new RouterPlan.ToolCall
+                        {
+                            Name = toolName,
+                            Args = CreateJsonArgs(new
+                            {
+                                query = primaryQuery,
+                                topK = shouldPreferExplainedDocumentAnswer ? 8 : 4,
+                                category = categoryScope,
+                                mode = "balanced"
+                            })
+                        }
+                    ]
+                };
+
+                var (writerAnswer, writerSources) = await AnswerAsync(
+                    chatHistory,
+                    effectiveUserMessage,
+                    writerPlan,
+                    toolResults,
+                    ct,
+                    onDelta,
+                    onProgress).ConfigureAwait(false);
+                answer = (writerAnswer ?? string.Empty).Trim();
+                if (!string.IsNullOrWhiteSpace(answer) && writerSources is { Count: > 0 })
+                    sources = writerSources;
+            }
+
+            if (string.IsNullOrWhiteSpace(answer))
+                answer = BuildDocumentContentSearchAnswer(toolResults, documentContentTopic, interactionLanguage);
+            _mem.LastSourcesUsed = NormalizeVisibleSourceRefsForMemory(sources);
             _mem.LastToolNames = new List<string> { toolName };
             _lastAnswerSource = "shortcut:rag.document_content_search";
             onProgress?.Invoke(string.Empty);
@@ -1660,6 +1708,134 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
             && !string.Equals(topic, raw, StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool ShouldExpandDocumentContentSearch(string? message, JsonElement currentResult)
+    {
+        if (!HasRagHits(currentResult))
+            return true;
+
+        var hits = EnumerateRagHitSummaries(currentResult)
+            .Where(static hit => !LooksLikeNavigationOnlyHit(hit))
+            .Where(static hit => !LooksLikeLowSignalContentCandidateHit(hit))
+            .ToList();
+        if (hits.Count == 0)
+            return true;
+
+        var distinctDocs = CountDistinctDocumentContentSearchSources(hits);
+        if (LooksLikeDocumentContentSelectionExplanationRequest(message))
+            return distinctDocs < 3 || hits.Count < 5;
+
+        return LooksLikeBroadSynthesisRequestShape(message) && distinctDocs < 3;
+    }
+
+    private static bool ShouldUseWriterForDocumentContentSearchAnswer(string? message, JsonElement currentResult)
+    {
+        if (!HasRagHits(currentResult))
+            return false;
+
+        if (!LooksLikeDocumentContentSelectionExplanationRequest(message))
+            return false;
+
+        var hits = EnumerateRagHitSummaries(currentResult)
+            .Where(static hit => !LooksLikeNavigationOnlyHit(hit))
+            .Where(static hit => !LooksLikeLowSignalContentCandidateHit(hit))
+            .ToList();
+        if (hits.Count == 0)
+            return false;
+
+        return CountDistinctDocumentContentSearchSources(hits) >= 1;
+    }
+
+    private static IEnumerable<RagHitSummary> EnumerateRagHitSummaries(JsonElement result)
+    {
+        if (!result.TryGetProperty("hits", out var hits) || hits.ValueKind != JsonValueKind.Array)
+            yield break;
+
+        foreach (var hit in hits.EnumerateArray())
+        {
+            if (hit.ValueKind == JsonValueKind.Object)
+                yield return BuildRagHitSummary(hit);
+        }
+    }
+
+    private static bool IsBetterDocumentContentSearchCoverage(JsonElement currentResult, JsonElement candidateResult)
+    {
+        if (!HasRagHits(candidateResult))
+            return false;
+        if (!HasRagHits(currentResult))
+            return true;
+
+        var currentHits = EnumerateRagHitSummaries(currentResult)
+            .Where(static hit => !LooksLikeNavigationOnlyHit(hit))
+            .Where(static hit => !LooksLikeLowSignalContentCandidateHit(hit))
+            .ToList();
+        var candidateHits = EnumerateRagHitSummaries(candidateResult)
+            .Where(static hit => !LooksLikeNavigationOnlyHit(hit))
+            .Where(static hit => !LooksLikeLowSignalContentCandidateHit(hit))
+            .ToList();
+
+        var currentDocs = CountDistinctDocumentContentSearchSources(currentHits);
+        var candidateDocs = CountDistinctDocumentContentSearchSources(candidateHits);
+        if (candidateDocs != currentDocs)
+            return candidateDocs > currentDocs;
+
+        if (candidateHits.Count != currentHits.Count)
+            return candidateHits.Count > currentHits.Count;
+
+        var currentRichness = currentHits.Sum(ComputeSourceBackedEvidenceRichnessScore);
+        var candidateRichness = candidateHits.Sum(ComputeSourceBackedEvidenceRichnessScore);
+        return candidateRichness > currentRichness;
+    }
+
+    private static int CountDistinctDocumentContentSearchSources(IEnumerable<RagHitSummary> hits)
+        => hits
+            .Select(static hit => string.IsNullOrWhiteSpace(hit.SourceHash)
+                ? (string.IsNullOrWhiteSpace(hit.DocPath) ? hit.DocName : hit.DocPath)
+                : hit.SourceHash)
+            .Where(static key => !string.IsNullOrWhiteSpace(key))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+    private static bool LooksLikeDocumentContentSelectionExplanationRequest(string? message)
+    {
+        var normalized = NormalizeLexicalLookup(message);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        if (Regex.IsMatch(
+                normalized,
+                @"\b(?:references?|r[eé]f[eé]rences?|referencias?|refer[eê]ncias?|referenzen?|riferimenti)\b",
+                RegexOptions.CultureInvariant)
+            && !Regex.IsMatch(
+                normalized,
+                @"\b(?:documents?|docs?|sources?|fichiers?|pdfs?|pages?|cite|citer|citation|citations|citar|cita|citacion|citacao|zitieren|zitat|citare|citazione)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        var hasDocumentScope =
+            ContainsDocumentSourceNoun(normalized)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:pages?|pdfs?)\b",
+                RegexOptions.CultureInvariant)
+            || (Regex.IsMatch(
+                    normalized,
+                    @"\b(?:cite|citer|citation|citations|citar|cita|citacion|citacao|zitieren|zitat|citare|citazione)\b",
+                    RegexOptions.CultureInvariant)
+                && Regex.IsMatch(
+                    normalized,
+                    @"\b(?:references?|r[eé]f[eé]rences?|referencias?|refer[eê]ncias?|referenzen?|riferimenti)\b",
+                    RegexOptions.CultureInvariant));
+        if (!hasDocumentScope)
+            return false;
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:why|useful|relevant|important|best|recommend|recommendation|worth|because|reason|reasons|select|selection|prioriti[sz]e|cite|citation|reference|references|pourquoi|utile|utiles|pertinent|pertinents|importants?|recommande|recommandes|raison|raisons|choisir|selection|selectionner|prioriser|citer|citation|reference|references|porque|por\s+que|util|uteis|relevante|relevantes|importante|importantes|recomienda|recomendar|seleccion|seleccionar|priorizar|citar|cita|citacion|referencia|porque|selecionar|selecao|priorizar|citacao|referencia|warum|nutzlich|nuetzlich|relevant|wichtig|empfehl|auswahl|auswaehlen|auswahlen|priorisieren|zitieren|zitat|referenz|perche|utile|utili|rilevante|rilevanti|importante|importanti|consigli|selezione|selezionare|priorizzare|citare|citazione|riferimento)\b",
+            RegexOptions.CultureInvariant);
+    }
+
     private static string TryExtractDocumentContentSearchTopicAnchor(string raw)
     {
         var prefix = Regex.Replace(
@@ -1915,7 +2091,8 @@ Keep each query under 90 characters.
                 return new
                 {
                     Label = string.IsNullOrWhiteSpace(first.DocName) ? Path.GetFileName(first.DocPath) : first.DocName,
-                    Pages = pages
+                    Pages = pages,
+                    Reason = BuildDocumentContentSearchDocReason(g, language)
                 };
             })
             .Take(8)
@@ -1936,10 +2113,45 @@ Keep each query under 90 characters.
             var pages = d.Pages.Count == 0
                 ? string.Empty
                 : $" ({SourceBackedPagePrefix(language)}{string.Join(", ", d.Pages)})";
-            return $"- {d.Label}{pages}";
+            var reason = string.IsNullOrWhiteSpace(d.Reason)
+                ? string.Empty
+                : $" - {d.Reason}";
+            return $"- {d.Label}{pages}{reason}";
         });
 
         return header + "\n" + string.Join("\n", lines);
+    }
+
+    private static string BuildDocumentContentSearchDocReason(IEnumerable<RagHitSummary> hits, string language)
+    {
+        var hit = hits
+            .OrderByDescending(ComputeSourceBackedEvidenceRichnessScore)
+            .ThenByDescending(static h => h.Score)
+            .FirstOrDefault();
+        if (hit is null)
+            return string.Empty;
+
+        var cardTitle = hit.MatchedContentCards?
+            .Select(static card => CollapseWhitespace(card.Title))
+            .FirstOrDefault(static title => !string.IsNullOrWhiteSpace(title));
+        var evidence = CleanReadableProcedureArtifacts(FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(hit), maxLength: 180));
+        if (!string.IsNullOrWhiteSpace(cardTitle) && !string.IsNullOrWhiteSpace(evidence))
+            evidence = $"{cardTitle}: {evidence}";
+        else if (!string.IsNullOrWhiteSpace(cardTitle))
+            evidence = cardTitle;
+
+        if (string.IsNullOrWhiteSpace(evidence))
+            return string.Empty;
+
+        return NormalizeLanguageCode(language) switch
+        {
+            "en" => $"useful passage: {evidence}",
+            "es" => $"pasaje util: {evidence}",
+            "pt" => $"passagem util: {evidence}",
+            "de" => $"relevante Passage: {evidence}",
+            "it" => $"passaggio utile: {evidence}",
+            _ => $"passage utile : {evidence}"
+        };
     }
 
     private static bool TryExtractExactAdminReindexDocumentRef(string? message, out string documentRef)

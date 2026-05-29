@@ -110,7 +110,7 @@ SELECT
     WHEN llm_profile.document_profile_id IS NULL THEN 'missing'
     WHEN COALESCE(
       CASE
-        WHEN COALESCE(llm_profile.metadata ->> 'contentCardEvidenceSchemaVersion', '') ~ '^[0-9]+$'
+        WHEN COALESCE(llm_profile.metadata ->> 'contentCardEvidenceSchemaVersion', '') ~ '^[0-9]{1,9}$'
           THEN (llm_profile.metadata ->> 'contentCardEvidenceSchemaVersion')::int
         ELSE 0
       END,
@@ -170,7 +170,7 @@ WHERE (@tenant IS NULL OR d.tenant_id = @tenant)
     OR llm_profile.document_profile_id IS NULL
     OR COALESCE(
       CASE
-        WHEN COALESCE(llm_profile.metadata ->> 'contentCardEvidenceSchemaVersion', '') ~ '^[0-9]+$'
+        WHEN COALESCE(llm_profile.metadata ->> 'contentCardEvidenceSchemaVersion', '') ~ '^[0-9]{1,9}$'
           THEN (llm_profile.metadata ->> 'contentCardEvidenceSchemaVersion')::int
         ELSE 0
       END,

@@ -139,6 +139,7 @@ public static class ToolManifest
         "- If the user explicitly asks to store or refresh a reusable summary, use admin.summary.generate with admin access so the backoffice runtime owns generation and persistence.",
         "- Use sources.resolve only for explicit source requests, PDF references, open-file actions or 'where is document N' style questions.",
         "- Inventory requests (count/categories/list/find/tree/stats/changed-since) are answered from indexed documents/catalog data, not from RAG chunks. Empty-folder checks are separate admin/server diagnostics.",
+        "- Content-oriented document selection ('which documents are useful/relevant/important for X and why') uses rag.search or rag.multi_search, not documents.list.",
         "- For one-document content questions ('de quoi parle le document 2 ?', 'résume le document 2'), do not stop at sources.resolve/documents.get. Use summary.exists/summary.get or rag.summarize_live.",
         "- For explicit content questions or factual questions inside documents, use rag.search or rag.multi_search.",
         "- For stored summary administration, use admin.summary.generate/status/delete and never submit generated summary text from the client.",

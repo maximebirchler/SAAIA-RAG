@@ -118,6 +118,7 @@ FROM runtime_capability_events
 WHERE capability_key = @capabilityKey
   AND event_type IN ('capability_a_campaign_dry_run', 'capability_a_campaign_executed')
   AND details ? 'campaignId'
+  AND details ->> 'campaignId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
 ORDER BY occurred_at DESC;
 """,
             new { capabilityKey = capabilityAKey },
@@ -272,6 +273,7 @@ FROM runtime_capability_events
 WHERE capability_key = @capabilityKey
   AND event_type IN ('capability_b_campaign_dry_run', 'capability_b_campaign_executed')
   AND details ? 'campaignId'
+  AND details ->> 'campaignId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
   AND EXISTS (
     SELECT 1
     FROM admin_jobs a
@@ -286,6 +288,9 @@ ORDER BY occurred_at DESC;
 
         var latestCampaignRow = campaignRows.FirstOrDefault();
         var totalCampaignCount = campaignRows.Length;
+        var trackedCampaignIds = campaignRows
+            .Select(static row => row.CampaignId.ToString())
+            .ToArray();
 
         var campaignStates = campaignRows.Length == 0
             ? Array.Empty<CapabilityBCampaignJobAggregateRow>()
@@ -305,9 +310,11 @@ FROM admin_jobs a
 WHERE a.tenant_id = @tenantId
   AND a.payload ->> 'source' = 'capability_b'
   AND a.payload ? 'campaignId'
+  AND a.payload ->> 'campaignId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  AND a.payload ->> 'campaignId' = ANY(@campaignIds)
 GROUP BY CAST(a.payload ->> 'campaignId' AS uuid);
 """,
-                new { tenantId },
+                new { tenantId, campaignIds = trackedCampaignIds },
                 cancellationToken: ct))).ToArray();
 
         var activeCampaignCount = campaignStates.Count(static row => row.ActiveJobCount > 0);

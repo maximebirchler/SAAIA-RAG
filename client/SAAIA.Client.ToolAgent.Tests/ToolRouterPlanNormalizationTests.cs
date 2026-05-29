@@ -172,6 +172,7 @@ public sealed class ToolRouterPlanNormalizationTests
         Assert.Equal("rag.multi_search", call.Name);
         Assert.True(call.Args.TryGetProperty("queries", out var queries));
         Assert.True(queries.GetArrayLength() > 1);
+        Assert.True(call.Args.GetProperty("topK").GetInt32() >= 8);
     }
 
     [Fact]
@@ -201,6 +202,72 @@ public sealed class ToolRouterPlanNormalizationTests
         var queries = call.Args.GetProperty("queries").EnumerateArray().Select(x => x.GetString() ?? "").ToArray();
         Assert.Contains(queries, q => q.Contains("batch cooking", StringComparison.OrdinalIgnoreCase));
         Assert.Contains("parallel cooking methods", queries);
+    }
+
+    [Fact]
+    public void Documentary_defaults_widen_structured_weekly_planning_retrieval()
+    {
+        var plan = new RouterPlan
+        {
+            Intent = "rag.answer",
+            Language = "fr",
+            Mode = "strict",
+            ToolCalls = new()
+            {
+                new RouterPlan.ToolCall
+                {
+                    Name = "rag.search",
+                    Args = ParseArgs("""{"query":"plan de repas semaine","topK":4,"mode":"balanced"}""")
+                }
+            }
+        };
+
+        ToolAgentOrchestrator.ApplyDocumentaryRagDefaultsForTests(
+            plan,
+            "Je cherche un plan de repas pour la semaine, petit-dejeuner, midi et soir du lundi au vendredi.");
+
+        var call = Assert.Single(plan.ToolCalls);
+        Assert.Equal("rag.multi_search", call.Name);
+        Assert.True(call.Args.GetProperty("topK").GetInt32() >= 8);
+        Assert.True(call.Args.GetProperty("queries").GetArrayLength() > 1);
+    }
+
+    [Fact]
+    public void Documentary_defaults_do_not_widen_fragmentary_planning_words_without_documentary_intent()
+    {
+        const string userMessage = "Hebdomadaire contraintes.";
+        Assert.False(ToolAgentOrchestrator.LooksLikeSourceBackedPlanningRequestForTests(userMessage));
+
+        var plan = new RouterPlan
+        {
+            Intent = "chat.general",
+            Language = "fr",
+            Mode = "strict"
+        };
+
+        ToolAgentOrchestrator.ApplyDocumentaryRagDefaultsForTests(plan, userMessage);
+
+        Assert.Empty(plan.ToolCalls);
+    }
+
+    [Fact]
+    public void Documentary_defaults_widen_documentary_planning_when_document_scope_is_explicit()
+    {
+        const string userMessage = "Planning hebdomadaire dans les documents : contraintes matin et soir.";
+
+        var plan = new RouterPlan
+        {
+            Intent = "chat.general",
+            Language = "fr",
+            Mode = "strict"
+        };
+
+        ToolAgentOrchestrator.ApplyDocumentaryRagDefaultsForTests(plan, userMessage);
+
+        var call = Assert.Single(plan.ToolCalls);
+        Assert.Equal("rag.multi_search", call.Name);
+        Assert.True(call.Args.GetProperty("topK").GetInt32() >= 8);
+        Assert.True(call.Args.GetProperty("queries").GetArrayLength() > 1);
     }
 
     [Fact]
@@ -262,6 +329,33 @@ public sealed class ToolRouterPlanNormalizationTests
     }
 
     [Fact]
+    public void Documentary_defaults_redirect_oriented_document_lists_to_rag()
+    {
+        var plan = new RouterPlan
+        {
+            Intent = "inventory.list",
+            Language = "fr",
+            Mode = "strict",
+            ToolCalls = new()
+            {
+                new RouterPlan.ToolCall
+                {
+                    Name = "documents.list",
+                    Args = ParseArgs("""{"q":"VX-12","limit":20}""")
+                }
+            }
+        };
+
+        ToolAgentOrchestrator.ApplyDocumentaryRagDefaultsForTests(
+            plan,
+            "Quels documents sont utiles pour comprendre VX-12 et pourquoi ?");
+
+        var call = Assert.Single(plan.ToolCalls);
+        Assert.Equal("rag.answer", plan.Intent);
+        Assert.True(call.Name is "rag.search" or "rag.multi_search");
+    }
+
+    [Fact]
     public void Source_backed_action_queries_include_individual_user_terms_for_broad_recall()
     {
         var queries = ToolAgentOrchestrator.BuildSourceBackedActionRetrievalQueriesForTests(
@@ -278,6 +372,29 @@ public sealed class ToolRouterPlanNormalizationTests
             "Prepare un planning de cuisson a rebours pour un repas a 19h."));
         Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedCountdownPlanningRequestForTests(
             "Prépare un planning de cuisson à rebours pour un repas à 19h."));
+    }
+
+    [Fact]
+    public void Source_backed_planning_with_deictic_variation_is_not_treated_as_missing_previous_item()
+    {
+        var query = "Je cherche a avoir un plan de repas pour la semaine, tu me proposes quoi pour que ca varie un peu ?";
+
+        Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedPlanningRequestForTests(query));
+        Assert.False(ToolAgentOrchestrator.LooksLikeUnresolvedSourceBackedDeicticFollowupForTests(query));
+    }
+
+    [Fact]
+    public void Complete_action_request_with_deictic_word_is_not_treated_as_missing_previous_item()
+    {
+        Assert.False(ToolAgentOrchestrator.LooksLikeUnresolvedSourceBackedDeicticFollowupForTests(
+            "Prepare ca sous forme de planning avec les documents securite et les procedures NIST."));
+    }
+
+    [Fact]
+    public void Pure_deictic_followup_still_asks_for_the_missing_item()
+    {
+        Assert.True(ToolAgentOrchestrator.LooksLikeUnresolvedSourceBackedDeicticFollowupForTests(
+            "Mets ca pour 4 personnes."));
     }
 
     [Fact]
@@ -740,6 +857,46 @@ public sealed class ToolRouterPlanNormalizationTests
         Assert.False(plan.NeedClarification);
         Assert.Empty(plan.ClarificationQuestions);
         Assert.Equal("rag.answer", plan.Intent);
+    }
+
+    [Fact]
+    public void Broad_documentary_information_request_overrides_premature_router_clarification()
+    {
+        var plan = new RouterPlan
+        {
+            Intent = "chat.general",
+            Language = "fr",
+            NeedClarification = true,
+            ClarificationQuestions = new() { "Quel document voulez-vous utiliser ?" }
+        };
+
+        ToolAgentOrchestrator.ApplySourceBackedClarificationOverrideForTests(
+            plan,
+            "Je veux des informations sur l'inertage.");
+
+        Assert.False(plan.NeedClarification);
+        Assert.Empty(plan.ClarificationQuestions);
+        Assert.Equal("rag.answer", plan.Intent);
+    }
+
+    [Fact]
+    public void Broad_documentary_information_request_gets_expanded_rag_defaults()
+    {
+        var plan = new RouterPlan
+        {
+            Intent = "chat.general",
+            Language = "fr"
+        };
+
+        ToolAgentOrchestrator.ApplyDocumentaryRagDefaultsForTests(
+            plan,
+            "Je veux des informations sur l'inertage.");
+
+        var call = Assert.Single(plan.ToolCalls);
+        Assert.Equal("rag.multi_search", call.Name);
+        var queries = call.Args.GetProperty("queries").EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToArray();
+        Assert.Contains(queries, q => q.Contains("inertage", StringComparison.OrdinalIgnoreCase));
+        Assert.True(call.Args.GetProperty("topK").GetInt32() >= 12);
     }
 
     [Theory]

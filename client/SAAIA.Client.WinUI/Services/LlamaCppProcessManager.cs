@@ -19,6 +19,7 @@ internal sealed class LlamaCppProcessManager
     private int _idleTimeoutSeconds;
     private string? _attachedBaseUrl;
     private string? _attachedModelId;
+    private Func<bool>? _idleStopSuppressionProvider;
 
     public bool IsRunning => _proc is { HasExited: false } || !string.IsNullOrWhiteSpace(_attachedBaseUrl);
 
@@ -26,6 +27,31 @@ internal sealed class LlamaCppProcessManager
     public string? LastLogFile { get; private set; }
     public int? LastStartupLoadMs { get; private set; }
     public int IdleTimeoutSeconds => _idleTimeoutSeconds;
+
+    public void SetIdleStopSuppressionProvider(Func<bool>? provider)
+    {
+        lock (_gate)
+        {
+            _idleStopSuppressionProvider = provider;
+        }
+
+        NotifyIdlePolicyChanged();
+    }
+
+    public void NotifyIdlePolicyChanged()
+    {
+        if (IsIdleStopSuppressed())
+        {
+            lock (_gate)
+            {
+                _idleTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+            }
+
+            return;
+        }
+
+        ScheduleIdleStop();
+    }
 
     internal async Task<(bool ok, string message)> EnsureRunningAsync(AppSettings s, CancellationToken ct)
     {
@@ -420,6 +446,16 @@ internal sealed class LlamaCppProcessManager
 
     private void ScheduleIdleStop()
     {
+        if (IsIdleStopSuppressed())
+        {
+            lock (_gate)
+            {
+                _idleTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+            }
+
+            return;
+        }
+
         lock (_gate)
         {
             if (_activeRequests > 0 || !IsRunning || _idleTimeoutSeconds <= 0)
@@ -432,6 +468,12 @@ internal sealed class LlamaCppProcessManager
 
     private void OnIdleTimeout()
     {
+        if (IsIdleStopSuppressed())
+        {
+            ClientLog.Info("[LlamaCpp] Idle timeout skipped because the app window is still open.");
+            return;
+        }
+
         lock (_gate)
         {
             if (_activeRequests > 0 || !IsRunning)
@@ -440,6 +482,27 @@ internal sealed class LlamaCppProcessManager
 
         ClientLog.Info($"[LlamaCpp] Idle timeout reached ({_idleTimeoutSeconds}s) - stopping managed runtime.");
         Stop();
+    }
+
+    private bool IsIdleStopSuppressed()
+    {
+        Func<bool>? provider;
+        lock (_gate)
+        {
+            provider = _idleStopSuppressionProvider;
+        }
+
+        if (provider is null)
+            return false;
+
+        try
+        {
+            return provider();
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private void DisposeIdleTimer()

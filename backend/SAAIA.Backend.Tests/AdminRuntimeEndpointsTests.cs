@@ -2398,6 +2398,134 @@ VALUES
     }
 
     [Fact]
+    public async Task CapabilityBQualityReviewAsync_ignores_malformed_quality_scores_without_500()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var validLowDocId = Guid.NewGuid();
+        var malformedDocId = Guid.NewGuid();
+        var missingScoreDocId = Guid.NewGuid();
+
+        await using (var conn = new NpgsqlConnection(db.ConnectionString))
+        {
+            await conn.OpenAsync();
+            await conn.ExecuteAsync(
+                """
+INSERT INTO documents(
+  tenant_id, doc_id, doc_path, doc_name, category, status,
+  updated_at, created_at, ingestion_version, indexed_version, auto_ingest_paused
+)
+VALUES
+  (@tenant, @validLowDocId, 'Quality/valid-low.pdf', 'valid-low.pdf', 'quality', 'indexed', now(), now(), 1, 1, false),
+  (@tenant, @malformedDocId, 'Quality/malformed.pdf', 'malformed.pdf', 'quality', 'indexed', now(), now(), 1, 1, false),
+  (@tenant, @missingScoreDocId, 'Quality/missing-score.pdf', 'missing-score.pdf', 'quality', 'indexed', now(), now(), 1, 1, false);
+
+INSERT INTO document_summaries(
+  tenant_id, doc_id, level, doc_language, source_hash, summary_text, summary_meta, created_at, updated_at
+)
+VALUES
+(
+  @tenant,
+  @validLowDocId,
+  'medium',
+  'en',
+  'hash-valid-low',
+  'Summary with a valid low score.',
+  '{
+    "generator":"capability_b_worker_v2",
+    "strategy":"llm_document_foundation",
+    "runtimeCapabilityStatus":"selected",
+    "qualityScore":"0.41 ",
+    "fallbackUsed":" TRUE ",
+    "qualitySignals":{
+      "lineCount":1,
+      "lengthScore":0.35,
+      "structureScore":0.4,
+      "sectionCoverageScore":0.25,
+      "matchedSectionCount":1,
+      "expectedSectionCount":4,
+      "keywordCoverageScore":0.25,
+      "matchedKeywordCount":1,
+      "expectedKeywordCount":4
+    }
+  }'::jsonb,
+  now(),
+  now()
+),
+(
+  @tenant,
+  @malformedDocId,
+  'medium',
+  'en',
+  'hash-malformed',
+  'Summary with a malformed score.',
+  '{
+    "generator":"capability_b_worker_v2",
+    "strategy":"llm_document_foundation",
+    "runtimeCapabilityStatus":"selected",
+    "qualityScore":"bad",
+    "fallbackUsed":false
+  }'::jsonb,
+  now(),
+  now()
+),
+(
+  @tenant,
+  @missingScoreDocId,
+  'medium',
+  'en',
+  'hash-missing',
+  'Summary without a score.',
+  '{
+    "generator":"capability_b_worker_v2",
+    "strategy":"llm_document_foundation",
+    "runtimeCapabilityStatus":"selected",
+    "fallbackUsed":false
+  }'::jsonb,
+  now(),
+  now()
+);
+""",
+                new { tenant = tenantId, validLowDocId, malformedDocId, missingScoreDocId });
+        }
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var options = new RuntimeGovernanceOptions
+        {
+            CapabilityBQualityScoreTarget = 0.60
+        };
+
+        var reviewCtx = BuildAdminContext();
+        var reviewResult = await AdminRuntimeEndpoints.CapabilityBQualityReviewAsync(
+            reviewCtx,
+            ds,
+            Options.Create(options),
+            new StubHostEnvironment(),
+            limit: 20);
+        var review = await ExecuteResultAsync<AdminRuntimeCapabilityBQualityReviewResponseDto>(reviewResult, reviewCtx);
+
+        var item = Assert.Single(review.Items);
+        Assert.Equal(validLowDocId, item.DocId);
+        Assert.Equal(0.41, item.QualityScore);
+        Assert.True(item.FallbackUsed);
+
+        var summaryCtx = BuildAdminContext();
+        var summaryResult = await AdminRuntimeEndpoints.CapabilityBQualityReviewSummaryAsync(
+            summaryCtx,
+            ds,
+            Options.Create(options),
+            new StubHostEnvironment());
+        var summary = await ExecuteResultAsync<AdminRuntimeCapabilityBQualityReviewSummaryResponseDto>(summaryResult, summaryCtx);
+
+        Assert.Equal(1, summary.Summary.TotalLowQualitySummaries);
+        Assert.Equal(1, summary.Summary.FallbackSummaryCount);
+        Assert.Equal(0.41, summary.Summary.LowestQualityScore);
+    }
+
+    [Fact]
     public async Task CapabilityBQualityReviewArtifactAsync_returns_named_artifact_snapshot()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();

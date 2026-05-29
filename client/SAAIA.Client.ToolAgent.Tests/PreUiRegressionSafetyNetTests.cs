@@ -32,6 +32,9 @@ public sealed class PreUiRegressionSafetyNetTests
         Assert.Contains("source-backed leads or a partial construction", prompt);
         Assert.Contains("contentSignals/contentRole", prompt);
         Assert.Contains("contentDensityScore", prompt);
+        Assert.Contains("transitions, grouping, prioritization and a readable structure", prompt);
+        Assert.Contains("lightweight Markdown", prompt);
+        Assert.Contains("**bold**", prompt);
     }
 
     [Fact]
@@ -44,6 +47,11 @@ public sealed class PreUiRegressionSafetyNetTests
         Assert.Contains("no relevant evidence at all", prompt);
         Assert.Contains("contentSignals/contentRole", prompt);
         Assert.Contains("contentDensityScore", prompt);
+        Assert.Contains("Do not repeat the user's request", prompt);
+        Assert.Contains("explicit structure such as days, periods, steps, columns, criteria, or slots", prompt);
+        Assert.Contains("clearly mark items to validate", prompt);
+        Assert.Contains("Preserve readable structure", prompt);
+        Assert.Contains("**bold** labels", prompt);
     }
 
     [Theory]
@@ -74,6 +82,16 @@ public sealed class PreUiRegressionSafetyNetTests
     {
         Assert.True(ToolManifest.KnownToolNames.Contains("documents.categories"));
         Assert.Contains("documents.categories", ToolAgentOrchestrator.GetExecutableToolNamesForTests());
+    }
+
+    [Fact]
+    public void Linkified_plain_text_copy_removes_source_tokens_and_light_markdown()
+    {
+        var raw = "**Choix recommandé** : [[open|Cuisine/test.pdf|12|test.pdf (p.12)]]";
+
+        var plain = SAAIA.Client.WinUI.Controls.LinkifiedTextBlock.ToPlainText(raw);
+
+        Assert.Equal("Choix recommandé : test.pdf (p.12)", plain);
     }
 
     [Fact]
@@ -173,7 +191,8 @@ public sealed class PreUiRegressionSafetyNetTests
 
         Assert.Contains("Here is the list of documents without a stored summary:", rendered);
         Assert.Contains("[[open|General/Overview.pdf|1|Overview.pdf]]", rendered);
-        Assert.Contains("[[open|Programmation/Mettler/MettlerToledo_IND570.pdf|1|MettlerToledo_IND570.pdf]] [stale]", rendered);
+        Assert.Contains("[[open|Programmation/Mettler/MettlerToledo_IND570.pdf|1|MettlerToledo_IND570.pdf]] [summary to update]", rendered);
+        Assert.DoesNotContain("[stale]", rendered);
     }
 
     [Fact]
@@ -206,10 +225,13 @@ public sealed class PreUiRegressionSafetyNetTests
 
         var rendered = ToolAgentOrchestrator.RenderDeterministicInventoryFromData("summary_status_list", doc.RootElement, "en");
 
-        Assert.Contains("[[open|Generic/ready.pdf|1|ready.pdf]] [active job running] [Capability B enqueue_profile_refresh] [priority 12]", rendered);
-        Assert.Contains("[[open|Generic/blocked.pdf|1|blocked.pdf]] [policy blocked: runtime_unqualified] [last job issue: failed / timeout]", rendered);
+        Assert.Contains("[[open|Generic/ready.pdf|1|ready.pdf]] [processing in progress running] [server summary ready to prepare] [priority 12]", rendered);
+        Assert.Contains("[[open|Generic/blocked.pdf|1|blocked.pdf]] [blocked by server rule: server to recheck] [last processing issue (failed); details in logs]", rendered);
         Assert.DoesNotContain("\"capabilityBRecommendedAction\"", rendered);
         Assert.DoesNotContain("\"capabilityBPolicyBlocked\"", rendered);
+        Assert.DoesNotContain("Capability B", rendered);
+        Assert.DoesNotContain("enqueue_profile_refresh", rendered);
+        Assert.DoesNotContain("runtime_unqualified", rendered);
     }
 
 

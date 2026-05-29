@@ -75,11 +75,6 @@ public sealed partial class MainWindow
         DateTimeOffset? LatestCampaignOccurredAt,
         IReadOnlyDictionary<string, int> LlmFailureCounts);
 
-    private async void HeaderRuntimeButton_Click(object sender, RoutedEventArgs e)
-    {
-        await ShowAdminRuntimeOverlayAsync();
-    }
-
     private async Task ShowAdminRuntimeOverlayAsync()
     {
         if (!_api.HasAdminKey)
@@ -148,21 +143,21 @@ public sealed partial class MainWindow
                 => value?.ToLocalTime().ToString("g") ?? "-";
 
             var summary = LocalRuntimeText(
-                $"{diagnostics.RuntimeLabel} | build {diagnostics.ActiveBuild ?? "inconnu"}",
-                $"{diagnostics.RuntimeLabel} | build {diagnostics.ActiveBuild ?? "unknown"}",
-                $"{diagnostics.RuntimeLabel} | build {diagnostics.ActiveBuild ?? "desconocido"}",
-                $"{diagnostics.RuntimeLabel} | build {diagnostics.ActiveBuild ?? "desconhecido"}",
-                $"{diagnostics.RuntimeLabel} | Build {diagnostics.ActiveBuild ?? "unbekannt"}",
-                $"{diagnostics.RuntimeLabel} | build {diagnostics.ActiveBuild ?? "sconosciuto"}",
+                $"Assistant local | version moteur {diagnostics.ActiveBuild ?? "inconnue"}",
+                $"Local assistant | engine version {diagnostics.ActiveBuild ?? "unknown"}",
+                $"Asistente local | version del motor {diagnostics.ActiveBuild ?? "desconocida"}",
+                $"Assistente local | versao do motor {diagnostics.ActiveBuild ?? "desconhecida"}",
+                $"Lokaler Assistent | Engine-Version {diagnostics.ActiveBuild ?? "unbekannt"}",
+                $"Assistente locale | versione motore {diagnostics.ActiveBuild ?? "sconosciuta"}",
                 lang);
             if (!string.IsNullOrWhiteSpace(diagnostics.RequiredBuild))
                 summary += " | " + LocalRuntimeText(
-                    $"requis {diagnostics.RequiredBuild}",
-                    $"required {diagnostics.RequiredBuild}",
-                    $"requerido {diagnostics.RequiredBuild}",
-                    $"requerido {diagnostics.RequiredBuild}",
-                    $"erforderlich {diagnostics.RequiredBuild}",
-                    $"richiesto {diagnostics.RequiredBuild}",
+                    $"minimum attendu {diagnostics.RequiredBuild}",
+                    $"minimum expected {diagnostics.RequiredBuild}",
+                    $"minimo esperado {diagnostics.RequiredBuild}",
+                    $"minimo esperado {diagnostics.RequiredBuild}",
+                    $"erwartetes Minimum {diagnostics.RequiredBuild}",
+                    $"minimo atteso {diagnostics.RequiredBuild}",
                     lang);
 
             var details = new StackPanel { Spacing = 6 };
@@ -177,12 +172,12 @@ public sealed partial class MainWindow
             details.Children.Add(new TextBlock
             {
                 Text = LocalRuntimeText(
-                    $"Etat {ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)} | Warmup {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)} | Flash-attn {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)}",
-                    $"State {ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)} | Warmup {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)} | Flash-attn {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)}",
-                    $"Estado {ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)} | Warmup {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)} | Flash-attn {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)}",
-                    $"Estado {ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)} | Warmup {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)} | Flash-attn {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)}",
-                    $"Status {ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)} | Warmup {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)} | Flash-attn {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)}",
-                    $"Stato {ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)} | Warmup {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)} | Flash-attn {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)}",
+                    $"Etat {ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)} | Verification {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)} | Acceleration GPU {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)}",
+                    $"State {ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)} | Startup check {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)} | GPU acceleration {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)}",
+                    $"Estado {ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)} | Verificacion {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)} | Aceleracion GPU {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)}",
+                    $"Estado {ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)} | Verificacao {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)} | Aceleracao GPU {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)}",
+                    $"Status {ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)} | Pruefung {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)} | GPU-Beschleunigung {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)}",
+                    $"Stato {ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)} | Verifica {ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)} | Accelerazione GPU {ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)}",
                     lang),
                 Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
                 TextWrapping = TextWrapping.WrapWholeWords
@@ -194,12 +189,12 @@ public sealed partial class MainWindow
                 details.Children.Add(new TextBlock
                 {
                     Text = LocalRuntimeText(
-                        $"Modele {diagnostics.ModelId ?? "-"} | precedent {diagnostics.PreviousBuild ?? "-"} | profil {diagnostics.QualifiedProfileId ?? "-"}",
-                        $"Model {diagnostics.ModelId ?? "-"} | previous {diagnostics.PreviousBuild ?? "-"} | profile {diagnostics.QualifiedProfileId ?? "-"}",
-                        $"Modelo {diagnostics.ModelId ?? "-"} | anterior {diagnostics.PreviousBuild ?? "-"} | perfil {diagnostics.QualifiedProfileId ?? "-"}",
-                        $"Modelo {diagnostics.ModelId ?? "-"} | anterior {diagnostics.PreviousBuild ?? "-"} | perfil {diagnostics.QualifiedProfileId ?? "-"}",
-                        $"Modell {diagnostics.ModelId ?? "-"} | vorher {diagnostics.PreviousBuild ?? "-"} | Profil {diagnostics.QualifiedProfileId ?? "-"}",
-                        $"Modello {diagnostics.ModelId ?? "-"} | precedente {diagnostics.PreviousBuild ?? "-"} | profilo {diagnostics.QualifiedProfileId ?? "-"}",
+                        $"Modele {diagnostics.ModelId ?? "-"} | ancienne version {diagnostics.PreviousBuild ?? "-"} | profil valide {diagnostics.QualifiedProfileId ?? "-"}",
+                        $"Model {diagnostics.ModelId ?? "-"} | previous version {diagnostics.PreviousBuild ?? "-"} | approved profile {diagnostics.QualifiedProfileId ?? "-"}",
+                        $"Modelo {diagnostics.ModelId ?? "-"} | version anterior {diagnostics.PreviousBuild ?? "-"} | perfil validado {diagnostics.QualifiedProfileId ?? "-"}",
+                        $"Modelo {diagnostics.ModelId ?? "-"} | versao anterior {diagnostics.PreviousBuild ?? "-"} | perfil validado {diagnostics.QualifiedProfileId ?? "-"}",
+                        $"Modell {diagnostics.ModelId ?? "-"} | vorherige Version {diagnostics.PreviousBuild ?? "-"} | freigegebenes Profil {diagnostics.QualifiedProfileId ?? "-"}",
+                        $"Modello {diagnostics.ModelId ?? "-"} | versione precedente {diagnostics.PreviousBuild ?? "-"} | profilo valido {diagnostics.QualifiedProfileId ?? "-"}",
                         lang),
                     Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
                     TextWrapping = TextWrapping.WrapWholeWords
@@ -270,7 +265,7 @@ public sealed partial class MainWindow
             catch (Exception ex)
             {
                 ClientLog.Exception("AdminRuntimeOps.LocalRuntimeSummary", ex);
-                runtimeHost.Content = BuildDialogInfoBanner(LocalRuntimeText("Diagnostic runtime local indisponible.", "Local runtime diagnostics unavailable.", "Diagnostico runtime local no disponible.", "Diagnostico runtime local indisponivel.", "Lokale Runtime-Diagnose nicht verfuegbar.", "Diagnostica runtime locale non disponibile.", lang));
+                runtimeHost.Content = BuildDialogInfoBanner(LocalRuntimeText("Diagnostic de l'assistant local indisponible.", "Local assistant diagnostics unavailable.", "Diagnostico del asistente local no disponible.", "Diagnostico do assistente local indisponivel.", "Diagnose des lokalen Assistenten nicht verfuegbar.", "Diagnostica assistente locale non disponibile.", lang));
             }
         }
 
@@ -355,9 +350,12 @@ public sealed partial class MainWindow
             catch (Exception ex)
             {
                 ClientLog.Exception($"AdminRuntimeOps.PreviewOffsetBackfill[{item.Key}]", ex);
-                var message = ClientUiText.Get("admin.runtime.action.preview_offsets.failed", lang);
+                var message = ClientUiText.Format(
+                    "admin.runtime.action.preview_offsets.failed_detail",
+                    lang,
+                    BuildAdminRuntimeActionErrorDetail(ex, lang));
                 SetStateBanner(message);
-                Status(message + " " + ex.Message);
+                Status(message);
             }
             finally
             {
@@ -413,8 +411,9 @@ public sealed partial class MainWindow
             {
                 ClientLog.Exception("AdminRuntimeOps.Requalify", ex);
                 var message = GetAdminRuntimeRequalifyFailedMessage(lang);
-                SetStateBanner(message);
-                Status(message + " " + ex.Message);
+                var detail = BuildAdminRuntimeActionErrorDetail(ex, lang);
+                SetStateBanner(message + " " + detail);
+                Status(message + " " + detail);
             }
             finally
             {
@@ -446,8 +445,9 @@ public sealed partial class MainWindow
             {
                 ClientLog.Exception("AdminRuntimeOps.ReconcileStale", ex);
                 var message = GetAdminRuntimeReconcileStaleFailedMessage(lang);
-                SetStateBanner(message);
-                Status(message + " " + ex.Message);
+                var detail = BuildAdminRuntimeActionErrorDetail(ex, lang);
+                SetStateBanner(message + " " + detail);
+                Status(message + " " + detail);
             }
             finally
             {
@@ -496,7 +496,7 @@ public sealed partial class MainWindow
             });
             stack.Children.Add(new TextBlock
             {
-                Text = $"{ClientUiText.Get("admin.runtime.field.status", lang)}: {item.Status} | {ClientUiText.Get("admin.runtime.field.selected", lang)}: {yesNo}",
+                Text = $"{ClientUiText.Get("admin.runtime.field.status", lang)}: {ResolveCapabilityStatusLabel(item.Status, lang)} | {ClientUiText.Get("admin.runtime.field.selected", lang)}: {yesNo}",
                 Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
                 TextWrapping = TextWrapping.WrapWholeWords
             });
@@ -587,7 +587,7 @@ public sealed partial class MainWindow
                 {
                     stack.Children.Add(new TextBlock
                     {
-                        Text = "- " + recommendation,
+                        Text = "- " + ResolveCapabilityRecommendationLabel(recommendation, lang),
                         TextWrapping = TextWrapping.WrapWholeWords,
                         Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE)
                     });
@@ -727,9 +727,9 @@ public sealed partial class MainWindow
             {
                 ClientLog.Exception("AdminRuntimeOps.Load", ex);
                 SetStateBanner(ClientUiText.Get("admin.runtime.load_failed", lang));
-                runtimeHost.Content = BuildDialogInfoBanner(LocalRuntimeText("Diagnostic runtime local indisponible.", "Local runtime diagnostics unavailable.", "Diagnostico runtime local no disponible.", "Diagnostico runtime local indisponivel.", "Lokale Runtime-Diagnose nicht verfuegbar.", "Diagnostica runtime locale non disponibile.", lang));
+                runtimeHost.Content = BuildDialogInfoBanner(LocalRuntimeText("Diagnostic de l'assistant local indisponible.", "Local assistant diagnostics unavailable.", "Diagnostico del asistente local no disponible.", "Diagnostico do assistente local indisponivel.", "Diagnose des lokalen Assistenten nicht verfuegbar.", "Diagnostica assistente locale non disponibile.", lang));
                 capabilitiesHost.Children.Clear();
-                capabilitiesHost.Children.Add(BuildDialogInfoBanner(FormatAdminLoadError(ex, "/admin/runtime/operational-summary", lang)));
+                capabilitiesHost.Children.Add(BuildDialogInfoBanner(FormatAdminLoadErrorForUser(ex, "/admin/runtime/operational-summary", lang)));
             }
             finally
             {
@@ -751,6 +751,8 @@ public sealed partial class MainWindow
                 new UIElement[]
                 {
                     generatedText,
+                    BuildDialogInfoBanner(ClientUiText.Get("admin.runtime.help.body", lang)),
+                    BuildDialogInfoBanner(ClientUiText.Get("admin.runtime.help.buttons", lang)),
                     stateHost,
                     blacklistHost,
                     runtimeHost,
@@ -871,12 +873,12 @@ public sealed partial class MainWindow
         }
 
         return LocalRuntimeText(
-            $"Campagnes actives: {summary.ActiveCampaignCount} | Jobs termines: {summary.TerminalCapabilityJobCount} | resumes stockes: {summary.StoredSummaryCount}",
-            $"Active campaigns: {summary.ActiveCampaignCount} | Terminal jobs: {summary.TerminalCapabilityJobCount} | Stored summaries: {summary.StoredSummaryCount}",
-            $"Campanas activas: {summary.ActiveCampaignCount} | Jobs terminales: {summary.TerminalCapabilityJobCount} | resumenes guardados: {summary.StoredSummaryCount}",
-            $"Campanhas ativas: {summary.ActiveCampaignCount} | Jobs terminais: {summary.TerminalCapabilityJobCount} | resumos guardados: {summary.StoredSummaryCount}",
-            $"Aktive Kampagnen: {summary.ActiveCampaignCount} | Terminale Jobs: {summary.TerminalCapabilityJobCount} | Gespeicherte Zusammenfassungen: {summary.StoredSummaryCount}",
-            $"Campagne attive: {summary.ActiveCampaignCount} | Job terminali: {summary.TerminalCapabilityJobCount} | riepiloghi salvati: {summary.StoredSummaryCount}",
+            $"Lots en cours: {summary.ActiveCampaignCount} | Traitements termines: {summary.TerminalCapabilityJobCount} | resumes stockes: {summary.StoredSummaryCount}",
+            $"Batches in progress: {summary.ActiveCampaignCount} | Completed processing: {summary.TerminalCapabilityJobCount} | Stored summaries: {summary.StoredSummaryCount}",
+            $"Lotes en curso: {summary.ActiveCampaignCount} | Procesos terminados: {summary.TerminalCapabilityJobCount} | resumenes guardados: {summary.StoredSummaryCount}",
+            $"Lotes em curso: {summary.ActiveCampaignCount} | Tratamentos terminados: {summary.TerminalCapabilityJobCount} | resumos guardados: {summary.StoredSummaryCount}",
+            $"Laufende Lose: {summary.ActiveCampaignCount} | Abgeschlossene Verarbeitungen: {summary.TerminalCapabilityJobCount} | Gespeicherte Zusammenfassungen: {summary.StoredSummaryCount}",
+            $"Lotti in corso: {summary.ActiveCampaignCount} | Trattamenti completati: {summary.TerminalCapabilityJobCount} | riepiloghi salvati: {summary.StoredSummaryCount}",
             lang);
     }
 
@@ -922,7 +924,14 @@ public sealed partial class MainWindow
 
         if (!string.IsNullOrWhiteSpace(summary.LatestCampaignId))
         {
-            parts.Add("id " + ShortenCampaignId(summary.LatestCampaignId));
+            parts.Add(LocalRuntimeText(
+                "identifiant technique " + ShortenCampaignId(summary.LatestCampaignId),
+                "technical id " + ShortenCampaignId(summary.LatestCampaignId),
+                "identificador tecnico " + ShortenCampaignId(summary.LatestCampaignId),
+                "identificador tecnico " + ShortenCampaignId(summary.LatestCampaignId),
+                "technische ID " + ShortenCampaignId(summary.LatestCampaignId),
+                "identificativo tecnico " + ShortenCampaignId(summary.LatestCampaignId),
+                lang));
         }
 
         if (parts.Count == 0)
@@ -930,12 +939,12 @@ public sealed partial class MainWindow
 
         var detail = string.Join(" | ", parts);
         return LocalRuntimeText(
-            $"Derniere campagne: {detail}",
-            $"Latest campaign: {detail}",
-            $"Ultima campana: {detail}",
-            $"Ultima campanha: {detail}",
-            $"Letzte Kampagne: {detail}",
-            $"Ultima campagna: {detail}",
+            $"Dernier lot: {detail}",
+            $"Latest batch: {detail}",
+            $"Ultimo lote: {detail}",
+            $"Ultimo lote: {detail}",
+            $"Letztes Los: {detail}",
+            $"Ultimo lotto: {detail}",
             lang);
     }
 
@@ -974,12 +983,12 @@ public sealed partial class MainWindow
             return string.Empty;
 
         return LocalRuntimeText(
-            $"Echecs LLM serveur: {detail}",
-            $"Server LLM failures: {detail}",
-            $"Fallos LLM servidor: {detail}",
-            $"Falhas LLM servidor: {detail}",
-            $"Server-LLM-Fehler: {detail}",
-            $"Errori LLM server: {detail}",
+            $"Echecs du moteur de résumés serveur: {detail}",
+            $"Server summary generation issues: {detail}",
+            $"Fallos del motor de resúmenes del servidor: {detail}",
+            $"Falhas do motor de resumos do servidor: {detail}",
+            $"Fehler der Server-Zusammenfassungs-Engine: {detail}",
+            $"Errori del motore riassunti server: {detail}",
             lang);
     }
 
@@ -988,22 +997,102 @@ public sealed partial class MainWindow
         {
             "queue" => LocalRuntimeText("file pleine", "queue full", "cola llena", "fila cheia", "Warteschlange voll", "coda piena", lang),
             "timeout" => LocalRuntimeText("timeout", "timeout", "timeout", "timeout", "Timeout", "timeout", lang),
-            "http" => LocalRuntimeText("HTTP/runtime", "HTTP/runtime", "HTTP/runtime", "HTTP/runtime", "HTTP/Runtime", "HTTP/runtime", lang),
-            "transport" => LocalRuntimeText("transport", "transport", "transporte", "transporte", "Transport", "trasporto", lang),
+            "http" => LocalRuntimeText("moteur indisponible", "engine unavailable", "motor no disponible", "motor indisponivel", "Engine nicht verfuegbar", "motore non disponibile", lang),
+            "transport" => LocalRuntimeText("connexion serveur interrompue", "server connection interrupted", "conexion servidor interrumpida", "ligacao servidor interrompida", "Serververbindung unterbrochen", "connessione server interrotta", lang),
             "empty" => LocalRuntimeText("reponse vide", "empty response", "respuesta vacia", "resposta vazia", "Leere Antwort", "risposta vuota", lang),
             "configuration" => LocalRuntimeText("configuration", "configuration", "configuracion", "configuracao", "Konfiguration", "configurazione", lang),
             "quality" => LocalRuntimeText("qualite sortie", "output quality", "calidad salida", "qualidade saida", "Ausgabequalitat", "qualita output", lang),
-            "exception" => LocalRuntimeText("exception", "exception", "excepcion", "excecao", "Exception", "eccezione", lang),
-            _ => string.IsNullOrWhiteSpace(category) ? LocalRuntimeText("inconnu", "unknown", "desconocido", "desconhecido", "Unbekannt", "sconosciuto", lang) : category
+            "exception" => LocalRuntimeText("erreur non classee", "unclassified error", "error no clasificado", "erro nao classificado", "nicht klassifizierter Fehler", "errore non classificato", lang),
+            _ => string.IsNullOrWhiteSpace(category)
+                ? LocalRuntimeText("inconnu", "unknown", "desconocido", "desconhecido", "Unbekannt", "sconosciuto", lang)
+                : LocalRuntimeText("autre raison", "other reason", "otro motivo", "outro motivo", "anderer Grund", "altro motivo", lang)
         };
+
+    private static string ResolveCapabilityStatusLabel(string? status, string lang)
+        => status switch
+        {
+            "configured" => LocalRuntimeText("configuree", "configured", "configurada", "configurada", "konfiguriert", "configurata", lang),
+            "qualified" => LocalRuntimeText("qualifiee", "qualified", "validada", "qualificada", "qualifiziert", "qualificata", lang),
+            "selected" => LocalRuntimeText("activee", "enabled", "activada", "ativada", "aktiviert", "attivata", lang),
+            "stale" => LocalRuntimeText("a reverifier", "needs recheck", "por revisar", "a reverificar", "erneut pruefen", "da ricontrollare", lang),
+            "blocked" => LocalRuntimeText("bloquee", "blocked", "bloqueada", "bloqueada", "blockiert", "bloccata", lang),
+            "unavailable" => LocalRuntimeText("indisponible", "unavailable", "no disponible", "indisponivel", "nicht verfuegbar", "non disponibile", lang),
+            "not_configured" => LocalRuntimeText("non configuree", "not configured", "no configurada", "nao configurada", "nicht konfiguriert", "non configurata", lang),
+            null or "" => "-",
+            _ => LocalRuntimeText("etat a verifier", "state to review", "estado por revisar", "estado a verificar", "Status pruefen", "stato da verificare", lang)
+        };
+
+    private static string ResolveCapabilityRecommendationLabel(string? recommendation, string lang)
+    {
+        var normalized = (recommendation ?? string.Empty).Trim().ToLowerInvariant();
+        if (normalized.Length == 0)
+            return string.Empty;
+
+        if (normalized.Contains("requalify") || normalized.Contains("qualification"))
+        {
+            return LocalRuntimeText(
+                "Relance une verification serveur : les donnees stockees ne correspondent plus exactement au profil actif.",
+                "Run a server recheck: stored approval no longer matches the active profile.",
+                "Relanza una verificacion del servidor: la validacion guardada ya no coincide con el perfil activo.",
+                "Relanca uma verificacao do servidor: a validacao guardada ja nao corresponde ao perfil ativo.",
+                "Server erneut pruefen: die gespeicherte Freigabe passt nicht mehr zum aktiven Profil.",
+                "Rilancia una verifica server: la validazione salvata non corrisponde piu al profilo attivo.",
+                lang);
+        }
+
+        if (normalized.Contains("authorize") || normalized.Contains("selected") || normalized.Contains("selecting"))
+        {
+            return LocalRuntimeText(
+                "Active cette capacite seulement apres une qualification verte.",
+                "Enable this capability only after a successful qualification.",
+                "Activa esta capacidad solo despues de una validacion correcta.",
+                "Ativa esta capacidade apenas depois de uma qualificacao bem-sucedida.",
+                "Diese Faehigkeit erst nach erfolgreicher Qualifikation aktivieren.",
+                "Attiva questa capacita solo dopo una qualificazione riuscita.",
+                lang);
+        }
+
+        if (normalized.Contains("warmup"))
+        {
+            return LocalRuntimeText(
+                "Controle le demarrage du moteur de résumés serveur et relance la verification apres correction.",
+                "Check the server summary engine startup and rerun the check after fixing it.",
+                "Comprueba el arranque del motor de resúmenes del servidor y relanza la validacion despues de corregirlo.",
+                "Verifica o arranque do motor de resumos do servidor e relanca a verificacao depois da correcao.",
+                "Start der Server-Zusammenfassungs-Engine pruefen und danach erneut pruefen.",
+                "Controlla l'avvio del motore riassunti server e rilancia la verifica dopo la correzione.",
+                lang);
+        }
+
+        if (normalized.Contains("cooldown") || normalized.Contains("policy"))
+        {
+            return LocalRuntimeText(
+                "Attends la fin de la protection anti-boucle ou repare les etats bloques si elle reste active trop longtemps.",
+                "Wait for the retry protection to expire, or repair blocked states if it stays active too long.",
+                "Espera a que termine la proteccion anti-bucle o repara estados bloqueados si dura demasiado.",
+                "Aguarda o fim da protecao contra ciclos ou repara estados bloqueados se durar demasiado.",
+                "Wiederholschutz abwarten oder blockierte Zustaende reparieren, falls er zu lange aktiv bleibt.",
+                "Attendi la fine della protezione anti-ciclo o ripara gli stati bloccati se dura troppo.",
+                lang);
+        }
+
+        return LocalRuntimeText(
+            "Verification conseillee : le serveur a signale un etat que l'interface ne classe pas encore.",
+            "Recommended check: the server reported a state this interface does not classify yet.",
+            "Revision recomendada: el servidor senalo un estado que esta interfaz aun no clasifica.",
+            "Verificacao recomendada: o servidor sinalizou um estado que esta interface ainda nao classifica.",
+            "Pruefung empfohlen: der Server meldete einen Zustand, den diese Ansicht noch nicht einordnet.",
+            "Verifica consigliata: il server ha segnalato uno stato che l'interfaccia non classifica ancora.",
+            lang);
+    }
 
     private static string ResolveCampaignStatusLabel(string? status, string? lang)
         => status switch
         {
-            "dry_run" => LocalRuntimeText("dry-run", "dry run", "dry-run", "dry-run", "Dry-Run", "dry-run", lang),
-            "executed" => LocalRuntimeText("executee", "executed", "ejecutada", "executada", "ausgefuehrt", "eseguita", lang),
+            "dry_run" => LocalRuntimeText("simulation", "simulation", "simulacion", "simulacao", "Simulation", "simulazione", lang),
+            "executed" => LocalRuntimeText("execute", "executed", "ejecutado", "executado", "ausgefuehrt", "eseguito", lang),
             null or "" => "-",
-            _ => HumanizeRuntimeIdentifier(status)
+            _ => LocalRuntimeText("etat a verifier", "state to review", "estado por revisar", "estado a verificar", "Status pruefen", "stato da verificare", lang)
         };
 
     private static string ResolveCapabilityBReasonLabel(string reason, string? lang)
@@ -1014,7 +1103,7 @@ public sealed partial class MainWindow
             "active_summary_job_exists" => LocalRuntimeText("job resume actif", "active summary job", "job resumen activo", "job resumo ativo", "aktiver Zusammenfassungsjob", "job riepilogo attivo", lang),
             "recent_summary_job_failure" => LocalRuntimeText("echec recent", "recent failure", "fallo reciente", "falha recente", "letzter Fehler", "errore recente", lang),
             "recent_summary_job_cancellation" => LocalRuntimeText("annulation recente", "recent cancellation", "cancelacion reciente", "cancelamento recente", "letzter Abbruch", "annullamento recente", lang),
-            _ => HumanizeRuntimeIdentifier(reason)
+            _ => LocalRuntimeText("raison a verifier", "reason to review", "motivo por revisar", "motivo a verificar", "Grund pruefen", "motivo da verificare", lang)
         };
 
     private static string HumanizeRuntimeIdentifier(string value)
@@ -1063,24 +1152,24 @@ public sealed partial class MainWindow
         if (!scheduler.Enabled)
         {
             return LocalRuntimeText(
-                "Resumes serveur: worker desactive",
-                "Server summaries: worker disabled",
-                "Resumenes servidor: worker desactivado",
-                "Resumos servidor: worker desativado",
-                "Server-Zusammenfassungen: Worker deaktiviert",
-                "Riassunti server: worker disattivato",
+                "Resumes serveur: preparation automatique desactivee",
+                "Server summaries: automatic preparation disabled",
+                "Resumenes servidor: preparacion automatica desactivada",
+                "Resumos servidor: preparacao automatica desativada",
+                "Server-Zusammenfassungen: automatische Vorbereitung deaktiviert",
+                "Riassunti server: preparazione automatica disattivata",
                 lang);
         }
 
         if (!scheduler.AutoEnqueueEnabled)
         {
             return LocalRuntimeText(
-                "Resumes serveur: file auto desactivee",
-                "Server summaries: auto queue disabled",
+                "Resumes serveur: ajout automatique a la file desactive",
+                "Server summaries: automatic queueing disabled",
                 "Resumenes servidor: cola automatica desactivada",
                 "Resumos servidor: fila automatica desativada",
-                "Server-Zusammenfassungen: Auto-Warteschlange deaktiviert",
-                "Riassunti server: coda automatica disattivata",
+                "Server-Zusammenfassungen: automatische Einplanung deaktiviert",
+                "Riassunti server: accodamento automatico disattivato",
                 lang);
         }
 
@@ -1099,12 +1188,12 @@ public sealed partial class MainWindow
         if (scheduler.IsIdle)
         {
             return LocalRuntimeText(
-                $"Resumes serveur: ingestion inactive, lot max {scheduler.AutoEnqueueBatchSize}, lease {scheduler.RunningJobLeaseTimeoutSeconds}s",
-                $"Server summaries: ingestion idle, max batch {scheduler.AutoEnqueueBatchSize}, lease {scheduler.RunningJobLeaseTimeoutSeconds}s",
-                $"Resumenes servidor: ingestion inactiva, lote max {scheduler.AutoEnqueueBatchSize}, lease {scheduler.RunningJobLeaseTimeoutSeconds}s",
-                $"Resumos servidor: ingestao inativa, lote max {scheduler.AutoEnqueueBatchSize}, lease {scheduler.RunningJobLeaseTimeoutSeconds}s",
-                $"Server-Zusammenfassungen: Ingestion inaktiv, max. Batch {scheduler.AutoEnqueueBatchSize}, Lease {scheduler.RunningJobLeaseTimeoutSeconds}s",
-                $"Riassunti server: ingestione inattiva, batch max {scheduler.AutoEnqueueBatchSize}, lease {scheduler.RunningJobLeaseTimeoutSeconds}s",
+                $"Resumes serveur: indexation calme, lot max {scheduler.AutoEnqueueBatchSize}, reprise apres {scheduler.RunningJobLeaseTimeoutSeconds}s sans signal",
+                $"Server summaries: indexing is quiet, max batch {scheduler.AutoEnqueueBatchSize}, recovery after {scheduler.RunningJobLeaseTimeoutSeconds}s without signal",
+                $"Resumenes servidor: indexacion tranquila, lote max {scheduler.AutoEnqueueBatchSize}, recuperacion tras {scheduler.RunningJobLeaseTimeoutSeconds}s sin senal",
+                $"Resumos servidor: indexacao calma, lote max {scheduler.AutoEnqueueBatchSize}, recuperacao apos {scheduler.RunningJobLeaseTimeoutSeconds}s sem sinal",
+                $"Server-Zusammenfassungen: Indexierung ruhig, max. Los {scheduler.AutoEnqueueBatchSize}, Wiederaufnahme nach {scheduler.RunningJobLeaseTimeoutSeconds}s ohne Signal",
+                $"Riassunti server: indicizzazione calma, lotto max {scheduler.AutoEnqueueBatchSize}, ripresa dopo {scheduler.RunningJobLeaseTimeoutSeconds}s senza segnale",
                 lang);
         }
 
@@ -1122,12 +1211,12 @@ public sealed partial class MainWindow
 
         var idleFor = scheduler.IdleForSeconds.GetValueOrDefault();
         return LocalRuntimeText(
-            $"Resumes serveur en attente: idle ingestion {idleFor}s/{scheduler.RequiredIdleSeconds}s",
-            $"Server summaries waiting: ingestion idle {idleFor}s/{scheduler.RequiredIdleSeconds}s",
-            $"Resumenes servidor en espera: ingestion inactiva {idleFor}s/{scheduler.RequiredIdleSeconds}s",
-            $"Resumos servidor aguardando: ingestao inativa {idleFor}s/{scheduler.RequiredIdleSeconds}s",
-            $"Server-Zusammenfassungen warten: Ingestion inaktiv {idleFor}s/{scheduler.RequiredIdleSeconds}s",
-            $"Riassunti server in attesa: ingestione inattiva {idleFor}s/{scheduler.RequiredIdleSeconds}s",
+            $"Resumes serveur en attente: indexation calme depuis {idleFor}s/{scheduler.RequiredIdleSeconds}s requis",
+            $"Server summaries waiting: indexing quiet for {idleFor}s/{scheduler.RequiredIdleSeconds}s required",
+            $"Resumenes servidor en espera: indexacion tranquila desde {idleFor}s/{scheduler.RequiredIdleSeconds}s requeridos",
+            $"Resumos servidor aguardando: indexacao calma ha {idleFor}s/{scheduler.RequiredIdleSeconds}s necessarios",
+            $"Server-Zusammenfassungen warten: Indexierung seit {idleFor}s/{scheduler.RequiredIdleSeconds}s ruhig",
+            $"Riassunti server in attesa: indicizzazione calma da {idleFor}s/{scheduler.RequiredIdleSeconds}s richiesti",
             lang);
     }
 
@@ -1158,35 +1247,35 @@ public sealed partial class MainWindow
 
         return lang switch
         {
-            "en" => $"Requalification completed: {itemCount} capability(ies), {qualifiedCount} qualified, {selectedCount} selected, {warmupCount} warmup result(s).",
-            "de" => $"Neuqualifizierung abgeschlossen: {itemCount} Faehigkeit(en), {qualifiedCount} qualifiziert, {selectedCount} ausgewaehlt, {warmupCount} Warmup-Ergebnis(se).",
-            "es" => $"Recalificacion completada: {itemCount} capacidad(es), {qualifiedCount} cualificada(s), {selectedCount} seleccionada(s), {warmupCount} resultado(s) de warmup.",
-            "it" => $"Ririqualificazione completata: {itemCount} capacita, {qualifiedCount} qualificata/e, {selectedCount} selezionata/e, {warmupCount} risultato/i warmup.",
-            "pt" => $"Requalificacao concluida: {itemCount} capacidade(s), {qualifiedCount} qualificada(s), {selectedCount} selecionada(s), {warmupCount} resultado(s) de warmup.",
-            _ => $"Requalification terminee : {itemCount} capacite(s), {qualifiedCount} qualifiee(s), {selectedCount} selectionnee(s), {warmupCount} warmup result(s)."
+            "en" => $"Server recheck completed: {itemCount} feature(s), {qualifiedCount} approved, {selectedCount} enabled, {warmupCount} engine check(s).",
+            "de" => $"Serverpruefung abgeschlossen: {itemCount} Funktion(en), {qualifiedCount} freigegeben, {selectedCount} aktiv, {warmupCount} Engine-Pruefung(en).",
+            "es" => $"Revision servidor terminada: {itemCount} funcion(es), {qualifiedCount} validada(s), {selectedCount} activa(s), {warmupCount} control(es) de motor.",
+            "it" => $"Verifica server terminata: {itemCount} funzione/i, {qualifiedCount} validata/e, {selectedCount} attiva/e, {warmupCount} controllo/i motore.",
+            "pt" => $"Reverificacao servidor concluida: {itemCount} funcao(oes), {qualifiedCount} validada(s), {selectedCount} ativa(s), {warmupCount} controlo(s) de motor.",
+            _ => $"Verification serveur terminee : {itemCount} fonction(s), {qualifiedCount} validee(s), {selectedCount} active(s), {warmupCount} controle(s) moteur."
         };
     }
 
     private static string GetAdminRuntimeRequalifyLoadingMessage(string lang)
         => lang switch
         {
-            "en" => "Runtime requalification in progress...",
-            "de" => "Runtime-Neuqualifizierung laeuft...",
-            "es" => "Recalificacion runtime en curso...",
-            "it" => "Ririqualificazione runtime in corso...",
-            "pt" => "Requalificacao runtime em curso...",
-            _ => "Requalification runtime en cours..."
+            "en" => "Server recheck in progress...",
+            "de" => "Serverpruefung laeuft...",
+            "es" => "Revision servidor en curso...",
+            "it" => "Verifica server in corso...",
+            "pt" => "Reverificacao servidor em curso...",
+            _ => "Verification serveur en cours..."
         };
 
     private static string GetAdminRuntimeRequalifyFailedMessage(string lang)
         => lang switch
         {
-            "en" => "Could not start runtime requalification.",
-            "de" => "Runtime-Neuqualifizierung konnte nicht gestartet werden.",
-            "es" => "No se pudo iniciar la recalificacion runtime.",
-            "it" => "Impossibile avviare la ririqualificazione runtime.",
-            "pt" => "Nao foi possivel iniciar a requalificacao runtime.",
-            _ => "Impossible de lancer la requalification runtime."
+            "en" => "Could not start the server recheck.",
+            "de" => "Serverpruefung konnte nicht gestartet werden.",
+            "es" => "No se pudo iniciar la revision servidor.",
+            "it" => "Impossibile avviare la verifica server.",
+            "pt" => "Nao foi possivel iniciar a reverificacao servidor.",
+            _ => "Impossible de lancer la verification serveur."
         };
 
     private static string BuildAdminRuntimeReconcileStaleSummaryMessage(JsonElement root, string lang)
@@ -1207,46 +1296,46 @@ public sealed partial class MainWindow
 
         return lang switch
         {
-            "en" => $"Stale runtime reconciliation completed: {updatedCount} updated, {itemCount} state item(s), {staleRemaining} stale remaining.",
-            "de" => $"Stale-Runtime-Abgleich abgeschlossen: {updatedCount} aktualisiert, {itemCount} Statuseintrag(e), {staleRemaining} weiter stale.",
-            "es" => $"Reconciliacion stale completada: {updatedCount} actualizado(s), {itemCount} estado(s), {staleRemaining} stale restante(s).",
-            "it" => $"Riconciliazione stale completata: {updatedCount} aggiornato/i, {itemCount} stato/i, {staleRemaining} stale residuo/i.",
-            "pt" => $"Reconciliacao stale concluida: {updatedCount} atualizado(s), {itemCount} estado(s), {staleRemaining} stale restante(s).",
-            _ => $"Reconciliation stale terminee : {updatedCount} mis a jour, {itemCount} etat(s), {staleRemaining} stale restant(s)."
+            "en" => $"Blocked-state repair completed: {updatedCount} updated, {itemCount} state item(s), {staleRemaining} still blocked or outdated.",
+            "de" => $"Reparatur blockierter Zustände abgeschlossen: {updatedCount} aktualisiert, {itemCount} Statuseintrag(e), {staleRemaining} weiter blockiert oder veraltet.",
+            "es" => $"Reparación de estados bloqueados completada: {updatedCount} actualizado(s), {itemCount} estado(s), {staleRemaining} aún bloqueado(s) u obsoleto(s).",
+            "it" => $"Riparazione stati bloccati completata: {updatedCount} aggiornato/i, {itemCount} stato/i, {staleRemaining} ancora bloccato/i o obsoleto/i.",
+            "pt" => $"Reparacao dos estados bloqueados concluida: {updatedCount} atualizado(s), {itemCount} estado(s), {staleRemaining} ainda bloqueado(s) ou obsoleto(s).",
+            _ => $"Réparation des états bloqués terminée : {updatedCount} mis à jour, {itemCount} état(s), {staleRemaining} encore bloqué(s) ou obsolète(s)."
         };
     }
 
     private static string GetAdminRuntimeReconcileStaleButtonLabel(string lang)
         => lang switch
         {
-            "en" => "Reconcile stale",
-            "de" => "Stale abgleichen",
-            "es" => "Reconciliar stale",
-            "it" => "Riconcilia stale",
-            "pt" => "Reconciliar stale",
-            _ => "Reconcile stale"
+            "en" => "Repair blocked states",
+            "de" => "Blockierte Zustände reparieren",
+            "es" => "Reparar estados bloqueados",
+            "it" => "Ripara stati bloccati",
+            "pt" => "Reparar estados bloqueados",
+            _ => "Réparer les états bloqués"
         };
 
     private static string GetAdminRuntimeReconcileStaleLoadingMessage(string lang)
         => lang switch
         {
-            "en" => "Stale runtime reconciliation in progress...",
-            "de" => "Stale-Runtime-Abgleich laeuft...",
-            "es" => "Reconciliacion stale en curso...",
-            "it" => "Riconciliazione stale in corso...",
-            "pt" => "Reconciliacao stale em curso...",
-            _ => "Reconciliation stale en cours..."
+            "en" => "Repairing blocked runtime states...",
+            "de" => "Blockierte Runtime-Zustände werden repariert...",
+            "es" => "Reparando estados runtime bloqueados...",
+            "it" => "Riparazione stati runtime bloccati...",
+            "pt" => "A reparar estados runtime bloqueados...",
+            _ => "Réparation des états runtime bloqués..."
         };
 
     private static string GetAdminRuntimeReconcileStaleFailedMessage(string lang)
         => lang switch
         {
-            "en" => "Could not start stale runtime reconciliation.",
-            "de" => "Stale-Runtime-Abgleich konnte nicht gestartet werden.",
-            "es" => "No se pudo iniciar la reconciliacion stale.",
-            "it" => "Impossibile avviare la riconciliazione stale.",
-            "pt" => "Nao foi possivel iniciar a reconciliacao stale.",
-            _ => "Impossible de lancer la reconciliation stale."
+            "en" => "Could not start blocked-state repair.",
+            "de" => "Reparatur blockierter Zustände konnte nicht gestartet werden.",
+            "es" => "No se pudo iniciar la reparación de estados bloqueados.",
+            "it" => "Impossibile avviare la riparazione degli stati bloccati.",
+            "pt" => "Nao foi possivel iniciar a reparacao dos estados bloqueados.",
+            _ => "Impossible de lancer la réparation des états bloqués."
         };
 
     private static string BuildAdminRuntimeBlacklistSummaryMessage(

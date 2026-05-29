@@ -122,7 +122,7 @@ SELECT
   END AS "OcrApplied",
   NULLIF(run.payload ->> 'ocrLanguages', '') AS "OcrLanguages",
   CASE
-    WHEN COALESCE(run.payload ->> 'ocrDurationMs', '') ~ '^[0-9]+$'
+    WHEN COALESCE(run.payload ->> 'ocrDurationMs', '') ~ '^[0-9]{1,18}$'
       THEN (run.payload ->> 'ocrDurationMs')::bigint
     ELSE NULL
   END AS "OcrDurationMs",
@@ -140,23 +140,24 @@ SELECT
     ELSE false
   END AS "OcrRecommended",
   NULLIF(run.payload #>> '{extractionQuality,signals}', '') AS "SignalsJson",
+  (run.payload -> 'retrievalChunkQuality')::text AS "RetrievalChunkQualityJson",
   CASE
-    WHEN COALESCE(run.payload #>> '{extractionQuality,pageCount}', '') ~ '^[0-9]+$'
+    WHEN COALESCE(run.payload #>> '{extractionQuality,pageCount}', '') ~ '^[0-9]{1,9}$'
       THEN (run.payload #>> '{extractionQuality,pageCount}')::int
     ELSE COALESCE(pq.page_count, md.page_count, 0)
   END AS "QualityPageCount",
   CASE
-    WHEN COALESCE(run.payload #>> '{extractionQuality,textPageCount}', '') ~ '^[0-9]+$'
+    WHEN COALESCE(run.payload #>> '{extractionQuality,textPageCount}', '') ~ '^[0-9]{1,9}$'
       THEN (run.payload #>> '{extractionQuality,textPageCount}')::int
     ELSE COALESCE(pq.text_page_count, 0)
   END AS "TextPageCount",
   CASE
-    WHEN COALESCE(run.payload #>> '{extractionQuality,emptyPageCount}', '') ~ '^[0-9]+$'
+    WHEN COALESCE(run.payload #>> '{extractionQuality,emptyPageCount}', '') ~ '^[0-9]{1,9}$'
       THEN (run.payload #>> '{extractionQuality,emptyPageCount}')::int
     ELSE COALESCE(pq.empty_page_count, 0)
   END AS "EmptyPageCount",
   CASE
-    WHEN COALESCE(run.payload #>> '{extractionQuality,sparsePageCount}', '') ~ '^[0-9]+$'
+    WHEN COALESCE(run.payload #>> '{extractionQuality,sparsePageCount}', '') ~ '^[0-9]{1,9}$'
       THEN (run.payload #>> '{extractionQuality,sparsePageCount}')::int
     ELSE COALESCE(pq.sparse_page_count, 0)
   END AS "SparsePageCount",
@@ -255,11 +256,11 @@ LEFT JOIN LATERAL (
       pi.page_number,
       COALESCE(pi.char_count, 0)::int AS char_count,
       CASE
-        WHEN COALESCE(pi.metadata ->> 'wordCount', '') ~ '^[0-9]+$' THEN (pi.metadata ->> 'wordCount')::int
+        WHEN COALESCE(pi.metadata ->> 'wordCount', '') ~ '^[0-9]{1,9}$' THEN (pi.metadata ->> 'wordCount')::int
         ELSE 0
       END AS word_count,
       CASE
-        WHEN COALESCE(pi.metadata ->> 'imageCount', '') ~ '^[0-9]+$' THEN (pi.metadata ->> 'imageCount')::int
+        WHEN COALESCE(pi.metadata ->> 'imageCount', '') ~ '^[0-9]{1,9}$' THEN (pi.metadata ->> 'imageCount')::int
         ELSE 0
       END AS image_count,
       COALESCE(uc.unit_count, 0) AS unit_count,
@@ -649,6 +650,7 @@ LEFT JOIN LATERAL (
     private static RagItemExtractionDiagnosticSummary? BuildDiagnosticSummary(ResolvedSourceRow row)
     {
         var ocrDiagnostics = ParseOcrDiagnostics(row.OcrDiagnosticsJson);
+        var retrievalChunkQuality = BuildRetrievalChunkQuality(row.RetrievalChunkQualityJson);
         var summary = new RagItemExtractionDiagnosticSummary
         {
             NativeTextStatus = NullIfWhiteSpace(row.NativeTextStatus),
@@ -668,7 +670,8 @@ LEFT JOIN LATERAL (
             SparsePageCount = row.QualityPageCount > 0 ? row.SparsePageCount : null,
             ImagePageCount = PositiveOrNull(row.ImagePageCount),
             PageWarningCount = PositiveOrNull(row.PageWarningCount),
-            PageReviewRecommendedCount = PositiveOrNull(row.PageReviewRecommendedCount)
+            PageReviewRecommendedCount = PositiveOrNull(row.PageReviewRecommendedCount),
+            RetrievalChunkQuality = retrievalChunkQuality
         };
 
         return HasDiagnosticValue(summary) ? summary : null;
@@ -689,7 +692,68 @@ LEFT JOIN LATERAL (
            || summary.PageCount is not null
            || summary.ImagePageCount is not null
            || summary.PageWarningCount is not null
-           || summary.PageReviewRecommendedCount is not null;
+           || summary.PageReviewRecommendedCount is not null
+           || summary.RetrievalChunkQuality is not null;
+
+    private static RagItemRetrievalChunkQuality? BuildRetrievalChunkQuality(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json) || string.Equals(json, "null", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+                return null;
+
+            var reasons = ReadRetrievalChunkRejectionReasons(root);
+            var summary = new RagItemRetrievalChunkQuality
+            {
+                TotalChunkCount = NonNegativeOrNull(GetJsonInt(root, "totalChunkCount")),
+                SearchableChunkCount = NonNegativeOrNull(GetJsonInt(root, "searchableChunkCount")),
+                RejectedChunkCount = NonNegativeOrNull(GetJsonInt(root, "rejectedChunkCount")),
+                ManualReviewRecommended = GetJsonBool(root, "manualReviewRecommended"),
+                RejectionReasons = reasons.Count == 0 ? null : reasons
+            };
+
+            return HasRetrievalChunkQualityValue(summary) ? summary : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static Dictionary<string, int> ReadRetrievalChunkRejectionReasons(JsonElement root)
+    {
+        var result = new Dictionary<string, int>(StringComparer.Ordinal);
+        if (!root.TryGetProperty("rejectionReasons", out var reasons) || reasons.ValueKind != JsonValueKind.Object)
+            return result;
+
+        foreach (var property in reasons.EnumerateObject())
+        {
+            var value = property.Value.ValueKind == JsonValueKind.Number && property.Value.TryGetInt32(out var count)
+                ? count
+                : property.Value.ValueKind == JsonValueKind.String && int.TryParse(property.Value.GetString(), out count)
+                    ? count
+                    : 0;
+            if (value > 0 && property.Name.Length <= 80)
+                result[property.Name] = value;
+        }
+
+        return result;
+    }
+
+    private static bool HasRetrievalChunkQualityValue(RagItemRetrievalChunkQuality summary)
+        => summary.TotalChunkCount.HasValue
+           || summary.SearchableChunkCount.HasValue
+           || summary.RejectedChunkCount.HasValue
+           || summary.ManualReviewRecommended.HasValue
+           || summary.RejectionReasons is { Count: > 0 };
+
+    private static int? NonNegativeOrNull(int? value)
+        => value is >= 0 ? value : null;
 
     private static OcrDiagnosticsSummary ParseOcrDiagnostics(string? json)
     {
@@ -941,6 +1005,7 @@ LEFT JOIN LATERAL (
         public string? TextStatus { get; set; }
         public bool OcrRecommended { get; set; }
         public string? SignalsJson { get; set; }
+        public string? RetrievalChunkQualityJson { get; set; }
         public int QualityPageCount { get; set; }
         public int TextPageCount { get; set; }
         public int EmptyPageCount { get; set; }

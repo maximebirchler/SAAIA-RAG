@@ -42,7 +42,11 @@
     "ChunkMaxWords": 220,
     "ChunkOverlapWords": 35,
     "ChunkMinWords": 25,
-    "EmbeddingsBatchSize": 32,
+    "EmbeddingsBatchSize": 16,
+    "WorkerConcurrency": 2,
+    "TeiMaxConcurrency": 1,
+    "QdrantMaxConcurrency": 4,
+    "TeiInteractiveQuietPeriodMs": 1500,
     "BulkheadAcquireTimeoutSeconds": 30,
     "OcrBulkheadAcquireTimeoutSeconds": 1800
   },

@@ -12,6 +12,45 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class ApiClientDocumentsTransitionTests
 {
     [Fact]
+    public async Task AdminRagTestRetrievalAsync_posts_to_admin_endpoint_with_full_retrieval_body()
+    {
+        string? capturedBody = null;
+        var handler = new StubHttpHandler(req =>
+        {
+            Assert.Equal(HttpMethod.Post, req.Method);
+            Assert.Equal("/admin/rag/test-retrieval", req.RequestUri!.AbsolutePath);
+            Assert.True(req.Headers.TryGetValues("X-Admin-Key", out var adminValues));
+            Assert.Equal("test-admin-key", Assert.Single(adminValues));
+            Assert.False(req.Headers.Contains("X-Api-Key"));
+
+            capturedBody = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"items":[],"metrics":{"tookMs":1,"returned":0}}""", Encoding.UTF8, "application/json")
+            };
+        });
+
+        var sut = CreateApiClient(handler, adminKey: "test-admin-key");
+        var result = await sut.AdminRagTestRetrievalAsync(
+            "test retrieval",
+            "Cuisine",
+            topK: 99,
+            mode: "broad",
+            CancellationToken.None);
+
+        Assert.True(result.TryGetProperty("items", out _));
+        Assert.NotNull(capturedBody);
+        using var body = JsonDocument.Parse(capturedBody!);
+        Assert.Equal("test retrieval", body.RootElement.GetProperty("query").GetString());
+        Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("category").ValueKind);
+        Assert.Equal("Cuisine", body.RootElement.GetProperty("categoryPath").GetString());
+        Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("categoryRef").ValueKind);
+        Assert.Equal(50, body.RootElement.GetProperty("topK").GetInt32());
+        Assert.Equal("broad", body.RootElement.GetProperty("mode").GetString());
+        Assert.True(body.RootElement.GetProperty("includeContextualSnippet").GetBoolean());
+    }
+
+    [Fact]
     public async Task RagSearchToolAsync_does_not_retry_rag_search_busy()
     {
         var calls = 0;

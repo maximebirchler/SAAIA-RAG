@@ -225,6 +225,8 @@ internal static class WarmupGate
             return degraded;
         }
 
+        reasons.AddRange(BuildThresholdFailureReasons(request.Runs, thresholds));
+
         return await FailWithOptionalFallbackAsync(
             request,
             thresholds,
@@ -346,6 +348,40 @@ internal static class WarmupGate
            && run.LoadMs <= (int)(thresholds.WarmupMaxLoadMs * 1.5)
            && run.TtftMs <= (int)(thresholds.WarmupMaxTtftMs * 1.25)
            && run.TokPerSec >= thresholds.WarmupMinTokPerSec * 0.75;
+
+    private static IReadOnlyList<string> BuildThresholdFailureReasons(
+        IReadOnlyList<WarmupMeasurement> runs,
+        WarmupThresholds thresholds)
+    {
+        var reasons = new List<string>();
+        foreach (var run in runs)
+        {
+            var scenario = string.IsNullOrWhiteSpace(run.Scenario) ? "warmup" : SanitizeReasonValue(run.Scenario);
+            if (!run.Succeeded)
+            {
+                reasons.Add($"warmup_run_failed:{scenario}:{SanitizeReasonValue(run.Error ?? "unknown")}");
+                continue;
+            }
+
+            if (run.LoadMs > thresholds.WarmupMaxLoadMs)
+                reasons.Add($"warmup_load_ms_above:{scenario}:{run.LoadMs}>{thresholds.WarmupMaxLoadMs}");
+            if (run.TtftMs > thresholds.WarmupMaxTtftMs)
+                reasons.Add($"warmup_ttft_ms_above:{scenario}:{run.TtftMs}>{thresholds.WarmupMaxTtftMs}");
+            if (run.TokPerSec < thresholds.WarmupMinTokPerSec)
+                reasons.Add($"warmup_tok_per_sec_below:{scenario}:{run.TokPerSec:0.##}<{thresholds.WarmupMinTokPerSec:0.##}");
+        }
+
+        return reasons
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .ToArray();
+    }
+
+    private static string SanitizeReasonValue(string value)
+        => new(value
+            .Trim()
+            .Select(static ch => char.IsLetterOrDigit(ch) || ch is '_' or '-' or '.' ? ch : '_')
+            .ToArray());
 
     private static async Task<WarmupProfileItem?> LoadProfileAsync(
         string profileId,

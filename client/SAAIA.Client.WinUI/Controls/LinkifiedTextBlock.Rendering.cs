@@ -67,7 +67,7 @@ public sealed partial class LinkifiedTextBlock
         if (TryParseSingleOpenToken(rest, out var path, out var page, out var label))
             return MakeDocLinkButton(path, page, label, fg, fs);
 
-        if (TokenRegex.IsMatch(rest))
+        if (TokenRegex.IsMatch(rest) || MarkdownBoldRegex.IsMatch(rest))
             return BuildRichTextElement(rest, fg, fs, InlineLinkAlphaMultiplier);
 
         return new TextBlock
@@ -153,7 +153,7 @@ public sealed partial class LinkifiedTextBlock
         return btn;
     }
 
-    private static FrameworkElement BuildRichTextElement(string text, Brush fg, double fs, double linkAlphaMultiplier)
+    private FrameworkElement BuildRichTextElement(string text, Brush fg, double fs, double linkAlphaMultiplier)
     {
         var rtb = new RichTextBlock
         {
@@ -165,7 +165,7 @@ public sealed partial class LinkifiedTextBlock
         return rtb;
     }
 
-    private static void RenderRichTextInto(RichTextBlock rtb, string text, Brush fg, double fs, double linkAlphaMultiplier)
+    private void RenderRichTextInto(RichTextBlock rtb, string text, Brush fg, double fs, double linkAlphaMultiplier)
     {
         _ = linkAlphaMultiplier;
         rtb.Blocks.Clear();
@@ -178,12 +178,11 @@ public sealed partial class LinkifiedTextBlock
         foreach (Match m in TokenRegex.Matches(source))
         {
             if (m.Index > last)
-                p.Inlines.Add(MakeRun(source.Substring(last, m.Index - last), fg, fs));
+                AppendTextRuns(p, source.Substring(last, m.Index - last), fg, fs);
 
             var path = (m.Groups["path"].Value ?? string.Empty).Trim();
-            var pageRaw = (m.Groups["page"].Value ?? "1").Trim();
+            var pageRaw = (m.Groups["page"].Value ?? "0").Trim();
             _ = int.TryParse(pageRaw, out var page);
-            if (page <= 0) page = 1;
 
             var label = (m.Groups["label"].Value ?? string.Empty).Trim();
             if (string.IsNullOrWhiteSpace(label)) label = path;
@@ -201,13 +200,40 @@ public sealed partial class LinkifiedTextBlock
         }
 
         if (last < source.Length)
-            p.Inlines.Add(MakeRun(source.Substring(last), fg, fs));
+            AppendTextRuns(p, source.Substring(last), fg, fs);
 
         rtb.Blocks.Add(p);
     }
 
-    private static Run MakeRun(string s, Brush fg, double fs)
-        => new() { Text = s, Foreground = fg, FontSize = fs };
+    private static void AppendTextRuns(Paragraph paragraph, string text, Brush fg, double fs)
+    {
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        var last = 0;
+        foreach (Match match in MarkdownBoldRegex.Matches(text))
+        {
+            if (match.Index > last)
+                paragraph.Inlines.Add(MakeRun(text.Substring(last, match.Index - last), fg, fs));
+
+            var boldText = match.Groups["text"].Value;
+            if (!string.IsNullOrEmpty(boldText))
+                paragraph.Inlines.Add(MakeRun(boldText, fg, fs, bold: true));
+
+            last = match.Index + match.Length;
+        }
+
+        if (last < text.Length)
+            paragraph.Inlines.Add(MakeRun(text.Substring(last), fg, fs));
+    }
+
+    private static Run MakeRun(string s, Brush fg, double fs, bool bold = false)
+    {
+        var run = new Run { Text = s, Foreground = fg, FontSize = fs };
+        if (bold)
+            run.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+        return run;
+    }
 
     private static SolidColorBrush CreateBrush(byte a, byte r, byte g, byte b)
         => new(global::Windows.UI.Color.FromArgb(a, r, g, b));

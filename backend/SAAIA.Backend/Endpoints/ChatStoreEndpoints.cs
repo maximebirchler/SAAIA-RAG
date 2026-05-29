@@ -148,7 +148,7 @@ SELECT * FROM (
     job_type     AS ""JobType"",
     status       AS ""Status"",
     doc_id       AS ""DocId"",
-    NULL::text   AS ""DocPath"",
+    COALESCE(payload ->> 'docPath', doc_path) AS ""DocPath"",
     level        AS ""Level"",
     last_error   AS ""LastError"",
     created_at   AS ""CreatedAt"",

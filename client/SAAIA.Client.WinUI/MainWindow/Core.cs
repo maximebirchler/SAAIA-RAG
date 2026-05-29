@@ -16,6 +16,7 @@ public sealed partial class MainWindow
         };
         _llm.RuntimeActivityStarted += _llmProc.NotifyActivityStart;
         _llm.RuntimeActivityFinished += _llmProc.NotifyActivityFinished;
+        _llmProc.SetIdleStopSuppressionProvider(IsLocalLlmIdleStopSuppressedByWindow);
         ApplyAppearanceTheme();
 
         // Option B provisioning: installer/IT can drop a provisioning.json.
@@ -35,6 +36,7 @@ public sealed partial class MainWindow
         };
 
         Activated += MainWindow_Activated;
+        try { AppWindow.Changed += MainWindow_AppWindowChanged; } catch { }
 
         TryResize(1400, 820);
         ApplyWindowChrome();

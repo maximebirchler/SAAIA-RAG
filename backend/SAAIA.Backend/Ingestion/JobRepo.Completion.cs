@@ -1,4 +1,4 @@
-using Dapper;
+﻿using Dapper;
 using Npgsql;
 
 static partial class JobRepo
@@ -35,7 +35,7 @@ static partial class JobRepo
 SELECT
     status AS "Status",
     priority AS "Priority",
-    COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested"
+    (LOWER(COALESCE(payload #>> '{control,cancelRequested}', '')) = 'true') AS "CancelRequested"
 FROM ingestion_jobs
 WHERE job_id=@job_id
 FOR UPDATE;
@@ -330,7 +330,7 @@ WHERE job_id=@job_id AND status='running';";
 SELECT
     status AS "Status",
     priority AS "Priority",
-    COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested"
+    (LOWER(COALESCE(payload #>> '{control,cancelRequested}', '')) = 'true') AS "CancelRequested"
 FROM ingestion_jobs
 WHERE job_id=@job_id
 FOR UPDATE;

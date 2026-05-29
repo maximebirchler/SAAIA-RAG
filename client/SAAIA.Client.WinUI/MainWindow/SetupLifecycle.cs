@@ -77,7 +77,7 @@ public sealed partial class MainWindow
             if (xamlRoot is null)
             {
                 ClientLog.Error("LLM bootstrap UI: XamlRoot is null; cannot show progress dialog.");
-                Status(LocalRuntimeText("Assistant IA : interface non prete (reessaie).", "Assistant: UI not ready (try again).", "Asistente: interfaz no lista (vuelve a intentarlo).", "Assistente: interface nao pronta (tenta novamente).", "Assistent: UI nicht bereit (erneut versuchen).", "Assistente: interfaccia non pronta (riprova).", UiLang));
+                Status(LocalRuntimeText("Assistant local : interface pas encore prete. Reessaie dans quelques secondes.", "Local assistant: the interface is not ready yet. Try again in a few seconds.", "Asistente local: la interfaz aun no esta lista. Vuelve a intentarlo en unos segundos.", "Assistente local: a interface ainda nao esta pronta. Tenta novamente dentro de alguns segundos.", "Lokaler Assistent: Die Oberflaeche ist noch nicht bereit. Versuche es in ein paar Sekunden erneut.", "Assistente locale: l'interfaccia non e ancora pronta. Riprova tra qualche secondo.", UiLang));
                 return;
             }
 
@@ -93,7 +93,7 @@ public sealed partial class MainWindow
             // If model is already loading, do not attempt an install (wait for IT/docker).
             if (st == LlmModelsStatus.Loading)
             {
-                Status(LocalRuntimeText("Assistant IA : chargement du modele...", "Assistant: model loading...", "Asistente: cargando modelo...", "Assistente: a carregar modelo...", "Assistent: Modell wird geladen...", "Assistente: caricamento modello...", UiLang));
+                Status(LocalRuntimeText("Assistant local : le modele charge encore...", "Local assistant: the model is still loading...", "Asistente local: el modelo aun se esta cargando...", "Assistente local: o modelo ainda esta a carregar...", "Lokaler Assistent: Das Modell wird noch geladen...", "Assistente locale: il modello e ancora in caricamento...", UiLang));
                 return;
             }
 
@@ -111,7 +111,7 @@ public sealed partial class MainWindow
 
                     var title = new TextBlock
                     {
-                        Text = LocalRuntimeText("Installation / reparation de l'assistant IA...", "Installing / repairing the assistant...", "Instalacion / reparacion del asistente...", "Instalacao / reparacao do assistente...", "Installation / Reparatur des Assistenten...", "Installazione / riparazione dell'assistente...", UiLang),
+                        Text = LocalRuntimeText("Installation / reparation de l'assistant local...", "Installing / repairing the local assistant...", "Instalacion / reparacion del asistente local...", "Instalacao / reparacao do assistente local...", "Installation / Reparatur des lokalen Assistenten...", "Installazione / riparazione dell'assistente locale...", UiLang),
                         TextWrapping = TextWrapping.Wrap
                     };
 
@@ -186,7 +186,7 @@ public sealed partial class MainWindow
                             }
 
                             detail.Text = s2 == LlmModelsStatus.Loading
-                                ? LocalRuntimeText("Chargement du modele...", "Model loading...", "Cargando modelo...", "A carregar modelo...", "Modell wird geladen...", "Caricamento modello...", UiLang)
+                                ? LocalRuntimeText("Assistant local : le modele charge encore...", "Local assistant: the model is still loading...", "Asistente local: el modelo aun se esta cargando...", "Assistente local: o modelo ainda esta a carregar...", "Lokaler Assistent: Das Modell wird noch geladen...", "Assistente locale: il modello e ancora in caricamento...", UiLang)
                                 : LocalRuntimeText("Attente de l'assistant...", "Waiting for assistant...", "Esperando al asistente...", "A aguardar o assistente...", "Warte auf den Assistenten...", "In attesa dell'assistente...", UiLang);
 
                             await Task.Delay(1500, cts.Token);
@@ -215,7 +215,7 @@ public sealed partial class MainWindow
 
             var titleDl = new TextBlock
             {
-                Text = LocalRuntimeText("Telechargement de l'assistant IA...", "Downloading the assistant...", "Descargando el asistente...", "A transferir o assistente...", "Assistent wird heruntergeladen...", "Download dell'assistente...", UiLang),
+                Text = LocalRuntimeText("Telechargement de l'assistant local...", "Downloading the local assistant...", "Descargando el asistente local...", "A transferir o assistente local...", "Lokaler Assistent wird heruntergeladen...", "Download dell'assistente locale...", UiLang),
                 TextWrapping = TextWrapping.Wrap
             };
 
@@ -274,10 +274,10 @@ public sealed partial class MainWindow
 
                     detailDl.Text = p.Stage switch
                     {
-                        "verify" => LocalRuntimeText($"Verification : {p.Id}", $"Verification: {p.Id}", $"Verificacion: {p.Id}", $"Verificacao: {p.Id}", $"Pruefung: {p.Id}", $"Verifica: {p.Id}", UiLang),
+                        "verify" => LocalRuntimeText($"Vérification : {p.Id}", $"Checking: {p.Id}", $"Comprobación: {p.Id}", $"Verificação: {p.Id}", $"Pruefung: {p.Id}", $"Verifica: {p.Id}", UiLang),
                         "download" => LocalRuntimeText($"Telechargement : {p.Id}", $"Download: {p.Id}", $"Descarga: {p.Id}", $"Transferencia: {p.Id}", $"Download: {p.Id}", $"Download: {p.Id}", UiLang),
                         "done" => LocalRuntimeText($"Pret : {p.Id}", $"Done: {p.Id}", $"Listo: {p.Id}", $"Concluido: {p.Id}", $"Fertig: {p.Id}", $"Pronto: {p.Id}", UiLang),
-                        _ => p.Stage
+                        _ => LocalRuntimeText("Préparation en cours...", "Preparing...", "Preparando...", "A preparar...", "Vorbereitung...", "Preparazione...", UiLang)
                     };
                 });
 
@@ -298,7 +298,7 @@ public sealed partial class MainWindow
         catch (Exception ex)
         {
             ClientLog.Exception("EnsureAssistantReadyIfNeededAsync", ex);
-            Status(LocalRuntimeText("Assistant IA : erreur au demarrage (voir logs).", "Assistant: startup error (see logs).", "Asistente: error al iniciar (ver logs).", "Assistente: erro ao iniciar (ver logs).", "Assistent: Startfehler (siehe Logs).", "Assistente: errore all'avvio (vedi log).", UiLang));
+            Status(LocalRuntimeText("Assistant local : demarrage impossible. Ouvre le diagnostic pour plus d'informations.", "Local assistant: startup failed. Open diagnostics for more information.", "Asistente local: no se pudo iniciar. Abre el diagnostico para mas informacion.", "Assistente local: arranque impossivel. Abre o diagnostico para mais informacao.", "Lokaler Assistent: Start fehlgeschlagen. Oeffne die Diagnose fuer weitere Informationen.", "Assistente locale: avvio non riuscito. Apri la diagnostica per maggiori informazioni.", UiLang));
         }
     }
 
@@ -323,7 +323,7 @@ public sealed partial class MainWindow
             if (st3 == LlmModelsStatus.Loading)
             {
                 ClientLog.Info($"LLM endpoint reports Loading (http={http}). Skipping repair.");
-                Status(LocalRuntimeText("Assistant IA : chargement du modele en cours...", "Assistant: model is still loading...", "Asistente: el modelo sigue cargando...", "Assistente: o modelo ainda esta a carregar...", "Assistent: Modell wird noch geladen...", "Assistente: il modello e ancora in caricamento...", UiLang));
+                Status(LocalRuntimeText("Assistant local : le modèle charge encore...", "Local assistant: the model is still loading...", "Asistente local: el modelo aún se está cargando...", "Assistente local: o modelo ainda está a carregar...", "Lokaler Assistent: Das Modell wird noch geladen...", "Assistente locale: il modello è ancora in caricamento...", UiLang));
                 return;
             }
             else
@@ -358,7 +358,7 @@ public sealed partial class MainWindow
 
                     if (probe2.Status == LlmModelsStatus.Loading)
                     {
-                        Status(LocalRuntimeText("Assistant IA : chargement du modele en cours...", "Assistant: model is still loading...", "Asistente: el modelo sigue cargando...", "Assistente: o modelo ainda esta a carregar...", "Assistent: Modell wird noch geladen...", "Assistente: il modello e ancora in caricamento...", UiLang));
+                        Status(LocalRuntimeText("Assistant local : le modèle charge encore...", "Local assistant: the model is still loading...", "Asistente local: el modelo aún se está cargando...", "Assistente local: o modelo ainda está a carregar...", "Lokaler Assistent: Das Modell wird noch geladen...", "Assistente locale: il modello è ancora in caricamento...", UiLang));
                         return;
                     }
                 }
@@ -382,7 +382,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
                 string.Equals(_appSettings.ProvisioningHash, _appSettings.LlmAutoInstallAttemptedHash, StringComparison.OrdinalIgnoreCase) &&
                 !(hasNvidiaGpuForUpgrade && isCpuRuntimeNow))
             {
-                Status(LocalRuntimeText("Assistant IA : reparation requise (Parametres -> Installer / reparer).", "Assistant: repair required (Settings -> Install / repair).", "Asistente: reparacion necesaria (Configuracion -> Instalar / reparar).", "Assistente: reparacao necessaria (Definicoes -> Instalar / reparar).", "Assistent: Reparatur erforderlich (Einstellungen -> Installieren / reparieren).", "Assistente: riparazione richiesta (Impostazioni -> Installa / ripara).", UiLang));
+                Status(LocalRuntimeText("Assistant local : réparation requise dans les paramètres.", "Local assistant: repair required in settings.", "Asistente local: reparación necesaria en la configuración.", "Assistente local: reparação necessária nas definições.", "Lokaler Assistent: Reparatur in den Einstellungen erforderlich.", "Assistente locale: riparazione richiesta nelle impostazioni.", UiLang));
                 return;
             }
             if (mode == "docker")
@@ -397,7 +397,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
         catch (Exception ex)
         {
             ClientLog.Exception("EnsureAssistantReadyIfNeededAsync", ex);
-            Status(LocalRuntimeText("Assistant IA : erreur au demarrage (voir logs).", "Assistant: startup error (see logs).", "Asistente: error al iniciar (ver logs).", "Assistente: erro ao iniciar (ver logs).", "Assistent: Startfehler (siehe Logs).", "Assistente: errore all'avvio (vedi log).", UiLang));
+            Status(LocalRuntimeText("Assistant local : démarrage impossible. Ouvre le diagnostic pour plus d'informations.", "Local assistant: startup failed. Open diagnostics for more information.", "Asistente local: no se pudo iniciar. Abre el diagnóstico para más información.", "Assistente local: arranque impossível. Abre o diagnóstico para mais informação.", "Lokaler Assistent: Start fehlgeschlagen. Öffne die Diagnose für weitere Informationen.", "Assistente locale: avvio non riuscito. Apri la diagnostica per maggiori informazioni.", UiLang));
         }
     }
 
@@ -421,7 +421,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
                     "verify" => LocalRuntimeText($"Vérification : {p.Id}", $"Verifying: {p.Id}", $"Verificación: {p.Id}", $"Verificação: {p.Id}", $"Pruefung: {p.Id}", $"Verifica: {p.Id}", UiLang),
                     "download" => LocalRuntimeText($"Téléchargement : {p.Id}", $"Download: {p.Id}", $"Descarga: {p.Id}", $"Transferência: {p.Id}", $"Download: {p.Id}", $"Download: {p.Id}", UiLang),
                     "done" => LocalRuntimeText($"Prêt : {p.Id}", $"Done: {p.Id}", $"Listo: {p.Id}", $"Concluído: {p.Id}", $"Fertig: {p.Id}", $"Pronto: {p.Id}", UiLang),
-                    _ => p.Stage
+                    _ => LocalRuntimeText("Préparation en cours…", "Preparing…", "Preparando…", "A preparar…", "Vorbereitung…", "Preparazione…", UiLang)
                 });
             });
 
@@ -429,7 +429,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
             var (ok, msg, _) = await _llmBootstrapper.EnsureAsync(_appSettings, force, prog, cts.Token);
             if (!ok)
             {
-                SetStartupStatus(LocalRuntimeText("Échec : ", "Failed: ", "Error: ", "Falha: ", "Fehler: ", "Errore: ", UiLang) + msg);
+                SetStartupStatus(LocalRuntimeText("Assistant local : ", "Local assistant: ", "Asistente local: ", "Assistente local: ", "Lokaler Assistent: ", "Assistente locale: ", UiLang) + FormatLocalLlmStartFailureMessage(msg, UiLang));
                 await Task.Delay(1200);
                 return;
             }
@@ -497,7 +497,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
         catch (Exception ex)
         {
             ClientLog.Exception("EnsureAssistantReadyIfNeededAsync", ex);
-            Status(LocalRuntimeText("Assistant IA : erreur au démarrage (voir logs).", "Assistant: startup error (see logs).", "Asistente: error al iniciar (ver logs).", "Assistente: erro ao iniciar (ver logs).", "Assistent: Startfehler (siehe Logs).", "Assistente: errore all'avvio (vedi log).", UiLang));
+            Status(LocalRuntimeText("Assistant local : demarrage impossible. Ouvre le diagnostic pour plus d'informations.", "Local assistant: startup failed. Open diagnostics for more information.", "Asistente local: no se pudo iniciar. Abre el diagnostico para mas informacion.", "Assistente local: arranque impossivel. Abre o diagnostico para mais informacao.", "Lokaler Assistent: Start fehlgeschlagen. Oeffne die Diagnose fuer weitere Informationen.", "Assistente locale: avvio non riuscito. Apri la diagnostica per maggiori informazioni.", UiLang));
         }
     }
 
@@ -539,7 +539,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
         catch (Exception ex)
         {
             ClientLog.Exception("EnsureAssistantReadyIfNeededAsync", ex);
-            Status(LocalRuntimeText("Assistant IA : erreur au demarrage (voir logs).", "Assistant: startup error (see logs).", "Asistente: error al iniciar (ver logs).", "Assistente: erro ao iniciar (ver logs).", "Assistent: Startfehler (siehe Logs).", "Assistente: errore all'avvio (vedi log).", UiLang));
+            Status(LocalRuntimeText("Assistant local : demarrage impossible. Ouvre le diagnostic pour plus d'informations.", "Local assistant: startup failed. Open diagnostics for more information.", "Asistente local: no se pudo iniciar. Abre el diagnostico para mas informacion.", "Assistente local: arranque impossivel. Abre o diagnostico para mais informacao.", "Lokaler Assistent: Start fehlgeschlagen. Oeffne die Diagnose fuer weitere Informationen.", "Assistente locale: avvio non riuscito. Apri la diagnostica per maggiori informazioni.", UiLang));
         }
     }
     private async void SetupWizard_Click(object sender, RoutedEventArgs e)
@@ -675,13 +675,13 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
             var started = await EnsureLocalLlmStartedFromSettingsAsync(CancellationToken.None);
             if (!started)
             {
-                Status(LocalRuntimeText("Demarrage du LLM local en echec. Mode degrade possible.", "Local LLM start failed. Fallback mode is possible.", "Error al iniciar el LLM local. Es posible un modo degradado.", "Falha ao iniciar o LLM local. E possivel um modo degradado.", "Lokaler LLM-Start fehlgeschlagen. Ein degradierter Modus ist moeglich.", "Avvio del LLM locale non riuscito. E possibile una modalita degradata.", UiLang));
+                Status(LocalRuntimeText("Demarrage de l'assistant local en echec. Mode degrade possible.", "Local assistant start failed. Fallback mode is possible.", "Error al iniciar el asistente local. Es posible un modo degradado.", "Falha ao iniciar o assistente local. E possivel um modo degradado.", "Start des lokalen Assistenten fehlgeschlagen. Ein degradierter Modus ist moeglich.", "Avvio dell'assistente locale non riuscito. E possibile una modalita degradata.", UiLang));
             }
         }
         catch (Exception ex)
         {
             ClientLog.Exception("StartLocalLlmWarmupAfterBackendConnectAsync", ex);
-            Status(LocalRuntimeText("Assistant IA : erreur au demarrage (voir logs).", "Assistant: startup error (see logs).", "Asistente: error al iniciar (ver logs).", "Assistente: erro ao iniciar (ver logs).", "Assistent: Startfehler (siehe Logs).", "Assistente: errore all'avvio (vedi log).", UiLang));
+            Status(LocalRuntimeText("Assistant local : demarrage impossible. Ouvre le diagnostic pour plus d'informations.", "Local assistant: startup failed. Open diagnostics for more information.", "Asistente local: no se pudo iniciar. Abre el diagnostico para mas informacion.", "Assistente local: arranque impossivel. Abre o diagnostico para mais informacao.", "Lokaler Assistent: Start fehlgeschlagen. Oeffne die Diagnose fuer weitere Informationen.", "Assistente locale: avvio non riuscito. Apri la diagnostica per maggiori informazioni.", UiLang));
         }
     }
 

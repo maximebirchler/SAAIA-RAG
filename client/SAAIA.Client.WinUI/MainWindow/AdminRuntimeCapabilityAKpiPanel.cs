@@ -140,9 +140,12 @@ public sealed partial class MainWindow
             catch (Exception ex)
             {
                 ClientLog.Exception("AdminRuntimeCapabilityAKpi.PreviewOffsets", ex);
-                var message = ClientUiText.Get("admin.runtime.action.preview_offsets.failed", lang);
+                var message = ClientUiText.Format(
+                    "admin.runtime.action.preview_offsets.failed_detail",
+                    lang,
+                    BuildAdminRuntimeActionErrorDetail(ex, lang));
                 SetStateBanner(message);
-                Status(message + " " + ex.Message);
+                Status(message);
             }
             finally
             {
@@ -207,6 +210,87 @@ public sealed partial class MainWindow
             }
 
             return BuildDialogSurfaceCard(stack, new Thickness(14));
+        }
+
+        string CapabilityAMetricTitle(string? key)
+            => (key ?? string.Empty).Trim().ToLowerInvariant() switch
+            {
+                "capability_a_operation_p95" => LocalRuntimeText("Temps de traitement", "Processing time", "Tiempo de tratamiento", "Tempo de processamento", "Verarbeitungszeit", "Tempo di elaborazione", lang),
+                "capability_a_candidate_reads" => LocalRuntimeText("Lectures de candidats", "Candidate reads", "Lecturas de candidatos", "Leituras de candidatos", "Kandidaten-Lesevorgaenge", "Letture candidati", lang),
+                "capability_a_candidate_count" => LocalRuntimeText("Documents analyses par controle", "Documents checked per scan", "Documentos analizados por control", "Documentos analisados por controlo", "Dokumente pro Pruefung", "Documenti analizzati per controllo", lang),
+                "capability_a_enqueue_requests" => LocalRuntimeText("Demandes de relance", "Rerun requests", "Solicitudes de relanzamiento", "Pedidos de relancamento", "Neustart-Anfragen", "Richieste di rilancio", lang),
+                "capability_a_skip_rate" => LocalRuntimeText("Documents ignores temporairement", "Temporarily skipped documents", "Documentos omitidos temporalmente", "Documentos ignorados temporariamente", "Zeitweise uebersprungene Dokumente", "Documenti saltati temporaneamente", lang),
+                "capability_a_ready_to_enqueue_rate" => LocalRuntimeText("Documents prets a relancer", "Documents ready to rerun", "Documentos listos para relanzar", "Documentos prontos a relancar", "Dokumente bereit zum Neustart", "Documenti pronti al rilancio", lang),
+                "capability_a_offset_backfill_share" => LocalRuntimeText("Index a completer", "Index to complete", "Indice por completar", "Indice a completar", "Index zu ergaenzen", "Indice da completare", lang),
+                _ => LocalRuntimeText("Indicateur serveur", "Server indicator", "Indicador servidor", "Indicador servidor", "Server-Indikator", "Indicatore server", lang)
+            };
+
+        string CapabilityAMetricBody(AdminRuntimeCapabilityAKpiMetric metric)
+            => (metric.Key ?? string.Empty).Trim().ToLowerInvariant() switch
+            {
+                "capability_a_operation_p95" => LocalRuntimeText("Mesure si l'enrichissement de l'index reste assez rapide. Si ce chiffre monte, le serveur met trop de temps a preparer les documents a relancer.", "Checks whether index enrichment stays fast enough. If this rises, the server is taking too long to prepare documents for rerun.", "Mide si el enriquecimiento del indice sigue siendo rapido. Si sube, el servidor tarda demasiado en preparar documentos para relanzar.", "Mede se o enriquecimento do indice continua rapido. Se subir, o servidor demora demasiado a preparar documentos para relancar.", "Prueft, ob die Indexanreicherung schnell genug bleibt. Steigt der Wert, braucht der Server zu lange fuer die Vorbereitung.", "Verifica se l'arricchimento dell'indice resta abbastanza rapido. Se sale, il server impiega troppo a preparare i documenti.", lang),
+                "capability_a_candidate_reads" => LocalRuntimeText("Compte les consultations de la liste des documents qui pourraient beneficier d'un nouvel enrichissement.", "Counts reads of the list of documents that may benefit from another enrichment pass.", "Cuenta las consultas de la lista de documentos que podrian beneficiarse de otro enriquecimiento.", "Conta as leituras da lista de documentos que podem beneficiar de novo enriquecimento.", "Zaehlt Abrufe der Dokumentliste, die von einer erneuten Anreicherung profitieren koennte.", "Conta le letture dell'elenco dei documenti che possono beneficiare di un nuovo arricchimento.", lang),
+                "capability_a_candidate_count" => LocalRuntimeText("Montre combien de documents sont inspectes a chaque controle. Utile pour voir si la file grossit anormalement.", "Shows how many documents are inspected on each check. Useful to see whether the queue grows abnormally.", "Muestra cuantos documentos se inspeccionan en cada control. Sirve para ver si la cola crece de forma anormal.", "Mostra quantos documentos sao inspecionados em cada controlo. Ajuda a ver se a fila cresce anormalmente.", "Zeigt, wie viele Dokumente pro Pruefung betrachtet werden. Hilft, ungewoehnliches Wachstum zu erkennen.", "Mostra quanti documenti vengono controllati ogni volta. Utile per capire se la coda cresce troppo.", lang),
+                "capability_a_enqueue_requests" => LocalRuntimeText("Compte les demandes de relance controlee. Une relance ne demarre que si le document n'est pas deja traite ailleurs.", "Counts controlled rerun requests. A rerun starts only when the document is not already being processed elsewhere.", "Cuenta las solicitudes de relanzamiento controlado. Se inicia solo si el documento no se trata ya en otro lugar.", "Conta os pedidos de relancamento controlado. So inicia se o documento nao estiver ja em processamento.", "Zaehlt kontrollierte Neustart-Anfragen. Ein Neustart erfolgt nur, wenn das Dokument nicht bereits verarbeitet wird.", "Conta le richieste di rilancio controllato. Parte solo se il documento non e gia in elaborazione.", lang),
+                "capability_a_skip_rate" => LocalRuntimeText("Indique la part de documents que le serveur protege temporairement pour eviter les doublons, les boucles ou les relances trop rapides.", "Shows the share of documents temporarily protected to avoid duplicates, loops, or too-frequent reruns.", "Indica la parte de documentos protegidos temporalmente para evitar duplicados, bucles o relanzamientos demasiado rapidos.", "Indica a parte de documentos protegidos temporariamente para evitar duplicados, ciclos ou relancamentos demasiado rapidos.", "Zeigt den Anteil temporaer geschuetzter Dokumente, um Duplikate, Schleifen oder zu schnelle Neustarts zu vermeiden.", "Indica la quota di documenti protetti temporaneamente per evitare duplicati, cicli o rilanci troppo rapidi.", lang),
+                "capability_a_ready_to_enqueue_rate" => LocalRuntimeText("Indique la part de documents qui peuvent etre relances maintenant sans conflit avec l'ingestion en cours.", "Shows the share of documents that can be rerun now without conflicting with current ingestion.", "Indica la parte de documentos que pueden relanzarse ahora sin conflicto con la ingesta en curso.", "Indica a parte de documentos que podem ser relancados agora sem conflito com a ingestao em curso.", "Zeigt den Anteil der Dokumente, die jetzt ohne Konflikt zur laufenden Ingestion neu gestartet werden koennen.", "Indica la quota di documenti rilanciabili ora senza conflitti con l'ingestione in corso.", lang),
+                "capability_a_offset_backfill_share" => LocalRuntimeText("Repere les anciens documents dont certaines positions d'index manquent encore. Les corriger rend les sources plus fiables.", "Finds older documents still missing some index positions. Fixing them makes sources more reliable.", "Detecta documentos antiguos a los que aun les faltan posiciones de indice. Corregirlos hace las fuentes mas fiables.", "Deteta documentos antigos que ainda nao tem todas as posicoes de indice. Corrigir melhora a fiabilidade das fontes.", "Findet alte Dokumente mit fehlenden Indexpositionen. Ihre Korrektur macht Quellen verlaesslicher.", "Individua vecchi documenti con posizioni indice mancanti. Correggerli rende le fonti piu affidabili.", lang),
+                _ => LocalRuntimeText("Indicateur technique fourni par le serveur. Il sera detaille dans une prochaine version de l'interface.", "Technical indicator provided by the server. It will be detailed in a later UI version.", "Indicador tecnico proporcionado por el servidor. Se detallara en una version posterior de la interfaz.", "Indicador tecnico fornecido pelo servidor. Sera detalhado numa versao futura da interface.", "Technischer Serverindikator. Er wird in einer spaeteren UI-Version genauer beschrieben.", "Indicatore tecnico fornito dal server. Sara dettagliato in una prossima versione dell'interfaccia.", lang)
+            };
+
+        string CapabilityAAlertTitle(string? key)
+            => (key ?? string.Empty).Trim().ToLowerInvariant() switch
+            {
+                "capability_a_operation_p95_regression" => LocalRuntimeText("Traitement trop lent", "Processing too slow", "Tratamiento demasiado lento", "Processamento demasiado lento", "Verarbeitung zu langsam", "Elaborazione troppo lenta", lang),
+                "capability_a_skip_rate_regression" => LocalRuntimeText("Trop de documents proteges", "Too many protected documents", "Demasiados documentos protegidos", "Demasiados documentos protegidos", "Zu viele geschuetzte Dokumente", "Troppi documenti protetti", lang),
+                "capability_a_ready_to_enqueue_rate_regression" => LocalRuntimeText("Pas assez de documents prets", "Not enough documents ready", "No hay suficientes documentos listos", "Poucos documentos prontos", "Zu wenige Dokumente bereit", "Pochi documenti pronti", lang),
+                "capability_a_offset_backfill_share_watch" => LocalRuntimeText("Corrections d'index a surveiller", "Index fixes to watch", "Correcciones de indice a vigilar", "Correcoes de indice a vigiar", "Indexkorrekturen beobachten", "Correzioni indice da monitorare", lang),
+                _ => LocalRuntimeText("Alerte a verifier", "Alert to review", "Alerta por revisar", "Alerta a rever", "Warnung pruefen", "Avviso da verificare", lang)
+            };
+
+        string CapabilityAAlertBody(AdminRuntimeCapabilityAKpiAlert alert)
+            => (alert.Key ?? string.Empty).Trim().ToLowerInvariant() switch
+            {
+                "capability_a_operation_p95_regression" => LocalRuntimeText("Le serveur met plus de temps que prevu a preparer l'enrichissement. A verifier avant d'augmenter le volume de relance.", "The server takes longer than expected to prepare enrichment. Check this before increasing rerun volume.", "El servidor tarda mas de lo previsto en preparar el enriquecimiento. Revisalo antes de aumentar el volumen.", "O servidor demora mais do que esperado a preparar o enriquecimento. Verifica antes de aumentar o volume.", "Der Server braucht laenger als erwartet fuer die Vorbereitung. Vor mehr Volumen pruefen.", "Il server impiega piu del previsto a preparare l'arricchimento. Verifica prima di aumentare il volume.", lang),
+                "capability_a_skip_rate_regression" => LocalRuntimeText("Beaucoup de documents sont repousses parce qu'ils sont deja en traitement ou proteges par une temporisation.", "Many documents are postponed because they are already being processed or protected by a delay.", "Muchos documentos se posponen porque ya estan en tratamiento o protegidos por una espera.", "Muitos documentos sao adiados porque ja estao em processamento ou protegidos por temporizacao.", "Viele Dokumente werden verschoben, weil sie bereits verarbeitet werden oder geschuetzt sind.", "Molti documenti vengono rimandati perche gia in elaborazione o protetti da una pausa.", lang),
+                "capability_a_ready_to_enqueue_rate_regression" => LocalRuntimeText("Peu de documents peuvent etre relances immediatement. Verifie les traitements actifs et les protections anti-relance.", "Few documents can be rerun immediately. Check active processing and retry protection.", "Pocos documentos pueden relanzarse de inmediato. Revisa procesos activos y protecciones.", "Poucos documentos podem ser relancados de imediato. Verifica processamentos ativos e protecoes.", "Nur wenige Dokumente koennen sofort neu gestartet werden. Aktive Verarbeitung und Schutzregeln pruefen.", "Pochi documenti possono essere rilanciati subito. Controlla elaborazioni attive e protezioni.", lang),
+                "capability_a_offset_backfill_share_watch" => LocalRuntimeText("Une part importante de l'index doit encore etre completee. Des relances controlees amelioreront la fiabilite des sources.", "A significant part of the index still needs completion. Controlled reruns will improve source reliability.", "Una parte importante del indice debe completarse. Relanzamientos controlados mejoraran la fiabilidad.", "Uma parte importante do indice ainda precisa ser completada. Relancamentos controlados melhoram a fiabilidade.", "Ein relevanter Teil des Index ist noch unvollstaendig. Kontrollierte Neustarts verbessern die Quellen.", "Una parte importante dell'indice va completata. Rilanci controllati migliorano l'affidabilita.", lang),
+                _ => LocalRuntimeText("Le serveur demande une verification manuelle de ce point.", "The server asks for a manual check on this point.", "El servidor pide una revision manual de este punto.", "O servidor pede uma verificacao manual deste ponto.", "Der Server empfiehlt eine manuelle Pruefung.", "Il server richiede una verifica manuale.", lang)
+            };
+
+        string CapabilityASeverityLabel(string? severity)
+            => (severity ?? string.Empty).Trim().ToLowerInvariant() switch
+            {
+                "critical" => LocalRuntimeText("critique", "critical", "critico", "critico", "kritisch", "critico", lang),
+                "high" => LocalRuntimeText("elevee", "high", "alta", "alta", "hoch", "alta", lang),
+                "medium" => LocalRuntimeText("moyenne", "medium", "media", "media", "mittel", "media", lang),
+                "low" => LocalRuntimeText("faible", "low", "baja", "baixa", "niedrig", "bassa", lang),
+                "" => LocalRuntimeText("a verifier", "to review", "por revisar", "a rever", "zu pruefen", "da verificare", lang),
+                _ => LocalRuntimeText("a verifier", "to review", "por revisar", "a rever", "zu pruefen", "da verificare", lang)
+            };
+
+        string CapabilityARecommendation(string text)
+        {
+            var normalized = (text ?? string.Empty).ToLowerInvariant();
+            if (normalized.Contains("active") || normalized.Contains("cooldown") || normalized.Contains("blocked"))
+                return LocalRuntimeText("Verifier les traitements deja en cours et les protections anti-relance avant de forcer une nouvelle campagne.", "Check running processing and retry protection before forcing a new campaign.", "Revisa procesos en curso y protecciones antes de forzar una campana nueva.", "Verifica processamentos em curso e protecoes antes de forcar nova campanha.", "Laufende Verarbeitung und Schutzregeln pruefen, bevor eine neue Kampagne erzwungen wird.", "Controlla elaborazioni attive e protezioni prima di forzare una nuova campagna.", lang);
+            return LocalRuntimeText("Verifier l'etat serveur avant d'augmenter le volume de relance.", "Check server state before increasing rerun volume.", "Revisa el estado del servidor antes de aumentar el volumen.", "Verifica o estado do servidor antes de aumentar o volume.", "Serverstatus pruefen, bevor das Volumen erhoeht wird.", "Controlla lo stato server prima di aumentare il volume.", lang);
+        }
+
+        string CapabilityADashboardPanelLabel(string text)
+        {
+            var normalized = (text ?? string.Empty).ToLowerInvariant();
+            if (normalized.Contains("operation p95"))
+                return LocalRuntimeText("Temps de traitement par type d'action et resultat.", "Processing time by action type and result.", "Tiempo de tratamiento por tipo de accion y resultado.", "Tempo de processamento por tipo de acao e resultado.", "Verarbeitungszeit nach Aktion und Ergebnis.", "Tempo di elaborazione per tipo di azione e risultato.", lang);
+            if (normalized.Contains("candidate reads"))
+                return LocalRuntimeText("Volume de documents inspectes par les controles d'enrichissement.", "Volume of documents inspected by enrichment checks.", "Volumen de documentos inspeccionados por controles de enriquecimiento.", "Volume de documentos inspecionados pelos controlos de enriquecimento.", "Volumen der von Anreicherungspruefungen betrachteten Dokumente.", "Volume di documenti controllati dall'arricchimento.", lang);
+            if (normalized.Contains("queued vs skipped"))
+                return LocalRuntimeText("Documents relances ou ignores temporairement.", "Documents rerun or temporarily skipped.", "Documentos relanzados u omitidos temporalmente.", "Documentos relancados ou ignorados temporariamente.", "Neu gestartete oder zeitweise uebersprungene Dokumente.", "Documenti rilanciati o saltati temporaneamente.", lang);
+            if (normalized.Contains("ready-to-enqueue"))
+                return LocalRuntimeText("Part de documents prets a relancer maintenant.", "Share of documents ready to rerun now.", "Parte de documentos listos para relanzar ahora.", "Parte de documentos prontos a relancar agora.", "Anteil der jetzt startbereiten Dokumente.", "Quota di documenti pronti al rilancio.", lang);
+            if (normalized.Contains("offset-backfill"))
+                return LocalRuntimeText("Part de documents dont l'index doit etre complete.", "Share of documents whose index needs completion.", "Parte de documentos cuyo indice debe completarse.", "Parte de documentos cujo indice precisa ser completado.", "Anteil der Dokumente mit unvollstaendigem Index.", "Quota di documenti con indice da completare.", lang);
+            return LocalRuntimeText("Panneau de suivi serveur.", "Server monitoring panel.", "Panel de seguimiento servidor.", "Painel de acompanhamento servidor.", "Server-Monitoring-Panel.", "Pannello di monitoraggio server.", lang);
         }
 
         void RenderPolicy(AdminRuntimeCapabilityAKpiPolicy policy)
@@ -302,7 +386,14 @@ public sealed partial class MainWindow
             {
                 notesHost.Children.Add(BuildTextCard(
                     ClientUiText.Get("admin.runtime.kpi_a.section.notes", lang),
-                    snapshot.Policy.Notes));
+                    LocalRuntimeText(
+                        "Ces chiffres servent a decider s'il faut relancer proprement certains documents pour completer l'index. Ils indiquent surtout la vitesse, la part de documents prets et la part encore protegee.",
+                        "These numbers help decide whether some documents should be rerun cleanly to complete the index. They mainly show speed, ready share, and protected share.",
+                        "Estas cifras ayudan a decidir si algunos documentos deben relanzarse limpiamente para completar el indice. Muestran velocidad, parte lista y parte protegida.",
+                        "Estes numeros ajudam a decidir se alguns documentos devem ser relancados para completar o indice. Mostram velocidade, parte pronta e parte protegida.",
+                        "Diese Zahlen helfen zu entscheiden, ob Dokumente sauber neu gestartet werden sollen, um den Index zu ergaenzen. Sie zeigen vor allem Tempo, Bereitschaft und Schutzanteil.",
+                        "Questi numeri aiutano a decidere se alcuni documenti vanno rilanciati per completare l'indice. Mostrano velocita, quota pronta e quota protetta.",
+                        lang)));
             }
 
             if (snapshot.Live.IsAvailable)
@@ -333,7 +424,7 @@ public sealed partial class MainWindow
 
                 if (snapshot.Live.Recommendations.Count > 0)
                 {
-                    var recommendationBody = string.Join("\n", snapshot.Live.Recommendations.Select(static item => "- " + item));
+                    var recommendationBody = string.Join("\n", snapshot.Live.Recommendations.Select(item => "- " + CapabilityARecommendation(item)));
                     notesHost.Children.Add(BuildTextCard(
                         ClientUiText.Get("admin.runtime.field.recommendations", lang),
                         recommendationBody));
@@ -356,19 +447,13 @@ public sealed partial class MainWindow
             {
                 foreach (var metric in snapshot.Metrics)
                 {
-                    var tags = metric.Tags.Count > 0
-                        ? string.Join(", ", metric.Tags)
-                        : "n/a";
                     var metricBody = string.Join(
                         "\n",
-                        metric.Description,
+                        CapabilityAMetricBody(metric),
                         string.Empty,
-                        ClientUiText.Format("admin.runtime.kpi_a.fact.instrument", lang, metric.Instrument),
-                        ClientUiText.Format("admin.runtime.kpi_a.fact.aggregation", lang, metric.Aggregation),
-                        ClientUiText.Format("admin.runtime.kpi_a.fact.unit", lang, metric.Unit),
-                        ClientUiText.Format("admin.runtime.kpi_a.fact.tags", lang, tags));
+                        ClientUiText.Format("admin.runtime.kpi_a.fact.unit", lang, metric.Unit));
                     trackedMetricsHost.Children.Add(BuildTextCard(
-                        metric.Key,
+                        CapabilityAMetricTitle(metric.Key),
                         metricBody));
                 }
             }
@@ -390,9 +475,9 @@ public sealed partial class MainWindow
                 foreach (var alert in snapshot.Alerts)
                 {
                     alertsHost.Children.Add(BuildTextCard(
-                        alert.Key,
-                        $"{alert.Condition}\n\n{alert.RecommendedAction}",
-                        tone: ClientUiText.Format("admin.runtime.quality.fact.severity", lang, alert.Severity)));
+                        CapabilityAAlertTitle(alert.Key),
+                        CapabilityAAlertBody(alert),
+                        tone: ClientUiText.Format("admin.runtime.quality.fact.severity", lang, CapabilityASeverityLabel(alert.Severity))));
                 }
             }
 
@@ -409,7 +494,7 @@ public sealed partial class MainWindow
             {
                 panelsHost.Children.Add(BuildDialogSurfaceCard(new TextBlock
                 {
-                    Text = panel,
+                    Text = CapabilityADashboardPanelLabel(panel),
                     TextWrapping = TextWrapping.WrapWholeWords,
                     Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE)
                 }, new Thickness(14)));
@@ -456,7 +541,8 @@ public sealed partial class MainWindow
             {
                 ClientLog.Exception("AdminRuntimeCapabilityAKpi.Load", ex);
                 SetStateBanner(ClientUiText.Get("admin.runtime.kpi_a.load_failed", lang));
-                trackedMetricsHost.Children.Add(BuildDialogInfoBanner(ex.Message));
+                trackedMetricsHost.Children.Add(BuildDialogInfoBanner(
+                    FormatAdminLoadErrorForUser(ex, "/admin/runtime/capability-a/kpis", lang)));
             }
             finally
             {
@@ -481,6 +567,7 @@ public sealed partial class MainWindow
                 new UIElement[]
                 {
                     generatedText,
+                    BuildDialogInfoBanner(ClientUiText.Get("admin.runtime.kpi_a.help.body", lang)),
                     stateHost,
                     BuildDialogSurfaceCard(metricsGrid, new Thickness(12)),
                     BuildDialogSurfaceCard(notesHost, new Thickness(12)),

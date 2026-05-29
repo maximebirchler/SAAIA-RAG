@@ -1,4 +1,4 @@
-using Dapper;
+﻿using Dapper;
 using Npgsql;
 
 static partial class JobRepo
@@ -70,12 +70,12 @@ RETURNING
         const string sql = @"
 UPDATE ingestion_jobs
 SET status = CASE
-        WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) THEN 'canceled'
+        WHEN (LOWER(COALESCE(payload #>> '{control,cancelRequested}', '')) = 'true') THEN 'canceled'
         ELSE 'done'
     END,
     finished_at=now(),
     last_error = CASE
-        WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
+        WHEN (LOWER(COALESCE(payload #>> '{control,cancelRequested}', '')) = 'true')
             THEN COALESCE(last_error, 'canceled_by_admin')
         ELSE NULL
     END,
@@ -98,7 +98,7 @@ SELECT
     j.doc_path AS ""DocPath"",
     j.status AS ""JobStatus"",
     j.priority AS ""Priority"",
-    CASE WHEN COALESCE(j.payload #>> '{version}', '') ~ '^[0-9]+$'
+    CASE WHEN COALESCE(j.payload #>> '{version}', '') ~ '^[0-9]{1,9}$'
         THEN (j.payload #>> '{version}')::int ELSE 0 END AS ""JobVersion"",
     d.doc_id AS ""DocId"",
     d.status AS ""DocumentStatus"",
@@ -173,7 +173,7 @@ SET status = CASE
              AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
             THEN 'paused'
         WHEN (
-                 COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+                 (LOWER(COALESCE(j.payload #>> '{control,cancelRequested}', '')) = 'true')
                  OR COALESCE(j.payload #>> '{control,requestedAction}', '') = 'cancel'
              )
              AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
@@ -224,7 +224,7 @@ SET status = CASE
              AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
             THEN NULL
         WHEN (
-                 COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+                 (LOWER(COALESCE(j.payload #>> '{control,cancelRequested}', '')) = 'true')
                  OR COALESCE(j.payload #>> '{control,requestedAction}', '') = 'cancel'
              )
              AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
@@ -247,7 +247,7 @@ SET status = CASE
         WHEN COALESCE(@err, '') IN ('source_removed_during_ingestion', 'file_missing')
             THEN ((COALESCE(j.payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
         WHEN (
-                 COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+                 (LOWER(COALESCE(j.payload #>> '{control,cancelRequested}', '')) = 'true')
                  OR COALESCE(j.payload #>> '{control,requestedAction}', '') = 'cancel'
              )
              AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
@@ -273,14 +273,14 @@ WHERE j.job_id=@job_id
         const string fallbackSql = @"
 UPDATE ingestion_jobs
 SET status = CASE
-        WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
+        WHEN (LOWER(COALESCE(payload #>> '{control,cancelRequested}', '')) = 'true')
              AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
             THEN 'canceled'
         ELSE 'failed'
     END,
     finished_at=now(),
     last_error = CASE
-        WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
+        WHEN (LOWER(COALESCE(payload #>> '{control,cancelRequested}', '')) = 'true')
              AND COALESCE(@err, '') NOT IN ('source_removed_during_ingestion', 'file_missing')
             THEN COALESCE(last_error, @err, 'canceled_by_admin')
         ELSE @err
@@ -288,7 +288,7 @@ SET status = CASE
     payload = CASE
         WHEN COALESCE(@err, '') IN ('source_removed_during_ingestion', 'file_missing')
             THEN ((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
-        WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
+        WHEN (LOWER(COALESCE(payload #>> '{control,cancelRequested}', '')) = 'true')
             THEN ((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
         ELSE COALESCE(payload, '{}'::jsonb)
     END,
@@ -444,7 +444,7 @@ WHERE job_id=@job_id
         const string sql = @"
 UPDATE ingestion_jobs j
 SET status = CASE
-        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+        WHEN (LOWER(COALESCE(j.payload #>> '{control,cancelRequested}', '')) = 'true')
              AND j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
              AND COALESCE(d.status, '') NOT IN ('missing','deleted')
@@ -456,11 +456,11 @@ SET status = CASE
                  )
              )
             THEN 'paused'
-        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false) THEN 'canceled'
+        WHEN (LOWER(COALESCE(j.payload #>> '{control,cancelRequested}', '')) = 'true') THEN 'canceled'
         ELSE 'queued'
     END,
     finished_at = CASE
-        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+        WHEN (LOWER(COALESCE(j.payload #>> '{control,cancelRequested}', '')) = 'true')
              AND j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
              AND COALESCE(d.status, '') NOT IN ('missing','deleted')
@@ -472,12 +472,12 @@ SET status = CASE
                  )
              )
             THEN NULL
-        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+        WHEN (LOWER(COALESCE(j.payload #>> '{control,cancelRequested}', '')) = 'true')
             THEN COALESCE(j.finished_at, now())
         ELSE j.finished_at
     END,
     started_at = CASE
-        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+        WHEN (LOWER(COALESCE(j.payload #>> '{control,cancelRequested}', '')) = 'true')
              AND j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
              AND COALESCE(d.status, '') NOT IN ('missing','deleted')
@@ -495,7 +495,7 @@ SET status = CASE
     locked_by=NULL,
     available_at=now(),
     last_error = CASE
-        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+        WHEN (LOWER(COALESCE(j.payload #>> '{control,cancelRequested}', '')) = 'true')
              AND j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
              AND COALESCE(d.status, '') NOT IN ('missing','deleted')
@@ -507,12 +507,12 @@ SET status = CASE
                  )
              )
             THEN NULL
-        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+        WHEN (LOWER(COALESCE(j.payload #>> '{control,cancelRequested}', '')) = 'true')
             THEN COALESCE(j.last_error, 'canceled_stale_running')
         ELSE COALESCE(j.last_error, 'requeued_stale_running')
     END,
     payload = CASE
-        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+        WHEN (LOWER(COALESCE(j.payload #>> '{control,cancelRequested}', '')) = 'true')
              AND j.action='upsert'
              AND COALESCE(d.indexed_version, 0) <= 0
              AND (
@@ -523,7 +523,7 @@ SET status = CASE
                  )
              )
             THEN ((COALESCE(j.payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
-        WHEN COALESCE((j.payload #>> '{control,cancelRequested}')::boolean, false)
+        WHEN (LOWER(COALESCE(j.payload #>> '{control,cancelRequested}', '')) = 'true')
             THEN ((COALESCE(j.payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
         ELSE COALESCE(j.payload, '{}'::jsonb)
     END
@@ -544,11 +544,11 @@ WHERE j.tenant_id=d.tenant_id
         const string fallbackSql = @"
 UPDATE ingestion_jobs
 SET status = CASE
-        WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) THEN 'canceled'
+        WHEN (LOWER(COALESCE(payload #>> '{control,cancelRequested}', '')) = 'true') THEN 'canceled'
         ELSE 'queued'
     END,
     finished_at = CASE
-        WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
+        WHEN (LOWER(COALESCE(payload #>> '{control,cancelRequested}', '')) = 'true')
             THEN COALESCE(finished_at, now())
         ELSE finished_at
     END,
@@ -556,12 +556,12 @@ SET status = CASE
     locked_by=NULL,
     available_at=now(),
     last_error = CASE
-        WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
+        WHEN (LOWER(COALESCE(payload #>> '{control,cancelRequested}', '')) = 'true')
             THEN COALESCE(last_error, 'canceled_stale_running')
         ELSE COALESCE(last_error, 'requeued_stale_running')
     END,
     payload = CASE
-        WHEN COALESCE((payload #>> '{control,cancelRequested}')::boolean, false)
+        WHEN (LOWER(COALESCE(payload #>> '{control,cancelRequested}', '')) = 'true')
             THEN ((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}') #- '{control,requestedAction}')
         ELSE COALESCE(payload, '{}'::jsonb)
     END

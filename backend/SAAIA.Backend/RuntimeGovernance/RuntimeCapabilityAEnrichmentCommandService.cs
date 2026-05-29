@@ -68,11 +68,14 @@ internal static class RuntimeCapabilityAEnrichmentCommandService
                 return new RuntimeOperationResult<AdminRuntimeCapabilityAEnqueueResponseDto>(null, "documents_root_not_found");
             }
 
+            var previewQuestionService = req?.DryRun == true
+                ? null
+                : hypotheticalQuestionService;
             var candidates = await RuntimeCapabilityAEnrichmentStore.LoadCandidatesAsync(
                 conn,
                 tenantId,
                 ingest,
-                hypotheticalQuestionService,
+                previewQuestionService,
                 req?.Category,
                 req?.MaxCandidates ?? 50,
                 req?.ReasonFilters,

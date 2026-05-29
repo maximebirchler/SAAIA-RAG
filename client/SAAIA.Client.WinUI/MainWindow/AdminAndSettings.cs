@@ -26,7 +26,8 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
-            Status(LocalRuntimeText("Echec de la fenetre admin : ", "Admin popup failed: ", "Error al abrir la ventana admin: ", "Falha ao abrir a janela admin: ", "Admin-Fenster konnte nicht geoeffnet werden: ", "Impossibile aprire la finestra admin: ", UiLang) + ex.Message);
+            ClientLog.Exception("AdminSession.Open", ex);
+            Status(LocalRuntimeText("Impossible d'ouvrir la fenetre admin. Le detail technique est dans les logs.", "Could not open the admin window. Technical detail is in the logs.", "No se pudo abrir la ventana admin. El detalle tecnico esta en los logs.", "Nao foi possivel abrir a janela admin. O detalhe tecnico esta nos logs.", "Admin-Fenster konnte nicht geoeffnet werden. Details stehen in den Logs.", "Impossibile aprire la finestra admin. I dettagli tecnici sono nei log.", UiLang));
         }
     }
 
@@ -42,10 +43,8 @@ public sealed partial class MainWindow
         var infoBanner = BuildDialogInfoBanner(
             ClientUiText.Get(_api.HasAdminKey ? "admin.session.active" : "admin.session.inactive", lang),
             _api.HasAdminKey);
-        var infoStack = infoBanner.Child as StackPanel;
-        var infoIcon = infoStack?.Children.Count > 0 ? infoStack.Children[0] as FontIcon : null;
-        var infoText = infoStack?.Children.Count > 1 ? infoStack.Children[1] as TextBlock : null;
-
+        FontIcon? infoIcon = null;
+        TextBlock? infoText = null;
         void SetInfo(string text, bool positive = false, bool isError = false)
         {
             var light = UseLightPalette();
@@ -71,6 +70,7 @@ public sealed partial class MainWindow
             {
                 infoIcon.Glyph = positive ? "" : isError ? "" : "";
                 infoIcon.Foreground = iconForeground;
+                infoIcon.Glyph = positive ? "\uE73E" : isError ? "\uEA39" : "\uE946";
             }
 
             if (infoText is not null)
@@ -78,6 +78,12 @@ public sealed partial class MainWindow
                 infoText.Text = text;
                 infoText.Foreground = foreground;
             }
+
+            infoBanner.Child = BuildDialogInfoBannerContent(
+                text,
+                positive ? "\uE73E" : isError ? "\uEA39" : "\uE946",
+                iconForeground,
+                foreground);
         }
 
         var connectButton = BuildDialogFooterButton(ClientUiText.Get(_api.HasAdminKey ? "admin.session.update" : "admin.session.connect", lang), primary: true);
@@ -125,7 +131,7 @@ public sealed partial class MainWindow
                 if (isValid)
                 {
                     ClientLog.Info("Admin session key validated and activated for current app session.");
-                    var message = ClientUiText.Get("admin.session.enabled", lang);
+                    var message = ClientUiText.Get("admin.session.active", lang);
                     SetInfo(message, positive: true);
                     Status(message);
                     passwordBox.Password = string.Empty;
@@ -160,7 +166,7 @@ public sealed partial class MainWindow
 
             _api.ClearAdminSessionKey();
             ClientLog.Info("Admin session key cleared.");
-            var message = ClientUiText.Get("admin.session.disabled", lang);
+            var message = ClientUiText.Get("admin.session.inactive", lang);
             SetInfo(message);
             Status(message);
             RefreshButtons();
@@ -185,12 +191,31 @@ public sealed partial class MainWindow
         await overlay.Completion;
     }
 
+    private static T? FindDialogChild<T>(DependencyObject root)
+        where T : DependencyObject
+    {
+        if (root is T typed)
+            return typed;
+
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            var found = FindDialogChild<T>(child);
+            if (found is not null)
+                return found;
+        }
+
+        return null;
+    }
+
     private void ApplyUserModeVisibility()
     {
         _appSettings = AppSettings.Load();
 
         var showAdv = _appSettings.ShowAdvancedUi;
         SetupButton.Visibility = (showAdv || NeedsSetupWizard()) ? Visibility.Visible : Visibility.Collapsed;
+        HeaderHelpButton.Visibility = Visibility.Visible;
         //SetupButton.Visibility = Visibility.Visible;
         LlmSettingsButton.Visibility = showAdv ? Visibility.Visible : Visibility.Collapsed;
         ConnectButton.Visibility = showAdv ? Visibility.Visible : Visibility.Collapsed;
@@ -240,7 +265,8 @@ public sealed partial class MainWindow
     }
     catch (Exception ex)
     {
-        Status(ClientUiText.Get("status.settings_failed", _appSettings.UiLanguage) + ex.Message);
+        ClientLog.Exception("Settings.Open", ex);
+        Status(ClientUiText.Get("status.settings_failed", _appSettings.UiLanguage) + FormatLocalLlmUserActionError(ex, _appSettings.UiLanguage));
     }
 }
 

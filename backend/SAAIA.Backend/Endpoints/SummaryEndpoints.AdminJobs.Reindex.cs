@@ -1,4 +1,4 @@
-using Dapper;
+﻿using Dapper;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using SAAIA.Backend.Auth;
@@ -44,7 +44,7 @@ public static partial class SummaryEndpoints
 SELECT
   job_id AS "JobId",
   status AS "Status",
-  COALESCE((payload #>> '{control,cancelRequested}')::boolean, false) AS "CancelRequested",
+  (LOWER(COALESCE(payload #>> '{control,cancelRequested}', '')) = 'true') AS "CancelRequested",
   payload #>> '{control,requestedAction}' AS "RequestedAction"
 FROM ingestion_jobs
 WHERE tenant_id=@tenant
