@@ -4390,10 +4390,41 @@ CURRENT_USER_MESSAGE:
             .Take(5)
             .ToArray();
 
+        var supportTerms = BuildPlanningExplorationSupportTerms(query)
+            .Take(5)
+            .ToArray();
+        var constraintTerms = ExtractPlanningConstraintRetrievalTerms(normalizedLookup)
+            .Take(4)
+            .ToArray();
+
+        foreach (var subject in subjectTerms)
+        {
+            foreach (var support in supportTerms)
+                AddDistinctQuery(queries, $"{subject} {support}");
+
+            foreach (var constraint in constraintTerms)
+                AddDistinctQuery(queries, $"{subject} {constraint}");
+        }
+
+        foreach (var slot in slotTerms.Take(5))
+        {
+            foreach (var support in supportTerms.Take(2))
+                AddDistinctQuery(queries, $"{slot} {support}");
+        }
+
         foreach (var subject in subjectTerms)
         {
             foreach (var slot in slotTerms)
                 AddDistinctQuery(queries, $"{subject} {slot}");
+        }
+
+        foreach (var subject in subjectTerms.Take(4))
+        {
+            foreach (var slot in slotTerms.Take(4))
+            {
+                foreach (var support in supportTerms.Take(2))
+                    AddDistinctQuery(queries, $"{subject} {slot} {support}");
+            }
         }
 
         foreach (var slot in slotTerms)
@@ -4415,7 +4446,7 @@ CURRENT_USER_MESSAGE:
             .Where(static q => !string.IsNullOrWhiteSpace(q))
             .Select(CollapseWhitespace)
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(16)
+            .Take(24)
             .ToArray();
     }
 
@@ -4427,7 +4458,7 @@ CURRENT_USER_MESSAGE:
 
         var patterns = new[]
         {
-            @"petit\s+dejeuner",
+            @"petit[-\s]+dejeuner",
             @"breakfast",
             @"desayuno",
             @"pequeno\s+almoco",
@@ -4451,7 +4482,7 @@ CURRENT_USER_MESSAGE:
             @"\bmanha\b",
             @"\bmorgen\b",
             @"\bmattina\b",
-            @"apres\s+midi",
+            @"apres[-\s]+midi",
             @"\bafternoon\b",
             @"\btarde\b",
             @"\bnachmittag\b",
@@ -4486,8 +4517,11 @@ CURRENT_USER_MESSAGE:
         {
             "aide", "aider", "avec", "avoir", "cette", "comment", "dans", "faire", "facile", "idee",
             "peux", "pour", "propose", "proposes", "quoi", "sais", "vais", "veux", "voudrais",
+            "cherche", "chercher", "trouve", "trouver", "trouves", "recherche", "rechercher",
+            "demande", "demandes", "souhaite", "souhaites", "souhaiter",
             "about", "find", "help", "make", "prepare", "recommend", "suggest", "what", "with",
-            "can", "could", "give", "need", "want", "ayuda", "ayudar", "ayudame", "puede", "puedes",
+            "can", "could", "give", "need", "want", "search", "looking", "look", "asked", "request",
+            "ayuda", "ayudar", "ayudame", "puede", "puedes",
             "podrias", "propone", "recomienda", "ajuda", "ajudar", "pode", "podes", "recomenda",
             "kannst", "konntest", "helfen", "vorschlag", "empfiehl", "aiuta", "aiutami", "puoi",
             "consiglia"
@@ -4640,8 +4674,12 @@ CURRENT_USER_MESSAGE:
 
     private static string[] BuildSourceBackedEvidenceExpansionRetrievalQueries(string query)
     {
-        if (LooksLikeAnyDocumentaryPlanningRequest(query))
+        if (LooksLikeAnyDocumentaryPlanningRequest(query)
+            && !LooksLikeSourceBackedPairingRecommendationRequest(query)
+            && !LooksLikeSoftChoiceRecommendationRequest(query))
+        {
             return BuildPlanningExplorationRetrievalQueries(query);
+        }
 
         var queries = new List<string>();
         foreach (var retrievalQuery in BuildSourceBackedActionRetrievalQueries(query))
@@ -4732,6 +4770,49 @@ CURRENT_USER_MESSAGE:
             "it" => new[] { "opzioni", "esempi", "candidati" },
             _ => new[] { "options", "exemples", "candidats" }
         };
+
+    private static IReadOnlyList<string> BuildPlanningExplorationSupportTerms(string? query)
+        => DetectRetrievalExpansionLanguage(query) switch
+        {
+            "en" => new[] { "options", "examples", "ideas", "candidates", "steps" },
+            "es" => new[] { "opciones", "ejemplos", "ideas", "candidatos", "pasos" },
+            "pt" => new[] { "opcoes", "exemplos", "ideias", "candidatos", "passos" },
+            "de" => new[] { "optionen", "beispiele", "ideen", "kandidaten", "schritte" },
+            "it" => new[] { "opzioni", "esempi", "idee", "candidati", "passi" },
+            _ => new[] { "options", "exemples", "idees", "candidats", "etapes" }
+        };
+
+    private static IEnumerable<string> ExtractPlanningConstraintRetrievalTerms(string normalizedQuery)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedQuery))
+            yield break;
+
+        var patterns = new[]
+        {
+            @"\brapides?\b",
+            @"\bquick\b",
+            @"\bsimple[sz]?\b",
+            @"\blegers?\b",
+            @"\blight\b",
+            @"\bvarie(?:e|es|s)?\b",
+            @"\bvaried\b",
+            @"\bmoins\s+de\s+\d{1,3}\s+minutes?\b",
+            @"\bunder\s+\d{1,3}\s+minutes?\b",
+            @"\ben\s+\d{1,3}\s+minutes?\b",
+            @"\bin\s+\d{1,3}\s+minutes?\b"
+        };
+
+        var emitted = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var pattern in patterns)
+        {
+            foreach (Match match in Regex.Matches(normalizedQuery, pattern, RegexOptions.CultureInvariant))
+            {
+                var value = CollapseWhitespace(match.Value);
+                if (value.Length >= 4 && emitted.Add(value))
+                    yield return value;
+            }
+        }
+    }
 
     private static string DetectRetrievalExpansionLanguage(string? query)
     {
@@ -5649,7 +5730,13 @@ CURRENT_USER_MESSAGE:
             return true;
 
         if (RequiresStructuredSourceBackedPlanningCoverage(query))
-            return false;
+        {
+            var enoughPartialMaterialForWriter =
+                coverage.CandidateCount >= Math.Min(4, Math.Max(3, coverage.MinimumCandidates - 2))
+                && coverage.DistinctSourcePages >= 2
+                && coverage.HasRequiredAnchor;
+            return enoughPartialMaterialForWriter;
+        }
 
         var hasExplicitStructure = DetectRequestedDayAxisLabels(query, language).Count > 0
             || DetectRequestedPeriodAxisLabels(query, language).Count > 0;
@@ -5692,8 +5779,12 @@ CURRENT_USER_MESSAGE:
             return false;
         }
 
-        if (LooksLikeAnyDocumentaryPlanningRequest(query))
+        if (LooksLikeAnyDocumentaryPlanningRequest(query)
+            && !LooksLikeSourceBackedPairingRecommendationRequest(query)
+            && !LooksLikeSoftChoiceRecommendationRequest(query))
+        {
             return ShouldExpandSourceBackedPlanningRetrieval(toolResults, query, language);
+        }
 
         var canBenefitFromDiversity =
             LooksLikeSourceBackedActionRequest(query)
@@ -5909,13 +6000,6 @@ CURRENT_USER_MESSAGE:
         if (coverage.UsableHitCount == 0)
             return false;
 
-        if (LooksLikeAnyDocumentaryPlanningRequest(query))
-        {
-            return RequiresStructuredSourceBackedPlanningCoverage(query)
-                ? ShouldAllowWriterForPartialSourceBackedPlanning(toolResults, query)
-                : coverage.IsAdequate || ShouldAllowWriterForPartialSourceBackedPlanning(toolResults, query);
-        }
-
         if (LooksLikeComparativeDocumentaryRequest(query))
             return coverage.IsAdequate
                 || ShouldAllowWriterForPartialBroadSourceBackedSynthesis(coverage, query);
@@ -5927,6 +6011,13 @@ CURRENT_USER_MESSAGE:
         if (LooksLikeSoftChoiceRecommendationRequest(query))
             return coverage.IsAdequate
                 || ShouldAllowWriterForPartialBroadSourceBackedSynthesis(coverage, query);
+
+        if (LooksLikeAnyDocumentaryPlanningRequest(query))
+        {
+            return RequiresStructuredSourceBackedPlanningCoverage(query)
+                ? ShouldAllowWriterForPartialSourceBackedPlanning(toolResults, query)
+                : coverage.IsAdequate || ShouldAllowWriterForPartialSourceBackedPlanning(toolResults, query);
+        }
 
         if (LooksLikeBroadSynthesisRequestShape(query))
             return coverage.IsAdequate
@@ -5961,11 +6052,14 @@ CURRENT_USER_MESSAGE:
 
         if (LooksLikeSourceBackedPairingRecommendationRequest(query))
             return coverage.RichEvidenceCount >= 1
+                || coverage.DistinctSourcePageCount >= 2
+                || coverage.UsableHitCount >= 2
                 || coverage.EvidenceRichnessScore >= 6;
 
         if (LooksLikeSoftChoiceRecommendationRequest(query))
             return coverage.RichEvidenceCount >= 1
-                || coverage.DistinctSourcePageCount >= 2;
+                || coverage.DistinctSourcePageCount >= 2
+                || coverage.UsableHitCount >= 2;
 
         var canUsePartialWriter =
             LooksLikeBroadSynthesisRequestShape(query)
@@ -5978,7 +6072,8 @@ CURRENT_USER_MESSAGE:
             return false;
 
         return coverage.RichEvidenceCount >= 1
-            || (coverage.DistinctSourcePageCount >= 2 && coverage.EvidenceRichnessScore >= 8)
+            || (coverage.DistinctSourcePageCount >= 2 && coverage.EvidenceRichnessScore >= 4)
+            || (coverage.UsableHitCount >= 2 && coverage.DistinctSourcePageCount >= 2)
             || coverage.EvidenceRichnessScore >= 12;
     }
 
@@ -6480,16 +6575,56 @@ If coverage is partial, answer with source-backed leads and clear limits instead
         if (string.IsNullOrWhiteSpace(source))
             source = hit.DocPath;
 
-        var evidence = FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(hit), maxLength: 180);
-        if (string.IsNullOrWhiteSpace(evidence))
-            evidence = CollapseWhitespace(hit.ContextualSnippet ?? string.Empty);
-        if (evidence.Length > 180)
-            evidence = evidence[..180].TrimEnd() + "...";
-
+        var supportCue = BuildSourceBackedCandidateSupportCue(hit);
         var contentRole = CollapseWhitespace(hit.SelectionHintRole ?? hit.ContentRole ?? string.Empty);
         var roleSuffix = string.IsNullOrWhiteSpace(contentRole) ? string.Empty : $" | evidence role: {contentRole}";
-        var evidenceSuffix = string.IsNullOrWhiteSpace(evidence) ? string.Empty : $" | evidence: {evidence}";
-        lines.Add($"- {role}: {CollapseWhitespace(title)} | source: {source} {SourceBackedPagePrefix(language)}{Math.Max(1, hit.PageStart)}{roleSuffix}{evidenceSuffix}");
+        var supportSuffix = string.IsNullOrWhiteSpace(supportCue) ? string.Empty : $" | support cue: {supportCue}";
+        lines.Add($"- {role}: {CollapseWhitespace(title)} | source: {source} {SourceBackedPagePrefix(language)}{Math.Max(1, hit.PageStart)}{roleSuffix}{supportSuffix}");
+    }
+
+    private static string BuildSourceBackedCandidateSupportCue(RagHitSummary hit)
+    {
+        var cardTitle = hit.MatchedContentCards?
+            .Select(static card => CollapseWhitespace(card.Title))
+            .FirstOrDefault(static title => !string.IsNullOrWhiteSpace(title));
+        if (!string.IsNullOrWhiteSpace(cardTitle))
+            return $"content card: {cardTitle}";
+
+        var section = CollapseWhitespace(hit.SectionTitle ?? hit.HeadingPath ?? string.Empty);
+        if (!string.IsNullOrWhiteSpace(section))
+            return $"section: {section}";
+
+        if (BackendSelectionHintsPreferUsableEvidence(hit))
+            return "actionable source page";
+
+        var evidence = FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(hit), maxLength: 100);
+        if (string.IsNullOrWhiteSpace(evidence))
+            evidence = FormatReadableEvidenceExcerpt(hit.ContextualSnippet ?? string.Empty, maxLength: 100);
+        if (LooksLikeNoisyCandidateSupportCue(evidence))
+            return string.Empty;
+
+        return evidence;
+    }
+
+    private static bool LooksLikeNoisyCandidateSupportCue(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var normalized = NormalizeLexicalLookup(text);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return true;
+
+        var tokenCount = Regex.Matches(normalized, @"[\p{L}\p{N}]+", RegexOptions.CultureInvariant).Count;
+        var digitCount = text.Count(char.IsDigit);
+        var separatorCount = text.Count(static ch => ch is ';' or '|' or '/' or '\\' or '=');
+        var upperCaseLetters = text.Count(char.IsUpper);
+        var letters = text.Count(char.IsLetter);
+
+        return tokenCount > 28
+            || separatorCount >= 6
+            || (digitCount >= 10 && tokenCount >= 10)
+            || (letters >= 20 && upperCaseLetters > letters * 0.70);
     }
 
     private static string ResolveRequestedAnswerShape(string? query)

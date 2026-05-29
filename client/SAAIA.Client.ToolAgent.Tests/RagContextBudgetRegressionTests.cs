@@ -8388,6 +8388,69 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     }
 
     [Fact]
+    public void Source_backed_pairing_can_use_writer_for_diverse_partial_option_evidence()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Options/source-a.pdf",
+                    docName = "source-a.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "Sauce aux herbes. Preparation : melanger les herbes, l'huile et le condiment puis servir. Temps : 5 min.",
+                    fullText = "Sauce aux herbes. Preparation : melanger les herbes, l'huile et le condiment puis servir. Temps : 5 min.",
+                    matchedContentCards = new[] { new { title = "Sauce aux herbes", kind = "unit_lead" } },
+                    selectionHints = new
+                    {
+                        evidenceRole = "actionable_item",
+                        actionabilityScore = 11,
+                        supportScore = 6,
+                        fragmentScore = 0,
+                        navigationScore = 0,
+                        qualityPenalty = 0
+                    },
+                    score = 0.98
+                },
+                new
+                {
+                    docPath = "Options/source-b.pdf",
+                    docName = "source-b.pdf",
+                    pageStart = 9,
+                    pageEnd = 9,
+                    excerpt = "Accompagnement de legumes. Preparation : cuire les legumes puis assaisonner avant de servir. Temps : 10 min.",
+                    fullText = "Accompagnement de legumes. Preparation : cuire les legumes puis assaisonner avant de servir. Temps : 10 min.",
+                    matchedContentCards = new[] { new { title = "Accompagnement de legumes", kind = "unit_lead" } },
+                    selectionHints = new
+                    {
+                        evidenceRole = "actionable_item",
+                        actionabilityScore = 11,
+                        supportScore = 6,
+                        fragmentScore = 0,
+                        navigationScore = 0,
+                        qualityPenalty = 0
+                    },
+                    score = 0.97
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        const string query = "Je veux preparer une entrecote ce soir. Quelles sauces ou accompagnements trouves dans les documents pourraient aller avec ?";
+
+        Assert.True(ToolAgentOrchestrator.ShouldUseWriterForBroadSourceBackedSynthesisForTests(toolResults, query));
+        Assert.True(ToolAgentOrchestrator.ShouldUseAdvisoryEvidenceGuardForBroadSynthesisForTests(toolResults, query));
+    }
+
+    [Fact]
     public void Writer_answer_shape_guidance_is_generic_and_multilingual_ready()
     {
         var cases = new[]
@@ -8439,6 +8502,54 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.Contains("do not fill the whole grid by repetition", guidance);
         Assert.DoesNotContain("recette", guidance, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Cuisine", guidance, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Writer_candidate_leads_use_compact_support_cues_instead_of_raw_excerpt_dumps()
+    {
+        const string noisyExcerpt = "INGREDIENTS 1 2 3 4 QUANTITY 500 250 120 MATERIAL BOL COUTEAU FOURCHETTE ASSIETTE PASSOIRE COUTEAU D OFFICE PLANCHE A DECOUPER";
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Operations/source-a.pdf",
+                    docName = "source-a.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = noisyExcerpt,
+                    fullText = noisyExcerpt,
+                    matchedContentCards = new[] { new { title = "Option controlee", kind = "unit_lead" } },
+                    selectionHints = new
+                    {
+                        evidenceRole = "actionable_item",
+                        actionabilityScore = 12,
+                        supportScore = 6,
+                        fragmentScore = 0,
+                        navigationScore = 0,
+                        qualityPenalty = 0
+                    },
+                    score = 0.98
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var leads = ToolAgentOrchestrator.BuildSourceBackedCandidateLeadsForWriterForTests(
+            toolResults,
+            "Propose-moi une option utile a partir des documents.",
+            "fr");
+
+        Assert.Contains("support cue: content card: Option controlee", leads);
+        Assert.DoesNotContain("evidence:", leads, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("MATERIAL BOL", leads, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -11269,6 +11380,22 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     }
 
     [Fact]
+    public void Planning_exploration_queries_add_generic_option_terms_for_broad_requests()
+    {
+        var queries = ToolAgentOrchestrator.BuildPlanningExplorationRetrievalQueriesForTests(
+            "Je cherche a avoir un plan de repas pour la semaine, petit-dejeuner, midi et soir du lundi au vendredi.");
+
+        Assert.Contains(queries, q => q.Contains("repas", StringComparison.OrdinalIgnoreCase)
+                                      && q.Contains("options", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, q => q.Contains("petit", StringComparison.OrdinalIgnoreCase)
+                                      && q.Contains("options", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, q => q.Contains("cherche", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, q => q.Contains("recette", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, q => q.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, q => q.Contains("pdf", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void Structured_planning_with_too_few_candidates_returns_option_bank_instead_of_repeated_grid()
     {
         const string query = "Aide-moi a faire un plan de maintenance pour la semaine, matin et soir du lundi au vendredi.";
@@ -11380,6 +11507,51 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
             return toolResults;
         }
+    }
+
+    [Fact]
+    public void Structured_planning_with_diverse_partial_candidates_can_use_writer_without_filling_grid()
+    {
+        const string query = "Aide-moi a faire un plan de maintenance pour la semaine, matin, midi et soir du lundi au vendredi.";
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                BuildHit("Maintenance ventilation", "Operations/maintenance-a.pdf", 1),
+                BuildHit("Maintenance capteurs", "Operations/maintenance-b.pdf", 2),
+                BuildHit("Maintenance hydraulique", "Operations/maintenance-c.pdf", 3),
+                BuildHit("Maintenance securite", "Operations/maintenance-d.pdf", 4)
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        Assert.True(ToolAgentOrchestrator.ShouldExpandSourceBackedPlanningRetrievalForTests(toolResults, query, "fr"));
+        Assert.True(ToolAgentOrchestrator.ShouldAllowWriterForPartialSourceBackedPlanningForTests(toolResults, query, "fr"));
+        Assert.True(ToolAgentOrchestrator.ShouldUseWriterForBroadSourceBackedSynthesisForTests(toolResults, query));
+
+        static object BuildHit(string title, string path, int page) => new
+        {
+            docPath = path,
+            docName = Path.GetFileName(path),
+            pageStart = page,
+            pageEnd = page,
+            excerpt = $"{title}. Procedure : verifier, consigner et valider le resultat.",
+            fullText = $"{title}. Procedure : verifier, consigner et valider le resultat.",
+            matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+            selectionHints = new
+            {
+                evidenceRole = "actionable_item",
+                actionabilityScore = 12,
+                supportScore = 6,
+                fragmentScore = 0,
+                navigationScore = 0,
+                qualityPenalty = 0
+            },
+            score = 0.99
+        };
     }
 
     [Fact]

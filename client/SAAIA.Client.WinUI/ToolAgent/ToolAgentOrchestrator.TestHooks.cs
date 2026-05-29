@@ -636,6 +636,9 @@ public sealed partial class ToolAgentOrchestrator
     internal static string BuildSourceBackedCoverageHintsForWriterForTests(ToolResults toolResults, string query, string language)
         => BuildSourceBackedCoverageHintsForWriter(toolResults, query, language);
 
+    internal static string BuildSourceBackedCandidateLeadsForWriterForTests(ToolResults toolResults, string query, string language)
+        => BuildSourceBackedCandidateLeadsForWriter(toolResults, query, language);
+
     internal static bool LooksLikeRawExcerptDumpPlanningAnswerForTests(string answer, string query)
         => LooksLikeRawExcerptDumpPlanningAnswer(answer, query);
 
