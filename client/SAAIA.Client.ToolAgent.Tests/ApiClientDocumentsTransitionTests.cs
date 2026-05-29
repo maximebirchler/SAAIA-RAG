@@ -48,6 +48,7 @@ public sealed class ApiClientDocumentsTransitionTests
         Assert.Equal(50, body.RootElement.GetProperty("topK").GetInt32());
         Assert.Equal("broad", body.RootElement.GetProperty("mode").GetString());
         Assert.True(body.RootElement.GetProperty("includeContextualSnippet").GetBoolean());
+        Assert.True(body.RootElement.GetProperty("includeDiagnostics").GetBoolean());
     }
 
     [Fact]

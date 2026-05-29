@@ -1553,6 +1553,17 @@ public sealed class UiLocalizationSafetyNetTests
             "admin.console.retrieval.diversity.duplicates",
             "admin.console.retrieval.diversity.no_methods",
             "admin.console.retrieval.diversity.method_list",
+            "admin.console.retrieval.diagnostics.title",
+            "admin.console.retrieval.diagnostics.help",
+            "admin.console.retrieval.diagnostics.phase_row",
+            "admin.console.retrieval.diagnostics.first_candidate",
+            "admin.console.retrieval.diagnostics.no_candidate",
+            "admin.console.retrieval.diagnostics.selection_returned",
+            "admin.console.retrieval.diagnostics.selection_duplicates",
+            "admin.console.retrieval.diagnostics.selection_max_doc",
+            "admin.console.retrieval.diagnostics.selection_max_page",
+            "admin.console.retrieval.diagnostics.phase.title",
+            "admin.console.retrieval.diagnostics.phase.unknown",
             "admin.console.retrieval.item.title_page",
             "admin.console.retrieval.item.score",
             "admin.console.retrieval.item.rerank_score",
@@ -1620,6 +1631,7 @@ public sealed class UiLocalizationSafetyNetTests
         Assert.Contains("BuildAdminConsoleRetrievalPhaseBreakdown", adminConsole);
         Assert.Contains("BuildAdminConsoleRetrievalGuidanceCard", adminConsole);
         Assert.Contains("BuildAdminConsoleRetrievalDiversityCard", adminConsole);
+        Assert.Contains("BuildAdminConsoleRetrievalDiagnosticsCard", adminConsole);
         Assert.Contains("HumanizeAdminConsoleGuidanceBehavior", adminConsole);
         Assert.Contains("DirectCommandCatalog.CatalogCategoriesList", adminConsole);
         Assert.Contains("DirectCommandCatalog.CatalogTreeView", adminConsole);

@@ -4210,6 +4210,94 @@ public sealed class DocumentFoundationIntegrationTests
     }
 
     [Fact]
+    public async Task SearchCoreAsync_with_admin_diagnostics_captures_bounded_retrieval_phases()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("abcddcba-4545-6767-8989-111111111111");
+        const string docPath = "Ops/AdminDiagnostics.pdf";
+
+        await PublishIndexedDocumentAsync(
+            db,
+            tenantId,
+            Guid.Parse("abcddcba-4545-6767-8989-222222222222"),
+            Guid.Parse("abcddcba-4545-6767-8989-333333333333"),
+            docPath,
+            1,
+            "Admin diagnostics",
+            "Hydraulic accumulator pressure verification requires a calibrated gauge and a recorded valve inspection.",
+            "Document: AdminDiagnostics.pdf\nExcerpt:\nHydraulic accumulator pressure verification requires a calibrated gauge and a recorded valve inspection.");
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var response = await RagEndpoints.SearchCoreAsync(
+            BuildRagHttpContext(tenantId),
+            ds,
+            CreateTestRagOptions(),
+            new FailingTeiHttpClientFactory(),
+            new RagSearchRequestDto(
+                "hydraulic accumulator pressure verification",
+                Category: "ops",
+                TopK: 5,
+                IncludeDiagnostics: true));
+
+        Assert.NotEmpty(response.Matches);
+        Assert.NotNull(response.Diagnostics);
+        var diagnostics = response.Diagnostics!;
+        Assert.Equal("hydraulic accumulator pressure verification", diagnostics.Query);
+        Assert.Equal(5, diagnostics.TopK);
+        Assert.Contains(diagnostics.Phases, static phase => phase.Name == "sparse_bm25");
+        Assert.Contains(diagnostics.Phases, static phase => phase.Name == "fusion_rrf");
+        Assert.Contains(diagnostics.Phases, static phase => phase.Name == "final_selected");
+        Assert.All(diagnostics.Phases, static phase => Assert.True(phase.TopCandidates.Count <= 12));
+        Assert.Equal(response.Matches.Count, diagnostics.Selection.Returned);
+        Assert.Contains(diagnostics.Selection.Items, static item => string.Equals(item.DocPath, docPath, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task SearchAsync_does_not_return_admin_diagnostics_from_public_endpoint()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("abcddcba-5656-7878-9090-111111111111");
+
+        await PublishIndexedDocumentAsync(
+            db,
+            tenantId,
+            Guid.Parse("abcddcba-5656-7878-9090-222222222222"),
+            Guid.Parse("abcddcba-5656-7878-9090-333333333333"),
+            "Ops/PublicNoDiagnostics.pdf",
+            1,
+            "Public diagnostics guard",
+            "Public endpoint retrieval diagnostics should stay hidden from normal search callers.",
+            "Document: PublicNoDiagnostics.pdf\nExcerpt:\nPublic endpoint retrieval diagnostics should stay hidden from normal search callers.");
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var ctx = BuildRagHttpContext(tenantId);
+        var result = await InvokeRagSearchAsync(
+            ctx,
+            ds,
+            Options.Create(CreateTestRagOptions()),
+            new FailingTeiHttpClientFactory(),
+            new RagSearchRequestDto(
+                "Public endpoint retrieval diagnostics",
+                TopK: 3,
+                IncludeDiagnostics: true));
+
+        await result.ExecuteAsync(ctx);
+
+        Assert.Equal(StatusCodes.Status200OK, ctx.Response.StatusCode);
+        var response = JsonSerializer.Deserialize<RagSearchResponseDto>(
+            ReadResponseBody(ctx),
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(response);
+        Assert.Null(response!.Diagnostics);
+    }
+
+    [Fact]
     public async Task SearchAsync_returns_extraction_quality_for_rag_items()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();

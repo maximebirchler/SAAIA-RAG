@@ -223,7 +223,8 @@ public sealed partial class ApiClient
             categoryRef = categoryScope.CategoryRef,
             topK = Math.Clamp(topK, 1, 50),
             mode = NormalizeRagSearchApiMode(mode),
-            includeContextualSnippet = true
+            includeContextualSnippet = true,
+            includeDiagnostics = true
         }, JsonOpts);
 
         return SendJsonAsync(HttpMethod.Post, "/admin/rag/test-retrieval", body, admin: true, ct);

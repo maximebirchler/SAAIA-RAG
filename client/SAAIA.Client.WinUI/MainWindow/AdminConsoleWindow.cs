@@ -560,6 +560,10 @@ public sealed partial class MainWindow
         if (metrics.ValueKind == JsonValueKind.Object)
             stack.Children.Add(BuildAdminConsoleRetrievalPhaseBreakdown(metrics, lang));
 
+        var diagnosticsCard = BuildAdminConsoleRetrievalDiagnosticsCard(response, lang);
+        if (diagnosticsCard is not null)
+            stack.Children.Add(diagnosticsCard);
+
         var guidanceCard = BuildAdminConsoleRetrievalGuidanceCard(response, lang);
         if (guidanceCard is not null)
             stack.Children.Add(guidanceCard);
@@ -599,6 +603,85 @@ public sealed partial class MainWindow
             stack.Children.Add(BuildAdminConsoleRetrievalItemCard(item, lang));
 
         return BuildDialogSurfaceCard(stack, new Thickness(14));
+    }
+
+    private FrameworkElement? BuildAdminConsoleRetrievalDiagnosticsCard(JsonElement response, string lang)
+    {
+        if (!response.TryGetProperty("diagnostics", out var diagnostics) || diagnostics.ValueKind != JsonValueKind.Object)
+            return null;
+        if (!diagnostics.TryGetProperty("phases", out var phases) || phases.ValueKind != JsonValueKind.Array)
+            return null;
+
+        var phaseRows = phases.EnumerateArray()
+            .Where(static phase => phase.ValueKind == JsonValueKind.Object)
+            .Take(10)
+            .Select(phase =>
+            {
+                var name = HumanizeAdminConsoleRetrievalPhaseName(TryGetString(phase, "name"), lang);
+                var retriever = HumanizeAdminConsoleRetrievalMethod(TryGetString(phase, "retriever"), lang) ?? "-";
+                var returned = TryGetInt(phase, "returned")?.ToString("N0", CultureInfo.CurrentCulture) ?? "-";
+                var duration = FormatAdminConsoleMetric(TryGetInt(phase, "durationMs"), "ms");
+                var firstCandidate = ExtractAdminConsoleFirstDiagnosticCandidate(phase, lang);
+                return ClientUiText.Format(
+                    "admin.console.retrieval.diagnostics.phase_row",
+                    lang,
+                    name,
+                    retriever,
+                    returned,
+                    duration,
+                    firstCandidate);
+            })
+            .Where(static row => !string.IsNullOrWhiteSpace(row))
+            .ToArray();
+
+        if (phaseRows.Length == 0)
+            return null;
+
+        var stack = new StackPanel { Spacing = 10 };
+        stack.Children.Add(BuildAdminConsoleSubHeader(ClientUiText.Get("admin.console.retrieval.diagnostics.title", lang)));
+        stack.Children.Add(new TextBlock
+        {
+            Text = ClientUiText.Get("admin.console.retrieval.diagnostics.help", lang),
+            Foreground = UseLightPalette() ? UiBrush(0x4B, 0x5D, 0x71) : UiBrush(0xC7, 0xD1, 0xDE),
+            TextWrapping = TextWrapping.WrapWholeWords
+        });
+        stack.Children.Add(new TextBlock
+        {
+            Text = string.Join(Environment.NewLine, phaseRows),
+            Foreground = UseLightPalette() ? UiBrush(0x19, 0x24, 0x33) : UiBrush(0xF2, 0xF5, 0xFA),
+            TextWrapping = TextWrapping.WrapWholeWords
+        });
+
+        if (diagnostics.TryGetProperty("selection", out var selection) && selection.ValueKind == JsonValueKind.Object)
+        {
+            stack.Children.Add(BuildAdminConsoleMetricsGrid(new[]
+            {
+                (ClientUiText.Get("admin.console.retrieval.diagnostics.selection_returned", lang), FormatAdminConsoleMetric(TryGetInt(selection, "returned"))),
+                (ClientUiText.Get("admin.console.retrieval.diagnostics.selection_duplicates", lang), FormatAdminConsoleMetric(TryGetInt(selection, "duplicatePageOrDocPressure"))),
+                (ClientUiText.Get("admin.console.retrieval.diagnostics.selection_max_doc", lang), FormatAdminConsoleMetric(TryGetInt(selection, "maxPerDoc"))),
+                (ClientUiText.Get("admin.console.retrieval.diagnostics.selection_max_page", lang), FormatAdminConsoleMetric(TryGetInt(selection, "maxPerPage")))
+            }));
+        }
+
+        return BuildDialogSurfaceCard(stack, new Thickness(14));
+    }
+
+    private static string ExtractAdminConsoleFirstDiagnosticCandidate(JsonElement phase, string lang)
+    {
+        if (!phase.TryGetProperty("topCandidates", out var candidates) || candidates.ValueKind != JsonValueKind.Array)
+            return ClientUiText.Get("admin.console.retrieval.diagnostics.no_candidate", lang);
+
+        var candidate = candidates.EnumerateArray().FirstOrDefault(static item => item.ValueKind == JsonValueKind.Object);
+        if (candidate.ValueKind != JsonValueKind.Object)
+            return ClientUiText.Get("admin.console.retrieval.diagnostics.no_candidate", lang);
+
+        var doc = TryGetString(candidate, "docName") ?? TryGetString(candidate, "docPath") ?? ClientUiText.Get("ui.not_available", lang);
+        var page = TryGetInt(candidate, "pageStart");
+        var score = FormatAdminConsoleScore(TryGetDouble(candidate, "score"));
+        var pageText = page is null
+            ? doc
+            : ClientUiText.Format("admin.console.retrieval.item.title_page", lang, doc, page.Value.ToString(CultureInfo.InvariantCulture));
+        return ClientUiText.Format("admin.console.retrieval.diagnostics.first_candidate", lang, pageText, score);
     }
 
     private FrameworkElement BuildAdminConsoleRetrievalPhaseBreakdown(JsonElement metrics, string lang)
@@ -1535,6 +1618,32 @@ public sealed partial class MainWindow
         }
 
         return ClientUiText.Get("admin.console.retrieval.role.unknown", lang);
+    }
+
+    private static string HumanizeAdminConsoleRetrievalPhaseName(string? value, string lang)
+    {
+        var normalized = NormalizeAdminConsoleToken(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return ClientUiText.Get("admin.console.retrieval.diagnostics.phase.unknown", lang);
+
+        if (normalized.Contains("exact", StringComparison.Ordinal))
+            return ClientUiText.Get("admin.console.retrieval.phase.exact", lang);
+        if (normalized.Contains("sparse", StringComparison.Ordinal) || normalized.Contains("bm25", StringComparison.Ordinal))
+            return ClientUiText.Get("admin.console.retrieval.phase.sparse", lang);
+        if (normalized.Contains("dense", StringComparison.Ordinal) || normalized.Contains("qdrant", StringComparison.Ordinal))
+            return ClientUiText.Get("admin.console.retrieval.phase.dense", lang);
+        if (normalized.Contains("profile", StringComparison.Ordinal))
+            return ClientUiText.Get("admin.console.retrieval.phase.profile", lang);
+        if (normalized.Contains("fusion", StringComparison.Ordinal) || normalized.Contains("rrf", StringComparison.Ordinal))
+            return ClientUiText.Get("admin.console.retrieval.phase.fusion", lang);
+        if (normalized.Contains("rerank", StringComparison.Ordinal))
+            return ClientUiText.Get("admin.console.retrieval.phase.rerank", lang);
+        if (normalized.Contains("selection", StringComparison.Ordinal))
+            return ClientUiText.Get("admin.console.retrieval.phase.selection", lang);
+        if (normalized.Contains("title", StringComparison.Ordinal))
+            return ClientUiText.Get("admin.console.retrieval.diagnostics.phase.title", lang);
+
+        return ClientUiText.Get("admin.console.retrieval.diagnostics.phase.unknown", lang);
     }
 
     private static string? HumanizeAdminConsoleQualityStatus(string? value, string lang)

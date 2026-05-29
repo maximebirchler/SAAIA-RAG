@@ -29,7 +29,8 @@ public sealed record RagSearchRequestDto(
     string? DocPath = null,
     bool? IncludeContextualSnippet = null,
     string? CategoryPath = null,
-    string? CategoryRef = null
+    string? CategoryRef = null,
+    bool? IncludeDiagnostics = null
 );
 
 /// <summary>
@@ -258,6 +259,61 @@ public sealed record RagAnswerGuidanceDto(
 );
 
 /// <summary>
+/// Bounded admin-only diagnostics for a retrieval run.
+/// This explains the retrieval pipeline without exposing an unbounded copy of every candidate.
+/// </summary>
+public sealed record RagRetrievalDiagnosticsDto(
+    string Mode,
+    string Query,
+    string RetrievalQuery,
+    string SelectionQuery,
+    string? Category,
+    string? CategoryPath,
+    int TopK,
+    int Candidates,
+    int MaxPerDoc,
+    int MaxPerPage,
+    IReadOnlyList<RagRetrievalPhaseDiagnosticsDto> Phases,
+    RagRetrievalSelectionDiagnosticsDto Selection
+);
+
+public sealed record RagRetrievalPhaseDiagnosticsDto(
+    string Name,
+    string Retriever,
+    int Returned,
+    long? DurationMs,
+    IReadOnlyList<RagRetrievalCandidateDiagnosticsDto> TopCandidates
+);
+
+public sealed record RagRetrievalCandidateDiagnosticsDto(
+    int Rank,
+    double Score,
+    double? RerankScore,
+    string? Retriever,
+    string? EmbeddingBasis,
+    string? DocId,
+    string? DocName,
+    string? DocPath,
+    int? PageStart,
+    int? PageEnd,
+    string? ChunkId,
+    int? ChunkIndex,
+    string? HeadingPath,
+    string? SectionTitle,
+    string? ContentRole,
+    string? Snippet
+);
+
+public sealed record RagRetrievalSelectionDiagnosticsDto(
+    int Returned,
+    int TopK,
+    int MaxPerDoc,
+    int MaxPerPage,
+    int DuplicatePageOrDocPressure,
+    IReadOnlyList<RagRetrievalCandidateDiagnosticsDto> Items
+);
+
+/// <summary>
 /// Response contract for POST /rag/search aligned with CDC v3.1 retrieval output.
 /// </summary>
 public sealed record RagSearchResponseDto(
@@ -272,5 +328,6 @@ public sealed record RagSearchResponseDto(
     int MaxPerPage,
     RagMetricsDto Metrics,
     IReadOnlyList<RagItemDto> Items,
-    RagAnswerGuidanceDto? Guidance = null
+    RagAnswerGuidanceDto? Guidance = null,
+    RagRetrievalDiagnosticsDto? Diagnostics = null
 );

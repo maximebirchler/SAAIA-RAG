@@ -95,7 +95,7 @@ ORDER BY display_order, name;
             return BuildRagSearchBusyResult(ctx, ragOpt.Value, searchBulkhead);
 
         AddRagSearchAdmissionHeaders(ctx, admission, searchBulkhead.GetSnapshot());
-        var responseDto = await BuildSearchResponseDtoAsync(ctx, ds, ragOpt.Value, httpFactory, req);
+        var responseDto = await BuildSearchResponseDtoAsync(ctx, ds, ragOpt.Value, httpFactory, req with { IncludeDiagnostics = false });
         return Results.Ok(new
         {
             query = responseDto.Query,
@@ -125,7 +125,7 @@ ORDER BY display_order, name;
             return BuildRagSearchBusyResult(ctx, ragOpt.Value, searchBulkhead);
 
         AddRagSearchAdmissionHeaders(ctx, admission, searchBulkhead.GetSnapshot());
-        var responseDto = await BuildSearchResponseDtoAsync(ctx, ds, ragOpt.Value, httpFactory, req);
+        var responseDto = await BuildSearchResponseDtoAsync(ctx, ds, ragOpt.Value, httpFactory, req with { IncludeDiagnostics = false });
         return Results.Ok(responseDto);
     }
 
@@ -146,7 +146,12 @@ ORDER BY display_order, name;
             return BuildRagSearchBusyResult(ctx, ragOpt.Value, searchBulkhead);
 
         AddRagSearchAdmissionHeaders(ctx, admission, searchBulkhead.GetSnapshot());
-        var responseDto = await BuildSearchResponseDtoAsync(ctx, ds, ragOpt.Value, httpFactory, req);
+        var responseDto = await BuildSearchResponseDtoAsync(
+            ctx,
+            ds,
+            ragOpt.Value,
+            httpFactory,
+            req with { IncludeDiagnostics = true });
         return Results.Ok(responseDto);
     }
 
@@ -422,7 +427,8 @@ ORDER BY display_order, name;
             Guidance: BuildAnswerGuidance(
                 resp.Query,
                 qualityAdjustedMatches.Select(static item => item.Match).ToList(),
-                effectiveExtractionQualityByMatch)
+                effectiveExtractionQualityByMatch),
+            Diagnostics: resp.Diagnostics
         );
     }
 
@@ -1923,6 +1929,19 @@ ORDER BY d.doc_path;
             : usesDelimitedLexicalSurface
                 ? lexicalRetrievalSurface
             : req.Query;
+        var diagnostics = req.IncludeDiagnostics == true
+            ? new RagRetrievalDiagnosticsBuilder(
+                query: req.Query,
+                retrievalQuery: retrievalQuery,
+                selectionQuery: selectionQuery,
+                mode: mode,
+                category: requestedCategory ?? categoryQueryHint,
+                categoryPath: categoryPath,
+                topK: requestedTopK,
+                candidates: candidates,
+                maxPerDoc: maxPerDoc,
+                maxPerPage: maxPerPage)
+            : null;
         var allowSparseAssistForScopedProfileFallback =
             useScopedProfileFallback && ShouldAllowSparseAssistForScopedProfileFallback(req.Query);
         var allowSparseAssistForBroadDiversity =
@@ -2095,6 +2114,12 @@ ORDER BY d.doc_path;
             .ThenBy(static match => match.DocPath, StringComparer.OrdinalIgnoreCase)
             .ThenBy(static match => match.ChunkIndex)
             .ToList();
+        diagnostics?.CapturePhase("exact_match", "exact_match", exactMs, exactMatches);
+        diagnostics?.CapturePhase("quoted_title", "quoted_title", quotedTitleMs, quotedTitleMatches);
+        diagnostics?.CapturePhase("quoted_title_anchor", "title_anchor_route", quotedTitleAnchorMs, quotedTitleAnchorMatches);
+        diagnostics?.CapturePhase("explicit_document_title", "explicit_document_title_route", explicitDocumentTitleMs, explicitDocumentTitleMatches);
+        diagnostics?.CapturePhase("local_title_token", "local_title_token_route", localTitleTokenMs, localTitleTokenMatches);
+        diagnostics?.CapturePhase("title_lookup_combined", "title_lookup", null, titleLookupMatches);
         var explicitDocumentScopedBackfillQuery = hasExplicitFileDocumentHint
             ? BuildDocumentHintScopedBackfillQuery(req.Query, retrievalQuery)
             : string.Empty;
@@ -2399,6 +2424,10 @@ ORDER BY d.doc_path;
             sparsePhaseMs = measuredSparsePhaseMs + measuredExplicitDocumentScopedMs;
             densePhaseMs = measuredDensePhaseMs;
             profilePhaseMs = measuredProfilePhaseMs;
+            diagnostics?.CapturePhase("title_anchor_route_broad", "title_anchor_route", measuredTitleAnchorRoutePhaseMs, titleAnchorRouteMatches);
+            diagnostics?.CapturePhase("sparse_bm25", "sparse_bm25", sparsePhaseMs, effectiveSparseMatches);
+            diagnostics?.CapturePhase("dense_qdrant", "dense_qdrant", densePhaseMs, denseMatches);
+            diagnostics?.CapturePhase("document_profile", "document_profile", profilePhaseMs, profileMatches);
 
             var fusionSw = Stopwatch.StartNew();
             var exactAndQuotedMatches = titleLookupMatches.Count == 0
@@ -2412,13 +2441,16 @@ ORDER BY d.doc_path;
                 && ShouldSuppressUnanchoredSpecificResults(retrievalQuery, fusedMatches);
             fusionSw.Stop();
             fusionMs += fusionSw.ElapsedMilliseconds;
+            diagnostics?.CapturePhase("fusion_rrf", "rrf_fusion", fusionMs, fusedMatches);
 
             if (suppressUnanchoredSpecificResults)
             {
+                diagnostics?.CapturePhase("fusion_suppressed", "selection_guard", null, fusedMatches);
                 fusedMatches = [];
             }
             else
             {
+                var preRerankMatches = fusedMatches.ToList();
                 var (rerankAttempt, measuredRerankPhaseMs) = await MeasurePhaseAsync(
                     phaseName: "retrieval_rerank",
                     retriever: "tei_rerank",
@@ -2432,6 +2464,7 @@ ORDER BY d.doc_path;
                         teiGovernor: teiGovernor),
                     getReturnedCount: static attempt => attempt.Matches.Count);
                 rerankPhaseMs += measuredRerankPhaseMs;
+                diagnostics?.CapturePhase("rerank_input", "tei_rerank", null, preRerankMatches);
                 if (rerankAttempt.Applied)
                 {
                     fusionSw.Restart();
@@ -2445,6 +2478,11 @@ ORDER BY d.doc_path;
                 {
                     fusedMatches = rerankAttempt.Matches;
                 }
+                diagnostics?.CapturePhase(
+                    rerankAttempt.Applied ? "rerank_output" : "rerank_skipped",
+                    "tei_rerank",
+                    measuredRerankPhaseMs,
+                    fusedMatches);
             }
 
             var selectionSw = Stopwatch.StartNew();
@@ -2466,6 +2504,7 @@ ORDER BY d.doc_path;
                 query: selectionQuery);
             selectionSw.Stop();
             selectionMs += selectionSw.ElapsedMilliseconds;
+            diagnostics?.CapturePhase("selection_after_fusion", "final_selection", selectionSw.ElapsedMilliseconds, selected);
 
             if (!skipChunkRetrieversForDocumentOverview
                 && !hasExplicitFileDocumentHint
@@ -4997,6 +5036,7 @@ ORDER BY d.doc_path;
         }
 
         swTotal.Stop();
+        diagnostics?.CapturePhase("final_selected", "final_selection", selectionMs, selected);
 
         var response = new RagSearchResponse(
             RequestId: ctx.GetRequestId(),
@@ -5034,7 +5074,8 @@ ORDER BY d.doc_path;
                 ? null
                 : degradedRetrieverErrors
                     .OrderBy(static pair => pair.Key, StringComparer.Ordinal)
-                    .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal));
+                    .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal),
+            Diagnostics: diagnostics?.Build(selected));
 
         RetrievalTelemetry.CompleteSearch(searchActivity, response, mode, hasCategoryFilter, hasDocScope);
         RetrievalTelemetry.RecordSearch(response, mode, hasCategoryFilter, hasDocScope, exactMs, sparsePhaseMs + titleAnchorRoutePhaseMs + profilePhaseMs, densePhaseMs, linkedPhaseMs);
@@ -35778,5 +35819,105 @@ public sealed record RagSearchResponse(
     RagSearchTimings Timings,
     IReadOnlyList<RagMatch> Matches,
     IReadOnlyList<string>? DegradedRetrievers = null,
-    IReadOnlyDictionary<string, string>? DegradedRetrieverErrors = null
+    IReadOnlyDictionary<string, string>? DegradedRetrieverErrors = null,
+    RagRetrievalDiagnosticsDto? Diagnostics = null
 );
+
+internal sealed class RagRetrievalDiagnosticsBuilder(
+    string query,
+    string retrievalQuery,
+    string selectionQuery,
+    string mode,
+    string? category,
+    string? categoryPath,
+    int topK,
+    int candidates,
+    int maxPerDoc,
+    int maxPerPage)
+{
+    private const int MaxPhaseCount = 24;
+    private const int MaxCandidatesPerPhase = 12;
+    private readonly List<RagRetrievalPhaseDiagnosticsDto> _phases = new();
+
+    public void CapturePhase(string name, string retriever, long? durationMs, IReadOnlyList<RagMatch> matches)
+    {
+        if (_phases.Count >= MaxPhaseCount)
+            return;
+
+        _phases.Add(new RagRetrievalPhaseDiagnosticsDto(
+            Name: name,
+            Retriever: retriever,
+            Returned: matches.Count,
+            DurationMs: durationMs,
+            TopCandidates: BuildCandidates(matches, MaxCandidatesPerPhase)));
+    }
+
+    public RagRetrievalDiagnosticsDto Build(IReadOnlyList<RagMatch> selected)
+        => new(
+            Mode: mode,
+            Query: query,
+            RetrievalQuery: retrievalQuery,
+            SelectionQuery: selectionQuery,
+            Category: category,
+            CategoryPath: categoryPath,
+            TopK: topK,
+            Candidates: candidates,
+            MaxPerDoc: maxPerDoc,
+            MaxPerPage: maxPerPage,
+            Phases: _phases.ToArray(),
+            Selection: new RagRetrievalSelectionDiagnosticsDto(
+                Returned: selected.Count,
+                TopK: topK,
+                MaxPerDoc: maxPerDoc,
+                MaxPerPage: maxPerPage,
+                DuplicatePageOrDocPressure: ComputeDuplicatePageOrDocPressure(selected),
+                Items: BuildCandidates(selected, Math.Min(MaxCandidatesPerPhase, Math.Max(topK, 1)))));
+
+    private static IReadOnlyList<RagRetrievalCandidateDiagnosticsDto> BuildCandidates(IReadOnlyList<RagMatch> matches, int limit)
+        => matches
+            .Take(Math.Clamp(limit, 1, MaxCandidatesPerPhase))
+            .Select((match, index) => new RagRetrievalCandidateDiagnosticsDto(
+                Rank: index + 1,
+                Score: Math.Round(match.Score, 6),
+                RerankScore: match.RerankScore.HasValue ? Math.Round(match.RerankScore.Value, 6) : null,
+                Retriever: RagEndpoints.ResolveRetriever(match),
+                EmbeddingBasis: match.EmbeddingBasis,
+                DocId: match.DocId,
+                DocName: match.DocName,
+                DocPath: match.DocPath,
+                PageStart: match.PageStart,
+                PageEnd: match.PageEnd,
+                ChunkId: match.ChunkId,
+                ChunkIndex: match.ChunkIndex,
+                HeadingPath: TrimForDiagnostics(match.HeadingPath, 180),
+                SectionTitle: TrimForDiagnostics(match.SectionTitle, 160),
+                ContentRole: match.ContentRole,
+                Snippet: TrimForDiagnostics(match.Text, 260)))
+            .ToArray();
+
+    private static int ComputeDuplicatePageOrDocPressure(IReadOnlyList<RagMatch> selected)
+    {
+        var distinctPages = selected
+            .Select(static match =>
+            {
+                var doc = string.IsNullOrWhiteSpace(match.DocPath)
+                    ? match.DocId ?? string.Empty
+                    : match.DocPath.Trim().Replace('\\', '/');
+                return $"{doc}:{match.PageStart ?? -1}:{match.PageEnd ?? -1}";
+            })
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+        return Math.Max(0, selected.Count - distinctPages);
+    }
+
+    private static string? TrimForDiagnostics(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var collapsed = Regex.Replace(value.Trim(), @"\s+", " ", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
+        return collapsed.Length <= maxLength
+            ? collapsed
+            : string.Concat(collapsed.AsSpan(0, maxLength), "...");
+    }
+}
