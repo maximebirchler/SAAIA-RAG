@@ -3552,7 +3552,8 @@ public sealed partial class ToolAgentOrchestrator
                         {
                             writerAnswer = repairAnswer;
                         }
-                        else
+                        else if (!ShouldAllowWriterForPartialSourceBackedPlanning(planningToolResults, effectiveUserMessage, plan.Language)
+                            && !ShouldPreferWriterForPolishedSourceBackedAnswer(planningToolResults, effectiveUserMessage))
                         {
                             var planningAnswer = BuildSourceBackedPlanningAnswer(
                                 planningToolResults,
@@ -4350,6 +4351,9 @@ ANSWER_SHAPE_GUIDANCE:
 SOURCE_BACKED_COVERAGE_HINTS:
 {BuildSourceBackedCoverageHintsForWriter(writerToolResults, userMessage, plan.Language)}
 
+SOURCE_BACKED_WRITING_BRIEF:
+{BuildSourceBackedWritingBriefForWriter(writerToolResults, userMessage, plan.Language)}
+
 SOURCE_BACKED_CANDIDATE_LEADS:
 {BuildSourceBackedCandidateLeadsForWriter(writerToolResults, userMessage, plan.Language)}
 
@@ -4642,6 +4646,37 @@ AUTHORITATIVE_INVENTORY_DATA (json):
         }
 
         finalAnswer = RemoveTrailingModelEmittedSourceList(finalAnswer);
+        if (usedRagSearch && LooksLikeWriterControlLeak(finalAnswer))
+        {
+            var repairAnswer = await TryRepairSourceBackedSynthesisAnswerWithWriterAsync(
+                chatHistory,
+                userMessage,
+                plan,
+                writerToolResults,
+                ct).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(repairAnswer)
+                && !LooksLikeWriterControlLeak(repairAnswer)
+                && !LooksLikePoorPlanningFallbackAnswer(repairAnswer, userMessage))
+            {
+                finalAnswer = repairAnswer;
+                sources = LooksLikeAnyDocumentaryPlanningRequest(userMessage)
+                    ? DeriveSourcesFromPlanningHits(sourceToolResults, userMessage)
+                    : DeriveSourcesFromRagHits(sourceToolResults);
+                _lastAnswerSource = $"post_writer_guard_control_leak_repaired:{plan.Intent}";
+            }
+            else
+            {
+                var fallbackAnswer = BuildRagEvidenceFallbackAnswer(sourceToolResults, userMessage, plan.Language);
+                if (!string.IsNullOrWhiteSpace(fallbackAnswer))
+                {
+                    finalAnswer = fallbackAnswer;
+                    sources = DeriveSourcesFromRagHits(sourceToolResults);
+                    _lastAnswerSource = $"post_writer_guard_control_leak_deterministic:{plan.Intent}";
+                }
+            }
+
+            finalAnswer = RemoveTrailingModelEmittedSourceList(finalAnswer);
+        }
 
         return (finalAnswer, sources);
     }
@@ -4674,6 +4709,7 @@ Rules:
 - The final answer must be written in the target language. If a source is in another language, translate/paraphrase the useful meaning into the target language and keep only source names, page numbers, units, values and short quoted terms unchanged.
 - Do not say there is no data when hits are present.
 - Do not dump raw excerpts.
+- Treat SOURCE_BACKED_WRITING_BRIEF, SOURCE_BACKED_COVERAGE_HINTS and SOURCE_BACKED_CANDIDATE_LEADS as private drafting aids, not final wording. Do not expose control words such as coverage, candidate(s), slot(s), evidenceRole, writerEvidence or tool result.
 - Your job is to rewrite and synthesize: extract useful facts from the hits, then present them as polished user-facing prose instead of pasting retrieved text.
 - Do not repeat or paraphrase the user's whole question in the first sentence.
 - Do not write bullets whose main content is ""document p.N: copied passage"". Keep source names/pages as short references after a concise candidate or planning point.
@@ -4682,6 +4718,7 @@ Rules:
 - Separate sourced facts from your organization layer: you may arrange sourced candidates into a plan, comparison, recommendation, procedure outline or document list when useful, but state the limits when the sources are partial.
 - Build a short, useful, user-friendly answer from the sourced leads: a natural opening, the requested structure, concise candidate items/actions, caveat for missing coverage, and source names/pages.
 - For planning requests, start with the actual draft structure. Do not open with ""I can build..."" or with the caveat that the sources are partial; put that caveat after the draft.
+- If the sources are partial, make the answer useful first and place the limitation at the end. Avoid mechanical phrases such as ""X candidate(s) for Y slot(s)"" unless the user asked for diagnostics.
 - Prefer clear user-facing labels instead of technical wording.
 - Remove noisy OCR artifacts and avoid copying long passage fragments.
 - Correct obvious OCR/text-extraction damage, missing accents, broken spacing and malformed words when doing so does not change the source facts.
@@ -4702,6 +4739,9 @@ ANSWER_SHAPE_GUIDANCE:
 
 SOURCE_BACKED_COVERAGE_HINTS:
 {BuildSourceBackedCoverageHintsForWriter(writerToolResults, userMessage, plan.Language)}
+
+SOURCE_BACKED_WRITING_BRIEF:
+{BuildSourceBackedWritingBriefForWriter(writerToolResults, userMessage, plan.Language)}
 
 SOURCE_BACKED_CANDIDATE_LEADS:
 {BuildSourceBackedCandidateLeadsForWriter(writerToolResults, userMessage, plan.Language)}
@@ -6818,6 +6858,8 @@ TOOL_RESULTS (json):
                 var extractionQuality = CompactExtractionQualityForPrompt(it);
                 var contentSignals = CompactRetrievalContentSignalsForPrompt(it);
                 var profileSignals = CompactProfileSignalsForPrompt(it);
+                var writerEvidence = BuildWriterEvidenceCueForPrompt(hitSummary, userMessage, maxLength: prioritizeEvidence ? 180 : 140);
+                var writerUse = BuildWriterUseCueForPrompt(hitSummary, userMessage);
                 var keepBroadCardEvidence = ShouldKeepBroadWriterCardEvidence(hitSummary, list.Count, userMessage);
                 var includeCardEvidence = prioritizeEvidence || keepBroadCardEvidence;
                 var matchedContentCards = CompactMatchedContentCardsForPrompt(
@@ -6862,6 +6904,8 @@ TOOL_RESULTS (json):
                         matchedContentCards,
                         profileSignals,
                         selectionHints = BuildRagSelectionHintsPayload(hitSummary, userMessage),
+                        writerEvidence = string.IsNullOrWhiteSpace(writerEvidence) ? null : writerEvidence,
+                        writerUse = string.IsNullOrWhiteSpace(writerUse) ? null : writerUse,
                         contextualSnippet = string.IsNullOrWhiteSpace(contextualSnippet) ? null : contextualSnippet
                     });
                     continue;
@@ -6908,6 +6952,8 @@ TOOL_RESULTS (json):
                     matchedContentCards,
                     profileSignals,
                     selectionHints = BuildRagSelectionHintsPayload(hitSummary, userMessage),
+                    writerEvidence = string.IsNullOrWhiteSpace(writerEvidence) ? null : writerEvidence,
+                    writerUse = string.IsNullOrWhiteSpace(writerUse) ? null : writerUse,
                     contextualSnippet = string.IsNullOrWhiteSpace(contextualSnippet) ? null : contextualSnippet
                 });
             }

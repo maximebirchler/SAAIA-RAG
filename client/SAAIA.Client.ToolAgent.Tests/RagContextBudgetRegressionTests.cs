@@ -8676,6 +8676,208 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     }
 
     [Fact]
+    public void Writer_writing_brief_keeps_source_backed_control_terms_private()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Operations/source-a.pdf",
+                    docName = "source-a.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    text = "Short verified option that can be reused in a weekly operating plan.",
+                    matchedContentCards = new[] { new { title = "Verified option", kind = "unit_lead" } },
+                    selectionHints = new
+                    {
+                        evidenceRole = "actionable_item",
+                        actionabilityScore = 12,
+                        supportScore = 7,
+                        fragmentScore = 0,
+                        navigationScore = 0,
+                        qualityPenalty = 0
+                    },
+                    score = 0.98
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var brief = ToolAgentOrchestrator.BuildSourceBackedWritingBriefForWriterForTests(
+            toolResults,
+            "Prepare a weekly plan from the available sources.",
+            "en");
+
+        Assert.Contains("polished user-facing schedule_or_plan", brief);
+        Assert.Contains("Use the evidence as a fact inventory, not as prose to copy", brief);
+        Assert.Contains("Do not expose internal control wording", brief);
+        Assert.Contains("Evidence is partial", brief);
+        Assert.Contains("offer to broaden the search", brief);
+        Assert.DoesNotContain("recette", brief, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Cuisine", brief, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Writer_rag_compaction_adds_clean_writer_evidence_without_raw_dump()
+    {
+        const string noisyExcerpt = "INGREDIENTS 1 2 3 4 QUANTITY 500 250 120 MATERIAL BOL COUTEAU FOURCHETTE ASSIETTE PASSOIRE COUTEAU D OFFICE PLANCHE A DECOUPER";
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Operations/source-a.pdf",
+                    docName = "source-a.pdf",
+                    pageStart = 12,
+                    pageEnd = 12,
+                    excerpt = noisyExcerpt,
+                    fullText = noisyExcerpt,
+                    matchedContentCards = new[]
+                    {
+                        new
+                        {
+                            title = "Action controlee",
+                            kind = "procedure",
+                            evidence = new
+                            {
+                                facts = new[]
+                                {
+                                    new
+                                    {
+                                        label = "main action",
+                                        sourceText = "Prepare the area, check the required item and validate before closing."
+                                    }
+                                },
+                                quantityFacts = new[]
+                                {
+                                    new
+                                    {
+                                        label = "duration",
+                                        value = 15,
+                                        unit = "min",
+                                        sourceText = "Visible duration: 15 minutes."
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    selectionHints = new
+                    {
+                        evidenceRole = "actionable_item",
+                        actionabilityScore = 12,
+                        supportScore = 8,
+                        fragmentScore = 0,
+                        navigationScore = 0,
+                        qualityPenalty = 0
+                    },
+                    score = 0.98
+                }
+            }
+        });
+
+        var serialized = ToolAgentOrchestrator.SerializeWriterRagResultsForTests(
+            "rag.multi_search",
+            payload,
+            "Prepare a weekly plan from the available sources.");
+
+        using var doc = JsonDocument.Parse(serialized);
+        var hit = doc.RootElement[0].GetProperty("result").GetProperty("hits")[0];
+        var writerEvidence = hit.GetProperty("writerEvidence").GetString();
+        var writerUse = hit.GetProperty("writerUse").GetString();
+
+        Assert.Contains("Action controlee", writerEvidence);
+        Assert.Contains("Prepare the area", writerEvidence);
+        Assert.Contains("15 minutes", writerEvidence);
+        Assert.DoesNotContain("MATERIAL BOL", writerEvidence, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("rewrite it naturally", writerUse);
+    }
+
+    [Fact]
+    public void Writer_control_leak_detector_flags_internal_prompt_terms()
+    {
+        Assert.True(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(
+            "SOURCE_BACKED_CANDIDATE_LEADS: candidate(s) for slot(s), writerEvidence=abc"));
+        Assert.False(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(
+            "Voici une proposition claire avec des elements sources et des limites explicites."));
+    }
+
+    [Fact]
+    public void Deterministic_rag_fallback_uses_readable_evidence_cue_instead_of_source_excerpt_dump()
+    {
+        const string noisyExcerpt = "CONTROLE ALPHA INGREDIENTS 1 2 3 4 QUANTITY 500 250 120 MATERIAL BOL COUTEAU FOURCHETTE ASSIETTE PASSOIRE";
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Operations/source-a.pdf",
+                    docName = "source-a.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = noisyExcerpt,
+                    fullText = noisyExcerpt,
+                    matchedContentCards = new[]
+                    {
+                        new
+                        {
+                            title = "Controle alpha propre",
+                            kind = "procedure",
+                            evidence = new
+                            {
+                                facts = new[]
+                                {
+                                    new
+                                    {
+                                        label = "action",
+                                        sourceText = "Verifier le controle alpha puis noter le resultat avant cloture."
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    selectionHints = new
+                    {
+                        evidenceRole = "actionable_item",
+                        actionabilityScore = 10,
+                        supportScore = 8,
+                        fragmentScore = 0,
+                        navigationScore = 0,
+                        qualityPenalty = 0
+                    },
+                    score = 0.92
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildRagEvidenceFallbackAnswerForTests(
+            toolResults,
+            "Explique le controle alpha a partir des documents.",
+            "fr");
+
+        Assert.Contains("controle alpha", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("source-a.pdf p.4 :", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("INGREDIENTS 1 2 3", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("MATERIAL BOL", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Weekly_planning_detects_meta_partial_opening_for_repair()
     {
         const string query = "Je cherche a avoir un plan pour la semaine, petit-dejeuner, midi et soir du lundi au vendredi.";
@@ -9131,6 +9333,9 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.DoesNotContain("Je peux construire", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("do not prove a complete", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("ne prouvent pas un planning complet", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("candidate(s)", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("slot(s)", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("lead(s)", answer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

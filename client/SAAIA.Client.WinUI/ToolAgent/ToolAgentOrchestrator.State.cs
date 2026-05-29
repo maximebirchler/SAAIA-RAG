@@ -2661,15 +2661,20 @@ CURRENT_USER_MESSAGE:
         foreach (var hit in hits)
         {
             var docLabel = string.IsNullOrWhiteSpace(hit.DocName) ? hit.DocPath : hit.DocName;
-            var excerpt = FormatSourceBackedEvidenceExcerpt(hit, query, SourceBackedEvidenceMaxChars);
+            var evidenceCue = BuildWriterEvidenceCueForPrompt(hit, query, maxLength: SourceBackedEvidenceMaxChars);
+            if (string.IsNullOrWhiteSpace(evidenceCue))
+                evidenceCue = CleanReadableProcedureArtifacts(FormatSourceBackedEvidenceExcerpt(hit, query, SourceBackedEvidenceMaxChars));
+            if (string.IsNullOrWhiteSpace(evidenceCue))
+                continue;
 
             sb.Append("- ");
+            sb.Append(evidenceCue);
+            sb.Append(" (");
             sb.Append(docLabel);
             sb.Append(' ');
             sb.Append(SourceBackedPagePrefix(language));
             sb.Append(hit.PageStart);
-            sb.Append(" : ");
-            sb.AppendLine(excerpt);
+            sb.AppendLine(").");
         }
 
         AppendSourceBackedExtractionQualityCaveat(sb, hits, language);
@@ -3906,6 +3911,19 @@ CURRENT_USER_MESSAGE:
             s,
             @"\b(?:verifie|verifier|verification|check|verify|controle|controler|valide|valider|validation|audit|points?\s+a\s+valider|points?\s+de\s+controle|checklist)\b",
             RegexOptions.CultureInvariant);
+        var asksForExplicitChecklistOrReviewShape = Regex.IsMatch(
+            s,
+            @"\b(?:verifie|verifier|verification|check|verify|valide|valider|validation|audit|checklist|points?\s+a\s+valider|points?\s+de\s+controle|etapes?|steps?|dois|devrais|faut|should|must)\b",
+            RegexOptions.CultureInvariant);
+        if (!asksForExplicitChecklistOrReviewShape
+            && Regex.IsMatch(
+                s,
+                @"\b(?:explique|expliquer|expliquez|explain|explains|explica|explicar|erklaere|erklaren|spiega|spiegare)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
         var asksForActionableShape = Regex.IsMatch(
             s,
             @"\b(?:que|quoi|what|which|comment|how|dois|devrais|faut|should|must|points?|etapes?|steps?|documents?|sources?)\b",
@@ -5429,7 +5447,9 @@ CURRENT_USER_MESSAGE:
             "orienter", "orientation", "utilisateur", "user", "users", "demande",
             "demandes", "demander", "asked", "asks", "question", "questions", "client", "customer", "customers",
             "prepare", "preparer", "repond", "reponds", "repondez", "reponse", "answer", "answers",
-            "respond", "responds", "reply", "replies"
+            "respond", "responds", "reply", "replies",
+            "explique", "expliquer", "expliquez", "explained", "explain", "explains", "explica", "explicar",
+            "erklaere", "erklaren", "erklaert", "spiega", "spiegare"
         };
 
         return stopWords.Contains(normalized);
@@ -5757,32 +5777,32 @@ CURRENT_USER_MESSAGE:
         {
             "en" => (
                 Header: "Here is a structured proposal based on the sourced elements available.",
-                Partial: $"The documents provide {planItems.Count} distinct sourced candidate(s) for {requiredSlots} requested slot(s). I rotate them as a starting point and mark the plan as something to validate, rather than inventing missing items.",
+                Partial: $"The sourced base is still too small to fill the whole requested structure without repetition ({planItems.Count} usable item(s) for {requiredSlots} place(s)). I use it as a starting point to validate rather than inventing missing items.",
                 Complete: "The organization below is proposed by the assistant; each concrete item remains tied to a cited source.",
                 Verify: "Before using it as a final plan, check the cited pages for quantities, timing, constraints and substitutions."),
             "es" => (
                 Header: "Aqui tienes una propuesta estructurada basada en los elementos con fuente disponibles.",
-                Partial: $"Los documentos aportan {planItems.Count} candidato(s) distinto(s) con fuente para {requiredSlots} hueco(s) solicitados. Los roto como punto de partida y marco el plan como algo que debe validarse, sin inventar elementos faltantes.",
+                Partial: $"La base con fuente aun es demasiado pequena para cubrir toda la estructura solicitada sin repetir ({planItems.Count} elemento(s) util(es) para {requiredSlots} espacio(s)). La uso como punto de partida a validar, sin inventar elementos faltantes.",
                 Complete: "La organizacion siguiente es una propuesta del asistente; cada elemento concreto sigue ligado a una fuente citada.",
                 Verify: "Antes de usarlo como plan final, revisa las paginas citadas para cantidades, horarios, restricciones y sustituciones."),
             "pt" => (
                 Header: "Aqui esta uma proposta estruturada baseada nos elementos com fonte disponiveis.",
-                Partial: $"Os documentos fornecem {planItems.Count} candidato(s) distinto(s) com fonte para {requiredSlots} horario(s) pedido(s). Rodo-os como ponto de partida e marco o plano como algo a validar, sem inventar elementos em falta.",
+                Partial: $"A base com fonte ainda e curta demais para cobrir toda a estrutura pedida sem repeticao ({planItems.Count} item(ns) util(eis) para {requiredSlots} espaco(s)). Uso-a como ponto de partida a validar, sem inventar elementos em falta.",
                 Complete: "A organizacao abaixo e uma proposta do assistente; cada item concreto continua ligado a uma fonte citada.",
                 Verify: "Antes de usar isto como plano final, verifica as paginas citadas para quantidades, horarios, restricoes e substituicoes."),
             "de" => (
                 Header: "Hier ist ein strukturierter Vorschlag auf Basis der verfuegbaren belegten Elemente.",
-                Partial: $"Die Dokumente liefern {planItems.Count} unterschiedliche belegte Kandidaten fuer {requiredSlots} angefragte Felder. Ich rotiere sie als Ausgangspunkt und kennzeichne den Plan als zu pruefen, statt fehlende Punkte zu erfinden.",
+                Partial: $"Die belegte Grundlage ist noch zu klein, um die ganze angefragte Struktur ohne Wiederholung zu fuellen ({planItems.Count} nutzbare Elemente fuer {requiredSlots} Plaetze). Ich nutze sie als zu pruefenden Ausgangspunkt, statt fehlende Punkte zu erfinden.",
                 Complete: "Die folgende Organisation ist ein Vorschlag des Assistenten; jeder konkrete Punkt bleibt mit einer Quelle verbunden.",
                 Verify: "Pruefe vor der finalen Nutzung die zitierten Seiten zu Mengen, Zeiten, Einschraenkungen und Alternativen."),
             "it" => (
                 Header: "Ecco una proposta strutturata basata sugli elementi con fonte disponibili.",
-                Partial: $"I documenti forniscono {planItems.Count} candidato/i distinti con fonte per {requiredSlots} slot richiesti. Li alterno come punto di partenza e segnalo il piano come da validare, senza inventare elementi mancanti.",
+                Partial: $"La base con fonte e ancora troppo piccola per coprire tutta la struttura richiesta senza ripetizioni ({planItems.Count} elemento/i utile/i per {requiredSlots} spazio/i). La uso come punto di partenza da validare, senza inventare elementi mancanti.",
                 Complete: "L'organizzazione seguente e una proposta dell'assistente; ogni elemento concreto resta collegato a una fonte citata.",
                 Verify: "Prima di usarlo come piano finale, controlla le pagine citate per quantita, tempi, vincoli e sostituzioni."),
             _ => (
                 Header: "Voici une proposition structurée à partir des éléments sourcés disponibles.",
-                Partial: $"Les documents donnent {planItems.Count} candidat(s) distinct(s) sourcé(s) pour {requiredSlots} créneau(x) demandé(s). Je les fais tourner comme base de départ et je garde le plan à valider, plutôt que d'inventer les éléments manquants.",
+                Partial: $"La base sourcée reste trop courte pour remplir toute la structure demandée sans répétitions ({planItems.Count} élément(s) exploitable(s) pour {requiredSlots} place(s)). Je l'utilise comme point de départ à valider, plutôt que d'inventer les éléments manquants.",
                 Complete: "L'organisation ci-dessous est proposée par l'assistant ; chaque élément concret reste relié à une source citée.",
                 Verify: "Avant d'en faire un planning définitif, vérifie les pages citées pour les quantités, horaires, contraintes et remplacements.")
         };
@@ -5848,27 +5868,27 @@ CURRENT_USER_MESSAGE:
         var labels = language switch
         {
             "en" => (
-                Header: $"I found {planItems.Count} distinct sourced candidate(s) for {requiredSlots} requested slot(s). That is not enough to build a varied complete plan without repeating too much.",
+                Header: $"I found {planItems.Count} usable sourced item(s), but the requested structure has {requiredSlots} place(s). That is not enough to build a varied complete plan without repeating too much.",
                 Intro: "Here is the reliable option bank to start from:",
                 Next: "To complete the plan cleanly, broaden the search or add more source-backed candidates before filling every slot."),
             "es" => (
-                Header: $"He encontrado {planItems.Count} candidato(s) distinto(s) con fuente para {requiredSlots} hueco(s) solicitados. No basta para construir un plan completo y variado sin repetir demasiado.",
+                Header: $"He encontrado {planItems.Count} elemento(s) util(es) con fuente, pero la estructura solicitada tiene {requiredSlots} espacio(s). No basta para construir un plan completo y variado sin repetir demasiado.",
                 Intro: "Esta es la base fiable de opciones:",
                 Next: "Para completar el plan correctamente, amplia la busqueda o anade mas candidatos con fuente antes de llenar todos los huecos."),
             "pt" => (
-                Header: $"Encontrei {planItems.Count} candidato(s) distinto(s) com fonte para {requiredSlots} horario(s) pedido(s). Nao e suficiente para criar um plano completo e variado sem repetir demasiado.",
+                Header: $"Encontrei {planItems.Count} item(ns) util(eis) com fonte, mas a estrutura pedida tem {requiredSlots} espaco(s). Nao e suficiente para criar um plano completo e variado sem repetir demasiado.",
                 Intro: "Esta e a base fiavel de opcoes:",
                 Next: "Para completar o plano corretamente, alarga a pesquisa ou adiciona mais candidatos com fonte antes de preencher todos os horarios."),
             "de" => (
-                Header: $"Ich habe {planItems.Count} unterschiedliche belegte Kandidaten fuer {requiredSlots} angefragte Felder gefunden. Das reicht nicht fuer einen abwechslungsreichen vollstaendigen Plan ohne zu viele Wiederholungen.",
+                Header: $"Ich habe {planItems.Count} nutzbare belegte Elemente gefunden, aber die angefragte Struktur hat {requiredSlots} Plaetze. Das reicht nicht fuer einen abwechslungsreichen vollstaendigen Plan ohne zu viele Wiederholungen.",
                 Intro: "Dies ist die verlaessliche Optionsbank fuer den Start:",
                 Next: "Fuer einen sauberen vollstaendigen Plan sollte die Suche erweitert oder weitere belegte Kandidaten ergaenzt werden."),
             "it" => (
-                Header: $"Ho trovato {planItems.Count} candidato/i distinti con fonte per {requiredSlots} slot richiesti. Non basta per costruire un piano completo e vario senza troppe ripetizioni.",
+                Header: $"Ho trovato {planItems.Count} elemento/i utile/i con fonte, ma la struttura richiesta ha {requiredSlots} spazio/i. Non basta per costruire un piano completo e vario senza troppe ripetizioni.",
                 Intro: "Questa e la banca di opzioni affidabile da cui partire:",
                 Next: "Per completare bene il piano, amplia la ricerca o aggiungi altri candidati con fonte prima di riempire tutti gli slot."),
             _ => (
-                Header: $"J'ai trouv\u00e9 {planItems.Count} piste(s) sourc\u00e9e(s) distincte(s) pour {requiredSlots} cr\u00e9neau(x) demand\u00e9(s). Ce n'est pas assez pour construire un planning complet et vari\u00e9 sans trop r\u00e9p\u00e9ter.",
+                Header: $"J'ai trouv\u00e9 {planItems.Count} \u00e9l\u00e9ment(s) exploitable(s) sourc\u00e9(s), mais la structure demand\u00e9e comporte {requiredSlots} place(s). Ce n'est pas assez pour construire un planning complet et vari\u00e9 sans trop r\u00e9p\u00e9ter.",
                 Intro: "Voici la banque d'options fiable pour commencer :",
                 Next: "Pour compl\u00e9ter le planning proprement, il faut \u00e9largir la recherche ou ajouter d'autres candidats sourc\u00e9s avant de remplir tous les cr\u00e9neaux.")
         };
@@ -6612,6 +6632,7 @@ CURRENT_USER_MESSAGE:
 - If there are fewer distinct sourced candidates than requested slots, do not fill the structure by repeating weak candidates. Place the sourced candidates where they fit and mark the remaining slots as missing/to validate.
 - If the candidate bank is clearly too small for the requested grid, do not fill the whole grid by repetition. Return a readable candidate bank and explain that more sourced candidates are needed for a complete varied plan.
 - If the sourced candidate bank remains too small after retrieval, ask one concise question offering to broaden the search/corpus instead of fabricating missing slots.
+- Do not expose internal wording such as candidate(s), slot(s), coverage or evidence role. Translate that into natural user-facing language.
 - Do not repeat the user request. Start with the useful proposal, then add a short caveat only where the available evidence is partial.
 - Avoid opening with "I can build..." or "the sources do not prove..."; that reads like a refusal instead of a helpful answer.
 """,
@@ -6646,6 +6667,8 @@ Generic output contract:
 - Correct obvious OCR/text-extraction damage, missing accents, broken spacing and malformed words when doing so does not change the source facts.
 - Do not repeat the user's full question in the opening sentence.
 - Do not dump raw excerpts or write bullets whose main content is "document p.N: copied passage".
+- Do not copy SOURCE_BACKED_* control wording. It is there to guide drafting, not to appear in the final answer.
+- Avoid mechanical diagnostic phrasing such as "X candidate(s) for Y slot(s)" unless the user explicitly asks for diagnostics.
 - Use source names/pages as short references after readable points.
 - For planning requests, start with the requested structure or proposal. Put source limits after the useful draft, not as the first sentence.
 - Preserve source grounding: do not invent concrete facts, items, steps, values, quantities, dates or citations absent from the tool results.
@@ -6701,6 +6724,61 @@ Broad source-backed coverage: {broad.UsableHitCount} usable hit(s), {broad.Disti
 Coverage adequate: {(broad.IsAdequate ? "yes" : "no")}.
 If coverage is partial, answer with source-backed leads and clear limits instead of overclaiming.
 """;
+    }
+
+    private static string BuildSourceBackedWritingBriefForWriter(ToolResults toolResults, string? query, string language)
+    {
+        if (string.IsNullOrWhiteSpace(query)
+            || !toolResults.Items.Any(static item => item.ToolName is "rag.search" or "rag.multi_search"))
+        {
+            return "No source-backed writing brief for this turn.";
+        }
+
+        language = NormalizeLanguageCode(language);
+        var shape = ResolveRequestedAnswerShape(query);
+        var sb = new StringBuilder();
+        sb.AppendLine($"Writer objective: answer as a polished user-facing {shape} in language '{language}'.");
+        sb.AppendLine("Use the evidence as a fact inventory, not as prose to copy. Rewrite, group, translate/paraphrase and prioritize while keeping every concrete item tied to a source.");
+        sb.AppendLine("Do not expose internal control wording: candidate(s), slot(s), coverage, evidenceRole, writerEvidence, tool result, broad synthesis or retrieval.");
+
+        if (LooksLikeAnyDocumentaryPlanningRequest(query))
+        {
+            var coverage = EvaluateSourceBackedPlanningCoverage(toolResults, query, language);
+            var dayAxis = DetectRequestedDayAxisLabels(query, language);
+            var periodAxis = DetectRequestedPeriodAxisLabels(query, language);
+            if (dayAxis.Count > 0 && periodAxis.Count > 0)
+            {
+                sb.AppendLine("The user requested an explicit grid. If evidence is sufficient, draft the grid. If not, provide a compact partial proposal or option bank first, then say naturally that more sources are needed to complete all cells.");
+            }
+            else
+            {
+                sb.AppendLine("The user wants an organized proposal. Prefer useful sections or a short ranked option list over one bullet per source.");
+            }
+
+            if (!coverage.IsAdequate)
+            {
+                sb.AppendLine("Evidence is partial: be helpful but do not invent missing concrete items. Avoid filling a complete schedule by repeating the same weak options.");
+                sb.AppendLine("Start with what can already be used, then add a short caveat and offer to broaden the search if a complete answer is needed.");
+            }
+            else
+            {
+                sb.AppendLine("Evidence coverage is acceptable: write the requested structure directly, then mention limits only if extraction quality or source scope requires it.");
+            }
+
+            return sb.ToString().TrimEnd();
+        }
+
+        var broad = EvaluateBroadSourceBackedSynthesisCoverage(toolResults, query);
+        if (!broad.IsAdequate)
+        {
+            sb.AppendLine("Evidence is partial: write the best source-backed answer possible, then state exactly what remains uncertain. Do not turn the answer into a raw evidence list.");
+        }
+        else
+        {
+            sb.AppendLine("Evidence coverage is acceptable: synthesize naturally and cite sources only as short references.");
+        }
+
+        return sb.ToString().TrimEnd();
     }
 
     private static string BuildRequestedStructureGuidanceForWriter(string? query, string language)
@@ -6933,6 +7011,106 @@ If coverage is partial, answer with source-backed leads and clear limits instead
         return evidence;
     }
 
+    private static string BuildWriterEvidenceCueForPrompt(RagHitSummary hit, string? query, int maxLength)
+    {
+        var cardEvidence = BuildWriterContentCardEvidenceCue(hit);
+        if (!string.IsNullOrWhiteSpace(cardEvidence))
+            return TruncateForPrompt(cardEvidence, maxLength);
+
+        var title = ExtractReadablePartialPlanningLeadTitle(hit, query ?? string.Empty);
+        if (!string.IsNullOrWhiteSpace(title)
+            && !LooksLikeGenericWriterEvidenceCueTitle(title)
+            && !LooksLikeNoisyCandidateSupportCue(title))
+            return TruncateForPrompt(title, maxLength);
+
+        var section = CollapseWhitespace(hit.SectionTitle ?? hit.HeadingPath ?? string.Empty);
+        if (!string.IsNullOrWhiteSpace(section)
+            && !LooksLikeGenericWriterEvidenceCueTitle(section)
+            && !LooksLikeNoisyCandidateSupportCue(section))
+            return TruncateForPrompt(section, maxLength);
+
+        var evidence = CleanReadableProcedureArtifacts(FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(hit), maxLength));
+        if (LooksLikeNoisyCandidateSupportCue(evidence))
+            evidence = CleanReadableProcedureArtifacts(FormatReadableEvidenceExcerpt(hit.ContextualSnippet ?? string.Empty, maxLength));
+
+        return LooksLikeNoisyCandidateSupportCue(evidence)
+            ? string.Empty
+            : evidence;
+    }
+
+    private static string BuildWriterContentCardEvidenceCue(RagHitSummary hit)
+    {
+        if (hit.MatchedContentCards is null || hit.MatchedContentCards.Count == 0)
+            return string.Empty;
+
+        var fragments = new List<string>();
+        foreach (var card in hit.MatchedContentCards.Take(2))
+        {
+            var title = CollapseWhitespace(card.Title);
+            if (!string.IsNullOrWhiteSpace(title)
+                && !LooksLikeGenericWriterEvidenceCueTitle(title)
+                && !LooksLikeNoisyCandidateSupportCue(title))
+                fragments.Add(title);
+
+            var facts = card.Evidence?.Facts?
+                .Select(fact => CollapseWhitespace(
+                    !string.IsNullOrWhiteSpace(fact.SourceText)
+                        ? fact.SourceText
+                        : string.Join(' ', new[] { fact.Label, fact.Value, fact.Unit }.Where(static part => !string.IsNullOrWhiteSpace(part)))))
+                .Where(static fact => !string.IsNullOrWhiteSpace(fact))
+                .Where(static fact => !LooksLikeNoisyCandidateSupportCue(fact))
+                .Take(2)
+                .ToArray();
+            if (facts is { Length: > 0 })
+                fragments.AddRange(facts);
+
+            var quantityFacts = card.Evidence?.QuantityFacts?
+                .Select(fact => CollapseWhitespace(
+                    !string.IsNullOrWhiteSpace(fact.SourceText)
+                        ? fact.SourceText
+                        : $"{fact.Label} {fact.Value.ToString(CultureInfo.InvariantCulture)} {fact.Unit}"))
+                .Where(static fact => !string.IsNullOrWhiteSpace(fact))
+                .Where(static fact => !LooksLikeNoisyCandidateSupportCue(fact))
+                .Take(2)
+                .ToArray();
+            if (quantityFacts is { Length: > 0 })
+                fragments.AddRange(quantityFacts);
+        }
+
+        return string.Join(" | ", fragments.Distinct(StringComparer.OrdinalIgnoreCase).Take(4));
+    }
+
+    private static bool LooksLikeGenericWriterEvidenceCueTitle(string? title)
+    {
+        var normalized = NormalizeLexicalLookup(title);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return true;
+
+        return normalized is "document"
+            or "property value"
+            or "properties"
+            or "content"
+            or "content card"
+            or "source"
+            or "sourced lead"
+            or "piste sourcee"
+            or "option sourcee";
+    }
+
+    private static string BuildWriterUseCueForPrompt(RagHitSummary hit, string? query)
+    {
+        var role = NormalizeLexicalLookup(hit.SelectionHintRole ?? hit.ContentRole ?? string.Empty);
+        if (role.Contains("navigation", StringComparison.Ordinal) || BackendSelectionHintsPreferNavigation(hit))
+            return "Use only as navigation/context; do not promote as a proposed item unless the text itself contains a concrete item.";
+        if (role.Contains("fragment", StringComparison.Ordinal) || BackendSelectionHintsPreferLowSignal(hit))
+            return "Use only as weak context; mention uncertainty if it is cited.";
+        if (role.Contains("supporting", StringComparison.Ordinal) || role.Contains("advisory", StringComparison.Ordinal))
+            return "Use as supporting context or caveat, not as the main recommendation.";
+        if (role.Contains("actionable", StringComparison.Ordinal) || LooksLikeAnyDocumentaryPlanningRequest(query))
+            return "May be used as a concrete candidate if the title/evidence is clear; rewrite it naturally in the target language.";
+        return "Use as evidence inventory; rewrite naturally and keep the source/page reference short.";
+    }
+
     private static bool LooksLikeNoisyCandidateSupportCue(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -6952,6 +7130,22 @@ If coverage is partial, answer with source-backed leads and clear limits instead
             || separatorCount >= 6
             || (digitCount >= 10 && tokenCount >= 10)
             || (letters >= 20 && upperCaseLetters > letters * 0.70);
+    }
+
+    private static bool LooksLikeWriterControlLeak(string? answer)
+    {
+        if (string.IsNullOrWhiteSpace(answer))
+            return false;
+
+        return answer.Contains("SOURCE_BACKED_", StringComparison.OrdinalIgnoreCase)
+            || answer.Contains("TOOL_RESULTS", StringComparison.OrdinalIgnoreCase)
+            || answer.Contains("writerEvidence", StringComparison.OrdinalIgnoreCase)
+            || answer.Contains("writerUse", StringComparison.OrdinalIgnoreCase)
+            || answer.Contains("evidenceRole", StringComparison.OrdinalIgnoreCase)
+            || answer.Contains("candidate(s)", StringComparison.OrdinalIgnoreCase)
+            || answer.Contains("slot(s)", StringComparison.OrdinalIgnoreCase)
+            || answer.Contains("lead(s)", StringComparison.OrdinalIgnoreCase)
+            || Regex.IsMatch(answer, @"\btool\s+result\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
     private static string ResolveRequestedAnswerShape(string? query)
@@ -7109,6 +7303,9 @@ If coverage is partial, answer with source-backed leads and clear limits instead
         {
             return false;
         }
+
+        if (LooksLikeWriterControlLeak(answer))
+            return true;
 
         if (LooksLikeRawExcerptDumpPlanningAnswer(answer, query))
             return true;
@@ -16357,18 +16554,31 @@ If coverage is partial, answer with source-backed leads and clear limits instead
 
         var sb = new StringBuilder();
         sb.AppendLine(labels.Header);
+        var emitted = 0;
         foreach (var hit in hits)
         {
             var docLabel = string.IsNullOrWhiteSpace(hit.DocName) ? hit.DocPath : hit.DocName;
-            var excerpt = FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(hit), maxLength: 260);
+            var evidenceCue = BuildWriterEvidenceCueForPrompt(hit, query, maxLength: 180);
+            if (string.IsNullOrWhiteSpace(evidenceCue))
+                evidenceCue = CleanReadableProcedureArtifacts(FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(hit), maxLength: 160));
+            if (string.IsNullOrWhiteSpace(evidenceCue))
+                continue;
+
             sb.Append("- ");
+            sb.Append(evidenceCue);
+            sb.Append(" (");
             sb.Append(docLabel);
             sb.Append(' ');
             sb.Append(SourceBackedPagePrefix(language));
             sb.Append(hit.PageStart);
-            sb.Append(" : ");
-            sb.AppendLine(excerpt);
+            sb.AppendLine(").");
+            emitted++;
         }
+        if (emitted == 0)
+            return AppendBroadenedSearchOfferIfHelpful(
+                DeterministicAgentText.AnswerNotEnoughUsableInfo(language),
+                query,
+                language);
 
         sb.Append(labels.Caveat);
         return AppendBroadenedSearchOfferIfHelpful(sb.ToString(), query, language);
@@ -16489,32 +16699,32 @@ If coverage is partial, answer with source-backed leads and clear limits instead
         {
             "en" => (
                 Header: "Here is a readable starting plan from the available sourced elements.",
-                Partial: $"The sources provide {slotLeads.Count} distinct usable lead(s) for {requiredSlots} requested slot(s). I place the sourced leads and leave the missing slots explicit instead of inventing extra items.",
+                Partial: $"The sourced base is incomplete ({slotLeads.Count} usable item(s) for {requiredSlots} place(s)). I place what is supported and leave the missing places explicit instead of inventing extra items.",
                 MissingSlot: "to complete with an additional source",
                 Verify: "Before using it as a final plan, check the cited pages for quantities, timing, constraints and substitutions."),
             "es" => (
                 Header: "Aqui tienes un plan inicial legible basado en los elementos con fuente disponibles.",
-                Partial: $"Las fuentes aportan {slotLeads.Count} pista(s) utilizable(s) distinta(s) para {requiredSlots} hueco(s) solicitados. Coloco las pistas con fuente y dejo explicitos los huecos que faltan, sin inventar elementos adicionales.",
+                Partial: $"La base con fuente esta incompleta ({slotLeads.Count} elemento(s) util(es) para {requiredSlots} espacio(s)). Coloco lo que esta respaldado y dejo explicitos los espacios que faltan, sin inventar elementos adicionales.",
                 MissingSlot: "completar con una fuente adicional",
                 Verify: "Antes de usarlo como plan final, revisa las paginas citadas para cantidades, horarios, restricciones y sustituciones."),
             "pt" => (
                 Header: "Aqui esta um plano inicial legivel baseado nos elementos com fonte disponiveis.",
-                Partial: $"As fontes fornecem {slotLeads.Count} pista(s) utilizavel(is) distinta(s) para {requiredSlots} horario(s) pedido(s). Coloco as pistas com fonte e deixo explicitos os espacos em falta, sem inventar itens adicionais.",
+                Partial: $"A base com fonte esta incompleta ({slotLeads.Count} item(ns) util(eis) para {requiredSlots} espaco(s)). Coloco o que esta apoiado pelas fontes e deixo explicitos os espacos em falta, sem inventar itens adicionais.",
                 MissingSlot: "completar com uma fonte adicional",
                 Verify: "Antes de usar isto como plano final, verifica as paginas citadas para quantidades, horarios, restricoes e substituicoes."),
             "de" => (
                 Header: "Hier ist ein lesbarer Startplan aus den verfuegbaren belegten Elementen.",
-                Partial: $"Die Quellen liefern {slotLeads.Count} unterschiedliche nutzbare Hinweise fuer {requiredSlots} angefragte Felder. Ich setze die belegten Hinweise ein und lasse fehlende Felder sichtbar, ohne weitere Elemente zu erfinden.",
+                Partial: $"Die belegte Grundlage ist unvollstaendig ({slotLeads.Count} nutzbare Elemente fuer {requiredSlots} Plaetze). Ich setze ein, was belegt ist, und lasse fehlende Plaetze sichtbar, ohne weitere Elemente zu erfinden.",
                 MissingSlot: "mit einer zusaetzlichen Quelle ergaenzen",
                 Verify: "Pruefe vor der finalen Nutzung die zitierten Seiten zu Mengen, Zeiten, Einschraenkungen und Alternativen."),
             "it" => (
                 Header: "Ecco un piano iniziale leggibile basato sugli elementi con fonte disponibili.",
-                Partial: $"Le fonti forniscono {slotLeads.Count} indicazione/i utilizzabile/i distinta/e per {requiredSlots} slot richiesti. Inserisco le indicazioni con fonte e lascio espliciti gli slot mancanti, senza inventare elementi aggiuntivi.",
+                Partial: $"La base con fonte e incompleta ({slotLeads.Count} elemento/i utile/i per {requiredSlots} spazio/i). Inserisco cio che e supportato e lascio espliciti gli spazi mancanti, senza inventare elementi aggiuntivi.",
                 MissingSlot: "completare con una fonte aggiuntiva",
                 Verify: "Prima di usarlo come piano finale, controlla le pagine citate per quantita, tempi, vincoli e sostituzioni."),
             _ => (
                 Header: "Voici une base de planning lisible à partir des éléments sourcés disponibles.",
-                Partial: $"Les sources donnent {slotLeads.Count} piste(s) exploitable(s) distincte(s) pour {requiredSlots} créneau(x) demandé(s). Je place les pistes sourcées et je laisse visibles les créneaux manquants, sans inventer d'éléments supplémentaires.",
+                Partial: $"La base sourcée est incomplète ({slotLeads.Count} élément(s) exploitable(s) pour {requiredSlots} place(s)). Je place ce qui est appuyé par les sources et je laisse visibles les emplacements manquants, sans inventer d'éléments supplémentaires.",
                 MissingSlot: "à compléter avec une source supplémentaire",
                 Verify: "Avant d'en faire un planning définitif, vérifie les pages citées pour les quantités, horaires, contraintes et remplacements.")
         };
@@ -16826,14 +17036,20 @@ If coverage is partial, answer with source-backed leads and clear limits instead
         foreach (var hit in hits.Take(3))
         {
             var docLabel = string.IsNullOrWhiteSpace(hit.DocName) ? hit.DocPath : hit.DocName;
-            var excerpt = FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(hit), maxLength: 260);
+            var evidenceCue = BuildWriterEvidenceCueForPrompt(hit, query: null, maxLength: 220);
+            if (string.IsNullOrWhiteSpace(evidenceCue))
+                evidenceCue = CleanReadableProcedureArtifacts(FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(hit), maxLength: 180));
+            if (string.IsNullOrWhiteSpace(evidenceCue))
+                continue;
+
             sb.Append("- ");
+            sb.Append(evidenceCue);
+            sb.Append(" (");
             sb.Append(docLabel);
             sb.Append(' ');
             sb.Append(SourceBackedPagePrefix(language));
             sb.Append(hit.PageStart);
-            sb.Append(" : ");
-            sb.AppendLine(excerpt);
+            sb.AppendLine(").");
         }
 
         sb.Append(labels.Caveat);

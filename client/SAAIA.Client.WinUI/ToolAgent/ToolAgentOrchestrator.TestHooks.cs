@@ -661,11 +661,17 @@ public sealed partial class ToolAgentOrchestrator
     internal static string BuildSourceBackedCoverageHintsForWriterForTests(ToolResults toolResults, string query, string language)
         => BuildSourceBackedCoverageHintsForWriter(toolResults, query, language);
 
+    internal static string BuildSourceBackedWritingBriefForWriterForTests(ToolResults toolResults, string query, string language)
+        => BuildSourceBackedWritingBriefForWriter(toolResults, query, language);
+
     internal static string BuildSourceBackedCandidateLeadsForWriterForTests(ToolResults toolResults, string query, string language)
         => BuildSourceBackedCandidateLeadsForWriter(toolResults, query, language);
 
     internal static bool LooksLikeRawExcerptDumpPlanningAnswerForTests(string answer, string query)
         => LooksLikeRawExcerptDumpPlanningAnswer(answer, query);
+
+    internal static bool LooksLikeWriterControlLeakForTests(string answer)
+        => LooksLikeWriterControlLeak(answer);
 
     internal static bool LooksLikePoorPlanningFallbackAnswerForTests(string answer, string query)
         => LooksLikePoorPlanningFallbackAnswer(answer, query);
