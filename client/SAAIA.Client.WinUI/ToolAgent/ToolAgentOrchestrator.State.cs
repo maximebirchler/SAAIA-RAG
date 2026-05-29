@@ -4768,6 +4768,8 @@ CURRENT_USER_MESSAGE:
     }
 
     private const int MaxSourceBackedEvidenceExplorationPasses = 3;
+    private const int MaxSourceBackedLlmEvidenceExplorationPasses = 1;
+    private const int MaxSourceBackedLlmEvidenceExplorationQueries = 12;
 
     private sealed record SourceBackedEvidenceExplorationPass(
         string Label,
@@ -4846,6 +4848,79 @@ CURRENT_USER_MESSAGE:
         }
 
         return passes.Take(MaxSourceBackedEvidenceExplorationPasses).ToArray();
+    }
+
+    private static IReadOnlyList<SourceBackedEvidenceExplorationPass> ParseSourceBackedLlmEvidenceExplorationPasses(
+        string? rawJson,
+        IEnumerable<string>? alreadyTriedQueries = null)
+    {
+        if (string.IsNullOrWhiteSpace(rawJson))
+            return Array.Empty<SourceBackedEvidenceExplorationPass>();
+
+        if (!TryExtractJsonObject(rawJson, out var json))
+            json = rawJson;
+
+        JsonDocument doc;
+        try
+        {
+            doc = JsonDocument.Parse(json);
+        }
+        catch (JsonException)
+        {
+            return Array.Empty<SourceBackedEvidenceExplorationPass>();
+        }
+        using (doc)
+        {
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                return Array.Empty<SourceBackedEvidenceExplorationPass>();
+
+            var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (alreadyTriedQueries is not null)
+            {
+                foreach (var query in alreadyTriedQueries)
+                {
+                    var normalized = NormalizeGeneratedSourceBackedExplorationQueryForDedup(query);
+                    if (!string.IsNullOrWhiteSpace(normalized))
+                        emitted.Add(normalized);
+                }
+            }
+
+            var passes = new List<SourceBackedEvidenceExplorationPass>();
+            if (doc.RootElement.TryGetProperty("passes", out var passesElement) && passesElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var passElement in passesElement.EnumerateArray())
+                {
+                    if (passElement.ValueKind != JsonValueKind.Object)
+                        continue;
+
+                    var label = NormalizeSourceBackedLlmExplorationLabel(TryGetString(passElement, "label"));
+                    var purpose = CollapseWhitespace(TryGetString(passElement, "purpose") ?? string.Empty);
+                    var queries = ExtractSanitizedSourceBackedLlmExplorationQueries(passElement, emitted);
+                    if (queries.Length == 0)
+                        continue;
+
+                    passes.Add(new SourceBackedEvidenceExplorationPass(
+                        label,
+                        string.IsNullOrWhiteSpace(purpose) ? "LLM-planned bounded evidence search." : purpose,
+                        queries));
+                    if (passes.Count >= MaxSourceBackedLlmEvidenceExplorationPasses)
+                        break;
+                }
+            }
+            else
+            {
+                var queries = ExtractSanitizedSourceBackedLlmExplorationQueries(doc.RootElement, emitted);
+                if (queries.Length > 0)
+                {
+                    passes.Add(new SourceBackedEvidenceExplorationPass(
+                        "llm_strategy",
+                        "LLM-planned bounded evidence search.",
+                        queries));
+                }
+            }
+
+            return passes;
+        }
     }
 
     private static string[] BuildSourceBackedCandidateDiscoveryRetrievalQueries(string query)
@@ -4955,12 +5030,109 @@ CURRENT_USER_MESSAGE:
             .ToArray();
     }
 
+    private static string NormalizeSourceBackedLlmExplorationLabel(string? label)
+    {
+        var normalized = CollapseWhitespace(label ?? string.Empty)
+            .ToLowerInvariant()
+            .Replace('-', '_');
+        normalized = Regex.Replace(normalized, @"[^a-z0-9_]+", "_", RegexOptions.CultureInvariant).Trim('_');
+        return string.IsNullOrWhiteSpace(normalized) ? "llm_strategy" : normalized;
+    }
+
+    private static string[] ExtractSanitizedSourceBackedLlmExplorationQueries(
+        JsonElement container,
+        HashSet<string> emitted)
+    {
+        if (!container.TryGetProperty("queries", out var queriesElement) || queriesElement.ValueKind != JsonValueKind.Array)
+            return Array.Empty<string>();
+
+        var queries = new List<string>();
+        foreach (var queryElement in queriesElement.EnumerateArray())
+        {
+            if (queryElement.ValueKind != JsonValueKind.String)
+                continue;
+
+            var sanitized = SanitizeSourceBackedLlmExplorationQuery(queryElement.GetString());
+            if (string.IsNullOrWhiteSpace(sanitized))
+                continue;
+
+            var key = NormalizeGeneratedSourceBackedExplorationQueryForDedup(sanitized);
+            if (string.IsNullOrWhiteSpace(key) || !emitted.Add(key))
+                continue;
+
+            queries.Add(sanitized);
+            if (queries.Count >= MaxSourceBackedLlmEvidenceExplorationQueries)
+                break;
+        }
+
+        return queries.ToArray();
+    }
+
+    private static string? SanitizeSourceBackedLlmExplorationQuery(string? query)
+    {
+        var value = CollapseWhitespace(query ?? string.Empty)
+            .Trim(' ', '.', ',', ';', ':', '-', '\u2022', '\u00b7');
+        if (value.Length < 3 || value.Length > 120)
+            return null;
+
+        if (LooksLikeUnsafeGeneratedSourceBackedExplorationQuery(value))
+            return null;
+
+        if (Regex.Matches(value, @"[{}<>]").Count > 0)
+            return null;
+
+        var tokenCount = Regex.Matches(value, @"[\p{L}\p{N}][\p{L}\p{N}'’/-]*", RegexOptions.CultureInvariant).Count;
+        if (tokenCount is < 1 or > 14)
+            return null;
+
+        var normalized = NormalizeRagQueryForRetrieval(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return null;
+
+        normalized = CollapseWhitespace(normalized)
+            .Trim(' ', '.', ',', ';', ':', '-', '\u2022', '\u00b7');
+        if (normalized.Length < 3 || normalized.Length > 120)
+            return null;
+
+        return normalized;
+    }
+
+    private static bool LooksLikeUnsafeGeneratedSourceBackedExplorationQuery(string value)
+    {
+        var normalized = NormalizeLexicalLookup(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return true;
+
+        if (Regex.IsMatch(
+                normalized,
+                @"\b(?:ignore|override|bypass|system prompt|developer message|tool result|tool_results|assistant response|final answer|json schema|execute|delete|drop table|powershell|cmd\.exe|http://|https://)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:reponds?|answer|write|redige|ecris|compose|summarize|resume)\b.+\b(?:directly|directement|finale?|utilisateur|user)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static string NormalizeGeneratedSourceBackedExplorationQueryForDedup(string? query)
+    {
+        var normalized = NormalizeRagQueryForRetrieval(query ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(normalized))
+            normalized = CollapseWhitespace(query ?? string.Empty);
+
+        return CollapseWhitespace(normalized).ToLowerInvariant();
+    }
+
     private static int ResolveSourceBackedEvidenceExplorationTopK(string? query, string passLabel)
     {
         var baseTopK = LooksLikeAnyDocumentaryPlanningRequest(query)
             ? NormalizeSourceBackedPlanningTopK(null, query ?? string.Empty)
             : Math.Max(12, NormalizeSourceBackedActionTopK(null, query ?? string.Empty));
         return string.Equals(passLabel, "candidate_discovery", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(passLabel, "llm_strategy", StringComparison.OrdinalIgnoreCase)
             ? Math.Max(baseTopK, 18)
             : baseTopK;
     }

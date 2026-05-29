@@ -608,6 +608,20 @@ public sealed partial class ToolAgentOrchestrator
             .SelectMany(static pass => pass.Queries)
             .ToArray();
 
+    internal static string[] ParseSourceBackedLlmEvidenceExplorationPassLabelsForTests(
+        string rawJson,
+        IEnumerable<string>? alreadyTriedQueries = null)
+        => ParseSourceBackedLlmEvidenceExplorationPasses(rawJson, alreadyTriedQueries)
+            .Select(static pass => pass.Label)
+            .ToArray();
+
+    internal static string[] ParseSourceBackedLlmEvidenceExplorationQueriesForTests(
+        string rawJson,
+        IEnumerable<string>? alreadyTriedQueries = null)
+        => ParseSourceBackedLlmEvidenceExplorationPasses(rawJson, alreadyTriedQueries)
+            .SelectMany(static pass => pass.Queries)
+            .ToArray();
+
     internal static bool IsBetterSourceBackedEvidenceCoverageForTests(
         ToolResults current,
         ToolResults candidate,

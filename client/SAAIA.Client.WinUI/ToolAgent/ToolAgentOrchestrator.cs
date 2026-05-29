@@ -1056,21 +1056,18 @@ public sealed partial class ToolAgentOrchestrator
         if (!currentAnalysis.ShouldExplore)
             return false;
 
-        var passes = BuildSourceBackedEvidenceExplorationPasses(toolResults, effectiveUserMessage, plan.Language);
-        if (passes.Count == 0)
-            return false;
-
         var acceptedAny = false;
         var categoryScope = string.IsNullOrWhiteSpace(categoryScopeOverride)
             ? ResolveRagCategoryScope(effectiveUserMessage)
             : categoryScopeOverride;
-        foreach (var pass in passes.Take(MaxSourceBackedEvidenceExplorationPasses))
-        {
-            if (!currentAnalysis.ShouldExplore)
-                break;
+        var remainingRagCalls = Math.Max(0, MaxRagToolCalls - CountRagRetrievalToolCalls(toolResults));
 
-            if (pass.Queries.Length == 0)
-                continue;
+        async Task<bool> TryExecuteExplorationPassAsync(SourceBackedEvidenceExplorationPass pass)
+        {
+            if (!currentAnalysis.ShouldExplore || remainingRagCalls <= 0 || pass.Queries.Length == 0)
+                return false;
+
+            remainingRagCalls--;
 
             var args = CreateJsonArgs(new
             {
@@ -1090,7 +1087,7 @@ public sealed partial class ToolAgentOrchestrator
                 if (!HasRagHits(expandedResult))
                 {
                     _lastToolDurations.Add(("rag.multi_search", sw.ElapsedMilliseconds, true));
-                    continue;
+                    return false;
                 }
 
                 var candidate = new ToolResults();
@@ -1108,7 +1105,7 @@ public sealed partial class ToolAgentOrchestrator
                 if (!improvesCoverage)
                 {
                     _lastToolDurations.Add(("rag.multi_search", sw.ElapsedMilliseconds, true));
-                    continue;
+                    return false;
                 }
 
                 toolResults.Items.Add(new ToolResults.Item
@@ -1121,7 +1118,7 @@ public sealed partial class ToolAgentOrchestrator
                 if (!_mem.LastToolNames.Contains("rag.multi_search", StringComparer.OrdinalIgnoreCase))
                     _mem.LastToolNames.Add("rag.multi_search");
                 currentAnalysis = candidateAnalysis;
-                acceptedAny = true;
+                return true;
             }
             catch (OperationCanceledException)
             {
@@ -1132,10 +1129,294 @@ public sealed partial class ToolAgentOrchestrator
                 sw.Stop();
                 _lastToolDurations.Add(("rag.multi_search", sw.ElapsedMilliseconds, false));
             }
+
+            return false;
+        }
+
+        var passes = BuildSourceBackedEvidenceExplorationPasses(toolResults, effectiveUserMessage, plan.Language);
+        foreach (var pass in passes.Take(MaxSourceBackedEvidenceExplorationPasses))
+        {
+            if (await TryExecuteExplorationPassAsync(pass).ConfigureAwait(false))
+                acceptedAny = true;
+        }
+
+        if (currentAnalysis.ShouldExplore
+            && remainingRagCalls > 0
+            && ShouldUseLlmSourceBackedEvidencePlanner(effectiveUserMessage, currentAnalysis))
+        {
+            var plannedPasses = await TryBuildLlmSourceBackedEvidenceExplorationPassesAsync(
+                    toolResults,
+                    currentAnalysis,
+                    effectiveUserMessage,
+                    plan.Language,
+                    ct)
+                .ConfigureAwait(false);
+
+            foreach (var pass in plannedPasses.Take(Math.Min(MaxSourceBackedLlmEvidenceExplorationPasses, remainingRagCalls)))
+            {
+                if (await TryExecuteExplorationPassAsync(pass).ConfigureAwait(false))
+                    acceptedAny = true;
+            }
         }
 
         return acceptedAny;
     }
+
+    private async Task<IReadOnlyList<SourceBackedEvidenceExplorationPass>> TryBuildLlmSourceBackedEvidenceExplorationPassesAsync(
+        ToolResults toolResults,
+        SourceBackedEvidenceSufficiency currentAnalysis,
+        string effectiveUserMessage,
+        string language,
+        CancellationToken ct)
+    {
+        var alreadyTriedQueries = BuildAlreadyTriedSourceBackedEvidenceExplorationQueries(toolResults, effectiveUserMessage, language);
+        var system = BuildSourceBackedLlmEvidenceExplorationSystemPrompt(language);
+        var user = BuildSourceBackedLlmEvidenceExplorationUserPrompt(
+            toolResults,
+            currentAnalysis,
+            effectiveUserMessage,
+            language,
+            alreadyTriedQueries);
+
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            var raw = await CompleteWithRetryAsync(
+                    new[]
+                    {
+                        ("system", system),
+                        ("user", user)
+                    },
+                    forceJson: true,
+                    ct)
+                .ConfigureAwait(false);
+            sw.Stop();
+            _lastToolDurations.Add(("rag.exploration_plan", sw.ElapsedMilliseconds, true));
+            return ParseSourceBackedLlmEvidenceExplorationPasses(raw, alreadyTriedQueries);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            sw.Stop();
+            _lastToolDurations.Add(("rag.exploration_plan", sw.ElapsedMilliseconds, false));
+            return Array.Empty<SourceBackedEvidenceExplorationPass>();
+        }
+    }
+
+    private static bool ShouldUseLlmSourceBackedEvidencePlanner(
+        string effectiveUserMessage,
+        SourceBackedEvidenceSufficiency currentAnalysis)
+    {
+        if (string.Equals(currentAnalysis.Kind, "planning", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return LooksLikeSourceBackedPairingRecommendationRequest(effectiveUserMessage)
+               || LooksLikeSoftChoiceRecommendationRequest(effectiveUserMessage)
+               || LooksLikeMultipleCandidateSynthesisRequest(effectiveUserMessage)
+               || LooksLikeBroadSourceBackedCompositionRequest(effectiveUserMessage)
+               || LooksLikeUserNeedsSynthesizedDecisionOrPlan(effectiveUserMessage);
+    }
+
+    private static string BuildSourceBackedLlmEvidenceExplorationSystemPrompt(string language)
+        => $@"
+You are SAAIA's retrieval strategist, not the final answer writer.
+Target user language: {NormalizeLanguageCode(language)}.
+
+Task:
+- Read the user request, the current evidence sufficiency report and the current source leads.
+- Propose only additional retrieval queries that may find better source-backed evidence.
+- Do not answer the user.
+- Do not invent document names, category names, file names, product names, recipes or facts.
+- Use generic search reasoning: split broad requests into useful facets, requested constraints, candidate types, synonyms and possible source-language terms.
+- If category hints are present, you may use their names as optional retrieval terms, but do not create category-specific hardcoded rules.
+- Keep queries short and reusable across domains.
+- Avoid duplicates of queries already tried.
+
+Return strict JSON only:
+{{
+  ""passes"": [
+    {{
+      ""label"": ""llm_strategy"",
+      ""purpose"": ""why this pass may improve coverage"",
+      ""queries"": [""short query 1"", ""short query 2""]
+    }}
+  ]
+}}";
+
+    private string BuildSourceBackedLlmEvidenceExplorationUserPrompt(
+        ToolResults toolResults,
+        SourceBackedEvidenceSufficiency currentAnalysis,
+        string effectiveUserMessage,
+        string language,
+        IReadOnlyList<string> alreadyTriedQueries)
+    {
+        var deterministicSeeds = BuildSourceBackedEvidenceExplorationPasses(toolResults, effectiveUserMessage, language)
+            .SelectMany(static pass => pass.Queries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(20)
+            .ToArray();
+
+        return $@"
+USER_REQUEST:
+{effectiveUserMessage}
+
+SUFFICIENCY:
+- kind: {currentAnalysis.Kind}
+- reason: {currentAnalysis.Reason}
+- score: {currentAnalysis.Score}
+- usableHits: {currentAnalysis.UsableHitCount}
+- distinctSourcePages: {currentAnalysis.DistinctSourcePageCount}
+- candidates: {currentAnalysis.CandidateCount}/{currentAnalysis.MinimumCandidateCount}
+- targetSlots: {currentAnalysis.TargetSlotCount}
+- hasRequiredAnchor: {currentAnalysis.HasRequiredAnchor}
+
+CURRENT_SOURCE_LEADS:
+{BuildSourceBackedLlmEvidenceSnapshotForPrompt(toolResults, effectiveUserMessage, language)}
+
+CATEGORY_HINTS:
+{BuildSourceBackedLlmCategoryHintsForPrompt(effectiveUserMessage)}
+
+DETERMINISTIC_QUERY_SEEDS:
+{FormatPromptList(deterministicSeeds)}
+
+ALREADY_TRIED_QUERIES:
+{FormatPromptList(alreadyTriedQueries)}
+
+OUTPUT_RULES:
+- Return at most {MaxSourceBackedLlmEvidenceExplorationQueries} queries in one pass.
+- Prefer 4 to 10 strong queries over many weak queries.
+- Include terms that broaden evidence only when the current leads are too narrow.
+- For broad plans, include candidate-discovery queries and constraint/slot queries.
+- For pairing/recommendation requests, include requested option kinds and target anchors separately.
+- Do not include UI prose, explanations outside JSON, source excerpts or final answer text.";
+    }
+
+    private static string BuildSourceBackedLlmEvidenceSnapshotForPrompt(ToolResults toolResults, string query, string language)
+    {
+        var lines = EnumerateRagHitSummaries(toolResults)
+            .Where(static hit => !LooksLikeNavigationOnlyHit(hit))
+            .Where(static hit => !LooksLikeLowSignalContentCandidateHit(hit))
+            .OrderByDescending(ComputeSourceBackedEvidenceRichnessScore)
+            .ThenByDescending(static hit => hit.Score)
+            .Take(8)
+            .Select(hit =>
+            {
+                var source = string.IsNullOrWhiteSpace(hit.DocName) ? Path.GetFileName(hit.DocPath) : hit.DocName;
+                var cue = BuildWriterEvidenceCueForPrompt(hit, query, maxLength: 120);
+                if (string.IsNullOrWhiteSpace(cue))
+                    cue = BuildSourceBackedCandidateSupportCue(hit);
+                if (string.IsNullOrWhiteSpace(cue))
+                    cue = "source-backed hit";
+
+                var retrievalQuery = string.IsNullOrWhiteSpace(hit.RetrievalQuery)
+                    ? string.Empty
+                    : $" | retrievalQuery: {CollapseWhitespace(hit.RetrievalQuery)}";
+                return $"- {source} {SourceBackedPagePrefix(language)}{Math.Max(1, hit.PageStart)} | {CollapseWhitespace(cue)}{retrievalQuery}";
+            })
+            .ToArray();
+
+        return lines.Length == 0 ? "none" : string.Join(Environment.NewLine, lines);
+    }
+
+    private string BuildSourceBackedLlmCategoryHintsForPrompt(string effectiveUserMessage)
+    {
+        var query = NormalizeLexicalLookup(effectiveUserMessage);
+        var categories = (_mem.LastPresentedCategories ?? new List<ToolMemory.CategorySnapshot>())
+            .Concat(_mem.CatalogSnapshotCache?.Categories ?? new List<ToolMemory.CategorySnapshot>())
+            .GroupBy(static category => CollapseWhitespace(
+                string.IsNullOrWhiteSpace(category.CategoryRef)
+                    ? string.IsNullOrWhiteSpace(category.CategoryPath) ? category.DisplayName : category.CategoryPath
+                    : category.CategoryRef), StringComparer.OrdinalIgnoreCase)
+            .Select(static group => group.First())
+            .Select(category => new
+            {
+                Category = category,
+                Score = ComputeCategoryHintScore(category, query)
+            })
+            .OrderByDescending(static x => x.Score)
+            .ThenBy(static x => x.Category.Ordinal)
+            .Take(12)
+            .Select(static x =>
+            {
+                var category = x.Category;
+                var name = CollapseWhitespace(category.DisplayName);
+                var path = CollapseWhitespace(category.CategoryPath);
+                var aliases = category.Aliases is { Count: > 0 }
+                    ? $" | aliases: {string.Join(", ", category.Aliases.Select(CollapseWhitespace).Where(static a => !string.IsNullOrWhiteSpace(a)).Take(4))}"
+                    : string.Empty;
+                var docs = category.TotalDocuments > 0 ? $" | docs: {category.TotalDocuments}" : string.Empty;
+                return $"- {name}{(string.IsNullOrWhiteSpace(path) || string.Equals(path, name, StringComparison.OrdinalIgnoreCase) ? string.Empty : $" | path: {path}")}{docs}{aliases}";
+            })
+            .Where(static line => !string.IsNullOrWhiteSpace(line))
+            .ToArray();
+
+        return categories.Length == 0 ? "none" : string.Join(Environment.NewLine, categories);
+    }
+
+    private static int ComputeCategoryHintScore(ToolMemory.CategorySnapshot category, string normalizedQuery)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedQuery))
+            return 0;
+
+        var haystack = NormalizeLexicalLookup(string.Join(' ', new[]
+        {
+            category.DisplayName,
+            category.CategoryPath,
+            string.Join(' ', category.Aliases ?? new List<string>())
+        }));
+        if (string.IsNullOrWhiteSpace(haystack))
+            return 0;
+
+        return ExtractQuerySignalTerms(normalizedQuery)
+            .Where(static term => term.Length >= 4)
+            .Count(term => haystack.Contains(term, StringComparison.Ordinal));
+    }
+
+    private static IReadOnlyList<string> BuildAlreadyTriedSourceBackedEvidenceExplorationQueries(
+        ToolResults toolResults,
+        string effectiveUserMessage,
+        string language)
+    {
+        var queries = new List<string>();
+        AddDistinctQuery(queries, NormalizeRagQueryForRetrieval(effectiveUserMessage));
+
+        foreach (var pass in BuildSourceBackedEvidenceExplorationPasses(toolResults, effectiveUserMessage, language))
+        {
+            foreach (var query in pass.Queries)
+                AddDistinctQuery(queries, query);
+        }
+
+        foreach (var retrievalQuery in EnumerateRagHitSummaries(toolResults)
+                     .Select(static hit => hit.RetrievalQuery)
+                     .Where(static query => !string.IsNullOrWhiteSpace(query))
+                     .Select(static query => query!))
+        {
+            AddDistinctQuery(queries, retrievalQuery);
+        }
+
+        return queries
+            .Where(static query => !string.IsNullOrWhiteSpace(query))
+            .Select(CollapseWhitespace)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(40)
+            .ToArray();
+    }
+
+    private static string FormatPromptList(IEnumerable<string> values)
+    {
+        var lines = values
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => $"- {CollapseWhitespace(value)}")
+            .Take(40)
+            .ToArray();
+        return lines.Length == 0 ? "none" : string.Join(Environment.NewLine, lines);
+    }
+
+    private static int CountRagRetrievalToolCalls(ToolResults toolResults)
+        => toolResults.Items.Count(static item => item.ToolName is "rag.search" or "rag.multi_search");
 
     private async Task<bool> TryExpandBackendGuidanceClarificationRetrievalAsync(
         ToolResults toolResults,
