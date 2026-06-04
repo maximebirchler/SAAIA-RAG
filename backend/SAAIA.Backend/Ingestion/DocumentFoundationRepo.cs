@@ -149,8 +149,23 @@ SET doc_path = EXCLUDED.doc_path,
         await UpsertExactMatchEntriesAsync(conn, tx, tenantId, revisionId, sections, units, exactMatchEntries, ct);
         await UpsertContextualTextEntriesAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, sections, units, publishableContextualTextEntries, ct);
         await UpsertDocumentProfileAsync(conn, tx, tenantId, docId, revisionId, documentProfile, ct);
-        var titleNavigationIndex = DocumentTitleNavigationProjector.Project(sections, units, publishableRetrievalChunks, documentProfile);
-        await UpsertDocumentTitleNavigationIndexAsync(conn, tx, tenantId, docId, revisionId, ingestionVersion, documentProfile, titleNavigationIndex, ct);
+        var titleNavigationIndex = DocumentTitleNavigationProjector.Project(
+            sections,
+            units,
+            publishableRetrievalChunks,
+            retrievalChunks,
+            documentProfile);
+        await UpsertDocumentTitleNavigationIndexAsync(
+            conn,
+            tx,
+            tenantId,
+            docId,
+            revisionId,
+            ingestionVersion,
+            documentProfile,
+            titleNavigationIndex,
+            publishableRetrievalChunkIndexes,
+            ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "page_index", pages, p => $"page:{p.PageNumber}:{p.CharCount}:{Convert.ToHexString(p.Checksum)}", p => p.CharCount, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "sections", sections, s => $"section:{s.Ordinal}:{s.Level}:{s.PageStart}:{s.PageEnd}:{s.Title}", _ => 0, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "units", units, u => $"unit:{u.Ordinal}:{u.PageStart}:{u.PageEnd}:{u.TokenCount}:{u.Text}", u => u.CharCount, ct);
@@ -1247,6 +1262,7 @@ SET card_index = EXCLUDED.card_index,
         int ingestionVersion,
         ProjectedDocumentProfile documentProfile,
         ProjectedDocumentTitleNavigationIndex index,
+        IReadOnlySet<int> persistedRetrievalChunkIndexes,
         CancellationToken ct)
     {
         const string purgeNavigationSql = @"
@@ -1359,7 +1375,9 @@ SET source_kind = EXCLUDED.source_kind,
                     source_ordinal = anchor.SourceOrdinal,
                     section_id = anchor.SectionOrdinal is null ? (Guid?)null : BuildStableSectionId(revisionId, anchor.SectionOrdinal.Value),
                     unit_id = anchor.UnitOrdinal is null ? (Guid?)null : BuildStableUnitId(revisionId, anchor.UnitOrdinal.Value),
-                    retrieval_chunk_id = anchor.ChunkIndex is null ? (Guid?)null : BuildStableRetrievalChunkId(docId, ingestionVersion, anchor.ChunkIndex.Value),
+                    retrieval_chunk_id = anchor.ChunkIndex is null || !persistedRetrievalChunkIndexes.Contains(anchor.ChunkIndex.Value)
+                        ? (Guid?)null
+                        : BuildStableRetrievalChunkId(docId, ingestionVersion, anchor.ChunkIndex.Value),
                     content_card_id = contentCardId,
                     title = NormalizePostgresTextForStorage(anchor.Title),
                     normalized_title = normalizedTitle,
@@ -1458,13 +1476,17 @@ SET source_page = EXCLUDED.source_page,
                 doc_id = docId,
                 entry_index = entry.EntryIndex,
                 source_page = entry.SourcePage,
-                source_chunk_id = entry.SourceChunkIndex is null ? (Guid?)null : BuildStableRetrievalChunkId(docId, ingestionVersion, entry.SourceChunkIndex.Value),
+                source_chunk_id = entry.SourceChunkIndex is null || !persistedRetrievalChunkIndexes.Contains(entry.SourceChunkIndex.Value)
+                    ? (Guid?)null
+                    : BuildStableRetrievalChunkId(docId, ingestionVersion, entry.SourceChunkIndex.Value),
                 source_unit_id = entry.SourceUnitOrdinal is null ? (Guid?)null : BuildStableUnitId(revisionId, entry.SourceUnitOrdinal.Value),
                 label = NormalizePostgresTextForStorage(entry.Label),
                 normalized_label = NormalizePostgresTextForStorage(entry.NormalizedLabel),
                 label_tokens = NormalizePostgresTextArrayForStorage(entry.LabelTokens),
                 target_anchor_id = targetAnchorId,
-                target_chunk_id = entry.TargetChunkIndex is null ? (Guid?)null : BuildStableRetrievalChunkId(docId, ingestionVersion, entry.TargetChunkIndex.Value),
+                target_chunk_id = entry.TargetChunkIndex is null || !persistedRetrievalChunkIndexes.Contains(entry.TargetChunkIndex.Value)
+                    ? (Guid?)null
+                    : BuildStableRetrievalChunkId(docId, ingestionVersion, entry.TargetChunkIndex.Value),
                 target_page_start = entry.TargetPageStart,
                 target_page_end = entry.TargetPageEnd,
                 resolution_method = NormalizePostgresTextForStorage(entry.ResolutionMethod),

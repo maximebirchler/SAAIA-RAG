@@ -181,6 +181,44 @@ public sealed partial class ApiClient
         return payload;
     }
 
+    public async Task<JsonElement> DocumentsNavigationAsync(
+        string? path,
+        string? categoryRef,
+        string? docId,
+        string? docPath,
+        string? q,
+        int limit,
+        int offset,
+        CancellationToken ct)
+    {
+        var lim = Math.Clamp(limit, 1, 200);
+        var off = Math.Max(offset, 0);
+        var qs = new List<string>
+        {
+            $"limit={lim}",
+            $"offset={off}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(path))
+            qs.Add($"path={Uri.EscapeDataString(path.Trim().Replace('\\', '/').Trim('/'))}");
+        if (!string.IsNullOrWhiteSpace(categoryRef))
+            qs.Add($"categoryRef={Uri.EscapeDataString(categoryRef.Trim())}");
+        if (!string.IsNullOrWhiteSpace(docId))
+            qs.Add($"docId={Uri.EscapeDataString(docId.Trim())}");
+        if (!string.IsNullOrWhiteSpace(docPath))
+            qs.Add($"docPath={Uri.EscapeDataString(docPath.Trim().Replace('\\', '/').Trim('/'))}");
+        if (!string.IsNullOrWhiteSpace(q))
+            qs.Add($"q={Uri.EscapeDataString(q.Trim())}");
+
+        return await SendJsonAsync(
+                HttpMethod.Get,
+                "/documents/navigation?" + string.Join("&", qs),
+                null,
+                admin: false,
+                ct)
+            .ConfigureAwait(false);
+    }
+
     public async Task<JsonElement> DocumentsEmptyFoldersCountAsync(string? path, CancellationToken ct)
     {
         var qs = string.IsNullOrWhiteSpace(path)

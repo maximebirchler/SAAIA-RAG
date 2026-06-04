@@ -608,6 +608,18 @@ public sealed partial class ToolAgentOrchestrator
             .SelectMany(static pass => pass.Queries)
             .ToArray();
 
+    internal static string[] BuildSourceBackedRouteAnchorFollowupRetrievalQueriesForTests(
+        ToolResults toolResults,
+        string query,
+        string language)
+        => BuildSourceBackedRouteAnchorFollowupRetrievalQueries(toolResults, query, language);
+
+    internal static bool HasSourceBackedRouteAnchorFollowupQueriesForTests(
+        ToolResults toolResults,
+        string query,
+        string language)
+        => HasSourceBackedRouteAnchorFollowupQueries(toolResults, query, language);
+
     internal static string[] ParseSourceBackedLlmEvidenceExplorationPassLabelsForTests(
         string rawJson,
         IEnumerable<string>? alreadyTriedQueries = null)
@@ -622,12 +634,31 @@ public sealed partial class ToolAgentOrchestrator
             .SelectMany(static pass => pass.Queries)
             .ToArray();
 
+    internal static string BuildSourceBackedAvailableResearchSurfacesForTests()
+        => BuildSourceBackedAvailableResearchSurfacesForPrompt();
+
+    internal static string?[] ParseSourceBackedLlmEvidenceExplorationCategoriesForTests(
+        string rawJson,
+        IEnumerable<string>? alreadyTriedQueries = null)
+        => ParseSourceBackedLlmEvidenceExplorationPasses(rawJson, alreadyTriedQueries)
+            .Select(static pass => pass.CategoryScope)
+            .ToArray();
+
     internal static bool IsBetterSourceBackedEvidenceCoverageForTests(
         ToolResults current,
         ToolResults candidate,
         string query,
         string language)
         => IsBetterSourceBackedEvidenceCoverage(current, candidate, query, language);
+
+    internal static bool CandidateSourceBackedEvidenceAddsUsefulDiversityForTests(
+        ToolResults current,
+        ToolResults candidate,
+        string query,
+        string language)
+        => CandidateSourceBackedEvidenceAddsUsefulDiversity(
+            AnalyzeSourceBackedEvidenceSufficiency(current, query, language),
+            AnalyzeSourceBackedEvidenceSufficiency(candidate, query, language));
 
     internal static string[] BuildDocumentaryProbeRetrievalQueriesForTests(string query)
         => BuildDocumentaryProbeRetrievalQueries(query);
@@ -669,11 +700,30 @@ public sealed partial class ToolAgentOrchestrator
     internal static bool ShouldPreferWriterForPolishedSourceBackedAnswerForTests(ToolResults toolResults, string query)
         => ShouldPreferWriterForPolishedSourceBackedAnswer(toolResults, query);
 
+    internal static bool ShouldRouteSourceBackedAnswerThroughWriterForTests(ToolResults toolResults, string query, string language = "fr")
+        => ShouldRouteSourceBackedAnswerThroughWriter(toolResults, query, language);
+
+    internal static bool ShouldRequireWriterForBroadDocumentaryFinalForTests(ToolResults toolResults, string query, string language = "fr")
+        => ShouldRequireWriterForBroadDocumentaryFinal(toolResults, query, language);
+
+    internal static string BuildSourceBackedStructureHintsForTests(
+        ToolResults toolResults,
+        IReadOnlyList<ToolMemory.SourceRef>? lastSourcesUsed,
+        string query,
+        string language = "fr")
+        => BuildSourceBackedStructureHintsForPrompt(toolResults, lastSourcesUsed, query, language);
+
     internal static bool ShouldUseAdvisoryEvidenceGuardForBroadSynthesisForTests(ToolResults toolResults, string query)
         => ShouldUseAdvisoryEvidenceGuardForBroadSynthesis(toolResults, query);
 
     internal static bool ShouldOfferBroadenedSourceSearchForTests(string query)
         => ShouldOfferBroadenedSourceSearch(query);
+
+    internal static bool ContainsBroadenedSourceSearchOfferForTests(string answer)
+        => ContainsBroadenedSourceSearchOffer(answer);
+
+    internal static bool LooksLikeBroadenedSourceSearchConfirmationForTests(string userMessage)
+        => LooksLikeBroadenedSourceSearchConfirmation(userMessage);
 
     internal static string BuildAnswerShapeGuidanceForWriterForTests(string query, string language)
         => BuildAnswerShapeGuidanceForWriter(query, language);
@@ -711,6 +761,12 @@ public sealed partial class ToolAgentOrchestrator
     internal static string BuildRagEvidenceFallbackAnswerForTests(ToolResults toolResults, string query, string language)
         => BuildRagEvidenceFallbackAnswer(toolResults, query, language);
 
+    internal static string BuildSourceBackedSafeFallbackAnswerForTests(ToolResults toolResults, string query, string language, bool shouldAvoidRaw)
+        => BuildSourceBackedSafeFallbackAnswer(toolResults, query, language, shouldAvoidRaw);
+
+    internal static string BuildReadableSourceBackedCandidateListFallbackAnswerForTests(ToolResults toolResults, string query, string language)
+        => BuildReadableSourceBackedCandidateListFallbackAnswer(toolResults, query, language);
+
     internal static string BuildReadablePartialPlanningEvidenceAnswerForTests(ToolResults toolResults, string query, string language)
         => BuildReadablePartialPlanningEvidenceAnswer(
             EnumerateRagHitSummaries(toolResults).ToList(),
@@ -737,6 +793,9 @@ public sealed partial class ToolAgentOrchestrator
 
     internal static bool LooksLikeSourceBackedOptionRequestForTests(string query)
         => LooksLikeSourceBackedOptionRequest(query);
+
+    internal static bool ShouldAvoidDeterministicSourceBackedOptionFallbackForTests(string query)
+        => ShouldAvoidDeterministicSourceBackedOptionFallback(query);
 
     internal static bool LooksLikeSourceBackedCountdownPlanningRequestForTests(string query)
         => LooksLikeSourceBackedCountdownPlanningRequest(query);
@@ -779,6 +838,9 @@ public sealed partial class ToolAgentOrchestrator
 
     internal static string NormalizeRagQueryForTests(string query)
         => NormalizeRagQueryForRetrieval(query);
+
+    internal static string ResolveSourceBackedFallbackIntentQueryForTests(string query)
+        => ResolveSourceBackedFallbackIntentQuery(query);
 
     internal static string ResolveRagSearchExecutionQueryForTests(string query)
         => ResolveRagSearchExecutionQuery(query);

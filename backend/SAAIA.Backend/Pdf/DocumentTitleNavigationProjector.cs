@@ -10,9 +10,17 @@ internal static partial class DocumentTitleNavigationProjector
         IReadOnlyList<ExtractedDocumentUnit> units,
         IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks,
         ProjectedDocumentProfile documentProfile)
+        => Project(sections, units, retrievalChunks, retrievalChunks, documentProfile);
+
+    internal static ProjectedDocumentTitleNavigationIndex Project(
+        IReadOnlyList<ExtractedDocumentSection> sections,
+        IReadOnlyList<ExtractedDocumentUnit> units,
+        IReadOnlyList<ProjectedRetrievalChunk> targetRetrievalChunks,
+        IReadOnlyList<ProjectedRetrievalChunk> navigationSourceRetrievalChunks,
+        ProjectedDocumentProfile documentProfile)
     {
-        var anchors = BuildTitleAnchors(sections, retrievalChunks, documentProfile);
-        var navigationEntries = BuildNavigationEntries(units, retrievalChunks, anchors);
+        var anchors = BuildTitleAnchors(sections, targetRetrievalChunks, documentProfile);
+        var navigationEntries = BuildNavigationEntries(units, navigationSourceRetrievalChunks, targetRetrievalChunks, anchors);
 
         return new ProjectedDocumentTitleNavigationIndex(anchors, navigationEntries);
     }
@@ -119,16 +127,19 @@ internal static partial class DocumentTitleNavigationProjector
 
     private static IReadOnlyList<ProjectedDocumentNavigationEntry> BuildNavigationEntries(
         IReadOnlyList<ExtractedDocumentUnit> units,
-        IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks,
+        IReadOnlyList<ProjectedRetrievalChunk> navigationSourceRetrievalChunks,
+        IReadOnlyList<ProjectedRetrievalChunk> targetRetrievalChunks,
         IReadOnlyList<ProjectedDocumentTitleAnchor> anchors)
     {
         var entries = new List<ProjectedDocumentNavigationEntry>();
         var seenEntryKeys = new HashSet<string>(StringComparer.Ordinal);
         var maxPage = Math.Max(
             units.Count == 0 ? 0 : units.Max(static unit => unit.PageEnd),
-            retrievalChunks.Count == 0 ? 0 : retrievalChunks.Max(static chunk => chunk.PageEnd));
+            Math.Max(
+                navigationSourceRetrievalChunks.Count == 0 ? 0 : navigationSourceRetrievalChunks.Max(static chunk => chunk.PageEnd),
+                targetRetrievalChunks.Count == 0 ? 0 : targetRetrievalChunks.Max(static chunk => chunk.PageEnd)));
 
-        foreach (var chunk in retrievalChunks
+        foreach (var chunk in navigationSourceRetrievalChunks
             .Where(static chunk =>
                 string.Equals(chunk.ContentRole, RetrievalContentClassifier.NavigationRole, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(chunk.ContentRole, RetrievalContentClassifier.MixedNavigationContentRole, StringComparison.OrdinalIgnoreCase)
@@ -148,7 +159,7 @@ internal static partial class DocumentTitleNavigationProjector
                 if (!seenEntryKeys.Add($"{parsed.NormalizedLabel}|{parsed.TargetPage}"))
                     continue;
 
-                var resolved = ResolveNavigationTarget(parsed, anchors, retrievalChunks);
+                var resolved = ResolveNavigationTarget(parsed, anchors, targetRetrievalChunks);
                 if (string.Equals(resolved.ResolutionMethod, "page_unresolved", StringComparison.OrdinalIgnoreCase))
                     continue;
 

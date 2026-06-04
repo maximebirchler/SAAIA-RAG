@@ -51,6 +51,28 @@ public sealed partial class ToolAgentOrchestrator
         return await _api.DocumentsTreeAsync(path, categoryRef, depth, format, ct).ConfigureAwait(false);
     }
 
+    private async Task<JsonElement> ExecDocumentsNavigationAsync(JsonElement args, CancellationToken ct)
+    {
+        var (path, categoryRef) = await ResolveCategoryScopeArgsAsync(args, ct).ConfigureAwait(false);
+        var docRef = GetPreferredDocRef(args);
+        string? docId = null;
+        string? docPath = GetStringArg(args, "docPath");
+        if (!string.IsNullOrWhiteSpace(docRef))
+        {
+            var resolved = await ResolveDocRefAsync(docRef, ct).ConfigureAwait(false);
+            if (resolved is null)
+                return JsonDocument.Parse("{\"found\":false,\"navigationOnly\":true,\"error\":\"doc_not_found\"}").RootElement.Clone();
+
+            docId = resolved.DocId;
+            docPath = resolved.DocPath;
+        }
+
+        var q = GetStringArg(args, "q");
+        var limit = GetIntArg(args, "limit") ?? 120;
+        var offset = GetIntArg(args, "offset") ?? 0;
+        return await _api.DocumentsNavigationAsync(path, categoryRef, docId, docPath, q, limit, offset, ct).ConfigureAwait(false);
+    }
+
     private async Task<JsonElement> ExecDocumentsStatsAsync(JsonElement args, CancellationToken ct)
     {
         var (path, categoryRef) = await ResolveCategoryScopeArgsAsync(args, ct).ConfigureAwait(false);

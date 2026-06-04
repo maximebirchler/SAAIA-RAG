@@ -279,9 +279,12 @@ public sealed class RagChatAgent
 
         var payload = new { intent = "rag_search", sources };
 
+        var isBroadSearchOnlyFallback = LooksLikeBroadSearchOnlyFallbackRequest(userText);
         var ans = items.Count == 0
             ? BuildNoDocumentsFoundAnswer(resp, detectedLanguage)
-            : BuildSearchOnlyFallbackAnswer(resp, answerItems, detectedLanguage);
+            : isBroadSearchOnlyFallback
+                ? BuildBroadSearchOnlyFallbackAnswer(resp, answerItems, detectedLanguage)
+                : BuildSearchOnlyFallbackAnswer(resp, answerItems, detectedLanguage);
 
         _mem.LastLanguage = detectedLanguage;
         _mem.LastUserMessage = userText;
@@ -341,6 +344,58 @@ public sealed class RagChatAgent
         return sb.ToString().TrimEnd();
     }
 
+    private static string BuildBroadSearchOnlyFallbackAnswer(
+        RagSearchResponse response,
+        IReadOnlyList<RagItem> items,
+        string language)
+    {
+        var sb = new StringBuilder(BroadSearchOnlyFallbackIntro(language));
+        var guidance = response.Guidance;
+
+        AppendGuidanceLine(sb, guidance?.QualificationNote);
+        AppendGuidanceLine(sb, guidance?.ClarifyingQuestion);
+
+        var candidates = items
+            .Select(item => new
+            {
+                Label = BuildFallbackSourceLabel(item, language),
+                Title = BuildFallbackCandidateTitle(item)
+            })
+            .Where(item => !string.IsNullOrWhiteSpace(item.Label))
+            .GroupBy(item => $"{item.Label}|{item.Title}", StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .Take(6)
+            .ToList();
+
+        if (candidates.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine();
+            sb.AppendLine(BroadSearchOnlyFallbackCandidatesHeader(language));
+            foreach (var candidate in candidates)
+            {
+                sb.Append("- ");
+                if (!string.IsNullOrWhiteSpace(candidate.Title))
+                {
+                    sb.Append(candidate.Title);
+                    sb.Append(" (");
+                    sb.Append(candidate.Label);
+                    sb.Append(')');
+                }
+                else
+                {
+                    sb.Append(candidate.Label);
+                }
+
+                sb.AppendLine();
+            }
+        }
+
+        sb.AppendLine();
+        sb.AppendLine(BroadSearchOnlyFallbackClosing(language));
+        return sb.ToString().TrimEnd();
+    }
+
     private static string BuildNoDocumentsFoundAnswer(RagSearchResponse response, string language)
     {
         var sb = new StringBuilder(LocalizedStrings.NoDocumentsFound(language).Trim());
@@ -367,6 +422,29 @@ public sealed class RagChatAgent
 
         return Regex.IsMatch(userText ?? string.Empty, @"[\d\-_/]|\b[A-Z]{2,}\b", RegexOptions.CultureInvariant);
     }
+
+    private static bool LooksLikeBroadSearchOnlyFallbackRequest(string? userText)
+    {
+        var text = NormalizeBroadFallbackText(userText);
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        if (Regex.IsMatch(
+            text,
+            @"\b(?:plan|planning|programme|menu|menus|semaine|weekly|week|semana|woche|settimana|liste|list|lista|lister|ideas?|idees?|idées|options?|suggest|suggestions?|propose|proposer|propostas?|vorschlag|vorschlaege|vorschläge|consigli|recommend|recommand|recommande|recommander|plusieurs|several|varie|varied|varié|varies|compare|comparison|comparer|choisir|selection|sélection)\b",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase))
+        {
+            return true;
+        }
+
+        return Regex.IsMatch(
+            text,
+            @"\b(?:quels?|which|what|que|quoi|como|cosa|was)\b.*\b(?:documents?|sources?|corpus|dossier|available|disponibles?|trouves?|trouvés?|indexed|indexe|indexés?)\b",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    }
+
+    private static string NormalizeBroadFallbackText(string? text)
+        => Regex.Replace(text ?? string.Empty, @"\s+", " ").Trim().ToLowerInvariant();
 
     private static void AppendGuidanceLine(StringBuilder sb, string? text)
     {
@@ -431,6 +509,60 @@ public sealed class RagChatAgent
             : $"{docName.Trim()} ({pagePrefix}{pageStart.Value})";
     }
 
+    private static string? BuildFallbackCandidateTitle(RagItem item)
+    {
+        var candidates = new List<string>();
+        if (item.MatchedContentCards is { Count: > 0 })
+        {
+            candidates.AddRange(item.MatchedContentCards
+                .Select(card => card.Title)
+                .Where(title => !string.IsNullOrWhiteSpace(title)));
+        }
+
+        candidates.Add(item.Context?.SectionTitle ?? string.Empty);
+        candidates.Add(item.SectionTitle ?? string.Empty);
+        candidates.Add(item.Context?.HeadingPath ?? string.Empty);
+        candidates.Add(item.HeadingPath ?? string.Empty);
+
+        foreach (var candidate in candidates)
+        {
+            var title = CleanFallbackCandidateTitle(candidate);
+            if (!LooksLikeWeakFallbackCandidateTitle(title))
+                return title;
+        }
+
+        return null;
+    }
+
+    private static string CleanFallbackCandidateTitle(string? value)
+    {
+        var text = Regex.Replace(value ?? string.Empty, @"\s+", " ").Trim();
+        if (text.Contains('>'))
+            text = text.Split('>', StringSplitOptions.RemoveEmptyEntries).LastOrDefault()?.Trim() ?? text;
+        if (text.Contains('/'))
+            text = text.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault()?.Trim() ?? text;
+        return text.Trim(' ', '-', ':', ';', '.', ',');
+    }
+
+    private static bool LooksLikeWeakFallbackCandidateTitle(string? value)
+    {
+        var text = (value ?? string.Empty).Trim();
+        if (text.Length < 4 || text.Length > 120)
+            return true;
+
+        var letters = text.Count(char.IsLetter);
+        if (letters < 3)
+            return true;
+
+        if (Regex.IsMatch(text, @"^(?:source|document|documents?|chapter|section|page|index|contents|table of contents|sommaire|résumé|resume|summary|title|titre|heading|category|categorie|catégorie)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            return true;
+
+        if (Regex.IsMatch(text, @"\b(?:copyright|all rights reserved|become a|follow us|www\.|https?://)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            return true;
+
+        return false;
+    }
+
     private static string CompactFallbackSnippet(string? text)
     {
         var normalized = string.Join(
@@ -460,6 +592,39 @@ public sealed class RagChatAgent
 
     private static string FallbackSourcesHeader(string? language)
         => LocalizedStrings.RagDegradedSourcesHeader(language);
+
+    private static string BroadSearchOnlyFallbackIntro(string? language)
+        => LocalizedStrings.NormalizeLanguage(language) switch
+        {
+            "en" => "The local assistant is not available to write a full synthesis. I found a few source-backed leads to verify first.",
+            "es" => "El asistente local no esta disponible para redactar una sintesis completa. He encontrado algunas pistas con fuente para verificar primero.",
+            "pt" => "O assistente local nao esta disponivel para redigir uma sintese completa. Encontrei algumas pistas com fonte para verificar primeiro.",
+            "de" => "Der lokale Assistent ist nicht verfuegbar, um eine vollstaendige Synthese zu schreiben. Ich habe einige belegte Ansatzpunkte zur Pruefung gefunden.",
+            "it" => "L'assistente locale non e disponibile per scrivere una sintesi completa. Ho trovato alcune piste con fonte da verificare prima.",
+            _ => "L'assistant local n'est pas disponible pour rediger une synthese complete. J'ai trouve quelques pistes sourcees a verifier d'abord."
+        };
+
+    private static string BroadSearchOnlyFallbackCandidatesHeader(string? language)
+        => LocalizedStrings.NormalizeLanguage(language) switch
+        {
+            "en" => "Source-backed leads:",
+            "es" => "Pistas con fuente:",
+            "pt" => "Pistas com fonte:",
+            "de" => "Belegte Ansatzpunkte:",
+            "it" => "Piste con fonte:",
+            _ => "Pistes sourcees :"
+        };
+
+    private static string BroadSearchOnlyFallbackClosing(string? language)
+        => LocalizedStrings.NormalizeLanguage(language) switch
+        {
+            "en" => "I am not turning these snippets into a final answer until the local assistant has rewritten and checked them.",
+            "es" => "No convierto estos fragmentos en una respuesta final hasta que el asistente local los reescriba y los compruebe.",
+            "pt" => "Nao transformo estes trechos numa resposta final enquanto o assistente local nao os reescrever e verificar.",
+            "de" => "Ich mache daraus keine endgueltige Antwort, solange der lokale Assistent sie nicht umgeschrieben und geprueft hat.",
+            "it" => "Non trasformo questi estratti in una risposta finale finche l'assistente locale non li riscrive e verifica.",
+            _ => "Je ne transforme pas ces extraits en reponse finale tant que l'assistant local ne les a pas reecrits et verifies."
+        };
 
     private static object BuildSearchOnlyFallbackSourcePayload(RagItem item)
     {

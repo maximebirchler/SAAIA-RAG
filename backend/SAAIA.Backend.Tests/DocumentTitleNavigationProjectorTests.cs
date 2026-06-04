@@ -136,7 +136,7 @@ public sealed class DocumentTitleNavigationProjectorTests
         var units = new[]
         {
             new ExtractedDocumentUnit(0, 0, 1, 1, "Table of contents\nRelease Validation Checklist 5", 55, 8, [1]),
-            new ExtractedDocumentUnit(1, 1, 5, 5, "Release Validation Checklist\nConfirm logs, owners and rollback criteria.", 74, 9, [2])
+            new ExtractedDocumentUnit(1, 1, 5, 5, "Release Validation Checklist\nConfirm logs, owners, rollout state, rollback criteria, validation evidence, support handoff, release notes, monitoring windows, escalation contacts and final signoff before release.", 202, 30, [2])
         };
         var chunks = new[]
         {
@@ -186,6 +186,70 @@ public sealed class DocumentTitleNavigationProjectorTests
         Assert.Equal(5, entry.TargetPageStart);
         Assert.NotNull(entry.TargetAnchorIndex);
         Assert.NotEqual(0, entry.TargetChunkIndex.GetValueOrDefault(-1));
+    }
+
+    [Fact]
+    public void Project_uses_navigation_only_chunks_as_map_sources_even_when_targets_are_publishable_only()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Table of contents", 1, 1, 1, 1, null),
+            new ExtractedDocumentSection(1, "Release Validation Checklist", 1, 5, 5, 1, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "Table of contents\nRelease Validation Checklist 5", 55, 8, [1]),
+            new ExtractedDocumentUnit(1, 1, 5, 5, "Release Validation Checklist\nConfirm logs, owners and rollback criteria.", 74, 9, [2])
+        };
+        var navigationChunk = new ProjectedRetrievalChunk(
+            0,
+            0,
+            0,
+            1,
+            1,
+            "Table of contents\nRelease Validation Checklist 5",
+            8,
+            [3],
+            "navigation",
+            ContentRole: RetrievalContentClassifier.NavigationRole,
+            NavigationReason: "table_of_contents",
+            NavigationScore: 0.98);
+        var contentChunk = new ProjectedRetrievalChunk(
+            1,
+            1,
+            1,
+            5,
+            5,
+            "Release Validation Checklist\nConfirm logs, owners, rollout state, rollback criteria, validation evidence, support handoff, release notes, monitoring windows, escalation contacts and final signoff before release.",
+            30,
+            [4],
+            "section",
+            ContentRole: RetrievalContentClassifier.ContentRole,
+            ContentDensityScore: 0.90);
+        var profile = DocumentProfileProjector.BuildProfile(
+            "deterministic_v1",
+            "en",
+            "Release validation operational checklist.",
+            [],
+            [],
+            [],
+            [],
+            [],
+            "Ops/Release.pdf",
+            "Release.pdf");
+
+        var index = DocumentTitleNavigationProjector.Project(
+            sections,
+            units,
+            [contentChunk],
+            [navigationChunk, contentChunk],
+            profile);
+
+        var entry = Assert.Single(index.NavigationEntries);
+        Assert.Equal("Release Validation Checklist", entry.Label);
+        Assert.Equal(0, entry.SourceChunkIndex);
+        Assert.Equal(1, entry.TargetChunkIndex);
+        Assert.Equal("title_exact", entry.ResolutionMethod);
     }
 
     [Fact]

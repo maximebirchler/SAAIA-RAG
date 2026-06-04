@@ -2131,26 +2131,28 @@ Keep each query under 90 characters.
         if (hit is null)
             return string.Empty;
 
-        var cardTitle = hit.MatchedContentCards?
-            .Select(static card => CollapseWhitespace(card.Title))
-            .FirstOrDefault(static title => !string.IsNullOrWhiteSpace(title));
-        var evidence = CleanReadableProcedureArtifacts(FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(hit), maxLength: 180));
-        if (!string.IsNullOrWhiteSpace(cardTitle) && !string.IsNullOrWhiteSpace(evidence))
-            evidence = $"{cardTitle}: {evidence}";
-        else if (!string.IsNullOrWhiteSpace(cardTitle))
-            evidence = cardTitle;
+        var descriptor = hit.MatchedContentCards?
+            .Select(static card => CleanSourceBackedOptionTitle(card.Title))
+            .FirstOrDefault(static title => !LooksLikeWeakSourceBackedOptionTitle(title));
 
-        if (string.IsNullOrWhiteSpace(evidence))
+        if (string.IsNullOrWhiteSpace(descriptor))
+        {
+            descriptor = new[] { hit.SectionTitle, hit.HeadingPath }
+                .Select(static value => CleanSourceBackedOptionTitle(value))
+                .FirstOrDefault(static title => !LooksLikeWeakSourceBackedOptionTitle(title));
+        }
+
+        if (string.IsNullOrWhiteSpace(descriptor))
             return string.Empty;
 
         return NormalizeLanguageCode(language) switch
         {
-            "en" => $"useful passage: {evidence}",
-            "es" => $"pasaje util: {evidence}",
-            "pt" => $"passagem util: {evidence}",
-            "de" => $"relevante Passage: {evidence}",
-            "it" => $"passaggio utile: {evidence}",
-            _ => $"passage utile : {evidence}"
+            "en" => $"matched section: {descriptor}",
+            "es" => $"seccion encontrada: {descriptor}",
+            "pt" => $"secao encontrada: {descriptor}",
+            "de" => $"gefundener Abschnitt: {descriptor}",
+            "it" => $"sezione trovata: {descriptor}",
+            _ => $"section trouvee : {descriptor}"
         };
     }
 

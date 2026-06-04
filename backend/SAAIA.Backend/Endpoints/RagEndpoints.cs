@@ -1946,6 +1946,8 @@ ORDER BY d.doc_path;
             useScopedProfileFallback && ShouldAllowSparseAssistForScopedProfileFallback(req.Query);
         var allowSparseAssistForBroadDiversity =
             !hasDocScope && ShouldAllowSparseAssistForBroadDiversity(req.Query);
+        var allowNavigationCatalogRouteForBroadExploration =
+            ShouldAllowNavigationCatalogRouteForBroadExploration(req.Query, hasCategoryFilter || hasDocScope);
         var skipUnanchoredTitleAnchorRouteForBroadDiversity =
             useChoiceBetweenLexicalRoute
             || ShouldSkipUnanchoredTitleAnchorRouteForBroadDiversity(req.Query);
@@ -2208,7 +2210,8 @@ ORDER BY d.doc_path;
                     Math.Min(candidates, Math.Max(topK, 16)),
                     ct,
                     categoryPath,
-                    degradedRetrieverRef: MarkRetrieverDegraded),
+                    degradedRetrieverRef: MarkRetrieverDegraded,
+                    allowNavigationCatalogRoute: allowNavigationCatalogRouteForBroadExploration),
                 getReturnedCount: static matches => matches.Count);
             earlyTitleAnchorRouteMatches = probedTitleAnchorRouteMatches;
             earlyTitleAnchorRouteMs = measuredTitleAnchorRouteMs;
@@ -2254,7 +2257,7 @@ ORDER BY d.doc_path;
                 : skipChunkRetrieversForDocumentOverview
                   || useScopedProfileFallback
                   || skipBroadRetrieversForExplicitFileHint
-                  || skipUnanchoredTitleAnchorRouteForBroadDiversity
+                  || (skipUnanchoredTitleAnchorRouteForBroadDiversity && !allowNavigationCatalogRouteForBroadExploration)
                 ? Task.FromResult((new List<RagMatch>(), 0L))
                 : MeasurePhaseAsync(
                     phaseName: "retrieval_title_anchor_route",
@@ -2269,7 +2272,8 @@ ORDER BY d.doc_path;
                         Math.Min(candidates, Math.Max(topK, 16)),
                         ct,
                         categoryPath,
-                        degradedRetrieverRef: MarkRetrieverDegraded),
+                        degradedRetrieverRef: MarkRetrieverDegraded,
+                        allowNavigationCatalogRoute: allowNavigationCatalogRouteForBroadExploration),
                     getReturnedCount: static matches => matches.Count);
             Task<(List<RagMatch> Result, long DurationMs)> sparseMatchesTask = skipChunkRetrieversForDocumentOverview
                 || (useScopedProfileFallback && !allowSparseAssistForScopedProfileFallback)
@@ -5328,6 +5332,35 @@ ORDER BY d.doc_path;
             return false;
 
         return true;
+    }
+
+    internal static bool ShouldAllowNavigationCatalogRouteForBroadExploration(string query, bool hasScope)
+    {
+        if (!hasScope
+            || string.IsNullOrWhiteSpace(query)
+            || ExtractQuotedLookupPhrases(query).Count > 0
+            || HasExplicitDocumentNameHint(query)
+            || ContainsQuantityComputationIntent(query))
+        {
+            return false;
+        }
+
+        var normalized = " " + FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query)).ToLowerInvariant() + " ";
+        if (ShouldPreferComparativeDocumentDiversity(query)
+            && !ContainsPlanningOrScheduleIntent(normalized)
+            && !ContainsBroadScopedSynthesisIntent(normalized)
+            && !ContainsExplicitBroadScopedSynthesisIntent(normalized)
+            && !ContainsSituationalBroadSelectionIntent(normalized))
+        {
+            return false;
+        }
+
+        return ContainsPlanningOrScheduleIntent(normalized)
+            || ContainsExplicitBroadScopedSynthesisIntent(normalized)
+            || ContainsBroadScopedSynthesisIntent(normalized)
+            || ContainsSituationalBroadSelectionIntent(normalized)
+            || ContainsDocumentOverviewIntent(query)
+            || IsRecommendationSelectionQuery(normalized);
     }
 
     private static bool ShouldSkipUnanchoredTitleAnchorRouteForBroadComparativeSynthesis(string query, string normalized)
@@ -12377,7 +12410,8 @@ LIMIT @candidate_limit;
         CancellationToken ct,
         string? categoryPath = null,
         Action<string, string?>? degradedRetrieverRef = null,
-        bool allowDirectChunkRoute = true)
+        bool allowDirectChunkRoute = true,
+        bool allowNavigationCatalogRoute = false)
     {
         if (topK <= 0)
             return [];
@@ -12446,6 +12480,12 @@ LIMIT @candidate_limit;
             ? ResolveDirectTitleTokenRouteMinimumOverlap(queryTokens.Length)
             : Math.Max(1, minOverlap);
         var directRouteTitle = focusedPhrases.FirstOrDefault() ?? tokenSource;
+        var scopedCatalogRouteEnabled = allowNavigationCatalogRoute
+            && (!string.IsNullOrWhiteSpace(category)
+                || !string.IsNullOrWhiteSpace(normalizedCategoryPath)
+                || normalizedDocId.HasValue
+                || !string.IsNullOrWhiteSpace(normalizedDocPath));
+        var navigationCatalogLimit = Math.Clamp(topK * 3, topK, 48);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
         const string sql = """
@@ -12831,6 +12871,81 @@ navigation_routes AS (
     WHERE COALESCE(phrase_match.phrase_score, 0.0) > 0.0
        OR token_match.overlap_count >= @min_overlap
 ),
+navigation_catalog_routes AS (
+    SELECT
+        d.doc_id,
+        d.doc_path,
+        d.doc_name,
+        d.category,
+        d.indexed_version,
+        d.content_hash,
+        d.revision_id,
+        ne.label AS route_title,
+        'navigation_catalog_route'::text AS route_source,
+        target.retrieval_chunk_id AS route_chunk_id,
+        LEAST(
+            0.88,
+            0.48
+            + LEAST(0.20, COALESCE(ne.confidence, 0.0) * 0.20)
+            + LEAST(0.12, target.content_density_score * 0.12)
+            + CASE WHEN ne.target_chunk_id IS NOT NULL THEN 0.04 ELSE 0.0 END
+        )::real AS route_rank
+    FROM scoped_docs d
+    JOIN document_navigation_entries ne
+      ON ne.tenant_id = d.tenant_id
+     AND ne.revision_id = d.revision_id
+     AND ne.confidence >= @navigation_route_min_confidence
+     AND ne.resolution_method <> 'page_unresolved'
+     AND (ne.target_chunk_id IS NOT NULL OR ne.target_anchor_id IS NOT NULL OR ne.target_page_start IS NOT NULL)
+     AND length(COALESCE(ne.label, '')) >= 4
+    JOIN LATERAL (
+        SELECT
+            rc.retrieval_chunk_id,
+            CASE
+                WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+                    THEN (rc.metadata->>'contentDensityScore')::double precision
+                ELSE 0.0
+            END AS content_density_score,
+            COALESCE(array_length(regexp_split_to_array(btrim(COALESCE(rc.text_content, '')), '\s+'), 1), 0) AS token_count
+        FROM retrieval_chunks rc
+        WHERE rc.tenant_id = d.tenant_id
+          AND rc.revision_id = d.revision_id
+          AND (
+                (ne.target_chunk_id IS NOT NULL AND rc.retrieval_chunk_id = ne.target_chunk_id)
+             OR (ne.target_chunk_id IS NULL
+                 AND ne.target_page_start IS NOT NULL
+                 AND rc.page_start <= COALESCE(ne.target_page_end, ne.target_page_start) + 1
+                 AND rc.page_end >= GREATEST(1, ne.target_page_start - 1))
+          )
+          AND COALESCE(rc.metadata->>'contentRole', 'content') <> 'navigation'
+          AND COALESCE(rc.metadata->>'chunkType', '') <> 'navigation_index_v1'
+        ORDER BY
+            CASE WHEN ne.target_chunk_id IS NOT NULL AND rc.retrieval_chunk_id = ne.target_chunk_id THEN 0 ELSE 1 END,
+            CASE
+                WHEN ne.target_chunk_id IS NULL
+                 AND ne.target_page_start IS NOT NULL
+                 AND rc.page_start <= COALESCE(ne.target_page_end, ne.target_page_start)
+                 AND rc.page_end >= ne.target_page_start THEN 0
+                ELSE 1
+            END,
+            CASE
+                WHEN ne.target_chunk_id IS NULL AND ne.target_page_start IS NOT NULL
+                    THEN LEAST(ABS(rc.page_start - ne.target_page_start), ABS(rc.page_end - ne.target_page_start))
+                ELSE 0
+            END,
+            CASE
+                WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+                    THEN (rc.metadata->>'contentDensityScore')::double precision
+                ELSE 0.0
+            END DESC,
+            COALESCE(array_length(regexp_split_to_array(btrim(COALESCE(rc.text_content, '')), '\s+'), 1), 0) DESC,
+            rc.chunk_index ASC
+        LIMIT 1
+    ) target ON TRUE
+    WHERE @navigation_catalog_route_enabled
+    ORDER BY route_rank DESC, d.doc_path ASC, ne.entry_index ASC
+    LIMIT @navigation_catalog_limit
+),
 direct_chunk_routes AS (
     SELECT
         d.doc_id,
@@ -12931,6 +13046,8 @@ routes AS (
     SELECT * FROM anchor_routes
     UNION ALL
     SELECT * FROM navigation_routes
+    UNION ALL
+    SELECT * FROM navigation_catalog_routes
     UNION ALL
     SELECT * FROM direct_chunk_routes
 ),
@@ -13058,6 +13175,8 @@ LIMIT @candidate_limit;
                 direct_min_overlap = directMinOverlap,
                 direct_route_title = directRouteTitle,
                 navigation_route_min_confidence = NavigationRouteMinimumConfidence,
+                navigation_catalog_route_enabled = scopedCatalogRouteEnabled,
+                navigation_catalog_limit = navigationCatalogLimit,
                 fuzzy_title_similarity_min = FuzzyTitleSimilarityMinimum,
                 direct_chunk_route_enabled = directChunkRouteEnabled,
                 category,
@@ -13090,7 +13209,9 @@ LIMIT @candidate_limit;
                     IngestionVersion: row.IngestionVersion,
                     HashDoc: row.HashDoc,
                     EmbedText: row.EmbedText,
-                    EmbeddingBasis: row.EmbedText.StartsWith("Matched navigation_route", StringComparison.Ordinal)
+                    EmbeddingBasis: row.EmbedText.StartsWith("Matched navigation_catalog_route", StringComparison.Ordinal)
+                        ? "navigation_catalog_route_v1"
+                        : row.EmbedText.StartsWith("Matched navigation_route", StringComparison.Ordinal)
                         ? "navigation_route_v1"
                         : row.EmbedText.StartsWith("Matched direct_title_token_route", StringComparison.Ordinal)
                             ? "direct_title_token_route_v1"
@@ -27592,6 +27713,9 @@ LIMIT @top_k;
         if (!IsNavigationRouteMatch(match))
             return true;
 
+        if (IsNavigationCatalogRouteMatch(match))
+            return !LooksLikeNavigationalChunk(match) && HasUsefulResolvedTitleBody(match);
+
         return RouteHasTargetTitleEvidence(match);
     }
 
@@ -27884,7 +28008,12 @@ LIMIT @top_k;
 
     private static bool IsNavigationRouteMatch(RagMatch match)
         => string.Equals(ResolveRetriever(match), "navigation_route", StringComparison.Ordinal)
-           || string.Equals(match.EmbeddingBasis, "navigation_route_v1", StringComparison.Ordinal);
+           || string.Equals(match.EmbeddingBasis, "navigation_route_v1", StringComparison.Ordinal)
+           || string.Equals(match.EmbeddingBasis, "navigation_catalog_route_v1", StringComparison.Ordinal);
+
+    private static bool IsNavigationCatalogRouteMatch(RagMatch match)
+        => string.Equals(match.EmbeddingBasis, "navigation_catalog_route_v1", StringComparison.Ordinal)
+           || (match.EmbedText?.StartsWith("Matched navigation_catalog_route:", StringComparison.Ordinal) ?? false);
 
     private static bool IsDirectTitleTokenRouteMatch(RagMatch match)
         => string.Equals(ResolveRetriever(match), "direct_title_token_route", StringComparison.Ordinal)
@@ -33988,6 +34117,7 @@ LIMIT @top_k;
             "explicit_document_title_route_v1" => "explicit_document_title_route",
             "title_anchor_route_v1" => "title_anchor_route",
             "navigation_route_v1" => "navigation_route",
+            "navigation_catalog_route_v1" => "navigation_route",
             "direct_title_token_route_v1" => "direct_title_token_route",
             "local_title_token_route_v1" => "local_title_token_route",
             "fuzzy_title_lead_v1" => "fuzzy_title_lead",

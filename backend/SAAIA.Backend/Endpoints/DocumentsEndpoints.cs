@@ -29,6 +29,7 @@ public static partial class DocumentsEndpoints
         app.MapGet("/documents/count", CountAsync);
         app.MapGet("/documents/categories", CategoriesAsync);
         app.MapGet("/documents/tree", TreeAsync);
+        app.MapGet("/documents/navigation", NavigationAsync);
         app.MapGet("/documents/stats", StatsAsync);
         app.MapPost("/documents/resolve-category", ResolveCategoryAsync);
 
@@ -506,6 +507,174 @@ WHERE tenant_id=@tenant AND status='indexed';";
         }
 
         return Results.Text(json, "application/json");
+    }
+
+    private static async Task<IResult> NavigationAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        string? path,
+        string? categoryRef,
+        Guid? docId,
+        string? docPath,
+        string? q,
+        int? limit,
+        int? offset)
+    {
+        var tenantId = ctx.GetTenantId();
+        var ct = ctx.RequestAborted;
+
+        path = DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(path);
+        categoryRef = DocumentsCategoryScopeResolver.NormalizeCategoryRefOrNull(categoryRef);
+        docPath = DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(docPath);
+        q = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
+        var lim = Math.Clamp(limit ?? 120, 1, 200);
+        var off = Math.Max(offset ?? 0, 0);
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+        path = await DocumentsCategoryScopeResolver.ResolveCategoryScopeAsync(conn, tenantId, path, categoryRef, ct);
+
+        const string sql = @"
+WITH scoped_docs AS (
+    SELECT
+        d.doc_id,
+        d.doc_path,
+        d.doc_name,
+        d.category,
+        d.page_count,
+        d.indexed_version,
+        r.revision_id
+    FROM documents d
+    JOIN document_revisions r
+      ON r.tenant_id = d.tenant_id
+     AND r.doc_id = d.doc_id
+     AND r.indexed_version = d.indexed_version
+    WHERE d.tenant_id = @tenant
+      AND d.status = 'indexed'
+      AND d.indexed_version > 0
+      AND (@path IS NULL OR d.doc_path = @path OR d.doc_path LIKE (@path || '/%'))
+      AND (@docId IS NULL OR d.doc_id = @docId)
+      AND (@docPath IS NULL OR d.doc_path = @docPath)
+),
+navigation_rows AS (
+    SELECT
+        d.doc_id AS ""DocId"",
+        d.doc_path AS ""DocPath"",
+        d.doc_name AS ""DocName"",
+        d.category AS ""Category"",
+        CASE WHEN d.doc_path LIKE '%/%' THEN regexp_replace(d.doc_path, '/[^/]+$', '') ELSE '' END AS ""CategoryPath"",
+        d.page_count AS ""PageCount"",
+        'navigation_entry'::text AS ""Kind"",
+        ne.entry_index AS ""Ordinal"",
+        ne.label AS ""Label"",
+        ne.source_page AS ""SourcePage"",
+        ne.target_page_start AS ""TargetPageStart"",
+        ne.target_page_end AS ""TargetPageEnd"",
+        ne.resolution_method AS ""ResolutionMethod"",
+        ne.confidence AS ""Confidence"",
+        ne.target_chunk_id IS NOT NULL AS ""HasTargetChunk"",
+        ne.target_anchor_id IS NOT NULL AS ""HasTargetAnchor"",
+        NULL::text AS ""SourceKind"",
+        CASE
+            WHEN @q IS NULL THEN 2
+            WHEN lower(ne.label) LIKE ('%' || lower(@q) || '%') THEN 0
+            WHEN lower(d.doc_name) LIKE ('%' || lower(@q) || '%') OR lower(d.doc_path) LIKE ('%' || lower(@q) || '%') THEN 1
+            ELSE 2
+        END AS ""RankBucket""
+    FROM scoped_docs d
+    JOIN document_navigation_entries ne
+      ON ne.tenant_id = @tenant
+     AND ne.revision_id = d.revision_id
+    WHERE NULLIF(BTRIM(ne.label), '') IS NOT NULL
+),
+anchor_rows AS (
+    SELECT
+        d.doc_id AS ""DocId"",
+        d.doc_path AS ""DocPath"",
+        d.doc_name AS ""DocName"",
+        d.category AS ""Category"",
+        CASE WHEN d.doc_path LIKE '%/%' THEN regexp_replace(d.doc_path, '/[^/]+$', '') ELSE '' END AS ""CategoryPath"",
+        d.page_count AS ""PageCount"",
+        'title_anchor'::text AS ""Kind"",
+        a.anchor_index AS ""Ordinal"",
+        a.title AS ""Label"",
+        NULL::int AS ""SourcePage"",
+        a.page_start AS ""TargetPageStart"",
+        a.page_end AS ""TargetPageEnd"",
+        CASE WHEN a.retrieval_chunk_id IS NULL THEN 'title_page' ELSE 'title_chunk' END AS ""ResolutionMethod"",
+        a.confidence AS ""Confidence"",
+        a.retrieval_chunk_id IS NOT NULL AS ""HasTargetChunk"",
+        TRUE AS ""HasTargetAnchor"",
+        a.source_kind AS ""SourceKind"",
+        CASE
+            WHEN @q IS NULL THEN 2
+            WHEN lower(a.title) LIKE ('%' || lower(@q) || '%') THEN 0
+            WHEN lower(d.doc_name) LIKE ('%' || lower(@q) || '%') OR lower(d.doc_path) LIKE ('%' || lower(@q) || '%') THEN 1
+            ELSE 2
+        END AS ""RankBucket""
+    FROM scoped_docs d
+    JOIN document_title_anchors a
+      ON a.tenant_id = @tenant
+     AND a.revision_id = d.revision_id
+    WHERE NULLIF(BTRIM(a.title), '') IS NOT NULL
+),
+all_rows AS (
+    SELECT * FROM navigation_rows
+    UNION ALL
+    SELECT * FROM anchor_rows
+),
+ranked AS (
+    SELECT
+        *,
+        COUNT(*) OVER() AS ""Total""
+    FROM all_rows
+)
+SELECT *
+FROM ranked
+ORDER BY
+  ""RankBucket"" ASC,
+  ""DocPath"" ASC,
+  COALESCE(""TargetPageStart"", ""SourcePage"", 2147483647) ASC,
+  ""Kind"" ASC,
+  ""Ordinal"" ASC
+LIMIT @lim OFFSET @off;";
+
+        var rows = (await conn.QueryAsync<NavigationRow>(new CommandDefinition(
+                sql,
+                new { tenant = tenantId, path, docId, docPath, q, lim, off },
+                cancellationToken: ct)))
+            .ToList();
+        var total = rows.Count == 0 ? 0 : rows[0].Total;
+
+        return Results.Ok(new
+        {
+            navigationOnly = true,
+            usage = "Use these entries as a search map only. Retrieve target pages with rag.search or rag.multi_search before answering factual questions.",
+            scopePath = path,
+            query = q,
+            total,
+            limit = lim,
+            offset = off,
+            items = rows.Select(row => new
+            {
+                docId = row.DocId,
+                docPath = row.DocPath,
+                docName = row.DocName,
+                category = row.Category,
+                categoryPath = row.CategoryPath,
+                pageCount = row.PageCount,
+                kind = row.Kind,
+                ordinal = row.Ordinal,
+                label = row.Label,
+                sourcePage = row.SourcePage,
+                targetPageStart = row.TargetPageStart,
+                targetPageEnd = row.TargetPageEnd,
+                resolutionMethod = row.ResolutionMethod,
+                confidence = row.Confidence,
+                hasTargetChunk = row.HasTargetChunk,
+                hasTargetAnchor = row.HasTargetAnchor,
+                sourceKind = row.SourceKind
+            })
+        });
     }
 
     private static string BuildTreeEtag(string json)
@@ -1967,6 +2136,29 @@ WHERE d.tenant_id=@tenant
         public string? SummaryLanguage { get; set; }
         public string? RunDocumentLanguage { get; set; }
         public DateTimeOffset? UpdatedAt { get; set; }
+    }
+
+    private sealed class NavigationRow
+    {
+        public Guid DocId { get; set; }
+        public string DocPath { get; set; } = "";
+        public string DocName { get; set; } = "";
+        public string? Category { get; set; }
+        public string? CategoryPath { get; set; }
+        public int? PageCount { get; set; }
+        public string Kind { get; set; } = "";
+        public int Ordinal { get; set; }
+        public string Label { get; set; } = "";
+        public int? SourcePage { get; set; }
+        public int? TargetPageStart { get; set; }
+        public int? TargetPageEnd { get; set; }
+        public string? ResolutionMethod { get; set; }
+        public double Confidence { get; set; }
+        public bool HasTargetChunk { get; set; }
+        public bool HasTargetAnchor { get; set; }
+        public string? SourceKind { get; set; }
+        public int RankBucket { get; set; }
+        public int Total { get; set; }
     }
 
     private sealed class ExtractionQualitySummaryRow

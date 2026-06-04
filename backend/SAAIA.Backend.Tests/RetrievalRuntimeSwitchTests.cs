@@ -5763,6 +5763,24 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void ShouldAllowNavigationCatalogRouteForBroadExploration_requires_scope_and_broad_request()
+    {
+        Assert.True(RagEndpoints.ShouldAllowNavigationCatalogRouteForBroadExploration(
+            "Je cherche a avoir un plan pour la semaine avec des options variees.",
+            hasScope: true));
+        Assert.True(RagEndpoints.ShouldAllowNavigationCatalogRouteForBroadExploration(
+            "Donne-moi juste une liste d'elements disponibles dans ce dossier.",
+            hasScope: true));
+
+        Assert.False(RagEndpoints.ShouldAllowNavigationCatalogRouteForBroadExploration(
+            "Je cherche a avoir un plan pour la semaine avec des options variees.",
+            hasScope: false));
+        Assert.False(RagEndpoints.ShouldAllowNavigationCatalogRouteForBroadExploration(
+            "Combien de pieces faut-il pour cet assemblage ?",
+            hasScope: true));
+    }
+
+    [Fact]
     public void BuildSupplementalSparseLexicalFallbackTerms_preserves_accented_subject_terms()
     {
         var terms = RagEndpoints.BuildSupplementalSparseLexicalFallbackTerms(

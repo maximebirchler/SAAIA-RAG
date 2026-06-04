@@ -74,6 +74,50 @@ Continue the previous request using the clarification as the intended topic or s
         Assert.Equal("inertage", ToolAgentOrchestrator.NormalizeRagQueryForTests(payload));
     }
 
+    [Fact]
+    public void Broadened_source_search_payload_uses_previous_request_as_retrieval_topic()
+    {
+        var payload = """
+PREVIOUS_USER_REQUEST:
+Prepare un plan hebdomadaire varie a partir des documents disponibles.
+
+USER_CONFIRMED_BROADER_SOURCE_SEARCH:
+oui vas-y
+
+RESOLVED_REQUEST:
+Continue the previous source-backed request by running a broader retrieval exploration.
+""";
+
+        var normalized = ToolAgentOrchestrator.NormalizeRagQueryForTests(payload);
+
+        Assert.Equal("Prepare un plan hebdomadaire varie a partir des documents disponibles", normalized);
+        Assert.DoesNotContain("oui", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("USER_CONFIRMED", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("broader", normalized, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Broadened_source_search_fallback_uses_original_intent_not_short_confirmation()
+    {
+        var payload = """
+PREVIOUS_USER_REQUEST:
+Prepare une proposition sourcee pour organiser les controles hebdomadaires.
+
+USER_CONFIRMED_BROADER_SOURCE_SEARCH:
+oui vas-y
+
+RESOLVED_REQUEST:
+Continue the previous source-backed request by running a broader retrieval exploration.
+""";
+
+        var intent = ToolAgentOrchestrator.ResolveSourceBackedFallbackIntentQueryForTests(payload);
+
+        Assert.Equal("Prepare une proposition sourcee pour organiser les controles hebdomadaires.", intent);
+        Assert.DoesNotContain("oui", intent, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("USER_CONFIRMED", intent, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("broader", intent, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData("l'inertage", true)]
     [InlineData("ATEX", true)]
@@ -152,7 +196,8 @@ Continue the previous request using the clarification as the intended topic or s
         Assert.Contains(expectedHeader, answer, StringComparison.Ordinal);
         Assert.Contains("- GuideA.pdf", answer, StringComparison.Ordinal);
         Assert.Contains("- GuideB.pdf", answer, StringComparison.Ordinal);
-        Assert.Contains("Use the roasting probe", answer, StringComparison.Ordinal);
+        Assert.DoesNotContain("Use the roasting probe", answer, StringComparison.Ordinal);
+        Assert.DoesNotContain("Doneness levels", answer, StringComparison.Ordinal);
         Assert.DoesNotContain("GuideA.pdf\n- GuideA.pdf", answer, StringComparison.Ordinal);
     }
 

@@ -25,6 +25,37 @@ public sealed class InventoryDeterminismRegressionTests
     }
 
     [Fact]
+    public void Mixed_rag_writer_context_does_not_treat_inventory_tree_as_answer_evidence()
+    {
+        var serialized = ToolAgentOrchestrator.SerializeWriterRagResultsForTests(
+            new List<(string ToolName, string Json)>
+            {
+                ("documents.tree", """{"nodes":[{"name":"Operations"}]}"""),
+                ("inventory.rendered", """{"kind":"tree","authoritative":true,"data":{"items":["Operations"]}}"""),
+                ("rag.multi_search", """
+                {
+                  "hits": [
+                    {
+                      "docPath": "Operations/control.pdf",
+                      "docName": "control.pdf",
+                      "pageStart": 4,
+                      "pageEnd": 4,
+                      "excerpt": "Concrete sourced passage for the requested operation.",
+                      "score": 0.95
+                    }
+                  ]
+                }
+                """)
+            },
+            "Prepare un plan hebdomadaire a partir des documents.");
+
+        Assert.Contains("rag.multi_search", serialized);
+        Assert.DoesNotContain("documents.tree", serialized);
+        Assert.DoesNotContain("inventory.rendered", serialized);
+        Assert.DoesNotContain("AUTHORITATIVE_INVENTORY_DATA", serialized);
+    }
+
+    [Fact]
     public void Inventory_replay_keeps_the_localized_header_but_preserves_document_labels()
     {
         using var doc = JsonDocument.Parse("""
