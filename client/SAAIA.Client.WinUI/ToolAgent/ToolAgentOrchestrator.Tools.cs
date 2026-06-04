@@ -88,6 +88,26 @@ public sealed partial class ToolAgentOrchestrator
             ?? GetStringArg(args, "category")
             ?? GetNestedStringArg(args, "filters", "category"));
 
+    private static string? GetRagDocIdArg(JsonElement args)
+        => NullIfWhiteSpace(
+            GetStringArg(args, "docId")
+            ?? GetNestedStringArg(args, "filters", "docId"));
+
+    private static string? GetRagDocPathArg(JsonElement args)
+        => NullIfWhiteSpace(
+            GetStringArg(args, "docPath")
+            ?? GetNestedStringArg(args, "filters", "docPath"));
+
+    private static int? GetRagMaxPerDocArg(JsonElement args)
+        => GetIntArg(args, "maxPerDoc")
+           ?? GetNestedIntArg(args, "filters", "maxPerDoc")
+           ?? GetNestedIntArg(args, "diversity", "maxPerDoc");
+
+    private static int? GetRagMaxPerPageArg(JsonElement args)
+        => GetIntArg(args, "maxPerPage")
+           ?? GetNestedIntArg(args, "filters", "maxPerPage")
+           ?? GetNestedIntArg(args, "diversity", "maxPerPage");
+
     private static bool LooksLikeReindexableDocumentPath(string? path)
     {
         var normalized = (path ?? string.Empty).Replace('\\', '/').Trim().TrimStart('/').TrimEnd('/');
@@ -1111,6 +1131,14 @@ public sealed partial class ToolAgentOrchestrator
             return null;
         if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var n)) return n;
         return value.ValueKind == JsonValueKind.String && int.TryParse(value.GetString(), out var parsed) ? parsed : null;
+    }
+
+    private static int? GetNestedIntArg(JsonElement args, string parent, string child)
+    {
+        if (!args.TryGetProperty(parent, out var p) || p.ValueKind != JsonValueKind.Object)
+            return null;
+
+        return GetIntArg(p, child);
     }
 
     private static bool? GetBoolArg(JsonElement args, string name)

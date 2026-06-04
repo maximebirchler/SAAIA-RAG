@@ -5501,7 +5501,17 @@ CURRENT_USER_MESSAGE:
         string Label,
         string Purpose,
         string[] Queries,
-        string? CategoryScope = null);
+        string? CategoryScope = null,
+        string? DocId = null,
+        string? DocPath = null);
+
+    private sealed record SourceBackedDocumentNavigationFollowupLabel(
+        string Label,
+        string RawLabel,
+        int ScoreHint,
+        string? DocId,
+        string? DocPath,
+        string? CategoryPath);
 
     private static IReadOnlyList<SourceBackedEvidenceExplorationPass> BuildSourceBackedEvidenceExplorationPasses(
         ToolResults toolResults,
@@ -5598,6 +5608,120 @@ CURRENT_USER_MESSAGE:
                 "anchor_followup",
                 "Use discovered navigation/title anchors as concrete retrieval seeds.",
                 queries);
+    }
+
+    private static IReadOnlyList<SourceBackedEvidenceExplorationPass> BuildSourceBackedDocumentScopedRouteAnchorFollowupExplorationPasses(
+        ToolResults toolResults,
+        string query,
+        string language)
+    {
+        var queryTerms = BuildSourceBackedTreeFollowupQueryTerms(query).ToArray();
+        var supportTerms = BuildPlanningExplorationSupportTerms(query)
+            .Concat(BuildPlanningExpansionSuffixes(query))
+            .Concat(BuildCandidateExpansionSuffixes(query))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(4)
+            .ToArray();
+        var slotTerms = ExtractPlanningSlotRetrievalTerms(query)
+            .Concat(ExtractPlanningConstraintRetrievalTerms(NormalizeLexicalLookup(query)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(4)
+            .ToArray();
+        var contentTerms = BuildRouteAnchorFollowupContentTerms(query, language)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(6)
+            .ToArray();
+
+        var candidates = new List<(SourceBackedDocumentNavigationFollowupLabel Label, string Title, int Score, int Index)>();
+        var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var index = 0;
+        foreach (var item in toolResults.Items
+                     .Where(static item => item.ToolName == "documents.navigation" && string.IsNullOrWhiteSpace(item.Error))
+                     .TakeLast(3))
+        {
+            foreach (var candidate in ExtractDocumentNavigationFollowupLabels(item.Result))
+            {
+                if (string.IsNullOrWhiteSpace(candidate.DocId) && string.IsNullOrWhiteSpace(candidate.DocPath))
+                    continue;
+
+                foreach (var title in ExpandTreeNavigationAnchorLabel(candidate.Label))
+                {
+                    var cleaned = CleanNavigationRouteAnchorTitle(title);
+                    if (!IsUsableSourceBackedOptionTitle(cleaned)
+                        || LooksLikeNavigationIndexHeadingTitle(cleaned)
+                        || LooksLikeWeakSourceBackedOptionTitle(cleaned))
+                    {
+                        continue;
+                    }
+
+                    var key = $"{candidate.DocId}|{candidate.DocPath}|{NormalizeLexicalLookup(cleaned)}";
+                    if (string.IsNullOrWhiteSpace(key) || !emitted.Add(key))
+                        continue;
+
+                    var score = ComputeTreeNavigationAnchorFollowupScore(cleaned, candidate.RawLabel, queryTerms)
+                                + candidate.ScoreHint;
+                    candidates.Add((candidate, cleaned, score, index++));
+                }
+            }
+        }
+
+        var passes = new List<SourceBackedEvidenceExplorationPass>();
+        var grouped = candidates
+            .OrderByDescending(static item => item.Score)
+            .ThenBy(static item => item.Index)
+            .GroupBy(
+                static item => string.IsNullOrWhiteSpace(item.Label.DocId)
+                    ? item.Label.DocPath ?? string.Empty
+                    : item.Label.DocId,
+                StringComparer.OrdinalIgnoreCase)
+            .Where(static group => !string.IsNullOrWhiteSpace(group.Key))
+            .Take(3);
+
+        foreach (var group in grouped)
+        {
+            var first = group.First().Label;
+            var queries = new List<string>();
+            var queryKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var title in group.Select(static item => item.Title).Distinct(StringComparer.OrdinalIgnoreCase).Take(8))
+            {
+                AddGeneratedSourceBackedFollowupQuery(queries, queryKeys, title);
+                AddGeneratedSourceBackedFollowupQuery(queries, queryKeys, QuoteLookupTitle(title));
+
+                foreach (var variant in BuildTypoTolerantQueryVariants(title).Take(2))
+                {
+                    AddGeneratedSourceBackedFollowupQuery(queries, queryKeys, variant);
+                    AddGeneratedSourceBackedFollowupQuery(queries, queryKeys, QuoteLookupTitle(variant));
+                }
+
+                foreach (var term in contentTerms.Take(3))
+                    AddGeneratedSourceBackedFollowupQuery(queries, queryKeys, $"{title} {term}");
+
+                foreach (var suffix in supportTerms.Take(2))
+                    AddGeneratedSourceBackedFollowupQuery(queries, queryKeys, $"{title} {suffix}");
+
+                foreach (var slot in slotTerms.Take(2))
+                    AddGeneratedSourceBackedFollowupQuery(queries, queryKeys, $"{title} {slot}");
+            }
+
+            var finalQueries = queries
+                .Where(static value => !string.IsNullOrWhiteSpace(value))
+                .Select(CollapseWhitespace)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(18)
+                .ToArray();
+            if (finalQueries.Length == 0)
+                continue;
+
+            passes.Add(new SourceBackedEvidenceExplorationPass(
+                "anchor_followup_doc_scope",
+                "Use resolved document navigation anchors as concrete retrieval seeds inside the same document.",
+                finalQueries,
+                first.CategoryPath,
+                first.DocId,
+                first.DocPath));
+        }
+
+        return passes.ToArray();
     }
 
     private static bool HasSourceBackedRouteAnchorFollowupQueries(
@@ -5758,7 +5882,7 @@ CURRENT_USER_MESSAGE:
             .ToArray();
     }
 
-    private static IEnumerable<(string Label, string RawLabel, int ScoreHint)> ExtractDocumentNavigationFollowupLabels(JsonElement result)
+    private static IEnumerable<SourceBackedDocumentNavigationFollowupLabel> ExtractDocumentNavigationFollowupLabels(JsonElement result)
     {
         if (result.ValueKind != JsonValueKind.Object
             || !result.TryGetProperty("items", out var items)
@@ -5778,8 +5902,10 @@ CURRENT_USER_MESSAGE:
             if (string.IsNullOrWhiteSpace(label))
                 continue;
 
+            var docId = CollapseWhitespace(TryGetString(entry, "docId") ?? TryGetString(entry, "DocId") ?? string.Empty);
             var docPath = CollapseWhitespace(TryGetString(entry, "docPath") ?? TryGetString(entry, "DocPath") ?? string.Empty);
             var docName = CollapseWhitespace(TryGetString(entry, "docName") ?? TryGetString(entry, "DocName") ?? Path.GetFileName(docPath));
+            var categoryPath = CollapseWhitespace(TryGetString(entry, "categoryPath") ?? TryGetString(entry, "CategoryPath") ?? string.Empty);
             var kind = CollapseWhitespace(TryGetString(entry, "kind") ?? TryGetString(entry, "Kind") ?? string.Empty);
             var method = CollapseWhitespace(TryGetString(entry, "resolutionMethod") ?? TryGetString(entry, "ResolutionMethod") ?? string.Empty);
             var hasTargetChunk = TryGetBool(entry, "hasTargetChunk") ?? TryGetBool(entry, "HasTargetChunk") ?? false;
@@ -5808,7 +5934,13 @@ CURRENT_USER_MESSAGE:
             }
 
             var raw = string.Join(" | ", new[] { label, docName, docPath, kind, method }.Where(static value => !string.IsNullOrWhiteSpace(value)));
-            yield return (label, raw, scoreHint);
+            yield return new SourceBackedDocumentNavigationFollowupLabel(
+                label,
+                raw,
+                scoreHint,
+                string.IsNullOrWhiteSpace(docId) ? null : docId,
+                string.IsNullOrWhiteSpace(docPath) ? null : docPath,
+                string.IsNullOrWhiteSpace(categoryPath) ? null : categoryPath);
         }
     }
 

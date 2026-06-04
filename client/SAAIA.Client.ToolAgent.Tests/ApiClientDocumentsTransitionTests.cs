@@ -776,6 +776,106 @@ public sealed class ApiClientDocumentsTransitionTests
     }
 
     [Fact]
+    public async Task RagSearchToolAsync_serializes_doc_scope_and_per_source_limits()
+    {
+        string? capturedBody = null;
+        var handler = new StubHttpHandler(req =>
+        {
+            capturedBody = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"items":[]}""", Encoding.UTF8, "application/json")
+            };
+        });
+
+        var sut = CreateApiClient(handler);
+        await sut.RagSearchToolAsync(
+            "weekly inspection",
+            8,
+            "Operations",
+            "balanced",
+            CancellationToken.None,
+            docId: "doc-ops-1",
+            docPath: "Operations/Weekly guide.pdf",
+            maxPerDoc: 8,
+            maxPerPage: 2);
+
+        using var body = JsonDocument.Parse(capturedBody!);
+        Assert.Equal("Operations", body.RootElement.GetProperty("categoryPath").GetString());
+        Assert.Equal("doc-ops-1", body.RootElement.GetProperty("docId").GetString());
+        Assert.Equal("Operations/Weekly guide.pdf", body.RootElement.GetProperty("docPath").GetString());
+        Assert.Equal(8, body.RootElement.GetProperty("maxPerDoc").GetInt32());
+        Assert.Equal(2, body.RootElement.GetProperty("maxPerPage").GetInt32());
+        Assert.True(body.RootElement.GetProperty("includeContextualSnippet").GetBoolean());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_passes_doc_scope_to_each_backend_query()
+    {
+        var capturedBodies = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            var body = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            capturedBodies.Add(body);
+            using var parsed = JsonDocument.Parse(body);
+            var query = parsed.RootElement.GetProperty("query").GetString() ?? "query";
+            var page = capturedBodies.Count;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    JsonSerializer.Serialize(new
+                    {
+                        items = new[]
+                        {
+                            new
+                            {
+                                score = 0.9,
+                                docPath = "Operations/Weekly guide.pdf",
+                                docName = "Weekly guide.pdf",
+                                pageStart = page,
+                                pageEnd = page,
+                                chunkId = $"chunk-{page}",
+                                text = $"{query} sourced content"
+                            }
+                        }
+                    }),
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "queries": ["Morning control checklist", "Evening exception review"],
+              "topK": 4,
+              "categoryPath": "Operations",
+              "docPath": "Operations/Weekly guide.pdf",
+              "maxPerDoc": 7,
+              "maxPerPage": 2,
+              "mode": "balanced"
+            }
+            """);
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        Assert.Equal(2, capturedBodies.Count);
+        foreach (var capturedBody in capturedBodies)
+        {
+            using var body = JsonDocument.Parse(capturedBody);
+            Assert.Equal("Operations", body.RootElement.GetProperty("categoryPath").GetString());
+            Assert.Equal("Operations/Weekly guide.pdf", body.RootElement.GetProperty("docPath").GetString());
+            Assert.Equal(7, body.RootElement.GetProperty("maxPerDoc").GetInt32());
+            Assert.Equal(2, body.RootElement.GetProperty("maxPerPage").GetInt32());
+        }
+
+        Assert.Equal("Operations/Weekly guide.pdf", result.GetProperty("meta").GetProperty("docPath").GetString());
+        Assert.Equal(7, result.GetProperty("meta").GetProperty("maxPerDoc").GetInt32());
+        Assert.Equal(2, result.GetProperty("meta").GetProperty("maxPerPage").GetInt32());
+    }
+
+    [Fact]
     public async Task ToolAgent_rag_search_preserves_nested_category_path_until_backend_call()
     {
         string? capturedBody = null;

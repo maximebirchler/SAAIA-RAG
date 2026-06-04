@@ -1225,7 +1225,13 @@ public sealed partial class ToolAgentOrchestrator
 
             var beforeAnalysis = currentAnalysis;
             remainingRagCalls--;
-            var resolvedPassCategoryScope = ResolveLlmPlannedRagCategoryScope(pass.CategoryScope);
+            var passDocId = NullIfWhiteSpace(pass.DocId);
+            var passDocPath = NullIfWhiteSpace(pass.DocPath);
+            var passTopK = ResolveSourceBackedEvidenceExplorationTopK(explorationQuery, pass.Label);
+            var passHasDocumentScope = !string.IsNullOrWhiteSpace(passDocId) || !string.IsNullOrWhiteSpace(passDocPath);
+            var resolvedPassCategoryScope = passHasDocumentScope
+                ? NullIfWhiteSpace(pass.CategoryScope)
+                : ResolveLlmPlannedRagCategoryScope(pass.CategoryScope);
             var passCategoryScope = resolvedPassCategoryScope ?? categoryScope;
             if (!string.IsNullOrWhiteSpace(resolvedPassCategoryScope))
             {
@@ -1243,8 +1249,12 @@ public sealed partial class ToolAgentOrchestrator
             var args = CreateJsonArgs(new
             {
                 queries = pass.Queries,
-                topK = ResolveSourceBackedEvidenceExplorationTopK(explorationQuery, pass.Label),
+                topK = passTopK,
                 category = passCategoryScope,
+                docId = passDocId,
+                docPath = passDocPath,
+                maxPerDoc = passHasDocumentScope ? Math.Max(passTopK, 8) : (int?)null,
+                maxPerPage = passHasDocumentScope ? 2 : (int?)null,
                 mode = "balanced"
             });
 
@@ -1319,17 +1329,38 @@ public sealed partial class ToolAgentOrchestrator
             if (attemptedAnchorFollowup || remainingRagCalls <= 0)
                 return false;
 
+            var documentScopedPasses = BuildSourceBackedDocumentScopedRouteAnchorFollowupExplorationPasses(
+                    toolResults,
+                    explorationQuery,
+                    plan.Language)
+                .Take(Math.Min(3, remainingRagCalls))
+                .ToArray();
             var pass = BuildSourceBackedRouteAnchorFollowupExplorationPass(
                 toolResults,
                 explorationQuery,
                 plan.Language);
-            if (pass is null)
+            if (documentScopedPasses.Length == 0 && pass is null)
                 return false;
-            if (!currentAnalysis.ShouldExplore && !forceBroadenedExploration && pass.Queries.Length == 0)
+            if (!currentAnalysis.ShouldExplore
+                && !forceBroadenedExploration
+                && documentScopedPasses.Length == 0
+                && (pass is null || pass.Queries.Length == 0))
+            {
                 return false;
+            }
 
             attemptedAnchorFollowup = true;
-            return await TryExecuteExplorationPassAsync(pass).ConfigureAwait(false);
+            var accepted = false;
+            foreach (var documentScopedPass in documentScopedPasses)
+            {
+                if (await TryExecuteExplorationPassAsync(documentScopedPass).ConfigureAwait(false))
+                    accepted = true;
+            }
+
+            if (!accepted && pass is not null && remainingRagCalls > 0)
+                accepted = await TryExecuteExplorationPassAsync(pass).ConfigureAwait(false);
+
+            return accepted;
         }
 
         var passes = BuildSourceBackedEvidenceExplorationPasses(
@@ -1439,67 +1470,32 @@ public sealed partial class ToolAgentOrchestrator
         if (seededNavigationScopes is not null && !seededNavigationScopes.Add(scopeKey))
             return false;
 
-        if (string.IsNullOrWhiteSpace(categoryScope)
-            && toolResults.Items.Any(static item => item.ToolName == "documents.tree" && string.IsNullOrWhiteSpace(item.Error)))
-            return false;
+        var hasExistingTree = string.IsNullOrWhiteSpace(categoryScope)
+                              && toolResults.Items.Any(static item => item.ToolName == "documents.tree" && string.IsNullOrWhiteSpace(item.Error));
 
         var acceptedAny = false;
         var args = string.IsNullOrWhiteSpace(categoryScope)
             ? CreateJsonArgs(new { depth = 2, format = "json" })
             : CreateJsonArgs(new { path = categoryScope, depth = 3, format = "json" });
 
-        var sw = Stopwatch.StartNew();
-        try
+        var sw = new Stopwatch();
+        if (!hasExistingTree)
         {
-            onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(language));
-            var result = await ExecDocumentsTreeAsync(args, ct).ConfigureAwait(false);
-            sw.Stop();
-            toolResults.Items.Add(new ToolResults.Item
-            {
-                ToolName = "documents.tree",
-                Result = result,
-                DurationMs = sw.ElapsedMilliseconds
-            });
-            _lastToolDurations.Add(("documents.tree", sw.ElapsedMilliseconds, true));
-            if (!_mem.LastToolNames.Contains("documents.tree", StringComparer.OrdinalIgnoreCase))
-                _mem.LastToolNames.Add("documents.tree");
-            acceptedAny = true;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch
-        {
-            sw.Stop();
-            _lastToolDurations.Add(("documents.tree", sw.ElapsedMilliseconds, false));
-        }
-
-        if (!string.IsNullOrWhiteSpace(categoryScope))
-        {
-            var navigationArgs = CreateJsonArgs(new
-            {
-                path = categoryScope,
-                q = effectiveUserMessage,
-                limit = 120,
-                offset = 0
-            });
-
-            sw.Restart();
+            sw.Start();
             try
             {
                 onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(language));
-                var navigation = await ExecDocumentsNavigationAsync(navigationArgs, ct).ConfigureAwait(false);
+                var result = await ExecDocumentsTreeAsync(args, ct).ConfigureAwait(false);
                 sw.Stop();
                 toolResults.Items.Add(new ToolResults.Item
                 {
-                    ToolName = "documents.navigation",
-                    Result = navigation,
+                    ToolName = "documents.tree",
+                    Result = result,
                     DurationMs = sw.ElapsedMilliseconds
                 });
-                _lastToolDurations.Add(("documents.navigation", sw.ElapsedMilliseconds, true));
-                if (!_mem.LastToolNames.Contains("documents.navigation", StringComparer.OrdinalIgnoreCase))
-                    _mem.LastToolNames.Add("documents.navigation");
+                _lastToolDurations.Add(("documents.tree", sw.ElapsedMilliseconds, true));
+                if (!_mem.LastToolNames.Contains("documents.tree", StringComparer.OrdinalIgnoreCase))
+                    _mem.LastToolNames.Add("documents.tree");
                 acceptedAny = true;
             }
             catch (OperationCanceledException)
@@ -1509,8 +1505,50 @@ public sealed partial class ToolAgentOrchestrator
             catch
             {
                 sw.Stop();
-                _lastToolDurations.Add(("documents.navigation", sw.ElapsedMilliseconds, false));
+                _lastToolDurations.Add(("documents.tree", sw.ElapsedMilliseconds, false));
             }
+        }
+
+        var navigationArgs = string.IsNullOrWhiteSpace(categoryScope)
+            ? CreateJsonArgs(new
+            {
+                q = effectiveUserMessage,
+                limit = 120,
+                offset = 0
+            })
+            : CreateJsonArgs(new
+            {
+                path = categoryScope,
+                q = effectiveUserMessage,
+                limit = 120,
+                offset = 0
+            });
+
+        sw.Restart();
+        try
+        {
+            onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(language));
+            var navigation = await ExecDocumentsNavigationAsync(navigationArgs, ct).ConfigureAwait(false);
+            sw.Stop();
+            toolResults.Items.Add(new ToolResults.Item
+            {
+                ToolName = "documents.navigation",
+                Result = navigation,
+                DurationMs = sw.ElapsedMilliseconds
+            });
+            _lastToolDurations.Add(("documents.navigation", sw.ElapsedMilliseconds, true));
+            if (!_mem.LastToolNames.Contains("documents.navigation", StringComparer.OrdinalIgnoreCase))
+                _mem.LastToolNames.Add("documents.navigation");
+            acceptedAny = true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            sw.Stop();
+            _lastToolDurations.Add(("documents.navigation", sw.ElapsedMilliseconds, false));
         }
 
         return acceptedAny;

@@ -13360,6 +13360,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             {
                 new
                 {
+                    docId = "doc-weekly",
                     docPath = "Operations/Weekly guide.pdf",
                     docName = "Weekly guide.pdf",
                     categoryPath = "Operations",
@@ -13373,6 +13374,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
                 },
                 new
                 {
+                    docId = "doc-weekly",
                     docPath = "Operations/Weekly guide.pdf",
                     docName = "Weekly guide.pdf",
                     categoryPath = "Operations",
@@ -13407,6 +13409,19 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
                                           || q.Contains("etapes", StringComparison.OrdinalIgnoreCase)));
         Assert.DoesNotContain(queries, q => q.Contains("recette", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, q => q.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
+
+        var scopedPass = Assert.Single(ToolAgentOrchestrator.BuildSourceBackedDocumentScopedRouteAnchorFollowupPassesForTests(
+            toolResults,
+            "Prepare un plan hebdomadaire a partir des documents.",
+            "fr"));
+        Assert.Equal("anchor_followup_doc_scope", scopedPass.Label);
+        Assert.Equal("doc-weekly", scopedPass.DocId);
+        Assert.Equal("Operations/Weekly guide.pdf", scopedPass.DocPath);
+        Assert.Equal("Operations", scopedPass.CategoryScope);
+        Assert.Contains(scopedPass.Queries, q => q.Contains("Morning control checklist", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(scopedPass.Queries, q => q.Contains("Evening exception review", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(scopedPass.Queries, q => q.Contains("recette", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(scopedPass.Queries, q => q.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

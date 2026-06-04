@@ -425,10 +425,21 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
     /// <summary>
     /// Tool-agent friendly RAG search with explicit mode.
     /// </summary>
-    public async Task<JsonElement> RagSearchToolAsync(string query, int topK, string? category, string? mode, CancellationToken ct)
+    public async Task<JsonElement> RagSearchToolAsync(
+        string query,
+        int topK,
+        string? category,
+        string? mode,
+        CancellationToken ct,
+        string? docId = null,
+        string? docPath = null,
+        int? maxPerDoc = null,
+        int? maxPerPage = null)
     {
         var m = NormalizeRagSearchApiMode(mode);
         var categoryScope = BuildRagCategoryScope(category);
+        var normalizedDocId = string.IsNullOrWhiteSpace(docId) ? null : docId.Trim();
+        var normalizedDocPath = string.IsNullOrWhiteSpace(docPath) ? null : docPath.Trim();
 
         var body = JsonSerializer.Serialize(new
         {
@@ -436,7 +447,11 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
             category = categoryScope.LegacyCategory,
             categoryPath = categoryScope.CategoryPath,
             categoryRef = categoryScope.CategoryRef,
+            docId = normalizedDocId,
+            docPath = normalizedDocPath,
             topK,
+            maxPerDoc,
+            maxPerPage,
             mode = m,
             includeContextualSnippet = true
         }, JsonOpts);

@@ -614,6 +614,14 @@ public sealed partial class ToolAgentOrchestrator
         string language)
         => BuildSourceBackedRouteAnchorFollowupRetrievalQueries(toolResults, query, language);
 
+    internal static (string Label, string? DocId, string? DocPath, string? CategoryScope, string[] Queries)[] BuildSourceBackedDocumentScopedRouteAnchorFollowupPassesForTests(
+        ToolResults toolResults,
+        string query,
+        string language)
+        => BuildSourceBackedDocumentScopedRouteAnchorFollowupExplorationPasses(toolResults, query, language)
+            .Select(static pass => (pass.Label, pass.DocId, pass.DocPath, pass.CategoryScope, pass.Queries))
+            .ToArray();
+
     internal static bool HasSourceBackedRouteAnchorFollowupQueriesForTests(
         ToolResults toolResults,
         string query,

@@ -933,6 +933,10 @@ public sealed partial class ToolAgentOrchestrator
         var query = ResolveRagSearchExecutionQuery(args.GetProperty("query").GetString() ?? "");
         var topK = args.TryGetProperty("topK", out var k) ? k.GetInt32() : 8;
         var categoryScope = GetRagCategoryScopeArg(args);
+        var docId = GetRagDocIdArg(args);
+        var docPath = GetRagDocPathArg(args);
+        var maxPerDoc = GetRagMaxPerDocArg(args);
+        var maxPerPage = GetRagMaxPerPageArg(args);
         var mode = args.TryGetProperty("mode", out var m) && m.ValueKind != JsonValueKind.Null ? m.GetString() : "balanced";
 
         if (LooksLikeComparativeDocumentaryRequest(query))
@@ -942,6 +946,10 @@ public sealed partial class ToolAgentOrchestrator
                 queries = BuildComparativeRetrievalQueries(query),
                 topK,
                 categoryPath = categoryScope,
+                docId,
+                docPath,
+                maxPerDoc,
+                maxPerPage,
                 mode
             });
             return await ExecRagMultiSearchAsync(multiArgs, ct).ConfigureAwait(false);
@@ -950,7 +958,7 @@ public sealed partial class ToolAgentOrchestrator
         JsonElement raw;
         try
         {
-            raw = await _api.RagSearchToolAsync(query, topK, categoryScope, mode, ct).ConfigureAwait(false);
+            raw = await _api.RagSearchToolAsync(query, topK, categoryScope, mode, ct, docId, docPath, maxPerDoc, maxPerPage).ConfigureAwait(false);
         }
         catch (ApiClientBackendBusyException ex) when (!ct.IsCancellationRequested)
         {
@@ -1069,9 +1077,13 @@ public sealed partial class ToolAgentOrchestrator
 
     private async Task<JsonElement> ExecRagMultiSearchAsync(JsonElement args, CancellationToken ct)
     {
-        // args: { queries: string[], topK: int, category: string|null, mode: ... }
+        // args: { queries: string[], topK: int, category: string|null, docId/docPath: string|null, mode: ... }
         var topK = args.TryGetProperty("topK", out var k) ? k.GetInt32() : 8;
         var categoryScope = GetRagCategoryScopeArg(args);
+        var docId = GetRagDocIdArg(args);
+        var docPath = GetRagDocPathArg(args);
+        var maxPerDoc = GetRagMaxPerDocArg(args);
+        var maxPerPage = GetRagMaxPerPageArg(args);
         var mode = args.TryGetProperty("mode", out var m) && m.ValueKind != JsonValueKind.Null ? m.GetString() : "balanced";
 
         var queries = new List<string>();
@@ -1138,7 +1150,7 @@ public sealed partial class ToolAgentOrchestrator
                     JsonElement norm;
                     try
                     {
-                        var raw = await _api.RagSearchToolAsync(q, topK, scope, mode, ct).ConfigureAwait(false);
+                        var raw = await _api.RagSearchToolAsync(q, topK, scope, mode, ct, docId, docPath, maxPerDoc, maxPerPage).ConfigureAwait(false);
                         norm = NormalizeRagHits(raw);
                     }
                     catch (ApiClientBackendBusyException ex) when (!ct.IsCancellationRequested)
@@ -1306,6 +1318,10 @@ public sealed partial class ToolAgentOrchestrator
                     mode = (mode ?? "balanced"),
                     category = scope,
                     categoryPath = scope,
+                    docId,
+                    docPath,
+                    maxPerDoc,
+                    maxPerPage,
                     categoryInferred,
                     fanoutParallelism,
                     busyQueries = busyRuns.Length == 0 ? null : busyRuns.Select(static run => run.Query).ToArray(),
@@ -1318,7 +1334,11 @@ public sealed partial class ToolAgentOrchestrator
         }
 
         var result = await RunMergedSearchAsync(categoryScope, categoryInferred: false).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(categoryScope) && HasRagHits(result) && !HasRagBusyQueries(result))
+        if (string.IsNullOrWhiteSpace(categoryScope)
+            && string.IsNullOrWhiteSpace(docId)
+            && string.IsNullOrWhiteSpace(docPath)
+            && HasRagHits(result)
+            && !HasRagBusyQueries(result))
         {
             var inferenceResults = new ToolResults();
             inferenceResults.Items.Add(new ToolResults.Item
