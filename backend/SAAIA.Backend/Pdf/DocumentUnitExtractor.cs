@@ -29,19 +29,13 @@ internal static partial class DocumentUnitExtractor
         foreach (var page in pages.OrderBy(p => p.PageNumber))
         {
             var quality = page.Quality ?? PdfPageExtractionQuality.FromText(page.Text, page.WordCount, page.CharCount);
-            var paragraphs = SplitParagraphs(page.Text);
+            var paragraphs = SplitParagraphs(page.Text, normalizedSectionTitles);
             if (paragraphs.Count == 0)
                 continue;
 
-            var currentSection = sections
-                .Where(s => s.PageStart <= page.PageNumber && s.PageEnd >= page.PageNumber)
-                .OrderByDescending(s => s.PageStart)
-                .ThenByDescending(s => s.Ordinal)
-                .FirstOrDefault();
-
             foreach (var paragraph in paragraphs)
             {
-                var normalized = NormalizeLine(paragraph);
+                var normalized = NormalizeLine(paragraph.Text);
                 if (string.IsNullOrWhiteSpace(normalized))
                     continue;
 
@@ -60,7 +54,7 @@ internal static partial class DocumentUnitExtractor
 
                 units.Add(new ExtractedDocumentUnit(
                     Ordinal: ordinal++,
-                    SectionOrdinal: currentSection?.Ordinal,
+                    SectionOrdinal: ResolveSectionForParagraph(sections, page.PageNumber, paragraph.StartLine)?.Ordinal,
                     PageStart: page.PageNumber,
                     PageEnd: page.PageNumber,
                     Text: normalized,
@@ -115,6 +109,46 @@ internal static partial class DocumentUnitExtractor
         return units;
     }
 
+    private static ExtractedDocumentSection? ResolveSectionForParagraph(
+        IReadOnlyList<ExtractedDocumentSection> sections,
+        int pageNumber,
+        int lineNumber)
+    {
+        var pageSections = sections
+            .Where(s => s.PageStart <= pageNumber && s.PageEnd >= pageNumber)
+            .ToList();
+        if (pageSections.Count == 0)
+            return null;
+
+        var lineAware = pageSections
+            .Where(section => SectionContainsLine(section, pageNumber, lineNumber))
+            .OrderByDescending(static section => section.PageStart)
+            .ThenByDescending(static section => section.StartLine ?? 0)
+            .ThenByDescending(static section => section.Ordinal)
+            .FirstOrDefault();
+        if (lineAware is not null)
+            return lineAware;
+
+        return pageSections
+            .OrderByDescending(static section => section.PageStart)
+            .ThenByDescending(static section => section.Ordinal)
+            .FirstOrDefault();
+    }
+
+    private static bool SectionContainsLine(ExtractedDocumentSection section, int pageNumber, int lineNumber)
+    {
+        if (pageNumber < section.PageStart || pageNumber > section.PageEnd)
+            return false;
+
+        if (pageNumber == section.PageStart && section.StartLine.HasValue && lineNumber < section.StartLine.Value)
+            return false;
+
+        if (pageNumber == section.PageEnd && section.EndLine.HasValue && lineNumber > section.EndLine.Value)
+            return false;
+
+        return true;
+    }
+
     private static PdfPageExtractionQuality ResolveFallbackExtractionQuality(IReadOnlyList<ExtractedPdfPage> pages)
     {
         var qualities = pages
@@ -158,57 +192,96 @@ internal static partial class DocumentUnitExtractor
             _ => 2
         };
 
-    private static List<string> SplitParagraphs(string text)
+    private static List<DocumentParagraph> SplitParagraphs(string text, ISet<string> normalizedSectionTitles)
     {
-        var normalizedNewlines = text.Replace("\r\n", "\n");
-        var explicitParagraphs = normalizedNewlines
-            .Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(NormalizeLine)
-            .Where(static s => !string.IsNullOrWhiteSpace(s))
-            .ToList();
-
-        if (explicitParagraphs.Count > 0)
-            return SplitDenseStructuredParagraphs(explicitParagraphs);
-
-        var lines = normalizedNewlines
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(NormalizeLine)
-            .Where(static s => !string.IsNullOrWhiteSpace(s))
-            .ToList();
-
-        if (lines.Count == 0)
+        var blocks = BuildParagraphBlocks(text, normalizedSectionTitles);
+        if (blocks.Count == 0)
             return [];
 
-        var grouped = new List<string>();
-        var buffer = new List<string>();
-        var currentLength = 0;
-
-        foreach (var line in lines)
-        {
-            buffer.Add(line);
-            currentLength += line.Length;
-
-            if (currentLength >= 500 || SentenceEndRegex().IsMatch(line))
-            {
-                grouped.Add(string.Join(' ', buffer));
-                buffer.Clear();
-                currentLength = 0;
-            }
-        }
-
-        if (buffer.Count > 0)
-            grouped.Add(string.Join(' ', buffer));
-
-        return SplitDenseStructuredParagraphs(grouped);
+        return SplitDenseStructuredParagraphs(blocks, normalizedSectionTitles);
     }
 
-    private static List<string> SplitDenseStructuredParagraphs(IEnumerable<string> paragraphs)
+    private static List<ParagraphBlock> BuildParagraphBlocks(string text, ISet<string> normalizedSectionTitles)
     {
-        var result = new List<string>();
+        var normalizedNewlines = text.Replace("\r\n", "\n").Replace('\r', '\n');
+        var rawLines = normalizedNewlines.Split('\n');
+        var blocks = new List<ParagraphBlock>();
+        var buffer = new List<string>();
+        var startLine = 0;
+        var endLine = 0;
+        var contentLineNumber = 0;
+
+        void Flush()
+        {
+            if (buffer.Count == 0)
+                return;
+
+            blocks.Add(new ParagraphBlock(buffer.ToArray(), startLine, endLine));
+            buffer.Clear();
+            startLine = 0;
+            endLine = 0;
+        }
+
+        for (var i = 0; i < rawLines.Length; i++)
+        {
+            var line = NormalizeLine(rawLines[i]);
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                Flush();
+                continue;
+            }
+
+            var lineNumber = ++contentLineNumber;
+            if (normalizedSectionTitles.Contains(line))
+                Flush();
+
+            if (buffer.Count == 0)
+                startLine = lineNumber;
+
+            buffer.Add(line);
+            endLine = lineNumber;
+
+            if (normalizedSectionTitles.Contains(line))
+                Flush();
+        }
+
+        Flush();
+        return blocks;
+    }
+
+    private static List<DocumentParagraph> SplitDenseStructuredParagraphs(
+        IEnumerable<ParagraphBlock> paragraphs,
+        ISet<string> normalizedSectionTitles)
+    {
+        var result = new List<DocumentParagraph>();
         foreach (var paragraph in paragraphs)
-            result.AddRange(SplitDenseStructuredParagraph(paragraph));
+        {
+            var text = BuildParagraphTextWithoutLeadingTitles(paragraph, normalizedSectionTitles, out var startLine);
+            if (string.IsNullOrWhiteSpace(text))
+                continue;
+
+            foreach (var segment in SplitDenseStructuredParagraph(text))
+                result.Add(new DocumentParagraph(segment, startLine, paragraph.EndLine));
+        }
 
         return result;
+    }
+
+    private static string BuildParagraphTextWithoutLeadingTitles(
+        ParagraphBlock paragraph,
+        ISet<string> normalizedSectionTitles,
+        out int startLine)
+    {
+        var lines = paragraph.Lines;
+        var index = 0;
+        while (index < lines.Length && normalizedSectionTitles.Contains(NormalizeLine(lines[index])))
+            index++;
+
+        startLine = paragraph.StartLine + index;
+        if (index >= lines.Length)
+            return string.Empty;
+
+        return NormalizeLine(string.Join(' ', lines.Skip(index)));
     }
 
     private static IReadOnlyList<string> SplitDenseStructuredParagraph(string paragraph)
@@ -670,6 +743,8 @@ internal static partial class DocumentUnitExtractor
     [GeneratedRegex(@"(?<=[\.!?:;\)\]\u00ae])(?=\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|units?|items?|pieces?|min|h)\b)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex PunctuationBeforeStructuredQuantityRegex();
 
+    private sealed record ParagraphBlock(string[] Lines, int StartLine, int EndLine);
+    private sealed record DocumentParagraph(string Text, int StartLine, int EndLine);
 }
 
 internal sealed record ExtractedDocumentUnit(

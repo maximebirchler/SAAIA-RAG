@@ -842,6 +842,20 @@ WHERE job_id=@job_id
         var fullDocumentOcrRecommended = nativeExtraction.Quality.OcrRecommended;
         var imagePageOcrRecommended = ShouldAttemptImagePageOcr(ingest, nativeExtraction);
         var ocrRequiredButDisabled = IsOcrRequiredButDisabled(ingest, fullDocumentOcrRecommended, imagePageOcrRecommended);
+        _log.LogInformation(
+            "Ingestion native extraction summary job={JobId} doc={DocPath} pages={Pages} tokens={Tokens} text_status={TextStatus} text_pages={TextPages} empty_pages={EmptyPages} sparse_pages={SparsePages} image_pages={ImagePages} ocr_recommended={OcrRecommended} image_ocr_recommended={ImageOcrRecommended} ocr_required_but_disabled={OcrRequiredButDisabled}",
+            job.JobId,
+            relDocPath,
+            nativeExtraction.Pages.Count,
+            nativeExtraction.Tokens.Count,
+            nativeExtraction.Quality.TextStatus,
+            nativeExtraction.Quality.TextPageCount,
+            nativeExtraction.Quality.EmptyPageCount,
+            nativeExtraction.Quality.SparsePageCount,
+            nativeExtraction.Pages.Count(static page => page.ImageCount > 0),
+            fullDocumentOcrRecommended,
+            imagePageOcrRecommended,
+            ocrRequiredButDisabled);
         if (ocrRequiredButDisabled)
         {
             ocrDiagnostics = PdfOcrTextExtractor.BuildOcrDisabledDiagnostics(
@@ -947,6 +961,20 @@ WHERE job_id=@job_id
         var tokens = extraction.Tokens;
         var pages = extraction.Pages;
         var extractionQuality = extraction.Quality;
+        _log.LogInformation(
+            "Ingestion OCR decision summary job={JobId} doc={DocPath} source={ExtractionSource} attempted={OcrAttempted} applied={OcrApplied} languages={OcrLanguages} candidate_pages={OcrCandidatePages} attempted_pages={OcrAttemptedPages} pages_with_text={OcrPagesWithText} pages_with_novel_text={OcrPagesWithNovelText} coverage={OcrCoverage} failure={OcrFailure}",
+            job.JobId,
+            relDocPath,
+            extraction.Source,
+            ocrAttempted,
+            ocrApplied,
+            ocrLanguages ?? "",
+            ocrDiagnostics?.CandidatePageCount ?? 0,
+            ocrDiagnostics?.AttemptedPageCount ?? 0,
+            ocrDiagnostics?.PagesWithOcrText.Length ?? 0,
+            ocrDiagnostics?.PagesWithNovelText.Length ?? 0,
+            ocrDiagnostics?.CoverageStatus ?? "",
+            ocrDiagnostics?.FailureReason ?? "");
         await JobRepo.UpdateProgressAsync(ds, job.JobId, "structuring", null, null, ct);
         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
         var swSections = Stopwatch.StartNew();
@@ -957,6 +985,16 @@ WHERE job_id=@job_id
         var units = DocumentUnitExtractor.Extract(pages, sections);
         swUnits.Stop();
         unitMs = swUnits.ElapsedMilliseconds;
+        _log.LogInformation(
+            "Ingestion structure summary job={JobId} doc={DocPath} pages={Pages} sections={Sections} units={Units} section_ms={SectionMs} unit_ms={UnitMs} text_status={TextStatus}",
+            job.JobId,
+            relDocPath,
+            pages.Count,
+            sections.Count,
+            units.Count,
+            sectionMs,
+            unitMs,
+            extractionQuality.TextStatus);
         await ThrowIfJobCanceledAsync(ds, job, ct);
         if (job.Version > 0)
         {
@@ -1020,6 +1058,22 @@ WHERE job_id=@job_id
             .ToList();
         swChunking.Stop();
         chunkingMs = swChunking.ElapsedMilliseconds;
+        _log.LogInformation(
+            "Ingestion chunking summary job={JobId} doc={DocPath} retrieval_chunks={RetrievalChunks} searchable_chunks={SearchableChunks} embedding_chunks={EmbeddingChunks} rejected_chunks={RejectedChunks} navigation_chunks={NavigationChunks} sparse_rejected={SparseRejected} replacement_rejected={ReplacementRejected} empty_rejected={EmptyRejected} ocr_noise_rejected={OcrNoiseRejected} other_rejected={OtherRejected} manual_review={ManualReview} chunking_ms={ChunkingMs}",
+            job.JobId,
+            relDocPath,
+            retrievalChunks.Count,
+            retrievalChunkQuality.SearchableChunkCount,
+            chunks.Count,
+            retrievalChunkQuality.RejectedChunkCount,
+            retrievalChunkQuality.NavigationChunkCount,
+            retrievalChunkQuality.SparseRejectedChunkCount,
+            retrievalChunkQuality.ReplacementCharRejectedChunkCount,
+            retrievalChunkQuality.EmptyTextRejectedChunkCount,
+            retrievalChunkQuality.OcrNoiseRejectedChunkCount,
+            retrievalChunkQuality.OtherRejectedChunkCount,
+            retrievalChunkQuality.ManualReviewRecommended,
+            chunkingMs);
         if (retrievalChunkQuality.SearchableChunkCount == 0)
         {
             const string failureReason = "manual_review_no_searchable_chunks";

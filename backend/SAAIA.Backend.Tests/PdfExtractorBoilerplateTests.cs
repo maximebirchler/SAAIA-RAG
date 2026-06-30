@@ -55,4 +55,23 @@ public sealed class PdfExtractorBoilerplateTests
         Assert.Contains("SECOND UNIQUE HEADER", cleaned[1].Text, StringComparison.Ordinal);
         Assert.Contains("THIRD UNIQUE HEADER", cleaned[2].Text, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void RemoveRepeatedPageBoilerplate_removes_standalone_page_markers_at_edges()
+    {
+        var pages = new List<(int PageNumber, string Text, int ImageCount)>
+        {
+            (1, "Page 1 of 2\nInstallation notes stay searchable.\n1", 0),
+            (2, "2 / 2\nOperational checklist stays searchable.\n- 2 -", 0)
+        };
+
+        var cleaned = PdfExtractor.RemoveRepeatedPageBoilerplate(pages);
+
+        Assert.DoesNotContain("Page 1 of 2", cleaned[0].Text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\n1", cleaned[0].Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("2 / 2", cleaned[1].Text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("- 2 -", cleaned[1].Text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Installation notes stay searchable.", cleaned[0].Text, StringComparison.Ordinal);
+        Assert.Contains("Operational checklist stays searchable.", cleaned[1].Text, StringComparison.Ordinal);
+    }
 }

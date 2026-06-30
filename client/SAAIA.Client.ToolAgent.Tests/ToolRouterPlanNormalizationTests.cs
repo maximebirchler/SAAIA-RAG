@@ -975,7 +975,9 @@ public sealed class ToolRouterPlanNormalizationTests
         Assert.Contains(firstBudgetedExplorationQueries, query => ContainsNormalizedToken(query, "dessert"));
         Assert.DoesNotContain(firstBudgetedExplorationQueries, query => string.Equals(query, "sommaire", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(firstBudgetedExplorationQueries, query => string.Equals(query, "index", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(firstBudgetedExplorationQueries, query => ContainsNormalizedToken(query, "recettes"));
+        Assert.Contains(
+            firstBudgetedExplorationQueries,
+            query => ContainsNormalizedToken(query, "options") || ContainsNormalizedToken(query, "candidats"));
 
         static bool ContainsNormalizedToken(string query, string token)
             => ToolAgentOrchestrator.NormalizeRagQueryForTests(query)

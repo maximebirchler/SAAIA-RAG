@@ -62,4 +62,17 @@ public sealed class TextEncodingSanitizerTests
         Assert.Contains("identify", sanitized, StringComparison.Ordinal);
         Assert.Contains(" heading", sanitized, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void PdfTextSanitizer_repairs_soft_line_hyphenation_and_preserves_paragraph_breaks()
+    {
+        var sanitized = PdfTextSanitizer.ForStorage(
+            "The imple-\nmentation keeps para-\ngraphs.\n\nNext\u00a0block");
+
+        Assert.Contains("implementation", sanitized, StringComparison.Ordinal);
+        Assert.Contains("paragraphs", sanitized, StringComparison.Ordinal);
+        Assert.Contains("\n\nNext block", sanitized, StringComparison.Ordinal);
+        Assert.DoesNotContain("imple-", sanitized, StringComparison.Ordinal);
+        Assert.DoesNotContain('\u00a0', sanitized);
+    }
 }

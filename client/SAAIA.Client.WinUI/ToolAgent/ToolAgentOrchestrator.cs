@@ -12847,6 +12847,8 @@ TOOL_RESULTS (json):
             return string.Join(' ', tokens);
         if (tokens.Length == 1 && rawTokenCount > 1)
             return tokens[0];
+        if (tokens.Length == 0)
+            return string.Empty;
 
         return CollapseWhitespace(query);
     }
@@ -12895,10 +12897,9 @@ TOOL_RESULTS (json):
 
         if (LooksLikeWeeklyPlanningRequest(effectiveUserMessage)
             && Regex.IsMatch(normalizedQuery, @"\brepas\b", RegexOptions.CultureInvariant)
-            && Regex.IsMatch(normalizedQuery, @"\b(?:recettes?|plats?)\b", RegexOptions.CultureInvariant)
             && !Regex.IsMatch(normalizedQuery, @"\b(?:petit|dejeuner|diner|souper|gouter|collation|midi|soir)\b", RegexOptions.CultureInvariant))
         {
-            score -= 18;
+            score -= 58;
         }
 
         var normalizedUserMessage = NormalizeLexicalLookup(NormalizeRagQueryForRetrieval(effectiveUserMessage));

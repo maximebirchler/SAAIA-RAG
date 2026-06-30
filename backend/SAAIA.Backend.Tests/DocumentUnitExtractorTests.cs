@@ -28,6 +28,32 @@ public sealed class DocumentUnitExtractorTests
     }
 
     [Fact]
+    public void Extract_assigns_same_page_units_to_line_aware_sections_and_removes_heading_lines()
+    {
+        const string text =
+            "1 Installation\n"
+            + "\n"
+            + "Installer le module et verifier les voyants.\n\n"
+            + "2 Maintenance\n"
+            + "\n"
+            + "Nettoyer les filtres et consigner la date.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 16, text.Length, [1])
+        };
+        var sections = DocumentSectionExtractor.Extract(pages);
+
+        var units = DocumentUnitExtractor.Extract(pages, sections);
+
+        var installation = Assert.Single(units, unit => unit.Text.Contains("Installer le module", StringComparison.Ordinal));
+        var maintenance = Assert.Single(units, unit => unit.Text.Contains("Nettoyer les filtres", StringComparison.Ordinal));
+        Assert.Equal(sections.Single(section => section.Title == "1 Installation").Ordinal, installation.SectionOrdinal);
+        Assert.Equal(sections.Single(section => section.Title == "2 Maintenance").Ordinal, maintenance.SectionOrdinal);
+        Assert.DoesNotContain(units, unit => unit.Text.Contains("1 Installation", StringComparison.Ordinal));
+        Assert.DoesNotContain(units, unit => unit.Text.Contains("2 Maintenance", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Extract_carries_page_extraction_quality_to_units()
     {
         var quality = new PdfPageExtractionQuality(

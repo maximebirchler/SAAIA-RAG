@@ -90,37 +90,45 @@ static class PdfExtractor
     internal static IReadOnlyList<(int PageNumber, string Text, int ImageCount)> RemoveRepeatedPageBoilerplate(
         IReadOnlyList<(int PageNumber, string Text, int ImageCount)> pages)
     {
-        if (pages.Count < 3)
+        if (pages.Count == 0)
             return pages;
 
-        var pageLineSets = pages
-            .Select(static page => ExtractCandidateBoilerplateLines(page.Text).Distinct(StringComparer.OrdinalIgnoreCase).ToArray())
-            .ToArray();
-        var repeated = pageLineSets
-            .SelectMany(static lines => lines)
-            .GroupBy(static line => line, StringComparer.OrdinalIgnoreCase)
-            .Where(group => group.Count() >= Math.Max(3, (int)Math.Ceiling(pages.Count * 0.35)))
-            .Select(static group => group.Key)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var pagePatternSets = pageLineSets
-            .Select(static lines => lines
-                .Where(HasVariableBoilerplateMarker)
-                .Select(NormalizeVariableBoilerplateLine)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray())
-            .ToArray();
-        var repeatedPatterns = pagePatternSets
-            .SelectMany(static lines => lines)
-            .GroupBy(static line => line, StringComparer.OrdinalIgnoreCase)
-            .Where(group => group.Count() >= Math.Max(3, (int)Math.Ceiling(pages.Count * 0.35)))
-            .Select(static group => group.Key)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> repeated;
+        HashSet<string> repeatedPatterns;
+        if (pages.Count >= 3)
+        {
+            var pageLineSets = pages
+                .Select(static page => ExtractCandidateBoilerplateLines(page.Text).Distinct(StringComparer.OrdinalIgnoreCase).ToArray())
+                .ToArray();
+            repeated = pageLineSets
+                .SelectMany(static lines => lines)
+                .GroupBy(static line => line, StringComparer.OrdinalIgnoreCase)
+                .Where(group => group.Count() >= Math.Max(3, (int)Math.Ceiling(pages.Count * 0.35)))
+                .Select(static group => group.Key)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var pagePatternSets = pageLineSets
+                .Select(static lines => lines
+                    .Where(HasVariableBoilerplateMarker)
+                    .Select(NormalizeVariableBoilerplateLine)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray())
+                .ToArray();
+            repeatedPatterns = pagePatternSets
+                .SelectMany(static lines => lines)
+                .GroupBy(static line => line, StringComparer.OrdinalIgnoreCase)
+                .Where(group => group.Count() >= Math.Max(3, (int)Math.Ceiling(pages.Count * 0.35)))
+                .Select(static group => group.Key)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+        else
+        {
+            repeated = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            repeatedPatterns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
 
-        if (repeated.Count == 0 && repeatedPatterns.Count == 0)
-            return pages;
-
+        var pageCount = pages.Max(static page => page.PageNumber);
         return pages
-            .Select(page => (page.PageNumber, Text: RemoveRepeatedLines(page.Text, repeated, repeatedPatterns), page.ImageCount))
+            .Select(page => (page.PageNumber, Text: RemoveRepeatedLines(page.Text, page.PageNumber, pageCount, repeated, repeatedPatterns), page.ImageCount))
             .ToArray();
     }
 
@@ -140,7 +148,12 @@ static class PdfExtractor
         }
     }
 
-    private static string RemoveRepeatedLines(string text, ISet<string> repeated, ISet<string> repeatedPatterns)
+    private static string RemoveRepeatedLines(
+        string text,
+        int pageNumber,
+        int pageCount,
+        ISet<string> repeated,
+        ISet<string> repeatedPatterns)
     {
         var lines = SplitLikelyLines(text).ToArray();
         if (lines.Length <= 1)
@@ -149,10 +162,11 @@ static class PdfExtractor
             return IsRepeatedBoilerplateLine(normalized, repeated, repeatedPatterns) ? string.Empty : text;
         }
 
-        return string.Join('\n', lines.Where(line =>
+        return string.Join('\n', lines.Where((line, index) =>
         {
             var normalized = NormalizeBoilerplateLine(line);
-            return !IsRepeatedBoilerplateLine(normalized, repeated, repeatedPatterns);
+            return !IsRepeatedBoilerplateLine(normalized, repeated, repeatedPatterns)
+                   && !IsLocalPageMarkerLine(normalized, pageNumber, pageCount, index, lines.Length);
         })).Trim();
     }
 
@@ -176,6 +190,30 @@ static class PdfExtractor
 
     private static string NormalizeVariableBoilerplateLine(string line)
         => System.Text.RegularExpressions.Regex.Replace(NormalizeBoilerplateLine(line), @"\d+", "#");
+
+    private static bool IsLocalPageMarkerLine(string line, int pageNumber, int pageCount, int index, int lineCount)
+    {
+        if (lineCount <= 1 || index > 1 && index < lineCount - 2)
+            return false;
+
+        var normalized = NormalizeBoilerplateLine(line)
+            .Trim('-', '\u2010', '\u2011', '\u2012', '\u2013', '\u2014', ' ')
+            .ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        if (int.TryParse(normalized, out var simpleNumber))
+            return simpleNumber == pageNumber;
+
+        var pagePattern = pageCount > 0
+            ? $@"^(?:page|p\.?)?\s*0*{pageNumber}\s*(?:/|of|sur|de)\s*0*{pageCount}$"
+            : $@"^(?:page|p\.?)?\s*0*{pageNumber}$";
+        if (System.Text.RegularExpressions.Regex.IsMatch(normalized, pagePattern, System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+            return true;
+
+        var singlePagePattern = $@"^(?:page|p\.?)\s*0*{pageNumber}$";
+        return System.Text.RegularExpressions.Regex.IsMatch(normalized, singlePagePattern, System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+    }
 }
 
 sealed record WordToken(string Word, int Page);

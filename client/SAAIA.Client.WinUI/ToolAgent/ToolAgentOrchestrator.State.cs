@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -5461,6 +5461,12 @@ CURRENT_USER_MESSAGE:
             .Where(static term => !IsGenericPlanningCoverageTerm(term))
             .Take(5)
             .ToArray();
+        var structuredSubjectTerms = signalTerms
+            .Where(static term => !IsMealPeriodSlotRetrievalTerm(term))
+            .Where(static term => IsMainMealPlanningSlotRetrievalTerm(term) || !IsGenericPlanningCoverageTerm(term))
+            .Distinct(StringComparer.Ordinal)
+            .Take(3)
+            .ToArray();
         var slotTerms = ExtractPlanningSlotRetrievalTerms(query)
             .Take(5)
             .ToArray();
@@ -5487,6 +5493,15 @@ CURRENT_USER_MESSAGE:
             var concreteInventoryTerms = BuildConcreteStructuredPlanningInventoryTermsForRetrieval(language, query)
                 .Take(2)
                 .ToArray();
+            foreach (var subject in structuredSubjectTerms.Take(1))
+            {
+                foreach (var inventory in concreteInventoryTerms.Take(1))
+                {
+                    AddDistinctQuery(queries, $"{subject} {inventory}");
+                    AddDistinctQuery(queries, $"{inventory} {subject}");
+                }
+            }
+
             foreach (var subject in subjectTerms.Take(1))
             {
                 foreach (var inventory in concreteInventoryTerms)
@@ -5767,12 +5782,12 @@ CURRENT_USER_MESSAGE:
         language = NormalizeLanguageCode(language);
         var domainTerms = language switch
         {
-            "en" => new[] { "recipes", "dishes", "main dishes", "snacks" },
-            "es" => new[] { "recetas", "platos", "platos principales", "meriendas" },
-            "pt" => new[] { "receitas", "pratos", "pratos principais", "lanches" },
+            "en" => new[] { "options", "items", "main items", "snacks" },
+            "es" => new[] { "recetas", "opciones", "opciones principales", "meriendas" },
+            "pt" => new[] { "receitas", "opcoes", "opcoes principais", "lanches" },
             "de" => new[] { "rezepte", "gerichte", "hauptgerichte", "snacks" },
             "it" => new[] { "ricette", "piatti", "piatti principali", "spuntini" },
-            _ => new[] { "recettes", "plats", "plats principaux", "gouters" }
+            _ => new[] { "options", "options", "options principaux", "gouters" }
         };
 
         var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -5803,12 +5818,12 @@ CURRENT_USER_MESSAGE:
         language = NormalizeLanguageCode(language);
         var domainTerms = language switch
         {
-            "en" => new[] { "recipes", "dishes", "main dishes", "snacks" },
-            "es" => new[] { "recetas", "platos", "platos principales", "meriendas" },
-            "pt" => new[] { "receitas", "pratos", "pratos principais", "lanches" },
+            "en" => new[] { "options", "items", "main items", "snacks" },
+            "es" => new[] { "recetas", "opciones", "opciones principales", "meriendas" },
+            "pt" => new[] { "receitas", "opcoes", "opcoes principais", "lanches" },
             "de" => new[] { "rezepte", "gerichte", "hauptgerichte", "snacks" },
             "it" => new[] { "ricette", "piatti", "piatti principali", "spuntini" },
-            _ => new[] { "recettes", "plats", "plats principaux", "gouters" }
+            _ => new[] { "options", "options", "options principaux", "gouters" }
         };
 
         foreach (var term in domainTerms)
@@ -5920,7 +5935,7 @@ CURRENT_USER_MESSAGE:
 
         return Regex.IsMatch(
             normalized,
-            @"\b(?:midi|dejeuner|lunch|almuerzo|almoco|mittag|pranzo|soir|diner|dinner|souper|supper|cena|abend|repas|meal|plats?|dishes?)\b",
+            @"\b(?:midi|dejeuner|lunch|almuerzo|almoco|mittag|pranzo|soir|diner|dinner|souper|supper|cena|abend|repas|meal|options?|items?|principal|principaux|principales?|main|primary|complete|complets?|completes?|full)\b",
             RegexOptions.CultureInvariant);
     }
 
@@ -6528,9 +6543,9 @@ CURRENT_USER_MESSAGE:
         if (usesPlanningCoverage)
         {
             var suppressGenericDiscoveryQueries = ShouldSuppressStructuredMealPlanningGenericDiscovery(analysis, query);
-            var usesStructuredMealSlots = ShouldApplyMealPlanningSlotSemantics(query);
+            var usesStructuredSlots = ShouldApplyMealPlanningSlotSemantics(query);
             var addedEarlyNavigationDiscovery = false;
-            if (!usesStructuredMealSlots && !suppressGenericDiscoveryQueries)
+            if (!usesStructuredSlots && !suppressGenericDiscoveryQueries)
             {
                 AddPass(
                     "navigation_discovery",
@@ -6550,7 +6565,7 @@ CURRENT_USER_MESSAGE:
                 "Explore adjacent candidate vocabulary when the first planning evidence is too narrow.",
                 BuildSourceBackedCandidateDiscoveryRetrievalQueries(query),
                 18);
-            if (usesStructuredMealSlots)
+            if (usesStructuredSlots)
             {
                 AddPass(
                     "slot_balancing_inventory",
@@ -6560,7 +6575,7 @@ CURRENT_USER_MESSAGE:
                 AddPass(
                     "candidate_inventory",
                     "Build a broader candidate inventory when the structured plan still lacks enough concrete sourced units.",
-                    BuildStructuredMealPlanningRecipeInventoryRetrievalQueries(query),
+                    BuildStructuredPlanningInventoryRetrievalQueries(query),
                     12);
             }
             if (!suppressGenericDiscoveryQueries && !addedEarlyNavigationDiscovery)
@@ -7082,7 +7097,7 @@ CURRENT_USER_MESSAGE:
 
         if (Regex.IsMatch(
                 normalizedTitle,
-                @"\b(?:planification|planning|etapes?|references?|ingr[eé]dients?\s*preparation|ingredients?preparation\d*|preparation\d*)\b",
+                @"\b(?:planification|planning|etapes?|references?|components? preparation|components? preparation\d*|preparation\d*)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -7090,7 +7105,7 @@ CURRENT_USER_MESSAGE:
 
         if (Regex.IsMatch(
                 normalizedTitle,
-                @"\bingr[eé]dients?\b.*\b(?:nombre|portions?|temps|preparation|pr[eé]paration)\b",
+                @"\bcomponents?\b.*\b(?:nombre|portions?|temps|preparation|pr[eé]paration)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -7146,7 +7161,7 @@ CURRENT_USER_MESSAGE:
 
         if (Regex.IsMatch(
                 normalizedTitle,
-                @"\b(?:sonde\s+de\s+rotissage|sonde\s+de\s+cuisson)\b|^mcrc\d",
+                @"\b(?:sonde\s+de\s+rotissage|sonde\s+de\s+temperature)\b|^mcrc\d",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -7162,7 +7177,7 @@ CURRENT_USER_MESSAGE:
 
         if (Regex.IsMatch(
                 normalizedTitle,
-                @"\b(?:petite\s+poign[eé]e|poign[eé]e\s+de|feuilles?\s+de|cuill[eè]res?|tasses?|grammes?|kilogrammes?|millilitres?|centilitres?)\b",
+                @"\b(?:petite\s+poign[eé]e|poign[eé]e\s+de|feuilles?\s+de|measures?|tasses?|grammes?|kilogrammes?|millilitres?|centilitres?)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -7203,7 +7218,7 @@ CURRENT_USER_MESSAGE:
 
         if (Regex.IsMatch(
                 normalizedTitle,
-                @"^(?:cuisiner|cuisinez|preparer|preparez|organiser|planifier|utiliser|choisir|verifier|lire|couper|verser|melanger|saupoudrer|recouvrir|casser|faire)\b",
+                @"^(?:collecter|collectez|preparer|preparez|organiser|planifier|utiliser|choisir|verifier|lire|couper|verser|melanger|saupoudrer|recouvrir|casser|faire)\b",
                 RegexOptions.CultureInvariant))
         {
             return false;
@@ -7233,7 +7248,7 @@ CURRENT_USER_MESSAGE:
 
         if (Regex.IsMatch(
                 normalizedTitle,
-                @"\b(?:en\s+(?:soir[eé]e|matin[eé]e|journ[eé]e)|le\s+(?:matin|midi|soir)|la\s+nuit)\b.{0,70}\b(?:r[eé]alisez|realisez|preparez|pr[eé]parez|organisez|cuisinez|servez|choisissez)\b",
+                @"\b(?:en\s+(?:soir[eé]e|matin[eé]e|journ[eé]e)|le\s+(?:matin|midi|soir)|la\s+nuit)\b.{0,70}\b(?:r[eé]alisez|realisez|preparez|pr[eé]parez|organisez|collectez|servez|choisissez)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -8585,6 +8600,7 @@ CURRENT_USER_MESSAGE:
         var distinctSlotGroups = new HashSet<int>();
         var genericOnlyQueries = 0;
         var decorativeGenericQueries = 0;
+        var repeatedDayScaffoldSpecificTerms = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var normalizedQuery in queries)
         {
             var mentionsDayAxis = dayTerms.Any(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
@@ -8599,6 +8615,23 @@ CURRENT_USER_MESSAGE:
             AddStructuredAxisPlannerSlotGroupMatches(normalizedQuery, slotTermGroups, distinctSlotGroups);
             if (!hasSpecificSignal && LooksLikeDecorativeStructuredAxisPlannerQuery(normalizedQuery))
                 decorativeGenericQueries++;
+            if (mentionsDayAxis && !mentionsSlot)
+            {
+                var specificTerms = ExtractStructuredAxisPlannerUnknownSignalTerms(
+                        normalizedQuery,
+                        dayTerms,
+                        slotTerms,
+                        genericInventoryTerms)
+                    .Take(3)
+                    .ToArray();
+                if (specificTerms.Length is > 0 and <= 2)
+                {
+                    var key = string.Join(" ", specificTerms);
+                    repeatedDayScaffoldSpecificTerms[key] = repeatedDayScaffoldSpecificTerms.TryGetValue(key, out var count)
+                        ? count + 1
+                        : 1;
+                }
+            }
 
             if (!mentionsDayAxis)
             {
@@ -8649,6 +8682,13 @@ CURRENT_USER_MESSAGE:
             && (slotOrSpecificQueries + genericOnlyQueries) >= Math.Max(4, (queries.Length + 1) / 2);
         if (lowCoverageKnownTermLoop)
             return true;
+
+        var repeatedDayScaffoldThreshold = Math.Max(3, Math.Min(5, (queries.Length + 1) / 2));
+        if (CountStructuredAxisPlannerSlotCoverage(distinctSlotTerms, distinctSlotGroups) < minimumDistinctSlotCoverage
+            && repeatedDayScaffoldSpecificTerms.Values.Any(count => count >= repeatedDayScaffoldThreshold))
+        {
+            return true;
+        }
 
         return queries.Length >= 4
             && specificQueries == 0
@@ -8771,7 +8811,7 @@ CURRENT_USER_MESSAGE:
             AddDistinctQuery(kept, CollapseWhitespace(llmQuery));
         }
 
-        if (rejected.Count > 0)
+        if (rejected.Count > 0 && kept.Count > 0)
         {
             foreach (var repairQuery in BuildStructuredMealPlanningLlmConcreteRepairQueries(query, language))
                 AddDistinctQuery(kept, repairQuery);
@@ -8808,7 +8848,7 @@ CURRENT_USER_MESSAGE:
         language = NormalizeLanguageCode(language);
         var localizedTerms = language switch
         {
-            "en" => new[] { "plan", "weekly", "week", "menu", "menus", "meal", "meals", "details", "ideas", "suggestions", "examples" },
+            "en" => new[] { "plan", "weekly", "week", "menu", "menus", "meal", "items", "details", "ideas", "suggestions", "examples" },
             "es" => new[] { "plan", "semanal", "semana", "menu", "menus", "comida", "comidas", "detalles", "ideas", "sugerencias", "ejemplos" },
             "pt" => new[] { "plano", "semanal", "semana", "menu", "menus", "refeicao", "refeicoes", "detalhes", "ideias", "sugestoes", "exemplos" },
             "de" => new[] { "plan", "wochenplan", "woche", "menu", "menus", "mahlzeit", "mahlzeiten", "details", "ideen", "vorschlaege", "beispiele" },
@@ -8851,31 +8891,37 @@ CURRENT_USER_MESSAGE:
         IReadOnlyCollection<string> categoryScopeTerms)
     {
         var mentionsConcreteInventory = concreteInventoryTerms.Any(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
-        if (mentionsConcreteInventory)
-            return false;
-
         var mentionsCandidateIntent = candidateIntentTerms.Any(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
-        if (mentionsCandidateIntent)
-            return false;
-
         var mentionsAbstractPlannerTerm = abstractPlannerTerms.Any(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
         if (!mentionsAbstractPlannerTerm)
-            return false;
-
-        var hasSpecificSignal = ExtractQuerySignalTerms(normalizedQuery)
-            .Any(term => !IsGenericPlanningCoverageTerm(term)
-                         && !StructuredAxisPlannerTermBelongsToKnownTerm(term, dayTerms)
-                         && !StructuredAxisPlannerTermBelongsToKnownTerm(term, slotTerms)
-                         && !StructuredAxisPlannerTermBelongsToKnownTerm(term, concreteInventoryTerms)
-                         && !StructuredAxisPlannerTermBelongsToKnownTerm(term, candidateIntentTerms)
-                         && !StructuredAxisPlannerTermBelongsToKnownTerm(term, abstractPlannerTerms)
-                         && !StructuredAxisPlannerTermBelongsToKnownTerm(term, categoryScopeTerms));
-        if (hasSpecificSignal)
             return false;
 
         var mentionsSlot = MentionsStructuredAxisSlotTerm(normalizedQuery, slotTerms);
         var tokenCount = ExtractQuerySignalTerms(normalizedQuery).Count();
         var abstractTermCount = abstractPlannerTerms.Count(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
+        var unknownSignalTerms = ExtractStructuredAxisPlannerUnknownSignalTerms(
+            normalizedQuery,
+            dayTerms,
+            slotTerms,
+            concreteInventoryTerms,
+            candidateIntentTerms,
+            abstractPlannerTerms,
+            categoryScopeTerms);
+        var hasSpecificSignal = unknownSignalTerms.Length > 0;
+
+        if (LooksLikeDecorativeStructuredAxisPlannerQuery(normalizedQuery)
+            && (mentionsSlot || mentionsConcreteInventory || mentionsCandidateIntent || abstractTermCount >= 2)
+            && unknownSignalTerms.Length <= 1)
+        {
+            return true;
+        }
+
+        if (mentionsConcreteInventory || mentionsCandidateIntent)
+            return false;
+
+        if (hasSpecificSignal)
+            return false;
+
         return mentionsSlot || abstractTermCount >= 2 || tokenCount <= 5;
     }
 
@@ -9038,8 +9084,8 @@ CURRENT_USER_MESSAGE:
             "option", "options", "candidate", "candidates", "candidat", "candidats", "example", "examples",
             "exemple", "exemples", "proposal", "proposals", "proposition", "propositions", "preparation",
             "preparations", "plan", "planning", "programme", "schedule", "calendar", "calendrier",
-            "menu", "menus", "meal", "meals", "repas", "dish", "dishes", "plat", "plats", "recipe",
-            "recipes", "recette", "recettes", "detail", "details", "detailed", "detaille", "detailles",
+            "menu", "menus", "meal", "items", "repas", "item", "items", "option", "options", "option",
+            "options", "option", "options", "detail", "details", "detailed", "detaille", "detailles",
             "idee", "idees", "idea", "ideas", "ideal", "ideals", "ideaux",
             "suggestion", "suggestions"
         };
@@ -9086,11 +9132,21 @@ CURRENT_USER_MESSAGE:
         IReadOnlyCollection<string> dayTerms,
         IReadOnlyCollection<string> slotTerms,
         IReadOnlyCollection<string> genericInventoryTerms)
+        => ExtractStructuredAxisPlannerUnknownSignalTerms(
+                normalizedQuery,
+                dayTerms,
+                slotTerms,
+                genericInventoryTerms)
+            .Length > 0;
+
+    private static string[] ExtractStructuredAxisPlannerUnknownSignalTerms(
+        string normalizedQuery,
+        params IReadOnlyCollection<string>[] knownTermGroups)
         => ExtractQuerySignalTerms(normalizedQuery)
-            .Any(term => !IsGenericPlanningCoverageTerm(term)
-                         && !StructuredAxisPlannerTermBelongsToKnownTerm(term, dayTerms)
-                         && !StructuredAxisPlannerTermBelongsToKnownTerm(term, slotTerms)
-                         && !StructuredAxisPlannerTermBelongsToKnownTerm(term, genericInventoryTerms));
+            .Where(term => !IsGenericPlanningCoverageTerm(term))
+            .Where(term => knownTermGroups.All(group => !StructuredAxisPlannerTermBelongsToKnownTerm(term, group)))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
 
     private static bool StructuredAxisPlannerTermBelongsToKnownTerm(
         string term,
@@ -9192,7 +9248,7 @@ CURRENT_USER_MESSAGE:
         var normalized = NormalizeLexicalLookup(NormalizeRagQueryForRetrieval(query));
         if (string.IsNullOrWhiteSpace(normalized))
             normalized = NormalizeLexicalLookup(query);
-        var usesStructuredMealSlots = UsesSourceBackedPlanningCoverage(query)
+        var usesStructuredSlots = UsesSourceBackedPlanningCoverage(query)
             && ShouldApplyMealPlanningSlotSemantics(query);
 
         foreach (var retrievalQuery in BuildSoftChoiceOptionKindRetrievalQueries(query))
@@ -9223,7 +9279,7 @@ CURRENT_USER_MESSAGE:
 
         if (UsesSourceBackedPlanningCoverage(query))
         {
-            if (usesStructuredMealSlots)
+            if (usesStructuredSlots)
             {
                 foreach (var retrievalQuery in BuildStructuredMealPlanningCandidateDiscoveryRetrievalQueries(query).Take(18))
                     AddDistinctQuery(queries, retrievalQuery);
@@ -9233,7 +9289,7 @@ CURRENT_USER_MESSAGE:
                 AddDistinctQuery(queries, retrievalQuery);
         }
 
-        if (!usesStructuredMealSlots)
+        if (!usesStructuredSlots)
         {
             foreach (var retrievalQuery in BuildNavigationDiscoveryRetrievalQueries(query).Take(8))
                 AddDistinctQuery(queries, retrievalQuery);
@@ -9272,10 +9328,10 @@ CURRENT_USER_MESSAGE:
             .ToArray();
     }
 
-    private static IEnumerable<string> BuildStructuredMealPlanningRecipeInventoryRetrievalQueries(string query)
+    private static IEnumerable<string> BuildStructuredPlanningInventoryRetrievalQueries(string query)
     {
         var language = DetectRetrievalExpansionLanguage(query);
-        foreach (var queryVariant in BuildStructuredMealPlanningGenericRecipeInventoryRetrievalQueries(language, query))
+        foreach (var queryVariant in BuildStructuredPlanningGenericInventoryRetrievalQueries(language, query))
         {
             yield return queryVariant;
         }
@@ -9310,7 +9366,7 @@ CURRENT_USER_MESSAGE:
             }
         }
 
-        foreach (var queryVariant in BuildStructuredMealPlanningGenericRecipeInventoryRetrievalQueries(language, query))
+        foreach (var queryVariant in BuildStructuredPlanningGenericInventoryRetrievalQueries(language, query))
         {
             var normalized = CollapseWhitespace(queryVariant);
             if (!string.IsNullOrWhiteSpace(normalized) && emitted.Add(normalized))
@@ -9327,7 +9383,7 @@ CURRENT_USER_MESSAGE:
             _ => 3
         };
 
-    private static IEnumerable<string> BuildStructuredMealPlanningGenericRecipeInventoryRetrievalQueries(string language, string? query)
+    private static IEnumerable<string> BuildStructuredPlanningGenericInventoryRetrievalQueries(string language, string? query)
         => BuildStructuredPlanningInventoryTermsForRetrieval(language, query);
 
     private static IEnumerable<string> BuildStructuredMealPlanningSlotInventoryRetrievalQueries(
@@ -9357,12 +9413,12 @@ CURRENT_USER_MESSAGE:
             },
             _ => language switch
             {
-                "en" => new[] { "main dish", "lunch", "dinner", "supper", "complete meal" },
-                "es" => new[] { "platos principales", "almuerzo", "cena", "comida completa" },
-                "pt" => new[] { "pratos principais", "almoco", "jantar", "refeicao completa" },
+                "en" => new[] { "main item", "lunch", "dinner", "supper", "complete meal" },
+                "es" => new[] { "opciones principales", "almuerzo", "cena", "comida completa" },
+                "pt" => new[] { "opcoes principais", "almoco", "jantar", "refeicao completa" },
                 "de" => new[] { "hauptgericht", "mittagessen", "abendessen", "vollstaendige mahlzeit" },
                 "it" => new[] { "piatti principali", "pranzo", "cena", "pasto completo" },
-                _ => new[] { "plats principaux", "diner", "souper", "repas complets" }
+                _ => new[] { "options principaux", "diner", "souper", "repas complets" }
             }
         };
 
@@ -10999,7 +11055,7 @@ CURRENT_USER_MESSAGE:
         return LooksLikeWeeklyPlanningRequest(query)
             || Regex.IsMatch(
                 normalizedQuery,
-                @"\b(?:repas|meal|meals|menu|menus|dejeuner|diner|lunch|dinner|souper|semaine|week)\b",
+                @"\b(?:repas|meal|items|menu|menus|dejeuner|diner|lunch|dinner|souper|semaine|week)\b",
                 RegexOptions.CultureInvariant);
     }
 
@@ -11009,7 +11065,7 @@ CURRENT_USER_MESSAGE:
             @"\b(?:desserts?|sweet|sweets|sucre|sucr[eé]s?|patisseries?|p[aâ]tisseries?|g[aâ]teaux?|cakes?|postres?|sobremesas?)\b",
             RegexOptions.CultureInvariant);
 
-    private static bool ShouldRejectSweetPlanningCandidateForMealSlot(
+    private static bool ShouldRejectLowFitPlanningCandidateForStructuredSlot(
         SourceBackedOptionCandidate candidate,
         string? query)
         => ShouldApplyVagueMainMealDessertGuard(query)
@@ -11066,11 +11122,11 @@ CURRENT_USER_MESSAGE:
             return true;
         }
 
-        var hasSweetIngredientCue = Regex.IsMatch(
+        var hasLowFitComponentCue = Regex.IsMatch(
             text,
             @"\b(?:sucre|miel|sirop|chocolat|cacao|caramel|vanille|mascarpone|creme|cr[eè]me|framboises?|fraises?|mangues?|pommes?|poires?|bleuets?|canneberges?|cannelle)\b",
             RegexOptions.CultureInvariant);
-        if (!hasSweetIngredientCue)
+        if (!hasLowFitComponentCue)
             return false;
 
         return Regex.IsMatch(
@@ -11190,7 +11246,7 @@ CURRENT_USER_MESSAGE:
 
         return Regex.IsMatch(
             normalizedText,
-            @"\b(?:boeuf|b[oeœ]uf|poulet|volaille|veau|porc|agneau|poisson|crevettes?|moules?|saucisses?|chorizo|cassoulet|paella|quiche|gratin|osso|curry|ragout|rago[uû]t|risotto|macaroni|pates?|p[aâ]tes?|bucatini|nouilles?|ramen|soupe|bisque|tortilla|courgettes?\s+farcies?|tomates?\s+farcies?|riz\s+saute|sauce\s+cacahu[eè]te|plats?\s+principaux?|main\s+dishes?)\b",
+            @"\b(?:boeuf|b[oeœ]uf|poulet|volaille|veau|porc|agneau|poisson|crevettes?|moules?|saucisses?|chorizo|cassoulet|paella|quiche|gratin|osso|curry|ragout|rago[uû]t|risotto|macaroni|pates?|p[aâ]tes?|bucatini|nouilles?|ramen|soupe|bisque|tortilla|courgettes?\s+farcies?|tomates?\s+farcies?|riz\s+saute|sauce\s+cacahu[eè]te|items?\s+principaux?|main\s+items?)\b",
             RegexOptions.CultureInvariant);
     }
 
@@ -11203,7 +11259,7 @@ CURRENT_USER_MESSAGE:
                 RegexOptions.CultureInvariant)
             && !Regex.IsMatch(
                 normalizedTitle,
-                @"\b(?:sandwichs?|wraps?|salades?|bols?|bowls?|repas|meal|plats?|dishes?|crudites?|crudit[eé]s?)\b",
+                @"\b(?:sandwichs?|wraps?|salades?|bols?|bowls?|repas|meal|options?|items?|crudites?|crudit[eé]s?)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -11223,7 +11279,7 @@ CURRENT_USER_MESSAGE:
 
         return !Regex.IsMatch(
             text,
-            @"\b(?:sandwichs?|wraps?|salades?|bols?|bowls?|repas|meal|plats?|dishes?)\b",
+            @"\b(?:sandwichs?|wraps?|salades?|bols?|bowls?|repas|meal|options?|items?)\b",
             RegexOptions.CultureInvariant);
     }
 
@@ -11377,7 +11433,7 @@ CURRENT_USER_MESSAGE:
                         continue;
                     }
 
-                    if (!CandidateHasEnoughExplicitStructuredMealSlotEvidence(
+                    if (!CandidateHasEnoughExplicitStructuredSlotEvidence(
                             candidate,
                             slotKind,
                             hasExplicitRoutesByKind[slotKind]))
@@ -11457,7 +11513,7 @@ CURRENT_USER_MESSAGE:
         return assignments;
     }
 
-    private static bool CandidateHasEnoughExplicitStructuredMealSlotEvidence(
+    private static bool CandidateHasEnoughExplicitStructuredSlotEvidence(
         SourceBackedOptionCandidate candidate,
         StructuredMealPlanningSlotKind slotKind,
         bool slotHasExplicitRoutes)
@@ -11658,7 +11714,7 @@ CURRENT_USER_MESSAGE:
             _ => IsMainMealPlanningSlotRetrievalTerm(normalizedTitle)
                 || Regex.IsMatch(
                     normalizedTitle,
-                    @"\b(?:repas\s+complets?|complete\s+meals?|plats?\s+principaux?|main\s+dishes?|lunch|dinner|supper|dejeuner|d[eé]jeuner|diner|d[iî]ner|souper|almuerzo|cena|almoco|almo[cç]o|jantar|mittagessen|abendessen|pranzo|cena)\b",
+                    @"\b(?:repas\s+complets?|complete\s+items?|items?\s+principaux?|main\s+items?|lunch|dinner|supper|dejeuner|d[eé]jeuner|diner|d[iî]ner|souper|almuerzo|cena|almoco|almo[cç]o|jantar|mittagessen|abendessen|pranzo|cena)\b",
                     RegexOptions.CultureInvariant)
         };
     }
@@ -11703,7 +11759,7 @@ CURRENT_USER_MESSAGE:
 
         return Regex.IsMatch(
             normalized,
-            @"\b(?:repas|meal|meals|menu|menus|recettes?|recipes?|petit[-\s]*dejeuner|breakfast|dejeuner|lunch|diner|dinner|souper|supper|gouter|collation|snack|encas)\b",
+            @"\b(?:repas|meal|items|menu|menus|options?|options?|petit[-\s]*dejeuner|breakfast|dejeuner|lunch|diner|dinner|souper|supper|gouter|collation|snack|encas)\b",
             RegexOptions.CultureInvariant);
     }
 
@@ -11761,7 +11817,7 @@ CURRENT_USER_MESSAGE:
                 RegexOptions.CultureInvariant)
             || Regex.IsMatch(
                 normalizedTitle,
-                @"^(?:ingredients?|preparation|etapes?|methode|procedure|materiel|sommaire|index)$",
+                @"^(?:components?|preparation|etapes?|methode|procedure|materiel|sommaire|index)$",
                 RegexOptions.CultureInvariant);
     }
 
@@ -11851,7 +11907,7 @@ CURRENT_USER_MESSAGE:
 
         if (Regex.IsMatch(
                 normalizedTitle,
-                @"^(?:lorsqu|lorsque|quand|si)\b.*\b(?:cuisin\w*|recettes?|plats?|gouter|role)\b",
+                @"^(?:lorsqu|lorsque|quand|si)\b.*\b(?:cuisin\w*|options?|options?|gouter|role)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -11867,7 +11923,7 @@ CURRENT_USER_MESSAGE:
 
         if (Regex.IsMatch(
                 normalizedTitle,
-                @"^(?:en\s+(?:soir[eé]e|matin[eé]e|journ[eé]e)|le\s+(?:matin|midi|soir)|la\s+nuit)\b.*\b(?:r[eé]alisez|preparez|pr[eé]parez|cuisinez|servez|choisissez)\b",
+                @"^(?:en\s+(?:soir[eé]e|matin[eé]e|journ[eé]e)|le\s+(?:matin|midi|soir)|la\s+nuit)\b.*\b(?:r[eé]alisez|preparez|pr[eé]parez|collectez|servez|choisissez)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -11907,7 +11963,7 @@ CURRENT_USER_MESSAGE:
 
         return Regex.IsMatch(
             normalizedTitle,
-            @"\b(?:recouvrir\s+un\s+plat|quelques\s+minutes\s+un\s+aliment|eau\s+bouillante|mettre\s+au\s+four|jouent\s+un\s+role|gouter\s+un\s+plat|apres\s+le\s+signal.{0,40}faire\s+cuire)\b",
+            @"\b(?:recouvrir\s+un\s+option|quelques\s+minutes\s+un\s+aliment|eau\s+bouillante|mettre\s+au\s+four|jouent\s+un\s+role|gouter\s+un\s+option|apres\s+le\s+signal.{0,40}faire\s+cuire)\b",
             RegexOptions.CultureInvariant);
     }
 
@@ -11927,19 +11983,19 @@ CURRENT_USER_MESSAGE:
         if (terms.Length == 0 || terms.Length > 5)
             return false;
 
-        return LooksLikeGenericRecipeInventoryTitle(normalizedTitle)
+        return LooksLikeGenericStructuredInventoryTitle(normalizedTitle)
             || LooksLikeMealPlanningToolOrEquipmentAnchor(normalizedTitle);
     }
 
     private static readonly Regex MealPlanningToolOrEquipmentAnchorRegex = new(
-        @"\b(?:spatules?|fouets?|couteaux?|cuillers?|cuill[eè]res?|fourchettes?|louches?|pinces?|bols?|saladiers?|planches?|poeles?|po[eê]les?|casseroles?|paniers?\s+vapeur|steam(?:er)?\s+baskets?|vaporera|cestelli?\s+vapore|dampfgareinsatz|robots?|chefbot|mixeurs?|blenders?|mijoteuses?|cocottes?|ustensiles?|materiel|mat[eé]riel|outils?|equipment|tools?)\b",
+        @"\b(?:spatules?|fouets?|couteaux?|measures?|measures?|fourchettes?|louches?|pinces?|bols?|saladiers?|planches?|poeles?|po[eê]les?|casseroles?|paniers?\s+vapeur|steam(?:er)?\s+baskets?|vaporera|cestelli?\s+vapore|dampfgareinsatz|robots?|device|mixeurs?|blenders?|mijoteuses?|cocottes?|ustensiles?|materiel|mat[eé]riel|outils?|equipment|tools?)\b",
         RegexOptions.CultureInvariant);
 
-    private static readonly Regex GenericRecipeInventoryTitleRegex = new(
-        @"^(?:(?:\d+\s+)?(?:a\s+){0,2}voir\s+dans\s+son\s+\p{L}{3,}|recettes?\s+faciles?(?:\s+avec\b.*)?|recettes?|recipes?|plats?|dishes?|menus?|mise\s+en\s+place)$",
+    private static readonly Regex GenericStructuredInventoryTitleRegex = new(
+        @"^(?:(?:\d+\s+)?(?:a\s+){0,2}voir\s+dans\s+son\s+\p{L}{3,}|options?\s+faciles?(?:\s+avec\b.*)?|options?|options?|options?|items?|menus?|mise\s+en\s+place)$",
         RegexOptions.CultureInvariant);
 
-    private static readonly Regex GenericRecipeInventoryWaterTitleRegex = new(
+    private static readonly Regex GenericStructuredInventoryWaterTitleRegex = new(
         @"^\p{L}{5,}s\s+d\s+eau\s+\p{L}{3,}(?:\s+\p{L}{3,})?$",
         RegexOptions.CultureInvariant);
 
@@ -11963,11 +12019,11 @@ CURRENT_USER_MESSAGE:
         return true;
     }
 
-    private static bool LooksLikeGenericRecipeInventoryTitle(string normalizedTitle)
+    private static bool LooksLikeGenericStructuredInventoryTitle(string normalizedTitle)
     {
         var lexicalTitle = CollapseWhitespace(Regex.Replace(normalizedTitle, @"[^\p{L}\p{N}]+", " ")).Trim();
-        return GenericRecipeInventoryTitleRegex.IsMatch(lexicalTitle)
-            || GenericRecipeInventoryWaterTitleRegex.IsMatch(lexicalTitle);
+        return GenericStructuredInventoryTitleRegex.IsMatch(lexicalTitle)
+            || GenericStructuredInventoryWaterTitleRegex.IsMatch(lexicalTitle);
     }
 
     private static bool LooksLikeGenericInventorySurfaceDerivedPlanningCandidate(SourceBackedOptionCandidate candidate)
@@ -11993,10 +12049,10 @@ CURRENT_USER_MESSAGE:
                 continue;
             }
 
-            if (LooksLikeGenericRecipeInventoryTitle(normalizedSurface)
+            if (LooksLikeGenericStructuredInventoryTitle(normalizedSurface)
                 || Regex.IsMatch(
                     normalizedSurface,
-                    @"^(?:recettes?\s+faciles?|easy\s+recipes?|recipes?\s+easy|idees?\s+de\s+repas|meal\s+ideas|suggestions?\s+de\s+repas)\b",
+                    @"^(?:options?\s+faciles?|easy\s+options?|options?\s+easy|idees?\s+de\s+repas|meal\s+ideas|suggestions?\s+de\s+repas)\b",
                     RegexOptions.CultureInvariant))
             {
                 return true;
@@ -12700,7 +12756,7 @@ CURRENT_USER_MESSAGE:
                     "ToolAgent writer partial planning gate: decision=allow|reason=complete_candidate_bank"
                     + $"|resolvedFromEnvelope={FormatPlanningTraceBool(resolvedFromEnvelope)}"
                     + $"|previousStructured={FormatPlanningTraceBool(previousEnvelopeIsStructuredPlanning)}"
-                    + $"|mealSlots={FormatPlanningTraceBool(ShouldApplyMealPlanningSlotSemantics(coverageQuery))}"
+                    + $"|structuredSlots={FormatPlanningTraceBool(ShouldApplyMealPlanningSlotSemantics(coverageQuery))}"
                     + $"|candidates={coverage.CandidateCount}"
                     + $"|minimum={coverage.MinimumCandidates}"
                     + $"|sourcePages={coverage.DistinctSourcePages}");
@@ -12730,7 +12786,7 @@ CURRENT_USER_MESSAGE:
                 + $"|envelopeMarkers={FormatPlanningTraceBool(hasSourceBackedConfirmationEnvelopeMarkers)}"
                 + $"|previousStructured={FormatPlanningTraceBool(previousEnvelopeIsStructuredPlanning)}"
                 + $"|broadened={FormatPlanningTraceBool(IsBroadenedSourceSearchConfirmationEnvelope(query))}"
-                + $"|mealSlots={FormatPlanningTraceBool(ShouldApplyMealPlanningSlotSemantics(coverageQuery))}"
+                + $"|structuredSlots={FormatPlanningTraceBool(ShouldApplyMealPlanningSlotSemantics(coverageQuery))}"
                 + $"|candidates={coverage.CandidateCount}"
                 + $"|minimum={coverage.MinimumCandidates}"
                 + $"|sourcePages={coverage.DistinctSourcePages}");
@@ -13822,7 +13878,7 @@ CURRENT_USER_MESSAGE:
             return "non_standalone_meal_item";
         if (!SourceBackedPlanningCandidateMatchesDominantTopLevel(candidate, dominantTopLevelScope))
             return "outside_dominant_scope";
-        if (ShouldRejectSweetPlanningCandidateForMealSlot(candidate, query))
+        if (ShouldRejectLowFitPlanningCandidateForStructuredSlot(candidate, query))
             return "sweet_candidate_not_meal_slot";
         if (!IsUsableSourceBackedPlanningCandidate(candidate))
             return "unusable_or_generic_candidate";
@@ -13943,8 +13999,8 @@ CURRENT_USER_MESSAGE:
             "woche" or "wochenplan" or "settimana" or "settimanale" or
             "lundi" or "mardi" or "mercredi" or "jeudi" or "vendredi" or "vrendredi" or "samedi" or "dimanche" or
             "monday" or "tuesday" or "wednesday" or "thursday" or "friday" or "saturday" or "sunday" or
-            "repas" or "meal" or "meals" or "menu" or "menus" or "plat" or "plats" or "dish" or "dishes" or
-            "recette" or "recettes" or "recipe" or "recipes" or
+            "repas" or "meal" or "items" or "menu" or "menus" or "option" or "options" or "item" or "items" or
+            "option" or "options" or "option" or "options" or
             "petit" or "dejeuner" or "midi" or "diner" or "soir" or "matin" or "breakfast" or "lunch" or
             "dinner" or "souper" or "supper" or "gouter" or "collation" or "snack" or "encas" or
             "morning" or "afternoon" or "evening" or "desayuno" or "almuerzo" or "cena" or
@@ -14833,9 +14889,9 @@ If evidence is partial, write the best useful sourced answer possible and state 
             normalized,
             @"\b(?:gouter|go[uû]ter|collation|snack|encas)\b",
             RegexOptions.CultureInvariant);
-        var asksThreeDailyMeals = Regex.IsMatch(
+        var asksThreeDailySlots = Regex.IsMatch(
             normalized,
-            @"\b(?:3|trois|three|tres|três|drei|tre)\s+(?:repas|meals?|comidas?|refei[cç]oes|refeições|mahlzeiten|pasti)\b",
+            @"\b(?:3|trois|three|tres|três|drei|tre)\s+(?:repas|items?|comidas?|refei[cç]oes|refeições|mahlzeiten|pasti)\b",
             RegexOptions.CultureInvariant);
         if (hasBreakfast || hasLunch || hasDinner || hasSupper || hasSnack)
         {
@@ -14860,7 +14916,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 .ToArray();
         }
 
-        if (asksThreeDailyMeals)
+        if (asksThreeDailySlots)
             return LocalizedDailySlotLabels(language);
 
         var hasAfternoon = Regex.IsMatch(normalized, @"\b(?:apres\s+midi|afternoon|tarde|nachmittag|pomeriggio)\b", RegexOptions.CultureInvariant);
@@ -16549,7 +16605,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var structureMatch = Regex.Match(
             afterTitle,
-            @"\b(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
+            @"\b(?:components?|components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
             RegexOptions.CultureInvariant);
         if (!structureMatch.Success)
             return false;
@@ -16594,7 +16650,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var hasStructureLabel = Regex.IsMatch(
             normalized,
-            @"\b(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|valeurs?|values?|components?|composants?|operation|workflow|actions?|tasks?|taches?|tâches?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
+            @"\b(?:components?|components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|valeurs?|values?|components?|composants?|operation|workflow|actions?|tasks?|taches?|tâches?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
             RegexOptions.CultureInvariant);
         var hasActionOrMeasure = Regex.IsMatch(
             normalized,
@@ -16650,7 +16706,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var hasStructureLabel = Regex.IsMatch(
             normalized,
-            @"\b(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
+            @"\b(?:components?|components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
             RegexOptions.CultureInvariant);
         if (!hasStructureLabel)
             return false;
@@ -16762,7 +16818,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         return term is
             "matin" or "midi" or "soir" or "dejeuner" or "diner" or "dinner" or "lunch" or "breakfast" or
-            "petit" or "repas" or "meal" or "meals" or "semaine" or "week" or "weekly" or
+            "petit" or "repas" or "meal" or "items" or "semaine" or "week" or "weekly" or
             "lundi" or "mardi" or "mercredi" or "jeudi" or "vendredi" or "samedi" or "dimanche" or
             "monday" or "tuesday" or "wednesday" or "thursday" or "friday" or "saturday" or "sunday" or
             "source" or "sources" or "page" or "pages" or "document" or "documents" or
@@ -17076,7 +17132,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         }
 
         var fallbackNotSweetOnly = fallbackDominantScope
-            .Where(candidate => !ShouldRejectSweetPlanningCandidateForMealSlot(candidate, query))
+            .Where(candidate => !ShouldRejectLowFitPlanningCandidateForStructuredSlot(candidate, query))
             .ToList();
         if (traceSelection)
         {
@@ -17500,7 +17556,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (!looksLikeNavigationOrIndexSurface
             && Regex.IsMatch(
                 normalized,
-                @"\b(?:ingredients?|ingr[eé]dients?|preparation|préparation|etapes?|steps?|methode|method|procedure|instructions?|quantites?|quantities?|materiel|materials?|requirements?|components?|operation|workflow|actions?|tasks?|criteria|criteres|conditions?|parameters?)\b",
+                @"\b(?:components?|components?|preparation|préparation|etapes?|steps?|methode|method|procedure|instructions?|quantites?|quantities?|materiel|materials?|requirements?|components?|operation|workflow|actions?|tasks?|criteria|criteres|conditions?|parameters?)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -17627,7 +17683,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var titlePattern = Regex.Escape(normalizedTitle).Replace("\\ ", @"\s+");
         if (Regex.IsMatch(
             proof,
-            @"\b(?:ingredients?|ingr[eé]dients?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|quantit(?:y|ies)|quantit[eé]s?|values?|valeurs?|parameters?|param[eè]tres?|items?|[eé]l[eé]ments?)\b.{0,140}\b" + titlePattern + @"\b",
+            @"\b(?:components?|components?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|quantit(?:y|ies)|quantit[eé]s?|values?|valeurs?|parameters?|param[eè]tres?|items?|[eé]l[eé]ments?)\b.{0,140}\b" + titlePattern + @"\b",
             RegexOptions.CultureInvariant))
         {
             return true;
@@ -17670,7 +17726,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var firstFieldLabelMatch = Regex.Match(
             proof,
-            @"\b(?:ingredients?|ingr[eé]dients?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|items?|[eé]l[eé]ments?|values?|valeurs?|parameters?|param[eè]tres?|quantit(?:y|ies)|quantit[eé]s?)\b",
+            @"\b(?:components?|components?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|items?|[eé]l[eé]ments?|values?|valeurs?|parameters?|param[eè]tres?|quantit(?:y|ies)|quantit[eé]s?)\b",
             RegexOptions.CultureInvariant);
         if (firstFieldLabelMatch.Success
             && titleMatches.All(match => match.Index < firstFieldLabelMatch.Index))
@@ -17686,7 +17742,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         return Regex.IsMatch(
             proof,
-            @"\b(?:ingredients?|ingr[eé]dients?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|items?|[eé]l[eé]ments?|values?|valeurs?|parameters?|param[eè]tres?|quantit(?:y|ies)|quantit[eé]s?)\b.{0,180}\b" + titlePattern + @"\b",
+            @"\b(?:components?|components?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|items?|[eé]l[eé]ments?|values?|valeurs?|parameters?|param[eè]tres?|quantit(?:y|ies)|quantit[eé]s?)\b.{0,180}\b" + titlePattern + @"\b",
             RegexOptions.CultureInvariant);
     }
 
@@ -17745,7 +17801,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var localAfter = after.Length > 180 ? after[..180] : after;
         var precededByFieldOrListCue = Regex.IsMatch(
             localBefore,
-            @"(?:[,;:•]|\b(?:ingredients?|ingr[eé]dients?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|items?|[eé]l[eé]ments?|pour\s+\d+|for\s+\d+)\b).{0,120}$",
+            @"(?:[,;:•]|\b(?:components?|components?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|items?|[eé]l[eé]ments?|pour\s+\d+|for\s+\d+)\b).{0,120}$",
             RegexOptions.CultureInvariant);
         if (!precededByFieldOrListCue)
             return false;
@@ -17805,7 +17861,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var localAfter = after.Length > 160 ? after[..160] : after;
         var looksEmbeddedInList = Regex.IsMatch(
             localBefore,
-            @"(?:[,;:]|\b(?:ingredients?|ingr[eé]dients?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|items?|[eé]l[eé]ments?)\b).{0,90}$",
+            @"(?:[,;:]|\b(?:components?|components?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|items?|[eé]l[eé]ments?)\b).{0,90}$",
             RegexOptions.CultureInvariant);
         if (!looksEmbeddedInList)
             return false;
@@ -17864,7 +17920,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 normalized,
-                @"^(?:cuisiner|cuisinez|preparer|preparez|prepare|cook|organiser|organize|planifier|planifiez|schedule|utiliser|use|using|choisir|choose|verifier|verify|check|lire|read)\b",
+                @"^(?:collecter|collectez|preparer|preparez|prepare|cook|organiser|organize|planifier|planifiez|schedule|utiliser|use|using|choisir|choose|verifier|verify|check|lire|read)\b",
                 RegexOptions.CultureInvariant))
         {
             return false;
@@ -17923,7 +17979,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 normalized,
-                @"^(?:cuisiner|cuisinez|preparer|preparez|prepare|cook|organiser|organize|planifier|planifiez|schedule|utiliser|use|using|choisir|choose|verifier|verify|check|lire|read)\b",
+                @"^(?:collecter|collectez|preparer|preparez|prepare|cook|organiser|organize|planifier|planifiez|schedule|utiliser|use|using|choisir|choose|verifier|verify|check|lire|read)\b",
                 RegexOptions.CultureInvariant))
         {
             return false;
@@ -17961,7 +18017,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (string.IsNullOrWhiteSpace(normalized))
             return true;
 
-        if (LooksLikeGenericRecipeInventoryTitle(normalized))
+        if (LooksLikeGenericStructuredInventoryTitle(normalized))
             return true;
 
         if (LooksLikeAudienceOrCollectionSourceBackedHeadingTitle(normalized))
@@ -17995,7 +18051,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 normalized,
-                @"^(?:cette|ce|this|esta|essa|questa)\s+recette$|\bet\s+al\b|^couperen\b",
+                @"^(?:cette|ce|this|esta|essa|questa)\s+option$|\bet\s+al\b|^couperen\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -18047,7 +18103,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 normalized,
-                @"^(?:egoutter|egouttez|peler|pelez|eplucher|epluchez|[eé]plucher|[eé]pluchez|faire|faites|ajouter|ajoutez|laisser|laissez|placer|placez|retirer|retirez|couper|coupez|hacher|hachez|trancher|tranchez|deposer|deposez|verser|versez|melanger|melangez|remuer|remuez|cuire|mijoter|servir|peel|cut|chop|slice|place|put|add|remove|mix|cook|serve)\b",
+                @"^(?:egoutter|egouttez|peler|pelez|preparer|preparez|faire|faites|ajouter|ajoutez|laisser|laissez|placer|placez|retirer|retirez|couper|coupez|hacher|hachez|trancher|tranchez|deposer|deposez|verser|versez|melanger|melangez|remuer|remuez|cuire|mijoter|servir|peel|cut|chop|slice|place|put|add|remove|mix|cook|serve)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -18055,7 +18111,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         return Regex.IsMatch(
             normalized,
-            @"\b(?:une\s+fois\s+cuit|une\s+fois\s+cuite|avant\s+de\s+servir|apres\s+cuisson|après\s+cuisson|jusqu\s+a\s+cuisson|jusqu\s+à\s+cuisson)\b",
+            @"\b(?:une\s+fois\s+cuit|une\s+fois\s+cuite|avant\s+de\s+servir|apres\s+operation|après\s+operation|jusqu\s+a\s+operation|jusqu\s+à\s+operation)\b",
             RegexOptions.CultureInvariant);
     }
 
@@ -18135,11 +18191,11 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         return Regex.IsMatch(
                 normalizedTitle,
-                @"^(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|temps|dur[eé]e|duration|time|materiel|mat[eé]riel|materials?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)$",
+                @"^(?:components?|components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|temps|dur[eé]e|duration|time|materiel|mat[eé]riel|materials?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)$",
                 RegexOptions.CultureInvariant)
             || Regex.IsMatch(
                 normalizedTitle,
-                @"^(?:nombre|number|quantite|quantity|quantit[eé])\s+(?:de\s+|of\s+)?(?:portions?|servings?|elements?|[eé]l[eé]ments?|items?|pieces?|pi[eè]ces?|galettes?|parts?)$",
+                @"^(?:nombre|number|quantite|quantity|quantit[eé])\s+(?:de\s+|of\s+)?(?:portions?|units?|elements?|[eé]l[eé]ments?|items?|pieces?|pi[eè]ces?|galettes?|parts?)$",
                 RegexOptions.CultureInvariant);
     }
 
@@ -18153,7 +18209,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var hasFieldLabel = Regex.IsMatch(
             normalizedTitle,
-            @"\b(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|nombre|number|quantite|quantity|quantit[eé]|portions?|servings?|temps|dur[eé]e|duration|time|materiel|mat[eé]riel|materials?)\b",
+            @"\b(?:components?|components?|preparation|pr[eé]paration|nombre|number|quantite|quantity|quantit[eé]|portions?|units?|temps|dur[eé]e|duration|time|materiel|mat[eé]riel|materials?)\b",
             RegexOptions.CultureInvariant);
         if (!hasFieldLabel)
             return false;
@@ -19364,7 +19420,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
     private static IEnumerable<string> ExtractPageLocalStructuredPlanningTitleCandidates(RagHitSummary hit)
     {
         const string structureLabelPattern =
-            @"ingredients?|ingr[eé]dients?|requirements?|quantit(?:y|ies)|quantit[eé]s?|values?|materials?|mat[eé]riel|components?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
+            @"components?|components?|requirements?|quantit(?:y|ies)|quantit[eé]s?|values?|materials?|mat[eé]riel|components?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
         var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var text in EnumeratePlanExtractionTexts(hit))
         {
@@ -19551,7 +19607,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (string.IsNullOrWhiteSpace(normalizedTitle)
             || !SourceBackedContentCardHasExplicitPageAnchor(card)
             || !LooksLikeConcreteStructuredPlanningCandidateNormalizedTitle(normalizedTitle)
-            || LooksLikeGenericRecipeInventoryTitle(normalizedTitle))
+            || LooksLikeGenericStructuredInventoryTitle(normalizedTitle))
         {
             return false;
         }
@@ -19573,10 +19629,10 @@ If evidence is partial, write the best useful sourced answer possible and state 
             return false;
 
         var hasConcreteCardEvidence = ContentCardCarriesStructuredPlanningEvidence(card, normalizedTitle);
-        var hasLocalRecipeProof = HasStrongLocalStructuredPlanningProofText(rawPageEvidence)
+        var hasLocalStructuredProof = HasStrongLocalStructuredPlanningProofText(rawPageEvidence)
             || PrimaryEvidenceContainsRelaxedLocalStructuredPlanningProof(hit, normalizedTitle, rawPageEvidence)
-            || PageEvidenceHasRecipeCardProofCue(rawPageEvidence);
-        if (!hasLocalRecipeProof)
+            || PageEvidenceHasStructuredCardProofCue(rawPageEvidence);
+        if (!hasLocalStructuredProof)
             return false;
 
         if (hasConcreteCardEvidence)
@@ -19604,7 +19660,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             || !ContentCardKindLooksLikeStructuredPlanningTitleAnchor(card)
             || !ContentCardCarriesStructuredPlanningEvidence(card, normalizedTitle)
             || !ContentCardSourceEvidenceCanAnchorStructuredPlanningTitle(card, normalizedTitle)
-            || LooksLikeGenericRecipeInventoryTitle(normalizedTitle)
+            || LooksLikeGenericStructuredInventoryTitle(normalizedTitle)
             || LooksLikeNoisyStructuredPlanningCandidateTitle(card.Title))
         {
             return false;
@@ -19623,7 +19679,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             return false;
         }
 
-        return PageEvidenceHasRecipeBodyProofCue(rawPageEvidence);
+        return PageEvidenceHasStructuredBodyProofCue(rawPageEvidence);
     }
 
     private static bool ContentCardSourceEvidenceCanAnchorStructuredPlanningTitle(
@@ -19649,7 +19705,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             }
 
             if (HasStrongLocalStructuredPlanningProofText(sourceText)
-                || PageEvidenceHasRecipeCardProofCue(sourceText))
+                || PageEvidenceHasStructuredCardProofCue(sourceText))
             {
                 return false;
             }
@@ -19674,7 +19730,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             || kind.Contains("section", StringComparison.Ordinal);
     }
 
-    private static bool PageEvidenceHasRecipeBodyProofCue(string? text)
+    private static bool PageEvidenceHasStructuredBodyProofCue(string? text)
     {
         var value = CollapseWhitespace(text ?? string.Empty);
         if (value.Length < 32)
@@ -19684,15 +19740,15 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (string.IsNullOrWhiteSpace(normalized))
             return false;
 
-        var hasIngredientCue = Regex.IsMatch(
+        var hasComponentCue = Regex.IsMatch(
             normalized,
-            @"\bingr[eé]dients?\s*:",
+            @"\bcomponents?\s*:",
             RegexOptions.CultureInvariant);
         var hasPreparationCue = Regex.IsMatch(
             normalized,
             @"(?:^|\s)pr[eé]paration\s*:",
             RegexOptions.CultureInvariant);
-        if (!hasIngredientCue || !hasPreparationCue)
+        if (!hasComponentCue || !hasPreparationCue)
             return false;
 
         var hasMeasuredOrServingCue = CountMeasuredValueMarkers(normalized) >= 1
@@ -19732,7 +19788,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             || card.RawEvidence.HasValue;
     }
 
-    private static bool PageEvidenceHasRecipeCardProofCue(string? text)
+    private static bool PageEvidenceHasStructuredCardProofCue(string? text)
     {
         var value = CollapseWhitespace(text ?? string.Empty);
         if (value.Length < 24)
@@ -19742,11 +19798,11 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (string.IsNullOrWhiteSpace(normalized))
             return false;
 
-        var hasRecipeStructureCue = Regex.IsMatch(
+        var hasStructuredCardCue = Regex.IsMatch(
             normalized,
-            @"\b(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|temps\s+de\s+(?:preparation|pr[eé]paration|cuisson)|cuisson\s*:|categories?\s+de\s+recettes?|modes?\s+de\s+preparation|pour\s+\d{1,3}\s+(?:portions?|personnes?|pieces?|pi[eè]ces?))\b",
+            @"\b(?:components?|components?|preparation|pr[eé]paration|temps\s+de\s+(?:preparation|pr[eé]paration|operation)|operation\s*:|categories?\s+de\s+options?|modes?\s+de\s+preparation|pour\s+\d{1,3}\s+(?:portions?|personnes?|pieces?|pi[eè]ces?))\b",
             RegexOptions.CultureInvariant);
-        if (!hasRecipeStructureCue)
+        if (!hasStructuredCardCue)
             return false;
 
         var hasMeasuredOrServingCue = CountMeasuredValueMarkers(normalized) >= 1
@@ -20661,8 +20717,8 @@ If evidence is partial, write the best useful sourced answer possible and state 
         title = StripTrailingStructuredPlanningContextSuffixFromTitle(title);
         title = StripTrailingGenericStructuredContextPhraseFromTitle(title);
         title = StripTrailingCompactOcrContextLabelFromTitle(title);
-        title = StripLeadingRecipeSectionNoiseFromTitle(title);
-        title = StripTrailingRecipeSectionNoiseFromTitle(title);
+        title = StripLeadingStructuredSectionNoiseFromTitle(title);
+        title = StripTrailingStructuredSectionNoiseFromTitle(title);
         title = StripLeadingLowSignalStructuredFieldValuePrefixFromTitle(title);
         title = Regex.Replace(
             title,
@@ -20743,7 +20799,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 normalizedSuffix,
-                @"^(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|technique|method|m[eé]thode|procedure|temps|time|duration|cuisson|nombre|quantit[eé]s?|quantities|pour\s+\d+|for\s+\d+|min|mn|pages?|sources?)\b",
+                @"^(?:components?|components?|preparation|pr[eé]paration|technique|method|m[eé]thode|procedure|temps|time|duration|operation|nombre|quantit[eé]s?|quantities|pour\s+\d+|for\s+\d+|min|mn|pages?|sources?)\b",
                 RegexOptions.CultureInvariant))
         {
             return false;
@@ -20769,7 +20825,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             return current;
         if (Regex.IsMatch(
                 normalizedOriginal,
-                @"\b(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|procedure|proc[eé]dure|method|m[eé]thode|steps?|[eé]tapes?|materials?|mat[eé]riel)\b",
+                @"\b(?:components?|components?|preparation|pr[eé]paration|procedure|proc[eé]dure|method|m[eé]thode|steps?|[eé]tapes?|materials?|mat[eé]riel)\b",
                 RegexOptions.CultureInvariant))
         {
             return current;
@@ -21135,20 +21191,20 @@ If evidence is partial, write the best useful sourced answer possible and state 
         {
             score -= 100;
         }
-        if (LooksLikeGenericRecipeInventoryTitle(normalized))
+        if (LooksLikeGenericStructuredInventoryTitle(normalized))
             score -= 80;
-        if (Regex.IsMatch(normalized, @"\b(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|technique)\b", RegexOptions.CultureInvariant))
+        if (Regex.IsMatch(normalized, @"\b(?:components?|components?|preparation|pr[eé]paration|technique)\b", RegexOptions.CultureInvariant))
             score -= 60;
 
         return score;
     }
 
     private static readonly Regex LeadingStructuredPlanningFieldLabelTitleRegex = new(
-        @"^(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|technique|m[eé]thode|methode|procedure|etapes?|[eé]tapes?)\s*(?:[:\-/]\s*)?(?<rest>[\p{L}\p{N} '&/,\-\u00c0-\u017f]{4,100})$",
+        @"^(?:components?|components?|preparation|pr[eé]paration|technique|m[eé]thode|methode|procedure|etapes?|[eé]tapes?)\s*(?:[:\-/]\s*)?(?<rest>[\p{L}\p{N} '&/,\-\u00c0-\u017f]{4,100})$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private static readonly Regex LeadingUpperStructuredPlanningFieldLabelTitleRegex = new(
-        @"^(?:INGREDIENTS?|INGR[EÉ]DIENTS?|PREPARATION|PR[EÉ]PARATION|TECHNIQUE|M[EÉ]THODE|METHODE|PROCEDURE|ETAPES?|[EÉ]TAPES?)(?<rest>[\p{Lu}0-9 '&/,\-\u00c0-\u017f]{4,100})$",
+        @"^(?:COMPONENTS?|COMPOSANTS?|REQUIREMENTS?|PREPARATION|PR[EÉ]PARATION|TECHNIQUE|M[EÉ]THODE|METHODE|PROCEDURE|ETAPES?|[EÉ]TAPES?)(?<rest>[\p{Lu}0-9 '&/,\-\u00c0-\u017f]{4,100})$",
         RegexOptions.CultureInvariant);
 
     private static string StripLeadingStructuredPlanningFieldLabelFromTitle(string title)
@@ -21168,7 +21224,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         return termCount >= 2 ? rest : title;
     }
 
-    private static string StripLeadingRecipeSectionNoiseFromTitle(string title)
+    private static string StripLeadingStructuredSectionNoiseFromTitle(string title)
     {
         var cleaned = Regex.Replace(
             title,
@@ -21182,11 +21238,11 @@ If evidence is partial, write the best useful sourced answer possible and state 
         return string.IsNullOrWhiteSpace(cleaned) || termCount < 2 ? title : cleaned;
     }
 
-    private static string StripTrailingRecipeSectionNoiseFromTitle(string title)
+    private static string StripTrailingStructuredSectionNoiseFromTitle(string title)
     {
         var cleaned = Regex.Replace(
             title,
-            @"(?:\s+|(?<=[\p{L}\u00c0-\u017f])(?=Temps\s+de|Nombre\s+de|Ingr[eé]dients?|Pr[eé]paration|Technique|Materials?|Items?|Steps?|Method|Procedure))(?:Temps\s+de|Nombre\s+de|Ingr[eé]dients?|Pr[eé]paration|Technique|Materials?|Items?|Steps?|Method|Procedure)\b.*$",
+            @"(?:\s+|(?<=[\p{L}\u00c0-\u017f])(?=Temps\s+de|Nombre\s+de|Components?|Pr[eé]paration|Technique|Materials?|Items?|Steps?|Method|Procedure))(?:Temps\s+de|Nombre\s+de|Components?|Pr[eé]paration|Technique|Materials?|Items?|Steps?|Method|Procedure)\b.*$",
             string.Empty,
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         cleaned = Regex.Replace(
@@ -24744,7 +24800,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var lead = StripShortOcrPrefixForTitleQuality(normalized);
         if (Regex.IsMatch(
                 lead,
-                @"^(?:repas|meal|meals|petit\s+dejeuner|dejeuner|diner|breakfast|lunch|dinner|cena|pranzo|colazione|jantar|almoco|almoço|fruhstuck|mittagessen|abendessen)$",
+                @"^(?:repas|meal|items|petit\s+dejeuner|dejeuner|diner|breakfast|lunch|dinner|cena|pranzo|colazione|jantar|almoco|almoço|fruhstuck|mittagessen|abendessen)$",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -24781,7 +24837,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 lead,
-                @"^(?:\p{L}{1,3}\s+){0,3}(?:mettre|mettez|placer|placez|ajouter|ajoutez|retirer|retirez|ouvrir|ouvrez|fermer|fermez|programmer|programmez|verifier|verifiez|controler|controlez|inspecter|inspectez|noter|notez|signer|signez|verser|versez|melanger|m[eé]langez|incorporer|incorporez|faconner|fagonner|former|cuire|cuisiner|mijoter|servir|gouter|go[uû]ter|set|add|remove|place|put|open|close|program|check|verify|inspect|record|sign|pour|mix|cook|serve|taste)\b",
+                @"^(?:\p{L}{1,3}\s+){0,3}(?:mettre|mettez|placer|placez|ajouter|ajoutez|retirer|retirez|ouvrir|ouvrez|fermer|fermez|programmer|programmez|verifier|verifiez|controler|controlez|inspecter|inspectez|noter|notez|signer|signez|verser|versez|melanger|m[eé]langez|incorporer|incorporez|faconner|fagonner|former|cuire|collecter|mijoter|servir|gouter|go[uû]ter|set|add|remove|place|put|open|close|program|check|verify|inspect|record|sign|pour|mix|cook|serve|taste)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -24797,7 +24853,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 lead,
-                @"^(?:sa|son|ses|ta|ton|tes|ma|mon|mes|my|your|his|her|their|its)\s+(?:repas|meal|meals|petit\s+dejeuner|dejeuner|diner|breakfast|lunch|dinner|cena|pranzo|colazione)\b",
+                @"^(?:sa|son|ses|ta|ton|tes|ma|mon|mes|my|your|his|her|their|its)\s+(?:repas|meal|items|petit\s+dejeuner|dejeuner|diner|breakfast|lunch|dinner|cena|pranzo|colazione)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -24805,7 +24861,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 lead,
-                @"^(?:repas|meal|meals|petit\s+dejeuner|dejeuner|diner|breakfast|lunch|dinner|cena|pranzo|colazione)\s+(?:leger|light|entre|between|vers|around|avant|before|apres|after|minuit|midnight)\b",
+                @"^(?:repas|meal|items|petit\s+dejeuner|dejeuner|diner|breakfast|lunch|dinner|cena|pranzo|colazione)\s+(?:leger|light|entre|between|vers|around|avant|before|apres|after|minuit|midnight)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -24821,7 +24877,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 lead,
-                @"^(?:cuisiner|cuisinez|preparer|preparez|cook|prepare)\b.{0,50}\b(?:repas|meal|meals)\b.{0,24}\b(?:par\s+semaine|per\s+week|cada\s+semana|por\s+semana)\b",
+                @"^(?:collecter|collectez|preparer|preparez|cook|prepare)\b.{0,50}\b(?:repas|meal|items)\b.{0,24}\b(?:par\s+semaine|per\s+week|cada\s+semana|por\s+semana)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -24909,7 +24965,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         return terms.All(static term => Regex.IsMatch(
             term,
-            @"^(?:cuisine|cookbook|collection|pratique|practical|fut[eé]e?|smart|parents?|parental|familles?|families?|family|enfants?|children|kids?|busy|press[eé]s?|presses?|actifs?|active|guide|livre|book|edition|magazine)$",
+            @"^(?:collection|cookbook|collection|pratique|practical|fut[eé]e?|smart|parents?|parental|familles?|families?|family|enfants?|children|kids?|busy|press[eé]s?|presses?|actifs?|active|guide|livre|book|edition|magazine)$",
             RegexOptions.CultureInvariant));
     }
 
@@ -24969,7 +25025,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 normalizedTitle,
-                @"^(?:le|la|les|l|un|une|des|du|de\s+la|the|a|an)?\s*(?:occuper|occupez|organiser|organize|planifier|planifiez|schedule|utiliser|use|using|egoutter|egouttez|peler|pelez|eplucher|epluchez|[eé]plucher|[eé]pluchez|verser|versez|melanger|m[eé]langez|incorporer|incorporez|faconner|fagonner|former|faire|faites|ajouter|ajoutez|laisser|laissez|placer|placez|retirer|retirez|couper|coupez|hacher|hachez|trancher|tranchez|deposer|deposez|remuer|remuez|cuire|cuisiner|mijoter|servir|gouter|go[uû]ter|pour|mix|peel|cut|chop|cook|serve|taste|" + OperationalActionLeadPattern + @")\b",
+                @"^(?:le|la|les|l|un|une|des|du|de\s+la|the|a|an)?\s*(?:occuper|occupez|organiser|organize|planifier|planifiez|schedule|utiliser|use|using|egoutter|egouttez|peler|pelez|preparer|preparez|verser|versez|melanger|m[eé]langez|incorporer|incorporez|faconner|fagonner|former|faire|faites|ajouter|ajoutez|laisser|laissez|placer|placez|retirer|retirez|couper|coupez|hacher|hachez|trancher|tranchez|deposer|deposez|remuer|remuez|cuire|collecter|mijoter|servir|gouter|go[uû]ter|pour|mix|peel|cut|chop|cook|serve|taste|" + OperationalActionLeadPattern + @")\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -28364,7 +28420,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             yield return quotedTitle;
 
         const string structureLabelPattern =
-            @"ingredients?|ingr[eé]dients?|requirements?|quantit(?:y|ies)|quantit[eé]s?|values?|materials?|mat[eé]riel|components?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
+            @"components?|components?|requirements?|quantit(?:y|ies)|quantit[eé]s?|values?|materials?|mat[eé]riel|components?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
         var sectionLeadPattern =
             $@"(?i)(?:^|[.!?]\s+)(?<title>\p{{Lu}}[\p{{L}}'\u2019 \-/]{{5,80}}?)(?:\.|\s)\s*(?:{structureLabelPattern})\b";
         foreach (Match match in Regex.Matches(text, sectionLeadPattern, RegexOptions.CultureInvariant))
@@ -28401,7 +28457,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         text = Regex.Replace(text, @"^\d+", string.Empty, RegexOptions.CultureInvariant).Trim();
         text = Regex.Replace(text, @"(?<=[\p{Ll}])(?=(?:Pour|For|Para|Per)\b)", " ", RegexOptions.CultureInvariant);
         const string structureLabelPattern =
-            @"ingredients?|ingr[eé]dients?|requirements?|quantit(?:y|ies)|quantit[eé]s?|values?|materials?|mat[eé]riel|components?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
+            @"components?|components?|requirements?|quantit(?:y|ies)|quantit[eé]s?|values?|materials?|mat[eé]riel|components?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
         var patterns = new[]
         {
             @"^(?<title>[\p{Lu}\p{Lt}0-9][\p{Lu}\p{Lt}0-9 '\u2019&/,\-\u00c0-\u017f]{5,120}?)(?:\s+\d+[\.)]\s|\s+[•\u2022]\s)",
@@ -28491,7 +28547,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 normalized,
-            @"\b(?:liste|source|sources|page|pages|sommaire|index|contents|catalogue|copyright|isbn|edition|ingredients?|ingr[eé]dients?|preparation|operation|workflow|execution|organisation|planning|calendrier|modele|outils?|tools?|elements?|[eé]l[eé]ments?|conseils?|consiste|prendre|heures?|temps|documents?|disponibles?|materiel|service|utilisez|utiliser|choisissez|installation|lors|ouvrir|programmer|extraire|volonte|limiter|limit)\b",
+            @"\b(?:liste|source|sources|page|pages|sommaire|index|contents|catalogue|copyright|isbn|edition|components?|components?|preparation|operation|workflow|execution|organisation|planning|calendrier|modele|outils?|tools?|elements?|[eé]l[eé]ments?|conseils?|consiste|prendre|heures?|temps|documents?|disponibles?|materiel|service|utilisez|utiliser|choisissez|installation|lors|ouvrir|programmer|extraire|volonte|limiter|limit)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
