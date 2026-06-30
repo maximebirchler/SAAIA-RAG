@@ -88,6 +88,12 @@ public sealed class ToolMemory
         set => Session.LastSourcesUsed = value ?? new();
     }
 
+    public List<ResearchWorkingNote> ResearchWorkingNotes
+    {
+        get => Session.ResearchWorkingNotes;
+        set => Session.ResearchWorkingNotes = value ?? new();
+    }
+
     public DocumentItem? LastFocusedDocument
     {
         get => Session.LastFocusedDocument;
@@ -170,6 +176,12 @@ public sealed class ToolMemory
     {
         get => Execution.LastRagDegradedRetrievers;
         set => Execution.LastRagDegradedRetrievers = value ?? new();
+    }
+
+    public List<string> LastRagTraceEvents
+    {
+        get => Execution.LastRagTraceEvents;
+        set => Execution.LastRagTraceEvents = value ?? new();
     }
 
     public List<string> LastReasoningTracePublic
@@ -310,6 +322,8 @@ public sealed class ToolMemory
 
         public List<SourceRef> LastSourcesUsed { get; set; } = new();
 
+        public List<ResearchWorkingNote> ResearchWorkingNotes { get; set; } = new();
+
         public DocumentItem? LastFocusedDocument { get; set; }
 
         public string? LastUserMessage { get; set; }
@@ -353,7 +367,13 @@ public sealed class ToolMemory
 
         public List<string> LastRagDegradedRetrievers { get; set; } = new();
 
+        public List<string> LastRagTraceEvents { get; set; } = new();
+
         public List<RagEvidenceExplorationTrace> LastRagEvidenceExploration { get; set; } = new();
+
+        public string? LastRagInferredCategoryScope { get; set; }
+
+        public string? LastRagInferredCategoryReason { get; set; }
 
         public List<string> LastReasoningTracePublic { get; set; } = new();
 
@@ -372,7 +392,21 @@ public sealed class ToolMemory
     {
         public string Label { get; set; } = "";
 
+        public string? Origin { get; set; }
+
+        public string? Purpose { get; set; }
+
         public List<string> Queries { get; set; } = new();
+
+        public string? CategoryScope { get; set; }
+
+        public string? DocId { get; set; }
+
+        public string? DocPath { get; set; }
+
+        public int? PageStart { get; set; }
+
+        public int? PageEnd { get; set; }
 
         public string? KindBefore { get; set; }
 
@@ -483,6 +517,61 @@ public sealed class ToolMemory
         public string? NavigationReason { get; set; }
         public double? RetrievalNavigationScore { get; set; }
         public double? ContentDensityScore { get; set; }
+    }
+
+    public sealed class ResearchWorkingNote
+    {
+        public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
+
+        public string TopicKey { get; set; } = "";
+
+        public string RequestShape { get; set; } = "";
+
+        public string Label { get; set; } = "";
+
+        public string? Origin { get; set; }
+
+        public string? Purpose { get; set; }
+
+        public List<string> Queries { get; set; } = new();
+
+        public string? CategoryScope { get; set; }
+
+        public string? DocPath { get; set; }
+
+        public int? PageStart { get; set; }
+
+        public int? PageEnd { get; set; }
+
+        public string Outcome { get; set; } = "";
+
+        public bool Accepted { get; set; }
+
+        public string? RejectReason { get; set; }
+
+        public string? ReasonBefore { get; set; }
+
+        public string? ReasonAfter { get; set; }
+
+        public int CandidateCountBefore { get; set; }
+
+        public int? CandidateCountAfter { get; set; }
+
+        public int? CandidateDelta { get; set; }
+
+        public int DistinctPagesBefore { get; set; }
+
+        public int? DistinctPagesAfter { get; set; }
+
+        public int? DistinctPageDelta { get; set; }
+
+        public int UsableHitsBefore { get; set; }
+
+        public int? UsableHitsAfter { get; set; }
+
+        public int? UsableHitDelta { get; set; }
+
+        public long ElapsedMs { get; set; }
     }
 
     public sealed class SourceProfileSignalsRef
@@ -872,6 +961,7 @@ public sealed class ToolMemory
         Session.LastListTotal = null;
         Session.LastListEndOfList = false;
         Session.LastSourcesUsed = new();
+        Session.ResearchWorkingNotes = new();
         Session.LastFocusedDocument = null;
         Session.LastUserMessage = null;
         Session.LastAssistantAnswer = null;
@@ -893,6 +983,7 @@ public sealed class ToolMemory
         Execution.LastRagQueries = new();
         Execution.LastRagHitLabels = new();
         Execution.LastRagDegradedRetrievers = new();
+        Execution.LastRagTraceEvents = new();
         Execution.LastRagEvidenceExploration = new();
         Execution.LastReasoningTracePublic = new();
         Execution.LastRiskFlags = new();

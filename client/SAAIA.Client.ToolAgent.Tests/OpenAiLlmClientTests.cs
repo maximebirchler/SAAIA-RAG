@@ -145,6 +145,43 @@ public sealed class OpenAiLlmClientTests
         Assert.Contains(root.GetProperty("stop").EnumerateArray(), item => item.GetString() == "\nTOOL_RESULTS");
     }
 
+    [Fact]
+    public void LlmAdapter_raises_budget_for_broad_documentary_writer_prompts()
+    {
+        var prompt = """
+PRIVATE_SOURCE_COVERAGE_NOTE:
+The request needs a broad structured answer.
+
+PRIVATE_SOURCE_WRITING_BRIEF:
+Use the retrieved evidence to write a clean final answer.
+
+REQUESTED_STRUCTURE:
+weekly plan with several slots
+""";
+
+        var broadBudget = RagChatAgent.ResolveLlmAdapterMaxTokensForTests(
+            configuredMaxTokens: 1600,
+            forceJson: false,
+            prompt);
+        var normalBudget = RagChatAgent.ResolveLlmAdapterMaxTokensForTests(
+            configuredMaxTokens: 1600,
+            forceJson: false,
+            prompt: "simple chat answer");
+        var jsonBudget = RagChatAgent.ResolveLlmAdapterMaxTokensForTests(
+            configuredMaxTokens: 3600,
+            forceJson: true,
+            prompt);
+        var lowConfiguredJsonBudget = RagChatAgent.ResolveLlmAdapterMaxTokensForTests(
+            configuredMaxTokens: 350,
+            forceJson: true,
+            prompt);
+
+        Assert.Equal(3600, broadBudget);
+        Assert.Equal(1600, normalBudget);
+        Assert.Equal(3200, jsonBudget);
+        Assert.Equal(1600, lowConfiguredJsonBudget);
+    }
+
     private static OpenAiLlmClient CreateClient(string body)
     {
         var http = new HttpClient(new StubHttpHandler(body, HttpMethod.Get))

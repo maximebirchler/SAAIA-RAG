@@ -10,9 +10,11 @@ public sealed class OpenAiCompatLlmClient : ILlmClient
     private readonly HttpClient _http;
     private readonly string _baseUrl;
     private readonly string _model;
-    private const int JsonMaxTokens = 700;
-    private const int DefaultAnswerMaxTokens = 850;
-    private const int SummaryAnswerMaxTokens = 1100;
+    private const int JsonMaxTokens = 1600;
+    private const int DefaultAnswerMaxTokens = 1000;
+    private const int StructuredAnswerMaxTokens = 1800;
+    private const int BroadSourceBackedAnswerMaxTokens = 4096;
+    private const int SummaryAnswerMaxTokens = 1400;
 
     public OpenAiCompatLlmClient(HttpClient http, string baseUrl, string model)
     {
@@ -42,12 +44,12 @@ public sealed class OpenAiCompatLlmClient : ILlmClient
                 };
 
                 using var resp2 = await _http.SendAsync(req2, ct).ConfigureAwait(false);
-                resp2.EnsureSuccessStatusCode();
+                await EnsureSuccessWithBodyAsync(resp2, ct).ConfigureAwait(false);
                 var json2 = await resp2.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
                 return ExtractContent(json2);
             }
 
-            resp.EnsureSuccessStatusCode();
+            await EnsureSuccessWithBodyAsync(resp, ct).ConfigureAwait(false);
         }
 
         var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
@@ -112,7 +114,7 @@ public sealed class OpenAiCompatLlmClient : ILlmClient
             if (forceJson && (resp.StatusCode == HttpStatusCode.BadRequest || (int)resp.StatusCode == 422))
                 return false;
 
-            resp.EnsureSuccessStatusCode();
+            await EnsureSuccessWithBodyAsync(resp, ct).ConfigureAwait(false);
         }
 
         await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
@@ -176,14 +178,55 @@ public sealed class OpenAiCompatLlmClient : ILlmClient
             return JsonMaxTokens;
 
         var joined = string.Join('\n', messages.Select(m => m.content ?? string.Empty));
-        if (joined.Contains("SOURCE_SUMMARY:", StringComparison.OrdinalIgnoreCase)
-            || joined.Contains("Translate the stored summary", StringComparison.OrdinalIgnoreCase)
-            || joined.Contains("summary", StringComparison.OrdinalIgnoreCase))
-        {
+        if (LooksLikeBroadSourceBackedWriterPrompt(joined))
+            return BroadSourceBackedAnswerMaxTokens;
+
+        if (LooksLikeStructuredWriterPrompt(joined))
+            return StructuredAnswerMaxTokens;
+
+        if (LooksLikeSummaryPrompt(joined))
             return SummaryAnswerMaxTokens;
-        }
 
         return DefaultAnswerMaxTokens;
+    }
+
+    private static bool LooksLikeBroadSourceBackedWriterPrompt(string prompt)
+        => prompt.Contains("PRIVATE_SOURCE_WRITING_BRIEF", StringComparison.OrdinalIgnoreCase)
+            || prompt.Contains("PRIVATE_SOURCE_COVERAGE_NOTE", StringComparison.OrdinalIgnoreCase)
+            || prompt.Contains("PRIVATE_SOURCE_EVIDENCE_INVENTORY", StringComparison.OrdinalIgnoreCase)
+            || prompt.Contains("PRIVATE_SOURCE_RESEARCH_MAP", StringComparison.OrdinalIgnoreCase)
+            || prompt.Contains("PRIVATE_SOURCE_REFERENCE_INDEX", StringComparison.OrdinalIgnoreCase)
+            || prompt.Contains("REQUESTED_STRUCTURE", StringComparison.OrdinalIgnoreCase);
+
+    private static bool LooksLikeStructuredWriterPrompt(string prompt)
+        => prompt.Contains("TOOL_RESULTS", StringComparison.OrdinalIgnoreCase)
+            || prompt.Contains("rag.multi_search", StringComparison.OrdinalIgnoreCase)
+            || prompt.Contains("rag.search", StringComparison.OrdinalIgnoreCase)
+            || prompt.Contains("Do not dump raw excerpts", StringComparison.OrdinalIgnoreCase);
+
+    private static bool LooksLikeSummaryPrompt(string prompt)
+        => prompt.Contains("SOURCE_SUMMARY:", StringComparison.OrdinalIgnoreCase)
+            || prompt.Contains("Translate the stored summary", StringComparison.OrdinalIgnoreCase)
+            || prompt.Contains("summary", StringComparison.OrdinalIgnoreCase);
+
+    private static async Task EnsureSuccessWithBodyAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        if (response.IsSuccessStatusCode)
+            return;
+
+        var body = string.Empty;
+        try
+        {
+            body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        }
+        catch
+        {
+        }
+
+        var message = string.IsNullOrWhiteSpace(body)
+            ? $"LLM request failed with HTTP {(int)response.StatusCode} ({response.ReasonPhrase})."
+            : $"LLM request failed with HTTP {(int)response.StatusCode} ({response.ReasonPhrase}): {body}";
+        throw new HttpRequestException(message, null, response.StatusCode);
     }
 
 

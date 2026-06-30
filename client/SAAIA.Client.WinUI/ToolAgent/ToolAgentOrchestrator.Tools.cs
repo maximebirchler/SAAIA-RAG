@@ -108,6 +108,50 @@ public sealed partial class ToolAgentOrchestrator
            ?? GetNestedIntArg(args, "filters", "maxPerPage")
            ?? GetNestedIntArg(args, "diversity", "maxPerPage");
 
+    private static int? GetRagPageStartArg(JsonElement args)
+        => GetIntArg(args, "pageStart")
+           ?? GetNestedIntArg(args, "filters", "pageStart")
+           ?? GetIntArg(args, "page")
+           ?? GetNestedIntArg(args, "filters", "page");
+
+    private static int? GetRagPageEndArg(JsonElement args)
+    {
+        var explicitEnd = GetIntArg(args, "pageEnd")
+                          ?? GetNestedIntArg(args, "filters", "pageEnd");
+        return explicitEnd ?? GetRagPageStartArg(args);
+    }
+
+    private static string? GetRagResearchModeArg(JsonElement args)
+        => NormalizeRagResearchModeArg(
+            GetStringArg(args, "researchMode")
+            ?? GetStringArg(args, "research_mode")
+            ?? GetNestedStringArg(args, "filters", "researchMode")
+            ?? GetNestedStringArg(args, "filters", "research_mode"));
+
+    private static bool? GetRagIncludeResearchSurfacesArg(JsonElement args)
+        => GetBoolArg(args, "includeResearchSurfaces")
+           ?? GetBoolArg(args, "include_research_surfaces")
+           ?? GetNestedBoolArg(args, "filters", "includeResearchSurfaces")
+           ?? GetNestedBoolArg(args, "filters", "include_research_surfaces");
+
+    private static bool GetRagTrustCategoryScopeArg(JsonElement args)
+        => GetBoolArg(args, "trustCategoryScope")
+           ?? GetBoolArg(args, "trust_category_scope")
+           ?? GetNestedBoolArg(args, "filters", "trustCategoryScope")
+           ?? GetNestedBoolArg(args, "filters", "trust_category_scope")
+           ?? false;
+
+    private static string? NormalizeRagResearchModeArg(string? value)
+    {
+        var normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "" or "none" or "default" => null,
+            "research" or "exploration" or "broad_exploration" or "source_exploration" or "evidence_exploration" => normalized,
+            _ => null
+        };
+    }
+
     private static bool LooksLikeReindexableDocumentPath(string? path)
     {
         var normalized = (path ?? string.Empty).Replace('\\', '/').Trim().TrimStart('/').TrimEnd('/');
@@ -1148,6 +1192,14 @@ public sealed partial class ToolAgentOrchestrator
         if (value.ValueKind == JsonValueKind.True) return true;
         if (value.ValueKind == JsonValueKind.False) return false;
         return value.ValueKind == JsonValueKind.String && bool.TryParse(value.GetString(), out var parsed) ? parsed : null;
+    }
+
+    private static bool? GetNestedBoolArg(JsonElement args, string parent, string child)
+    {
+        if (!args.TryGetProperty(parent, out var p) || p.ValueKind != JsonValueKind.Object)
+            return null;
+
+        return GetBoolArg(p, child);
     }
 
     private static List<string>? GetStringArrayArg(JsonElement args, string name)

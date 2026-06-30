@@ -44,7 +44,7 @@ sealed class RagOptions
     public int RerankMaxCandidates { get; set; } = 12;
 
     public int DefaultTopK { get; set; } = 5;
-    public int MaxTopK { get; set; } = 20;
+    public int MaxTopK { get; set; } = 60;
 
     /// <summary>
     /// Maximum number of concurrent interactive RAG searches admitted by this backend instance.

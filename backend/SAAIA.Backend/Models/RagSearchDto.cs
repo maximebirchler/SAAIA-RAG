@@ -30,7 +30,11 @@ public sealed record RagSearchRequestDto(
     bool? IncludeContextualSnippet = null,
     string? CategoryPath = null,
     string? CategoryRef = null,
-    bool? IncludeDiagnostics = null
+    bool? IncludeDiagnostics = null,
+    int? PageStart = null,
+    int? PageEnd = null,
+    string? ResearchMode = null,
+    bool? IncludeResearchSurfaces = null
 );
 
 /// <summary>

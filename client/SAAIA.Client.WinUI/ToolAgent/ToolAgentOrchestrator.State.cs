@@ -40,7 +40,10 @@ public sealed partial class ToolAgentOrchestrator
         _lastWriterToolNames = new List<string>();
         _lastToolDurations = new List<(string tool, long durationMs, bool ok)>();
         _lastAnswerSource = "unknown";
+        ResetRagTraceTurn();
         _mem.Execution.LastRagEvidenceExploration = new();
+        _mem.Execution.LastRagInferredCategoryScope = null;
+        _mem.Execution.LastRagInferredCategoryReason = null;
     }
 
     private Dictionary<string, object?> BuildAgentRuntimeSnapshot()
@@ -98,6 +101,36 @@ public sealed partial class ToolAgentOrchestrator
                 ["queries"] = _mem.LastRagQueries?.Take(8).ToArray() ?? Array.Empty<string>(),
                 ["hitLabels"] = _mem.LastRagHitLabels?.Take(30).ToArray() ?? Array.Empty<string>(),
                 ["degradedRetrievers"] = _mem.LastRagDegradedRetrievers?.Take(16).ToArray() ?? Array.Empty<string>(),
+                ["traceEventCount"] = _mem.LastRagTraceEvents?.Count ?? 0,
+                ["traceEvents"] = _mem.LastRagTraceEvents?.TakeLast(80).ToArray() ?? Array.Empty<string>(),
+                ["lastInferredCategoryScope"] = _mem.Execution.LastRagInferredCategoryScope,
+                ["lastInferredCategoryReason"] = _mem.Execution.LastRagInferredCategoryReason,
+                ["researchWorkingNoteCount"] = _mem.ResearchWorkingNotes?.Count ?? 0,
+                ["researchWorkingNotes"] = _mem.ResearchWorkingNotes?
+                    .TakeLast(12)
+                    .Select(static note => new Dictionary<string, object?>
+                    {
+                        ["topicKey"] = note.TopicKey,
+                        ["requestShape"] = note.RequestShape,
+                        ["label"] = note.Label,
+                        ["origin"] = note.Origin,
+                        ["purpose"] = note.Purpose,
+                        ["queries"] = note.Queries.Take(6).ToArray(),
+                        ["categoryScope"] = note.CategoryScope,
+                        ["docPath"] = note.DocPath,
+                        ["pageStart"] = note.PageStart,
+                        ["pageEnd"] = note.PageEnd,
+                        ["outcome"] = note.Outcome,
+                        ["accepted"] = note.Accepted,
+                        ["rejectReason"] = note.RejectReason,
+                        ["reasonBefore"] = note.ReasonBefore,
+                        ["reasonAfter"] = note.ReasonAfter,
+                        ["candidateDelta"] = note.CandidateDelta,
+                        ["distinctPageDelta"] = note.DistinctPageDelta,
+                        ["usableHitDelta"] = note.UsableHitDelta,
+                        ["elapsedMs"] = note.ElapsedMs
+                    })
+                    .ToArray() ?? Array.Empty<object>(),
                 ["explorationPassCount"] = _mem.Execution.LastRagEvidenceExploration?.Count ?? 0,
                 ["acceptedExplorationPassCount"] = _mem.Execution.LastRagEvidenceExploration?.Count(static pass => pass.Accepted) ?? 0,
                 ["lastInsufficiencyReason"] = _mem.Execution.LastRagEvidenceExploration?.LastOrDefault()?.ReasonAfter
@@ -107,7 +140,14 @@ public sealed partial class ToolAgentOrchestrator
                     .Select(static pass => new Dictionary<string, object?>
                     {
                         ["label"] = pass.Label,
+                        ["origin"] = pass.Origin,
+                        ["purpose"] = pass.Purpose,
                         ["queries"] = pass.Queries.Take(6).ToArray(),
+                        ["categoryScope"] = pass.CategoryScope,
+                        ["docId"] = pass.DocId,
+                        ["docPath"] = pass.DocPath,
+                        ["pageStart"] = pass.PageStart,
+                        ["pageEnd"] = pass.PageEnd,
                         ["reasonBefore"] = pass.ReasonBefore,
                         ["reasonAfter"] = pass.ReasonAfter,
                         ["scoreBefore"] = pass.ScoreBefore,
@@ -153,6 +193,7 @@ public sealed partial class ToolAgentOrchestrator
                     ["lastListedDocumentsCount"] = _mem.LastListedDocuments?.Count ?? 0,
                     ["pdfMapSize"] = _mem.PdfMap?.Count ?? 0,
                     ["lastSourcesCount"] = _mem.LastSourcesUsed?.Count ?? 0,
+                    ["researchWorkingNotesCount"] = _mem.ResearchWorkingNotes?.Count ?? 0,
                     ["hasResolvedCategory"] = _mem.LastResolvedCategory is not null,
                     ["presentedCategoriesCount"] = _mem.LastPresentedCategories?.Count ?? 0
                 },
@@ -164,6 +205,7 @@ public sealed partial class ToolAgentOrchestrator
                     ["lastRagQueriesCount"] = _mem.LastRagQueries?.Count ?? 0,
                     ["lastRagHitLabelsCount"] = _mem.LastRagHitLabels?.Count ?? 0,
                     ["lastRagDegradedRetrieversCount"] = _mem.LastRagDegradedRetrievers?.Count ?? 0,
+                    ["lastRagTraceEventCount"] = _mem.LastRagTraceEvents?.Count ?? 0,
                     ["lastRagEvidenceExplorationCount"] = _mem.Execution.LastRagEvidenceExploration?.Count ?? 0,
                     ["lastRiskFlagsCount"] = _mem.LastRiskFlags?.Count ?? 0,
                     ["hasPlannerMemoryUpdate"] = !string.IsNullOrWhiteSpace(_mem.LastPlannerMemoryUpdate),
@@ -222,6 +264,7 @@ public sealed partial class ToolAgentOrchestrator
             {
                 ["hasFocusedDocument"] = _mem.LastFocusedDocument is not null,
                 ["lastListedDocumentsCount"] = _mem.LastListedDocuments?.Count ?? 0,
+                ["researchWorkingNotesCount"] = _mem.ResearchWorkingNotes?.Count ?? 0,
                 ["hasResolvedCategory"] = _mem.LastResolvedCategory is not null,
                 ["hasPendingClarification"] = _mem.PendingClarification is not null
             },
@@ -233,6 +276,7 @@ public sealed partial class ToolAgentOrchestrator
                 ["lastRagQueriesCount"] = _mem.LastRagQueries?.Count ?? 0,
                 ["lastRagHitLabelsCount"] = _mem.LastRagHitLabels?.Count ?? 0,
                 ["lastRagDegradedRetrieversCount"] = _mem.LastRagDegradedRetrievers?.Count ?? 0,
+                ["lastRagTraceEventCount"] = _mem.LastRagTraceEvents?.Count ?? 0,
                 ["lastRagEvidenceExplorationCount"] = _mem.Execution.LastRagEvidenceExploration?.Count ?? 0,
                 ["hasAdminOperation"] = _mem.LastAdminOperation is not null
             }
@@ -272,17 +316,26 @@ public sealed partial class ToolAgentOrchestrator
         var expectsRagProbeRefinement = string.Equals(pending.Kind, "rag_probe", StringComparison.OrdinalIgnoreCase);
         var expectsBroadenedSourceSearch = string.Equals(pending.Kind, "source_backed_broaden_search", StringComparison.OrdinalIgnoreCase)
             || string.Equals(pending.Kind, "broader_source_search", StringComparison.OrdinalIgnoreCase);
+        var expectsBackendRagGuidance = string.Equals(pending.Kind, "rag_guidance", StringComparison.OrdinalIgnoreCase);
         var expectsGenericClarification = IsGenericClarificationKind(pending.Kind);
+        var isBroadenedSourceSearchConfirmation = LooksLikeBroadenedSourceSearchConfirmation(current);
+        var shouldConfirmBroadenedSourceSearch =
+            isBroadenedSourceSearchConfirmation
+            && (expectsBroadenedSourceSearch || expectsRagProbeRefinement || expectsBackendRagGuidance);
 
         var isExpectedAnswer = expectsDocumentAnswer
             ? DocumentRefResolver.LooksLikeDocumentReferenceAnswer(current, _mem.LastFocusedDocument, _mem.LastListedDocuments, _mem.LastRequestedDocumentRef)
             : expectsTreeScope
                 ? DocumentRefResolver.LooksLikeTreeScopeAnswer(current)
-                : expectsRagProbeRefinement
+                : shouldConfirmBroadenedSourceSearch
+                    ? true
+                    : expectsRagProbeRefinement
                     ? current.Length >= 2
                     : expectsBroadenedSourceSearch
-                        ? LooksLikeBroadenedSourceSearchConfirmation(current)
-                        : expectsGenericClarification && LooksLikeGenericClarificationAnswer(current);
+                        ? isBroadenedSourceSearchConfirmation
+                        : expectsBackendRagGuidance
+                            ? LooksLikeGenericClarificationAnswer(current)
+                            : expectsGenericClarification && LooksLikeGenericClarificationAnswer(current);
 
         if (!isExpectedAnswer)
         {
@@ -293,7 +346,16 @@ public sealed partial class ToolAgentOrchestrator
             return new PendingClarificationPreparation(safeUserMessage, null, false);
         }
 
-        var effectiveUserMessage = expectsRagProbeRefinement
+        var effectiveUserMessage = shouldConfirmBroadenedSourceSearch
+            ? $@"PREVIOUS_USER_REQUEST:
+{pending.OriginalUserMessage}
+
+USER_CONFIRMED_BROADER_SOURCE_SEARCH:
+{current}
+
+RESOLVED_REQUEST:
+Continue the previous source-backed request by running a broader retrieval exploration across the relevant indexed corpus or category before answering. Use catalog/category hints, document profiles, content cards, title anchors and navigation/table-of-contents entries when useful. Keep the final answer grounded in concrete source hits and do not treat this confirmation as a new topic."
+            : expectsRagProbeRefinement
             ? $@"PREVIOUS_DOCUMENTARY_REQUEST:
 {pending.OriginalUserMessage}
 
@@ -323,7 +385,7 @@ Continue the previous request using the clarification as the intended topic or s
 CLARIFICATION_ANSWER:
 {current}";
 
-        var analysisOverride = expectsRagProbeRefinement || expectsGenericClarification || expectsBroadenedSourceSearch
+        var analysisOverride = expectsRagProbeRefinement || expectsGenericClarification || expectsBroadenedSourceSearch || expectsBackendRagGuidance
             ? null
             : DocumentRefResolver.Analyze(effectiveUserMessage, _mem.LastFocusedDocument, _mem.LastListedDocuments, _mem.LastRequestedDocumentRef);
         ClearPendingClarification();
@@ -477,7 +539,7 @@ CLARIFICATION_ANSWER:
         var normalized = NormalizeLexicalLookup(s);
         return Regex.IsMatch(
             normalized,
-            @"^(?:yes|yeah|yep|ok|okay|go|do it|continue|broaden(?: the search)?|search broader|oui|vas[- ]?y|lance(?: la)?(?: recherche)?|d accord|recherche plus large|elargis(?: la)?(?: recherche)?|cherche plus large)(?:\b.*)?$",
+            @"^(?:yes|yeah|yep|ok|okay|go|do it|continue|broaden(?: the search)?|search broader|run(?: the)? broader search|oui|vas[- ]?y|lance(?: la)?(?: recherche)?|d accord|recherche plus large|elargis(?: la)?(?: recherche)?|cherche plus large|si|adelante|continua|sigue|haz(?:lo)?|busqueda mas amplia|amplia(?: la)? busqueda|busca mas amplio|sim|podes|pode|vai|continua|pesquisa mais ampla|amplia(?: a)? pesquisa|procura mais ampla|ja|weiter|mach weiter|breitere suche|suche breiter|erweitere(?: die)? suche|si|vai|continua|ricerca piu ampia|allarga(?: la)? ricerca|cerca piu ampio)(?:\b.*)?$",
             RegexOptions.IgnoreCase);
     }
 
@@ -490,12 +552,25 @@ CLARIFICATION_ANSWER:
         if (normalized.Length == 0)
             return false;
 
+        foreach (var language in new[] { "fr", "en", "es", "pt", "de", "it" })
+        {
+            var offer = NormalizeLexicalLookup(DeterministicAgentText.SourceBackedExpandedSearchOffer(language));
+            if (offer.Length > 0 && normalized.Contains(offer, StringComparison.Ordinal))
+                return true;
+        }
+
         return normalized.Contains("recherche plus large", StringComparison.Ordinal)
+            || normalized.Contains("lancer une recherche plus large", StringComparison.Ordinal)
+            || normalized.Contains("elargir la recherche", StringComparison.Ordinal)
             || normalized.Contains("broader corpus search", StringComparison.Ordinal)
             || normalized.Contains("broader search", StringComparison.Ordinal)
+            || normalized.Contains("run a broader search", StringComparison.Ordinal)
             || normalized.Contains("busqueda mas amplia", StringComparison.Ordinal)
+            || normalized.Contains("busqueda amplia", StringComparison.Ordinal)
             || normalized.Contains("pesquisa mais ampla", StringComparison.Ordinal)
+            || normalized.Contains("pesquisa ampla", StringComparison.Ordinal)
             || normalized.Contains("breitere suche", StringComparison.Ordinal)
+            || normalized.Contains("suche erweitern", StringComparison.Ordinal)
             || normalized.Contains("ricerca piu ampia", StringComparison.Ordinal);
     }
 
@@ -522,21 +597,51 @@ USER_MESSAGE:
 
     private async Task<string> EnsureAnswerMatchesRequestedLanguageAsync(string answer, string requestedLanguage, CancellationToken ct)
     {
+        var swLanguageCheck = Stopwatch.StartNew();
         var trimmed = (answer ?? string.Empty).Trim();
         if (trimmed.Length == 0)
+        {
+            EmitRagTrace(
+                "writer.language_check.skipped",
+                ("reason", "empty_answer"),
+                ("ms", swLanguageCheck.ElapsedMilliseconds));
             return trimmed;
+        }
 
         var targetLanguage = NormalizeLanguageCode(requestedLanguage);
         var detectedLanguageRaw = DetectMessageLanguage(trimmed);
         if (string.IsNullOrWhiteSpace(targetLanguage) || string.IsNullOrWhiteSpace(detectedLanguageRaw))
+        {
+            EmitRagTrace(
+                "writer.language_check.skipped",
+                ("reason", "missing_language"),
+                ("target", targetLanguage),
+                ("detected", detectedLanguageRaw),
+                ("answer_chars", trimmed.Length),
+                ("ms", swLanguageCheck.ElapsedMilliseconds));
             return trimmed;
+        }
 
         var detectedLanguage = NormalizeLanguageCode(detectedLanguageRaw);
         if (string.Equals(detectedLanguage, targetLanguage, StringComparison.OrdinalIgnoreCase))
+        {
+            EmitRagTrace(
+                "writer.language_check.skipped",
+                ("reason", "already_target_language"),
+                ("target", targetLanguage),
+                ("detected", detectedLanguage),
+                ("answer_chars", trimmed.Length),
+                ("ms", swLanguageCheck.ElapsedMilliseconds));
             return trimmed;
+        }
 
         try
         {
+            EmitRagTrace(
+                "writer.language_check.start",
+                ("target", targetLanguage),
+                ("detected", detectedLanguage),
+                ("answer_chars", trimmed.Length));
             var system = $@"You are SAAIA assistant.
 Translate the provided assistant answer faithfully.
 Target language: {targetLanguage}
@@ -553,10 +658,24 @@ Rules:
             }, forceJson: false, ct).ConfigureAwait(false);
 
             translated = (translated ?? string.Empty).Replace("**", string.Empty).Trim();
-            return string.IsNullOrWhiteSpace(translated) ? trimmed : translated;
+            var final = string.IsNullOrWhiteSpace(translated) ? trimmed : translated;
+            EmitRagTrace(
+                "writer.language_check.end",
+                ("target", targetLanguage),
+                ("detected", detectedLanguage),
+                ("translated", !string.IsNullOrWhiteSpace(translated)),
+                ("answer_chars", final.Length),
+                ("ms", swLanguageCheck.ElapsedMilliseconds));
+            return final;
         }
-        catch
+        catch (Exception ex)
         {
+            EmitRagTrace(
+                "writer.language_check.failed",
+                ("target", targetLanguage),
+                ("detected", detectedLanguage),
+                ("error", TruncateForPrompt(ex.Message, 220)),
+                ("ms", swLanguageCheck.ElapsedMilliseconds));
             return trimmed;
         }
     }
@@ -985,20 +1104,38 @@ CURRENT_USER_MESSAGE:
 
     private static List<ToolMemory.SourceRef> DeriveSourcesFromPlanningHits(ToolResults toolResults, string? query = null)
     {
+        var sourceLimit = Math.Clamp(Math.Max(8, ResolveSourceBackedPlanningTargetItemCount(query)), 8, 24);
+        if (ShouldGateStructuredSourceBackedPlanningCoverage(query))
+        {
+            var supportedDraft = BuildSourceBackedPlanningDraft(
+                toolResults,
+                language: "fr",
+                minItems: ResolveSourceBackedPlanningTargetItemCount(query),
+                query);
+            return supportedDraft.Sources.Take(sourceLimit).ToList();
+        }
+
+        var draft = BuildSourceBackedPlanningDraft(toolResults, language: "fr", minItems: 1, query);
+        if (draft.Sources.Count > 0)
+            return draft.Sources.Take(sourceLimit).ToList();
+
         var planningSources = SelectSourceBackedPlanningCandidates(
                 toolResults,
                 query,
-                ResolveSourceBackedPlanningTargetItemCount(query))
+                sourceLimit)
             .Select(candidate => candidate.Hit)
-            .GroupBy(hit => $"{hit.DocPath}|{hit.PageStart}|{hit.PageEnd}", StringComparer.OrdinalIgnoreCase)
+            .GroupBy(BuildRagHitVisiblePageMergeKey, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
-            .Take(8)
+            .Take(sourceLimit)
             .Select(BuildSourceRefFromRagHit)
             .ToList();
 
-        return planningSources.Count > 0
-            ? planningSources
-            : DeriveSourcesFromRagHits(toolResults).Take(8).ToList();
+        if (planningSources.Count > 0)
+            return MergeSourceRefsByPagePreservingOrder(planningSources).Take(sourceLimit).ToList();
+
+        return ShouldGateStructuredSourceBackedPlanningCoverage(query)
+            ? new List<ToolMemory.SourceRef>()
+            : DeriveSourcesFromRagHits(toolResults).Take(sourceLimit).ToList();
     }
 
     private static string? TryInferDominantTopLevelCategoryScope(ToolResults toolResults, string? query = null)
@@ -1227,6 +1364,220 @@ CURRENT_USER_MESSAGE:
             ? new List<ToolMemory.SourceRef>()
             : MergeSourceRefsByPagePreservingOrder(sources);
 
+    private static List<ToolMemory.SourceRef> ReconcileVisibleSourcesWithFinalAnswer(
+        string answer,
+        IEnumerable<ToolMemory.SourceRef>? sources)
+    {
+        var visibleSources = NormalizeVisibleSourceRefsForMemory(sources);
+        if (visibleSources.Count == 0 || string.IsNullOrWhiteSpace(answer))
+            return visibleSources;
+
+        var citedSources = visibleSources
+            .Where(source => IsSourceRefCitedInAnswer(answer, source))
+            .GroupBy(BuildVisibleSourceRefDedupeKey, StringComparer.OrdinalIgnoreCase)
+            .Select(static group => group.First())
+            .ToList();
+
+        return citedSources.Count > 0
+            ? citedSources
+            : visibleSources
+                .GroupBy(BuildVisibleSourceRefDedupeKey, StringComparer.OrdinalIgnoreCase)
+                .Select(static group => group.First())
+                .ToList();
+    }
+
+    private static bool ShouldRequireVisibleSourcesToBeCited(string answer, string? query)
+    {
+        if (string.IsNullOrWhiteSpace(answer) || string.IsNullOrWhiteSpace(query))
+            return false;
+
+        if (ShouldGateStructuredSourceBackedPlanningCoverage(query))
+            return true;
+
+        if (!LooksLikeAnyDocumentaryPlanningRequest(query)
+            && !LooksLikeSourceBackedPairingRecommendationRequest(query)
+            && !LooksLikeSourceBackedOptionRequest(query)
+            && !LooksLikeBroadSourceBackedCompositionRequest(query)
+            && !LooksLikeMultipleCandidateSynthesisRequest(query)
+            && !LooksLikeGenericCollectionOrListRequest(query))
+        {
+            return false;
+        }
+
+        return CountConcreteAnswerLines(answer) >= 3;
+    }
+
+    private static List<ToolMemory.SourceRef> ReconcileRequiredVisibleSourcesWithFinalAnswer(
+        string answer,
+        IEnumerable<ToolMemory.SourceRef>? sources,
+        string? query)
+    {
+        var visibleSources = NormalizeVisibleSourceRefsForMemory(sources);
+        if (visibleSources.Count == 0)
+            return visibleSources;
+
+        var citedSources = visibleSources
+            .Where(source => IsSourceRefCitedInAnswer(answer, source))
+            .GroupBy(BuildVisibleSourceRefDedupeKey, StringComparer.OrdinalIgnoreCase)
+            .Select(static group => group.First())
+            .ToList();
+
+        if (citedSources.Count > 0)
+            return citedSources;
+
+        return ShouldRequireVisibleSourcesToBeCited(answer, query)
+            ? new List<ToolMemory.SourceRef>()
+            : visibleSources
+                .GroupBy(BuildVisibleSourceRefDedupeKey, StringComparer.OrdinalIgnoreCase)
+                .Select(static group => group.First())
+                .ToList();
+    }
+
+    internal static List<ToolMemory.SourceRef> ReconcileRequiredVisibleSourcesWithFinalAnswerForTests(
+        string answer,
+        IEnumerable<ToolMemory.SourceRef>? sources,
+        string? query)
+        => ReconcileRequiredVisibleSourcesWithFinalAnswer(answer, sources, query);
+
+    private static string BuildVisibleSourceRefDedupeKey(ToolMemory.SourceRef source)
+        => BuildSourceRefVisiblePageMergeKey(source);
+
+    private static int CountConcreteAnswerLines(string answer)
+    {
+        if (string.IsNullOrWhiteSpace(answer))
+            return 0;
+
+        var withoutSourceBlock = RemoveTrailingModelEmittedSourceList(answer);
+        return withoutSourceBlock
+            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(static line => CollapseWhitespace(line))
+            .Count(static line =>
+                line.Length >= 12
+                && !Regex.IsMatch(line, @"^(?:source|sources|references?|r[eé]f[eé]rences?|fuentes?|fontes?|quellen?|fonti)\s*:", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+                && Regex.IsMatch(line, @"^(?:[-*\u2022]|\d+[.)]|[A-Za-zÀ-ÖØ-öø-ÿ].{0,35}:)", RegexOptions.CultureInvariant));
+    }
+
+    private static bool LooksLikeConcreteStructuredPlanningAnswer(string? answer)
+    {
+        if (string.IsNullOrWhiteSpace(answer))
+            return false;
+
+        var withoutSourceBlock = RemoveTrailingModelEmittedSourceList(answer);
+        var normalized = NormalizeLexicalLookup(withoutSourceBlock);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        var dayMarkerCount = Regex.Matches(
+            normalized,
+            @"\b(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday|lunes|martes|miercoles|miércoles|jueves|viernes|sabado|sábado|domingo|segunda|ter[cç]a|quarta|quinta|sexta|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|lunedi|lunedì|martedi|martedì|mercoledi|mercoledì|giovedi|giovedì|venerdi|venerdì|sabato|domenica)\b",
+            RegexOptions.CultureInvariant).Count;
+        var periodMarkerCount = Regex.Matches(
+            normalized,
+            @"\b(?:petit\s+dejeuner|petit\s+déjeuner|dejeuner|déjeuner|diner|dîner|repas|breakfast|lunch|dinner|meal|desayuno|almuerzo|comida|cena|pequeno\s+almoco|pequeno\s+almoço|almoco|almoço|jantar|fruhstuck|frühstück|mittagessen|abendessen|colazione|pranzo|cena)\b",
+            RegexOptions.CultureInvariant).Count;
+        var bulletCount = Regex.Matches(
+            withoutSourceBlock,
+            @"(?m)^\s*(?:[-*\u2022\u25E6]|\d+[.)])\s+\S",
+            RegexOptions.CultureInvariant).Count;
+
+        return (dayMarkerCount >= 2 && periodMarkerCount >= 2)
+            || bulletCount >= 3
+            || (normalized.Contains('|', StringComparison.Ordinal) && periodMarkerCount >= 2);
+    }
+
+    private static bool IsSourceRefCitedInAnswer(string answer, ToolMemory.SourceRef source)
+    {
+        if (string.IsNullOrWhiteSpace(answer))
+            return false;
+
+        var normalizedAnswer = NormalizeVisibleSourceCitationLookup(answer);
+        if (string.IsNullOrWhiteSpace(normalizedAnswer))
+            return false;
+
+        var pageStart = Math.Max(1, source.PageStart);
+        var pageEnd = Math.Max(pageStart, source.PageEnd);
+        var pagePatterns = BuildSourcePageCitationPatterns(pageStart, pageEnd);
+        var identities = BuildSourceCitationIdentities(source);
+
+        foreach (var identity in identities)
+        {
+            if (string.IsNullOrWhiteSpace(identity) || !normalizedAnswer.Contains(identity, StringComparison.Ordinal))
+                continue;
+
+            foreach (var pagePattern in pagePatterns)
+            {
+                if (Regex.IsMatch(normalizedAnswer, $@"{Regex.Escape(identity)}.{{0,80}}{pagePattern}", RegexOptions.CultureInvariant)
+                    || Regex.IsMatch(normalizedAnswer, $@"{pagePattern}.{{0,80}}{Regex.Escape(identity)}", RegexOptions.CultureInvariant))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static IReadOnlyList<string> BuildSourceCitationIdentities(ToolMemory.SourceRef source)
+    {
+        var values = new[]
+            {
+                source.DocName,
+                source.Label,
+                Path.GetFileName(source.DocPath ?? string.Empty),
+                source.DocPath
+            }
+            .Select(NormalizeVisibleSourceCitationLookup)
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var stems = values
+            .Select(static value =>
+            {
+                var extensionMatch = Regex.Match(value, @"\.(?:pdf|docx?|xlsx?|pptx?|md|txt|csv|json|ya?ml|html?)\b", RegexOptions.CultureInvariant);
+                return extensionMatch.Success
+                    ? value[..extensionMatch.Index].Trim()
+                    : string.Empty;
+            })
+            .Where(static value => value.Length >= 4)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        values.AddRange(stems);
+        return values.Distinct(StringComparer.Ordinal).ToArray();
+    }
+
+    private static IReadOnlyList<string> BuildSourcePageCitationPatterns(int pageStart, int pageEnd)
+    {
+        var pages = Enumerable.Range(pageStart, Math.Max(1, pageEnd - pageStart + 1))
+            .Take(12)
+            .Distinct()
+            .ToArray();
+
+        return pages
+            .SelectMany(static page => new[]
+            {
+                $@"\bp\.?\s*{page}\b",
+                $@"\bpage\s*{page}\b",
+                $@"\bp\s*{page}\b"
+            })
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static string NormalizeVisibleSourceCitationLookup(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var normalized = NormalizeLexicalLookup(value)
+            .Replace('\\', '/');
+
+        normalized = Regex.Replace(normalized, @"\s+", " ", RegexOptions.CultureInvariant);
+        normalized = Regex.Replace(normalized, @"\s*([/()._-])\s*", "$1", RegexOptions.CultureInvariant);
+        return normalized.Trim();
+    }
+
     private static void CanonicalizeFilenameOnlySourceRefAliases(List<ToolMemory.SourceRef> sources)
     {
         foreach (var source in sources)
@@ -1293,8 +1644,7 @@ CURRENT_USER_MESSAGE:
     private static string BuildSourceRefVisiblePageMergeKey(ToolMemory.SourceRef source)
     {
         var pageStart = Math.Max(1, source.PageStart);
-        var pageEnd = Math.Max(pageStart, source.PageEnd);
-        var pagePart = $"p:{pageStart}-{pageEnd}";
+        var pagePart = $"p:{pageStart}";
 
         var path = NormalizeVisibleSourcePathIdentity(source.DocPath);
         if (!string.IsNullOrWhiteSpace(path) && LooksLikeQualifiedDocumentPath(source.DocPath))
@@ -2480,7 +2830,7 @@ CURRENT_USER_MESSAGE:
 
         var header = SourceBackedLabel(
             language,
-            "Je ne peux pas confirmer une obligation generale ou un \"toujours\" avec les seuls extraits retrouves. Je limite donc la reponse a une verification prudente :",
+            "Les pages retrouvées ne suffisent pas à confirmer une obligation générale ou une règle qui s'appliquerait toujours. Voici la vérification prudente possible avec les sources citées :",
             "I cannot confirm a general obligation or an \"always\" claim from the retrieved excerpts alone. I will keep this to a cautious source-backed check:",
             "No puedo confirmar una obligacion general o un \"siempre\" solo con los extractos recuperados. Limito la respuesta a una verificacion prudente:",
             "Nao posso confirmar uma obrigacao geral ou um \"sempre\" apenas com os excertos recuperados. Limito a resposta a uma verificacao prudente:",
@@ -2488,7 +2838,7 @@ CURRENT_USER_MESSAGE:
             "Non posso confermare un obbligo generale o un \"sempre\" solo dagli estratti recuperati. Limito la risposta a una verifica prudente:");
         var conclusion = SourceBackedLabel(
             language,
-            "Conclusion prudente : traite l'hypothese comme limitee ou a confirmer document par document, pas comme une regle universelle, sauf si une page source citee l'exprime explicitement.",
+            "Conclusion prudente : l'hypothèse doit être confirmée document par document. Je ne la traite pas comme une règle universelle tant qu'une page source citée ne le dit pas explicitement.",
             "Cautious conclusion: treat the claim as limited or to be confirmed document by document, not as a universal rule, unless a cited source page says so explicitly.",
             "Conclusion prudente: trata la hipotesis como limitada o pendiente de confirmar documento por documento, no como regla universal, salvo que una pagina citada lo diga explicitamente.",
             "Conclusao prudente: trata a hipotese como limitada ou a confirmar documento por documento, nao como regra universal, salvo se uma pagina citada o disser explicitamente.",
@@ -2569,10 +2919,10 @@ CURRENT_USER_MESSAGE:
                 Difference: "Differenze: ogni documento va letto nel proprio quadro; usa le pagine citate per confrontare formulazione, ambito e procedura.",
                 Limit: "Limite: non e un confronto giuridico o tecnico esaustivo dei documenti completi."),
             _ => (
-                Header: "Voici une comparaison separee par source, limitee aux extraits retrouves :",
+                Header: "Voici une comparaison séparée par source, limitée aux passages retrouvés :",
                 PerDoc: "Par document :",
-                Common: "Points communs : les sources selectionnees traitent le theme demande, mais je ne fusionne pas leurs regles au-dela des extraits cites.",
-                Difference: "Differences : chaque document doit etre lu dans son propre cadre ; utilise les pages citees pour comparer formulation, perimetre et procedure.",
+                Common: "Points communs : les sources sélectionnées traitent le thème demandé, mais je ne fusionne pas leurs règles au-delà des passages cités.",
+                Difference: "Différences : chaque document doit être lu dans son propre cadre ; utilise les pages citées pour comparer formulation, périmètre et procédure.",
                 Limit: "Limite : ce n'est pas une comparaison juridique ou technique exhaustive des documents complets.")
         };
 
@@ -3781,7 +4131,10 @@ CURRENT_USER_MESSAGE:
     {
         if (string.IsNullOrWhiteSpace(requestedTitle))
             return false;
-        if (!LooksLikeNavigationOnlyHit(hit))
+        var hasNavigationPenalty = LooksLikeNavigationOnlyHit(hit)
+                                   || BackendSelectionHintsPreferNavigation(hit)
+                                   || NormalizeLexicalLookup(hit.ContentRole).Contains("navigation", StringComparison.Ordinal);
+        if (!hasNavigationPenalty)
             return false;
         if (LooksLikePageReferenceOnlyHit(hit) || LooksLikeExactItemReferenceOnlyHit(requestedTitle!, hit))
             return false;
@@ -4023,7 +4376,13 @@ CURRENT_USER_MESSAGE:
 
     private static bool LooksLikeResolvedRouteTargetHit(RagHitSummary hit)
     {
-        if (!LooksLikeTrustedResolvedRouteRetriever(hit))
+        var contentRole = NormalizeLexicalLookup(hit.ContentRole);
+        var mixedNavigationContent = contentRole.Contains("mixednavigationcontent", StringComparison.Ordinal)
+                                     || (contentRole.Contains("navigation", StringComparison.Ordinal)
+                                         && contentRole.Contains("content", StringComparison.Ordinal)
+                                         && hit.NavigationScore.GetValueOrDefault() >= 0.75
+                                         && hit.ContentDensityScore.GetValueOrDefault() >= 0.30);
+        if (!LooksLikeTrustedResolvedRouteRetriever(hit) && !mixedNavigationContent)
             return false;
         if (string.IsNullOrWhiteSpace(hit.DocPath) && string.IsNullOrWhiteSpace(hit.DocName))
             return false;
@@ -4034,7 +4393,6 @@ CURRENT_USER_MESSAGE:
         if (LooksLikeRouteTargetStructuredEvidence(evidence))
             return true;
 
-        var contentRole = NormalizeLexicalLookup(hit.ContentRole);
         if (contentRole.Contains("content", StringComparison.Ordinal)
             && evidence.Length >= 80
             && !LooksLikePureRouteNavigationText(evidence))
@@ -4044,20 +4402,19 @@ CURRENT_USER_MESSAGE:
 
         if (hit.MatchedContentCards is { Count: > 0 } cards)
         {
-            if (cards.Any(static card =>
-                    card.RawEvidence.HasValue
-                    || card.Evidence is { QuantityFacts.Count: > 0 }
-                    || card.Evidence?.Facts is { Count: > 0 }))
+            if (cards.Any(HasConcreteContentCardEvidence))
             {
                 return true;
             }
-
-            if (cards.Any(static card => IsUsableSourceBackedOptionTitle(card.Title)))
-                return true;
         }
 
         return false;
     }
+
+    private static bool HasConcreteContentCardEvidence(RagHitContentCardSummary card)
+        => card.RawEvidence.HasValue
+           || card.Evidence is { QuantityFacts.Count: > 0 }
+           || card.Evidence?.Facts is { Count: > 0 };
 
     private static bool IsRouteDiscoveryAnchorHit(RagHitSummary hit)
     {
@@ -4331,13 +4688,13 @@ CURRENT_USER_MESSAGE:
             (true, "pt") => $"Nao encontrei o documento solicitado \"{requestedDocument}\" no corpus indexado. Nao vou resume-lo nem usa-lo como fonte. Pistas proximas com fonte:",
             (true, "de") => $"Ich habe das angefragte Dokument \"{requestedDocument}\" im indexierten Korpus nicht gefunden. Ich fasse es nicht zusammen und verwende es nicht als Quelle. Naheliegende belegte Hinweise:",
             (true, "it") => $"Non ho trovato il documento richiesto \"{requestedDocument}\" nel corpus indicizzato. Non lo riassumo ne lo uso come fonte. Indicazioni vicine con fonte:",
-            (true, _) => $"Je n'ai pas trouve le document demande \"{requestedDocument}\" dans le corpus indexe. Je ne le resume pas et je ne l'utilise pas comme source principale. Alternatives documentees les plus proches :",
+            (true, _) => $"Je n'ai pas trouvé le document demandé \"{requestedDocument}\" dans le corpus indexé. Je ne le résume pas et je ne l'utilise pas comme source principale. Alternatives documentées les plus proches :",
             (false, "en") => $"I did not find the requested document \"{requestedDocument}\" in the indexed corpus. I will not summarize it or use it as a source.",
             (false, "es") => $"No he encontrado el documento solicitado \"{requestedDocument}\" en el corpus indexado. No voy a resumirlo ni usarlo como fuente.",
             (false, "pt") => $"Nao encontrei o documento solicitado \"{requestedDocument}\" no corpus indexado. Nao vou resume-lo nem usa-lo como fonte.",
             (false, "de") => $"Ich habe das angefragte Dokument \"{requestedDocument}\" im indexierten Korpus nicht gefunden. Ich fasse es nicht zusammen und verwende es nicht als Quelle.",
             (false, "it") => $"Non ho trovato il documento richiesto \"{requestedDocument}\" nel corpus indicizzato. Non lo riassumo ne lo uso come fonte.",
-            _ => $"Je n'ai pas trouve le document demande \"{requestedDocument}\" dans le corpus indexe. Je ne le resume pas et je ne l'utilise pas comme source principale."
+            _ => $"Je n'ai pas trouvé le document demandé \"{requestedDocument}\" dans le corpus indexé. Je ne le résume pas et je ne l'utilise pas comme source principale."
         };
 
         if (closeLeads.Count == 0)
@@ -4440,13 +4797,13 @@ CURRENT_USER_MESSAGE:
             (true, "pt") => $"Nao encontrei o item exato solicitado \"{requestedTitle}\" nos excertos disponiveis. Nao vou inventar factos, quantidades, passos nem detalhes. Pistas proximas com fonte:",
             (true, "de") => $"Ich habe den exakt angefragten Eintrag \"{requestedTitle}\" in den verfuegbaren Auszuegen nicht gefunden. Ich erfinde keine Fakten, Mengen, Schritte oder Details. Naheliegende belegte Hinweise:",
             (true, "it") => $"Non ho trovato l'elemento esatto richiesto \"{requestedTitle}\" negli estratti disponibili. Non invento fatti, quantita, passaggi o dettagli. Indicazioni vicine con fonte:",
-            (true, _) => $"Je n'ai pas trouve l'element exact demande \"{requestedTitle}\" dans les extraits disponibles. Je n'invente donc pas les faits, quantites, etapes ou details manquants. Alternatives documentees les plus proches :",
+            (true, _) => $"Je n'ai pas trouvé l'élément exact demandé \"{requestedTitle}\" dans les extraits disponibles. Je n'invente donc pas les faits, quantités, étapes ou détails manquants. Alternatives documentées les plus proches :",
             (false, "en") => $"I did not find the exact requested item \"{requestedTitle}\" in the available excerpts. I will not invent missing facts, quantities, steps, or details.",
             (false, "es") => $"No he encontrado el elemento exacto solicitado \"{requestedTitle}\" en los extractos disponibles. No voy a inventar hechos, cantidades, pasos ni detalles.",
             (false, "pt") => $"Nao encontrei o item exato solicitado \"{requestedTitle}\" nos excertos disponiveis. Nao vou inventar factos, quantidades, passos nem detalhes.",
             (false, "de") => $"Ich habe den exakt angefragten Eintrag \"{requestedTitle}\" in den verfuegbaren Auszuegen nicht gefunden. Ich erfinde keine Fakten, Mengen, Schritte oder Details.",
             (false, "it") => $"Non ho trovato l'elemento esatto richiesto \"{requestedTitle}\" negli estratti disponibili. Non invento fatti, quantita, passaggi o dettagli.",
-            _ => $"Je n'ai pas trouve l'element exact demande \"{requestedTitle}\" dans les extraits disponibles. Je n'invente donc pas les faits, quantites, etapes ou details manquants."
+            _ => $"Je n'ai pas trouvé l'élément exact demandé \"{requestedTitle}\" dans les extraits disponibles. Je n'invente donc pas les faits, quantités, étapes ou détails manquants."
         };
 
         var sb = new StringBuilder();
@@ -4476,7 +4833,7 @@ CURRENT_USER_MESSAGE:
             return null;
 
         var candidates = closeLeads
-            .SelectMany(hit => ExtractSourceBackedTitleCandidates(hit).Concat(new[] { ExtractPlanItemTitleV2(GetPlanExtractionText(hit)) }))
+            .SelectMany(hit => ExtractSourceBackedTitleCandidates(hit).Concat(ExtractPlanItemTitleCandidatesV2(GetPlanExtractionText(hit))))
             .Select(CleanSourceBackedOptionTitle)
             .Where(title => !string.IsNullOrWhiteSpace(title))
             .Where(IsUsableSourceBackedOptionTitle)
@@ -4536,7 +4893,12 @@ CURRENT_USER_MESSAGE:
                 @"\b(?:plan|planning|calendrier|programme|organisation|schedule|calendar|wochenplan|programm|piano|programma|calendario|programa|organizacion|plano|organizacao|organizacao|programma|organizzazione|pianificazione)\b",
                 RegexOptions.CultureInvariant);
 
-        return asksForPlan && LooksLikeSourceBackedActionRequest(query);
+        return asksForPlan
+            && (LooksLikeSourceBackedActionRequest(query)
+                || (RequiresStructuredSourceBackedPlanningCoverage(query)
+                    && (LooksLikeUserNeedsSynthesizedDecisionOrPlan(query)
+                        || LooksLikeMultipleCandidateSynthesisRequest(query)
+                        || LooksLikeBroadSourceBackedCompositionRequest(query))));
     }
 
     private static bool LooksLikeAnyDocumentaryPlanningRequest(string? query)
@@ -4880,7 +5242,7 @@ CURRENT_USER_MESSAGE:
     private static string BuildVagueVerificationScopeClarification(string language)
         => SourceBackedLabel(
             NormalizeLanguageCode(language),
-            "J'ai besoin du document, de la norme, de la categorie ou du sujet exact a verifier. Sans ce perimetre, je risquerais de choisir des sources au hasard; indique ce que je dois controler et je citerai les pages pertinentes.",
+            "J'ai besoin du document, de la norme, de la catégorie ou du sujet exact à vérifier. Sans ce périmètre, je risquerais de choisir des sources au hasard ; indique ce que je dois contrôler et je citerai les pages pertinentes.",
             "I need the exact document, standard, category, or topic to verify. Without that scope, I could pick sources at random; tell me what to check and I will cite the relevant pages.",
             "Necesito el documento, la norma, la categoria o el tema exacto que debo verificar. Sin ese alcance podria elegir fuentes al azar; dime que debo comprobar y citare las paginas pertinentes.",
             "Preciso do documento, norma, categoria ou tema exato a verificar. Sem esse ambito eu poderia escolher fontes ao acaso; diz-me o que devo verificar e citarei as paginas relevantes.",
@@ -4943,6 +5305,8 @@ CURRENT_USER_MESSAGE:
             return false;
 
         if (!string.IsNullOrWhiteSpace(TryExtractRequestedItemTitle(query)))
+            return true;
+        if (TryExtractDocumentContentSearchTopic(query, out _))
             return true;
 
         var mentionsCommonContentObject = Regex.IsMatch(
@@ -5032,15 +5396,32 @@ CURRENT_USER_MESSAGE:
         var normalizedLookup = NormalizeLooseLookup(normalized);
         var signalTerms = ExtractPlanningRetrievalTerms(normalizedLookup)
             .Where(static term => term.Length >= 4)
+            .Where(static term => !IsGenericPlanningCoverageTerm(term))
+            .Where(static term => !IsInitialSourceBackedPlanningProbeModifierToken(term))
+            .Where(static term => !IsNavigationDiscoveryNoiseTerm(term))
             .Take(5)
             .ToArray();
 
-        AddDistinctQuery(queries, normalized);
-        if (!string.IsNullOrWhiteSpace(raw)
-            && !string.Equals(raw, normalized, StringComparison.OrdinalIgnoreCase)
-            && (!string.IsNullOrWhiteSpace(requestedTitle) || signalTerms.Length > 0))
+        var language = DetectRetrievalExpansionLanguage(query);
+        var hasExplicitStructuredPlanningAxes = DetectRequestedDayAxisLabels(query, language).Count > 0
+            || DetectRequestedPeriodAxisLabels(query, language).Count > 0;
+        var addedStructuredPlanningQueries = false;
+        if (ShouldGateStructuredSourceBackedPlanningCoverage(query) && hasExplicitStructuredPlanningAxes)
         {
-            AddDistinctQuery(queries, raw);
+            foreach (var retrievalQuery in BuildStructuredPlanningCandidateDiscoveryRetrievalQueries(query).Take(10))
+                AddDistinctQuery(queries, retrievalQuery);
+            addedStructuredPlanningQueries = queries.Count > 0;
+        }
+
+        if (!addedStructuredPlanningQueries)
+        {
+            AddDistinctQuery(queries, normalized);
+            if (!string.IsNullOrWhiteSpace(raw)
+                && !string.Equals(raw, normalized, StringComparison.OrdinalIgnoreCase)
+                && (!string.IsNullOrWhiteSpace(requestedTitle) || signalTerms.Length > 0))
+            {
+                AddDistinctQuery(queries, raw);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(requestedTitle))
@@ -5084,14 +5465,91 @@ CURRENT_USER_MESSAGE:
             .Take(5)
             .ToArray();
 
-        var supportTerms = BuildPlanningExplorationSupportTerms(query)
+        var supportTerms = BuildPlanningExplorationSupportTermsForRetrieval(query)
             .Take(5)
             .ToArray();
         var constraintTerms = ExtractPlanningConstraintRetrievalTerms(normalizedLookup)
             .Take(4)
             .ToArray();
+        var language = DetectRetrievalExpansionLanguage(query);
 
-        foreach (var retrievalQuery in BuildNavigationDiscoveryRetrievalQueries(query).Take(8))
+        foreach (var subject in subjectTerms.Take(1))
+        {
+            foreach (var inventory in BuildStructuredPlanningInventoryTermsForRetrieval(language, query).Take(1))
+            {
+                AddDistinctQuery(queries, $"{subject} {inventory}");
+                AddDistinctQuery(queries, $"{inventory} {subject}");
+            }
+        }
+
+        if (ShouldApplyMealPlanningSlotSemantics(query))
+        {
+            var concreteInventoryTerms = BuildConcreteStructuredPlanningInventoryTermsForRetrieval(language, query)
+                .Take(2)
+                .ToArray();
+            foreach (var subject in subjectTerms.Take(1))
+            {
+                foreach (var inventory in concreteInventoryTerms)
+                {
+                    AddDistinctQuery(queries, $"{subject} {inventory}");
+                    AddDistinctQuery(queries, $"planning {subject} {inventory}");
+                }
+            }
+
+            var periodAxis = DetectRequestedPeriodAxisLabels(query, language);
+            if (LooksLikeWeeklyPlanningRequest(query) && periodAxis.Count == 0)
+            {
+                AddDistinctQuery(queries, "repas options");
+                AddDistinctQuery(queries, "options repas");
+                AddDistinctQuery(queries, "repas candidats");
+                AddDistinctQuery(queries, "candidats repas");
+            }
+
+            var requestedSlotTerms = (periodAxis.Count > 0
+                    ? BuildStructuredAxisPlannerSlotTerms(periodAxis, query)
+                    : ExtractPlanningSlotRetrievalTerms(query)
+                        .SelectMany(ExpandPlanningSlotRetrievalTermVariants)
+                        .Select(NormalizeLexicalLookup))
+                .Where(static term => !string.IsNullOrWhiteSpace(term))
+                .Where(IsMealPeriodSlotRetrievalTerm)
+                .Distinct(StringComparer.Ordinal)
+                .Take(8)
+                .ToArray();
+
+            foreach (var slot in requestedSlotTerms)
+            {
+                AddDistinctQuery(queries, $"{slot} options");
+            }
+
+            var firstConcreteInventoryTerm = concreteInventoryTerms.FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(firstConcreteInventoryTerm))
+            {
+                foreach (var slot in requestedSlotTerms)
+                {
+                    AddDistinctQuery(queries, $"{slot} {firstConcreteInventoryTerm}");
+                    AddDistinctQuery(queries, $"{firstConcreteInventoryTerm} {slot}");
+                }
+            }
+
+            foreach (var slot in requestedSlotTerms)
+            {
+                AddDistinctQuery(queries, $"candidats {slot}");
+            }
+
+            foreach (var slot in requestedSlotTerms)
+            {
+                foreach (var inventory in concreteInventoryTerms)
+                {
+                    AddDistinctQuery(queries, $"{slot} {inventory}");
+                    AddDistinctQuery(queries, $"{inventory} {slot}");
+                }
+            }
+
+            foreach (var retrievalQuery in BuildStructuredMealPlanningCandidateDiscoveryRetrievalQueries(query))
+                AddDistinctQuery(queries, retrievalQuery);
+        }
+
+        foreach (var retrievalQuery in BuildStructuredPlanningCandidateDiscoveryRetrievalQueries(query))
             AddDistinctQuery(queries, retrievalQuery);
 
         foreach (var subject in subjectTerms)
@@ -5136,6 +5594,12 @@ CURRENT_USER_MESSAGE:
         foreach (var retrievalQuery in BuildSourceBackedActionRetrievalQueries(query))
             AddDistinctQuery(queries, retrievalQuery);
 
+        if (!ShouldApplyMealPlanningSlotSemantics(query))
+        {
+            foreach (var retrievalQuery in BuildNavigationDiscoveryRetrievalQueries(query).Take(8))
+                AddDistinctQuery(queries, retrievalQuery);
+        }
+
         foreach (var retrievalQuery in BuildPlanningRetrievalQueries(query))
             AddDistinctQuery(queries, retrievalQuery);
 
@@ -5143,8 +5607,321 @@ CURRENT_USER_MESSAGE:
             .Where(static q => !string.IsNullOrWhiteSpace(q))
             .Select(CollapseWhitespace)
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(24)
+            .Take(ShouldGateStructuredSourceBackedPlanningCoverage(query) ? 40 : 24)
             .ToArray();
+    }
+
+    private static IEnumerable<string> BuildStructuredPlanningCandidateDiscoveryRetrievalQueries(string? query)
+    {
+        if (!ShouldGateStructuredSourceBackedPlanningCoverage(query))
+            yield break;
+
+        var language = DetectRetrievalExpansionLanguage(query);
+        var normalized = NormalizeLexicalLookup(query);
+        var dayAxis = DetectRequestedDayAxisLabels(query, language);
+        var periodAxis = DetectRequestedPeriodAxisLabels(query, language);
+        var wantsSeveralCandidates = dayAxis.Count > 1 || periodAxis.Count > 1 || LooksLikeWeeklyPlanningRequest(query);
+        var inventoryTerms = BuildStructuredPlanningInventoryTermsForRetrieval(language, query).ToArray();
+        var slotTerms = periodAxis
+            .Concat(dayAxis)
+            .Concat(ExtractPlanningSlotRetrievalTerms(query))
+            .SelectMany(ExpandPlanningSlotRetrievalTermVariants)
+            .Select(NormalizeLexicalLookup)
+            .Where(static term => term.Length >= 4)
+            .Distinct(StringComparer.Ordinal)
+            .Take(12)
+            .ToArray();
+        var subjectTerms = ExtractPlanningRetrievalTerms(normalized)
+            .Where(static term => term.Length >= 4 && !IsGenericPlanningCoverageTerm(term))
+            .Where(static term => !IsWeakRouterRagQueryToken(term))
+            .Where(static term => !IsInitialSourceBackedPlanningProbeModifierToken(term))
+            .Where(static term => !IsNavigationDiscoveryNoiseTerm(term))
+            .Distinct(StringComparer.Ordinal)
+            .Take(10)
+            .ToArray();
+
+        if (wantsSeveralCandidates)
+        {
+            var expandedPeriodSlotTerms = periodAxis
+                .Concat(ExtractPlanningSlotRetrievalTerms(query).Where(IsMealPeriodSlotRetrievalTerm))
+                .SelectMany(ExpandPlanningSlotRetrievalTermVariants)
+                .Select(NormalizeLexicalLookup)
+                .Where(static term => term.Length >= 4)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            var hasSnackPeriodSlot = expandedPeriodSlotTerms.Any(IsSnackPlanningSlotRetrievalTerm);
+            var periodSlotTerms = expandedPeriodSlotTerms
+                .Take(hasSnackPeriodSlot ? 8 : 4)
+                .ToArray();
+            foreach (var subject in subjectTerms.Take(1))
+            {
+                foreach (var inventory in inventoryTerms.Take(1))
+                {
+                    yield return $"{subject} {inventory}";
+                    if (!hasSnackPeriodSlot)
+                        yield return $"{inventory} {subject}";
+                }
+            }
+
+            foreach (var subject in subjectTerms.Take(1))
+            {
+                foreach (var slot in periodSlotTerms.Take(4))
+                {
+                    yield return $"{subject} {slot}";
+                    yield return $"{slot} {subject}";
+                }
+            }
+
+            foreach (var inventory in inventoryTerms.Take(2))
+            {
+                foreach (var slot in periodSlotTerms)
+                {
+                    yield return $"{slot} {inventory}";
+                    yield return $"{inventory} {slot}";
+                }
+            }
+        }
+
+        foreach (var subject in subjectTerms.Take(5))
+        {
+            foreach (var inventory in inventoryTerms.Take(4))
+            {
+                yield return $"{subject} {inventory}";
+                yield return $"{inventory} {subject}";
+            }
+        }
+
+        foreach (var slot in slotTerms.Take(6))
+        {
+            foreach (var inventory in inventoryTerms.Take(3))
+            {
+                yield return $"{slot} {inventory}";
+                yield return $"{inventory} {slot}";
+            }
+        }
+
+        foreach (var term in subjectTerms.Concat(slotTerms).Concat(inventoryTerms))
+            yield return term;
+
+        if (wantsSeveralCandidates)
+        {
+            var planningTerms = language switch
+            {
+                "en" => new[] { "weekly plan", "varied options", "candidate list" },
+                "es" => new[] { "plan semanal", "opciones variadas", "lista de candidatos" },
+                "pt" => new[] { "plano semanal", "opcoes variadas", "lista de candidatos" },
+                "de" => new[] { "wochenplan", "verschiedene optionen", "kandidatenliste" },
+                "it" => new[] { "piano settimanale", "opzioni varie", "lista candidati" },
+                _ => new[] { "planning semaine", "options variees", "liste candidats" }
+            };
+
+            foreach (var planningTerm in planningTerms)
+            {
+                yield return planningTerm;
+                foreach (var subject in subjectTerms.Take(3))
+                    yield return $"{planningTerm} {subject}";
+            }
+        }
+
+        if (ShouldApplyMealPlanningSlotSemantics(query))
+            yield break;
+
+        foreach (var term in subjectTerms.Concat(inventoryTerms).Distinct(StringComparer.OrdinalIgnoreCase).Take(12))
+        {
+            foreach (var discoveryQuery in BuildDocumentCandidateListDiscoveryQueries(term, language))
+                yield return discoveryQuery;
+        }
+    }
+
+    private static IEnumerable<string> BuildGenericStructuredPlanningInventoryTerms(string language, string? query = null)
+    {
+        language = NormalizeLanguageCode(language);
+        var genericTerms = language switch
+        {
+            "en" => new[] { "options", "candidates", "examples", "proposals", "preparations" },
+            "es" => new[] { "opciones", "candidatos", "ejemplos", "propuestas", "preparaciones" },
+            "pt" => new[] { "opcoes", "candidatos", "exemplos", "propostas", "preparacoes" },
+            "de" => new[] { "optionen", "kandidaten", "beispiele", "vorschlaege", "vorbereitungen" },
+            "it" => new[] { "opzioni", "candidati", "esempi", "proposte", "preparazioni" },
+            _ => new[] { "options", "candidats", "exemples", "propositions", "preparations" }
+        };
+        return ShouldGateStructuredSourceBackedPlanningCoverage(query) || ShouldApplyMealPlanningSlotSemantics(query)
+            ? genericTerms.Where(static term => !LooksLikeDecorativeStructuredAxisPlannerQuery(NormalizeLexicalLookup(term)))
+            : genericTerms;
+    }
+
+    private static IEnumerable<string> BuildStructuredPlanningInventoryTermsForRetrieval(string language, string? query = null)
+    {
+        var genericTerms = BuildGenericStructuredPlanningInventoryTerms(language, query)
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (!ShouldApplyMealPlanningSlotSemantics(query))
+        {
+            foreach (var term in genericTerms)
+                yield return term;
+            yield break;
+        }
+
+        language = NormalizeLanguageCode(language);
+        var domainTerms = language switch
+        {
+            "en" => new[] { "recipes", "dishes", "main dishes", "snacks" },
+            "es" => new[] { "recetas", "platos", "platos principales", "meriendas" },
+            "pt" => new[] { "receitas", "pratos", "pratos principais", "lanches" },
+            "de" => new[] { "rezepte", "gerichte", "hauptgerichte", "snacks" },
+            "it" => new[] { "ricette", "piatti", "piatti principali", "spuntini" },
+            _ => new[] { "recettes", "plats", "plats principaux", "gouters" }
+        };
+
+        var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var term in genericTerms.Take(2))
+        {
+            if (emitted.Add(term))
+                yield return term;
+        }
+
+        foreach (var term in domainTerms)
+        {
+            if (emitted.Add(term))
+                yield return term;
+        }
+
+        foreach (var term in genericTerms.Skip(2))
+        {
+            if (emitted.Add(term))
+                yield return term;
+        }
+    }
+
+    private static IEnumerable<string> BuildConcreteStructuredPlanningInventoryTermsForRetrieval(string language, string? query = null)
+    {
+        if (!ShouldApplyMealPlanningSlotSemantics(query))
+            yield break;
+
+        language = NormalizeLanguageCode(language);
+        var domainTerms = language switch
+        {
+            "en" => new[] { "recipes", "dishes", "main dishes", "snacks" },
+            "es" => new[] { "recetas", "platos", "platos principales", "meriendas" },
+            "pt" => new[] { "receitas", "pratos", "pratos principais", "lanches" },
+            "de" => new[] { "rezepte", "gerichte", "hauptgerichte", "snacks" },
+            "it" => new[] { "ricette", "piatti", "piatti principali", "spuntini" },
+            _ => new[] { "recettes", "plats", "plats principaux", "gouters" }
+        };
+
+        foreach (var term in domainTerms)
+            yield return term;
+    }
+
+    private static IEnumerable<string> BuildDocumentCandidateListDiscoveryQueries(string candidateNoun, string language)
+    {
+        candidateNoun = CollapseWhitespace(candidateNoun);
+        if (string.IsNullOrWhiteSpace(candidateNoun))
+            yield break;
+
+        language = NormalizeLanguageCode(language);
+        var listTerms = language switch
+        {
+            "en" => new[] { "index", "list", "contents", "table of contents", "catalog" },
+            "es" => new[] { "indice", "lista", "contenido", "tabla de contenido", "catalogo" },
+            "pt" => new[] { "indice", "lista", "conteudo", "sumario", "catalogo" },
+            "de" => new[] { "index", "liste", "inhalt", "inhaltsverzeichnis", "katalog" },
+            "it" => new[] { "indice", "lista", "contenuto", "sommario", "catalogo" },
+            _ => new[] { "index", "liste", "sommaire", "table des matieres", "catalogue" }
+        };
+
+        foreach (var listTerm in listTerms)
+        {
+            yield return $"{listTerm} {candidateNoun}";
+            yield return $"{candidateNoun} {listTerm}";
+        }
+    }
+
+    private static IEnumerable<string> ExpandPlanningSlotRetrievalTermVariants(string? term)
+    {
+        var normalized = NormalizeLexicalLookup(term);
+        if (string.IsNullOrWhiteSpace(normalized))
+            yield break;
+
+        yield return normalized;
+
+        if (Regex.IsMatch(
+                normalized,
+                @"\b(?:gouter|go[uû]ter|collation|snack|encas|merienda|lanche|merenda)\b",
+                RegexOptions.CultureInvariant))
+        {
+            yield return "gouter";
+            yield return "collation";
+            yield return "encas";
+            yield return "dessert";
+        }
+    }
+
+    private static string SelectPreferredPlanningSlotRetrievalTerm(string? term)
+    {
+        var variants = ExpandPlanningSlotRetrievalTermVariants(term)
+            .Select(NormalizeLexicalLookup)
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (variants.Length == 0)
+            return string.Empty;
+
+        var snack = variants.FirstOrDefault(IsSnackPlanningSlotRetrievalTerm);
+        if (!string.IsNullOrWhiteSpace(snack))
+            return "gouter";
+
+        return variants[0];
+    }
+
+    private static bool IsMealPeriodSlotRetrievalTerm(string? term)
+    {
+        var normalized = NormalizeLexicalLookup(term);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:petit[-\s]+dejeuner|breakfast|desayuno|pequeno\s+almoco|cafe\s+da\s+manha|fruhstuck|colazione|midi|dejeuner|lunch|almuerzo|almoco|mittag|pranzo|soir|diner|dinner|souper|supper|cena|abend|gouter|go[uû]ter|collation|snack|encas|desserts?|matin|morning|manha|morgen|mattina|apres[-\s]+midi|afternoon|tarde|nachmittag|pomeriggio)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool IsSnackPlanningSlotRetrievalTerm(string? term)
+    {
+        var normalized = NormalizeLexicalLookup(term);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:gouter|go[uû]ter|collation|snack|encas|desserts?|merienda|lanche|merenda)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool IsBreakfastPlanningSlotRetrievalTerm(string? term)
+    {
+        var normalized = NormalizeLexicalLookup(term);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:petit[-\s]*dejeuner|dejeuners?|brunch|breakfast|desayuno|pequeno\s+almoco|cafe\s+da\s+manha|fruhstuck|colazione|matin|morning|manha|morgen|mattina)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool IsMainMealPlanningSlotRetrievalTerm(string? term)
+    {
+        var normalized = NormalizeLexicalLookup(term);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:midi|dejeuner|lunch|almuerzo|almoco|mittag|pranzo|soir|diner|dinner|souper|supper|cena|abend|repas|meal|plats?|dishes?)\b",
+            RegexOptions.CultureInvariant);
     }
 
     private static IEnumerable<string> ExtractPlanningSlotRetrievalTerms(string? query)
@@ -5172,8 +5949,15 @@ CURRENT_USER_MESSAGE:
             @"\bsoir\b",
             @"\bdiner\b",
             @"\bdinner\b",
+            @"\bsouper\b",
+            @"\bsupper\b",
             @"\bcena\b",
             @"\babend\b",
+            @"\bgouter\b",
+            @"\bgo[uû]ter\b",
+            @"\bcollation\b",
+            @"\bsnack\b",
+            @"\bencas\b",
             @"\bmatin\b",
             @"\bmorning\b",
             @"\bmanha\b",
@@ -5216,8 +6000,11 @@ CURRENT_USER_MESSAGE:
             "peux", "pour", "propose", "proposes", "quoi", "sais", "vais", "veux", "voudrais",
             "cherche", "chercher", "trouve", "trouver", "trouves", "recherche", "rechercher",
             "demande", "demandes", "souhaite", "souhaites", "souhaiter",
+            "besoin", "besoins", "asse", "asses", "fasse", "fasses", "mettre", "mettant",
+            "utile", "utiles", "source", "sources", "semaine", "hebdo", "hebdomadaire",
             "about", "find", "help", "make", "prepare", "recommend", "suggest", "what", "with",
             "can", "could", "give", "need", "want", "search", "looking", "look", "asked", "request",
+            "include", "includes", "useful", "source", "sources", "week", "weekly",
             "ayuda", "ayudar", "ayudame", "puede", "puedes",
             "podrias", "propone", "recomienda", "ajuda", "ajudar", "pode", "podes", "recomenda",
             "kannst", "konntest", "helfen", "vorschlag", "empfiehl", "aiuta", "aiutami", "puoi",
@@ -5492,10 +6279,14 @@ CURRENT_USER_MESSAGE:
             .ToArray();
     }
 
-    private const int MaxSourceBackedEvidenceExplorationPasses = 4;
-    private const int MaxSourceBackedLlmEvidenceExplorationPasses = 2;
+    private const int MaxSourceBackedEvidenceExplorationPasses = 6;
+    private const int MaxSourceBackedLlmEvidenceExplorationPasses = 4;
     private const int MaxSourceBackedLlmEvidenceExplorationRounds = 2;
-    private const int MaxSourceBackedLlmEvidenceExplorationQueries = 12;
+    private const int MaxSourceBackedLlmEvidenceExplorationQueries = 10;
+    private const int MaxSourceBackedAnchorFollowupRounds = 5;
+    private const int DefaultSourceBackedDocumentScopedAnchorFollowupLimit = 4;
+    private const int BroadSourceBackedDocumentScopedAnchorFollowupLimit = 24;
+    private const int MaxInferredSourceBackedNavigationPageSpan = 6;
 
     private sealed record SourceBackedEvidenceExplorationPass(
         string Label,
@@ -5503,7 +6294,16 @@ CURRENT_USER_MESSAGE:
         string[] Queries,
         string? CategoryScope = null,
         string? DocId = null,
-        string? DocPath = null);
+        string? DocPath = null,
+        int? PageStart = null,
+        int? PageEnd = null,
+        string? Origin = null);
+
+    private sealed record SourceBackedLlmCategoryScopeDecision(
+        string? CategoryScope,
+        string? Decision,
+        string? Confidence,
+        string? Reason);
 
     private sealed record SourceBackedDocumentNavigationFollowupLabel(
         string Label,
@@ -5511,7 +6311,182 @@ CURRENT_USER_MESSAGE:
         int ScoreHint,
         string? DocId,
         string? DocPath,
-        string? CategoryPath);
+        string? CategoryPath,
+        int? TargetPageStart = null,
+        int? TargetPageEnd = null);
+
+    private sealed record SourceBackedDocumentNavigationSeed(
+        string? DocId,
+        string? DocPath,
+        string? CategoryPath,
+        string DisplayName,
+        int Score);
+
+    private static IReadOnlyList<SourceBackedDocumentNavigationSeed> SelectSourceBackedDocumentNavigationSeeds(
+        ToolResults toolResults,
+        int maxDocuments)
+    {
+        if (maxDocuments <= 0)
+            return Array.Empty<SourceBackedDocumentNavigationSeed>();
+
+        var selected = new Dictionary<string, (SourceBackedDocumentNavigationSeed Seed, int Index)>(StringComparer.OrdinalIgnoreCase);
+        var index = 0;
+        void AddSeed(SourceBackedDocumentNavigationSeed seed)
+        {
+            var key = BuildSourceBackedDocumentNavigationSeedScopeKey(seed);
+            if (string.IsNullOrWhiteSpace(key))
+                return;
+
+            if (!selected.TryGetValue(key, out var existing)
+                || seed.Score > existing.Seed.Score)
+            {
+                selected[key] = (seed, index);
+            }
+
+            index++;
+        }
+
+        foreach (var hit in EnumerateRagHitSummaries(toolResults))
+        {
+            var docId = NullIfWhiteSpace(hit.DocId);
+            var docPath = NullIfWhiteSpace(hit.DocPath);
+            if (docId is null && docPath is null)
+                continue;
+
+            var key = BuildSourceBackedDocumentNavigationSeedScopeKey(docId, docPath);
+            if (string.IsNullOrWhiteSpace(key))
+                continue;
+
+            var displayName = NullIfWhiteSpace(hit.DocName)
+                              ?? NullIfWhiteSpace(Path.GetFileName(docPath ?? string.Empty))
+                              ?? docId
+                              ?? docPath
+                              ?? "document";
+            var seed = new SourceBackedDocumentNavigationSeed(
+                docId,
+                docPath,
+                NullIfWhiteSpace(hit.CategoryPath) ?? NullIfWhiteSpace(hit.Category) ?? NullIfWhiteSpace(hit.CategoryRef),
+                displayName,
+                ComputeSourceBackedDocumentNavigationSeedScore(hit));
+
+            AddSeed(seed);
+        }
+
+        foreach (var seed in SelectSourceBackedSummaryDocumentNavigationSeeds(toolResults))
+        {
+            AddSeed(seed);
+        }
+
+        return selected.Values
+            .OrderByDescending(static item => item.Seed.Score)
+            .ThenBy(static item => item.Index)
+            .Select(static item => item.Seed)
+            .Take(maxDocuments)
+            .ToArray();
+    }
+
+    private static IEnumerable<SourceBackedDocumentNavigationSeed> SelectSourceBackedSummaryDocumentNavigationSeeds(
+        ToolResults toolResults)
+    {
+        foreach (var item in toolResults.Items
+                     .Where(static item => item.ToolName == "summary.search" && string.IsNullOrWhiteSpace(item.Error))
+                     .TakeLast(3))
+        {
+            if (item.Result.ValueKind != JsonValueKind.Object
+                || !item.Result.TryGetProperty("items", out var items)
+                || items.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            foreach (var entry in items.EnumerateArray())
+            {
+                if (entry.ValueKind != JsonValueKind.Object)
+                    continue;
+
+                var sourceElement = TryGetObject(entry, "source") ?? TryGetObject(entry, "Source");
+                var docId = NullIfWhiteSpace(TryGetString(entry, "docId") ?? TryGetString(entry, "DocId"))
+                            ?? (sourceElement.HasValue ? NullIfWhiteSpace(TryGetString(sourceElement.Value, "docId") ?? TryGetString(sourceElement.Value, "DocId")) : null);
+                var docPath = NullIfWhiteSpace(TryGetString(entry, "docPath") ?? TryGetString(entry, "DocPath"))
+                              ?? (sourceElement.HasValue ? NullIfWhiteSpace(TryGetString(sourceElement.Value, "docPath") ?? TryGetString(sourceElement.Value, "DocPath")) : null);
+                if (docId is null && docPath is null)
+                    continue;
+
+                var docName = NullIfWhiteSpace(TryGetString(entry, "docName") ?? TryGetString(entry, "DocName"))
+                              ?? (sourceElement.HasValue ? NullIfWhiteSpace(TryGetString(sourceElement.Value, "docName") ?? TryGetString(sourceElement.Value, "DocName")) : null)
+                              ?? NullIfWhiteSpace(Path.GetFileName(docPath ?? string.Empty))
+                              ?? docId
+                              ?? docPath
+                              ?? "document";
+                var categoryPath = NullIfWhiteSpace(TryGetString(entry, "categoryPath") ?? TryGetString(entry, "CategoryPath"))
+                                   ?? NullIfWhiteSpace(TryGetString(entry, "category") ?? TryGetString(entry, "Category"))
+                                   ?? (sourceElement.HasValue
+                                       ? NullIfWhiteSpace(TryGetString(sourceElement.Value, "categoryPath") ?? TryGetString(sourceElement.Value, "CategoryPath"))
+                                         ?? NullIfWhiteSpace(TryGetString(sourceElement.Value, "category") ?? TryGetString(sourceElement.Value, "Category"))
+                                       : null);
+                var cards = ExtractRagHitMatchedContentCards(entry)?.Count ?? 0;
+                var profileRichness = ComputeSourceProfileSignalsRichness(BuildSourceProfileSignalsRef(entry));
+                yield return new SourceBackedDocumentNavigationSeed(
+                    docId,
+                    docPath,
+                    categoryPath,
+                    docName,
+                    5 + Math.Min(6, cards * 2) + Math.Min(6, profileRichness));
+            }
+        }
+    }
+
+    private static int ComputeSourceBackedDocumentNavigationSeedScore(RagHitSummary hit)
+    {
+        var score = 0;
+        if (hit.ExactMatchHit)
+            score += 8;
+        if (!LooksLikeLowSignalContentCandidateHit(hit))
+            score += 4;
+        if (!LooksLikeNavigationOnlyHit(hit))
+            score += 2;
+        else
+            score += 1;
+        if (LooksLikeResolvedRouteTargetHit(hit))
+            score += 3;
+        if (IsRouteDiscoveryAnchorHit(hit) || HasRouteContentCardCue(hit))
+            score += 3;
+        if (hit.MatchedContentCards is { Count: > 0 } cards)
+            score += Math.Min(5, cards.Count);
+        if (hit.SelectionHintActionabilityScore is { } actionability)
+            score += Math.Clamp(actionability, 0, 10);
+        if (hit.SelectionHintSupportScore is { } support)
+            score += Math.Clamp(support, 0, 10);
+        if (hit.SelectionHintNavigationScore is { } navigation)
+            score += Math.Clamp(navigation, 0, 10) / 2;
+        if (hit.SelectionHintFragmentScore is { } fragment)
+            score -= Math.Clamp(fragment, 0, 10);
+        if (hit.NavigationScore is >= 0.65)
+            score += 2;
+        if (hit.NavigationScore is >= 0.9)
+            score += 1;
+        if (hit.ManualReviewRecommended || hit.PageManualReviewRecommended || hit.DocumentManualReviewRecommended)
+            score -= 2;
+        if (hit.OcrRecommended)
+            score -= 1;
+
+        return score;
+    }
+
+    private static string BuildSourceBackedDocumentNavigationSeedScopeKey(SourceBackedDocumentNavigationSeed seed)
+        => BuildSourceBackedDocumentNavigationSeedScopeKey(seed.DocId, seed.DocPath);
+
+    private static string BuildSourceBackedDocumentNavigationSeedScopeKey(string? docId, string? docPath)
+    {
+        var normalizedDocId = NormalizeLooseLookup(docId);
+        if (!string.IsNullOrWhiteSpace(normalizedDocId))
+            return $"doc:{normalizedDocId}";
+
+        var normalizedDocPath = NormalizeLooseLookup(docPath);
+        return string.IsNullOrWhiteSpace(normalizedDocPath)
+            ? string.Empty
+            : $"docpath:{normalizedDocPath}";
+    }
 
     private static IReadOnlyList<SourceBackedEvidenceExplorationPass> BuildSourceBackedEvidenceExplorationPasses(
         ToolResults toolResults,
@@ -5542,32 +6517,68 @@ CURRENT_USER_MESSAGE:
             if (queries.Length == 0)
                 return;
 
-            passes.Add(new SourceBackedEvidenceExplorationPass(label, purpose, queries));
+            passes.Add(new SourceBackedEvidenceExplorationPass(
+                label,
+                purpose,
+                queries,
+                Origin: "deterministic_seed"));
         }
 
         var usesPlanningCoverage = UsesSourceBackedPlanningCoverage(query);
         if (usesPlanningCoverage)
         {
-            AddPass(
-                "navigation_discovery",
-                "Find document profiles, indexes and title anchors before selecting concrete units.",
-                BuildNavigationDiscoveryRetrievalQueries(query),
-                16);
+            var suppressGenericDiscoveryQueries = ShouldSuppressStructuredMealPlanningGenericDiscovery(analysis, query);
+            var usesStructuredMealSlots = ShouldApplyMealPlanningSlotSemantics(query);
+            var addedEarlyNavigationDiscovery = false;
+            if (!usesStructuredMealSlots && !suppressGenericDiscoveryQueries)
+            {
+                AddPass(
+                    "navigation_discovery",
+                    "Find document profiles, indexes and title anchors before selecting concrete units.",
+                    BuildNavigationDiscoveryRetrievalQueries(query),
+                    16);
+                addedEarlyNavigationDiscovery = true;
+            }
+
             AddPass(
                 "planning_exploration",
                 "Find more candidate units and slots for a structured source-backed plan.",
                 BuildPlanningExplorationRetrievalQueries(query),
-                18);
+                12);
             AddPass(
                 "candidate_discovery",
                 "Explore adjacent candidate vocabulary when the first planning evidence is too narrow.",
                 BuildSourceBackedCandidateDiscoveryRetrievalQueries(query),
                 18);
-            AddPass(
-                "anchor_discovery",
-                "Probe requested anchors, constraints and slot terms independently.",
-                BuildSourceBackedAnchorDiscoveryRetrievalQueries(query),
-                16);
+            if (usesStructuredMealSlots)
+            {
+                AddPass(
+                    "slot_balancing_inventory",
+                    "Balance retrieval across the requested structured slots before using expensive anchor follow-ups.",
+                    BuildStructuredMealPlanningSlotBalancedRetrievalQueries(query),
+                    16);
+                AddPass(
+                    "candidate_inventory",
+                    "Build a broader candidate inventory when the structured plan still lacks enough concrete sourced units.",
+                    BuildStructuredMealPlanningRecipeInventoryRetrievalQueries(query),
+                    12);
+            }
+            if (!suppressGenericDiscoveryQueries && !addedEarlyNavigationDiscovery)
+            {
+                AddPass(
+                    "navigation_discovery",
+                    "Find document profiles, indexes and title anchors after concrete candidate probes.",
+                    BuildNavigationDiscoveryRetrievalQueries(query),
+                    16);
+            }
+            if (!suppressGenericDiscoveryQueries)
+            {
+                AddPass(
+                    "anchor_discovery",
+                    "Probe requested anchors, constraints and slot terms independently.",
+                    BuildSourceBackedAnchorDiscoveryRetrievalQueries(query),
+                    16);
+            }
         }
         else
         {
@@ -5607,7 +6618,48 @@ CURRENT_USER_MESSAGE:
             : new SourceBackedEvidenceExplorationPass(
                 "anchor_followup",
                 "Use discovered navigation/title anchors as concrete retrieval seeds.",
-                queries);
+                queries,
+                Origin: "anchor_followup");
+    }
+
+    private static string BuildSourceBackedAnchorFollowupSignature(
+        IEnumerable<SourceBackedEvidenceExplorationPass> documentScopedPasses,
+        SourceBackedEvidenceExplorationPass? globalPass)
+    {
+        var parts = new List<string>();
+        foreach (var pass in documentScopedPasses
+                     .Concat(globalPass is null
+                         ? Enumerable.Empty<SourceBackedEvidenceExplorationPass>()
+                         : new[] { globalPass }))
+        {
+            var queries = pass.Queries
+                .Where(static query => !string.IsNullOrWhiteSpace(query))
+                .Select(NormalizeGeneratedSourceBackedExplorationQueryForDedup)
+                .Where(static query => !string.IsNullOrWhiteSpace(query))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(8)
+                .ToArray();
+            if (queries.Length == 0)
+                continue;
+
+            var scope = CollapseWhitespace(
+                string.Join(
+                    "|",
+                    pass.Label,
+                    pass.CategoryScope ?? string.Empty,
+                    pass.DocId ?? string.Empty,
+                    pass.DocPath ?? string.Empty,
+                    pass.PageStart?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                    pass.PageEnd?.ToString(CultureInfo.InvariantCulture) ?? string.Empty));
+            parts.Add($"{NormalizeGeneratedSourceBackedExplorationQueryForDedup(scope)}=>{string.Join(",", queries)}");
+        }
+
+        return string.Join(
+            "|",
+            parts
+                .Where(static part => !string.IsNullOrWhiteSpace(part))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(12));
     }
 
     private static IReadOnlyList<SourceBackedEvidenceExplorationPass> BuildSourceBackedDocumentScopedRouteAnchorFollowupExplorationPasses(
@@ -5631,13 +6683,13 @@ CURRENT_USER_MESSAGE:
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(6)
             .ToArray();
+        var guardSubjectlessReferenceAnchors = UsesSourceBackedPlanningCoverage(query);
+        var observedPlanningCandidateTitleKeys = BuildObservedStructuredPlanningCandidateAnchorTitleKeys(toolResults, query, language);
 
         var candidates = new List<(SourceBackedDocumentNavigationFollowupLabel Label, string Title, int Score, int Index)>();
         var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var index = 0;
-        foreach (var item in toolResults.Items
-                     .Where(static item => item.ToolName == "documents.navigation" && string.IsNullOrWhiteSpace(item.Error))
-                     .TakeLast(3))
+        foreach (var item in EnumerateRecentSourceBackedNavigationItems(toolResults, query))
         {
             foreach (var candidate in ExtractDocumentNavigationFollowupLabels(item.Result))
             {
@@ -5649,12 +6701,16 @@ CURRENT_USER_MESSAGE:
                     var cleaned = CleanNavigationRouteAnchorTitle(title);
                     if (!IsUsableSourceBackedOptionTitle(cleaned)
                         || LooksLikeNavigationIndexHeadingTitle(cleaned)
-                        || LooksLikeWeakSourceBackedOptionTitle(cleaned))
+                        || LooksLikeWeakSourceBackedOptionTitle(cleaned)
+                        || LooksLikeWeakStructuredMealPlanningAnchorFollowupTitle(cleaned, query)
+                        || StructuredPlanningAnchorTitleAlreadyObservedAsCandidate(cleaned, observedPlanningCandidateTitleKeys)
+                        || (guardSubjectlessReferenceAnchors
+                            && LooksLikeSubjectlessReferenceNavigationFollowupLabel(candidate, cleaned, queryTerms)))
                     {
                         continue;
                     }
 
-                    var key = $"{candidate.DocId}|{candidate.DocPath}|{NormalizeLexicalLookup(cleaned)}";
+                    var key = $"{candidate.DocId}|{candidate.DocPath}|{candidate.TargetPageStart?.ToString(CultureInfo.InvariantCulture) ?? string.Empty}|{candidate.TargetPageEnd?.ToString(CultureInfo.InvariantCulture) ?? string.Empty}|{NormalizeLexicalLookup(cleaned)}";
                     if (string.IsNullOrWhiteSpace(key) || !emitted.Add(key))
                         continue;
 
@@ -5665,27 +6721,81 @@ CURRENT_USER_MESSAGE:
             }
         }
 
+        foreach (var candidate in ExtractSummarySearchFollowupLabels(toolResults, query))
+        {
+            if (string.IsNullOrWhiteSpace(candidate.DocId) && string.IsNullOrWhiteSpace(candidate.DocPath))
+                continue;
+
+            foreach (var title in ExpandTreeNavigationAnchorLabel(candidate.Label))
+            {
+                var cleaned = CleanNavigationRouteAnchorTitle(title);
+                if (!IsUsableSourceBackedOptionTitle(cleaned)
+                    || LooksLikeNavigationIndexHeadingTitle(cleaned)
+                    || LooksLikeWeakSourceBackedOptionTitle(cleaned)
+                    || LooksLikeWeakStructuredMealPlanningAnchorFollowupTitle(cleaned, query)
+                    || StructuredPlanningAnchorTitleAlreadyObservedAsCandidate(cleaned, observedPlanningCandidateTitleKeys)
+                    || (guardSubjectlessReferenceAnchors
+                        && LooksLikeSubjectlessReferenceNavigationFollowupLabel(candidate, cleaned, queryTerms)))
+                {
+                    continue;
+                }
+
+                var key = $"{candidate.DocId}|{candidate.DocPath}|{candidate.TargetPageStart?.ToString(CultureInfo.InvariantCulture) ?? string.Empty}|{candidate.TargetPageEnd?.ToString(CultureInfo.InvariantCulture) ?? string.Empty}|{NormalizeLexicalLookup(cleaned)}";
+                if (string.IsNullOrWhiteSpace(key) || !emitted.Add(key))
+                    continue;
+
+                var score = ComputeTreeNavigationAnchorFollowupScore(cleaned, candidate.RawLabel, queryTerms)
+                            + candidate.ScoreHint;
+                candidates.Add((candidate, cleaned, score, index++));
+            }
+        }
+
         var passes = new List<SourceBackedEvidenceExplorationPass>();
         var grouped = candidates
             .OrderByDescending(static item => item.Score)
             .ThenBy(static item => item.Index)
             .GroupBy(
-                static item => string.IsNullOrWhiteSpace(item.Label.DocId)
-                    ? item.Label.DocPath ?? string.Empty
-                    : item.Label.DocId,
+                static item =>
+                {
+                    var scope = string.IsNullOrWhiteSpace(item.Label.DocId)
+                        ? item.Label.DocPath ?? string.Empty
+                        : item.Label.DocId;
+                    if (string.IsNullOrWhiteSpace(scope))
+                        return string.Empty;
+
+                    var pageStart = NormalizeSourceBackedNavigationTargetPageStart(item.Label.TargetPageStart);
+                    var pageEnd = NormalizeSourceBackedNavigationTargetPageEnd(item.Label.TargetPageEnd, pageStart);
+                    return $"{scope}|p:{pageStart?.ToString(CultureInfo.InvariantCulture) ?? string.Empty}-{pageEnd?.ToString(CultureInfo.InvariantCulture) ?? string.Empty}";
+                },
                 StringComparer.OrdinalIgnoreCase)
             .Where(static group => !string.IsNullOrWhiteSpace(group.Key))
-            .Take(3);
+            .Take(ResolveSourceBackedDocumentScopedAnchorFollowupLimit(query));
 
         foreach (var group in grouped)
         {
             var first = group.First().Label;
             var queries = new List<string>();
             var queryKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var title in group.Select(static item => item.Title).Distinct(StringComparer.OrdinalIgnoreCase).Take(8))
+            var titleCandidates = group
+                .GroupBy(static candidate => candidate.Title, StringComparer.OrdinalIgnoreCase)
+                .Select(static titleGroup => titleGroup
+                    .OrderByDescending(static candidate => candidate.Score)
+                    .ThenBy(static candidate => candidate.Index)
+                    .First())
+                .ToArray();
+            var titleCandidateLabels = titleCandidates.Select(static candidate => candidate.Title).ToArray();
+            foreach (var item in titleCandidates
+                         .OrderByDescending(candidate => ComputeDocumentScopedAnchorFollowupTitleSpecificity(candidate.Title, titleCandidateLabels))
+                         .ThenByDescending(static candidate => candidate.Score)
+                         .ThenBy(static candidate => candidate.Index)
+                         .Take(8))
             {
+                var title = item.Title;
                 AddGeneratedSourceBackedFollowupQuery(queries, queryKeys, title);
                 AddGeneratedSourceBackedFollowupQuery(queries, queryKeys, QuoteLookupTitle(title));
+
+                foreach (var pageQuery in BuildSourceBackedNavigationTargetPageQueries(title, item.Label).Take(8))
+                    AddGeneratedSourceBackedFollowupQuery(queries, queryKeys, pageQuery);
 
                 foreach (var variant in BuildTypoTolerantQueryVariants(title).Take(2))
                 {
@@ -5718,10 +6828,558 @@ CURRENT_USER_MESSAGE:
                 finalQueries,
                 first.CategoryPath,
                 first.DocId,
-                first.DocPath));
+                first.DocPath,
+                NormalizeSourceBackedNavigationTargetPageStart(first.TargetPageStart),
+                NormalizeSourceBackedNavigationTargetPageEnd(
+                    first.TargetPageEnd,
+                    NormalizeSourceBackedNavigationTargetPageStart(first.TargetPageStart)),
+                "anchor_followup"));
         }
 
         return passes.ToArray();
+    }
+
+    private static int ComputeDocumentScopedAnchorFollowupTitleSpecificity(
+        string? title,
+        IReadOnlyList<string> siblingTitles)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return int.MinValue;
+
+        var tokenCount = Regex.Matches(normalizedTitle, @"[\p{L}\p{N}]{2,}", RegexOptions.CultureInvariant).Count;
+        var score = Math.Min(tokenCount, 8) * 2
+                    + Math.Min(normalizedTitle.Length / 8, 8);
+
+        if (tokenCount <= 2)
+            score -= 3;
+
+        if (siblingTitles.Any(sibling =>
+            {
+                var normalizedSibling = NormalizeLexicalLookup(sibling);
+                return normalizedSibling.Length > normalizedTitle.Length
+                       && NormalizedLookupContainsWholePhrase(normalizedSibling, normalizedTitle);
+            }))
+        {
+            score -= 30;
+        }
+
+        return score;
+    }
+
+    private static bool NormalizedLookupContainsWholePhrase(string haystack, string needle)
+    {
+        if (string.IsNullOrWhiteSpace(haystack) || string.IsNullOrWhiteSpace(needle))
+            return false;
+
+        return $" {haystack} ".Contains($" {needle} ", StringComparison.Ordinal);
+    }
+
+    private static bool LooksLikeSubjectlessReferenceNavigationFollowupLabel(
+        SourceBackedDocumentNavigationFollowupLabel label,
+        string title,
+        IReadOnlyList<string> queryTerms)
+    {
+        if (SourceBackedNavigationFollowupLabelMatchesQuerySubject(label, title, queryTerms))
+            return false;
+
+        var lookup = NormalizeLexicalLookup($"{title} {label.Label} {label.RawLabel}");
+        if (string.IsNullOrWhiteSpace(lookup))
+            return false;
+
+        return Regex.IsMatch(
+                   lookup,
+                   @"\b(?:din|en|iso|iec|sia|sn|astm|asme|bs|nf|vdi|vde)\s+(?:en\s+)?\d{2,5}(?:[-\s]\d+)?\b",
+                   RegexOptions.CultureInvariant)
+               || Regex.IsMatch(
+                   lookup,
+                   @"\b(?:standard|norme|norm|requirements?|conformity|assessment|execution)\b.{0,80}\b(?:\d{2,5}|structures?|components?|construction)\b",
+                   RegexOptions.CultureInvariant);
+    }
+
+    private static bool SourceBackedNavigationFollowupLabelMatchesQuerySubject(
+        SourceBackedDocumentNavigationFollowupLabel label,
+        string title,
+        IReadOnlyList<string> queryTerms)
+    {
+        if (queryTerms.Count == 0)
+            return true;
+
+        var haystack = NormalizeLexicalLookup(string.Join(
+            ' ',
+            new[]
+            {
+                title,
+                label.Label,
+                label.RawLabel,
+                label.DocPath ?? string.Empty,
+                label.CategoryPath ?? string.Empty
+            }));
+        if (string.IsNullOrWhiteSpace(haystack))
+            return false;
+
+        return queryTerms.Any(term =>
+        {
+            var normalizedTerm = NormalizeLexicalLookup(term);
+            return normalizedTerm.Length >= 4
+                   && haystack.Contains(normalizedTerm, StringComparison.Ordinal);
+        });
+    }
+
+    private static HashSet<string> BuildObservedStructuredPlanningCandidateAnchorTitleKeys(
+        ToolResults toolResults,
+        string? query,
+        string language)
+    {
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!UsesSourceBackedPlanningCoverage(query))
+            return keys;
+
+        var stopwatch = Stopwatch.StartNew();
+        const int observedHitLimit = 160;
+        var observedHits = EnumerateRagHitSummaries(toolResults)
+            .Take(observedHitLimit + 1)
+            .ToList();
+        var hitLimitReached = observedHits.Count > observedHitLimit;
+        if (hitLimitReached)
+            observedHits.RemoveAt(observedHits.Count - 1);
+        var candidateLimit = Math.Clamp(
+            Math.Max(ResolveSourceBackedPlanningTargetItemCount(query), 12),
+            8,
+            20);
+        var shouldRunCandidateSelection = observedHits.Count <= 80;
+        ClientLog.Info(
+            "ToolAgent anchor followup observed title keys: stage=start"
+            + $"|hits={observedHits.Count}"
+            + $"|hitLimitReached={hitLimitReached}"
+            + $"|candidateLimit={candidateLimit}"
+            + $"|runCandidateSelection={shouldRunCandidateSelection}");
+        if (shouldRunCandidateSelection)
+        {
+            var candidateStopwatch = Stopwatch.StartNew();
+            ClientLog.Info(
+                "ToolAgent anchor followup observed title keys: stage=selected_candidates.start"
+                + $"|hits={observedHits.Count}"
+                + $"|candidateLimit={candidateLimit}");
+            foreach (var candidate in SelectSourceBackedPlanningCandidates(
+                         toolResults,
+                         query,
+                         candidateLimit,
+                         language,
+                         requireStrictStructuredEvidence: false))
+            {
+                AddObservedStructuredPlanningCandidateAnchorTitleKey(keys, candidate.Title, query);
+            }
+
+            ClientLog.Info(
+                "ToolAgent anchor followup observed title keys: stage=selected_candidates.end"
+                + $"|keys={keys.Count}"
+                + $"|ms={candidateStopwatch.ElapsedMilliseconds}");
+        }
+        else
+        {
+            ClientLog.Info(
+                "ToolAgent anchor followup observed title keys: stage=selected_candidates.skip"
+                + "|reason=large_observed_hit_set");
+        }
+
+        var hitTitleStopwatch = Stopwatch.StartNew();
+        var lastHitTitleProgressMs = 0L;
+        for (var observedHitIndex = 0; observedHitIndex < observedHits.Count; observedHitIndex++)
+        {
+            var hit = observedHits[observedHitIndex];
+            if (LooksLikeNavigationOnlyHit(hit)
+                || LooksLikePageReferenceOnlyHit(hit)
+                || LooksLikeFinalSourceBackedPlanningOrientationSurface(hit))
+            {
+                continue;
+            }
+
+            var titles = ExtractSourceBackedTitleCandidates(hit)
+                .Concat(hit.MatchedContentCards?.Select(static card => card.Title) ?? Enumerable.Empty<string>())
+                .Concat(new[] { ExtractSourceBackedOptionTitle(hit, query) });
+            foreach (var rawTitle in titles)
+                AddObservedStructuredPlanningCandidateAnchorTitleKey(keys, rawTitle, query);
+
+            var processedHits = observedHitIndex + 1;
+            var elapsedMs = hitTitleStopwatch.ElapsedMilliseconds;
+            if (processedHits == observedHits.Count
+                || processedHits % 25 == 0
+                || elapsedMs - lastHitTitleProgressMs >= 15000)
+            {
+                ClientLog.Info(
+                    "ToolAgent anchor followup observed title keys: stage=hit_titles.progress"
+                    + $"|processedHits={processedHits}"
+                    + $"|totalHits={observedHits.Count}"
+                    + $"|keys={keys.Count}"
+                    + $"|ms={elapsedMs}"
+                    + $"|lastDoc={FormatPlanningTraceValue(hit.DocName ?? hit.DocPath)}"
+                    + $"|lastPage={hit.PageStart}");
+                lastHitTitleProgressMs = elapsedMs;
+            }
+        }
+
+        ClientLog.Info(
+            "ToolAgent anchor followup observed title keys: stage=end"
+            + $"|keys={keys.Count}"
+            + $"|hits={observedHits.Count}"
+            + $"|hitLimitReached={hitLimitReached}"
+            + $"|ms={stopwatch.ElapsedMilliseconds}");
+        return keys;
+    }
+
+    private static void AddObservedStructuredPlanningCandidateAnchorTitleKey(
+        HashSet<string> keys,
+        string? title,
+        string? query)
+    {
+        var cleaned = CleanSourceBackedOptionTitle(title);
+        if (string.IsNullOrWhiteSpace(cleaned)
+            || LooksLikeWeakStructuredMealPlanningAnchorFollowupTitle(cleaned, query)
+            || LooksLikeNoisyStructuredPlanningCandidateTitle(cleaned)
+            || !LooksLikeConcreteStructuredPlanningCandidateTitle(cleaned))
+        {
+            return;
+        }
+
+        var key = NormalizeLexicalLookup(cleaned);
+        if (!string.IsNullOrWhiteSpace(key))
+            keys.Add(key);
+    }
+
+    private static bool StructuredPlanningAnchorTitleAlreadyObservedAsCandidate(
+        string? title,
+        IReadOnlySet<string> observedCandidateTitleKeys)
+    {
+        if (observedCandidateTitleKeys.Count == 0)
+            return false;
+
+        var key = NormalizeLexicalLookup(CleanSourceBackedOptionTitle(title));
+        return !string.IsNullOrWhiteSpace(key)
+               && observedCandidateTitleKeys.Contains(key);
+    }
+
+    private static bool LooksLikeWeakStructuredMealPlanningAnchorFollowupTitle(string? title, string? query)
+    {
+        if (!ShouldApplyMealPlanningSlotSemantics(query))
+            return false;
+
+        var normalizedTitle = NormalizeLexicalLookup(title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        if (LooksLikeGenericMealPlanningInventoryTitle(normalizedTitle, query)
+            || LooksLikeNoisyStructuredPlanningCandidateTitle(normalizedTitle)
+            || LooksLikeMealPlanningInstructionFragment(normalizedTitle)
+            || LooksLikeStructuredPlanningAdviceOrFrameAnchor(normalizedTitle)
+            || LooksLikeBrokenStructuredPlanningOcrAnchor(normalizedTitle))
+        {
+            return true;
+        }
+
+        if (!LooksLikeConcreteMealPlanningAnchorTitle(normalizedTitle, query))
+            return true;
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:planification|planning|etapes?|references?|ingr[eé]dients?\s*preparation|ingredients?preparation\d*|preparation\d*)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"\bingr[eé]dients?\b.*\b(?:nombre|portions?|temps|preparation|pr[eé]paration)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:presentation\s+d['\s]+une\s+fiche|possibilit[eé]\s+de\s+l['\s]+evolution|quantit[eé]s?\s+donn[eé]es?|fondat(?:i)?on|foundation)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:https?|www|\.com)\b|(?:com)$",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:\d+\s+)?references?\b|^(?:sauces?|huile|huiles|vinaigre|vinaigrette|marinade|bouillon|condiments?|epices?|assaisonnements?)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:a\s+partir\s+de|votre\s+enfant|colwell\s+preparation|preparation|repas\s+(?:de|des)\b)",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:imprime\s+par|graphic\s+impression|tel|telephone)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:parents?\s+press[eé]s?|press[eé]s?)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:sonde\s+de\s+rotissage|sonde\s+de\s+cuisson)\b|^mcrc\d",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:preparer|melanger|verser|cuire)\b.*\b(?:bol|pot|confiture|mayonnaise|mijoteuse|temperature|four|eau|oudans)\b|^(?:dans\s*une|dansune)\b.*\b(?:cocotte|poele|casserole|four|bol)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:petite\s+poign[eé]e|poign[eé]e\s+de|feuilles?\s+de|cuill[eè]res?|tasses?|grammes?|kilogrammes?|millilitres?|centilitres?)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        return normalizedTitle.Length > 90
+            && Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:preparation|preparer|prechauffer|mijoteuse|temperature|low|votre|enfant)\b",
+                RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeConcreteMealPlanningAnchorTitle(string? title, string? query)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle)
+            || normalizedTitle.Length is < 4 or > 90
+            || LooksLikeGenericCadenceOrTimingStatement(normalizedTitle)
+            || LooksLikeLeadingConnectorStructuredPlanningFragment(normalizedTitle)
+            || LooksLikeNoisyStructuredPlanningCandidateTitle(normalizedTitle)
+            || LooksLikeProcedureSentenceTitle(normalizedTitle)
+            || LooksLikeStructuredPlanningAdviceOrFrameAnchor(normalizedTitle)
+            || LooksLikeBrokenStructuredPlanningOcrAnchor(normalizedTitle)
+            || LooksLikeStandaloneStructuredPlanningFieldLabel(normalizedTitle)
+            || LooksLikeStructuredPlanningFieldOrOcrFragment(normalizedTitle)
+            || LooksLikeGenericMealPlanningInventoryTitle(normalizedTitle, query))
+        {
+            return false;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:guide|conseils?|astuces?|principes?|organisation|planning|planification|calendrier|overview|introduction|summary|resume|methode|recommandations?|faq|glossaire|vocabulaire|sommaire|table\s+des\s+matieres|contents?|index|source|document|page)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:cuisiner|cuisinez|preparer|preparez|organiser|planifier|utiliser|choisir|verifier|lire|couper|verser|melanger|saupoudrer|recouvrir|casser|faire)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        if (Regex.IsMatch(normalizedTitle, @"^\d+\b|[/\\]|[|]", RegexOptions.CultureInvariant))
+            return false;
+
+        var terms = ExtractQuerySignalTerms(normalizedTitle)
+            .Where(term => term.Length >= 4 && !IsGenericPlanningAnswerSupportTerm(term))
+            .Take(8)
+            .ToArray();
+        return terms.Length is >= 1 and <= 6
+               && terms.Any(static term => term.Length >= 5);
+    }
+
+    private static bool LooksLikeStructuredPlanningAdviceOrFrameAnchor(string normalizedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        var terms = ExtractQuerySignalTerms(normalizedTitle)
+            .Where(static term => term.Length >= 3)
+            .Take(12)
+            .ToArray();
+        var isShortAnchor = normalizedTitle.Length <= 110 && terms.Length <= 9;
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:en\s+(?:soir[eé]e|matin[eé]e|journ[eé]e)|le\s+(?:matin|midi|soir)|la\s+nuit)\b.{0,70}\b(?:r[eé]alisez|realisez|preparez|pr[eé]parez|organisez|cuisinez|servez|choisissez)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (isShortAnchor
+            && Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:dans|in|inside|within)\s+(?:son|sa|ses|le|la|les|un|une|the|your|votre)\s+\p{L}{4,}$",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (isShortAnchor
+            && Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:politique|policy|exactitude|accuracy|prix|price|tarifs?|cost|couts?)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (isShortAnchor
+            && Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:fonction\s+des|en\s+fonction\s+de|selon\s+(?:la|le|les|des|vos)|depending\s+on|based\s+on)\b.{0,50}\b(?:saisons?|season|seasons?|periode|period|availability|disponibilite)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:evitez|eviter|avoid|n\s+achetez|ne\s+pas\s+acheter|achetez|acheter|choisissez|choisir|preferez|preferer)\b.{0,90}\b(?:produits?|products?|portions?|formats?|emballages?|individuelles?|prices?|prix)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (isShortAnchor
+            && Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:portions?\s+individuelles?|produits?\s+en\s+portions?|individual\s+portions?)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (isShortAnchor
+            && Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:temps|duration|dur[eé]e|time)\s+(?:de|of)?$|\b(?:nombre|number|quantit[eé]|quantity)\s+(?:de|of)?$",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:temps|duration|dur[eé]e|time)\b.{0,90}\b(?:signal|faire\s+cuire|cuire|minutes?|seconds?|secondes?|heures?|hours?|\d+)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (isShortAnchor
+            && Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:utilis[eé]|utilisee|utiliser|used|use)\s+(?:si|if)$|^(?:a|à)\s+(?:vos|votre|toi|vous)\b|\b(?:petits?\s+mangeurs?|small\s+eaters?)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool LooksLikeBrokenStructuredPlanningOcrAnchor(string normalizedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        return Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:ca\s+repousse\s+tout\s+seulw?|tout\s+seulw?|craque\s+lins?|lins?\s+casses?)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:cou\s*per|couper)\s+en\s+(?:tranches?|morceaux?|des|de)\b",
+                RegexOptions.CultureInvariant);
+    }
+
+    private static int? NormalizeSourceBackedNavigationTargetPageStart(int? page)
+        => page is > 0 ? page.Value : null;
+
+    private static int? NormalizeSourceBackedNavigationTargetPageEnd(int? pageEnd, int? pageStart)
+    {
+        if (pageStart is null)
+            return null;
+
+        if (pageEnd is null || pageEnd.Value < pageStart.Value)
+            return pageStart.Value;
+
+        return pageEnd.Value;
+    }
+
+    private static IEnumerable<string> BuildSourceBackedNavigationTargetPageQueries(
+        string title,
+        SourceBackedDocumentNavigationFollowupLabel label)
+    {
+        if (string.IsNullOrWhiteSpace(title)
+            || label.TargetPageStart is null
+            || label.TargetPageStart.Value <= 0)
+        {
+            yield break;
+        }
+
+        var start = label.TargetPageStart.Value;
+        var end = label.TargetPageEnd is not null && label.TargetPageEnd.Value >= start
+            ? label.TargetPageEnd.Value
+            : start;
+
+        yield return $"{title} page {start}";
+        yield return $"{title} p {start}";
+
+        if (end > start)
+        {
+            yield return $"{title} pages {start}-{end}";
+            yield return $"{title} p {start}-{end}";
+        }
+        else
+        {
+            var neighborEnd = Math.Min(start + 1, 9999);
+            yield return $"{title} pages {start}-{neighborEnd}";
+            yield return $"{title} p {start}-{neighborEnd}";
+        }
+
+        yield return $"{title} pagina {start}";
+        yield return $"{title} seite {start}";
+
+        if (end > start)
+        {
+            yield return $"{title} pagina {start}-{end}";
+            yield return $"{title} seite {start}-{end}";
+        }
     }
 
     private static bool HasSourceBackedRouteAnchorFollowupQueries(
@@ -5763,9 +7421,10 @@ CURRENT_USER_MESSAGE:
             .Take(8)
             .ToArray();
 
-        var titles = ExtractSourceBackedRouteAnchorFollowupTitles(toolResults)
+        var titles = ExtractSourceBackedRouteAnchorFollowupTitles(toolResults, query)
             .Concat(ExtractSourceBackedDocumentNavigationFollowupTitles(toolResults, query))
             .Concat(ExtractSourceBackedTreeFollowupTitles(toolResults, query))
+            .Concat(ExtractSourceBackedSummaryFollowupTitles(toolResults, query))
             .Take(24)
             .ToArray();
 
@@ -5821,6 +7480,7 @@ CURRENT_USER_MESSAGE:
                     var cleaned = CleanNavigationRouteAnchorTitle(title);
                     if (!IsUsableSourceBackedOptionTitle(cleaned)
                         || LooksLikeNavigationIndexHeadingTitle(cleaned)
+                        || LooksLikeWeakStructuredMealPlanningAnchorFollowupTitle(cleaned, query)
                         || !emitted.Add(cleaned))
                     {
                         continue;
@@ -5850,9 +7510,7 @@ CURRENT_USER_MESSAGE:
         var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var index = 0;
 
-        foreach (var item in toolResults.Items
-                     .Where(static item => item.ToolName == "documents.navigation" && string.IsNullOrWhiteSpace(item.Error))
-                     .TakeLast(3))
+        foreach (var item in EnumerateRecentSourceBackedNavigationItems(toolResults, query))
         {
             foreach (var candidate in ExtractDocumentNavigationFollowupLabels(item.Result))
             {
@@ -5862,6 +7520,9 @@ CURRENT_USER_MESSAGE:
                     if (!IsUsableSourceBackedOptionTitle(cleaned)
                         || LooksLikeNavigationIndexHeadingTitle(cleaned)
                         || LooksLikeWeakSourceBackedOptionTitle(cleaned)
+                        || LooksLikeWeakStructuredMealPlanningAnchorFollowupTitle(cleaned, query)
+                        || (UsesSourceBackedPlanningCoverage(query)
+                            && LooksLikeSubjectlessReferenceNavigationFollowupLabel(candidate, cleaned, queryTerms))
                         || !emitted.Add(cleaned))
                     {
                         continue;
@@ -5882,6 +7543,140 @@ CURRENT_USER_MESSAGE:
             .ToArray();
     }
 
+    private static IEnumerable<string> ExtractSourceBackedSummaryFollowupTitles(ToolResults toolResults, string query)
+    {
+        var queryTerms = BuildSourceBackedTreeFollowupQueryTerms(query).ToArray();
+        var guardSubjectlessReferenceAnchors = UsesSourceBackedPlanningCoverage(query);
+        return ExtractSummarySearchFollowupLabels(toolResults, query)
+            .SelectMany(candidate => ExpandTreeNavigationAnchorLabel(candidate.Label)
+                .Select(CleanNavigationRouteAnchorTitle)
+                .Where(IsUsableSourceBackedOptionTitle)
+                .Where(static title => !LooksLikeNavigationIndexHeadingTitle(title))
+                .Where(static title => !LooksLikeWeakSourceBackedOptionTitle(title))
+                .Where(title => !LooksLikeWeakStructuredMealPlanningAnchorFollowupTitle(title, query))
+                .Where(title => !guardSubjectlessReferenceAnchors
+                                || !LooksLikeSubjectlessReferenceNavigationFollowupLabel(candidate, title, queryTerms)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(24)
+            .ToArray();
+    }
+
+    private static IEnumerable<SourceBackedDocumentNavigationFollowupLabel> ExtractSummarySearchFollowupLabels(
+        ToolResults toolResults,
+        string query)
+    {
+        var queryTerms = BuildSourceBackedTreeFollowupQueryTerms(query).ToArray();
+        var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in toolResults.Items
+                     .Where(static item => item.ToolName == "summary.search" && string.IsNullOrWhiteSpace(item.Error))
+                     .TakeLast(ResolveSourceBackedSummaryFollowupResultWindow(query)))
+        {
+            if (item.Result.ValueKind != JsonValueKind.Object
+                || !item.Result.TryGetProperty("items", out var items)
+                || items.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            foreach (var entry in items.EnumerateArray())
+            {
+                if (entry.ValueKind != JsonValueKind.Object)
+                    continue;
+
+                var sourceElement = TryGetObject(entry, "source") ?? TryGetObject(entry, "Source");
+                var docId = NullIfWhiteSpace(TryGetString(entry, "docId") ?? TryGetString(entry, "DocId"))
+                            ?? (sourceElement.HasValue ? NullIfWhiteSpace(TryGetString(sourceElement.Value, "docId") ?? TryGetString(sourceElement.Value, "DocId")) : null);
+                var docPath = NullIfWhiteSpace(TryGetString(entry, "docPath") ?? TryGetString(entry, "DocPath"))
+                              ?? (sourceElement.HasValue ? NullIfWhiteSpace(TryGetString(sourceElement.Value, "docPath") ?? TryGetString(sourceElement.Value, "DocPath")) : null);
+                var docName = NullIfWhiteSpace(TryGetString(entry, "docName") ?? TryGetString(entry, "DocName"))
+                              ?? (sourceElement.HasValue ? NullIfWhiteSpace(TryGetString(sourceElement.Value, "docName") ?? TryGetString(sourceElement.Value, "DocName")) : null)
+                              ?? NullIfWhiteSpace(Path.GetFileName(docPath ?? string.Empty));
+                var categoryPath = NullIfWhiteSpace(TryGetString(entry, "categoryPath") ?? TryGetString(entry, "CategoryPath"))
+                                   ?? NullIfWhiteSpace(TryGetString(entry, "category") ?? TryGetString(entry, "Category"))
+                                   ?? (sourceElement.HasValue
+                                       ? NullIfWhiteSpace(TryGetString(sourceElement.Value, "categoryPath") ?? TryGetString(sourceElement.Value, "CategoryPath"))
+                                         ?? NullIfWhiteSpace(TryGetString(sourceElement.Value, "category") ?? TryGetString(sourceElement.Value, "Category"))
+                                       : null);
+                var targetPageStart = ReadSourceBackedNavigationTargetPageStart(entry)
+                                      ?? (sourceElement.HasValue ? ReadSourceBackedNavigationTargetPageStart(sourceElement.Value) : null);
+                var targetPageEnd = ReadSourceBackedNavigationTargetPageEnd(entry, targetPageStart)
+                                    ?? (sourceElement.HasValue ? ReadSourceBackedNavigationTargetPageEnd(sourceElement.Value, targetPageStart) : null);
+
+                foreach (var rawLabel in ExtractSummarySearchCandidateLabels(entry, sourceElement))
+                {
+                    var cleaned = CleanNavigationRouteAnchorTitle(rawLabel);
+                    if (string.IsNullOrWhiteSpace(cleaned))
+                        continue;
+
+                    var key = $"{docId}|{docPath}|{targetPageStart?.ToString(CultureInfo.InvariantCulture) ?? string.Empty}|{targetPageEnd?.ToString(CultureInfo.InvariantCulture) ?? string.Empty}|{NormalizeLexicalLookup(cleaned)}";
+                    if (string.IsNullOrWhiteSpace(key) || !emitted.Add(key))
+                        continue;
+
+                    var score = 1 + ComputeTreeNavigationAnchorFollowupScore(cleaned, rawLabel, queryTerms);
+                    if (LooksLikeDocumentTreeNavigationAnchor(docPath ?? docName, cleaned))
+                        score++;
+                    yield return new SourceBackedDocumentNavigationFollowupLabel(
+                        cleaned,
+                        string.Join(" | ", new[] { rawLabel, docName, docPath, categoryPath }.Where(static value => !string.IsNullOrWhiteSpace(value))),
+                        score,
+                        docId,
+                        docPath,
+                        categoryPath,
+                        targetPageStart,
+                        targetPageEnd);
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<string> ExtractSummarySearchCandidateLabels(JsonElement entry, JsonElement? sourceElement)
+    {
+        var directLabel = TryGetString(entry, "label")
+                          ?? TryGetString(entry, "Label")
+                          ?? TryGetString(entry, "title")
+                          ?? TryGetString(entry, "Title");
+        if (!string.IsNullOrWhiteSpace(directLabel))
+            yield return directLabel;
+
+        var docName = TryGetString(entry, "docName") ?? TryGetString(entry, "DocName");
+        if (!string.IsNullOrWhiteSpace(docName))
+            yield return Path.GetFileNameWithoutExtension(docName) ?? docName;
+
+        foreach (var card in ExtractRagHitMatchedContentCards(entry) ?? Array.Empty<RagHitContentCardSummary>())
+        {
+            if (!string.IsNullOrWhiteSpace(card.Title))
+                yield return card.Title;
+
+            foreach (var signal in card.Signals ?? Array.Empty<string>())
+            {
+                if (!string.IsNullOrWhiteSpace(signal))
+                    yield return signal;
+            }
+        }
+
+        var profileSignals = BuildSourceProfileSignalsRef(entry);
+        foreach (var hint in EnumerateSourceProfileHints(profileSignals).Take(12))
+            yield return hint;
+
+        if (sourceElement.HasValue)
+        {
+            foreach (var card in ExtractRagHitMatchedContentCards(sourceElement.Value) ?? Array.Empty<RagHitContentCardSummary>())
+            {
+                if (!string.IsNullOrWhiteSpace(card.Title))
+                    yield return card.Title;
+
+                foreach (var signal in card.Signals ?? Array.Empty<string>())
+                {
+                    if (!string.IsNullOrWhiteSpace(signal))
+                        yield return signal;
+                }
+            }
+
+            foreach (var hint in EnumerateSourceProfileHints(BuildSourceProfileSignalsRef(sourceElement.Value)).Take(12))
+                yield return hint;
+        }
+    }
+
     private static IEnumerable<SourceBackedDocumentNavigationFollowupLabel> ExtractDocumentNavigationFollowupLabels(JsonElement result)
     {
         if (result.ValueKind != JsonValueKind.Object
@@ -5891,17 +7686,13 @@ CURRENT_USER_MESSAGE:
             yield break;
         }
 
-        foreach (var entry in items.EnumerateArray())
-        {
-            var label = CollapseWhitespace(
-                TryGetString(entry, "label")
-                ?? TryGetString(entry, "Label")
-                ?? TryGetString(entry, "title")
-                ?? TryGetString(entry, "Title")
-                ?? string.Empty);
-            if (string.IsNullOrWhiteSpace(label))
-                continue;
+        var entries = items.EnumerateArray()
+            .Where(static entry => entry.ValueKind == JsonValueKind.Object)
+            .ToArray();
 
+        for (var entryIndex = 0; entryIndex < entries.Length; entryIndex++)
+        {
+            var entry = entries[entryIndex];
             var docId = CollapseWhitespace(TryGetString(entry, "docId") ?? TryGetString(entry, "DocId") ?? string.Empty);
             var docPath = CollapseWhitespace(TryGetString(entry, "docPath") ?? TryGetString(entry, "DocPath") ?? string.Empty);
             var docName = CollapseWhitespace(TryGetString(entry, "docName") ?? TryGetString(entry, "DocName") ?? Path.GetFileName(docPath));
@@ -5911,8 +7702,15 @@ CURRENT_USER_MESSAGE:
             var hasTargetChunk = TryGetBool(entry, "hasTargetChunk") ?? TryGetBool(entry, "HasTargetChunk") ?? false;
             var hasTargetAnchor = TryGetBool(entry, "hasTargetAnchor") ?? TryGetBool(entry, "HasTargetAnchor") ?? false;
             var confidence = TryGetDouble(entry, "confidence") ?? TryGetDouble(entry, "Confidence");
-            var targetPageStart = TryGetInt(entry, "targetPageStart") ?? TryGetInt(entry, "TargetPageStart");
-            var targetPageEnd = TryGetInt(entry, "targetPageEnd") ?? TryGetInt(entry, "TargetPageEnd");
+            var targetPageStart = ReadSourceBackedNavigationTargetPageStart(entry);
+            var targetPageEnd = ReadSourceBackedNavigationTargetPageEnd(entry, targetPageStart);
+            targetPageEnd ??= InferSourceBackedNavigationTargetPageEndFromFollowingEntry(
+                entries,
+                entryIndex,
+                docId,
+                docPath,
+                categoryPath,
+                targetPageStart);
 
             var scoreHint = 1;
             if (hasTargetChunk)
@@ -5933,15 +7731,173 @@ CURRENT_USER_MESSAGE:
                 scoreHint += 1;
             }
 
-            var raw = string.Join(" | ", new[] { label, docName, docPath, kind, method }.Where(static value => !string.IsNullOrWhiteSpace(value)));
-            yield return new SourceBackedDocumentNavigationFollowupLabel(
-                label,
-                raw,
-                scoreHint,
-                string.IsNullOrWhiteSpace(docId) ? null : docId,
-                string.IsNullOrWhiteSpace(docPath) ? null : docPath,
-                string.IsNullOrWhiteSpace(categoryPath) ? null : categoryPath);
+            foreach (var label in ExtractDocumentNavigationEntryCandidateLabels(entry))
+            {
+                var raw = string.Join(" | ", new[] { label, docName, docPath, kind, method }.Where(static value => !string.IsNullOrWhiteSpace(value)));
+                yield return new SourceBackedDocumentNavigationFollowupLabel(
+                    label,
+                    raw,
+                    scoreHint,
+                    string.IsNullOrWhiteSpace(docId) ? null : docId,
+                    string.IsNullOrWhiteSpace(docPath) ? null : docPath,
+                    string.IsNullOrWhiteSpace(categoryPath) ? null : categoryPath,
+                    targetPageStart,
+                    targetPageEnd);
+            }
         }
+    }
+
+    private static IEnumerable<ToolResults.Item> EnumerateRecentSourceBackedNavigationItems(ToolResults toolResults, string query)
+    {
+        var window = UsesSourceBackedPlanningCoverage(query)
+            || LooksLikeGenericCollectionOrListRequest(query)
+            || LooksLikeBroadSourceBackedCompositionRequest(query)
+            ? 12
+            : 3;
+
+        return toolResults.Items
+            .Where(static item => item.ToolName == "documents.navigation" && string.IsNullOrWhiteSpace(item.Error))
+            .TakeLast(window);
+    }
+
+    private static int ResolveSourceBackedSummaryFollowupResultWindow(string query)
+        => UsesSourceBackedPlanningCoverage(query)
+           || LooksLikeGenericCollectionOrListRequest(query)
+           || LooksLikeBroadSourceBackedCompositionRequest(query)
+            ? 8
+            : 3;
+
+    private static IEnumerable<string> ExtractDocumentNavigationEntryCandidateLabels(JsonElement entry)
+    {
+        var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in new[]
+                 {
+                     "label", "Label",
+                     "title", "Title",
+                     "sectionTitle", "SectionTitle",
+                     "heading", "Heading",
+                     "headingPath", "HeadingPath",
+                     "titlePath", "TitlePath",
+                     "anchorTitle", "AnchorTitle",
+                     "name", "Name"
+                 })
+        {
+            var label = CollapseWhitespace(TryGetString(entry, name) ?? string.Empty);
+            if (string.IsNullOrWhiteSpace(label))
+                continue;
+
+            if (emitted.Add(NormalizeLexicalLookup(label)))
+                yield return label;
+        }
+    }
+
+    private static int? ReadSourceBackedNavigationTargetPageStart(JsonElement entry)
+        => TryGetFirstInt(
+            entry,
+            "targetPageStart",
+            "TargetPageStart",
+            "pageStart",
+            "PageStart",
+            "page_start",
+            "fromPage",
+            "FromPage",
+            "pageFrom",
+            "PageFrom",
+            "sourcePage",
+            "SourcePage",
+            "pageNumber",
+            "PageNumber",
+            "page",
+            "Page",
+            "p",
+            "P");
+
+    private static int? ReadSourceBackedNavigationTargetPageEnd(JsonElement entry, int? pageStart)
+    {
+        var pageEnd = TryGetFirstInt(
+            entry,
+            "targetPageEnd",
+            "TargetPageEnd",
+            "pageEnd",
+            "PageEnd",
+            "page_end",
+            "toPage",
+            "ToPage",
+            "pageTo",
+            "PageTo",
+            "endPage",
+            "EndPage");
+
+        return pageEnd;
+    }
+
+    private static int? TryGetFirstInt(JsonElement entry, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            var value = TryGetInt(entry, name);
+            if (value is not null)
+                return value;
+        }
+
+        return null;
+    }
+
+    private static int? InferSourceBackedNavigationTargetPageEndFromFollowingEntry(
+        IReadOnlyList<JsonElement> entries,
+        int currentIndex,
+        string? docId,
+        string? docPath,
+        string? categoryPath,
+        int? targetPageStart)
+    {
+        if (targetPageStart is null || targetPageStart.Value <= 0)
+            return null;
+
+        for (var i = currentIndex + 1; i < entries.Count; i++)
+        {
+            var next = entries[i];
+            var nextStart = ReadSourceBackedNavigationTargetPageStart(next);
+            if (nextStart is null || nextStart.Value <= targetPageStart.Value)
+                continue;
+
+            var nextDocId = CollapseWhitespace(TryGetString(next, "docId") ?? TryGetString(next, "DocId") ?? string.Empty);
+            var nextDocPath = CollapseWhitespace(TryGetString(next, "docPath") ?? TryGetString(next, "DocPath") ?? string.Empty);
+            var nextCategoryPath = CollapseWhitespace(TryGetString(next, "categoryPath") ?? TryGetString(next, "CategoryPath") ?? string.Empty);
+            if (!IsSameSourceBackedNavigationScope(docId, docPath, categoryPath, nextDocId, nextDocPath, nextCategoryPath))
+                continue;
+
+            var boundedEnd = targetPageStart.Value + MaxInferredSourceBackedNavigationPageSpan;
+            var previousSectionEnd = Math.Max(targetPageStart.Value, nextStart.Value - 1);
+            return Math.Min(previousSectionEnd, boundedEnd);
+        }
+
+        return null;
+    }
+
+    private static bool IsSameSourceBackedNavigationScope(
+        string? docId,
+        string? docPath,
+        string? categoryPath,
+        string? candidateDocId,
+        string? candidateDocPath,
+        string? candidateCategoryPath)
+    {
+        var normalizedDocId = NormalizeLooseLookup(docId);
+        var normalizedCandidateDocId = NormalizeLooseLookup(candidateDocId);
+        if (!string.IsNullOrWhiteSpace(normalizedDocId) && !string.IsNullOrWhiteSpace(normalizedCandidateDocId))
+            return string.Equals(normalizedDocId, normalizedCandidateDocId, StringComparison.Ordinal);
+
+        var normalizedDocPath = NormalizeLooseLookup(docPath);
+        var normalizedCandidateDocPath = NormalizeLooseLookup(candidateDocPath);
+        if (!string.IsNullOrWhiteSpace(normalizedDocPath) && !string.IsNullOrWhiteSpace(normalizedCandidateDocPath))
+            return string.Equals(normalizedDocPath, normalizedCandidateDocPath, StringComparison.Ordinal);
+
+        var normalizedCategoryPath = NormalizeLooseLookup(categoryPath);
+        var normalizedCandidateCategoryPath = NormalizeLooseLookup(candidateCategoryPath);
+        return !string.IsNullOrWhiteSpace(normalizedCategoryPath)
+               && !string.IsNullOrWhiteSpace(normalizedCandidateCategoryPath)
+               && string.Equals(normalizedCategoryPath, normalizedCandidateCategoryPath, StringComparison.Ordinal);
     }
 
     private static IEnumerable<string> ExtractTreeNavigationAnchorLabels(JsonElement result)
@@ -6017,7 +7973,12 @@ CURRENT_USER_MESSAGE:
             yield break;
 
         cleaned = Regex.Replace(cleaned, @"\s*\(\s*\d+\s+(?:docs?|documents?|fichiers?|files?)\s*\)\s*$", string.Empty, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-        cleaned = Regex.Replace(cleaned, @"^(?:navigationOnly\s+tree\s*:\s*)", string.Empty, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        cleaned = Regex.Replace(cleaned, @"^(?:(?:navigationOnly|orientationOnly)\s+\w+\s*:\s*)", string.Empty, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        cleaned = Regex.Replace(
+            cleaned,
+            @"^(?:surfaceType\s*=\s*[^;]+;\s*)?(?:sourceScope\s*=\s*[^;]+;\s*)?(?:isFinalEvidence\s*=\s*false;\s*)?(?:requiresConcreteRetrieval\s*=\s*true;\s*)?",
+            string.Empty,
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         cleaned = CollapseWhitespace(cleaned);
         if (string.IsNullOrWhiteSpace(cleaned))
             yield break;
@@ -6177,7 +8138,7 @@ CURRENT_USER_MESSAGE:
         queries.Add(sanitized);
     }
 
-    private static IEnumerable<string> ExtractSourceBackedRouteAnchorFollowupTitles(ToolResults toolResults)
+    private static IEnumerable<string> ExtractSourceBackedRouteAnchorFollowupTitles(ToolResults toolResults, string query)
     {
         var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var hit in EnumerateRagHitSummaries(toolResults))
@@ -6196,6 +8157,9 @@ CURRENT_USER_MESSAGE:
                          .Where(IsUsableSourceBackedOptionTitle))
             {
                 if (LooksLikeWeakSourceBackedOptionTitle(title))
+                    continue;
+
+                if (LooksLikeWeakStructuredMealPlanningAnchorFollowupTitle(title, query))
                     continue;
 
                 var key = NormalizeLexicalLookup(title);
@@ -6264,12 +8228,25 @@ CURRENT_USER_MESSAGE:
                             TryGetString(passElement, "categoryScope")
                             ?? TryGetString(passElement, "category")
                             ?? TryGetString(passElement, "categoryPath")
-                            ?? TryGetString(passElement, "categoryRef"))));
+                            ?? TryGetString(passElement, "categoryRef")),
+                        NullIfWhiteSpace(TryGetString(passElement, "docId") ?? TryGetString(passElement, "documentId")),
+                        NullIfWhiteSpace(TryGetString(passElement, "docPath") ?? TryGetString(passElement, "documentPath")),
+                        ReadSourceBackedNavigationTargetPageStart(passElement),
+                        ReadSourceBackedNavigationTargetPageEnd(
+                            passElement,
+                            ReadSourceBackedNavigationTargetPageStart(passElement)),
+                        "llm_planner"));
                     if (passes.Count >= MaxSourceBackedLlmEvidenceExplorationPasses)
                         break;
                 }
             }
-            else
+
+            if (passes.Count == 0)
+            {
+                passes.AddRange(ExtractSourceBackedLlmToolCallExplorationPasses(doc.RootElement, emitted));
+            }
+
+            if (passes.Count == 0)
             {
                 var queries = ExtractSanitizedSourceBackedLlmExplorationQueries(doc.RootElement, emitted);
                 if (queries.Length > 0)
@@ -6282,12 +8259,931 @@ CURRENT_USER_MESSAGE:
                             TryGetString(doc.RootElement, "categoryScope")
                             ?? TryGetString(doc.RootElement, "category")
                             ?? TryGetString(doc.RootElement, "categoryPath")
-                            ?? TryGetString(doc.RootElement, "categoryRef"))));
+                            ?? TryGetString(doc.RootElement, "categoryRef")),
+                        NullIfWhiteSpace(TryGetString(doc.RootElement, "docId") ?? TryGetString(doc.RootElement, "documentId")),
+                        NullIfWhiteSpace(TryGetString(doc.RootElement, "docPath") ?? TryGetString(doc.RootElement, "documentPath")),
+                        ReadSourceBackedNavigationTargetPageStart(doc.RootElement),
+                        ReadSourceBackedNavigationTargetPageEnd(
+                            doc.RootElement,
+                            ReadSourceBackedNavigationTargetPageStart(doc.RootElement)),
+                        "llm_planner"));
                 }
             }
 
             return passes;
         }
+    }
+
+    private static SourceBackedLlmCategoryScopeDecision ParseSourceBackedLlmEvidenceExplorationCategoryScopeDecision(string? rawJson)
+    {
+        if (string.IsNullOrWhiteSpace(rawJson))
+            return new SourceBackedLlmCategoryScopeDecision(null, null, null, null);
+
+        if (!TryExtractJsonObject(rawJson, out var json))
+            json = rawJson;
+
+        JsonDocument doc;
+        try
+        {
+            doc = JsonDocument.Parse(json);
+        }
+        catch (JsonException)
+        {
+            return new SourceBackedLlmCategoryScopeDecision(null, null, null, null);
+        }
+
+        using (doc)
+        {
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                return new SourceBackedLlmCategoryScopeDecision(null, null, null, null);
+
+            var element = doc.RootElement;
+            if (TryGetObjectProperty(doc.RootElement, "categoryDecision", out var categoryDecision)
+                || TryGetObjectProperty(doc.RootElement, "categoryScopeDecision", out categoryDecision)
+                || TryGetObjectProperty(doc.RootElement, "scopeDecision", out categoryDecision))
+            {
+                element = categoryDecision;
+            }
+
+            var categoryScope = SanitizeSourceBackedLlmExplorationCategory(
+                TryGetString(element, "categoryScope")
+                ?? TryGetString(element, "category")
+                ?? TryGetString(element, "categoryPath")
+                ?? TryGetString(element, "categoryRef")
+                ?? TryGetString(element, "scopePath")
+                ?? TryGetString(element, "scope"));
+            if (LooksLikeNullSourceBackedLlmCategoryScopeDecision(categoryScope))
+                categoryScope = null;
+
+            var decision = CollapseWhitespace(
+                TryGetString(element, "decision")
+                ?? TryGetString(element, "action")
+                ?? TryGetString(element, "scopeDecision")
+                ?? string.Empty);
+            var confidence = CollapseWhitespace(TryGetString(element, "confidence") ?? string.Empty);
+            var reason = CollapseWhitespace(TryGetString(element, "reason") ?? TryGetString(element, "rationale") ?? string.Empty);
+
+            return new SourceBackedLlmCategoryScopeDecision(
+                categoryScope,
+                string.IsNullOrWhiteSpace(decision) ? null : decision,
+                string.IsNullOrWhiteSpace(confidence) ? null : confidence,
+                string.IsNullOrWhiteSpace(reason) ? null : reason);
+        }
+    }
+
+    private static bool TryGetObjectProperty(JsonElement element, string propertyName, out JsonElement value)
+    {
+        if (element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(propertyName, out value)
+            && value.ValueKind == JsonValueKind.Object)
+        {
+            return true;
+        }
+
+        value = default;
+        return false;
+    }
+
+    private static bool LooksLikeNullSourceBackedLlmCategoryScopeDecision(string? value)
+    {
+        var normalized = NormalizeLooseLookup(value);
+        return string.IsNullOrWhiteSpace(normalized)
+               || string.Equals(normalized, "none", StringComparison.Ordinal)
+               || string.Equals(normalized, "null", StringComparison.Ordinal)
+               || string.Equals(normalized, "na", StringComparison.Ordinal)
+               || string.Equals(normalized, "n a", StringComparison.Ordinal)
+               || string.Equals(normalized, "aucun", StringComparison.Ordinal)
+               || string.Equals(normalized, "aucune", StringComparison.Ordinal)
+               || string.Equals(normalized, "pas de categorie", StringComparison.Ordinal)
+               || string.Equals(normalized, "no category", StringComparison.Ordinal)
+               || string.Equals(normalized, "no scope", StringComparison.Ordinal);
+    }
+
+    private static IReadOnlyList<SourceBackedEvidenceExplorationPass> ApplySourceBackedLlmCategoryScopeDecision(
+        IReadOnlyList<SourceBackedEvidenceExplorationPass> passes,
+        string? categoryScope,
+        out int updatedPassCount)
+    {
+        updatedPassCount = 0;
+        var normalizedCategoryScope = SanitizeSourceBackedLlmExplorationCategory(categoryScope);
+        if (passes.Count == 0 || string.IsNullOrWhiteSpace(normalizedCategoryScope))
+            return passes;
+
+        var updated = new List<SourceBackedEvidenceExplorationPass>(passes.Count);
+        foreach (var pass in passes)
+        {
+            if (CanApplySourceBackedLlmCategoryScopeDecision(pass))
+            {
+                updated.Add(pass with { CategoryScope = normalizedCategoryScope });
+                updatedPassCount++;
+            }
+            else
+            {
+                updated.Add(pass);
+            }
+        }
+
+        return updatedPassCount == 0 ? passes : updated;
+    }
+
+    private static IReadOnlyList<SourceBackedEvidenceExplorationPass> ApplySourceBackedLlmCategoryScopeDecisionOrCreateScopeOnlyPass(
+        IReadOnlyList<SourceBackedEvidenceExplorationPass> passes,
+        string? categoryScope,
+        string? origin,
+        out int updatedPassCount,
+        out bool addedScopeOnlyPass)
+    {
+        addedScopeOnlyPass = false;
+        var updated = ApplySourceBackedLlmCategoryScopeDecision(passes, categoryScope, out updatedPassCount);
+        if (passes.Count > 0 || updatedPassCount > 0)
+            return updated;
+
+        var normalizedCategoryScope = SanitizeSourceBackedLlmExplorationCategory(categoryScope);
+        if (string.IsNullOrWhiteSpace(normalizedCategoryScope))
+            return updated;
+
+        addedScopeOnlyPass = true;
+        return new[]
+        {
+            new SourceBackedEvidenceExplorationPass(
+                "llm_category_scope",
+                "LLM-selected catalog scope preserved after query filtering.",
+                Array.Empty<string>(),
+                normalizedCategoryScope,
+                Origin: string.IsNullOrWhiteSpace(origin) ? "llm_planner" : origin)
+        };
+    }
+
+    private static bool CanApplySourceBackedLlmCategoryScopeDecision(SourceBackedEvidenceExplorationPass pass)
+        => string.IsNullOrWhiteSpace(pass.CategoryScope)
+           && string.IsNullOrWhiteSpace(pass.DocId)
+           && string.IsNullOrWhiteSpace(pass.DocPath);
+
+    private static bool HasSourceBackedLlmCategoryHints(string? categoryHints)
+        => !string.IsNullOrWhiteSpace(categoryHints)
+           && !string.Equals(CollapseWhitespace(categoryHints), "none", StringComparison.OrdinalIgnoreCase);
+
+    private static bool ShouldRunLlmSourceBackedCategoryScopeAdjudication(
+        IReadOnlyList<SourceBackedEvidenceExplorationPass> passes,
+        SourceBackedEvidenceSufficiency currentAnalysis,
+        string? query,
+        string language,
+        string? categoryHints)
+    {
+        if (!HasSourceBackedLlmCategoryHints(categoryHints) || passes.Count == 0)
+            return false;
+
+        var nonDocumentPasses = passes
+            .Where(static pass => string.IsNullOrWhiteSpace(pass.DocId) && string.IsNullOrWhiteSpace(pass.DocPath))
+            .ToArray();
+        if (nonDocumentPasses.Length == 0)
+            return false;
+
+        if (nonDocumentPasses.Any(static pass => !string.IsNullOrWhiteSpace(pass.CategoryScope)))
+            return false;
+
+        var normalizedLanguage = NormalizeLanguageCode(language);
+        var needsBroadDecision =
+            LooksLikeAnyDocumentaryPlanningRequest(query)
+            || LooksLikeGenericCollectionOrListRequest(query)
+            || LooksLikeMultipleCandidateSynthesisRequest(query)
+            || LooksLikeBroadSourceBackedCompositionRequest(query)
+            || LooksLikeBroadSynthesisRequestShape(query)
+            || LooksLikeUserNeedsSynthesizedDecisionOrPlan(query)
+            || ShouldOfferBroadenedSourceSearch(query);
+
+        var needsStructuredDecision =
+            DetectRequestedDayAxisLabels(query, normalizedLanguage).Count > 1
+            && DetectRequestedPeriodAxisLabels(query, normalizedLanguage).Count > 0;
+
+        return needsBroadDecision
+               || needsStructuredDecision
+               || currentAnalysis.UsableHitCount == 0
+               || currentAnalysis.CandidateCount < currentAnalysis.MinimumCandidateCount;
+    }
+
+    private static IReadOnlyList<SourceBackedEvidenceExplorationPass> FilterLowQualityStructuredAxisLlmEvidenceExplorationPasses(
+        IReadOnlyList<SourceBackedEvidenceExplorationPass> passes,
+        string? query,
+        string language,
+        string? plannedCategoryScope,
+        out string[] rejectedPassLabels,
+        out string[] rejectedQuerySamples)
+    {
+        rejectedPassLabels = Array.Empty<string>();
+        rejectedQuerySamples = Array.Empty<string>();
+        if (passes.Count == 0 || !ShouldGateStructuredSourceBackedPlanningCoverage(query))
+            return passes;
+
+        language = NormalizeLanguageCode(language);
+        var dayAxis = DetectRequestedDayAxisLabels(query, language);
+        var periodAxis = DetectRequestedPeriodAxisLabels(query, language);
+        if (dayAxis.Count < 2 || periodAxis.Count == 0)
+            return passes;
+
+        var dayTerms = BuildStructuredAxisPlannerDayTerms(dayAxis, language)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var slotTerms = BuildStructuredAxisPlannerSlotTerms(periodAxis, query)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (dayTerms.Length == 0 || slotTerms.Length == 0)
+            return passes;
+
+        var slotTermGroups = BuildStructuredAxisPlannerSlotTermGroups(periodAxis, query);
+        var genericInventoryTerms = BuildStructuredAxisPlannerGenericInventoryTerms(language, query)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var minimumDistinctSlotCoverage = Math.Min(2, Math.Max(1, periodAxis.Count));
+        var kept = new List<SourceBackedEvidenceExplorationPass>(passes.Count);
+        var rejectedLabels = new List<string>();
+        var rejectedQueries = new List<string>();
+        var changed = false;
+        foreach (var pass in passes)
+        {
+            if (ShouldRejectLowQualityStructuredAxisLlmEvidenceExplorationPass(
+                    pass,
+                    dayTerms,
+                    slotTerms,
+                    slotTermGroups,
+                    genericInventoryTerms,
+                    minimumDistinctSlotCoverage))
+            {
+                rejectedLabels.Add(pass.Label);
+                rejectedQueries.AddRange(pass.Queries.Take(4));
+                changed = true;
+                continue;
+            }
+
+            var sanitizedQueries = SanitizeStructuredAxisLlmEvidenceExplorationQueries(
+                pass.Queries,
+                dayTerms,
+                slotTerms,
+                genericInventoryTerms);
+
+            sanitizedQueries = SanitizeStructuredMealPlanningLlmEvidenceExplorationQueries(
+                sanitizedQueries,
+                query,
+                language,
+                plannedCategoryScope,
+                pass.CategoryScope,
+                out var rejectedMealPlanningQueries);
+            if (rejectedMealPlanningQueries.Length > 0)
+            {
+                rejectedLabels.Add(pass.Label);
+                rejectedQueries.AddRange(rejectedMealPlanningQueries.Take(4));
+                changed = true;
+            }
+
+            if (sanitizedQueries.Length == 0)
+            {
+                rejectedLabels.Add(pass.Label);
+                rejectedQueries.AddRange(pass.Queries.Take(4));
+                changed = true;
+                continue;
+            }
+
+            if (sanitizedQueries.SequenceEqual(pass.Queries, StringComparer.Ordinal))
+            {
+                kept.Add(pass);
+            }
+            else
+            {
+                changed = true;
+                kept.Add(pass with { Queries = sanitizedQueries });
+            }
+        }
+
+        if (!changed && rejectedLabels.Count == 0)
+            return passes;
+
+        rejectedPassLabels = rejectedLabels.ToArray();
+        rejectedQuerySamples = rejectedQueries.ToArray();
+        return kept;
+    }
+
+    private static bool ShouldRejectLowQualityStructuredAxisLlmEvidenceExplorationPass(
+        SourceBackedEvidenceExplorationPass pass,
+        IReadOnlyCollection<string> dayTerms,
+        IReadOnlyCollection<string> slotTerms,
+        IReadOnlyList<string[]> slotTermGroups,
+        IReadOnlyCollection<string> genericInventoryTerms,
+        int minimumDistinctSlotCoverage)
+    {
+        var queries = pass.Queries
+            .Select(NormalizeLexicalLookup)
+            .Where(static q => !string.IsNullOrWhiteSpace(q))
+            .ToArray();
+        if (queries.Length < 3)
+            return false;
+
+        var axisOnlyQueries = 0;
+        var slotOrSpecificQueries = 0;
+        var dayScaffoldQueries = 0;
+        var specificQueries = 0;
+        var distinctSlotTerms = new HashSet<string>(StringComparer.Ordinal);
+        var distinctSlotGroups = new HashSet<int>();
+        var genericOnlyQueries = 0;
+        var decorativeGenericQueries = 0;
+        foreach (var normalizedQuery in queries)
+        {
+            var mentionsDayAxis = dayTerms.Any(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
+            var mentionsSlot = MentionsStructuredAxisSlotTerm(normalizedQuery, slotTerms);
+            var mentionsGenericInventory = genericInventoryTerms.Any(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
+            var hasSpecificSignal = HasStructuredAxisPlannerSpecificSignal(
+                normalizedQuery,
+                dayTerms,
+                slotTerms,
+                genericInventoryTerms);
+            AddStructuredAxisPlannerSlotMatches(normalizedQuery, slotTerms, distinctSlotTerms);
+            AddStructuredAxisPlannerSlotGroupMatches(normalizedQuery, slotTermGroups, distinctSlotGroups);
+            if (!hasSpecificSignal && LooksLikeDecorativeStructuredAxisPlannerQuery(normalizedQuery))
+                decorativeGenericQueries++;
+
+            if (!mentionsDayAxis)
+            {
+                if (mentionsSlot || hasSpecificSignal)
+                {
+                    slotOrSpecificQueries++;
+                    if (hasSpecificSignal)
+                        specificQueries++;
+                }
+
+                if (!mentionsSlot && !hasSpecificSignal && mentionsGenericInventory)
+                    genericOnlyQueries++;
+
+                continue;
+            }
+
+            if (!mentionsSlot && !hasSpecificSignal)
+            {
+                axisOnlyQueries++;
+                if (mentionsGenericInventory)
+                    genericOnlyQueries++;
+            }
+            else
+            {
+                slotOrSpecificQueries++;
+                if (hasSpecificSignal)
+                    specificQueries++;
+                else
+                    dayScaffoldQueries++;
+            }
+        }
+
+        var mostlyAxisOnly = axisOnlyQueries >= Math.Max(3, (queries.Length * 2 + 2) / 3);
+        if (mostlyAxisOnly && slotOrSpecificQueries == 0)
+            return true;
+
+        var mostlyDayScaffold = (axisOnlyQueries + dayScaffoldQueries) >= Math.Max(3, (queries.Length * 2 + 2) / 3);
+        if (mostlyDayScaffold
+            && specificQueries == 0
+            && CountStructuredAxisPlannerSlotCoverage(distinctSlotTerms, distinctSlotGroups) < minimumDistinctSlotCoverage)
+        {
+            return true;
+        }
+
+        var lowCoverageKnownTermLoop = queries.Length >= 6
+            && specificQueries == 0
+            && CountStructuredAxisPlannerSlotCoverage(distinctSlotTerms, distinctSlotGroups) < minimumDistinctSlotCoverage
+            && (slotOrSpecificQueries + genericOnlyQueries) >= Math.Max(4, (queries.Length + 1) / 2);
+        if (lowCoverageKnownTermLoop)
+            return true;
+
+        return queries.Length >= 4
+            && specificQueries == 0
+            && decorativeGenericQueries >= Math.Max(4, (queries.Length * 2 + 2) / 3);
+    }
+
+    private static bool LooksLikeDecorativeStructuredAxisPlannerQuery(string normalizedQuery)
+        => Regex.IsMatch(
+            normalizedQuery,
+            @"\b(?:exemples?|examples?|id[eé]es?|ideas?|suggestions?|menus?|id[eé]aux|ideals?)\b",
+            RegexOptions.CultureInvariant);
+
+    private static string[] SanitizeStructuredAxisLlmEvidenceExplorationQueries(
+        IReadOnlyList<string> queries,
+        IReadOnlyCollection<string> dayTerms,
+        IReadOnlyCollection<string> slotTerms,
+        IReadOnlyCollection<string> genericInventoryTerms)
+    {
+        var results = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var query in queries)
+        {
+            var normalizedQuery = NormalizeLexicalLookup(query);
+            if (string.IsNullOrWhiteSpace(normalizedQuery))
+                continue;
+
+            var mentionsDayAxis = dayTerms.Any(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
+            var mentionsSlot = MentionsStructuredAxisSlotTerm(normalizedQuery, slotTerms);
+            var hasSpecificSignal = HasStructuredAxisPlannerSpecificSignal(
+                normalizedQuery,
+                dayTerms,
+                slotTerms,
+                genericInventoryTerms);
+            if (!mentionsSlot
+                && !hasSpecificSignal
+                && LooksLikeDecorativeStructuredAxisPlannerQuery(normalizedQuery))
+            {
+                continue;
+            }
+
+            var sanitized = mentionsDayAxis && !hasSpecificSignal
+                ? RemoveStructuredAxisPlannerTermsFromQuery(normalizedQuery, dayTerms)
+                : CollapseWhitespace(query);
+            sanitized = CleanupStructuredAxisPlannerQuery(sanitized);
+            if (string.IsNullOrWhiteSpace(sanitized))
+                continue;
+
+            var key = NormalizeLexicalLookup(sanitized);
+            if (string.IsNullOrWhiteSpace(key) || !seen.Add(key))
+                continue;
+
+            results.Add(sanitized);
+        }
+
+        return results.ToArray();
+    }
+
+    private static string[] SanitizeStructuredMealPlanningLlmEvidenceExplorationQueries(
+        IReadOnlyList<string> queries,
+        string? query,
+        string language,
+        string? plannedCategoryScope,
+        string? passCategoryScope,
+        out string[] rejectedQuerySamples)
+    {
+        rejectedQuerySamples = Array.Empty<string>();
+        if (queries.Count == 0 || !ShouldApplyMealPlanningSlotSemantics(query))
+            return queries.ToArray();
+
+        language = NormalizeLanguageCode(language);
+        var periodAxis = DetectRequestedPeriodAxisLabels(query, language);
+        if (periodAxis.Count == 0)
+            return queries.ToArray();
+
+        var dayTerms = BuildStructuredAxisPlannerDayTerms(DetectRequestedDayAxisLabels(query, language), language)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var slotTerms = BuildStructuredAxisPlannerSlotTerms(periodAxis, query)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var concreteInventoryTerms = BuildConcreteStructuredPlanningInventoryTermsForRetrieval(language, query)
+            .Select(NormalizeLexicalLookup)
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var candidateIntentTerms = BuildStructuredMealPlanningCandidateIntentTerms(language, query)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var abstractPlannerTerms = BuildStructuredMealPlanningAbstractPlannerTerms(language)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var categoryScopeTerms = BuildStructuredMealPlanningCategoryScopeTerms(plannedCategoryScope, passCategoryScope)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        if (slotTerms.Length == 0 || concreteInventoryTerms.Length == 0)
+            return queries.ToArray();
+
+        var kept = new List<string>(queries.Count);
+        var rejected = new List<string>();
+        foreach (var llmQuery in queries)
+        {
+            var normalizedQuery = NormalizeLexicalLookup(llmQuery);
+            if (string.IsNullOrWhiteSpace(normalizedQuery))
+                continue;
+
+            if (LooksLikeLowValueStructuredMealPlanningLlmQuery(
+                    normalizedQuery,
+                    dayTerms,
+                    slotTerms,
+                    concreteInventoryTerms,
+                    candidateIntentTerms,
+                    abstractPlannerTerms,
+                    categoryScopeTerms))
+            {
+                rejected.Add(llmQuery);
+                continue;
+            }
+
+            AddDistinctQuery(kept, CollapseWhitespace(llmQuery));
+        }
+
+        if (rejected.Count > 0)
+        {
+            foreach (var repairQuery in BuildStructuredMealPlanningLlmConcreteRepairQueries(query, language))
+                AddDistinctQuery(kept, repairQuery);
+        }
+
+        rejectedQuerySamples = rejected.ToArray();
+        return kept
+            .Where(static q => !string.IsNullOrWhiteSpace(q))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(MaxSourceBackedLlmEvidenceExplorationQueries)
+            .ToArray();
+    }
+
+    private static IEnumerable<string> BuildStructuredMealPlanningCandidateIntentTerms(string language, string? query)
+    {
+        foreach (var term in BuildGenericStructuredPlanningInventoryTerms(language, query))
+        {
+            var normalized = NormalizeLexicalLookup(term);
+            if (!string.IsNullOrWhiteSpace(normalized))
+                yield return normalized;
+        }
+
+        var fallbackTerms = new[]
+        {
+            "option", "options", "candidate", "candidates", "candidat", "candidats",
+            "proposal", "proposals", "proposition", "propositions", "preparation", "preparations"
+        };
+        foreach (var term in fallbackTerms)
+            yield return term;
+    }
+
+    private static IEnumerable<string> BuildStructuredMealPlanningAbstractPlannerTerms(string language)
+    {
+        language = NormalizeLanguageCode(language);
+        var localizedTerms = language switch
+        {
+            "en" => new[] { "plan", "weekly", "week", "menu", "menus", "meal", "meals", "details", "ideas", "suggestions", "examples" },
+            "es" => new[] { "plan", "semanal", "semana", "menu", "menus", "comida", "comidas", "detalles", "ideas", "sugerencias", "ejemplos" },
+            "pt" => new[] { "plano", "semanal", "semana", "menu", "menus", "refeicao", "refeicoes", "detalhes", "ideias", "sugestoes", "exemplos" },
+            "de" => new[] { "plan", "wochenplan", "woche", "menu", "menus", "mahlzeit", "mahlzeiten", "details", "ideen", "vorschlaege", "beispiele" },
+            "it" => new[] { "piano", "settimanale", "settimana", "menu", "menus", "pasto", "pasti", "dettagli", "idee", "suggerimenti", "esempi" },
+            _ => new[] { "plan", "planning", "semaine", "hebdomadaire", "menu", "menus", "repas", "details", "detail", "idees", "idee", "suggestions", "suggestion", "exemples", "exemple" }
+        };
+
+        foreach (var term in localizedTerms)
+        {
+            var normalized = NormalizeLexicalLookup(term);
+            if (!string.IsNullOrWhiteSpace(normalized))
+                yield return normalized;
+        }
+    }
+
+    private static IEnumerable<string> BuildStructuredMealPlanningCategoryScopeTerms(params string?[] scopes)
+    {
+        foreach (var scope in scopes)
+        {
+            var normalizedScope = NormalizeLexicalLookup(scope);
+            if (string.IsNullOrWhiteSpace(normalizedScope))
+                continue;
+
+            yield return normalizedScope;
+            foreach (var term in ExtractQuerySignalTerms(normalizedScope))
+            {
+                if (term.Length >= 3)
+                    yield return term;
+            }
+        }
+    }
+
+    private static bool LooksLikeLowValueStructuredMealPlanningLlmQuery(
+        string normalizedQuery,
+        IReadOnlyCollection<string> dayTerms,
+        IReadOnlyCollection<string> slotTerms,
+        IReadOnlyCollection<string> concreteInventoryTerms,
+        IReadOnlyCollection<string> candidateIntentTerms,
+        IReadOnlyCollection<string> abstractPlannerTerms,
+        IReadOnlyCollection<string> categoryScopeTerms)
+    {
+        var mentionsConcreteInventory = concreteInventoryTerms.Any(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
+        if (mentionsConcreteInventory)
+            return false;
+
+        var mentionsCandidateIntent = candidateIntentTerms.Any(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
+        if (mentionsCandidateIntent)
+            return false;
+
+        var mentionsAbstractPlannerTerm = abstractPlannerTerms.Any(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
+        if (!mentionsAbstractPlannerTerm)
+            return false;
+
+        var hasSpecificSignal = ExtractQuerySignalTerms(normalizedQuery)
+            .Any(term => !IsGenericPlanningCoverageTerm(term)
+                         && !StructuredAxisPlannerTermBelongsToKnownTerm(term, dayTerms)
+                         && !StructuredAxisPlannerTermBelongsToKnownTerm(term, slotTerms)
+                         && !StructuredAxisPlannerTermBelongsToKnownTerm(term, concreteInventoryTerms)
+                         && !StructuredAxisPlannerTermBelongsToKnownTerm(term, candidateIntentTerms)
+                         && !StructuredAxisPlannerTermBelongsToKnownTerm(term, abstractPlannerTerms)
+                         && !StructuredAxisPlannerTermBelongsToKnownTerm(term, categoryScopeTerms));
+        if (hasSpecificSignal)
+            return false;
+
+        var mentionsSlot = MentionsStructuredAxisSlotTerm(normalizedQuery, slotTerms);
+        var tokenCount = ExtractQuerySignalTerms(normalizedQuery).Count();
+        var abstractTermCount = abstractPlannerTerms.Count(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
+        return mentionsSlot || abstractTermCount >= 2 || tokenCount <= 5;
+    }
+
+    private static IEnumerable<string> BuildStructuredMealPlanningLlmConcreteRepairQueries(string? query, string language)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            yield break;
+
+        language = NormalizeLanguageCode(language);
+        var periodAxis = DetectRequestedPeriodAxisLabels(query, language);
+        var slotTerms = (periodAxis.Count > 0
+                ? periodAxis.Select(SelectPreferredPlanningSlotRetrievalTerm)
+                : ExtractPlanningSlotRetrievalTerms(query)
+                    .SelectMany(ExpandPlanningSlotRetrievalTermVariants)
+                    .Select(NormalizeLexicalLookup))
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .Where(IsMealPeriodSlotRetrievalTerm)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var concreteInventoryTerms = BuildConcreteStructuredPlanningInventoryTermsForRetrieval(language, query)
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .ToArray();
+
+        foreach (var inventory in concreteInventoryTerms.Take(2))
+        {
+            foreach (var slot in slotTerms)
+                yield return $"{slot} {inventory}";
+        }
+
+        foreach (var inventory in concreteInventoryTerms.Take(2))
+        {
+            foreach (var slot in slotTerms)
+                yield return $"{inventory} {slot}";
+        }
+
+        foreach (var candidateQuery in BuildStructuredMealPlanningCandidateDiscoveryRetrievalQueries(query))
+            yield return candidateQuery;
+    }
+
+    private static string RemoveStructuredAxisPlannerTermsFromQuery(
+        string normalizedQuery,
+        IReadOnlyCollection<string> axisTerms)
+    {
+        var result = normalizedQuery;
+        foreach (var term in axisTerms.OrderByDescending(static term => term.Length))
+        {
+            if (string.IsNullOrWhiteSpace(term))
+                continue;
+
+            var pattern = @"\b" + Regex.Escape(term).Replace("\\ ", @"\s+") + @"\b";
+            result = Regex.Replace(result, pattern, " ", RegexOptions.CultureInvariant);
+        }
+
+        return result;
+    }
+
+    private static string CleanupStructuredAxisPlannerQuery(string query)
+        => Regex.Replace(query ?? string.Empty, @"[\s_/,;:()]+", " ").Trim();
+
+    private static IEnumerable<string> BuildStructuredAxisPlannerDayTerms(
+        IReadOnlyCollection<string> requestedDayLabels,
+        string language)
+    {
+        foreach (var label in requestedDayLabels.Concat(LocalizedWeekdayLabels(language)))
+        {
+            var normalized = NormalizeLexicalLookup(label);
+            if (!string.IsNullOrWhiteSpace(normalized))
+                yield return normalized;
+        }
+
+        var weekdayAliases = new[]
+        {
+            "lundi", "mardi", "mercredi", "jeudi", "vendredi", "vrendredi", "samedi", "dimanche",
+            "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+            "lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo",
+            "segunda", "terca", "quarta", "quinta", "sexta",
+            "montag", "dienstag", "mittwoch", "donnerstag", "freitag", "samstag", "sonntag",
+            "lunedi", "martedi", "mercoledi", "giovedi", "venerdi", "sabato", "domenica"
+        };
+        foreach (var alias in weekdayAliases)
+            yield return alias;
+    }
+
+    private static IEnumerable<string> BuildStructuredAxisPlannerSlotTerms(
+        IReadOnlyCollection<string> requestedPeriodLabels,
+        string? query)
+    {
+        foreach (var label in requestedPeriodLabels)
+        {
+            foreach (var variant in ExpandPlanningSlotRetrievalTermVariants(label))
+            {
+                var normalized = NormalizeLexicalLookup(variant);
+                if (!string.IsNullOrWhiteSpace(normalized))
+                    yield return normalized;
+            }
+        }
+
+        foreach (var term in ExtractPlanningSlotRetrievalTerms(query).Where(IsMealPeriodSlotRetrievalTerm))
+        {
+            foreach (var variant in ExpandPlanningSlotRetrievalTermVariants(term))
+            {
+                var normalized = NormalizeLexicalLookup(variant);
+                if (!string.IsNullOrWhiteSpace(normalized))
+                    yield return normalized;
+            }
+        }
+    }
+
+    private static IReadOnlyList<string[]> BuildStructuredAxisPlannerSlotTermGroups(
+        IReadOnlyCollection<string> requestedPeriodLabels,
+        string? query)
+    {
+        var groups = new List<HashSet<string>>();
+
+        void AddGroup(string? label)
+        {
+            var variants = ExpandPlanningSlotRetrievalTermVariants(label)
+                .Select(NormalizeLexicalLookup)
+                .Where(static variant => !string.IsNullOrWhiteSpace(variant))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (variants.Length == 0)
+                return;
+
+            var existing = groups.FirstOrDefault(group => variants.Any(group.Contains));
+            if (existing is null)
+            {
+                groups.Add(new HashSet<string>(variants, StringComparer.Ordinal));
+                return;
+            }
+
+            foreach (var variant in variants)
+                existing.Add(variant);
+        }
+
+        foreach (var label in requestedPeriodLabels)
+            AddGroup(label);
+
+        foreach (var term in ExtractPlanningSlotRetrievalTerms(query).Where(IsMealPeriodSlotRetrievalTerm))
+            AddGroup(term);
+
+        return groups
+            .Select(static group => group.OrderBy(static term => term, StringComparer.Ordinal).ToArray())
+            .ToArray();
+    }
+
+    private static IEnumerable<string> BuildStructuredAxisPlannerGenericInventoryTerms(string language, string? query)
+    {
+        foreach (var term in BuildGenericStructuredPlanningInventoryTerms(language, query))
+        {
+            var normalized = NormalizeLexicalLookup(term);
+            if (!string.IsNullOrWhiteSpace(normalized))
+                yield return normalized;
+        }
+
+        var fallbackTerms = new[]
+        {
+            "option", "options", "candidate", "candidates", "candidat", "candidats", "example", "examples",
+            "exemple", "exemples", "proposal", "proposals", "proposition", "propositions", "preparation",
+            "preparations", "plan", "planning", "programme", "schedule", "calendar", "calendrier",
+            "menu", "menus", "meal", "meals", "repas", "dish", "dishes", "plat", "plats", "recipe",
+            "recipes", "recette", "recettes", "detail", "details", "detailed", "detaille", "detailles",
+            "idee", "idees", "idea", "ideas", "ideal", "ideals", "ideaux",
+            "suggestion", "suggestions"
+        };
+        foreach (var term in fallbackTerms)
+            yield return term;
+    }
+
+    private static bool MentionsStructuredAxisSlotTerm(
+        string normalizedQuery,
+        IReadOnlyCollection<string> slotTerms)
+        => slotTerms.Any(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
+
+    private static void AddStructuredAxisPlannerSlotMatches(
+        string normalizedQuery,
+        IReadOnlyCollection<string> slotTerms,
+        HashSet<string> matches)
+    {
+        foreach (var term in slotTerms)
+        {
+            if (ContainsStructuredAxisPlannerTerm(normalizedQuery, term))
+                matches.Add(term);
+        }
+    }
+
+    private static void AddStructuredAxisPlannerSlotGroupMatches(
+        string normalizedQuery,
+        IReadOnlyList<string[]> slotTermGroups,
+        HashSet<int> matches)
+    {
+        for (var i = 0; i < slotTermGroups.Count; i++)
+        {
+            if (slotTermGroups[i].Any(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term)))
+                matches.Add(i);
+        }
+    }
+
+    private static int CountStructuredAxisPlannerSlotCoverage(
+        IReadOnlyCollection<string> distinctSlotTerms,
+        IReadOnlyCollection<int> distinctSlotGroups)
+        => distinctSlotGroups.Count > 0 ? distinctSlotGroups.Count : distinctSlotTerms.Count;
+
+    private static bool HasStructuredAxisPlannerSpecificSignal(
+        string normalizedQuery,
+        IReadOnlyCollection<string> dayTerms,
+        IReadOnlyCollection<string> slotTerms,
+        IReadOnlyCollection<string> genericInventoryTerms)
+        => ExtractQuerySignalTerms(normalizedQuery)
+            .Any(term => !IsGenericPlanningCoverageTerm(term)
+                         && !StructuredAxisPlannerTermBelongsToKnownTerm(term, dayTerms)
+                         && !StructuredAxisPlannerTermBelongsToKnownTerm(term, slotTerms)
+                         && !StructuredAxisPlannerTermBelongsToKnownTerm(term, genericInventoryTerms));
+
+    private static bool StructuredAxisPlannerTermBelongsToKnownTerm(
+        string term,
+        IReadOnlyCollection<string> knownTerms)
+        => knownTerms.Any(knownTerm =>
+            string.Equals(term, knownTerm, StringComparison.Ordinal)
+            || ContainsStructuredAxisPlannerTerm(knownTerm, term));
+
+    private static bool ContainsStructuredAxisPlannerTerm(string normalizedText, string normalizedTerm)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedText) || string.IsNullOrWhiteSpace(normalizedTerm))
+            return false;
+
+        var text = Regex.Replace(normalizedText, @"[\s\-_]+", " ");
+        var term = Regex.Replace(normalizedTerm, @"[\s\-_]+", " ");
+        if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(term))
+            return false;
+
+        var pattern = @"\b" + Regex.Escape(term).Replace("\\ ", @"\s+") + @"\b";
+        return Regex.IsMatch(text, pattern, RegexOptions.CultureInvariant);
+    }
+
+    private static IReadOnlyList<SourceBackedEvidenceExplorationPass> ExtractSourceBackedLlmToolCallExplorationPasses(
+        JsonElement root,
+        HashSet<string> emitted)
+    {
+        if (!root.TryGetProperty("toolCalls", out var toolCalls)
+            && !root.TryGetProperty("tool_calls", out toolCalls)
+            && !root.TryGetProperty("tools", out toolCalls))
+        {
+            return Array.Empty<SourceBackedEvidenceExplorationPass>();
+        }
+
+        if (toolCalls.ValueKind != JsonValueKind.Array)
+            return Array.Empty<SourceBackedEvidenceExplorationPass>();
+
+        var passes = new List<SourceBackedEvidenceExplorationPass>();
+        foreach (var call in toolCalls.EnumerateArray())
+        {
+            if (call.ValueKind != JsonValueKind.Object)
+                continue;
+
+            var name = NormalizeToolName(TryGetString(call, "name") ?? TryGetString(call, "tool"));
+            if (!string.Equals(name, "rag.search", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(name, "rag.multi_search", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var args = TryGetObject(call, "args")
+                       ?? TryGetObject(call, "arguments")
+                       ?? TryGetObject(call, "input");
+            if (args is null)
+                continue;
+
+            var queries = ExtractSanitizedSourceBackedLlmExplorationQueries(args.Value, emitted);
+            if (queries.Length == 0)
+            {
+                var query = SanitizeSourceBackedLlmExplorationQuery(
+                    TryGetString(args.Value, "query")
+                    ?? TryGetString(args.Value, "q"));
+                if (!string.IsNullOrWhiteSpace(query))
+                {
+                    var key = NormalizeGeneratedSourceBackedExplorationQueryForDedup(query);
+                    if (!string.IsNullOrWhiteSpace(key) && emitted.Add(key))
+                        queries = new[] { query };
+                }
+            }
+
+            if (queries.Length == 0)
+                continue;
+
+            passes.Add(new SourceBackedEvidenceExplorationPass(
+                "llm_tool_call",
+                "LLM-planned retrieval tool call converted to an exploration pass.",
+                queries,
+                SanitizeSourceBackedLlmExplorationCategory(
+                    TryGetString(args.Value, "categoryScope")
+                    ?? TryGetString(args.Value, "category")
+                    ?? TryGetString(args.Value, "categoryPath")
+                    ?? TryGetString(args.Value, "categoryRef")),
+                NullIfWhiteSpace(TryGetString(args.Value, "docId") ?? TryGetString(args.Value, "documentId")),
+                NullIfWhiteSpace(TryGetString(args.Value, "docPath") ?? TryGetString(args.Value, "documentPath")),
+                ReadSourceBackedNavigationTargetPageStart(args.Value),
+                ReadSourceBackedNavigationTargetPageEnd(
+                    args.Value,
+                    ReadSourceBackedNavigationTargetPageStart(args.Value)),
+                "llm_planner"));
+            if (passes.Count >= MaxSourceBackedLlmEvidenceExplorationPasses)
+                break;
+        }
+
+        return passes;
     }
 
     private static string[] BuildSourceBackedCandidateDiscoveryRetrievalQueries(string query)
@@ -6296,6 +9192,8 @@ CURRENT_USER_MESSAGE:
         var normalized = NormalizeLexicalLookup(NormalizeRagQueryForRetrieval(query));
         if (string.IsNullOrWhiteSpace(normalized))
             normalized = NormalizeLexicalLookup(query);
+        var usesStructuredMealSlots = UsesSourceBackedPlanningCoverage(query)
+            && ShouldApplyMealPlanningSlotSemantics(query);
 
         foreach (var retrievalQuery in BuildSoftChoiceOptionKindRetrievalQueries(query))
             AddDistinctQuery(queries, retrievalQuery);
@@ -6310,7 +9208,7 @@ CURRENT_USER_MESSAGE:
             .Distinct(StringComparer.Ordinal)
             .Take(8)
             .ToArray();
-        var supportTerms = BuildPlanningExplorationSupportTerms(query)
+        var supportTerms = BuildPlanningExplorationSupportTermsForRetrieval(query)
             .Take(5)
             .ToArray();
         var candidateSuffixes = BuildCandidateExpansionSuffixes(query)
@@ -6323,10 +9221,25 @@ CURRENT_USER_MESSAGE:
             .Take(4)
             .ToArray();
 
-        foreach (var retrievalQuery in BuildNavigationDiscoveryRetrievalQueries(query).Take(8))
-            AddDistinctQuery(queries, retrievalQuery);
-        foreach (var retrievalQuery in BuildBroadSourceBackedDiscoveryRetrievalQueries(query).Take(14))
-            AddDistinctQuery(queries, retrievalQuery);
+        if (UsesSourceBackedPlanningCoverage(query))
+        {
+            if (usesStructuredMealSlots)
+            {
+                foreach (var retrievalQuery in BuildStructuredMealPlanningCandidateDiscoveryRetrievalQueries(query).Take(18))
+                    AddDistinctQuery(queries, retrievalQuery);
+            }
+
+            foreach (var retrievalQuery in BuildStructuredPlanningCandidateDiscoveryRetrievalQueries(query).Take(14))
+                AddDistinctQuery(queries, retrievalQuery);
+        }
+
+        if (!usesStructuredMealSlots)
+        {
+            foreach (var retrievalQuery in BuildNavigationDiscoveryRetrievalQueries(query).Take(8))
+                AddDistinctQuery(queries, retrievalQuery);
+            foreach (var retrievalQuery in BuildBroadSourceBackedDiscoveryRetrievalQueries(query).Take(14))
+                AddDistinctQuery(queries, retrievalQuery);
+        }
 
         foreach (var subject in subjectTerms)
         {
@@ -6357,6 +9270,144 @@ CURRENT_USER_MESSAGE:
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(18)
             .ToArray();
+    }
+
+    private static IEnumerable<string> BuildStructuredMealPlanningRecipeInventoryRetrievalQueries(string query)
+    {
+        var language = DetectRetrievalExpansionLanguage(query);
+        foreach (var queryVariant in BuildStructuredMealPlanningGenericRecipeInventoryRetrievalQueries(language, query))
+        {
+            yield return queryVariant;
+        }
+
+        foreach (var retrievalQuery in BuildStructuredMealPlanningCandidateDiscoveryRetrievalQueries(query))
+            yield return retrievalQuery;
+    }
+
+    private static IEnumerable<string> BuildStructuredMealPlanningSlotBalancedRetrievalQueries(string query)
+    {
+        var language = DetectRetrievalExpansionLanguage(query);
+        var periodLabels = DetectRequestedPeriodAxisLabels(query, language);
+        var targetSlots = Math.Max(1, ResolveSourceBackedPlanningTargetItemCount(query));
+        var slotKinds = periodLabels.Count == 0
+            ? new[] { StructuredMealPlanningSlotKind.MainMeal }
+            : Enumerable.Range(0, targetSlots)
+                .Select(index => ResolveStructuredMealPlanningSlotKind(periodLabels[index % periodLabels.Count]))
+                .ToArray();
+        var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var slotKind in slotKinds
+                     .GroupBy(static kind => kind)
+                     .OrderByDescending(static group => group.Count())
+                     .ThenBy(static group => ResolveStructuredMealPlanningSlotBalancingPriority(group.Key))
+                     .Select(static group => group.Key))
+        {
+            foreach (var queryVariant in BuildStructuredMealPlanningSlotInventoryRetrievalQueries(slotKind, language))
+            {
+                var normalized = CollapseWhitespace(queryVariant);
+                if (!string.IsNullOrWhiteSpace(normalized) && emitted.Add(normalized))
+                    yield return normalized;
+            }
+        }
+
+        foreach (var queryVariant in BuildStructuredMealPlanningGenericRecipeInventoryRetrievalQueries(language, query))
+        {
+            var normalized = CollapseWhitespace(queryVariant);
+            if (!string.IsNullOrWhiteSpace(normalized) && emitted.Add(normalized))
+                yield return normalized;
+        }
+    }
+
+    private static int ResolveStructuredMealPlanningSlotBalancingPriority(StructuredMealPlanningSlotKind slotKind)
+        => slotKind switch
+        {
+            StructuredMealPlanningSlotKind.MainMeal => 0,
+            StructuredMealPlanningSlotKind.Breakfast => 1,
+            StructuredMealPlanningSlotKind.Snack => 2,
+            _ => 3
+        };
+
+    private static IEnumerable<string> BuildStructuredMealPlanningGenericRecipeInventoryRetrievalQueries(string language, string? query)
+        => BuildStructuredPlanningInventoryTermsForRetrieval(language, query);
+
+    private static IEnumerable<string> BuildStructuredMealPlanningSlotInventoryRetrievalQueries(
+        StructuredMealPlanningSlotKind slotKind,
+        string language)
+    {
+        language = NormalizeLanguageCode(language);
+        var slotTerms = slotKind switch
+        {
+            StructuredMealPlanningSlotKind.Breakfast => language switch
+            {
+                "en" => new[] { "breakfast", "morning", "brunch" },
+                "es" => new[] { "desayuno" },
+                "pt" => new[] { "pequeno almoco", "cafe da manha" },
+                "de" => new[] { "fruehstueck", "morgen", "brunch" },
+                "it" => new[] { "colazione", "brunch" },
+                _ => new[] { "petit-dejeuner", "dejeuners", "brunch" }
+            },
+            StructuredMealPlanningSlotKind.Snack => language switch
+            {
+                "en" => new[] { "snack", "afternoon snack" },
+                "es" => new[] { "merienda" },
+                "pt" => new[] { "lanche" },
+                "de" => new[] { "snack", "zwischenmahlzeit" },
+                "it" => new[] { "merenda", "snack" },
+                _ => new[] { "gouter", "collation", "encas" }
+            },
+            _ => language switch
+            {
+                "en" => new[] { "main dish", "lunch", "dinner", "supper", "complete meal" },
+                "es" => new[] { "platos principales", "almuerzo", "cena", "comida completa" },
+                "pt" => new[] { "pratos principais", "almoco", "jantar", "refeicao completa" },
+                "de" => new[] { "hauptgericht", "mittagessen", "abendessen", "vollstaendige mahlzeit" },
+                "it" => new[] { "piatti principali", "pranzo", "cena", "pasto completo" },
+                _ => new[] { "plats principaux", "diner", "souper", "repas complets" }
+            }
+        };
+
+        var inventoryTerms = BuildStructuredPlanningInventoryTermsForRetrieval(language, string.Join(' ', slotTerms))
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(4)
+            .ToArray();
+
+        foreach (var slotTerm in slotTerms)
+        {
+            yield return slotTerm;
+            foreach (var inventoryTerm in inventoryTerms)
+            {
+                yield return $"{slotTerm} {inventoryTerm}";
+                yield return $"{inventoryTerm} {slotTerm}";
+            }
+        }
+    }
+
+    private static IEnumerable<string> BuildStructuredMealPlanningCandidateDiscoveryRetrievalQueries(string query)
+    {
+        var language = DetectRetrievalExpansionLanguage(query);
+        var periodAxis = DetectRequestedPeriodAxisLabels(query, language);
+        var slotTerms = (periodAxis.Count > 0
+                ? periodAxis.Select(SelectPreferredPlanningSlotRetrievalTerm)
+                : ExtractPlanningSlotRetrievalTerms(query)
+                    .SelectMany(ExpandPlanningSlotRetrievalTermVariants)
+                    .Select(NormalizeLexicalLookup))
+            .Where(static term => term.Length >= 4)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var mealInventoryTerms = BuildStructuredPlanningInventoryTermsForRetrieval(language, query)
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        foreach (var inventory in mealInventoryTerms.Take(4))
+        {
+            foreach (var slot in slotTerms)
+            {
+                yield return $"{slot} {inventory}";
+                yield return $"{inventory} {slot}";
+            }
+        }
     }
 
     private static string[] BuildSourceBackedAnchorDiscoveryRetrievalQueries(string query)
@@ -6450,6 +9501,9 @@ CURRENT_USER_MESSAGE:
         if (LooksLikeUnsafeGeneratedSourceBackedExplorationQuery(value))
             return null;
 
+        if (LooksLikeNoisyGeneratedSourceBackedExplorationQuery(value))
+            return null;
+
         if (Regex.Matches(value, @"[{}<>]").Count > 0)
             return null;
 
@@ -6464,6 +9518,9 @@ CURRENT_USER_MESSAGE:
             return null;
 
         if (LooksLikeUnsafeGeneratedSourceBackedExplorationQuery(value))
+            return null;
+
+        if (LooksLikeNoisyGeneratedSourceBackedExplorationQuery(value))
             return null;
 
         if (Regex.Matches(value, @"[{}<>]").Count > 0)
@@ -6505,6 +9562,34 @@ CURRENT_USER_MESSAGE:
             RegexOptions.CultureInvariant);
     }
 
+    private static bool LooksLikeNoisyGeneratedSourceBackedExplorationQuery(string value)
+    {
+        var raw = CollapseWhitespace(value ?? string.Empty);
+        var normalized = NormalizeLexicalLookup(raw);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return true;
+
+        var tokens = Regex.Matches(normalized, @"[\p{L}\p{N}]{3,}", RegexOptions.CultureInvariant)
+            .Cast<Match>()
+            .Select(static match => match.Value)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (tokens.Length < 8)
+            return false;
+
+        if (Regex.IsMatch(raw, @"\p{L}{3,}-\p{L}{2,}", RegexOptions.CultureInvariant))
+            return true;
+
+        if (Regex.IsMatch(raw, @"[,;]", RegexOptions.CultureInvariant)
+            && tokens.Length >= 10)
+            return true;
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:occasion|decouvrir|discover|autres?|others?|parfois|sometimes|souvent|often|lorsque|when|while|pendant|during|because|donne|gives|permet|allows)\b",
+            RegexOptions.CultureInvariant);
+    }
+
     private static string NormalizeGeneratedSourceBackedExplorationQueryForDedup(string? query)
     {
         var normalized = NormalizeRagQueryForRetrieval(query ?? string.Empty);
@@ -6520,11 +9605,49 @@ CURRENT_USER_MESSAGE:
             ? NormalizeSourceBackedPlanningTopK(null, query ?? string.Empty)
             : Math.Max(12, NormalizeSourceBackedActionTopK(null, query ?? string.Empty));
         return string.Equals(passLabel, "candidate_discovery", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(passLabel, "planning_exploration", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(passLabel, "slot_balancing_inventory", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(passLabel, "candidate_inventory", StringComparison.OrdinalIgnoreCase)
                || string.Equals(passLabel, "anchor_followup", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(passLabel, "anchor_followup_doc_scope", StringComparison.OrdinalIgnoreCase)
                || string.Equals(passLabel, "llm_strategy", StringComparison.OrdinalIgnoreCase)
-            ? Math.Max(baseTopK, 18)
+            ? Math.Max(baseTopK, UsesSourceBackedPlanningCoverage(query) ? 40 : 18)
             : baseTopK;
     }
+
+    private static int ResolveSourceBackedDocumentScopedAnchorFollowupLimit(string? query)
+    {
+        if (UsesSourceBackedPlanningCoverage(query))
+        {
+            var targetSlots = ResolveSourceBackedPlanningTargetItemCount(query);
+            return Math.Clamp(
+                (int)Math.Ceiling(targetSlots / 6d),
+                2,
+                3);
+        }
+
+        return ShouldUseBroadSourceBackedDiscoveryQueries(query)
+            ? BroadSourceBackedDocumentScopedAnchorFollowupLimit
+            : DefaultSourceBackedDocumentScopedAnchorFollowupLimit;
+    }
+
+    private static int ResolveSourceBackedAnchorFollowupRoundLimit(string? query)
+    {
+        if (!UsesSourceBackedPlanningCoverage(query))
+            return MaxSourceBackedAnchorFollowupRounds;
+
+        var targetSlots = ResolveSourceBackedPlanningTargetItemCount(query);
+        return Math.Clamp(
+            (int)Math.Ceiling(targetSlots / 3d) + 1,
+            3,
+            MaxSourceBackedAnchorFollowupRounds);
+    }
+
+    private static int ResolveSourceBackedDocumentScopedExplorationMaxPerPage(string? query, string passLabel)
+        => string.Equals(passLabel, "anchor_followup_doc_scope", StringComparison.OrdinalIgnoreCase)
+           && UsesSourceBackedPlanningCoverage(query)
+            ? 4
+            : 2;
 
     private static IReadOnlyList<string> BuildNavigationDiscoveryRetrievalQueries(string? query)
     {
@@ -6542,7 +9665,7 @@ CURRENT_USER_MESSAGE:
         if (string.IsNullOrWhiteSpace(normalized))
             normalized = NormalizeLexicalLookup(query);
 
-        var navTerms = DetectRetrievalExpansionLanguage(query) switch
+        var primaryNavTerms = DetectRetrievalExpansionLanguage(query) switch
         {
             "en" => new[] { "table of contents", "contents", "index", "overview" },
             "es" => new[] { "indice", "contenido", "tabla de contenido", "resumen" },
@@ -6551,6 +9674,9 @@ CURRENT_USER_MESSAGE:
             "it" => new[] { "indice", "contenuto", "sommario", "panoramica" },
             _ => new[] { "sommaire", "table des matieres", "index", "sections principales" }
         };
+        var secondaryNavTerms = BuildCrossLanguageNavigationDiscoveryTerms(primaryNavTerms)
+            .Take(12)
+            .ToArray();
 
         var signals = ExtractQuerySignalTerms(normalized)
             .Concat(ExtractPlanningRetrievalTerms(normalized))
@@ -6563,24 +9689,70 @@ CURRENT_USER_MESSAGE:
             .ToArray();
 
         var queries = new List<string>();
+        foreach (var navTerm in primaryNavTerms)
+            AddDistinctQuery(queries, navTerm);
+
+        foreach (var navTerm in secondaryNavTerms.Take(8))
+            AddDistinctQuery(queries, navTerm);
+
         foreach (var signal in signals)
         {
-            foreach (var navTerm in navTerms.Take(3))
+            foreach (var navTerm in primaryNavTerms.Take(3))
             {
                 AddDistinctQuery(queries, $"{signal} {navTerm}");
                 AddDistinctQuery(queries, $"{navTerm} {signal}");
             }
         }
 
-        foreach (var navTerm in navTerms)
-            AddDistinctQuery(queries, navTerm);
+        foreach (var signal in signals.Take(3))
+        {
+            foreach (var navTerm in secondaryNavTerms.Take(4))
+            {
+                AddDistinctQuery(queries, $"{signal} {navTerm}");
+                AddDistinctQuery(queries, $"{navTerm} {signal}");
+            }
+        }
 
         return queries
             .Where(static value => !string.IsNullOrWhiteSpace(value))
             .Select(CollapseWhitespace)
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(16)
+            .Take(20)
             .ToArray();
+    }
+
+    private static IEnumerable<string> BuildCrossLanguageNavigationDiscoveryTerms(IEnumerable<string> primaryTerms)
+    {
+        var emitted = primaryTerms
+            .Select(NormalizeLexicalLookup)
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var terms = new[]
+        {
+            "sommaire",
+            "table des matieres",
+            "contents",
+            "table of contents",
+            "index",
+            "sections",
+            "sections principales",
+            "indice",
+            "tabla de contenido",
+            "conteudo",
+            "sumario",
+            "inhaltsverzeichnis",
+            "uebersicht",
+            "sommario",
+            "panoramica"
+        };
+
+        foreach (var term in terms)
+        {
+            var key = NormalizeLexicalLookup(term);
+            if (!string.IsNullOrWhiteSpace(key) && emitted.Add(key))
+                yield return term;
+        }
     }
 
     private static IReadOnlyList<string> BuildBroadSourceBackedDiscoveryRetrievalQueries(string? query)
@@ -6661,7 +9833,8 @@ CURRENT_USER_MESSAGE:
            || IsBroadenedSourceSearchConfirmationEnvelope(query);
 
     private static IReadOnlyList<string> BuildBroadDiscoveryStructureTerms(string? query)
-        => DetectRetrievalExpansionLanguage(query) switch
+    {
+        var primary = DetectRetrievalExpansionLanguage(query) switch
         {
             "en" => new[] { "title", "titles", "sections", "summary", "topics", "keywords", "table of contents", "index" },
             "es" => new[] { "titulo", "titulos", "secciones", "resumen", "temas", "palabras clave", "indice" },
@@ -6670,6 +9843,28 @@ CURRENT_USER_MESSAGE:
             "it" => new[] { "titolo", "titoli", "sezioni", "riassunto", "argomenti", "parole chiave", "indice", "sommario" },
             _ => new[] { "titre", "titres", "sections", "resume", "sujets", "mots cles", "sommaire", "index" }
         };
+        return primary
+            .Concat(new[]
+            {
+                "titre",
+                "title",
+                "titulo",
+                "titolo",
+                "sections",
+                "summary",
+                "resume",
+                "resumen",
+                "sumario",
+                "sommaire",
+                "table of contents",
+                "indice",
+                "inhaltsverzeichnis",
+                "sommario"
+            })
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
 
     private static bool IsNavigationDiscoveryNoiseTerm(string term)
     {
@@ -6682,12 +9877,12 @@ CURRENT_USER_MESSAGE:
     private static IReadOnlyList<string> BuildPlanningExpansionSuffixes(string? query)
         => DetectRetrievalExpansionLanguage(query) switch
         {
-            "en" => new[] { "options", "examples", "suggestions", "ideas", "sources" },
-            "es" => new[] { "opciones", "ejemplos", "sugerencias", "ideas", "fuentes" },
-            "pt" => new[] { "opcoes", "exemplos", "sugestoes", "ideias", "fontes" },
-            "de" => new[] { "optionen", "beispiele", "vorschlaege", "ideen", "quellen" },
-            "it" => new[] { "opzioni", "esempi", "suggerimenti", "idee", "fonti" },
-            _ => new[] { "options", "exemples", "suggestions", "idees", "sources" }
+            "en" => new[] { "options", "examples", "suggestions", "ideas" },
+            "es" => new[] { "opciones", "ejemplos", "sugerencias", "ideas" },
+            "pt" => new[] { "opcoes", "exemplos", "sugestoes", "ideias" },
+            "de" => new[] { "optionen", "beispiele", "vorschlaege", "ideen" },
+            "it" => new[] { "opzioni", "esempi", "suggerimenti", "idee" },
+            _ => new[] { "options", "exemples", "suggestions", "idees" }
         };
 
     private static IReadOnlyList<string> BuildCandidateExpansionSuffixes(string? query)
@@ -6711,6 +9906,14 @@ CURRENT_USER_MESSAGE:
             "it" => new[] { "opzioni", "esempi", "idee", "candidati", "passi" },
             _ => new[] { "options", "exemples", "idees", "candidats", "etapes" }
         };
+
+    private static IEnumerable<string> BuildPlanningExplorationSupportTermsForRetrieval(string? query)
+    {
+        var terms = BuildPlanningExplorationSupportTerms(query);
+        return ShouldGateStructuredSourceBackedPlanningCoverage(query)
+            ? terms.Where(static term => !LooksLikeDecorativeStructuredAxisPlannerQuery(NormalizeLexicalLookup(term)))
+            : terms;
+    }
 
     private static IEnumerable<string> ExtractPlanningConstraintRetrievalTerms(string normalizedQuery)
     {
@@ -7367,47 +10570,134 @@ CURRENT_USER_MESSAGE:
     }
 
     private static string BuildSourceBackedPlanningAnswer(ToolResults toolResults, string language, int minItems = 1, string? query = null)
+        => BuildSourceBackedPlanningDraft(toolResults, language, minItems, query).Answer;
+
+    private static bool ShouldAllowSourceBackedWriterRepairForCurrentTurn(string? query)
+        => !LooksLikeStrictCertificationOrExactProofRequest(query);
+
+    private static SourceBackedPlanningDraft BuildSourceBackedPlanningDraft(
+        ToolResults toolResults,
+        string language,
+        int minItems = 1,
+        string? query = null,
+        bool allowPartialStructuredPlanningDraft = false)
     {
         language = NormalizeLanguageCode(language);
         var targetItemCount = ResolveSourceBackedPlanningTargetItemCount(query);
         var wantsWeeklyPlan = LooksLikeWeeklyPlanningRequest(query);
         var wantsVerificationChecklist = LooksLikeSourceBackedVerificationChecklistRequest(query);
-        var planItems = SelectSourceBackedPlanningCandidates(toolResults, query, targetItemCount, language)
-            .ToList();
-
-        if (planItems.Count == 0 || planItems.Count < minItems)
-            return string.Empty;
-
         var requestedDayLabels = DetectRequestedDayAxisLabels(query, language);
         var requestedPeriodLabels = DetectRequestedPeriodAxisLabels(query, language);
-        if (!wantsVerificationChecklist && requestedDayLabels.Count > 0 && requestedPeriodLabels.Count > 0)
+        var hasStructuredPlanningAxes = !wantsVerificationChecklist
+            && requestedDayLabels.Count > 0
+            && requestedPeriodLabels.Count > 0;
+        var requiresStrictStructuredEvidence = ShouldGateStructuredSourceBackedPlanningCoverage(query);
+        var requestedCandidateCount = Math.Max(targetItemCount, minItems);
+        var candidatePoolSize = ResolveSourceBackedPlanningCandidatePoolSize(query, requestedCandidateCount);
+        ClientLog.Info(
+            $"ToolAgent planning draft build: stage=candidate_pool.start|targetItems={targetItemCount}|requestedCandidates={requestedCandidateCount}|poolSize={candidatePoolSize}|strict={requiresStrictStructuredEvidence}|structuredAxes={hasStructuredPlanningAxes}");
+        var draftStopwatch = Stopwatch.StartNew();
+        var candidatePool = SelectSourceBackedPlanningCandidates(
+                toolResults,
+                query,
+                candidatePoolSize,
+                language,
+                requireStrictStructuredEvidence: requiresStrictStructuredEvidence)
+            .ToList();
+        ClientLog.Info(
+            $"ToolAgent planning draft build: stage=candidate_pool.end|candidates={candidatePool.Count}|ms={draftStopwatch.ElapsedMilliseconds}|topTitles={string.Join("; ", candidatePool.Take(10).Select(static candidate => candidate.Title))}");
+        var itemSelectionStopwatch = Stopwatch.StartNew();
+        var planItems = (requiresStrictStructuredEvidence
+                ? SelectPageDiverseSourceBackedPlanningCandidates(candidatePool, targetItemCount, query)
+                : RankDistinctSourceBackedPlanningLeadCandidates(candidatePool, query).Take(targetItemCount))
+            .ToList();
+        ClientLog.Info(
+            $"ToolAgent planning draft build: stage=item_selection.end|selected={planItems.Count}|mode={(requiresStrictStructuredEvidence ? "page_diverse" : "ranked")}|ms={itemSelectionStopwatch.ElapsedMilliseconds}|titles={string.Join("; ", planItems.Take(20).Select(static candidate => candidate.Title))}");
+
+        if (requiresStrictStructuredEvidence && hasStructuredPlanningAxes && ShouldApplyMealPlanningSlotSemantics(query))
         {
-            return BuildStructuredSourceBackedPlanAnswer(
+            var requestedSlots = requestedDayLabels.Count * requestedPeriodLabels.Count;
+            var slotSelectionStopwatch = Stopwatch.StartNew();
+            planItems = SelectStructuredMealPlanningCandidatesForSlots(
+                    candidatePool,
+                    requestedPeriodLabels,
+                    requestedSlots,
+                    query)
+                .ToList();
+            ClientLog.Info(
+                $"ToolAgent planning draft build: stage=slot_selection.end|requiredSlots={requestedSlots}|selected={planItems.Count}|periods={string.Join(",", requestedPeriodLabels)}|ms={slotSelectionStopwatch.ElapsedMilliseconds}|titles={string.Join("; ", planItems.Take(20).Select(static candidate => candidate.Title))}");
+        }
+
+        if (planItems.Count == 0 || (!allowPartialStructuredPlanningDraft && planItems.Count < minItems))
+            return SourceBackedPlanningDraft.Empty;
+
+        if (requiresStrictStructuredEvidence && !hasStructuredPlanningAxes)
+        {
+            var requiredDistinctItems = ResolveMinimumSourceBackedPlanningCandidateCount(
+                query,
+                targetItemCount,
+                hasStructuredAxes: false);
+            if (!HasEnoughSourceBackedCandidatesForStructuredPlan(planItems, requiredDistinctItems))
+            {
+                if (!allowPartialStructuredPlanningDraft)
+                    return SourceBackedPlanningDraft.Empty;
+
+                var partialItems = planItems
+                    .Take(Math.Min(planItems.Count, Math.Clamp(requiredDistinctItems, 1, targetItemCount)))
+                    .ToArray();
+                var partialAnswer = BuildStructuredSourceBackedCandidateBankAnswer(partialItems, requiredDistinctItems, language, query);
+                return CreateSourceBackedPlanningDraft(partialAnswer, partialItems, query);
+            }
+        }
+
+        if (hasStructuredPlanningAxes)
+        {
+            var requiredSlots = requestedDayLabels.Count * requestedPeriodLabels.Count;
+            var requiredDistinctItems = ResolveMinimumSourceBackedPlanningCandidateCount(
+                query,
+                requiredSlots,
+                hasStructuredAxes: true);
+            if (!HasEnoughSourceBackedCandidatesForStructuredPlan(planItems, requiredDistinctItems))
+            {
+                if (!allowPartialStructuredPlanningDraft)
+                    return SourceBackedPlanningDraft.Empty;
+
+                var partialItems = planItems
+                    .Take(Math.Min(planItems.Count, Math.Clamp(requiredSlots, 8, 24)))
+                    .ToArray();
+                var partialAnswer = BuildStructuredSourceBackedCandidateBankAnswer(partialItems, requiredSlots, language, query);
+                return CreateSourceBackedPlanningDraft(partialAnswer, partialItems, query);
+            }
+
+            var usedItems = planItems.Take(requiredSlots).ToArray();
+            var structuredAnswer = BuildStructuredSourceBackedPlanAnswer(
                 planItems,
                 requestedDayLabels,
                 requestedPeriodLabels,
                 language,
-                query);
+                query,
+                requiredDistinctItems);
+            return CreateSourceBackedPlanningDraft(structuredAnswer, usedItems, query);
         }
 
         var header = wantsVerificationChecklist
             ? language switch
         {
-            "en" => "Here are the source-backed checks to perform. I only list points supported by retrieved excerpts:",
-            "es" => "Estas son las verificaciones respaldadas por fuente. Solo incluyo puntos sustentados por extractos recuperados:",
-            "pt" => "Aqui estao as verificacoes com fonte. Incluo apenas pontos sustentados por excertos recuperados:",
-            "de" => "Hier sind die quellenbasierten Pruefpunkte. Ich nenne nur Punkte aus den gefundenen Auszuegen:",
-            "it" => "Ecco i controlli supportati da fonti. Includo solo punti sostenuti dagli estratti recuperati:",
-            _ => "Voici les vérifications appuyées sur les documents disponibles. Je liste uniquement des points soutenus par les extraits retrouvés :"
+            "en" => "Here are the checks I can support with the available documents:",
+            "es" => "Estas son las verificaciones que puedo apoyar con los documentos disponibles:",
+            "pt" => "Estas são as verificações que posso apoiar com os documentos disponíveis:",
+            "de" => "Hier sind die Prüfpunkte, die ich mit den verfügbaren Dokumenten belegen kann:",
+            "it" => "Ecco i controlli che posso sostenere con i documenti disponibili:",
+            _ => "Voici les vérifications que je peux appuyer avec les documents disponibles :"
         }
             : language switch
         {
-            "en" => "Here is a source-backed plan from the available documents. I only list items found in the excerpts:",
-            "es" => "Aqui tienes una propuesta basada en los documentos disponibles. Solo incluyo elementos encontrados en los extractos:",
-            "pt" => "Aqui esta uma proposta baseada nos documentos disponiveis. Incluo apenas itens encontrados nos excertos:",
-            "de" => "Hier ist ein quellenbasierter Plan aus den verfuegbaren Dokumenten. Ich nenne nur Elemente aus den Auszuegen:",
-            "it" => "Ecco una proposta basata sui documenti disponibili. Includo solo elementi trovati negli estratti:",
-            _ => "Voici une proposition appuyée sur les documents disponibles. Je liste uniquement des éléments retrouvés dans les extraits :"
+            "en" => "Here is a practical proposal based on the available documents:",
+            "es" => "Aquí tienes una propuesta práctica basada en los documentos disponibles:",
+            "pt" => "Aqui está uma proposta prática baseada nos documentos disponíveis:",
+            "de" => "Hier ist ein praktischer Vorschlag auf Basis der verfügbaren Dokumente:",
+            "it" => "Ecco una proposta pratica basata sui documenti disponibili:",
+            _ => "Voici une proposition pratique appuyée sur les documents disponibles :"
         };
 
         var sb = new StringBuilder();
@@ -7416,12 +10706,12 @@ CURRENT_USER_MESSAGE:
         {
             var coverageNote = language switch
             {
-                "en" => "The available sources do not cover the whole requested plan yet. I keep only the usable sourced items, without inventing the missing places.",
-                "es" => "Las fuentes disponibles aun no cubren todo el plan solicitado. Mantengo solo los elementos utilizables con fuente, sin inventar los huecos que faltan.",
-                "pt" => "As fontes disponiveis ainda nao cobrem todo o plano pedido. Mantenho apenas os itens utilizaveis com fonte, sem inventar os espacos em falta.",
-                "de" => "Die verfuegbaren Quellen decken den angefragten Plan noch nicht vollstaendig ab. Ich nutze nur die belegten nutzbaren Elemente, ohne fehlende Plaetze zu erfinden.",
-                "it" => "Le fonti disponibili non coprono ancora tutto il piano richiesto. Mantengo solo gli elementi utilizzabili con fonte, senza inventare gli spazi mancanti.",
-                _ => "Les sources disponibles ne couvrent pas encore tout le planning demandé. Je garde uniquement les éléments réellement trouvés, sans inventer les créneaux manquants."
+                "en" => "The documents do not cover every requested slot yet. I keep this as a reliable starting point and leave the missing parts to complete with better sources.",
+                "es" => "Los documentos aún no cubren todos los huecos solicitados. Mantengo esto como un punto de partida fiable y dejo las partes que faltan para completarlas con mejores fuentes.",
+                "pt" => "Os documentos ainda não cobrem todos os espaços pedidos. Mantenho isto como um ponto de partida fiável e deixo as partes em falta para completar com melhores fontes.",
+                "de" => "Die Dokumente decken noch nicht alle angefragten Plätze ab. Ich behandle dies als verlässlichen Ausgangspunkt und lasse fehlende Teile für bessere Quellen offen.",
+                "it" => "I documenti non coprono ancora tutti gli spazi richiesti. Mantengo questa proposta come punto di partenza affidabile e lascio le parti mancanti da completare con fonti migliori.",
+                _ => "Les documents ne couvrent pas encore tous les créneaux demandés. Je garde donc cette proposition comme point de départ fiable, à compléter avec de meilleures sources."
             };
             sb.AppendLine(coverageNote);
         }
@@ -7433,9 +10723,9 @@ CURRENT_USER_MESSAGE:
                 ? language switch
             {
                 "en" => $"Check {i + 1}",
-                "es" => $"Verificacion {i + 1}",
-                "pt" => $"Verificacao {i + 1}",
-                "de" => $"Pruefpunkt {i + 1}",
+                "es" => $"Verificación {i + 1}",
+                "pt" => $"Verificação {i + 1}",
+                "de" => $"Prüfpunkt {i + 1}",
                 "it" => $"Controllo {i + 1}",
                 _ => $"Vérification {i + 1}"
             }
@@ -7451,8 +10741,8 @@ CURRENT_USER_MESSAGE:
             }
                 : language switch
             {
-                "es" => $"Opcion {i + 1}",
-                "pt" => $"Opcao {i + 1}",
+                "es" => $"Opción {i + 1}",
+                "pt" => $"Opção {i + 1}",
                 "it" => $"Opzione {i + 1}",
                 _ => $"Option {i + 1}"
             };
@@ -7461,13 +10751,9 @@ CURRENT_USER_MESSAGE:
             sb.Append("- ");
             sb.Append(label);
             sb.Append(" : ");
-            sb.Append(planItems[i].Title);
-            sb.Append(" (");
-            sb.Append(string.IsNullOrWhiteSpace(hit.DocName) ? hit.DocPath : hit.DocName);
+            sb.Append(FormatSourceBackedCandidateDisplayTitle(planItems[i]));
             sb.Append(' ');
-            sb.Append(SourceBackedPagePrefix(language));
-            sb.Append(hit.PageStart);
-            sb.Append(")");
+            sb.Append(FormatSourceBackedCandidateOpenToken(planItems[i], language));
             sb.AppendLine();
         }
 
@@ -7476,8 +10762,8 @@ CURRENT_USER_MESSAGE:
         {
             "en" => "Note: treat this as a source-backed checklist, then validate exceptions, approvals and legal/compliance impact with the responsible humans before acting.",
             "es" => "Nota: tratalo como una lista de control con fuente y valida excepciones, aprobaciones e impacto legal/conformidad con las personas responsables antes de actuar.",
-            "pt" => "Nota: trata isto como uma checklist com fonte e valida excecoes, aprovacoes e impacto legal/conformidade com as pessoas responsaveis antes de agir.",
-            "de" => "Hinweis: Nutze dies als quellenbasierte Checkliste und pruefe Ausnahmen, Freigaben sowie rechtliche/Compliance-Auswirkungen mit den Verantwortlichen vor Umsetzung.",
+            "pt" => "Nota: trata isto como uma checklist com fonte e valida exceções, aprovações e impacto legal/conformidade com as pessoas responsáveis antes de agir.",
+            "de" => "Hinweis: Nutze dies als quellenbasierte Checkliste und prüfe Ausnahmen, Freigaben sowie rechtliche/Compliance-Auswirkungen mit den Verantwortlichen vor Umsetzung.",
             "it" => "Nota: trattala come checklist con fonte e valida eccezioni, approvazioni e impatti legali/compliance con i responsabili prima di agire.",
             _ => "Note : traite ceci comme une checklist sourcée, puis valide les exceptions, approbations et impacts juridiques/conformité avec les responsables avant d'agir."
         }
@@ -7485,17 +10771,1534 @@ CURRENT_USER_MESSAGE:
         {
             "en" => "Note: adapt quantities, timing, and constraints from the source pages before acting.",
             "es" => "Nota: adapta cantidades, tiempos y restricciones a partir de las paginas fuente antes de actuar.",
-            "pt" => "Nota: adapta quantidades, tempos e restricoes a partir das paginas fonte antes de agir.",
-            "de" => "Hinweis: Mengen, Zeiten und Einschraenkungen vor der Umsetzung anhand der Quellseiten anpassen.",
-            "it" => "Nota: adatta quantita, tempi e vincoli dalle pagine fonte prima di agire.",
+            "pt" => "Nota: adapta quantidades, tempos e restrições a partir das páginas fonte antes de agir.",
+            "de" => "Hinweis: Mengen, Zeiten und Einschränkungen vor der Umsetzung anhand der Quellseiten anpassen.",
+            "it" => "Nota: adatta quantità, tempi e vincoli dalle pagine fonte prima di agire.",
             _ => "Note : adapte les quantités, délais et contraintes à partir des pages source avant d'agir."
         };
         sb.AppendLine(note);
 
         var answer = sb.ToString().TrimEnd();
-        return wantsWeeklyPlan && planItems.Count < targetItemCount
+        var finalAnswer = wantsWeeklyPlan && planItems.Count < targetItemCount
             ? AppendBroadenedSearchOfferIfHelpful(answer, query, language)
             : answer;
+        return CreateSourceBackedPlanningDraft(finalAnswer, planItems, query);
+    }
+
+    private static SourceBackedPlanningDraft CreateSourceBackedPlanningDraft(
+        string? answer,
+        IReadOnlyList<SourceBackedOptionCandidate> usedItems,
+        string? query)
+    {
+        if (string.IsNullOrWhiteSpace(answer) || usedItems.Count == 0)
+            return SourceBackedPlanningDraft.Empty;
+
+        var sources = BuildPlanningSourcesFromCandidates(usedItems, query);
+        return sources.Count == 0
+            ? SourceBackedPlanningDraft.Empty
+            : new SourceBackedPlanningDraft(answer.TrimEnd(), usedItems.ToArray(), sources);
+    }
+
+    private static int ResolveSourceBackedPlanningCandidatePoolSize(string? query, int requestedCandidateCount)
+    {
+        var maxPoolSize = ShouldApplyMealPlanningSlotSemantics(query) ? 96 : 64;
+        requestedCandidateCount = Math.Clamp(requestedCandidateCount, 1, maxPoolSize);
+        if (!ShouldGateStructuredSourceBackedPlanningCoverage(query))
+            return requestedCandidateCount;
+
+        var multiplier = ShouldPreferMainDishPlanningCandidates(query) ? 4 : 2;
+        return Math.Clamp(requestedCandidateCount * multiplier, requestedCandidateCount, maxPoolSize);
+    }
+
+    private static IReadOnlyList<SourceBackedOptionCandidate> RankDistinctSourceBackedPlanningLeadCandidates(
+        IEnumerable<SourceBackedOptionCandidate> candidates,
+        string? query)
+        => candidates
+            .GroupBy(BuildSourceBackedPlanningCandidateLeadKey, StringComparer.OrdinalIgnoreCase)
+            .Select(group => SelectBestSourceBackedPlanningDuplicate(group, query))
+            .OrderByDescending(candidate => ComputeSourceBackedPlanningCandidateRankScore(candidate, query))
+            .ThenByDescending(static candidate => candidate.Score)
+            .ThenByDescending(static candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit))
+            .ThenByDescending(static candidate => candidate.Hit.Score)
+            .ToArray();
+
+    private static SourceBackedOptionCandidate SelectBestSourceBackedPlanningDuplicate(
+        IEnumerable<SourceBackedOptionCandidate> candidates,
+        string? query)
+        => candidates
+            .OrderByDescending(candidate => ComputeStructuredMealPlanningRoutePreservationScore(candidate, query))
+            .ThenByDescending(candidate => ComputeSourceBackedPlanningCandidateRankScore(candidate, query))
+            .ThenByDescending(static candidate => candidate.Score)
+            .ThenByDescending(static candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit))
+            .ThenByDescending(static candidate => candidate.Hit.Score)
+            .First();
+
+    private static SourceBackedOptionCandidate SelectBestSourceBackedOptionDuplicate(
+        IEnumerable<SourceBackedOptionCandidate> candidates,
+        string? query)
+    {
+        if (ShouldApplyMealPlanningSlotSemantics(query))
+            return SelectBestSourceBackedPlanningDuplicate(candidates, query);
+
+        return candidates
+            .OrderByDescending(static candidate => candidate.Score)
+            .ThenByDescending(static candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit))
+            .ThenByDescending(static candidate => candidate.Hit.Score)
+            .First();
+    }
+
+    private static IReadOnlyList<SourceBackedOptionCandidate> SelectPageDiverseSourceBackedPlanningCandidates(
+        IEnumerable<SourceBackedOptionCandidate> candidates,
+        int maxItems,
+        string? query)
+    {
+        maxItems = Math.Clamp(maxItems, 0, 64);
+        if (maxItems == 0)
+            return Array.Empty<SourceBackedOptionCandidate>();
+
+        var ranked = RankDistinctSourceBackedPlanningLeadCandidates(candidates, query);
+        if (!ShouldGateStructuredSourceBackedPlanningCoverage(query))
+            return ranked.Take(maxItems).ToArray();
+
+        var selected = new List<SourceBackedOptionCandidate>(maxItems);
+        var selectedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var selectedPages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var candidate in ranked)
+        {
+            var pageKey = BuildRagHitVisiblePageMergeKey(candidate.Hit);
+            if (string.IsNullOrWhiteSpace(pageKey) || !selectedPages.Add(pageKey))
+                continue;
+
+            selected.Add(candidate);
+            selectedKeys.Add(BuildSourceBackedPlanningCandidateKey(candidate));
+            if (selected.Count >= maxItems)
+                return selected;
+        }
+
+        foreach (var candidate in ranked)
+        {
+            if (!selectedKeys.Add(BuildSourceBackedPlanningCandidateKey(candidate)))
+                continue;
+
+            selected.Add(candidate);
+            if (selected.Count >= maxItems)
+                break;
+        }
+
+        return selected;
+    }
+
+    private static int ComputeSourceBackedPlanningCandidateRankScore(
+        SourceBackedOptionCandidate candidate,
+        string? query)
+    {
+        var score = candidate.Score;
+        if (!ShouldPreferMainDishPlanningCandidates(query))
+            return score;
+
+        score += ComputeSourceBackedPlanningCandidateReadabilityScore(candidate);
+
+        if (LooksLikeSweetOrDessertPlanningCandidate(candidate))
+            score -= 90;
+        if (LooksLikeMainDishPlanningCandidate(candidate))
+            score += 24;
+
+        if (ShouldApplyMealPlanningSlotSemantics(query))
+        {
+            if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal)
+                && LooksRouteCompatibleMainMealPlanningCandidate(candidate))
+            {
+                score += 70;
+            }
+            else if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Breakfast)
+                     && !LooksLikeHeavyMainMealPlanningCandidate(candidate))
+            {
+                score += 48;
+            }
+            else if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack)
+                     && !LooksLikeHeavyMainMealPlanningCandidate(candidate)
+                     && !LooksLikeMainDishPlanningCandidate(candidate)
+                     && !LooksLikeStandaloneSpreadOrDipPlanningCandidate(candidate))
+            {
+                score += 48;
+            }
+        }
+
+        return score;
+    }
+
+    private static int ComputeStructuredMealPlanningRoutePreservationScore(
+        SourceBackedOptionCandidate candidate,
+        string? query)
+    {
+        if (!ShouldApplyMealPlanningSlotSemantics(query))
+            return 0;
+
+        var score = 0;
+        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))
+        {
+            score += 80;
+            if (LooksLikeSnackFriendlyPlanningCandidate(candidate)
+                && !LooksLikeHeavyMainMealPlanningCandidate(candidate)
+                && !LooksLikeStandaloneSpreadOrDipPlanningCandidate(candidate))
+            {
+                score += 90;
+            }
+        }
+        else if (LooksLikeStandaloneLightSnackPlanningCandidate(candidate))
+        {
+            score += 45;
+        }
+
+        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Breakfast))
+        {
+            score += 70;
+            if (LooksLikeBreakfastFriendlyPlanningCandidate(candidate)
+                && !LooksLikeHeavyMainMealPlanningCandidate(candidate))
+            {
+                score += 70;
+            }
+        }
+
+        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal))
+        {
+            score += 60;
+            if (LooksRouteCompatibleMainMealPlanningCandidate(candidate))
+                score += 60;
+        }
+
+        return score;
+    }
+
+    private static int ComputeSourceBackedPlanningCandidateReadabilityScore(SourceBackedOptionCandidate candidate)
+    {
+        var score = 0;
+        if (LooksLikeTrailingIsolatedOcrSuffixTitle(candidate.Title))
+            score -= 70;
+
+        var displayTitle = FormatSourceBackedCandidateDisplayTitle(candidate);
+        if (!string.IsNullOrWhiteSpace(displayTitle)
+            && !string.Equals(CollapseWhitespace(candidate.Title), displayTitle, StringComparison.Ordinal))
+        {
+            score += 4;
+        }
+
+        return score;
+    }
+
+    private static bool ShouldPreferMainDishPlanningCandidates(string? query)
+    {
+        var normalizedQuery = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalizedQuery))
+            return false;
+
+        if (QueryExplicitlyRequestsSweetPlanningCandidate(normalizedQuery))
+            return false;
+
+        return LooksLikeWeeklyPlanningRequest(query)
+            || Regex.IsMatch(
+                normalizedQuery,
+                @"\b(?:repas|meal|meals|menu|menus|dejeuner|diner|lunch|dinner|souper|semaine|week)\b",
+                RegexOptions.CultureInvariant);
+    }
+
+    private static bool QueryExplicitlyRequestsSweetPlanningCandidate(string normalizedQuery)
+        => Regex.IsMatch(
+            normalizedQuery,
+            @"\b(?:desserts?|sweet|sweets|sucre|sucr[eé]s?|patisseries?|p[aâ]tisseries?|g[aâ]teaux?|cakes?|postres?|sobremesas?)\b",
+            RegexOptions.CultureInvariant);
+
+    private static bool ShouldRejectSweetPlanningCandidateForMealSlot(
+        SourceBackedOptionCandidate candidate,
+        string? query)
+        => ShouldApplyVagueMainMealDessertGuard(query)
+           && LooksLikeSweetOrDessertPlanningCandidate(candidate)
+           && !LooksLikeMainDishPlanningCandidate(candidate);
+
+    private static bool ShouldApplyVagueMainMealDessertGuard(string? query)
+    {
+        if (!ShouldPreferMainDishPlanningCandidates(query))
+            return false;
+
+        var language = DetectRetrievalExpansionLanguage(query);
+        var hasStructuredAxes = DetectRequestedDayAxisLabels(query, language).Count > 0
+            && DetectRequestedPeriodAxisLabels(query, language).Count > 0;
+        if (hasStructuredAxes)
+            return false;
+
+        var normalizedQuery = NormalizeLexicalLookup(query);
+        if (Regex.IsMatch(
+                normalizedQuery,
+                @"\b(?:petit[-\s]+dejeune(?:r)?|breakfast|gouter|go[uû]ter|collation|snack|encas)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static string BuildStructuredMealPlanningSemanticText(SourceBackedOptionCandidate candidate)
+        => NormalizeLexicalLookup(string.Join(
+            ' ',
+            new[]
+            {
+                candidate.Title,
+                candidate.Hit.RetrievalQuery,
+                candidate.Hit.SectionTitle,
+                candidate.Hit.HeadingPath,
+                candidate.Hit.ContextualSnippet,
+                candidate.Hit.Excerpt
+            }.Where(static value => !string.IsNullOrWhiteSpace(value))));
+
+    private static bool LooksLikeSweetOrDessertPlanningCandidate(SourceBackedOptionCandidate candidate)
+    {
+        var text = BuildStructuredMealPlanningSemanticText(candidate);
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        if (Regex.IsMatch(
+                text,
+                @"\b(?:desserts?|sweet|sweets|sucre|sucr[eé]s?|patisseries?|p[aâ]tisseries?|g[aâ]teaux?|cakes?|tiramisu|millefeuille|profiteroles?|meringue|brownies?|pouding|pudding|cr[eè]me\s+brulee|creme\s+brulee|cr[eè]me\s+catalane|creme\s+catalane|crema\s+catalana)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        var hasSweetIngredientCue = Regex.IsMatch(
+            text,
+            @"\b(?:sucre|miel|sirop|chocolat|cacao|caramel|vanille|mascarpone|creme|cr[eè]me|framboises?|fraises?|mangues?|pommes?|poires?|bleuets?|canneberges?|cannelle)\b",
+            RegexOptions.CultureInvariant);
+        if (!hasSweetIngredientCue)
+            return false;
+
+        return Regex.IsMatch(
+            text,
+            @"\b(?:tartes?|tartelettes?|beignets?|muffins?|scones?|compotes?|biscuits?|cookies?|smoothies?|riz\s+gluant|lait\s+de\s+coco)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeMainDishPlanningCandidate(SourceBackedOptionCandidate candidate)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal)
+            && !LooksLikeSweetOrDessertPlanningCandidate(candidate))
+        {
+            return true;
+        }
+
+        if (TitleContainsStructuredMealPlanningRoleCue(
+                normalizedTitle,
+                StructuredMealPlanningSlotKind.MainMeal))
+        {
+            return true;
+        }
+
+        return !LooksLikeSweetOrDessertPlanningCandidate(candidate)
+            && !LooksLikeBreakfastFriendlyPlanningCandidate(candidate)
+            && !LooksLikeSnackFriendlyPlanningCandidate(candidate)
+            && !LooksLikeGenericMealPlanningInventoryTitle(candidate.Title, query: "repas")
+            && !LooksLikeResidualMealPlanningInventoryFragment(candidate)
+            && !LooksLikeNoisyStructuredPlanningCandidateTitle(candidate.Title)
+            && !LooksLikeAudienceOrCollectionMealPlanningTitle(candidate.Title)
+            && HasDirectSourceBackedPlanningCandidateEvidence(candidate);
+    }
+
+    private static bool LooksLikeBreakfastFriendlyPlanningCandidate(SourceBackedOptionCandidate candidate)
+    {
+        var text = BuildStructuredMealPlanningSemanticText(candidate);
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var hasBreakfastCue = TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Breakfast)
+            || Regex.IsMatch(
+                text,
+                @"\b(?:brunch|gruau|avoine|porridge|granola|c[eé]r[eé]ales?|cereals?|pancakes?|cr[eê]pes?|crepes?|gaufres?|waffles?|smoothies?|scones?|muffins?|compotes?|yogourts?|yaourts?|yogurts?)\b",
+                RegexOptions.CultureInvariant);
+        if (hasBreakfastCue)
+            return true;
+
+        return RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Breakfast)
+            && !LooksLikeClearlyHeavyMainMealPlanningSemanticText(text)
+            && !LooksLikeSweetOrDessertPlanningCandidate(candidate);
+    }
+
+    private static bool LooksLikeSnackFriendlyPlanningCandidate(SourceBackedOptionCandidate candidate)
+    {
+        var text = BuildStructuredMealPlanningSemanticText(candidate);
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var hasSnackCue = TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Snack)
+            || Regex.IsMatch(
+                text,
+                @"\b(?:collations?|gouters?|go[uû]ters?|snacks?|encas|barres?|bouch[eé]es?|crackers?|trempettes?|houmous|hummus|compotes?|fruits?|beignets?|brownies?|muffins?|scones?)\b",
+                RegexOptions.CultureInvariant);
+        if (hasSnackCue)
+            return true;
+
+        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))
+        {
+            return !LooksLikeClearlyHeavyMainMealPlanningSemanticText(text)
+                && !LooksLikeStandaloneSpreadOrDipPlanningCandidate(candidate);
+        }
+
+        return LooksLikeSweetOrDessertPlanningCandidate(candidate)
+            && !RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal)
+            && !TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal);
+    }
+
+    private static bool LooksLikeStandaloneLightSnackPlanningCandidate(SourceBackedOptionCandidate candidate)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        if (LooksLikeStandaloneSpreadOrDipPlanningCandidate(candidate)
+            || LooksLikeHeavyMainMealPlanningCandidate(candidate)
+            || TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal)
+            || TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Snack)
+            || LooksLikeNoisyStructuredPlanningCandidateTitle(candidate.Title)
+            || !LooksLikeConcreteStructuredPlanningCandidateTitle(candidate.Title)
+            || !HasDirectSourceBackedPlanningCandidateEvidence(candidate))
+        {
+            return false;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:tiramisu|profiteroles?|mille[-\s]*feuilles?|cr[eè]me\s+catalane|creme\s+catalane|cr[eè]me\s+brulee|creme\s+brulee|ile\s+flottante|fondants?\s+au\s+chocolat)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        return Regex.IsMatch(
+            normalizedTitle,
+            @"\b(?:barres?|bouch[eé]es?|crackers?|compotes?|fruits?|brownies?|muffins?|scones?|biscuits?|cookies?|galettes?|yaou?rts?|yogou?rts?|yogurts?|smoothies?|pains?\s+aux?\s+bananes?)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeClearlyHeavyMainMealPlanningSemanticText(string normalizedText)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedText))
+            return false;
+
+        return Regex.IsMatch(
+            normalizedText,
+            @"\b(?:boeuf|b[oeœ]uf|poulet|volaille|veau|porc|agneau|poisson|crevettes?|moules?|saucisses?|chorizo|cassoulet|paella|quiche|gratin|osso|curry|ragout|rago[uû]t|risotto|macaroni|pates?|p[aâ]tes?|bucatini|nouilles?|ramen|soupe|bisque|tortilla|courgettes?\s+farcies?|tomates?\s+farcies?|riz\s+saute|sauce\s+cacahu[eè]te|plats?\s+principaux?|main\s+dishes?)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeStandaloneSpreadOrDipPlanningCandidate(SourceBackedOptionCandidate candidate)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:trempettes?|dips?|spreads?|tartinades?|houmous|hummus|tapenade|p[aâ]t[eé]s?\s+d(?:e|'))\b",
+                RegexOptions.CultureInvariant)
+            && !Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:sandwichs?|wraps?|salades?|bols?|bowls?|repas|meal|plats?|dishes?|crudites?|crudit[eé]s?)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        var text = BuildStructuredMealPlanningSemanticText(candidate);
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        if (!Regex.IsMatch(
+                text,
+                @"\b(?:trempettes?|dips?|spreads?|tartinades?|houmous|hummus|tapenade|p[aâ]tes?\s+d(?:e|')|p[aâ]t[eé]s?\s+d(?:e|'))\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        return !Regex.IsMatch(
+            text,
+            @"\b(?:sandwichs?|wraps?|salades?|bols?|bowls?|repas|meal|plats?|dishes?)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static IReadOnlyList<SourceBackedOptionCandidate> SelectStructuredMealPlanningCandidatesForSlots(
+        IReadOnlyList<SourceBackedOptionCandidate> candidates,
+        IReadOnlyList<string> periodLabels,
+        int requiredSlots,
+        string? query)
+    {
+        if (candidates.Count == 0 || periodLabels.Count == 0 || requiredSlots <= 0)
+            return Array.Empty<SourceBackedOptionCandidate>();
+
+        var rankedCandidates = RankDistinctSourceBackedPlanningLeadCandidates(candidates, query).ToList();
+        var slotKinds = Enumerable.Range(0, requiredSlots)
+            .Select(index => ResolveStructuredMealPlanningSlotKind(periodLabels[index % periodLabels.Count]))
+            .ToArray();
+        var requiredBreakfast = slotKinds.Count(static kind => kind == StructuredMealPlanningSlotKind.Breakfast);
+        var requiredMain = slotKinds.Count(static kind => kind == StructuredMealPlanningSlotKind.MainMeal);
+        var requiredSnack = slotKinds.Count(static kind => kind == StructuredMealPlanningSlotKind.Snack);
+        var strictAssignments = AssignStructuredMealPlanningSlotCandidates(
+            rankedCandidates,
+            slotKinds,
+            query,
+            allowRouteBackfill: false,
+            out var strictMatchingEdges);
+        var assignments = strictAssignments;
+        var routeAssignments = strictAssignments;
+        var routeMatchingEdges = 0;
+        var strictSelectedCount = strictAssignments.Count(static candidate => candidate is not null);
+        var routeSelectedCount = strictSelectedCount;
+        if (strictSelectedCount < requiredSlots)
+        {
+            routeAssignments = AssignStructuredMealPlanningSlotCandidates(
+                rankedCandidates,
+                slotKinds,
+                query,
+                allowRouteBackfill: true,
+                out routeMatchingEdges);
+            routeSelectedCount = routeAssignments.Count(static candidate => candidate is not null);
+            if (routeSelectedCount > strictSelectedCount)
+                assignments = routeAssignments;
+        }
+
+        var routeBackfilled = assignments
+            .Select((candidate, index) => candidate is not null
+                && CandidateFitsStructuredMealPlanningSlot(candidate, slotKinds[index], query, allowRouteBackfill: true)
+                && !CandidateFitsStructuredMealPlanningSlot(candidate, slotKinds[index], query, allowRouteBackfill: false))
+            .Count(static backfilled => backfilled);
+
+        var selected = assignments
+            .Where(static candidate => candidate is not null)
+            .Select(static candidate => candidate!)
+            .ToArray();
+        var snackRouteTitles = string.Join(
+            "; ",
+            rankedCandidates
+                .Where(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))
+                .Take(32)
+                .Select(static candidate => $"{candidate.Title} <= {candidate.Hit.RetrievalQuery}"));
+        var slotPoolStats = BuildStructuredMealPlanningSlotPoolStats(rankedCandidates, query);
+        ClientLog.Info(
+            "ToolAgent planning slot assignment: stage=end"
+            + $"|requiredSlots={requiredSlots}"
+            + $"|requiredBreakfast={requiredBreakfast}"
+            + $"|requiredMain={requiredMain}"
+            + $"|requiredSnack={requiredSnack}"
+            + $"|candidatePool={rankedCandidates.Count}"
+            + $"|selected={selected.Length}"
+            + $"|strictSelected={strictSelectedCount}"
+            + $"|routeSelected={routeSelectedCount}"
+            + $"|routeBackfilled={routeBackfilled}"
+            + $"|matchingMode={(ReferenceEquals(assignments, routeAssignments) && routeSelectedCount > strictSelectedCount ? "route_backfill" : "strict")}"
+            + $"|strictMatchingEdges={strictMatchingEdges}"
+            + $"|routeMatchingEdges={routeMatchingEdges}"
+            + $"|missingBreakfast={CountMissingStructuredMealPlanningSlots(assignments, slotKinds, StructuredMealPlanningSlotKind.Breakfast)}"
+            + $"|missingMain={CountMissingStructuredMealPlanningSlots(assignments, slotKinds, StructuredMealPlanningSlotKind.MainMeal)}"
+            + $"|missingSnack={CountMissingStructuredMealPlanningSlots(assignments, slotKinds, StructuredMealPlanningSlotKind.Snack)}"
+            + $"|availableBreakfast={slotPoolStats.AvailableBreakfast}"
+            + $"|availableMain={slotPoolStats.AvailableMain}"
+            + $"|availableSnack={slotPoolStats.AvailableSnack}"
+            + $"|lightSnackPool={slotPoolStats.LightSnackPool}"
+            + $"|titleBreakfast={slotPoolStats.TitleBreakfast}"
+            + $"|titleMain={slotPoolStats.TitleMain}"
+            + $"|titleSnack={slotPoolStats.TitleSnack}"
+            + $"|routeFitBreakfast={slotPoolStats.RouteFitBreakfast}"
+            + $"|routeFitMain={slotPoolStats.RouteFitMain}"
+            + $"|routeFitSnack={slotPoolStats.RouteFitSnack}"
+            + $"|snackRouteTitles={FormatPlanningTraceValue(snackRouteTitles)}"
+            + $"|titles={string.Join("; ", selected.Take(20).Select(static candidate => candidate.Title))}");
+
+        return selected;
+    }
+
+    private static SourceBackedOptionCandidate?[] AssignStructuredMealPlanningSlotCandidates(
+        IReadOnlyList<SourceBackedOptionCandidate> rankedCandidates,
+        StructuredMealPlanningSlotKind[] slotKinds,
+        string? query,
+        bool allowRouteBackfill,
+        out int matchingEdges)
+    {
+        var exploredMatchingEdges = 0;
+        var assignments = new SourceBackedOptionCandidate?[slotKinds.Length];
+        if (rankedCandidates.Count == 0 || slotKinds.Length == 0)
+        {
+            matchingEdges = exploredMatchingEdges;
+            return assignments;
+        }
+
+        var distinctSlotKinds = slotKinds
+            .Distinct()
+            .ToArray();
+        var pageKeys = rankedCandidates
+            .Select(candidate => BuildRagHitVisiblePageMergeKey(candidate.Hit))
+            .ToArray();
+        var rejectNonMealCache = new bool?[rankedCandidates.Count];
+        bool ShouldRejectCandidate(int candidateIndex)
+        {
+            var cached = rejectNonMealCache[candidateIndex];
+            if (cached.HasValue)
+                return cached.Value;
+
+            var rejected = ShouldRejectStandaloneMealPlanningNonMealItem(rankedCandidates[candidateIndex], query);
+            rejectNonMealCache[candidateIndex] = rejected;
+            return rejected;
+        }
+
+        var hasExplicitRoutesByKind = distinctSlotKinds
+            .ToDictionary(
+                static slotKind => slotKind,
+                slotKind => rankedCandidates.Any(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, slotKind)));
+        var optionsByKind = distinctSlotKinds.ToDictionary(
+            static slotKind => slotKind,
+            slotKind =>
+            {
+                var rawOptions = new List<(string PageKey, int CandidateIndex, int FitScore, SourceBackedOptionCandidate Candidate)>();
+                for (var candidateIndex = 0; candidateIndex < rankedCandidates.Count; candidateIndex++)
+                {
+                    var pageKey = pageKeys[candidateIndex];
+                    if (string.IsNullOrWhiteSpace(pageKey))
+                        continue;
+
+                    var rejectNonMeal = ShouldRejectCandidate(candidateIndex);
+                    var candidate = rankedCandidates[candidateIndex];
+                    if (!CandidateFitsStructuredMealPlanningSlot(
+                            candidate,
+                            slotKind,
+                            query,
+                            allowRouteBackfill,
+                            rejectNonMeal))
+                    {
+                        continue;
+                    }
+
+                    if (!CandidateHasEnoughExplicitStructuredMealSlotEvidence(
+                            candidate,
+                            slotKind,
+                            hasExplicitRoutesByKind[slotKind]))
+                    {
+                        continue;
+                    }
+
+                    rawOptions.Add((
+                        pageKey,
+                        candidateIndex,
+                        ComputeStructuredMealPlanningSlotFitScore(candidate, slotKind, query, rejectNonMeal),
+                        candidate));
+                }
+
+                return rawOptions
+                    .GroupBy(static option => option.PageKey, StringComparer.OrdinalIgnoreCase)
+                    .Select(group => group
+                        .OrderByDescending(static option => option.FitScore)
+                        .ThenByDescending(option => ComputeSourceBackedPlanningCandidateRankScore(option.Candidate, query))
+                        .ThenByDescending(static option => option.Candidate.Score)
+                        .ThenByDescending(static option => ComputeSourceBackedEvidenceRichnessScore(option.Candidate.Hit))
+                        .ThenByDescending(static option => option.Candidate.Hit.Score)
+                        .First())
+                    .OrderByDescending(static option => option.FitScore)
+                    .ThenByDescending(option => ComputeSourceBackedPlanningCandidateRankScore(option.Candidate, query))
+                    .ThenByDescending(static option => option.Candidate.Score)
+                    .ThenByDescending(static option => ComputeSourceBackedEvidenceRichnessScore(option.Candidate.Hit))
+                    .ThenByDescending(static option => option.Candidate.Hit.Score)
+                    .Select(static option => (option.PageKey, option.CandidateIndex, option.FitScore))
+                    .ToList();
+            });
+        var optionsBySlot = new List<(string PageKey, int CandidateIndex, int FitScore)>[slotKinds.Length];
+        for (var slotIndex = 0; slotIndex < slotKinds.Length; slotIndex++)
+        {
+            optionsBySlot[slotIndex] = optionsByKind[slotKinds[slotIndex]];
+        }
+
+        var slotOrder = Enumerable.Range(0, slotKinds.Length)
+            .OrderBy(index => optionsBySlot[index].Count)
+            .ThenBy(static index => index)
+            .ToArray();
+        var pageToSlot = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var slotToCandidateIndex = new int?[slotKinds.Length];
+
+        bool TryAssignSlot(int slotIndex, HashSet<string> seenPages)
+        {
+            foreach (var option in optionsBySlot[slotIndex])
+            {
+                exploredMatchingEdges++;
+                if (!seenPages.Add(option.PageKey))
+                    continue;
+
+                if (!pageToSlot.TryGetValue(option.PageKey, out var previousSlotIndex)
+                    || TryAssignSlot(previousSlotIndex, seenPages))
+                {
+                    pageToSlot[option.PageKey] = slotIndex;
+                    slotToCandidateIndex[slotIndex] = option.CandidateIndex;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        foreach (var slotIndex in slotOrder)
+        {
+            TryAssignSlot(slotIndex, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        }
+
+        for (var slotIndex = 0; slotIndex < slotToCandidateIndex.Length; slotIndex++)
+        {
+            if (slotToCandidateIndex[slotIndex] is { } candidateIndex)
+                assignments[slotIndex] = rankedCandidates[candidateIndex];
+        }
+
+        matchingEdges = exploredMatchingEdges;
+        return assignments;
+    }
+
+    private static bool CandidateHasEnoughExplicitStructuredMealSlotEvidence(
+        SourceBackedOptionCandidate candidate,
+        StructuredMealPlanningSlotKind slotKind,
+        bool slotHasExplicitRoutes)
+    {
+        if (!slotHasExplicitRoutes)
+            return true;
+
+        if (slotKind == StructuredMealPlanningSlotKind.MainMeal)
+            return true;
+
+        return RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, slotKind)
+            || TitleContainsStructuredMealPlanningRoleCue(candidate.Title, slotKind)
+            || (slotKind == StructuredMealPlanningSlotKind.Snack
+                && LooksLikeStandaloneLightSnackPlanningCandidate(candidate));
+    }
+
+    private static StructuredMealPlanningSlotKind ResolveStructuredMealPlanningSlotKind(string? periodLabel)
+    {
+        var normalized = NormalizeLexicalLookup(periodLabel);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return StructuredMealPlanningSlotKind.MainMeal;
+
+        if (Regex.IsMatch(
+                normalized,
+                @"\b(?:petit[-\s]*dejeuner|breakfast|desayuno|pequeno[-\s]*almoco|cafe[-\s]*da[-\s]*manha|fruhstuck|colazione|matin|morning|manana|manha|morgen|mattina)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return StructuredMealPlanningSlotKind.Breakfast;
+        }
+
+        if (Regex.IsMatch(
+                normalized,
+                @"\b(?:gouter|collation|snack|encas|desserts?|merienda|lanche|merenda)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return StructuredMealPlanningSlotKind.Snack;
+        }
+
+        return StructuredMealPlanningSlotKind.MainMeal;
+    }
+
+    private static bool CandidateFitsStructuredMealPlanningSlot(
+        SourceBackedOptionCandidate candidate,
+        StructuredMealPlanningSlotKind slotKind,
+        string? query,
+        bool allowRouteBackfill = false,
+        bool? rejectStandaloneNonMealItem = null)
+    {
+        if (rejectStandaloneNonMealItem ?? ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query))
+            return false;
+
+        var retrievalQueryTargetsSlot = RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, slotKind);
+        var requiresHighConfidenceSlotEvidence = RequiresHighConfidenceUsefulStructuredPlanningSources(query);
+        return slotKind switch
+        {
+            StructuredMealPlanningSlotKind.Breakfast => TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Breakfast)
+                && !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Breakfast)
+                || ((!requiresHighConfidenceSlotEvidence || retrievalQueryTargetsSlot)
+                    && LooksLikeBreakfastFriendlyPlanningCandidate(candidate)
+                    && !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Breakfast)
+                    && !LooksLikeMainDishPlanningCandidate(candidate))
+                || (allowRouteBackfill
+                    && !requiresHighConfidenceSlotEvidence
+                    && retrievalQueryTargetsSlot
+                    && !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Breakfast)),
+            StructuredMealPlanningSlotKind.Snack => !LooksLikeStandaloneSpreadOrDipPlanningCandidate(candidate)
+                && (TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Snack)
+                    && !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Snack)
+                    || ((!requiresHighConfidenceSlotEvidence || retrievalQueryTargetsSlot || LooksLikeStandaloneLightSnackPlanningCandidate(candidate))
+                        && LooksLikeSnackFriendlyPlanningCandidate(candidate)
+                        && !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Snack)
+                        && !LooksLikeHeavyMainMealPlanningCandidate(candidate))
+                    || (retrievalQueryTargetsSlot
+                        && !requiresHighConfidenceSlotEvidence
+                        && !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Snack))),
+            _ => TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal)
+                && !LooksLikeSweetOrDessertPlanningCandidate(candidate)
+                && !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal)
+                || (retrievalQueryTargetsSlot
+                    && !LooksLikeSweetOrDessertPlanningCandidate(candidate)
+                    && !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal))
+                || CanUseGenericStructuredPlanningDefaultSlotCandidate(candidate, query)
+        };
+    }
+
+    private static int ComputeStructuredMealPlanningSlotFitScore(
+        SourceBackedOptionCandidate candidate,
+        StructuredMealPlanningSlotKind slotKind,
+        string? query,
+        bool? rejectStandaloneNonMealItem = null)
+    {
+        var score = ComputeSourceBackedPlanningCandidateRankScore(candidate, query);
+        if (rejectStandaloneNonMealItem ?? ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query))
+            return int.MinValue;
+
+        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, slotKind))
+            score += 140;
+
+        switch (slotKind)
+        {
+            case StructuredMealPlanningSlotKind.Breakfast:
+                if (TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Breakfast))
+                    score += 180;
+                else if (LooksLikeBreakfastFriendlyPlanningCandidate(candidate))
+                    score += 90;
+                if (TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Breakfast))
+                    score -= 240;
+                break;
+            case StructuredMealPlanningSlotKind.Snack:
+                if (TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Snack))
+                    score += 180;
+                else if (LooksLikeStandaloneLightSnackPlanningCandidate(candidate))
+                    score += 120;
+                else if (LooksLikeSnackFriendlyPlanningCandidate(candidate))
+                    score += 90;
+                if (TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Snack))
+                    score -= 260;
+                break;
+            default:
+                if (TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal))
+                    score += 150;
+                else if (CanUseGenericStructuredPlanningDefaultSlotCandidate(candidate, query))
+                    score += 60;
+                if (TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal))
+                    score -= 180;
+                break;
+        }
+
+        return score;
+    }
+
+    private static bool CanUseGenericStructuredPlanningDefaultSlotCandidate(
+        SourceBackedOptionCandidate candidate,
+        string? query)
+    {
+        if (ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query))
+            return false;
+
+        if (TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal))
+            return false;
+
+        if (LooksLikeSweetOrDessertPlanningCandidate(candidate)
+            || LooksLikeBreakfastOnlyPlanningCandidate(candidate)
+            || LooksLikeSnackOnlyPlanningCandidate(candidate))
+        {
+            return false;
+        }
+
+        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Breakfast)
+            || RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))
+        {
+            return false;
+        }
+
+        return IsUsableSourceBackedPlanningCandidate(candidate)
+            && LooksLikeConcreteStructuredPlanningCandidateTitle(candidate.Title)
+            && HasDirectSourceBackedPlanningCandidateEvidence(candidate);
+    }
+
+    private static bool RetrievalQueryTargetsStructuredMealPlanningSlot(
+        string? retrievalQuery,
+        StructuredMealPlanningSlotKind slotKind)
+    {
+        var normalizedQuery = NormalizeLexicalLookup(retrievalQuery);
+        if (string.IsNullOrWhiteSpace(normalizedQuery))
+            return false;
+
+        return slotKind switch
+        {
+            StructuredMealPlanningSlotKind.Breakfast => IsBreakfastPlanningSlotRetrievalTerm(normalizedQuery),
+            StructuredMealPlanningSlotKind.Snack => IsSnackPlanningSlotRetrievalTerm(normalizedQuery),
+            _ => !IsBreakfastPlanningSlotRetrievalTerm(normalizedQuery)
+                && !IsSnackPlanningSlotRetrievalTerm(normalizedQuery)
+                && IsMainMealPlanningSlotRetrievalTerm(normalizedQuery)
+        };
+    }
+
+    private static bool TitleContainsStructuredMealPlanningRoleCue(
+        string? title,
+        StructuredMealPlanningSlotKind slotKind)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        return slotKind switch
+        {
+            StructuredMealPlanningSlotKind.Breakfast => IsBreakfastPlanningSlotRetrievalTerm(normalizedTitle)
+                || Regex.IsMatch(
+                    normalizedTitle,
+                    @"\b(?:matin|morning|brunch|desayuno|pequeno\s+almoco|cafe\s+da\s+manha|fruehstueck|colazione)\b",
+                    RegexOptions.CultureInvariant),
+            StructuredMealPlanningSlotKind.Snack => IsSnackPlanningSlotRetrievalTerm(normalizedTitle)
+                || Regex.IsMatch(
+                    normalizedTitle,
+                    @"\b(?:apres[-\s]*midi|apr[eè]s[-\s]*midi|afternoon|merienda|lanche|zwischenmahlzeit|merenda)\b",
+                    RegexOptions.CultureInvariant),
+            _ => IsMainMealPlanningSlotRetrievalTerm(normalizedTitle)
+                || Regex.IsMatch(
+                    normalizedTitle,
+                    @"\b(?:repas\s+complets?|complete\s+meals?|plats?\s+principaux?|main\s+dishes?|lunch|dinner|supper|dejeuner|d[eé]jeuner|diner|d[iî]ner|souper|almuerzo|cena|almoco|almo[cç]o|jantar|mittagessen|abendessen|pranzo|cena)\b",
+                    RegexOptions.CultureInvariant)
+        };
+    }
+
+    private static bool TitleContainsConflictingStructuredMealPlanningRoleCue(
+        string? title,
+        StructuredMealPlanningSlotKind targetSlotKind)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        return targetSlotKind switch
+        {
+            StructuredMealPlanningSlotKind.Breakfast => TitleContainsStructuredMealPlanningRoleCue(normalizedTitle, StructuredMealPlanningSlotKind.MainMeal)
+                || TitleContainsStructuredMealPlanningRoleCue(normalizedTitle, StructuredMealPlanningSlotKind.Snack),
+            StructuredMealPlanningSlotKind.Snack => TitleContainsStructuredMealPlanningRoleCue(normalizedTitle, StructuredMealPlanningSlotKind.MainMeal)
+                || TitleContainsStructuredMealPlanningRoleCue(normalizedTitle, StructuredMealPlanningSlotKind.Breakfast),
+            _ => TitleContainsStructuredMealPlanningRoleCue(normalizedTitle, StructuredMealPlanningSlotKind.Breakfast)
+                || TitleContainsStructuredMealPlanningRoleCue(normalizedTitle, StructuredMealPlanningSlotKind.Snack)
+        };
+    }
+
+    private static string FormatStructuredMealPlanningRetrievalRoute(SourceBackedOptionCandidate candidate)
+    {
+        var routes = new List<string>(3);
+        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Breakfast))
+            routes.Add("breakfast");
+        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal))
+            routes.Add("main_meal");
+        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))
+            routes.Add("snack");
+
+        return routes.Count == 0 ? "none" : string.Join(",", routes);
+    }
+
+    private static bool ShouldApplyMealPlanningSlotSemantics(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:repas|meal|meals|menu|menus|recettes?|recipes?|petit[-\s]*dejeuner|breakfast|dejeuner|lunch|diner|dinner|souper|supper|gouter|collation|snack|encas)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool RequiresHighConfidenceUsefulStructuredPlanningSources(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.IsMatch(
+                normalized,
+                @"\b(?:seulement|uniquement|strictement|only|just|solely|solo|solamente|apenas|nur|solo)\b.{0,80}\b(?:sources?|citations?|preuves?|evidence|fuentes?|fontes?|quellen)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:sources?|citations?|preuves?|evidence|fuentes?|fontes?|quellen)\b.{0,80}\b(?:vraiment|really|truly|strictement|strictly)\b.{0,50}\b(?:utiles?|useful|pertinentes?|relevant|uteis?|brauchbar)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:sans|without|sin|sem|ohne|senza)\b.{0,80}\b(?:sources?|citations?|preuves?|evidence|fuentes?|fontes?|quellen)\b.{0,80}\b(?:inutiles?|useless|irrelevant|doublons?|duplicates?)\b",
+                RegexOptions.CultureInvariant);
+    }
+
+    private static bool ShouldRejectStandaloneMealPlanningNonMealItem(
+        SourceBackedOptionCandidate candidate,
+        string? query)
+    {
+        if (!ShouldApplyMealPlanningSlotSemantics(query))
+            return false;
+
+        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        if (LooksLikeGenericMealPlanningInventoryTitle(candidate.Title, query))
+            return true;
+
+        if (LooksLikeResidualMealPlanningInventoryFragment(candidate))
+            return true;
+
+        if (LooksLikeAudienceOrCollectionMealPlanningHeading(candidate))
+            return true;
+
+        return Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:sauces?|huile|huiles|vinaigre|vinaigrette|marinade|bouillon|condiments?|epices?|assaisonnements?)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalizedTitle,
+                @"\bmise\s+en\s+place\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:collection|guide|manuel|livre|document|volume|tome|dossier)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:ingredients?|preparation|etapes?|methode|procedure|materiel|sommaire|index)$",
+                RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeAudienceOrCollectionMealPlanningHeading(SourceBackedOptionCandidate candidate)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        var terms = ExtractQuerySignalTerms(normalizedTitle)
+            .Where(static term => term.Length >= 3)
+            .Take(8)
+            .ToArray();
+        if (terms.Length == 0 || terms.Length > 6)
+            return false;
+
+        var hasAudienceCue = Regex.IsMatch(
+            normalizedTitle,
+            @"\b(?:parents?|parental|familles?|families?|family|enfants?|children|kids?|busy|press[eé]s?|presses?|actifs?|active)\b",
+            RegexOptions.CultureInvariant);
+        if (!hasAudienceCue)
+            return false;
+
+        return !LooksLikeMainDishPlanningCandidate(candidate)
+            && !LooksLikeBreakfastPlanningCandidate(candidate)
+            && !LooksLikeSnackPlanningCandidate(candidate)
+            && !LooksLikeSweetOrDessertPlanningCandidate(candidate);
+    }
+
+    private static bool LooksLikeAudienceOrCollectionMealPlanningTitle(string? title)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        return Regex.IsMatch(
+            normalizedTitle,
+            @"\b(?:parents?|parental|familles?|families?|family|enfants?|children|kids?|busy|press[eé]s?|presses?|actifs?|active)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeResidualMealPlanningInventoryFragment(SourceBackedOptionCandidate candidate)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        if (LooksLikeMealPlanningInstructionFragment(normalizedTitle))
+            return true;
+
+        var evidence = BuildStructuredMealPlanningSemanticText(candidate);
+        if (Regex.IsMatch(
+                evidence,
+                @"\b(?:fragment\s+ocr|ocr\s+fragment|non\s+exploitable|not\s+exploitable|unusable\s+fragment)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool LooksLikeLeadingConnectorStructuredPlanningFragment(string? title)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        var terms = ExtractQuerySignalTerms(normalizedTitle)
+            .Where(static term => term.Length >= 2)
+            .Take(8)
+            .ToArray();
+        if (terms.Length is < 1 or > 6)
+            return false;
+
+        return Regex.IsMatch(
+            normalizedTitle,
+            @"^(?:a|au|aux|avec|chez|dans|de|des|du|d|en|et|pour|sans|sous|sur)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeMealPlanningInstructionFragment(string? title)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:lorsqu|lorsque|quand|si)\b.*\b(?:cuisin\w*|recettes?|plats?|gouter|role)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:il|ils|elle|elles|on|vous|nous)\b.*\b(?:cuisin\w*|gouter|jouent?|role|tentes?|remue|remuent|rassemble|rassemblent|melange|melangent|bat|battre|battent|fouette|fouettent|incorpore|incorporent|verse|versent)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:en\s+(?:soir[eé]e|matin[eé]e|journ[eé]e)|le\s+(?:matin|midi|soir)|la\s+nuit)\b.*\b(?:r[eé]alisez|preparez|pr[eé]parez|cuisinez|servez|choisissez)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:gratiner|blanchir|plonger|recouvrir|couvrir|prechauffer|deguster|farcir)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:preparer|melanger|verser|cuire|rincer|rincez|laver|lavez|secher|sechez|eponger|epongez)\b.*\b(?:bol|pot|confiture|mayonnaise|mijoteuse|temperature|four|eau|oudans|froide|filet|blancs?|secouer|secher|eponger)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:placer|placez|mettre|mettez)\s+(?:la\s+)?(?:lame|couteau|fouet|spatule|accessoire)\s+dans\s+(?:le\s+|la\s+)?(?:recipient|bol|cuve)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:sel|poivre|persil|huile|beurre)\b.{0,70}\b(?:placer|placez|mettre|mettez|ajouter|ajoutez|verser|versez)\b.{0,70}\b(?:recipient|bol|cuve|lame|couteau|fouet|spatule)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        return Regex.IsMatch(
+            normalizedTitle,
+            @"\b(?:recouvrir\s+un\s+plat|quelques\s+minutes\s+un\s+aliment|eau\s+bouillante|mettre\s+au\s+four|jouent\s+un\s+role|gouter\s+un\s+plat|apres\s+le\s+signal.{0,40}faire\s+cuire)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeGenericMealPlanningInventoryTitle(string? title, string? query)
+    {
+        if (!ShouldApplyMealPlanningSlotSemantics(query))
+            return false;
+
+        var normalizedTitle = NormalizeLexicalLookup(title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        var terms = ExtractQuerySignalTerms(normalizedTitle)
+            .Where(static term => term.Length >= 3)
+            .Take(8)
+            .ToArray();
+        if (terms.Length == 0 || terms.Length > 5)
+            return false;
+
+        return LooksLikeGenericRecipeInventoryTitle(normalizedTitle)
+            || LooksLikeMealPlanningToolOrEquipmentAnchor(normalizedTitle);
+    }
+
+    private static readonly Regex MealPlanningToolOrEquipmentAnchorRegex = new(
+        @"\b(?:spatules?|fouets?|couteaux?|cuillers?|cuill[eè]res?|fourchettes?|louches?|pinces?|bols?|saladiers?|planches?|poeles?|po[eê]les?|casseroles?|paniers?\s+vapeur|steam(?:er)?\s+baskets?|vaporera|cestelli?\s+vapore|dampfgareinsatz|robots?|chefbot|mixeurs?|blenders?|mijoteuses?|cocottes?|ustensiles?|materiel|mat[eé]riel|outils?|equipment|tools?)\b",
+        RegexOptions.CultureInvariant);
+
+    private static readonly Regex GenericRecipeInventoryTitleRegex = new(
+        @"^(?:(?:\d+\s+)?(?:a\s+){0,2}voir\s+dans\s+son\s+\p{L}{3,}|recettes?\s+faciles?(?:\s+avec\b.*)?|recettes?|recipes?|plats?|dishes?|menus?|mise\s+en\s+place)$",
+        RegexOptions.CultureInvariant);
+
+    private static readonly Regex GenericRecipeInventoryWaterTitleRegex = new(
+        @"^\p{L}{5,}s\s+d\s+eau\s+\p{L}{3,}(?:\s+\p{L}{3,})?$",
+        RegexOptions.CultureInvariant);
+
+    private static bool LooksLikeMealPlanningToolOrEquipmentAnchor(string normalizedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        var terms = ExtractQuerySignalTerms(normalizedTitle)
+            .Where(static term => term.Length >= 3)
+            .Take(8)
+            .ToArray();
+        if (terms.Length == 0 || terms.Length > 5)
+            return false;
+
+        if (!MealPlanningToolOrEquipmentAnchorRegex.IsMatch(normalizedTitle))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool LooksLikeGenericRecipeInventoryTitle(string normalizedTitle)
+    {
+        var lexicalTitle = CollapseWhitespace(Regex.Replace(normalizedTitle, @"[^\p{L}\p{N}]+", " ")).Trim();
+        return GenericRecipeInventoryTitleRegex.IsMatch(lexicalTitle)
+            || GenericRecipeInventoryWaterTitleRegex.IsMatch(lexicalTitle);
+    }
+
+    private static bool LooksLikeGenericInventorySurfaceDerivedPlanningCandidate(SourceBackedOptionCandidate candidate)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(CleanSourceBackedOptionTitle(candidate.Title));
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        var titleTerms = ExtractPlanningAnswerSupportTerms(normalizedTitle)
+            .Where(static term => term.Length >= 3)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (titleTerms.Length == 0 || titleTerms.Length > 4)
+            return false;
+
+        foreach (var surface in EnumeratePlanningCandidateRawTitleSurfaces(candidate.Hit))
+        {
+            var normalizedSurface = NormalizeLexicalLookup(surface);
+            if (string.IsNullOrWhiteSpace(normalizedSurface)
+                || string.Equals(normalizedSurface, normalizedTitle, StringComparison.Ordinal)
+                || !normalizedSurface.Contains(normalizedTitle, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (LooksLikeGenericRecipeInventoryTitle(normalizedSurface)
+                || Regex.IsMatch(
+                    normalizedSurface,
+                    @"^(?:recettes?\s+faciles?|easy\s+recipes?|recipes?\s+easy|idees?\s+de\s+repas|meal\s+ideas|suggestions?\s+de\s+repas)\b",
+                    RegexOptions.CultureInvariant))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<string> EnumeratePlanningCandidateRawTitleSurfaces(RagHitSummary hit)
+    {
+        if (!string.IsNullOrWhiteSpace(hit.SectionTitle))
+            yield return hit.SectionTitle!;
+        if (!string.IsNullOrWhiteSpace(hit.HeadingPath))
+            yield return hit.HeadingPath!;
+
+        foreach (var card in hit.MatchedContentCards ?? Array.Empty<RagHitContentCardSummary>())
+        {
+            if (!string.IsNullOrWhiteSpace(card.Title))
+                yield return card.Title;
+        }
+    }
+
+    private static bool LooksLikeMainMealPlanningCandidateForSlot(SourceBackedOptionCandidate candidate)
+    {
+        if (LooksLikeSweetOrDessertPlanningCandidate(candidate) && !LooksLikeMainDishPlanningCandidate(candidate))
+            return false;
+
+        return TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal)
+            || RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal);
+    }
+
+    private static bool LooksRouteCompatibleMainMealPlanningCandidate(SourceBackedOptionCandidate candidate)
+    {
+        if (LooksLikeSweetOrDessertPlanningCandidate(candidate) && !LooksLikeMainDishPlanningCandidate(candidate))
+            return false;
+
+        return !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal);
+    }
+
+    private static bool LooksLikeBreakfastOnlyPlanningCandidate(SourceBackedOptionCandidate candidate)
+        => LooksLikeBreakfastFriendlyPlanningCandidate(candidate)
+           && !TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal)
+           && !LooksLikeSnackFriendlyPlanningCandidate(candidate);
+
+    private static bool LooksLikeSnackOnlyPlanningCandidate(SourceBackedOptionCandidate candidate)
+        => LooksLikeSnackFriendlyPlanningCandidate(candidate)
+           && !TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal)
+           && !LooksLikeBreakfastFriendlyPlanningCandidate(candidate);
+
+    private static bool LooksLikeBreakfastPlanningCandidate(SourceBackedOptionCandidate candidate)
+        => LooksLikeBreakfastFriendlyPlanningCandidate(candidate);
+
+    private static bool LooksLikeBreakfastFriendlySweetPlanningTitle(string normalizedTitle)
+        => TitleContainsStructuredMealPlanningRoleCue(normalizedTitle, StructuredMealPlanningSlotKind.Breakfast);
+
+    private static bool LooksLikeSnackPlanningCandidate(SourceBackedOptionCandidate candidate)
+        => LooksLikeSnackFriendlyPlanningCandidate(candidate);
+
+    private static bool LooksLikeRouteCompatibleBreakfastPlanningCandidate(SourceBackedOptionCandidate candidate)
+        => !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Breakfast)
+           && !ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query: null);
+
+    private static bool LooksLikeLightMealOrSnackPlanningCandidate(SourceBackedOptionCandidate candidate)
+        => LooksLikeBreakfastPlanningCandidate(candidate)
+            || LooksLikeSnackPlanningCandidate(candidate);
+
+    private static bool LooksLikeHeavyMainMealPlanningCandidate(SourceBackedOptionCandidate candidate)
+        => LooksLikeMainDishPlanningCandidate(candidate)
+           || TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal)
+           || RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal);
+
+    private static int CountStructuredMealPlanningSlotCandidates(
+        IReadOnlyList<SourceBackedOptionCandidate> candidates,
+        StructuredMealPlanningSlotKind slotKind,
+        string? query)
+        => candidates
+            .Where(candidate => !string.IsNullOrWhiteSpace(BuildRagHitVisiblePageMergeKey(candidate.Hit)))
+            .Where(candidate => CandidateFitsStructuredMealPlanningSlot(candidate, slotKind, query))
+            .Select(BuildSourceBackedPlanningCandidateLeadKey)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+    private static int CountStructuredMealPlanningExplicitSlotCandidates(
+        IReadOnlyList<SourceBackedOptionCandidate> candidates,
+        StructuredMealPlanningSlotKind slotKind,
+        string? query)
+        => candidates
+            .Where(candidate => !string.IsNullOrWhiteSpace(BuildRagHitVisiblePageMergeKey(candidate.Hit)))
+            .Where(candidate => !ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query))
+            .Where(candidate =>
+                RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, slotKind)
+                || TitleContainsStructuredMealPlanningRoleCue(candidate.Title, slotKind))
+            .Where(candidate => CandidateFitsStructuredMealPlanningSlot(candidate, slotKind, query))
+            .Select(BuildSourceBackedPlanningCandidateLeadKey)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+    private static int CountStructuredMealPlanningLightSnackCandidates(
+        IReadOnlyList<SourceBackedOptionCandidate> candidates,
+        string? query)
+        => candidates
+            .Where(candidate => !string.IsNullOrWhiteSpace(BuildRagHitVisiblePageMergeKey(candidate.Hit)))
+            .Where(candidate => !ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query))
+            .Where(LooksLikeStandaloneLightSnackPlanningCandidate)
+            .Select(BuildSourceBackedPlanningCandidateLeadKey)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+    private static int CountStructuredMealPlanningSlotTitleCueCandidates(
+        IReadOnlyList<SourceBackedOptionCandidate> candidates,
+        StructuredMealPlanningSlotKind slotKind,
+        string? query)
+        => candidates
+            .Where(candidate => !string.IsNullOrWhiteSpace(BuildRagHitVisiblePageMergeKey(candidate.Hit)))
+            .Where(candidate => !ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query))
+            .Where(candidate => CandidateHasStructuredMealPlanningSlotTitleCue(candidate, slotKind, query))
+            .Select(BuildSourceBackedPlanningCandidateLeadKey)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+    private static int CountStructuredMealPlanningSlotRouteCompatibleCandidates(
+        IReadOnlyList<SourceBackedOptionCandidate> candidates,
+        StructuredMealPlanningSlotKind slotKind,
+        string? query)
+        => candidates
+            .Where(candidate => !string.IsNullOrWhiteSpace(BuildRagHitVisiblePageMergeKey(candidate.Hit)))
+            .Where(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, slotKind))
+            .Where(candidate => CandidateFitsStructuredMealPlanningSlot(candidate, slotKind, query, allowRouteBackfill: true))
+            .Select(BuildSourceBackedPlanningCandidateLeadKey)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+    private static StructuredMealPlanningSlotPoolStats BuildStructuredMealPlanningSlotPoolStats(
+        IReadOnlyList<SourceBackedOptionCandidate> candidates,
+        string? query)
+    {
+        var availableBreakfast = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var availableMain = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var availableSnack = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var titleBreakfast = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var titleMain = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var titleSnack = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var routeFitBreakfast = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var routeFitMain = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var routeFitSnack = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var lightSnackPool = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var candidate in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(BuildRagHitVisiblePageMergeKey(candidate.Hit)))
+                continue;
+
+            var key = BuildSourceBackedPlanningCandidateLeadKey(candidate);
+            if (string.IsNullOrWhiteSpace(key))
+                continue;
+
+            var rejectNonMeal = ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query);
+            if (!rejectNonMeal && LooksLikeStandaloneLightSnackPlanningCandidate(candidate))
+                lightSnackPool.Add(key);
+
+            AddStructuredMealPlanningSlotPoolStats(
+                candidate,
+                StructuredMealPlanningSlotKind.Breakfast,
+                query,
+                rejectNonMeal,
+                key,
+                availableBreakfast,
+                titleBreakfast,
+                routeFitBreakfast);
+            AddStructuredMealPlanningSlotPoolStats(
+                candidate,
+                StructuredMealPlanningSlotKind.MainMeal,
+                query,
+                rejectNonMeal,
+                key,
+                availableMain,
+                titleMain,
+                routeFitMain);
+            AddStructuredMealPlanningSlotPoolStats(
+                candidate,
+                StructuredMealPlanningSlotKind.Snack,
+                query,
+                rejectNonMeal,
+                key,
+                availableSnack,
+                titleSnack,
+                routeFitSnack);
+        }
+
+        return new StructuredMealPlanningSlotPoolStats(
+            availableBreakfast.Count,
+            availableMain.Count,
+            availableSnack.Count,
+            lightSnackPool.Count,
+            titleBreakfast.Count,
+            titleMain.Count,
+            titleSnack.Count,
+            routeFitBreakfast.Count,
+            routeFitMain.Count,
+            routeFitSnack.Count);
+    }
+
+    private static void AddStructuredMealPlanningSlotPoolStats(
+        SourceBackedOptionCandidate candidate,
+        StructuredMealPlanningSlotKind slotKind,
+        string? query,
+        bool rejectNonMeal,
+        string key,
+        HashSet<string> available,
+        HashSet<string> titleCue,
+        HashSet<string> routeFit)
+    {
+        if (CandidateFitsStructuredMealPlanningSlot(
+                candidate,
+                slotKind,
+                query,
+                allowRouteBackfill: false,
+                rejectStandaloneNonMealItem: rejectNonMeal))
+        {
+            available.Add(key);
+        }
+
+        if (!rejectNonMeal && CandidateHasStructuredMealPlanningSlotTitleCue(candidate, slotKind, query))
+            titleCue.Add(key);
+
+        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, slotKind)
+            && CandidateFitsStructuredMealPlanningSlot(
+                candidate,
+                slotKind,
+                query,
+                allowRouteBackfill: true,
+                rejectStandaloneNonMealItem: rejectNonMeal))
+        {
+            routeFit.Add(key);
+        }
+    }
+
+    private sealed record StructuredMealPlanningSlotPoolStats(
+        int AvailableBreakfast,
+        int AvailableMain,
+        int AvailableSnack,
+        int LightSnackPool,
+        int TitleBreakfast,
+        int TitleMain,
+        int TitleSnack,
+        int RouteFitBreakfast,
+        int RouteFitMain,
+        int RouteFitSnack);
+
+    private static bool CandidateHasStructuredMealPlanningSlotTitleCue(
+        SourceBackedOptionCandidate candidate,
+        StructuredMealPlanningSlotKind slotKind,
+        string? query)
+    {
+        if (slotKind == StructuredMealPlanningSlotKind.MainMeal
+            && CanUseGenericStructuredPlanningDefaultSlotCandidate(candidate, query))
+        {
+            return true;
+        }
+
+        return TitleContainsStructuredMealPlanningRoleCue(candidate.Title, slotKind)
+            && !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, slotKind);
+    }
+
+    private static int CountMissingStructuredMealPlanningSlots(
+        SourceBackedOptionCandidate?[] assignments,
+        StructuredMealPlanningSlotKind[] slotKinds,
+        StructuredMealPlanningSlotKind slotKind)
+    {
+        var limit = Math.Min(assignments.Length, slotKinds.Length);
+        var count = 0;
+        for (var i = 0; i < limit; i++)
+        {
+            if (assignments[i] is null && slotKinds[i] == slotKind)
+                count++;
+        }
+
+        return count;
+    }
+
+    private static IReadOnlyList<ToolMemory.SourceRef> BuildPlanningSourcesFromCandidates(
+        IReadOnlyList<SourceBackedOptionCandidate> usedItems,
+        string? query)
+    {
+        if (usedItems.Count == 0)
+            return Array.Empty<ToolMemory.SourceRef>();
+
+        var sourceLimit = Math.Clamp(
+            Math.Max(Math.Max(8, usedItems.Count), ResolveSourceBackedPlanningTargetItemCount(query)),
+            8,
+            24);
+        var sources = usedItems
+            .Select(static candidate => candidate.Hit)
+            .Where(static hit => !string.IsNullOrWhiteSpace(BuildRagHitVisiblePageMergeKey(hit)))
+            .GroupBy(BuildRagHitVisiblePageMergeKey, StringComparer.OrdinalIgnoreCase)
+            .Select(static group => group.First())
+            .Take(sourceLimit)
+            .Select(BuildSourceRefFromRagHit)
+            .ToList();
+
+        return MergeSourceRefsByPagePreservingOrder(sources).Take(sourceLimit).ToArray();
     }
 
     private static string BuildStructuredSourceBackedPlanAnswer(
@@ -7503,57 +12306,64 @@ CURRENT_USER_MESSAGE:
         IReadOnlyList<string> dayLabels,
         IReadOnlyList<string> periodLabels,
         string language,
-        string? query)
+        string? query,
+        int requiredDistinctItems)
     {
         if (planItems.Count == 0 || dayLabels.Count == 0 || periodLabels.Count == 0)
             return string.Empty;
 
         language = NormalizeLanguageCode(language);
         var requiredSlots = dayLabels.Count * periodLabels.Count;
-        var hasPartialCandidateBank = planItems.Count < requiredSlots;
+        requiredDistinctItems = Math.Clamp(requiredDistinctItems, 1, requiredSlots);
+        var hasEnoughDistinctItems = planItems.Count >= requiredDistinctItems;
         var labels = language switch
         {
             "en" => (
-                Header: "Here is a structured proposal based on the sourced elements available.",
-                Partial: $"The documented base is still too small to fill the whole requested structure without repetition: {planItems.Count} usable elements for {requiredSlots} requested places. I use it as a starting point to validate rather than inventing missing items.",
+                Header: "Here is a structured proposal based on the retrieved sources.",
+                Partial: $"The retrieved sources cover {planItems.Count} of {requiredSlots} requested place(s). I keep only supported items instead of filling the missing places by guesswork.",
                 Complete: "The organization below is proposed by the assistant; each concrete item remains tied to a cited source.",
+                Rotation: $"I found {planItems.Count} distinct sourced option(s) for {requiredSlots} requested slot(s), so I rotate the documented options instead of inventing missing ones.",
                 Verify: "Before using it as a final plan, check the cited pages for quantities, timing, constraints and substitutions."),
             "es" => (
-                Header: "Aqui tienes una propuesta estructurada basada en los elementos con fuente disponibles.",
-                Partial: $"La base con fuente aun es demasiado pequena para cubrir toda la estructura solicitada sin repetir ({planItems.Count} elemento(s) util(es) para {requiredSlots} espacio(s)). La uso como punto de partida a validar, sin inventar elementos faltantes.",
-                Complete: "La organizacion siguiente es una propuesta del asistente; cada elemento concreto sigue ligado a una fuente citada.",
-                Verify: "Antes de usarlo como plan final, revisa las paginas citadas para cantidades, horarios, restricciones y sustituciones."),
+                Header: "Aquí tienes una propuesta estructurada basada en las fuentes recuperadas.",
+                Partial: $"Las fuentes recuperadas cubren {planItems.Count} de {requiredSlots} lugar(es) pedido(s). Mantengo solo los elementos respaldados, sin rellenar las partes faltantes por suposición.",
+                Complete: "La organización siguiente es una propuesta del asistente; cada elemento concreto sigue ligado a una fuente citada.",
+                Rotation: $"He encontrado {planItems.Count} opción/opciones distintas con fuente para {requiredSlots} huecos pedidos, así que las hago rotar en lugar de inventar las que faltan.",
+                Verify: "Antes de usarlo como plan final, revisa las páginas citadas para cantidades, horarios, restricciones y sustituciones."),
             "pt" => (
-                Header: "Aqui esta uma proposta estruturada baseada nos elementos com fonte disponiveis.",
-                Partial: $"A base com fonte ainda e curta demais para cobrir toda a estrutura pedida sem repeticao ({planItems.Count} item(ns) util(eis) para {requiredSlots} espaco(s)). Uso-a como ponto de partida a validar, sem inventar elementos em falta.",
-                Complete: "A organizacao abaixo e uma proposta do assistente; cada item concreto continua ligado a uma fonte citada.",
-                Verify: "Antes de usar isto como plano final, verifica as paginas citadas para quantidades, horarios, restricoes e substituicoes."),
+                Header: "Aqui está uma proposta estruturada baseada nas fontes recuperadas.",
+                Partial: $"As fontes recuperadas cobrem {planItems.Count} de {requiredSlots} lugar(es) pedido(s). Mantenho apenas os itens sustentados, sem preencher as partes em falta por suposição.",
+                Complete: "A organização abaixo é uma proposta do assistente; cada item concreto continua ligado a uma fonte citada.",
+                Rotation: $"Encontrei {planItems.Count} opção/opções distintas com fonte para {requiredSlots} espaços pedidos, por isso faço uma rotação das opções documentadas sem inventar as restantes.",
+                Verify: "Antes de usar isto como plano final, verifica as páginas citadas para quantidades, horários, restrições e substituições."),
             "de" => (
-                Header: "Hier ist ein strukturierter Vorschlag auf Basis der verfuegbaren belegten Elemente.",
-                Partial: $"Die belegte Grundlage ist noch zu klein, um die ganze angefragte Struktur ohne Wiederholung zu fuellen ({planItems.Count} nutzbare Elemente fuer {requiredSlots} Plaetze). Ich nutze sie als zu pruefenden Ausgangspunkt, statt fehlende Punkte zu erfinden.",
+                Header: "Hier ist ein strukturierter Vorschlag auf Basis der gefundenen Quellen.",
+                Partial: $"Die gefundenen Quellen decken {planItems.Count} von {requiredSlots} gewünschten Stelle(n) ab. Ich nutze nur belegte Punkte, statt fehlende Stellen zu erraten.",
                 Complete: "Die folgende Organisation ist ein Vorschlag des Assistenten; jeder konkrete Punkt bleibt mit einer Quelle verbunden.",
-                Verify: "Pruefe vor der finalen Nutzung die zitierten Seiten zu Mengen, Zeiten, Einschraenkungen und Alternativen."),
+                Rotation: $"Ich habe {planItems.Count} unterschiedliche belegte Option(en) für {requiredSlots} gewünschte Plätze gefunden und rotiere sie, statt fehlende Punkte zu erfinden.",
+                Verify: "Prüfe vor der finalen Nutzung die zitierten Seiten zu Mengen, Zeiten, Einschränkungen und Alternativen."),
             "it" => (
-                Header: "Ecco una proposta strutturata basata sugli elementi con fonte disponibili.",
-                Partial: $"La base con fonte e ancora troppo piccola per coprire tutta la struttura richiesta senza ripetizioni ({planItems.Count} elemento/i utile/i per {requiredSlots} spazio/i). La uso come punto di partenza da validare, senza inventare elementi mancanti.",
-                Complete: "L'organizzazione seguente e una proposta dell'assistente; ogni elemento concreto resta collegato a una fonte citata.",
-                Verify: "Prima di usarlo come piano finale, controlla le pagine citate per quantita, tempi, vincoli e sostituzioni."),
+                Header: "Ecco una proposta strutturata basata sulle fonti recuperate.",
+                Partial: $"Le fonti recuperate coprono {planItems.Count} di {requiredSlots} punto/i richiesto/i. Mantengo solo gli elementi supportati, senza riempire le parti mancanti per supposizione.",
+                Complete: "L'organizzazione seguente è una proposta dell'assistente; ogni elemento concreto resta collegato a una fonte citata.",
+                Rotation: $"Ho trovato {planItems.Count} opzione/i distinte con fonte per {requiredSlots} spazi richiesti, quindi le alterno senza inventare quelle mancanti.",
+                Verify: "Prima di usarlo come piano finale, controlla le pagine citate per quantità, tempi, vincoli e sostituzioni."),
             _ => (
-                Header: "Voici une proposition structurée à partir des éléments sourcés disponibles.",
-                Partial: $"La base documentée reste trop courte pour remplir toute la structure demandée sans répétitions : {planItems.Count} élément(s) exploitable(s) pour {requiredSlots} emplacements demandés. Je l'utilise comme point de départ à valider, plutôt que d'inventer les éléments manquants.",
+                Header: "Voici une proposition structurée à partir des sources récupérées.",
+                Partial: $"Les sources récupérées couvrent {planItems.Count} case(s) sur {requiredSlots}. Je garde uniquement les éléments appuyés par les documents, sans remplir les parties manquantes au hasard.",
                 Complete: "L'organisation ci-dessous est proposée par l'assistant ; chaque élément concret reste relié à une source citée.",
+                Rotation: $"J'ai trouvé {planItems.Count} option(s) distincte(s) sourcée(s) pour {requiredSlots} créneaux demandés ; je les fais donc tourner sans inventer les éléments manquants.",
                 Verify: "Avant d'en faire un planning définitif, vérifie les pages citées pour les quantités, horaires, contraintes et remplacements.")
         };
 
-        if (hasPartialCandidateBank
-            && !HasEnoughSourceBackedCandidatesForStructuredPlan(planItems, requiredSlots))
+        if (!hasEnoughDistinctItems || planItems.Count < requiredSlots)
         {
             return BuildStructuredSourceBackedCandidateBankAnswer(planItems, requiredSlots, language, query);
         }
 
         var sb = new StringBuilder();
         sb.AppendLine(labels.Header);
-        sb.AppendLine(hasPartialCandidateBank ? labels.Partial : labels.Complete);
+        sb.AppendLine(labels.Complete);
 
         var slotIndex = 0;
         foreach (var day in dayLabels)
@@ -7562,38 +12372,85 @@ CURRENT_USER_MESSAGE:
             sb.AppendLine($"{day} :");
             foreach (var period in periodLabels)
             {
-                var candidate = planItems[slotIndex % planItems.Count];
+                var candidate = planItems[slotIndex];
                 sb.Append("  - ");
                 sb.Append(period);
                 sb.Append(" : ");
-                sb.Append(candidate.Title);
-                sb.Append(" (");
-                sb.Append(FormatSourceBackedCandidateReference(candidate, language));
-                sb.AppendLine(").");
+                sb.Append(FormatSourceBackedCandidateDisplayTitle(candidate));
+                sb.Append(' ');
+                sb.Append(FormatSourceBackedCandidateOpenToken(candidate, language));
+                sb.AppendLine();
                 slotIndex++;
             }
         }
 
         sb.AppendLine();
         sb.Append(labels.Verify);
-        return hasPartialCandidateBank
-            ? AppendBroadenedSearchOfferIfHelpful(sb.ToString(), query, language)
-            : sb.ToString().TrimEnd();
+        return sb.ToString().TrimEnd();
     }
 
     private static bool HasEnoughSourceBackedCandidatesForStructuredPlan(
         IReadOnlyList<SourceBackedOptionCandidate> planItems,
-        int requiredSlots)
+        int requiredDistinctItems)
     {
-        var minimumCandidates = Math.Min(requiredSlots, Math.Max(4, (int)Math.Ceiling(requiredSlots * 0.45)));
-        if (planItems.Count < minimumCandidates)
+        if (requiredDistinctItems <= 1)
+            return planItems.Count > 0;
+
+        if (planItems.Count < requiredDistinctItems)
             return false;
 
-        var distinctSourcePages = planItems
-            .Select(static candidate => BuildRagHitVisiblePageMergeKey(candidate.Hit))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
+        var distinctTitles = planItems
+            .Select(static candidate => NormalizeLexicalLookup(candidate.Title))
+            .Where(static title => !string.IsNullOrWhiteSpace(title))
+            .Distinct(StringComparer.Ordinal)
             .Count();
-        return distinctSourcePages >= Math.Min(3, minimumCandidates);
+        if (distinctTitles < requiredDistinctItems)
+            return false;
+
+        if (planItems.Any(static candidate => !HasStrictStructuredPlanningCandidateEvidence(candidate)))
+            return false;
+
+        return planItems.Any(static candidate => !string.IsNullOrWhiteSpace(BuildRagHitVisiblePageMergeKey(candidate.Hit)));
+    }
+
+    private static bool HasStrictStructuredPlanningCandidateEvidence(SourceBackedOptionCandidate candidate)
+    {
+        if (!LooksLikeConcreteStructuredPlanningCandidateTitle(candidate.Title))
+            return false;
+
+        if (!HasPageLocalStructuredPlanningCandidateSupport(candidate))
+            return false;
+
+        var title = NormalizeLexicalLookup(candidate.Title);
+        if (string.IsNullOrWhiteSpace(title))
+            return false;
+
+        if (HasPageAnchoredContentCardStructuredPlanningProof(candidate.Hit, title))
+            return true;
+
+        var evidence = NormalizeLexicalLookup(BuildPageLocalSourceBackedPlanningProofText(candidate.Hit));
+        if (evidence.Length < 16)
+            return false;
+
+        if (PrimaryPageEvidenceContainsExactPlanningCandidateTitle(candidate))
+            return true;
+
+        if (evidence.Contains(title, StringComparison.Ordinal))
+            return true;
+
+        var terms = ExtractPlanningAnswerSupportTerms(title)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (terms.Length == 0)
+            return title.Length >= 6;
+
+        var matched = terms.Count(term => evidence.Contains(term, StringComparison.Ordinal));
+        return terms.Length switch
+        {
+            1 => terms[0].Length >= 6 && matched == 1,
+            <= 3 => matched == terms.Length,
+            _ => matched >= Math.Max(3, (int)Math.Ceiling(terms.Length * 0.85))
+        };
     }
 
     private static string BuildStructuredSourceBackedCandidateBankAnswer(
@@ -7606,42 +12463,43 @@ CURRENT_USER_MESSAGE:
         var labels = language switch
         {
             "en" => (
-                Header: "The sources provide a few usable items, but not enough to fill the whole requested structure without repeating too much.",
-                Intro: "Usable starting options:",
-                Next: "To build a complete and varied plan, broaden the search or add more document-backed items before filling every place."),
+                Header: "The retrieved sources cover only part of the requested structure, not enough to fill it without repetition.",
+                Intro: "Directly usable items:",
+                Next: "To complete the plan cleanly, more items confirmed by the documents are needed."),
             "es" => (
-                Header: "Las fuentes ofrecen algunos elementos utilizables, pero no bastan para completar toda la estructura solicitada sin repetir demasiado.",
-                Intro: "Opciones de partida utilizables:",
-                Next: "Para construir un plan completo y variado, amplia la busqueda o anade mas elementos respaldados por documentos antes de llenar todos los huecos."),
+                Header: "Las fuentes recuperadas cubren solo una parte de la estructura solicitada, no lo suficiente para completarla sin repetir.",
+                Intro: "Elementos directamente utilizables:",
+                Next: "Para completar el plan correctamente, hacen falta más elementos confirmados por los documentos."),
             "pt" => (
-                Header: "As fontes oferecem alguns itens utilizaveis, mas nao chegam para completar toda a estrutura pedida sem repetir demasiado.",
-                Intro: "Opcoes iniciais utilizaveis:",
-                Next: "Para criar um plano completo e variado, alarga a pesquisa ou adiciona mais itens apoiados pelos documentos antes de preencher todos os horarios."),
+                Header: "As fontes recuperadas cobrem apenas uma parte da estrutura pedida, não o suficiente para a completar sem repetição.",
+                Intro: "Itens diretamente utilizáveis:",
+                Next: "Para completar o plano corretamente, são necessários mais itens confirmados pelos documentos."),
             "de" => (
-                Header: "Die Quellen liefern einige nutzbare Elemente, aber nicht genug, um die ganze angefragte Struktur ohne zu viele Wiederholungen zu fuellen.",
-                Intro: "Nutzbare Startoptionen:",
-                Next: "Fuer einen vollstaendigen und abwechslungsreichen Plan sollte die Suche erweitert oder weitere belegte Elemente ergaenzt werden."),
+                Header: "Die gefundenen Quellen decken nur einen Teil der gewünschten Struktur ab, nicht genug für einen Plan ohne Wiederholungen.",
+                Intro: "Direkt nutzbare Punkte:",
+                Next: "Für einen sauberen vollständigen Plan werden weitere durch Dokumente bestätigte Punkte benötigt."),
             "it" => (
-                Header: "Le fonti offrono alcuni elementi utilizzabili, ma non bastano per completare tutta la struttura richiesta senza troppe ripetizioni.",
-                Intro: "Opzioni iniziali utilizzabili:",
-                Next: "Per costruire un piano completo e vario, amplia la ricerca o aggiungi altri elementi supportati dai documenti prima di riempire tutti gli spazi."),
+                Header: "Le fonti recuperate coprono solo una parte della struttura richiesta, non abbastanza per completarla senza ripetizioni.",
+                Intro: "Elementi direttamente utilizzabili:",
+                Next: "Per completare il piano in modo pulito, servono altri elementi confermati dai documenti."),
             _ => (
-                Header: "Les sources donnent quelques éléments exploitables, mais pas assez pour remplir toute la structure demandée sans trop répéter.",
-                Intro: "Options utilisables pour démarrer :",
-                Next: "Pour obtenir un planning complet et varié, il faut élargir la recherche ou ajouter d'autres éléments appuyés par les documents avant de remplir tous les créneaux.")
+                Header: "Les sources récupérées couvrent seulement une partie de la structure demandée, pas assez pour la compléter sans répétitions.",
+                Intro: "Éléments directement utilisables :",
+                Next: "Pour compléter le planning proprement, il faut d'autres éléments confirmés par les documents.")
         };
 
         var sb = new StringBuilder();
         sb.AppendLine(labels.Header);
         sb.AppendLine(labels.Intro);
-        for (var i = 0; i < Math.Min(8, planItems.Count); i++)
+        var itemLimit = Math.Min(planItems.Count, Math.Clamp(requiredSlots, 8, 24));
+        for (var i = 0; i < itemLimit; i++)
         {
             var candidate = planItems[i];
             sb.Append("- ");
-            sb.Append(candidate.Title);
-            sb.Append(" (");
-            sb.Append(FormatSourceBackedCandidateReference(candidate, language));
-            sb.AppendLine(").");
+            sb.Append(FormatSourceBackedCandidateDisplayTitle(candidate));
+            sb.Append(' ');
+            sb.Append(FormatSourceBackedCandidateOpenToken(candidate, language));
+            sb.AppendLine();
         }
 
         sb.Append(labels.Next);
@@ -7658,12 +12516,99 @@ CURRENT_USER_MESSAGE:
         return $"{source} {SourceBackedPagePrefix(language)}{Math.Max(1, hit.PageStart)}";
     }
 
+    private static string FormatSourceBackedCandidateDisplayTitle(SourceBackedOptionCandidate candidate)
+    {
+        var title = CleanSourceBackedOptionTitle(candidate.Title);
+        if (string.IsNullOrWhiteSpace(title))
+            title = CollapseWhitespace(candidate.Title);
+
+        return HumanizeSourceBackedDisplayTitle(title);
+    }
+
+    private static string HumanizeSourceBackedDisplayTitle(string? title)
+    {
+        var value = RepairSplitOcrPlanningAxisTerms(CollapseWhitespace(title ?? string.Empty)).Trim();
+        if (string.IsNullOrWhiteSpace(value) || !LooksLikePredominantlyUppercaseDisplayTitle(value))
+            return value;
+
+        var words = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        for (var i = 0; i < words.Length; i++)
+            words[i] = HumanizeSourceBackedDisplayWord(words[i], i, words.Length);
+
+        return string.Join(' ', words);
+    }
+
+    private static bool LooksLikePredominantlyUppercaseDisplayTitle(string title)
+    {
+        var letters = title.Where(char.IsLetter).ToArray();
+        if (letters.Length < 5)
+            return false;
+
+        var upperRatio = letters.Count(char.IsUpper) / (double)letters.Length;
+        return upperRatio >= 0.72;
+    }
+
+    private static string HumanizeSourceBackedDisplayWord(string word, int index, int totalWords)
+    {
+        if (string.IsNullOrWhiteSpace(word))
+            return string.Empty;
+
+        if (word.Contains('-', StringComparison.Ordinal))
+        {
+            return string.Join(
+                '-',
+                word.Split('-', StringSplitOptions.RemoveEmptyEntries)
+                    .Select((part, partIndex) => HumanizeSourceBackedDisplayWord(
+                        part,
+                        index == 0 && partIndex == 0 ? 0 : 1,
+                        totalWords)));
+        }
+
+        var lower = word.ToLowerInvariant();
+        if (index > 0 && index < totalWords - 1 && IsLowercaseSourceBackedDisplayParticle(lower))
+            return lower;
+
+        if (index == 0)
+            return char.ToUpperInvariant(lower[0]) + lower[1..];
+
+        if (word.Length == 1 && char.IsLetter(word[0]))
+            return word.ToUpperInvariant();
+
+        return lower;
+    }
+
+    private static bool IsLowercaseSourceBackedDisplayParticle(string value)
+        => value is "a" or "au" or "aux" or "de" or "du" or "des" or "d" or "et" or "ou" or
+            "of" or "the" or "and" or "or" or "with" or
+            "con" or "sin" or "para" or "por" or
+            "di" or "da" or "del" or "della" or "e" or
+            "mit" or "und" or "oder" or "von";
+
+    private static string FormatSourceBackedCandidateOpenToken(SourceBackedOptionCandidate candidate, string language)
+    {
+        var hit = candidate.Hit;
+        var docPath = (hit.DocPath ?? string.Empty).Replace('\\', '/').TrimStart('/');
+        if (string.IsNullOrWhiteSpace(docPath))
+            return $"({FormatSourceBackedCandidateReference(candidate, language)})";
+
+        var page = Math.Max(1, hit.PageStart);
+        var sourceLabel = string.IsNullOrWhiteSpace(hit.DocName)
+            ? Path.GetFileName(docPath)
+            : hit.DocName.Trim();
+        if (string.IsNullOrWhiteSpace(sourceLabel))
+            sourceLabel = docPath;
+
+        var label = AppendPageToOpenTokenLabel(sourceLabel, page, language);
+        return $"([[open|{docPath}|{page}|{label}]])";
+    }
+
     private static bool ShouldUseWriterForBroadSourceBackedPlanning(ToolResults toolResults, string? query, string language = "fr")
         => !string.IsNullOrWhiteSpace(query)
            && !LooksLikeSourceBackedCountdownPlanningRequest(query)
            && !LooksLikeSourceBackedVerificationChecklistRequest(query)
            && !LooksLikeSourceBackedPairingRecommendationRequest(query)
            && LooksLikeAnyDocumentaryPlanningRequest(query)
+           && !ShouldRequireDeterministicStructuredPlanningAnswer(query)
            && EvaluateSourceBackedPlanningCoverage(toolResults, query, language).IsAdequate;
 
     private static bool ShouldPreferWriterForPolishedSourceBackedAnswer(ToolResults toolResults, string? query)
@@ -7678,6 +12623,9 @@ CURRENT_USER_MESSAGE:
         {
             return false;
         }
+
+        if (ShouldRequireDeterministicStructuredPlanningAnswer(query))
+            return false;
 
         return LooksLikeAnyDocumentaryPlanningRequest(query)
             || LooksLikeGenericCollectionOrListRequest(query)
@@ -7695,46 +12643,199 @@ CURRENT_USER_MESSAGE:
 
     private static bool ShouldAllowWriterForPartialSourceBackedPlanning(ToolResults toolResults, string? query, string language = "fr")
     {
-        if (string.IsNullOrWhiteSpace(query)
-            || LooksLikeSourceBackedCountdownPlanningRequest(query)
-            || LooksLikeSourceBackedVerificationChecklistRequest(query)
-            || LooksLikeSourceBackedPairingRecommendationRequest(query)
-            || LooksLikeStrictCertificationOrExactProofRequest(query)
-            || !LooksLikeAnyDocumentaryPlanningRequest(query))
+        if (string.IsNullOrWhiteSpace(query))
+            return false;
+
+        var intentQuery = ResolveSourceBackedFallbackIntentQuery(query);
+        var resolvedFromEnvelope = !string.Equals(
+            CollapseWhitespace(intentQuery),
+            CollapseWhitespace(query),
+            StringComparison.OrdinalIgnoreCase);
+        var hasSourceBackedConfirmationEnvelopeMarkers =
+            query.Contains("PREVIOUS_USER_REQUEST", StringComparison.OrdinalIgnoreCase)
+            || query.Contains("USER_CONFIRMED_BROADER_SOURCE_SEARCH", StringComparison.OrdinalIgnoreCase)
+            || query.Contains("RESOLVED_REQUEST", StringComparison.OrdinalIgnoreCase);
+        var previousEnvelopeRequest = TryExtractPreviousUserRequestFromEnvelope(query, out var previousRequest)
+            ? previousRequest
+            : string.Empty;
+        var previousEnvelopeIsStructuredPlanning = ShouldGateStructuredSourceBackedPlanningCoverage(previousEnvelopeRequest);
+
+        if (LooksLikeSourceBackedCountdownPlanningRequest(intentQuery)
+            || LooksLikeSourceBackedVerificationChecklistRequest(intentQuery)
+            || LooksLikeSourceBackedPairingRecommendationRequest(intentQuery)
+            || LooksLikeStrictCertificationOrExactProofRequest(intentQuery)
+            || (!LooksLikeAnyDocumentaryPlanningRequest(intentQuery)
+                && !ShouldGateStructuredSourceBackedPlanningCoverage(intentQuery)
+                && !previousEnvelopeIsStructuredPlanning))
         {
             return false;
         }
 
-        var coverage = EvaluateSourceBackedPlanningCoverage(toolResults, query, language);
+        var requiresStructuredFullCoverage = ShouldGateStructuredSourceBackedPlanningCoverage(query)
+            || ShouldGateStructuredSourceBackedPlanningCoverage(intentQuery)
+            || previousEnvelopeIsStructuredPlanning;
+        var coverageQuery = previousEnvelopeIsStructuredPlanning
+            ? previousEnvelopeRequest
+            : intentQuery;
+        var coverage = EvaluateSourceBackedPlanningCoverage(toolResults, coverageQuery, language);
         if (coverage.CandidateCount <= 0 || coverage.DistinctSourcePages <= 0)
             return false;
 
         if (coverage.IsAdequate)
             return true;
 
-        if (RequiresStructuredSourceBackedPlanningCoverage(query))
+        if (requiresStructuredFullCoverage)
         {
-            var enoughPartialMaterialForWriter =
-                coverage.CandidateCount >= Math.Min(4, Math.Max(3, coverage.MinimumCandidates - 2))
-                && coverage.DistinctSourcePages >= 2
-                && coverage.HasRequiredAnchor;
-            return enoughPartialMaterialForWriter;
+            var hasCompleteCandidateBank = coverage.CandidateCount >= coverage.MinimumCandidates
+                && coverage.DistinctSourcePages >= Math.Min(coverage.MinimumCandidates, Math.Max(1, coverage.TargetSlots));
+            if (!hasCompleteCandidateBank)
+                hasCompleteCandidateBank = HasCompleteStrictStructuredPlanningCandidateBank(
+                    toolResults,
+                    coverageQuery,
+                    language,
+                    coverage);
+            if (hasCompleteCandidateBank)
+            {
+                ClientLog.Info(
+                    "ToolAgent writer partial planning gate: decision=allow|reason=complete_candidate_bank"
+                    + $"|resolvedFromEnvelope={FormatPlanningTraceBool(resolvedFromEnvelope)}"
+                    + $"|previousStructured={FormatPlanningTraceBool(previousEnvelopeIsStructuredPlanning)}"
+                    + $"|mealSlots={FormatPlanningTraceBool(ShouldApplyMealPlanningSlotSemantics(coverageQuery))}"
+                    + $"|candidates={coverage.CandidateCount}"
+                    + $"|minimum={coverage.MinimumCandidates}"
+                    + $"|sourcePages={coverage.DistinctSourcePages}");
+                return true;
+            }
+
+            var allowConfirmedMealPartial = (IsBroadenedSourceSearchConfirmationEnvelope(query)
+                    || previousEnvelopeIsStructuredPlanning
+                    || resolvedFromEnvelope
+                    || hasSourceBackedConfirmationEnvelopeMarkers)
+                && ShouldApplyMealPlanningSlotSemantics(coverageQuery)
+                && (HasCompleteStrictStructuredPlanningCandidateBank(
+                        toolResults,
+                        coverageQuery,
+                        language,
+                        coverage,
+                        minimumCandidateOverride: 2)
+                    || HasUsefulPartialSourceBackedPlanningCoverage(
+                        coverage,
+                        searchWasBroadened: true,
+                        searchWasExpanded: HasExpandedSourceBackedSearchEvidence(toolResults)));
+            ClientLog.Info(
+                "ToolAgent writer partial planning gate: decision="
+                + (allowConfirmedMealPartial ? "allow" : "reject")
+                + "|reason=structured_partial"
+                + $"|resolvedFromEnvelope={FormatPlanningTraceBool(resolvedFromEnvelope)}"
+                + $"|envelopeMarkers={FormatPlanningTraceBool(hasSourceBackedConfirmationEnvelopeMarkers)}"
+                + $"|previousStructured={FormatPlanningTraceBool(previousEnvelopeIsStructuredPlanning)}"
+                + $"|broadened={FormatPlanningTraceBool(IsBroadenedSourceSearchConfirmationEnvelope(query))}"
+                + $"|mealSlots={FormatPlanningTraceBool(ShouldApplyMealPlanningSlotSemantics(coverageQuery))}"
+                + $"|candidates={coverage.CandidateCount}"
+                + $"|minimum={coverage.MinimumCandidates}"
+                + $"|sourcePages={coverage.DistinctSourcePages}");
+            return allowConfirmedMealPartial;
         }
 
-        var hasExplicitStructure = DetectRequestedDayAxisLabels(query, language).Count > 0
-            || DetectRequestedPeriodAxisLabels(query, language).Count > 0;
-        var asksForSynthesis = LooksLikeUserNeedsSynthesizedDecisionOrPlan(query)
-            || LooksLikeMultipleCandidateSynthesisRequest(query)
-            || LooksLikeBroadSourceBackedCompositionRequest(query);
+        var hasExplicitStructure = DetectRequestedDayAxisLabels(intentQuery, language).Count > 0
+            || DetectRequestedPeriodAxisLabels(intentQuery, language).Count > 0;
+        var asksForSynthesis = LooksLikeUserNeedsSynthesizedDecisionOrPlan(intentQuery)
+            || LooksLikeMultipleCandidateSynthesisRequest(intentQuery)
+            || LooksLikeBroadSourceBackedCompositionRequest(intentQuery);
 
         return hasExplicitStructure
             || asksForSynthesis
             || coverage.CandidateCount >= Math.Min(2, coverage.MinimumCandidates);
     }
 
+    private static bool HasCompleteStrictStructuredPlanningCandidateBank(
+        ToolResults toolResults,
+        string? query,
+        string language,
+        SourceBackedPlanningCoverage coverage,
+        int? minimumCandidateOverride = null)
+    {
+        var requiredCandidates = Math.Max(1, minimumCandidateOverride ?? coverage.MinimumCandidates);
+        if (requiredCandidates <= 0)
+            return true;
+
+        var poolSize = ResolveSourceBackedPlanningCandidatePoolSize(
+            query,
+            Math.Max(coverage.TargetSlots, requiredCandidates));
+        var candidates = SelectSourceBackedPlanningCandidates(
+                toolResults,
+                query,
+                poolSize,
+                language)
+            .GroupBy(BuildSourceBackedPlanningCandidateLeadKey, StringComparer.OrdinalIgnoreCase)
+            .Select(static group => group
+                .OrderByDescending(static candidate => candidate.Score)
+                .ThenByDescending(static candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit))
+                .ThenByDescending(static candidate => candidate.Hit.Score)
+                .First())
+            .Take(requiredCandidates)
+            .ToList();
+        if (candidates.Count < requiredCandidates)
+            return false;
+
+        var distinctSourcePages = candidates
+            .Select(static candidate => BuildRagHitVisiblePageMergeKey(candidate.Hit))
+            .Where(static key => !string.IsNullOrWhiteSpace(key))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+        return distinctSourcePages >= Math.Min(requiredCandidates, Math.Max(1, coverage.TargetSlots));
+    }
+
+    private static bool HasUsefulPartialSourceBackedPlanningCoverage(
+        SourceBackedPlanningCoverage coverage,
+        bool searchWasBroadened,
+        bool searchWasExpanded)
+    {
+        if (coverage.CandidateCount <= 0 || coverage.DistinctSourcePages <= 0)
+            return false;
+
+        if (coverage.IsAdequate)
+            return true;
+
+        var searchWasExtended = searchWasBroadened || searchWasExpanded;
+        var minimumPartialCandidates = Math.Min(
+            coverage.MinimumCandidates,
+            searchWasBroadened
+                ? Math.Max(2, (int)Math.Ceiling(coverage.MinimumCandidates * 0.25))
+                : searchWasExpanded
+                    ? Math.Max(4, (int)Math.Ceiling(coverage.MinimumCandidates * 0.35))
+                    : Math.Max(4, (int)Math.Ceiling(coverage.MinimumCandidates * 0.5)));
+        var hasRequiredAnchorOrUsefulPartialMap =
+            coverage.HasRequiredAnchor
+            || (searchWasExtended
+                && coverage.DistinctSourcePages >= 2
+                && (coverage.RichEvidenceCount >= 1
+                    || coverage.EvidenceRichnessScore >= 6
+                    || coverage.DistinctSourcePages >= 3));
+        var hasDiverseBroadenedPartialBank =
+            searchWasBroadened
+            && coverage.CandidateCount >= 3
+            && coverage.DistinctSourcePages >= 2;
+        var hasStructuredPartialBank =
+            coverage.TargetSlots >= 4
+            && coverage.CandidateCount >= Math.Min(
+                coverage.MinimumCandidates,
+                Math.Max(3, (int)Math.Ceiling(coverage.TargetSlots * 0.35d)))
+            && coverage.DistinctSourcePages >= Math.Min(3, coverage.CandidateCount)
+            && (coverage.RichEvidenceCount >= Math.Min(2, coverage.CandidateCount)
+                || coverage.EvidenceRichnessScore >= Math.Min(8, coverage.CandidateCount));
+        var hasUsablePartialBank = coverage.CandidateCount >= minimumPartialCandidates
+            && coverage.DistinctSourcePages >= Math.Min(3, minimumPartialCandidates)
+            && (hasRequiredAnchorOrUsefulPartialMap || hasDiverseBroadenedPartialBank);
+        var hasRichPartialBank = coverage.RichEvidenceCount >= 2
+            && coverage.DistinctSourcePages >= 2
+            && hasRequiredAnchorOrUsefulPartialMap;
+        return hasUsablePartialBank || hasRichPartialBank || hasDiverseBroadenedPartialBank || hasStructuredPartialBank;
+    }
+
     private static bool ShouldExpandSourceBackedPlanningRetrieval(ToolResults toolResults, string? query, string language)
     {
-        if (!LooksLikeAnyDocumentaryPlanningRequest(query))
+        if (!LooksLikeAnyDocumentaryPlanningRequest(query) && !ShouldGateStructuredSourceBackedPlanningCoverage(query))
             return false;
 
         var coverage = EvaluateSourceBackedPlanningCoverage(toolResults, query, language);
@@ -7881,6 +12982,126 @@ CURRENT_USER_MESSAGE:
             true);
     }
 
+    private static bool HasStructuredSourceBackedPlanningTargetCandidateCoverageForStop(
+        SourceBackedEvidenceSufficiency analysis,
+        string? query)
+    {
+        if (!ShouldGateStructuredSourceBackedPlanningCoverage(query)
+            || !string.Equals(analysis.Kind, "planning", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!analysis.IsSufficient)
+            return false;
+
+        var target = Math.Max(
+            Math.Max(1, analysis.TargetSlotCount),
+            Math.Max(1, analysis.MinimumCandidateCount));
+        if (analysis.CandidateCount < target || analysis.UsableHitCount < target)
+            return false;
+
+        if (!analysis.HasRequiredAnchor)
+            return false;
+
+        return analysis.DistinctSourcePageCount >= target;
+    }
+
+    private static bool ShouldSuppressStructuredMealPlanningAnchorFollowup(
+        ToolResults toolResults,
+        string? query,
+        string language)
+        => ShouldSuppressStructuredMealPlanningAnchorFollowup(
+            AnalyzeSourceBackedEvidenceSufficiency(toolResults, query, language),
+            query);
+
+    private static bool ShouldSuppressStructuredMealPlanningAnchorFollowup(
+        SourceBackedEvidenceSufficiency analysis,
+        string? query)
+    {
+        if (!ShouldGateStructuredSourceBackedPlanningCoverage(query)
+            || !ShouldApplyMealPlanningSlotSemantics(query)
+            || !string.Equals(analysis.Kind, "planning", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return (analysis.CandidateCount <= 0 && analysis.UsableHitCount <= 0)
+            || ShouldDeferSparseSourceBackedPlanningAnchorFollowup(analysis, query);
+    }
+
+    private static bool ShouldDeferSparseSourceBackedPlanningAnchorFollowup(
+        SourceBackedEvidenceSufficiency analysis,
+        string? query)
+    {
+        if (!UsesSourceBackedPlanningCoverage(query)
+            || !string.Equals(analysis.Kind, "planning", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (HasStructuredSourceBackedPlanningTargetCandidateCoverageForStop(analysis, query))
+            return false;
+
+        var target = Math.Max(
+            Math.Max(1, analysis.MinimumCandidateCount),
+            Math.Max(1, analysis.TargetSlotCount));
+        if (target <= 1)
+            return false;
+
+        if (analysis.CandidateCount <= 0 && analysis.UsableHitCount <= 0)
+            return true;
+
+        var sparseCandidateThreshold = Math.Min(
+            target,
+            Math.Max(4, (int)Math.Ceiling(target * 0.5d)));
+        if (analysis.CandidateCount < sparseCandidateThreshold)
+            return true;
+
+        var sparsePageThreshold = Math.Min(
+            sparseCandidateThreshold,
+            Math.Max(3, (int)Math.Ceiling(target * 0.35d)));
+        return analysis.CandidateCount < target
+               && analysis.DistinctSourcePageCount < sparsePageThreshold;
+    }
+
+    private static bool ShouldAttemptSourceBackedAnchorFollowupOutsideCommittedPass(
+        SourceBackedEvidenceSufficiency analysis,
+        string? query,
+        bool acceptedAnyExplorationPass)
+    {
+        if (!UsesSourceBackedPlanningCoverage(query))
+            return true;
+
+        if (!string.Equals(analysis.Kind, "planning", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (HasStructuredSourceBackedPlanningTargetCandidateCoverageForStop(analysis, query))
+            return false;
+
+        if (ShouldDeferSparseSourceBackedPlanningAnchorFollowup(analysis, query))
+            return false;
+
+        return acceptedAnyExplorationPass;
+    }
+
+    private static bool ShouldSuppressStructuredMealPlanningGenericDiscovery(
+        SourceBackedEvidenceSufficiency analysis,
+        string? query)
+    {
+        if (!ShouldGateStructuredSourceBackedPlanningCoverage(query)
+            || !ShouldApplyMealPlanningSlotSemantics(query)
+            || !string.Equals(analysis.Kind, "planning", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var requiredConcreteCandidates = Math.Max(
+            Math.Max(1, analysis.MinimumCandidateCount),
+            Math.Max(1, analysis.TargetSlotCount));
+        return analysis.CandidateCount < requiredConcreteCandidates;
+    }
+
     private static bool ShouldExpandSourceBackedEvidenceRetrieval(ToolResults toolResults, string? query, string language)
         => AnalyzeSourceBackedEvidenceSufficiency(toolResults, query, language).ShouldExplore;
 
@@ -7946,6 +13167,187 @@ CURRENT_USER_MESSAGE:
         return !current.HasRequiredAnchor && candidate.HasRequiredAnchor;
     }
 
+    private static bool CandidateSourceBackedEvidenceAddsUsefulOrientation(
+        ToolResults current,
+        ToolResults candidate,
+        SourceBackedEvidenceSufficiency currentAnalysis,
+        SourceBackedEvidenceSufficiency candidateAnalysis,
+        string? query,
+        string language)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return false;
+
+        var needsExplorationMap =
+            LooksLikeGenericCollectionOrListRequest(query)
+            || LooksLikeAnyDocumentaryPlanningRequest(query)
+            || LooksLikeBroadSourceBackedCompositionRequest(query)
+            || LooksLikeMultipleCandidateSynthesisRequest(query)
+            || LooksLikeSoftChoiceRecommendationRequest(query)
+            || LooksLikeSourceBackedPairingRecommendationRequest(query)
+            || LooksLikeUserNeedsSynthesizedDecisionOrPlan(query);
+        if (!needsExplorationMap)
+            return false;
+
+        var scoreTolerance = UsesSourceBackedPlanningCoverage(query) ? 24 : 18;
+        if (candidateAnalysis.Score < currentAnalysis.Score - scoreTolerance)
+            return false;
+
+        if (ShouldSuppressStructuredMealPlanningGenericDiscovery(candidateAnalysis, query))
+            return false;
+
+        var currentPivots = CountSourceBackedOrientationPivots(current, query, language);
+        var candidatePivots = CountSourceBackedOrientationPivots(candidate, query, language);
+        if (candidatePivots <= currentPivots)
+            return false;
+
+        var currentHasFollowups = HasSourceBackedRouteAnchorFollowupQueries(current, query, language);
+        var candidateHasFollowups = HasSourceBackedRouteAnchorFollowupQueries(candidate, query, language);
+        if (!currentHasFollowups && candidateHasFollowups)
+            return true;
+
+        var minimumUsefulPivots = Math.Min(8, Math.Max(3, candidateAnalysis.MinimumCandidateCount));
+        if (candidatePivots >= minimumUsefulPivots)
+            return true;
+
+        return candidatePivots >= currentPivots + 2
+            && candidateAnalysis.UsableHitCount >= Math.Max(0, currentAnalysis.UsableHitCount - 1);
+    }
+
+    private static bool CandidateSourceBackedEvidenceAddsExplorationMaterial(
+        ToolResults current,
+        ToolResults candidate,
+        string? query,
+        string language,
+        bool forceBroadenedExploration = false)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return false;
+
+        var needsBroadMaterial =
+            LooksLikeSourceBackedBroadResearchRequest(query)
+            || LooksLikeGenericCollectionOrListRequest(query)
+            || LooksLikeAnyDocumentaryPlanningRequest(query)
+            || LooksLikeBroadSourceBackedCompositionRequest(query)
+            || LooksLikeMultipleCandidateSynthesisRequest(query)
+            || LooksLikeSoftChoiceRecommendationRequest(query)
+            || LooksLikeSourceBackedPairingRecommendationRequest(query)
+            || LooksLikeUserNeedsSynthesizedDecisionOrPlan(query);
+        if (!needsBroadMaterial)
+            return false;
+
+        var currentPageKeys = EnumerateRagHitSummaries(current)
+            .Where(IsSourceBackedExplorationMaterialHit)
+            .Select(BuildRagHitVisiblePageMergeKey)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var currentDocumentKeys = EnumerateRagHitSummaries(current)
+            .Where(IsSourceBackedExplorationMaterialHit)
+            .Select(BuildSourceBackedExplorationMaterialDocumentKey)
+            .Where(static key => !string.IsNullOrWhiteSpace(key))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var addedHits = EnumerateRagHitSummaries(candidate)
+            .Where(IsSourceBackedExplorationMaterialHit)
+            .GroupBy(BuildRagHitVisiblePageMergeKey, StringComparer.OrdinalIgnoreCase)
+            .Select(static group => group
+                .OrderByDescending(ComputeSourceBackedEvidenceRichnessScore)
+                .ThenByDescending(static hit => hit.Score)
+                .First())
+            .Where(hit => !currentPageKeys.Contains(BuildRagHitVisiblePageMergeKey(hit)))
+            .Take(12)
+            .ToList();
+        if (addedHits.Count == 0)
+            return false;
+
+        var addedPageCount = addedHits
+            .Select(BuildRagHitVisiblePageMergeKey)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+        var addedDocumentCount = addedHits
+            .Select(BuildSourceBackedExplorationMaterialDocumentKey)
+            .Where(static key => !string.IsNullOrWhiteSpace(key))
+            .Where(key => !currentDocumentKeys.Contains(key))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+        var richOrStructuredCount = addedHits.Count(IsRichEnoughSourceBackedExplorationMaterialHit);
+        var minimumNewPages = forceBroadenedExploration || IsBroadenedSourceSearchConfirmationEnvelope(query) ? 1 : 2;
+
+        if ((forceBroadenedExploration || IsBroadenedSourceSearchConfirmationEnvelope(query))
+            && addedPageCount >= 1)
+        {
+            return true;
+        }
+
+        if (addedPageCount >= minimumNewPages && (richOrStructuredCount > 0 || addedDocumentCount > 0))
+            return true;
+
+        if (addedDocumentCount >= 2)
+            return true;
+
+        if (LooksLikeAnyDocumentaryPlanningRequest(query)
+            && addedPageCount >= 2
+            && richOrStructuredCount > 0)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsSourceBackedExplorationMaterialHit(RagHitSummary hit)
+    {
+        if (hit.PageStart <= 0)
+            return false;
+
+        if (LooksLikeNavigationOnlyHit(hit) || LooksLikePageReferenceOnlyHit(hit))
+            return LooksLikeResolvedRouteTargetHit(hit);
+
+        if (LooksLikeLowSignalContentCandidateHit(hit) && !BackendSelectionHintsPreferUsableEvidence(hit))
+            return false;
+
+        var evidence = CollapseWhitespace(GetBestRagEvidenceText(hit));
+        return evidence.Length >= 72
+            || HasContentCardEvidenceFacts(hit)
+            || HasContentCardQuantityEvidence(new[] { hit })
+            || HasContentCardScalableQuantityEvidence(hit)
+            || ComputeSourceBackedEvidenceRichnessScore(hit) >= 3;
+    }
+
+    private static bool IsRichEnoughSourceBackedExplorationMaterialHit(RagHitSummary hit)
+        => ComputeSourceBackedEvidenceRichnessScore(hit) >= 4
+           || HasContentCardEvidenceFacts(hit)
+           || HasContentCardQuantityEvidence(new[] { hit })
+           || HasContentCardScalableQuantityEvidence(hit);
+
+    private static string BuildSourceBackedExplorationMaterialDocumentKey(RagHitSummary hit)
+    {
+        var path = NormalizeVisibleSourcePathIdentity(hit.DocPath);
+        if (!string.IsNullOrWhiteSpace(path))
+            return $"path:{path}";
+
+        var hash = CollapseWhitespace(hit.SourceHash ?? string.Empty).ToLowerInvariant();
+        if (!string.IsNullOrWhiteSpace(hash))
+            return $"hash:{hash}";
+
+        var docId = CollapseWhitespace(hit.DocId ?? string.Empty).ToLowerInvariant();
+        if (!string.IsNullOrWhiteSpace(docId))
+            return $"id:{docId}";
+
+        var name = NormalizeLexicalLookup(hit.DocName);
+        return string.IsNullOrWhiteSpace(name) ? string.Empty : $"name:{name}";
+    }
+
+    private static int CountSourceBackedOrientationPivots(ToolResults toolResults, string query, string language)
+        => ExtractSourceBackedRouteAnchorFollowupTitles(toolResults, query)
+            .Concat(ExtractSourceBackedDocumentNavigationFollowupTitles(toolResults, query))
+            .Concat(ExtractSourceBackedTreeFollowupTitles(toolResults, query))
+            .Concat(ExtractSourceBackedSummaryFollowupTitles(toolResults, query))
+            .Select(NormalizeLexicalLookup)
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.Ordinal)
+            .Take(80)
+            .Count();
+
     private static int CountSourceBackedNavigationDiscoveryAnchors(ToolResults toolResults)
         => EnumerateRagHitSummaries(toolResults)
             .Where(IsRouteDiscoveryAnchorHit)
@@ -7966,34 +13368,69 @@ CURRENT_USER_MESSAGE:
         var hasStructuredAxes = DetectRequestedDayAxisLabels(query, language).Count > 0
             && DetectRequestedPeriodAxisLabels(query, language).Count > 0;
         var minimumCandidates = ResolveMinimumSourceBackedPlanningCandidateCount(query, targetSlots, hasStructuredAxes);
+        var strictStructuredPlanning = ShouldGateStructuredSourceBackedPlanningCoverage(query);
+        var candidatePoolSize = strictStructuredPlanning
+            ? ResolveSourceBackedPlanningCandidatePoolSize(query, Math.Max(targetSlots, minimumCandidates))
+            : Math.Max(20, targetSlots);
+        ClientLog.Info(
+            $"ToolAgent planning coverage evaluate: stage=candidate_pool.start|targetSlots={targetSlots}|minimumCandidates={minimumCandidates}|poolSize={candidatePoolSize}|strict={strictStructuredPlanning}|structuredAxes={hasStructuredAxes}");
+        var coverageStopwatch = Stopwatch.StartNew();
         var candidates = SelectSourceBackedPlanningCandidates(
                 toolResults,
                 query,
-                Math.Max(20, targetSlots),
+                candidatePoolSize,
                 language)
             .ToList();
-        var distinctLeadCandidates = candidates
-            .GroupBy(BuildSourceBackedPlanningCandidateLeadKey, StringComparer.OrdinalIgnoreCase)
-            .Select(static group => group
-                .OrderByDescending(static candidate => candidate.Score)
-                .ThenByDescending(static candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit))
-                .ThenByDescending(static candidate => candidate.Hit.Score)
-                .First())
-            .ToList();
+        ClientLog.Info(
+            $"ToolAgent planning coverage evaluate: stage=candidate_pool.selected|candidates={candidates.Count}|ms={coverageStopwatch.ElapsedMilliseconds}|topTitles={string.Join("; ", candidates.Take(8).Select(static candidate => candidate.Title))}");
+        var selectionStopwatch = Stopwatch.StartNew();
+        var distinctLeadCandidates = strictStructuredPlanning
+            ? SelectPageDiverseSourceBackedPlanningCandidates(
+                    candidates,
+                    Math.Max(targetSlots, minimumCandidates),
+                    query)
+                .ToList()
+            : RankDistinctSourceBackedPlanningLeadCandidates(candidates, query).ToList();
+        ClientLog.Info(
+            $"ToolAgent planning coverage evaluate: stage=lead_selection.end|selected={distinctLeadCandidates.Count}|mode={(strictStructuredPlanning ? "page_diverse" : "ranked")}|ms={selectionStopwatch.ElapsedMilliseconds}|topTitles={string.Join("; ", distinctLeadCandidates.Take(8).Select(static candidate => candidate.Title))}");
+        if (strictStructuredPlanning && hasStructuredAxes && ShouldApplyMealPlanningSlotSemantics(query))
+        {
+            var slotSelectionStopwatch = Stopwatch.StartNew();
+            distinctLeadCandidates = SelectStructuredMealPlanningCandidatesForSlots(
+                    candidates,
+                    DetectRequestedPeriodAxisLabels(query, language),
+                    targetSlots,
+                    query)
+                .ToList();
+            ClientLog.Info(
+                $"ToolAgent planning coverage evaluate: stage=slot_selection.end|requiredSlots={targetSlots}|selected={distinctLeadCandidates.Count}|ms={slotSelectionStopwatch.ElapsedMilliseconds}|topTitles={string.Join("; ", distinctLeadCandidates.Take(20).Select(static candidate => candidate.Title))}");
+        }
+        ClientLog.Info(
+            $"ToolAgent planning coverage evaluate: stage=candidate_pool.end|candidates={candidates.Count}|selected={distinctLeadCandidates.Count}|totalMs={coverageStopwatch.ElapsedMilliseconds}|topTitles={string.Join("; ", distinctLeadCandidates.Take(10).Select(static candidate => candidate.Title))}");
+
         var distinctCandidateCount = distinctLeadCandidates.Count;
         var distinctSourcePages = distinctLeadCandidates
             .Select(static candidate => BuildRagHitVisiblePageMergeKey(candidate.Hit))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Count();
-        var hasRequiredAnchor = HasSourceBackedPlanningAnchorCoverage(toolResults, query);
+        var requiredSourcePageCount = strictStructuredPlanning
+            ? Math.Min(targetSlots, Math.Max(1, minimumCandidates))
+            : RequiresFullyDistinctStructuredPlanningItems(query)
+            ? Math.Min(3, minimumCandidates)
+            : 1;
         var richEvidenceCount = distinctLeadCandidates.Count(static candidate => HasRichSourceBackedEvidence(candidate.Hit));
         var evidenceRichnessScore = distinctLeadCandidates.Sum(static candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit));
-
+        var hasFullStrictStructuredCoverage = strictStructuredPlanning
+            && distinctCandidateCount >= minimumCandidates
+            && distinctSourcePages >= requiredSourcePageCount
+            && richEvidenceCount >= Math.Min(3, minimumCandidates);
+        var hasRequiredAnchor = HasSourceBackedPlanningAnchorCoverage(toolResults, query)
+            || hasFullStrictStructuredCoverage;
         var isAdequate = distinctCandidateCount >= minimumCandidates
-            && distinctSourcePages >= Math.Min(3, minimumCandidates)
+            && distinctSourcePages >= requiredSourcePageCount
             && hasRequiredAnchor;
         var score = Math.Min(distinctCandidateCount, minimumCandidates) * 10
-            + Math.Min(distinctSourcePages, Math.Min(3, minimumCandidates)) * 4
+            + Math.Min(distinctSourcePages, requiredSourcePageCount) * 4
             + (hasRequiredAnchor ? 8 : 0)
             + (richEvidenceCount * 3)
             + Math.Min(16, evidenceRichnessScore)
@@ -8011,15 +13448,459 @@ CURRENT_USER_MESSAGE:
             score);
     }
 
+    private static string[] BuildSourceBackedPlanningTraceLines(
+        ToolResults toolResults,
+        string? query,
+        string language)
+    {
+        language = NormalizeLanguageCode(language);
+        var targetSlots = ResolveSourceBackedPlanningTargetItemCount(query);
+        var hasStructuredAxes = DetectRequestedDayAxisLabels(query, language).Count > 0
+            && DetectRequestedPeriodAxisLabels(query, language).Count > 0;
+        var minimumCandidates = ResolveMinimumSourceBackedPlanningCandidateCount(query, targetSlots, hasStructuredAxes);
+        var strictStructuredPlanning = ShouldGateStructuredSourceBackedPlanningCoverage(query);
+        var trace = new List<string>
+        {
+            $"stage=scope|target_slots={targetSlots}|minimum_candidates={minimumCandidates}|structured_axes={FormatPlanningTraceBool(hasStructuredAxes)}|strict={FormatPlanningTraceBool(strictStructuredPlanning)}"
+        };
+
+        AppendPlanningTraceQueries(trace, "primary", BuildPlanningRetrievalQueries(query ?? string.Empty));
+        AppendPlanningTraceQueries(trace, "exploration", BuildPlanningExplorationRetrievalQueries(query ?? string.Empty));
+
+        var acceptedPool = SelectSourceBackedPlanningCandidates(
+                toolResults,
+                query,
+                Math.Max(64, targetSlots),
+                language)
+            .ToList();
+        trace.Add(
+            "stage=candidate_pool"
+            + $"|raw_candidates={acceptedPool.Count}"
+            + $"|route_breakfast={acceptedPool.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Breakfast))}"
+            + $"|route_main={acceptedPool.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal))}"
+            + $"|route_snack={acceptedPool.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))}"
+            + $"|top_titles={FormatPlanningTraceValue(string.Join("; ", acceptedPool.Take(12).Select(static candidate => candidate.Title)))}");
+        var optionPool = SelectSourceBackedOptionCandidates(
+                toolResults,
+                query,
+                keepOverRequestedDuration: true,
+                language: language,
+                allowPartialStructuredPlanningCandidates: !strictStructuredPlanning)
+            .ToList();
+        var acceptedPoolKeys = acceptedPool
+            .Select(BuildSourceBackedPlanningCandidateKey)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        trace.Add(
+            "stage=option_candidate_pool"
+            + $"|candidates={optionPool.Count}"
+            + $"|not_in_planning_pool={optionPool.Count(candidate => !acceptedPoolKeys.Contains(BuildSourceBackedPlanningCandidateKey(candidate)))}"
+            + $"|top_titles={FormatPlanningTraceValue(string.Join("; ", optionPool.Take(12).Select(static candidate => candidate.Title)))}");
+        var optionDominantTopLevelScope = strictStructuredPlanning
+            ? TryInferDominantTopLevelCategoryScope(toolResults, query)
+            : null;
+        foreach (var optionCandidate in optionPool
+                     .Where(candidate => !acceptedPoolKeys.Contains(BuildSourceBackedPlanningCandidateKey(candidate)))
+                     .Take(24))
+        {
+            var reason = ExplainSourceBackedPlanningCandidateRejection(
+                optionCandidate,
+                query,
+                strictStructuredPlanning,
+                requireStrictStructuredEvidence: true,
+                dominantTopLevelScope: optionDominantTopLevelScope);
+            trace.Add(
+                "stage=option_candidate"
+                + "|decision=not_in_planning_pool"
+                + $"|reason={FormatPlanningTraceValue(string.IsNullOrWhiteSpace(reason) ? "ranked_or_deduplicated_out" : reason)}"
+                + $"|candidate_key={FormatPlanningTraceValue(BuildSourceBackedPlanningCandidateKey(optionCandidate))}"
+                + $"|strict_evidence={FormatPlanningTraceBool(HasStrictStructuredPlanningCandidateEvidence(optionCandidate))}"
+                + $"|direct_evidence={FormatPlanningTraceBool(HasDirectSourceBackedPlanningCandidateEvidence(optionCandidate))}"
+                + $"|slot_route={FormatPlanningTraceValue(FormatStructuredMealPlanningRetrievalRoute(optionCandidate))}"
+                + $"|retrieval_query={FormatPlanningTraceValue(optionCandidate.Hit.RetrievalQuery)}"
+                + BuildSourceBackedPlanningCandidateEvidenceDiagnostics(optionCandidate)
+                + $"|title={FormatPlanningTraceValue(optionCandidate.Title)}"
+                + $"|doc={FormatPlanningTraceValue(optionCandidate.Hit.DocPath)}"
+                + $"|page={optionCandidate.Hit.PageStart}"
+                + $"|score={optionCandidate.Score}");
+        }
+        var accepted = strictStructuredPlanning
+            ? SelectPageDiverseSourceBackedPlanningCandidates(
+                    acceptedPool,
+                    Math.Max(targetSlots, minimumCandidates),
+                    query)
+                .ToList()
+            : acceptedPool;
+        if (strictStructuredPlanning && hasStructuredAxes && ShouldApplyMealPlanningSlotSemantics(query))
+        {
+            var periodLabels = DetectRequestedPeriodAxisLabels(query, language);
+            var slotAccepted = SelectStructuredMealPlanningCandidatesForSlots(
+                    acceptedPool,
+                    periodLabels,
+                    targetSlots,
+                    query)
+                .ToList();
+            var slotKinds = Enumerable.Range(0, targetSlots)
+                .Select(index => ResolveStructuredMealPlanningSlotKind(periodLabels[index % periodLabels.Count]))
+                .ToArray();
+            var snackRouteTitles = string.Join(
+                "; ",
+                acceptedPool
+                    .Where(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))
+                    .Take(32)
+                    .Select(static candidate => $"{candidate.Title} <= {candidate.Hit.RetrievalQuery}"));
+            trace.Add(
+                "stage=slot_fit"
+                + $"|required_slots={targetSlots}"
+                + $"|assigned_slots={slotAccepted.Count}"
+                + $"|route_backfilled={CountRouteBackfilledStructuredMealPlanningSlotAssignments(slotAccepted, slotKinds, query)}"
+                + $"|snack_pool={CountStructuredMealPlanningExplicitSlotCandidates(acceptedPool, StructuredMealPlanningSlotKind.Snack, query)}"
+                + $"|snack_compatible_pool={CountStructuredMealPlanningSlotCandidates(acceptedPool, StructuredMealPlanningSlotKind.Snack, query)}"
+                + $"|light_snack_pool={CountStructuredMealPlanningLightSnackCandidates(acceptedPool, query)}"
+                + $"|snack_route_pool={acceptedPool.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))}"
+                + $"|snack_route_fit_pool={CountStructuredMealPlanningSlotRouteCompatibleCandidates(acceptedPool, StructuredMealPlanningSlotKind.Snack, query)}"
+                + $"|breakfast_pool={CountStructuredMealPlanningSlotCandidates(acceptedPool, StructuredMealPlanningSlotKind.Breakfast, query)}"
+                + $"|main_pool={CountStructuredMealPlanningSlotCandidates(acceptedPool, StructuredMealPlanningSlotKind.MainMeal, query)}"
+                + $"|breakfast_route_pool={acceptedPool.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Breakfast))}"
+                + $"|main_route_pool={acceptedPool.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal))}"
+                + $"|breakfast_route_fit_pool={CountStructuredMealPlanningSlotRouteCompatibleCandidates(acceptedPool, StructuredMealPlanningSlotKind.Breakfast, query)}"
+                + $"|main_route_fit_pool={CountStructuredMealPlanningSlotRouteCompatibleCandidates(acceptedPool, StructuredMealPlanningSlotKind.MainMeal, query)}"
+                + $"|periods={FormatPlanningTraceValue(string.Join(", ", periodLabels))}"
+                + $"|breakfast_title_pool={CountStructuredMealPlanningSlotTitleCueCandidates(acceptedPool, StructuredMealPlanningSlotKind.Breakfast, query)}"
+                + $"|main_title_pool={CountStructuredMealPlanningSlotTitleCueCandidates(acceptedPool, StructuredMealPlanningSlotKind.MainMeal, query)}"
+                + $"|snack_title_pool={CountStructuredMealPlanningSlotTitleCueCandidates(acceptedPool, StructuredMealPlanningSlotKind.Snack, query)}"
+                + $"|snackRouteTitles={FormatPlanningTraceValue(snackRouteTitles)}"
+                + $"|non_meal_rejected={acceptedPool.Count(candidate => ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query))}");
+            accepted = slotAccepted;
+        }
+
+        var acceptedKeys = accepted
+            .Select(BuildSourceBackedPlanningCandidateKey)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var candidate in accepted.Take(80))
+        {
+            var pageKey = BuildRagHitVisiblePageMergeKey(candidate.Hit);
+            trace.Add(
+                "stage=candidate"
+                + "|decision=accepted"
+                + "|reason=selected"
+                + $"|candidate_key={FormatPlanningTraceValue(BuildSourceBackedPlanningCandidateKey(candidate))}"
+                + $"|page_key={FormatPlanningTraceValue(pageKey)}"
+                + $"|strict_evidence={FormatPlanningTraceBool(HasStrictStructuredPlanningCandidateEvidence(candidate))}"
+                + $"|direct_evidence={FormatPlanningTraceBool(HasDirectSourceBackedPlanningCandidateEvidence(candidate))}"
+                + $"|slot_route={FormatPlanningTraceValue(FormatStructuredMealPlanningRetrievalRoute(candidate))}"
+                + $"|retrieval_query={FormatPlanningTraceValue(candidate.Hit.RetrievalQuery)}"
+                + BuildSourceBackedPlanningCandidateEvidenceDiagnostics(candidate)
+                + $"|title={FormatPlanningTraceValue(candidate.Title)}"
+                + $"|doc={FormatPlanningTraceValue(candidate.Hit.DocPath)}"
+                + $"|page={candidate.Hit.PageStart}"
+                + $"|score={candidate.Score}");
+        }
+
+        var inspected = 0;
+        var rejectionReasons = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var hit in EnumerateRagHitSummaries(toolResults).Take(120))
+        {
+            inspected++;
+            var title = ExtractSourceBackedOptionTitle(hit, query);
+            var candidate = new SourceBackedOptionCandidate(
+                hit,
+                title,
+                ComputeSourceBackedOptionHitScore(
+                    hit,
+                    title,
+                    query,
+                    requestedMaxMinutes: null,
+                    ExtractBestVisibleDurationMinutes(hit)),
+                ExtractBestVisibleDurationMinutes(hit));
+            var key = BuildSourceBackedPlanningCandidateKey(candidate);
+            if (acceptedKeys.Contains(key))
+                continue;
+
+            var pageKey = BuildRagHitVisiblePageMergeKey(hit);
+            var rejectionReason = ExplainSourceBackedPlanningCandidateRejection(candidate, query, strictStructuredPlanning);
+            rejectionReasons.TryGetValue(rejectionReason, out var rejectionCount);
+            rejectionReasons[rejectionReason] = rejectionCount + 1;
+            trace.Add(
+                "stage=candidate"
+                + "|decision=rejected"
+                + $"|reason={rejectionReason}"
+                + $"|candidate_key={FormatPlanningTraceValue(key)}"
+                + $"|page_key={FormatPlanningTraceValue(pageKey)}"
+                + $"|strict_evidence={FormatPlanningTraceBool(HasStrictStructuredPlanningCandidateEvidence(candidate))}"
+                + $"|direct_evidence={FormatPlanningTraceBool(HasDirectSourceBackedPlanningCandidateEvidence(candidate))}"
+                + $"|slot_route={FormatPlanningTraceValue(FormatStructuredMealPlanningRetrievalRoute(candidate))}"
+                + $"|retrieval_query={FormatPlanningTraceValue(hit.RetrievalQuery)}"
+                + BuildSourceBackedPlanningCandidateEvidenceDiagnostics(candidate)
+                + $"|title={FormatPlanningTraceValue(title)}"
+                + $"|doc={FormatPlanningTraceValue(hit.DocPath)}"
+                + $"|page={hit.PageStart}"
+                + $"|score={candidate.Score}");
+        }
+
+        if (rejectionReasons.Count > 0)
+        {
+            trace.Add(
+                "stage=rejection_summary"
+                + "|"
+                + string.Join(
+                    '|',
+                    rejectionReasons
+                        .OrderByDescending(static pair => pair.Value)
+                        .ThenBy(static pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+                        .Select(static pair => $"{pair.Key}={pair.Value}")));
+        }
+
+        var coverage = EvaluateSourceBackedPlanningCoverage(toolResults, query, language);
+        trace.Add(
+            "stage=summary"
+            + $"|inspected_hits={inspected}"
+            + $"|accepted_candidates={accepted.Count}"
+            + $"|distinct_source_pages={coverage.DistinctSourcePages}"
+            + $"|adequate={FormatPlanningTraceBool(coverage.IsAdequate)}");
+
+        return trace.ToArray();
+    }
+
+    private static int CountRouteBackfilledStructuredMealPlanningSlotAssignments(
+        IReadOnlyList<SourceBackedOptionCandidate> assignments,
+        IReadOnlyList<StructuredMealPlanningSlotKind> slotKinds,
+        string? query)
+    {
+        var limit = Math.Min(assignments.Count, slotKinds.Count);
+        var count = 0;
+        for (var i = 0; i < limit; i++)
+        {
+            var candidate = assignments[i];
+            if (CandidateFitsStructuredMealPlanningSlot(candidate, slotKinds[i], query, allowRouteBackfill: true)
+                && !CandidateFitsStructuredMealPlanningSlot(candidate, slotKinds[i], query, allowRouteBackfill: false))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private static string BuildSourceBackedPlanningCandidateEvidenceDiagnostics(SourceBackedOptionCandidate candidate)
+    {
+        var title = NormalizeLexicalLookup(candidate.Title);
+        var evidence = NormalizeLexicalLookup(BuildPageLocalSourceBackedPlanningProofText(candidate.Hit));
+        var terms = ExtractPlanningAnswerSupportTerms(title)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var matchedTerms = terms.Count(term => evidence.Contains(term, StringComparison.Ordinal));
+        var relaxedProof = !string.IsNullOrWhiteSpace(title)
+            && PrimaryEvidenceContainsRelaxedLocalStructuredPlanningProof(candidate.Hit, title, evidence);
+        var concreteTitle = !string.IsNullOrWhiteSpace(title)
+            && LooksLikeConcreteStructuredPlanningCandidateNormalizedTitle(title);
+        var anchoredCardProof = !string.IsNullOrWhiteSpace(title)
+            && HasPageAnchoredContentCardStructuredPlanningProof(candidate.Hit, title);
+        var cardAnchorKindCount = 0;
+        var cardEvidenceTitleCount = 0;
+        var cardAnchorCandidateCount = 0;
+        if (!string.IsNullOrWhiteSpace(title))
+        {
+            var rawPageEvidence = BuildPageLocalStructuredPlanningEvidenceText(candidate.Hit);
+            var normalizedPageEvidence = NormalizeLexicalLookup(rawPageEvidence);
+            foreach (var card in candidate.Hit.MatchedContentCards ?? Array.Empty<RagHitContentCardSummary>())
+            {
+                if (ContentCardKindLooksLikeStructuredPlanningTitleAnchor(card))
+                    cardAnchorKindCount++;
+                if (ContentCardCarriesStructuredPlanningEvidence(card, title))
+                    cardEvidenceTitleCount++;
+                if (ContentCardCanAnchorStructuredPlanningTitleWithoutVisiblePageTitle(
+                    candidate.Hit,
+                    card,
+                    title,
+                    rawPageEvidence,
+                    normalizedPageEvidence))
+                {
+                    cardAnchorCandidateCount++;
+                }
+            }
+        }
+        return "|proof_chars=" + evidence.Length.ToString(CultureInfo.InvariantCulture)
+            + "|title_terms=" + terms.Length.ToString(CultureInfo.InvariantCulture)
+            + "|matched_title_terms=" + matchedTerms.ToString(CultureInfo.InvariantCulture)
+            + "|exact_title_in_proof=" + FormatPlanningTraceBool(!string.IsNullOrWhiteSpace(title) && evidence.Contains(title, StringComparison.Ordinal))
+            + "|concrete_title=" + FormatPlanningTraceBool(concreteTitle)
+            + "|exact_structured_proof=" + FormatPlanningTraceBool(PrimaryPageEvidenceContainsExactPlanningCandidateTitle(candidate))
+            + "|relaxed_structured_proof=" + FormatPlanningTraceBool(relaxedProof)
+            + "|anchored_card_proof=" + FormatPlanningTraceBool(anchoredCardProof)
+            + "|card_anchor_kind_count=" + cardAnchorKindCount.ToString(CultureInfo.InvariantCulture)
+            + "|card_evidence_title_count=" + cardEvidenceTitleCount.ToString(CultureInfo.InvariantCulture)
+            + "|card_anchor_candidate_count=" + cardAnchorCandidateCount.ToString(CultureInfo.InvariantCulture)
+            + "|strong_proof_text=" + FormatPlanningTraceBool(HasStrongLocalStructuredPlanningProofText(evidence));
+    }
+
+    private void LogSourceBackedPlanningTrace(
+        string context,
+        ToolResults toolResults,
+        string? query,
+        string language)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return;
+
+        if (!LooksLikeAnyDocumentaryPlanningRequest(query)
+            && !ShouldGateStructuredSourceBackedPlanningCoverage(query))
+        {
+            return;
+        }
+
+        var lines = BuildSourceBackedPlanningTraceLines(toolResults, query, language);
+        var safeContext = FormatPlanningTraceValue(context);
+        ClientLog.Info($"ToolAgent planning trace begin: context={safeContext}|lines={lines.Length}");
+        EmitRagTrace(
+            "planning.trace.begin",
+            ("context", safeContext),
+            ("lines", lines.Length),
+            ("query", query));
+
+        foreach (var line in lines.Take(160))
+        {
+            ClientLog.Info($"ToolAgent planning trace: context={safeContext}|{line}");
+            EmitRagTrace(
+                "planning.trace.line",
+                ("context", safeContext),
+                ("line", line));
+        }
+
+        if (lines.Length > 160)
+        {
+            ClientLog.Info($"ToolAgent planning trace truncated: context={safeContext}|remaining={lines.Length - 160}");
+            EmitRagTrace(
+                "planning.trace.truncated",
+                ("context", safeContext),
+                ("remaining", lines.Length - 160));
+        }
+    }
+
+    private static void AppendPlanningTraceQueries(List<string> trace, string pass, IEnumerable<string> queries)
+    {
+        var index = 0;
+        foreach (var query in queries)
+        {
+            index++;
+            trace.Add($"stage=query|pass={pass}|index={index}|value={FormatPlanningTraceValue(query)}");
+        }
+    }
+
+    private static string ExplainSourceBackedPlanningCandidateRejection(
+        SourceBackedOptionCandidate candidate,
+        string? query,
+        bool requireDirectPageEvidence,
+        bool requireStrictStructuredEvidence = true,
+        string? dominantTopLevelScope = null)
+    {
+        if (LooksLikePageReferenceOnlyHit(candidate.Hit))
+            return "page_reference_only";
+        if (ShouldRejectSourceBackedPlanningOrientationSurfaceCandidate(candidate))
+            return "orientation_surface";
+        if (string.IsNullOrWhiteSpace(candidate.Title))
+            return "missing_candidate_title";
+        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
+        var hasStrictEvidence = HasStrictStructuredPlanningCandidateEvidence(candidate);
+        if (LooksLikePlanItemNoise(candidate.Title))
+            return "plan_item_noise";
+        if (LooksLikeWeakSourceBackedOptionTitle(candidate.Title) && !hasStrictEvidence)
+            return "weak_candidate_title";
+        if (LooksLikeGenericInventorySurfaceDerivedPlanningCandidate(candidate))
+            return "generic_inventory_surface";
+        if (LooksLikeGenericPlanningContextCandidate(candidate))
+            return "generic_planning_context";
+        if (LooksLikePlanningFrameOrAdviceCandidate(candidate, hasStrictEvidence))
+            return "planning_frame_or_advice";
+        if (LooksLikeProcedureSentenceTitle(normalizedTitle))
+            return "procedure_sentence_title";
+        if (LooksLikeShortConnectorStructuredPlanningFieldValueCandidate(candidate))
+            return "short_connector_field_value";
+        if (LooksLikeEmbeddedStructuredPlanningFieldValueCandidate(candidate))
+            return "embedded_field_value";
+        if (ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query))
+            return "non_standalone_meal_item";
+        if (!SourceBackedPlanningCandidateMatchesDominantTopLevel(candidate, dominantTopLevelScope))
+            return "outside_dominant_scope";
+        if (ShouldRejectSweetPlanningCandidateForMealSlot(candidate, query))
+            return "sweet_candidate_not_meal_slot";
+        if (!IsUsableSourceBackedPlanningCandidate(candidate))
+            return "unusable_or_generic_candidate";
+        if (requireDirectPageEvidence && !LooksLikeConcreteStructuredPlanningCandidateTitle(candidate.Title))
+            return "not_concrete_candidate_title";
+        if (requireDirectPageEvidence
+            && (requireStrictStructuredEvidence
+                ? !HasStrictStructuredPlanningCandidateEvidence(candidate)
+                : !HasDirectSourceBackedPlanningCandidateEvidence(candidate)))
+        {
+            return requireStrictStructuredEvidence
+                ? "missing_strict_candidate_evidence"
+                : "missing_direct_candidate_evidence";
+        }
+        if (!string.IsNullOrWhiteSpace(query) && candidate.Score <= 0)
+            return "not_relevant_to_query";
+
+        return string.Empty;
+    }
+
+    private static string FormatPlanningTraceBool(bool value)
+        => value ? "true" : "false";
+
+    private static string FormatPlanningTraceValue(string? value)
+    {
+        var normalized = CollapseWhitespace(value ?? string.Empty);
+        if (normalized.Length > 140)
+            normalized = normalized[..140] + "...";
+
+        return normalized
+            .Replace("|", "/", StringComparison.Ordinal)
+            .Replace("\r", " ", StringComparison.Ordinal)
+            .Replace("\n", " ", StringComparison.Ordinal);
+    }
+
+    private static string FormatSourceBackedOptionCandidateTraceSamples(
+        IEnumerable<SourceBackedOptionCandidate> candidates,
+        int limit = 6)
+        => FormatPlanningTraceValue(string.Join("; ", candidates
+            .Take(limit)
+            .Select(static candidate =>
+            {
+                var doc = string.IsNullOrWhiteSpace(candidate.Hit.DocName)
+                    ? Path.GetFileName(candidate.Hit.DocPath)
+                    : candidate.Hit.DocName;
+                return string.Join(" ", new[]
+                {
+                    candidate.Title,
+                    string.IsNullOrWhiteSpace(doc) ? null : $"@{doc}",
+                    candidate.Hit.PageStart > 0 ? $"p{candidate.Hit.PageStart}" : null,
+                    string.IsNullOrWhiteSpace(candidate.Hit.RetrievalQuery) ? null : $"q={candidate.Hit.RetrievalQuery}"
+                }.Where(static value => !string.IsNullOrWhiteSpace(value)));
+            })));
+
     private static int ResolveMinimumSourceBackedPlanningCandidateCount(string? query, int targetSlots, bool hasStructuredAxes)
     {
         if (LooksLikeSourceBackedVerificationChecklistRequest(query))
             return Math.Min(3, Math.Max(1, targetSlots));
 
+        if (ShouldGateStructuredSourceBackedPlanningCoverage(query))
+            return Math.Min(20, Math.Max(1, targetSlots));
+
         if (!hasStructuredAxes)
             return Math.Min(3, Math.Max(2, targetSlots));
 
-        return Math.Min(targetSlots, Math.Max(4, (int)Math.Ceiling(targetSlots * 0.45)));
+        return Math.Max(1, targetSlots);
+    }
+
+    private static bool RequiresFullyDistinctStructuredPlanningItems(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:tous|toutes|chaque|each|every|cada|ogni|jeder|jede)\b.{0,36}\b(?:different|differents|differentes|distinct|distincts|distinctes|unterschiedlich|verschieden|diverso|diversi|distinto|distintos|distintas)\b|\b(?:sans|aucune|no|without|sin|sem|ohne|senza)\b.{0,24}\b(?:repetition|repeter|repeat|repeats|duplicat|duplicado|wiederholung|ripetizione)\b|\b(?:15|quinze|fifteen|quince|funfzehn|fuenfzehn|quindici)\b.{0,42}\b(?:different|differents|differentes|distinct|distincts|distinctes)\b",
+            RegexOptions.CultureInvariant);
     }
 
     private static bool HasSourceBackedPlanningAnchorCoverage(ToolResults toolResults, string? query)
@@ -8055,15 +13936,24 @@ CURRENT_USER_MESSAGE:
         return normalized is
             "plan" or "plans" or "planning" or "programme" or "program" or "schedule" or "calendar" or
             "calendrier" or "organisation" or "organizacion" or "organizacao" or "organizzazione" or
+            "besoin" or "besoins" or "need" or "needs" or "asse" or "asses" or "fasse" or "fasses" or "faire" or "proposer" or "mettre" or
+            "mettant" or "mets" or "met" or "include" or "includes" or "put" or "puts" or
+            "candidate" or "candidates" or "candidat" or "candidats" or
             "semaine" or "hebdo" or "hebdomadaire" or "week" or "weekly" or "semana" or "semanal" or
             "woche" or "wochenplan" or "settimana" or "settimanale" or
-            "lundi" or "mardi" or "mercredi" or "jeudi" or "vendredi" or "samedi" or "dimanche" or
+            "lundi" or "mardi" or "mercredi" or "jeudi" or "vendredi" or "vrendredi" or "samedi" or "dimanche" or
             "monday" or "tuesday" or "wednesday" or "thursday" or "friday" or "saturday" or "sunday" or
+            "repas" or "meal" or "meals" or "menu" or "menus" or "plat" or "plats" or "dish" or "dishes" or
+            "recette" or "recettes" or "recipe" or "recipes" or
             "petit" or "dejeuner" or "midi" or "diner" or "soir" or "matin" or "breakfast" or "lunch" or
-            "dinner" or "morning" or "afternoon" or "evening" or "desayuno" or "almuerzo" or "cena" or
+            "dinner" or "souper" or "supper" or "gouter" or "collation" or "snack" or "encas" or
+            "morning" or "afternoon" or "evening" or "desayuno" or "almuerzo" or "cena" or
             "almoco" or "jantar" or "fruhstuck" or "mittag" or "abend" or "colazione" or "pranzo" or
             "rapide" or "rapides" or "simple" or "simples" or "facile" or "faciles" or
-            "options" or "option" or "suggestions" or "suggestion" or "idees" or "idee" or "ideas";
+            "utile" or "utiles" or "useful" or "available" or "disponible" or "disponibles" or
+            "options" or "option" or "suggestions" or "suggestion" or "idees" or "idee" or "ideas" or
+            "detail" or "details" or "detailed" or "detaille" or "detailles" or
+            "ideal" or "ideals" or "ideaux";
     }
 
     private sealed record SourceBackedPlanningCoverage(
@@ -8107,10 +13997,81 @@ CURRENT_USER_MESSAGE:
             || LooksLikeUserNeedsSynthesizedDecisionOrPlan(query);
     }
 
+    private static bool LooksLikeBroadEmptySourceSearchRequest(string? query)
+    {
+        var raw = CollapseWhitespace(query ?? string.Empty).ToLowerInvariant();
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized)
+            || IsBroadenedSourceSearchConfirmationEnvelope(query)
+            || LooksLikeStrictCertificationOrExactProofRequest(query)
+            || LooksLikeCorpusClaimVerificationRequest(query))
+        {
+            return false;
+        }
+
+        var mentionsDocumentScope =
+            raw.Contains("document", StringComparison.Ordinal)
+            || raw.Contains("source", StringComparison.Ordinal)
+            || raw.Contains("corpus", StringComparison.Ordinal)
+            || raw.Contains("dossier", StringComparison.Ordinal)
+            || raw.Contains("catégorie", StringComparison.Ordinal)
+            || raw.Contains("categorie", StringComparison.Ordinal)
+            || raw.Contains("category", StringComparison.Ordinal)
+            || raw.Contains("folder", StringComparison.Ordinal)
+            || raw.Contains("arquivo", StringComparison.Ordinal)
+            || raw.Contains("archivo", StringComparison.Ordinal)
+            || raw.Contains("datei", StringComparison.Ordinal);
+        var mentionsBroadNeed =
+            raw.Contains("option", StringComparison.Ordinal)
+            || raw.Contains("idée", StringComparison.Ordinal)
+            || raw.Contains("idee", StringComparison.Ordinal)
+            || raw.Contains("idea", StringComparison.Ordinal)
+            || raw.Contains("suggestion", StringComparison.Ordinal)
+            || raw.Contains("alternative", StringComparison.Ordinal)
+            || raw.Contains("choix", StringComparison.Ordinal)
+            || raw.Contains("liste", StringComparison.Ordinal)
+            || raw.Contains("list", StringComparison.Ordinal)
+            || raw.Contains("plan", StringComparison.Ordinal)
+            || raw.Contains("planning", StringComparison.Ordinal)
+            || raw.Contains("schedule", StringComparison.Ordinal)
+            || raw.Contains("opcion", StringComparison.Ordinal)
+            || raw.Contains("opção", StringComparison.Ordinal)
+            || raw.Contains("opcao", StringComparison.Ordinal)
+            || raw.Contains("opzione", StringComparison.Ordinal)
+            || raw.Contains("optionen", StringComparison.Ordinal)
+            || raw.Contains("idee", StringComparison.Ordinal)
+            || raw.Contains("vorschlag", StringComparison.Ordinal)
+            || raw.Contains("suggeriment", StringComparison.Ordinal);
+        if (mentionsDocumentScope && mentionsBroadNeed)
+            return true;
+
+        var asksForExploration = Regex.IsMatch(
+            normalized,
+            @"\b(?:propose|proposer|suggere|suggerer|donne|donner|trouve|trouver|cherche|chercher|liste|lister|montre|montrer|suggest|recommend|give|find|show|list|propone|proponer|sugiere|sugerir|da|dar|encuentra|encontrar|lista|listar|propoe|propor|sugere|sugerir|encontra|encontrar|mostra|mostrar|liste|finden|zeigen|vorschlagen|empfehlen|proponi|proporre|suggerisci|suggerire|trova|trovare|mostra|mostrare|elenca|elencare)\b",
+            RegexOptions.CultureInvariant);
+        if (!asksForExploration)
+            return false;
+
+        var asksForMultipleOrSynthesis = Regex.IsMatch(
+            normalized,
+            @"\b(?:plusieurs|options?|idees?|suggestions?|alternatives?|choix|selection|liste|plan|planning|semaine|several|multiple|options?|ideas?|suggestions?|alternatives?|choices?|selection|plan|schedule|varias|varios|opciones?|ideas?|sugerencias|alternativas|seleccion|plano|varias|varios|opcoes?|ideias?|sugestoes|alternativas|selecao|plano|mehrere|optionen|ideen|vorschlaege|vorschlage|alternativen|auswahl|plan|diverse|opzioni?|idee|suggerimenti|alternative|scelta|piano)\b",
+            RegexOptions.CultureInvariant);
+        if (!asksForMultipleOrSynthesis)
+            return false;
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:documents?|docs?|sources?|corpus|dossier|category|categorie|cat[e\u00e9]gorie|folder|fichiers?|arquivos?|archivos?|dateien)\b",
+            RegexOptions.CultureInvariant);
+    }
+
     private static string AppendBroadenedSearchOfferIfHelpful(string answer, string? query, string language)
     {
-        if (string.IsNullOrWhiteSpace(answer) || !ShouldOfferBroadenedSourceSearch(query))
+        if (string.IsNullOrWhiteSpace(answer)
+            || (!ShouldOfferBroadenedSourceSearch(query) && !LooksLikeBroadEmptySourceSearchRequest(query)))
+        {
             return answer.TrimEnd();
+        }
 
         var offer = DeterministicAgentText.SourceBackedExpandedSearchOffer(language);
         if (answer.Contains(offer, StringComparison.OrdinalIgnoreCase))
@@ -8330,7 +14291,10 @@ CURRENT_USER_MESSAGE:
 
         if (RequiresStructuredSourceBackedPlanningCoverage(query))
         {
-            return 3;
+            var targetSlots = ResolveSourceBackedPlanningTargetItemCount(query);
+            var hasStructuredAxes = DetectRequestedDayAxisLabels(query, "en").Count > 0
+                && DetectRequestedPeriodAxisLabels(query, "en").Count > 0;
+            return ResolveMinimumSourceBackedPlanningCandidateCount(query, targetSlots, hasStructuredAxes);
         }
 
         if (LooksLikeGenericCollectionOrListRequest(query))
@@ -8355,6 +14319,30 @@ CURRENT_USER_MESSAGE:
         => LooksLikeWeeklyPlanningRequest(query)
            || DetectRequestedDayAxisLabels(query, "en").Count > 0
            || DetectRequestedPeriodAxisLabels(query, "en").Count > 0;
+
+    private static bool ShouldRequireDeterministicStructuredPlanningAnswer(string? query)
+        => LooksLikeWeeklyPlanningRequest(query)
+           && DetectRequestedDayAxisLabels(query, "en").Count > 0
+           && DetectRequestedPeriodAxisLabels(query, "en").Count > 0;
+
+    private static bool ShouldGateStructuredSourceBackedPlanningCoverage(string? query)
+    {
+        if (!RequiresStructuredSourceBackedPlanningCoverage(query))
+            return false;
+
+        if (ShouldRequireDeterministicStructuredPlanningAnswer(query))
+            return true;
+
+        return LooksLikeAnyDocumentaryPlanningRequest(query)
+               || LooksLikeGenericCollectionOrListRequest(query)
+               || LooksLikeBroadSourceBackedCompositionRequest(query)
+               || LooksLikeMultipleCandidateSynthesisRequest(query)
+               || LooksLikeSoftChoiceRecommendationRequest(query)
+               || LooksLikeSourceBackedOptionRequest(query)
+               || LooksLikeUserNeedsSynthesizedDecisionOrPlan(query)
+               || LooksLikeSourceBackedActionRequest(query)
+               || LooksLikeDocumentaryContentRequest(query);
+    }
 
     private static bool LooksLikeMultipleCandidateSynthesisRequest(string? query)
     {
@@ -8454,9 +14442,15 @@ CURRENT_USER_MESSAGE:
 - If there are fewer distinct documented items than requested places, do not fill the structure by repeating weak items. Place the sourced items where they fit and mark the remaining places as missing/to validate.
 - If the available evidence is clearly too small for the requested grid, do not fill the whole grid by repetition. Return a readable partial proposal and explain that more documented items are needed for a complete varied plan.
 - If the available evidence remains too small after retrieval, ask one concise question offering to broaden the search/corpus instead of fabricating missing places.
+- Infer whether each sourced item fits each requested place from the item title and local evidence. A retrieval/search route is only a hint; it is not enough by itself to force an item into an incompatible place.
+- When an item is sourced but does not naturally fit any requested place, keep it as an optional nearby idea or omit it; do not bend the requested structure around it.
+- Do not use Markdown pipe tables for plans. In this UI they can appear as raw text; use compact day/slot sections or bullets instead.
+- Never fill plan cells with generic background, constraints, document summaries, navigation labels, table-of-contents entries or repeated fragments. A filled place needs a concrete sourced item/action/value that actually fits the place.
+- If the sources only contain general advice or context, write a short "usable context" note and leave the requested places to complete/validate instead of turning that context into fake plan entries.
 - Do not expose internal wording such as candidate(s), slot(s), coverage or evidence role. Translate that into natural user-facing language.
-- Do not repeat the user request. Start with the useful proposal, then add a short caveat only where the available evidence is partial.
+- Do not repeat the user request. Start with the useful proposal, then add a short source-limit note only where the available evidence is partial.
 - Avoid opening with "I can build..." or "the sources do not prove..."; that reads like a refusal instead of a helpful answer.
+- If the source set is partial, still write the useful partial proposal first. Do not answer with diagnostics, a source inventory, or a refusal unless there are no usable page-grounded items.
 """,
             "comparison" => """
 - The user asks to compare. Separate the compared items/sources clearly, then give common points, differences, and limits.
@@ -8474,7 +14468,7 @@ CURRENT_USER_MESSAGE:
 - The user asks which documents/sources mention a topic. Return a clean source list with a one-line reason for each source, not a narrative answer.
 """,
             "summary" => """
-- The user asks for a summary. Synthesize the main points in a readable structure, preserving caveats and source limits.
+- The user asks for a summary. Synthesize the main points in a readable structure, preserving uncertainty and source limits.
 """,
             _ => """
 - Adapt the structure to the user's request. Prefer a short useful synthesis over copied excerpts.
@@ -8494,8 +14488,13 @@ Generic output contract:
 - Do not copy PRIVATE_SOURCE_* or SOURCE_BACKED_* control wording. It is there to guide drafting, not to appear in the final answer.
 - Avoid mechanical diagnostic phrasing such as "X candidate(s) for Y slot(s)" unless the user explicitly asks for diagnostics.
 - Use source names/pages as short references after readable points.
+- Source alignment is mandatory for broad plans, recommendations, comparisons and lists: every concrete item, action, value, timing or choice must carry a nearby short reference to the page that supports it, for example "(source: file.pdf p.12)". Use only a source/page that directly supports that item.
+- If an item cannot be tied to a concrete page, do not present it as a recommendation. Mark that place as missing/to validate, or explain that the available sources are too limited.
 - Do not add a final "Source:" section; clickable source cards are added by the application.
+- Do not use Markdown pipe tables. Prefer headings and bullets because the client may display pipe tables as raw text.
 - For planning requests, start with the requested structure or proposal. Put source limits after the useful draft, not as the first sentence.
+- When source coverage is partial, write a helpful partial draft first, then explain the limit in one short sentence. Do not lead with retrieval diagnostics.
+- Normalize obvious extracted titles into natural casing and wording when safe; do not paste all-caps or OCR-damaged headings as-is.
 - Preserve source grounding: do not invent concrete facts, items, steps, values, quantities, dates or citations absent from the tool results.
 - You may reformulate, group, prioritize and organize sourced evidence so the result is useful to a non-technical user.
 {requestedStructure}
@@ -8518,19 +14517,16 @@ Generic output contract:
             var dayAxis = DetectRequestedDayAxisLabels(query, language);
             var periodAxis = DetectRequestedPeriodAxisLabels(query, language);
             var hasExplicitGrid = dayAxis.Count > 0 && periodAxis.Count > 0;
-            var enoughForVariedGrid = coverage.CandidateCount >= coverage.TargetSlots
-                || (coverage.CandidateCount >= Math.Min(coverage.TargetSlots, Math.Max(4, (int)Math.Ceiling(coverage.TargetSlots * 0.45)))
-                    && coverage.DistinctSourcePages >= Math.Min(3, coverage.MinimumCandidates));
 
             var sb = new StringBuilder();
             sb.AppendLine($"Private drafting note: source coverage is {(coverage.IsAdequate ? "usable" : "partial")} for this requested structure.");
-            sb.AppendLine($"Usable distinct items: {coverage.CandidateCount}; distinct source pages: {coverage.DistinctSourcePages}; requested cells/items: {coverage.TargetSlots}; preferred minimum usable items: {coverage.MinimumCandidates}.");
+            sb.AppendLine($"Usable distinct items found: {coverage.CandidateCount}; distinct source pages: {coverage.DistinctSourcePages}; requested cells/items: {coverage.TargetSlots}; hard uniqueness requested: {(RequiresFullyDistinctStructuredPlanningItems(query) ? "yes" : "no")}.");
             if (hasExplicitGrid)
                 sb.AppendLine($"Detected requested grid: {dayAxis.Count} day row(s) x {periodAxis.Count} column(s).");
-            if (!enoughForVariedGrid && coverage.TargetSlots > coverage.CandidateCount)
+            if (coverage.TargetSlots > coverage.CandidateCount)
             {
-                sb.AppendLine("Important: the available evidence is too small for a complete varied grid. Do not fill every requested cell by rotating the same few items.");
-                sb.AppendLine("Preferred behavior: write a practical partial answer from the sourced items, mark unsupported cells as to validate/complete, and offer a broader search if the user wants the full structure.");
+                sb.AppendLine("Important: the corpus did not return one distinct item for every requested cell. Decide from the user's wording whether a sourced rotation, a partial proposal, or one clarification question is the most useful answer.");
+                sb.AppendLine("Never invent missing concrete items. If you rotate sourced items, say naturally that it is your organization of the available sourced options.");
             }
             else if (!coverage.IsAdequate)
             {
@@ -8573,7 +14569,9 @@ If evidence is partial, write the best useful sourced answer possible and state 
             var periodAxis = DetectRequestedPeriodAxisLabels(query, language);
             if (dayAxis.Count > 0 && periodAxis.Count > 0)
             {
-                sb.AppendLine("The user requested an explicit grid. If evidence is sufficient, draft the grid. If not, provide a compact partial proposal first, then say naturally that more sources are needed to complete all cells.");
+                sb.AppendLine("The user requested an explicit grid. Decide whether to fill it with a sourced rotation, provide a partial proposal, or ask one clarifying question. The decision should follow the user's wording, not a fixed source count.");
+                sb.AppendLine("For each grid place, decide candidate suitability from the candidate title and local evidence. Search routes and retrieval labels are only discovery hints, not proof that the item fits that place.");
+                sb.AppendLine("Privately adjudicate every EVIDENCE_ITEM before drafting: keep it only when the title, local evidence and requested slot are compatible; use slotRoute/slotFit/retrievalQuery as hints, and leave a place incomplete rather than forcing a weak candidate.");
             }
             else
             {
@@ -8582,8 +14580,8 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
             if (!coverage.IsAdequate)
             {
-                sb.AppendLine("Evidence is partial: be helpful but do not invent missing concrete items. Avoid filling a complete schedule by repeating the same weak options.");
-                sb.AppendLine("Start with what can already be used, then add a short caveat and offer to broaden the search if a complete answer is needed.");
+                sb.AppendLine("Evidence is partial: be helpful but do not invent missing concrete items. If repeating sourced options is acceptable for the user's intent, make the rotation explicit; otherwise keep the answer partial or ask one concise clarification.");
+                sb.AppendLine("Start with a useful partial proposal from the sourced items, not with a diagnostic. Then add one short source-limit note and offer to broaden the search only if a complete answer is needed.");
             }
             else
             {
@@ -8596,7 +14594,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var broad = EvaluateBroadSourceBackedSynthesisCoverage(toolResults, query);
         if (!broad.IsAdequate)
         {
-            sb.AppendLine("Evidence is partial: write the best source-backed answer possible, then state exactly what remains uncertain. Do not turn the answer into a raw evidence list.");
+            sb.AppendLine("Evidence is partial: write the best source-backed answer possible, then state exactly what remains uncertain. Do not turn the answer into a raw evidence list or a retrieval diagnostic.");
         }
         else
         {
@@ -8605,6 +14603,105 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         return sb.ToString().TrimEnd();
     }
+
+    private static string BuildSourceBackedResearchMapForWriter(
+        ToolResults rawToolResults,
+        IReadOnlyList<ToolMemory.SourceRef>? lastSourcesUsed,
+        string? query,
+        string language)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return "none";
+
+        var hasOrientationSurface = rawToolResults.Items.Any(static item =>
+            (item.ToolName is "documents.tree" or "documents.navigation" or "summary.search")
+            && string.IsNullOrWhiteSpace(item.Error));
+        var hasPreviousSources = lastSourcesUsed is { Count: > 0 };
+        if (!hasOrientationSurface && !hasPreviousSources)
+            return "none";
+
+        var hints = BuildSourceBackedStructureHintsForPrompt(rawToolResults, lastSourcesUsed, query, language);
+        if (string.IsNullOrWhiteSpace(hints) || string.Equals(hints, "none", StringComparison.OrdinalIgnoreCase))
+            return "none";
+
+        var lines = hints
+            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(static line => CollapseWhitespace(line))
+            .Where(static line => !string.IsNullOrWhiteSpace(line))
+            .Select(FormatSourceBackedResearchMapLineForWriter)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(18)
+            .ToArray();
+        if (lines.Length == 0)
+            return "none";
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Private research map. Do not expose this section or its labels to the user.");
+        sb.AppendLine("Use it only to understand folders, stored summaries, headings, indexes, tables of contents or title anchors discovered during retrieval.");
+        sb.AppendLine("Do not cite or present a map item as a fact unless the same item is also supported by page-grounded TOOL_RESULTS evidence.");
+        foreach (var line in lines)
+        {
+            sb.Append("- ");
+            sb.AppendLine(TruncateForPrompt(line, 260));
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string FormatSourceBackedResearchMapLineForWriter(string line)
+    {
+        var cleaned = CollapseWhitespace(line);
+        if (string.IsNullOrWhiteSpace(cleaned))
+            return string.Empty;
+
+        var surfaceType = "orientation";
+        var sourceScope = "retrieval_hint";
+        var value = cleaned;
+        var match = Regex.Match(
+            cleaned,
+            @"^(?<prefix>navigationOnly|orientationOnly)\s+(?<kind>[A-Za-z0-9_.-]+)\s*:\s*(?<value>.+)$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (match.Success)
+        {
+            surfaceType = NormalizeSourceBackedResearchMapSurfaceType(match.Groups["kind"].Value);
+            sourceScope = ResolveSourceBackedResearchMapScope(surfaceType);
+            value = CollapseWhitespace(match.Groups["value"].Value);
+        }
+
+        return $"surfaceType={surfaceType}; sourceScope={sourceScope}; isFinalEvidence=false; requiresConcreteRetrieval=true; {value}";
+    }
+
+    private static string NormalizeSourceBackedResearchMapSurfaceType(string? kind)
+    {
+        var normalized = NormalizeLexicalLookup(kind);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return "orientation";
+
+        if (normalized.Contains("summary", StringComparison.Ordinal))
+            return "stored_summary";
+        if (normalized.Contains("documentnavigation", StringComparison.Ordinal)
+            || normalized.Contains("navigation", StringComparison.Ordinal))
+            return "document_navigation";
+        if (normalized.Contains("tree", StringComparison.Ordinal))
+            return "document_tree";
+        if (normalized.Contains("previous", StringComparison.Ordinal))
+            return "previous_source";
+        if (normalized.Contains("profile", StringComparison.Ordinal))
+            return "document_profile";
+
+        return "orientation";
+    }
+
+    private static string ResolveSourceBackedResearchMapScope(string surfaceType)
+        => surfaceType switch
+        {
+            "stored_summary" => "document_profile",
+            "document_navigation" => "toc_or_index",
+            "document_tree" => "category_tree",
+            "previous_source" => "conversation_source",
+            "document_profile" => "document_profile",
+            _ => "retrieval_hint"
+        };
 
     private static string BuildRequestedStructureGuidanceForWriter(string? query, string language)
     {
@@ -8622,8 +14719,8 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (dayLabels.Count > 0 && periodLabels.Count > 0)
         {
-            sb.AppendLine("- Use a compact grid with the requested days as rows and the requested slots as columns when that is readable.");
-            sb.AppendLine("- Fill cells with sourced candidates or source-backed context; if a cell cannot be supported, write a short 'to validate/complete' marker instead of leaving the user's requested structure implicit.");
+            sb.AppendLine("- Use compact day sections with the requested slots inside each section when that is readable.");
+            sb.AppendLine("- Fill places only with concrete sourced candidates; if a place cannot be supported, write a short 'to validate/complete' marker instead of hiding the gap.");
         }
         else
         {
@@ -8640,9 +14737,13 @@ If evidence is partial, write the best useful sourced answer possible and state 
             return Array.Empty<string>();
 
         var labels = LocalizedWeekdayLabels(language);
+        var requestedDayCount = TryResolveExplicitRequestedDayCount(normalized);
+        if (requestedDayCount is >= 2)
+            return labels.Take(Math.Clamp(requestedDayCount.Value, 2, labels.Length)).ToArray();
+
         if (Regex.IsMatch(
                 normalized,
-                @"\b(?:lundi\s+(?:a|au|jusqu(?:a| au)?)\s+vendredi|monday\s+(?:to|through|-)\s+friday|lunes\s+(?:a|hasta|-)\s+viernes|segunda\s+(?:a|ate|-)\s+sexta|montag\s+(?:bis|-)\s+freitag|lunedi\s+(?:a|fino a|-)\s+venerdi)\b",
+                @"\b(?:lundi\s+(?:a|au|jusqu(?:a| au)?)\s+(?:vendredi|vrendredi)|monday\s+(?:to|through|-)\s+friday|lunes\s+(?:a|hasta|-)\s+viernes|segunda\s+(?:a|ate|-)\s+sexta|montag\s+(?:bis|-)\s+freitag|lunedi\s+(?:a|fino a|-)\s+venerdi)\b",
                 RegexOptions.CultureInvariant))
         {
             return labels.Take(5).ToArray();
@@ -8654,7 +14755,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             new[] { "mardi", "tuesday", "martes", "terca", "dienstag", "martedi" },
             new[] { "mercredi", "wednesday", "miercoles", "quarta", "mittwoch", "mercoledi" },
             new[] { "jeudi", "thursday", "jueves", "quinta", "donnerstag", "giovedi" },
-            new[] { "vendredi", "friday", "viernes", "sexta", "freitag", "venerdi" },
+            new[] { "vendredi", "vrendredi", "friday", "viernes", "sexta", "freitag", "venerdi" },
             new[] { "samedi", "saturday", "sabado", "samstag", "sabato" },
             new[] { "dimanche", "sunday", "domingo", "sonntag", "domenica" }
         };
@@ -8671,36 +14772,97 @@ If evidence is partial, write the best useful sourced answer possible and state 
             : Array.Empty<string>();
     }
 
+    private static int? TryResolveExplicitRequestedDayCount(string normalized)
+    {
+        if (string.IsNullOrWhiteSpace(normalized))
+            return null;
+
+        var numericMatch = Regex.Match(
+            normalized,
+            @"\b(?<n>[2-7])\s+(?:jours?|days?|dias?|tagen?|tage|giorni)\b",
+            RegexOptions.CultureInvariant);
+        if (numericMatch.Success
+            && int.TryParse(numericMatch.Groups["n"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var numericCount))
+        {
+            return numericCount;
+        }
+
+        var wordCounts = new (string Pattern, int Count)[]
+        {
+            (@"\b(?:deux|two|dos|dois|duas|zwei|due)\s+(?:jours?|days?|dias?|tagen?|tage|giorni)\b", 2),
+            (@"\b(?:trois|three|tres|três|drei|tre)\s+(?:jours?|days?|dias?|tagen?|tage|giorni)\b", 3),
+            (@"\b(?:quatre|four|cuatro|quatro|vier|quattro)\s+(?:jours?|days?|dias?|tagen?|tage|giorni)\b", 4),
+            (@"\b(?:cinq|five|cinco|funf|fünf|cinque)\s+(?:jours?|days?|dias?|tagen?|tage|giorni)\b", 5),
+            (@"\b(?:six|seis|sechs|sei)\s+(?:jours?|days?|dias?|tagen?|tage|giorni)\b", 6),
+            (@"\b(?:sept|seven|siete|sete|sieben|sette)\s+(?:jours?|days?|dias?|tagen?|tage|giorni)\b", 7)
+        };
+
+        foreach (var (pattern, count) in wordCounts)
+        {
+            if (Regex.IsMatch(normalized, pattern, RegexOptions.CultureInvariant))
+                return count;
+        }
+
+        return null;
+    }
+
     private static IReadOnlyList<string> DetectRequestedPeriodAxisLabels(string? query, string language)
     {
         var normalized = NormalizeLexicalLookup(query);
         if (string.IsNullOrWhiteSpace(normalized))
             return Array.Empty<string>();
 
+        var hasMorning = Regex.IsMatch(normalized, @"\b(?:matin|morning|manana|manha|morgen|mattina)\b", RegexOptions.CultureInvariant);
         var hasBreakfast = Regex.IsMatch(
             normalized,
             @"\b(?:petit[-\s]+dejeune(?:r)?|breakfast|desayuno|pequeno[-\s]+almoco|cafe[-\s]+da[-\s]+manha|fruhstuck|colazione)\b",
             RegexOptions.CultureInvariant);
         var hasLunch = Regex.IsMatch(
             normalized,
-            @"\b(?:midi|dejeuner|lunch|almuerzo|almoco|mittag|pranzo)\b",
+            @"\b(?:midi|(?<!petit[-\s])dejeuner|lunch|almuerzo|almoco|mittag|pranzo)\b",
             RegexOptions.CultureInvariant);
         var hasDinner = Regex.IsMatch(
             normalized,
             @"\b(?:soir|diner|dinner|cena|abend)\b",
             RegexOptions.CultureInvariant);
-        if (hasBreakfast || hasLunch || hasDinner)
+        var hasSupper = Regex.IsMatch(
+            normalized,
+            @"\b(?:souper|supper)\b",
+            RegexOptions.CultureInvariant);
+        var hasSnack = Regex.IsMatch(
+            normalized,
+            @"\b(?:gouter|go[uû]ter|collation|snack|encas)\b",
+            RegexOptions.CultureInvariant);
+        var asksThreeDailyMeals = Regex.IsMatch(
+            normalized,
+            @"\b(?:3|trois|three|tres|três|drei|tre)\s+(?:repas|meals?|comidas?|refei[cç]oes|refeições|mahlzeiten|pasti)\b",
+            RegexOptions.CultureInvariant);
+        if (hasBreakfast || hasLunch || hasDinner || hasSupper || hasSnack)
         {
-            var dailySlotLabels = LocalizedDailySlotLabels(language);
-            return new[]
-            {
-                hasBreakfast ? dailySlotLabels[0] : null,
-                hasLunch ? dailySlotLabels[1] : null,
-                hasDinner ? dailySlotLabels[2] : null
-            }.Where(static label => !string.IsNullOrWhiteSpace(label)).ToArray()!;
+            var dailySlotLabels = hasBreakfast
+                ? LocalizedDailySlotLabels(language)
+                : LocalizedMorningMiddayEveningLabels(language);
+            var slots = new List<string>();
+            if (hasBreakfast || hasMorning)
+                slots.Add(dailySlotLabels[0]);
+            if (hasLunch)
+                slots.Add(dailySlotLabels[1]);
+            if (hasDinner)
+                slots.Add(dailySlotLabels[2]);
+            if (hasSupper)
+                slots.Add(LocalizedSupperSlotLabel(language));
+            if (hasSnack)
+                slots.Add(LocalizedSnackSlotLabel(language));
+
+            return slots
+                .Where(static label => !string.IsNullOrWhiteSpace(label))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
         }
 
-        var hasMorning = Regex.IsMatch(normalized, @"\b(?:matin|morning|manana|manha|morgen|mattina)\b", RegexOptions.CultureInvariant);
+        if (asksThreeDailyMeals)
+            return LocalizedDailySlotLabels(language);
+
         var hasAfternoon = Regex.IsMatch(normalized, @"\b(?:apres\s+midi|afternoon|tarde|nachmittag|pomeriggio)\b", RegexOptions.CultureInvariant);
         var hasEvening = Regex.IsMatch(normalized, @"\b(?:soir|soiree|evening|noche|noite|abend|sera)\b", RegexOptions.CultureInvariant);
         if (!hasMorning && !hasAfternoon && !hasEvening)
@@ -8708,11 +14870,11 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var periodLabels = LocalizedDayPeriodLabels(language);
         return new[]
-        {
-            hasMorning ? periodLabels[0] : null,
-            hasAfternoon ? periodLabels[1] : null,
-            hasEvening ? periodLabels[2] : null
-        }.Where(static label => !string.IsNullOrWhiteSpace(label)).ToArray()!;
+            {
+                hasMorning ? periodLabels[0] : null,
+                hasAfternoon ? periodLabels[1] : null,
+                hasEvening ? periodLabels[2] : null
+            }.Where(static label => !string.IsNullOrWhiteSpace(label)).ToArray()!;
     }
 
     private static string[] LocalizedWeekdayLabels(string language)
@@ -8737,6 +14899,39 @@ If evidence is partial, write the best useful sourced answer possible and state 
             _ => new[] { "Petit-déjeuner", "Déjeuner", "Dîner" }
         };
 
+    private static string LocalizedSupperSlotLabel(string language)
+        => NormalizeLanguageCode(language) switch
+        {
+            "en" => "Supper",
+            "es" => "Cena",
+            "pt" => "Jantar",
+            "de" => "Abendessen",
+            "it" => "Cena",
+            _ => "Souper"
+        };
+
+    private static string LocalizedSnackSlotLabel(string language)
+        => NormalizeLanguageCode(language) switch
+        {
+            "en" => "Snack",
+            "es" => "Merienda",
+            "pt" => "Lanche",
+            "de" => "Snack",
+            "it" => "Merenda",
+            _ => "Collation"
+        };
+
+    private static string[] LocalizedMorningMiddayEveningLabels(string language)
+        => NormalizeLanguageCode(language) switch
+        {
+            "en" => new[] { "Morning", "Midday", "Evening" },
+            "es" => new[] { "Mañana", "Mediodía", "Noche" },
+            "pt" => new[] { "Manhã", "Meio-dia", "Noite" },
+            "de" => new[] { "Morgen", "Mittag", "Abend" },
+            "it" => new[] { "Mattina", "Mezzogiorno", "Sera" },
+            _ => new[] { "Matin", "Midi", "Soir" }
+        };
+
     private static string[] LocalizedDayPeriodLabels(string language)
         => NormalizeLanguageCode(language) switch
         {
@@ -8755,8 +14950,14 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var lines = new List<string>();
         var isPlanning = LooksLikeAnyDocumentaryPlanningRequest(query);
+        var targetSlots = isPlanning
+            ? ResolveSourceBackedPlanningTargetItemCount(query)
+            : 0;
+        var minimumCandidates = isPlanning
+            ? ResolveMinimumBroadSourceBackedSynthesisHitCount(query)
+            : 0;
         var maxCandidates = isPlanning
-            ? 12
+            ? Math.Clamp(Math.Max(12, minimumCandidates + 4), 12, targetSlots >= 10 ? 18 : 14)
             : 6;
         var candidates = SelectSourceBackedPlanningCandidates(
                 toolResults,
@@ -8767,7 +14968,45 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         foreach (var candidate in candidates)
         {
-            AddSourceBackedCandidateLeadLine(lines, "item", candidate.Title, candidate.Hit, language);
+            AddSourceBackedCandidateLeadLine(lines, "item", candidate, query, language);
+        }
+
+        if (isPlanning)
+        {
+            var candidatePageKeys = candidates
+                .Select(static candidate => BuildRagHitVisiblePageMergeKey(candidate.Hit))
+                .Where(static key => !string.IsNullOrWhiteSpace(key))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var shouldExposeSourcePageContext = lines.Count < Math.Min(maxCandidates, Math.Max(1, minimumCandidates));
+            if (shouldExposeSourcePageContext)
+            {
+                var planningContextLimit = Math.Max(0, maxCandidates - lines.Count);
+                var fallbackHits = EnumerateRagHitSummaries(toolResults)
+                    .Where(ShouldExposeHitForSourceBackedEvidenceDiscovery)
+                    .Where(hit => !candidatePageKeys.Contains(BuildRagHitVisiblePageMergeKey(hit)))
+                    .OrderByDescending(static hit => BackendSelectionHintsPreferUsableEvidence(hit) ? 1 : 0)
+                    .ThenByDescending(static hit => ComputeSourceBackedEvidenceRichnessScore(hit))
+                    .ThenByDescending(static hit => hit.Score)
+                    .Take(planningContextLimit)
+                    .ToList();
+
+                foreach (var hit in fallbackHits)
+                {
+                    var title = ExtractReadablePartialPlanningLeadTitle(hit, query);
+                    if (string.IsNullOrWhiteSpace(title))
+                        title = BuildWriterEvidenceCueForPrompt(hit, query, maxLength: 140);
+                    if (string.IsNullOrWhiteSpace(title))
+                        title = CollapseWhitespace(hit.SectionTitle ?? hit.HeadingPath ?? string.Empty);
+                    if (string.IsNullOrWhiteSpace(title))
+                        title = "source-backed context";
+
+                    AddSourceBackedCandidateLeadLine(lines, "source_page", title, hit, language);
+                }
+            }
+
+            return lines.Count == 0
+                ? "none"
+                : string.Join(Environment.NewLine, lines.Take(maxCandidates));
         }
 
         var candidateKeys = candidates
@@ -8798,7 +15037,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         return lines.Count == 0
             ? "none"
-            : string.Join(Environment.NewLine, lines.Take(isPlanning ? 12 : 10));
+            : string.Join(Environment.NewLine, lines.Take(isPlanning ? maxCandidates : 10));
     }
 
     private static void AddSourceBackedCandidateLeadLine(List<string> lines, string role, string title, RagHitSummary hit, string language)
@@ -8813,8 +15052,53 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var supportSuffix = string.IsNullOrWhiteSpace(supportCue)
             ? string.Empty
             : $"; evidence=\"{CollapseWhitespace(supportCue)}\"";
+        var pageKey = BuildRagHitVisiblePageMergeKey(hit);
+        var retrievalQuery = TruncateForPrompt(CollapseWhitespace(hit.RetrievalQuery ?? string.Empty), 90);
         lines.Add(
-            $"EVIDENCE_ITEM role=\"{role}\" title=\"{CollapseWhitespace(title)}\" source=\"{source}\" page=\"{Math.Max(1, hit.PageStart)}\" instruction=\"{writingNote}\"{supportSuffix}");
+            $"EVIDENCE_ITEM role=\"{role}\" title=\"{CollapseWhitespace(title)}\" source=\"{source}\" page=\"{Math.Max(1, hit.PageStart)}\" pageKey=\"{pageKey}\" retrievalQuery=\"{retrievalQuery}\" instruction=\"{writingNote}\"{supportSuffix}");
+    }
+
+    private static void AddSourceBackedCandidateLeadLine(
+        List<string> lines,
+        string role,
+        SourceBackedOptionCandidate candidate,
+        string query,
+        string language)
+    {
+        var hit = candidate.Hit;
+        var source = string.IsNullOrWhiteSpace(hit.DocName) ? Path.GetFileName(hit.DocPath) : hit.DocName;
+        if (string.IsNullOrWhiteSpace(source))
+            source = hit.DocPath;
+
+        var supportCue = BuildSourceBackedCandidateSupportCue(hit);
+        var contentRole = CollapseWhitespace(hit.SelectionHintRole ?? hit.ContentRole ?? string.Empty);
+        var writingNote = BuildSourceBackedCandidateWritingNote(contentRole, hit, language);
+        var supportSuffix = string.IsNullOrWhiteSpace(supportCue)
+            ? string.Empty
+            : $"; evidence=\"{CollapseWhitespace(supportCue)}\"";
+        var retrievalQuery = TruncateForPrompt(CollapseWhitespace(hit.RetrievalQuery ?? string.Empty), 90);
+        var slotRoute = FormatStructuredMealPlanningRetrievalRoute(candidate);
+        var pageKey = BuildRagHitVisiblePageMergeKey(hit);
+        var candidateKey = BuildSourceBackedPlanningCandidateLeadKey(candidate);
+        var slotFit = BuildSourceBackedCandidateSlotFitHint(candidate, query);
+        lines.Add(
+            $"EVIDENCE_ITEM role=\"{role}\" title=\"{CollapseWhitespace(candidate.Title)}\" source=\"{source}\" page=\"{Math.Max(1, hit.PageStart)}\" pageKey=\"{pageKey}\" candidateKey=\"{candidateKey}\" slotRoute=\"{slotRoute}\" slotFit=\"{slotFit}\" retrievalQuery=\"{retrievalQuery}\" instruction=\"{writingNote}\"{supportSuffix}");
+    }
+
+    private static string BuildSourceBackedCandidateSlotFitHint(SourceBackedOptionCandidate candidate, string? query)
+    {
+        if (!ShouldApplyMealPlanningSlotSemantics(query))
+            return "not_applicable";
+
+        var fits = new List<string>(3);
+        if (CandidateFitsStructuredMealPlanningSlot(candidate, StructuredMealPlanningSlotKind.Breakfast, query, allowRouteBackfill: true))
+            fits.Add("breakfast");
+        if (CandidateFitsStructuredMealPlanningSlot(candidate, StructuredMealPlanningSlotKind.MainMeal, query, allowRouteBackfill: true))
+            fits.Add("main_meal");
+        if (CandidateFitsStructuredMealPlanningSlot(candidate, StructuredMealPlanningSlotKind.Snack, query, allowRouteBackfill: true))
+            fits.Add("snack");
+
+        return fits.Count == 0 ? "none" : string.Join(",", fits);
     }
 
     private static string BuildSourceBackedCandidateWritingNote(string contentRole, RagHitSummary hit, string language)
@@ -8828,7 +15112,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (role.Contains("fragment", StringComparison.Ordinal) || BackendSelectionHintsPreferLowSignal(hit))
             return "weak evidence; cite carefully and keep uncertainty visible";
         if (role.Contains("supporting", StringComparison.Ordinal) || role.Contains("advisory", StringComparison.Ordinal))
-            return "context or caveat, not the main recommendation";
+            return "context or uncertainty note, not the main recommendation";
         if (role.Contains("actionable", StringComparison.Ordinal))
             return "can be proposed if the title/detail is clear; rewrite naturally";
 
@@ -8900,10 +15184,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         foreach (var card in hit.MatchedContentCards.Take(2))
         {
             var title = CollapseWhitespace(card.Title);
-            if (!string.IsNullOrWhiteSpace(title)
-                && !LooksLikeGenericWriterEvidenceCueTitle(title)
-                && !LooksLikeNoisyCandidateSupportCue(title))
-                fragments.Add(title);
+            var cardFragments = new List<string>();
 
             var facts = card.Evidence?.Facts?
                 .Select(fact => CollapseWhitespace(
@@ -8915,7 +15196,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 .Take(2)
                 .ToArray();
             if (facts is { Length: > 0 })
-                fragments.AddRange(facts);
+                cardFragments.AddRange(facts);
 
             var quantityFacts = card.Evidence?.QuantityFacts?
                 .Select(fact => CollapseWhitespace(
@@ -8927,7 +15208,19 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 .Take(2)
                 .ToArray();
             if (quantityFacts is { Length: > 0 })
-                fragments.AddRange(quantityFacts);
+                cardFragments.AddRange(quantityFacts);
+
+            if (!string.IsNullOrWhiteSpace(title)
+                && !LooksLikeGenericWriterEvidenceCueTitle(title)
+                && !LooksLikeNoisyCandidateSupportCue(title))
+            {
+                fragments.Add(cardFragments.Count == 0 ? $"card title: {title}" : title);
+            }
+
+            if (cardFragments.Count == 0)
+                continue;
+
+            fragments.AddRange(cardFragments);
         }
 
         return string.Join(" | ", fragments.Distinct(StringComparer.OrdinalIgnoreCase).Take(4));
@@ -8958,7 +15251,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (role.Contains("fragment", StringComparison.Ordinal) || BackendSelectionHintsPreferLowSignal(hit))
             return "Use only as weak context; mention uncertainty if it is cited.";
         if (role.Contains("supporting", StringComparison.Ordinal) || role.Contains("advisory", StringComparison.Ordinal))
-            return "Use as supporting context or caveat, not as the main recommendation.";
+            return "Use as supporting context or uncertainty note, not as the main recommendation.";
         if (role.Contains("actionable", StringComparison.Ordinal) || LooksLikeAnyDocumentaryPlanningRequest(query))
             return "May be used as a concrete candidate if the title/evidence is clear; rewrite it naturally in the target language.";
         return "Use as evidence inventory; rewrite naturally and keep the source/page reference short.";
@@ -8994,6 +15287,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             || answer.Contains("PRIVATE_SOURCE_", StringComparison.OrdinalIgnoreCase)
             || answer.Contains("EVIDENCE_ITEM", StringComparison.OrdinalIgnoreCase)
             || answer.Contains("TOOL_RESULTS", StringComparison.OrdinalIgnoreCase)
+            || answer.Contains("omittedFromWriterPrompt", StringComparison.OrdinalIgnoreCase)
             || answer.Contains("writerEvidence", StringComparison.OrdinalIgnoreCase)
             || answer.Contains("writerUse", StringComparison.OrdinalIgnoreCase)
             || answer.Contains("evidenceRole", StringComparison.OrdinalIgnoreCase)
@@ -9003,11 +15297,15 @@ If evidence is partial, write the best useful sourced answer possible and state 
             || Regex.IsMatch(answer, @"\btool\s+result\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
             || Regex.IsMatch(
                 answer,
-                @"\b(?:piste\(s\)\s+sourc\w*|candidat\(s\)\s+sourc\w*|element\(s\)\s+sourc\w*|élément\(s\)\s+sourc\w*|cr[ée]neau\(x\)\s+demand\w*|banque\s+d['’]options|source-backed\s+leads?|candidate\s+bank|option\s+bank)\b",
+                @"\b(?:piste\(s\)\s+sourc\w*|candidat\(s\)\s+sourc\w*|element\(s\)\s+sourc\w*|élément\(s\)\s+sourc\w*|cr[ée]neau\(x\)\s+demand\w*|banque\s+d['’]options|source-backed\s+leads?|candidate\s+bank|option\s+bank|documented\s+elements?\s+available|usable\s+starting\s+options?|without\s+adding\s+facts|limit\s+the\s+answer\s+to\s+excerpts?)\b",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
             || Regex.IsMatch(
                 NormalizeLexicalLookup(answer),
-                @"\b(?:source\s+backed\s+leads?|candidate\s+bank|option\s+bank|evidence\s+inventory|pistes?\s+sourcees?|piste\s+s\s+sourcee\s+s|banque\s+d\s+options?|candidats?\s+sources?|candidat\s+s\s+source\s+s|creneaux?\s+demandes?|creneau\s+x\s+demande\s+s|elements?\s+sources?\s+distincts?|element\s+s\s+source\s+s\s+distinct)\b",
+                @"\b(?:source\s+backed\s+leads?|candidate\s+bank|option\s+bank|evidence\s+inventory|pistes?\s+sourcees?|piste\s+s\s+sourcee\s+s|banque\s+d\s+options?|candidats?\s+sources?|candidat\s+s\s+source\s+s|creneaux?\s+demandes?|creneau\s+x\s+demande\s+s|elements?\s+sources?\s+distincts?|element\s+s\s+source\s+s\s+distinct|elements?\s+documentes?\s+disponibles?|elements?\s+documentaires?\s+partiels?|sans\s+ajout\s+de\s+faits|limite\s+la\s+reponse\s+aux\s+extraits?|limite\s+la\s+reponse\s+aux\s+pages?|usable\s+starting\s+options?|documented\s+elements?\s+available|without\s+adding\s+facts|limit\s+the\s+answer\s+to\s+excerpts?|limito\s+la\s+respuesta\s+a\s+los?\s+extractos?|sin\s+anadir\s+hechos|limito\s+a\s+resposta\s+aos?\s+excertos?|sem\s+adicionar\s+factos|ich\s+beschranke\s+die\s+antwort\s+auf\s+auszuge|ohne\s+fakten\s+hinzuzufugen|limito\s+la\s+risposta\s+agli?\s+estratti|senza\s+aggiungere\s+fatti)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                NormalizeLexicalLookup(answer),
+                @"\b(?:je\s+cite\s+ces\s+sources?\s+separement|je\s+cite\s+ces\s+sources?|i\s+cite\s+these\s+sources?\s+separately|i\s+cite\s+these\s+sources?|cito\s+estas\s+fuentes?\s+por\s+separado|cito\s+estas\s+fontes?\s+separadamente|ich\s+zitiere\s+diese\s+quellen?\s+separat|cito\s+queste\s+fonti\s+separatamente)\b",
                 RegexOptions.CultureInvariant);
     }
 
@@ -9077,33 +15375,33 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var text = answer.Trim();
         var sourceLeadLineCount = Regex.Matches(
             text,
-            @"(?im)^\s*(?:[-*•]|\d+[.)])?\s*[^:\r\n]{1,160}\.(?:pdf|docx?|xlsx?|pptx?)\s+p\.?\s*\d+\s*(?::|-|–)",
+            @"(?im)^\s*(?:[-*•]|\d+[.)])?\s*[^:\r\n]{1,160}\.(?:pdf|docx?|xlsx?|pptx?)\s+(?:p\.?|pages?|pag\.?|p(?:a|\u00e1)gina|s\.?|seite)\s*\d+\s*(?::|-|–)",
             RegexOptions.CultureInvariant).Count;
         sourceLeadLineCount += Regex.Matches(
             text,
-            @"(?im)^\s*\u2022\s*[^:\r\n]{1,160}\.(?:pdf|docx?|xlsx?|pptx?)\s+p\.?\s*\d+\s*(?::|-|–)",
+            @"(?im)^\s*\u2022\s*[^:\r\n]{1,160}\.(?:pdf|docx?|xlsx?|pptx?)\s+(?:p\.?|pages?|pag\.?|p(?:a|\u00e1)gina|s\.?|seite)\s*\d+\s*(?::|-|–)",
             RegexOptions.CultureInvariant).Count;
         if (sourceLeadLineCount >= 2)
             return true;
 
         var longBulletWithSourceCount = Regex.Matches(
             text,
-            @"(?im)^\s*(?:[-*•]|\d+[.)])\s+.{180,}\b(?:p\.?\s*\d+|page\s+\d+)\b",
+            @"(?im)^\s*(?:[-*•]|\d+[.)])\s+.{180,}\b(?:p\.?\s*\d+|pages?\s+\d+|pag\.?\s*\d+|p(?:a|\u00e1)gina\s+\d+|s\.?\s*\d+|seite\s+\d+)\b",
             RegexOptions.CultureInvariant).Count;
         longBulletWithSourceCount += Regex.Matches(
             text,
-            @"(?im)^\s*\u2022\s+.{180,}\b(?:p\.?\s*\d+|page\s+\d+)\b",
+            @"(?im)^\s*\u2022\s+.{180,}\b(?:p\.?\s*\d+|pages?\s+\d+|pag\.?\s*\d+|p(?:a|\u00e1)gina\s+\d+|s\.?\s*\d+|seite\s+\d+)\b",
             RegexOptions.CultureInvariant).Count;
         longBulletWithSourceCount += Regex.Matches(
             text,
-            @"(?im)^\s*(?:[-*\u2022\u25e6]|\d+[.)])\s+.{80,}\([^()\r\n]{1,180}\.(?:pdf|docx?|xlsx?|pptx?)\s+p\.?\s*\d+\)",
+            @"(?im)^\s*(?:[-*\u2022\u25e6]|\d+[.)])\s+.{80,}\([^()\r\n]{1,180}\.(?:pdf|docx?|xlsx?|pptx?)\s+(?:p\.?|pages?|pag\.?|p(?:a|\u00e1)gina|s\.?|seite)\s*\d+\)",
             RegexOptions.CultureInvariant).Count;
         if (longBulletWithSourceCount >= 2 && LooksLikeWeeklyPlanningRequest(query))
             return true;
 
         var rawSourceReferenceCount = Regex.Matches(
             text,
-            @"(?i)\b(?:pdf|docx?|xlsx?|pptx?)\s+p\.?\s*\d+\s*(?::|-|–)",
+            @"(?i)\b(?:pdf|docx?|xlsx?|pptx?)\s+(?:p\.?|pages?|pag\.?|p(?:a|\u00e1)gina|s\.?|seite)\s*\d+\s*(?::|-|–)",
             RegexOptions.CultureInvariant).Count;
         var organizationSignals = Regex.IsMatch(
             NormalizeLexicalLookup(text),
@@ -9188,6 +15486,12 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (LooksLikeOverfilledPartialPlanningAnswer(answer, query))
             return true;
 
+        if (LooksLikeAnyDocumentaryPlanningRequest(query)
+            && LooksLikeMarkdownPipeTableAnswer(answer))
+        {
+            return true;
+        }
+
         var normalized = NormalizeLexicalLookup(answer);
         if (Regex.IsMatch(
                 normalized,
@@ -9199,7 +15503,23 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 normalized,
-                @"\b(?:elements?\s+documentaires?\s+partiels?\s+sur|elements?\s+documentes?\s+disponibles?|elements?\s+exploitables?|sources?\s+donnent?\s+quelques?\s+elements?|options?\s+utilisables?\s+pour\s+demarrer|pas\s+assez\s+pour\s+remplir|sources?\s+recuperees?\s+ne\s+suffisent?|pour\s+obtenir\s+un\s+planning\s+complet|pistes?\s+sourcees?\s+disponibles?|je\s+limite\s+la\s+reponse\s+aux\s+extraits?|je\s+peux\s+construire\s+une\s+base\s+exploitable|sources?\s+(?:retrouvees?\s+)?ne\s+prouvent?\s+pas|j\s+ai\s+trouve\s+\d+.{0,80}(?:pistes?|piste\s+s|elements?|element\s+s|candidats?|candidat\s+s).{0,60}(?:sourcees?|sourcee\s+s|sources?|source\s+s)|pistes?\s+sourcees?\s+distinctes?|piste\s+s\s+sourcee\s+s\s+distincte\s+s|creneaux?\s+demandes?|creneau\s+x\s+demande\s+s|banque\s+d\s+options?|partial\s+document\s+evidence\s+about|documented\s+base\s+is\s+incomplete|usable\s+elements?\s+for\s+\d+\s+requested\s+places|usable\s+starting\s+options?|i\s+can\s+build\s+an\s+usable\s+basis|sources?\s+do\s+not\s+prove|here\s+are\s+the\s+source\s+backed\s+leads?|without\s+adding\s+facts\s+quantities?\s+or\s+steps?|candidate\s+bank|option\s+bank|indicios?\s+documentales?\s+parciales?\s+sobre|indicios?\s+documentais?\s+parciais?\s+sobre|posso\s+construir\s+uma\s+base\s+util|as\s+fontes?\s+nao\s+provam|puedo\s+construir\s+una\s+base\s+util|las\s+fuentes?\s+no\s+prueban|ich\s+kann\s+eine\s+nutzbare\s+grundlage\s+erstellen|die\s+quellen?\s+belegen\s+nicht|posso\s+costruire\s+una\s+base\s+utile|le\s+fonti?\s+non\s+dimostrano)\b",
+                @"\b(?:je\s+cite\s+ces\s+sources?\s+separement|je\s+limite\s+la\s+reponse\s+aux\s+pages?\s+retrouvees?|i\s+cite\s+these\s+sources?\s+separately|i\s+limit\s+the\s+answer\s+to\s+the\s+retrieved\s+pages?|cito\s+estas\s+fuentes?\s+por\s+separado|limito\s+la\s+respuesta\s+a\s+las\s+paginas?\s+recuperadas?|cito\s+estas\s+fontes?\s+separadamente|limito\s+a\s+resposta\s+as\s+paginas?\s+recuperadas?|ich\s+zitiere\s+diese\s+quellen?\s+separat|ich\s+beschranke\s+die\s+antwort\s+auf\s+die\s+gefundenen?\s+seiten?|cito\s+queste\s+fonti\s+separatamente|limito\s+la\s+risposta\s+alle\s+pagine\s+trovate)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalized,
+                @"\b(?:voici\s+la\s+tracabilite|preuves?\s+de\s+tracabilite|remplacement\s+changement\s+de\s+statut\s+ou\s+une?\s+applicabilite|traceability\s+that\s+i\s+can\s+establish|traceability\s+evidence|replacement\s+status\s+change\s+or\s+full\s+applicability|trazabilidad\s+que\s+puedo\s+establecer|pruebas?\s+de\s+trazabilidad|substitucion\s+cambio\s+de\s+estado\s+o\s+aplicabilidad|rastreabilidade\s+que\s+posso\s+estabelecer|provas?\s+de\s+rastreabilidade|substituicao\s+alteracao\s+de\s+estado\s+ou\s+aplicabilidade|rueckverfolgbarkeit\s+die\s+ich\s+herstellen\s+kann|nachweise?\s+der\s+rueckverfolgbarkeit|ersetzung\s+statusaenderung\s+oder\s+anwendbarkeit|tracciabilita\s+che\s+posso\s+stabilire|prove?\s+di\s+tracciabilita|sostituzione\s+cambio\s+di\s+stato\s+o\s+applicabilita)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalized,
+            @"\b(?:elements?\s+documentaires?\s+partiels?\s+sur|elements?\s+documentes?\s+disponibles?|elements?\s+exploitables?|sources?\s+donnent?\s+quelques?\s+elements?|options?\s+utilisables?\s+pour\s+demarrer|pas\s+assez\s+pour\s+remplir|sources?\s+recuperees?\s+ne\s+suffisent?|recherche\s+a\s+trouve\s+des\s+passages?\s+proches?|passages?\s+proches?\s+mais\s+ils\s+restent?|passages?\s+disponibles?\s+restent?\s+trop\s+faibles?|pages?\s+trouvees?\s+sont\s+trop\s+limitees?|sources?\s+plus\s+larges?\s+ou\s+plus\s+variees?|pour\s+produire\s+quelque\s+chose\s+de\s+fiable|pour\s+obtenir\s+un\s+planning\s+complet|pistes?\s+sourcees?\s+disponibles?|je\s+limite\s+la\s+reponse\s+aux\s+extraits?|je\s+peux\s+construire\s+une\s+base\s+exploitable|sources?\s+(?:retrouvees?\s+)?ne\s+prouvent?\s+pas|j\s+ai\s+trouve\s+\d+.{0,80}(?:pistes?|piste\s+s|elements?|element\s+s|candidats?|candidat\s+s).{0,60}(?:sourcees?|sourcee\s+s|sources?|source\s+s)|pistes?\s+sourcees?\s+distinctes?|piste\s+s\s+sourcee\s+s\s+distincte\s+s|creneaux?\s+demandes?|creneau\s+x\s+demande\s+s|banque\s+d\s+options?|partial\s+document\s+evidence\s+about|documented\s+base\s+is\s+incomplete|usable\s+elements?\s+for\s+\d+\s+requested\s+places|usable\s+starting\s+options?|i\s+can\s+build\s+an\s+usable\s+basis|search\s+found\s+nearby\s+passages?|available\s+passages?\s+are\s+still\s+too\s+weak|found\s+pages?\s+are\s+too\s+limited|broader\s+or\s+more\s+varied\s+sources?|sources?\s+do\s+not\s+prove|here\s+are\s+the\s+source\s+backed\s+leads?|without\s+adding\s+facts\s+quantities?\s+or\s+steps?|candidate\s+bank|option\s+bank|indicios?\s+documentales?\s+parciales?\s+sobre|indicios?\s+documentais?\s+parciais?\s+sobre|posso\s+construir\s+uma\s+base\s+util|as\s+fontes?\s+nao\s+provam|puedo\s+construir\s+una\s+base\s+util|las\s+fuentes?\s+no\s+prueban|ich\s+kann\s+eine\s+nutzbare\s+grundlage\s+erstellen|die\s+quellen?\s+belegen\s+nicht|posso\s+costruire\s+una\s+base\s+utile|le\s+fonti?\s+non\s+dimostrano)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -9219,6 +15539,29 @@ If evidence is partial, write the best useful sourced answer possible and state 
             @"(?im)^\s*(?:[-*\u2022â€¢]|\d+[.)])?\s*[^:\r\n]{1,160}\.(?:pdf|docx?|xlsx?|pptx?)\s+p\.?\s*\d+\s*(?::|-|–)",
             RegexOptions.CultureInvariant).Count;
         return sourceLeadLineCount >= 2;
+    }
+
+    private static bool LooksLikeMarkdownPipeTableAnswer(string? answer)
+    {
+        if (string.IsNullOrWhiteSpace(answer))
+            return false;
+
+        var lines = answer
+            .Split(new[] { "\r\n", "\n" }, StringSplitOptions.None)
+            .Select(static line => line.Trim())
+            .Where(static line => line.Length > 0)
+            .ToArray();
+
+        var pipeRowCount = lines.Count(static line => line.Count(static ch => ch == '|') >= 3);
+        if (pipeRowCount < 2)
+            return false;
+
+        var separatorRowCount = lines.Count(static line => Regex.IsMatch(
+            line,
+            @"^\|?\s*:?-{2,}:?\s*(?:\|\s*:?-{2,}:?\s*)+\|?$",
+            RegexOptions.CultureInvariant));
+
+        return separatorRowCount > 0;
     }
 
     private static bool LooksLikeUnderusedSourceBackedPlanningAnswer(string? answer, ToolResults toolResults, string? query)
@@ -9271,30 +15614,1352 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (titleTerms.Length >= 2 && titleTerms.Count(term => normalizedAnswer.Contains(term, StringComparison.Ordinal)) >= 2)
             return true;
 
-        var sourceLabel = NormalizeLexicalLookup(candidate.Hit.DocName ?? candidate.Hit.DocPath);
-        if (string.IsNullOrWhiteSpace(sourceLabel))
-            return false;
-
-        return normalizedAnswer.Contains(sourceLabel, StringComparison.Ordinal);
+        return false;
     }
 
-    private static IReadOnlyList<SourceBackedOptionCandidate> SelectSourceBackedPlanningCandidates(ToolResults toolResults, string? query, int maxItems, string language = "")
+    private static bool LooksLikeUnsupportedSourceBackedPlanningAnswer(
+        string? answer,
+        ToolResults toolResults,
+        string? query,
+        string language)
     {
-        var candidates = SelectSourceBackedOptionCandidates(toolResults, query, keepOverRequestedDuration: true, language: language)
-            .Where(candidate => !LooksLikePageReferenceOnlyHit(candidate.Hit))
-            .Where(IsUsableSourceBackedPlanningCandidate)
-            .Where(candidate => string.IsNullOrWhiteSpace(query) || candidate.Score > 0)
-            .GroupBy(BuildSourceBackedPlanningCandidateKey, StringComparer.OrdinalIgnoreCase)
+        if (string.IsNullOrWhiteSpace(answer)
+            || string.IsNullOrWhiteSpace(query)
+            || (!LooksLikeAnyDocumentaryPlanningRequest(query)
+                && !ShouldGateStructuredSourceBackedPlanningCoverage(query)))
+        {
+            return false;
+        }
+
+        var analysis = AnalyzeSourceBackedPlanningAnswerSupport(answer, toolResults, query, language);
+        return ShouldRejectUnsupportedPlanningAnswerForFinal(analysis, query);
+    }
+
+    private static List<ToolMemory.SourceRef> DeriveSourcesFromSupportedPlanningAnswerItems(
+        string? answer,
+        ToolResults toolResults,
+        string? query,
+        string language)
+        => AnalyzeSourceBackedPlanningAnswerSupport(answer, toolResults, query, language).Sources.ToList();
+
+    private static bool TryGetSupportedStructuredPlanningSources(
+        string? answer,
+        ToolResults toolResults,
+        string? query,
+        string language,
+        out List<ToolMemory.SourceRef> sources,
+        out PlanningAnswerSupportAnalysis analysis)
+    {
+        sources = new List<ToolMemory.SourceRef>();
+        analysis = PlanningAnswerSupportAnalysis.Empty;
+
+        if (!ShouldGateStructuredSourceBackedPlanningCoverage(query)
+            || string.IsNullOrWhiteSpace(answer))
+        {
+            return false;
+        }
+
+        analysis = AnalyzeSourceBackedPlanningAnswerSupport(answer, toolResults, query, language);
+        if (ShouldRejectUnsupportedPlanningAnswerForFinal(analysis, query)
+            || analysis.Sources.Count == 0)
+        {
+            return false;
+        }
+
+        sources = analysis.Sources.ToList();
+        return true;
+    }
+
+    private static PlanningAnswerSupportAnalysis BuildTrustedSourceBackedPlanningDraftAnalysis(
+        SourceBackedPlanningDraft draft,
+        string? query)
+    {
+        var targetItemCount = ResolveSourceBackedPlanningTargetItemCount(query);
+        var itemCount = Math.Max(draft.Items.Count, targetItemCount);
+        var supportedItemCount = Math.Max(draft.Items.Count, Math.Min(targetItemCount, draft.Sources.Count));
+        supportedItemCount = Math.Clamp(supportedItemCount, 0, itemCount);
+
+        return new PlanningAnswerSupportAnalysis(
+            itemCount,
+            supportedItemCount,
+            itemCount - supportedItemCount,
+            CandidateCount: Math.Max(draft.Items.Count, draft.Sources.Count),
+            Sources: draft.Sources);
+    }
+
+    private static PlanningAnswerSupportAnalysis BuildTrustedPartialSourceBackedPlanningDraftAnalysis(SourceBackedPlanningDraft draft)
+    {
+        var itemCount = draft.Items.Count;
+        var supportedItemCount = Math.Min(itemCount, draft.Sources.Count);
+        return new PlanningAnswerSupportAnalysis(
+            itemCount,
+            supportedItemCount,
+            itemCount - supportedItemCount,
+            CandidateCount: Math.Max(itemCount, draft.Sources.Count),
+            Sources: draft.Sources);
+    }
+
+    private static bool HasTrustedSourceBackedPlanningDraftCoverage(SourceBackedPlanningDraft draft, string? query)
+    {
+        if (!ShouldGateStructuredSourceBackedPlanningCoverage(query))
+            return false;
+
+        var targetItemCount = ResolveSourceBackedPlanningTargetItemCount(query);
+        return !string.IsNullOrWhiteSpace(draft.Answer)
+            && draft.Items.Count >= targetItemCount
+            && draft.Sources.Count >= targetItemCount;
+    }
+
+    private static bool HasTrustedPartialSourceBackedPlanningDraftCoverage(
+        SourceBackedPlanningDraft draft,
+        SourceBackedPlanningCoverage coverage,
+        string? query,
+        bool searchWasBroadened,
+        bool searchWasExpanded)
+    {
+        if (!ShouldGateStructuredSourceBackedPlanningCoverage(query)
+            || coverage.IsAdequate
+            || string.IsNullOrWhiteSpace(draft.Answer)
+            || draft.Items.Count <= 0
+            || draft.Sources.Count <= 0
+            || draft.Sources.Count < Math.Min(3, draft.Items.Count))
+        {
+            return false;
+        }
+
+        return HasUsefulPartialSourceBackedPlanningCoverage(
+            coverage,
+            searchWasBroadened,
+            searchWasExpanded);
+    }
+
+    private static bool TryBuildSupportedStructuredPlanningAnswer(
+        ToolResults toolResults,
+        string language,
+        string? query,
+        out string answer,
+        out List<ToolMemory.SourceRef> sources,
+        out PlanningAnswerSupportAnalysis analysis)
+    {
+        answer = string.Empty;
+        sources = new List<ToolMemory.SourceRef>();
+        analysis = PlanningAnswerSupportAnalysis.Empty;
+
+        if (!ShouldGateStructuredSourceBackedPlanningCoverage(query))
+            return false;
+
+        var draft = BuildSourceBackedPlanningDraft(
+            toolResults,
+            language,
+            minItems: ResolveSourceBackedPlanningTargetItemCount(query),
+            query: query);
+        answer = draft.Answer;
+        if (string.IsNullOrWhiteSpace(answer) || draft.Sources.Count == 0)
+            return false;
+
+        if (HasTrustedSourceBackedPlanningDraftCoverage(draft, query))
+        {
+            sources = draft.Sources.ToList();
+            analysis = BuildTrustedSourceBackedPlanningDraftAnalysis(draft, query);
+            return true;
+        }
+
+        analysis = AnalyzeSourceBackedPlanningAnswerSupport(answer, toolResults, query, language);
+        if (ShouldRejectUnsupportedPlanningAnswerForFinal(analysis, query)
+            || analysis.Sources.Count == 0)
+            return false;
+
+        sources = analysis.Sources.ToList();
+        return true;
+    }
+
+    private static bool TryFinalizeSourceBackedPlanningResponse(
+        string? answer,
+        ToolResults toolResults,
+        string? query,
+        string language,
+        out string finalAnswer,
+        out List<ToolMemory.SourceRef> finalSources,
+        out PlanningAnswerSupportAnalysis analysis,
+        out string resolution)
+    {
+        finalAnswer = RemoveTrailingModelEmittedSourceList(answer ?? string.Empty).Trim();
+        finalSources = new List<ToolMemory.SourceRef>();
+        analysis = PlanningAnswerSupportAnalysis.Empty;
+        resolution = "not_planning";
+
+        if (string.IsNullOrWhiteSpace(query)
+            || (!LooksLikeAnyDocumentaryPlanningRequest(query)
+                && !ShouldGateStructuredSourceBackedPlanningCoverage(query)))
+        {
+            return false;
+        }
+
+        if (!toolResults.Items.Any(static item => item.ToolName is "rag.search" or "rag.multi_search" && HasRagHits(item.Result)))
+            return false;
+
+        var strictPlanning = ShouldGateStructuredSourceBackedPlanningCoverage(query);
+        var documentaryPlanning = LooksLikeAnyDocumentaryPlanningRequest(query);
+        if (strictPlanning)
+        {
+            var writerSupportSw = Stopwatch.StartNew();
+            ClientLog.Info("ToolAgent planning finalizer: stage=answer_support.start|strict=True|priority=writer");
+            analysis = AnalyzeSourceBackedPlanningAnswerSupport(finalAnswer, toolResults, query, language);
+            writerSupportSw.Stop();
+            ClientLog.Info(
+                $"ToolAgent planning finalizer: stage=answer_support.end|strict=True|priority=writer|items={analysis.ItemCount}|supported={analysis.SupportedItemCount}|candidates={analysis.CandidateCount}|sources={analysis.Sources.Count}|ms={writerSupportSw.ElapsedMilliseconds}");
+            if (analysis.Sources.Count > 0 && !ShouldRejectUnsupportedPlanningAnswerForFinal(analysis, query))
+            {
+                finalSources = analysis.Sources.ToList();
+                resolution = "structured_planning_supported_writer";
+                return true;
+            }
+
+            var rebuildSw = Stopwatch.StartNew();
+            ClientLog.Info("ToolAgent planning finalizer: stage=supported_rebuild.start|strict=True");
+            if (TryBuildSupportedStructuredPlanningAnswer(
+                    toolResults,
+                    language,
+                    query,
+                    out var rebuiltAnswer,
+                    out var rebuiltSources,
+                    out var rebuiltAnalysis))
+            {
+                rebuildSw.Stop();
+                ClientLog.Info(
+                    $"ToolAgent planning finalizer: stage=supported_rebuild.end|result=True|items={rebuiltAnalysis.ItemCount}|supported={rebuiltAnalysis.SupportedItemCount}|sources={rebuiltSources.Count}|ms={rebuildSw.ElapsedMilliseconds}");
+                finalAnswer = RemoveTrailingModelEmittedSourceList(rebuiltAnswer).Trim();
+                finalSources = rebuiltSources;
+                analysis = rebuiltAnalysis;
+                resolution = "structured_planning_supported_rebuild";
+                return true;
+            }
+
+            rebuildSw.Stop();
+            ClientLog.Info($"ToolAgent planning finalizer: stage=supported_rebuild.end|result=False|ms={rebuildSw.ElapsedMilliseconds}");
+            finalAnswer = BuildBroadEvidenceStillInsufficientAnswer(
+                language,
+                query,
+                query,
+                analysis.CandidateCount,
+                searchAlreadyExpanded: HasExpandedSourceBackedSearchEvidence(toolResults));
+            finalSources = new List<ToolMemory.SourceRef>();
+            resolution = "structured_planning_rejected_unsupported";
+            return true;
+        }
+
+        var nonStrictSupportSw = Stopwatch.StartNew();
+        ClientLog.Info("ToolAgent planning finalizer: stage=answer_support.start|strict=False");
+        analysis = AnalyzeSourceBackedPlanningAnswerSupport(finalAnswer, toolResults, query, language);
+        nonStrictSupportSw.Stop();
+        ClientLog.Info(
+            $"ToolAgent planning finalizer: stage=answer_support.end|items={analysis.ItemCount}|supported={analysis.SupportedItemCount}|candidates={analysis.CandidateCount}|sources={analysis.Sources.Count}|ms={nonStrictSupportSw.ElapsedMilliseconds}");
+        if (analysis.Sources.Count > 0 && !ShouldRejectUnsupportedPlanningAnswerForFinal(analysis, query))
+        {
+            finalSources = analysis.Sources.ToList();
+            resolution = "planning_supported_final_answer";
+            return true;
+        }
+
+        if (analysis.Sources.Count > 0 && !documentaryPlanning)
+        {
+            finalSources = analysis.Sources.ToList();
+            resolution = "planning_partial_supported_sources";
+            return true;
+        }
+
+        if (documentaryPlanning && (analysis.ItemCount > 0 || analysis.CandidateCount > 0))
+        {
+            finalAnswer = BuildBroadEvidenceStillInsufficientAnswer(
+                language,
+                query,
+                query,
+                analysis.CandidateCount,
+                searchAlreadyExpanded: HasExpandedSourceBackedSearchEvidence(toolResults));
+            finalSources = new List<ToolMemory.SourceRef>();
+            resolution = "planning_rejected_partial_supported_sources";
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool ShouldRejectUnsupportedPlanningAnswerForFinal(
+        PlanningAnswerSupportAnalysis analysis,
+        string? query)
+    {
+        if (analysis.ItemCount <= 0)
+            return false;
+
+        var structuredPlanning = ShouldGateStructuredSourceBackedPlanningCoverage(query);
+        if (analysis.ItemCount < 2 && !structuredPlanning)
+            return false;
+
+        if (analysis.CandidateCount == 0)
+            return true;
+
+        if (structuredPlanning)
+        {
+            var targetItemCount = ResolveSourceBackedPlanningTargetItemCount(query);
+            if (targetItemCount > 1
+                && (analysis.ItemCount < targetItemCount
+                    || analysis.SupportedItemCount < targetItemCount
+                    || analysis.CandidateCount < targetItemCount))
+            {
+                return true;
+            }
+        }
+
+        if (analysis.UnsupportedItemCount <= 0)
+            return false;
+
+        if (structuredPlanning)
+            return true;
+
+        if (LooksLikeAnyDocumentaryPlanningRequest(query))
+            return true;
+
+        return analysis.UnsupportedItemCount >= 2
+            || analysis.UnsupportedItemCount * 2 >= analysis.ItemCount;
+    }
+
+    private static PlanningAnswerSupportAnalysis AnalyzeSourceBackedPlanningAnswerSupport(
+        string? answer,
+        ToolResults toolResults,
+        string? query,
+        string language)
+    {
+        if (string.IsNullOrWhiteSpace(answer)
+            || string.IsNullOrWhiteSpace(query)
+            || (!LooksLikeAnyDocumentaryPlanningRequest(query)
+                && !ShouldGateStructuredSourceBackedPlanningCoverage(query)))
+        {
+            return PlanningAnswerSupportAnalysis.Empty;
+        }
+
+        var structuredPlanning = ShouldGateStructuredSourceBackedPlanningCoverage(query);
+        var resolvedTargetItemCount = ResolveSourceBackedPlanningTargetItemCount(query);
+        var answerItems = ExtractConcretePlanningAnswerItems(answer).ToList();
+        var targetItemCount = Math.Max(resolvedTargetItemCount, answerItems.Count);
+        var candidates = SelectSourceBackedPlanningCandidates(
+                toolResults,
+                query,
+                Math.Clamp(Math.Max(targetItemCount, 24), 8, 64),
+                language)
+            .GroupBy(BuildSourceBackedPlanningCandidateLeadKey, StringComparer.OrdinalIgnoreCase)
             .Select(static group => group
                 .OrderByDescending(static candidate => candidate.Score)
                 .ThenByDescending(static candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit))
                 .ThenByDescending(static candidate => candidate.Hit.Score)
                 .First())
-            .Take(maxItems)
             .ToList();
 
-        if (candidates.Count > 0)
+        if (answerItems.Count == 0)
+        {
+            if (!structuredPlanning || !LooksLikeConcreteStructuredPlanningAnswer(answer))
+                return PlanningAnswerSupportAnalysis.Empty;
+
+            var requiredItemCount = Math.Max(1, resolvedTargetItemCount);
+            return new PlanningAnswerSupportAnalysis(
+                requiredItemCount,
+                SupportedItemCount: 0,
+                UnsupportedItemCount: requiredItemCount,
+                CandidateCount: candidates.Count,
+                Sources: Array.Empty<ToolMemory.SourceRef>());
+        }
+
+        if (candidates.Count == 0)
+        {
+            return new PlanningAnswerSupportAnalysis(
+                answerItems.Count,
+                SupportedItemCount: 0,
+                UnsupportedItemCount: answerItems.Count,
+                CandidateCount: 0,
+                Sources: Array.Empty<ToolMemory.SourceRef>());
+        }
+
+        var supportedHits = new List<RagHitSummary>();
+        var supportedItemCount = 0;
+        foreach (var item in answerItems)
+        {
+            var normalizedItem = NormalizeLexicalLookup(item);
+            var itemTerms = ExtractPlanningAnswerSupportTerms(normalizedItem).ToArray();
+            if (itemTerms.Length == 0)
+                continue;
+
+            var best = candidates
+                .Where(candidate => PlanningAnswerItemIsSupportedByCandidate(normalizedItem, itemTerms, candidate, requireCandidateTitleMatch: structuredPlanning))
+                .OrderByDescending(static candidate => candidate.Score)
+                .ThenByDescending(static candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit))
+                .ThenByDescending(static candidate => candidate.Hit.Score)
+                .FirstOrDefault();
+            if (best is not null)
+            {
+                supportedItemCount++;
+                supportedHits.Add(best.Hit);
+            }
+        }
+
+        var sources = MergeSourceRefsByPagePreservingOrder(supportedHits
+            .GroupBy(BuildRagHitVisiblePageMergeKey, StringComparer.OrdinalIgnoreCase)
+            .Select(static group => group.First())
+            .Take(structuredPlanning ? Math.Max(8, targetItemCount) : 8)
+            .Select(BuildSourceRefFromRagHit))
+            .ToArray();
+
+        return new PlanningAnswerSupportAnalysis(
+            answerItems.Count,
+            supportedItemCount,
+            answerItems.Count - supportedItemCount,
+            candidates.Count,
+            sources);
+    }
+
+    internal static List<ToolMemory.SourceRef> DeriveSourcesFromSupportedPlanningAnswerItemsForTests(
+        string? answer,
+        ToolResults toolResults,
+        string? query,
+        string language)
+        => DeriveSourcesFromSupportedPlanningAnswerItems(answer, toolResults, query, language);
+
+    private sealed record PlanningAnswerSupportAnalysis(
+        int ItemCount,
+        int SupportedItemCount,
+        int UnsupportedItemCount,
+        int CandidateCount,
+        IReadOnlyList<ToolMemory.SourceRef> Sources)
+    {
+        public static PlanningAnswerSupportAnalysis Empty { get; } = new(
+            ItemCount: 0,
+            SupportedItemCount: 0,
+            UnsupportedItemCount: 0,
+            CandidateCount: 0,
+            Sources: Array.Empty<ToolMemory.SourceRef>());
+    }
+
+    private static IReadOnlyList<string> ExtractConcretePlanningAnswerItems(string answer)
+    {
+        if (string.IsNullOrWhiteSpace(answer))
+            return Array.Empty<string>();
+
+        var items = new List<string>();
+        var withoutSourceBlock = RemoveTrailingModelEmittedSourceList(answer);
+        foreach (var rawLine in withoutSourceBlock.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var line = CollapseWhitespace(rawLine);
+            if (line.Length < 8
+                || Regex.IsMatch(line, @"^(?:source|sources|note|notes|r[eé]f[eé]rences?|fuentes?|fontes?|quellen?|fonti)\s*:", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+                || Regex.IsMatch(line, @"^(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday|lunes|martes|miercoles|miércoles|jueves|viernes|sabado|sábado|domingo|segunda|ter[cç]a|quarta|quinta|sexta|sabado|sábado|domingo|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|lunedi|lunedì|martedi|martedì|mercoledi|mercoledì|giovedi|giovedì|venerdi|venerdì|sabato|domenica)\s*:$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            {
+                continue;
+            }
+
+            var normalizedLine = NormalizeLexicalLookup(line);
+            if (Regex.IsMatch(
+                    normalizedLine,
+                    @"\b(?:voici|here\s+is|aqui|ecco|hier\s+ist)\b.*\b(?:proposition|proposal|plan|piano|vorschlag)\b",
+                    RegexOptions.CultureInvariant)
+                || Regex.IsMatch(
+                    normalizedLine,
+                    @"\b(?:organisation|organization|organizacion|organizacao|organizzazione)\b.*\b(?:assistant|assistante?)\b",
+                    RegexOptions.CultureInvariant)
+                || Regex.IsMatch(
+                    normalizedLine,
+                    @"\b(?:tourner|rotate|rotacion|rotacao|rotiere|alterno|alternance)\b.*\b(?:invent|invente|inventar|erfinden)\b",
+                    RegexOptions.CultureInvariant)
+                || Regex.IsMatch(
+                    normalizedLine,
+                    @"\b(?:trouve|found|encontr|gefunden|trov)\b.*\b(?:option|options|element|elements|item|items|candidat|candidates?)\b.*\b(?:creneaux|slots|huecos|espacos|plätze|spazi|demand)\b",
+                    RegexOptions.CultureInvariant)
+                || Regex.IsMatch(
+                    normalizedLine,
+                    @"\b(?:avant|before|antes|prima|vor)\b.*\b(?:verifie|verifier|check|revisa|verifica|prufe|prüfe)\b.*\b(?:page|pages|source|sources)\b",
+                    RegexOptions.CultureInvariant))
+            {
+                continue;
+            }
+
+            if (line.EndsWith(':')
+                && Regex.IsMatch(
+                    normalizedLine,
+                    @"\b(?:plan|planning|proposal|proposition|propuesta|proposta|vorschlag|piano|sources?|documents?|fuentes?|fontes?|quellen|fonti)\b",
+                    RegexOptions.CultureInvariant))
+            {
+                continue;
+            }
+
+            line = Regex.Replace(line, @"^\s*(?:[-*\u2022\u25E6]|\d+[.)])\s*", string.Empty, RegexOptions.CultureInvariant).Trim();
+            var colonIndex = line.IndexOf(':', StringComparison.Ordinal);
+            if (colonIndex >= 0 && colonIndex < Math.Min(32, line.Length - 1))
+                line = line[(colonIndex + 1)..].Trim();
+
+            line = Regex.Replace(line, @"\[\[open\|[^\]]+\]\]", string.Empty, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            line = Regex.Replace(line, @"\(\s*\)", string.Empty, RegexOptions.CultureInvariant);
+            line = Regex.Replace(line, @"\((?:source|src|ref|réf|referencia|quelle|fonte)\s*:[^)]+\)", string.Empty, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            line = Regex.Replace(line, @"\([^)]*\b(?:p\.?|page)\s*\d+[^)]*\)", string.Empty, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            line = Regex.Replace(line, @"[*_`#>|]+", string.Empty, RegexOptions.CultureInvariant);
+            line = CollapseWhitespace(line.Trim(' ', '.', ';', ':', '-', '\u2013', '\u2014'));
+
+            foreach (var item in SplitConcretePlanningAnswerLine(line))
+            {
+                var normalized = NormalizeLexicalLookup(item);
+                if (normalized.Length < 8
+                    || Regex.IsMatch(normalized, @"^(?:a completer|to complete|por completar|zu erganzen|da completare|non source|not sourced|sans source|aucune source)", RegexOptions.CultureInvariant))
+                {
+                    continue;
+                }
+
+                var terms = ExtractPlanningAnswerSupportTerms(normalized).ToArray();
+                if (terms.Length == 0)
+                    continue;
+
+                items.Add(item);
+            }
+        }
+
+        return items
+            .Take(32)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> SplitConcretePlanningAnswerLine(string line)
+    {
+        line = CollapseWhitespace(line);
+        if (string.IsNullOrWhiteSpace(line))
+            return Array.Empty<string>();
+
+        var normalized = NormalizeLexicalLookup(line);
+        var looksLikeDayPrefixedLine = Regex.IsMatch(
+            normalized,
+            @"^(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday|lunes|martes|miercoles|miércoles|jueves|viernes|sabado|sábado|domingo|segunda|terca|terça|quarta|quinta|sexta|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|lunedi|lunedì|martedi|martedì|mercoledi|mercoledì|giovedi|giovedì|venerdi|venerdì|sabato|domenica)\b",
+            RegexOptions.CultureInvariant);
+        var looksLikeCompactPlanLine = looksLikeDayPrefixedLine
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:petit\s+dejeuner|dejeuner|diner|breakfast|lunch|dinner|desayuno|almuerzo|cena|pequeno\s+almoco|almoco|jantar|fruhstuck|mittagessen|abendessen|colazione|pranzo)\b",
+                RegexOptions.CultureInvariant);
+
+        if (!looksLikeCompactPlanLine
+            || (!line.Contains('|', StringComparison.Ordinal)
+                && !line.Contains(" / ", StringComparison.Ordinal)
+                && !line.Contains(" ; ", StringComparison.Ordinal)
+                && !line.Contains(" - ", StringComparison.Ordinal)))
+        {
+            return new[] { line };
+        }
+
+        var fragments = Regex
+            .Split(line, @"\s*(?:\||/|;|\s+-\s+)\s*", RegexOptions.CultureInvariant)
+            .Select(CollapseWhitespace)
+            .Select(static fragment => fragment.Trim(' ', '.', ';', ':', '-', '\u2013', '\u2014'))
+            .Where(static fragment => !string.IsNullOrWhiteSpace(fragment))
+            .Where(static fragment => !Regex.IsMatch(
+                NormalizeLexicalLookup(fragment),
+                @"^(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday|lunes|martes|miercoles|miércoles|jueves|viernes|sabado|sábado|domingo|segunda|terca|terça|quarta|quinta|sexta|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|lunedi|lunedì|martedi|martedì|mercoledi|mercoledì|giovedi|giovedì|venerdi|venerdì|sabato|domenica|petit\s+dejeuner|dejeuner|diner|breakfast|lunch|dinner|desayuno|almuerzo|cena|pequeno\s+almoco|almoco|jantar|fruhstuck|mittagessen|abendessen|colazione|pranzo)$",
+                RegexOptions.CultureInvariant))
+            .ToArray();
+
+        return fragments.Length > 1 ? fragments : new[] { line };
+    }
+
+    private static bool PlanningAnswerItemIsSupportedByAnyCandidate(
+        string item,
+        IReadOnlyList<SourceBackedOptionCandidate> candidates)
+    {
+        var normalizedItem = NormalizeLexicalLookup(item);
+        if (string.IsNullOrWhiteSpace(normalizedItem))
+            return false;
+
+        var itemTerms = ExtractPlanningAnswerSupportTerms(normalizedItem).ToArray();
+        if (itemTerms.Length == 0)
+            return false;
+
+        foreach (var candidate in candidates)
+        {
+            if (PlanningAnswerItemIsSupportedByCandidate(normalizedItem, itemTerms, candidate))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool PlanningAnswerItemIsSupportedByCandidate(
+        string normalizedItem,
+        IReadOnlyList<string> itemTerms,
+        SourceBackedOptionCandidate candidate,
+        bool requireCandidateTitleMatch = false)
+    {
+        var title = NormalizeLexicalLookup(candidate.Title);
+        if (requireCandidateTitleMatch)
+        {
+            return StructuredPlanningAnswerItemMatchesCandidateTitle(
+                    normalizedItem,
+                    itemTerms,
+                    title)
+                && HasStrictStructuredPlanningCandidateEvidence(candidate)
+                && StructuredPlanningItemTermsAreFullySupported(normalizedItem, itemTerms, candidate);
+        }
+
+        if (title.Length >= 6
+            && string.Equals(normalizedItem, title, StringComparison.Ordinal))
+        {
+            return StructuredPlanningItemTermsAreFullySupported(normalizedItem, itemTerms, candidate);
+        }
+
+        if (title.Length >= 6
+            && normalizedItem.Contains(title, StringComparison.Ordinal))
+        {
+            return StructuredPlanningItemTermsAreFullySupported(normalizedItem, itemTerms, candidate);
+        }
+
+        var supportText = NormalizeLexicalLookup(string.Join(' ', EnumeratePlanningCandidateSupportTexts(candidate)));
+        if (supportText.Length < 8)
+            return false;
+
+        var supportTerms = ExtractPlanningAnswerSupportTerms(supportText).ToHashSet(StringComparer.Ordinal);
+        if (supportTerms.Count == 0)
+            return false;
+
+        var distinctItemTerms = itemTerms
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (distinctItemTerms.Length == 0)
+            return false;
+
+        var matchedTerms = distinctItemTerms.Count(supportTerms.Contains);
+        if (matchedTerms == 0)
+            return false;
+
+        var missingTerms = distinctItemTerms.Length - matchedTerms;
+        if (distinctItemTerms.Length <= 6)
+            return missingTerms == 0;
+
+        var ratio = matchedTerms / (double)distinctItemTerms.Length;
+        if (matchedTerms >= 5 && ratio >= 0.80 && missingTerms <= 2)
+            return true;
+
+        return distinctItemTerms.Length == 1
+            && distinctItemTerms[0].Length >= 10
+            && supportText.Contains(distinctItemTerms[0], StringComparison.Ordinal);
+    }
+
+    private static bool StructuredPlanningAnswerItemMatchesCandidateTitle(
+        string normalizedItem,
+        IReadOnlyList<string> itemTerms,
+        string normalizedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedItem) || normalizedTitle.Length < 6)
+            return false;
+
+        if (string.Equals(normalizedItem, normalizedTitle, StringComparison.Ordinal))
+            return true;
+
+        if (normalizedItem.Contains(normalizedTitle, StringComparison.Ordinal))
+            return true;
+
+        var titleTerms = ExtractPlanningAnswerSupportTerms(normalizedTitle)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (titleTerms.Length == 0)
+            return false;
+
+        var itemTermSet = itemTerms
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .Distinct(StringComparer.Ordinal)
+            .ToHashSet(StringComparer.Ordinal);
+        if (itemTermSet.Count == 0)
+            return false;
+
+        return titleTerms.All(term =>
+            itemTermSet.Contains(term)
+            || normalizedItem.Contains(term, StringComparison.Ordinal));
+    }
+
+    private static bool HasConcreteStructuredPlanningCandidateProof(SourceBackedOptionCandidate candidate)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        var finalEvidence = CollapseWhitespace(BuildPageLocalSourceBackedPlanningProofText(candidate.Hit));
+        var normalizedFinalEvidence = NormalizeLexicalLookup(finalEvidence);
+        if (normalizedFinalEvidence.Length < 24)
+            return false;
+
+        if (!normalizedFinalEvidence.Contains(normalizedTitle, StringComparison.Ordinal))
+            return false;
+
+        if (LooksLikeGenericCadenceOrTimingStatement(normalizedTitle))
+            return false;
+
+        return PrimaryEvidenceContainsLocalStructuredPlanningProof(candidate.Hit, normalizedTitle, finalEvidence)
+            || PrimaryEvidenceContainsRelaxedLocalStructuredPlanningProof(candidate.Hit, normalizedTitle, finalEvidence);
+    }
+
+    private static bool HasPageLocalStructuredPlanningCandidateSupport(SourceBackedOptionCandidate candidate)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle)
+            || LooksLikeGenericCadenceOrTimingStatement(normalizedTitle))
+        {
+            return false;
+        }
+
+        if (HasPageAnchoredContentCardStructuredPlanningProof(candidate.Hit, normalizedTitle))
+            return true;
+
+        if (!PrimaryPageEvidenceSupportsSourceBackedPlanningCandidateTitle(candidate))
+            return false;
+
+        var directEvidence = CollapseWhitespace(BuildPageLocalSourceBackedPlanningProofText(candidate.Hit));
+        if (directEvidence.Length < 24)
+            return false;
+
+        return PrimaryEvidenceContainsLocalStructuredPlanningProof(candidate.Hit, normalizedTitle, directEvidence)
+            || PrimaryEvidenceContainsRelaxedLocalStructuredPlanningProof(candidate.Hit, normalizedTitle, directEvidence)
+            || TitleWindowContainsStrongLocalStructuredPlanningProof(normalizedTitle, directEvidence);
+    }
+
+    private static bool TitleWindowContainsStrongLocalStructuredPlanningProof(
+        string normalizedTitle,
+        string evidence)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle) || string.IsNullOrWhiteSpace(evidence))
+            return false;
+
+        var normalizedEvidence = NormalizeLexicalLookup(evidence);
+        if (normalizedEvidence.Length < 32)
+            return false;
+
+        var searchIndex = 0;
+        while (searchIndex < normalizedEvidence.Length)
+        {
+            var index = normalizedEvidence.IndexOf(normalizedTitle, searchIndex, StringComparison.Ordinal);
+            if (index < 0)
+                return false;
+
+            var start = Math.Max(0, index - 40);
+            var end = Math.Min(normalizedEvidence.Length, index + normalizedTitle.Length + 420);
+            var window = normalizedEvidence[start..end];
+            if (window.Contains(normalizedTitle, StringComparison.Ordinal)
+                && !LooksLikeStructuredPlanningNavigationOrIndexNoise(window)
+                && HasStrongLocalStructuredPlanningProofText(window))
+            {
+                return true;
+            }
+
+            searchIndex = index + normalizedTitle.Length;
+        }
+
+        return false;
+    }
+
+    private static bool HasConcreteStructuredPlanningCardProof(
+        SourceBackedOptionCandidate candidate,
+        string normalizedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle)
+            || LooksLikeGenericCadenceOrTimingStatement(normalizedTitle))
+        {
+            return false;
+        }
+
+        foreach (var card in candidate.Hit.MatchedContentCards ?? Array.Empty<RagHitContentCardSummary>())
+        {
+            if (HasPageAnchoredContentCardStructuredPlanningProof(candidate.Hit, card, normalizedTitle))
+                return true;
+
+            if (!HasConcreteContentCardEvidenceForTitle(card, normalizedTitle, requireExactTitle: true))
+                continue;
+            if (!ContentCardEvidenceIsSupportedByPrimaryPageText(candidate.Hit, card, normalizedTitle))
+                continue;
+
+            var strictEvidence = BuildSourceBackedCardStrictEvidenceSnippet(card);
+            var normalizedEvidence = NormalizeLexicalLookup(strictEvidence);
+            if (normalizedEvidence.Length < 16)
+                continue;
+
+            if (!normalizedEvidence.Contains(normalizedTitle, StringComparison.Ordinal))
+                continue;
+
+            if (PrimaryEvidenceContainsLocalStructuredPlanningProof(candidate.Hit, normalizedTitle, strictEvidence))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool PrimaryContentTermsTightlySupportPlanningTitle(string normalizedTitle, string normalizedPrimaryEvidence)
+    {
+        var titleTerms = ExtractPlanningAnswerSupportTerms(normalizedTitle)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (titleTerms.Length < 2 || titleTerms.Length > 6)
+            return false;
+
+        var matchedTerms = titleTerms.Count(term => normalizedPrimaryEvidence.Contains(term, StringComparison.Ordinal));
+        return matchedTerms == titleTerms.Length;
+    }
+
+    private static bool PrimaryEvidenceContainsLocalStructuredPlanningProof(
+        RagHitSummary hit,
+        string normalizedTitle,
+        string evidence)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle) || string.IsNullOrWhiteSpace(evidence))
+            return false;
+
+        var normalizedEvidence = NormalizeLexicalLookup(evidence);
+        if (normalizedEvidence.Length < 24)
+            return false;
+
+        var searchIndex = 0;
+        while (searchIndex < normalizedEvidence.Length)
+        {
+            var index = normalizedEvidence.IndexOf(normalizedTitle, searchIndex, StringComparison.Ordinal);
+            if (index < 0)
+                break;
+
+            var start = Math.Max(0, index - 80);
+            var end = Math.Min(normalizedEvidence.Length, index + normalizedTitle.Length + 360);
+            var window = normalizedEvidence[start..end];
+            if (window.Contains(normalizedTitle, StringComparison.Ordinal)
+                && StructuredPlanningProofAppearsAttachedToTitle(window, normalizedTitle)
+                && PrimaryEvidenceHasConcreteStructuredPlanningCues(hit, window)
+                && HasStrongLocalStructuredPlanningProofText(window))
+            {
+                return true;
+            }
+
+            searchIndex = index + normalizedTitle.Length;
+        }
+
+        return CompactEvidenceContainsLocalStructuredPlanningProof(hit, normalizedTitle, normalizedEvidence);
+    }
+
+    private static bool CompactEvidenceContainsLocalStructuredPlanningProof(
+        RagHitSummary hit,
+        string normalizedTitle,
+        string normalizedEvidence)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle) || string.IsNullOrWhiteSpace(normalizedEvidence))
+            return false;
+
+        var compactTitle = BuildCompactStructuredPlanningLookup(normalizedTitle);
+        if (compactTitle.Length < 10)
+            return false;
+
+        var compactEvidence = BuildCompactStructuredPlanningLookup(normalizedEvidence);
+        if (!compactEvidence.Contains(compactTitle, StringComparison.Ordinal))
+            return false;
+
+        if (LooksLikeStructuredPlanningNavigationOrIndexNoise(normalizedEvidence)
+            && !HasStrongLocalStructuredPlanningProofText(normalizedEvidence))
+        {
+            return false;
+        }
+
+        return PrimaryEvidenceHasConcreteStructuredPlanningCues(hit, normalizedEvidence)
+            && HasStrongLocalStructuredPlanningProofText(normalizedEvidence);
+    }
+
+    private static string BuildCompactStructuredPlanningLookup(string? value)
+        => Regex.Replace(
+            NormalizeLexicalLookup(value),
+            @"[^\p{L}\p{N}]+",
+            string.Empty,
+            RegexOptions.CultureInvariant);
+
+    private static bool PrimaryEvidenceContainsRelaxedLocalStructuredPlanningProof(
+        RagHitSummary hit,
+        string normalizedTitle,
+        string evidence)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle) || string.IsNullOrWhiteSpace(evidence))
+            return false;
+
+        var normalizedEvidence = NormalizeLexicalLookup(evidence);
+        if (normalizedEvidence.Length < 32)
+            return false;
+
+        var searchIndex = 0;
+        while (searchIndex < normalizedEvidence.Length)
+        {
+            var index = normalizedEvidence.IndexOf(normalizedTitle, searchIndex, StringComparison.Ordinal);
+            if (index < 0)
+                break;
+
+            var start = Math.Max(0, index - 40);
+            var end = Math.Min(normalizedEvidence.Length, index + normalizedTitle.Length + 760);
+            var window = normalizedEvidence[start..end];
+            var titleIndex = window.IndexOf(normalizedTitle, StringComparison.Ordinal);
+            if (titleIndex < 0)
+            {
+                searchIndex = index + normalizedTitle.Length;
+                continue;
+            }
+
+            var afterTitle = window[(titleIndex + normalizedTitle.Length)..];
+            if (afterTitle.Length < 18)
+            {
+                searchIndex = index + normalizedTitle.Length;
+                continue;
+            }
+
+            var earlyAfterTitle = afterTitle[..Math.Min(afterTitle.Length, 260)];
+            if (LooksLikeStructuredPlanningNavigationOrIndexNoise(earlyAfterTitle)
+                || Regex.IsMatch(
+                    earlyAfterTitle,
+                    @"\b(?:sommaire|contents?|table\s+des\s+matieres|table\s+of\s+contents|index|liste\s+des|list\s+of|page\s+\d+|p\.\s*\d+)\b",
+                    RegexOptions.CultureInvariant))
+            {
+                searchIndex = index + normalizedTitle.Length;
+                continue;
+            }
+
+            if (PrimaryEvidenceHasConcreteStructuredPlanningCues(hit, window)
+                && HasStrongLocalStructuredPlanningProofText(window))
+            {
+                return true;
+            }
+
+            searchIndex = index + normalizedTitle.Length;
+        }
+
+        return CompactEvidenceContainsLocalStructuredPlanningProof(hit, normalizedTitle, normalizedEvidence);
+    }
+
+    private static bool StructuredPlanningProofAppearsAttachedToTitle(
+        string normalizedWindow,
+        string normalizedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedWindow) || string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        var titleIndex = normalizedWindow.IndexOf(normalizedTitle, StringComparison.Ordinal);
+        if (titleIndex < 0)
+            return false;
+
+        var afterTitle = normalizedWindow[(titleIndex + normalizedTitle.Length)..];
+        if (afterTitle.Length < 12)
+            return false;
+
+        var structureMatch = Regex.Match(
+            afterTitle,
+            @"\b(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
+            RegexOptions.CultureInvariant);
+        if (!structureMatch.Success)
+            return false;
+
+        var bridge = afterTitle[..structureMatch.Index];
+        if (bridge.Length > 220)
+            return false;
+
+        if (LooksLikeStructuredPlanningNavigationOrIndexNoise(bridge))
+            return false;
+
+        if (Regex.IsMatch(
+                bridge,
+                @"\b(?:sommaire|contents?|table\s+des\s+matieres|table\s+of\s+contents|index|liste\s+des|list\s+of|page\s+\d+|p\.\s*\d+)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        var compactBridge = CollapseWhitespace(bridge);
+        if (compactBridge.Length > 0
+            && Regex.IsMatch(compactBridge, @"(?:^|[.;:!?])\s*[a-z0-9][a-z0-9\s'\-]{12,}\s*(?:[.;:!?]|$)", RegexOptions.CultureInvariant)
+            && !Regex.IsMatch(compactBridge, @"\b(?:pour|with|avec|aux|a\s+la|et|de|du|des|the|and)\b", RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool PrimaryEvidenceHasConcreteStructuredPlanningCues(RagHitSummary hit, string primaryEvidence)
+    {
+        var normalized = NormalizeStructuredScanText(primaryEvidence);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        if (LooksLikeStructuredPlanningNavigationOrIndexNoise(primaryEvidence)
+            && !HasStrongLocalStructuredPlanningProofText(primaryEvidence))
+        {
+            return false;
+        }
+
+        var hasStructureLabel = Regex.IsMatch(
+            normalized,
+            @"\b(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|valeurs?|values?|components?|composants?|operation|workflow|actions?|tasks?|taches?|tâches?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
+            RegexOptions.CultureInvariant);
+        var hasActionOrMeasure = Regex.IsMatch(
+            normalized,
+            @"\b(?:\d+\s*(?:g|kg|mg|ml|cl|l|min|minutes?|h|heures?|hours?|%|mm|cm|m|units?|pieces?|items?)|appliquer|apply|ajouter|add|utiliser|use|using|inspecter|inspect|record|enregistrer|consigner|noter|note|documenter|document|escalader|escalate|verifier|v[eé]rifier|verify|check|valider|validate|prepare|preparer|pr[eé]parer|executer|ex[eé]cuter|run|start|stop|ouvrir|open|fermer|close|selectionner|s[eé]lectionner|select|requirements?|exigences?|constraints?|contraintes?|conditions?|criteria|criteres|crit[eè]res|parameters?|param[eè]tres?|notes?|observations?|checklist|validation|review|revue|steps?|actions?|tasks?)\b",
+            RegexOptions.CultureInvariant);
+
+        if (hasStructureLabel && hasActionOrMeasure)
+            return true;
+
+        if (hasStructureLabel
+            && (CountNumericFactMarkers(normalized) >= 1
+                || CountProcedureStepMarkers(normalized) >= 1
+                || CountBulletListMarkers(primaryEvidence) >= 2))
+        {
+            return true;
+        }
+
+        if ((ComputeStructuredProcedureVisibleEvidenceCueScore(hit) >= 4
+             || ComputeProcedureCompletenessCueScore(hit) >= 6)
+            && hasStructureLabel)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool LooksLikeStructuredPlanningNavigationOrIndexNoise(string? text)
+    {
+        var normalized = NormalizeLexicalLookup(text);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.IsMatch(
+                normalized,
+                @"\b(?:table\s+des\s+matieres|sommaire|contents?|table\s+of\s+contents|index|catalogue|catalog|liste\s+des|list\s+of|sections?\s+principales?|premiers?\s+extraits?|matched\s+profile\s+title|source\s+de\s+verite|source\s+of\s+truth)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:document\s+.+\s+\d+\s+pages?|ce\s+document\s+(?:couvre|contient|inclut)|this\s+document\s+(?:covers|contains|includes)|page\s+\d+\s*[:;-]|p\.\s*\d+\s*[:;-])\b",
+                RegexOptions.CultureInvariant);
+    }
+
+    private static bool HasStrongLocalStructuredPlanningProofText(string? text)
+    {
+        var value = CollapseWhitespace(text ?? string.Empty);
+        if (value.Length < 24)
+            return false;
+
+        var normalized = NormalizeStructuredScanText(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        var hasStructureLabel = Regex.IsMatch(
+            normalized,
+            @"\b(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
+            RegexOptions.CultureInvariant);
+        if (!hasStructureLabel)
+            return false;
+
+        var hasActionOrMeasure = Regex.IsMatch(
+            normalized,
+            @"\b(?:\d+\s*(?:g|kg|mg|ml|cl|l|min|minutes?|h|heure|heures|hours?|%|mm|cm|m|units?|pieces?|items?)|ajouter|add|mixer|mix|melanger|m[eé]langer|cuire|cook|servir|serve|preparer|pr[eé]parer|prepare|verser|verse|chauffer|heat|incorporer|couper|cut|slice|griller|bake|roast|fry|utiliser|use|inspecter|inspect|record|enregistrer|consigner|noter|note|documenter|document|escalader|escalate|verifier|v[eé]rifier|verify|check|valider|validate|executer|ex[eé]cuter|run|selectionner|s[eé]lectionner|select|requirements?|exigences?|constraints?|contraintes?|conditions?|criteria|criteres|crit[eè]res|parameters?|param[eè]tres?|notes?|observations?|checklist|validation|review|revue)\b",
+            RegexOptions.CultureInvariant);
+        var hasMeasuredFact = CountMeasuredValueMarkers(normalized) >= 1
+            || CountNumericFactMarkers(normalized) >= 2;
+        var hasProcedureShape = CountProcedureStepMarkers(normalized) >= 1
+            || CountBulletListMarkers(value) >= 2;
+
+        if (!(hasActionOrMeasure || hasMeasuredFact || hasProcedureShape))
+            return false;
+
+        if (LooksLikeStructuredPlanningNavigationOrIndexNoise(value)
+            && !(hasActionOrMeasure && (hasMeasuredFact || hasProcedureShape)))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool StructuredPlanningItemTermsAreFullySupported(
+        string normalizedItem,
+        IReadOnlyList<string> itemTerms,
+        SourceBackedOptionCandidate candidate)
+    {
+        if (!PrimaryPageEvidenceContainsExactPlanningCandidateTitle(candidate))
+            return false;
+
+        var directEvidence = NormalizeLexicalLookup(BuildPageLocalSourceBackedPlanningProofText(candidate.Hit));
+        if (directEvidence.Length < 16)
+            return false;
+
+        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        if (string.Equals(normalizedItem, normalizedTitle, StringComparison.Ordinal))
+            return true;
+
+        var distinctItemTerms = itemTerms
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (distinctItemTerms.Length == 0)
+            return false;
+
+        var missingTerms = distinctItemTerms
+            .Where(term => !directEvidence.Contains(term, StringComparison.Ordinal)
+                && !normalizedTitle.Contains(term, StringComparison.Ordinal))
+            .ToArray();
+        if (missingTerms.Length == 0)
+            return true;
+
+        return false;
+    }
+
+    private static IEnumerable<string> EnumeratePlanningCandidateSupportTexts(SourceBackedOptionCandidate candidate)
+    {
+        yield return candidate.Title;
+        yield return candidate.Hit.SectionTitle ?? string.Empty;
+        yield return candidate.Hit.HeadingPath ?? string.Empty;
+        yield return candidate.Hit.Excerpt ?? string.Empty;
+        yield return candidate.Hit.FullText ?? string.Empty;
+        yield return candidate.Hit.ContextualSnippet ?? string.Empty;
+
+        foreach (var card in candidate.Hit.MatchedContentCards ?? Array.Empty<RagHitContentCardSummary>())
+        {
+            yield return card.Title;
+            yield return card.Kind ?? string.Empty;
+            foreach (var signal in card.Signals ?? Array.Empty<string>())
+                yield return signal;
+
+            if (card.Evidence is null)
+                continue;
+
+            foreach (var fact in card.Evidence.Facts ?? Array.Empty<RagHitEvidenceFactSummary>())
+            {
+                yield return fact.Label;
+                yield return fact.Value ?? string.Empty;
+                yield return fact.SourceText ?? string.Empty;
+            }
+
+            foreach (var quantity in card.Evidence.QuantityFacts ?? Array.Empty<RagHitQuantityFactSummary>())
+            {
+                yield return quantity.Label;
+                yield return quantity.SourceText ?? string.Empty;
+            }
+        }
+    }
+
+    private static IEnumerable<string> ExtractPlanningAnswerSupportTerms(string normalized)
+    {
+        foreach (var term in ExtractQuerySignalTerms(normalized))
+        {
+            if (term.Length >= 4 && !IsGenericPlanningAnswerSupportTerm(term))
+                yield return term;
+        }
+    }
+
+    private static bool IsGenericPlanningAnswerSupportTerm(string term)
+    {
+        if (IsGenericPlanningCoverageTerm(term))
+            return true;
+
+        return term is
+            "matin" or "midi" or "soir" or "dejeuner" or "diner" or "dinner" or "lunch" or "breakfast" or
+            "petit" or "repas" or "meal" or "meals" or "semaine" or "week" or "weekly" or
+            "lundi" or "mardi" or "mercredi" or "jeudi" or "vendredi" or "samedi" or "dimanche" or
+            "monday" or "tuesday" or "wednesday" or "thursday" or "friday" or "saturday" or "sunday" or
+            "source" or "sources" or "page" or "pages" or "document" or "documents" or
+            "option" or "options" or "proposition" or "propositions";
+    }
+
+    private const int SourceBackedPlanningCandidateSelectionCacheMaxEntries = 48;
+    private static readonly object SourceBackedPlanningCandidateSelectionCacheGate = new();
+    private static readonly Dictionary<string, IReadOnlyList<SourceBackedOptionCandidate>> SourceBackedPlanningCandidateSelectionCache =
+        new(StringComparer.Ordinal);
+
+    private static IReadOnlyList<SourceBackedOptionCandidate> SelectSourceBackedPlanningCandidates(
+        ToolResults toolResults,
+        string? query,
+        int maxItems,
+        string language = "",
+        bool requireStrictStructuredEvidence = true)
+    {
+        var cacheKey = BuildSourceBackedPlanningCandidateSelectionCacheKey(
+            toolResults,
+            query,
+            maxItems,
+            language,
+            requireStrictStructuredEvidence);
+        if (!string.IsNullOrWhiteSpace(cacheKey))
+        {
+            lock (SourceBackedPlanningCandidateSelectionCacheGate)
+            {
+                if (SourceBackedPlanningCandidateSelectionCache.TryGetValue(cacheKey, out var cached))
+                {
+                    ClientLog.Info(
+                        "ToolAgent planning candidate selection: stage=cache.hit"
+                        + $"|maxItems={maxItems}"
+                        + $"|strict={requireStrictStructuredEvidence}"
+                        + $"|candidates={cached.Count}");
+                    return cached;
+                }
+            }
+        }
+
+        var selected = SelectSourceBackedPlanningCandidatesUncached(
+                toolResults,
+                query,
+                maxItems,
+                language,
+                requireStrictStructuredEvidence)
+            .ToArray();
+        if (!string.IsNullOrWhiteSpace(cacheKey))
+        {
+            lock (SourceBackedPlanningCandidateSelectionCacheGate)
+            {
+                if (SourceBackedPlanningCandidateSelectionCache.Count >= SourceBackedPlanningCandidateSelectionCacheMaxEntries)
+                    SourceBackedPlanningCandidateSelectionCache.Clear();
+                SourceBackedPlanningCandidateSelectionCache[cacheKey] = selected;
+            }
+        }
+
+        return selected;
+    }
+
+    private static string BuildSourceBackedPlanningCandidateSelectionCacheKey(
+        ToolResults toolResults,
+        string? query,
+        int maxItems,
+        string language,
+        bool requireStrictStructuredEvidence)
+    {
+        if (toolResults.Items.Count == 0)
+            return string.Empty;
+
+        var hash = new HashCode();
+        hash.Add(NormalizeLanguageCode(language), StringComparer.Ordinal);
+        hash.Add(NormalizeLexicalLookup(query), StringComparer.Ordinal);
+        hash.Add(maxItems);
+        hash.Add(requireStrictStructuredEvidence);
+        hash.Add(toolResults.Items.Count);
+        foreach (var item in toolResults.Items)
+        {
+            hash.Add(item.ToolName ?? string.Empty, StringComparer.Ordinal);
+            hash.Add(item.Error ?? string.Empty, StringComparer.Ordinal);
+            hash.Add(item.DurationMs);
+            hash.Add(item.Result.ValueKind);
+            var raw = item.Result.ValueKind == JsonValueKind.Undefined
+                ? string.Empty
+                : item.Result.GetRawText();
+            hash.Add(raw.Length);
+            hash.Add(raw, StringComparer.Ordinal);
+        }
+
+        return hash.ToHashCode().ToString(CultureInfo.InvariantCulture);
+    }
+
+    private static IReadOnlyList<SourceBackedOptionCandidate> SelectSourceBackedPlanningCandidatesUncached(
+        ToolResults toolResults,
+        string? query,
+        int maxItems,
+        string language = "",
+        bool requireStrictStructuredEvidence = true)
+    {
+        var requireDirectPageEvidence = ShouldGateStructuredSourceBackedPlanningCoverage(query);
+        var traceSelection = requireDirectPageEvidence || requireStrictStructuredEvidence || maxItems >= 20;
+        var selectionStopwatch = traceSelection ? Stopwatch.StartNew() : null;
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=start|maxItems={maxItems}|strict={requireStrictStructuredEvidence}|directPageEvidence={requireDirectPageEvidence}");
+        }
+
+        var dominantTopLevelScope = requireDirectPageEvidence
+            ? TryInferDominantTopLevelCategoryScope(toolResults, query)
+            : null;
+        var optionCandidates = SelectSourceBackedOptionCandidates(
+                toolResults,
+                query,
+                keepOverRequestedDuration: true,
+                language: language,
+                allowPartialStructuredPlanningCandidates: !requireStrictStructuredEvidence)
+            .ToList();
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=option_candidates.end|candidates={optionCandidates.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", optionCandidates.Take(8).Select(static candidate => candidate.Title))}");
+        }
+
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=primary_filter.start|optionCandidates={optionCandidates.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}");
+        }
+
+        var primaryFilterInput = optionCandidates
+            .Select(candidate => new
+            {
+                Candidate = candidate,
+                RejectionReason = ExplainSourceBackedPlanningCandidateRejection(
+                    candidate,
+                    query,
+                    requireDirectPageEvidence,
+                    requireStrictStructuredEvidence,
+                    dominantTopLevelScope)
+            })
+            .ToList();
+        if (traceSelection)
+        {
+            var removedSamples = primaryFilterInput
+                .Where(static item => !string.IsNullOrWhiteSpace(item.RejectionReason))
+                .Take(6)
+                .Select(static item => $"{item.RejectionReason}:{item.Candidate.Title}");
+            var reasonCounts = primaryFilterInput
+                .Where(static item => !string.IsNullOrWhiteSpace(item.RejectionReason))
+                .GroupBy(static item => item.RejectionReason, StringComparer.OrdinalIgnoreCase)
+                .Select(static group => $"{group.Key}={group.Count()}");
+            ClientLog.Info(
+                "ToolAgent planning candidate selection: stage=primary_filter.rejections"
+                + $"|removed={primaryFilterInput.Count(static item => !string.IsNullOrWhiteSpace(item.RejectionReason))}"
+                + $"|kept={primaryFilterInput.Count(static item => string.IsNullOrWhiteSpace(item.RejectionReason))}"
+                + $"|reasons={FormatPlanningTraceValue(string.Join(",", reasonCounts))}"
+                + $"|samples={FormatPlanningTraceValue(string.Join("; ", removedSamples))}"
+                + $"|ms={selectionStopwatch!.ElapsedMilliseconds}");
+        }
+
+        var candidates = primaryFilterInput
+            .Where(static item => string.IsNullOrWhiteSpace(item.RejectionReason))
+            .Select(static item => item.Candidate)
+            .GroupBy(BuildSourceBackedPlanningCandidateKey, StringComparer.OrdinalIgnoreCase)
+            .Select(group => SelectBestSourceBackedPlanningDuplicate(group, query))
+            .OrderByDescending(candidate => ComputeSourceBackedPlanningCandidateRankScore(candidate, query))
+            .ThenByDescending(static candidate => candidate.Score)
+            .ThenByDescending(static candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit))
+            .ThenByDescending(static candidate => candidate.Hit.Score)
+            .Take(maxItems)
+            .ToList();
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=primary_filter.end|candidates={candidates.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", candidates.Take(8).Select(static candidate => candidate.Title))}");
+        }
+
+        candidates = RemoveSourceBackedPlanningPartialTitleDuplicates(candidates)
+            .Take(maxItems)
+            .ToList();
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=primary_dedup.end|candidates={candidates.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", candidates.Take(8).Select(static candidate => candidate.Title))}");
+        }
+
+        if (candidates.Count >= maxItems)
+        {
+            if (traceSelection)
+            {
+                ClientLog.Info(
+                    $"ToolAgent planning candidate selection: stage=end|reason=primary_full|candidates={candidates.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", candidates.Take(10).Select(static candidate => candidate.Title))}");
+            }
+
             return candidates;
+        }
 
         var sourceHits = EnumerateRagHitSummaries(toolResults)
             .Where(hit => !LooksLikeNavigationOnlyHit(hit))
@@ -9303,32 +16968,570 @@ If evidence is partial, write the best useful sourced answer possible and state 
             .ToList();
         if (!string.IsNullOrWhiteSpace(query))
             sourceHits = FilterHitsToDominantTopLevel(sourceHits, query).ToList();
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=fallback_hits.end|hits={sourceHits.Count}|currentCandidates={candidates.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}");
+        }
 
-        return sourceHits
-            .Select(hit =>
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=fallback_candidates.raw.start|hits={sourceHits.Count}|currentCandidates={candidates.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}");
+        }
+
+        var rawFallbackCandidates = new List<SourceBackedOptionCandidate>();
+        var lastFallbackProgressMs = selectionStopwatch?.ElapsedMilliseconds ?? 0;
+        for (var sourceHitIndex = 0; sourceHitIndex < sourceHits.Count; sourceHitIndex++)
+        {
+            var hit = sourceHits[sourceHitIndex];
+            var title = ExtractSourceBackedOptionTitle(hit, query);
+            var visibleMinutes = ExtractBestVisibleDurationMinutes(hit);
+            rawFallbackCandidates.Add(new SourceBackedOptionCandidate(
+                hit,
+                title,
+                ComputeSourceBackedOptionHitScore(hit, title, query, requestedMaxMinutes: null, visibleMinutes),
+                visibleMinutes));
+
+            if (traceSelection)
             {
-                var title = ExtractSourceBackedOptionTitle(hit, query);
-                var visibleMinutes = ExtractBestVisibleDurationMinutes(hit);
-                return new SourceBackedOptionCandidate(
-                    hit,
-                    title,
-                    ComputeSourceBackedOptionHitScore(hit, title, query, requestedMaxMinutes: null, visibleMinutes),
-                    visibleMinutes);
-            })
+                var processedHits = sourceHitIndex + 1;
+                var elapsedMs = selectionStopwatch!.ElapsedMilliseconds;
+                if (processedHits == sourceHits.Count
+                    || processedHits % 10 == 0
+                    || elapsedMs - lastFallbackProgressMs >= 15000)
+                {
+                    ClientLog.Info(
+                        "ToolAgent planning candidate selection: stage=fallback_candidates.raw.progress"
+                        + $"|processedHits={processedHits}"
+                        + $"|totalHits={sourceHits.Count}"
+                        + $"|rawFallbackCandidates={rawFallbackCandidates.Count}"
+                        + $"|currentCandidates={candidates.Count}"
+                        + $"|ms={elapsedMs}"
+                        + $"|lastDoc={FormatPlanningTraceValue(hit.DocName ?? hit.DocPath)}"
+                        + $"|lastPage={hit.PageStart}");
+                    lastFallbackProgressMs = elapsedMs;
+                }
+            }
+        }
+
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=fallback_candidates.raw.end|rawFallbackCandidates={rawFallbackCandidates.Count}|currentCandidates={candidates.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", rawFallbackCandidates.Take(8).Select(static candidate => candidate.Title))}");
+        }
+
+        var fallbackAfterOrientation = rawFallbackCandidates
+            .Where(candidate => !ShouldRejectSourceBackedPlanningOrientationSurfaceCandidate(candidate))
+            .ToList();
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=fallback_filter.orientation|remaining={fallbackAfterOrientation.Count}|removed={rawFallbackCandidates.Count - fallbackAfterOrientation.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}");
+        }
+
+        var fallbackWithTitle = fallbackAfterOrientation
             .Where(candidate => !string.IsNullOrWhiteSpace(candidate.Title))
+            .ToList();
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=fallback_filter.title|remaining={fallbackWithTitle.Count}|removed={fallbackAfterOrientation.Count - fallbackWithTitle.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackWithTitle.Take(8).Select(static candidate => candidate.Title))}");
+        }
+
+        var fallbackUsable = fallbackWithTitle
             .Where(IsUsableSourceBackedPlanningCandidate)
+            .ToList();
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=fallback_filter.usable|remaining={fallbackUsable.Count}|removed={fallbackWithTitle.Count - fallbackUsable.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackUsable.Take(8).Select(static candidate => candidate.Title))}");
+        }
+
+        var fallbackNotNoisy = fallbackUsable
+            .Where(candidate => !LooksLikeNoisyStructuredPlanningCandidateTitle(candidate.Title))
+            .ToList();
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=fallback_filter.noisy_title|remaining={fallbackNotNoisy.Count}|removed={fallbackUsable.Count - fallbackNotNoisy.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackNotNoisy.Take(8).Select(static candidate => candidate.Title))}");
+        }
+
+        var fallbackMealCompatible = fallbackNotNoisy
+            .Where(candidate => !ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query))
+            .ToList();
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=fallback_filter.request_semantics|remaining={fallbackMealCompatible.Count}|removed={fallbackNotNoisy.Count - fallbackMealCompatible.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackMealCompatible.Take(8).Select(static candidate => candidate.Title))}");
+        }
+
+        var fallbackDominantScope = fallbackMealCompatible
+            .Where(candidate => SourceBackedPlanningCandidateMatchesDominantTopLevel(candidate, dominantTopLevelScope))
+            .ToList();
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=fallback_filter.dominant_scope|remaining={fallbackDominantScope.Count}|removed={fallbackMealCompatible.Count - fallbackDominantScope.Count}|scope={FormatPlanningTraceValue(dominantTopLevelScope)}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackDominantScope.Take(8).Select(static candidate => candidate.Title))}");
+        }
+
+        var fallbackNotSweetOnly = fallbackDominantScope
+            .Where(candidate => !ShouldRejectSweetPlanningCandidateForMealSlot(candidate, query))
+            .ToList();
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=fallback_filter.slot_fit|remaining={fallbackNotSweetOnly.Count}|removed={fallbackDominantScope.Count - fallbackNotSweetOnly.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackNotSweetOnly.Take(8).Select(static candidate => candidate.Title))}");
+        }
+
+        var fallbackConcreteTitle = fallbackNotSweetOnly
+            .Where(candidate => !requireDirectPageEvidence || LooksLikeConcreteStructuredPlanningCandidateTitle(candidate.Title))
+            .ToList();
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=fallback_filter.concrete_title|remaining={fallbackConcreteTitle.Count}|removed={fallbackNotSweetOnly.Count - fallbackConcreteTitle.Count}|required={requireDirectPageEvidence}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackConcreteTitle.Take(8).Select(static candidate => candidate.Title))}");
+        }
+
+        var fallbackStructuredEvidence = fallbackConcreteTitle
+            .Where(candidate => !requireDirectPageEvidence
+                || (requireStrictStructuredEvidence
+                    ? HasStrictStructuredPlanningCandidateEvidence(candidate)
+                    : HasDirectSourceBackedPlanningCandidateEvidence(candidate)))
+            .ToList();
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=fallback_filter.structured_evidence|remaining={fallbackStructuredEvidence.Count}|removed={fallbackConcreteTitle.Count - fallbackStructuredEvidence.Count}|strict={requireStrictStructuredEvidence}|required={requireDirectPageEvidence}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackStructuredEvidence.Take(8).Select(static candidate => candidate.Title))}");
+        }
+
+        var fallbackPositiveScore = fallbackStructuredEvidence
             .Where(candidate => string.IsNullOrWhiteSpace(query) || candidate.Score > 0)
-            .OrderByDescending(candidate => candidate.Score)
+            .ToList();
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=fallback_filter.score|remaining={fallbackPositiveScore.Count}|removed={fallbackStructuredEvidence.Count - fallbackPositiveScore.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackPositiveScore.Take(8).Select(static candidate => candidate.Title))}");
+        }
+
+        var fallbackCandidates = fallbackPositiveScore
+            .OrderByDescending(candidate => ComputeSourceBackedPlanningCandidateRankScore(candidate, query))
+            .ThenByDescending(candidate => candidate.Score)
             .ThenByDescending(candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit))
             .ThenByDescending(candidate => candidate.Hit.Score)
             .GroupBy(BuildSourceBackedPlanningCandidateKey, StringComparer.OrdinalIgnoreCase)
-            .Select(static group => group.First())
+            .Select(group => SelectBestSourceBackedPlanningDuplicate(group, query))
+            .ToList();
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=fallback_candidates.end|fallbackCandidates={fallbackCandidates.Count}|currentCandidates={candidates.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackCandidates.Take(8).Select(static candidate => candidate.Title))}");
+        }
+
+        var combinedCandidates = candidates
+            .Concat(fallbackCandidates)
+            .GroupBy(BuildSourceBackedPlanningCandidateKey, StringComparer.OrdinalIgnoreCase)
+            .Select(group => SelectBestSourceBackedPlanningDuplicate(group, query))
+            .OrderByDescending(candidate => ComputeSourceBackedPlanningCandidateRankScore(candidate, query))
+            .ThenByDescending(candidate => candidate.Score)
+            .ThenByDescending(candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit))
+            .ThenByDescending(candidate => candidate.Hit.Score)
+            .ToList();
+
+        var finalFilterInput = combinedCandidates
+            .Select(candidate => new
+            {
+                Candidate = candidate,
+                RejectionReason = ExplainSourceBackedPlanningCandidateRejection(
+                    candidate,
+                    query,
+                    requireDirectPageEvidence,
+                    requireStrictStructuredEvidence,
+                    dominantTopLevelScope)
+            })
+            .ToList();
+        if (traceSelection)
+        {
+            var removedSamples = finalFilterInput
+                .Where(static item => !string.IsNullOrWhiteSpace(item.RejectionReason))
+                .Take(6)
+                .Select(static item => $"{item.RejectionReason}:{item.Candidate.Title}");
+            var reasonCounts = finalFilterInput
+                .Where(static item => !string.IsNullOrWhiteSpace(item.RejectionReason))
+                .GroupBy(static item => item.RejectionReason, StringComparer.OrdinalIgnoreCase)
+                .Select(static group => $"{group.Key}={group.Count()}");
+            ClientLog.Info(
+                "ToolAgent planning candidate selection: stage=final_filter.rejections"
+                + $"|removed={finalFilterInput.Count(static item => !string.IsNullOrWhiteSpace(item.RejectionReason))}"
+                + $"|kept={finalFilterInput.Count(static item => string.IsNullOrWhiteSpace(item.RejectionReason))}"
+                + $"|reasons={FormatPlanningTraceValue(string.Join(",", reasonCounts))}"
+                + $"|samples={FormatPlanningTraceValue(string.Join("; ", removedSamples))}"
+                + $"|ms={selectionStopwatch!.ElapsedMilliseconds}");
+        }
+
+        var finalCandidates = RemoveSourceBackedPlanningPartialTitleDuplicates(finalFilterInput
+                .Where(static item => string.IsNullOrWhiteSpace(item.RejectionReason))
+                .Select(static item => item.Candidate))
             .Take(maxItems)
             .ToList();
+        if (traceSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent planning candidate selection: stage=end|candidates={finalCandidates.Count}|combinedCandidates={combinedCandidates.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", finalCandidates.Take(10).Select(static candidate => candidate.Title))}");
+        }
+
+        return finalCandidates;
+    }
+
+    private static IReadOnlyList<SourceBackedOptionCandidate> RemoveSourceBackedPlanningPartialTitleDuplicates(
+        IEnumerable<SourceBackedOptionCandidate> candidates)
+    {
+        var list = candidates.ToArray();
+        if (list.Length <= 1)
+            return list;
+
+        return list
+            .Where(candidate => !list.Any(other =>
+                !ReferenceEquals(candidate, other)
+                && ((string.Equals(BuildRagHitVisiblePageMergeKey(candidate.Hit), BuildRagHitVisiblePageMergeKey(other.Hit), StringComparison.OrdinalIgnoreCase)
+                        && LooksLikePartialDuplicatePlanningTitle(candidate.Title, other.Title))
+                    || LooksLikeCrossPageTruncatedPlanningTitle(candidate.Title, other.Title))))
+            .ToArray();
+    }
+
+    private static bool LooksLikePartialDuplicatePlanningTitle(string candidateTitle, string otherTitle)
+    {
+        var candidate = NormalizeLexicalLookup(candidateTitle);
+        var other = NormalizeLexicalLookup(otherTitle);
+        if (candidate.Length < 8
+            || other.Length <= candidate.Length
+            || string.Equals(candidate, other, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var candidateTerms = ExtractPlanningAnswerSupportTerms(candidate)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (candidateTerms.Length == 0)
+            return false;
+
+        if (candidateTerms.Length == 1)
+        {
+            return candidate.Length >= 8
+                && (other.StartsWith(candidate, StringComparison.Ordinal)
+                    || other.EndsWith(candidate, StringComparison.Ordinal)
+                    || other.IndexOf(candidate, StringComparison.Ordinal) is > 0 and <= 10);
+        }
+
+        var otherTerms = ExtractPlanningAnswerSupportTerms(other)
+            .Distinct(StringComparer.Ordinal)
+            .ToHashSet(StringComparer.Ordinal);
+        var matchedTerms = candidateTerms.Count(term => otherTerms.Contains(term) || other.Contains(term, StringComparison.Ordinal));
+        if (matchedTerms < candidateTerms.Length)
+            return false;
+
+        if (other.StartsWith(candidate, StringComparison.Ordinal)
+            || other.EndsWith(candidate, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var index = other.IndexOf(candidate, StringComparison.Ordinal);
+        return index is > 0 and <= 10;
+    }
+
+    private static bool LooksLikeCrossPageTruncatedPlanningTitle(string candidateTitle, string otherTitle)
+    {
+        var candidate = NormalizeLexicalLookup(candidateTitle);
+        var other = NormalizeLexicalLookup(otherTitle);
+        if (candidate.Length < 8
+            || other.Length <= candidate.Length
+            || !other.StartsWith(candidate, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var candidateTerms = ExtractPlanningAnswerSupportTerms(candidate)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var otherTerms = ExtractPlanningAnswerSupportTerms(other)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (candidateTerms.Length < 2 || otherTerms.Length < candidateTerms.Length)
+            return false;
+
+        for (var i = 0; i < candidateTerms.Length - 1; i++)
+        {
+            if (!string.Equals(candidateTerms[i], otherTerms[i], StringComparison.Ordinal))
+                return false;
+        }
+
+        var lastCandidateTerm = candidateTerms[^1];
+        var correspondingOtherTerm = otherTerms[candidateTerms.Length - 1];
+        return lastCandidateTerm.Length >= 4
+            && correspondingOtherTerm.StartsWith(lastCandidateTerm, StringComparison.Ordinal)
+            && correspondingOtherTerm.Length >= lastCandidateTerm.Length + 2;
+    }
+
+    private static bool SourceBackedPlanningCandidateMatchesDominantTopLevel(
+        SourceBackedOptionCandidate candidate,
+        string? dominantTopLevelScope)
+    {
+        if (string.IsNullOrWhiteSpace(dominantTopLevelScope))
+            return true;
+
+        var candidateTopLevel = ExtractTopLevelCategoryScope(candidate.Hit);
+        return !string.IsNullOrWhiteSpace(candidateTopLevel)
+            && string.Equals(candidateTopLevel, dominantTopLevelScope, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool HasDirectSourceBackedPlanningCandidateEvidence(SourceBackedOptionCandidate candidate)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        return PrimaryPageEvidenceSupportsSourceBackedPlanningCandidateTitle(candidate);
+    }
+
+    private static bool PrimaryPageEvidenceContainsExactPlanningCandidateTitle(SourceBackedOptionCandidate candidate)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        var directEvidence = CollapseWhitespace(BuildPageLocalSourceBackedPlanningProofText(candidate.Hit));
+        return directEvidence.Length >= 8
+            && PrimaryEvidenceContainsLocalStructuredPlanningProof(candidate.Hit, normalizedTitle, directEvidence);
+    }
+
+    private static bool PrimaryPageEvidenceSupportsSourceBackedPlanningCandidateTitle(SourceBackedOptionCandidate candidate)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        var directEvidence = NormalizeLexicalLookup(BuildPageLocalSourceBackedPlanningProofText(candidate.Hit));
+        if (directEvidence.Length < 8)
+            return false;
+
+        if (directEvidence.Contains(normalizedTitle, StringComparison.Ordinal))
+            return true;
+
+        var compactTitle = Regex.Replace(normalizedTitle, @"\s+", string.Empty, RegexOptions.CultureInvariant);
+        if (compactTitle.Length >= 10)
+        {
+            var compactEvidence = Regex.Replace(directEvidence, @"\s+", string.Empty, RegexOptions.CultureInvariant);
+            if (compactEvidence.Contains(compactTitle, StringComparison.Ordinal))
+                return true;
+        }
+
+        var titleTerms = ExtractPlanningAnswerSupportTerms(normalizedTitle)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (titleTerms.Length == 0 || titleTerms.Length > 8)
+            return false;
+
+        var matchedTerms = titleTerms.Count(term => directEvidence.Contains(term, StringComparison.Ordinal));
+        if (titleTerms.Length <= 4)
+            return matchedTerms == titleTerms.Length;
+
+        return matchedTerms >= Math.Max(4, (int)Math.Ceiling(titleTerms.Length * 0.85));
+    }
+
+    private static string BuildPrimarySourceBackedPlanningEvidenceText(RagHitSummary hit)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(hit.Excerpt))
+            parts.Add(hit.Excerpt);
+        if (!string.IsNullOrWhiteSpace(hit.FullText))
+            parts.Add(hit.FullText);
+        if (!string.IsNullOrWhiteSpace(hit.ContextualSnippet))
+            parts.Add(hit.ContextualSnippet);
+        foreach (var card in hit.MatchedContentCards ?? Array.Empty<RagHitContentCardSummary>())
+        {
+            var cardEvidence = BuildSourceBackedCardStrictEvidenceSnippet(card);
+            if (!string.IsNullOrWhiteSpace(cardEvidence))
+                parts.Add(cardEvidence);
+        }
+
+        return CollapseWhitespace(string.Join(' ', parts.Where(static value => !string.IsNullOrWhiteSpace(value))));
+    }
+
+    private static string BuildPageLocalSourceBackedPlanningProofText(RagHitSummary hit)
+    {
+        if (LooksLikeNavigationOnlyHit(hit) && !LooksLikeResolvedRouteTargetHit(hit))
+            return string.Empty;
+
+        var parts = new List<string>();
+        var excerpt = CollapseWhitespace(hit.Excerpt ?? string.Empty);
+        var fullText = CollapseWhitespace(hit.FullText ?? string.Empty);
+        var contextualSnippet = CollapseWhitespace(hit.ContextualSnippet ?? string.Empty);
+
+        if (LooksLikeFinalSourceBackedPlanningProofFragment(excerpt))
+            parts.Add(excerpt);
+        if (!string.Equals(fullText, excerpt, StringComparison.OrdinalIgnoreCase)
+            && LooksLikeFinalSourceBackedPlanningProofFragment(fullText))
+        {
+            parts.Add(fullText);
+        }
+        if (!string.Equals(contextualSnippet, excerpt, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(contextualSnippet, fullText, StringComparison.OrdinalIgnoreCase)
+            && LooksLikeFinalSourceBackedPlanningProofFragment(contextualSnippet))
+        {
+            parts.Add(contextualSnippet);
+        }
+
+        if (parts.Count == 0
+            && !LooksLikeFinalSourceBackedPlanningOrientationSurface(hit)
+            && BackendSelectionHintsPreferUsableEvidence(hit)
+            && !LooksLikeStructuredPlanningNavigationOrIndexNoise($"{excerpt} {fullText} {contextualSnippet}"))
+        {
+            if (!string.IsNullOrWhiteSpace(excerpt))
+                parts.Add(excerpt);
+            if (!string.IsNullOrWhiteSpace(fullText)
+                && !string.Equals(fullText, excerpt, StringComparison.OrdinalIgnoreCase))
+            {
+                parts.Add(fullText);
+            }
+            if (!string.IsNullOrWhiteSpace(contextualSnippet)
+                && !string.Equals(contextualSnippet, excerpt, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(contextualSnippet, fullText, StringComparison.OrdinalIgnoreCase))
+            {
+                parts.Add(contextualSnippet);
+            }
+        }
+
+        return CollapseWhitespace(string.Join(' ', parts.Where(static value => !string.IsNullOrWhiteSpace(value))));
+    }
+
+    private static string BuildFinalSourceBackedPlanningProofText(RagHitSummary hit)
+    {
+        if (LooksLikeNavigationOnlyHit(hit) && !LooksLikeResolvedRouteTargetHit(hit))
+            return string.Empty;
+
+        var parts = new List<string>();
+        var excerpt = CollapseWhitespace(hit.Excerpt ?? string.Empty);
+        var fullText = CollapseWhitespace(hit.FullText ?? string.Empty);
+
+        if (LooksLikeFinalSourceBackedPlanningProofFragment(excerpt))
+            parts.Add(excerpt);
+        if (!string.Equals(fullText, excerpt, StringComparison.OrdinalIgnoreCase)
+            && LooksLikeFinalSourceBackedPlanningProofFragment(fullText))
+        {
+            parts.Add(fullText);
+        }
+
+        foreach (var card in hit.MatchedContentCards ?? Array.Empty<RagHitContentCardSummary>())
+        {
+            var cardEvidence = BuildSourceBackedCardStrictEvidenceSnippet(card);
+            if (LooksLikeFinalSourceBackedPlanningProofFragment(cardEvidence))
+                parts.Add(cardEvidence);
+        }
+
+        if (parts.Count == 0
+            && !LooksLikeFinalSourceBackedPlanningOrientationSurface(hit)
+            && BackendSelectionHintsPreferUsableEvidence(hit)
+            && !LooksLikeStructuredPlanningNavigationOrIndexNoise(BuildPrimarySourceBackedPlanningEvidenceText(hit)))
+        {
+            var primaryEvidence = BuildPrimarySourceBackedPlanningEvidenceText(hit);
+            if (!string.IsNullOrWhiteSpace(primaryEvidence))
+                parts.Add(primaryEvidence);
+        }
+
+        return CollapseWhitespace(string.Join(' ', parts.Where(static value => !string.IsNullOrWhiteSpace(value))));
+    }
+
+    private static bool ShouldRejectSourceBackedPlanningOrientationSurfaceCandidate(SourceBackedOptionCandidate candidate)
+        => LooksLikeFinalSourceBackedPlanningOrientationSurface(candidate.Hit)
+           && !HasStrictStructuredPlanningCandidateEvidence(candidate)
+           && !HasDirectSourceBackedPlanningCandidateEvidence(candidate);
+
+    private static bool LooksLikeFinalSourceBackedPlanningOrientationSurface(RagHitSummary hit)
+    {
+        var value = CollapseWhitespace(
+            $"{hit.SectionTitle} {hit.HeadingPath} {hit.Excerpt} {hit.FullText} {hit.ContextualSnippet}");
+        if (value.Length < 24)
+            return false;
+
+        var normalized = NormalizeLexicalLookup(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        var hasOrientationCue = Regex.IsMatch(
+            normalized,
+            @"\b(?:table\s+des\s+matieres|sommaire|contents?|table\s+of\s+contents|index|catalogue|catalog|liste|list|sections?\s+principales?|premiers?\s+extraits?|matched\s+profile\s+title|source\s+de\s+verite|source\s+of\s+truth)\b",
+            RegexOptions.CultureInvariant);
+        if (!hasOrientationCue)
+            return false;
+
+        return !LooksLikeConcreteFinalSourceBackedPlanningProofOnNavigationSurface(normalized);
+    }
+
+    private static bool LooksLikeFinalSourceBackedPlanningProofFragment(string? text)
+    {
+        var value = CollapseWhitespace(text ?? string.Empty);
+        if (value.Length < 24)
+            return false;
+
+        var normalized = NormalizeLexicalLookup(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        if (Regex.IsMatch(
+                normalized,
+                @"\b(?:sections?\s+principales?|premiers?\s+extraits?|matched\s+profile\s+title|document\s+.+\s+\d+\s+pages?|ce\s+document\s+(?:couvre|contient|inclut)|this\s+document\s+(?:covers|contains|includes)|source\s+de\s+verite|source\s+of\s+truth)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        var looksLikeNavigationOrIndexSurface = Regex.IsMatch(
+            normalized,
+            @"\b(?:table\s+des\s+matieres|sommaire|contents?|index|catalogue|catalog|liste|list|sections?\s+principales?|premiers?\s+extraits?)\b",
+            RegexOptions.CultureInvariant);
+        if (looksLikeNavigationOrIndexSurface
+            && !LooksLikeConcreteFinalSourceBackedPlanningProofOnNavigationSurface(normalized))
+        {
+            return false;
+        }
+
+        if (!looksLikeNavigationOrIndexSurface
+            && Regex.IsMatch(
+                normalized,
+                @"\b(?:ingredients?|ingr[eé]dients?|preparation|préparation|etapes?|steps?|methode|method|procedure|instructions?|quantites?|quantities?|materiel|materials?|requirements?|components?|operation|workflow|actions?|tasks?|criteria|criteres|conditions?|parameters?)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (looksLikeNavigationOrIndexSurface)
+            return LooksLikeConcreteFinalSourceBackedPlanningProofOnNavigationSurface(normalized);
+
+        if (CountNumericFactMarkers(NormalizeStructuredScanText(value)) >= 2)
+            return true;
+
+        if (CountProcedureStepMarkers(NormalizeStructuredScanText(value)) > 0)
+            return true;
+
+        return false;
+    }
+
+    private static bool LooksLikeConcreteFinalSourceBackedPlanningProofOnNavigationSurface(string normalized)
+    {
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return HasStrongLocalStructuredPlanningProofText(normalized);
     }
 
     private static string BuildSourceBackedPlanningCandidateKey(SourceBackedOptionCandidate candidate)
     {
+        var titleKey = NormalizeLexicalLookup(candidate.Title);
+        if (!string.IsNullOrWhiteSpace(titleKey))
+            return $"{candidate.Hit.DocPath}|{candidate.Hit.PageStart}|{candidate.Hit.PageEnd}|title:{titleKey}";
+
         var cardId = candidate.Hit.MatchedContentCards?
             .Select(static card => NullIfWhiteSpace(card.ContentCardId))
             .FirstOrDefault(static id => !string.IsNullOrWhiteSpace(id));
@@ -9363,9 +17566,19 @@ If evidence is partial, write the best useful sourced answer possible and state 
     private static bool IsUsableSourceBackedPlanningCandidate(SourceBackedOptionCandidate candidate)
     {
         var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
+        var hasStrictEvidence = HasStrictStructuredPlanningCandidateEvidence(candidate);
         if (string.IsNullOrWhiteSpace(normalizedTitle)
             || LooksLikePlanItemNoise(candidate.Title)
-            || LooksLikeWeakSourceBackedOptionTitle(candidate.Title)
+            || (LooksLikeWeakSourceBackedOptionTitle(candidate.Title) && !hasStrictEvidence)
+            || LooksLikeReferenceAttributionSourceTitle(candidate)
+            || LooksLikeGenericInventorySurfaceDerivedPlanningCandidate(candidate)
+            || LooksLikeGenericPlanningContextCandidate(candidate)
+            || LooksLikePageContextLabelPlanningCandidate(candidate)
+            || LooksLikeDelimitedStructuredPlanningFieldValueCandidate(candidate)
+            || LooksLikeShortConnectorStructuredPlanningFieldValueCandidate(candidate)
+            || LooksLikeEmbeddedStructuredPlanningFieldValueCandidate(candidate)
+            || LooksLikePlanningFrameOrAdviceCandidate(candidate, hasStrictEvidence)
+            || LooksLikeNoisyStructuredPlanningCandidateTitle(candidate.Title)
             || LooksLikeProcedureSentenceTitle(normalizedTitle))
         {
             return false;
@@ -9375,9 +17588,758 @@ If evidence is partial, write the best useful sourced answer possible and state 
             .Where(static term => term.Length >= 4)
             .ToArray();
         if (titleTerms.Length == 0)
-            return false;
+            return hasStrictEvidence;
 
         return true;
+    }
+
+    private static bool LooksLikeDelimitedStructuredPlanningFieldValueCandidate(SourceBackedOptionCandidate candidate)
+    {
+        var rawTitle = CollapseWhitespace(candidate.Title);
+        if (string.IsNullOrWhiteSpace(rawTitle)
+            || rawTitle.IndexOfAny(new[] { ',', ';' }) < 0)
+        {
+            return false;
+        }
+
+        var normalizedTitle = NormalizeLexicalLookup(rawTitle);
+        var titleTerms = ExtractPlanningAnswerSupportTerms(normalizedTitle)
+            .Where(static term => term.Length >= 3)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (titleTerms.Length is < 2 or > 4)
+            return false;
+
+        var segments = Regex.Split(rawTitle, @"\s*[,;]\s*")
+            .Select(NormalizeLexicalLookup)
+            .Where(static segment => !string.IsNullOrWhiteSpace(segment))
+            .ToArray();
+        if (segments.Length < 2
+            || segments.Any(static segment => ExtractPlanningAnswerSupportTerms(segment).Count(term => term.Length >= 3) > 2))
+        {
+            return false;
+        }
+
+        var proof = NormalizeLexicalLookup(BuildPageLocalSourceBackedPlanningProofText(candidate.Hit));
+        if (proof.Length < normalizedTitle.Length + 8)
+            return false;
+
+        var titlePattern = Regex.Escape(normalizedTitle).Replace("\\ ", @"\s+");
+        if (Regex.IsMatch(
+            proof,
+            @"\b(?:ingredients?|ingr[eé]dients?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|quantit(?:y|ies)|quantit[eé]s?|values?|valeurs?|parameters?|param[eè]tres?|items?|[eé]l[eé]ments?)\b.{0,140}\b" + titlePattern + @"\b",
+            RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        return LooksLikeInlineDelimitedStructuredPlanningFieldValueCandidate(proof, normalizedTitle);
+    }
+
+    private static bool LooksLikeShortConnectorStructuredPlanningFieldValueCandidate(SourceBackedOptionCandidate candidate)
+    {
+        var cleanedTitle = CleanSourceBackedOptionTitle(candidate.Title);
+        var normalizedTitle = NormalizeLexicalLookup(cleanedTitle);
+        if (string.IsNullOrWhiteSpace(normalizedTitle)
+            || normalizedTitle.Length > 54
+            || !Regex.IsMatch(normalizedTitle, @"\b(?:et|and|avec|with|con|com|und|e|y|&)\b|[,;/]", RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        var titleTerms = ExtractPlanningAnswerSupportTerms(normalizedTitle)
+            .Where(static term => term.Length >= 2)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (titleTerms.Length is < 2 or > 4
+            || titleTerms.Any(IsGenericPlanningCoverageTerm))
+        {
+            return false;
+        }
+
+        var proof = NormalizeLexicalLookup(BuildPageLocalSourceBackedPlanningProofText(candidate.Hit));
+        if (proof.Length < normalizedTitle.Length + 18)
+            return false;
+
+        var titlePattern = Regex.Escape(normalizedTitle).Replace("\\ ", @"\s+");
+        var titleMatches = Regex.Matches(proof, @"\b" + titlePattern + @"\b", RegexOptions.CultureInvariant)
+            .Cast<Match>()
+            .ToArray();
+        if (titleMatches.Length == 0)
+            return false;
+
+        var firstFieldLabelMatch = Regex.Match(
+            proof,
+            @"\b(?:ingredients?|ingr[eé]dients?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|items?|[eé]l[eé]ments?|values?|valeurs?|parameters?|param[eè]tres?|quantit(?:y|ies)|quantit[eé]s?)\b",
+            RegexOptions.CultureInvariant);
+        if (firstFieldLabelMatch.Success
+            && titleMatches.All(match => match.Index < firstFieldLabelMatch.Index))
+        {
+            return false;
+        }
+        if (firstFieldLabelMatch.Success
+            && titleTerms.Length >= 3
+            && titleMatches.Any(match => match.Index < firstFieldLabelMatch.Index))
+        {
+            return false;
+        }
+
+        return Regex.IsMatch(
+            proof,
+            @"\b(?:ingredients?|ingr[eé]dients?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|items?|[eé]l[eé]ments?|values?|valeurs?|parameters?|param[eè]tres?|quantit(?:y|ies)|quantit[eé]s?)\b.{0,180}\b" + titlePattern + @"\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeEmbeddedStructuredPlanningFieldValueCandidate(SourceBackedOptionCandidate candidate)
+    {
+        var cleanedTitle = CleanSourceBackedOptionTitle(candidate.Title);
+        var normalizedTitle = NormalizeLexicalLookup(cleanedTitle);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        var titleTerms = ExtractPlanningAnswerSupportTerms(normalizedTitle)
+            .Where(static term => term.Length >= 3)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (titleTerms.Length == 0 || titleTerms.Length > 3)
+            return false;
+
+        var proofText = CollapseWhitespace(BuildPageLocalSourceBackedPlanningProofText(candidate.Hit));
+        var normalizedProof = NormalizeLexicalLookup(proofText);
+        if (normalizedProof.Length < normalizedTitle.Length + 16)
+            return false;
+
+        var titleIndex = normalizedProof.IndexOf(normalizedTitle, StringComparison.Ordinal);
+        if (titleIndex < 0)
+            return false;
+
+        if (ContentCardEvidenceNamesDifferentStructuredPlanningItem(candidate, normalizedTitle))
+            return true;
+
+        var leadingTitles = ExtractPlanItemTitleCandidatesV2(proofText)
+            .Concat(ExtractSourceBackedTitleCandidates(candidate.Hit))
+            .Select(CleanSourceBackedOptionTitle)
+            .Where(IsUsableSourceBackedOptionTitle)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        foreach (var leadingTitle in leadingTitles)
+        {
+            var normalizedLeadingTitle = NormalizeLexicalLookup(leadingTitle);
+            if (string.IsNullOrWhiteSpace(normalizedLeadingTitle)
+                || string.Equals(normalizedLeadingTitle, normalizedTitle, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var leadingIndex = normalizedProof.IndexOf(normalizedLeadingTitle, StringComparison.Ordinal);
+            if (leadingIndex is >= 0 and <= 80
+                && titleIndex > leadingIndex + normalizedLeadingTitle.Length + 4)
+            {
+                return true;
+            }
+        }
+
+        var before = normalizedProof[..titleIndex];
+        var after = normalizedProof[(titleIndex + normalizedTitle.Length)..];
+        var localBefore = before.Length > 140 ? before[^140..] : before;
+        var localAfter = after.Length > 180 ? after[..180] : after;
+        var precededByFieldOrListCue = Regex.IsMatch(
+            localBefore,
+            @"(?:[,;:•]|\b(?:ingredients?|ingr[eé]dients?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|items?|[eé]l[eé]ments?|pour\s+\d+|for\s+\d+)\b).{0,120}$",
+            RegexOptions.CultureInvariant);
+        if (!precededByFieldOrListCue)
+            return false;
+
+        return Regex.IsMatch(
+            localAfter,
+            @"^(?:\s|[.,;:)•-]){0,16}.{0,160}\b(?:preparation|pr[eé]paration|procedure|proc[eé]dure|instructions?|method|m[eé]thode|steps?|[eé]tapes?|technique|operation|workflow)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool ContentCardEvidenceNamesDifferentStructuredPlanningItem(
+        SourceBackedOptionCandidate candidate,
+        string normalizedCandidateTitle)
+    {
+        if (candidate.Hit.MatchedContentCards is not { Count: > 0 } cards)
+            return false;
+
+        foreach (var card in cards)
+        {
+            var normalizedCardTitle = NormalizeLexicalLookup(CleanSourceBackedOptionTitle(card.Title));
+            if (!string.Equals(normalizedCardTitle, normalizedCandidateTitle, StringComparison.Ordinal))
+                continue;
+
+            foreach (var fact in card.Evidence?.Facts ?? Array.Empty<RagHitEvidenceFactSummary>())
+            {
+                var factTitles = new[] { fact.Label }
+                    .Concat(ExtractPlanItemTitleCandidatesV2(fact.SourceText ?? string.Empty))
+                    .Select(CleanSourceBackedOptionTitle)
+                    .Where(IsUsableSourceBackedOptionTitle)
+                    .Select(NormalizeLexicalLookup)
+                    .Where(static title => !string.IsNullOrWhiteSpace(title))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray();
+                if (factTitles.Any(title => !string.Equals(title, normalizedCandidateTitle, StringComparison.Ordinal)))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool LooksLikeInlineDelimitedStructuredPlanningFieldValueCandidate(
+        string normalizedProof,
+        string normalizedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedProof) || string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        var titlePattern = Regex.Escape(normalizedTitle).Replace("\\ ", @"\s+");
+        var match = Regex.Match(normalizedProof, @"\b" + titlePattern + @"\b", RegexOptions.CultureInvariant);
+        if (!match.Success)
+            return false;
+
+        var before = normalizedProof[..match.Index];
+        var after = normalizedProof[(match.Index + match.Length)..];
+        var localBefore = before.Length > 100 ? before[^100..] : before;
+        var localAfter = after.Length > 160 ? after[..160] : after;
+        var looksEmbeddedInList = Regex.IsMatch(
+            localBefore,
+            @"(?:[,;:]|\b(?:ingredients?|ingr[eé]dients?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|items?|[eé]l[eé]ments?)\b).{0,90}$",
+            RegexOptions.CultureInvariant);
+        if (!looksEmbeddedInList)
+            return false;
+
+        return Regex.IsMatch(
+            localAfter,
+            @"^(?:\s|[.,;:)]){0,12}.{0,140}\b(?:preparation|pr[eé]paration|procedure|proc[eé]dure|instructions?|method|m[eé]thode|steps?|[eé]tapes?|notes?|conditions?|criteria|criteres|crit[eè]res|validation)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeReferenceAttributionSourceTitle(SourceBackedOptionCandidate candidate)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(CleanSourceBackedOptionTitle(candidate.Title));
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        var evidence = NormalizeLexicalLookup(BuildPrimarySourceBackedPlanningEvidenceText(candidate.Hit));
+        if (evidence.Length < normalizedTitle.Length + 12)
+            return false;
+
+        var escapedTitle = Regex.Escape(normalizedTitle);
+        return Regex.IsMatch(
+            evidence,
+            $@"\b(?:references?|source|sources|bibliographie|bibliography|credits?)\s*:\s*.{{0,120}}\b{escapedTitle}\b\s*[.:\-]?\s*[«“""]",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeConcreteStructuredPlanningCandidateTitle(string? title)
+    {
+        var cleaned = CleanSourceBackedOptionTitle(title);
+        var normalized = NormalizeLexicalLookup(cleaned);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        if (!IsUsableSourceBackedOptionTitle(cleaned)
+            || LooksLikeGenericCadenceOrTimingStatement(normalized)
+            || LooksLikeNoisyStructuredPlanningCandidateTitle(cleaned)
+            || LooksLikeProcedureSentenceTitle(normalized))
+        {
+            return false;
+        }
+
+        if (LooksLikeStandaloneStructuredPlanningFieldLabel(normalized)
+            || LooksLikeStructuredPlanningFieldOrOcrFragment(normalized))
+        {
+            return false;
+        }
+
+        if (Regex.IsMatch(
+                normalized,
+                @"\b(?:guide|guides|conseils?|tips?|astuces?|principes?|principles?|organisation|organization|organiser|organize|planning|planification|calendrier|schedule|horaires?|timing|overview|vue\s+d\s+ensemble|introduction|summary|resume|r[eé]sum[eé]|methode|m[eé]thode|method|cadre|framework|recommandations?|recommendations?|bonnes?\s+pratiques?|best\s+practices?|faq|glossaire|glossary|sommaire|table\s+des\s+matieres|contents?|index|liste\s+des|source|sources|document|documents|page|pages)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        if (Regex.IsMatch(
+                normalized,
+                @"^(?:cuisiner|cuisinez|preparer|preparez|prepare|cook|organiser|organize|planifier|planifiez|schedule|utiliser|use|using|choisir|choose|verifier|verify|check|lire|read)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        if (Regex.IsMatch(
+                normalized,
+                @"\b(?:sert\s+a|sert\s+à|serves?\s+to|permet\s+de|helps?\s+to|aide\s+a|aide\s+à|doit\s+etre|doit\s+être|should\s+be)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        var terms = ExtractPlanningAnswerSupportTerms(normalized)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (terms.Length == 0 || terms.Length > 8)
+            return false;
+
+        if (terms.Any(static term => term.Length >= 5))
+            return true;
+
+        return terms.Length >= 2
+            && normalized.Length >= 7
+            && terms.All(static term => term.Length >= 4);
+    }
+
+    private static bool LooksLikeConcreteStructuredPlanningCandidateNormalizedTitle(string? normalizedTitle)
+    {
+        var normalized = NormalizeLexicalLookup(normalizedTitle);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        if (normalized.Length is < 4 or > 90
+            || LooksLikeGenericCadenceOrTimingStatement(normalized)
+            || LooksLikeNoisyStructuredPlanningCandidateTitle(normalized)
+            || LooksLikeProcedureSentenceTitle(normalized)
+            || LooksLikeWeakSourceBackedOptionTitle(normalized))
+        {
+            return false;
+        }
+
+        if (LooksLikeStandaloneStructuredPlanningFieldLabel(normalized)
+            || LooksLikeStructuredPlanningFieldOrOcrFragment(normalized))
+        {
+            return false;
+        }
+
+        if (Regex.IsMatch(
+                normalized,
+                @"\b(?:guide|guides|conseils?|tips?|astuces?|principes?|principles?|organisation|organization|organiser|organize|planning|planification|calendrier|schedule|horaires?|timing|overview|vue\s+d\s+ensemble|introduction|summary|resume|r[eé]sum[eé]|methode|m[eé]thode|method|cadre|framework|recommandations?|recommendations?|bonnes?\s+pratiques?|best\s+practices?|faq|glossaire|glossary|sommaire|table\s+des\s+matieres|contents?|index|liste\s+des|source|sources|document|documents|page|pages)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        if (Regex.IsMatch(
+                normalized,
+                @"^(?:cuisiner|cuisinez|preparer|preparez|prepare|cook|organiser|organize|planifier|planifiez|schedule|utiliser|use|using|choisir|choose|verifier|verify|check|lire|read)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        if (Regex.IsMatch(
+                normalized,
+                @"\b(?:sert\s+a|sert\s+à|serves?\s+to|permet\s+de|helps?\s+to|aide\s+a|aide\s+à|doit\s+etre|doit\s+être|should\s+be)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        var terms = ExtractPlanningAnswerSupportTerms(normalized)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (terms.Length == 0 || terms.Length > 8)
+            return false;
+
+        if (terms.Any(static term => term.Length >= 5))
+            return true;
+
+        return terms.Length >= 2
+            && normalized.Length >= 7
+            && terms.All(static term => term.Length >= 4);
+    }
+
+    private static bool LooksLikeNoisyStructuredPlanningCandidateTitle(string? title)
+    {
+        var raw = CollapseWhitespace(title ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(raw))
+            return true;
+
+        var normalized = NormalizeLexicalLookup(raw);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return true;
+
+        if (LooksLikeGenericRecipeInventoryTitle(normalized))
+            return true;
+
+        if (LooksLikeAudienceOrCollectionSourceBackedHeadingTitle(normalized))
+            return true;
+
+        if (LooksLikeGlossaryOrDefinitionStructuredPlanningCandidate(normalized))
+            return true;
+
+        if (LooksLikeShortOcrContinuationStructuredPlanningTitle(raw, normalized))
+            return true;
+
+        if (Regex.IsMatch(
+                normalized,
+                @"^(?:\d+[a-z]?|[ivxlcdm]{1,6})\s+(?:(?:a\s+){0,2}voir|see|refer|consulter|page|section|chapter|part|partie|annexe|appendix|table|index)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (LooksLikeLeadingConnectorStructuredPlanningFragment(normalized))
+            return true;
+
+        if (LooksLikeMealPlanningInstructionFragment(normalized))
+            return true;
+
+        if (LooksLikeStructuredPlanningAdviceOrFrameAnchor(normalized)
+            || LooksLikeBrokenStructuredPlanningOcrAnchor(normalized))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalized,
+                @"^(?:cette|ce|this|esta|essa|questa)\s+recette$|\bet\s+al\b|^couperen\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalized,
+                @"^(?:voici|here\s+(?:are|is)|aqui\s+(?:hay|esta)|eis|hier\s+(?:sind|ist)|ecco)\b.{0,90}\b(?:idees?|ideas?|suggestions?|conseils?|tips?|recommandations?|recommendations?|alternatives?|remplacer|replace|instead)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalized,
+                @"^(?:voici|here\s+(?:are|is)|aqui\s+(?:hay|esta)|eis|hier\s+(?:sind|ist)|ecco)\b.{0,90}\b(?:recapitulatif|r[eé]capitulatif|summary|resume|r[eé]sum[eé]|overview)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"^(?:voici|here\s+(?:are|is)|aqui\s+(?:hay|esta)|eis|hier\s+(?:sind|ist)|ecco)\b.{0,80}\b(?:qui|que|which|that)$",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalized,
+                @"\b(?:con\s+servation|conservation|congelation|d[eé]congelation|decongelation|entreposage|rangement|restes?|id[eé]es?\s+de\s+repas|idees?\s+de\s+repas|suggestions?\s+de\s+repas)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalized,
+                @"\b(?:con\s+combre|tomatesa|tomatea)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalized,
+                @"^(?:le|la|les)\s+.+\b(?:cuit|cuite|cuits|cuites|cru|crue|crus|crues|hache|hachee|haches|congele|congelee|refrigere|refrigeree)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalized,
+                @"^(?:egoutter|egouttez|peler|pelez|eplucher|epluchez|[eé]plucher|[eé]pluchez|faire|faites|ajouter|ajoutez|laisser|laissez|placer|placez|retirer|retirez|couper|coupez|hacher|hachez|trancher|tranchez|deposer|deposez|verser|versez|melanger|melangez|remuer|remuez|cuire|mijoter|servir|peel|cut|chop|slice|place|put|add|remove|mix|cook|serve)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:une\s+fois\s+cuit|une\s+fois\s+cuite|avant\s+de\s+servir|apres\s+cuisson|après\s+cuisson|jusqu\s+a\s+cuisson|jusqu\s+à\s+cuisson)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeShortOcrContinuationStructuredPlanningTitle(string rawTitle, string normalizedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:p|pg|page|pp|etape|step|part|section)\s*\d{1,4}\s+(?:pendant|during|while|avant|before|apres|après|after|puis|then)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        var rawTokens = CollapseWhitespace(rawTitle)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (rawTokens.Length != 2)
+            return false;
+
+        var normalizedTokens = rawTokens
+            .Select(NormalizeLexicalLookup)
+            .ToArray();
+        if (normalizedTokens[0].Length < 5
+            || normalizedTokens[1].Length is < 1 or > 2
+            || IsLowercaseSourceBackedDisplayParticle(normalizedTokens[1]))
+        {
+            return false;
+        }
+
+        var firstLetters = rawTokens[0].Where(char.IsLetter).ToArray();
+        if (firstLetters.Length < 5)
+            return false;
+
+        var firstUpperRatio = firstLetters.Count(char.IsUpper) / (double)firstLetters.Length;
+        return firstUpperRatio >= 0.75;
+    }
+
+    private static bool LooksLikeGlossaryOrDefinitionStructuredPlanningCandidate(string normalizedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:termes?|terms?|glossaire|glossary|lexique|lexicon|vocabulaire|vocabulary)(?:\b|[a-z])",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:definition|d[eé]finition|definir|d[eé]finir|define|meaning|signification)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        var terms = ExtractPlanningAnswerSupportTerms(normalizedTitle)
+            .Take(10)
+            .ToArray();
+        if (terms.Length is < 4 or > 9)
+            return false;
+
+        return Regex.IsMatch(
+            normalizedTitle,
+            @"^(?:\p{L}{3,}\s+){1,3}(?:couper|cut|decouper|d[eé]couper|divide|separer|s[eé]parer|separate|reduire|r[eé]duire|reduce|mettre|place|put|adjust|ajuster|regler|r[eé]gler|calibrate|inspect|verify)\b.{0,90}\b(?:un|une|des|les|le|la|a|an|the|item|element|[eé]l[eé]ment|objet|object|device|dispositif|matiere|mati[eè]re|aliment)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeStandaloneStructuredPlanningFieldLabel(string normalizedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        return Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|temps|dur[eé]e|duration|time|materiel|mat[eé]riel|materials?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)$",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalizedTitle,
+                @"^(?:nombre|number|quantite|quantity|quantit[eé])\s+(?:de\s+|of\s+)?(?:portions?|servings?|elements?|[eé]l[eé]ments?|items?|pieces?|pi[eè]ces?|galettes?|parts?)$",
+                RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeStructuredPlanningFieldOrOcrFragment(string normalizedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        if (normalizedTitle.Length > 64)
+            return false;
+
+        var hasFieldLabel = Regex.IsMatch(
+            normalizedTitle,
+            @"\b(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|nombre|number|quantite|quantity|quantit[eé]|portions?|servings?|temps|dur[eé]e|duration|time|materiel|mat[eé]riel|materials?)\b",
+            RegexOptions.CultureInvariant);
+        if (!hasFieldLabel)
+            return false;
+
+        var words = ExtractQuerySignalTerms(normalizedTitle).ToArray();
+        var hasNumericNoise = Regex.IsMatch(normalizedTitle, @"(?:^|\s)(?:\d+|[ivxlcdm]{1,4})(?:\s|$)", RegexOptions.CultureInvariant);
+        var startsWithDurationField = Regex.IsMatch(normalizedTitle, @"^(?:temps|dur[eé]e|duration|time)\b", RegexOptions.CultureInvariant);
+        var hasDurationActionCue = Regex.IsMatch(
+            normalizedTitle,
+            @"\b(?:signal|faire\s+cuire|cuire|minutes?|seconds?|secondes?|heures?|hours?|\d+)\b",
+            RegexOptions.CultureInvariant);
+        var hasOcrPrefix = Regex.IsMatch(
+            normalizedTitle,
+            @"^(?:[a-z]{1,3}|[ivxlcdm]{1,4})\s+\d+\s+\p{L}{1,3}\s+",
+            RegexOptions.CultureInvariant);
+
+        return hasOcrPrefix
+            || (hasNumericNoise && words.Length <= 5)
+            || (startsWithDurationField && hasDurationActionCue);
+    }
+
+    private static bool LooksLikePlanningFrameOrAdviceCandidate(SourceBackedOptionCandidate candidate, bool hasStrictEvidence)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        var titleTerms = ExtractQuerySignalTerms(normalizedTitle)
+            .Where(static term => term.Length >= 4)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var isShortTitle = titleTerms.Length <= 6 || normalizedTitle.Length <= 90;
+
+        var looksLikeFrame = Regex.IsMatch(
+            normalizedTitle,
+            @"\b(?:guide|guides|conseils?|tips?|astuces?|principes?|principles?|organisation|organization|organiser|organize|planning|planification|calendrier|schedule|horaires?|timing|overview|vue\s+d\s+ensemble|introduction|summary|resume|r[eé]sum[eé]|methode|m[eé]thode|method|cadre|framework|recommandations?\s+generales?|recommendations?\s+generales?|bonnes?\s+pratiques?|best\s+practices?|faq|glossaire|glossary|sommaire|table\s+des\s+matieres|contents?|index)\b",
+            RegexOptions.CultureInvariant);
+        if (!looksLikeFrame || !isShortTitle)
+            return false;
+
+        if (!hasStrictEvidence)
+            return true;
+
+        var normalizedEvidence = NormalizeStructuredScanText(
+            $"{GetRagHitPrimaryEvidenceText(candidate.Hit)} {GetRagHitStructuredEvidenceText(candidate.Hit)} {candidate.Hit.ContextualSnippet}");
+        var hasConcreteCardEvidence = candidate.Hit.MatchedContentCards?.Any(HasConcreteContentCardEvidence) == true;
+        var hasActionableEvidence = CountProcedureStepMarkers(normalizedEvidence) >= 2
+            || CountBulletListMarkers(normalizedEvidence) >= 3
+            || CountNumericFactMarkers(normalizedEvidence) >= 2;
+
+        return !hasConcreteCardEvidence && !hasActionableEvidence;
+    }
+
+    private static bool LooksLikeGenericPlanningContextCandidate(SourceBackedOptionCandidate candidate)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:et|and|or|ou|a|de|du|des|entre|vers|avant|apres|après|after|before|between|from|to|until|jusqu|bis|hasta|ate|fino)$",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        var titleTerms = ExtractQuerySignalTerms(normalizedTitle)
+            .Where(static term => term.Length >= 4)
+            .ToArray();
+        if (titleTerms.Length <= 6
+            && LooksLikeGenericCadenceOrTimingStatement(normalizedTitle))
+        {
+            return true;
+        }
+
+        if (titleTerms.Length <= 4
+            && Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:pause|break|sieste|rest|repos)\b",
+                RegexOptions.CultureInvariant)
+            && !Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:procedure|process|maintenance|inspection|controle|control|verification|audit|test|review|revue|validation)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        var hasConcreteEvidence = HasConcreteFinalSourceBackedEvidence(candidate.Hit)
+            && (ComputeStructuredProcedureVisibleEvidenceCueScore(candidate.Hit) >= 3
+                || ComputeProcedureCompletenessCueScore(candidate.Hit) >= 5
+                || candidate.Hit.MatchedContentCards?.Any(HasConcreteContentCardEvidence) == true);
+
+        var isMostlyScheduleContext = Regex.IsMatch(
+            normalizedTitle,
+            @"\b(?:par\s+(?:semaine|mois|jour)|per\s+(?:week|month|day)|cada\s+(?:semana|mes|dia)|por\s+(?:semana|mes|dia)|pro\s+(?:woche|monat|tag)|morning|afternoon|evening|night|matin|midi|soir|nuit|apres\s+midi|après\s+midi|pause|break|sieste|horaire|horaires|schedule|calendrier|timing|minuit|midnight|vers|entre|avant|after|before)\b",
+            RegexOptions.CultureInvariant);
+
+        if (isMostlyScheduleContext && !hasConcreteEvidence)
+            return true;
+
+        if (isMostlyScheduleContext
+            && titleTerms.Length <= 5
+            && CountNumericFactMarkers(NormalizeStructuredScanText($"{candidate.Title} {GetRagHitPrimaryEvidenceText(candidate.Hit)}")) == 0
+            && ComputeProcedureCompletenessCueScore(candidate.Hit) < 7)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool LooksLikePageContextLabelPlanningCandidate(SourceBackedOptionCandidate candidate)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(CleanSourceBackedOptionTitle(candidate.Title));
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        var contextLabels = new[] { candidate.Hit.SectionTitle, candidate.Hit.HeadingPath }
+            .Select(CleanSourceBackedOptionTitle)
+            .Select(NormalizeLexicalLookup)
+            .Where(static label => !string.IsNullOrWhiteSpace(label))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (!contextLabels.Contains(normalizedTitle, StringComparer.Ordinal))
+            return false;
+
+        if (HasPageAnchoredContentCardStructuredPlanningProof(candidate.Hit, normalizedTitle))
+            return false;
+
+        var compactTitle = BuildCompactStructuredPlanningLookup(normalizedTitle);
+        if (compactTitle.Length < 8)
+            return false;
+
+        foreach (var text in EnumeratePlanExtractionTexts(candidate.Hit))
+        {
+            var leadingTitle = CleanSourceBackedOptionTitle(ExtractPlanItemTitleV2(text));
+            var normalizedLeadingTitle = NormalizeLexicalLookup(leadingTitle);
+            if (string.IsNullOrWhiteSpace(normalizedLeadingTitle)
+                || string.Equals(normalizedLeadingTitle, normalizedTitle, StringComparison.Ordinal)
+                || !LooksLikeConcreteStructuredPlanningCandidateTitle(leadingTitle))
+            {
+                continue;
+            }
+
+            var compactText = BuildCompactStructuredPlanningLookup(text);
+            var compactLeadingTitle = BuildCompactStructuredPlanningLookup(normalizedLeadingTitle);
+            if (compactText.Length == 0 || compactLeadingTitle.Length < 8)
+                continue;
+
+            var leadingIndex = compactText.IndexOf(compactLeadingTitle, StringComparison.Ordinal);
+            var contextIndex = compactText.IndexOf(compactTitle, StringComparison.Ordinal);
+            if (leadingIndex < 0 || contextIndex < 0 || contextIndex <= leadingIndex)
+                continue;
+
+            var gap = contextIndex - (leadingIndex + compactLeadingTitle.Length);
+            if (gap is >= 0 and <= 80)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool LooksLikeGenericCadenceOrTimingStatement(string normalizedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:un|une|deux|trois|one|two|three|four|\d+)\b.{0,42}\b(?:par\s+(?:semaine|mois|jour)|per\s+(?:week|month|day)|cada\s+(?:semana|mes|dia)|por\s+(?:semana|mes|dia)|pro\s+(?:woche|monat|tag))\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalizedTitle,
+                @"\b(?:leger|light|late|tardif|matin|midi|soir|nuit|morning|afternoon|evening|night|minuit|midnight)\b.{0,36}\b(?:entre|between|before|after|avant|apres|après|vers|until|jusqu)\b|\b(?:entre|between|before|after|avant|apres|après|vers|until|jusqu)\b.{0,36}\b(?:matin|midi|soir|nuit|morning|afternoon|evening|night|minuit|midnight|\d+\s*(?:h|heure|hour))\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private static int ResolveSourceBackedPlanningTargetItemCount(string? query)
@@ -9385,6 +18347,11 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var normalized = NormalizeLexicalLookup(query);
         if (!string.IsNullOrWhiteSpace(normalized))
         {
+            var requestedDays = DetectRequestedDayAxisLabels(query, "en");
+            var requestedPeriods = DetectRequestedPeriodAxisLabels(query, "en");
+            if (requestedDays.Count > 0 && requestedPeriods.Count > 0)
+                return Math.Clamp(requestedDays.Count * requestedPeriods.Count, 1, 20);
+
             var explicitCount = Regex.Match(
                 normalized,
                 @"\b(?<n>\d{1,2})\s+(?:jours?|days?|items?|elements?|options?|etapes?|steps?)\b",
@@ -9395,17 +18362,30 @@ If evidence is partial, write the best useful sourced answer possible and state 
             {
                 return count;
             }
-
-            var requestedDays = DetectRequestedDayAxisLabels(query, "en");
-            var requestedPeriods = DetectRequestedPeriodAxisLabels(query, "en");
-            if (requestedDays.Count > 0 && requestedPeriods.Count > 0)
-                return Math.Clamp(requestedDays.Count * requestedPeriods.Count, 1, 20);
         }
 
         return LooksLikeWeeklyPlanningRequest(query) ? 7 : 5;
     }
 
+    private enum StructuredMealPlanningSlotKind
+    {
+        Breakfast,
+        MainMeal,
+        Snack
+    }
+
     private sealed record SourceBackedOptionCandidate(RagHitSummary Hit, string Title, int Score, int? VisibleMinutes);
+
+    private sealed record SourceBackedPlanningDraft(
+        string Answer,
+        IReadOnlyList<SourceBackedOptionCandidate> Items,
+        IReadOnlyList<ToolMemory.SourceRef> Sources)
+    {
+        public static SourceBackedPlanningDraft Empty { get; } = new(
+            string.Empty,
+            Array.Empty<SourceBackedOptionCandidate>(),
+            Array.Empty<ToolMemory.SourceRef>());
+    }
 
     private sealed record SourceBackedOptionAnswerSelection(
         IReadOnlyList<SourceBackedOptionCandidate> Items,
@@ -9442,6 +18422,9 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
     private static string BuildSourceBackedCountdownPlanningAnswer(ToolResults toolResults, string query, string language)
     {
+        if (IsBroadenedSourceSearchConfirmationEnvelope(query))
+            return string.Empty;
+
         language = NormalizeLanguageCode(language);
         var targetTime = TryExtractRequestedClockTime(query);
         if (!targetTime.HasValue)
@@ -9649,6 +18632,9 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
     private static string BuildSourceBackedOptionAnswer(ToolResults toolResults, string language, int minItems = 1, string? query = null)
     {
+        if (IsBroadenedSourceSearchConfirmationEnvelope(query))
+            return string.Empty;
+
         language = NormalizeLanguageCode(language);
         var missingPairingAnchor = TryBuildMissingPairingAnchorAnswer(toolResults, query ?? string.Empty, language);
 
@@ -9693,7 +18679,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 "pt" => "Nao encontrei uma passagem que ligue explicitamente todas as partes do pedido; listo-as como pistas com fonte, nao como recomendacoes compativeis certificadas.",
                 "de" => "Ich habe keine Stelle gefunden, die alle Teile der Anfrage ausdruecklich verbindet; ich liste sie daher als belegte Hinweise, nicht als bestaetigte kompatible Empfehlungen.",
                 "it" => "Non ho trovato un passaggio che colleghi esplicitamente tutte le parti della richiesta; le elenco quindi come indicazioni con fonte, non come raccomandazioni compatibili certificate.",
-                _ => "Je n'ai pas trouve de passage qui relie explicitement tous les elements de la demande ; je liste donc ces elements documentes a verifier, pas comme recommandations compatibles certifiees."
+                _ => "Je n'ai pas trouvé de passage qui relie explicitement tous les éléments de la demande ; je liste donc ces éléments documentés à vérifier, pas comme recommandations compatibles certifiées."
             };
             sb.AppendLine(AppendBroadenedSearchOfferIfHelpful(pairingCaveat, query, language));
         }
@@ -9779,7 +18765,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             "pt" => "Mantenho quantidades, tempos e substituicoes ligados as paginas fonte.",
             "de" => "Mengen, Zeiten und Ersetzungen bleiben an die Quellseiten gebunden.",
             "it" => "Tengo quantita, tempi e sostituzioni legati alle pagine fonte.",
-            _ => "Je garde les quantites, temps et substitutions rattaches aux pages source."
+            _ => "Je garde les quantités, temps et substitutions rattachés aux pages source."
         };
         sb.AppendLine(note);
 
@@ -9900,13 +18886,23 @@ If evidence is partial, write the best useful sourced answer possible and state 
         ToolResults toolResults,
         string? query,
         bool keepOverRequestedDuration = false,
-        string language = "")
+        string language = "",
+        bool allowPartialStructuredPlanningCandidates = false)
     {
         var normalizedQuery = NormalizeLexicalLookup(query);
         var broadCollectionLikeRequest = LooksLikeGenericCollectionOrListRequest(query)
             || LooksLikeAnyDocumentaryPlanningRequest(query)
             || LooksLikeBroadSourceBackedCompositionRequest(query)
             || LooksLikeMultipleCandidateSynthesisRequest(query);
+        var requiresStructuredPlanning = ShouldGateStructuredSourceBackedPlanningCoverage(query);
+        var traceOptionSelection = requiresStructuredPlanning || broadCollectionLikeRequest;
+        var optionStopwatch = traceOptionSelection ? Stopwatch.StartNew() : null;
+        if (traceOptionSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent option candidate selection: stage=start|structuredPlanning={requiresStructuredPlanning}|broadCollection={broadCollectionLikeRequest}|allowPartialStructuredPlanning={allowPartialStructuredPlanningCandidates}");
+        }
+
         var namedEntityTerms = ExtractNamedEntityLikeQueryTerms(query);
         var softChoiceOptionKindTerms = ExtractSoftChoiceRequestedOptionKindTerms(query);
         var requiresNamedEntityEvidence = namedEntityTerms.Count > 0
@@ -9921,22 +18917,42 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (!string.IsNullOrWhiteSpace(query))
             sourceHits = FilterHitsToDominantTopLevel(sourceHits, query).ToList();
+        if (traceOptionSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent option candidate selection: stage=source_hits.end|hits={sourceHits.Count}|ms={optionStopwatch!.ElapsedMilliseconds}");
+        }
 
         var maxMinutes = TryExtractRequestedMaxMinutes(query);
-        var objectAnchorTerms = ExtractSourceBackedOptionObjectAnchorTerms(query)
+        var rawObjectAnchorTerms = ExtractSourceBackedOptionObjectAnchorTerms(query)
             .Where(static term => term.Length >= 5)
             .Where(static term => !IsSourceBackedActionRetrievalNoiseTerm(term))
             .Where(static term => !SourceBackedOptionConstraintTerms.Contains(term))
             .Distinct(StringComparer.Ordinal)
             .Take(5)
             .ToArray();
-        var queryAnchorTerms = ExtractQuerySignalTerms(normalizedQuery)
-            .Concat(objectAnchorTerms)
+        var objectAnchorTerms = rawObjectAnchorTerms
+            .Where(term => !ShouldSuppressGenericStructuredPlanningCandidateAnchorTerm(
+                term,
+                requiresStructuredPlanning,
+                broadCollectionLikeRequest))
+            .ToArray();
+        var rawQueryAnchorTerms = ExtractQuerySignalTerms(normalizedQuery)
+            .Concat(rawObjectAnchorTerms)
             .Where(static term => term.Length >= 5)
             .Where(static term => !IsSourceBackedActionRetrievalNoiseTerm(term))
             .Where(static term => !SourceBackedOptionConstraintTerms.Contains(term))
             .Distinct(StringComparer.Ordinal)
             .Take(8)
+            .ToArray();
+        var queryAnchorTerms = rawQueryAnchorTerms
+            .Where(term => !ShouldSuppressGenericStructuredPlanningCandidateAnchorTerm(
+                term,
+                requiresStructuredPlanning,
+                broadCollectionLikeRequest))
+            .ToArray();
+        var suppressedAnchorTerms = rawQueryAnchorTerms
+            .Except(queryAnchorTerms, StringComparer.Ordinal)
             .ToArray();
         var hasConcreteObjectAnchor = objectAnchorTerms.Length > 0;
         var hasSourceBackedAnchorEvidence = queryAnchorTerms.Length > 0
@@ -9945,25 +18961,89 @@ If evidence is partial, write the best useful sourced answer possible and state 
             && !LooksLikeSourceBackedPairingRecommendationRequest(query)
             && sourceHits.Any(hit => QueryAnchorTermsMatchHit(queryAnchorTerms, hit));
 
-        var candidates = sourceHits
-            .SelectMany(hit => BuildSourceBackedOptionCandidatesFromHit(
-                hit,
-                query,
-                language,
-                keepOverRequestedDuration ? null : maxMinutes,
-                requiresNamedEntityEvidence,
-                namedEntityTerms))
-            .Where(candidate => !string.IsNullOrWhiteSpace(candidate.Title))
+        if (traceOptionSelection)
+        {
+            ClientLog.Info(
+                "ToolAgent option candidate selection: stage=anchor_scope"
+                + $"|rawAnchors={FormatPlanningTraceValue(string.Join(",", rawQueryAnchorTerms))}"
+                + $"|activeAnchors={FormatPlanningTraceValue(string.Join(",", queryAnchorTerms))}"
+                + $"|suppressedGenericAnchors={FormatPlanningTraceValue(string.Join(",", suppressedAnchorTerms))}"
+                + $"|objectAnchors={FormatPlanningTraceValue(string.Join(",", objectAnchorTerms))}"
+                + $"|willFilter={hasSourceBackedAnchorEvidence}"
+                + $"|ms={optionStopwatch!.ElapsedMilliseconds}");
+        }
+
+        if (traceOptionSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent option candidate selection: stage=raw_candidates.start|hits={sourceHits.Count}|ms={optionStopwatch!.ElapsedMilliseconds}");
+        }
+
+        var rawCandidates = new List<SourceBackedOptionCandidate>();
+        var lastRawCandidateProgressMs = optionStopwatch?.ElapsedMilliseconds ?? 0;
+        for (var sourceHitIndex = 0; sourceHitIndex < sourceHits.Count; sourceHitIndex++)
+        {
+            var hit = sourceHits[sourceHitIndex];
+            foreach (var candidate in BuildSourceBackedOptionCandidatesFromHit(
+                         hit,
+                         query,
+                         language,
+                         keepOverRequestedDuration ? null : maxMinutes,
+                         requiresNamedEntityEvidence,
+                         namedEntityTerms,
+                         allowPartialStructuredPlanningCandidates))
+            {
+                if (!string.IsNullOrWhiteSpace(candidate.Title))
+                    rawCandidates.Add(candidate);
+            }
+
+            if (traceOptionSelection)
+            {
+                var processedHits = sourceHitIndex + 1;
+                var elapsedMs = optionStopwatch!.ElapsedMilliseconds;
+                if (processedHits == sourceHits.Count
+                    || processedHits % 10 == 0
+                    || elapsedMs - lastRawCandidateProgressMs >= 15000)
+                {
+                    ClientLog.Info(
+                        "ToolAgent option candidate selection: stage=raw_candidates.progress"
+                        + $"|processedHits={processedHits}"
+                        + $"|totalHits={sourceHits.Count}"
+                        + $"|rawCandidates={rawCandidates.Count}"
+                        + $"|ms={elapsedMs}"
+                        + $"|lastDoc={FormatPlanningTraceValue(hit.DocName ?? hit.DocPath)}"
+                        + $"|lastPage={hit.PageStart}");
+                    lastRawCandidateProgressMs = elapsedMs;
+                }
+            }
+        }
+
+        if (traceOptionSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent option candidate selection: stage=raw_candidates.end|rawCandidates={rawCandidates.Count}|hits={sourceHits.Count}|ms={optionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", rawCandidates.Take(8).Select(static candidate => candidate.Title))}");
+        }
+
+        var candidates = rawCandidates
             .Where(candidate => !LooksLikeLowValueSourceBackedOptionCandidate(candidate, normalizedQuery))
-            .Where(candidate => LooksLikeUsableSourceBackedOptionCandidate(candidate.Hit))
+            .Where(candidate => LooksLikeUsableSourceBackedOptionCandidate(candidate.Hit)
+                || (requiresStructuredPlanning
+                    && (allowPartialStructuredPlanningCandidates
+                        ? HasDirectSourceBackedPlanningCandidateEvidence(candidate)
+                        : HasStrictStructuredPlanningCandidateEvidence(candidate))))
             .Where(candidate => keepOverRequestedDuration || !maxMinutes.HasValue || !candidate.VisibleMinutes.HasValue || candidate.VisibleMinutes.Value <= maxMinutes.Value)
             .Select(candidate => ApplySoftChoiceOptionKindScore(candidate, softChoiceOptionKindTerms))
             .Where(candidate => candidate.Score > -20)
             .OrderByDescending(candidate => candidate.Score)
             .ThenByDescending(candidate => candidate.Hit.Score)
             .GroupBy(candidate => $"{NormalizeLexicalLookup(candidate.Title)}|{candidate.Hit.DocPath}|{candidate.Hit.PageStart}", StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.First())
+            .Select(group => SelectBestSourceBackedOptionDuplicate(group, query))
             .ToList();
+        if (traceOptionSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent option candidate selection: stage=core_filter.end|candidates={candidates.Count}|rawCandidates={rawCandidates.Count}|ms={optionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", candidates.Take(8).Select(static candidate => candidate.Title))}");
+        }
 
         var excludedTerms = ExtractSourceBackedExcludedTerms(query);
         if (excludedTerms.Count > 0)
@@ -9971,6 +19051,11 @@ If evidence is partial, write the best useful sourced answer possible and state 
             candidates = candidates
                 .Where(candidate => !RagHitContainsAnyExcludedTerm(candidate.Hit, excludedTerms))
                 .ToList();
+            if (traceOptionSelection)
+            {
+                ClientLog.Info(
+                    $"ToolAgent option candidate selection: stage=excluded_terms_filter.end|candidates={candidates.Count}|excludedTerms={excludedTerms.Count}|ms={optionStopwatch!.ElapsedMilliseconds}");
+            }
         }
 
         var pairingOptionKindTerms = ExtractPairingRequestedOptionKindTerms(query);
@@ -9981,6 +19066,11 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 .ToList();
             if (kindMatchedCandidates.Count > 0)
                 candidates = kindMatchedCandidates;
+            if (traceOptionSelection)
+            {
+                ClientLog.Info(
+                    $"ToolAgent option candidate selection: stage=pairing_kind_filter.end|candidates={candidates.Count}|kindTerms={pairingOptionKindTerms.Count}|ms={optionStopwatch!.ElapsedMilliseconds}");
+            }
         }
 
         if (softChoiceOptionKindTerms.Count > 0 && candidates.Count > 1)
@@ -10002,20 +19092,61 @@ If evidence is partial, write the best useful sourced answer possible and state 
             candidates = candidates
                 .Where(candidate => !OptionKindContradictsCandidate(softChoiceOptionKindTerms, candidate))
                 .ToList();
+            if (traceOptionSelection)
+            {
+                ClientLog.Info(
+                    $"ToolAgent option candidate selection: stage=soft_kind_filter.end|candidates={candidates.Count}|kindTerms={softChoiceOptionKindTerms.Count}|ms={optionStopwatch!.ElapsedMilliseconds}");
+            }
         }
 
         if (hasSourceBackedAnchorEvidence)
         {
+            var candidatesBeforeAnchorFilter = candidates;
             candidates = candidates
                 .Where(candidate => QueryAnchorTermsMatchHit(queryAnchorTerms, candidate.Hit))
                 .ToList();
+            if (traceOptionSelection)
+            {
+                var removedByAnchorFilter = candidatesBeforeAnchorFilter
+                    .Where(candidate => !candidates.Contains(candidate))
+                    .ToList();
+                ClientLog.Info(
+                    "ToolAgent option candidate selection: stage=anchor_filter.end"
+                    + $"|candidates={candidates.Count}"
+                    + $"|removed={candidatesBeforeAnchorFilter.Count - candidates.Count}"
+                    + $"|anchorTerms={queryAnchorTerms.Length}"
+                    + $"|anchors={FormatPlanningTraceValue(string.Join(",", queryAnchorTerms))}"
+                    + $"|kept={FormatSourceBackedOptionCandidateTraceSamples(candidates)}"
+                    + $"|removedSamples={FormatSourceBackedOptionCandidateTraceSamples(removedByAnchorFilter)}"
+                    + $"|ms={optionStopwatch!.ElapsedMilliseconds}");
+            }
         }
+        else if (traceOptionSelection && (rawQueryAnchorTerms.Length > 0 || suppressedAnchorTerms.Length > 0))
+        {
+            ClientLog.Info(
+                "ToolAgent option candidate selection: stage=anchor_filter.skipped"
+                + $"|reason={(queryAnchorTerms.Length == 0 ? "no_active_specific_anchor" : "no_concrete_anchor_evidence")}"
+                + $"|activeAnchors={FormatPlanningTraceValue(string.Join(",", queryAnchorTerms))}"
+                + $"|suppressedGenericAnchors={FormatPlanningTraceValue(string.Join(",", suppressedAnchorTerms))}"
+                + $"|ms={optionStopwatch!.ElapsedMilliseconds}");
+            }
 
         if (requiresNamedEntityEvidence)
         {
             candidates = candidates
                 .Where(candidate => QueryAnchorTermsMatchHit(namedEntityTerms, candidate.Hit))
                 .ToList();
+            if (traceOptionSelection)
+            {
+                ClientLog.Info(
+                    $"ToolAgent option candidate selection: stage=named_entity_filter.end|candidates={candidates.Count}|terms={namedEntityTerms.Count}|ms={optionStopwatch!.ElapsedMilliseconds}");
+            }
+        }
+
+        if (traceOptionSelection)
+        {
+            ClientLog.Info(
+                $"ToolAgent option candidate selection: stage=end|candidates={candidates.Count}|ms={optionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", candidates.Take(10).Select(static candidate => candidate.Title))}");
         }
 
         return candidates;
@@ -10043,6 +19174,17 @@ If evidence is partial, write the best useful sourced answer possible and state 
         }
     }
 
+    private static bool ShouldSuppressGenericStructuredPlanningCandidateAnchorTerm(
+        string? term,
+        bool requiresStructuredPlanning,
+        bool broadCollectionLikeRequest)
+    {
+        if (!requiresStructuredPlanning && !broadCollectionLikeRequest)
+            return false;
+
+        return IsGenericPlanningCoverageTerm(term ?? string.Empty);
+    }
+
     private static string BuildPairingLeadCaveat(string query, string language)
     {
         var targetTerms = ExtractPairingTargetAnchorTerms(query);
@@ -10057,7 +19199,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var answer = SourceBackedLabel(
             language,
-            $"Je n'ai pas trouve de passage qui relie explicitement {targetList} a {optionKindList}. Je liste donc ces elements documentes a verifier, pas comme compatibilite certifiee.",
+            $"Je n'ai pas trouvé de passage qui relie explicitement {targetList} à {optionKindList}. Je liste donc ces éléments documentés à vérifier, pas comme compatibilité certifiée.",
             $"I did not find a passage that explicitly connects {targetList} to {optionKindList}. I therefore list these items as documented options to verify, not as certified compatibility.",
             $"No he encontrado un pasaje que conecte explicitamente {targetList} con {optionKindList}. Por eso enumero estos elementos como pistas con fuente, no como compatibilidad certificada.",
             $"Nao encontrei uma passagem que ligue explicitamente {targetList} a {optionKindList}. Por isso listo estes elementos como pistas com fonte, nao como compatibilidade certificada.",
@@ -10072,56 +19214,182 @@ If evidence is partial, write the best useful sourced answer possible and state 
         string language,
         int? scoreMaxMinutes,
         bool requiresNamedEntityEvidence,
-        IReadOnlyList<string> namedEntityTerms)
+        IReadOnlyList<string> namedEntityTerms,
+        bool allowPartialStructuredPlanningCandidates = false)
     {
+        var requiresStructuredPlanning = ShouldGateStructuredSourceBackedPlanningCoverage(query);
+        var requiresStrictStructuredPlanning = requiresStructuredPlanning && !allowPartialStructuredPlanningCandidates;
         var emittedCardCandidate = false;
         foreach (var card in hit.MatchedContentCards ?? Array.Empty<RagHitContentCardSummary>())
         {
-            var title = CleanSourceBackedOptionTitle(card.Title);
-            if (!IsUsableSourceBackedOptionTitle(title))
+            foreach (var title in ExtractSourceBackedCardTitleVariants(card.Title))
+            {
+                if (!IsUsableSourceBackedOptionTitle(title))
+                {
+                    continue;
+                }
+
+                if (requiresStrictStructuredPlanning
+                    && LooksLikeNoisyStructuredPlanningCandidateTitle(title))
+                {
+                    continue;
+                }
+
+                if (requiresStrictStructuredPlanning
+                    && !ContentCardHasPageLocalStructuredPlanningProof(hit, card, title))
+                {
+                    continue;
+                }
+
+                var scopedHit = BuildSourceBackedCardScopedHit(
+                    hit,
+                    card,
+                    title,
+                    strictStructuredPlanning: requiresStrictStructuredPlanning);
+                var visibleMinutes = ExtractBestVisibleDurationMinutes(scopedHit);
+                var scopedCandidate = new SourceBackedOptionCandidate(
+                    scopedHit,
+                    title,
+                    Score: ComputeSourceBackedOptionHitScore(scopedHit, title, query, scoreMaxMinutes, visibleMinutes) + 6,
+                    visibleMinutes);
+                if (requiresStrictStructuredPlanning)
+                {
+                    if (!HasStrictStructuredPlanningCandidateEvidence(scopedCandidate))
+                        continue;
+
+                    scopedCandidate = BoostStrictStructuredPlanningCandidate(scopedCandidate);
+                }
+
+                emittedCardCandidate = true;
+                yield return scopedCandidate;
+            }
+        }
+
+        if (emittedCardCandidate && !requiresStrictStructuredPlanning)
+            yield break;
+
+        var fallbackTitles = requiresStrictStructuredPlanning
+            ? ExtractStrictSourceBackedOptionTitles(hit, query)
+            : new[] { ExtractSourceBackedOptionTitle(hit, query) };
+        var fallbackTitleIsGeneratedFromNamedEntityEvidence = false;
+        if (fallbackTitles.Count == 0
+            && requiresNamedEntityEvidence
+            && !requiresStructuredPlanning
+            && QueryAnchorTermsMatchHit(namedEntityTerms, hit))
+        {
+            fallbackTitles = new[] { BuildSourceBackedFallbackOptionTitle(hit, language) };
+            fallbackTitleIsGeneratedFromNamedEntityEvidence = true;
+        }
+
+        foreach (var fallbackTitle in fallbackTitles)
+        {
+            if (!string.IsNullOrWhiteSpace(fallbackTitle)
+                && !IsUsableSourceBackedOptionTitle(fallbackTitle)
+                && !fallbackTitleIsGeneratedFromNamedEntityEvidence)
             {
                 continue;
             }
 
-            var scopedHit = BuildSourceBackedCardScopedHit(hit, card);
-            var visibleMinutes = ExtractBestVisibleDurationMinutes(scopedHit);
-            emittedCardCandidate = true;
-            yield return new SourceBackedOptionCandidate(
-                scopedHit,
-                title,
-                ComputeSourceBackedOptionHitScore(scopedHit, title, query, scoreMaxMinutes, visibleMinutes) + 6,
-                visibleMinutes);
+            if (requiresStrictStructuredPlanning
+                && LooksLikeNoisyStructuredPlanningCandidateTitle(fallbackTitle))
+            {
+                continue;
+            }
+
+            var fallbackVisibleMinutes = ExtractBestVisibleDurationMinutes(hit);
+            var fallbackCandidate = new SourceBackedOptionCandidate(
+                hit,
+                fallbackTitle,
+                ComputeSourceBackedOptionHitScore(hit, fallbackTitle, query, scoreMaxMinutes, fallbackVisibleMinutes),
+                fallbackVisibleMinutes);
+            if (requiresStrictStructuredPlanning)
+            {
+                if (!HasStrictStructuredPlanningCandidateEvidence(fallbackCandidate))
+                    continue;
+
+                fallbackCandidate = BoostStrictStructuredPlanningCandidate(fallbackCandidate);
+            }
+
+            yield return fallbackCandidate;
         }
-
-        if (emittedCardCandidate)
-            yield break;
-
-        var fallbackTitle = ExtractSourceBackedOptionTitle(hit, query);
-        var fallbackTitleIsGeneratedFromNamedEntityEvidence = false;
-        if (string.IsNullOrWhiteSpace(fallbackTitle)
-            && requiresNamedEntityEvidence
-            && QueryAnchorTermsMatchHit(namedEntityTerms, hit))
-        {
-            fallbackTitle = BuildSourceBackedFallbackOptionTitle(hit, language);
-            fallbackTitleIsGeneratedFromNamedEntityEvidence = true;
-        }
-
-        if (!string.IsNullOrWhiteSpace(fallbackTitle)
-            && !IsUsableSourceBackedOptionTitle(fallbackTitle)
-            && !fallbackTitleIsGeneratedFromNamedEntityEvidence)
-        {
-            yield break;
-        }
-
-        var fallbackVisibleMinutes = ExtractBestVisibleDurationMinutes(hit);
-        yield return new SourceBackedOptionCandidate(
-            hit,
-            fallbackTitle,
-            ComputeSourceBackedOptionHitScore(hit, fallbackTitle, query, scoreMaxMinutes, fallbackVisibleMinutes),
-            fallbackVisibleMinutes);
     }
 
-    private static RagHitSummary BuildSourceBackedCardScopedHit(RagHitSummary hit, RagHitContentCardSummary card)
+    private static SourceBackedOptionCandidate BoostStrictStructuredPlanningCandidate(SourceBackedOptionCandidate candidate)
+    {
+        var evidenceScore = ComputeSourceBackedEvidenceRichnessScore(candidate.Hit);
+        var strictEvidenceFloor = 20 + Math.Min(12, Math.Max(0, evidenceScore));
+        return candidate.Score >= strictEvidenceFloor
+            ? candidate
+            : candidate with { Score = strictEvidenceFloor };
+    }
+
+    private static string ExtractStrictSourceBackedOptionTitle(RagHitSummary hit, string? query)
+        => ExtractStrictSourceBackedOptionTitles(hit, query).FirstOrDefault() ?? string.Empty;
+
+    private static IReadOnlyList<string> ExtractStrictSourceBackedOptionTitles(RagHitSummary hit, string? query)
+    {
+        var visibleMinutes = ExtractBestVisibleDurationMinutes(hit);
+        var candidates = ExtractPageLocalStructuredPlanningTitleCandidates(hit)
+            .Concat(EnumeratePlanExtractionTexts(hit)
+            .SelectMany(ExtractPlanItemTitleCandidatesV2)
+            )
+            .Concat(ExtractSourceBackedTitleCandidates(hit))
+            .Select(CleanSourceBackedOptionTitle)
+            .Where(title => !string.IsNullOrWhiteSpace(title))
+            .Where(IsUsableSourceBackedOptionTitle)
+            .Where(title => !LooksLikeNoisyStructuredPlanningCandidateTitle(title))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select((title, index) => new
+            {
+                Title = title,
+                Index = index,
+                Candidate = new SourceBackedOptionCandidate(
+                    hit,
+                    title,
+                    Score: ComputeSourceBackedOptionHitScore(hit, title, query, requestedMaxMinutes: null, visibleMinutes: visibleMinutes),
+                    VisibleMinutes: visibleMinutes)
+            })
+            .Where(item => HasStrictStructuredPlanningCandidateEvidence(item.Candidate))
+            .Where(item => !LooksLikeGenericPlanningContextCandidate(item.Candidate))
+            .OrderByDescending(item => item.Candidate.Score)
+            .ThenByDescending(item => ComputeSourceBackedEvidenceRichnessScore(item.Candidate.Hit))
+            .ThenBy(item => item.Index)
+            .ToArray();
+
+        return candidates
+            .Select(static item => item.Title)
+            .ToArray();
+    }
+
+    private static IEnumerable<string> ExtractPageLocalStructuredPlanningTitleCandidates(RagHitSummary hit)
+    {
+        const string structureLabelPattern =
+            @"ingredients?|ingr[eé]dients?|requirements?|quantit(?:y|ies)|quantit[eé]s?|values?|materials?|mat[eé]riel|components?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
+        var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var text in EnumeratePlanExtractionTexts(hit))
+        {
+            foreach (Match match in Regex.Matches(
+                         text,
+                         $@"(?i)(?:^|[.!?]\s+)(?<title>\p{{Lu}}[\p{{L}}\p{{N}}'\u2019 &/,\-\u00c0-\u017f]{{3,90}}?)\s*[.:]\s*(?:{structureLabelPattern})\b",
+                         RegexOptions.CultureInvariant))
+            {
+                var title = HumanizePlanItemTitleV2(match.Groups["title"].Value);
+                if (!string.IsNullOrWhiteSpace(title)
+                    && emitted.Add(title)
+                    && !LooksLikePlanPageHeading(text, title)
+                    && IsUsableSourceBackedOptionTitle(title))
+                {
+                    yield return title;
+                }
+            }
+        }
+    }
+
+    private static RagHitSummary BuildSourceBackedCardScopedHit(
+        RagHitSummary hit,
+        RagHitContentCardSummary card,
+        string? candidateTitle = null,
+        bool strictStructuredPlanning = false)
     {
         var pageStart = card.PageStart ?? hit.PageStart;
         var pageEnd = card.PageEnd ?? card.PageStart ?? hit.PageEnd;
@@ -10129,15 +19397,543 @@ If evidence is partial, write the best useful sourced answer possible and state 
             pageEnd = pageStart;
 
         var cardEvidence = BuildSourceBackedCardEvidenceSnippet(card);
+        var strictCardEvidence = BuildSourceBackedCardStrictEvidenceSnippet(card);
+        var hasExplicitCardPage = SourceBackedContentCardHasExplicitPageAnchor(card);
+        var normalizedCardTitle = NormalizeLexicalLookup(candidateTitle ?? card.Title);
+        var hasVerifiedCardPageEvidence = hasExplicitCardPage
+            && ContentCardEvidenceIsSupportedByPrimaryPageText(hit, card, normalizedCardTitle);
+        var hasAnchoredStructuredCardProof = strictStructuredPlanning
+            && HasPageAnchoredContentCardStructuredPlanningProof(hit, card, normalizedCardTitle);
+        var localPageEvidence = strictStructuredPlanning
+            ? BuildSourceBackedPageLocalStructuredPlanningEvidenceWindow(hit, normalizedCardTitle)
+            : string.Empty;
+        if (strictStructuredPlanning
+            && string.IsNullOrWhiteSpace(localPageEvidence)
+            && hasAnchoredStructuredCardProof)
+        {
+            localPageEvidence = BuildPageLocalStructuredPlanningEvidenceText(hit);
+        }
+        var scopedEvidenceParts = strictStructuredPlanning
+            ? new[]
+            {
+                hasAnchoredStructuredCardProof ? candidateTitle ?? card.Title : null,
+                localPageEvidence,
+                hasVerifiedCardPageEvidence
+                    && HasConcreteContentCardEvidenceForTitle(card, normalizedCardTitle, requireExactTitle: true)
+                        ? strictCardEvidence
+                        : null
+            }
+            : new[]
+            {
+                hit.Excerpt,
+                hit.FullText,
+                hasVerifiedCardPageEvidence ? cardEvidence : null,
+                hasVerifiedCardPageEvidence ? strictCardEvidence : null
+            };
+        var scopedEvidence = CollapseWhitespace(string.Join(' ', scopedEvidenceParts
+            .Where(static value => !string.IsNullOrWhiteSpace(value))));
+
+        var scopedExcerpt = !string.IsNullOrWhiteSpace(scopedEvidence)
+            ? scopedEvidence
+            : strictStructuredPlanning ? string.Empty : hit.Excerpt ?? string.Empty;
+        var scopedFullText = !string.IsNullOrWhiteSpace(scopedEvidence)
+            ? scopedEvidence
+            : strictStructuredPlanning ? scopedExcerpt : hit.FullText ?? scopedExcerpt;
         return hit with
         {
             PageStart = pageStart,
             PageEnd = pageEnd,
-            Excerpt = string.IsNullOrWhiteSpace(cardEvidence) ? card.Title : cardEvidence,
-            FullText = null,
+            Excerpt = scopedExcerpt,
+            FullText = scopedFullText,
             ContextualSnippet = BuildSourceBackedCardContextSnippet(hit, card, cardEvidence),
             MatchedContentCards = new[] { card }
         };
+    }
+
+    private static string BuildSourceBackedPageLocalStructuredPlanningEvidenceWindow(
+        RagHitSummary hit,
+        string normalizedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return string.Empty;
+
+        var rawEvidence = BuildPageLocalStructuredPlanningEvidenceText(hit);
+        if (string.IsNullOrWhiteSpace(rawEvidence))
+            return string.Empty;
+
+        var normalizedEvidence = NormalizeLexicalLookup(rawEvidence);
+        if (normalizedEvidence.Length < 24)
+            return string.Empty;
+
+        var index = normalizedEvidence.IndexOf(normalizedTitle, StringComparison.Ordinal);
+        if (index < 0)
+            return string.Empty;
+
+        var start = Math.Max(0, index - 120);
+        var end = Math.Min(normalizedEvidence.Length, index + normalizedTitle.Length + 720);
+        return normalizedEvidence[start..end];
+    }
+
+    private static bool SourceBackedContentCardHasExplicitPageAnchor(RagHitContentCardSummary card)
+        => card.PageStart.HasValue
+           || card.PageEnd.HasValue
+           || (card.Evidence?.Facts?.Any(static fact => fact.PageStart.HasValue || fact.PageEnd.HasValue) ?? false);
+
+    private static bool ContentCardHasPageLocalStructuredPlanningProof(
+        RagHitSummary hit,
+        RagHitContentCardSummary card,
+        string title)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        var rawPageEvidence = BuildPageLocalStructuredPlanningEvidenceText(hit);
+        if (PrimaryEvidenceContainsLocalStructuredPlanningProof(hit, normalizedTitle, rawPageEvidence))
+            return true;
+
+        if (HasPageAnchoredContentCardStructuredPlanningProof(hit, card, normalizedTitle))
+            return true;
+
+        if (!SourceBackedContentCardHasExplicitPageAnchor(card))
+            return false;
+
+        if (!HasConcreteContentCardEvidenceForTitle(card, normalizedTitle, requireExactTitle: true))
+            return false;
+
+        if (!ContentCardEvidenceIsSupportedByPrimaryPageText(hit, card, normalizedTitle, requireStrictPageLocalSupport: true))
+            return false;
+
+        foreach (var sourceText in EnumerateContentCardSourceEvidenceTexts(card))
+        {
+            var normalizedSourceText = NormalizeLexicalLookup(sourceText);
+            if (normalizedSourceText.Length < 16
+                || !normalizedSourceText.Contains(normalizedTitle, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (ContentCardSourceTextIsAnchoredInPrimaryPageText(
+                    normalizedPageEvidence: NormalizeLexicalLookup(rawPageEvidence),
+                    normalizedSourceText,
+                    normalizedTitle,
+                    requireStrictPageLocalSupport: true)
+                && PrimaryEvidenceContainsLocalStructuredPlanningProof(hit, normalizedTitle, sourceText))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasPageAnchoredContentCardStructuredPlanningProof(
+        RagHitSummary hit,
+        string normalizedTitle)
+    {
+        if (hit.MatchedContentCards is not { Count: > 0 })
+            return false;
+
+        foreach (var card in hit.MatchedContentCards)
+        {
+            if (HasPageAnchoredContentCardStructuredPlanningProof(hit, card, normalizedTitle))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasPageAnchoredContentCardStructuredPlanningProof(
+        RagHitSummary hit,
+        RagHitContentCardSummary card,
+        string normalizedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle)
+            || !SourceBackedContentCardHasExplicitPageAnchor(card)
+            || !LooksLikeConcreteStructuredPlanningCandidateNormalizedTitle(normalizedTitle)
+            || LooksLikeGenericRecipeInventoryTitle(normalizedTitle))
+        {
+            return false;
+        }
+
+        var rawPageEvidence = BuildPageLocalStructuredPlanningEvidenceText(hit);
+        var normalizedPageEvidence = NormalizeLexicalLookup(rawPageEvidence);
+        if (normalizedPageEvidence.Length < 24)
+            return false;
+
+        var titleIsLocallyVisible = normalizedPageEvidence.Contains(normalizedTitle, StringComparison.Ordinal)
+            || PrimaryContentTermsTightlySupportPlanningTitle(normalizedTitle, normalizedPageEvidence);
+        var hasAnchoredCardTitle = ContentCardCanAnchorStructuredPlanningTitleWithoutVisiblePageTitle(
+            hit,
+            card,
+            normalizedTitle,
+            rawPageEvidence,
+            normalizedPageEvidence);
+        if (!titleIsLocallyVisible && !hasAnchoredCardTitle)
+            return false;
+
+        var hasConcreteCardEvidence = ContentCardCarriesStructuredPlanningEvidence(card, normalizedTitle);
+        var hasLocalRecipeProof = HasStrongLocalStructuredPlanningProofText(rawPageEvidence)
+            || PrimaryEvidenceContainsRelaxedLocalStructuredPlanningProof(hit, normalizedTitle, rawPageEvidence)
+            || PageEvidenceHasRecipeCardProofCue(rawPageEvidence);
+        if (!hasLocalRecipeProof)
+            return false;
+
+        if (hasConcreteCardEvidence)
+            return true;
+        if (hasAnchoredCardTitle)
+            return true;
+
+        var kind = NormalizeLexicalLookup(card.Kind);
+        return kind.Contains("exact", StringComparison.Ordinal)
+            || kind.Contains("lead", StringComparison.Ordinal)
+            || kind.Contains("embedded", StringComparison.Ordinal)
+            || kind.Contains("section", StringComparison.Ordinal);
+    }
+
+    private static bool ContentCardCanAnchorStructuredPlanningTitleWithoutVisiblePageTitle(
+        RagHitSummary hit,
+        RagHitContentCardSummary card,
+        string normalizedTitle,
+        string rawPageEvidence,
+        string normalizedPageEvidence)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle)
+            || normalizedPageEvidence.Length < 24
+            || !SourceBackedContentCardHasExplicitPageAnchor(card)
+            || !ContentCardKindLooksLikeStructuredPlanningTitleAnchor(card)
+            || !ContentCardCarriesStructuredPlanningEvidence(card, normalizedTitle)
+            || !ContentCardSourceEvidenceCanAnchorStructuredPlanningTitle(card, normalizedTitle)
+            || LooksLikeGenericRecipeInventoryTitle(normalizedTitle)
+            || LooksLikeNoisyStructuredPlanningCandidateTitle(card.Title))
+        {
+            return false;
+        }
+
+        var cardAnchorText = NormalizeLexicalLookup(string.Join(' ', new[]
+        {
+            card.Title,
+            BuildSourceBackedCardStrictEvidenceSnippet(card),
+            BuildSourceBackedCardEvidenceSnippet(card),
+            string.Join(' ', card.Signals ?? Array.Empty<string>())
+        }.Where(static value => !string.IsNullOrWhiteSpace(value))));
+        if (!cardAnchorText.Contains(normalizedTitle, StringComparison.Ordinal)
+            && !PrimaryContentTermsTightlySupportPlanningTitle(normalizedTitle, cardAnchorText))
+        {
+            return false;
+        }
+
+        return PageEvidenceHasRecipeBodyProofCue(rawPageEvidence);
+    }
+
+    private static bool ContentCardSourceEvidenceCanAnchorStructuredPlanningTitle(
+        RagHitContentCardSummary card,
+        string normalizedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        var hasSupportingSourceText = false;
+        foreach (var sourceText in EnumerateContentCardSourceEvidenceTexts(card))
+        {
+            var normalizedSourceText = NormalizeLexicalLookup(sourceText);
+            if (normalizedSourceText.Length < 8)
+                continue;
+
+            var sourceSupportsTitle = normalizedSourceText.Contains(normalizedTitle, StringComparison.Ordinal)
+                || PrimaryContentTermsTightlySupportPlanningTitle(normalizedTitle, normalizedSourceText);
+            if (sourceSupportsTitle)
+            {
+                hasSupportingSourceText = true;
+                continue;
+            }
+
+            if (HasStrongLocalStructuredPlanningProofText(sourceText)
+                || PageEvidenceHasRecipeCardProofCue(sourceText))
+            {
+                return false;
+            }
+        }
+
+        return hasSupportingSourceText
+            || card.Signals?.Any(signal =>
+            {
+                var normalizedSignal = NormalizeLexicalLookup(signal);
+                return normalizedSignal.Contains(normalizedTitle, StringComparison.Ordinal)
+                    || PrimaryContentTermsTightlySupportPlanningTitle(normalizedTitle, normalizedSignal);
+            }) == true;
+    }
+
+    private static bool ContentCardKindLooksLikeStructuredPlanningTitleAnchor(RagHitContentCardSummary card)
+    {
+        var kind = NormalizeLexicalLookup(card.Kind);
+        return kind.Contains("page_embedded", StringComparison.Ordinal)
+            || kind.Contains("embedded_title", StringComparison.Ordinal)
+            || kind.Contains("unit", StringComparison.Ordinal)
+            || kind.Contains("title", StringComparison.Ordinal)
+            || kind.Contains("section", StringComparison.Ordinal);
+    }
+
+    private static bool PageEvidenceHasRecipeBodyProofCue(string? text)
+    {
+        var value = CollapseWhitespace(text ?? string.Empty);
+        if (value.Length < 32)
+            return false;
+
+        var normalized = NormalizeStructuredScanText(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        var hasIngredientCue = Regex.IsMatch(
+            normalized,
+            @"\bingr[eé]dients?\s*:",
+            RegexOptions.CultureInvariant);
+        var hasPreparationCue = Regex.IsMatch(
+            normalized,
+            @"(?:^|\s)pr[eé]paration\s*:",
+            RegexOptions.CultureInvariant);
+        if (!hasIngredientCue || !hasPreparationCue)
+            return false;
+
+        var hasMeasuredOrServingCue = CountMeasuredValueMarkers(normalized) >= 1
+            || CountNumericFactMarkers(normalized) >= 1
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:pour\s+\d{1,3}\s+(?:portions?|personnes?|pieces?|pi[eè]ces?)|\d+\s*(?:min|minutes?|h|heures?))\b",
+                RegexOptions.CultureInvariant);
+
+        return hasMeasuredOrServingCue
+            && !LooksLikeStructuredPlanningNavigationOrIndexNoise(value);
+    }
+
+    private static bool ContentCardCarriesStructuredPlanningEvidence(
+        RagHitContentCardSummary card,
+        string normalizedTitle)
+    {
+        var evidence = card.Evidence;
+        if (evidence is null)
+            return card.RawEvidence.HasValue;
+
+        var evidenceText = NormalizeLexicalLookup(BuildSourceBackedCardEvidenceSnippet(card));
+        var titleSupported = evidenceText.Contains(normalizedTitle, StringComparison.Ordinal)
+            || PrimaryContentTermsTightlySupportPlanningTitle(normalizedTitle, evidenceText)
+            || (card.Signals?.Any(signal =>
+            {
+                var normalizedSignal = NormalizeLexicalLookup(signal);
+                return normalizedSignal.Contains(normalizedTitle, StringComparison.Ordinal)
+                    || PrimaryContentTermsTightlySupportPlanningTitle(normalizedTitle, normalizedSignal);
+            }) == true);
+        if (!titleSupported)
+            return false;
+
+        return evidence.ScaleBasis is not null
+            || evidence.QuantityFacts.Count > 0
+            || evidence.Facts?.Count > 0
+            || card.RawEvidence.HasValue;
+    }
+
+    private static bool PageEvidenceHasRecipeCardProofCue(string? text)
+    {
+        var value = CollapseWhitespace(text ?? string.Empty);
+        if (value.Length < 24)
+            return false;
+
+        var normalized = NormalizeStructuredScanText(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        var hasRecipeStructureCue = Regex.IsMatch(
+            normalized,
+            @"\b(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|temps\s+de\s+(?:preparation|pr[eé]paration|cuisson)|cuisson\s*:|categories?\s+de\s+recettes?|modes?\s+de\s+preparation|pour\s+\d{1,3}\s+(?:portions?|personnes?|pieces?|pi[eè]ces?))\b",
+            RegexOptions.CultureInvariant);
+        if (!hasRecipeStructureCue)
+            return false;
+
+        var hasMeasuredOrServingCue = CountMeasuredValueMarkers(normalized) >= 1
+            || CountNumericFactMarkers(normalized) >= 1
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:pour\s+\d{1,3}\s+(?:portions?|personnes?|pieces?|pi[eè]ces?)|\d+\s*(?:min|minutes?|h|heures?))\b",
+                RegexOptions.CultureInvariant);
+
+        return hasMeasuredOrServingCue
+            && !LooksLikeStructuredPlanningNavigationOrIndexNoise(value);
+    }
+
+    private static bool HasConcreteContentCardEvidenceForTitle(
+        RagHitContentCardSummary card,
+        string normalizedTitle,
+        bool requireExactTitle = false)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle) || !HasConcreteContentCardEvidence(card))
+            return false;
+
+        var strictEvidence = BuildSourceBackedCardStrictEvidenceSnippet(card);
+        var normalizedEvidence = NormalizeLexicalLookup(strictEvidence);
+        if (normalizedEvidence.Length < 16)
+            return false;
+
+        var sourceEvidenceTexts = EnumerateContentCardSourceEvidenceTexts(card)
+            .Select(CollapseWhitespace)
+            .Where(static text => !string.IsNullOrWhiteSpace(text))
+            .ToArray();
+        if (sourceEvidenceTexts.Length > 0)
+        {
+            var sourceTextProvesTitle = sourceEvidenceTexts.Any(sourceText =>
+            {
+                var normalizedSourceText = NormalizeLexicalLookup(sourceText);
+                if (normalizedSourceText.Length < 16)
+                    return false;
+
+                var titleMatchesSourceText = normalizedSourceText.Contains(normalizedTitle, StringComparison.Ordinal)
+                                             || (!requireExactTitle && PrimaryContentTermsTightlySupportPlanningTitle(normalizedTitle, normalizedSourceText));
+                return titleMatchesSourceText && HasStrongLocalStructuredPlanningProofText(sourceText);
+            });
+            if (!sourceTextProvesTitle)
+                return false;
+        }
+
+        if (!normalizedEvidence.Contains(normalizedTitle, StringComparison.Ordinal)
+            && (requireExactTitle || !PrimaryContentTermsTightlySupportPlanningTitle(normalizedTitle, normalizedEvidence)))
+        {
+            return false;
+        }
+
+        return HasStrongLocalStructuredPlanningProofText(strictEvidence);
+    }
+
+    private static bool ContentCardEvidenceIsSupportedByPrimaryPageText(
+        RagHitSummary hit,
+        RagHitContentCardSummary card,
+        string normalizedTitle,
+        bool requireStrictPageLocalSupport = false)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        var rawPageEvidence = BuildPageLocalStructuredPlanningEvidenceText(hit);
+        var normalizedPageEvidence = NormalizeLexicalLookup(rawPageEvidence);
+        if (normalizedPageEvidence.Length < 24)
+            return false;
+
+        if (PrimaryEvidenceContainsLocalStructuredPlanningProof(hit, normalizedTitle, rawPageEvidence))
+            return true;
+
+        if (!SourceBackedContentCardHasExplicitPageAnchor(card))
+            return false;
+
+        foreach (var sourceText in EnumerateContentCardSourceEvidenceTexts(card))
+        {
+            var normalizedSourceText = NormalizeLexicalLookup(sourceText);
+            if (normalizedSourceText.Length < 24
+                || !normalizedSourceText.Contains(normalizedTitle, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (!ContentCardSourceTextIsAnchoredInPrimaryPageText(
+                    normalizedPageEvidence,
+                    normalizedSourceText,
+                    normalizedTitle,
+                    requireStrictPageLocalSupport))
+            {
+                continue;
+            }
+
+            if (PrimaryEvidenceContainsLocalStructuredPlanningProof(hit, normalizedTitle, sourceText))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static string BuildPageLocalStructuredPlanningEvidenceText(RagHitSummary hit)
+        => CollapseWhitespace(string.Join(' ', new[]
+        {
+            hit.Excerpt,
+            hit.FullText,
+            hit.ContextualSnippet
+        }.Where(static value => !string.IsNullOrWhiteSpace(value))));
+
+    private static bool ContentCardSourceTextIsAnchoredInPrimaryPageText(
+        string normalizedPageEvidence,
+        string normalizedSourceText,
+        string normalizedTitle,
+        bool requireStrictPageLocalSupport = false)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedPageEvidence)
+            || string.IsNullOrWhiteSpace(normalizedSourceText)
+            || string.IsNullOrWhiteSpace(normalizedTitle))
+        {
+            return false;
+        }
+
+        if (normalizedPageEvidence.Contains(normalizedSourceText, StringComparison.Ordinal))
+            return true;
+
+        var titleIndex = normalizedPageEvidence.IndexOf(normalizedTitle, StringComparison.Ordinal);
+        if (titleIndex < 0)
+            return false;
+
+        var windowStart = Math.Max(0, titleIndex - 120);
+        var windowEnd = Math.Min(normalizedPageEvidence.Length, titleIndex + normalizedTitle.Length + 520);
+        var pageWindow = normalizedPageEvidence[windowStart..windowEnd];
+        if (!pageWindow.Contains(normalizedTitle, StringComparison.Ordinal))
+            return false;
+
+        if (requireStrictPageLocalSupport
+            && !HasStrongLocalStructuredPlanningProofText(pageWindow))
+        {
+            return false;
+        }
+
+        var sourceTerms = ExtractPlanningAnswerSupportTerms(normalizedSourceText)
+            .Where(static term => term.Length >= 3)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (sourceTerms.Length == 0)
+            return false;
+
+        var titleTerms = ExtractPlanningAnswerSupportTerms(normalizedTitle)
+            .ToHashSet(StringComparer.Ordinal);
+        var nonTitleTerms = sourceTerms
+            .Where(term => !titleTerms.Contains(term))
+            .ToArray();
+        if (nonTitleTerms.Length == 0)
+            return pageWindow.Contains(normalizedTitle, StringComparison.Ordinal);
+
+        var matched = nonTitleTerms.Count(term => pageWindow.Contains(term, StringComparison.Ordinal));
+        if (requireStrictPageLocalSupport)
+        {
+            var requiredMatches = Math.Max(3, (int)Math.Ceiling(nonTitleTerms.Length * 0.75));
+            return matched >= Math.Min(requiredMatches, nonTitleTerms.Length);
+        }
+
+        if (matched >= Math.Min(4, nonTitleTerms.Length))
+            return true;
+
+        return nonTitleTerms.Length <= 5
+            && matched >= 2
+            && matched / (double)nonTitleTerms.Length >= 0.50;
+    }
+
+    private static IEnumerable<string> EnumerateContentCardSourceEvidenceTexts(RagHitContentCardSummary card)
+    {
+        var evidence = card.Evidence;
+        if (evidence is null)
+            yield break;
+
+        foreach (var fact in evidence.QuantityFacts ?? Array.Empty<RagHitQuantityFactSummary>())
+        {
+            if (!string.IsNullOrWhiteSpace(fact.SourceText))
+                yield return fact.SourceText;
+        }
+
+        foreach (var fact in evidence.Facts ?? Array.Empty<RagHitEvidenceFactSummary>())
+        {
+            if (!string.IsNullOrWhiteSpace(fact.SourceText))
+                yield return fact.SourceText;
+        }
     }
 
     private static string BuildSourceBackedCardContextSnippet(RagHitSummary hit, RagHitContentCardSummary card, string cardEvidence)
@@ -10200,6 +19996,50 @@ If evidence is partial, write the best useful sourced answer possible and state 
         }
 
         return CollapseWhitespace(string.Join(' ', parts.Where(static value => !string.IsNullOrWhiteSpace(value))));
+    }
+
+    private static string BuildSourceBackedCardStrictEvidenceSnippet(RagHitContentCardSummary card)
+    {
+        var evidence = card.Evidence;
+        if (evidence is null)
+            return string.Empty;
+
+        var parts = new List<string>();
+
+        if (evidence.ScaleBasis is { } basis)
+        {
+            var basisText = CollapseWhitespace(string.Join(' ', new[]
+            {
+                basis.Label
+            }.Where(static value => !string.IsNullOrWhiteSpace(value))));
+            if (!string.IsNullOrWhiteSpace(basisText))
+                parts.Add(basisText);
+        }
+
+        foreach (var fact in evidence.QuantityFacts.Take(8))
+        {
+            var factText = CollapseWhitespace(string.Join(' ', new[]
+            {
+                fact.Label,
+                fact.SourceText
+            }.Where(static value => !string.IsNullOrWhiteSpace(value))));
+            if (!string.IsNullOrWhiteSpace(factText))
+                parts.Add(factText);
+        }
+
+        foreach (var fact in (evidence.Facts ?? []).Take(12))
+        {
+            var factText = CollapseWhitespace(string.Join(' ', new[]
+            {
+                fact.Label,
+                fact.Value,
+                fact.SourceText
+            }.Where(static value => !string.IsNullOrWhiteSpace(value))));
+            if (!string.IsNullOrWhiteSpace(factText))
+                parts.Add(factText);
+        }
+
+        return CollapseWhitespace(string.Join(' ', parts));
     }
 
     private static SourceBackedOptionCandidate ApplySoftChoiceOptionKindScore(
@@ -10491,6 +20331,9 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (profile.Role is "navigation" or "fragment" or "low_confidence")
             return false;
 
+        if (!HasConcreteFinalSourceBackedEvidence(hit))
+            return false;
+
         var text = NormalizeLexicalLookup(GetRagHitLookupText(hit));
         var evidence = NormalizeLexicalLookup($"{GetRagHitPrimaryEvidenceText(hit)} {hit.ContextualSnippet}");
         if (Regex.IsMatch(evidence, @"\b(?:a\s*pplication|application|communaute|community|carnets?|noter|notez|commenter|partagez|partager|share|rating|account)\b", RegexOptions.CultureInvariant)
@@ -10518,6 +20361,89 @@ If evidence is partial, write the best useful sourced answer possible and state 
             && IsUsableSourceBackedOptionTitle(title)
             && (hit.Score >= 0.5
                 || ComputeEvidenceShapeScore(hit, GetRagHitLookupText(hit), includeBackendHints: true) >= 3))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasConcreteFinalSourceBackedEvidence(RagHitSummary hit)
+    {
+        if (BackendSelectionHintsPreferUsableEvidence(hit))
+            return true;
+
+        if (BackendSelectionHintsPreferNavigation(hit) || BackendSelectionHintsPreferLowSignal(hit))
+            return false;
+
+        var contentEvidence = CollapseWhitespace(GetRagHitPrimaryContentText(hit));
+        var structuredEvidence = CollapseWhitespace(GetRagHitStructuredEvidenceText(hit));
+        var lookupText = CollapseWhitespace(GetRagHitLookupText(hit));
+        if (string.IsNullOrWhiteSpace(contentEvidence)
+            && string.IsNullOrWhiteSpace(structuredEvidence)
+            && string.IsNullOrWhiteSpace(lookupText))
+        {
+            return false;
+        }
+
+        var normalizedEvidence = NormalizeLexicalLookup($"{contentEvidence} {structuredEvidence}");
+        var normalizedLookup = NormalizeLexicalLookup(lookupText);
+        var cardTitles = (hit.MatchedContentCards ?? Array.Empty<RagHitContentCardSummary>())
+            .Select(static card => NormalizeLexicalLookup(CleanSourceBackedOptionTitle(card.Title)))
+            .Where(static title => !string.IsNullOrWhiteSpace(title))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        if (!string.IsNullOrWhiteSpace(normalizedEvidence)
+            && cardTitles.Length > 0
+            && cardTitles.Contains(normalizedEvidence)
+            && CountNumericFactMarkers(normalizedEvidence) == 0)
+        {
+            return false;
+        }
+
+        var hasConcreteContentCardEvidence = hit.MatchedContentCards?.Any(HasConcreteContentCardEvidence) == true;
+        var normalizedContentEvidence = NormalizeLexicalLookup(contentEvidence);
+        var contentRepeatsOnlyCardTitle = cardTitles.Any(title =>
+            string.Equals(normalizedContentEvidence, title, StringComparison.Ordinal)
+            || string.Equals(normalizedContentEvidence, $"{title} {title}", StringComparison.Ordinal));
+        if (!hasConcreteContentCardEvidence
+            && cardTitles.Length > 0
+            && !string.IsNullOrWhiteSpace(normalizedContentEvidence)
+            && contentRepeatsOnlyCardTitle
+            && CountNumericFactMarkers(normalizedContentEvidence) == 0)
+        {
+            return false;
+        }
+
+        if (hit.MatchedContentCards is { Count: > 0 } cards
+            && cards.Any(static card =>
+                card.RawEvidence.HasValue
+                || card.Evidence is { QuantityFacts.Count: > 0 }
+                || card.Evidence?.Facts is { Count: > 0 }))
+        {
+            return true;
+        }
+
+        if (ComputeStructuredProcedureVisibleEvidenceCueScore(hit) >= 2)
+            return true;
+        if (ComputeProcedureCompletenessCueScore(hit) >= 5)
+            return true;
+        if (CountProcedureStepMarkers(NormalizeStructuredScanText(lookupText)) > 0)
+            return true;
+        if (ExtractBestVisibleDurationMinutes(hit).HasValue)
+            return true;
+        if (CountNumericFactMarkers(NormalizeStructuredScanText($"{contentEvidence} {structuredEvidence}")) > 0)
+            return true;
+        if (!string.IsNullOrWhiteSpace(hit.FullText) && hit.FullText.Length >= 120)
+            return true;
+        if (CollapseWhitespace($"{contentEvidence} {structuredEvidence}").Length >= 90)
+            return true;
+        if (!string.IsNullOrWhiteSpace(normalizedLookup)
+            && Regex.IsMatch(
+                normalizedLookup,
+                @"\b(?:preparation|operation|workflow|execution|procedure|etapes?|steps?|method|methode|components?|materiel|materials?|requirements?|values?|valeurs?|quantities?|quantites?)\b",
+                RegexOptions.CultureInvariant))
         {
             return true;
         }
@@ -10638,6 +20564,34 @@ If evidence is partial, write the best useful sourced answer possible and state 
             : $"{docLabel} {SourceBackedPagePrefix(language)}{hit.PageStart}";
     }
 
+    private static IReadOnlyList<string> ExtractSourceBackedCardTitleVariants(string? value)
+    {
+        var raw = CollapseWhitespace(value ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(raw))
+            return Array.Empty<string>();
+
+        var hasStrongSeparator = Regex.IsMatch(raw, @"[\r\n|;\u2022]|//", RegexOptions.CultureInvariant);
+        var fragments = hasStrongSeparator
+            ? Regex.Split(raw, @"\s*(?:[\r\n]+|\|\||\||//|;|\u2022)\s*", RegexOptions.CultureInvariant)
+            : new[] { raw };
+
+        var titles = fragments
+            .Select(CleanSourceBackedOptionTitle)
+            .Where(static title => !string.IsNullOrWhiteSpace(title))
+            .Where(IsUsableSourceBackedOptionTitle)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (titles.Count == 0 && !hasStrongSeparator)
+        {
+            var wholeTitle = CleanSourceBackedOptionTitle(raw);
+            if (IsUsableSourceBackedOptionTitle(wholeTitle))
+                titles.Add(wholeTitle);
+        }
+
+        return titles;
+    }
+
     private static IReadOnlyList<string> ExtractNamedEntityLikeQueryTerms(string? query)
     {
         if (string.IsNullOrWhiteSpace(query))
@@ -10672,7 +20626,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             return profileCandidates[0].Title;
 
         var candidates = ExtractSourceBackedTitleCandidates(hit)
-            .Concat(new[] { ExtractPlanItemTitleV2(GetPlanExtractionText(hit)) })
+            .Concat(ExtractPlanItemTitleCandidatesV2(GetPlanExtractionText(hit)))
             .Select(CleanSourceBackedOptionTitle)
             .Where(title => !string.IsNullOrWhiteSpace(title))
             .Where(IsUsableSourceBackedOptionTitle)
@@ -10692,10 +20646,24 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
     private static string CleanSourceBackedOptionTitle(string? value)
     {
-        var title = HumanizePlanItemTitleV2(value ?? string.Empty);
+        var compositeTitle = TryCleanCompositeSourceBackedOptionTitle(value);
+        if (!string.IsNullOrWhiteSpace(compositeTitle))
+            return compositeTitle;
+
+        var title = RepairSplitOcrPlanningAxisTerms(HumanizePlanItemTitleV2(value ?? string.Empty));
         if (string.IsNullOrWhiteSpace(title))
             return string.Empty;
 
+        var originalTitle = title;
+        title = StripLeadingStructuredPlanningFieldLabelFromTitle(title);
+        title = StripLeadingCompactOcrContextLabelFromTitle(title);
+        title = StripTrailingAllCapsContextLabelFromTitle(title);
+        title = StripTrailingStructuredPlanningContextSuffixFromTitle(title);
+        title = StripTrailingGenericStructuredContextPhraseFromTitle(title);
+        title = StripTrailingCompactOcrContextLabelFromTitle(title);
+        title = StripLeadingRecipeSectionNoiseFromTitle(title);
+        title = StripTrailingRecipeSectionNoiseFromTitle(title);
+        title = StripLeadingLowSignalStructuredFieldValuePrefixFromTitle(title);
         title = Regex.Replace(
             title,
             @"^([\p{Lu}0-9 '&/\-,\u00c0-\u017f]{4,48})\s+(?:l['\u2019]|le|la|les|un|une)\b.+$",
@@ -10718,12 +20686,693 @@ If evidence is partial, write the best useful sourced answer possible and state 
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         title = Regex.Replace(
             title,
+            @"^(.{3,70}?)(?:\s+\p{L}{1,3})?\s+\d+\)?\s+(?:\p{L}{1,3}\s+)?(?:min|mn)\b.*$",
+            "$1",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        title = Regex.Replace(
+            title,
             @"^(.{4,70}?)(?:\s+(?:se|est|sont|peut|peuvent|permet|permettent|pour\s+obtenir|le\s+temps|observer)\b).*$",
             "$1",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        title = Regex.Replace(
+            title,
+            @"^(?<lead>[\p{Lu}\p{N} '&/\-,]{4,70})\s+\d{1,3}$",
+            "${lead}",
+            RegexOptions.CultureInvariant);
+        title = StripTrailingIsolatedOcrSuffixFromTitle(title);
+        title = StripTrailingVariantNoiseFromTitle(title);
+        title = StripTrailingStructuredPlanningContextSuffixFromTitle(title);
+        title = StripTrailingGenericStructuredContextPhraseFromTitle(title);
+        title = RecoverTitleBeforeTrailingGenericPrincipalContext(originalTitle, title);
+        title = StripLeadingLowSignalStructuredFieldValuePrefixFromTitle(title);
+        title = StripLeadingConnectorFieldValuePrefixBeforeStrongTitle(title);
         title = Regex.Replace(title, @"\s+", " ", RegexOptions.CultureInvariant).Trim(' ', '-', ':', '.', ',', ';');
+        if (ShouldRestoreClippedMeaningfulTitleSuffix(originalTitle, title))
+            title = originalTitle;
 
+        title = StripLeadingConnectorFieldValuePrefixBeforeStrongTitle(title);
         return title.Length <= 90 ? title : title[..90].TrimEnd();
+    }
+
+    private static bool ShouldRestoreClippedMeaningfulTitleSuffix(string originalTitle, string cleanedTitle)
+    {
+        var original = CollapseWhitespace(originalTitle).Trim(' ', '-', ':', '.', ',', ';');
+        var cleaned = CollapseWhitespace(cleanedTitle).Trim(' ', '-', ':', '.', ',', ';');
+        if (string.IsNullOrWhiteSpace(original)
+            || string.IsNullOrWhiteSpace(cleaned)
+            || original.Length <= cleaned.Length + 3
+            || !original.StartsWith(cleaned, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var normalizedCleaned = NormalizeLexicalLookup(cleaned);
+        var lastCleanedToken = Regex.Matches(normalizedCleaned, @"[\p{L}\p{N}]+", RegexOptions.CultureInvariant)
+            .Select(static match => match.Value)
+            .LastOrDefault();
+        if (string.IsNullOrWhiteSpace(lastCleanedToken)
+            || !(lastCleanedToken.Length <= 3 || IsLowercaseSourceBackedDisplayParticle(lastCleanedToken)))
+        {
+            return false;
+        }
+
+        var suffix = original[cleaned.Length..].Trim(' ', '-', ':', '.', ',', ';');
+        var normalizedSuffix = NormalizeLexicalLookup(suffix);
+        if (string.IsNullOrWhiteSpace(normalizedSuffix))
+            return false;
+
+        if (Regex.IsMatch(
+                normalizedSuffix,
+                @"^(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|technique|method|m[eé]thode|procedure|temps|time|duration|cuisson|nombre|quantit[eé]s?|quantities|pour\s+\d+|for\s+\d+|min|mn|pages?|sources?)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        var suffixTerms = ExtractQuerySignalTerms(normalizedSuffix)
+            .Where(static term => term.Length >= 4)
+            .Where(static term => !IsGenericPlanningCoverageTerm(term))
+            .Take(4)
+            .ToArray();
+        return suffixTerms.Any(static term => term.Length >= 5);
+    }
+
+    private static string RecoverTitleBeforeTrailingGenericPrincipalContext(string originalTitle, string currentTitle)
+    {
+        var original = CollapseWhitespace(originalTitle).Trim(' ', '-', ':', '.', ',', ';');
+        var current = CollapseWhitespace(currentTitle).Trim(' ', '-', ':', '.', ',', ';');
+        if (string.IsNullOrWhiteSpace(original))
+            return current;
+
+        var normalizedOriginal = NormalizeLexicalLookup(original);
+        if (!Regex.IsMatch(normalizedOriginal, @"\b(?:princi|principal|principaux|paux)\b", RegexOptions.CultureInvariant))
+            return current;
+        if (Regex.IsMatch(
+                normalizedOriginal,
+                @"\b(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|procedure|proc[eé]dure|method|m[eé]thode|steps?|[eé]tapes?|materials?|mat[eé]riel)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return current;
+        }
+
+        var genericTerms = BuildStructuredAxisPlannerGenericInventoryTerms("fr", query: null)
+            .Select(NormalizeLexicalLookup)
+            .Where(static term => term.Length >= 4)
+            .Where(static term => !Regex.IsMatch(term, @"^(?:princi|principal|principaux|paux)$", RegexOptions.CultureInvariant))
+            .Distinct(StringComparer.Ordinal)
+            .OrderByDescending(static term => term.Length)
+            .ToArray();
+
+        foreach (var term in genericTerms)
+        {
+            var match = Regex.Match(
+                original,
+                @"^(?<lead>.{8,90}?)(?:\s*" + Regex.Escape(term) + @")\s+princ?i?(?:\s*-\s*|\s+)?(?:paux|pales?|pale|pal|p)?$",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (!match.Success)
+                continue;
+
+            var lead = CollapseWhitespace(match.Groups["lead"].Value).Trim(' ', '-', ':', '.', ',', ';');
+            var normalizedLead = NormalizeLexicalLookup(lead);
+            var leadTerms = ExtractPlanningAnswerSupportTerms(normalizedLead)
+                .Where(static value => value.Length >= 3)
+                .Take(8)
+                .ToArray();
+            if (leadTerms.Length < 2 || leadTerms.All(static value => value.Length < 5))
+                continue;
+
+            var normalizedCurrent = NormalizeLexicalLookup(current);
+            if (string.IsNullOrWhiteSpace(normalizedCurrent)
+                || normalizedCurrent.Contains("princi", StringComparison.Ordinal)
+                || normalizedCurrent.Contains("paux", StringComparison.Ordinal)
+                || normalizedCurrent.StartsWith(normalizedLead, StringComparison.Ordinal)
+                || normalizedLead.StartsWith(normalizedCurrent, StringComparison.Ordinal))
+            {
+                return lead;
+            }
+        }
+
+        return current;
+    }
+
+    private static string StripTrailingVariantNoiseFromTitle(string? title)
+    {
+        var value = CollapseWhitespace(title ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var match = Regex.Match(
+            value,
+            @"^(?<lead>.{8,80}?)\s+(?:variant|variante|version|versi[oó]n|vers[aã]o)\s+\d+\b.*$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return match.Success
+            ? CollapseWhitespace(match.Groups["lead"].Value)
+            : value;
+    }
+
+    private static string StripTrailingAllCapsContextLabelFromTitle(string? title)
+    {
+        var value = CollapseWhitespace(title ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        const string suffixPattern = @"^[A-Z\u00c0-\u00d6\u00d8-\u00de]{4,6}\s+[A-Z\u00c0-\u00d6\u00d8-\u00de]{2,3}(?:\s+[A-Z\u00c0-\u00d6\u00d8-\u00de]{4,}){0,3}$";
+        for (var split = 8; split < value.Length - 6; split++)
+        {
+            var lead = CollapseWhitespace(value[..split]);
+            var suffix = CollapseWhitespace(value[split..]);
+            if (string.IsNullOrWhiteSpace(lead) || string.IsNullOrWhiteSpace(suffix))
+                continue;
+
+            var previous = value[split - 1];
+            var current = value[split];
+            if (!char.IsWhiteSpace(previous)
+                && !(IsUppercaseOcrBoundaryVowel(previous) && IsUppercaseOcrBoundaryConsonant(current)))
+            {
+                continue;
+            }
+
+            if (!Regex.IsMatch(suffix, suffixPattern, RegexOptions.CultureInvariant))
+                continue;
+
+            var suffixTerms = ExtractQuerySignalTerms(NormalizeLexicalLookup(suffix)).ToArray();
+            var suffixRawTerms = Regex.Matches(
+                    suffix,
+                    @"[A-Z\u00c0-\u00d6\u00d8-\u00de]+",
+                    RegexOptions.CultureInvariant)
+                .Select(static match => match.Value)
+                .ToArray();
+            var leadTerms = ExtractQuerySignalTerms(NormalizeLexicalLookup(lead)).ToArray();
+            if (leadTerms.Length >= 2
+                && suffixTerms.Length is >= 2 and <= 5
+                && suffixRawTerms.Any(static term => term.Length <= 3)
+                && LooksLikeCleanTitleBeforeIsolatedOcrSuffix(lead))
+            {
+                return lead;
+            }
+        }
+
+        return value;
+    }
+
+    private static bool IsUppercaseOcrBoundaryVowel(char value)
+        => "AEIOUYÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜÝ".Contains(value);
+
+    private static bool IsUppercaseOcrBoundaryConsonant(char value)
+        => char.IsUpper(value) && !IsUppercaseOcrBoundaryVowel(value);
+
+    private static string StripTrailingCompactOcrContextLabelFromTitle(string? title)
+    {
+        var value = CollapseWhitespace(title ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        for (var split = 8; split < value.Length - 6; split++)
+        {
+            var lead = CollapseWhitespace(value[..split]);
+            var suffix = CollapseWhitespace(value[split..]);
+            if (string.IsNullOrWhiteSpace(lead) || string.IsNullOrWhiteSpace(suffix))
+                continue;
+
+            if (!char.IsLetterOrDigit(value[split - 1]) || !char.IsLetter(value[split]))
+                continue;
+
+            if (!Regex.IsMatch(
+                    suffix,
+                    @"^[\p{L}\u00c0-\u017f-]{4,12}\s+[\p{L}\u00c0-\u017f-]{4,12}(?:\s+[\p{L}\u00c0-\u017f-]{4,12}){0,3}$",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            {
+                continue;
+            }
+
+            var leadTerms = ExtractQuerySignalTerms(NormalizeLexicalLookup(lead)).ToArray();
+            var suffixTerms = ExtractQuerySignalTerms(NormalizeLexicalLookup(suffix)).ToArray();
+            if (leadTerms.Length >= 2
+                && suffixTerms.Length is >= 2 and <= 4
+                && IsLikelyCompactOcrContextSuffixFirstTerm(suffixTerms[0])
+                && suffixTerms.All(static term => term.Length >= 4)
+                && LooksLikeCleanTitleBeforeIsolatedOcrSuffix(lead))
+            {
+                return lead;
+            }
+        }
+
+        return value;
+    }
+
+    private static string StripTrailingGenericStructuredContextPhraseFromTitle(string? title)
+    {
+        var value = CollapseWhitespace(title ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var genericTerms = BuildStructuredAxisPlannerGenericInventoryTerms("fr", query: null)
+            .Select(NormalizeLexicalLookup)
+            .Where(static term => term.Length >= 3)
+            .ToHashSet(StringComparer.Ordinal);
+        if (genericTerms.Count == 0)
+            return value;
+
+        var maxSplit = Math.Min(80, value.Length - 4);
+        for (var split = 4; split <= maxSplit; split++)
+        {
+            var lead = CollapseWhitespace(value[..split]);
+            var suffix = CollapseWhitespace(value[split..]);
+            if (string.IsNullOrWhiteSpace(lead) || string.IsNullOrWhiteSpace(suffix))
+                continue;
+
+            var previous = value[split - 1];
+            var current = value[split];
+            var hasVisibleBoundary = char.IsWhiteSpace(previous) || previous is '-' or ':' or ';' or ',' or '|';
+            var hasLikelyOcrBoundary = char.IsLetterOrDigit(previous) && char.IsUpper(current);
+            if (!hasVisibleBoundary && !hasLikelyOcrBoundary)
+                continue;
+
+            var normalizedSuffix = NormalizeLexicalLookup(suffix);
+            var suffixTerms = ExtractQuerySignalTerms(normalizedSuffix)
+                .Where(static term => term.Length >= 3)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (suffixTerms.Length is < 1 or > 6)
+                continue;
+
+            var hasGenericFirstSuffixTerm = IsGenericPlanningCoverageTerm(suffixTerms[0])
+                || genericTerms.Contains(suffixTerms[0])
+                || genericTerms.Any(generic => generic.Length >= 4 && suffixTerms[0].StartsWith(generic, StringComparison.Ordinal));
+            var hasBrokenPrincipalContext = hasGenericFirstSuffixTerm
+                && suffixTerms.Any(static term =>
+                    term is "princi" or "paux" or "principaux" or "principal" or "principale" or "principales")
+                && (suffix.Contains('-', StringComparison.Ordinal) || suffixTerms.Length >= 2);
+            var hasGenericContextTerm = suffixTerms.Any(term =>
+                IsGenericPlanningCoverageTerm(term)
+                || genericTerms.Contains(term)
+                || genericTerms.Any(generic => generic.Length >= 4 && term.StartsWith(generic, StringComparison.Ordinal)))
+                || hasBrokenPrincipalContext;
+            if (!hasGenericContextTerm)
+                continue;
+
+            var looksLikeContextSuffix = hasBrokenPrincipalContext
+                || suffix.Contains('-', StringComparison.Ordinal)
+                || suffixTerms.Any(static term => term is "princi" or "paux" or "principaux" or "principal" or "principale")
+                || suffixTerms.Length >= 2;
+            if (!looksLikeContextSuffix)
+                continue;
+
+            var leadTerms = ExtractPlanningAnswerSupportTerms(NormalizeLexicalLookup(lead))
+                .Where(static term => term.Length >= 3)
+                .Take(8)
+                .ToArray();
+            var lastLeadTerm = leadTerms.LastOrDefault() ?? string.Empty;
+            if (leadTerms.Length >= 2
+                && leadTerms.Any(static term => term.Length >= 5)
+                && (leadTerms.Length >= 3 || lastLeadTerm.Length >= 5))
+            {
+                return lead;
+            }
+        }
+
+        return value;
+    }
+
+    private static bool IsLikelyCompactOcrContextSuffixFirstTerm(string term)
+    {
+        var normalized = NormalizeLexicalLookup(term);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return IsGenericPlanningCoverageTerm(normalized)
+            || BuildStructuredAxisPlannerGenericInventoryTerms("fr", query: null)
+                .Select(NormalizeLexicalLookup)
+                .Any(candidate => string.Equals(candidate, normalized, StringComparison.Ordinal));
+    }
+
+    private static string StripTrailingIsolatedOcrSuffixFromTitle(string? title)
+    {
+        var value = CollapseWhitespace(title ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        value = Regex.Replace(
+            value,
+            @"^(?<lead>(?:[\p{L}\p{N}'\u2019/-]{2,}\s+){3,}[\p{L}\p{N}'\u2019/-]{2,})\s+[oO0]$",
+            "${lead}",
+            RegexOptions.CultureInvariant).Trim();
+
+        var shortSuffix = Regex.Match(
+            value,
+            @"^(?<lead>.{10,80}?)\s+(?<suffix>(?:[\p{Lu}0-9]{1,3}|[\p{Lu}][\p{Ll}]{1,2})(?:\s+(?:[\p{Lu}0-9]{1,3}|[\p{Lu}][\p{Ll}]{1,2})){1,4})$",
+            RegexOptions.CultureInvariant);
+        if (shortSuffix.Success
+            && LooksLikeCleanTitleBeforeIsolatedOcrSuffix(shortSuffix.Groups["lead"].Value)
+            && LooksLikeIsolatedShortOcrSuffix(shortSuffix.Groups["suffix"].Value))
+        {
+            return CollapseWhitespace(shortSuffix.Groups["lead"].Value);
+        }
+
+        return value;
+    }
+
+    private static bool LooksLikeTrailingIsolatedOcrSuffixTitle(string? title)
+    {
+        var value = CollapseWhitespace(title ?? string.Empty);
+        if (Regex.IsMatch(
+            value,
+            @"^(?:[\p{L}\p{N}'\u2019/-]{2,}\s+){4,}[oO0]$",
+            RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        var shortSuffix = Regex.Match(
+            value,
+            @"^(?<lead>.{10,80}?)\s+(?<suffix>(?:[\p{Lu}0-9]{1,3}|[\p{Lu}][\p{Ll}]{1,2})(?:\s+(?:[\p{Lu}0-9]{1,3}|[\p{Lu}][\p{Ll}]{1,2})){1,4})$",
+            RegexOptions.CultureInvariant);
+        return shortSuffix.Success
+            && LooksLikeCleanTitleBeforeIsolatedOcrSuffix(shortSuffix.Groups["lead"].Value)
+            && LooksLikeIsolatedShortOcrSuffix(shortSuffix.Groups["suffix"].Value);
+    }
+
+    private static bool LooksLikeCleanTitleBeforeIsolatedOcrSuffix(string? lead)
+    {
+        var normalized = NormalizeLexicalLookup(lead);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        var terms = ExtractPlanningAnswerSupportTerms(normalized)
+            .Where(static term => term.Length >= 3)
+            .Take(8)
+            .ToArray();
+        return terms.Length >= 2
+            && terms.Any(static term => term.Length >= 5)
+            && !Regex.IsMatch(normalized, @"\b(?:de|du|des|a|à|au|aux|et|ou|with|and|of)$", RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeIsolatedShortOcrSuffix(string? suffix)
+    {
+        var tokens = CollapseWhitespace(suffix ?? string.Empty)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length < 2 || tokens.Length > 5)
+            return false;
+
+        var unknownShortTokens = 0;
+        foreach (var token in tokens)
+        {
+            var normalized = NormalizeLexicalLookup(token);
+            if (normalized.Length is < 1 or > 3)
+                return false;
+            if (!IsCommonShortNaturalTitleSuffixToken(normalized))
+                unknownShortTokens++;
+        }
+
+        return unknownShortTokens >= 2;
+    }
+
+    private static bool IsCommonShortNaturalTitleSuffixToken(string token)
+        => IsLowercaseSourceBackedDisplayParticle(token);
+
+    private static string TryCleanCompositeSourceBackedOptionTitle(string? value)
+    {
+        var raw = CollapseWhitespace(value ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(raw)
+            || !Regex.IsMatch(raw, @"\|\||\||//", RegexOptions.CultureInvariant))
+        {
+            return string.Empty;
+        }
+
+        return Regex.Split(raw, @"\s*(?:\|\||\||//)\s*", RegexOptions.CultureInvariant)
+            .Select(CleanSourceBackedOptionTitle)
+            .Where(static title => !string.IsNullOrWhiteSpace(title))
+            .Select((title, index) => new
+            {
+                Title = title,
+                Index = index,
+                Score = ScoreCompositeSourceBackedOptionTitleVariant(title)
+            })
+            .Where(static item => item.Score > -50)
+            .OrderByDescending(static item => item.Score)
+            .ThenBy(static item => item.Index)
+            .Select(static item => item.Title)
+            .FirstOrDefault() ?? string.Empty;
+    }
+
+    private static int ScoreCompositeSourceBackedOptionTitleVariant(string title)
+    {
+        var normalized = NormalizeLexicalLookup(title);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return -100;
+
+        var score = 0;
+        var terms = ExtractQuerySignalTerms(normalized)
+            .Where(static term => term.Length >= 3)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (terms.Length is >= 2 and <= 6)
+            score += 30;
+        if (terms.Any(static term => term.Length >= 5))
+            score += 8;
+        if (LooksLikeStandaloneStructuredPlanningFieldLabel(normalized)
+            || LooksLikeStructuredPlanningFieldOrOcrFragment(normalized))
+        {
+            score -= 100;
+        }
+        if (LooksLikeGenericRecipeInventoryTitle(normalized))
+            score -= 80;
+        if (Regex.IsMatch(normalized, @"\b(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|technique)\b", RegexOptions.CultureInvariant))
+            score -= 60;
+
+        return score;
+    }
+
+    private static readonly Regex LeadingStructuredPlanningFieldLabelTitleRegex = new(
+        @"^(?:ingredients?|ingr[eé]dients?|preparation|pr[eé]paration|technique|m[eé]thode|methode|procedure|etapes?|[eé]tapes?)\s*(?:[:\-/]\s*)?(?<rest>[\p{L}\p{N} '&/,\-\u00c0-\u017f]{4,100})$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    private static readonly Regex LeadingUpperStructuredPlanningFieldLabelTitleRegex = new(
+        @"^(?:INGREDIENTS?|INGR[EÉ]DIENTS?|PREPARATION|PR[EÉ]PARATION|TECHNIQUE|M[EÉ]THODE|METHODE|PROCEDURE|ETAPES?|[EÉ]TAPES?)(?<rest>[\p{Lu}0-9 '&/,\-\u00c0-\u017f]{4,100})$",
+        RegexOptions.CultureInvariant);
+
+    private static string StripLeadingStructuredPlanningFieldLabelFromTitle(string title)
+    {
+        var match = LeadingStructuredPlanningFieldLabelTitleRegex.Match(title);
+        if (!match.Success)
+            match = LeadingUpperStructuredPlanningFieldLabelTitleRegex.Match(title);
+
+        if (!match.Success)
+            return title;
+
+        var rest = CollapseWhitespace(match.Groups["rest"].Value).Trim(' ', '-', ':', '.', ',', ';');
+        var termCount = ExtractQuerySignalTerms(NormalizeLexicalLookup(rest))
+            .Where(static term => term.Length >= 4)
+            .Take(2)
+            .Count();
+        return termCount >= 2 ? rest : title;
+    }
+
+    private static string StripLeadingRecipeSectionNoiseFromTitle(string title)
+    {
+        var cleaned = Regex.Replace(
+            title,
+            @"^(?:astuces?|tips?|conseils?)(?:[-\s]+)?(?=[\p{Lu}\u00c0-\u017f]{4,})",
+            string.Empty,
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var termCount = ExtractQuerySignalTerms(NormalizeLexicalLookup(cleaned))
+            .Where(static term => term.Length >= 4)
+            .Take(2)
+            .Count();
+        return string.IsNullOrWhiteSpace(cleaned) || termCount < 2 ? title : cleaned;
+    }
+
+    private static string StripTrailingRecipeSectionNoiseFromTitle(string title)
+    {
+        var cleaned = Regex.Replace(
+            title,
+            @"(?:\s+|(?<=[\p{L}\u00c0-\u017f])(?=Temps\s+de|Nombre\s+de|Ingr[eé]dients?|Pr[eé]paration|Technique|Materials?|Items?|Steps?|Method|Procedure))(?:Temps\s+de|Nombre\s+de|Ingr[eé]dients?|Pr[eé]paration|Technique|Materials?|Items?|Steps?|Method|Procedure)\b.*$",
+            string.Empty,
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        cleaned = Regex.Replace(
+            cleaned,
+            @"(?:LES\s+[AÀ]|LE\s+[AÀ]|LA\s+[AÀ])$",
+            string.Empty,
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        cleaned = Regex.Replace(cleaned, @"\s+", " ", RegexOptions.CultureInvariant).Trim(' ', '-', ':', '.', ',', ';');
+
+        var termCount = ExtractQuerySignalTerms(NormalizeLexicalLookup(cleaned))
+            .Where(static term => term.Length >= 3)
+            .Take(2)
+            .Count();
+        return string.IsNullOrWhiteSpace(cleaned) || termCount < 1 ? title : cleaned;
+    }
+
+    private static string StripLeadingCompactOcrContextLabelFromTitle(string? title)
+    {
+        var value = CollapseWhitespace(title ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var maxSplit = Math.Min(28, value.Length - 8);
+        for (var split = 6; split <= maxSplit; split++)
+        {
+            var prefix = CollapseWhitespace(value[..split]);
+            var rest = CollapseWhitespace(value[split..]);
+            if (string.IsNullOrWhiteSpace(prefix)
+                || string.IsNullOrWhiteSpace(rest)
+                || !char.IsLetterOrDigit(value[split - 1])
+                || !char.IsLetter(value[split])
+                || !Regex.IsMatch(prefix, @"^[\p{Lu}\p{Lt}0-9-]{6,28}$", RegexOptions.CultureInvariant)
+                || !prefix.Contains('-', StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var restTerms = ExtractPlanningAnswerSupportTerms(NormalizeLexicalLookup(rest))
+                .Where(static term => term.Length >= 3)
+                .Take(7)
+                .ToArray();
+            if (restTerms.Length >= 2
+                && restTerms.Any(static term => term.Length >= 5)
+                && LooksLikeCleanTitleBeforeIsolatedOcrSuffix(rest))
+            {
+                return rest;
+            }
+        }
+
+        return value;
+    }
+
+    private static string StripTrailingStructuredPlanningContextSuffixFromTitle(string? title)
+    {
+        var value = CollapseWhitespace(title ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var match = Regex.Match(
+            value,
+            @"^(?<lead>.{4,80}?)\s+(?<suffix>(?:[\p{Lu}\p{Lt}][\p{L}\p{N}'\u2019-]{2,14})(?:\s+[\p{Lu}\p{Lt}]?[\p{L}\p{N}'\u2019-]{2,14}){0,5})$",
+            RegexOptions.CultureInvariant);
+        if (!match.Success)
+            return value;
+
+        var lead = CollapseWhitespace(match.Groups["lead"].Value);
+        var suffix = CollapseWhitespace(match.Groups["suffix"].Value);
+        var normalizedSuffix = NormalizeLexicalLookup(suffix);
+        var suffixTerms = ExtractQuerySignalTerms(normalizedSuffix)
+            .Where(static term => term.Length >= 3)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (suffixTerms.Length is < 1 or > 6)
+            return value;
+
+        var genericTerms = BuildStructuredAxisPlannerGenericInventoryTerms("fr", query: null)
+            .ToHashSet(StringComparer.Ordinal);
+        var hasGenericFirstSuffixTerm = IsGenericPlanningCoverageTerm(suffixTerms[0])
+            || genericTerms.Contains(suffixTerms[0])
+            || genericTerms.Any(generic => generic.Length >= 4 && suffixTerms[0].StartsWith(generic, StringComparison.Ordinal));
+        var hasBrokenPrincipalContext = hasGenericFirstSuffixTerm
+            && suffixTerms.Any(static term =>
+                term is "princi" or "paux" or "principaux" or "principal" or "principale" or "principales")
+            && (suffix.Contains('-', StringComparison.Ordinal) || suffixTerms.Length >= 2);
+        var hasGenericContextTerm = suffixTerms.Any(term =>
+            IsGenericPlanningCoverageTerm(term)
+            || genericTerms.Contains(term)
+            || genericTerms.Any(generic => generic.Length >= 4 && term.StartsWith(generic, StringComparison.Ordinal)))
+            || hasBrokenPrincipalContext;
+        if (!hasGenericContextTerm)
+            return value;
+
+        var looksLikeOcrContextSuffix =
+            hasBrokenPrincipalContext
+            || suffix.Contains('-', StringComparison.Ordinal)
+            || suffixTerms.Any(static term => term is "princi" or "paux" or "principaux" or "principal" or "principale")
+            || suffixTerms.Length >= 2;
+        if (!looksLikeOcrContextSuffix)
+            return value;
+
+        var leadTerms = ExtractPlanningAnswerSupportTerms(NormalizeLexicalLookup(lead))
+            .Where(static term => term.Length >= 3)
+            .Take(8)
+            .ToArray();
+        var lastLeadTerm = leadTerms.LastOrDefault() ?? string.Empty;
+        return leadTerms.Length >= 2
+            && leadTerms.Any(static term => term.Length >= 5)
+            && (leadTerms.Length >= 3 || lastLeadTerm.Length >= 5)
+            ? lead
+            : value;
+    }
+
+    private static string StripLeadingLowSignalStructuredFieldValuePrefixFromTitle(string? title)
+    {
+        var value = CollapseWhitespace(title ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var match = Regex.Match(
+            value,
+            @"^(?<prefix>[\p{Lu}\p{Ll}\u00c0-\u017f'\u2019]{2,10}(?:\s+(?:et|and|avec|with|&)\s+|\s+)[\p{Lu}\p{Ll}\u00c0-\u017f'\u2019]{2,10}(?:\s+[\p{Lu}\p{Ll}\u00c0-\u017f'\u2019]{2,10})?)\s+(?<rest>[\p{Lu}\p{Lt}0-9][\p{Lu}\p{Lt}0-9 '\u2019&/,\-\u00c0-\u017f]{6,90})$",
+            RegexOptions.CultureInvariant);
+        if (!match.Success)
+            return value;
+
+        var prefix = CollapseWhitespace(match.Groups["prefix"].Value);
+        var rest = CollapseWhitespace(match.Groups["rest"].Value);
+        if (!LooksLikeLowSignalStructuredFieldValuePrefix(prefix))
+            return value;
+
+        var restTerms = ExtractPlanningAnswerSupportTerms(NormalizeLexicalLookup(rest))
+            .Where(static term => term.Length >= 3)
+            .Take(8)
+            .ToArray();
+        if (restTerms.Length < 2 || restTerms.All(static term => term.Length < 5))
+            return value;
+
+        var restLetters = rest.Where(char.IsLetter).ToArray();
+        if (restLetters.Length < 6)
+            return value;
+
+        var upperRatio = restLetters.Count(char.IsUpper) / (double)restLetters.Length;
+        return upperRatio >= 0.55 ? rest : value;
+    }
+
+    private static string StripLeadingConnectorFieldValuePrefixBeforeStrongTitle(string? title)
+    {
+        var value = CollapseWhitespace(title ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        foreach (Match boundary in Regex.Matches(value, @"\s+", RegexOptions.CultureInvariant))
+        {
+            var prefix = CollapseWhitespace(value[..boundary.Index]);
+            var rest = CollapseWhitespace(value[(boundary.Index + boundary.Length)..]).Trim(' ', '-', ':', '.', ',', ';');
+            if (prefix.Length > 42 || string.IsNullOrWhiteSpace(rest))
+                break;
+
+            if (!LooksLikeLowSignalStructuredFieldValuePrefix(prefix))
+                continue;
+
+            var restTerms = ExtractPlanningAnswerSupportTerms(NormalizeLexicalLookup(rest))
+                .Where(static term => term.Length >= 3)
+                .Take(8)
+                .ToArray();
+            if (restTerms.Length >= 2 && restTerms.Any(static term => term.Length >= 5))
+                return rest;
+        }
+
+        return value;
+    }
+
+    private static bool LooksLikeLowSignalStructuredFieldValuePrefix(string? prefix)
+    {
+        var normalized = NormalizeLexicalLookup(prefix);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        var terms = Regex.Matches(normalized, @"[\p{L}\p{N}]{2,}", RegexOptions.CultureInvariant)
+            .Select(static match => match.Value)
+            .Where(static term => term is not ("et" or "and" or "avec" or "with"))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        return terms.Length is >= 2 and <= 4
+            && terms.All(static term => term.Length <= 8)
+            && Regex.IsMatch(normalized, @"\b(?:et|and|avec|with)\b", RegexOptions.CultureInvariant);
     }
 
     private static int ComputeSourceBackedOptionTitleScore(string title, RagHitSummary hit, string? query)
@@ -10745,8 +21394,18 @@ If evidence is partial, write the best useful sourced answer possible and state 
             score -= 12;
         if (Regex.IsMatch(normalizedTitle, @"\b(?:document|section|categories?|modes?|preparation|operation|workflow|execution|pages?)\b", RegexOptions.CultureInvariant))
             score -= 16;
+        if (LooksLikeGenericMealPlanningInventoryTitle(title, query))
+            score -= 70;
         if (LooksLikeWeakSourceBackedOptionTitle(title))
             score -= 50;
+        if (ContentCardEvidenceNamesDifferentStructuredPlanningItem(
+                new SourceBackedOptionCandidate(hit, title, Score: 0, VisibleMinutes: null),
+                normalizedTitle))
+        {
+            score -= 100;
+        }
+        if (LooksLikeReferenceAttributionSourceTitle(new SourceBackedOptionCandidate(hit, title, Score: 0, VisibleMinutes: null)))
+            score -= 90;
 
         return score;
     }
@@ -11852,9 +22511,9 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 Nearby: "Fonti recuperate in conflitto:"
             ),
             _ => (
-                Header: $"Je n'ai pas trouve d'option sourcee qui respecte l'exclusion : {excluded}.",
-                Detail: "Les extraits retrouves contiennent encore l'element exclu, donc je n'invente pas une variante conforme.",
-                Nearby: "Sources retrouvees en conflit :"
+                Header: $"Je n'ai pas trouvé d'option sourcée qui respecte l'exclusion : {excluded}.",
+                Detail: "Les extraits retrouvés contiennent encore l'élément exclu, donc je n'invente pas une variante conforme.",
+                Nearby: "Sources retrouvées en conflit :"
             )
         };
 
@@ -11887,11 +22546,11 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var note = NormalizeLanguageCode(language) switch
         {
             "en" => "Note: at least one cited page has a low extraction/OCR confidence flag, so verify the source page if the detail is critical.",
-            "es" => "Nota: al menos una pagina citada tiene una marca de baja confianza de extraccion/OCR; verifica la pagina fuente si el detalle es critico.",
-            "pt" => "Nota: pelo menos uma pagina citada tem baixa confianca de extracao/OCR; verifica a pagina fonte se o detalhe for critico.",
-            "de" => "Hinweis: Mindestens eine zitierte Seite hat eine niedrige Extraktions- oder OCR-Vertrauensbewertung. Pruefe die Quellseite, wenn das Detail kritisch ist.",
-            "it" => "Nota: almeno una pagina citata ha un indicatore di bassa affidabilita di estrazione/OCR; verifica la pagina sorgente se il dettaglio e critico.",
-            _ => "Note : au moins une page citee a un signal de confiance faible d'extraction/OCR ; verifie la page source si le detail est critique."
+            "es" => "Nota: al menos una página citada tiene una marca de baja confianza de extracción/OCR; verifica la página fuente si el detalle es crítico.",
+            "pt" => "Nota: pelo menos uma página citada tem baixa confiança de extração/OCR; verifica a página fonte se o detalhe for crítico.",
+            "de" => "Hinweis: Mindestens eine zitierte Seite hat eine niedrige Extraktions- oder OCR-Vertrauensbewertung. Prüfe die Quellseite, wenn das Detail kritisch ist.",
+            "it" => "Nota: almeno una pagina citata ha un indicatore di bassa affidabilità di estrazione/OCR; verifica la pagina sorgente se il dettaglio è critico.",
+            _ => "Note : au moins une page citée a un signal de confiance faible d'extraction/OCR ; vérifie la page source si le détail est critique."
         };
 
         sb.AppendLine();
@@ -12379,12 +23038,12 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 "fonte",
                 "Le quantita assenti dalla fonte restano non specificate; non invento passaggi mancanti."),
             _ => (
-                "Voici l'adaptation deterministe des quantites a partir de la source citee.",
+                "Voici l'adaptation calculée à partir de la source citée.",
                 "Base source :",
                 "facteur",
-                "Quantites adaptees :",
+                "Quantités adaptées :",
                 "source",
-                "Les quantites absentes de la source restent non specifiees ; je n'invente pas les etapes manquantes.")
+                "Les quantités absentes de la source restent non spécifiées ; je n'invente pas les étapes manquantes.")
         };
     }
 
@@ -12552,7 +23211,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (Regex.IsMatch(normalized, @"\b(?:preparation|operation|workflow|execution|procedure|method|methode|etapes?|steps?|instructions?|requirements?|values?|materiel|materials?|equipment|tools?|outils?)\b", RegexOptions.CultureInvariant))
             return false;
 
-        scaled = $"{cleaned} (sans quantite sourcee)";
+        scaled = $"{cleaned} (quantité non précisée dans la source)";
         return true;
     }
 
@@ -12857,10 +23516,10 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 "Adattamento prudente:",
                 "Non invento quantita o passaggi esatti che non sono visibili negli estratti citati."),
             _ => (
-                "Je separe ce qui est directement appuye par les documents de l'adaptation prudente.",
+                "Je sépare ce qui est directement appuyé par les documents de l'adaptation prudente.",
                 "Ce qui vient des documents :",
                 "Adaptation prudente :",
-                "Je n'invente pas de quantites ni d'etapes exactes absentes des extraits cites.")
+                "Je n'invente pas de quantités ni d'étapes exactes absentes des passages cités.")
         };
     }
 
@@ -12910,7 +23569,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             {
                 $"Prendre les extraits cites comme base ; l'objectif d'adaptation est : {objective}.",
                 string.IsNullOrWhiteSpace(focusSuffix) ? "Prioriser les passages ou la cible demandee apparait explicitement." : $"Prioriser les passages ou ces cibles demandees apparaissent explicitement : {focusSuffix}.",
-                "Isoler les quantites ou contraintes visibles liees a la cible, puis modifier seulement cette partie en gardant les autres contraintes sourcees inchangees.",
+                "Isoler les quantités ou contraintes visibles liées à la cible, puis modifier seulement cette partie en gardant les autres contraintes sourcées inchangées.",
                 "Faire l'adaptation par petits paliers et verifier le resultat : si la cible participe a une contrainte fonctionnelle, reglementaire, de securite ou de performance, la validation devient obligatoire.",
                 "Pour une version finale operationnelle, choisir une page source citee afin de garder visibles toutes les contraintes documentees."
             }
@@ -13142,10 +23801,10 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 "Altri candidati con fonte:",
                 "Non e una classifica assoluta di tutta la base di conoscenza; riflette solo gli estratti recuperati."),
             _ => (
-                "D'apres les extraits disponibles uniquement, voici le classement le plus defendable :",
+                "D'après les passages disponibles, voici le classement le plus défendable :",
                 "Candidat principal",
-                "Autres candidats sources :",
-                "Ce n'est pas un classement absolu de toute la base de connaissance ; il reflete seulement les extraits retrouves.")
+                "Autres candidats sourcés :",
+                "Ce n'est pas un classement absolu de toute la base de connaissance ; il reflète seulement les passages retrouvés.")
         };
     }
 
@@ -13803,7 +24462,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 "pt" => "e uma das correspondencias recuperadas mais fortes",
                 "de" => "es ist einer der staerksten gefundenen Treffer",
                 "it" => "e una delle corrispondenze recuperate piu forti",
-                _ => "c'est une des correspondances retrouvees les plus fortes"
+                _ => "c'est une des correspondances retrouvées les plus fortes"
             });
 
         var because = NormalizeLanguageCode(language) switch
@@ -13892,12 +24551,12 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var displayTitle = ResolveSourceBackedExactItemDisplayTitle(requestedTitle, hits);
         var header = language switch
         {
-            "en" => $"I found the requested item \"{displayTitle}\" in the available sources. I keep the answer limited to the cited excerpts:",
-            "es" => $"He encontrado el elemento solicitado \"{displayTitle}\" en las fuentes disponibles. Limito la respuesta a los extractos citados:",
-            "pt" => $"Encontrei o item solicitado \"{displayTitle}\" nas fontes disponiveis. Limito a resposta aos excertos citados:",
-            "de" => $"Ich habe den angefragten Eintrag \"{displayTitle}\" in den verfuegbaren Quellen gefunden. Die Antwort bleibt auf die zitierten Auszuege begrenzt:",
-            "it" => $"Ho trovato l'elemento richiesto \"{displayTitle}\" nelle fonti disponibili. Limito la risposta agli estratti citati:",
-            _ => $"J'ai trouve l'element demande \"{displayTitle}\" dans les sources disponibles. Je limite la reponse aux extraits cites :"
+            "en" => $"I found \"{displayTitle}\" in the available sources. Here is the source-backed information I can use from the cited pages:",
+            "es" => $"He encontrado \"{displayTitle}\" en las fuentes disponibles. Estos son los datos con fuente que puedo usar desde las páginas citadas:",
+            "pt" => $"Encontrei \"{displayTitle}\" nas fontes disponíveis. Estas são as informações com fonte que posso usar a partir das páginas citadas:",
+            "de" => $"Ich habe \"{displayTitle}\" in den verfügbaren Quellen gefunden. Das sind die belegten Informationen aus den zitierten Seiten:",
+            "it" => $"Ho trovato \"{displayTitle}\" nelle fonti disponibili. Queste sono le informazioni documentate che posso usare dalle pagine citate:",
+            _ => $"J'ai trouvé « {displayTitle} » dans les sources disponibles. Voici les informations sourcées que je peux utiliser depuis les pages citées :"
         };
 
         if (LooksLikeParameterLookupRequest(query))
@@ -14085,7 +24744,18 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var lead = StripShortOcrPrefixForTitleQuality(normalized);
         if (Regex.IsMatch(
                 lead,
-                @"^(?:\d+[a-z]?|[ivxlcdm]{1,6})\s+(?:a\s+voir|voir|see|refer|consulter|page|section|chapter|part|partie|annexe|appendix|table|index)\b",
+                @"^(?:repas|meal|meals|petit\s+dejeuner|dejeuner|diner|breakfast|lunch|dinner|cena|pranzo|colazione|jantar|almoco|almoço|fruhstuck|mittagessen|abendessen)$",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (LooksLikeNoisyGeneratedSourceBackedExplorationQuery(raw))
+            return true;
+
+        if (Regex.IsMatch(
+                lead,
+                @"^(?:\d+[a-z]?|[ivxlcdm]{1,6})\s+(?:(?:a\s+){0,2}voir|see|refer|consulter|page|section|chapter|part|partie|annexe|appendix|table|index)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -14111,7 +24781,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 lead,
-                @"^(?:\p{L}{1,3}\s+){0,3}(?:mettre|mettez|placer|placez|ajouter|ajoutez|retirer|retirez|ouvrir|ouvrez|fermer|fermez|programmer|programmez|verifier|verifiez|controler|controlez|inspecter|inspectez|noter|notez|signer|signez|set|add|remove|place|put|open|close|program|check|verify|inspect|record|sign)\b",
+                @"^(?:\p{L}{1,3}\s+){0,3}(?:mettre|mettez|placer|placez|ajouter|ajoutez|retirer|retirez|ouvrir|ouvrez|fermer|fermez|programmer|programmez|verifier|verifiez|controler|controlez|inspecter|inspectez|noter|notez|signer|signez|verser|versez|melanger|m[eé]langez|incorporer|incorporez|faconner|fagonner|former|cuire|cuisiner|mijoter|servir|gouter|go[uû]ter|set|add|remove|place|put|open|close|program|check|verify|inspect|record|sign|pour|mix|cook|serve|taste)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -14125,6 +24795,38 @@ If evidence is partial, write the best useful sourced answer possible and state 
             return true;
         }
 
+        if (Regex.IsMatch(
+                lead,
+                @"^(?:sa|son|ses|ta|ton|tes|ma|mon|mes|my|your|his|her|their|its)\s+(?:repas|meal|meals|petit\s+dejeuner|dejeuner|diner|breakfast|lunch|dinner|cena|pranzo|colazione)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                lead,
+                @"^(?:repas|meal|meals|petit\s+dejeuner|dejeuner|diner|breakfast|lunch|dinner|cena|pranzo|colazione)\s+(?:leger|light|entre|between|vers|around|avant|before|apres|after|minuit|midnight)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                lead,
+                @"^(?:collation|snack|pause|break|sieste|rest|repos)\b.{0,32}\b(?:vers|around|avant|before|apres|after|entre|between|\d+\s*(?:h|heure|hour))\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                lead,
+                @"^(?:cuisiner|cuisinez|preparer|preparez|cook|prepare)\b.{0,50}\b(?:repas|meal|meals)\b.{0,24}\b(?:par\s+semaine|per\s+week|cada\s+semana|por\s+semana)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
         if (unitMarkerCount >= 2 && ExtractQuerySignalTerms(lead).Count() >= 7)
             return true;
 
@@ -14133,6 +24835,21 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (LooksLikeLowValueMarketingOrDocumentHeading(lead))
             return true;
+
+        if (LooksLikeAudienceOrCollectionSourceBackedHeadingTitle(lead))
+            return true;
+
+        if (Regex.IsMatch(
+                normalized,
+                @"^(?:become|be)(?:\s+a|\s+the)?\s+(?:master|chef|creator|maker|pro)\b",
+                RegexOptions.CultureInvariant)
+            || Regex.IsMatch(
+                normalized,
+                @"\b\p{L}{5,}be(?:\s+a|\s+the)?\s+(?:master|chef|creator|maker|pro)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
 
         var words = ExtractQuerySignalTerms(normalized).ToArray();
         if (words.Length >= 7
@@ -14150,14 +24867,50 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 && words.Length is >= 2 and <= 5
                 && Regex.IsMatch(
                     normalized,
-                    @"\b(?:become|welcome|companion|community|creative|solution|solutions|catalog|catalogue|guide|edition|copyright|isbn|introduction|foreword|preface)\b",
+                    @"\b(?:become|be\s+a|be\s+the|welcome|companion|community|creative|solution|solutions|catalog|catalogue|guide|edition|copyright|isbn|introduction|foreword|preface)\b",
                     RegexOptions.CultureInvariant))
             {
                 return true;
             }
         }
 
+        if (words.Length is >= 2 and <= 5
+            && Regex.IsMatch(
+                normalized,
+                @"(?:^|\b)(?:become|be\s+a|be\s+the|devenir|welcome|bienvenue)\b",
+                RegexOptions.CultureInvariant)
+            && !Regex.IsMatch(normalized, @"\b(?:procedure|process|policy|control|standard|specification|instruction|requirements?|exigences?|controle|norme)\b", RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
         return false;
+    }
+
+    private static bool LooksLikeAudienceOrCollectionSourceBackedHeadingTitle(string? normalizedTitle)
+    {
+        var title = NormalizeLexicalLookup(normalizedTitle);
+        if (string.IsNullOrWhiteSpace(title))
+            return false;
+
+        var terms = ExtractQuerySignalTerms(title)
+            .Where(static term => term.Length >= 3)
+            .Take(8)
+            .ToArray();
+        if (terms.Length is 0 or > 6)
+            return false;
+
+        var hasAudienceCue = Regex.IsMatch(
+            title,
+            @"\b(?:parents?|parental|familles?|families?|family|enfants?|children|kids?|busy|press[eé]s?|presses?|actifs?|active)\b",
+            RegexOptions.CultureInvariant);
+        if (!hasAudienceCue)
+            return false;
+
+        return terms.All(static term => Regex.IsMatch(
+            term,
+            @"^(?:cuisine|cookbook|collection|pratique|practical|fut[eé]e?|smart|parents?|parental|familles?|families?|family|enfants?|children|kids?|busy|press[eé]s?|presses?|actifs?|active|guide|livre|book|edition|magazine)$",
+            RegexOptions.CultureInvariant));
     }
 
     private static bool LooksLikeLowValueMarketingOrDocumentHeading(string? normalizedTitle)
@@ -14216,7 +24969,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 normalizedTitle,
-                @"^(?:le|la|les|l|un|une|des|du|de\s+la|the|a|an)?\s*(?:occuper|occupez|organiser|organize|planifier|planifiez|schedule|utiliser|use|using|" + OperationalActionLeadPattern + @")\b",
+                @"^(?:le|la|les|l|un|une|des|du|de\s+la|the|a|an)?\s*(?:occuper|occupez|organiser|organize|planifier|planifiez|schedule|utiliser|use|using|egoutter|egouttez|peler|pelez|eplucher|epluchez|[eé]plucher|[eé]pluchez|verser|versez|melanger|m[eé]langez|incorporer|incorporez|faconner|fagonner|former|faire|faites|ajouter|ajoutez|laisser|laissez|placer|placez|retirer|retirez|couper|coupez|hacher|hachez|trancher|tranchez|deposer|deposez|remuer|remuez|cuire|cuisiner|mijoter|servir|gouter|go[uû]ter|pour|mix|peel|cut|chop|cook|serve|taste|" + OperationalActionLeadPattern + @")\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -14414,7 +25167,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var sb = new StringBuilder();
         sb.AppendLine(header);
-        sb.AppendLine(SourceBackedLabel(language, "Fiche sourcee :", "Source-backed card:", "Ficha con fuente:", "Ficha com fonte:", "Belegte Karte:", "Scheda con fonte:"));
+        sb.AppendLine(SourceBackedLabel(language, "Fiche documentée :", "Documented card:", "Ficha documentada:", "Ficha documentada:", "Belegte Karte:", "Scheda documentata:"));
         sb.Append("- ");
         sb.Append(SourceBackedLabel(language, "Source principale", "Main source", "Fuente principal", "Fonte principal", "Hauptquelle", "Fonte principale"));
         sb.Append(" : ");
@@ -14437,7 +25190,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             sb.Append(" : ");
             sb.AppendLine(SourceBackedLabel(
                 language,
-                "les elements, valeurs, temps et etapes doivent etre lus sur la page citee dans la langue du document.",
+                "les éléments, valeurs, temps et étapes doivent être lus sur la page citée dans la langue du document.",
                 "items, values, timing and steps should be read on the cited page in the document language.",
                 "los elementos, valores, tiempos y pasos deben leerse en la pagina citada, en el idioma del documento.",
                 "os elementos, valores, tempos e etapas devem ser lidos na pagina citada, na lingua do documento.",
@@ -14450,7 +25203,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         {
             if (hasCardQuantityEvidence)
             {
-                AppendFactList(sb, SourceBackedLabel(language, "Durees / quantites visibles", "Visible durations / quantities", "Duraciones / cantidades visibles", "Duracoes / quantidades visiveis", "Sichtbare Dauern / Mengen", "Durate / quantita visibili"), cardQuantityEvidenceFacts, language);
+                AppendFactList(sb, SourceBackedLabel(language, "Durées / quantités visibles", "Visible durations / quantities", "Duraciones / cantidades visibles", "Duracoes / quantidades visiveis", "Sichtbare Dauern / Mengen", "Durate / quantita visibili"), cardQuantityEvidenceFacts, language);
             }
 
             if (cardGenericEvidenceFacts.Length > 0 || !hasCardQuantityEvidence)
@@ -14478,9 +25231,9 @@ If evidence is partial, write the best useful sourced answer possible and state 
         }
         else
         {
-            AppendFactList(sb, SourceBackedLabel(language, "Durees / quantites visibles", "Visible durations / quantities", "Duraciones / cantidades visibles", "Duracoes / quantidades visiveis", "Sichtbare Dauern / Mengen", "Durate / quantita visibili"), visibleDurationsAndQuantities, language);
-            AppendFactList(sb, SourceBackedLabel(language, "Elements / quantites visibles", "Visible items / quantities", "Elementos / cantidades visibles", "Elementos / quantidades visiveis", "Sichtbare Elemente / Mengen", "Elementi / quantita visibili"), itemizedFacts, language);
-            AppendFactList(sb, SourceBackedLabel(language, "Etapes visibles", "Visible steps", "Pasos visibles", "Passos visiveis", "Sichtbare Schritte", "Passaggi visibili"), steps, language);
+            AppendFactList(sb, SourceBackedLabel(language, "Durées / quantités visibles", "Visible durations / quantities", "Duraciones / cantidades visibles", "Duracoes / quantidades visiveis", "Sichtbare Dauern / Mengen", "Durate / quantita visibili"), visibleDurationsAndQuantities, language);
+            AppendFactList(sb, SourceBackedLabel(language, "Éléments / quantités visibles", "Visible items / quantities", "Elementos / cantidades visibles", "Elementos / quantidades visiveis", "Sichtbare Elemente / Mengen", "Elementi / quantita visibili"), itemizedFacts, language);
+            AppendFactList(sb, SourceBackedLabel(language, "Étapes visibles", "Visible steps", "Pasos visibles", "Passos visiveis", "Sichtbare Schritte", "Passaggi visibili"), steps, language);
         }
         AppendExactItemControlExcerpt(sb, language, requestedTitle, cardHits);
         return sb.ToString().TrimEnd();
@@ -15007,6 +25760,26 @@ If evidence is partial, write the best useful sourced answer possible and state 
         return CollapseWhitespace(value).Trim(' ', '.', ',', ';', ':');
     }
 
+    private static bool LooksLikeConcreteContextualEvidence(string? text)
+    {
+        var value = CollapseWhitespace(text ?? string.Empty);
+        if (value.Length < 80)
+            return false;
+        if (LooksLikeNoisyCandidateSupportCue(value) || LooksLikePureRouteNavigationText(value))
+            return false;
+
+        var normalized = NormalizeLexicalLookup(value);
+        if (Regex.IsMatch(
+                normalized,
+                @"\b(?:matched\s+profile|matched\s+title|profile\s+signals|document\s+profile|navigationonly|orientationonly|table\s+of\s+contents|sommaire|contents|index)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        return Regex.Matches(normalized, @"[\p{L}\p{N}]+", RegexOptions.CultureInvariant).Count >= 12;
+    }
+
     private const string ItemizedSectionHeadingPattern =
         @"items?|elements?|requirements?|quantities?|quantites?|values?|valeurs?|materials?|materiel|mat[eé]riel|components?|composants?";
 
@@ -15287,7 +26060,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var docLabel = string.IsNullOrWhiteSpace(hit.DocName) ? hit.DocPath : hit.DocName;
         sb.Append("- ");
-        sb.Append(SourceBackedLabel(language, "Extrait de controle", "Control excerpt", "Extracto de control", "Excerto de controlo", "Kontrollauszug", "Estratto di controllo"));
+        sb.Append(SourceBackedLabel(language, "Passage cité", "Cited passage", "Pasaje citado", "Passagem citada", "Zitierte Stelle", "Passaggio citato"));
         sb.Append(" : ");
         sb.Append(docLabel);
         sb.Append(' ');
@@ -15307,7 +26080,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var docLabel = string.IsNullOrWhiteSpace(hit.DocName) ? hit.DocPath : hit.DocName;
         sb.Append("- ");
-        sb.Append(SourceBackedLabel(language, "Extrait de controle", "Control excerpt", "Extracto de control", "Excerto de controlo", "Kontrollauszug", "Estratto di controllo"));
+        sb.Append(SourceBackedLabel(language, "Passage cité", "Cited passage", "Pasaje citado", "Passagem citada", "Zitierte Stelle", "Passaggio citato"));
         sb.Append(" : ");
         sb.Append(docLabel);
         sb.Append(' ');
@@ -15740,7 +26513,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         text = Regex.Replace(text, @"(?<=\p{Lu})(?=\p{Lu}\p{Ll})", " ", RegexOptions.CultureInvariant);
         text = Regex.Replace(text, @"(?<=\d)(?=\p{Lu})", " ", RegexOptions.CultureInvariant);
         text = Regex.Replace(text, @"(?<=\p{L})(?=\d+\s*min\b)", " ", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-        return Regex.Replace(text, @"\s+", " ").Trim();
+        return CollapseWhitespace(text);
     }
 
     private static string FormatSourceBackedEvidenceExcerpt(RagHitSummary hit, string query, int maxLength)
@@ -15871,7 +26644,34 @@ If evidence is partial, write the best useful sourced answer possible and state 
         return CollapseWhitespace($"{primary} {structuredEvidence}");
     }
 
+    private const int RagHitContentCardEvidenceTextCacheMaxEntries = 512;
+    private static readonly object RagHitContentCardEvidenceTextCacheGate = new();
+    private static readonly Dictionary<RagHitSummary, string> RagHitContentCardEvidenceTextCache =
+        new(ReferenceEqualityComparer.Instance);
+
     private static string BuildRagHitContentCardEvidenceText(RagHitSummary hit)
+    {
+        if (hit.MatchedContentCards is not { Count: > 0 })
+            return string.Empty;
+
+        lock (RagHitContentCardEvidenceTextCacheGate)
+        {
+            if (RagHitContentCardEvidenceTextCache.TryGetValue(hit, out var cached))
+                return cached;
+        }
+
+        var text = BuildRagHitContentCardEvidenceTextUncached(hit);
+        lock (RagHitContentCardEvidenceTextCacheGate)
+        {
+            if (RagHitContentCardEvidenceTextCache.Count >= RagHitContentCardEvidenceTextCacheMaxEntries)
+                RagHitContentCardEvidenceTextCache.Clear();
+            RagHitContentCardEvidenceTextCache[hit] = text;
+        }
+
+        return text;
+    }
+
+    private static string BuildRagHitContentCardEvidenceTextUncached(RagHitSummary hit)
     {
         if (hit.MatchedContentCards is not { Count: > 0 })
             return string.Empty;
@@ -15938,17 +26738,24 @@ If evidence is partial, write the best useful sourced answer possible and state 
     private static string BuildReadableSourceBackedFallbackIfUseful(ToolResults toolResults, string query, string language)
     {
         var intentQuery = ResolveSourceBackedFallbackIntentQuery(query);
+        var suppressPartialPlanningFallback = ShouldSuppressReadablePartialPlanningFallback(toolResults, query, intentQuery, language);
         if (LooksLikeAnyDocumentaryPlanningRequest(intentQuery))
         {
-            var hits = SelectSourceBackedExtractiveHits(toolResults, intentQuery, maxHits: 8).ToList();
-            var planningFallback = BuildReadablePartialPlanningEvidenceAnswer(hits, intentQuery, language);
-            if (!string.IsNullOrWhiteSpace(planningFallback))
-                return SuppressBroadenedSearchOfferIfAlreadyConfirmed(planningFallback, query, language);
+            if (!suppressPartialPlanningFallback)
+            {
+                var hits = SelectSourceBackedExtractiveHits(toolResults, intentQuery, maxHits: 8).ToList();
+                var planningFallback = BuildReadablePartialPlanningEvidenceAnswer(hits, intentQuery, language);
+                if (!string.IsNullOrWhiteSpace(planningFallback))
+                    return SuppressBroadenedSearchOfferIfAlreadyConfirmed(planningFallback, query, language);
+            }
         }
 
-        var candidateFallback = BuildReadableSourceBackedCandidateListFallbackAnswer(toolResults, intentQuery, language);
-        if (!string.IsNullOrWhiteSpace(candidateFallback))
-            return SuppressBroadenedSearchOfferIfAlreadyConfirmed(candidateFallback, query, language);
+        if (!suppressPartialPlanningFallback)
+        {
+            var candidateFallback = BuildReadableSourceBackedCandidateListFallbackAnswer(toolResults, intentQuery, language);
+            if (!string.IsNullOrWhiteSpace(candidateFallback))
+                return SuppressBroadenedSearchOfferIfAlreadyConfirmed(candidateFallback, query, language);
+        }
 
         if (!LooksLikeAnyDocumentaryPlanningRequest(intentQuery))
         {
@@ -15961,10 +26768,35 @@ If evidence is partial, write the best useful sourced answer possible and state 
         return string.Empty;
     }
 
+    private static bool ShouldSuppressReadablePartialPlanningFallback(
+        ToolResults toolResults,
+        string query,
+        string intentQuery,
+        string language)
+    {
+        if (!LooksLikeAnyDocumentaryPlanningRequest(intentQuery))
+            return false;
+
+        var isConfirmedBroadenedSearch = IsBroadenedSourceSearchConfirmationEnvelope(query);
+        var isExpandedSearch = HasExpandedSourceBackedSearchEvidence(toolResults);
+        if (!isConfirmedBroadenedSearch && !isExpandedSearch)
+            return false;
+
+        var coverage = EvaluateSourceBackedPlanningCoverage(toolResults, intentQuery, language);
+        return !coverage.IsAdequate
+            && !HasUsefulPartialSourceBackedPlanningCoverage(
+                coverage,
+                isConfirmedBroadenedSearch,
+                isExpandedSearch);
+    }
+
     private static string BuildSourceBackedPlanningOrExtractiveAnswer(ToolResults toolResults, string query, string language, int minPlanningItems = 1)
     {
         var intentQuery = ResolveSourceBackedFallbackIntentQuery(query);
-        var avoidRawSourceBackedFallback = ShouldAvoidRawSourceBackedFallback(query);
+        var avoidRawSourceBackedFallback =
+            ShouldAvoidRawSourceBackedFallback(query)
+            || ShouldAvoidRawSourceBackedFallback(intentQuery)
+            || IsBroadenedSourceSearchConfirmationEnvelope(query);
 
         var missingRequiredEvidence = TryBuildMissingRequiredEvidenceAnswer(toolResults, query, language);
         if (!ShouldUseAdvisoryEvidenceGuardForBroadSynthesis(toolResults, query)
@@ -15984,20 +26816,46 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (!string.IsNullOrWhiteSpace(countdownAnswer))
             return countdownAnswer;
 
-        if (avoidRawSourceBackedFallback
-            && (LooksLikeAnyDocumentaryPlanningRequest(query)
-                || LooksLikeGenericCollectionOrListRequest(query)
-                || LooksLikeBroadSourceBackedCompositionRequest(query)
-                || LooksLikeMultipleCandidateSynthesisRequest(query)
-                || LooksLikeSoftChoiceRecommendationRequest(query)
-                || LooksLikeSourceBackedOptionRequest(query)
-                || LooksLikeSourceBackedPairingRecommendationRequest(query)))
+        var strictStructuredPlanning = ShouldGateStructuredSourceBackedPlanningCoverage(intentQuery)
+            || ShouldGateStructuredSourceBackedPlanningCoverage(query);
+        if (strictStructuredPlanning)
         {
+            var strictPlanningAnswer = BuildSourceBackedPlanningAnswer(
+                toolResults,
+                language,
+                minItems: Math.Max(minPlanningItems, ResolveSourceBackedPlanningTargetItemCount(intentQuery)),
+                query: intentQuery);
+            if (!string.IsNullOrWhiteSpace(strictPlanningAnswer))
+                return strictPlanningAnswer;
+
+            var coverage = EvaluateSourceBackedPlanningCoverage(toolResults, intentQuery, language);
             return BuildBroadEvidenceStillInsufficientAnswer(
                 language,
                 query,
                 intentQuery,
-                EnumerateRagHitSummaries(toolResults).Count());
+                coverage.CandidateCount,
+                HasExpandedSourceBackedSearchEvidence(toolResults));
+        }
+
+        if (avoidRawSourceBackedFallback
+            && (LooksLikeAnyDocumentaryPlanningRequest(intentQuery)
+                || LooksLikeGenericCollectionOrListRequest(intentQuery)
+                || LooksLikeBroadSourceBackedCompositionRequest(intentQuery)
+                || LooksLikeMultipleCandidateSynthesisRequest(intentQuery)
+                || LooksLikeSoftChoiceRecommendationRequest(intentQuery)
+                || LooksLikeSourceBackedOptionRequest(intentQuery)
+                || LooksLikeSourceBackedPairingRecommendationRequest(intentQuery)))
+        {
+            var readableFallback = BuildReadableSourceBackedFallbackIfUseful(toolResults, intentQuery, language);
+            if (!string.IsNullOrWhiteSpace(readableFallback))
+                return SuppressBroadenedSearchOfferIfAlreadyConfirmed(readableFallback, query, language);
+
+            return BuildBroadEvidenceStillInsufficientAnswer(
+                language,
+                query,
+                intentQuery,
+                EnumerateRagHitSummaries(toolResults).Count(),
+                HasExpandedSourceBackedSearchEvidence(toolResults));
         }
 
         if (LooksLikeAnyDocumentaryPlanningRequest(query))
@@ -16053,11 +26911,17 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
     private static string? TryBuildDocumentVersionTraceabilityAnswer(ToolResults toolResults, string query, string language)
     {
-        if (!LooksLikeDocumentVersionTraceabilityRequest(query))
+        var intentQuery = ResolveSourceBackedFallbackIntentQuery(query);
+        if (!LooksLikeDocumentVersionTraceabilityRequest(intentQuery))
             return null;
 
+        if (RequiresStructuredSourceBackedPlanningCoverage(intentQuery))
+        {
+            return null;
+        }
+
         language = NormalizeLanguageCode(language);
-        var hits = SelectDocumentVersionTraceabilityHits(toolResults, query, maxHits: 4).ToList();
+        var hits = SelectDocumentVersionTraceabilityHits(toolResults, intentQuery, maxHits: 4).ToList();
         if (hits.Count == 0)
             return null;
 
@@ -16092,13 +26956,17 @@ If evidence is partial, write the best useful sourced answer possible and state 
             "en" when asksLatestDefault && latestYear > 0 => $"If the user does not specify a year, cite the latest version supported by the selected sources first, and keep older versions as historical context. The latest detected year in these sources is {latestYear}:",
             "en" when asksLatestDefault => "If the user does not specify a year, cite the latest version supported by the selected sources first, and keep older versions as historical context:",
             "en" when asksProof => "To prove the answer uses the intended version, cite the exact file name and page for each source, and keep nearby versions separated:",
-            "en" => "Cite these sources separately and keep the evidence limited to the retrieved pages:",
-            _ when asksReplacement => "Je ne peux pas prouver un remplacement automatique avec les extraits retrouves. Garde les documents lies separes et verifie une clause explicite de remplacement ou d'adoption :",
-            _ when asksMainOrStatus => "Je m'appuie uniquement sur les sources disponibles : il faut garder deux niveaux, le document principal pour l'exigence de base, puis l'AC/correctif/amendement pour la modification associee. Les extraits retrouves ne prouvent pas que le correctif remplace tout le document principal :",
-            _ when asksLatestDefault && latestYear > 0 => $"Si l'utilisateur ne precise pas l'annee, je cite d'abord la version la plus recente soutenue par les sources selectionnees, et je garde les anciennes versions comme contexte historique. L'annee la plus recente detectee dans ces sources est {latestYear} :",
-            _ when asksLatestDefault => "Si l'utilisateur ne precise pas l'annee, je cite d'abord la version la plus recente soutenue par les sources selectionnees, et je garde les anciennes versions comme contexte historique :",
-            _ when asksProof => "Pour prouver que la reponse utilise la bonne version, je cite le nom exact du fichier et la page, en separant les versions ou fichiers proches :",
-            _ => "Je cite ces sources separement et je limite la reponse aux pages retrouvees :"
+            "en" => "Here is the traceability I can establish from the retrieved pages:",
+            "es" => "Esta es la trazabilidad que puedo establecer a partir de las páginas recuperadas:",
+            "pt" => "Esta é a rastreabilidade que posso estabelecer a partir das páginas recuperadas:",
+            "de" => "Diese Nachverfolgbarkeit kann ich aus den gefundenen Seiten ableiten:",
+            "it" => "Questa è la tracciabilità che posso stabilire dalle pagine recuperate:",
+            _ when asksReplacement => "Je ne peux pas prouver un remplacement automatique avec les extraits retrouvés. Je garde donc les documents liés séparés et je vérifie seulement les clauses explicites de remplacement ou d'adoption :",
+            _ when asksMainOrStatus => "Je m'appuie uniquement sur les sources disponibles : il faut distinguer deux niveaux, le document principal qui porte l'exigence de base, puis l'AC/correctif/amendement qui porte la modification associée. Les extraits retrouvés ne prouvent pas que le correctif remplace tout le document principal :",
+            _ when asksLatestDefault && latestYear > 0 => $"Si l'utilisateur ne précise pas l'année, je cite d'abord la version la plus récente soutenue par les sources sélectionnées, puis je garde les anciennes versions comme contexte historique. L'année la plus récente détectée dans ces sources est {latestYear} :",
+            _ when asksLatestDefault => "Si l'utilisateur ne précise pas l'année, je cite d'abord la version la plus récente soutenue par les sources sélectionnées, puis je garde les anciennes versions comme contexte historique :",
+            _ when asksProof => "Pour prouver que la réponse utilise la bonne version, je cite le nom exact du fichier et la page, en séparant les versions ou fichiers proches :",
+            _ => "Voici la traçabilité que je peux établir à partir des pages retrouvées :"
         };
 
         var sb = new StringBuilder();
@@ -16130,7 +26998,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var caveat = language == "en"
             ? "Conclusion: use these pages as traceability evidence, but do not infer a replacement, status change or full applicability unless the cited page explicitly says so."
-            : "Conclusion : utilise ces pages comme preuves de tracabilite, mais n'infere pas un remplacement, un changement de statut ou une applicabilite complete si la page citee ne le dit pas explicitement.";
+            : "Conclusion : ces pages servent de preuves de traçabilité. Je n'en déduis pas un remplacement, un changement de statut ou une applicabilité complète si la page citée ne le dit pas explicitement.";
         sb.Append(caveat);
         return sb.ToString().TrimEnd();
     }
@@ -17193,12 +28061,12 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var termList = string.Join(", ", missingTerms.Select(static term => $"\"{term}\""));
         return SourceBackedLabel(
             language,
-            $"Je n'ai pas trouve de passage qui mentionne explicitement {termList} dans les sources disponibles. Je ne construis donc pas une reponse a partir de passages voisins.",
-            $"I did not find a passage that explicitly mentions {termList} in the available sources, so I will not build an answer from nearby passages.",
-            $"No he encontrado un pasaje que mencione explicitamente {termList} en las fuentes disponibles, asi que no construire una respuesta a partir de pasajes cercanos.",
-            $"Nao encontrei uma passagem que mencione explicitamente {termList} nas fontes disponiveis, por isso nao vou construir uma resposta a partir de passagens proximas.",
-            $"Ich habe keine Stelle gefunden, die {termList} in den verfuegbaren Quellen ausdruecklich erwaehnt, daher baue ich keine Antwort aus benachbarten Passagen.",
-            $"Non ho trovato un passaggio che menzioni esplicitamente {termList} nelle fonti disponibili, quindi non costruisco una risposta da passaggi vicini.");
+            $"Je n'ai pas trouvé de source directe qui mentionne {termList}. Je préfère préciser ou élargir la recherche plutôt que transformer des indices faibles en réponse.",
+            $"I did not find a direct source that mentions {termList}. I would rather refine or broaden the search than turn weak clues into an answer.",
+            $"No he encontrado una fuente directa que mencione {termList}. Prefiero precisar o ampliar la búsqueda antes que convertir indicios débiles en una respuesta.",
+            $"Não encontrei uma fonte direta que mencione {termList}. Prefiro precisar ou alargar a pesquisa em vez de transformar indícios fracos numa resposta.",
+            $"Ich habe keine direkte Quelle gefunden, die {termList} erwähnt. Ich würde die Suche lieber präzisieren oder erweitern, statt schwache Hinweise in eine Antwort zu verwandeln.",
+            $"Non ho trovato una fonte diretta che menzioni {termList}. Preferisco precisare o ampliare la ricerca invece di trasformare indizi deboli in una risposta.");
     }
 
     private static string TryBuildMissingBroadCompositionAnchorAnswer(ToolResults toolResults, string query, string language)
@@ -17244,12 +28112,12 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var termList = string.Join(", ", displayedTerms.Select(static term => $"\"{term}\""));
         var answer = SourceBackedLabel(
             language,
-            $"Je n'ai pas trouve de passage qui couvre clairement {termList} dans les sources disponibles. Je peux citer des passages voisins, mais je ne construis pas une proposition comme si cette idee etait sourcee.",
-            $"I did not find passages that clearly cover {termList} in the available sources. I can cite nearby passages, but I will not build a proposal as if that idea were sourced.",
-            $"No he encontrado pasajes que cubran claramente {termList} en las fuentes disponibles. Puedo citar pasajes cercanos, pero no construire una propuesta como si esa idea estuviera documentada.",
-            $"Nao encontrei passagens que cubram claramente {termList} nas fontes disponiveis. Posso citar passagens proximas, mas nao construirei uma proposta como se essa ideia estivesse documentada.",
-            $"Ich habe keine Stellen gefunden, die {termList} in den verfuegbaren Quellen klar abdecken. Ich kann nahe Treffer nennen, baue daraus aber keinen belegten Vorschlag.",
-            $"Non ho trovato passaggi che coprano chiaramente {termList} nelle fonti disponibili. Posso citare passaggi vicini, ma non costruisco una proposta come se l'idea fosse documentata.");
+            $"Je n'ai pas encore trouvé de source claire pour {termList}. Je peux élargir la recherche avant de proposer une réponse vraiment exploitable.",
+            $"I have not yet found a clear source for {termList}. I can broaden the search before suggesting a truly usable answer.",
+            $"Todavía no he encontrado una fuente clara para {termList}. Puedo ampliar la búsqueda antes de proponer una respuesta realmente útil.",
+            $"Ainda não encontrei uma fonte clara para {termList}. Posso alargar a pesquisa antes de propor uma resposta realmente útil.",
+            $"Ich habe noch keine klare Quelle für {termList} gefunden. Ich kann die Suche erweitern, bevor ich eine wirklich brauchbare Antwort vorschlage.",
+            $"Non ho ancora trovato una fonte chiara per {termList}. Posso ampliare la ricerca prima di proporre una risposta davvero utilizzabile.");
         return AppendBroadenedSearchOfferIfHelpful(answer, query, language);
     }
 
@@ -17300,12 +28168,12 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var answer = SourceBackedLabel(
             language,
-            $"Je n'ai pas trouve de passage qui relie explicitement {targetList} a {optionKindList} dans les sources disponibles. Je ne transforme donc pas des passages voisins en recommandation compatible.",
-            $"I did not find a passage that explicitly connects {targetList} to {optionKindList} in the available sources, so I will not turn nearby passages into a compatible recommendation.",
-            $"No he encontrado un pasaje que conecte explicitamente {targetList} con {optionKindList} en las fuentes disponibles, asi que no convertire pasajes cercanos en una recomendacion compatible.",
-            $"Nao encontrei uma passagem que ligue explicitamente {targetList} a {optionKindList} nas fontes disponiveis, por isso nao transformo passagens proximas numa recomendacao compativel.",
-            $"Ich habe keine Stelle gefunden, die {targetList} in den verfuegbaren Quellen ausdruecklich mit {optionKindList} verbindet, daher mache ich aus benachbarten Passagen keine kompatible Empfehlung.",
-            $"Non ho trovato un passaggio che colleghi esplicitamente {targetList} a {optionKindList} nelle fonti disponibili, quindi non trasformo passaggi vicini in una raccomandazione compatibile.");
+            $"Je n'ai pas trouvé de source qui relie clairement {targetList} à {optionKindList}. Je peux élargir la recherche avant de proposer une recommandation.",
+            $"I did not find a source that clearly connects {targetList} to {optionKindList}. I can broaden the search before suggesting a recommendation.",
+            $"No he encontrado una fuente que conecte claramente {targetList} con {optionKindList}. Puedo ampliar la búsqueda antes de proponer una recomendación.",
+            $"Não encontrei uma fonte que ligue claramente {targetList} a {optionKindList}. Posso alargar a pesquisa antes de propor uma recomendação.",
+            $"Ich habe keine Quelle gefunden, die {targetList} klar mit {optionKindList} verbindet. Ich kann die Suche erweitern, bevor ich eine Empfehlung vorschlage.",
+            $"Non ho trovato una fonte che colleghi chiaramente {targetList} a {optionKindList}. Posso ampliare la ricerca prima di proporre una raccomandazione.");
         return AppendBroadenedSearchOfferIfHelpful(answer, query, language);
     }
 
@@ -17461,6 +28329,69 @@ If evidence is partial, write the best useful sourced answer possible and state 
     private static string GetPlanExtractionText(RagHitSummary hit)
         => string.IsNullOrWhiteSpace(hit.FullText) ? hit.Excerpt : hit.FullText!;
 
+    private static IEnumerable<string> EnumeratePlanExtractionTexts(RagHitSummary hit)
+    {
+        var texts = new[]
+        {
+            hit.FullText,
+            hit.Excerpt,
+            hit.ContextualSnippet,
+            CollapseWhitespace(string.Join(' ', new[] { hit.FullText, hit.Excerpt }
+                .Where(static value => !string.IsNullOrWhiteSpace(value))))
+        };
+        var emitted = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var text in texts)
+        {
+            var normalized = CollapseWhitespace(text ?? string.Empty);
+            if (normalized.Length == 0 || !emitted.Add(normalized))
+                continue;
+
+            yield return normalized;
+        }
+    }
+
+    private static IEnumerable<string> ExtractPlanItemTitleCandidatesV2(string? excerpt)
+    {
+        var text = CollapseWhitespace(excerpt ?? string.Empty);
+        if (text.Length == 0)
+            yield break;
+
+        var first = ExtractPlanItemTitleV2(text);
+        if (!string.IsNullOrWhiteSpace(first))
+            yield return first;
+
+        foreach (var quotedTitle in ExtractQuotedSourceBackedItemTitleCandidates(text))
+            yield return quotedTitle;
+
+        const string structureLabelPattern =
+            @"ingredients?|ingr[eé]dients?|requirements?|quantit(?:y|ies)|quantit[eé]s?|values?|materials?|mat[eé]riel|components?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
+        var sectionLeadPattern =
+            $@"(?i)(?:^|[.!?]\s+)(?<title>\p{{Lu}}[\p{{L}}'\u2019 \-/]{{5,80}}?)(?:\.|\s)\s*(?:{structureLabelPattern})\b";
+        foreach (Match match in Regex.Matches(text, sectionLeadPattern, RegexOptions.CultureInvariant))
+        {
+            var title = HumanizePlanItemTitleV2(match.Groups["title"].Value);
+            if (!LooksLikePlanPageHeading(text, title) && IsUsableSourceBackedOptionTitle(title))
+                yield return title;
+        }
+    }
+
+    private static IEnumerable<string> ExtractQuotedSourceBackedItemTitleCandidates(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            yield break;
+
+        foreach (Match match in Regex.Matches(
+            text,
+            @"[«“""]\s*(?<title>[\p{L}\p{N}][^«»“”""]{3,90}?)\s*[»”""]",
+            RegexOptions.CultureInvariant))
+        {
+            var title = CollapseWhitespace(match.Groups["title"].Value)
+                .Trim(' ', '.', ',', ';', ':', '-', '\'', '"');
+            if (!string.IsNullOrWhiteSpace(title))
+                yield return title;
+        }
+    }
+
     private static string ExtractPlanItemTitleV2(string? excerpt)
     {
         var text = CollapseWhitespace(excerpt ?? string.Empty);
@@ -17469,13 +28400,17 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         text = Regex.Replace(text, @"^\d+", string.Empty, RegexOptions.CultureInvariant).Trim();
         text = Regex.Replace(text, @"(?<=[\p{Ll}])(?=(?:Pour|For|Para|Per)\b)", " ", RegexOptions.CultureInvariant);
+        const string structureLabelPattern =
+            @"ingredients?|ingr[eé]dients?|requirements?|quantit(?:y|ies)|quantit[eé]s?|values?|materials?|mat[eé]riel|components?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
         var patterns = new[]
         {
+            @"^(?<title>[\p{Lu}\p{Lt}0-9][\p{Lu}\p{Lt}0-9 '\u2019&/,\-\u00c0-\u017f]{5,120}?)(?:\s+\d+[\.)]\s|\s+[•\u2022]\s)",
+            $@"(?i)^(?<title>\p{{Lu}}[\p{{L}}'\u2019 &/,\-]{{5,90}}?)\s+(?:{structureLabelPattern})\b",
             @"^(?:[\p{Lu}\p{Lt}][\p{Ll}]{2,24})?(?<title>[\p{Lu}\p{Lt}][\p{Lu}\p{Lt}0-9 '&/,\-]{5,90}?)(?:\d+\s*min|\d+(?:[,.]\d+)?\s*(?:eur|euros?|chf))",
             @"(?i)^(?<title>\p{Lu}[\p{L}'\u2019 \-/]{5,80}?)\s+(?:pour|for|para|per|fur|fuer|zu|a|da)\s+\d{1,3}\s+[\p{L}'\u2019.\-]{2,30}\b",
-            @"(?i)\b(?:pour|for|para|per|fur|fuer|zu|a|da)\s+\d{1,3}\s+[\p{L}'\u2019.\-]{2,30}\s+(?<title>\p{Lu}[\p{L}'\u2019 \-/]{5,80}?)(?:\s+(?:Items?|Elements?|Requirements?|Quantities?|Values?|Materials?|Components?|Procedure|Instructions?|Method|Preparation|Operation|Workflow|\d+\s*min))",
-            @"(?i)(?:^|[\s:;])(?<title>\p{Lu}[\p{Lu}0-9 '&/,\-]{5,90}?)(?:\d+\s*min|\d+(?:[,.]\d+)?\s*(?:eur|euros?|chf)|Items?|Elements?|Requirements?|Quantities?|Values?|Materials?|Components?|Procedure|Instructions?|Method|Preparation|Operation|Workflow|Temps\s+total|Total\s+time)",
-            @"(?i)\b(?<title>\p{Lu}[\p{L}'\u2019 \-/]{5,80})\s+(?:\d+\s*(?:items?|elements?|units?|pieces?)|Items?|Elements?|Requirements?|Quantities?|Values?|Materials?|Components?|Procedure|Instructions?|Method|Preparation|Operation|Workflow)"
+            $@"(?i)\b(?:pour|for|para|per|fur|fuer|zu|a|da)\s+\d{{1,3}}\s+[\p{{L}}'\u2019.\-]{{2,30}}\s+(?<title>\p{{Lu}}[\p{{L}}'\u2019 \-/]{{5,80}}?)(?:\s+(?:{structureLabelPattern}|\d+\s*min))",
+            $@"(?i)(?:^|[\s:;])(?<title>\p{{Lu}}[\p{{Lu}}0-9 '&/,\-]{{5,90}}?)(?:\d+\s*min|\d+(?:[,.]\d+)?\s*(?:eur|euros?|chf)|{structureLabelPattern})",
+            $@"(?i)\b(?<title>\p{{Lu}}[\p{{L}}'\u2019 \-/]{{5,80}})\s+(?:\d+\s*(?:items?|elements?|units?|pieces?)|{structureLabelPattern})"
         };
 
         foreach (var pattern in patterns)
@@ -17511,16 +28446,30 @@ If evidence is partial, write the best useful sourced answer possible and state 
         title = Regex.Replace(title, @"(?<=\p{Lu})(?=\p{Lu}\p{Ll})", " ", RegexOptions.CultureInvariant);
         title = Regex.Replace(
             title,
-            @"(?<=[\p{Lu}\p{Lt}]{4})\b(?=(?:WITHOUT|SENZA|SELON|AVEC|SANS|PARA|OHNE|WITH|POUR|AUX|DES|AND|FOR|CON|SIN|MIT|PER|DU|DE|AU|A|D['\u2019])\b)",
+            @"(?<=[\p{Lu}\p{Lt}]{4})\b(?=(?:WITHOUT|SENZA|SELON|AVEC|SANS|PARA|OHNE|WITH|POUR|AUX|DES|AND|FOR|CON|SIN|MIT|PER|DU|AU|A|D['\u2019])\b)",
             " ",
             RegexOptions.CultureInvariant);
         title = Regex.Replace(
             title,
-            @"\b(?:WITHOUT|SENZA|SELON|AVEC|SANS|PARA|OHNE|WITH|POUR|AUX|DES|AND|FOR|CON|SIN|MIT|PER|DU|DE|AU|A|D['\u2019])(?=[\p{Lu}\p{Lt}]{4})",
+            @"\b(?:WITHOUT|SENZA|SELON|AVEC|SANS|PARA|OHNE|WITH|POUR|AUX|DES|AND|FOR|CON|SIN|MIT|PER|DU|AU|A|D['\u2019])(?=[\p{Lu}\p{Lt}]{4})",
             "$0 ",
             RegexOptions.CultureInvariant);
+        title = RepairSplitOcrPlanningAxisTerms(title);
         title = Regex.Replace(title, @"\s+", " ").Trim(' ', '-', ':');
         return title;
+    }
+
+    private static string RepairSplitOcrPlanningAxisTerms(string? value)
+    {
+        var repaired = CollapseWhitespace(value ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(repaired))
+            return string.Empty;
+
+        return Regex.Replace(
+            repaired,
+            @"\bd[eé]j\s+euner\b",
+            match => match.Value.Any(char.IsUpper) ? "DEJEUNER" : "dejeuner",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
     private static bool LooksLikePlanItemNoise(string value)
@@ -17542,7 +28491,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 normalized,
-            @"\b(?:liste|source|sources|page|pages|sommaire|index|contents|catalogue|copyright|isbn|edition|preparation|operation|workflow|execution|organisation|planning|calendrier|modele|outil|conseils?|consiste|prendre|heures?|temps|documents?|disponibles?|materiel|service|utilisez|utiliser|choisissez|installation|lors|ouvrir|programmer|extraire|volonte|limiter|limit)\b",
+            @"\b(?:liste|source|sources|page|pages|sommaire|index|contents|catalogue|copyright|isbn|edition|ingredients?|ingr[eé]dients?|preparation|operation|workflow|execution|organisation|planning|calendrier|modele|outils?|tools?|elements?|[eé]l[eé]ments?|conseils?|consiste|prendre|heures?|temps|documents?|disponibles?|materiel|service|utilisez|utiliser|choisissez|installation|lors|ouvrir|programmer|extraire|volonte|limiter|limit)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -18036,8 +28985,12 @@ If evidence is partial, write the best useful sourced answer possible and state 
     private static bool BackendSelectionHintsPreferUsableEvidence(RagHitSummary hit)
     {
         var role = NormalizeRagEvidenceRole(hit.SelectionHintRole);
-        if (role is "actionable_item" or "supporting_context" or "advisory")
+        if (role == "actionable_item")
             return true;
+        if (role is "supporting_context" or "advisory")
+            return HasConcretePageGroundedEvidence(hit)
+                   && (hit.SelectionHintSupportScore.GetValueOrDefault() >= 6
+                       || hit.SelectionHintActionabilityScore.GetValueOrDefault() >= 5);
         if (role is "navigation" or "fragment")
             return false;
 
@@ -18051,7 +29004,24 @@ If evidence is partial, write the best useful sourced answer possible and state 
         return positive >= 8
                && navigation < 8
                && fragment < 8
-               && qualityPenalty < 10;
+               && qualityPenalty < 10
+               && HasConcretePageGroundedEvidence(hit);
+    }
+
+    private static bool HasConcretePageGroundedEvidence(RagHitSummary hit)
+    {
+        if (hit.PageStart <= 0)
+            return false;
+        if (hit.MatchedContentCards?.Any(HasConcreteContentCardEvidence) == true)
+            return true;
+
+        var evidence = CollapseWhitespace(GetBestRagEvidenceText(hit));
+        if (evidence.Length < 80)
+            return false;
+        if (LooksLikePureRouteNavigationText(evidence) || LooksLikeNoisyCandidateSupportCue(evidence))
+            return false;
+
+        return true;
     }
 
     private static bool BackendSelectionHintsPreferNavigation(RagHitSummary hit)
@@ -18158,28 +29128,57 @@ If evidence is partial, write the best useful sourced answer possible and state 
         };
     }
 
+    private static readonly HashSet<string> QuerySignalStopWords = new(StringComparer.Ordinal)
+    {
+        "aide", "aider", "avec", "avoir", "cette", "comment", "dans", "faire", "facile", "idee",
+        "peux", "pour", "propose", "proposes", "quoi", "semaine", "vais", "veux", "voudrais",
+        "donne", "donner", "juste", "liste", "lister",
+        "about", "find", "help", "make", "plan", "prepare", "recommend", "suggest", "what", "with",
+        "list", "listing",
+        "can", "could", "give", "ayuda", "ayudar", "ayudame", "puede", "puedes", "podrias", "propone",
+        "recomienda", "ajuda", "ajudar", "pode", "podes", "recomenda", "kannst", "konntest", "helfen",
+        "vorschlag", "empfiehl", "aiuta", "aiutami", "puoi", "consiglia", "planejamento",
+        "planificacion", "organise", "organize", "organiser", "partir", "plusieurs", "multiple",
+        "multiples", "several", "many", "option", "options", "utile", "utiles", "useful",
+        "available", "disponible", "disponibles"
+    };
+
     private static IEnumerable<string> ExtractQuerySignalTerms(string normalizedQuery)
     {
-        var stopWords = new HashSet<string>(StringComparer.Ordinal)
-        {
-            "aide", "aider", "avec", "avoir", "cette", "comment", "dans", "faire", "facile", "idee",
-            "peux", "pour", "propose", "proposes", "quoi", "semaine", "vais", "veux", "voudrais",
-            "donne", "donner", "juste", "liste", "lister",
-            "about", "find", "help", "make", "plan", "prepare", "recommend", "suggest", "what", "with",
-            "list", "listing",
-            "can", "could", "give", "ayuda", "ayudar", "ayudame", "puede", "puedes", "podrias", "propone",
-            "recomienda", "ajuda", "ajudar", "pode", "podes", "recomenda", "kannst", "konntest", "helfen",
-            "vorschlag", "empfiehl", "aiuta", "aiutami", "puoi", "consiglia", "planejamento",
-            "planificacion", "organise", "organize", "organiser", "partir", "plusieurs", "multiple",
-            "multiples", "several", "many", "option", "options", "utile", "utiles", "useful",
-            "available", "disponible", "disponibles"
-        };
+        if (string.IsNullOrWhiteSpace(normalizedQuery))
+            yield break;
 
-        return Regex.Matches(normalizedQuery, @"[\p{L}\p{N}]{4,}")
-            .Select(m => m.Value)
-            .Where(term => !stopWords.Contains(term))
-            .Distinct(StringComparer.Ordinal)
-            .Take(8);
+        HashSet<string>? seen = null;
+        var emitted = 0;
+        var tokenStart = -1;
+        for (var i = 0; i <= normalizedQuery.Length; i++)
+        {
+            if (i < normalizedQuery.Length && char.IsLetterOrDigit(normalizedQuery[i]))
+            {
+                if (tokenStart < 0)
+                    tokenStart = i;
+                continue;
+            }
+
+            if (tokenStart < 0)
+                continue;
+
+            var tokenLength = i - tokenStart;
+            if (tokenLength >= 4)
+            {
+                var term = normalizedQuery.Substring(tokenStart, tokenLength);
+                if (!QuerySignalStopWords.Contains(term)
+                    && (seen ??= new HashSet<string>(StringComparer.Ordinal)).Add(term))
+                {
+                    yield return term;
+                    emitted++;
+                    if (emitted >= 8)
+                        yield break;
+                }
+            }
+
+            tokenStart = -1;
+        }
     }
 
     private static string NormalizeLexicalLookup(string? value)
@@ -18198,7 +29197,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 sb.Append(c);
         }
 
-        return sb.ToString().Normalize(NormalizationForm.FormC);
+        return RepairSplitOcrPlanningAxisTerms(sb.ToString().Normalize(NormalizationForm.FormC));
     }
 
     private static string NormalizeLooseLookup(string? value)
@@ -18244,7 +29243,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
     private static string BuildSourcePolicyGuardPrefix(string language)
         => SourceBackedLabel(
             language,
-            "Je ne peux pas ignorer les sources ni inventer une reponse documentaire. Je reste donc strictement sur ce que les sources disponibles permettent.",
+            "Je ne peux pas ignorer les sources ni inventer une réponse documentaire. Je reste donc strictement sur ce que les sources disponibles permettent.",
             "I cannot ignore the sources or invent a documentary answer. I will stay strictly within what the available sources support.",
             "No puedo ignorar las fuentes ni inventar una respuesta documental. Me limito estrictamente a lo que permiten las fuentes disponibles.",
             "Nao posso ignorar as fontes nem inventar uma resposta documental. Vou limitar-me estritamente ao que as fontes disponiveis sustentam.",
@@ -18254,7 +29253,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
     private static string BuildDocumentInstructionPolicyAnswer(string language)
         => SourceBackedLabel(
             NormalizeLanguageCode(language),
-            "Je ne peux pas ignorer les consignes precedentes, inventer une reponse ou laisser une phrase dans un document modifier les regles de reponse. Une phrase retrouvee dans un PDF est une donnee du corpus a evaluer, pas une instruction systeme. Je reste limite aux sources disponibles et je refuse la partie non sourcee.",
+            "Je ne peux pas ignorer les consignes précédentes, inventer une réponse ou laisser une phrase dans un document modifier les règles de réponse. Une phrase retrouvée dans un document est une donnée du corpus à évaluer, pas une instruction système. Je reste limité aux sources disponibles et je refuse la partie non sourcée.",
             "I cannot ignore previous instructions, invent an answer, or let a sentence inside a document change the response rules. A sentence found in a PDF is corpus content to evaluate, not a system instruction. I stay limited to available sources and refuse the unsupported part.",
             "No puedo ignorar instrucciones anteriores, inventar una respuesta ni dejar que una frase dentro de un documento cambie las reglas de respuesta. Una frase encontrada en un PDF es contenido del corpus que se evalua, no una instruccion del sistema. Me limito a las fuentes disponibles y rechazo la parte sin respaldo.",
             "Nao posso ignorar instrucoes anteriores, inventar uma resposta nem deixar que uma frase dentro de um documento altere as regras de resposta. Uma frase encontrada num PDF e conteudo do corpus a avaliar, nao uma instrucao do sistema. Fico limitado as fontes disponiveis e recuso a parte sem suporte.",
@@ -18264,7 +29263,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
     private static string BuildSourceAbsentAssertionPolicyAnswer(string language)
         => SourceBackedLabel(
             NormalizeLanguageCode(language),
-            "Non. Si l'extraction, le texte ou les sources disponibles sont vides ou insuffisants, je ne dois pas affirmer un champ, une valeur ou une conclusion documentaire. Je dois dire que l'information n'est pas confirmable avec les sources disponibles, demander une source exploitable ou citer uniquement les elements effectivement retrouves.",
+            "Non. Si l'extraction, le texte ou les sources disponibles sont vides ou insuffisants, je ne dois pas affirmer un champ, une valeur ou une conclusion documentaire. Je dois dire que l'information n'est pas confirmable avec les sources disponibles, demander une source exploitable ou citer uniquement les éléments effectivement retrouvés.",
             "No. If the extraction, text, or available sources are empty or insufficient, I must not assert a field, value, or documentary conclusion. I should state that the information cannot be confirmed from the available sources, ask for usable evidence, or cite only the evidence actually found.",
             "No. Si la extraccion, el texto o las fuentes disponibles estan vacios o son insuficientes, no debo afirmar un campo, valor o conclusion documental. Debo indicar que la informacion no se puede confirmar con las fuentes disponibles, pedir evidencia utilizable o citar solo lo encontrado.",
             "Nao. Se a extracao, o texto ou as fontes disponiveis estiverem vazios ou forem insuficientes, nao devo afirmar um campo, valor ou conclusao documental. Devo dizer que a informacao nao pode ser confirmada com as fontes disponiveis, pedir evidencia utilizavel ou citar apenas o que foi encontrado.",
@@ -18274,7 +29273,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
     private static string BuildBinaryAnswerWithSourceUncertaintyPolicyAnswer(string language)
         => SourceBackedLabel(
             NormalizeLanguageCode(language),
-            "Je refuse de transformer la question en oui/non clair si les sources ne tranchent pas explicitement. Une reponse binaire n'est acceptable que si les passages cites etablissent directement la conclusion; sinon je dois expliquer la limite, citer les documents pertinents et eviter tout toujours/jamais non prouve.",
+            "Je refuse de transformer la question en oui/non clair si les sources ne tranchent pas explicitement. Une réponse binaire n'est acceptable que si les passages cités établissent directement la conclusion ; sinon je dois expliquer la limite, citer les documents pertinents et éviter tout toujours/jamais non prouvé.",
             "I will not turn the question into a clear yes/no if the sources do not explicitly settle it. A binary answer is acceptable only when the cited passages directly support the conclusion; otherwise I should explain the limit, cite the relevant documents, and avoid any unsupported always/never claim.",
             "No convertire la pregunta en un si/no claro si las fuentes no lo resuelven explicitamente. Una respuesta binaria solo es aceptable si los pasajes citados sostienen directamente la conclusion; si no, debo explicar el limite, citar los documentos pertinentes y evitar afirmaciones absolutas sin prueba.",
             "Nao transformo a pergunta num sim/nao claro se as fontes nao resolverem isso explicitamente. Uma resposta binaria so e aceitavel quando os trechos citados sustentam diretamente a conclusao; caso contrario devo explicar o limite, citar os documentos pertinentes e evitar qualquer sempre/nunca sem prova.",
@@ -18601,21 +29600,21 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var header = SourceBackedLabel(
             language,
-            "Pour cette categorie, je partirais des documents indexes suivants. Je limite l'orientation aux sources retrouvees :",
-            "For this category, I would start with these indexed documents. I am keeping the overview limited to retrieved sources:",
-            "Para esta categoria, empezaria por estos documentos indexados. Limito la orientacion a las fuentes recuperadas:",
-            "Para esta categoria, eu comecaria por estes documentos indexados. Limito a orientacao as fontes recuperadas:",
-            "Fuer diese Kategorie wuerde ich mit diesen indexierten Dokumenten beginnen. Ich beschraenke die Uebersicht auf gefundene Quellen:",
-            "Per questa categoria, inizierei da questi documenti indicizzati. Mantengo l'orientamento limitato alle fonti recuperate:");
+            "Pour cette catégorie, je commencerais par explorer ces documents :",
+            "For this category, I would start by exploring these documents:",
+            "Para esta categoría, empezaría explorando estos documentos:",
+            "Para esta categoria, eu começaria explorando estes documentos:",
+            "Für diese Kategorie würde ich zuerst diese Dokumente prüfen:",
+            "Per questa categoria, inizierei esplorando questi documenti:");
 
         var caveat = SourceBackedLabel(
             language,
-            "Limite : cette cartographie est une orientation de lecture, pas une validation exhaustive du corpus.",
-            "Limit: this is a reading orientation, not an exhaustive validation of the corpus.",
-            "Limite: es una orientacion de lectura, no una validacion exhaustiva del corpus.",
-            "Limite: isto e uma orientacao de leitura, nao uma validacao exaustiva do corpus.",
-            "Grenze: Das ist eine Leseorientierung, keine vollstaendige Korpusvalidierung.",
-            "Limite: e un orientamento di lettura, non una validazione esaustiva del corpus.");
+            "À retenir : cette liste sert de point de départ. Elle ne remplace pas une vérification complète si la question demande une preuve précise.",
+            "Keep in mind: this list is a starting point. It does not replace a full check when the question needs precise evidence.",
+            "A tener en cuenta: esta lista sirve como punto de partida. No sustituye una comprobación completa si la pregunta necesita una prueba precisa.",
+            "A ter em conta: esta lista serve como ponto de partida. Não substitui uma verificação completa quando a pergunta precisa de uma prova precisa.",
+            "Wichtig: Diese Liste ist ein Startpunkt. Sie ersetzt keine vollständige Prüfung, wenn die Frage einen genauen Nachweis braucht.",
+            "Da tenere presente: questo elenco è un punto di partenza. Non sostituisce una verifica completa quando la domanda richiede una prova precisa.");
 
         var sb = new StringBuilder();
         sb.AppendLine(header);
@@ -18643,14 +29642,14 @@ If evidence is partial, write the best useful sourced answer possible and state 
     private static string InferGenericDocumentUseRole(string? docName, string language)
     {
         _ = docName;
-        var role = (
-            "contexte source indexe pour les questions documentaires de la categorie",
-            "indexed source context for documentary questions in the category");
-
         return NormalizeLanguageCode(language) switch
         {
-            "en" or "es" or "pt" or "de" or "it" => role.Item2,
-            _ => role.Item1
+            "en" => "useful starting document for questions in this category",
+            "es" => "documento útil para empezar las preguntas de esta categoría",
+            "pt" => "documento útil para começar as perguntas desta categoria",
+            "de" => "nützliches Ausgangsdokument für Fragen in dieser Kategorie",
+            "it" => "documento utile per iniziare le domande in questa categoria",
+            _ => "document utile pour commencer les recherches dans cette catégorie"
         };
     }
 
@@ -18710,17 +29709,17 @@ If evidence is partial, write the best useful sourced answer possible and state 
         return language switch
         {
             "en" =>
-                $"Short answer: the retrieved excerpts from {docLabel} support only a limited source-backed orientation on {topic}; they should not be treated as exhaustive proof of every sub-point.\nCitation: {docLabel} {page}: {excerpt}\nLimit: this conclusion is limited to the cited page(s) retrieved from the indexed corpus.",
+                $"Short answer: {docLabel} gives a partial indication on {topic}, but it does not prove every detail by itself.\nCitation: {docLabel} {page}: {excerpt}\nLimit: this answer only relies on the cited page(s).",
             "es" =>
-                $"Respuesta breve: los extractos recuperados de {docLabel} solo respaldan una orientacion limitada sobre {topic}; no deben tratarse como prueba exhaustiva de todos los subpuntos.\nCita: {docLabel} {page}: {excerpt}\nLimite: la conclusion se limita a las paginas citadas recuperadas del corpus indexado.",
+                $"Respuesta breve: {docLabel} da una indicación parcial sobre {topic}, pero no demuestra todos los detalles por sí solo.\nCita: {docLabel} {page}: {excerpt}\nLímite: esta respuesta se basa únicamente en las páginas citadas.",
             "pt" =>
-                $"Resposta curta: os excertos recuperados de {docLabel} sustentam apenas uma orientacao limitada sobre {topic}; nao devem ser tratados como prova exaustiva de todos os subpontos.\nCitacao: {docLabel} {page}: {excerpt}\nLimite: a conclusao fica limitada as paginas citadas recuperadas do corpus indexado.",
+                $"Resposta curta: {docLabel} dá uma indicação parcial sobre {topic}, mas não prova todos os detalhes por si só.\nCitação: {docLabel} {page}: {excerpt}\nLimite: esta resposta baseia-se apenas nas páginas citadas.",
             "de" =>
-                $"Kurzantwort: Die gefundenen Auszuege aus {docLabel} stuetzen nur eine begrenzte, belegte Orientierung zu {topic}; sie sind kein vollstaendiger Nachweis fuer alle Teilpunkte.\nZitat: {docLabel} {page}: {excerpt}\nGrenze: Diese Aussage ist auf die zitierten Seiten aus dem indexierten Korpus beschraenkt.",
+                $"Kurzantwort: {docLabel} liefert einen Teilhinweis zu {topic}, belegt aber nicht jedes Detail für sich allein.\nZitat: {docLabel} {page}: {excerpt}\nGrenze: Diese Antwort stützt sich nur auf die zitierten Seiten.",
             "it" =>
-                $"Risposta breve: gli estratti recuperati da {docLabel} supportano solo un orientamento limitato su {topic}; non sono una prova esaustiva di tutti i sottopunti.\nCitazione: {docLabel} {page}: {excerpt}\nLimite: la conclusione e limitata alle pagine citate recuperate dal corpus indicizzato.",
+                $"Risposta breve: {docLabel} offre un'indicazione parziale su {topic}, ma non dimostra ogni dettaglio da solo.\nCitazione: {docLabel} {page}: {excerpt}\nLimite: questa risposta si basa solo sulle pagine citate.",
             _ =>
-                $"Reponse courte : les extraits retrouves dans {docLabel} soutiennent seulement une orientation sourcee limitee sur {topic}; ils ne prouvent pas exhaustivement tous les sous-points.\nCitation : {docLabel} {page} : {excerpt}\nLimite : la conclusion reste limitee aux pages citees recuperees dans le corpus indexe."
+                $"Réponse courte : {docLabel} donne une indication partielle sur {topic}, mais ne prouve pas tous les détails à lui seul.\nCitation : {docLabel} {page} : {excerpt}\nLimite : cette réponse s'appuie uniquement sur les pages citées."
         };
     }
 
@@ -18810,7 +29809,18 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 language);
 
         if (avoidRawSourceBackedFallback)
-            return BuildBroadEvidenceStillInsufficientAnswer(language, query, intentQuery, hits.Count);
+        {
+            var readableFallback = BuildReadableSourceBackedFallbackIfUseful(toolResults, intentQuery, language);
+            if (!string.IsNullOrWhiteSpace(readableFallback))
+                return SuppressBroadenedSearchOfferIfAlreadyConfirmed(readableFallback, query, language);
+
+            return BuildBroadEvidenceStillInsufficientAnswer(
+                language,
+                query,
+                intentQuery,
+                hits.Count,
+                HasExpandedSourceBackedSearchEvidence(toolResults));
+        }
 
         if (isPlanningFallback)
         {
@@ -18833,31 +29843,26 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (!RagFallbackHasAtLeastOneQueryAnchor(hits, intentQuery))
             return AppendBroadenedSearchOfferIfHelpful(BuildRagNeighborFallbackAnswer(hits, language), query, language);
 
-        var topic = NormalizeRagQueryForRetrieval(intentQuery);
-        topic = string.IsNullOrWhiteSpace(topic)
-            ? SourceBackedLabel(language, "ce sujet", "this topic", "este tema", "este tema", "dieses Thema", "questo tema")
-            : topic;
-
         var labels = language switch
         {
             "en" => (
-                Header: $"Here is the documented material available for {topic}:",
-                Caveat: "This does not fully prove every part of the request; use the cited pages to confirm the details."),
+                Header: "I found these useful leads, but they are only a starting point for the answer:",
+                Caveat: "Use the cited pages to confirm the details before treating this as complete."),
             "es" => (
-                Header: $"Estas son las pistas con fuente disponibles sobre {topic}:",
-                Caveat: "Esto no demuestra por completo cada parte de la solicitud; consulta las páginas citadas para confirmar los detalles."),
+                Header: "He encontrado estas pistas útiles, pero solo son un punto de partida para la respuesta:",
+                Caveat: "Consulta las páginas citadas para confirmar los detalles antes de tratarlo como una respuesta completa."),
             "pt" => (
-                Header: $"Estas são as pistas com fonte disponíveis sobre {topic}:",
-                Caveat: "Isto não prova totalmente todas as partes do pedido; consulta as páginas citadas para confirmar os detalhes."),
+                Header: "Encontrei estas pistas úteis, mas elas são apenas um ponto de partida para a resposta:",
+                Caveat: "Consulta as páginas citadas para confirmar os detalhes antes de tratar isto como uma resposta completa."),
             "de" => (
-                Header: $"Diese belegten Hinweise sind zu {topic} verfügbar:",
-                Caveat: "Das belegt nicht jeden Teil der Anfrage vollständig; prüfe die zitierten Seiten für die Details."),
+                Header: "Ich habe diese nützlichen Hinweise gefunden, aber sie sind nur ein Ausgangspunkt für die Antwort:",
+                Caveat: "Prüfe die zitierten Seiten, bevor du dies als vollständige Antwort behandelst."),
             "it" => (
-                Header: $"Queste sono le indicazioni con fonte disponibili su {topic}:",
-                Caveat: "Questo non prova completamente ogni parte della richiesta; controlla le pagine citate per confermare i dettagli."),
+                Header: "Ho trovato questi spunti utili, ma sono solo un punto di partenza per la risposta:",
+                Caveat: "Controlla le pagine citate prima di considerarla una risposta completa."),
             _ => (
-                Header: $"Voici les éléments documentés disponibles sur {topic} :",
-                Caveat: "Cela ne prouve pas complètement chaque partie de la demande ; vérifie les pages citées pour confirmer les détails.")
+                Header: "J'ai trouvé ces pistes utiles, mais elles servent seulement de point de départ :",
+                Caveat: "Vérifie les pages citées avant de considérer cette réponse comme complète.")
         };
 
         var sb = new StringBuilder();
@@ -18896,42 +29901,102 @@ If evidence is partial, write the best useful sourced answer possible and state 
         string language,
         string originalQuery,
         string intentQuery,
-        int nearbyHitCount)
+        int nearbyHitCount,
+        bool searchAlreadyExpanded = false)
     {
         language = NormalizeLanguageCode(language);
         var alreadyConfirmed = IsBroadenedSourceSearchConfirmationEnvelope(originalQuery);
-        var answer = (language, nearbyHitCount > 0) switch
+        var answer = (language, nearbyHitCount > 0, searchAlreadyExpanded || alreadyConfirmed) switch
         {
-            ("en", true) =>
-                "The search found nearby passages, but they are still too weak or too narrow to build a useful answer without inventing. I need broader or more diverse source material before turning this into a clean result.",
-            ("en", false) =>
-                "I do not have enough usable source material yet to build a useful answer without inventing.",
-            ("es", true) =>
-                "La busqueda encontro pasajes cercanos, pero siguen siendo demasiado debiles o estrechos para construir una respuesta util sin inventar. Necesito material fuente mas amplio o diverso antes de convertirlo en un resultado claro.",
-            ("es", false) =>
-                "Todavia no tengo suficiente material fuente util para construir una respuesta sin inventar.",
-            ("pt", true) =>
-                "A pesquisa encontrou passagens proximas, mas ainda sao demasiado fracas ou estreitas para construir uma resposta util sem inventar. Preciso de material fonte mais amplo ou diverso antes de transformar isto num resultado claro.",
-            ("pt", false) =>
-                "Ainda nao tenho material fonte util suficiente para construir uma resposta sem inventar.",
-            ("de", true) =>
-                "Die Suche hat nahe liegende Passagen gefunden, aber sie sind noch zu schwach oder zu eng, um ohne Erfindungen eine hilfreiche Antwort zu erstellen. Ich brauche breiteres oder vielfaeltigeres Quellenmaterial, bevor daraus ein sauberes Ergebnis wird.",
-            ("de", false) =>
-                "Ich habe noch nicht genug nutzbares Quellenmaterial, um ohne Erfindungen eine hilfreiche Antwort zu erstellen.",
-            ("it", true) =>
-                "La ricerca ha trovato passaggi vicini, ma sono ancora troppo deboli o ristretti per costruire una risposta utile senza inventare. Ho bisogno di materiale fonte piu ampio o piu vario prima di trasformarlo in un risultato chiaro.",
-            ("it", false) =>
-                "Non ho ancora abbastanza materiale fonte utilizzabile per costruire una risposta senza inventare.",
-            (_, true) =>
-                "La recherche a trouve des passages proches, mais ils restent trop faibles ou trop etroits pour construire une reponse utile sans inventer. Il faut des sources plus larges ou plus variees avant d'en faire un resultat propre.",
+            ("en", true, true) =>
+                "The pages found are still too narrow for a solid answer. They give useful clues, but I need broader or more varied sources to produce something reliable.",
+            ("en", true, false) =>
+                "The pages found are too narrow for a solid answer. They give useful clues, but I need broader or more varied sources to produce something reliable.",
+            ("en", false, _) =>
+                "I have not found enough useful source material yet to answer reliably.",
+            ("es", true, true) =>
+                "Las páginas encontradas siguen siendo demasiado limitadas para una respuesta sólida. Dan pistas útiles, pero necesito fuentes más amplias o variadas para producir algo fiable.",
+            ("es", true, false) =>
+                "Las páginas encontradas son demasiado limitadas para una respuesta sólida. Dan pistas útiles, pero necesito fuentes más amplias o variadas para producir algo fiable.",
+            ("es", false, _) =>
+                "Todavía no he encontrado suficiente material fuente útil para responder de forma fiable.",
+            ("pt", true, true) =>
+                "As páginas encontradas continuam demasiado limitadas para uma resposta sólida. Dão pistas úteis, mas preciso de fontes mais amplas ou variadas para produzir algo fiável.",
+            ("pt", true, false) =>
+                "As páginas encontradas são demasiado limitadas para uma resposta sólida. Dão pistas úteis, mas preciso de fontes mais amplas ou variadas para produzir algo fiável.",
+            ("pt", false, _) =>
+                "Ainda não encontrei material fonte útil suficiente para responder de forma fiável.",
+            ("de", true, true) =>
+                "Die gefundenen Seiten sind weiterhin zu eng für eine belastbare Antwort. Sie geben nützliche Hinweise, aber ich brauche breitere oder vielfältigere Quellen.",
+            ("de", true, false) =>
+                "Die gefundenen Seiten sind zu eng für eine belastbare Antwort. Sie geben nützliche Hinweise, aber ich brauche breitere oder vielfältigere Quellen.",
+            ("de", false, _) =>
+                "Ich habe noch nicht genug nützliches Quellenmaterial gefunden, um zuverlässig zu antworten.",
+            ("it", true, true) =>
+                "Le pagine trovate sono ancora troppo limitate per una risposta solida. Offrono spunti utili, ma servono fonti più ampie o varie per produrre qualcosa di affidabile.",
+            ("it", true, false) =>
+                "Le pagine trovate sono troppo limitate per una risposta solida. Offrono spunti utili, ma servono fonti più ampie o varie per produrre qualcosa di affidabile.",
+            ("it", false, _) =>
+                "Non ho ancora trovato abbastanza materiale fonte utile per rispondere in modo affidabile.",
+            (_, true, true) =>
+                "Les pages trouvées restent trop limitées pour une réponse solide. Elles donnent des pistes utiles, mais il me faut des sources plus larges ou plus variées pour produire quelque chose de fiable.",
+            (_, true, false) =>
+                "Les pages trouvées sont trop limitées pour une réponse solide. Elles donnent des pistes utiles, mais il me faut des sources plus larges ou plus variées pour produire quelque chose de fiable.",
             _ =>
-                "Je n'ai pas encore assez d'elements sources exploitables pour construire une reponse utile sans inventer."
+                "Je n'ai pas encore trouvé assez d'éléments sources utiles pour répondre de manière fiable."
         };
 
-        return alreadyConfirmed
+        return alreadyConfirmed || searchAlreadyExpanded
             ? SuppressBroadenedSearchOfferIfAlreadyConfirmed(answer, originalQuery, language)
             : AppendBroadenedSearchOfferIfHelpful(answer, intentQuery, language);
     }
+
+    private static bool LooksLikeBroadEvidenceStillInsufficientAnswer(string? answer)
+    {
+        if (string.IsNullOrWhiteSpace(answer))
+            return false;
+
+        var normalized = NormalizeLooseLookup(answer);
+        return (normalized.Contains("pages trouvees", StringComparison.Ordinal)
+                && (normalized.Contains("trop limitees", StringComparison.Ordinal)
+                    || normalized.Contains("restent trop limitees", StringComparison.Ordinal)))
+            || normalized.Contains("pas encore trouve assez d elements sources utiles", StringComparison.Ordinal)
+            || normalized.Contains("pages found are too narrow", StringComparison.Ordinal)
+            || normalized.Contains("pages found are still too narrow", StringComparison.Ordinal)
+            || normalized.Contains("not found enough useful source material", StringComparison.Ordinal)
+            || (normalized.Contains("paginas encontradas", StringComparison.Ordinal)
+                && normalized.Contains("demasiado limitadas", StringComparison.Ordinal))
+            || normalized.Contains("suficiente material fuente util", StringComparison.Ordinal)
+            || normalized.Contains("material fonte util suficiente", StringComparison.Ordinal)
+            || (normalized.Contains("gefundenen seiten", StringComparison.Ordinal)
+                && normalized.Contains("zu eng", StringComparison.Ordinal))
+            || normalized.Contains("nicht genug nutzliches quellenmaterial", StringComparison.Ordinal)
+            || (normalized.Contains("pagine trovate", StringComparison.Ordinal)
+                && normalized.Contains("troppo limitate", StringComparison.Ordinal))
+            || normalized.Contains("abbastanza materiale fonte utile", StringComparison.Ordinal);
+    }
+
+    private static bool ShouldSuppressVisibleSourcesForInsufficientStructuredPlanningAnswer(
+        string? answer,
+        ToolResults toolResults,
+        string? query,
+        string language)
+    {
+        if (!LooksLikeBroadEvidenceStillInsufficientAnswer(answer))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(query))
+            return true;
+
+        var intentQuery = ResolveSourceBackedFallbackIntentQuery(query);
+        if (!ShouldGateStructuredSourceBackedPlanningCoverage(intentQuery))
+            return false;
+
+        return true;
+    }
+
+    private static bool HasExpandedSourceBackedSearchEvidence(ToolResults toolResults)
+        => toolResults.Items.Count(static item => item.ToolName is "rag.search" or "rag.multi_search" && string.IsNullOrWhiteSpace(item.Error)) > 1;
 
     private static string SuppressBroadenedSearchOfferIfAlreadyConfirmed(string answer, string originalQuery, string language)
     {
@@ -18958,45 +30023,97 @@ If evidence is partial, write the best useful sourced answer possible and state 
             return false;
 
         return IsBroadenedSourceSearchConfirmationEnvelope(query)
+            || RequiresStructuredSourceBackedPlanningCoverage(query)
             || LooksLikeGenericCollectionOrListRequest(query)
             || LooksLikeAnyDocumentaryPlanningRequest(query)
             || LooksLikeBroadSourceBackedCompositionRequest(query)
             || LooksLikeMultipleCandidateSynthesisRequest(query)
+            || LooksLikeUserNeedsSynthesizedDecisionOrPlan(query)
             || LooksLikeSoftChoiceRecommendationRequest(query)
             || LooksLikeSourceBackedPairingRecommendationRequest(query);
     }
 
+    private static bool ShouldAllowReadableSourceBackedPartialFallback(string? query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return false;
+
+        var intentQuery = ResolveSourceBackedFallbackIntentQuery(query);
+        return IsBroadenedSourceSearchConfirmationEnvelope(query)
+            || LooksLikeAnyDocumentaryPlanningRequest(intentQuery)
+            || LooksLikeUserNeedsSynthesizedDecisionOrPlan(intentQuery);
+    }
+
     private static bool ShouldRequireWriterForBroadDocumentaryFinal(ToolResults toolResults, string? query, string language = "fr")
     {
-        if (string.IsNullOrWhiteSpace(query)
-            || LooksLikeExactPassageOrCitationRequest(query)
-            || LooksLikeStrictCertificationOrExactProofRequest(query)
-            || LooksLikeCorpusClaimVerificationRequest(query)
-            || LooksLikeSourceBackedCountdownPlanningRequest(query)
-            || LooksLikeSourceBackedVerificationChecklistRequest(query))
+        if (string.IsNullOrWhiteSpace(query))
+            return false;
+
+        var intentQuery = ResolveSourceBackedFallbackIntentQuery(query);
+        var isBroadenedSourceSearchConfirmation = IsBroadenedSourceSearchConfirmationEnvelope(query);
+        var previousEnvelopeRequest = isBroadenedSourceSearchConfirmation
+            && TryExtractPreviousUserRequestFromEnvelope(query, out var previousRequest)
+                ? previousRequest
+                : string.Empty;
+        var previousEnvelopeIsStructuredPlanning = ShouldGateStructuredSourceBackedPlanningCoverage(previousEnvelopeRequest);
+        var previousEnvelopeRequiresDeterministicPlanning = ShouldRequireDeterministicStructuredPlanningAnswer(previousEnvelopeRequest);
+        var intentRequiresDeterministicPlanning = ShouldRequireDeterministicStructuredPlanningAnswer(intentQuery);
+        var structuredCoverageQuery = previousEnvelopeIsStructuredPlanning ? previousEnvelopeRequest : intentQuery;
+        if (!isBroadenedSourceSearchConfirmation
+            && (LooksLikeExactPassageOrCitationRequest(intentQuery)
+                || LooksLikeStrictCertificationOrExactProofRequest(intentQuery)
+                || LooksLikeCorpusClaimVerificationRequest(intentQuery)
+                || LooksLikeSourceBackedCountdownPlanningRequest(intentQuery)
+                || LooksLikeSourceBackedVerificationChecklistRequest(intentQuery)))
         {
             return false;
         }
 
-        if (ShouldAvoidRawSourceBackedFallback(query))
+        if (previousEnvelopeIsStructuredPlanning || ShouldGateStructuredSourceBackedPlanningCoverage(intentQuery))
+        {
+            return toolResults.Items.Any(static item => item.ToolName is ("rag.search" or "rag.multi_search") && HasRagHits(item.Result))
+                && (ShouldAllowWriterForPartialSourceBackedPlanning(toolResults, structuredCoverageQuery, language)
+                    || ShouldAllowWriterForPartialSourceBackedPlanning(toolResults, query, language));
+        }
+
+        if (isBroadenedSourceSearchConfirmation
+            && HasAtLeastDistinctUsableSourcePages(toolResults, 2))
+        {
+            return true;
+        }
+
+        if (ShouldAvoidRawSourceBackedFallback(query) || ShouldAvoidRawSourceBackedFallback(intentQuery))
             return true;
 
         if (!toolResults.Items.Any(static item => item.ToolName is ("rag.search" or "rag.multi_search") && HasRagHits(item.Result)))
             return false;
 
-        return ShouldUseWriterForBroadSourceBackedSynthesis(toolResults, query)
-            || ShouldPreferWriterForPolishedSourceBackedAnswer(toolResults, query)
-            || ShouldAllowWriterForPartialSourceBackedPlanning(toolResults, query, language);
+        return ShouldUseWriterForBroadSourceBackedSynthesis(toolResults, intentQuery)
+            || ShouldPreferWriterForPolishedSourceBackedAnswer(toolResults, intentQuery)
+            || ShouldAllowWriterForPartialSourceBackedPlanning(toolResults, intentQuery, language);
     }
 
     private static bool ShouldRouteSourceBackedAnswerThroughWriter(ToolResults toolResults, string? query, string language = "fr")
     {
-        if (string.IsNullOrWhiteSpace(query)
-            || LooksLikeExactPassageOrCitationRequest(query)
-            || LooksLikeStrictCertificationOrExactProofRequest(query)
-            || LooksLikeCorpusClaimVerificationRequest(query)
-            || LooksLikeSourceBackedCountdownPlanningRequest(query)
-            || LooksLikeSourceBackedVerificationChecklistRequest(query))
+        if (string.IsNullOrWhiteSpace(query))
+            return false;
+
+        var intentQuery = ResolveSourceBackedFallbackIntentQuery(query);
+        var isBroadenedSourceSearchConfirmation = IsBroadenedSourceSearchConfirmationEnvelope(query);
+        var previousEnvelopeRequest = isBroadenedSourceSearchConfirmation
+            && TryExtractPreviousUserRequestFromEnvelope(query, out var previousRequest)
+                ? previousRequest
+                : string.Empty;
+        var previousEnvelopeIsStructuredPlanning = ShouldGateStructuredSourceBackedPlanningCoverage(previousEnvelopeRequest);
+        var previousEnvelopeRequiresDeterministicPlanning = ShouldRequireDeterministicStructuredPlanningAnswer(previousEnvelopeRequest);
+        var intentRequiresDeterministicPlanning = ShouldRequireDeterministicStructuredPlanningAnswer(intentQuery);
+        var structuredCoverageQuery = previousEnvelopeIsStructuredPlanning ? previousEnvelopeRequest : intentQuery;
+        if (!isBroadenedSourceSearchConfirmation
+            && (LooksLikeExactPassageOrCitationRequest(intentQuery)
+                || LooksLikeStrictCertificationOrExactProofRequest(intentQuery)
+                || LooksLikeCorpusClaimVerificationRequest(intentQuery)
+                || LooksLikeSourceBackedCountdownPlanningRequest(intentQuery)
+                || LooksLikeSourceBackedVerificationChecklistRequest(intentQuery)))
         {
             return false;
         }
@@ -19004,10 +30121,23 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (!toolResults.Items.Any(static item => item.ToolName is ("rag.search" or "rag.multi_search") && HasRagHits(item.Result)))
             return false;
 
+        if (previousEnvelopeIsStructuredPlanning || ShouldGateStructuredSourceBackedPlanningCoverage(intentQuery))
+        {
+            return ShouldAllowWriterForPartialSourceBackedPlanning(toolResults, structuredCoverageQuery, language)
+                || ShouldAllowWriterForPartialSourceBackedPlanning(toolResults, query, language);
+        }
+
+        if (isBroadenedSourceSearchConfirmation
+            && HasAtLeastDistinctUsableSourcePages(toolResults, 2))
+        {
+            return true;
+        }
+
         if (ShouldAvoidRawSourceBackedFallback(query)
-            || ShouldUseWriterForBroadSourceBackedSynthesis(toolResults, query)
-            || ShouldPreferWriterForPolishedSourceBackedAnswer(toolResults, query)
-            || ShouldAllowWriterForPartialSourceBackedPlanning(toolResults, query, language))
+            || ShouldAvoidRawSourceBackedFallback(intentQuery)
+            || ShouldUseWriterForBroadSourceBackedSynthesis(toolResults, intentQuery)
+            || ShouldPreferWriterForPolishedSourceBackedAnswer(toolResults, intentQuery)
+            || ShouldAllowWriterForPartialSourceBackedPlanning(toolResults, intentQuery, language))
         {
             return true;
         }
@@ -19025,23 +30155,149 @@ If evidence is partial, write the best useful sourced answer possible and state 
             .Count();
         var hasRichEvidence = usableHits.Any(HasRichSourceBackedEvidence);
         var expectsSynthesis =
-            LooksLikeSourceBackedActionRequest(query)
-            || LooksLikeDocumentaryContentRequest(query)
-            || LooksLikeComparativeDocumentaryRequest(query)
-            || LooksLikeBroadSynthesisRequestShape(query)
-            || LooksLikeBroadSourceBackedCompositionRequest(query)
-            || LooksLikeMultipleCandidateSynthesisRequest(query)
-            || LooksLikeSoftChoiceRecommendationRequest(query)
-            || LooksLikeSourceBackedOptionRequest(query)
-            || LooksLikeSourceBackedPairingRecommendationRequest(query)
-            || LooksLikeGenericCollectionOrListRequest(query)
-            || LooksLikeUserNeedsSynthesizedDecisionOrPlan(query);
+            LooksLikeSourceBackedActionRequest(intentQuery)
+            || LooksLikeDocumentaryContentRequest(intentQuery)
+            || LooksLikeComparativeDocumentaryRequest(intentQuery)
+            || LooksLikeBroadSynthesisRequestShape(intentQuery)
+            || LooksLikeBroadSourceBackedCompositionRequest(intentQuery)
+            || LooksLikeMultipleCandidateSynthesisRequest(intentQuery)
+            || LooksLikeSoftChoiceRecommendationRequest(intentQuery)
+            || LooksLikeSourceBackedOptionRequest(intentQuery)
+            || LooksLikeSourceBackedPairingRecommendationRequest(intentQuery)
+            || LooksLikeGenericCollectionOrListRequest(intentQuery)
+            || LooksLikeUserNeedsSynthesizedDecisionOrPlan(intentQuery);
 
         if (expectsSynthesis)
             return usableHits.Count >= 2 || distinctPages >= 2 || hasRichEvidence;
 
-        return ShouldUseSourceBackedExtractiveAnswer(query, toolResults)
+        return ShouldUseSourceBackedExtractiveAnswer(intentQuery, toolResults)
             && (usableHits.Count >= 2 || distinctPages >= 2);
+    }
+
+    private static bool HasAtLeastDistinctUsableSourcePages(ToolResults toolResults, int minimumPages)
+    {
+        if (minimumPages <= 0)
+            return true;
+
+        return EnumerateRagHitSummaries(toolResults)
+            .Where(static hit => !LooksLikeNavigationOnlyHit(hit))
+            .Select(static hit =>
+            {
+                var key = BuildRagHitVisiblePageMergeKey(hit);
+                if (!string.IsNullOrWhiteSpace(key))
+                    return key;
+
+                var source = !string.IsNullOrWhiteSpace(hit.DocPath)
+                    ? hit.DocPath
+                    : !string.IsNullOrWhiteSpace(hit.DocName)
+                        ? hit.DocName
+                        : !string.IsNullOrWhiteSpace(hit.SourceHash)
+                            ? hit.SourceHash
+                            : hit.ChunkId;
+                return string.IsNullOrWhiteSpace(source)
+                    ? string.Empty
+                    : $"{NormalizeLooseLookup(source)}#{Math.Max(1, hit.PageStart)}";
+            })
+            .Where(static key => !string.IsNullOrWhiteSpace(key))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(minimumPages)
+            .Count() >= minimumPages;
+    }
+
+    private static string TryBuildInsufficientStructuredPlanningBeforeWriterAnswer(ToolResults toolResults, string? query, string language)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return string.Empty;
+
+        var intentQuery = ResolveSourceBackedFallbackIntentQuery(query);
+        if (!ShouldGateStructuredSourceBackedPlanningCoverage(intentQuery)
+            || !toolResults.Items.Any(static item => item.ToolName is ("rag.search" or "rag.multi_search") && HasRagHits(item.Result)))
+        {
+            return string.Empty;
+        }
+
+        var coverage = EvaluateSourceBackedPlanningCoverage(toolResults, intentQuery, language);
+        var nearbyHitCount = EnumerateRagHitSummaries(toolResults)
+            .Count(ShouldExposeHitForSourceBackedEvidenceDiscovery);
+        var searchWasBroadened = IsBroadenedSourceSearchConfirmationEnvelope(query);
+        var searchWasExpanded = HasExpandedSourceBackedSearchEvidence(toolResults);
+        if (ShouldAllowWriterForPartialSourceBackedPlanning(toolResults, query, language))
+            return string.Empty;
+
+        if (!coverage.IsAdequate)
+        {
+            var partialAnswer = BuildUsefulPartialStructuredPlanningAnswerBeforeWriter(
+                toolResults,
+                intentQuery,
+                language,
+                coverage,
+                searchWasBroadened,
+                searchWasExpanded);
+            if (!string.IsNullOrWhiteSpace(partialAnswer))
+                return partialAnswer;
+        }
+
+        if (coverage.IsAdequate
+            || (searchWasBroadened
+                && ShouldApplyMealPlanningSlotSemantics(intentQuery)
+                && HasUsefulPartialSourceBackedPlanningCoverage(coverage, searchWasBroadened, searchWasExpanded)))
+        {
+            return string.Empty;
+        }
+
+        return BuildBroadEvidenceStillInsufficientAnswer(
+                language,
+                query,
+                intentQuery,
+                nearbyHitCount,
+                searchWasExpanded);
+    }
+
+    private static string? BuildUsefulPartialStructuredPlanningAnswerBeforeWriter(
+        ToolResults toolResults,
+        string? intentQuery,
+        string language,
+        SourceBackedPlanningCoverage coverage,
+        bool searchWasBroadened,
+        bool searchWasExpanded)
+    {
+        if (!HasUsefulPartialSourceBackedPlanningCoverage(coverage, searchWasBroadened, searchWasExpanded))
+            return null;
+
+        var draft = BuildSourceBackedPlanningDraft(
+            toolResults,
+            language,
+            minItems: 1,
+            query: intentQuery,
+            allowPartialStructuredPlanningDraft: true);
+        return HasTrustedPartialSourceBackedPlanningDraftCoverage(
+                draft,
+                coverage,
+                intentQuery,
+                searchWasBroadened,
+                searchWasExpanded)
+            ? draft.Answer
+            : null;
+    }
+
+    private static (ToolResults ToolResults, SourceBackedPlanningCoverage? RawCoverage, SourceBackedPlanningCoverage? WriterCoverage, string Basis) ResolveStructuredPlanningWriterGuardToolResults(
+        ToolResults rawToolResults,
+        ToolResults writerToolResults,
+        string? query,
+        string language)
+    {
+        if (string.IsNullOrWhiteSpace(query)
+            || !ShouldGateStructuredSourceBackedPlanningCoverage(query)
+            || !rawToolResults.Items.Any(static item => item.ToolName is ("rag.search" or "rag.multi_search") && HasRagHits(item.Result)))
+        {
+            return (writerToolResults, null, null, "writer_tool_results");
+        }
+
+        var rawCoverage = EvaluateSourceBackedPlanningCoverage(rawToolResults, query, language);
+        var writerCoverage = EvaluateSourceBackedPlanningCoverage(writerToolResults, query, language);
+        return rawCoverage.IsAdequate
+            ? (rawToolResults, rawCoverage, writerCoverage, "raw_tool_results")
+            : (writerToolResults, rawCoverage, writerCoverage, "writer_tool_results");
     }
 
     private static string BuildReadableSourceBackedCandidateListFallbackAnswer(ToolResults toolResults, string query, string language)
@@ -19060,29 +30316,47 @@ If evidence is partial, write the best useful sourced answer possible and state 
             return string.Empty;
 
         language = NormalizeLanguageCode(language);
-        var maxItems = LooksLikeAnyDocumentaryPlanningRequest(query) ? 10 : 8;
-        var candidates = SelectSourceBackedOptionCandidates(
-                toolResults,
-                query,
-                keepOverRequestedDuration: true,
-                language: language)
-            .Where(static candidate => !LooksLikePageReferenceOnlyHit(candidate.Hit))
-            .Where(static candidate => !LooksLikeLowSignalContentCandidateHit(candidate.Hit))
-            .Select(candidate => NormalizeReadableSourceBackedCandidate(candidate, query, language))
-            .OfType<SourceBackedOptionCandidate>()
-            .GroupBy(BuildSourceBackedOptionCandidateKey, StringComparer.OrdinalIgnoreCase)
-            .Select(static group => group
-                .OrderByDescending(static candidate => candidate.Score)
-                .ThenByDescending(static candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit))
-                .ThenByDescending(static candidate => candidate.Hit.Score)
-                .First())
-            .Take(maxItems)
-            .ToList();
+        var structuredPlanning = ShouldGateStructuredSourceBackedPlanningCoverage(query);
+        var maxItems = structuredPlanning
+            ? Math.Clamp(ResolveSourceBackedPlanningTargetItemCount(query), 8, 24)
+            : LooksLikeAnyDocumentaryPlanningRequest(query) ? 10 : 8;
+        var candidates = structuredPlanning
+            ? SelectSourceBackedPlanningCandidates(toolResults, query, maxItems, language)
+                .GroupBy(BuildSourceBackedPlanningCandidateLeadKey, StringComparer.OrdinalIgnoreCase)
+                .Select(static group => group
+                    .OrderByDescending(static candidate => candidate.Score)
+                    .ThenByDescending(static candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit))
+                    .ThenByDescending(static candidate => candidate.Hit.Score)
+                    .First())
+                .Take(maxItems)
+                .ToList()
+            : SelectSourceBackedOptionCandidates(
+                    toolResults,
+                    query,
+                    keepOverRequestedDuration: true,
+                    language: language)
+                .Where(static candidate => !LooksLikePageReferenceOnlyHit(candidate.Hit))
+                .Where(static candidate => !LooksLikeLowSignalContentCandidateHit(candidate.Hit))
+                .Select(candidate => NormalizeReadableSourceBackedCandidate(candidate, query, language))
+                .OfType<SourceBackedOptionCandidate>()
+                .GroupBy(BuildSourceBackedOptionCandidateKey, StringComparer.OrdinalIgnoreCase)
+                .Select(static group => group
+                    .OrderByDescending(static candidate => candidate.Score)
+                    .ThenByDescending(static candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit))
+                    .ThenByDescending(static candidate => candidate.Hit.Score)
+                    .First())
+                .Take(maxItems)
+                .ToList();
         if (candidates.Count == 0)
             return string.Empty;
 
-        var minimumUsefulCandidateCount = LooksLikeAnyDocumentaryPlanningRequest(query)
-            ? 6
+        var minimumUsefulCandidateCount = structuredPlanning
+            ? Math.Min(maxItems, ResolveMinimumSourceBackedPlanningCandidateCount(
+                query,
+                Math.Max(1, ResolveSourceBackedPlanningTargetItemCount(query)),
+                hasStructuredAxes: true))
+            : LooksLikeAnyDocumentaryPlanningRequest(query)
+            ? 3
             : LooksLikeGenericCollectionOrListRequest(query)
                 || LooksLikeMultipleCandidateSynthesisRequest(query)
                 || LooksLikeBroadSourceBackedCompositionRequest(query)
@@ -19094,29 +30368,41 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var labels = language switch
         {
             "en" => (
-                Header: "Here is a first usable selection from the cited documents.",
-                Intro: "Use these items as a starting point, then check the cited pages before relying on quantities, timing or constraints:",
-                Shortage: "The retrieved sources are still not enough to make a complete answer without repetition or invention."),
+                Header: LooksLikeAnyDocumentaryPlanningRequest(query)
+                    ? "I can already suggest a few usable options, but I need more varied pages before turning them into a full plan."
+                    : "Here is a first selection I can justify from the documents.",
+                Intro: "These items are worth checking first:",
+                Shortage: "To complete the answer properly, I would still need more usable pages so the same options are not repeated."),
             "es" => (
-                Header: "Aquí tienes una primera selección utilizable a partir de los documentos citados.",
-                Intro: "Usa estos elementos como punto de partida y revisa las páginas citadas antes de aplicar cantidades, tiempos o restricciones:",
-                Shortage: "Las fuentes recuperadas aún no bastan para construir una respuesta completa sin repetir ni inventar."),
+                Header: LooksLikeAnyDocumentaryPlanningRequest(query)
+                    ? "Ya puedo sugerir algunas opciones utilizables, pero necesito páginas más variadas antes de convertirlas en un plan completo."
+                    : "Aquí tienes una primera selección que puedo justificar con los documentos.",
+                Intro: "Conviene revisar primero estos elementos:",
+                Shortage: "Para completar bien la respuesta, todavía necesitaría más páginas útiles para no repetir las mismas opciones."),
             "pt" => (
-                Header: "Aqui está uma primeira seleção utilizável a partir dos documentos citados.",
-                Intro: "Usa estes itens como ponto de partida e verifica as páginas citadas antes de aplicar quantidades, tempos ou restrições:",
-                Shortage: "As fontes recuperadas ainda não bastam para construir uma resposta completa sem repetir nem inventar."),
+                Header: LooksLikeAnyDocumentaryPlanningRequest(query)
+                    ? "Já consigo sugerir algumas opções utilizáveis, mas preciso de páginas mais variadas antes de as transformar num plano completo."
+                    : "Aqui está uma primeira seleção que consigo justificar com os documentos.",
+                Intro: "Vale a pena verificar primeiro estes itens:",
+                Shortage: "Para completar bem a resposta, ainda preciso de mais páginas úteis para não repetir as mesmas opções."),
             "de" => (
-                Header: "Hier ist eine erste brauchbare Auswahl aus den zitierten Dokumenten.",
-                Intro: "Nutze diese Punkte als Ausgangsbasis und prüfe die zitierten Seiten, bevor du Mengen, Zeiten oder Einschränkungen übernimmst:",
-                Shortage: "Die gefundenen Quellen reichen noch nicht für eine vollständige Antwort ohne Wiederholung oder Erfindung."),
+                Header: LooksLikeAnyDocumentaryPlanningRequest(query)
+                    ? "Ich kann bereits einige nutzbare Optionen vorschlagen, brauche aber vielfältigere Seiten, bevor daraus ein vollständiger Plan wird."
+                    : "Hier ist eine erste Auswahl, die ich mit den Dokumenten belegen kann.",
+                Intro: "Diese Punkte solltest du zuerst prüfen:",
+                Shortage: "Für eine gute vollständige Antwort brauche ich noch mehr nutzbare Seiten, damit sich die Optionen nicht wiederholen."),
             "it" => (
-                Header: "Ecco una prima selezione utilizzabile dai documenti citati.",
-                Intro: "Usa questi elementi come punto di partenza e controlla le pagine citate prima di applicare quantità, tempi o vincoli:",
-                Shortage: "Le fonti recuperate non bastano ancora per costruire una risposta completa senza ripetere o inventare."),
+                Header: LooksLikeAnyDocumentaryPlanningRequest(query)
+                    ? "Posso già suggerire alcune opzioni utilizzabili, ma servono pagine più varie prima di trasformarle in un piano completo."
+                    : "Ecco una prima selezione che posso giustificare con i documenti.",
+                Intro: "Controllerei prima questi elementi:",
+                Shortage: "Per completare bene la risposta servono altre pagine utili, così le stesse opzioni non vengono ripetute."),
             _ => (
-                Header: "Voici une liste de départ plus exploitable, uniquement à partir des sources.",
-                Intro: "Utilise ces éléments comme point de départ, puis vérifie les pages citées avant de reprendre des quantités, durées ou contraintes :",
-                Shortage: "Les sources récupérées ne suffisent pas encore pour construire une réponse complète sans répétition ni invention.")
+                Header: LooksLikeAnyDocumentaryPlanningRequest(query)
+                    ? "Je peux déjà proposer quelques options utilisables, mais il me faut des pages plus variées avant d'en faire un plan complet."
+                    : "Voici une première sélection que je peux justifier avec les documents.",
+                Intro: "Je commencerais par vérifier ces éléments :",
+                Shortage: "Pour compléter correctement la réponse, il me faut encore d'autres pages utiles afin d'éviter de répéter les mêmes options.")
         };
 
         var sb = new StringBuilder();
@@ -19234,6 +30520,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             return string.Empty;
 
         language = NormalizeLanguageCode(language);
+        var strictStructuredPlanning = ShouldGateStructuredSourceBackedPlanningCoverage(query);
         var leads = hits
             .Where(static hit => !LooksLikeNavigationOnlyHit(hit))
             .Where(static hit => !LooksLikeLowSignalContentCandidateHit(hit))
@@ -19241,10 +30528,20 @@ If evidence is partial, write the best useful sourced answer possible and state 
             .Select(static group => group.First())
             .Select(hit => BuildReadablePartialPlanningEvidenceLead(hit, query, language))
             .Where(static lead => !string.IsNullOrWhiteSpace(lead.Title))
+            .Where(lead => !strictStructuredPlanning || lead.IsConcreteOption)
             .Take(6)
             .ToList();
         if (leads.Count == 0)
             return string.Empty;
+
+        if (!leads.Any(static lead => lead.IsConcreteOption))
+        {
+            return BuildBroadEvidenceStillInsufficientAnswer(
+                language,
+                query,
+                query,
+                nearbyHitCount: leads.Count);
+        }
 
         var structuredAnswer = BuildStructuredReadablePartialPlanningEvidenceAnswer(leads, query, language);
         if (!string.IsNullOrWhiteSpace(structuredAnswer))
@@ -19253,34 +30550,34 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var labels = language switch
         {
             "en" => (
-                Header: "Here is a usable starting point from the sourced material available.",
-                Intro: "Use these sourced leads as a base:",
-                Missing: "To turn this into a full plan, the missing slots still need to be completed or validated from additional sources.",
+                Header: "Here is a practical draft based on the pages I can cite.",
+                Intro: "I would start with:",
+                Missing: "Some parts still need another cited page before I can fill them confidently.",
                 Verify: "Check the cited pages before using exact quantities, timing or constraints."),
             "es" => (
-                Header: "Aqui tienes una base de partida util a partir del material con fuente disponible.",
-                Intro: "Usa estas pistas con fuente como base:",
-                Missing: "Para convertirlo en un plan completo, aun hay que completar o validar los huecos que faltan con fuentes adicionales.",
-                Verify: "Consulta las paginas citadas antes de usar cantidades, tiempos o restricciones exactas."),
+                Header: "Aquí tienes un borrador práctico basado en las páginas que puedo citar.",
+                Intro: "Yo empezaría por:",
+                Missing: "Algunas partes todavía necesitan otra página citada antes de poder completarlas con confianza.",
+                Verify: "Consulta las páginas citadas antes de usar cantidades, tiempos o restricciones exactas."),
             "pt" => (
-                Header: "Aqui esta uma base de partida util a partir do material com fonte disponivel.",
-                Intro: "Usa estas pistas com fonte como base:",
-                Missing: "Para transformar isto num plano completo, ainda e preciso completar ou validar os espacos em falta com fontes adicionais.",
-                Verify: "Consulta as paginas citadas antes de usar quantidades, tempos ou restricoes exatas."),
+                Header: "Aqui está um rascunho prático baseado nas páginas que consigo citar.",
+                Intro: "Eu começaria por:",
+                Missing: "Algumas partes ainda precisam de outra página citada antes de poderem ser preenchidas com confiança.",
+                Verify: "Consulta as páginas citadas antes de usar quantidades, tempos ou restrições exatas."),
             "de" => (
-                Header: "Hier ist ein nutzbarer Ausgangspunkt aus dem verfuegbaren Quellenmaterial.",
-                Intro: "Nutze diese belegten Hinweise als Basis:",
-                Missing: "Fuer einen vollstaendigen Plan muessen fehlende Plaetze noch aus weiteren Quellen ergaenzt oder geprueft werden.",
-                Verify: "Pruefe die zitierten Seiten, bevor du genaue Mengen, Zeiten oder Einschraenkungen uebernimmst."),
+                Header: "Hier ist ein praktischer Entwurf auf Basis der Seiten, die ich zitieren kann.",
+                Intro: "Ich würde damit beginnen:",
+                Missing: "Einige Teile brauchen noch eine weitere zitierte Seite, bevor ich sie sicher ausfüllen kann.",
+                Verify: "Prüfe die zitierten Seiten, bevor du genaue Mengen, Zeiten oder Einschränkungen übernimmst."),
             "it" => (
-                Header: "Ecco una base di partenza utile dal materiale con fonte disponibile.",
-                Intro: "Usa queste indicazioni con fonte come base:",
-                Missing: "Per trasformarla in un piano completo, gli spazi mancanti vanno ancora completati o validati con fonti aggiuntive.",
-                Verify: "Controlla le pagine citate prima di usare quantita, tempi o vincoli precisi."),
+                Header: "Ecco una bozza pratica basata sulle pagine che posso citare.",
+                Intro: "Io partirei da:",
+                Missing: "Alcune parti richiedono ancora un'altra pagina citata prima di poterle completare con sicurezza.",
+                Verify: "Controlla le pagine citate prima di usare quantità, tempi o vincoli precisi."),
             _ => (
-                Header: "Voici une base de travail exploitable à partir des éléments sourcés disponibles.",
-                Intro: "À utiliser comme point de départ :",
-                Missing: "Pour en faire un planning complet, il faut encore compléter ou valider les créneaux manquants avec d'autres sources.",
+                Header: "Voici une proposition pratique à partir des pages que je peux citer.",
+                Intro: "Je commencerais par :",
+                Missing: "Certaines parties doivent encore être complétées avec une autre page citée avant d'être fiables.",
                 Verify: "Vérifie les pages citées avant de reprendre des quantités, horaires ou contraintes exactes.")
         };
 
@@ -19338,37 +30635,49 @@ If evidence is partial, write the best useful sourced answer possible and state 
             return string.Empty;
 
         var requiredSlots = dayLabels.Count * periodLabels.Count;
+        var shouldKeepSparse = RequiresFullyDistinctStructuredPlanningItems(query)
+            ? slotLeads.Count < requiredSlots
+            : slotLeads.Count < Math.Min(requiredSlots, Math.Max(1, periodLabels.Count));
+        if (shouldKeepSparse || slotLeads.Count < requiredSlots)
+            return string.Empty;
+
         var labels = NormalizeLanguageCode(language) switch
         {
             "en" => (
-                Header: "Here is a readable starting plan from the available sourced elements.",
-                Partial: $"The documented base is incomplete: {slotLeads.Count} usable elements for {requiredSlots} requested places. I place what is supported and leave the missing places explicit instead of inventing extra items.",
-                MissingSlot: "to complete with an additional source",
+                Header: "Here is a draft plan using only the cited options.",
+                Partial: "I can already fill part of the requested structure with cited options; the remaining parts still need to be checked against other pages.",
+                MissingSlot: "to verify with another cited option",
+                Remaining: "The remaining parts stay open until another cited page confirms them.",
                 Verify: "Before using it as a final plan, check the cited pages for quantities, timing, constraints and substitutions."),
             "es" => (
-                Header: "Aqui tienes un plan inicial legible basado en los elementos con fuente disponibles.",
-                Partial: $"La base con fuente esta incompleta ({slotLeads.Count} elemento(s) util(es) para {requiredSlots} espacio(s)). Coloco lo que esta respaldado y dejo explicitos los espacios que faltan, sin inventar elementos adicionales.",
-                MissingSlot: "completar con una fuente adicional",
-                Verify: "Antes de usarlo como plan final, revisa las paginas citadas para cantidades, horarios, restricciones y sustituciones."),
+                Header: "Aquí tienes un borrador de plan usando solo opciones citadas.",
+                Partial: "Ya puedo completar parte de la estructura solicitada con opciones citadas; las demás partes todavía deben verificarse con otras páginas.",
+                MissingSlot: "verificar con otra opción citada",
+                Remaining: "Las demás partes quedan abiertas hasta que otra página citada las confirme.",
+                Verify: "Antes de usarlo como plan final, revisa las páginas citadas para cantidades, horarios, restricciones y sustituciones."),
             "pt" => (
-                Header: "Aqui esta um plano inicial legivel baseado nos elementos com fonte disponiveis.",
-                Partial: $"A base com fonte esta incompleta ({slotLeads.Count} item(ns) util(eis) para {requiredSlots} espaco(s)). Coloco o que esta apoiado pelas fontes e deixo explicitos os espacos em falta, sem inventar itens adicionais.",
-                MissingSlot: "completar com uma fonte adicional",
-                Verify: "Antes de usar isto como plano final, verifica as paginas citadas para quantidades, horarios, restricoes e substituicoes."),
+                Header: "Aqui está um rascunho de plano usando apenas opções citadas.",
+                Partial: "Já consigo preencher parte da estrutura pedida com opções citadas; as restantes partes ainda precisam de ser verificadas noutras páginas.",
+                MissingSlot: "verificar com outra opção citada",
+                Remaining: "As restantes partes ficam em aberto até outra página citada as confirmar.",
+                Verify: "Antes de usar isto como plano final, verifica as páginas citadas para quantidades, horários, restrições e substituições."),
             "de" => (
-                Header: "Hier ist ein lesbarer Startplan aus den verfuegbaren belegten Elementen.",
-                Partial: $"Die belegte Grundlage ist unvollstaendig ({slotLeads.Count} nutzbare Elemente fuer {requiredSlots} Plaetze). Ich setze ein, was belegt ist, und lasse fehlende Plaetze sichtbar, ohne weitere Elemente zu erfinden.",
-                MissingSlot: "mit einer zusaetzlichen Quelle ergaenzen",
-                Verify: "Pruefe vor der finalen Nutzung die zitierten Seiten zu Mengen, Zeiten, Einschraenkungen und Alternativen."),
+                Header: "Hier ist ein Planentwurf nur mit zitierten Optionen.",
+                Partial: "Ich kann bereits einen Teil der gewünschten Struktur mit zitierten Optionen füllen; die übrigen Teile müssen noch auf anderen Seiten geprüft werden.",
+                MissingSlot: "mit einer weiteren zitierten Option prüfen",
+                Remaining: "Die übrigen Teile bleiben offen, bis eine weitere zitierte Seite sie bestätigt.",
+                Verify: "Prüfe vor der finalen Nutzung die zitierten Seiten zu Mengen, Zeiten, Einschränkungen und Alternativen."),
             "it" => (
-                Header: "Ecco un piano iniziale leggibile basato sugli elementi con fonte disponibili.",
-                Partial: $"La base con fonte e incompleta ({slotLeads.Count} elemento/i utile/i per {requiredSlots} spazio/i). Inserisco cio che e supportato e lascio espliciti gli spazi mancanti, senza inventare elementi aggiuntivi.",
-                MissingSlot: "completare con una fonte aggiuntiva",
-                Verify: "Prima di usarlo come piano finale, controlla le pagine citate per quantita, tempi, vincoli e sostituzioni."),
+                Header: "Ecco una bozza di piano usando solo opzioni citate.",
+                Partial: "Posso già compilare una parte della struttura richiesta con opzioni citate; il resto deve ancora essere verificato su altre pagine.",
+                MissingSlot: "verificare con un'altra opzione citata",
+                Remaining: "Le altre parti restano aperte finché un'altra pagina citata non le conferma.",
+                Verify: "Prima di usarlo come piano finale, controlla le pagine citate per quantità, tempi, vincoli e sostituzioni."),
             _ => (
-                Header: "Voici une base de planning lisible à partir des éléments sourcés disponibles.",
-                Partial: $"La base documentée est incomplète : {slotLeads.Count} élément(s) exploitable(s) pour {requiredSlots} emplacements demandés. Je place ce qui est appuyé par les sources et je laisse visibles les emplacements manquants, sans inventer d'éléments supplémentaires.",
-                MissingSlot: "à compléter avec une source supplémentaire",
+                Header: "Voici une ébauche de planning avec uniquement les options citées.",
+                Partial: "Je peux déjà remplir une partie de la structure demandée avec des options citées ; les autres parties doivent encore être vérifiées dans d'autres pages.",
+                MissingSlot: "à vérifier avec une autre option citée",
+                Remaining: "Les autres parties restent ouvertes tant qu'une autre page citée ne les confirme pas.",
                 Verify: "Avant d'en faire un planning définitif, vérifie les pages citées pour les quantités, horaires, contraintes et remplacements.")
         };
 
@@ -19419,28 +30728,28 @@ If evidence is partial, write the best useful sourced answer possible and state 
         {
             "frame" => language switch
             {
-                "en" => "Planning frame",
-                "es" => "Marco de organizacion",
-                "pt" => "Base de organizacao",
+                "en" => "Organization notes",
+                "es" => "Notas de organización",
+                "pt" => "Notas de organização",
                 "de" => "Planungsrahmen",
                 "it" => "Base organizzativa",
-                _ => "Cadre d'organisation"
+                _ => "Repères d'organisation"
             },
             "options" => language switch
             {
-                "en" => "Concrete candidates",
-                "es" => "Candidatos concretos",
-                "pt" => "Candidatos concretos",
-                "de" => "Konkrete Kandidaten",
-                "it" => "Candidati concreti",
-                _ => "Candidats concrets"
+                "en" => "Directly usable options",
+                "es" => "Opciones directamente utilizables",
+                "pt" => "Opções diretamente utilizáveis",
+                "de" => "Direkt nutzbare Optionen",
+                "it" => "Opzioni direttamente utilizzabili",
+                _ => "Options directement utilisables"
             },
             _ => language switch
             {
                 "en" => "Useful context",
-                "es" => "Contexto util",
-                "pt" => "Contexto util",
-                "de" => "Nuetzlicher Kontext",
+                "es" => "Contexto útil",
+                "pt" => "Contexto útil",
+                "de" => "Nützlicher Kontext",
                 "it" => "Contesto utile",
                 _ => "Contexte utile"
             }
@@ -19449,66 +30758,81 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
     private static PartialPlanningEvidenceLead BuildReadablePartialPlanningEvidenceLead(RagHitSummary hit, string query, string language)
     {
-        var title = ExtractReadablePartialPlanningLeadTitle(hit, query);
+        var requiresStrictStructuredPlanning = ShouldGateStructuredSourceBackedPlanningCoverage(query);
+        var title = requiresStrictStructuredPlanning
+            ? ExtractStrictSourceBackedOptionTitle(hit, query)
+            : ExtractReadablePartialPlanningLeadTitle(hit, query);
         var normalizedTitle = NormalizeLexicalLookup(title);
         var hasConcreteTitle = !string.IsNullOrWhiteSpace(title)
             && !LooksLikeWeakPartialPlanningLeadTitle(title)
             && !LooksLikeProcedureSentenceTitle(normalizedTitle);
-        var hasConcreteCardTitle = hit.MatchedContentCards?.Any(card =>
+        var hasConcreteCardTitle = !requiresStrictStructuredPlanning && hit.MatchedContentCards?.Any(card =>
         {
             var cardTitle = CleanSourceBackedOptionTitle(card.Title);
             return IsUsableSourceBackedOptionTitle(cardTitle);
         }) == true;
-        var hasConcreteProfileTitle = HasSourceBackedProfileTitle(hit);
+        var hasConcreteProfileTitle = !requiresStrictStructuredPlanning && HasSourceBackedProfileTitle(hit);
 
         var evidence = NormalizeLexicalLookup(GetRagHitLookupText(hit));
-        var isPlanningLead = Regex.IsMatch(
+        var isPlanningLead = !requiresStrictStructuredPlanning && Regex.IsMatch(
             evidence,
             @"\b(?:plan|planning|planification|organisation|organiser|horaire|horaires|calendrier|programme|temps\s+disponible|schedule|calendar|organize|organise|time\s+available|wochenplan|programma)\b",
             RegexOptions.CultureInvariant);
-        var isConcreteOption = hasConcreteTitle || hasConcreteCardTitle || hasConcreteProfileTitle;
+        var visibleMinutes = ExtractBestVisibleDurationMinutes(hit);
+        var candidateProbe = new SourceBackedOptionCandidate(
+            hit,
+            title,
+            Score: 0,
+            VisibleMinutes: visibleMinutes);
+        var looksLikeGenericPlanningContext = LooksLikeGenericPlanningContextCandidate(candidateProbe);
+        var hasStrictConcreteEvidence = requiresStrictStructuredPlanning
+            && hasConcreteTitle
+            && HasStrictStructuredPlanningCandidateEvidence(candidateProbe);
+        var isConcreteOption = requiresStrictStructuredPlanning
+            ? hasStrictConcreteEvidence
+            : (hasConcreteTitle || hasConcreteCardTitle || hasConcreteProfileTitle) && !looksLikeGenericPlanningContext;
 
         var fallbackTitle = language switch
         {
             "en" when isPlanningLead => "Planning frame",
-            "en" when isConcreteOption => "Sourced option",
-            "en" => "Documented lead",
-            "es" when isPlanningLead => "Marco de organizacion",
-            "es" when isConcreteOption => "Opcion con fuente",
-            "es" => "Pista con fuente",
-            "pt" when isPlanningLead => "Base de organizacao",
-            "pt" when isConcreteOption => "Opcao com fonte",
-            "pt" => "Pista com fonte",
+            "en" when isConcreteOption => "Useful option",
+            "en" => "Useful note",
+            "es" when isPlanningLead => "Marco de organización",
+            "es" when isConcreteOption => "Opción útil",
+            "es" => "Nota útil",
+            "pt" when isPlanningLead => "Base de organização",
+            "pt" when isConcreteOption => "Opção útil",
+            "pt" => "Nota útil",
             "de" when isPlanningLead => "Planungsrahmen",
-            "de" when isConcreteOption => "Belegte Option",
-            "de" => "Belegter Hinweis",
+            "de" when isConcreteOption => "Nützliche Option",
+            "de" => "Nützlicher Hinweis",
             "it" when isPlanningLead => "Base organizzativa",
-            "it" when isConcreteOption => "Opzione con fonte",
-            "it" => "Indicazione con fonte",
-            _ when isPlanningLead => "Cadre d'organisation",
-            _ when isConcreteOption => "Option sourcée",
-            _ => "Élément documenté"
+            "it" when isConcreteOption => "Opzione utile",
+            "it" => "Nota utile",
+            _ when isPlanningLead => "Repère d'organisation",
+            _ when isConcreteOption => "Option utile",
+            _ => "Note utile"
         };
 
         var guidance = language switch
         {
             "en" when isPlanningLead => "use it to frame timing and organization before choosing the concrete items",
-            "en" when isConcreteOption => "keep it as a concrete candidate in the rotation",
+            "en" when isConcreteOption => "use it as one concrete option in the rotation",
             "en" => "keep it as supporting context, not as a complete answer",
-            "es" when isPlanningLead => "sirve para encuadrar tiempos y organizacion antes de elegir los elementos concretos",
-            "es" when isConcreteOption => "puede quedar como candidato concreto dentro de la rotacion",
+            "es" when isPlanningLead => "sirve para encuadrar tiempos y organización antes de elegir los elementos concretos",
+            "es" when isConcreteOption => "puede usarse como opción concreta dentro de la rotación",
             "es" => "mantenla como contexto de apoyo, no como respuesta completa",
-            "pt" when isPlanningLead => "serve para enquadrar tempos e organizacao antes de escolher os itens concretos",
-            "pt" when isConcreteOption => "pode ficar como candidato concreto na rotacao",
-            "pt" => "mantem isto como contexto de apoio, nao como resposta completa",
-            "de" when isPlanningLead => "nutze ihn fuer Zeitrahmen und Organisation, bevor konkrete Elemente gewaehlt werden",
-            "de" when isConcreteOption => "behalte sie als konkreten Kandidaten in der Rotation",
-            "de" => "nutze ihn als Kontext, nicht als vollstaendige Antwort",
+            "pt" when isPlanningLead => "serve para enquadrar tempos e organização antes de escolher os itens concretos",
+            "pt" when isConcreteOption => "pode ser usada como opção concreta na rotação",
+            "pt" => "mantém isto como contexto de apoio, não como resposta completa",
+            "de" when isPlanningLead => "nutze ihn für Zeitrahmen und Organisation, bevor konkrete Elemente gewählt werden",
+            "de" when isConcreteOption => "nutze sie als konkrete Option in der Rotation",
+            "de" => "nutze ihn als Kontext, nicht als vollständige Antwort",
             "it" when isPlanningLead => "usala per definire tempi e organizzazione prima di scegliere gli elementi concreti",
-            "it" when isConcreteOption => "tienila come candidata concreta nella rotazione",
+            "it" when isConcreteOption => "usala come opzione concreta nella rotazione",
             "it" => "tienila come contesto di supporto, non come risposta completa",
             _ when isPlanningLead => "sert à cadrer les horaires et l'organisation avant de choisir les éléments concrets",
-            _ when isConcreteOption => "peut servir de candidat concret dans la rotation",
+            _ when isConcreteOption => "peut servir d'option concrète dans la rotation",
             _ => "sert de contexte d'appui, pas de réponse complète à elle seule"
         };
 
@@ -19659,23 +30983,23 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var labels = NormalizeLanguageCode(language) switch
         {
             "en" => (
-                Header: "I did not find a passage that clearly covers the request. I can only show these nearby documented passages:",
-                Caveat: "These passages should not be treated as a confirmed answer to the request."),
+                Header: "I did not find a direct source for the request. These are only nearby leads to check:",
+                Caveat: "I prefer not to turn these leads into a final answer without a clearer source."),
             "es" => (
-                Header: "No he encontrado un pasaje que cubra claramente la solicitud. Solo puedo mostrar estas pistas cercanas con fuente:",
-                Caveat: "Estos pasajes no deben tratarse como una respuesta confirmada a la solicitud."),
+                Header: "No he encontrado una fuente directa para la solicitud. Estas son solo pistas cercanas que hay que comprobar:",
+                Caveat: "Prefiero no convertir estas pistas en una respuesta final sin una fuente más clara."),
             "pt" => (
-                Header: "Nao encontrei uma passagem que cubra claramente o pedido. Posso apenas mostrar estas pistas proximas com fonte:",
-                Caveat: "Estas passagens nao devem ser tratadas como uma resposta confirmada ao pedido."),
+                Header: "Não encontrei uma fonte direta para o pedido. Estas são apenas pistas próximas a verificar:",
+                Caveat: "Prefiro não transformar estas pistas numa resposta final sem uma fonte mais clara."),
             "de" => (
-                Header: "Ich habe keine Stelle gefunden, die die Anfrage klar abdeckt. Ich kann nur diese nahen Quellenhinweise zeigen:",
-                Caveat: "Diese Passagen sollten nicht als bestaetigte Antwort auf die Anfrage behandelt werden."),
+                Header: "Ich habe keine direkte Quelle für die Anfrage gefunden. Das sind nur nahe Hinweise zum Prüfen:",
+                Caveat: "Ich mache daraus lieber keine endgültige Antwort ohne eine klarere Quelle."),
             "it" => (
-                Header: "Non ho trovato un passaggio che copra chiaramente la richiesta. Posso mostrare solo queste indicazioni vicine con fonte:",
-                Caveat: "Questi passaggi non devono essere trattati come una risposta confermata alla richiesta."),
+                Header: "Non ho trovato una fonte diretta per la richiesta. Questi sono solo spunti vicini da verificare:",
+                Caveat: "Preferisco non trasformarli in una risposta finale senza una fonte più chiara."),
             _ => (
-                Header: "Je n'ai pas trouve de passage qui couvre clairement la demande. Je peux seulement citer ces passages voisins sources :",
-                Caveat: "Ces passages ne doivent pas etre traites comme une reponse confirmee a la demande.")
+                Header: "Je n'ai pas trouvé de source directe pour la demande. Voici seulement des pistes proches à vérifier :",
+                Caveat: "Je préfère ne pas transformer ces pistes en réponse définitive sans source plus claire.")
         };
 
         var sb = new StringBuilder();
@@ -19756,7 +31080,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
             return SourceBackedLabel(
                 language,
-                "J'ai besoin d'une precision pour chercher dans les bonnes sources. Peux-tu preciser le document, le standard ou le perimetre concerne ?",
+                "J'ai besoin d'une précision pour chercher dans les bonnes sources. Peux-tu préciser le document, le standard ou le périmètre concerné ?",
                 "I need one clarification to search the right sources. Could you specify the document, standard, or scope?",
                 "Necesito una precision para buscar en las fuentes correctas. Puedes especificar el documento, la norma o el alcance?",
                 "Preciso de uma clarificacao para procurar nas fontes certas. Podes especificar o documento, a norma ou o ambito?",
@@ -19769,16 +31093,39 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
     private static bool ShouldPreferSourceBackedAnswerOverBackendClarification(ToolResults toolResults, string? query)
     {
-        if (!LooksLikeSourceBackedActionRequest(query)
-            && !LooksLikeComparativeDocumentaryRequest(query)
-            && !LooksLikeSourceBackedAdaptationRequest(query)
-            && !LooksLikeDocumentaryContentRequest(query)
-            && !ShouldUseSourceBackedExtractiveAnswer(query ?? string.Empty, toolResults))
+        var queryText = query ?? string.Empty;
+        var intentQuery = ResolveSourceBackedFallbackIntentQuery(queryText);
+        if (string.IsNullOrWhiteSpace(intentQuery)
+            || LooksLikeExactPassageOrCitationRequest(intentQuery)
+            || LooksLikeStrictCertificationOrExactProofRequest(intentQuery)
+            || LooksLikeCorpusClaimVerificationRequest(intentQuery)
+            || LooksLikeSourceBackedCountdownPlanningRequest(intentQuery)
+            || LooksLikeSourceBackedVerificationChecklistRequest(intentQuery))
         {
             return false;
         }
 
-        var hits = SelectSourceBackedExtractiveHits(toolResults, query ?? string.Empty, maxHits: 5).ToList();
+        var hasActionOrExactIntent =
+            LooksLikeSourceBackedActionRequest(intentQuery)
+            || LooksLikeComparativeDocumentaryRequest(intentQuery)
+            || LooksLikeSourceBackedAdaptationRequest(intentQuery)
+            || LooksLikeDocumentaryContentRequest(intentQuery)
+            || ShouldUseSourceBackedExtractiveAnswer(intentQuery, toolResults);
+        var hasBroadSynthesisIntent =
+            IsBroadenedSourceSearchConfirmationEnvelope(queryText)
+            || ShouldOfferBroadenedSourceSearch(intentQuery)
+            || LooksLikeAnyDocumentaryPlanningRequest(intentQuery)
+            || LooksLikeGenericCollectionOrListRequest(intentQuery)
+            || LooksLikeBroadSynthesisRequestShape(intentQuery)
+            || LooksLikeBroadSourceBackedCompositionRequest(intentQuery)
+            || LooksLikeMultipleCandidateSynthesisRequest(intentQuery)
+            || LooksLikeSoftChoiceRecommendationRequest(intentQuery)
+            || LooksLikeSourceBackedPairingRecommendationRequest(intentQuery)
+            || LooksLikeUserNeedsSynthesizedDecisionOrPlan(intentQuery);
+        if (!hasActionOrExactIntent && !hasBroadSynthesisIntent)
+            return false;
+
+        var hits = SelectSourceBackedExtractiveHits(toolResults, intentQuery, maxHits: 5).ToList();
         if (hits.Count == 0)
         {
             hits = EnumerateRagHitSummaries(toolResults)
@@ -19791,27 +31138,48 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (hits.Count == 0)
             return false;
 
-        var queryText = query ?? string.Empty;
-        if (LooksLikeSourceBackedActionRequest(queryText))
+        if (IsBroadenedSourceSearchConfirmationEnvelope(queryText))
             return true;
 
-        var requestedTitle = TryExtractRequestedItemTitle(queryText);
+        if (hasBroadSynthesisIntent)
+        {
+            if (ShouldUseWriterForBroadSourceBackedSynthesis(toolResults, intentQuery)
+                || ShouldPreferWriterForPolishedSourceBackedAnswer(toolResults, intentQuery)
+                || ShouldAllowWriterForPartialSourceBackedPlanning(toolResults, intentQuery))
+            {
+                return true;
+            }
+
+            var broadCoverage = EvaluateBroadSourceBackedSynthesisCoverage(toolResults, intentQuery);
+            if (broadCoverage.UsableHitCount > 0
+                && (broadCoverage.RichEvidenceCount > 0
+                    || broadCoverage.DistinctSourcePageCount >= 2
+                    || broadCoverage.DistinctDocumentCount >= 2))
+            {
+                return true;
+            }
+        }
+
+        if (LooksLikeSourceBackedActionRequest(intentQuery))
+            return true;
+
+        var requestedTitle = TryExtractRequestedItemTitle(intentQuery);
         if (!string.IsNullOrWhiteSpace(requestedTitle)
             && RagFallbackHasAtLeastOneQueryAnchor(hits, requestedTitle!))
         {
             return true;
         }
 
-        if (LooksLikeSourceBackedActionRequest(queryText))
+        if (LooksLikeSourceBackedActionRequest(intentQuery))
         {
-            foreach (var actionQuery in BuildSourceBackedActionRetrievalQueries(queryText).Take(4))
+            foreach (var actionQuery in BuildSourceBackedActionRetrievalQueries(intentQuery).Take(4))
             {
                 if (RagFallbackHasAtLeastOneQueryAnchor(hits, actionQuery))
                     return true;
             }
         }
 
-        return RagFallbackHasAtLeastOneQueryAnchor(hits, queryText);
+        return RagFallbackHasAtLeastOneQueryAnchor(hits, intentQuery);
     }
 
     private sealed record RagHitSummary(
@@ -20512,6 +31880,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var topicPatterns = new[]
         {
+            @"(?i)\b(?:si|whether|se|ob)\s+(?<topic>[^?.!;]+?)\s+(?:est|sont|is|are|es|esta|est[a\u00e1]|est[a\u00e3]o|ist|sind|[e\u00e8])\s+(?:mentionn\w*|mentioned|mencion\w*|erwaehn\w*|erw[a\u00e4]hn\w*|menzion\w*)\b",
             @"(?i)\b(?:document|documents?|source|sources?)\s+(?:qui\s+)?(?:parle|parlent|mentionne|mentionnent|traite|traitent)\s+(?:de|du|des|d['’])?\s*(?<topic>[^?.!;]+)",
             @"(?i)\b(?:parle|parlent|mentionne|mentionnent|traite|traitent)\s+(?:de|du|des|d['’])?\s*(?<topic>[^?.!;]+)",
             @"(?i)\b(?:about|regarding|concerning)\s+(?<topic>[^?.!;]+)"
@@ -20625,7 +31994,54 @@ If evidence is partial, write the best useful sourced answer possible and state 
     }
 
     private static string CollapseWhitespace(string value)
-        => Regex.Replace(value ?? string.Empty, @"\s+", " ").Trim();
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var start = 0;
+        var end = value.Length - 1;
+        while (start <= end && char.IsWhiteSpace(value[start]))
+            start++;
+        while (end >= start && char.IsWhiteSpace(value[end]))
+            end--;
+        if (start > end)
+            return string.Empty;
+
+        var hasWhitespaceRun = false;
+        for (var i = start; i <= end; i++)
+        {
+            if (!char.IsWhiteSpace(value[i]))
+                continue;
+
+            if (i == start || i == end || char.IsWhiteSpace(value[i - 1]) || value[i] != ' ')
+            {
+                hasWhitespaceRun = true;
+                break;
+            }
+        }
+
+        if (!hasWhitespaceRun && start == 0 && end == value.Length - 1)
+            return value;
+
+        var sb = new StringBuilder(end - start + 1);
+        var pendingSpace = false;
+        for (var i = start; i <= end; i++)
+        {
+            var c = value[i];
+            if (char.IsWhiteSpace(c))
+            {
+                pendingSpace = true;
+                continue;
+            }
+
+            if (pendingSpace && sb.Length > 0)
+                sb.Append(' ');
+            sb.Append(c);
+            pendingSpace = false;
+        }
+
+        return sb.ToString();
+    }
 
     private static JsonElement NormalizeRagHits(JsonElement raw)
     {
@@ -20684,6 +32100,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 {
                     var contextualEvidence = StripContextualMetadataForEvidence(contextualSnippet);
                     if (!string.IsNullOrWhiteSpace(contextualEvidence)
+                        && LooksLikeConcreteContextualEvidence(contextualEvidence)
                         && !fullText.Contains(contextualEvidence, StringComparison.OrdinalIgnoreCase))
                     {
                         fullText = TruncateForPrompt(
@@ -20723,6 +32140,10 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 var hasTable = TryGetBool(it, "hasTable") ?? TryGetBool(it, "HasTable");
                 var hasWarning = TryGetBool(it, "hasWarning") ?? TryGetBool(it, "HasWarning");
                 var hypQuestionsMatched = TryGetBool(it, "hypQuestionsMatched") ?? TryGetBool(it, "HypQuestionsMatched");
+                var retrievalQuery = TryGetString(it, "retrievalQuery") ?? TryGetString(it, "retrieval_query") ?? TryGetString(it, "RetrievalQuery");
+                var retrievalQueryIndex = TryGetInt(it, "retrievalQueryIndex") ?? TryGetInt(it, "retrieval_query_index") ?? TryGetInt(it, "RetrievalQueryIndex");
+                var retrievalHitRank = TryGetInt(it, "retrievalHitRank") ?? TryGetInt(it, "retrieval_hit_rank") ?? TryGetInt(it, "RetrievalHitRank");
+                var retrievalQuerySpecificity = TryGetInt(it, "retrievalQuerySpecificity") ?? TryGetInt(it, "retrieval_query_specificity") ?? TryGetInt(it, "RetrievalQuerySpecificity");
                 var extractionQuality = CompactExtractionQualityForPrompt(it);
                 var matchedContentCards = CompactMatchedContentCardsForPrompt(it);
                 var profileSignals = CompactProfileSignalsForPrompt(it);
@@ -20760,6 +32181,10 @@ If evidence is partial, write the best useful sourced answer possible and state 
                     hasTable,
                     hasWarning,
                     hypQuestionsMatched,
+                    retrievalQuery,
+                    retrievalQueryIndex,
+                    retrievalHitRank,
+                    retrievalQuerySpecificity,
                     extractionQuality,
                     matchedContentCards,
                     profileSignals,
@@ -20816,6 +32241,10 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Take(8)
                 .ToArray();
+            var evidence = includeEvidence
+                ? CompactContentCardEvidenceForPrompt(card, maxQuantityFacts, maxFacts, evidenceTextChars)
+                : null;
+            var hasEvidence = evidence is not null;
 
             compact.Add(new
             {
@@ -20825,9 +32254,10 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 pageEnd = TryGetInt(card, "pageEnd") ?? TryGetInt(card, "page_end") ?? TryGetInt(card, "PageEnd"),
                 kind = TryGetString(card, "kind") ?? TryGetString(card, "Kind"),
                 signals = signals.Length == 0 ? null : signals,
-                evidence = includeEvidence
-                    ? CompactContentCardEvidenceForPrompt(card, maxQuantityFacts, maxFacts, evidenceTextChars)
-                    : null
+                evidenceKind = hasEvidence ? "card_fact" : "card_title",
+                isFinalEvidence = hasEvidence,
+                requiresConcreteRetrieval = !hasEvidence,
+                evidence
             });
 
             if (compact.Count >= Math.Clamp(maxCards, 1, 12))

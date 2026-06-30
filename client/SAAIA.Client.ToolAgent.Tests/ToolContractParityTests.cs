@@ -105,6 +105,31 @@ public sealed class ToolContractParityTests
     }
 
     [Fact]
+    public void Router_conversation_manifest_is_compact_and_user_only()
+    {
+        using var doc = JsonDocument.Parse(ToolManifest.BuildRouterConversationManifestJson());
+        var tools = doc.RootElement.GetProperty("tools").EnumerateArray().ToList();
+
+        Assert.NotEmpty(tools);
+        Assert.All(tools, tool => Assert.False(tool.TryGetProperty("access", out _)));
+        Assert.True(ToolManifest.BuildRouterConversationManifestJson().Length < ToolManifest.BuildConversationManifestJson().Length);
+    }
+
+    [Fact]
+    public void Compact_router_prompt_keeps_core_contract_under_budget()
+    {
+        var prompt = PromptCatalog.BuildCompactRouterSystemPrompt(
+            ToolManifest.BuildRouterConversationManifestJson(),
+            ToolManifest.ConversationToolbookText);
+
+        Assert.Contains("meta.set_style", prompt, StringComparison.Ordinal);
+        Assert.Contains("meta.set_mode", prompt, StringComparison.Ordinal);
+        Assert.Contains("rag.multi_search", prompt, StringComparison.Ordinal);
+        Assert.Contains("Preserve explicit distinct slots", prompt, StringComparison.Ordinal);
+        Assert.True(prompt.Length < 7000, $"Compact router prompt is too large: {prompt.Length}");
+    }
+
+    [Fact]
     public void Router_prompt_mentions_meta_set_style()
     {
         var prompt = PromptCatalog.BuildRouterSystemPrompt(
@@ -122,6 +147,7 @@ public sealed class ToolContractParityTests
             ToolManifest.ConversationToolbookText);
 
         Assert.Contains("meta.set_mode", prompt, StringComparison.Ordinal);
+        Assert.Contains("preserve those distinct terms", prompt, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -160,5 +186,33 @@ public sealed class ToolContractParityTests
         Assert.Equal("de", explicitDocLanguage);
         Assert.Equal("nl", arbitraryDocLanguage);
         Assert.Equal("und", missingDocLanguage);
+    }
+
+    [Fact]
+    public void Structured_router_coverage_detects_missing_requested_slots_before_retrieval()
+    {
+        var missing = ToolAgentOrchestrator.DetectMissingStructuredRouterSearchAxesForTests(
+            "J'ai besoin que tu me fasses un plan de repas pour la semaine du lundi au vendredi, avec petit-dejeuner, diner, souper et gouter / collation chaque jour.",
+            "fr",
+            "petit dejeuner",
+            "repas",
+            "diner",
+            "dejeuner");
+
+        Assert.Equal(new[] { "Souper", "Collation" }, missing);
+    }
+
+    [Fact]
+    public void Structured_router_coverage_accepts_queries_covering_requested_slots()
+    {
+        var missing = ToolAgentOrchestrator.DetectMissingStructuredRouterSearchAxesForTests(
+            "J'ai besoin que tu me fasses un plan de repas pour la semaine du lundi au vendredi, avec petit-dejeuner, diner, souper et gouter / collation chaque jour.",
+            "fr",
+            "petit-dejeuner options",
+            "diner options",
+            "souper options",
+            "collation options");
+
+        Assert.Empty(missing);
     }
 }

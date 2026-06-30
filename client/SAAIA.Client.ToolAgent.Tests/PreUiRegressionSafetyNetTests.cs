@@ -29,6 +29,11 @@ public sealed class PreUiRegressionSafetyNetTests
         Assert.Contains("source-backed alternatives", prompt);
         Assert.Contains("build a partial answer from candidates actually present in the hits", prompt);
         Assert.Contains("never certify suitability or compatibility unless the hit explicitly links", prompt);
+        Assert.Contains("you are responsible for selecting the best supported concrete options", prompt);
+        Assert.Contains("assigning them to the requested visible axes", prompt);
+        Assert.Contains("instead of expecting the sources to contain a finished grid", prompt);
+        Assert.Contains("visible axes such as days, periods, roles, columns, criteria or phases", prompt);
+        Assert.Contains("navigation, index, profile, summary-only or low-content hits", prompt);
         Assert.Contains("documented partial material or a partial construction", prompt);
         Assert.Contains("contentSignals/contentRole", prompt);
         Assert.Contains("contentDensityScore", prompt);
@@ -52,6 +57,9 @@ public sealed class PreUiRegressionSafetyNetTests
         Assert.Contains("clearly mark items to validate", prompt);
         Assert.Contains("Preserve readable structure", prompt);
         Assert.Contains("**bold** labels", prompt);
+        Assert.Contains("validate the source legitimacy yourself", prompt);
+        Assert.Contains("not only in navigation, index, profile, summary-only or duplicate context", prompt);
+        Assert.Contains("Remove decorative, weak or duplicate source mentions", prompt);
     }
 
     [Theory]

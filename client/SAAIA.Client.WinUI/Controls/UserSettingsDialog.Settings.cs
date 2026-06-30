@@ -92,8 +92,8 @@ internal sealed partial class UserSettingsDialog
 
     private static int MapLenToIndex(int maxTokens)
     {
-        if (maxTokens <= 450) return 0;
-        if (maxTokens <= 1100) return 1;
+        if (maxTokens <= 650) return 0;
+        if (maxTokens <= 1600) return 1;
         return 2;
     }
 
@@ -101,7 +101,7 @@ internal sealed partial class UserSettingsDialog
         => idx switch
         {
             0 => 350,
-            2 => 1600,
-            _ => 900
+            2 => 2200,
+            _ => 1600
         };
 }

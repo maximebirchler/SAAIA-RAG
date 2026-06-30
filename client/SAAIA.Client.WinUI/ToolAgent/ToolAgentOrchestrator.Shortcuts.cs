@@ -231,7 +231,8 @@ public sealed partial class ToolAgentOrchestrator
             return (true, answer, null, "inventory.list", new[] { "documents.list", "inventory.rendered" });
         }
 
-        if (TryExtractDocumentContentSearchTopic(effectiveUserMessage, out var documentContentTopic))
+        if (!ShouldSkipExactItemPreRouterShortcut(effectiveUserMessage)
+            && TryExtractDocumentContentSearchTopic(effectiveUserMessage, out var documentContentTopic))
         {
             onPhase?.Invoke(DeterministicAgentText.PhaseRag(interactionLanguage));
             onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(interactionLanguage));
@@ -1847,6 +1848,17 @@ ASSISTANT_ANSWER_TO_TRANSLATE:
         if (string.IsNullOrWhiteSpace(prefix))
             prefix = raw;
 
+        var mentionedCheckMatch = Regex.Match(
+            prefix,
+            @"(?i)\b(?:si|whether|se|ob)\s+(?<topic>[^?.!;]+?)\s+(?:est|sont|is|are|es|esta|est[a\u00e1]|est[a\u00e3]o|ist|sind|[e\u00e8])\s+(?:mentionn\w*|mentioned|mencion\w*|erwaehn\w*|erw[a\u00e4]hn\w*|menzion\w*)\b",
+            RegexOptions.CultureInvariant);
+        if (mentionedCheckMatch.Success)
+        {
+            var cleaned = CleanupDocumentContentSearchTopic(mentionedCheckMatch.Groups["topic"].Value);
+            if (!string.IsNullOrWhiteSpace(cleaned) && !ContainsDocumentSourceNoun(cleaned))
+                return cleaned;
+        }
+
         var intentMatch = Regex.Match(
             prefix,
             @"(?i)\b(?:je\s+cherche|je\s+veux|j['\u2019]aimerais|i\s+(?:am\s+)?looking\s+for|i\s+need|busco|estoy\s+buscando|procuro|estou\s+a\s+procurar|ich\s+suche|cerco)\b\s*(?<topic>[^?.!\u00bf\u00a1]+)",
@@ -2072,7 +2084,7 @@ Keep each query under 90 characters.
                 "pt" => $"Nao encontrei conteudo indexado sobre {topic}.",
                 "de" => $"Ich habe keine indexierten Dokumentinhalte zu {topic} gefunden.",
                 "it" => $"Non ho trovato contenuti indicizzati su {topic}.",
-                _ => $"Je n'ai trouve aucun contenu indexe sur {topic}."
+                _ => $"Je n'ai trouvé aucun contenu indexé sur {topic}."
             };
         }
 
@@ -2105,7 +2117,7 @@ Keep each query under 90 characters.
             "pt" => $"Encontrei {docs.Count} documento(s) com conteudo indexado sobre {topic}:",
             "de" => $"Ich habe {docs.Count} Dokument(e) mit indexiertem Inhalt zu {topic} gefunden:",
             "it" => $"Ho trovato {docs.Count} documento/i con contenuti indicizzati su {topic}:",
-            _ => $"J'ai trouve {docs.Count} document(s) avec du contenu indexe sur {topic} :"
+            _ => $"J'ai trouvé {docs.Count} document(s) avec du contenu indexé sur {topic} :"
         };
 
         var lines = docs.Select(d =>
@@ -2152,7 +2164,7 @@ Keep each query under 90 characters.
             "pt" => $"secao encontrada: {descriptor}",
             "de" => $"gefundener Abschnitt: {descriptor}",
             "it" => $"sezione trovata: {descriptor}",
-            _ => $"section trouvee : {descriptor}"
+            _ => $"section trouvée : {descriptor}"
         };
     }
 

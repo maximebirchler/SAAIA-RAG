@@ -37,25 +37,40 @@ internal static class DeterministicAgentText
     }
 
     public static string PhaseRouter(string? language)
-        => Pick(language, "Routeur…", "Router…", "Enrutador…", "Roteador…", "Router…", "Router…");
+        => Pick(language, "J'analyse la demande…", "I am reading the request…", "Estoy leyendo la solicitud…", "Estou a ler o pedido…", "Ich lese die Anfrage…", "Sto leggendo la richiesta…");
 
     public static string PhaseClarification(string? language)
-        => Pick(language, "Clarification…", "Clarification…", "Aclaración…", "Esclarecimento…", "Klärung…", "Chiarimento…");
+        => Pick(language, "Je vérifie ce qu'il faut préciser…", "I am checking what needs to be clarified…", "Estoy comprobando qué hay que precisar…", "Estou a verificar o que precisa de ser esclarecido…", "Ich prüfe, was geklärt werden muss…", "Sto verificando cosa va chiarito…");
 
     public static string PhaseTools(string? language)
-        => Pick(language, "Outils…", "Tools…", "Herramientas…", "Ferramentas…", "Werkzeuge…", "Strumenti…");
+        => Pick(language, "Je consulte les informations disponibles…", "I am checking the available information…", "Estoy consultando la información disponible…", "Estou a consultar as informações disponíveis…", "Ich prüfe die verfügbaren Informationen…", "Sto consultando le informazioni disponibili…");
 
     public static string PhaseWriting(string? language)
-        => Pick(language, "Rédaction…", "Writing…", "Redacción…", "Redação…", "Formulierung…", "Scrittura…");
+        => Pick(language, "Je prépare une réponse claire…", "I am preparing a clear answer…", "Estoy preparando una respuesta clara…", "Estou a preparar uma resposta clara…", "Ich bereite eine klare Antwort vor…", "Sto preparando una risposta chiara…");
 
     public static string PhaseSummary(string? language)
-        => Pick(language, "Résumé…", "Summary…", "Resumen…", "Resumo…", "Zusammenfassung…", "Riassunto…");
+        => Pick(language, "Je synthétise les informations…", "I am summarizing the information…", "Estoy sintetizando la información…", "Estou a sintetizar as informações…", "Ich fasse die Informationen zusammen…", "Sto sintetizzando le informazioni…");
 
     public static string PhaseRag(string? language)
-        => Pick(language, "Recherche documentaire…", "Document search…", "Búsqueda documental…", "Pesquisa documental…", "Dokumentensuche…", "Ricerca documentale…");
+        => Pick(language, "Je cherche dans les documents…", "I am searching the documents…", "Estoy buscando en los documentos…", "Estou a pesquisar nos documentos…", "Ich suche in den Dokumenten…", "Sto cercando nei documenti…");
 
     public static string ProgressCollectInformation(string? language)
         => Pick(language, "Je collecte les informations utiles…", "I am collecting the useful information…", "Estoy recopilando la información útil…", "Estou coletando as informações úteis…", "Ich sammle die nützlichen Informationen…", "Sto raccogliendo le informazioni utili…");
+
+    public static string ProgressPlanRetrievalStrategy(string? language)
+        => Pick(language, "Je choisis la prochaine recherche documentaire...", "I am choosing the next document search...", "Estoy eligiendo la siguiente busqueda documental...", "Estou a escolher a proxima pesquisa documental...", "Ich waehle die naechste Dokumentensuche...", "Sto scegliendo la prossima ricerca nei documenti...");
+
+    public static string ProgressSearchSourceBackedCandidates(string? language)
+        => Pick(language, "Je cherche des candidats exploitables dans les documents...", "I am searching the documents for usable candidates...", "Estoy buscando candidatos utiles en los documentos...", "Estou a procurar candidatos utilizaveis nos documentos...", "Ich suche in den Dokumenten nach brauchbaren Kandidaten...", "Sto cercando candidati utilizzabili nei documenti...");
+
+    public static string ProgressExploreFollowupSources(string? language)
+        => Pick(language, "J'explore les pistes trouvees dans les sources...", "I am exploring leads found in the sources...", "Estoy explorando pistas encontradas en las fuentes...", "Estou a explorar pistas encontradas nas fontes...", "Ich pruefe Hinweise aus den Quellen weiter...", "Sto esplorando indizi trovati nelle fonti...");
+
+    public static string ProgressInspectDocumentStructure(string? language)
+        => Pick(language, "Je lis la structure des documents pour mieux cibler la suite...", "I am reading document structure to target the next step...", "Estoy leyendo la estructura de los documentos para orientar la siguiente busqueda...", "Estou a ler a estrutura dos documentos para orientar a etapa seguinte...", "Ich lese die Dokumentstruktur, um gezielter weiterzusuchen...", "Sto leggendo la struttura dei documenti per mirare meglio il seguito...");
+
+    public static string ProgressVerifyCandidateCoverage(string? language)
+        => Pick(language, "Je verifie que les candidats couvrent vraiment la demande...", "I am checking that the candidates really cover the request...", "Estoy comprobando que los candidatos cubran realmente la solicitud...", "Estou a verificar se os candidatos cobrem mesmo o pedido...", "Ich pruefe, ob die Kandidaten die Anfrage wirklich abdecken...", "Sto verificando che i candidati coprano davvero la richiesta...");
 
     public static string ProgressCorrectPreviousInterpretation(string? language)
         => Pick(language, "Je corrige mon interprétation précédente…", "I am correcting my previous interpretation…", "Estoy corrigiendo mi interpretación anterior…", "Estou corrigindo minha interpretação anterior…", "Ich korrigiere meine vorherige Interpretation…", "Sto correggendo la mia interpretazione precedente…");
@@ -148,12 +163,12 @@ internal static class DeterministicAgentText
 
     public static string DegradedNoLlm(string? language)
         => Pick(language,
-            "Je ne peux pas utiliser l'assistant local pour rédiger la réponse pour le moment (mode dégradé). Regarde les sources à droite.",
-            "I cannot use the local assistant to draft the reply right now (degraded mode). Check the sources on the right.",
-            "No puedo usar el asistente local para redactar la respuesta en este momento (modo degradado). Mira las fuentes a la derecha.",
-            "Não consigo usar o assistente local para redigir a resposta agora (modo degradado). Veja as fontes à direita.",
-            "Ich kann den lokalen Assistenten im Moment nicht verwenden, um die Antwort zu formulieren (degradierter Modus). Sieh dir rechts die Quellen an.",
-            "Non posso usare l'assistente locale per redigere la risposta in questo momento (modalità degradata). Guarda le fonti a destra.");
+            "Je ne peux pas rédiger une réponse complète pour le moment. Les sources trouvées restent disponibles, mais je préfère ne pas te donner une synthèse approximative.",
+            "I cannot draft a complete answer right now. The found sources remain available, but I would rather avoid giving you an approximate synthesis.",
+            "Ahora no puedo redactar una respuesta completa. Las fuentes encontradas siguen disponibles, pero prefiero no darte una síntesis aproximada.",
+            "Neste momento não consigo redigir uma resposta completa. As fontes encontradas continuam disponíveis, mas prefiro evitar uma síntese aproximada.",
+            "Ich kann im Moment keine vollständige Antwort formulieren. Die gefundenen Quellen bleiben verfügbar, aber ich möchte dir keine ungefähre Zusammenfassung geben.",
+            "In questo momento non posso scrivere una risposta completa. Le fonti trovate restano disponibili, ma preferisco evitare una sintesi approssimativa.");
 
     public static string AnswerNotEnoughUsableInfo(string? language)
         => Pick(language,
@@ -166,30 +181,30 @@ internal static class DeterministicAgentText
 
     public static string RagSearchBusy(string? language)
         => Pick(language,
-            "La recherche documentaire est momentanement occupee. Reessaie dans quelques instants : je prefere attendre les bonnes sources plutot que repondre avec des resultats incomplets.",
-            "Document search is temporarily busy. Please retry in a moment: I would rather wait for the right sources than answer from incomplete results.",
-            "La busqueda documental esta ocupada temporalmente. Vuelve a intentarlo en unos instantes: prefiero esperar las fuentes correctas antes que responder con resultados incompletos.",
-            "A pesquisa documental esta temporariamente ocupada. Tenta novamente dentro de instantes: prefiro esperar pelas fontes certas em vez de responder com resultados incompletos.",
-            "Die Dokumentensuche ist voruebergehend ausgelastet. Bitte versuche es gleich erneut: Ich warte lieber auf die richtigen Quellen, statt mit unvollstaendigen Ergebnissen zu antworten.",
-            "La ricerca documentale e temporaneamente occupata. Riprova tra poco: preferisco aspettare le fonti corrette invece di rispondere con risultati incompleti.");
+            "La recherche dans les documents est momentanément très sollicitée. Réessaie dans quelques instants : la réponse sera meilleure avec des sources complètes.",
+            "Document search is temporarily under heavy load. Please retry in a moment: the answer will be better with complete sources.",
+            "La búsqueda en los documentos está muy solicitada temporalmente. Vuelve a intentarlo en unos instantes: la respuesta será mejor con fuentes completas.",
+            "A pesquisa nos documentos está temporariamente muito solicitada. Tenta novamente dentro de instantes: a resposta será melhor com fontes completas.",
+            "Die Suche in den Dokumenten ist vorübergehend stark ausgelastet. Bitte versuche es gleich erneut: Mit vollständigen Quellen wird die Antwort besser.",
+            "La ricerca nei documenti è temporaneamente molto sollecitata. Riprova tra poco: la risposta sarà migliore con fonti complete.");
 
     public static string SourceBackedClarificationRequest(string? language)
         => Pick(language,
-            "Peux-tu préciser le document, le sujet, l'élément ou le périmètre à vérifier dans les sources ?",
-            "Could you specify the document, topic, item, or scope to check in the sources?",
-            "¿Puedes precisar el documento, tema, elemento o alcance que debo comprobar en las fuentes?",
-            "Podes especificar o documento, tema, item ou ambito a verificar nas fontes?",
-            "Kannst du das Dokument, Thema, Element oder den Umfang nennen, den ich in den Quellen prüfen soll?",
-            "Puoi precisare il documento, l'argomento, l'elemento o l'ambito da verificare nelle fonti?");
+            "Peux-tu préciser ce que tu veux vérifier, ou le périmètre dans lequel je dois chercher ?",
+            "Could you specify what you want me to check, or the scope I should search in?",
+            "¿Puedes precisar qué quieres que compruebe, o el ámbito en el que debo buscar?",
+            "Podes especificar o que queres verificar, ou o âmbito em que devo pesquisar?",
+            "Kannst du genauer sagen, was ich prüfen soll, oder in welchem Bereich ich suchen soll?",
+            "Puoi precisare che cosa vuoi verificare, o l'ambito in cui devo cercare?");
 
     public static string SourceBackedExpandedSearchOffer(string? language)
         => Pick(language,
-            "Les sources récupérées ne suffisent pas à construire une réponse fiable sans inventer. Si tu veux, je peux lancer une recherche plus large dans le corpus ou tu peux préciser le périmètre à explorer.",
-            "The retrieved sources are not enough to build a reliable answer without inventing. If you want, I can run a broader corpus search, or you can specify the scope to explore.",
-            "Las fuentes recuperadas no bastan para construir una respuesta fiable sin inventar. Si quieres, puedo lanzar una búsqueda más amplia en el corpus o puedes precisar el alcance que debo explorar.",
-            "As fontes recuperadas não chegam para construir uma resposta fiável sem inventar. Se quiseres, posso lançar uma pesquisa mais ampla no corpus ou podes indicar o âmbito a explorar.",
-            "Die gefundenen Quellen reichen nicht aus, um ohne Erfindungen verlässlich zu antworten. Wenn du möchtest, kann ich eine breitere Suche im Korpus starten, oder du gibst den zu prüfenden Umfang genauer an.",
-            "Le fonti recuperate non bastano per costruire una risposta affidabile senza inventare. Se vuoi, posso avviare una ricerca più ampia nel corpus oppure puoi precisare l'ambito da esplorare.");
+            "Je peux élargir la recherche pour essayer de trouver des sources plus adaptées.",
+            "I can broaden the search to try to find more suitable sources.",
+            "Puedo ampliar la búsqueda para intentar encontrar fuentes más adecuadas.",
+            "Posso alargar a pesquisa para tentar encontrar fontes mais adequadas.",
+            "Ich kann die Suche erweitern, um passendere Quellen zu finden.",
+            "Posso ampliare la ricerca per provare a trovare fonti più adatte.");
 
     public static string DocumentsCount(int total, string? language)
         => Pick(language,

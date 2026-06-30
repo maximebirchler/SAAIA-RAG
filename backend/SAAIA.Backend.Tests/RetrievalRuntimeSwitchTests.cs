@@ -170,6 +170,26 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.True(RagEndpoints.IsDenseMatchEmbeddingCompatible(mixedContent, "intfloat/multilingual-e5-base"));
     }
 
+    [Theory]
+    [InlineData(null, true, true)]
+    [InlineData("source_exploration", null, true)]
+    [InlineData("evidence_exploration", false, true)]
+    [InlineData("research", false, true)]
+    [InlineData("balanced", false, false)]
+    [InlineData(null, null, false)]
+    public void ShouldUseResearchSurfaces_respects_explicit_flag_and_exploration_modes(
+        string? researchMode,
+        bool? includeResearchSurfaces,
+        bool expected)
+    {
+        var request = new RagSearchRequestDto(
+            Query: "broad source-backed planning",
+            ResearchMode: researchMode,
+            IncludeResearchSurfaces: includeResearchSurfaces);
+
+        Assert.Equal(expected, RagEndpoints.ShouldUseResearchSurfaces(request));
+    }
+
     private static RagMatch BuildDenseMatch(
         string? embeddingModel,
         string? embeddingInputFormat,
@@ -11901,6 +11921,40 @@ ALPHA BETA MODULE
 
         Assert.Equal("title-route", ordered[0].ChunkId);
         Assert.True(RagEndpoints.IsResolvedTitleOrNavigationRoute(ordered[0]));
+    }
+
+    [Fact]
+    public void PreferRequestedPageWindowMatches_promotes_requested_page_window_over_far_hits()
+    {
+        var farHigherScore = TestMatch(
+            text: "Relevant words, but far away from the requested document page window.",
+            page: 40,
+            chunkId: "far",
+            score: 1.10);
+        var adjacentLowerScore = TestMatch(
+            text: "Nearby content after the requested document page window.",
+            page: 13,
+            chunkId: "adjacent",
+            score: 0.70);
+        var overlappingLowerScore = TestMatch(
+            text: "Content overlapping the requested document page window.",
+            page: 10,
+            chunkId: "overlap",
+            score: 0.60) with
+        {
+            PageEnd = 11
+        };
+
+        var ordered = RagEndpoints.PreferRequestedPageWindowMatches(
+            [farHigherScore, adjacentLowerScore, overlappingLowerScore],
+            requestedPageStart: 10,
+            requestedPageEnd: 12);
+
+        Assert.Equal("overlap", ordered[0].ChunkId);
+        Assert.Equal("adjacent", ordered[1].ChunkId);
+        Assert.Equal("far", ordered[2].ChunkId);
+        Assert.True(ordered[0].Score > overlappingLowerScore.Score);
+        Assert.True(ordered[1].Score > adjacentLowerScore.Score);
     }
 
     [Fact]

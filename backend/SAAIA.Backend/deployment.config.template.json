@@ -9,7 +9,7 @@
     "RerankModel": "",
     "RerankMaxCandidates": 12,
     "DefaultTopK": 5,
-    "MaxTopK": 20
+    "MaxTopK": 60
   },
   "Ingestion": {
     "DocumentsRoot": "..\\..\\documents",

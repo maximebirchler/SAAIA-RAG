@@ -63,7 +63,7 @@ public sealed class RagChatAgent
         if (double.IsNaN(t) || double.IsInfinity(t)) t = 0.2;
         _temperature = Math.Clamp(t, 0, 1);
 
-        var mt = s.LlmMaxOutputTokens;
+        var mt = NormalizeAnswerMaxTokens(s.LlmMaxOutputTokens);
         _maxTokens = Math.Clamp(mt, 128, 4096);
 
         _ragQualityPreset = string.IsNullOrWhiteSpace(s.RagQualityPreset)
@@ -84,6 +84,15 @@ public sealed class RagChatAgent
         Action<string>? onProgress = null)
     {
         userText ??= string.Empty;
+        ClientLog.Info(
+            "RagChatAgent turn start: " +
+            $"llm={_llmEnabled}|" +
+            $"mode={_activeMode}|" +
+            $"quality={_ragQualityPreset}|" +
+            $"maxTokens={_maxTokens}|" +
+            $"category={category}|" +
+            $"tail={conversationTail?.Count ?? 0}|" +
+            $"chars={userText.Length}");
 
         if (LocalizedStrings.TryDetectStylePreferenceChange(userText, out var requestedStyle))
         {
@@ -187,6 +196,13 @@ public sealed class RagChatAgent
         var orchSettings = _effectiveSettings.Clone();
         orchSettings.ActiveMode = _activeMode;
         var orch = new ToolAgentOrchestrator(_api, llm, _mem, orchSettings);
+        ClientLog.Info(
+            "RagChatAgent orchestrator start: " +
+            $"history={history.Count}|" +
+            $"mode={orchSettings.ActiveMode}|" +
+            $"uiLang={orchSettings.UiLanguage}|" +
+            $"ctx={orchSettings.QualifiedProfile?.CtxSize ?? 0}|" +
+            $"maxTokens={orchSettings.LlmMaxOutputTokens}");
         var result = await orch.RunAsync(
             history,
             userText,
@@ -197,6 +213,11 @@ public sealed class RagChatAgent
 
         _activeMode = AppSettings.NormalizeActiveMode(orchSettings.ActiveMode);
         _mem.LastMode = _activeMode;
+        ClientLog.Info(
+            "RagChatAgent turn end: " +
+            $"mode={_activeMode}|" +
+            $"answerChars={result.finalAnswer?.Length ?? 0}|" +
+            $"sourcesPayload={(result.sourcesPayload is null ? "none" : result.sourcesPayload.GetType().Name)}");
 
         return result;
     }
@@ -596,23 +617,23 @@ public sealed class RagChatAgent
     private static string BroadSearchOnlyFallbackIntro(string? language)
         => LocalizedStrings.NormalizeLanguage(language) switch
         {
-            "en" => "The local assistant is not available to write a full synthesis. I found a few source-backed leads to verify first.",
-            "es" => "El asistente local no esta disponible para redactar una sintesis completa. He encontrado algunas pistas con fuente para verificar primero.",
-            "pt" => "O assistente local nao esta disponivel para redigir uma sintese completa. Encontrei algumas pistas com fonte para verificar primeiro.",
-            "de" => "Der lokale Assistent ist nicht verfuegbar, um eine vollstaendige Synthese zu schreiben. Ich habe einige belegte Ansatzpunkte zur Pruefung gefunden.",
-            "it" => "L'assistente locale non e disponibile per scrivere una sintesi completa. Ho trovato alcune piste con fonte da verificare prima.",
-            _ => "L'assistant local n'est pas disponible pour rediger une synthese complete. J'ai trouve quelques pistes sourcees a verifier d'abord."
+            "en" => "The local assistant is not available to write and check a complete answer. I can still show the most relevant source elements to verify first.",
+            "es" => "El asistente local no está disponible para redactar y comprobar una respuesta completa. Aun así, puedo mostrar los elementos fuente más relevantes para verificarlos primero.",
+            "pt" => "O assistente local não está disponível para redigir e verificar uma resposta completa. Ainda assim, posso mostrar os elementos fonte mais relevantes para verificar primeiro.",
+            "de" => "Der lokale Assistent ist nicht verfügbar, um eine vollständige Antwort zu schreiben und zu prüfen. Ich kann trotzdem die wichtigsten Quellenhinweise zur Kontrolle anzeigen.",
+            "it" => "L'assistente locale non è disponibile per scrivere e verificare una risposta completa. Posso comunque mostrare gli elementi fonte più pertinenti da controllare prima.",
+            _ => "L'assistant local n'est pas disponible pour rédiger et vérifier une réponse complète. Je peux tout de même afficher les éléments sources les plus pertinents à contrôler d'abord."
         };
 
     private static string BroadSearchOnlyFallbackCandidatesHeader(string? language)
         => LocalizedStrings.NormalizeLanguage(language) switch
         {
-            "en" => "Source-backed leads:",
-            "es" => "Pistas con fuente:",
-            "pt" => "Pistas com fonte:",
-            "de" => "Belegte Ansatzpunkte:",
-            "it" => "Piste con fonte:",
-            _ => "Pistes sourcees :"
+            "en" => "Source elements to verify:",
+            "es" => "Elementos fuente que verificar:",
+            "pt" => "Elementos fonte a verificar:",
+            "de" => "Zu prüfende Quellenhinweise:",
+            "it" => "Elementi fonte da verificare:",
+            _ => "Éléments sources à vérifier :"
         };
 
     private static string BroadSearchOnlyFallbackClosing(string? language)
@@ -620,10 +641,10 @@ public sealed class RagChatAgent
         {
             "en" => "I am not turning these snippets into a final answer until the local assistant has rewritten and checked them.",
             "es" => "No convierto estos fragmentos en una respuesta final hasta que el asistente local los reescriba y los compruebe.",
-            "pt" => "Nao transformo estes trechos numa resposta final enquanto o assistente local nao os reescrever e verificar.",
-            "de" => "Ich mache daraus keine endgueltige Antwort, solange der lokale Assistent sie nicht umgeschrieben und geprueft hat.",
-            "it" => "Non trasformo questi estratti in una risposta finale finche l'assistente locale non li riscrive e verifica.",
-            _ => "Je ne transforme pas ces extraits en reponse finale tant que l'assistant local ne les a pas reecrits et verifies."
+            "pt" => "Não transformo estes trechos numa resposta final enquanto o assistente local não os reescrever e verificar.",
+            "de" => "Ich mache daraus keine endgültige Antwort, solange der lokale Assistent sie nicht umgeschrieben und geprüft hat.",
+            "it" => "Non trasformo questi estratti in una risposta finale finché l'assistente locale non li riscrive e verifica.",
+            _ => "Je ne transforme pas ces extraits en réponse finale tant que l'assistant local ne les a pas réécrits et vérifiés."
         };
 
     private static object BuildSearchOnlyFallbackSourcePayload(RagItem item)
@@ -767,6 +788,38 @@ public sealed class RagChatAgent
         };
     }
 
+    private static int NormalizeAnswerMaxTokens(int configuredMaxTokens)
+    {
+        if (configuredMaxTokens <= 650)
+            return Math.Clamp(configuredMaxTokens, 128, 650);
+
+        return configuredMaxTokens <= 1150
+            ? 1600
+            : configuredMaxTokens;
+    }
+
+    internal static int ResolveLlmAdapterMaxTokensForTests(int configuredMaxTokens, bool forceJson, string prompt)
+        => ResolveLlmAdapterMaxTokens(configuredMaxTokens, forceJson, prompt);
+
+    private static int ResolveLlmAdapterMaxTokens(int configuredMaxTokens, bool forceJson, string prompt)
+    {
+        var normalizedConfigured = Math.Clamp(configuredMaxTokens, 128, 4096);
+        if (forceJson)
+            return Math.Clamp(Math.Max(normalizedConfigured, 1600), 1600, 3200);
+
+        return LooksLikeBroadDocumentaryWriterPrompt(prompt)
+            ? Math.Clamp(Math.Max(normalizedConfigured, 3600), 128, 4096)
+            : normalizedConfigured;
+    }
+
+    private static bool LooksLikeBroadDocumentaryWriterPrompt(string prompt)
+        => prompt.Contains("PRIVATE_SOURCE_WRITING_BRIEF", StringComparison.OrdinalIgnoreCase)
+           || prompt.Contains("PRIVATE_SOURCE_COVERAGE_NOTE", StringComparison.OrdinalIgnoreCase)
+           || prompt.Contains("PRIVATE_SOURCE_EVIDENCE_INVENTORY", StringComparison.OrdinalIgnoreCase)
+           || prompt.Contains("PRIVATE_SOURCE_RESEARCH_MAP", StringComparison.OrdinalIgnoreCase)
+           || prompt.Contains("PRIVATE_SOURCE_REFERENCE_INDEX", StringComparison.OrdinalIgnoreCase)
+           || prompt.Contains("REQUESTED_STRUCTURE", StringComparison.OrdinalIgnoreCase);
+
     private static async Task SimulateStreamingAsync(string text, Action<string> onDelta, CancellationToken ct)
     {
         if (onDelta is null || string.IsNullOrEmpty(text)) return;
@@ -800,7 +853,7 @@ public sealed class RagChatAgent
             if (forceJson)
                 list.Insert(0, ("system", "Return ONLY valid JSON. No markdown. No extra text."));
 
-            return await _llm.ChatOnceAsync(list, _temperature, _maxTokens, ct).ConfigureAwait(false);
+            return await _llm.ChatOnceAsync(list, _temperature, ResolveMaxTokens(list, forceJson), ct).ConfigureAwait(false);
         }
 
         public async Task StreamAsync(IReadOnlyList<(string role, string content)> messages, bool forceJson, Action<string> onDelta, CancellationToken ct)
@@ -813,7 +866,13 @@ public sealed class RagChatAgent
                 return;
             }
 
-            await _llm.ChatStreamAsync(list, _temperature, _maxTokens, onDelta, ct).ConfigureAwait(false);
+            await _llm.ChatStreamAsync(list, _temperature, ResolveMaxTokens(list, forceJson), onDelta, ct).ConfigureAwait(false);
+        }
+
+        private int ResolveMaxTokens(IReadOnlyList<(string role, string content)> messages, bool forceJson)
+        {
+            var joined = string.Join('\n', messages.Select(static m => m.content ?? string.Empty));
+            return ResolveLlmAdapterMaxTokens(_maxTokens, forceJson, joined);
         }
     }
 }

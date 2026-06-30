@@ -1838,7 +1838,10 @@ ORDER BY d.doc_path;
         var queryNorm = NormalizeQuery(req.Query);
         var retrievalQueryNorm = NormalizeQuery(retrievalQuery);
 
+        var includeResearchSurfaces = ShouldUseResearchSurfaces(req);
         var mode = ResolveEffectiveSearchMode(req.Mode, req.Query);
+        if (includeResearchSurfaces && !string.Equals(mode, "focused", StringComparison.Ordinal))
+            mode = "broad";
         topK = ResolveInternalSelectionTopK(
             req.Query,
             requestedTopK,
@@ -1848,7 +1851,10 @@ ORDER BY d.doc_path;
             mode);
         if (usesDelimitedLexicalSurface)
             topK = Math.Min(Math.Max(topK, 16), rag.MaxTopK);
-        var preferDocumentDiversity = ShouldPreferDocumentDiversity(req.Query) && mode != "focused";
+        var preferItemInventory = ShouldPreferItemInventorySelection(req, mode, includeResearchSurfaces);
+        var preferDocumentDiversity = (ShouldPreferDocumentDiversity(req.Query) || includeResearchSurfaces)
+            && mode != "focused"
+            && !preferItemInventory;
         double defMinScore = mode switch
         {
             "focused" => 0.35,
@@ -1864,10 +1870,17 @@ ORDER BY d.doc_path;
             ? 0.0
             : minScore;
         var candidates = Math.Clamp(req.Candidates ?? defCandidates, topK, Math.Max(topK, rag.MaxTopK * 20));
-        var maxPerDoc = Math.Clamp(req.MaxPerDoc ?? defMaxPerDoc, 1, topK);
-        var maxPerPage = Math.Clamp(req.MaxPerPage ?? 1, 1, topK);
+        var maxPerDoc = Math.Clamp(req.MaxPerDoc ?? (preferItemInventory ? topK : defMaxPerDoc), 1, topK);
+        var maxPerPage = Math.Clamp(req.MaxPerPage ?? (preferItemInventory ? Math.Min(topK, 16) : 1), 1, topK);
         var hasExplicitMaxPerDoc = req.MaxPerDoc.HasValue;
         var hasExplicitMaxPerPage = req.MaxPerPage.HasValue;
+        var requestedPageStart = hasDocScope && req.PageStart is > 0
+            ? req.PageStart.Value
+            : (int?)null;
+        var requestedPageEnd = requestedPageStart.HasValue
+            ? Math.Max(requestedPageStart.Value, req.PageEnd is > 0 ? req.PageEnd.Value : requestedPageStart.Value)
+            : (int?)null;
+        var hasRequestedPageWindow = requestedPageStart.HasValue && requestedPageEnd.HasValue;
 
         if (req.Diversity != null)
         {
@@ -1888,6 +1901,10 @@ ORDER BY d.doc_path;
         if (!hasExplicitMaxPerDoc && ShouldAllowMultipleChunksForComparativeSubject(req.Query))
             maxPerDoc = Math.Min(topK, Math.Max(maxPerDoc, 2));
         if (!hasExplicitMaxPerPage && ShouldConstrainPreciseTitleLookup(req.Query))
+            maxPerPage = Math.Min(topK, Math.Max(maxPerPage, 2));
+        if (hasRequestedPageWindow && !hasExplicitMaxPerDoc)
+            maxPerDoc = Math.Min(topK, Math.Max(maxPerDoc, Math.Min(topK, 4)));
+        if (hasRequestedPageWindow && !hasExplicitMaxPerPage)
             maxPerPage = Math.Min(topK, Math.Max(maxPerPage, 2));
 
         var swTotal = Stopwatch.StartNew();
@@ -1945,17 +1962,21 @@ ORDER BY d.doc_path;
         var allowSparseAssistForScopedProfileFallback =
             useScopedProfileFallback && ShouldAllowSparseAssistForScopedProfileFallback(req.Query);
         var allowSparseAssistForBroadDiversity =
-            !hasDocScope && ShouldAllowSparseAssistForBroadDiversity(req.Query);
+            !hasDocScope && (includeResearchSurfaces || ShouldAllowSparseAssistForBroadDiversity(req.Query));
         var allowNavigationCatalogRouteForBroadExploration =
-            ShouldAllowNavigationCatalogRouteForBroadExploration(req.Query, hasCategoryFilter || hasDocScope);
+            includeResearchSurfaces
+            || ShouldAllowNavigationCatalogRouteForBroadExploration(req.Query, hasCategoryFilter || hasDocScope);
         var skipUnanchoredTitleAnchorRouteForBroadDiversity =
-            useChoiceBetweenLexicalRoute
-            || ShouldSkipUnanchoredTitleAnchorRouteForBroadDiversity(req.Query);
+            !includeResearchSurfaces
+            && (useChoiceBetweenLexicalRoute
+                || ShouldSkipUnanchoredTitleAnchorRouteForBroadDiversity(req.Query));
         var skipSparseRetrieverForBroadDiversity = !hasDocScope
+            && !includeResearchSurfaces
             && !allowSparseAssistForBroadDiversity
             && (ShouldSkipSparseRetrieverForBroadDiversity(req.Query, mode)
                 || ShouldSkipSparseRetrieverForQuantityLookup(req.Query, mode));
         var skipSparseProfileCardAssist = !hasDocScope
+            && !includeResearchSurfaces
             && ShouldSkipSparseProfileCardAssist(req.Query, mode);
         var requireDocumentOverviewProfileMatch = skipChunkRetrieversForDocumentOverview
             && ShouldRequireDocumentOverviewProfileMatch(req.Query);
@@ -2116,6 +2137,7 @@ ORDER BY d.doc_path;
             .ThenBy(static match => match.DocPath, StringComparer.OrdinalIgnoreCase)
             .ThenBy(static match => match.ChunkIndex)
             .ToList();
+        titleLookupMatches = PreferRequestedPageWindowMatches(titleLookupMatches, requestedPageStart, requestedPageEnd);
         diagnostics?.CapturePhase("exact_match", "exact_match", exactMs, exactMatches);
         diagnostics?.CapturePhase("quoted_title", "quoted_title", quotedTitleMs, quotedTitleMatches);
         diagnostics?.CapturePhase("quoted_title_anchor", "title_anchor_route", quotedTitleAnchorMs, quotedTitleAnchorMatches);
@@ -2327,6 +2349,8 @@ ORDER BY d.doc_path;
                         teiGovernor: teiGovernor),
                     getReturnedCount: static matches => matches.Count);
             var skipDocumentProfileSearchForPreciseLookup =
+                !includeResearchSurfaces
+                &&
                 !skipChunkRetrieversForDocumentOverview
                 && !useScopedProfileFallback
                 && !useChoiceBetweenLexicalRoute
@@ -2334,18 +2358,20 @@ ORDER BY d.doc_path;
                     || ShouldSkipDocumentProfileSearchForPreciseLookup(req.Query)
                     || ShouldSkipDocumentProfileSearchForComparativeLookup(req.Query));
             var allowComparativeDocumentProfileAssist = ShouldAllowDocumentProfileAssistForComparativeLookup(req.Query);
+            var allowResearchDocumentProfileAssist = includeResearchSurfaces || allowComparativeDocumentProfileAssist;
             var documentProfileCandidateCount = ResolveDocumentProfileCandidateCount(
                 candidates,
                 topK,
                 skipChunkRetrieversForDocumentOverview || useScopedProfileFallback,
-                allowComparativeDocumentProfileAssist);
-            var canSearchDocumentProfiles = !skipDocumentProfileSearchForPreciseLookup
+                allowResearchDocumentProfileAssist);
+            var canSearchDocumentProfiles = includeResearchSurfaces
+                || (!skipDocumentProfileSearchForPreciseLookup
                 && (allowComparativeDocumentProfileAssist || !ShouldSkipDocumentProfileSearchForQuantityLookup(req.Query))
                 && (skipChunkRetrieversForDocumentOverview
                     || useScopedProfileFallback
                     || useChoiceBetweenLexicalRoute
-                    || !ShouldSkipDocumentProfileSearchForLowCostBroadQuery(req.Query, mode));
-            var deferDocumentProfileSearch = !allowComparativeDocumentProfileAssist && ShouldDeferDocumentProfileSearch(
+                    || !ShouldSkipDocumentProfileSearchForLowCostBroadQuery(req.Query, mode)));
+            var deferDocumentProfileSearch = !includeResearchSurfaces && !allowComparativeDocumentProfileAssist && ShouldDeferDocumentProfileSearch(
                 canSearchDocumentProfiles,
                 skipChunkRetrieversForDocumentOverview,
                 useScopedProfileFallback,
@@ -2420,9 +2446,12 @@ ORDER BY d.doc_path;
             var effectiveSparseMatches = explicitDocumentScopedMatches.Count == 0
                 ? sparseMatches
                 : sparseMatches.Concat(explicitDocumentScopedMatches).ToList();
+            effectiveSparseMatches = PreferRequestedPageWindowMatches(effectiveSparseMatches, requestedPageStart, requestedPageEnd);
+            var effectiveDenseMatches = PreferRequestedPageWindowMatches(denseMatches, requestedPageStart, requestedPageEnd);
             var combinedTitleAnchorRouteMatches = quotedTitleAnchorMatches.Count == 0
                 ? titleAnchorRouteMatches
                 : DeduplicatePreciseTitleBackfillMatches(quotedTitleAnchorMatches.Concat(titleAnchorRouteMatches)).ToList();
+            combinedTitleAnchorRouteMatches = PreferRequestedPageWindowMatches(combinedTitleAnchorRouteMatches, requestedPageStart, requestedPageEnd);
             preciseTitleRouteReuseMatches = BuildReusablePreciseTitleRouteMatches(combinedTitleAnchorRouteMatches);
             titleAnchorRoutePhaseMs += measuredTitleAnchorRoutePhaseMs;
             sparsePhaseMs = measuredSparsePhaseMs + measuredExplicitDocumentScopedMs;
@@ -2430,16 +2459,17 @@ ORDER BY d.doc_path;
             profilePhaseMs = measuredProfilePhaseMs;
             diagnostics?.CapturePhase("title_anchor_route_broad", "title_anchor_route", measuredTitleAnchorRoutePhaseMs, titleAnchorRouteMatches);
             diagnostics?.CapturePhase("sparse_bm25", "sparse_bm25", sparsePhaseMs, effectiveSparseMatches);
-            diagnostics?.CapturePhase("dense_qdrant", "dense_qdrant", densePhaseMs, denseMatches);
+            diagnostics?.CapturePhase("dense_qdrant", "dense_qdrant", densePhaseMs, effectiveDenseMatches);
             diagnostics?.CapturePhase("document_profile", "document_profile", profilePhaseMs, profileMatches);
 
             var fusionSw = Stopwatch.StartNew();
             var exactAndQuotedMatches = titleLookupMatches.Count == 0
                 ? exactMatches
                 : exactMatches.Concat(titleLookupMatches).ToList();
-            var fusedMatches = FuseWithRrf(exactAndQuotedMatches, effectiveSparseMatches, denseMatches, profileMatches, combinedTitleAnchorRouteMatches);
+            var fusedMatches = FuseWithRrf(exactAndQuotedMatches, effectiveSparseMatches, effectiveDenseMatches, profileMatches, combinedTitleAnchorRouteMatches);
             fusedMatches = CalibrateFusedMatches(retrievalQuery, fusedMatches, req.Query);
             fusedMatches = SuppressNavigationalNoise(req.Query, fusedMatches);
+            fusedMatches = PreferRequestedPageWindowMatches(fusedMatches, requestedPageStart, requestedPageEnd);
             var suppressUnanchoredSpecificResults = !useScopedProfileFallback
                 && !useChoiceBetweenLexicalRoute
                 && ShouldSuppressUnanchoredSpecificResults(retrievalQuery, fusedMatches);
@@ -2475,12 +2505,13 @@ ORDER BY d.doc_path;
                     fusedMatches = rerankAttempt.Matches;
                     fusedMatches = CalibrateFusedMatches(retrievalQuery, fusedMatches, selectionQuery);
                     fusedMatches = SuppressNavigationalNoise(selectionQuery, fusedMatches);
+                    fusedMatches = PreferRequestedPageWindowMatches(fusedMatches, requestedPageStart, requestedPageEnd);
                     fusionSw.Stop();
                     fusionMs += fusionSw.ElapsedMilliseconds;
                 }
                 else
                 {
-                    fusedMatches = rerankAttempt.Matches;
+                    fusedMatches = PreferRequestedPageWindowMatches(rerankAttempt.Matches, requestedPageStart, requestedPageEnd);
                 }
                 diagnostics?.CapturePhase(
                     rerankAttempt.Applied ? "rerank_output" : "rerank_skipped",
@@ -5039,6 +5070,17 @@ ORDER BY d.doc_path;
             }
         }
 
+        if (hasRequestedPageWindow && selected.Count > 0)
+        {
+            finalOrderingSw.Restart();
+            var preferredSelections = PreferRequestedPageWindowMatches(selected, requestedPageStart, requestedPageEnd);
+            selected.Clear();
+            selected.AddRange(preferredSelections.Take(topK));
+            RebuildSelectedKeys(selected, selectedKeys);
+            finalOrderingSw.Stop();
+            selectionMs += finalOrderingSw.ElapsedMilliseconds;
+        }
+
         swTotal.Stop();
         diagnostics?.CapturePhase("final_selected", "final_selection", selectionMs, selected);
 
@@ -5142,6 +5184,19 @@ ORDER BY d.doc_path;
             : "balanced";
     }
 
+    internal static bool ShouldUseResearchSurfaces(RagSearchRequestDto req)
+    {
+        if (req.IncludeResearchSurfaces == true)
+            return true;
+
+        var mode = (req.ResearchMode ?? string.Empty).Trim().ToLowerInvariant();
+        return mode is "research"
+            or "exploration"
+            or "broad_exploration"
+            or "source_exploration"
+            or "evidence_exploration";
+    }
+
     internal static int ResolveInternalSelectionTopK(
         string query,
         int requestedTopK,
@@ -5171,6 +5226,63 @@ ORDER BY d.doc_path;
     internal static bool ShouldPreferDocumentDiversity(string query)
         => ShouldPreferComparativeDocumentDiversity(query)
            || ContainsDocumentOverviewIntent(query);
+
+    internal static bool ShouldPreferItemInventorySelection(
+        RagSearchRequestDto req,
+        string mode,
+        bool includeResearchSurfaces)
+    {
+        if (!includeResearchSurfaces
+            || string.Equals(mode, "focused", StringComparison.Ordinal)
+            || string.IsNullOrWhiteSpace(req.Query))
+        {
+            return false;
+        }
+
+        var normalized = " " + FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(req.Query)).ToLowerInvariant() + " ";
+        var asksForInventory = ContainsAny(
+            normalized,
+            " liste ",
+            " listado ",
+            " lista ",
+            " list ",
+            " options ",
+            " opciones ",
+            " opcoes ",
+            " opzioni ",
+            " idees ",
+            " ideas ",
+            " idee ",
+            " propositions ",
+            " propuestas ",
+            " sugestoes ",
+            " suggerimenti ",
+            " suggestions ",
+            " choix ",
+            " selection ",
+            " selecao ",
+            " selezione ",
+            " candidates ",
+            " candidats ",
+            " elements ",
+            " items ",
+            " catalog ",
+            " catalogue ",
+            " inventaire ",
+            " inventory ");
+        var asksForPlanning = ContainsPlanningOrScheduleIntent(normalized);
+        var hasMultiSlotShape = Regex.IsMatch(
+            normalized,
+            @"\b(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday|lunes|martes|miercoles|miércoles|jueves|viernes|sabado|sábado|domingo|segunda|terca|terça|quarta|quinta|sexta|sabado|sábado|domingo|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|lunedi|lunedì|martedi|martedì|mercoledi|mercoledì|giovedi|giovedì|venerdi|venerdì|sabato|domenica|semaine|weekly|semana|settimanale|woche|jour|jours|days?|matin|midi|soir|morning|afternoon|evening|night)\b",
+            RegexOptions.CultureInvariant);
+        var explicitQuantity = Regex.IsMatch(
+            normalized,
+            @"\b\d{1,2}\s+(?:elements?|items?|options?|candidats?|candidates?|propositions?|suggestions?|jours?|days?|pages?)\b",
+            RegexOptions.CultureInvariant);
+
+        return (asksForInventory || asksForPlanning || ContainsSituationalBroadSelectionIntent(normalized))
+            && (hasMultiSlotShape || explicitQuantity || asksForInventory);
+    }
 
     internal static bool ShouldSkipChunkRetrieversForDocumentOverview(string query, bool hasDocScope, string mode)
     {
@@ -12765,6 +12877,8 @@ navigation_routes AS (
         d.category,
         d.indexed_version,
         d.content_hash,
+        d.file_size,
+        d.file_mtime,
         d.revision_id,
         ne.label AS route_title,
         'navigation_route'::text AS route_source,
@@ -12879,6 +12993,8 @@ navigation_catalog_routes AS (
         d.category,
         d.indexed_version,
         d.content_hash,
+        d.file_size,
+        d.file_mtime,
         d.revision_id,
         ne.label AS route_title,
         'navigation_catalog_route'::text AS route_source,
@@ -12954,6 +13070,8 @@ direct_chunk_routes AS (
         d.category,
         d.indexed_version,
         d.content_hash,
+        d.file_size,
+        d.file_mtime,
         d.revision_id,
         @direct_route_title AS route_title,
         'direct_title_token_route'::text AS route_source,
@@ -13234,6 +13352,7 @@ LIMIT @candidate_limit;
                     ExtractionOcrCandidate: row.ExtractionOcrCandidate,
                     ExtractionQualitySignals: ParseExtractionQualitySignalsJson(row.ExtractionQualitySignalsJson)))
                 .Where(static match => !IsNavigationRouteMatch(match) || NavigationRouteHasTargetTitleEvidence(match))
+                .Where(static match => !IsTitleAnchorRouteMatch(match) || TitleAnchorRouteHasTargetTitleEvidence(match))
                 .ToList();
 
             return await AttachDocumentProfileContentCardsAsync(ds, tenantId, matches, tokenSource, ct);
@@ -20023,6 +20142,85 @@ GROUP BY d.doc_id;
         selectedKeys.Clear();
         foreach (var match in selected)
             selectedKeys.Add(BuildMatchDedupKey(match));
+    }
+
+    internal static List<RagMatch> PreferRequestedPageWindowMatches(
+        IEnumerable<RagMatch> matches,
+        int? requestedPageStart,
+        int? requestedPageEnd)
+    {
+        var list = matches as IReadOnlyList<RagMatch> ?? matches.ToList();
+        if (list.Count == 0 || requestedPageStart is null || requestedPageStart.Value <= 0)
+            return list.ToList();
+
+        var start = requestedPageStart.Value;
+        var end = requestedPageEnd is > 0 && requestedPageEnd.Value >= start
+            ? requestedPageEnd.Value
+            : start;
+
+        return list
+            .Select((match, index) =>
+            {
+                var relation = ComputeRequestedPageWindowRelation(match, start, end);
+                var distance = ComputeRequestedPageWindowDistance(match, start, end);
+                var boosted = relation > 0
+                    ? match with { Score = Math.Min(2.0, match.Score + (relation * 0.18)) }
+                    : match;
+                return new
+                {
+                    Match = boosted,
+                    Relation = relation,
+                    Distance = distance,
+                    Index = index
+                };
+            })
+            .OrderByDescending(static item => item.Relation)
+            .ThenBy(static item => item.Distance)
+            .ThenByDescending(static item => item.Match.Score)
+            .ThenBy(static item => item.Match.DocPath, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(static item => item.Match.ChunkIndex)
+            .ThenBy(static item => item.Index)
+            .Select(static item => item.Match)
+            .ToList();
+    }
+
+    private static int ComputeRequestedPageWindowRelation(RagMatch match, int requestedPageStart, int requestedPageEnd)
+    {
+        if (match.PageStart is null && match.PageEnd is null)
+            return 0;
+
+        var matchStart = match.PageStart ?? match.PageEnd!.Value;
+        var matchEnd = match.PageEnd is > 0 && match.PageEnd.Value >= matchStart
+            ? match.PageEnd.Value
+            : matchStart;
+
+        if (matchStart <= requestedPageEnd && requestedPageStart <= matchEnd)
+            return 3;
+
+        var distance = ComputeRequestedPageWindowDistance(match, requestedPageStart, requestedPageEnd);
+        if (distance <= 1)
+            return 2;
+        if (distance <= 3)
+            return 1;
+        return 0;
+    }
+
+    private static int ComputeRequestedPageWindowDistance(RagMatch match, int requestedPageStart, int requestedPageEnd)
+    {
+        if (match.PageStart is null && match.PageEnd is null)
+            return int.MaxValue;
+
+        var matchStart = match.PageStart ?? match.PageEnd!.Value;
+        var matchEnd = match.PageEnd is > 0 && match.PageEnd.Value >= matchStart
+            ? match.PageEnd.Value
+            : matchStart;
+
+        if (matchStart <= requestedPageEnd && requestedPageStart <= matchEnd)
+            return 0;
+
+        return matchEnd < requestedPageStart
+            ? requestedPageStart - matchEnd
+            : matchStart - requestedPageEnd;
     }
 
     internal static IReadOnlyList<RagMatch> OrderMatchesForSelection(
@@ -27719,6 +27917,14 @@ LIMIT @top_k;
         return RouteHasTargetTitleEvidence(match);
     }
 
+    internal static bool TitleAnchorRouteHasTargetTitleEvidence(RagMatch match)
+    {
+        if (!IsTitleAnchorRouteMatch(match))
+            return true;
+
+        return RouteHasTargetTitleEvidence(match);
+    }
+
     internal static bool DirectTitleTokenRouteHasTargetTitleEvidence(RagMatch match)
     {
         if (!IsDirectTitleTokenRouteMatch(match))
@@ -28018,6 +28224,11 @@ LIMIT @top_k;
     private static bool IsDirectTitleTokenRouteMatch(RagMatch match)
         => string.Equals(ResolveRetriever(match), "direct_title_token_route", StringComparison.Ordinal)
            || string.Equals(match.EmbeddingBasis, "direct_title_token_route_v1", StringComparison.Ordinal);
+
+    private static bool IsTitleAnchorRouteMatch(RagMatch match)
+        => string.Equals(ResolveRetriever(match), "title_anchor_route", StringComparison.Ordinal)
+           || string.Equals(match.EmbeddingBasis, "title_anchor_route_v1", StringComparison.Ordinal)
+           || (match.EmbedText?.StartsWith("Matched title_anchor_route:", StringComparison.Ordinal) ?? false);
 
     private static bool IsExplicitDocumentTitleRouteMatch(RagMatch match)
         => string.Equals(ResolveRetriever(match), "explicit_document_title_route", StringComparison.Ordinal)

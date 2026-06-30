@@ -11,6 +11,7 @@ public sealed class RagQueryNormalizationRegressionTests
     [InlineData("documents qui mentionnent de l'inertage", "inertage")]
     [InlineData("Je veux que tu me trouves les documents qui parlent d'inertage", "inertage")]
     [InlineData("l'inertage précisément", "inertage")]
+    [InlineData("Cherche dans les documents si le controle SLA est mentionne et reponds avec les sources.", "controle SLA")]
     public void Rag_query_normalization_extracts_the_actual_topic(string input, string expected)
     {
         Assert.Equal(expected, ToolAgentOrchestrator.NormalizeRagQueryForTests(input));
@@ -131,6 +132,7 @@ Continue the previous source-backed request by running a broader retrieval explo
     [Theory]
     [InlineData("Je veux que tu me trouves les documents qui parlent d'inertage", true, "inertage")]
     [InlineData("Cherche les documents qui mentionnent l'inertage", true, "inertage")]
+    [InlineData("Cherche dans les documents si le controle SLA est mentionne et reponds avec les sources.", true, "controle SLA")]
     [InlineData("I am looking for advice about a roasting probe and doneness levels. Which documents mention this?", true, "a roasting probe and doneness levels")]
     [InlineData("Busco consejos sobre una sonda de asado y los puntos de coccion. Que documentos hablan de eso?", true, "una sonda de asado y los puntos de coccion")]
     [InlineData("Procuro conselhos sobre uma sonda de assar e os pontos de cozedura. Que documentos falam disso?", true, "uma sonda de assar e os pontos de cozedura")]
@@ -149,12 +151,59 @@ Continue the previous source-backed request by running a broader retrieval explo
     }
 
     [Theory]
+    [InlineData("bonjour")]
+    [InlineData("Dis simplement bonjour.")]
+    [InlineData("Merci.")]
+    public void Standalone_topic_rag_does_not_force_retrieval_for_general_chat(string input)
+    {
+        var plan = new RouterPlan
+        {
+            Intent = "chat.general",
+            Language = "fr",
+            Mode = "auto"
+        };
+
+        Assert.False(ToolAgentOrchestrator.ShouldForceRagForStandaloneTopicForTests(input, plan));
+    }
+
+    [Fact]
+    public void Standalone_topic_rag_still_forces_retrieval_for_document_content_search_when_router_fell_back()
+    {
+        var plan = new RouterPlan
+        {
+            Intent = "chat.general",
+            Language = "fr",
+            Mode = "auto"
+        };
+
+        Assert.True(ToolAgentOrchestrator.ShouldForceRagForStandaloneTopicForTests(
+            "Cherche dans les documents si le controle SLA est mentionne et reponds avec les sources.",
+            plan));
+    }
+
+    [Fact]
+    public void Standalone_topic_rag_respects_llm_general_without_tools_for_document_content_search()
+    {
+        var plan = new RouterPlan
+        {
+            Intent = "chat.general",
+            Language = "fr",
+            Mode = "auto",
+            Origin = RouterPlanOrigin.Llm
+        };
+
+        Assert.False(ToolAgentOrchestrator.ShouldForceRagForStandaloneTopicForTests(
+            "Cherche dans les documents si le controle SLA est mentionne et reponds avec les sources.",
+            plan));
+    }
+
+    [Theory]
     [InlineData("en", "I found 2 document(s) with indexed content about roasting probe")]
     [InlineData("es", "He encontrado 2 documento(s) con contenido indexado sobre roasting probe")]
     [InlineData("pt", "Encontrei 2 documento(s) com conteudo indexado sobre roasting probe")]
     [InlineData("de", "Ich habe 2 Dokument(e) mit indexiertem Inhalt zu roasting probe")]
     [InlineData("it", "Ho trovato 2 documento/i con contenuti indicizzati su roasting probe")]
-    [InlineData("fr", "J'ai trouve 2 document(s) avec du contenu indexe sur roasting probe")]
+    [InlineData("fr", "J'ai trouvé 2 document(s) avec du contenu indexé sur roasting probe")]
     public void Document_content_search_answer_is_deterministic_and_localized(string language, string expectedHeader)
     {
         var payload = JsonSerializer.Serialize(new

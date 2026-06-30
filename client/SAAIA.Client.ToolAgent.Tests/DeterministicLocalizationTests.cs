@@ -7,12 +7,12 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class DeterministicLocalizationTests
 {
     [Theory]
-    [InlineData("fr", "Routeur…")]
-    [InlineData("en", "Router…")]
-    [InlineData("es", "Enrutador…")]
-    [InlineData("pt", "Roteador…")]
-    [InlineData("de", "Router…")]
-    [InlineData("it", "Router…")]
+    [InlineData("fr", "J'analyse la demande…")]
+    [InlineData("en", "I am reading the request…")]
+    [InlineData("es", "Estoy leyendo la solicitud…")]
+    [InlineData("pt", "Estou a ler o pedido…")]
+    [InlineData("de", "Ich lese die Anfrage…")]
+    [InlineData("it", "Sto leggendo la richiesta…")]
     public void Phase_router_is_localized(string language, string expected)
     {
         Assert.Equal(expected, DeterministicAgentText.PhaseRouter(language));

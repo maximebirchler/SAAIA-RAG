@@ -50,8 +50,8 @@ public static class ToolManifest
         new("documents.extraction_quality", "admin", "List extraction and OCR quality diagnostics, including indexed documents and non-indexable ingestion failures.", Schema(("path", "string|null"), ("categoryPath", "string|null"), ("categoryRef", "string|null"), ("limit", "int|null"))),
         new("documents.extraction_pages", "admin", "Get page-level extraction and OCR quality diagnostics for one document, including doc-level failure metadata when no pages were indexed.", Schema(("docRef", "string"))),
         new("sources.resolve", "user", "Resolve an explicit source or document reference. Use only when the user explicitly asks for a source, link, opening action or document/source reference.", Schema(("ref", "string|null"), ("pdfRef", "string|null"))),
-        new("rag.search", "user", "RAG retrieval for factual or technical questions. Returns snippets plus document/page references, source quality, headings, selection hints, profile signals and content-card evidence when available. Use docId/docPath only after a document has been resolved by listing, search or navigation.", Schema(("query", "string"), ("topK", "int|null"), ("categoryPath", "string|null"), ("categoryRef", "string|null"), ("category", "string|null"), ("docId", "string|null"), ("docPath", "string|null"), ("maxPerDoc", "int|null"), ("maxPerPage", "int|null"), ("filters", "object|null"), ("mode", "auto|strict|standard"))),
-        new("rag.multi_search", "user", "Multi-query retrieval with dedup/diversity for synthesis across several documents. Use complementary queries for broad requests, follow-up exploration and source diversity. Use docId/docPath only after a document has been resolved by listing, search or navigation.", Schema(("queries", "string[]"), ("topK", "int|null"), ("categoryPath", "string|null"), ("categoryRef", "string|null"), ("category", "string|null"), ("docId", "string|null"), ("docPath", "string|null"), ("maxPerDoc", "int|null"), ("maxPerPage", "int|null"), ("filters", "object|null"), ("diversity", "double|null"), ("mode", "auto|strict|standard|null"))),
+        new("rag.search", "user", "RAG retrieval for factual or technical questions. Returns snippets plus document/page references, source quality, headings, selection hints, profile signals and content-card evidence when available. Use docId/docPath and pageStart/pageEnd only after a document/page anchor has been resolved by listing, search or navigation. For broad research/exploration, set researchMode=source_exploration and includeResearchSurfaces=true to ask the backend for profile/card/navigation surfaces as orientation aids before final evidence.", Schema(("query", "string"), ("topK", "int|null"), ("categoryPath", "string|null"), ("categoryRef", "string|null"), ("category", "string|null"), ("docId", "string|null"), ("docPath", "string|null"), ("pageStart", "int|null"), ("pageEnd", "int|null"), ("maxPerDoc", "int|null"), ("maxPerPage", "int|null"), ("filters", "object|null"), ("mode", "auto|strict|standard|focused|balanced|broad|null"), ("researchMode", "source_exploration|evidence_exploration|research|exploration|null"), ("includeResearchSurfaces", "bool|null"))),
+        new("rag.multi_search", "user", "Multi-query retrieval with dedup/diversity for synthesis across several documents. Use complementary queries for broad requests, follow-up exploration and source diversity. Use docId/docPath and pageStart/pageEnd only after a document/page anchor has been resolved by listing, search or navigation. For broad research/exploration, set researchMode=source_exploration and includeResearchSurfaces=true to ask the backend for profile/card/navigation surfaces as orientation aids before final evidence.", Schema(("queries", "string[]"), ("topK", "int|null"), ("categoryPath", "string|null"), ("categoryRef", "string|null"), ("category", "string|null"), ("docId", "string|null"), ("docPath", "string|null"), ("pageStart", "int|null"), ("pageEnd", "int|null"), ("maxPerDoc", "int|null"), ("maxPerPage", "int|null"), ("filters", "object|null"), ("diversity", "double|null"), ("mode", "auto|strict|standard|focused|balanced|broad|null"), ("researchMode", "source_exploration|evidence_exploration|research|exploration|null"), ("includeResearchSurfaces", "bool|null"))),
         new("rag.summarize_live", "user", "Live non-stored summary for a single document.", Schema(("docRef", "string"), ("level", "short|medium|long"), ("strategy", "about|summary|store"), ("language", "auto|fr|en|es|pt|de|it"), ("responseLanguage", "auto|fr|en|es|pt|de|it|null"), ("docLanguage", "string|null"), ("maxWords", "int|null"), ("maxChunks", "int|null"), ("maxBatches", "int|null"), ("maxCharsPerBatch", "int|null"))),
         new("summary.get", "user", "Read a stored admin summary for a document.", Schema(("docRef", "string"), ("level", "medium"))),
         new("summary.exists", "user", "Check whether a stored admin summary exists and is fresh.", Schema(("docRef", "string"), ("level", "medium"))),
@@ -95,6 +95,9 @@ public static class ToolManifest
     public static string BuildConversationManifestJson()
         => BuildManifestJson(_conversationDefinitions, "v3.1");
 
+    public static string BuildRouterConversationManifestJson()
+        => BuildRouterManifestJson(_conversationDefinitions, "v3.1");
+
     private static string BuildManifestJson(IEnumerable<ToolDefinition> definitions, string version)
     {
         var manifest = new
@@ -114,6 +117,62 @@ public static class ToolManifest
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = false
         });
+    }
+
+    private static string BuildRouterManifestJson(IEnumerable<ToolDefinition> definitions, string version)
+    {
+        var manifest = new
+        {
+            v = version,
+            tools = definitions.Select(x => new
+            {
+                name = x.Name,
+                args = x.ArgsSchema.Keys.ToArray()
+            }).ToArray()
+        };
+
+        return JsonSerializer.Serialize(manifest, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = false
+        });
+    }
+
+    private static string BuildRouterToolDescription(ToolDefinition tool)
+        => tool.Name switch
+        {
+            "documents.list" => "List catalog documents for inventory/browse requests.",
+            "documents.search" => "Find documents by name, path or reference.",
+            "documents.get" => "Resolve one document reference to metadata.",
+            "documents.count" => "Count indexed documents.",
+            "documents.categories" => "List catalog categories for corpus scoping.",
+            "documents.tree" => "Get category tree as a navigation map, not final evidence.",
+            "documents.navigation" => "Get headings/table-of-contents anchors as search pointers, not final evidence.",
+            "documents.stats" => "Get catalog statistics.",
+            "sources.resolve" => "Resolve an explicit source/document/link/opening reference.",
+            "rag.search" => "Single-query RAG for factual corpus answers; supports category, doc/page scope and source_exploration.",
+            "rag.multi_search" => "Multi-query RAG for broad source-backed synthesis; initial broad-plan calls should use 1-4 subject/candidate queries.",
+            "rag.summarize_live" => "Live one-document summary/about answer when stored summary is not available.",
+            "summary.get" => "Read a stored summary for one document.",
+            "summary.exists" => "Check whether a stored summary exists.",
+            "summary.search" => "Search stored summaries.",
+            "export.create" => "Create a user export artifact.",
+            "support.bundle" => "Create a support bundle only when explicitly requested.",
+            "diagnostic.performance" => "Return recent router/tools/writer timings for explicit performance questions.",
+            _ => BuildCompactDescription(tool.Description)
+        };
+
+    private static string BuildCompactDescription(string description)
+    {
+        var value = (description ?? string.Empty).Trim();
+        if (value.Length <= 140)
+            return value;
+
+        var sentenceEnd = value.IndexOf('.', StringComparison.Ordinal);
+        if (sentenceEnd is > 0 and < 140)
+            return value[..(sentenceEnd + 1)];
+
+        return value[..140].TrimEnd() + "...";
     }
 
     public static ToolContractValidationResult ValidateRuntimeCatalog(IEnumerable<string> runtimeToolNames)
@@ -142,7 +201,12 @@ public static class ToolManifest
         "- Inventory requests (count/categories/list/find/tree/stats/changed-since) are answered from indexed documents/catalog data, not from RAG chunks. Empty-folder checks are separate admin/server diagnostics.",
         "- Content-oriented document selection ('which documents are useful/relevant/important for X and why') uses rag.search or rag.multi_search, not documents.list.",
         "- For broad source-backed requests, use the catalog tree/categories and documents.navigation as maps when a corpus scope is useful, then use rag.multi_search to explore concrete content. Do not answer factual content from navigation maps alone.",
+        "- For broad multi-slot plans, recommendations or selections, do not rely on one literal query containing the full user request. Use rag.multi_search with complementary candidate, constraint, slot and category-scoped queries after any useful category/navigation/profile probe.",
+        "- For the first broad-plan rag.multi_search, keep the payload compact: 1 to 4 subject/candidate queries, not raw table-of-contents/index/navigation fan-out.",
+        "- The user does not need to literally say 'sources' or 'documents' for broad documentary work: if the request asks for a grounded plan, selection, comparison, recommendation or synthesis, explore the available corpus before refusing.",
+        "- When navigation entries expose document/page anchors, follow promising entries with rag.search/rag.multi_search using docId/docPath plus pageStart/pageEnd. Navigation titles are pointers, not final evidence.",
         "- RAG hits can contain page text, headings, profile signals, source quality, selection hints and content-card evidence. Treat these as research aids for choosing and explaining sources; concrete facts still need page text or card evidence.",
+        "- For broad research where the first concrete hits are too narrow, set researchMode=source_exploration and includeResearchSurfaces=true on rag.search/rag.multi_search. Profile/card/navigation signals are orientation aids, not final proof.",
         "- If a broad request is under-supported by the first retrieval but has a clear topic or corpus scope, broaden with complementary rag.multi_search queries before asking for clarification.",
         "- For one-document content questions, do not stop at sources.resolve/documents.get. Use summary.exists/summary.get or rag.summarize_live.",
         "- For explicit content questions or factual questions inside documents, use rag.search or rag.multi_search.",
@@ -164,6 +228,11 @@ public static class ToolManifest
         "- Use sources.resolve only for explicit source, link, opening or document/source-reference requests.",
         "- Inventory requests stay on count/list/find/tree/categories/stats tools, never on RAG tools.",
         "- Use documents.tree/categories/documents.navigation as navigation only; use rag.search/rag.multi_search for factual content.",
+        "- For broad multi-slot plans, recommendations or selections, do not rely on one literal query containing the full user request. Use rag.multi_search with complementary candidate, constraint, slot and category-scoped queries after any useful category/navigation/profile probe.",
+        "- For the first broad-plan rag.multi_search, keep the payload compact: 1 to 4 subject/candidate queries, not raw table-of-contents/index/navigation fan-out.",
+        "- The user does not need to literally say 'sources' or 'documents' for broad documentary work: if the request asks for a grounded plan, selection, comparison, recommendation or synthesis, explore the available corpus before refusing.",
+        "- When navigation gives document/page anchors, follow promising anchors with rag.search/rag.multi_search using docId/docPath plus pageStart/pageEnd before writing.",
+        "- For broad research where the first concrete hits are too narrow, set researchMode=source_exploration and includeResearchSurfaces=true on rag.search/rag.multi_search. Profile/card/navigation signals are orientation aids, not final proof.",
         "- For broad documentary requests with a clear topic or corpus scope, explore with complementary rag.multi_search queries before asking the user to clarify.",
         "- Do not invent tools or admin-only alternatives."
     });

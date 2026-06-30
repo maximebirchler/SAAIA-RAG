@@ -176,7 +176,7 @@ internal sealed class AppSettings
     public double LlmTemperature { get; set; } = 0.2;
 
     /// <summary>Safe tuning: max tokens for the final answer.</summary>
-    public int LlmMaxOutputTokens { get; set; } = 900;
+    public int LlmMaxOutputTokens { get; set; } = 1600;
 
     /// <summary>Safe tuning: controls retrieval depth (quick|balanced|deep).</summary>
     public string RagQualityPreset { get; set; } = "balanced";

@@ -318,6 +318,1185 @@ public sealed class ApiClientDocumentsTransitionTests
     }
 
     [Fact]
+    public async Task ToolAgent_rag_multi_search_times_out_slow_source_exploration_query_and_continues()
+    {
+        using var timeoutOverride = ToolAgentOrchestrator.OverrideRagMultiSearchSourceExplorationQueryTimeoutForTests(TimeSpan.FromMilliseconds(50));
+        var calls = new List<string>();
+        var handler = new AsyncStubHttpHandler(async (req, ct) =>
+        {
+            using var body = JsonDocument.Parse(await req.Content!.ReadAsStringAsync(ct));
+            var query = body.RootElement.GetProperty("query").GetString() ?? string.Empty;
+            lock (calls)
+                calls.Add(query);
+
+            if (string.Equals(query, "slow", StringComparison.OrdinalIgnoreCase))
+                await Task.Delay(TimeSpan.FromSeconds(10), ct);
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "items": [
+                        {
+                          "score": 0.72,
+                          "docPath": "Knowledge/fast.pdf",
+                          "docName": "fast.pdf",
+                          "pageStart": 4,
+                          "pageEnd": 4,
+                          "chunkId": "fast-1",
+                          "text": "A useful result returned by the fast query."
+                        }
+                      ]
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "queries": ["slow", "fast"],
+              "topK": 4,
+              "mode": "broad",
+              "researchMode": "source_exploration",
+              "includeResearchSurfaces": true
+            }
+            """);
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        Assert.Contains("slow", calls);
+        Assert.Contains("fast", calls);
+        Assert.Single(result.GetProperty("hits").EnumerateArray());
+
+        var queryRuns = result.GetProperty("meta").GetProperty("queryRuns")
+            .EnumerateArray()
+            .ToArray();
+        Assert.Contains(queryRuns, run =>
+            string.Equals(run.GetProperty("query").GetString(), "slow", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(run.GetProperty("error").GetString(), "rag_search_query_timeout", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queryRuns, run =>
+            string.Equals(run.GetProperty("query").GetString(), "fast", StringComparison.OrdinalIgnoreCase)
+            && run.GetProperty("hitCount").GetInt32() == 1);
+
+        var degraded = result.GetProperty("meta").GetProperty("degradedRetrievers")
+            .EnumerateArray()
+            .Select(static item => item.GetString() ?? string.Empty)
+            .ToArray();
+        Assert.Contains("rag_search_query_timeout", degraded);
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_ignores_untrusted_source_exploration_category_scope()
+    {
+        var capturedBodies = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            var body = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            capturedBodies.Add(body);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "items": [
+                        {
+                          "score": 0.8,
+                          "docPath": "Cuisine/source.pdf",
+                          "docName": "source.pdf",
+                          "pageStart": 2,
+                          "pageEnd": 2,
+                          "chunkId": "source-1",
+                          "text": "A useful source candidate."
+                        }
+                      ]
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "queries": ["plan de repas semaine"],
+              "topK": 4,
+              "categoryPath": "Juridique",
+              "mode": "broad",
+              "researchMode": "source_exploration",
+              "includeResearchSurfaces": true
+            }
+            """);
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        Assert.NotEmpty(capturedBodies);
+        foreach (var capturedBody in capturedBodies)
+        {
+            using var body = JsonDocument.Parse(capturedBody);
+            Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("category").ValueKind);
+            Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("categoryPath").ValueKind);
+            Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("categoryRef").ValueKind);
+        }
+
+        var meta = result.GetProperty("meta");
+        Assert.Equal(JsonValueKind.Null, meta.GetProperty("category").ValueKind);
+        Assert.Equal(JsonValueKind.Null, meta.GetProperty("categoryPath").ValueKind);
+        Assert.Equal("Juridique", meta.GetProperty("requestedCategory").GetString());
+        Assert.Equal("Juridique", meta.GetProperty("rejectedCategoryScope").GetString());
+        Assert.Equal("source_exploration_scope_not_supported_by_query", meta.GetProperty("rejectedCategoryScopeReason").GetString());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_does_not_special_case_cuisine_scope_for_meal_queries()
+    {
+        var capturedBodies = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            var body = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            capturedBodies.Add(body);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "items": [
+                        {
+                          "score": 0.8,
+                          "docPath": "Cuisine/PDF/source.pdf",
+                          "docName": "source.pdf",
+                          "pageStart": 2,
+                          "pageEnd": 2,
+                          "chunkId": "source-1",
+                          "text": "A useful source candidate."
+                        }
+                      ]
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "queries": ["plan de repas semaine petit dejeuner diner souper"],
+              "topK": 4,
+              "categoryPath": "Cuisine/PDF",
+              "mode": "broad",
+              "researchMode": "source_exploration",
+              "includeResearchSurfaces": true
+            }
+            """);
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        Assert.NotEmpty(capturedBodies);
+        foreach (var capturedBody in capturedBodies)
+        {
+            using var body = JsonDocument.Parse(capturedBody);
+            Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("category").ValueKind);
+            Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("categoryPath").ValueKind);
+            Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("categoryRef").ValueKind);
+        }
+
+        var meta = result.GetProperty("meta");
+        Assert.Equal(JsonValueKind.Null, meta.GetProperty("category").ValueKind);
+        Assert.Equal(JsonValueKind.Null, meta.GetProperty("categoryPath").ValueKind);
+        Assert.Equal("Cuisine/PDF", meta.GetProperty("requestedCategory").GetString());
+        Assert.Equal("Cuisine/PDF", meta.GetProperty("rejectedCategoryScope").GetString());
+        Assert.Equal("source_exploration_scope_not_supported_by_query", meta.GetProperty("rejectedCategoryScopeReason").GetString());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_preserves_trusted_source_exploration_category_scope()
+    {
+        var capturedBodies = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            var body = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            capturedBodies.Add(body);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "items": [
+                        {
+                          "score": 0.8,
+                          "docPath": "Domain/Selected/source.pdf",
+                          "docName": "source.pdf",
+                          "pageStart": 2,
+                          "pageEnd": 2,
+                          "chunkId": "source-1",
+                          "text": "A useful source candidate."
+                        }
+                      ]
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "queries": ["weekly plan candidates"],
+              "topK": 4,
+              "categoryPath": "Domain/Selected",
+              "trustCategoryScope": true,
+              "mode": "broad",
+              "researchMode": "source_exploration",
+              "includeResearchSurfaces": true
+            }
+            """);
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        Assert.NotEmpty(capturedBodies);
+        foreach (var capturedBody in capturedBodies)
+        {
+            using var body = JsonDocument.Parse(capturedBody);
+            Assert.Equal("Domain/Selected", body.RootElement.GetProperty("categoryPath").GetString());
+        }
+
+        var meta = result.GetProperty("meta");
+        Assert.Equal("Domain/Selected", meta.GetProperty("categoryPath").GetString());
+        Assert.Equal("Domain/Selected", meta.GetProperty("requestedCategory").GetString());
+        Assert.Equal(JsonValueKind.Null, meta.GetProperty("rejectedCategoryScope").ValueKind);
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_probes_catalog_categories_before_unscoped_source_exploration()
+    {
+        var capturedBodies = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            if (req.Method == HttpMethod.Get && req.RequestUri!.AbsolutePath == "/catalog/documents")
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"value":[],"nextLink":null,"totals":{"total":0}}""", Encoding.UTF8, "application/json")
+                };
+            }
+
+            var body = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            capturedBodies.Add(body);
+            using var parsed = JsonDocument.Parse(body);
+            var categoryPath = parsed.RootElement.GetProperty("categoryPath").GetString();
+            var hasHits = string.Equals(categoryPath, "Knowledge/Good", StringComparison.OrdinalIgnoreCase);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    hasHits
+                        ? """
+                          {
+                            "items": [
+                              {
+                                "score": 0.9,
+                                "docPath": "Knowledge/Good/source.pdf",
+                                "docName": "source.pdf",
+                                "pageStart": 2,
+                                "pageEnd": 2,
+                                "chunkId": "source-1",
+                                "text": "A useful source candidate."
+                              }
+                            ]
+                          }
+                          """
+                        : """{"items":[]}""",
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var mem = new ToolMemory
+        {
+            CatalogSnapshotCache = new ToolMemory.RuntimeCatalogSnapshot
+            {
+                LoadedAtUtc = DateTimeOffset.UtcNow,
+                Categories = new()
+                {
+                    new ToolMemory.CategorySnapshot
+                    {
+                        CategoryPath = "Knowledge/Other",
+                        DisplayName = "Other",
+                        TotalDocuments = 10,
+                        Ordinal = 1
+                    },
+                    new ToolMemory.CategorySnapshot
+                    {
+                        CategoryPath = "Knowledge/Good",
+                        DisplayName = "Good",
+                        TotalDocuments = 8,
+                        Ordinal = 2
+                    }
+                }
+            }
+        };
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem);
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "queries": ["weekly plan candidates"],
+              "topK": 8,
+              "mode": "broad",
+              "researchMode": "source_exploration",
+              "includeResearchSurfaces": true
+            }
+            """);
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        Assert.NotEmpty(capturedBodies);
+        Assert.DoesNotContain(capturedBodies, capturedBody =>
+        {
+            using var body = JsonDocument.Parse(capturedBody);
+            return body.RootElement.GetProperty("categoryPath").ValueKind == JsonValueKind.Null;
+        });
+        Assert.Contains(capturedBodies, capturedBody =>
+        {
+            using var body = JsonDocument.Parse(capturedBody);
+            return string.Equals(body.RootElement.GetProperty("categoryPath").GetString(), "Knowledge/Good", StringComparison.OrdinalIgnoreCase);
+        });
+
+        var meta = result.GetProperty("meta");
+        Assert.Equal("Knowledge/Good", meta.GetProperty("categoryPath").GetString());
+        Assert.True(meta.GetProperty("categoryInferred").GetBoolean());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_uses_catalog_shortlist_before_noisy_category_probe()
+    {
+        var capturedRagBodies = new List<string>();
+        var capturedCatalogQueries = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            if (req.Method == HttpMethod.Get && req.RequestUri!.AbsolutePath == "/catalog/categories")
+            {
+                var path = System.Web.HttpUtility.ParseQueryString(req.RequestUri.Query).Get("path") ?? string.Empty;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        string.Equals(path, "Domain", StringComparison.OrdinalIgnoreCase)
+                            ? """
+                              {
+                                "value": [
+                                  {
+                                    "categoryPath": "Domain/Useful",
+                                    "canonicalName": "Useful child",
+                                    "displayOrder": 1,
+                                    "documentCount": 12,
+                                    "aliases": []
+                                  }
+                                ],
+                                "nextLink": null
+                              }
+                              """
+                            : """{"value":[],"nextLink":null}""",
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            }
+
+            if (req.Method == HttpMethod.Get && req.RequestUri!.AbsolutePath == "/catalog/documents")
+            {
+                var q = System.Web.HttpUtility.ParseQueryString(req.RequestUri.Query).Get("q") ?? string.Empty;
+                capturedCatalogQueries.Add(q);
+                var hasTargetCatalogMatch = q.Contains("target", StringComparison.OrdinalIgnoreCase)
+                                            || q.Contains("evidence", StringComparison.OrdinalIgnoreCase);
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        hasTargetCatalogMatch
+                            ? """
+                              {
+                                "value": [
+                                  {
+                                    "docId": "doc-target-1",
+                                    "docPath": "Domain/source.pdf",
+                                    "canonicalName": "Target evidence source.pdf",
+                                    "categoryCanonicalName": "Domain",
+                                    "categoryPath": "Domain",
+                                    "status": "indexed"
+                                  }
+                                ],
+                                "nextLink": null,
+                                "totals": { "total": 1 }
+                              }
+                              """
+                            : """{"value":[],"nextLink":null,"totals":{"total":0}}""",
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            }
+
+            var body = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            capturedRagBodies.Add(body);
+            using var parsed = JsonDocument.Parse(body);
+            var query = parsed.RootElement.GetProperty("query").GetString() ?? string.Empty;
+            var categoryPath = parsed.RootElement.GetProperty("categoryPath").GetString();
+
+            var isNoisyBroadHit = string.Equals(categoryPath, "Documents", StringComparison.OrdinalIgnoreCase)
+                                  && query.Contains("planning", StringComparison.OrdinalIgnoreCase);
+            var isTargetHit = string.Equals(categoryPath, "Domain/Useful", StringComparison.OrdinalIgnoreCase)
+                              && (query.Contains("target", StringComparison.OrdinalIgnoreCase)
+                                  || query.Contains("evidence", StringComparison.OrdinalIgnoreCase));
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    isNoisyBroadHit || isTargetHit
+                        ? JsonSerializer.Serialize(new
+                        {
+                            items = new[]
+                            {
+                                new
+                                {
+                                    score = isTargetHit ? 0.95 : 0.55,
+                                    docPath = isTargetHit ? "Domain/Useful/source.pdf" : "Documents/Versions/noise.pdf",
+                                    docName = isTargetHit ? "source.pdf" : "noise.pdf",
+                                    pageStart = 2,
+                                    pageEnd = 2,
+                                    chunkId = isTargetHit ? "target-1" : "noise-1",
+                                    text = isTargetHit ? "Target evidence candidate." : "Planning words in an unrelated versioning document."
+                                }
+                            }
+                        })
+                        : """{"items":[]}""",
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var mem = new ToolMemory
+        {
+            CatalogSnapshotCache = new ToolMemory.RuntimeCatalogSnapshot
+            {
+                LoadedAtUtc = DateTimeOffset.UtcNow,
+                Categories = new()
+                {
+                    new ToolMemory.CategorySnapshot
+                    {
+                        CategoryPath = "Documents",
+                        DisplayName = "Documents with versions",
+                        TotalDocuments = 100,
+                        Ordinal = 1
+                    },
+                    new ToolMemory.CategorySnapshot
+                    {
+                        CategoryPath = "Domain",
+                        DisplayName = "Useful domain",
+                        TotalDocuments = 12,
+                        Ordinal = 2
+                    }
+                }
+            }
+        };
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem);
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "queries": ["planning options", "options planning", "target evidence", "evidence target"],
+              "topK": 8,
+              "mode": "broad",
+              "researchMode": "source_exploration",
+              "includeResearchSurfaces": true
+            }
+            """);
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        Assert.Contains(capturedCatalogQueries, q => q.Contains("target", StringComparison.OrdinalIgnoreCase));
+        Assert.NotEmpty(capturedRagBodies);
+        Assert.DoesNotContain(capturedRagBodies, capturedBody =>
+        {
+            using var body = JsonDocument.Parse(capturedBody);
+            return string.Equals(body.RootElement.GetProperty("categoryPath").GetString(), "Documents", StringComparison.OrdinalIgnoreCase);
+        });
+
+        var meta = result.GetProperty("meta");
+        Assert.Equal("Domain/Useful", meta.GetProperty("categoryPath").GetString());
+        Assert.True(meta.GetProperty("categoryInferred").GetBoolean());
+        Assert.Equal("Domain/Useful", mem.Execution.LastRagInferredCategoryScope);
+        Assert.Equal("catalog_probe", mem.Execution.LastRagInferredCategoryReason);
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_applies_repeated_catalog_signal_for_source_exploration_scope()
+    {
+        var capturedRagBodies = new List<string>();
+        var capturedCatalogQueries = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            if (req.Method == HttpMethod.Get && req.RequestUri!.AbsolutePath == "/catalog/categories")
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"value":[],"nextLink":null}""", Encoding.UTF8, "application/json")
+                };
+            }
+
+            if (req.Method == HttpMethod.Get && req.RequestUri!.AbsolutePath == "/catalog/documents")
+            {
+                var q = System.Web.HttpUtility.ParseQueryString(req.RequestUri.Query).Get("q") ?? string.Empty;
+                capturedCatalogQueries.Add(q);
+                object[] documents = q.Equals("candidate", StringComparison.OrdinalIgnoreCase)
+                    ? Enumerable.Range(1, 6)
+                        .Select(index => new
+                        {
+                            docId = $"doc-strong-{index}",
+                            docPath = $"Knowledge/source-{index}.pdf",
+                            canonicalName = $"Strong source {index}.pdf",
+                            categoryCanonicalName = "Knowledge",
+                            categoryPath = "Knowledge",
+                            status = "indexed"
+                        })
+                        .Cast<object>()
+                        .ToArray()
+                    : q.Equals("noise", StringComparison.OrdinalIgnoreCase)
+                        ? new object[]
+                        {
+                            new
+                            {
+                                docId = "doc-noise-1",
+                                docPath = "Other/noise.pdf",
+                                canonicalName = "Noise source.pdf",
+                                categoryCanonicalName = "Other",
+                                categoryPath = "Other",
+                                status = "indexed"
+                            }
+                        }
+                        : Array.Empty<object>();
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(new
+                        {
+                            value = documents,
+                            nextLink = (string?)null,
+                            totals = new { total = documents.Length }
+                        }),
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            }
+
+            var body = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            capturedRagBodies.Add(body);
+            using var parsed = JsonDocument.Parse(body);
+            var query = parsed.RootElement.GetProperty("query").GetString() ?? string.Empty;
+            var categoryPath = parsed.RootElement.GetProperty("categoryPath").GetString();
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    string.Equals(categoryPath, "Knowledge", StringComparison.OrdinalIgnoreCase)
+                    && query.Contains("candidate", StringComparison.OrdinalIgnoreCase)
+                        ? JsonSerializer.Serialize(new
+                        {
+                            items = new[]
+                            {
+                                new
+                                {
+                                    score = 0.94,
+                                    docPath = "Knowledge/source-1.pdf",
+                                    docName = "source-1.pdf",
+                                    pageStart = 3,
+                                    pageEnd = 3,
+                                    chunkId = "strong-1",
+                                    text = "Supported candidate evidence."
+                                }
+                            }
+                        })
+                        : """{"items":[]}""",
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var mem = new ToolMemory
+        {
+            CatalogSnapshotCache = new ToolMemory.RuntimeCatalogSnapshot
+            {
+                LoadedAtUtc = DateTimeOffset.UtcNow,
+                Categories = new()
+                {
+                    new ToolMemory.CategorySnapshot
+                    {
+                        CategoryPath = "Knowledge",
+                        DisplayName = "Knowledge",
+                        TotalDocuments = 6,
+                        Ordinal = 1
+                    },
+                    new ToolMemory.CategorySnapshot
+                    {
+                        CategoryPath = "Other",
+                        DisplayName = "Other",
+                        TotalDocuments = 1,
+                        Ordinal = 2
+                    }
+                }
+            }
+        };
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem);
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "queries": ["morning candidate", "main candidate", "evening candidate", "noise note"],
+              "topK": 8,
+              "mode": "broad",
+              "researchMode": "source_exploration",
+              "includeResearchSurfaces": true
+            }
+            """);
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        Assert.Contains(capturedCatalogQueries, q => q.Equals("candidate", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(capturedCatalogQueries, q => q.Equals("noise", StringComparison.OrdinalIgnoreCase));
+        Assert.NotEmpty(capturedRagBodies);
+        Assert.DoesNotContain(capturedRagBodies, capturedBody =>
+        {
+            using var body = JsonDocument.Parse(capturedBody);
+            return body.RootElement.GetProperty("categoryPath").ValueKind == JsonValueKind.Null;
+        });
+        Assert.Contains(capturedRagBodies, capturedBody =>
+        {
+            using var body = JsonDocument.Parse(capturedBody);
+            return string.Equals(body.RootElement.GetProperty("categoryPath").GetString(), "Knowledge", StringComparison.OrdinalIgnoreCase);
+        });
+
+        var meta = result.GetProperty("meta");
+        Assert.Equal("Knowledge", meta.GetProperty("categoryPath").GetString());
+        Assert.True(meta.GetProperty("categoryInferred").GetBoolean());
+        Assert.Equal("Knowledge", mem.Execution.LastRagInferredCategoryScope);
+        Assert.Equal("catalog_probe", mem.Execution.LastRagInferredCategoryReason);
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_applies_repeated_catalog_signal_to_specific_child_scope()
+    {
+        var capturedRagBodies = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            if (req.Method == HttpMethod.Get && req.RequestUri!.AbsolutePath == "/catalog/categories")
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"value":[],"nextLink":null}""", Encoding.UTF8, "application/json")
+                };
+            }
+
+            if (req.Method == HttpMethod.Get && req.RequestUri!.AbsolutePath == "/catalog/documents")
+            {
+                var q = System.Web.HttpUtility.ParseQueryString(req.RequestUri.Query).Get("q") ?? string.Empty;
+                var documents = q.Equals("candidate", StringComparison.OrdinalIgnoreCase)
+                    ? Enumerable.Range(1, 6)
+                        .Select(index => new
+                        {
+                            docId = $"doc-child-{index}",
+                            docPath = $"Knowledge/Specific/source-{index}.pdf",
+                            canonicalName = $"Specific source {index}.pdf",
+                            categoryCanonicalName = "Knowledge",
+                            categoryPath = "Knowledge",
+                            status = "indexed"
+                        })
+                        .Cast<object>()
+                        .ToArray()
+                    : Array.Empty<object>();
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(new
+                        {
+                            value = documents,
+                            nextLink = (string?)null,
+                            totals = new { total = documents.Length }
+                        }),
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            }
+
+            var body = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            capturedRagBodies.Add(body);
+            using var parsed = JsonDocument.Parse(body);
+            var query = parsed.RootElement.GetProperty("query").GetString() ?? string.Empty;
+            var categoryPath = parsed.RootElement.GetProperty("categoryPath").GetString();
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    string.Equals(categoryPath, "Knowledge/Specific", StringComparison.OrdinalIgnoreCase)
+                    && query.Contains("candidate", StringComparison.OrdinalIgnoreCase)
+                        ? JsonSerializer.Serialize(new
+                        {
+                            items = new[]
+                            {
+                                new
+                                {
+                                    score = 0.94,
+                                    docPath = "Knowledge/Specific/source-1.pdf",
+                                    docName = "source-1.pdf",
+                                    pageStart = 3,
+                                    pageEnd = 3,
+                                    chunkId = "specific-1",
+                                    text = "Supported specific candidate evidence."
+                                }
+                            }
+                        })
+                        : """{"items":[]}""",
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var mem = new ToolMemory
+        {
+            CatalogSnapshotCache = new ToolMemory.RuntimeCatalogSnapshot
+            {
+                LoadedAtUtc = DateTimeOffset.UtcNow,
+                Categories = new()
+                {
+                    new ToolMemory.CategorySnapshot
+                    {
+                        CategoryPath = "Knowledge",
+                        DisplayName = "Knowledge",
+                        TotalDocuments = 6,
+                        Ordinal = 1
+                    },
+                    new ToolMemory.CategorySnapshot
+                    {
+                        CategoryPath = "Other",
+                        DisplayName = "Other",
+                        TotalDocuments = 1,
+                        Ordinal = 2
+                    }
+                }
+            }
+        };
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem);
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "queries": ["morning candidate", "main candidate", "evening candidate", "noise note"],
+              "topK": 8,
+              "mode": "broad",
+              "researchMode": "source_exploration",
+              "includeResearchSurfaces": true
+            }
+            """);
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        Assert.NotEmpty(capturedRagBodies);
+        Assert.DoesNotContain(capturedRagBodies, capturedBody =>
+        {
+            using var body = JsonDocument.Parse(capturedBody);
+            return body.RootElement.GetProperty("categoryPath").ValueKind == JsonValueKind.Null;
+        });
+        Assert.Contains(capturedRagBodies, capturedBody =>
+        {
+            using var body = JsonDocument.Parse(capturedBody);
+            return string.Equals(body.RootElement.GetProperty("categoryPath").GetString(), "Knowledge/Specific", StringComparison.OrdinalIgnoreCase);
+        });
+
+        var meta = result.GetProperty("meta");
+        Assert.Equal("Knowledge/Specific", meta.GetProperty("categoryPath").GetString());
+        Assert.True(meta.GetProperty("categoryInferred").GetBoolean());
+        Assert.Equal("Knowledge/Specific", mem.Execution.LastRagInferredCategoryScope);
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_does_not_scope_source_exploration_from_single_catalog_term()
+    {
+        var capturedRagBodies = new List<string>();
+        var capturedCatalogQueries = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            if (req.Method == HttpMethod.Get && req.RequestUri!.AbsolutePath == "/catalog/categories")
+            {
+                var path = System.Web.HttpUtility.ParseQueryString(req.RequestUri.Query).Get("path") ?? string.Empty;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        string.Equals(path, "WeakDomain", StringComparison.OrdinalIgnoreCase)
+                            ? """
+                              {
+                                "value": [
+                                  {
+                                    "categoryPath": "WeakDomain/Child",
+                                    "canonicalName": "Weak child",
+                                    "displayOrder": 1,
+                                    "documentCount": 3,
+                                    "aliases": []
+                                  }
+                                ],
+                                "nextLink": null
+                              }
+                              """
+                            : """{"value":[],"nextLink":null}""",
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            }
+
+            if (req.Method == HttpMethod.Get && req.RequestUri!.AbsolutePath == "/catalog/documents")
+            {
+                var q = System.Web.HttpUtility.ParseQueryString(req.RequestUri.Query).Get("q") ?? string.Empty;
+                capturedCatalogQueries.Add(q);
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        q.Equals("small", StringComparison.OrdinalIgnoreCase)
+                            ? """
+                              {
+                                "value": [
+                                  {
+                                    "docId": "doc-weak-1",
+                                    "docPath": "WeakDomain/Child/source.pdf",
+                                    "canonicalName": "Weak source.pdf",
+                                    "categoryCanonicalName": "WeakDomain",
+                                    "categoryPath": "WeakDomain",
+                                    "status": "indexed"
+                                  }
+                                ],
+                                "nextLink": null,
+                                "totals": { "total": 1 }
+                              }
+                              """
+                            : """{"value":[],"nextLink":null,"totals":{"total":0}}""",
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            }
+
+            var body = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            capturedRagBodies.Add(body);
+            using var parsed = JsonDocument.Parse(body);
+            var categoryPath = parsed.RootElement.GetProperty("categoryPath").GetString();
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    string.IsNullOrWhiteSpace(categoryPath)
+                        ? JsonSerializer.Serialize(new
+                        {
+                            items = new[]
+                            {
+                                new
+                                {
+                                    score = 0.91,
+                                    docPath = "Open/source.pdf",
+                                    docName = "source.pdf",
+                                    pageStart = 4,
+                                    pageEnd = 4,
+                                    chunkId = "open-1",
+                                    text = "Open corpus candidate evidence."
+                                }
+                            }
+                        })
+                        : """{"items":[]}""",
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var mem = new ToolMemory
+        {
+            CatalogSnapshotCache = new ToolMemory.RuntimeCatalogSnapshot
+            {
+                LoadedAtUtc = DateTimeOffset.UtcNow,
+                Categories = new()
+                {
+                    new ToolMemory.CategorySnapshot
+                    {
+                        CategoryPath = "WeakDomain",
+                        DisplayName = "Weak domain",
+                        TotalDocuments = 3,
+                        Ordinal = 1
+                    },
+                    new ToolMemory.CategorySnapshot
+                    {
+                        CategoryPath = "Open",
+                        DisplayName = "Open domain",
+                        TotalDocuments = 12,
+                        Ordinal = 2
+                    }
+                }
+            }
+        };
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem);
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "queries": ["small plan", "plan options"],
+              "topK": 8,
+              "mode": "broad",
+              "researchMode": "source_exploration",
+              "includeResearchSurfaces": true
+            }
+            """);
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        Assert.Contains(capturedCatalogQueries, q => q.Equals("small", StringComparison.OrdinalIgnoreCase));
+        Assert.NotEmpty(capturedRagBodies);
+        Assert.Contains(capturedRagBodies, capturedBody =>
+        {
+            using var body = JsonDocument.Parse(capturedBody);
+            return body.RootElement.GetProperty("categoryPath").ValueKind == JsonValueKind.Null;
+        });
+        Assert.DoesNotContain(capturedRagBodies, capturedBody =>
+        {
+            using var body = JsonDocument.Parse(capturedBody);
+            return string.Equals(body.RootElement.GetProperty("categoryPath").GetString(), "WeakDomain/Child", StringComparison.OrdinalIgnoreCase);
+        });
+
+        var meta = result.GetProperty("meta");
+        Assert.Equal(JsonValueKind.Null, meta.GetProperty("categoryPath").ValueKind);
+        Assert.False(meta.GetProperty("categoryInferred").GetBoolean());
+        Assert.Null(mem.Execution.LastRagInferredCategoryScope);
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_refines_parent_scope_to_previous_inferred_child_scope()
+    {
+        var capturedRagBodies = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            var body = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            capturedRagBodies.Add(body);
+            using var parsed = JsonDocument.Parse(body);
+            var categoryPath = parsed.RootElement.GetProperty("categoryPath").GetString();
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    string.Equals(categoryPath, "Domain/Useful", StringComparison.OrdinalIgnoreCase)
+                        ? """
+                          {
+                            "items": [
+                              {
+                                "score": 0.95,
+                                "docPath": "Domain/Useful/source.pdf",
+                                "docName": "source.pdf",
+                                "pageStart": 2,
+                                "pageEnd": 2,
+                                "chunkId": "target-1",
+                                "text": "Target evidence candidate."
+                              }
+                            ]
+                          }
+                          """
+                        : """{"items":[]}""",
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var mem = new ToolMemory();
+        mem.Execution.LastRagInferredCategoryScope = "Domain/Useful";
+        mem.Execution.LastRagInferredCategoryReason = "catalog_probe";
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem);
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "queries": ["target evidence"],
+              "topK": 8,
+              "categoryPath": "Domain",
+              "trustCategoryScope": true,
+              "mode": "broad",
+              "researchMode": "source_exploration",
+              "includeResearchSurfaces": true
+            }
+            """);
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        Assert.NotEmpty(capturedRagBodies);
+        Assert.All(capturedRagBodies, capturedBody =>
+        {
+            using var body = JsonDocument.Parse(capturedBody);
+            Assert.Equal("Domain/Useful", body.RootElement.GetProperty("categoryPath").GetString());
+        });
+
+        var meta = result.GetProperty("meta");
+        Assert.Equal("Domain", meta.GetProperty("requestedCategory").GetString());
+        Assert.Equal("Domain/Useful", meta.GetProperty("categoryPath").GetString());
+        Assert.True(meta.GetProperty("categoryInferred").GetBoolean());
+    }
+
+    [Fact]
+    public void Source_backed_deterministic_exploration_reuses_current_turn_inferred_scope_generically()
+    {
+        var reused = ToolAgentOrchestrator.ResolveSourceBackedExplorationPassCategoryScopeForTests(
+            resolvedPassCategoryScope: null,
+            currentCategoryScope: null,
+            currentTurnInferredCategoryScope: "Domain/Useful",
+            passOrigin: "deterministic_seed",
+            passHasDocumentScope: false);
+
+        Assert.Equal("Domain/Useful", reused.CategoryScope);
+        Assert.True(reused.ReusedFromCurrentTurnInference);
+
+        var llmBroadPass = ToolAgentOrchestrator.ResolveSourceBackedExplorationPassCategoryScopeForTests(
+            resolvedPassCategoryScope: null,
+            currentCategoryScope: null,
+            currentTurnInferredCategoryScope: "Domain/Useful",
+            passOrigin: "llm_planner",
+            passHasDocumentScope: false);
+
+        Assert.Null(llmBroadPass.CategoryScope);
+        Assert.False(llmBroadPass.ReusedFromCurrentTurnInference);
+
+        var explicitScope = ToolAgentOrchestrator.ResolveSourceBackedExplorationPassCategoryScopeForTests(
+            resolvedPassCategoryScope: "Domain/Explicit",
+            currentCategoryScope: null,
+            currentTurnInferredCategoryScope: "Domain/Useful",
+            passOrigin: "deterministic_seed",
+            passHasDocumentScope: false);
+
+        Assert.Equal("Domain/Explicit", explicitScope.CategoryScope);
+        Assert.False(explicitScope.ReusedFromCurrentTurnInference);
+
+        var documentScopedPass = ToolAgentOrchestrator.ResolveSourceBackedExplorationPassCategoryScopeForTests(
+            resolvedPassCategoryScope: null,
+            currentCategoryScope: null,
+            currentTurnInferredCategoryScope: "Domain/Useful",
+            passOrigin: "deterministic_seed",
+            passHasDocumentScope: true);
+
+        Assert.Null(documentScopedPass.CategoryScope);
+        Assert.False(documentScopedPass.ReusedFromCurrentTurnInference);
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_preserves_query_supported_source_exploration_category_scope()
+    {
+        var capturedBodies = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            var body = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            capturedBodies.Add(body);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "items": [
+                        {
+                          "score": 0.8,
+                          "docPath": "Juridique/source.pdf",
+                          "docName": "source.pdf",
+                          "pageStart": 2,
+                          "pageEnd": 2,
+                          "chunkId": "source-1",
+                          "text": "A useful legal source candidate."
+                        }
+                      ]
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "queries": ["juridique contrats"],
+              "topK": 4,
+              "categoryPath": "Juridique",
+              "mode": "broad",
+              "researchMode": "source_exploration",
+              "includeResearchSurfaces": true
+            }
+            """);
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        Assert.NotEmpty(capturedBodies);
+        foreach (var capturedBody in capturedBodies)
+        {
+            using var body = JsonDocument.Parse(capturedBody);
+            Assert.Equal("Juridique", body.RootElement.GetProperty("categoryPath").GetString());
+        }
+
+        var meta = result.GetProperty("meta");
+        Assert.Equal("Juridique", meta.GetProperty("categoryPath").GetString());
+        Assert.Equal("Juridique", meta.GetProperty("requestedCategory").GetString());
+        Assert.Equal(JsonValueKind.Null, meta.GetProperty("rejectedCategoryScope").ValueKind);
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_skips_dominant_category_inference_for_source_exploration()
+    {
+        var capturedBodies = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            var body = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            capturedBodies.Add(body);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "items": [
+                        {
+                          "score": 0.8,
+                          "docPath": "Juridique/PDF/legal.pdf",
+                          "docName": "legal.pdf",
+                          "categoryPath": "Juridique/PDF",
+                          "pageStart": 3,
+                          "pageEnd": 3,
+                          "chunkId": "legal-1",
+                          "text": "A legal source candidate."
+                        }
+                      ]
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "queries": ["plan de repas semaine"],
+              "topK": 4,
+              "mode": "broad",
+              "researchMode": "source_exploration",
+              "includeResearchSurfaces": true
+            }
+            """);
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        Assert.Single(capturedBodies);
+        var meta = result.GetProperty("meta");
+        Assert.Equal(JsonValueKind.Null, meta.GetProperty("category").ValueKind);
+        Assert.Equal(JsonValueKind.Null, meta.GetProperty("categoryPath").ValueKind);
+        Assert.False(meta.GetProperty("categoryInferred").GetBoolean());
+    }
+
+    [Fact]
     public async Task ToolAgent_rag_multi_search_preserves_precise_query_hit_before_score_truncation()
     {
         var genericId = 0;
@@ -417,6 +1596,59 @@ public sealed class ApiClientDocumentsTransitionTests
             "Knowledge/target.pdf",
             hit.GetProperty("docPath").GetString(),
             StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_multi_search_overwrites_empty_backend_retrieval_route_with_fanout_origin()
+    {
+        var handler = new StubHttpHandler(req =>
+        {
+            using var body = JsonDocument.Parse(req.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
+            var query = body.RootElement.GetProperty("query").GetString() ?? string.Empty;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    $$"""
+                    {
+                      "items": [
+                        {
+                          "score": 0.91,
+                          "docPath": "Cuisine/breakfast.pdf",
+                          "docName": "breakfast.pdf",
+                          "pageStart": 4,
+                          "pageEnd": 4,
+                          "chunkId": "breakfast-4",
+                          "text": "SCONES AUX CANNEBERGES. Ingredients : farine, canneberges, lait et beurre. Preparation : former les scones puis cuire au four.",
+                          "retrievalQuery": "",
+                          "retrievalQueryIndex": 99,
+                          "matchedContentCards": [
+                            { "title": "SCONES AUX CANNEBERGES", "kind": "section", "pageStart": 4 }
+                          ]
+                        }
+                      ]
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "queries": [ "petit-dejeuner recettes" ],
+              "topK": 4,
+              "mode": "balanced"
+            }
+            """);
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
+
+        var hit = Assert.Single(result.GetProperty("hits").EnumerateArray());
+        Assert.Equal("petit-dejeuner recettes", hit.GetProperty("retrievalQuery").GetString());
+        Assert.Equal(0, hit.GetProperty("retrievalQueryIndex").GetInt32());
+        Assert.Equal(0, hit.GetProperty("retrievalHitRank").GetInt32());
     }
 
     [Fact]
@@ -798,7 +2030,9 @@ public sealed class ApiClientDocumentsTransitionTests
             docId: "doc-ops-1",
             docPath: "Operations/Weekly guide.pdf",
             maxPerDoc: 8,
-            maxPerPage: 2);
+            maxPerPage: 2,
+            pageStart: 12,
+            pageEnd: 14);
 
         using var body = JsonDocument.Parse(capturedBody!);
         Assert.Equal("Operations", body.RootElement.GetProperty("categoryPath").GetString());
@@ -806,7 +2040,38 @@ public sealed class ApiClientDocumentsTransitionTests
         Assert.Equal("Operations/Weekly guide.pdf", body.RootElement.GetProperty("docPath").GetString());
         Assert.Equal(8, body.RootElement.GetProperty("maxPerDoc").GetInt32());
         Assert.Equal(2, body.RootElement.GetProperty("maxPerPage").GetInt32());
+        Assert.Equal(12, body.RootElement.GetProperty("pageStart").GetInt32());
+        Assert.Equal(14, body.RootElement.GetProperty("pageEnd").GetInt32());
         Assert.True(body.RootElement.GetProperty("includeContextualSnippet").GetBoolean());
+    }
+
+    [Fact]
+    public async Task RagSearchToolAsync_serializes_research_surface_flags()
+    {
+        string? capturedBody = null;
+        var handler = new StubHttpHandler(req =>
+        {
+            capturedBody = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"items":[]}""", Encoding.UTF8, "application/json")
+            };
+        });
+
+        var sut = CreateApiClient(handler);
+        await sut.RagSearchToolAsync(
+            "weekly meal planning",
+            12,
+            "Cuisine",
+            "broad",
+            CancellationToken.None,
+            researchMode: "source_exploration",
+            includeResearchSurfaces: true);
+
+        using var body = JsonDocument.Parse(capturedBody!);
+        Assert.Equal("broad", body.RootElement.GetProperty("mode").GetString());
+        Assert.Equal("source_exploration", body.RootElement.GetProperty("researchMode").GetString());
+        Assert.True(body.RootElement.GetProperty("includeResearchSurfaces").GetBoolean());
     }
 
     [Fact]
@@ -852,9 +2117,13 @@ public sealed class ApiClientDocumentsTransitionTests
               "topK": 4,
               "categoryPath": "Operations",
               "docPath": "Operations/Weekly guide.pdf",
+              "pageStart": 12,
+              "pageEnd": 14,
               "maxPerDoc": 7,
               "maxPerPage": 2,
-              "mode": "balanced"
+              "mode": "broad",
+              "researchMode": "source_exploration",
+              "includeResearchSurfaces": true
             }
             """);
 
@@ -866,13 +2135,21 @@ public sealed class ApiClientDocumentsTransitionTests
             using var body = JsonDocument.Parse(capturedBody);
             Assert.Equal("Operations", body.RootElement.GetProperty("categoryPath").GetString());
             Assert.Equal("Operations/Weekly guide.pdf", body.RootElement.GetProperty("docPath").GetString());
+            Assert.Equal(12, body.RootElement.GetProperty("pageStart").GetInt32());
+            Assert.Equal(14, body.RootElement.GetProperty("pageEnd").GetInt32());
             Assert.Equal(7, body.RootElement.GetProperty("maxPerDoc").GetInt32());
             Assert.Equal(2, body.RootElement.GetProperty("maxPerPage").GetInt32());
+            Assert.Equal("source_exploration", body.RootElement.GetProperty("researchMode").GetString());
+            Assert.True(body.RootElement.GetProperty("includeResearchSurfaces").GetBoolean());
         }
 
         Assert.Equal("Operations/Weekly guide.pdf", result.GetProperty("meta").GetProperty("docPath").GetString());
+        Assert.Equal(12, result.GetProperty("meta").GetProperty("pageStart").GetInt32());
+        Assert.Equal(14, result.GetProperty("meta").GetProperty("pageEnd").GetInt32());
         Assert.Equal(7, result.GetProperty("meta").GetProperty("maxPerDoc").GetInt32());
         Assert.Equal(2, result.GetProperty("meta").GetProperty("maxPerPage").GetInt32());
+        Assert.Equal("source_exploration", result.GetProperty("meta").GetProperty("researchMode").GetString());
+        Assert.True(result.GetProperty("meta").GetProperty("includeResearchSurfaces").GetBoolean());
     }
 
     [Fact]

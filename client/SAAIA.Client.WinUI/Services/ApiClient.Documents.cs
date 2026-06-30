@@ -434,7 +434,11 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
         string? docId = null,
         string? docPath = null,
         int? maxPerDoc = null,
-        int? maxPerPage = null)
+        int? maxPerPage = null,
+        int? pageStart = null,
+        int? pageEnd = null,
+        string? researchMode = null,
+        bool? includeResearchSurfaces = null)
     {
         var m = NormalizeRagSearchApiMode(mode);
         var categoryScope = BuildRagCategoryScope(category);
@@ -452,7 +456,11 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
             topK,
             maxPerDoc,
             maxPerPage,
+            pageStart,
+            pageEnd,
             mode = m,
+            researchMode = NormalizeRagSearchResearchMode(researchMode),
+            includeResearchSurfaces,
             includeContextualSnippet = true
         }, JsonOpts);
 
@@ -630,6 +638,17 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
             "standard" => "balanced",
             "strict" or "precise" or "fast" => "focused",
             "focused" or "balanced" or "broad" => normalized,
+            _ => null
+        };
+    }
+
+    private static string? NormalizeRagSearchResearchMode(string? mode)
+    {
+        var normalized = (mode ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "" or "none" or "default" => null,
+            "research" or "exploration" or "broad_exploration" or "source_exploration" or "evidence_exploration" => normalized,
             _ => null
         };
     }

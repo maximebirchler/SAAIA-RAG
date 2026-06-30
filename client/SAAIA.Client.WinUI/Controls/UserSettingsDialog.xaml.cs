@@ -143,7 +143,7 @@ internal sealed partial class UserSettingsDialog : ContentDialog
         var mt = _settings.LlmMaxOutputTokens;
         if (mt <= 650)
             AnswerLengthCombo.SelectedIndex = 0;
-        else if (mt <= 1150)
+        else if (mt <= 1600)
             AnswerLengthCombo.SelectedIndex = 1;
         else
             AnswerLengthCombo.SelectedIndex = 2;
@@ -170,9 +170,9 @@ internal sealed partial class UserSettingsDialog : ContentDialog
 
         _settings.LlmMaxOutputTokens = AnswerLengthCombo.SelectedIndex switch
         {
-            0 => 450,
-            2 => 1400,
-            _ => 900
+            0 => 350,
+            2 => 2200,
+            _ => 1600
         };
 
         UpdatedSettings = _settings;

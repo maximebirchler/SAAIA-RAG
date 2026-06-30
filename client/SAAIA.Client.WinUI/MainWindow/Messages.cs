@@ -510,6 +510,12 @@ public sealed partial class MainWindow
             ClearStagedOutboundMessage();
 
             var tailBefore = _messages.ToList();
+            Services.ClientLog.Info(
+                "Chat send begin: " +
+                $"session={_sessionId}|" +
+                $"wireChars={text.Length}|" +
+                $"displayChars={shownText.Length}|" +
+                $"tail={tailBefore.Count}");
 
             var userMsg = new ChatMessageItem { Role = "user", Content = shownText, CreatedAt = DateTime.UtcNow };
             _messages.Add(userMsg);
@@ -587,6 +593,11 @@ public sealed partial class MainWindow
                     });
                 },
                 ct: _cts.Token);
+            Services.ClientLog.Info(
+                "Chat send agent result: " +
+                $"cancelled={_cts.Token.IsCancellationRequested}|" +
+                $"answerChars={finalAnswer?.Length ?? 0}|" +
+                $"sourcesPayload={(sourcesObj is null ? "none" : sourcesObj.GetType().Name)}");
 
             var wasCancelled = _cts.Token.IsCancellationRequested;
 
@@ -679,6 +690,7 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
+            Services.ClientLog.Exception("Chat.SendAsync", ex);
             if (assistantMsg is not null)
                 assistantMsg.IsStreaming = false;
             EnsureAssistantMessageHasFailureText(assistantMsg, ex);

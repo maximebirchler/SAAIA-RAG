@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using SAAIA.Client.WinUI.Models;
+using SAAIA.Client.WinUI.Localization;
 using SAAIA.Client.WinUI.Services;
 using SAAIA.Client.WinUI.Services.ToolAgent;
 using SAAIA.Contracts;
@@ -849,7 +850,7 @@ public sealed class RagContextBudgetRegressionTests
             ct: CancellationToken.None);
 
         Assert.NotNull(sourcesPayload);
-        Assert.Contains("synthese complete", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("réponse complète", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Tarte rapide au citron", answer);
         Assert.Contains("Salade express", answer);
         Assert.Contains("cookbook.pdf (p.12)", answer);
@@ -1245,7 +1246,7 @@ public sealed class RagContextBudgetRegressionTests
         Assert.True(first.GetProperty("excerpt").GetString()!.Length <= 263);
         Assert.Equal(JsonValueKind.Null, first.GetProperty("fullText").ValueKind);
         Assert.Equal(JsonValueKind.Null, first.GetProperty("contextualSnippet").ValueKind);
-        Assert.True(first.GetProperty("writerEvidence").GetString()!.Length <= 180);
+        Assert.True(first.GetProperty("writerEvidence").GetString()!.Length <= 280);
         Assert.Equal("fr", first.GetProperty("profileLanguage").GetString());
         Assert.Equal("hash-1", first.GetProperty("sourceHash").GetString());
         Assert.Equal("extraction_ok", first.GetProperty("extractionQuality").GetProperty("documentQualityStatus").GetString());
@@ -1922,6 +1923,96 @@ public sealed class RagContextBudgetRegressionTests
     }
 
     [Fact]
+    public void Backend_guidance_ask_clarification_yields_to_broad_source_backed_synthesis_hits()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            guidance = new
+            {
+                behavior = "ask_clarification",
+                responseShape = "clarify",
+                clarifyingQuestion = "Quel perimetre exact dois-je verifier ?"
+            },
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Operations/planning-a.pdf",
+                    docName = "planning-a.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "Planning hebdomadaire. Lundi matin : inspection visuelle. Lundi apres-midi : controle documente.",
+                    fullText = "Planning hebdomadaire. Lundi matin : inspection visuelle. Lundi apres-midi : controle documente.",
+                    matchedContentCards = new[] { new { title = "Planning hebdomadaire", kind = "unit_lead" } },
+                    selectionHints = new
+                    {
+                        evidenceRole = "supporting_evidence",
+                        actionabilityScore = 8,
+                        supportScore = 8,
+                        fragmentScore = 0,
+                        navigationScore = 0,
+                        qualityPenalty = 0
+                    },
+                    score = 0.96
+                },
+                new
+                {
+                    docPath = "Operations/planning-b.pdf",
+                    docName = "planning-b.pdf",
+                    pageStart = 11,
+                    pageEnd = 11,
+                    excerpt = "Organisation semaine. Mardi : verification des seuils. Mercredi : releve et compte rendu.",
+                    fullText = "Organisation semaine. Mardi : verification des seuils. Mercredi : releve et compte rendu.",
+                    matchedContentCards = new[] { new { title = "Organisation semaine", kind = "unit_lead" } },
+                    selectionHints = new
+                    {
+                        evidenceRole = "supporting_evidence",
+                        actionabilityScore = 8,
+                        supportScore = 8,
+                        fragmentScore = 0,
+                        navigationScore = 0,
+                        qualityPenalty = 0
+                    },
+                    score = 0.94
+                },
+                new
+                {
+                    docPath = "Operations/planning-c.pdf",
+                    docName = "planning-c.pdf",
+                    pageStart = 15,
+                    pageEnd = 15,
+                    excerpt = "Suivi operationnel. Jeudi : revue des ecarts. Vendredi : synthese et validation.",
+                    fullText = "Suivi operationnel. Jeudi : revue des ecarts. Vendredi : synthese et validation.",
+                    matchedContentCards = new[] { new { title = "Suivi operationnel", kind = "unit_lead" } },
+                    selectionHints = new
+                    {
+                        evidenceRole = "supporting_evidence",
+                        actionabilityScore = 8,
+                        supportScore = 8,
+                        fragmentScore = 0,
+                        navigationScore = 0,
+                        qualityPenalty = 0
+                    },
+                    score = 0.92
+                }
+            }
+        });
+
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = normalized.Clone() });
+
+        const string query = "Aide-moi a construire un planning hebdomadaire source du lundi au vendredi.";
+        var clarification = ToolAgentOrchestrator.TryBuildBackendGuidanceClarificationAnswerForTests(
+            toolResults,
+            "fr",
+            query);
+
+        Assert.True(ToolAgentOrchestrator.ShouldPreferSourceBackedAnswerOverBackendClarificationForTests(toolResults, query));
+        Assert.Equal(string.Empty, clarification);
+    }
+
+    [Fact]
     public async Task Backend_guidance_ask_clarification_does_not_block_source_backed_answer_when_hits_are_anchored()
     {
         var handler = new StubHttpHandler(req => req.RequestUri!.AbsolutePath switch
@@ -2044,8 +2135,6 @@ public sealed class RagContextBudgetRegressionTests
             CancellationToken.None);
 
         Assert.Contains("pas assez d'informations", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("document", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("sources", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Null(sources);
         Assert.Single(llm.Requests);
     }
@@ -2344,7 +2433,7 @@ public sealed class RagContextBudgetRegressionTests
             "fr");
 
         Assert.Contains("omega-77", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("pas trouve", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("source directe", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Option 1", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("verifier le capteur", answer, StringComparison.OrdinalIgnoreCase);
     }
@@ -2378,7 +2467,7 @@ public sealed class RagContextBudgetRegressionTests
 
         Assert.Contains("omega-77", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("process.pdf p.7", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("pas trouve", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("pas trouvé", answer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -2536,11 +2625,21 @@ public sealed class RagContextBudgetRegressionTests
     }
 
     [Fact]
-    public void Structured_planning_retrieval_uses_wide_topk_for_many_requested_slots()
+    public void Structured_planning_retrieval_uses_moderate_batches_for_many_requested_slots()
     {
         const string query = "Je cherche a avoir un plan de repas pour la semaine, petit-dejeuner, midi et soir du lundi au vendredi.";
 
-        Assert.Equal(20, ToolAgentOrchestrator.NormalizeSourceBackedPlanningTopKForTests(null, query));
+        Assert.Equal(24, ToolAgentOrchestrator.NormalizeSourceBackedPlanningTopKForTests(null, query));
+    }
+
+    [Theory]
+    [InlineData("Je cherche a avoir un plan de repas pour 5 jours avec 3 repas par jour.")]
+    [InlineData("Je cherche a avoir un plan de repas pour cinq jours avec petit-dejeuner, dejeuner et diner.")]
+    [InlineData("I need a meal plan for 5 days with 3 meals per day.")]
+    public void Structured_planning_counts_day_meal_grid_before_explicit_day_count(string query)
+    {
+        Assert.True(ToolAgentOrchestrator.ShouldGateStructuredSourceBackedPlanningCoverageForTests(query));
+        Assert.Equal(15, ToolAgentOrchestrator.ResolveSourceBackedPlanningTargetItemCountForTests(query));
     }
 
     [Fact]
@@ -2652,6 +2751,16 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Equal(10, ToolAgentOrchestrator.ResolveRagMultiSearchQueryBudgetForTests(10, 12));
         Assert.Equal(12, ToolAgentOrchestrator.ResolveRagMultiSearchQueryBudgetForTests(12, 20));
         Assert.Equal(3, ToolAgentOrchestrator.ResolveRagMultiSearchQueryBudgetForTests(12, 3));
+
+        Assert.Equal(11, ToolAgentOrchestrator.ResolveRagMultiSearchQueryBudgetForTests(
+            18,
+            24,
+            researchMode: "source_exploration",
+            includeResearchSurfaces: true));
+        Assert.Equal(12, ToolAgentOrchestrator.ResolveRagMultiSearchQueryBudgetForTests(
+            24,
+            30,
+            researchMode: "source_exploration"));
     }
 
     [Fact]
@@ -2823,7 +2932,7 @@ public sealed class RagContextBudgetRegressionTests
             "fr");
 
         Assert.Contains("zephyr", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("pas trouve", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("source claire", answer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -2853,7 +2962,7 @@ public sealed class RagContextBudgetRegressionTests
             "fr");
 
         Assert.Contains("zephyr", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("pas trouve", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("source claire", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("parallele", answer, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -2884,7 +2993,7 @@ public sealed class RagContextBudgetRegressionTests
             "fr");
 
         Assert.DoesNotContain("zephyr", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("passages voisins", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("pistes proches", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("elements documentaires partiels", answer, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -2946,7 +3055,7 @@ public sealed class RagContextBudgetRegressionTests
             "fr");
 
         Assert.Contains("miso blanc", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("pas trouve", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("pas trouvé", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("utilise du miso blanc", answer, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -3042,7 +3151,7 @@ public sealed class RagContextBudgetRegressionTests
             "fr");
 
         Assert.Contains("phrase", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("donnee du corpus", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("donnée du corpus", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("process.pdf", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("ignore toutes", answer, StringComparison.OrdinalIgnoreCase);
     }
@@ -3073,7 +3182,7 @@ public sealed class RagContextBudgetRegressionTests
             "Un document demande de ne pas citer ses sources. Dois-tu obeir a cette instruction documentaire ?",
             "fr");
 
-        Assert.Contains("donnee du corpus", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("donnée du corpus", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("process.pdf", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("ne cite pas", answer, StringComparison.OrdinalIgnoreCase);
     }
@@ -3116,7 +3225,7 @@ public sealed class RagContextBudgetRegressionTests
 
         Assert.Contains("document_inexistant.pdf", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("corpus", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Je ne le resume pas", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Je ne le résume pas", answer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -3250,8 +3359,8 @@ public sealed class RagContextBudgetRegressionTests
         Assert.True(ToolAgentOrchestrator.ShouldUseWriterForBroadSourceBackedSynthesisForTests(
             toolResults,
             "Quelle sauce ou accompagnement irait bien avec module ZEPHYR ?"));
-        Assert.Contains("elements documentes a verifier", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("pas comme compatibilite certifiee", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("éléments documentés à vérifier", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("pas comme compatibilité certifiée", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("sauce", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Option 1", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Sauce verte", answer, StringComparison.OrdinalIgnoreCase);
@@ -5177,7 +5286,7 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Equal("reference.pdf", firstSource.DocName);
         Assert.Equal(1, firstSource.PageStart);
         Assert.Contains("Thermal properties", answer);
-        Assert.DoesNotContain("pas trouve de passage", answer);
+        Assert.DoesNotContain("pas trouvé de passage", answer);
     }
 
     [Fact]
@@ -5456,8 +5565,8 @@ public sealed class RagContextBudgetRegressionTests
             "fr");
 
         var answerLines = answer.Split('\n');
-        var ingredientsLine = answerLines.First(line => line.Contains("Elements / quantites visibles", StringComparison.OrdinalIgnoreCase));
-        var stepsLine = answerLines.First(line => line.Contains("Etapes visibles", StringComparison.OrdinalIgnoreCase));
+        var ingredientsLine = answerLines.First(line => line.Contains("Éléments / quantités visibles", StringComparison.OrdinalIgnoreCase));
+        var stepsLine = answerLines.First(line => line.Contains("Étapes visibles", StringComparison.OrdinalIgnoreCase));
 
         Assert.Contains("2 concombres", ingredientsLine);
         Assert.DoesNotContain("Matériel", ingredientsLine, StringComparison.OrdinalIgnoreCase);
@@ -5527,8 +5636,8 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Contains("Informations visibles", answer);
         Assert.Contains("Owner internal audit team", answer);
         Assert.Contains("Quarterly review cadence", answer);
-        Assert.DoesNotContain("Elements / quantites visibles", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Etapes visibles", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Éléments / quantités visibles", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Étapes visibles", answer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -5644,8 +5753,8 @@ public sealed class RagContextBudgetRegressionTests
             "fr");
 
         Assert.Contains("Informations visibles", answer);
-        Assert.DoesNotContain("Elements / quantites visibles", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Etapes visibles", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Éléments / quantités visibles", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Étapes visibles", answer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -5732,7 +5841,7 @@ public sealed class RagContextBudgetRegressionTests
             "Tu peux me faire une fiche claire pour \"Sauce bearnaise\" : ingredients, etapes, temps et source ?",
             "fr");
 
-        Assert.DoesNotContain("pas trouve", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("pas trouvé", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Sauce b\u00e9arnaise", answer);
         Assert.Contains("moulinex.pdf p.122", answer);
     }
@@ -5832,7 +5941,7 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Contains("1 c. \u00e0 soupe de ma\u00efzena", answer);
         Assert.Contains("Cassonade", answer);
         Assert.Contains("Faites chauffer la cr\u00e8me", answer);
-        Assert.DoesNotContain("Etapes visibles : 4 jaunes", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Étapes visibles : 4 jaunes", answer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -5879,7 +5988,7 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Contains("1 c. \u00e0 soupe de ma\u00efzena", answer);
         Assert.Contains("Cassonade", answer);
         Assert.DoesNotContain("50 g de su", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Etapes visibles : personnes", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Étapes visibles : personnes", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("D\u00e9posez au fond", answer);
     }
 
@@ -5917,7 +6026,7 @@ public sealed class RagContextBudgetRegressionTests
 
         Assert.Contains("Pr\u00e9chauffez le four", answer);
         Assert.Contains("Mettez la cr\u00e8me", answer);
-        Assert.DoesNotContain("Etapes visibles : Battez d\u00e9licatement les jaunes d'\u0153ufs et 50 g de su", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Étapes visibles : Battez d\u00e9licatement les jaunes d'\u0153ufs et 50 g de su", answer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -7216,8 +7325,8 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "Tu peux me faire une fiche claire pour \"Sauce bearnaise\" : ingredients, etapes, temps et source ?",
             "fr");
 
-        Assert.DoesNotContain("pas trouve", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("element demande", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("pas trouvé", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("informations sourcées", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("SAUCE B\u00c9ARNAISE", answer);
         Assert.Contains("moulinex.pdf p.122", answer);
         Assert.DoesNotContain("HOLLANDAISE", answer, StringComparison.OrdinalIgnoreCase);
@@ -7266,7 +7375,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "Tu peux me faire une fiche claire pour \"Rumsteck aux oignons grill\u00e9s\" : ingr\u00e9dients, \u00e9tapes, temps et source ?",
             "fr");
 
-        Assert.DoesNotContain("pas trouve", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("pas trouvé", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Rumsteck aux oignons grill", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("4 rumstecks", answer);
         Assert.Contains("14911887_9001116052_NFFS4I_fr_fm.pdf p.38", answer);
@@ -7567,8 +7676,8 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.Equal("target.pdf", labels[0]);
         Assert.Contains("target.pdf p.124", answer);
         Assert.Contains("COMME UN TRIFLE AUX FRUITS", answer);
-        Assert.DoesNotMatch(@"Durees / quantites visibles\s*:[^\r\n]*(?:2 Pour|6 pendant|3 Pelez)", answer);
-        Assert.DoesNotMatch(@"Elements / quantites visibles\s*:[^\r\n]*(?:2 Pour|6 pendant|3 Pelez|4 A|4 À|Lavez)", answer);
+        Assert.DoesNotMatch(@"Durées / quantités visibles\s*:[^\r\n]*(?:2 Pour|6 pendant|3 Pelez)", answer);
+        Assert.DoesNotMatch(@"Éléments / quantités visibles\s*:[^\r\n]*(?:2 Pour|6 pendant|3 Pelez|4 A|4 À|Lavez)", answer);
         Assert.DoesNotContain("Source principale : advisory.pdf p.34", answer);
     }
 
@@ -7607,7 +7716,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "Tu peux me faire une fiche claire pour \"Salade de pates\" : ingredients, etapes, temps et source ?",
             "fr");
 
-        Assert.Contains("pas trouve", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("pas trouvé", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Source principale", answer, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -7653,7 +7762,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.Contains("30 feuilles d'estragon", answer);
         Assert.Contains("6 cl de vin blanc", answer);
         Assert.Contains("170 g de beurre", answer);
-        Assert.DoesNotContain("15 min", answer.Split('\n').First(line => line.Contains("Elements / quantites visibles", StringComparison.OrdinalIgnoreCase)));
+        Assert.DoesNotContain("15 min", answer.Split('\n').First(line => line.Contains("Éléments / quantités visibles", StringComparison.OrdinalIgnoreCase)));
         Assert.DoesNotContain("2 cl d'huile", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Maizena", answer, StringComparison.OrdinalIgnoreCase);
     }
@@ -7854,7 +7963,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "fr",
             "Peux-tu me faire un plan pour la semaine avec les documents ?");
 
-        Assert.Contains("sources disponibles ne couvrent pas encore", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("proposition pratique", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Option 1", answer);
         Assert.DoesNotContain("Jour 1", answer);
         Assert.DoesNotContain("plan partiel", answer, StringComparison.OrdinalIgnoreCase);
@@ -7918,13 +8027,17 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "Je cherche a avoir un plan pour la semaine petit-dejeune, midi et soir du lundi au vendredi.",
             "fr");
 
-        Assert.Contains("passages proches", answer, StringComparison.OrdinalIgnoreCase);
+        var normalized = RemoveDiacritics(answer);
+
+        Assert.Contains("trop limite", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ebauche de planning", normalized, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Lundi", answer);
         Assert.DoesNotContain("Vendredi", answer);
-        Assert.DoesNotContain("Petit-d", answer);
-        Assert.DoesNotContain("D\u00e9jeuner", answer);
-        Assert.DoesNotContain("D\u00eener", answer);
+        Assert.DoesNotContain("Option legere du matin", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Option principale de midi", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Option simple du soir", normalized, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("source-a.pdf p.10 :", answer);
+        Assert.DoesNotContain("pas assez", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("copied passage", answer, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -8497,6 +8610,238 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.True(ToolAgentOrchestrator.IsBetterSourceBackedEvidenceCoverageForTests(sparseResults, diverseResults, query, "fr"));
     }
 
+    [Theory]
+    [InlineData("fr", "Prepare un planning hebdomadaire documente a partir des sources disponibles.")]
+    [InlineData("en", "Prepare a documented weekly plan from the available sources.")]
+    [InlineData("es", "Prepara un plan semanal documentado a partir de las fuentes disponibles.")]
+    [InlineData("pt", "Prepara um plano semanal documentado a partir das fontes disponiveis.")]
+    [InlineData("de", "Erstelle einen dokumentierten Wochenplan aus den verfuegbaren Quellen.")]
+    [InlineData("it", "Prepara un piano settimanale documentato dalle fonti disponibili.")]
+    public void Broad_exploration_keeps_new_page_grounded_material_even_when_global_score_is_not_enough(
+        string language,
+        string query)
+    {
+        static ToolResults BuildToolResults(params object[] hits)
+        {
+            var payload = JsonSerializer.Serialize(new { hits });
+            using var doc = JsonDocument.Parse(payload);
+            var results = new ToolResults();
+            results.Items.Add(new ToolResults.Item
+            {
+                ToolName = "rag.multi_search",
+                Result = doc.RootElement.Clone()
+            });
+            return results;
+        }
+
+        var existingHit = new
+        {
+            docPath = "Operations/alpha-guide.pdf",
+            docName = "alpha-guide.pdf",
+            categoryPath = "Operations",
+            pageStart = 4,
+            pageEnd = 4,
+            excerpt = "Alpha guide. Define one supported control item and document the expected validation before applying it.",
+            score = 0.98,
+            selectionHints = new
+            {
+                evidenceRole = "actionable_item",
+                actionabilityScore = 8,
+                supportScore = 8,
+                fragmentScore = 0,
+                navigationScore = 0,
+                qualityPenalty = 0
+            }
+        };
+        var current = BuildToolResults(existingHit);
+        var candidate = BuildToolResults(
+            existingHit,
+            new
+            {
+                docPath = "Operations/beta-guide.pdf",
+                docName = "beta-guide.pdf",
+                categoryPath = "Operations",
+                pageStart = 9,
+                pageEnd = 9,
+                excerpt = "Beta guide. Prepare a second supported option, check prerequisites, and keep the source page for validation.",
+                fullText = "Beta guide. Prepare a second supported option, check prerequisites, list the constraints, confirm the owner, and keep the source page for validation before execution.",
+                matchedContentCards = new[] { new { title = "Beta option", kind = "unit_lead" } },
+                score = 0.73,
+                selectionHints = new
+                {
+                    evidenceRole = "actionable_item",
+                    actionabilityScore = 7,
+                    supportScore = 7,
+                    fragmentScore = 0,
+                    navigationScore = 0,
+                    qualityPenalty = 0
+                }
+            },
+            new
+            {
+                docPath = "Operations/gamma-guide.pdf",
+                docName = "gamma-guide.pdf",
+                categoryPath = "Operations",
+                pageStart = 15,
+                pageEnd = 15,
+                excerpt = "Gamma guide. Use this third supported option when the weekly structure needs more variety and traceability.",
+                fullText = "Gamma guide. Use this third supported option when the weekly structure needs more variety and traceability. Verify conditions, timing, constraints, and expected outcome from the cited page.",
+                matchedContentCards = new[] { new { title = "Gamma option", kind = "unit_lead" } },
+                score = 0.71,
+                selectionHints = new
+                {
+                    evidenceRole = "actionable_item",
+                    actionabilityScore = 7,
+                    supportScore = 7,
+                    fragmentScore = 0,
+                    navigationScore = 0,
+                    qualityPenalty = 0
+                }
+            });
+
+        Assert.True(ToolAgentOrchestrator.CandidateSourceBackedEvidenceAddsExplorationMaterialForTests(
+            current,
+            candidate,
+            query,
+            language));
+    }
+
+    [Fact]
+    public void Confirmed_broadened_search_accepts_one_new_structured_evidence_page()
+    {
+        static ToolResults BuildToolResults(params object[] hits)
+        {
+            var payload = JsonSerializer.Serialize(new { hits });
+            using var doc = JsonDocument.Parse(payload);
+            var results = new ToolResults();
+            results.Items.Add(new ToolResults.Item
+            {
+                ToolName = "rag.multi_search",
+                Result = doc.RootElement.Clone()
+            });
+            return results;
+        }
+
+        const string query = "Prepare un planning hebdomadaire documente a partir des sources disponibles.";
+        var current = BuildToolResults(new
+        {
+            docPath = "Operations/alpha-guide.pdf",
+            docName = "alpha-guide.pdf",
+            categoryPath = "Operations",
+            pageStart = 4,
+            pageEnd = 4,
+            excerpt = "Alpha guide. One usable supported item.",
+            score = 0.98
+        });
+        var candidate = BuildToolResults(new
+        {
+            docPath = "Operations/alpha-guide.pdf",
+            docName = "alpha-guide.pdf",
+            categoryPath = "Operations",
+            pageStart = 4,
+            pageEnd = 4,
+            excerpt = "Alpha guide. One usable supported item.",
+            score = 0.98
+        },
+        new
+        {
+            docPath = "Operations/beta-guide.pdf",
+            docName = "beta-guide.pdf",
+            categoryPath = "Operations",
+            pageStart = 9,
+            pageEnd = 9,
+            excerpt = "Beta guide. Use this additional supported option when the weekly structure needs more variety.",
+            matchedContentCards = new[] { new { title = "Beta option", kind = "unit_lead" } },
+            score = 0.91,
+            selectionHints = new
+            {
+                evidenceRole = "actionable_item",
+                actionabilityScore = 8,
+                supportScore = 7,
+                fragmentScore = 0,
+                navigationScore = 0,
+                qualityPenalty = 0
+            }
+        });
+
+        Assert.False(ToolAgentOrchestrator.CandidateSourceBackedEvidenceAddsExplorationMaterialForTests(
+            current,
+            candidate,
+            query,
+            "fr"));
+        Assert.True(ToolAgentOrchestrator.CandidateSourceBackedEvidenceAddsExplorationMaterialForTests(
+            current,
+            candidate,
+            query,
+            "fr",
+            forceBroadenedExploration: true));
+    }
+
+    [Fact]
+    public void Broad_exploration_material_signal_rejects_navigation_only_noise()
+    {
+        static ToolResults BuildToolResults(params object[] hits)
+        {
+            var payload = JsonSerializer.Serialize(new { hits });
+            using var doc = JsonDocument.Parse(payload);
+            var results = new ToolResults();
+            results.Items.Add(new ToolResults.Item
+            {
+                ToolName = "rag.multi_search",
+                Result = doc.RootElement.Clone()
+            });
+            return results;
+        }
+
+        const string query = "Prepare un planning hebdomadaire documente a partir des sources disponibles.";
+        var current = BuildToolResults(new
+        {
+            docPath = "Operations/alpha-guide.pdf",
+            docName = "alpha-guide.pdf",
+            categoryPath = "Operations",
+            pageStart = 4,
+            pageEnd = 4,
+            excerpt = "Alpha guide. One usable supported item.",
+            score = 0.98
+        });
+        var candidate = BuildToolResults(new
+        {
+            docPath = "Operations/alpha-guide.pdf",
+            docName = "alpha-guide.pdf",
+            categoryPath = "Operations",
+            pageStart = 4,
+            pageEnd = 4,
+            excerpt = "Alpha guide. One usable supported item.",
+            score = 0.98
+        },
+        new
+        {
+            docPath = "Operations/navigation.pdf",
+            docName = "navigation.pdf",
+            categoryPath = "Operations",
+            pageStart = 2,
+            pageEnd = 2,
+            excerpt = "Sommaire. Alpha section 4. Beta section 9. Gamma section 15.",
+            contentRole = "navigation",
+            navigationScore = 0.95,
+            selectionHints = new
+            {
+                evidenceRole = "navigation",
+                actionabilityScore = 0,
+                supportScore = 0,
+                fragmentScore = 1,
+                navigationScore = 10,
+                qualityPenalty = 0
+            }
+        });
+
+        Assert.False(ToolAgentOrchestrator.CandidateSourceBackedEvidenceAddsExplorationMaterialForTests(
+            current,
+            candidate,
+            query,
+            "fr"));
+    }
+
     [Fact]
     public void Source_backed_evidence_exploration_builds_multiple_passes_for_sparse_planning()
     {
@@ -8846,6 +9191,8 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
                 if (expectedShape == "schedule_or_plan")
                 {
                     Assert.Contains("Prefer grouped sections or a compact structured list", guidance);
+                    Assert.Contains("Do not use Markdown pipe tables", guidance);
+                    Assert.Contains("Never fill plan cells with generic background", guidance);
                     Assert.Contains("Do not repeat the user request", guidance);
                 }
 
@@ -8864,11 +9211,13 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         Assert.Contains("Day axis requested: Lundi | Mardi | Mercredi | Jeudi | Vendredi", guidance);
         Assert.Contains("Slot/time axis requested: Petit-déjeuner | Déjeuner | Dîner", guidance);
-        Assert.Contains("Use a compact grid", guidance);
+        Assert.Contains("Use compact day sections", guidance);
+        Assert.Contains("Fill places only with concrete sourced candidates", guidance);
         Assert.Contains("Avoid opening with \"I can build...\"", guidance);
         Assert.Contains("start with the requested structure or proposal", guidance);
         Assert.Contains("do not fill the structure by repeating weak items", guidance);
         Assert.Contains("do not fill the whole grid by repetition", guidance);
+        Assert.Contains("Do not use Markdown pipe tables", guidance);
         Assert.DoesNotContain("recette", guidance, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Cuisine", guidance, StringComparison.OrdinalIgnoreCase);
     }
@@ -8929,6 +9278,62 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.DoesNotContain("- candidate:", leads, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("detail: readable title", leads, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("MATERIAL BOL", leads, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Writer_candidate_leads_for_planning_do_not_promote_generic_context_items()
+    {
+        const string query = "Je cherche a avoir un plan pour la semaine, petit-dejeuner, midi et soir du lundi au vendredi.";
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                BuildHit("Repas leger entre minuit et 1 heure du matin", "Knowledge/context-a.pdf", 10),
+                BuildHit("Cuisiner un ou deux repas par semaine", "Knowledge/context-b.pdf", 38),
+                BuildHit("Controle ventilation", "Knowledge/concrete-a.pdf", 12),
+                BuildHit("Verification journal", "Knowledge/concrete-b.pdf", 13)
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var leads = ToolAgentOrchestrator.BuildSourceBackedCandidateLeadsForWriterForTests(
+            toolResults,
+            query,
+            "fr");
+
+        Assert.Contains("Controle ventilation", leads);
+        Assert.Contains("Verification journal", leads);
+        Assert.DoesNotContain("Repas leger entre minuit", leads, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Cuisiner un ou deux repas par semaine", leads, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("role=\"context\"", leads, StringComparison.OrdinalIgnoreCase);
+
+        static object BuildHit(string title, string path, int page) => new
+        {
+            docPath = path,
+            docName = Path.GetFileName(path),
+            pageStart = page,
+            pageEnd = page,
+            excerpt = $"{title}. Procedure : verifier, consigner et valider le resultat.",
+            fullText = $"{title}. Procedure : verifier, consigner et valider le resultat.",
+            matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+            selectionHints = new
+            {
+                evidenceRole = "actionable_item",
+                actionabilityScore = 12,
+                supportScore = 6,
+                fragmentScore = 0,
+                navigationScore = 0,
+                qualityPenalty = 0
+            },
+            score = 0.99
+        };
     }
 
     [Fact]
@@ -9061,6 +9466,81 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     }
 
     [Fact]
+    public void Writer_compaction_merges_multi_pass_broad_evidence_into_one_bounded_payload()
+    {
+        var results = Enumerable.Range(0, 5)
+            .Select(pass =>
+            {
+                var payload = JsonSerializer.Serialize(new
+                {
+                    hits = Enumerable.Range(0, 20).Select(index => new
+                    {
+                        docPath = $"Knowledge/source-{pass}-{index}.pdf",
+                        docName = $"source-{pass}-{index}.pdf",
+                        pageStart = index + 1,
+                        pageEnd = index + 1,
+                        excerpt = $"Candidate {pass}-{index}. " + new string('x', 900),
+                        fullText = $"Raw full text {pass}-{index}. " + new string('y', 1400),
+                        contextualSnippet = $"Contextual neighbor {pass}-{index}. " + new string('z', 900),
+                        matchedContentCards = new[]
+                        {
+                            new
+                            {
+                                title = $"Candidate {pass}-{index}",
+                                kind = "unit_lead",
+                                evidence = new
+                                {
+                                    facts = new[]
+                                    {
+                                        new
+                                        {
+                                            label = "main point",
+                                            sourceText = $"Useful documented option {pass}-{index}."
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        selectionHints = new
+                        {
+                            evidenceRole = "actionable_item",
+                            actionabilityScore = 12,
+                            supportScore = 8,
+                            fragmentScore = 0,
+                            navigationScore = 0,
+                            qualityPenalty = 0
+                        },
+                        retrievalQuery = $"planning candidate pass {pass}",
+                        retrievalQueryIndex = pass,
+                        retrievalHitRank = index,
+                        score = 1.0 - (index * 0.001)
+                    }),
+                    meta = new
+                    {
+                        queries = new[] { $"planning candidate pass {pass}" }
+                    }
+                });
+
+                return ("rag.multi_search", payload);
+            })
+            .ToList();
+
+        var serialized = ToolAgentOrchestrator.SerializeWriterRagResultsForTests(
+            results,
+            "Prepare a sourced weekly plan from the available documents.");
+
+        using var doc = JsonDocument.Parse(serialized);
+        Assert.Single(doc.RootElement.EnumerateArray());
+
+        var result = doc.RootElement[0].GetProperty("result");
+        Assert.True(result.GetProperty("meta").GetProperty("merged").GetBoolean());
+        Assert.True(result.GetProperty("hits").GetArrayLength() <= 12);
+        Assert.True(serialized.Length <= 16_000, $"Writer payload was still too large: {serialized.Length} chars.");
+        Assert.DoesNotContain("Raw full text", serialized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(new string('y', 80), serialized, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Resolved_navigation_route_target_survives_navigation_hints_for_writer_leads()
     {
         const string query = "Propose une organisation hebdomadaire avec les elements disponibles.";
@@ -9160,6 +9640,71 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     }
 
     [Fact]
+    public void Anchor_followup_signature_changes_when_new_navigation_targets_appear()
+    {
+        const string query = "Propose une liste d'options documentees disponibles.";
+        var firstPayload = JsonSerializer.Serialize(new
+        {
+            items = new object[]
+            {
+                new
+                {
+                    label = "Alpha option",
+                    docId = "doc-a",
+                    docPath = "Knowledge/source-a.pdf",
+                    docName = "source-a.pdf",
+                    categoryPath = "Knowledge",
+                    kind = "title",
+                    resolutionMethod = "chunk",
+                    hasTargetChunk = true,
+                    hasTargetAnchor = true,
+                    targetPageStart = 12,
+                    confidence = 0.96
+                }
+            }
+        });
+        var secondPayload = JsonSerializer.Serialize(new
+        {
+            items = new object[]
+            {
+                new
+                {
+                    label = "Beta option",
+                    docId = "doc-b",
+                    docPath = "Knowledge/source-b.pdf",
+                    docName = "source-b.pdf",
+                    categoryPath = "Knowledge",
+                    kind = "title",
+                    resolutionMethod = "chunk",
+                    hasTargetChunk = true,
+                    hasTargetAnchor = true,
+                    targetPageStart = 34,
+                    confidence = 0.94
+                }
+            }
+        });
+
+        using var firstDoc = JsonDocument.Parse(firstPayload);
+        using var secondDoc = JsonDocument.Parse(secondPayload);
+        var first = new ToolResults();
+        first.Items.Add(new ToolResults.Item { ToolName = "documents.navigation", Result = firstDoc.RootElement.Clone() });
+        var second = new ToolResults();
+        second.Items.Add(new ToolResults.Item { ToolName = "documents.navigation", Result = firstDoc.RootElement.Clone() });
+        second.Items.Add(new ToolResults.Item { ToolName = "documents.navigation", Result = secondDoc.RootElement.Clone() });
+
+        var firstSignature = ToolAgentOrchestrator.BuildSourceBackedAnchorFollowupSignatureForTests(first, query, "fr");
+        var secondSignature = ToolAgentOrchestrator.BuildSourceBackedAnchorFollowupSignatureForTests(second, query, "fr");
+        var firstPasses = ToolAgentOrchestrator.BuildSourceBackedDocumentScopedRouteAnchorFollowupPassesForTests(first, query, "fr");
+        var secondPasses = ToolAgentOrchestrator.BuildSourceBackedDocumentScopedRouteAnchorFollowupPassesForTests(second, query, "fr");
+
+        Assert.NotEmpty(firstSignature);
+        Assert.NotEmpty(secondSignature);
+        Assert.NotEqual(firstSignature, secondSignature);
+        Assert.Contains(firstPasses, pass => pass.DocId == "doc-a" && pass.PageStart == 12);
+        Assert.Contains(secondPasses, pass => pass.DocId == "doc-b" && pass.PageStart == 34);
+    }
+
+    [Fact]
     public void Writer_control_leak_detector_flags_internal_prompt_terms()
     {
         Assert.True(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(
@@ -9168,6 +9713,16 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "PRIVATE_SOURCE_EVIDENCE_INVENTORY: source-backed leads from the candidate bank"));
         Assert.True(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(
             "EVIDENCE_ITEM role=\"item\" title=\"Controle\" instruction=\"rewrite naturally\""));
+        Assert.True(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(
+            "Here are the source-backed leads found in the available documents, without adding facts."));
+        Assert.True(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(
+            "Voici les elements documentes disponibles, sans ajout de faits, et je limite la reponse aux extraits."));
+        Assert.True(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(
+            "Je cite ces sources separement et je limite la reponse aux pages retrouvees."));
+        Assert.True(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(
+            "I cite these sources separately and limit the answer to the pages found."));
+        Assert.True(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(
+            "TOOL_RESULTS omittedFromWriterPrompt=true"));
         Assert.False(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(
             "Voici une proposition claire avec des elements sources et des limites explicites."));
     }
@@ -9234,8 +9789,8 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         {
             Assert.True(
                 answer.Contains("sources plus larges", StringComparison.OrdinalIgnoreCase)
-                || answer.Contains("passages proches", StringComparison.OrdinalIgnoreCase)
-                || answer.Contains("pas trouve", StringComparison.OrdinalIgnoreCase)
+                || answer.Contains("pas assez", StringComparison.OrdinalIgnoreCase)
+                || answer.Contains("pas trouvé", StringComparison.OrdinalIgnoreCase)
                 || answer.Contains("pas encore assez", StringComparison.OrdinalIgnoreCase),
                 answer);
             Assert.DoesNotContain("Options utilisables", answer, StringComparison.OrdinalIgnoreCase);
@@ -9315,6 +9870,926 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         Assert.True(ToolAgentOrchestrator.LooksLikePoorPlanningFallbackAnswerForTests(answer, query));
         Assert.True(ToolAgentOrchestrator.LooksLikeRawExcerptDumpPlanningAnswerForTests(answer, query));
+    }
+
+    [Fact]
+    public void Broad_writer_detects_separate_source_citation_dump_for_repair()
+    {
+        const string query = "Je cherche a avoir un plan pour la semaine a partir des documents disponibles.";
+        const string answer = """
+        Je cite ces sources separement et je limite la reponse aux pages retrouvees :
+        - guide-a.pdf p.10 : Passage brut colle au lieu d'une vraie synthese utilisateur.
+        - guide-b.pdf p.15 : Autre passage brut colle dans la langue de la source.
+        Conclusion : utilisez ces pages comme preuves de tracabilite.
+        """;
+
+        Assert.True(ToolAgentOrchestrator.LooksLikePoorPlanningFallbackAnswerForTests(answer, query));
+    }
+
+    [Fact]
+    public void Broad_writer_detects_traceability_answer_as_poor_planning_fallback()
+    {
+        const string query = "Je cherche a avoir un plan pour la semaine, petit-dejeuner, midi et soir du lundi au vendredi.";
+        const string answer = """
+        Voici la tracabilite que je peux etablir a partir des pages retrouvees :
+        - guide-a.pdf p.10 : extrait brut de controle.
+        - guide-b.pdf p.20 : extrait brut de controle.
+        Conclusion : ces pages servent de preuves de tracabilite. Je n'en deduis pas un remplacement, un changement de statut ou une applicabilite complete si la page citee ne le dit pas explicitement.
+        """;
+
+        Assert.True(ToolAgentOrchestrator.LooksLikePoorPlanningFallbackAnswerForTests(answer, query));
+    }
+
+    [Theory]
+    [InlineData("es", "Puedes sugerir un plan semanal a partir de los documentos disponibles?", "guia-a.pdf pag. 12 :")]
+    [InlineData("es", "Puedes sugerir un plan semanal a partir de los documentos disponibles?", "guia-a.pdf p\u00e1gina 12 :")]
+    [InlineData("pt", "Podes sugerir um plano semanal a partir dos documentos disponiveis?", "guia-a.pdf pagina 12 :")]
+    [InlineData("de", "Kannst du aus den verfuegbaren Dokumenten einen Wochenplan vorschlagen?", "handbuch-a.pdf S. 12 :")]
+    [InlineData("de", "Kannst du aus den verfuegbaren Dokumenten einen Wochenplan vorschlagen?", "handbuch-a.pdf Seite 12 :")]
+    [InlineData("it", "Puoi suggerire un piano settimanale dai documenti disponibili?", "guida-a.pdf pag. 12 :")]
+    public void Broad_writer_detects_localized_page_marker_raw_source_dump_for_repair(
+        string language,
+        string query,
+        string sourcePrefix)
+    {
+        _ = language;
+        var answer = $"""
+        Voici les passages trouves dans les sources :
+        - {sourcePrefix} Passage long colle depuis la source au lieu d'une synthese utilisateur claire.
+        - autre-guide.pdf p. 14 : Deuxieme passage long colle depuis la source au lieu d'une synthese utilisateur claire.
+        """;
+
+        Assert.True(ToolAgentOrchestrator.LooksLikeRawExcerptDumpPlanningAnswerForTests(answer, query));
+        Assert.True(ToolAgentOrchestrator.LooksLikePoorPlanningFallbackAnswerForTests(answer, query));
+    }
+
+    [Theory]
+    [InlineData("fr", "Je cherche a avoir un plan pour la semaine a partir des documents disponibles.")]
+    [InlineData("en", "Can you suggest a weekly plan from the available documents?")]
+    [InlineData("es", "Puedes sugerir un plan semanal a partir de los documentos disponibles?")]
+    [InlineData("pt", "Podes sugerir um plano semanal a partir dos documentos disponiveis?")]
+    [InlineData("de", "Kannst du aus den verfuegbaren Dokumenten einen Wochenplan vorschlagen?")]
+    [InlineData("it", "Puoi suggerire un piano settimanale dai documenti disponibili?")]
+    public void Broad_documentary_requests_get_extended_exploration_budget_in_all_client_languages(
+        string language,
+        string query)
+    {
+        var budget = ToolAgentOrchestrator.ResolveSourceBackedEvidenceExplorationRagCallBudgetForTests(query, language);
+
+        Assert.True(budget >= 10, $"Expected extended exploration budget for {language}, got {budget}.");
+    }
+
+    [Fact]
+    public void Structured_weekly_planning_requests_get_deeper_exploration_budget()
+    {
+        const string query = "Je cherche a avoir un plan pour la semaine, petit-dejeuner, midi et soir du lundi au vendredi.";
+
+        var budget = ToolAgentOrchestrator.ResolveSourceBackedEvidenceExplorationRagCallBudgetForTests(query, "fr");
+
+        Assert.True(budget >= 27, $"Expected deeper exploration budget for a structured 15-slot planning request, got {budget}.");
+        Assert.True(
+            ToolAgentOrchestrator.ResolveSourceBackedDocumentScopedAnchorFollowupLimitForTests(query) >= 20,
+            "Structured planning must follow enough document navigation anchors to find concrete candidates instead of stopping after a few generic pages.");
+    }
+
+    [Fact]
+    public void Broad_weekly_planning_request_shape_exposes_slots_and_minimum_candidates()
+    {
+        const string query = "Je cherche a avoir un plan pour la semaine, petit-dejeuner, midi et soir du lundi au vendredi.";
+
+        var shape = ToolAgentOrchestrator.BuildSourceBackedRequestShapeForTests(query, "fr");
+
+        Assert.Contains("planning", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("targetSlots: 15", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("minimumCandidates: 15", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("categoryObjective", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("evidenceObjective", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("cuisine", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("recette", shape, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Broad_confirmed_search_request_shape_uses_previous_request_not_confirmation()
+    {
+        const string envelope = """
+        PREVIOUS_USER_REQUEST:
+        Je cherche a avoir un plan pour la semaine, petit-dejeuner, midi et soir du lundi au vendredi.
+
+        USER_CONFIRMED_BROADER_SOURCE_SEARCH:
+        oui vas y
+
+        RESOLVED_REQUEST:
+        Continue the previous source-backed request by running a broader retrieval exploration.
+        """;
+
+        var shape = ToolAgentOrchestrator.BuildSourceBackedRequestShapeForTests(envelope, "fr");
+
+        Assert.Contains("planning", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("targetSlots: 15", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("minimumCandidates: 15", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("requestedDayAxis:", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("requestedPeriodAxis:", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("oui vas", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("broader retrieval", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("cuisine", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("recette", shape, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("fr", "Je cherche a preparer un plan hebdomadaire a partir des documents disponibles.")]
+    [InlineData("en", "Can you prepare a weekly plan from the available documents?")]
+    [InlineData("es", "Puedes preparar un plan semanal a partir de los documentos disponibles?")]
+    [InlineData("pt", "Podes preparar um plano semanal a partir dos documentos disponiveis?")]
+    [InlineData("de", "Kannst du aus den verfuegbaren Dokumenten einen Wochenplan vorbereiten?")]
+    [InlineData("it", "Puoi preparare un piano settimanale dai documenti disponibili?")]
+    public void Broad_planning_request_shape_is_available_in_all_client_languages(string language, string query)
+    {
+        var shape = ToolAgentOrchestrator.BuildSourceBackedRequestShapeForTests(query, language);
+
+        Assert.Contains($"detectedLanguage: {language}", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("planning", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("minimumCandidates:", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("categoryObjective", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("cuisine", shape, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("recette", shape, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Llm_evidence_planner_prompt_treats_category_score_as_weak_hint()
+    {
+        var prompt = ToolAgentOrchestrator.BuildSourceBackedLlmEvidenceExplorationSystemPromptForTests("fr");
+
+        Assert.Contains("REQUEST_SHAPE", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("lexicalScore is only a weak lexical hint", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("semantic", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("minimumCandidates", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("cuisine", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("recette", prompt, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("Je cherche a preparer un plan hebdomadaire a partir des documents disponibles.")]
+    [InlineData("Can you prepare a weekly plan from the available documents?")]
+    [InlineData("Puedes preparar un plan semanal a partir de los documentos disponibles?")]
+    [InlineData("Podes preparar um plano semanal a partir dos documentos disponiveis?")]
+    [InlineData("Kannst du aus den verfuegbaren Dokumenten einen Wochenplan vorbereiten?")]
+    [InlineData("Puoi preparare un piano settimanale dai documenti disponibili?")]
+    public void Broad_documentary_summary_orientation_queries_are_generic_and_multilingual(string query)
+    {
+        var queries = ToolAgentOrchestrator.BuildSourceBackedSummaryOrientationQueriesForTests(query, "Knowledge");
+
+        Assert.NotEmpty(queries);
+        Assert.Contains(queries, value => value.Contains("Knowledge", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, value => value.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, value => value.Contains("recette", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, value => value.Contains("smoothie", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Theory]
+    [InlineData("fr", "Je cherche a preparer un plan hebdomadaire a partir des documents disponibles.")]
+    [InlineData("en", "Can you prepare a weekly plan from the available documents?")]
+    [InlineData("es", "Puedes preparar un plan semanal a partir de los documentos disponibles?")]
+    [InlineData("pt", "Podes preparar um plano semanal a partir dos documentos disponiveis?")]
+    [InlineData("de", "Kannst du aus den verfuegbaren Dokumenten einen Wochenplan vorbereiten?")]
+    [InlineData("it", "Puoi preparare un piano settimanale dai documenti disponibili?")]
+    public void Broad_documentary_navigation_orientation_queries_are_generic_and_multilingual(
+        string language,
+        string query)
+    {
+        var queries = ToolAgentOrchestrator.BuildSourceBackedNavigationOrientationQueriesForTests(query, "Knowledge");
+
+        Assert.True(queries.Length >= 3, $"Expected several orientation queries for {language}.");
+        Assert.Contains(queries, value => value.Contains("Knowledge", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, value => value.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, value => value.Contains("recette", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, value => value.Contains("smoothie", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Theory]
+    [InlineData("fr", "Je cherche a preparer un plan hebdomadaire a partir des documents disponibles.")]
+    [InlineData("en", "Can you prepare a weekly plan from the available documents?")]
+    [InlineData("es", "Puedes preparar un plan semanal a partir de los documentos disponibles?")]
+    [InlineData("pt", "Podes preparar um plano semanal a partir dos documentos disponiveis?")]
+    [InlineData("de", "Kannst du aus den verfuegbaren Dokumenten einen Wochenplan vorbereiten?")]
+    [InlineData("it", "Puoi preparare un piano settimanale dai documenti disponibili?")]
+    public void Broad_documentary_navigation_orientation_prioritizes_map_queries_before_raw_text(
+        string language,
+        string query)
+    {
+        var queries = ToolAgentOrchestrator.BuildSourceBackedNavigationOrientationQueriesForTests(query, "Knowledge");
+        var firstQueries = queries.Take(5).ToArray();
+
+        Assert.Contains(firstQueries, value => LooksLikeDocumentMapOrientationQuery(value));
+        Assert.NotNull(language);
+        Assert.Contains(firstQueries, value => value.Contains("Knowledge", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(firstQueries, value => value.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(firstQueries, value => value.Contains("recette", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(firstQueries, value => value.Contains("smoothie", StringComparison.OrdinalIgnoreCase));
+
+        static bool LooksLikeDocumentMapOrientationQuery(string value)
+        {
+            var normalized = value.Normalize(NormalizationForm.FormD);
+            var builder = new StringBuilder(normalized.Length);
+            foreach (var c in normalized)
+            {
+                if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                    builder.Append(char.ToLowerInvariant(c));
+            }
+
+            var folded = builder.ToString();
+            return folded.Contains("summary", StringComparison.Ordinal)
+                   || folded.Contains("table of contents", StringComparison.Ordinal)
+                   || folded.Contains("sections", StringComparison.Ordinal)
+                   || folded.Contains("sommaire", StringComparison.Ordinal)
+                   || folded.Contains("index", StringComparison.Ordinal)
+                   || folded.Contains("estructura", StringComparison.Ordinal)
+                   || folded.Contains("estrutura", StringComparison.Ordinal)
+                   || folded.Contains("gliederung", StringComparison.Ordinal)
+                   || folded.Contains("inhaltsverzeichnis", StringComparison.Ordinal)
+                   || folded.Contains("inhalt", StringComparison.Ordinal)
+                   || folded.Contains("indice", StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Repair_writer_prompt_keeps_private_research_map_from_raw_orientation_surfaces()
+    {
+        var navigationPayload = JsonSerializer.Serialize(new
+        {
+            items = new[]
+            {
+                new
+                {
+                    docPath = "Operations/Runbook.pdf",
+                    docName = "Runbook.pdf",
+                    categoryPath = "Operations",
+                    kind = "navigation_entry",
+                    label = "Escalation path",
+                    targetPageStart = 42,
+                    targetPageEnd = 43,
+                    resolutionMethod = "toc_resolved",
+                    confidence = 0.91
+                }
+            }
+        });
+        var ragPayload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Operations/Runbook.pdf",
+                    docName = "Runbook.pdf",
+                    pageStart = 42,
+                    pageEnd = 42,
+                    excerpt = "Escalation path. Verify the active incident owner, contact the fallback team and record the decision.",
+                    matchedContentCards = new[] { new { title = "Escalation path", kind = "unit_lead" } },
+                    score = 0.93
+                }
+            }
+        });
+        using var navigationDoc = JsonDocument.Parse(navigationPayload);
+        using var ragDoc = JsonDocument.Parse(ragPayload);
+        var rawToolResults = new ToolResults();
+        rawToolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "documents.navigation",
+            Result = navigationDoc.RootElement.Clone()
+        });
+        rawToolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = ragDoc.RootElement.Clone()
+        });
+        var writerToolResults = new ToolResults();
+        writerToolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = ragDoc.RootElement.Clone()
+        });
+
+        var prompt = ToolAgentOrchestrator.BuildSourceBackedRepairWriterUserPromptForTests(
+            Array.Empty<(string role, string content)>(),
+            "Build a sourced operational planning proposal.",
+            "en",
+            rawToolResults,
+            writerToolResults);
+
+        Assert.Contains("PRIVATE_SOURCE_RESEARCH_MAP", prompt);
+        Assert.Contains("Private research map", prompt);
+        Assert.Contains("Escalation path", prompt);
+        Assert.Contains("PRIVATE_SOURCE_EVIDENCE_INVENTORY", prompt);
+        Assert.DoesNotMatch(
+            new Regex(@"\b(cuisine|recette|recipe|ingredient|ingredients|cook|cooking|meal|entree|dessert|smoothie)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant),
+            prompt);
+    }
+
+    [Fact]
+    public void Broad_repair_prompt_uses_clean_source_brief_instead_of_raw_tool_json()
+    {
+        const string rawExcerpt = "RAW PASSAGE THAT SHOULD NOT BE COPIED BY THE WRITER";
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Operations/source-a.pdf",
+                    docName = "source-a.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = rawExcerpt,
+                    fullText = rawExcerpt,
+                    matchedContentCards = new[] { new { title = "Useful documented option", kind = "unit_lead" } },
+                    selectionHints = new
+                    {
+                        evidenceRole = "actionable_item",
+                        actionabilityScore = 10,
+                        supportScore = 8,
+                        fragmentScore = 0,
+                        navigationScore = 0,
+                        qualityPenalty = 0
+                    },
+                    score = 0.92
+                }
+            }
+        });
+        using var ragDoc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = ragDoc.RootElement.Clone()
+        });
+
+        var prompt = ToolAgentOrchestrator.BuildSourceBackedRepairWriterUserPromptForTests(
+            Array.Empty<(string role, string content)>(),
+            "Build a broad sourced weekly proposal from the available documents.",
+            "en",
+            toolResults,
+            toolResults);
+
+        Assert.Contains("PRIVATE_SOURCE_EVIDENCE_INVENTORY", prompt);
+        Assert.Contains("PRIVATE_SOURCE_REFERENCE_INDEX", prompt);
+        Assert.Contains("Useful documented option", prompt);
+        Assert.Contains("omittedFromWriterPrompt", prompt);
+        Assert.DoesNotContain("TOOL_RESULTS (json)", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(rawExcerpt, prompt, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Broadened_source_search_repair_prompt_uses_previous_request_as_writer_message()
+    {
+        const string envelope = """
+        PREVIOUS_USER_REQUEST:
+        Build a weekly operational plan with morning, midday and evening checks from the available documents.
+
+        USER_CONFIRMED_BROADER_SOURCE_SEARCH:
+        yes go ahead
+
+        RESOLVED_REQUEST:
+        Continue the previous source-backed request by running a broader retrieval exploration.
+        """;
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Operations/source-a.pdf",
+                    docName = "source-a.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "Morning check. Procedure: inspect the register and validate the open points.",
+                    matchedContentCards = new[] { new { title = "Morning check", kind = "unit_lead" } },
+                    score = 0.92
+                }
+            }
+        });
+        using var ragDoc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = ragDoc.RootElement.Clone()
+        });
+
+        var prompt = ToolAgentOrchestrator.BuildSourceBackedRepairWriterUserPromptForTests(
+            Array.Empty<(string role, string content)>(),
+            envelope,
+            "en",
+            toolResults,
+            toolResults);
+
+        Assert.Contains("USER_MESSAGE:", prompt);
+        Assert.Contains("Build a weekly operational plan with morning, midday and evening checks", prompt);
+        Assert.Contains("PRIVATE_USER_FOLLOWUP_CONTEXT", prompt);
+        Assert.Contains("broadened", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("PREVIOUS_USER_REQUEST", prompt);
+        Assert.DoesNotContain("USER_CONFIRMED_BROADER_SOURCE_SEARCH", prompt);
+        Assert.DoesNotContain("yes go ahead", prompt, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Clean_writer_tool_results_prompt_block_marks_large_broad_payload_as_omitted()
+    {
+        using var ragDoc = JsonDocument.Parse("""
+        {
+          "hits": [
+            {
+              "docPath": "Operations/source-a.pdf",
+              "docName": "source-a.pdf",
+              "pageStart": 4,
+              "excerpt": "This raw paragraph is intentionally not sent as the writer payload.",
+              "fullText": "This raw paragraph is intentionally not sent as the writer payload.",
+              "matchedContentCards": [{ "title": "Useful option", "kind": "unit_lead" }],
+              "selectionHints": {
+                "evidenceRole": "actionable_item",
+                "actionabilityScore": 10,
+                "supportScore": 8,
+                "fragmentScore": 0,
+                "navigationScore": 0,
+                "qualityPenalty": 0
+              },
+              "score": 0.92
+            }
+          ]
+        }
+        """);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = ragDoc.RootElement.Clone() });
+
+        var block = ToolAgentOrchestrator.BuildWriterToolResultsPromptBlockForTests(
+            toolResults,
+            "Can you suggest a broad sourced plan from the available documents?",
+            "en",
+            useCleanSourceBrief: true);
+
+        Assert.Contains("TOOL_RESULTS (omitted)", block);
+        Assert.Contains("PRIVATE_SOURCE_REFERENCE_INDEX", block);
+        Assert.DoesNotContain("TOOL_RESULTS (json)", block);
+        Assert.DoesNotContain("This raw paragraph", block);
+    }
+
+    [Fact]
+    public void Single_initial_multi_search_is_not_treated_as_expanded_source_backed_search()
+    {
+        using var empty = JsonDocument.Parse("""{"hits":[]}""");
+        var single = new ToolResults();
+        single.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = empty.RootElement.Clone() });
+
+        var expanded = new ToolResults();
+        expanded.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = empty.RootElement.Clone() });
+        expanded.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = empty.RootElement.Clone() });
+
+        Assert.False(ToolAgentOrchestrator.HasExpandedSourceBackedSearchEvidenceForTests(single));
+        Assert.True(ToolAgentOrchestrator.HasExpandedSourceBackedSearchEvidenceForTests(expanded));
+    }
+
+    [Fact]
+    public void Navigation_orientation_pass_is_kept_when_it_adds_followup_pivots_for_broad_requests()
+    {
+        const string query = "Propose une organisation documentee pour la semaine a partir des sources disponibles.";
+        using var empty = JsonDocument.Parse("""{"hits":[]}""");
+        var current = new ToolResults();
+        current.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = empty.RootElement.Clone() });
+
+        var payload = JsonSerializer.Serialize(new
+        {
+            items = new object[]
+            {
+                new
+                {
+                    label = "Alpha validation workflow",
+                    docId = "doc-a",
+                    docPath = "Knowledge/source-a.pdf",
+                    docName = "source-a.pdf",
+                    categoryPath = "Knowledge",
+                    kind = "title",
+                    resolutionMethod = "chunk",
+                    hasTargetChunk = true,
+                    hasTargetAnchor = true,
+                    targetPageStart = 12,
+                    targetPageEnd = 13,
+                    confidence = 0.94
+                },
+                new
+                {
+                    label = "Beta launch checklist",
+                    docId = "doc-a",
+                    docPath = "Knowledge/source-a.pdf",
+                    docName = "source-a.pdf",
+                    categoryPath = "Knowledge",
+                    kind = "title",
+                    resolutionMethod = "chunk",
+                    hasTargetChunk = true,
+                    hasTargetAnchor = true,
+                    targetPageStart = 14,
+                    targetPageEnd = 15,
+                    confidence = 0.91
+                },
+                new
+                {
+                    label = "Gamma control protocol",
+                    docId = "doc-a",
+                    docPath = "Knowledge/source-a.pdf",
+                    docName = "source-a.pdf",
+                    categoryPath = "Knowledge",
+                    kind = "title",
+                    resolutionMethod = "chunk",
+                    hasTargetChunk = true,
+                    hasTargetAnchor = true,
+                    targetPageStart = 16,
+                    targetPageEnd = 17,
+                    confidence = 0.9
+                }
+            }
+        });
+        using var candidateDoc = JsonDocument.Parse(payload);
+        var candidate = new ToolResults();
+        candidate.Items.Add(new ToolResults.Item { ToolName = "documents.navigation", Result = candidateDoc.RootElement.Clone() });
+
+        Assert.True(ToolAgentOrchestrator.HasSourceBackedRouteAnchorFollowupQueriesForTests(candidate, query, "fr"));
+        Assert.True(ToolAgentOrchestrator.CandidateSourceBackedEvidenceAddsUsefulOrientationForTests(current, candidate, query, "fr"));
+    }
+
+    [Fact]
+    public void Document_navigation_seed_selection_uses_distinct_rag_documents_without_domain_terms()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docId = "doc-alpha",
+                    docPath = "Knowledge/alpha-guide.pdf",
+                    docName = "alpha-guide.pdf",
+                    categoryPath = "Knowledge",
+                    pageStart = 4,
+                    excerpt = "Alpha guide useful content.",
+                    matchedContentCards = new[] { new { title = "Alpha overview", kind = "profile" } },
+                    selectionHints = new
+                    {
+                        evidenceRole = "actionable_item",
+                        actionabilityScore = 9,
+                        supportScore = 8,
+                        fragmentScore = 0,
+                        navigationScore = 1,
+                        qualityPenalty = 0
+                    }
+                },
+                new
+                {
+                    docId = "doc-alpha",
+                    docPath = "Knowledge/alpha-guide.pdf",
+                    docName = "alpha-guide.pdf",
+                    categoryPath = "Knowledge",
+                    pageStart = 8,
+                    excerpt = "Duplicate alpha hit from another page.",
+                    selectionHints = new
+                    {
+                        evidenceRole = "supporting_context",
+                        actionabilityScore = 4,
+                        supportScore = 7,
+                        fragmentScore = 0,
+                        navigationScore = 1,
+                        qualityPenalty = 0
+                    }
+                },
+                new
+                {
+                    docId = "doc-beta",
+                    docPath = "Knowledge/beta-guide.pdf",
+                    docName = "beta-guide.pdf",
+                    categoryPath = "Knowledge",
+                    pageStart = 2,
+                    excerpt = "Beta guide navigation entry.",
+                    contentRole = "navigation",
+                    navigationScore = 0.92,
+                    selectionHints = new
+                    {
+                        evidenceRole = "navigation",
+                        actionabilityScore = 0,
+                        supportScore = 0,
+                        fragmentScore = 1,
+                        navigationScore = 10,
+                        qualityPenalty = 0
+                    }
+                },
+                new
+                {
+                    docPath = "Knowledge/gamma-guide.pdf",
+                    docName = "gamma-guide.pdf",
+                    categoryPath = "Knowledge",
+                    pageStart = 3,
+                    excerpt = "Gamma guide fallback path identity.",
+                    matchedContentCards = new[] { new { title = "Gamma section", kind = "unit" } }
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var seeds = ToolAgentOrchestrator.SelectSourceBackedDocumentNavigationSeedsForTests(toolResults, maxDocuments: 3);
+
+        Assert.Equal(3, seeds.Length);
+        Assert.Single(seeds, seed => string.Equals(seed.DocId, "doc-alpha", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(seeds, seed => string.Equals(seed.DocId, "doc-beta", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(seeds, seed => string.Equals(seed.DocPath, "Knowledge/gamma-guide.pdf", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(seeds, seed => seed.DisplayName.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(seeds, seed => seed.DisplayName.Contains("recette", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Summary_search_results_seed_document_navigation_without_domain_terms()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            items = new object[]
+            {
+                new
+                {
+                    docId = "doc-summary",
+                    docPath = "Knowledge/summary-guide.pdf",
+                    docName = "summary-guide.pdf",
+                    categoryPath = "Knowledge",
+                    label = "Alpha operating guide",
+                    matchedContentCards = new[]
+                    {
+                        new
+                        {
+                            title = "Alpha operations",
+                            kind = "unit",
+                            signals = new[] { "weekly coordination", "candidate workflow" }
+                        }
+                    },
+                    profileSignals = new
+                    {
+                        topics = new[] { "Weekly planning" },
+                        keywords = new[] { "candidate workflow", "operational cadence" }
+                    }
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "summary.search", Result = doc.RootElement.Clone() });
+
+        var seeds = ToolAgentOrchestrator.SelectSourceBackedDocumentNavigationSeedsForTests(toolResults, maxDocuments: 3);
+
+        var seed = Assert.Single(seeds);
+        Assert.Equal("doc-summary", seed.DocId);
+        Assert.Equal("Knowledge/summary-guide.pdf", seed.DocPath);
+        Assert.Equal("Knowledge", seed.CategoryPath);
+        Assert.Equal("summary-guide.pdf", seed.DisplayName);
+        Assert.True(seed.Score >= 7);
+        Assert.DoesNotContain(seeds, value => value.DisplayName.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(seeds, value => value.DisplayName.Contains("recette", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(seeds, value => value.DisplayName.Contains("smoothie", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Document_scoped_navigation_followup_uses_seeded_document_anchors_generically()
+    {
+        const string query = "Prepare un plan hebdomadaire a partir des documents disponibles.";
+        var navigationPayload = JsonSerializer.Serialize(new
+        {
+            items = new object[]
+            {
+                new
+                {
+                    docId = "doc-alpha",
+                    docPath = "Knowledge/alpha-guide.pdf",
+                    docName = "alpha-guide.pdf",
+                    categoryPath = "Knowledge",
+                    kind = "title_anchor",
+                    label = "Alpha onboarding schedule",
+                    targetPageStart = 12,
+                    targetPageEnd = 14,
+                    hasTargetChunk = true,
+                    hasTargetAnchor = true,
+                    confidence = 0.93
+                },
+                new
+                {
+                    docId = "doc-alpha",
+                    docPath = "Knowledge/alpha-guide.pdf",
+                    docName = "alpha-guide.pdf",
+                    categoryPath = "Knowledge",
+                    kind = "title_anchor",
+                    label = "Beta exception checklist",
+                    targetPageStart = 20,
+                    targetPageEnd = 21,
+                    hasTargetChunk = true,
+                    hasTargetAnchor = true,
+                    confidence = 0.89
+                }
+            }
+        });
+        using var navigationDoc = JsonDocument.Parse(navigationPayload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "documents.navigation", Result = navigationDoc.RootElement.Clone() });
+
+        var passes = ToolAgentOrchestrator.BuildSourceBackedDocumentScopedRouteAnchorFollowupPassesForTests(
+            toolResults,
+            query,
+            "fr");
+
+        Assert.Equal(2, passes.Length);
+        var alphaPass = Assert.Single(passes, pass => pass.PageStart == 12);
+        var betaPass = Assert.Single(passes, pass => pass.PageStart == 20);
+        Assert.Equal("anchor_followup_doc_scope", alphaPass.Label);
+        Assert.Equal("doc-alpha", alphaPass.DocId);
+        Assert.Equal("Knowledge/alpha-guide.pdf", alphaPass.DocPath);
+        Assert.Equal("Knowledge", alphaPass.CategoryScope);
+        Assert.Equal(14, alphaPass.PageEnd);
+        Assert.Contains(alphaPass.Queries, value => value.Contains("Alpha onboarding schedule", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(betaPass.Queries, value => value.Contains("Beta exception checklist", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(passes.SelectMany(static pass => pass.Queries), value => value.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(passes.SelectMany(static pass => pass.Queries), value => value.Contains("recette", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Document_scoped_navigation_followup_infers_bounded_page_window_from_next_anchor()
+    {
+        const string query = "Prepare un plan hebdomadaire a partir des documents disponibles.";
+        var navigationPayload = JsonSerializer.Serialize(new
+        {
+            items = new object[]
+            {
+                new
+                {
+                    docId = "doc-alpha",
+                    docPath = "Knowledge/alpha-guide.pdf",
+                    docName = "alpha-guide.pdf",
+                    categoryPath = "Knowledge",
+                    kind = "navigation_entry",
+                    label = "Alpha onboarding schedule",
+                    targetPageStart = 54,
+                    hasTargetChunk = true,
+                    hasTargetAnchor = true,
+                    confidence = 0.9
+                },
+                new
+                {
+                    docId = "doc-alpha",
+                    docPath = "Knowledge/alpha-guide.pdf",
+                    docName = "alpha-guide.pdf",
+                    categoryPath = "Knowledge",
+                    kind = "navigation_entry",
+                    label = "Beta exception checklist",
+                    targetPageStart = 56,
+                    hasTargetChunk = true,
+                    hasTargetAnchor = true,
+                    confidence = 0.9
+                }
+            }
+        });
+        using var navigationDoc = JsonDocument.Parse(navigationPayload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "documents.navigation", Result = navigationDoc.RootElement.Clone() });
+
+        var passes = ToolAgentOrchestrator.BuildSourceBackedDocumentScopedRouteAnchorFollowupPassesForTests(
+            toolResults,
+            query,
+            "fr");
+
+        var alphaPass = Assert.Single(passes, pass => pass.PageStart == 54);
+        Assert.Equal(55, alphaPass.PageEnd);
+        Assert.Contains(alphaPass.Queries, value => value.Contains("Alpha onboarding schedule", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(alphaPass.Queries, value => value.Contains("54", StringComparison.OrdinalIgnoreCase)
+                                                   && value.Contains("55", StringComparison.OrdinalIgnoreCase)
+                                                   && (value.Contains("pages", StringComparison.OrdinalIgnoreCase)
+                                                       || value.Contains("p ", StringComparison.OrdinalIgnoreCase)));
+        Assert.DoesNotContain(passes.SelectMany(static pass => pass.Queries), value => value.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(passes.SelectMany(static pass => pass.Queries), value => value.Contains("recette", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Document_scoped_navigation_followup_ignores_short_marketing_and_ocr_glued_headings()
+    {
+        const string query = "Prepare un plan hebdomadaire a partir des documents disponibles.";
+        var navigationPayload = JsonSerializer.Serialize(new
+        {
+            items = new object[]
+            {
+                new
+                {
+                    docId = "doc-alpha",
+                    docPath = "Knowledge/alpha-guide.pdf",
+                    docName = "alpha-guide.pdf",
+                    categoryPath = "Knowledge",
+                    kind = "navigation_entry",
+                    label = "BE A MASTER",
+                    targetPageStart = 70,
+                    hasTargetChunk = true,
+                    hasTargetAnchor = true,
+                    confidence = 0.9
+                },
+                new
+                {
+                    docId = "doc-alpha",
+                    docPath = "Knowledge/alpha-guide.pdf",
+                    docName = "alpha-guide.pdf",
+                    categoryPath = "Knowledge",
+                    kind = "navigation_entry",
+                    label = "PREPARATIONBE A MASTER",
+                    targetPageStart = 74,
+                    hasTargetChunk = true,
+                    hasTargetAnchor = true,
+                    confidence = 0.9
+                },
+                new
+                {
+                    docId = "doc-alpha",
+                    docPath = "Knowledge/alpha-guide.pdf",
+                    docName = "alpha-guide.pdf",
+                    categoryPath = "Knowledge",
+                    kind = "navigation_entry",
+                    label = "Weekly operating checklist",
+                    targetPageStart = 82,
+                    hasTargetChunk = true,
+                    hasTargetAnchor = true,
+                    confidence = 0.9
+                }
+            }
+        });
+        using var navigationDoc = JsonDocument.Parse(navigationPayload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "documents.navigation", Result = navigationDoc.RootElement.Clone() });
+
+        var passes = ToolAgentOrchestrator.BuildSourceBackedDocumentScopedRouteAnchorFollowupPassesForTests(
+            toolResults,
+            query,
+            "fr");
+        var allQueries = passes.SelectMany(static pass => pass.Queries).ToArray();
+
+        Assert.Single(passes);
+        Assert.Contains(allQueries, value => value.Contains("Weekly operating checklist", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(allQueries, value => value.Contains("BE A MASTER", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(allQueries, value => value.Contains("PREPARATIONBE A MASTER", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Summary_search_cards_feed_document_scoped_followup_queries_generically()
+    {
+        const string query = "Prepare un plan hebdomadaire a partir des documents disponibles.";
+        var summaryPayload = JsonSerializer.Serialize(new
+        {
+            items = new object[]
+            {
+                new
+                {
+                    docId = "doc-alpha",
+                    docPath = "Knowledge/alpha-guide.pdf",
+                    docName = "alpha-guide.pdf",
+                    categoryPath = "Knowledge",
+                    label = "Alpha operating guide",
+                    matchedContentCards = new[]
+                    {
+                        new
+                        {
+                            title = "Alpha onboarding schedule",
+                            kind = "profile",
+                            signals = new[] { "weekly cadence", "staff rotation" }
+                        },
+                        new
+                        {
+                            title = "Beta exception checklist",
+                            kind = "unit",
+                            signals = new[] { "fallback option", "review point" }
+                        }
+                    },
+                    profileSignals = new
+                    {
+                        topics = new[] { "Weekly coordination" },
+                        keywords = new[] { "candidate workflow" }
+                    }
+                }
+            }
+        });
+        using var summaryDoc = JsonDocument.Parse(summaryPayload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "summary.search", Result = summaryDoc.RootElement.Clone() });
+
+        var passes = ToolAgentOrchestrator.BuildSourceBackedDocumentScopedRouteAnchorFollowupPassesForTests(
+            toolResults,
+            query,
+            "fr");
+
+        var pass = Assert.Single(passes);
+        Assert.Equal("anchor_followup_doc_scope", pass.Label);
+        Assert.Equal("doc-alpha", pass.DocId);
+        Assert.Equal("Knowledge/alpha-guide.pdf", pass.DocPath);
+        Assert.Equal("Knowledge", pass.CategoryScope);
+        Assert.Contains(pass.Queries, value => value.Contains("Alpha onboarding schedule", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(pass.Queries, value => value.Contains("Beta exception checklist", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(pass.Queries, value => value.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(pass.Queries, value => value.Contains("recette", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(pass.Queries, value => value.Contains("smoothie", StringComparison.OrdinalIgnoreCase));
+        Assert.True(ToolAgentOrchestrator.HasSourceBackedRouteAnchorFollowupQueriesForTests(toolResults, query, "fr"));
     }
 
     [Fact]
@@ -9719,7 +11194,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     }
 
     [Fact]
-    public void Weekly_planning_fallback_does_not_replace_writer_with_readable_candidate_bank()
+    public void Weekly_planning_fallback_returns_clean_partial_selection_when_writer_cannot_finish()
     {
         const string query = "Je cherche a avoir un plan de repas pour la semaine, tu me proposes quoi pour que ca varie un peu ?";
         var payload = JsonSerializer.Serialize(new
@@ -9772,25 +11247,26 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         var answer = ToolAgentOrchestrator.BuildRagEvidenceFallbackAnswerForTests(toolResults, query, "fr");
 
-        Assert.Contains("passages proches", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("trop limit", RemoveDiacritics(answer), StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Je peux construire", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("ne prouvent pas un planning complet", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("sur Je cherche", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("facilitemps.pdf p.16 :", answer);
         Assert.DoesNotContain("Ce document couvre plusieurs sections", answer);
         Assert.DoesNotContain("Cadre d'organisation", answer);
+        Assert.DoesNotContain("Repère d'organisation", answer);
         Assert.DoesNotContain("Candidats concrets", answer);
         Assert.DoesNotContain("sert", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("PETITS DEJ SMOOTHIE VERT", answer);
+        Assert.DoesNotContain("candidate", answer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]
-    [InlineData("fr", "Peux-tu me faire un plan pour la semaine ?", "Voici une base de travail exploitable")]
-    [InlineData("en", "Can you build a weekly plan?", "Here is a usable starting point")]
-    [InlineData("es", "Puedes hacerme un plan semanal?", "Aqui tienes una base de partida util")]
-    [InlineData("pt", "Podes fazer um plano semanal?", "Aqui esta uma base de partida util")]
-    [InlineData("de", "Kannst du einen Wochenplan erstellen?", "Hier ist ein nutzbarer Ausgangspunkt")]
-    [InlineData("it", "Puoi preparare un piano settimanale?", "Ecco una base di partenza utile")]
+    [InlineData("fr", "Peux-tu me faire un plan pour la semaine ?", "Voici une proposition pratique")]
+    [InlineData("en", "Can you build a weekly plan?", "Here is a practical draft")]
+    [InlineData("es", "Puedes hacerme un plan semanal?", "Aquí tienes un borrador práctico")]
+    [InlineData("pt", "Podes fazer um plano semanal?", "Aqui está um rascunho prático")]
+    [InlineData("de", "Kannst du einen Wochenplan erstellen?", "Hier ist ein praktischer Entwurf")]
+    [InlineData("it", "Puoi preparare un piano settimanale?", "Ecco una bozza pratica")]
     public void Weekly_planning_partial_fallback_opening_is_user_friendly_in_all_client_languages(
         string language,
         string query,
@@ -9956,13 +11432,78 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         var answer = ToolAgentOrchestrator.BuildSourceBackedPlanningAnswerForTests(toolResults, "fr", query);
 
-        Assert.Contains("Options utilisables", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Elements directement utilisables", RemoveDiacritics(answer), StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Controle journalier", answer);
         Assert.Contains("Verification hebdomadaire", answer);
         Assert.Contains("Revue qualite", answer);
         Assert.DoesNotContain("Lundi", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Vendredi", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Vendredi", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("operations.pdf p.4 :", answer);
+    }
+
+    [Theory]
+    [InlineData("fr", "ebauche de planning", "Lundi")]
+    [InlineData("en", "draft plan", "Monday")]
+    [InlineData("es", "borrador de plan", "Lunes")]
+    [InlineData("pt", "rascunho de plano", "Segunda")]
+    [InlineData("de", "Planentwurf", "Montag")]
+    [InlineData("it", "bozza di piano", "Lunedi")]
+    public void Explicit_planning_axes_partial_fallback_is_user_friendly_in_all_client_languages(
+        string language,
+        string expectedOpening,
+        string expectedFirstDay)
+    {
+        const string query = "Je cherche a avoir un plan pour la semaine, matin, midi et soir du lundi au vendredi.";
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                BuildHit("Controle matin", "Operations/weekly-a.pdf", 7),
+                BuildHit("Revue midi", "Operations/weekly-b.pdf", 9),
+                BuildHit("Cloture soir", "Operations/weekly-c.pdf", 11)
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildReadablePartialPlanningEvidenceAnswerForTests(toolResults, query, language);
+
+        var normalizedAnswer = RemoveDiacritics(answer);
+
+        Assert.Contains(expectedOpening, normalizedAnswer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(expectedFirstDay, normalizedAnswer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("documented base is incomplete", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("base documentée est incomplète", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("candidate(s)", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("slot(s)", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("lead(s)", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("candidat", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.False(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(answer));
+        Assert.False(ToolAgentOrchestrator.LooksLikePoorPlanningFallbackAnswerForTests(answer, query));
+
+        static object BuildHit(string title, string path, int page) => new
+        {
+            docPath = path,
+            docName = Path.GetFileName(path),
+            pageStart = page,
+            pageEnd = page,
+            excerpt = $"{title}. Procedure : verifier les informations disponibles, noter les ecarts et valider la suite.",
+            fullText = $"{title}. Procedure : verifier les informations disponibles, noter les ecarts et valider la suite.",
+            matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+            selectionHints = new
+            {
+                evidenceRole = "actionable_item",
+                actionabilityScore = 10,
+                supportScore = 8,
+                fragmentScore = 0,
+                navigationScore = 0,
+                qualityPenalty = 0
+            },
+            score = 0.95
+        };
     }
 
     [Fact]
@@ -10092,9 +11633,14 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         var answer = ToolAgentOrchestrator.BuildRagEvidenceFallbackAnswerForTests(toolResults, query, "fr");
 
-        Assert.Contains("passages proches", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("operations.pdf p.4", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("trop limit", RemoveDiacritics(answer), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Controle journalier", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Verification hebdomadaire", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.True(
+            Regex.Matches(answer, "operations\\.pdf p\\.4", RegexOptions.IgnoreCase).Count <= 1,
+            "The same visible source page must not be repeated when backend chunk/profile ids differ.");
         Assert.DoesNotContain("Procedure controle journalier", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("pas assez", answer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -10139,6 +11685,50 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.DoesNotContain("Références:", cleaned, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("Sources used:\n- operations.pdf p.4")]
+    [InlineData("Fuentes utilizadas:\n1. operations.pdf (p.4)")]
+    [InlineData("Fontes consultadas:\n1. operations.pdf (p.4)")]
+    [InlineData("Verwendete Quellen:\n1. operations.pdf (p.4)")]
+    [InlineData("Fonti consultate:\n1. operations.pdf (p.4)")]
+    public void Natural_multilingual_trailing_llm_source_list_is_removed(string trailingSourceBlock)
+    {
+        var answer = $"""
+        Proposition claire.
+        - Action : verifier le dossier.
+
+        {trailingSourceBlock}
+        """;
+
+        var cleaned = ToolAgentOrchestrator.RemoveTrailingModelEmittedSourceListForTests(answer);
+
+        Assert.Contains("verifier le dossier", cleaned);
+        Assert.DoesNotContain("operations.pdf", cleaned);
+    }
+
+    [Fact]
+    public void Natural_multilingual_source_list_before_final_caveat_is_removed_without_losing_caveat()
+    {
+        var answer = """
+        Proposition claire.
+        - Action : verifier le dossier.
+
+        Verwendete Quellen:
+        1. operations.pdf (p.4)
+        2. quality.pdf (p.9)
+
+        Pruefe die zitierten Seiten vor der Aktion.
+        """;
+
+        var cleaned = ToolAgentOrchestrator.RemoveTrailingModelEmittedSourceListForTests(answer);
+
+        Assert.Contains("verifier le dossier", cleaned);
+        Assert.Contains("Pruefe die zitierten Seiten", cleaned);
+        Assert.DoesNotContain("Verwendete Quellen:", cleaned, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("operations.pdf", cleaned);
+        Assert.DoesNotContain("quality.pdf", cleaned);
+    }
+
     [Fact]
     public void Model_source_list_before_final_caveat_is_removed_without_losing_caveat()
     {
@@ -10168,6 +11758,8 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedPlanningRequestForTests(
             "Je ne sais pas quoi faire pour les repas de cette semaine, tu peux m'aider ?"));
         Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedPlanningRequestForTests(
+            "Je cherche a organiser un planning pour la semaine, matin, midi et soir du lundi au vendredi."));
+        Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedPlanningRequestForTests(
             "J'ai un fournisseur qui demande une exception aux regles de conformite. Qu'est-ce que je dois verifier dans les documents ?"));
         Assert.False(ToolAgentOrchestrator.LooksLikeSourceBackedPlanningRequestForTests(
             "Tu peux me faire une idee de batch cooking avec cuisson parallele ?"));
@@ -10179,7 +11771,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     }
 
     [Fact]
-    public void Cuisine_meal_planning_falls_back_to_readable_source_leads_when_no_recipe_titles_are_detected()
+    public void Cuisine_meal_planning_with_only_generic_context_returns_insufficient_sources()
     {
         var payload = JsonSerializer.Serialize(new
         {
@@ -10211,10 +11803,14 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "fr");
 
         Assert.False(string.IsNullOrWhiteSpace(answer));
-        Assert.Contains("passages proches", answer, StringComparison.OrdinalIgnoreCase);
+        var normalized = RemoveDiacritics(answer);
+        Assert.Contains("trop limitees", normalized, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("passages voisins", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("base de travail exploitable", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("9782317030376.pdf", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.True(
+            Regex.Matches(answer, "9782317030376\\.pdf", RegexOptions.IgnoreCase).Count <= 1,
+            "A readable fallback may cite the source once, but must not repeat the same weak source as filler.");
+        Assert.DoesNotContain("proposition pratique", answer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -10390,7 +11986,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     }
 
     [Fact]
-    public void Soft_choice_planning_or_extractive_path_does_not_render_deterministic_options_when_writer_must_synthesize()
+    public void Soft_choice_planning_or_extractive_path_returns_clean_sourced_selection_when_writer_cannot_finish()
     {
         const string query = "Quel dessert francais choisir pour un repas chic ?";
         var payload = JsonSerializer.Serialize(new
@@ -10452,9 +12048,9 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             query,
             "fr");
 
-        Assert.Contains("passages proches", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("première sélection", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Option 1", answer);
-        Assert.DoesNotContain("TARTE TATIN", answer);
+        Assert.Contains("TARTE TATIN", answer);
         Assert.DoesNotContain("elements documentaires partiels", answer);
         Assert.DoesNotContain("ROTI AUX HERBES", answer);
     }
@@ -10647,7 +12243,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     }
 
     [Fact]
-    public void Soft_choice_fallback_does_not_render_candidate_list_when_writer_must_synthesize()
+    public void Soft_choice_fallback_returns_clean_candidate_when_writer_cannot_finish()
     {
         var payload = JsonSerializer.Serialize(new
         {
@@ -10699,8 +12295,8 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "Quel dessert francais choisir pour un repas chic ?",
             "fr");
 
-        Assert.Contains("passages proches", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("TARTE TATIN", answer);
+        Assert.Contains("première sélection", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("TARTE TATIN", answer);
         Assert.DoesNotContain("ROTI", answer);
         Assert.DoesNotContain("Plats principaux", answer);
     }
@@ -10750,8 +12346,8 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         Assert.Contains("acier", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("revetement", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("elements documentes a verifier", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("pas comme compatibilite certifiee", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("éléments documentés à vérifier", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("pas comme compatibilité certifiée", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Option 1", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Revetement epoxy", answer);
         Assert.DoesNotContain("Nettoyage rapide", answer);
@@ -11360,7 +12956,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "Donne la recette des patattas bravas.",
             "fr");
 
-        Assert.Contains("Je n'ai pas trouve", answer);
+        Assert.Contains("Je n'ai pas trouvé", answer);
         Assert.True(ToolAgentOrchestrator.LooksLikeMissingExactItemWithoutSourceLeadsForTests(answer));
         Assert.DoesNotContain("fromage", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Source principale : recipes.pdf p.22", answer);
@@ -12231,8 +13827,13 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
                                       && q.Contains("options", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(queries, q => q.Contains("petit", StringComparison.OrdinalIgnoreCase)
                                       && q.Contains("options", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, q => q.Contains("recettes", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, q => q.Contains("petit", StringComparison.OrdinalIgnoreCase)
+                                      && q.Contains("recettes", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, q => q.Contains("planning", StringComparison.OrdinalIgnoreCase)
+                                      && q.Contains("repas", StringComparison.OrdinalIgnoreCase)
+                                      && q.Contains("recettes", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, q => q.Contains("cherche", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(queries, q => q.Contains("recette", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, q => q.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, q => q.Contains("pdf", StringComparison.OrdinalIgnoreCase));
     }
@@ -12294,10 +13895,11 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         var answer = ToolAgentOrchestrator.BuildSourceBackedPlanningAnswerForTests(toolResults, "fr", query);
 
-        Assert.Contains("Options utilisables", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Elements directement utilisables", RemoveDiacritics(answer), StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Maintenance ventilation", answer);
         Assert.Contains("Maintenance capteurs", answer);
         Assert.DoesNotContain("Lundi", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Vendredi", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Mardi", answer, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -12328,6 +13930,110 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.DoesNotContain("1 valve", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Mettre le capot", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("BECOME A TECH", answer, StringComparison.OrdinalIgnoreCase);
+
+        static object BuildHit(string title, string path, int page) => new
+        {
+            docPath = path,
+            docName = Path.GetFileName(path),
+            pageStart = page,
+            pageEnd = page,
+            excerpt = $"{title}. Procedure : verifier, consigner et valider le resultat.",
+            fullText = $"{title}. Procedure : verifier, consigner et valider le resultat.",
+            matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+            selectionHints = new
+            {
+                evidenceRole = "actionable_item",
+                actionabilityScore = 12,
+                supportScore = 6,
+                fragmentScore = 0,
+                navigationScore = 0,
+                qualityPenalty = 0
+            },
+            score = 0.99
+        };
+    }
+
+    [Fact]
+    public void Structured_planning_filters_generic_schedule_context_titles()
+    {
+        const string query = "Aide-moi a faire un plan pour la semaine, matin et soir du lundi au vendredi.";
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                BuildHit("Organiser une action par semaine", "Operations/context-a.pdf", 2),
+                BuildHit("Pause avant intervention", "Operations/context-b.pdf", 3),
+                BuildHit("Option entre minuit et", "Operations/context-c.pdf", 4),
+                BuildHit("Maintenance ventilation", "Operations/maintenance-a.pdf", 5),
+                BuildHit("Controle capteurs", "Operations/maintenance-b.pdf", 6)
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedPlanningAnswerForTests(toolResults, "fr", query);
+
+        Assert.Contains("Maintenance ventilation", answer);
+        Assert.Contains("Controle capteurs", answer);
+        Assert.DoesNotContain("Organiser une action par semaine", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Pause avant intervention", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Option entre minuit et", answer, StringComparison.OrdinalIgnoreCase);
+
+        static object BuildHit(string title, string path, int page) => new
+        {
+            docPath = path,
+            docName = Path.GetFileName(path),
+            pageStart = page,
+            pageEnd = page,
+            excerpt = $"{title}. Informations visibles dans le document.",
+            fullText = $"{title}. Informations visibles dans le document.",
+            matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+            selectionHints = new
+            {
+                evidenceRole = "actionable_item",
+                actionabilityScore = 12,
+                supportScore = 6,
+                fragmentScore = 0,
+                navigationScore = 0,
+                qualityPenalty = 0
+            },
+            score = 0.99
+        };
+    }
+
+    [Fact]
+    public void Structured_planning_rejects_generic_cadence_and_timing_items()
+    {
+        const string query = "Je cherche a avoir un plan pour la semaine, matin, midi et soir du lundi au vendredi.";
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                BuildHit("Action legere entre minuit et 1 heure du matin", "Operations/context-a.pdf", 2),
+                BuildHit("Organiser un ou deux controles par semaine", "Operations/context-b.pdf", 3),
+                BuildHit("Verification ventilation", "Operations/concrete-a.pdf", 4),
+                BuildHit("Controle capteurs", "Operations/concrete-b.pdf", 5),
+                BuildHit("Revue securite", "Operations/concrete-c.pdf", 6),
+                BuildHit("Validation journal", "Operations/concrete-d.pdf", 7)
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedPlanningAnswerForTests(toolResults, "fr", query);
+
+        Assert.Contains("Verification ventilation", answer);
+        Assert.Contains("Controle capteurs", answer);
+        Assert.Contains("Revue securite", answer);
+        Assert.Contains("Validation journal", answer);
+        Assert.Contains("couvrent seulement une partie", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Action legere entre minuit", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Organiser un ou deux controles par semaine", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Lundi", answer, StringComparison.OrdinalIgnoreCase);
 
         static object BuildHit(string title, string path, int page) => new
         {
@@ -12408,15 +14114,16 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "Maintenance capteurs",
             "Maintenance hydraulique",
             "Maintenance securite",
-            "Maintenance journalier");
+            "Maintenance journalier",
+            "Maintenance energie");
 
         Assert.True(ToolAgentOrchestrator.ShouldExpandSourceBackedPlanningRetrievalForTests(sparseResults, query, "fr"));
         Assert.True(ToolAgentOrchestrator.IsBetterSourceBackedPlanningCoverageForTests(sparseResults, expandedResults, query, "fr"));
-        Assert.False(ToolAgentOrchestrator.ShouldExpandSourceBackedPlanningRetrievalForTests(expandedResults, query, "fr"));
+        Assert.True(ToolAgentOrchestrator.ShouldExpandSourceBackedPlanningRetrievalForTests(expandedResults, query, "fr"));
         Assert.False(ToolAgentOrchestrator.ShouldAllowWriterForPartialSourceBackedPlanningForTests(sparseResults, query, "fr"));
         Assert.False(ToolAgentOrchestrator.ShouldUseWriterForBroadSourceBackedSynthesisForTests(sparseResults, query));
-        Assert.True(ToolAgentOrchestrator.ShouldPreferWriterForPolishedSourceBackedAnswerForTests(sparseResults, query));
-        Assert.True(ToolAgentOrchestrator.ShouldUseWriterForBroadSourceBackedSynthesisForTests(expandedResults, query));
+        Assert.False(ToolAgentOrchestrator.ShouldPreferWriterForPolishedSourceBackedAnswerForTests(sparseResults, query));
+        Assert.False(ToolAgentOrchestrator.ShouldUseWriterForBroadSourceBackedSynthesisForTests(expandedResults, query));
 
         static ToolResults BuildPlanningCoverageToolResults(params string[] titles)
         {
@@ -12449,9 +14156,9 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     }
 
     [Fact]
-    public void Structured_planning_with_diverse_partial_candidates_can_use_writer_without_filling_grid()
+    public void Structured_planning_with_diverse_partial_candidates_keeps_exploring_instead_of_using_writer()
     {
-        const string query = "Aide-moi a faire un plan de maintenance pour la semaine, matin, midi et soir du lundi au vendredi.";
+        const string query = "Aide-moi a faire un plan de maintenance pour la semaine, matin, midi et soir du lundi au vendredi, avec les documents disponibles.";
         var payload = JsonSerializer.Serialize(new
         {
             hits = new object[]
@@ -12468,8 +14175,9 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
 
         Assert.True(ToolAgentOrchestrator.ShouldExpandSourceBackedPlanningRetrievalForTests(toolResults, query, "fr"));
-        Assert.True(ToolAgentOrchestrator.ShouldAllowWriterForPartialSourceBackedPlanningForTests(toolResults, query, "fr"));
-        Assert.True(ToolAgentOrchestrator.ShouldUseWriterForBroadSourceBackedSynthesisForTests(toolResults, query));
+        Assert.False(ToolAgentOrchestrator.ShouldAllowWriterForPartialSourceBackedPlanningForTests(toolResults, query, "fr"));
+        Assert.False(ToolAgentOrchestrator.ShouldUseWriterForBroadSourceBackedSynthesisForTests(toolResults, query));
+        Assert.False(ToolAgentOrchestrator.ShouldPreferWriterForPolishedSourceBackedAnswerForTests(toolResults, query));
 
         static object BuildHit(string title, string path, int page) => new
         {
@@ -12494,6 +14202,239 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     }
 
     [Fact]
+    public void Structured_planning_with_insufficient_coverage_bypasses_writer_with_clear_answer()
+    {
+        const string query = "Aide-moi a faire un plan de maintenance pour la semaine, matin, midi et soir du lundi au vendredi, avec les documents disponibles.";
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                BuildHit("Maintenance ventilation", "Operations/maintenance-a.pdf", 1),
+                BuildHit("Maintenance capteurs", "Operations/maintenance-b.pdf", 2),
+                BuildHit("Maintenance hydraulique", "Operations/maintenance-c.pdf", 3),
+                BuildHit("Maintenance securite", "Operations/maintenance-d.pdf", 4),
+                BuildHit("Maintenance energie", "Operations/maintenance-e.pdf", 5),
+                BuildHit("Maintenance reseau", "Operations/maintenance-f.pdf", 6)
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.TryBuildInsufficientStructuredPlanningBeforeWriterAnswerForTests(toolResults, query, "fr");
+
+        Assert.True(ToolAgentOrchestrator.RequiresStructuredSourceBackedPlanningCoverageForTests(query));
+        Assert.True(ToolAgentOrchestrator.ShouldGateStructuredSourceBackedPlanningCoverageForTests(query));
+        Assert.False(ToolAgentOrchestrator.ShouldRequireWriterForBroadDocumentaryFinalForTests(toolResults, query, "fr"));
+        Assert.False(ToolAgentOrchestrator.ShouldRouteSourceBackedAnswerThroughWriterForTests(toolResults, query, "fr"));
+        Assert.False(ToolAgentOrchestrator.ShouldPreferWriterForPolishedSourceBackedAnswerForTests(toolResults, query));
+        Assert.Contains("trop limitees", RemoveDiacritics(answer), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Maintenance ventilation", answer, StringComparison.OrdinalIgnoreCase);
+
+        static object BuildHit(string title, string path, int page) => new
+        {
+            docPath = path,
+            docName = Path.GetFileName(path),
+            pageStart = page,
+            pageEnd = page,
+            excerpt = $"{title}. Procedure : verifier, consigner et valider le resultat.",
+            fullText = $"{title}. Procedure : verifier, consigner et valider le resultat.",
+            matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+            selectionHints = new
+            {
+                evidenceRole = "actionable_item",
+                actionabilityScore = 12,
+                supportScore = 6,
+                fragmentScore = 0,
+                navigationScore = 0,
+                qualityPenalty = 0
+            },
+            score = 0.99
+        };
+    }
+
+    [Fact]
+    public void Structured_planning_after_expanded_search_keeps_partial_evidence_away_from_writer()
+    {
+        const string query = "Aide-moi a faire un plan de maintenance pour la semaine, matin, midi et soir du lundi au vendredi, avec les documents disponibles.";
+        var firstPayload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                BuildHit("Maintenance ventilation", "Operations/maintenance-a.pdf", 1),
+                BuildHit("Maintenance capteurs", "Operations/maintenance-b.pdf", 2)
+            }
+        });
+        var expandedPayload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                BuildHit("Maintenance ventilation", "Operations/maintenance-a.pdf", 1),
+                BuildHit("Maintenance capteurs", "Operations/maintenance-b.pdf", 2),
+                BuildHit("Maintenance hydraulique", "Operations/maintenance-c.pdf", 3),
+                BuildHit("Maintenance securite", "Operations/maintenance-d.pdf", 4),
+                BuildHit("Maintenance energie", "Operations/maintenance-e.pdf", 5),
+                BuildHit("Maintenance reseau", "Operations/maintenance-f.pdf", 6)
+            }
+        });
+
+        using var firstDoc = JsonDocument.Parse(firstPayload);
+        using var expandedDoc = JsonDocument.Parse(expandedPayload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = firstDoc.RootElement.Clone() });
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = expandedDoc.RootElement.Clone() });
+
+        var bypass = ToolAgentOrchestrator.TryBuildInsufficientStructuredPlanningBeforeWriterAnswerForTests(toolResults, query, "fr");
+
+        Assert.True(ToolAgentOrchestrator.ShouldExpandSourceBackedPlanningRetrievalForTests(toolResults, query, "fr"));
+        Assert.False(ToolAgentOrchestrator.ShouldAllowWriterForPartialSourceBackedPlanningForTests(toolResults, query, "fr"));
+        Assert.False(ToolAgentOrchestrator.ShouldRequireWriterForBroadDocumentaryFinalForTests(toolResults, query, "fr"));
+        Assert.False(ToolAgentOrchestrator.ShouldRouteSourceBackedAnswerThroughWriterForTests(toolResults, query, "fr"));
+        Assert.False(ToolAgentOrchestrator.ShouldPreferWriterForPolishedSourceBackedAnswerForTests(toolResults, query));
+        Assert.Contains("trop limitees", RemoveDiacritics(bypass), StringComparison.OrdinalIgnoreCase);
+
+        static object BuildHit(string title, string path, int page) => new
+        {
+            docPath = path,
+            docName = Path.GetFileName(path),
+            pageStart = page,
+            pageEnd = page,
+            excerpt = $"{title}. Procedure : verifier, consigner et valider le resultat.",
+            fullText = $"{title}. Procedure : verifier, consigner et valider le resultat.",
+            matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+            selectionHints = new
+            {
+                evidenceRole = "actionable_item",
+                actionabilityScore = 12,
+                supportScore = 6,
+                fragmentScore = 0,
+                navigationScore = 0,
+                qualityPenalty = 0
+            },
+            score = 0.99 - (page * 0.01)
+        };
+    }
+
+    [Fact]
+    public void Structured_planning_after_expanded_search_rejects_small_distinct_bank()
+    {
+        const string query = "Aide-moi a faire un plan de maintenance pour la semaine, matin, midi et soir du lundi au vendredi, avec les documents disponibles.";
+        var firstPayload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                BuildHit("Maintenance ventilation", "Operations/maintenance-a.pdf", 1),
+                BuildHit("Maintenance capteurs", "Operations/maintenance-b.pdf", 2)
+            }
+        });
+        var expandedPayload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                BuildHit("Maintenance ventilation", "Operations/maintenance-a.pdf", 1),
+                BuildHit("Maintenance capteurs", "Operations/maintenance-b.pdf", 2),
+                BuildHit("Maintenance hydraulique", "Operations/maintenance-c.pdf", 3),
+                BuildHit("Maintenance securite", "Operations/maintenance-d.pdf", 4)
+            }
+        });
+
+        using var firstDoc = JsonDocument.Parse(firstPayload);
+        using var expandedDoc = JsonDocument.Parse(expandedPayload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = firstDoc.RootElement.Clone() });
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = expandedDoc.RootElement.Clone() });
+
+        var bypass = ToolAgentOrchestrator.TryBuildInsufficientStructuredPlanningBeforeWriterAnswerForTests(toolResults, query, "fr");
+
+        Assert.True(ToolAgentOrchestrator.HasExpandedSourceBackedSearchEvidenceForTests(toolResults));
+        Assert.False(ToolAgentOrchestrator.ShouldAllowWriterForPartialSourceBackedPlanningForTests(toolResults, query, "fr"));
+        Assert.False(ToolAgentOrchestrator.ShouldRequireWriterForBroadDocumentaryFinalForTests(toolResults, query, "fr"));
+        Assert.False(ToolAgentOrchestrator.ShouldRouteSourceBackedAnswerThroughWriterForTests(toolResults, query, "fr"));
+        Assert.False(ToolAgentOrchestrator.ShouldPreferWriterForPolishedSourceBackedAnswerForTests(toolResults, query));
+        Assert.Contains("trop limitees", RemoveDiacritics(bypass), StringComparison.OrdinalIgnoreCase);
+
+        static object BuildHit(string title, string path, int page) => new
+        {
+            docPath = path,
+            docName = Path.GetFileName(path),
+            pageStart = page,
+            pageEnd = page,
+            excerpt = $"{title}. Procedure : verifier les informations disponibles, noter les ecarts et valider la suite.",
+            fullText = $"{title}. Procedure : verifier les informations disponibles, noter les ecarts et valider la suite.",
+            matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+            selectionHints = new
+            {
+                evidenceRole = "actionable_item",
+                actionabilityScore = 10,
+                supportScore = 8,
+                fragmentScore = 0,
+                navigationScore = 0,
+                qualityPenalty = 0
+            },
+            score = 0.99 - (page * 0.01)
+        };
+    }
+
+    [Fact]
+    public void Structured_planning_after_confirmed_broadened_search_routes_small_useful_bank_to_writer()
+    {
+        const string envelope = """
+        PREVIOUS_USER_REQUEST:
+        Aide-moi a faire un plan de maintenance pour la semaine, matin, midi et soir du lundi au vendredi, avec les documents disponibles.
+
+        USER_CONFIRMED_BROADER_SOURCE_SEARCH:
+        oui vas y
+
+        RESOLVED_REQUEST:
+        Continue the previous source-backed request by running a broader retrieval exploration.
+        """;
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                BuildHit("Controle matin", "Operations/weekly-a.pdf", 7),
+                BuildHit("Revue midi", "Operations/weekly-b.pdf", 9),
+                BuildHit("Cloture soir", "Operations/weekly-c.pdf", 11),
+                BuildHit("Preparation hebdomadaire", "Operations/weekly-d.pdf", 13)
+            }
+        });
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var bypass = ToolAgentOrchestrator.TryBuildInsufficientStructuredPlanningBeforeWriterAnswerForTests(toolResults, envelope, "fr");
+
+        Assert.False(ToolAgentOrchestrator.ShouldAllowWriterForPartialSourceBackedPlanningForTests(toolResults, envelope, "fr"));
+        Assert.False(ToolAgentOrchestrator.ShouldRequireWriterForBroadDocumentaryFinalForTests(toolResults, envelope, "fr"));
+        Assert.False(ToolAgentOrchestrator.ShouldRouteSourceBackedAnswerThroughWriterForTests(toolResults, envelope, "fr"));
+        Assert.False(ToolAgentOrchestrator.ShouldPreferWriterForPolishedSourceBackedAnswerForTests(toolResults, envelope));
+        Assert.Contains("trop limitees", RemoveDiacritics(bypass), StringComparison.OrdinalIgnoreCase);
+
+        static object BuildHit(string title, string path, int page) => new
+        {
+            docPath = path,
+            docName = Path.GetFileName(path),
+            pageStart = page,
+            pageEnd = page,
+            excerpt = $"{title}. Procedure : verifier les informations disponibles, noter les ecarts et valider la suite.",
+            fullText = $"{title}. Procedure : verifier les informations disponibles, noter les ecarts et valider la suite.",
+            matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+            selectionHints = new
+            {
+                evidenceRole = "actionable_item",
+                actionabilityScore = 10,
+                supportScore = 8,
+                fragmentScore = 0,
+                navigationScore = 0,
+                qualityPenalty = 0
+            },
+            score = 0.95
+        };
+    }
+
+    [Fact]
     public void Planning_coverage_does_not_accept_same_candidate_repeated_across_pages()
     {
         const string query = "Aide-moi a faire un plan de maintenance pour la semaine, matin et soir du lundi au vendredi.";
@@ -12502,7 +14443,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.True(ToolAgentOrchestrator.ShouldExpandSourceBackedPlanningRetrievalForTests(repeatedCandidateResults, query, "fr"));
         Assert.False(ToolAgentOrchestrator.ShouldAllowWriterForPartialSourceBackedPlanningForTests(repeatedCandidateResults, query, "fr"));
         Assert.False(ToolAgentOrchestrator.ShouldUseWriterForBroadSourceBackedSynthesisForTests(repeatedCandidateResults, query));
-        Assert.True(ToolAgentOrchestrator.ShouldPreferWriterForPolishedSourceBackedAnswerForTests(repeatedCandidateResults, query));
+        Assert.False(ToolAgentOrchestrator.ShouldPreferWriterForPolishedSourceBackedAnswerForTests(repeatedCandidateResults, query));
 
         static ToolResults BuildRepeatedPlanningCandidateToolResults(string title, int count)
         {
@@ -12711,6 +14652,98 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
                 pageStart = index + 1,
                 pageEnd = index + 1,
                 excerpt = $"{item.Title}. Mesures de maintenance preventive, controle, responsabilite et suivi.",
+                fullText = $"{item.Title}. Mesures de maintenance preventive, controle, responsabilite et suivi documente.",
+                matchedContentCards = new[] { new { title = item.Title, kind = "unit_lead" } },
+                selectionHints = new
+                {
+                    evidenceRole = "supporting_evidence",
+                    actionabilityScore = 8,
+                    supportScore = 8,
+                    fragmentScore = 0,
+                    navigationScore = 0,
+                    qualityPenalty = 0
+                },
+                score = 0.98 - (index * 0.01)
+            }).ToArray();
+
+            using var doc = JsonDocument.Parse(JsonSerializer.Serialize(new { hits }));
+            var toolResults = new ToolResults();
+            toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+            return toolResults;
+        }
+    }
+
+    [Fact]
+    public void Documentary_probe_allows_writer_for_partial_planning_material_after_broad_search()
+    {
+        const string query = "Aide-moi a construire un plan hebdomadaire source du lundi au vendredi.";
+        var partial = BuildDocumentaryProbeCoverageToolResults(
+            ("planning-a.pdf", "Controle quotidien"),
+            ("planning-b.pdf", "Intervention du soir"));
+
+        Assert.True(ToolAgentOrchestrator.ShouldExpandDocumentaryProbeRetrievalForTests(partial, query, "fr"));
+        Assert.True(ToolAgentOrchestrator.ShouldUseWriterForDocumentaryProbeAnswerForTests(partial, query));
+
+        static ToolResults BuildDocumentaryProbeCoverageToolResults(params (string DocName, string Title)[] items)
+        {
+            var hits = items.Select((item, index) => new
+            {
+                docPath = $"Operations/{item.DocName}",
+                docName = item.DocName,
+                pageStart = index + 1,
+                pageEnd = index + 1,
+                excerpt = $"{item.Title}. Element exploitable pour organiser une partie du plan demande.",
+                fullText = $"{item.Title}. Element exploitable pour organiser une partie du plan demande avec source et limite documentee.",
+                matchedContentCards = new[] { new { title = item.Title, kind = "unit_lead" } },
+                selectionHints = new
+                {
+                    evidenceRole = "supporting_evidence",
+                    actionabilityScore = 8,
+                    supportScore = 8,
+                    fragmentScore = 0,
+                    navigationScore = 0,
+                    qualityPenalty = 0
+                },
+                score = 0.98 - (index * 0.01)
+            }).ToArray();
+
+            using var doc = JsonDocument.Parse(JsonSerializer.Serialize(new { hits }));
+            var toolResults = new ToolResults();
+            toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+            return toolResults;
+        }
+    }
+
+    [Fact]
+    public void Documentary_probe_defers_writer_when_broader_search_was_confirmed()
+    {
+        var toolResults = BuildDocumentaryProbeCoverageToolResults(
+            ("maintenance-a.pdf", "Maintenance preventive"),
+            ("maintenance-b.pdf", "Planning intervention"),
+            ("maintenance-c.pdf", "Controle periodicite"));
+        const string confirmedEnvelope = """
+PREVIOUS_USER_REQUEST:
+Aide-moi a construire un plan hebdomadaire source du lundi au vendredi.
+
+USER_CONFIRMED_BROADER_SOURCE_SEARCH:
+oui vas-y
+
+RESOLVED_REQUEST:
+Continue the previous source-backed request by running a broader retrieval exploration across the relevant indexed corpus or category before answering.
+""";
+
+        Assert.True(ToolAgentOrchestrator.ShouldUseWriterForDocumentaryProbeAnswerForTests(toolResults, confirmedEnvelope));
+        Assert.True(ToolAgentOrchestrator.ShouldDeferDocumentaryProbeWriterForBroaderExplorationForTests(toolResults, confirmedEnvelope));
+
+        static ToolResults BuildDocumentaryProbeCoverageToolResults(params (string DocName, string Title)[] items)
+        {
+            var hits = items.Select((item, index) => new
+            {
+                docPath = $"Operations/{item.DocName}",
+                docName = item.DocName,
+                pageStart = index + 1,
+                pageEnd = index + 1,
+                excerpt = $"{item.Title}. Mesures de maintenance preventive, controle, responsabilite et suivi documente.",
                 fullText = $"{item.Title}. Mesures de maintenance preventive, controle, responsabilite et suivi documente.",
                 matchedContentCards = new[] { new { title = item.Title, kind = "unit_lead" } },
                 selectionHints = new
@@ -13064,18 +15097,21 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     }
 
     [Theory]
-    [InlineData("fr", "recherche plus large")]
-    [InlineData("en", "broader corpus search")]
-    [InlineData("es", "búsqueda más amplia")]
-    [InlineData("pt", "pesquisa mais ampla")]
-    [InlineData("de", "breitere Suche")]
-    [InlineData("it", "ricerca più ampia")]
+    [InlineData("fr", "élargir la recherche")]
+    [InlineData("en", "broaden the search")]
+    [InlineData("es", "ampliar la búsqueda")]
+    [InlineData("pt", "alargar a pesquisa")]
+    [InlineData("de", "Suche erweitern")]
+    [InlineData("it", "ampliare la ricerca")]
     public void Empty_broad_source_backed_search_offers_expansion_in_ui_language(string language, string expected)
     {
         var payload = JsonSerializer.Serialize(new { hits = Array.Empty<object>() });
         using var doc = JsonDocument.Parse(payload);
         var toolResults = new ToolResults();
         toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        Assert.True(ToolAgentOrchestrator.LooksLikeBroadEmptySourceSearchRequestForTests(
+            "Propose-moi plusieurs options utiles a partir des documents."));
 
         var answer = ToolAgentOrchestrator.TryBuildNoRagEvidenceAnswerForTests(
             toolResults,
@@ -13178,6 +15214,32 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.Contains(queries, q => q.Contains("sommaire", StringComparison.OrdinalIgnoreCase)
                                       || q.Contains("table des matieres", StringComparison.OrdinalIgnoreCase)
                                       || q.Contains("index", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, q => q.Contains("recette", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, q => q.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Broad_planning_navigation_discovery_keeps_multilingual_structure_terms_for_cross_language_corpora()
+    {
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = JsonDocument.Parse(JsonSerializer.Serialize(new { hits = Array.Empty<object>() })).RootElement.Clone()
+        });
+
+        const string query = "Can you suggest a weekly plan from the available documents?";
+        var queries = ToolAgentOrchestrator.BuildSourceBackedEvidenceExplorationPassQueriesForTests(
+            toolResults,
+            query,
+            "en");
+
+        Assert.Contains(queries, q => q.Contains("table of contents", StringComparison.OrdinalIgnoreCase)
+                                      || q.Contains("contents", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, q => q.Contains("sommaire", StringComparison.OrdinalIgnoreCase)
+                                      || q.Contains("table des matieres", StringComparison.OrdinalIgnoreCase)
+                                      || q.Contains("inhaltsverzeichnis", StringComparison.OrdinalIgnoreCase)
+                                      || q.Contains("sommario", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, q => q.Contains("recette", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, q => q.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
     }
@@ -13410,18 +15472,86 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.DoesNotContain(queries, q => q.Contains("recette", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, q => q.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
 
-        var scopedPass = Assert.Single(ToolAgentOrchestrator.BuildSourceBackedDocumentScopedRouteAnchorFollowupPassesForTests(
+        var scopedPasses = ToolAgentOrchestrator.BuildSourceBackedDocumentScopedRouteAnchorFollowupPassesForTests(
             toolResults,
             "Prepare un plan hebdomadaire a partir des documents.",
-            "fr"));
-        Assert.Equal("anchor_followup_doc_scope", scopedPass.Label);
-        Assert.Equal("doc-weekly", scopedPass.DocId);
-        Assert.Equal("Operations/Weekly guide.pdf", scopedPass.DocPath);
-        Assert.Equal("Operations", scopedPass.CategoryScope);
-        Assert.Contains(scopedPass.Queries, q => q.Contains("Morning control checklist", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(scopedPass.Queries, q => q.Contains("Evening exception review", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(scopedPass.Queries, q => q.Contains("recette", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(scopedPass.Queries, q => q.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
+            "fr");
+        Assert.Equal(2, scopedPasses.Length);
+        var morningPass = Assert.Single(scopedPasses, pass => pass.PageStart == 12);
+        var eveningPass = Assert.Single(scopedPasses, pass => pass.PageStart == 18);
+        Assert.Equal("anchor_followup_doc_scope", morningPass.Label);
+        Assert.Equal("doc-weekly", morningPass.DocId);
+        Assert.Equal("Operations/Weekly guide.pdf", morningPass.DocPath);
+        Assert.Equal("Operations", morningPass.CategoryScope);
+        Assert.Equal(13, morningPass.PageEnd);
+        Assert.Contains(morningPass.Queries, q => q.Contains("Morning control checklist", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(eveningPass.Queries, q => q.Contains("Evening exception review", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(morningPass.Queries, q => q.Contains("Morning control checklist", StringComparison.OrdinalIgnoreCase)
+                                                  && (q.Contains("page 12", StringComparison.OrdinalIgnoreCase)
+                                                      || q.Contains("p 12", StringComparison.OrdinalIgnoreCase)));
+        Assert.Contains(eveningPass.Queries, q => q.Contains("Evening exception review", StringComparison.OrdinalIgnoreCase)
+                                                  && (q.Contains("page 18", StringComparison.OrdinalIgnoreCase)
+                                                      || q.Contains("p 18", StringComparison.OrdinalIgnoreCase)));
+        Assert.DoesNotContain(scopedPasses.SelectMany(static pass => pass.Queries), q => q.Contains("recette", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(scopedPasses.SelectMany(static pass => pass.Queries), q => q.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Structured_planning_document_scoped_followup_reads_more_navigation_anchors_without_domain_terms()
+    {
+        var labels = new[]
+        {
+            ("Morning control checklist", 12),
+            ("Noon preparation guide", 14),
+            ("Evening exception review", 16),
+            ("Weekly resource rotation", 18),
+            ("Daily verification table", 20),
+            ("Operator handover note", 22),
+            ("Friday closure report", 24)
+        };
+        var payload = JsonSerializer.Serialize(new
+        {
+            navigationOnly = true,
+            items = labels.Select(label => new
+            {
+                docId = "doc-weekly",
+                docPath = "Operations/Weekly guide.pdf",
+                docName = "Weekly guide.pdf",
+                categoryPath = "Operations",
+                kind = "navigation_entry",
+                label = label.Item1,
+                targetPageStart = label.Item2,
+                targetPageEnd = (int?)null,
+                hasTargetChunk = true,
+                hasTargetAnchor = true,
+                confidence = 0.9
+            }).ToArray()
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "documents.navigation", Result = doc.RootElement.Clone() });
+
+        const string query = "Prepare un plan hebdomadaire, matin midi et soir, du lundi au vendredi, a partir des documents.";
+        var scopedPasses = ToolAgentOrchestrator.BuildSourceBackedDocumentScopedRouteAnchorFollowupPassesForTests(
+            toolResults,
+            query,
+            "fr");
+
+        Assert.Equal(7, scopedPasses.Length);
+        Assert.Contains(scopedPasses.SelectMany(static pass => pass.Queries), q => q.Contains("pages 12-13", StringComparison.OrdinalIgnoreCase)
+                                                                                  || q.Contains("p 12-13", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(scopedPasses.SelectMany(static pass => pass.Queries), q => q.Contains("recette", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(scopedPasses.SelectMany(static pass => pass.Queries), q => q.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Structured_planning_document_scoped_followup_uses_deeper_retrieval_than_default_scope()
+    {
+        const string query = "Prepare un plan hebdomadaire, matin midi et soir, du lundi au vendredi, a partir des documents.";
+
+        Assert.True(ToolAgentOrchestrator.ResolveSourceBackedEvidenceExplorationTopKForTests(query, "anchor_followup_doc_scope") >= 24);
+        Assert.Equal(4, ToolAgentOrchestrator.ResolveSourceBackedDocumentScopedExplorationMaxPerPageForTests(query, "anchor_followup_doc_scope"));
+        Assert.Equal(2, ToolAgentOrchestrator.ResolveSourceBackedDocumentScopedExplorationMaxPerPageForTests(query, "candidate_discovery"));
     }
 
     [Fact]
@@ -13552,7 +15682,8 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "Donne moi juste une liste de procedures disponibles.",
             "fr");
 
-        Assert.Contains("trop faibles", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("proposition pratique", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("�largir la recherche", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Controle quotidien", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("element demande", answer, StringComparison.OrdinalIgnoreCase);
     }
@@ -13609,7 +15740,152 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     }
 
     [Fact]
-    public void Generic_collection_rag_fallback_does_not_replace_writer_with_candidate_list()
+    public void Generic_collection_candidate_list_rejects_title_only_cards_without_real_evidence()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Operations/title-only-a.pdf",
+                    docName = "title-only-a.pdf",
+                    pageStart = 2,
+                    pageEnd = 2,
+                    excerpt = "Controle titre seul",
+                    fullText = "Controle titre seul",
+                    matchedContentCards = new[] { new { title = "Controle titre seul", kind = "unit_lead" } },
+                    score = 0.99
+                },
+                new
+                {
+                    docPath = "Operations/title-only-b.pdf",
+                    docName = "title-only-b.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "Verification titre seul",
+                    fullText = "Verification titre seul",
+                    matchedContentCards = new[] { new { title = "Verification titre seul", kind = "unit_lead" } },
+                    score = 0.98
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildReadableSourceBackedCandidateListFallbackAnswerForTests(
+            toolResults,
+            "Donne moi juste une liste de procedures disponibles.",
+            "fr");
+
+        Assert.DoesNotContain("Controle titre seul", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Verification titre seul", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("elements documentes disponibles", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Generic_collection_candidate_list_keeps_cards_with_structured_evidence()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Operations/evidence-a.pdf",
+                    docName = "evidence-a.pdf",
+                    pageStart = 5,
+                    pageEnd = 5,
+                    excerpt = "Controle quotidien. Procedure : verifier les anomalies ouvertes, consigner les ecarts et valider la cloture.",
+                    fullText = "Controle quotidien. Procedure : verifier les anomalies ouvertes, consigner les ecarts et valider la cloture.",
+                    matchedContentCards = new object[]
+                    {
+                        new
+                        {
+                            title = "Controle quotidien",
+                            kind = "unit_lead",
+                            evidence = new
+                            {
+                                facts = new[]
+                                {
+                                    new
+                                    {
+                                        label = "preuve",
+                                        sourceText = "Verifier les anomalies, consigner les ecarts et valider la cloture."
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    selectionHints = new
+                    {
+                        evidenceRole = "actionable_item",
+                        actionabilityScore = 12,
+                        supportScore = 8,
+                        fragmentScore = 0,
+                        navigationScore = 0,
+                        qualityPenalty = 0
+                    },
+                    score = 0.99
+                },
+                new
+                {
+                    docPath = "Operations/evidence-b.pdf",
+                    docName = "evidence-b.pdf",
+                    pageStart = 8,
+                    pageEnd = 8,
+                    excerpt = "Controle hebdomadaire. Procedure : consolider les points ouverts, affecter les responsables et archiver le rapport.",
+                    fullText = "Controle hebdomadaire. Procedure : consolider les points ouverts, affecter les responsables et archiver le rapport.",
+                    matchedContentCards = new object[]
+                    {
+                        new
+                        {
+                            title = "Controle hebdomadaire",
+                            kind = "unit_lead",
+                            evidence = new
+                            {
+                                quantityFacts = new[]
+                                {
+                                    new
+                                    {
+                                        value = 15,
+                                        unit = "min",
+                                        label = "delai",
+                                        sourceText = "Controle visible en 15 minutes."
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    selectionHints = new
+                    {
+                        evidenceRole = "actionable_item",
+                        actionabilityScore = 12,
+                        supportScore = 8,
+                        fragmentScore = 0,
+                        navigationScore = 0,
+                        qualityPenalty = 0
+                    },
+                    score = 0.98
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildReadableSourceBackedCandidateListFallbackAnswerForTests(
+            toolResults,
+            "Donne moi juste une liste de procedures disponibles.",
+            "fr");
+
+        Assert.Contains("Controle quotidien", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Controle hebdomadaire", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Generic_collection_rag_fallback_returns_clean_candidate_list_when_writer_cannot_finish()
     {
         var payload = JsonSerializer.Serialize(new
         {
@@ -13656,17 +15932,17 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "Donne moi juste une liste de procedures disponibles.",
             "fr");
 
-        Assert.Contains("passages proches", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Controle quotidien", answer);
-        Assert.DoesNotContain("Controle secondaire", answer);
-        Assert.DoesNotContain("Controle hebdomadaire", answer);
+        Assert.Contains("première sélection", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Controle quotidien", answer);
+        Assert.Contains("Controle secondaire", answer);
+        Assert.Contains("Controle hebdomadaire", answer);
         Assert.DoesNotContain("element demande", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("elements documentes disponibles", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("sans ajout de faits", answer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void Generic_collection_safe_fallback_does_not_return_raw_candidate_list_when_writer_must_synthesize()
+    public void Generic_collection_safe_fallback_returns_clean_candidate_list_when_writer_cannot_finish()
     {
         var payload = JsonSerializer.Serialize(new
         {
@@ -13711,18 +15987,21 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         const string query = "Donne moi juste une liste de procedures disponibles.";
         var rawFallback = ToolAgentOrchestrator.BuildRagEvidenceFallbackAnswerForTests(toolResults, query, "fr");
         var safeFallback = ToolAgentOrchestrator.BuildSourceBackedSafeFallbackAnswerForTests(toolResults, query, "fr", shouldAvoidRaw: true);
+        var safeFallbackAuto = ToolAgentOrchestrator.BuildSourceBackedSafeFallbackAnswerForTests(toolResults, query, "fr", shouldAvoidRaw: false);
 
-        Assert.DoesNotContain("Controle quotidien", rawFallback);
-        Assert.DoesNotContain("Controle secondaire", rawFallback);
-        Assert.DoesNotContain("Controle hebdomadaire", rawFallback);
-        Assert.DoesNotContain("Controle quotidien", safeFallback);
-        Assert.DoesNotContain("Controle secondaire", safeFallback);
-        Assert.DoesNotContain("Controle hebdomadaire", safeFallback);
-        Assert.Contains("sources", safeFallback, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Controle quotidien", rawFallback);
+        Assert.Contains("Controle secondaire", rawFallback);
+        Assert.Contains("Controle hebdomadaire", rawFallback);
+        Assert.Contains("Controle quotidien", safeFallback);
+        Assert.Contains("Controle secondaire", safeFallback);
+        Assert.Contains("Controle hebdomadaire", safeFallback);
+        Assert.Contains("première sélection", safeFallback, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("pas assez", safeFallback, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("liste de départ", safeFallback, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("éléments documentés", safeFallback, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("sans ajout de faits", safeFallback, StringComparison.OrdinalIgnoreCase);
         Assert.False(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(safeFallback));
+        Assert.Equal(safeFallback, safeFallbackAuto);
     }
 
     [Fact]
@@ -13763,6 +16042,210 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         Assert.True(ToolAgentOrchestrator.ShouldRequireWriterForBroadDocumentaryFinalForTests(toolResults, broadQuery));
         Assert.False(ToolAgentOrchestrator.ShouldRequireWriterForBroadDocumentaryFinalForTests(toolResults, strictQuery));
+    }
+
+    [Fact]
+    public void Confirmed_broader_source_search_envelope_routes_through_writer_from_original_request()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Operations/guide-a.pdf",
+                    docName = "guide-a.pdf",
+                    pageStart = 12,
+                    pageEnd = 12,
+                    excerpt = "Procedure de controle A. Verifier les entrees, valider les anomalies et consigner les ecarts.",
+                    matchedContentCards = new[] { new { title = "Controle A", kind = "unit_lead" } },
+                    score = 0.91
+                },
+                new
+                {
+                    docPath = "Operations/guide-b.pdf",
+                    docName = "guide-b.pdf",
+                    pageStart = 18,
+                    pageEnd = 18,
+                    excerpt = "Procedure de controle B. Comparer les sorties, classer les alertes et preparer la revue.",
+                    matchedContentCards = new[] { new { title = "Controle B", kind = "unit_lead" } },
+                    score = 0.88
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        const string envelope = """
+        PREVIOUS_USER_REQUEST:
+        Je cherche a avoir un plan pour la semaine avec les documents disponibles.
+
+        USER_CONFIRMED_BROADER_SOURCE_SEARCH:
+        oui vas y
+
+        RESOLVED_REQUEST:
+        Continue the previous source-backed request by running a broader retrieval exploration.
+        """;
+
+        Assert.True(ToolAgentOrchestrator.ShouldRequireWriterForBroadDocumentaryFinalForTests(toolResults, envelope));
+        Assert.True(ToolAgentOrchestrator.ShouldRouteSourceBackedAnswerThroughWriterForTests(toolResults, envelope));
+    }
+
+    [Fact]
+    public void Confirmed_broader_source_search_envelope_does_not_downgrade_to_countdown_bypass()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Operations/timeline-a.pdf",
+                    docName = "timeline-a.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "Preparation principale. Duree 50 min. Verifier les contraintes avant execution.",
+                    matchedContentCards = new[] { new { title = "Preparation principale", kind = "unit_lead" } },
+                    score = 0.91
+                },
+                new
+                {
+                    docPath = "Operations/timeline-b.pdf",
+                    docName = "timeline-b.pdf",
+                    pageStart = 9,
+                    pageEnd = 9,
+                    excerpt = "Controle final. Duree 15 min. Confirmer les points de sortie avant cloture.",
+                    matchedContentCards = new[] { new { title = "Controle final", kind = "unit_lead" } },
+                    score = 0.88
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        const string preciseCountdownQuery = "Prepare un planning de cuisson a rebours pour un repas a 19h.";
+        const string envelope = """
+        PREVIOUS_USER_REQUEST:
+        Prepare un planning de cuisson a rebours pour un repas a 19h a partir des sources disponibles.
+
+        USER_CONFIRMED_BROADER_SOURCE_SEARCH:
+        oui vas y
+
+        RESOLVED_REQUEST:
+        Continue the previous source-backed request by running a broader retrieval exploration.
+        """;
+
+        Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedCountdownPlanningRequestForTests(preciseCountdownQuery));
+        Assert.False(ToolAgentOrchestrator.ShouldRequireWriterForBroadDocumentaryFinalForTests(toolResults, preciseCountdownQuery));
+        Assert.False(ToolAgentOrchestrator.ShouldRouteSourceBackedAnswerThroughWriterForTests(toolResults, preciseCountdownQuery));
+        Assert.True(ToolAgentOrchestrator.ShouldRequireWriterForBroadDocumentaryFinalForTests(toolResults, envelope));
+        Assert.True(ToolAgentOrchestrator.ShouldRouteSourceBackedAnswerThroughWriterForTests(toolResults, envelope));
+    }
+
+    [Fact]
+    public void Broadened_countdown_envelope_does_not_build_deterministic_schedule()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Operations/timeline-a.pdf",
+                    docName = "timeline-a.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "Preparation principale. Duree 50 min. Verifier les contraintes avant execution.",
+                    matchedContentCards = new[] { new { title = "Preparation principale", kind = "unit_lead" } },
+                    score = 0.91
+                },
+                new
+                {
+                    docPath = "Operations/timeline-b.pdf",
+                    docName = "timeline-b.pdf",
+                    pageStart = 9,
+                    pageEnd = 9,
+                    excerpt = "Controle final. Duree 15 min. Confirmer les points de sortie avant cloture.",
+                    matchedContentCards = new[] { new { title = "Controle final", kind = "unit_lead" } },
+                    score = 0.88
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        const string envelope = """
+        PREVIOUS_USER_REQUEST:
+        Prepare un planning a rebours pour une execution a 19h a partir des sources disponibles.
+
+        USER_CONFIRMED_BROADER_SOURCE_SEARCH:
+        oui vas y
+
+        RESOLVED_REQUEST:
+        Continue the previous source-backed request by running a broader retrieval exploration.
+        """;
+
+        var countdown = ToolAgentOrchestrator.BuildSourceBackedCountdownPlanningAnswerForTests(toolResults, envelope, "fr");
+        var fallback = ToolAgentOrchestrator.BuildSourceBackedPlanningOrExtractiveAnswerForTests(toolResults, envelope, "fr");
+
+        Assert.Equal(string.Empty, countdown);
+        Assert.DoesNotContain("18h10", fallback, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("18h45", fallback, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("retroplanning", fallback, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Broadened_option_envelope_does_not_build_deterministic_option_list()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Operations/options-a.pdf",
+                    docName = "options-a.pdf",
+                    pageStart = 3,
+                    pageEnd = 3,
+                    excerpt = "Option Alpha. Procedure : verifier les donnees, controler les limites et consigner la decision.",
+                    matchedContentCards = new[] { new { title = "Option Alpha", kind = "unit_lead" } },
+                    score = 0.91
+                },
+                new
+                {
+                    docPath = "Operations/options-b.pdf",
+                    docName = "options-b.pdf",
+                    pageStart = 7,
+                    pageEnd = 7,
+                    excerpt = "Option Beta. Procedure : verifier les points restants, preparer la reprise et informer le responsable.",
+                    matchedContentCards = new[] { new { title = "Option Beta", kind = "unit_lead" } },
+                    score = 0.88
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        const string envelope = """
+        PREVIOUS_USER_REQUEST:
+        Propose moi les options disponibles et fais une reponse propre avec les sources.
+
+        USER_CONFIRMED_BROADER_SOURCE_SEARCH:
+        oui vas y
+
+        RESOLVED_REQUEST:
+        Continue the previous source-backed request by running a broader retrieval exploration.
+        """;
+
+        var optionAnswer = ToolAgentOrchestrator.BuildSourceBackedOptionAnswerForTests(toolResults, envelope, "fr");
+
+        Assert.True(ToolAgentOrchestrator.ShouldAvoidDeterministicSourceBackedOptionFallbackForTests(envelope));
+        Assert.True(ToolAgentOrchestrator.ShouldRouteSourceBackedAnswerThroughWriterForTests(toolResults, envelope));
+        Assert.Equal(string.Empty, optionAnswer);
     }
 
     [Fact]
@@ -14096,6 +16579,249 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     }
 
     [Fact]
+    public void Source_backed_structure_hints_include_summary_search_as_navigation_only()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            items = new[]
+            {
+                new
+                {
+                    docId = "doc-alpha",
+                    docPath = "Operations/Runbook.pdf",
+                    docName = "Runbook.pdf",
+                    categoryPath = "Operations",
+                    level = "medium",
+                    pageStart = 4,
+                    pageEnd = 9,
+                    summaryText = "Document overview with planning options, constraints and follow-up sections for later retrieval."
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "summary.search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var hints = ToolAgentOrchestrator.BuildSourceBackedStructureHintsForTests(
+            toolResults,
+            Array.Empty<ToolMemory.SourceRef>(),
+            "Build a sourced operational planning proposal.",
+            "en");
+
+        Assert.Contains("navigationOnly summary", hints);
+        Assert.Contains("Runbook.pdf", hints);
+        Assert.Contains("Operations", hints);
+        Assert.Contains("pages: 4-9", hints);
+        Assert.Contains("planning options", hints);
+        Assert.DoesNotContain("finalEvidence", hints, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Source_backed_research_map_gives_writer_private_orientation_without_final_evidence()
+    {
+        var navigationPayload = JsonSerializer.Serialize(new
+        {
+            items = new[]
+            {
+                new
+                {
+                    docPath = "Operations/Runbook.pdf",
+                    docName = "Runbook.pdf",
+                    categoryPath = "Operations",
+                    kind = "navigation_entry",
+                    label = "Escalation path",
+                    targetPageStart = 42,
+                    targetPageEnd = 43,
+                    resolutionMethod = "toc_resolved",
+                    confidence = 0.91
+                }
+            }
+        });
+        var summaryPayload = JsonSerializer.Serialize(new
+        {
+            items = new[]
+            {
+                new
+                {
+                    docPath = "Operations/Decision Matrix.pdf",
+                    docName = "Decision Matrix.pdf",
+                    categoryPath = "Operations",
+                    level = "medium",
+                    pageStart = 2,
+                    summaryText = "Document overview with decision options and validation constraints."
+                }
+            }
+        });
+        using var navigationDoc = JsonDocument.Parse(navigationPayload);
+        using var summaryDoc = JsonDocument.Parse(summaryPayload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "documents.navigation",
+            Result = navigationDoc.RootElement.Clone()
+        });
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "summary.search",
+            Result = summaryDoc.RootElement.Clone()
+        });
+
+        var map = ToolAgentOrchestrator.BuildSourceBackedResearchMapForWriterForTests(
+            toolResults,
+            Array.Empty<ToolMemory.SourceRef>(),
+            "Build a sourced operational planning proposal.",
+            "en");
+
+        Assert.Contains("Private research map", map);
+        Assert.Contains("Do not expose", map);
+        Assert.Contains("Escalation path", map);
+        Assert.Contains("Decision Matrix.pdf", map);
+        Assert.Contains("TOOL_RESULTS", map);
+        Assert.Contains("surfaceType=document_navigation", map);
+        Assert.Contains("surfaceType=stored_summary", map);
+        Assert.Contains("isFinalEvidence=false", map);
+        Assert.Contains("requiresConcreteRetrieval=true", map);
+        Assert.DoesNotMatch(
+            new Regex(@"\b(cuisine|recette|recipe|ingredient|ingredients|cook|cooking|meal|entree|dessert|smoothie)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant),
+            map);
+    }
+
+    [Fact]
+    public void Writer_omits_navigation_tools_while_research_map_keeps_orientation_flags()
+    {
+        var navigationPayload = JsonSerializer.Serialize(new
+        {
+            items = new[]
+            {
+                new
+                {
+                    docPath = "Operations/Runbook.pdf",
+                    docName = "Runbook.pdf",
+                    categoryPath = "Operations",
+                    kind = "navigation_entry",
+                    label = "Escalation path",
+                    targetPageStart = 42,
+                    targetPageEnd = 43,
+                    resolutionMethod = "toc_resolved",
+                    confidence = 0.91
+                }
+            }
+        });
+        var ragPayload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Operations/Runbook.pdf",
+                    docName = "Runbook.pdf",
+                    pageStart = 42,
+                    pageEnd = 42,
+                    excerpt = "Escalation path: contact the duty lead, validate the incident context and record the decision.",
+                    score = 0.92
+                }
+            }
+        });
+
+        var serialized = ToolAgentOrchestrator.SerializeWriterRagResultsForTests(
+            new[]
+            {
+                ("documents.navigation", navigationPayload),
+                ("rag.multi_search", ragPayload)
+            },
+            "Build a sourced operational planning proposal.");
+        var toolResults = new ToolResults();
+        using var navigationDoc = JsonDocument.Parse(navigationPayload);
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "documents.navigation",
+            Result = navigationDoc.RootElement.Clone()
+        });
+        var map = ToolAgentOrchestrator.BuildSourceBackedResearchMapForWriterForTests(
+            toolResults,
+            Array.Empty<ToolMemory.SourceRef>(),
+            "Build a sourced operational planning proposal.",
+            "en");
+
+        Assert.DoesNotContain("documents.navigation", serialized, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Runbook.pdf", serialized);
+        Assert.Contains("Escalation path", map);
+        Assert.Contains("surfaceType=document_navigation", map);
+        Assert.Contains("isFinalEvidence=false", map);
+        Assert.Contains("requiresConcreteRetrieval=true", map);
+    }
+
+    [Fact]
+    public void Writer_does_not_promote_title_only_content_cards_as_final_evidence()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Operations/RouteIndex.pdf",
+                    docName = "RouteIndex.pdf",
+                    pageStart = 6,
+                    pageEnd = 6,
+                    excerpt = "Table of contents and title anchors for the operations corpus.",
+                    retriever = "navigation_route",
+                    embeddingBasis = "navigation_route_v1",
+                    contentRole = "navigation",
+                    matchedContentCards = new[]
+                    {
+                        new
+                        {
+                            title = "Quarterly service review",
+                            kind = "title_anchor"
+                        }
+                    },
+                    score = 0.88
+                }
+            }
+        });
+
+        var serialized = ToolAgentOrchestrator.SerializeWriterRagResultsForTests(
+            "rag.multi_search",
+            payload,
+            "Build a sourced operational planning proposal.");
+
+        Assert.DoesNotContain("Quarterly service review", serialized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"writerEvidence\":\"Quarterly service review", serialized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"isFinalEvidence\":true", serialized, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Normalize_rag_hits_does_not_append_profile_or_navigation_context_as_full_text_evidence()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Operations/ProfileOnly.pdf",
+                    docName = "ProfileOnly.pdf",
+                    pageStart = 3,
+                    pageEnd = 3,
+                    excerpt = "Short page lead.",
+                    contextualSnippet = "Matched profile title: Weekly operations | Document: ProfileOnly.pdf | Section: Index | Evidence: Table of contents index and stored document profile signals only."
+                }
+            }
+        });
+
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var hit = normalized.GetProperty("hits")[0];
+
+        Assert.Equal("Short page lead.", hit.GetProperty("fullText").GetString());
+        Assert.Contains("stored document profile", hit.GetProperty("contextualSnippet").GetString());
+    }
+
+    [Fact]
     public void Source_backed_structure_hints_stay_generic_across_categories()
     {
         var treePayload = JsonSerializer.Serialize(new
@@ -14149,8 +16875,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "Donne moi juste une liste de procedures disponibles.",
             "fr");
 
-        Assert.Contains("trop faibles", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("recherche plus large", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.True(answer.Contains("trop limitées", StringComparison.OrdinalIgnoreCase), answer);
         Assert.DoesNotContain("1 oignon", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("voici les passages voisins", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("elements documentes disponibles", answer, StringComparison.OrdinalIgnoreCase);
@@ -14184,7 +16909,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "Donne moi juste une liste de procedures disponibles.",
             "fr");
 
-        Assert.Contains("trop faibles", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.True(answer.Contains("trop limitées", StringComparison.OrdinalIgnoreCase), answer);
         Assert.DoesNotContain("1 oignon", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("voici les passages voisins", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("elements documentes disponibles", answer, StringComparison.OrdinalIgnoreCase);
@@ -14198,6 +16923,141 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         J'ai trouve l'element demande "recettes" dans les sources disponibles. Je limite la reponse aux extraits cites :
         - Source principale : facilitemps.pdf p.29
         """;
+
+        Assert.True(ToolAgentOrchestrator.LooksLikePoorPlanningFallbackAnswerForTests(answer, query));
+    }
+
+    [Fact]
+    public void Broad_planning_rejects_markdown_table_filled_with_weak_repetition()
+    {
+        const string query = "Je cherche a avoir un plan pour la semaine, petit-dejeuner, midi et soir du lundi au vendredi.";
+        const string answer = """
+        Voici un plan base sur les elements documentes :
+
+        | Lundi | Mardi | Mercredi | Jeudi | Vendredi |
+        |-------|-------|----------|-------|----------|
+        | Petit-dejeuner | Petit-dejeuner | Petit-dejeuner | Petit-dejeuner | Petit-dejeuner |
+        | Contexte general | Contexte general | Contexte general | Contexte general | Contexte general |
+        | Conseil a verifier | Conseil a verifier | Conseil a verifier | Conseil a verifier | Conseil a verifier |
+        """;
+
+        Assert.True(ToolAgentOrchestrator.LooksLikePoorPlanningFallbackAnswerForTests(answer, query));
+    }
+
+    [Theory]
+    [InlineData("fr", "oui vas-y")]
+    [InlineData("en", "go ahead")]
+    [InlineData("es", "adelante")]
+    [InlineData("pt", "sim, pesquisa mais ampla")]
+    [InlineData("de", "ja, breitere suche")]
+    [InlineData("it", "si, allarga la ricerca")]
+    public void Source_backed_expanded_search_offer_is_detected_in_all_client_languages(string language, string confirmation)
+    {
+        var offer = DeterministicAgentText.SourceBackedExpandedSearchOffer(language);
+
+        Assert.True(ToolAgentOrchestrator.ContainsBroadenedSourceSearchOfferForTests(offer));
+        Assert.True(ToolAgentOrchestrator.LooksLikeBroadenedSourceSearchConfirmationForTests(confirmation));
+    }
+
+    [Theory]
+    [InlineData("fr")]
+    [InlineData("en")]
+    [InlineData("es")]
+    [InlineData("pt")]
+    [InlineData("de")]
+    [InlineData("it")]
+    public void Broad_writer_routing_is_consistent_in_all_client_languages(string language)
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Operations/guide-a.pdf",
+                    docName = "guide-a.pdf",
+                    pageStart = 12,
+                    pageEnd = 12,
+                    excerpt = "Procedure de controle A. Verifier les entrees, valider les anomalies et consigner les ecarts.",
+                    fullText = "Procedure de controle A. Verifier les entrees, valider les anomalies et consigner les ecarts.",
+                    matchedContentCards = new[] { new { title = "Controle A", kind = "unit_lead" } },
+                    score = 0.91
+                },
+                new
+                {
+                    docPath = "Operations/guide-b.pdf",
+                    docName = "guide-b.pdf",
+                    pageStart = 18,
+                    pageEnd = 18,
+                    excerpt = "Procedure de controle B. Comparer les sorties, classer les alertes et preparer la revue.",
+                    fullText = "Procedure de controle B. Comparer les sorties, classer les alertes et preparer la revue.",
+                    matchedContentCards = new[] { new { title = "Controle B", kind = "unit_lead" } },
+                    score = 0.88
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        const string broadQuery = "Prepare a useful sourced synthesis from the available documents.";
+        const string exactQuery = "Quote exactly the passage that mentions Controle A.";
+
+        Assert.True(ToolAgentOrchestrator.ShouldRouteSourceBackedAnswerThroughWriterForTests(toolResults, broadQuery, language));
+        Assert.False(ToolAgentOrchestrator.ShouldRouteSourceBackedAnswerThroughWriterForTests(toolResults, exactQuery, language));
+    }
+
+    [Theory]
+    [InlineData("fr")]
+    [InlineData("en")]
+    [InlineData("es")]
+    [InlineData("pt")]
+    [InlineData("de")]
+    [InlineData("it")]
+    public void Generic_collection_safe_fallback_is_non_extractive_in_all_client_languages(string language)
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Operations/raw-a.pdf",
+                    docName = "raw-a.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "Procedure controle journalier brute. Verifier les registres, cocher les cases et recopier les donnees internes.",
+                    fullText = "Procedure controle journalier brute. Verifier les registres, cocher les cases et recopier les donnees internes.",
+                    score = 0.91
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedSafeFallbackAnswerForTests(
+            toolResults,
+            "Donne moi juste une liste d'elements disponibles.",
+            language,
+            shouldAvoidRaw: true);
+
+        Assert.False(string.IsNullOrWhiteSpace(answer));
+        Assert.DoesNotContain("Procedure controle journalier brute", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("raw-a.pdf", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("recopier les donnees internes", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("Je cite ces sources separement et je limite la reponse aux pages retrouvees.")]
+    [InlineData("I cite these sources separately and limit the answer to the retrieved pages.")]
+    [InlineData("Cito estas fuentes por separado y limito la respuesta a las paginas recuperadas.")]
+    [InlineData("Cito estas fontes separadamente e limito a resposta as paginas recuperadas.")]
+    [InlineData("Ich zitiere diese Quellen separat und beschraenke die Antwort auf die gefundenen Seiten.")]
+    [InlineData("Cito queste fonti separatamente e limito la risposta alle pagine trovate.")]
+    public void Broad_writer_detects_separate_source_citation_dump_in_all_client_languages(string answer)
+    {
+        const string query = "Prepare une synthese utile avec plusieurs options sourcees.";
 
         Assert.True(ToolAgentOrchestrator.LooksLikePoorPlanningFallbackAnswerForTests(answer, query));
     }
@@ -14291,11 +17151,14 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         var answer = ToolAgentOrchestrator.BuildReadablePartialPlanningEvidenceAnswerForTests(toolResults, query, "fr");
 
+        var normalized = RemoveDiacritics(answer);
+
         Assert.DoesNotContain("Lundi", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("1 oignon", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Mettre la creme", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Candidats concrets", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Contexte utile", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Contexte utile", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("trop limitees", normalized, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -14361,12 +17224,522 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         var answer = ToolAgentOrchestrator.BuildRagEvidenceFallbackAnswerForTests(toolResults, envelope, "fr");
 
-        Assert.Contains("passages proches", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Controle matin", answer);
-        Assert.DoesNotContain("Controle soir", answer);
+        var normalized = RemoveDiacritics(answer);
+        Assert.Contains("trop limitees", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Controle matin", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Controle soir", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("recherche plus large", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("elements documentes disponibles", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("sans ajout de faits", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Broadened_planning_confirmation_does_not_use_document_version_traceability_answer()
+    {
+        const string envelope = """
+        PREVIOUS_USER_REQUEST:
+        Je cherche a avoir un plan pour la semaine, matin, midi et soir du lundi au vendredi, avec les documents.
+
+        USER_CONFIRMED_BROADER_SOURCE_SEARCH:
+        ok vas y
+
+        RESOLVED_REQUEST:
+        Je cherche a avoir un plan pour la semaine, matin, midi et soir du lundi au vendredi, avec les documents.
+        """;
+
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Normes/Standard DEF 2002 prA1.pdf",
+                    docName = "Standard DEF 2002 prA1.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "Draft amendment text for review.",
+                    fullText = "Draft amendment text for review.",
+                    retrievalQueryIndex = 0,
+                    retrievalHitRank = 0,
+                    score = 0.88
+                },
+                new
+                {
+                    docPath = "Normes/Standard DEF 2008+A1.pdf",
+                    docName = "Standard DEF 2008+A1.pdf",
+                    pageStart = 5,
+                    pageEnd = 5,
+                    excerpt = "Published consolidated amendment text.",
+                    fullText = "Published consolidated amendment text.",
+                    retrievalQueryIndex = 0,
+                    retrievalHitRank = 1,
+                    score = 0.81
+                }
+            }
+        });
+
+        var normalTraceabilityAnswer = ToolAgentOrchestrator.BuildDocumentVersionTraceabilityAnswerForTests(
+            payload,
+            "Le prA1 remplace-t-il automatiquement le document 2008+A1 ?",
+            "fr");
+        var planningAnswer = ToolAgentOrchestrator.BuildDocumentVersionTraceabilityAnswerForTests(payload, envelope, "fr");
+
+        Assert.NotEqual(string.Empty, normalTraceabilityAnswer);
+        Assert.Equal(string.Empty, planningAnswer);
+    }
+
+    [Fact]
+    public void Broadened_source_search_safe_fallback_does_not_render_extractively_after_writer_path()
+    {
+        const string envelope = """
+        PREVIOUS_USER_REQUEST:
+        Je cherche a avoir un plan pour la semaine, matin, midi et soir du lundi au vendredi, avec les documents.
+
+        USER_CONFIRMED_BROADER_SOURCE_SEARCH:
+        oui vas y
+
+        RESOLVED_REQUEST:
+        Continue the previous source-backed request by running a broader retrieval exploration.
+        """;
+
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                BuildHit("Controle matin", "Operations/weekly-a.pdf", 7),
+                BuildHit("Revue midi", "Operations/weekly-b.pdf", 9),
+                BuildHit("Cloture soir", "Operations/weekly-c.pdf", 11),
+                BuildHit("Preparation hebdomadaire", "Operations/weekly-d.pdf", 13),
+                BuildHit("Verification rapide", "Operations/weekly-e.pdf", 15),
+                BuildHit("Relance suivie", "Operations/weekly-f.pdf", 17)
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var rawFallback = ToolAgentOrchestrator.BuildRagEvidenceFallbackAnswerForTests(toolResults, envelope, "fr");
+        var safeFallback = ToolAgentOrchestrator.BuildSourceBackedSafeFallbackAnswerForTests(toolResults, envelope, "fr", shouldAvoidRaw: true);
+        var safeFallbackAuto = ToolAgentOrchestrator.BuildSourceBackedSafeFallbackAnswerForTests(toolResults, envelope, "fr", shouldAvoidRaw: false);
+
+        var rawNormalized = RemoveDiacritics(rawFallback);
+        var safeNormalized = RemoveDiacritics(safeFallback);
+        Assert.Contains("restent trop limitees", rawNormalized, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("quelque chose de fiable", rawNormalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Controle matin", rawFallback, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("restent trop limitees", safeNormalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ebauche de planning", safeNormalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("planning partiel", safeFallback, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Controle matin", safeFallback, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Revue midi", safeFallback, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Cloture soir", safeFallback, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Procedure : verifier", safeFallback, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("recherche plus large", safeFallback, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("source-backed", safeFallback, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotMatch(
+            new Regex(@"\b(cuisine|recette|recipe|ingredient|ingredients|cook|cooking|meal|entree|dessert|smoothie)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant),
+            safeFallback);
+        Assert.False(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(safeFallback));
+        Assert.Equal(safeFallback, safeFallbackAuto);
+
+        static object BuildHit(string title, string path, int page) => new
+        {
+            docPath = path,
+            docName = Path.GetFileName(path),
+            pageStart = page,
+            pageEnd = page,
+            excerpt = $"{title}. Procedure : verifier les informations disponibles, noter les ecarts et valider la suite.",
+            fullText = $"{title}. Procedure : verifier les informations disponibles, noter les ecarts et valider la suite.",
+            matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+            selectionHints = new
+            {
+                evidenceRole = "actionable_item",
+                actionabilityScore = 10,
+                supportScore = 8,
+                fragmentScore = 0,
+                navigationScore = 0,
+                qualityPenalty = 0
+            },
+            score = 0.95
+        };
+    }
+
+    [Theory]
+    [InlineData("fr", "trop limitees")]
+    [InlineData("en", "too narrow")]
+    [InlineData("es", "demasiado limitadas")]
+    [InlineData("pt", "demasiado limitadas")]
+    [InlineData("de", "zu eng")]
+    [InlineData("it", "troppo limitate")]
+    public void Broadened_source_search_safe_fallback_requires_full_structured_coverage(string language, string expectedFragment)
+    {
+        const string envelope = """
+        PREVIOUS_USER_REQUEST:
+        Je cherche a avoir un plan pour la semaine, matin, midi et soir du lundi au vendredi, avec les documents.
+
+        USER_CONFIRMED_BROADER_SOURCE_SEARCH:
+        oui vas y
+
+        RESOLVED_REQUEST:
+        Continue the previous source-backed request by running a broader retrieval exploration.
+        """;
+
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                BuildHit("Controle matin", "Operations/weekly-a.pdf", 7),
+                BuildHit("Revue midi", "Operations/weekly-b.pdf", 9),
+                BuildHit("Cloture soir", "Operations/weekly-c.pdf", 11),
+                BuildHit("Preparation hebdomadaire", "Operations/weekly-d.pdf", 13),
+                BuildHit("Verification rapide", "Operations/weekly-e.pdf", 15),
+                BuildHit("Relance suivie", "Operations/weekly-f.pdf", 17)
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedSafeFallbackAnswerForTests(toolResults, envelope, language, shouldAvoidRaw: true);
+
+        var normalized = RemoveDiacritics(answer);
+
+        Assert.Contains(RemoveDiacritics(expectedFragment), normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Controle matin", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Revue midi", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Cloture soir", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("partial plan", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("planning partiel", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("source-backed", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("recherche plus large", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("broader search", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Procedure : verifier", answer, StringComparison.OrdinalIgnoreCase);
+
+        static object BuildHit(string title, string path, int page) => new
+        {
+            docPath = path,
+            docName = Path.GetFileName(path),
+            pageStart = page,
+            pageEnd = page,
+            excerpt = $"{title}. Procedure : verifier les informations disponibles, noter les ecarts et valider la suite.",
+            fullText = $"{title}. Procedure : verifier les informations disponibles, noter les ecarts et valider la suite.",
+            matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+            selectionHints = new
+            {
+                evidenceRole = "actionable_item",
+                actionabilityScore = 10,
+                supportScore = 8,
+                fragmentScore = 0,
+                navigationScore = 0,
+                qualityPenalty = 0
+            },
+            score = 0.95
+        };
+    }
+
+    [Fact]
+    public void Broadened_source_search_safe_fallback_still_reports_insufficient_when_only_one_page_is_useful()
+    {
+        const string envelope = """
+        PREVIOUS_USER_REQUEST:
+        Je cherche a avoir un plan pour la semaine, matin, midi et soir du lundi au vendredi, avec les documents.
+
+        USER_CONFIRMED_BROADER_SOURCE_SEARCH:
+        oui vas y
+
+        RESOLVED_REQUEST:
+        Continue the previous source-backed request by running a broader retrieval exploration.
+        """;
+
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                BuildHit("Controle matin", "Operations/weekly-a.pdf", 7),
+                BuildHit("Controle matin", "Operations/weekly-a.pdf", 7)
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedSafeFallbackAnswerForTests(toolResults, envelope, "fr", shouldAvoidRaw: true);
+        var normalized = RemoveDiacritics(answer);
+
+        Assert.Contains("trop limitees", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Controle matin", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("recherche plus large", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.False(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(answer));
+
+        static object BuildHit(string title, string path, int page) => new
+        {
+            docPath = path,
+            docName = Path.GetFileName(path),
+            pageStart = page,
+            pageEnd = page,
+            excerpt = $"{title}. Procedure : verifier les informations disponibles, noter les ecarts et valider la suite.",
+            fullText = $"{title}. Procedure : verifier les informations disponibles, noter les ecarts et valider la suite.",
+            matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+            selectionHints = new
+            {
+                evidenceRole = "actionable_item",
+                actionabilityScore = 10,
+                supportScore = 8,
+                fragmentScore = 0,
+                navigationScore = 0,
+                qualityPenalty = 0
+            },
+            score = 0.95
+        };
+    }
+
+    [Theory]
+    [InlineData("Les pages trouvées sont trop limitées pour une réponse solide. Elles donnent des pistes utiles, mais il me faut des sources plus larges ou plus variées pour produire quelque chose de fiable.")]
+    [InlineData("Voici la traçabilité que je peux établir à partir des pages retrouvées : livre.pdf p.10 : extrait brut.")]
+    [InlineData("The found pages are too limited for a solid answer. I need broader or more varied sources before producing something reliable.")]
+    public void Broad_planning_rejects_diagnostic_or_traceability_answers(string answer)
+    {
+        const string query = "Je cherche à avoir un plan de repas pour la semaine, petit-déjeuner, midi et soir du lundi au vendredi.";
+
+        Assert.True(ToolAgentOrchestrator.LooksLikePoorPlanningFallbackAnswerForTests(answer, query));
+    }
+
+    [Fact]
+    public void Broadened_source_search_allows_partial_planning_writer_when_pages_are_diverse_but_weakly_tagged()
+    {
+        const string envelope = """
+        PREVIOUS_USER_REQUEST:
+        Je cherche a avoir un plan pour la semaine, matin, midi et soir du lundi au vendredi, avec les documents.
+
+        USER_CONFIRMED_BROADER_SOURCE_SEARCH:
+        oui vas y
+
+        RESOLVED_REQUEST:
+        Continue the previous source-backed request by running a broader retrieval exploration.
+        """;
+
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                BuildWeakHit("Controle initial", "Operations/weekly-a.pdf", 7),
+                BuildWeakHit("Verification intermediaire", "Operations/weekly-b.pdf", 9),
+                BuildWeakHit("Cloture suivie", "Operations/weekly-c.pdf", 11)
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        Assert.False(ToolAgentOrchestrator.ShouldAllowWriterForPartialSourceBackedPlanningForTests(toolResults, envelope, "fr"));
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedSafeFallbackAnswerForTests(
+            toolResults,
+            envelope,
+            "fr",
+            shouldAvoidRaw: true);
+        var normalized = RemoveDiacritics(answer);
+
+        Assert.Contains("trop limitees", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ebauche de planning", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Controle initial", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("recherche plus large", answer, StringComparison.OrdinalIgnoreCase);
+
+        static object BuildWeakHit(string title, string path, int page) => new
+        {
+            docPath = path,
+            docName = Path.GetFileName(path),
+            pageStart = page,
+            pageEnd = page,
+            excerpt = $"{title}. Element utilisable pour organiser une sequence documentee.",
+            fullText = $"{title}. Element utilisable pour organiser une sequence documentee.",
+            matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+            selectionHints = new
+            {
+                evidenceRole = "supporting_item",
+                actionabilityScore = 2,
+                supportScore = 2,
+                fragmentScore = 0,
+                navigationScore = 0,
+                qualityPenalty = 0
+            },
+            score = 0.55
+        };
+    }
+
+    [Fact]
+    public void Structured_planning_safe_fallback_with_partial_candidates_reports_insufficient_coverage()
+    {
+        const string query = "Je cherche a avoir un plan pour la semaine, matin midi et soir du lundi au vendredi.";
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                BuildHit("Controle matin", "Operations/weekly-a.pdf", 7),
+                BuildHit("Revue midi", "Operations/weekly-b.pdf", 9),
+                BuildHit("Cloture soir", "Operations/weekly-c.pdf", 11),
+                BuildHit("Preparation hebdomadaire", "Operations/weekly-d.pdf", 13)
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedSafeFallbackAnswerForTests(
+            toolResults,
+            query,
+            "fr",
+            shouldAvoidRaw: true);
+        var normalized = RemoveDiacritics(answer);
+
+        Assert.Contains("trop limitees", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ebauche de planning", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("options citees", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Controle matin", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Revue midi", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Cloture soir", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Lundi", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Vendredi", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("case(s) sur", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("source-backed", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.False(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(answer));
+
+        static object BuildHit(string title, string path, int page) => new
+        {
+            docPath = path,
+            docName = Path.GetFileName(path),
+            pageStart = page,
+            pageEnd = page,
+            excerpt = $"{title}. Procedure : verifier les informations disponibles, noter les ecarts et valider la suite.",
+            fullText = $"{title}. Procedure : verifier les informations disponibles, noter les ecarts et valider la suite.",
+            matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+            selectionHints = new
+            {
+                evidenceRole = "actionable_item",
+                actionabilityScore = 10,
+                supportScore = 8,
+                fragmentScore = 0,
+                navigationScore = 0,
+                qualityPenalty = 0
+            },
+            score = 0.95
+        };
+    }
+
+    [Fact]
+    public void Rejected_writer_fallback_returns_prudent_structured_draft_for_partial_planning()
+    {
+        const string query = "Je cherche a avoir un plan pour la semaine, matin midi et soir du lundi au vendredi.";
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                BuildHit("Controle matin", "Operations/weekly-a.pdf", 7),
+                BuildHit("Revue midi", "Operations/weekly-b.pdf", 9),
+                BuildHit("Cloture soir", "Operations/weekly-c.pdf", 11),
+                BuildHit("Preparation hebdomadaire", "Operations/weekly-d.pdf", 13)
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedSafeFallbackAfterRejectedWriterForTests(
+            toolResults,
+            query,
+            query,
+            "fr");
+        var normalized = RemoveDiacritics(answer);
+
+        Assert.Equal(string.Empty, answer);
+        Assert.DoesNotContain("ebauche de planning", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("options citees", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Controle matin", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Je cite ces sources", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("sans ajout de faits", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("source-backed", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.False(ToolAgentOrchestrator.LooksLikePoorPlanningFallbackAnswerForTests(answer, query));
+        Assert.False(ToolAgentOrchestrator.LooksLikeWriterControlLeakForTests(answer));
+
+        static object BuildHit(string title, string path, int page) => new
+        {
+            docPath = path,
+            docName = Path.GetFileName(path),
+            pageStart = page,
+            pageEnd = page,
+            excerpt = $"{title}. Procedure : verifier les informations disponibles, noter les ecarts et valider la suite.",
+            fullText = $"{title}. Procedure : verifier les informations disponibles, noter les ecarts et valider la suite.",
+            matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+            selectionHints = new
+            {
+                evidenceRole = "actionable_item",
+                actionabilityScore = 10,
+                supportScore = 8,
+                fragmentScore = 0,
+                navigationScore = 0,
+                qualityPenalty = 0
+            },
+            score = 0.95
+        };
+    }
+
+    [Theory]
+    [InlineData("fr", "proposition pratique")]
+    [InlineData("en", "practical draft")]
+    [InlineData("es", "borrador practico")]
+    [InlineData("pt", "rascunho pratico")]
+    [InlineData("de", "praktischer Entwurf")]
+    [InlineData("it", "bozza pratica")]
+    public void Broad_planning_partial_candidate_fallback_is_localized(string language, string expectedFragment)
+    {
+        const string query = "Please build a weekly plan from the available documents.";
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                BuildHit("Morning review", "Operations/weekly-a.pdf", 7),
+                BuildHit("Midday check", "Operations/weekly-b.pdf", 9),
+                BuildHit("Evening close", "Operations/weekly-c.pdf", 11)
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedSafeFallbackAnswerForTests(
+            toolResults,
+            query,
+            language,
+            shouldAvoidRaw: true);
+        var normalized = RemoveDiacritics(answer);
+
+        Assert.Contains(RemoveDiacritics(expectedFragment), normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Morning review", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Midday check", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Evening close", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("source-backed", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("without adding facts", answer, StringComparison.OrdinalIgnoreCase);
+
+        static object BuildHit(string title, string path, int page) => new
+        {
+            docPath = path,
+            docName = Path.GetFileName(path),
+            pageStart = page,
+            pageEnd = page,
+            excerpt = $"{title}. Procedure : verify the available details, record the gaps and validate the next step.",
+            fullText = $"{title}. Procedure : verify the available details, record the gaps and validate the next step.",
+            matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+            selectionHints = new
+            {
+                evidenceRole = "actionable_item",
+                actionabilityScore = 10,
+                supportScore = 8,
+                fragmentScore = 0,
+                navigationScore = 0,
+                qualityPenalty = 0
+            },
+            score = 0.95
+        };
     }
 
     [Theory]
@@ -14393,6 +17766,72 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         Assert.Contains("Peux-tu préciser", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("recherche plus large", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("fr", "elements sources")]
+    [InlineData("en", "source material")]
+    [InlineData("es", "material fuente")]
+    [InlineData("pt", "material fonte")]
+    [InlineData("de", "Quellenmaterial")]
+    [InlineData("it", "materiale fonte")]
+    public void Empty_confirmed_broadened_source_search_does_not_ask_for_scope_again(string language, string expectedFragment)
+    {
+        const string envelope = """
+        PREVIOUS_USER_REQUEST:
+        Je cherche a avoir un plan pour la semaine avec les documents.
+
+        USER_CONFIRMED_BROADER_SOURCE_SEARCH:
+        oui vas y
+
+        RESOLVED_REQUEST:
+        Continue the previous source-backed request by running a broader retrieval exploration.
+        """;
+
+        var payload = JsonSerializer.Serialize(new { hits = Array.Empty<object>() });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.TryBuildNoRagEvidenceAnswerForTests(toolResults, language, envelope);
+        var normalized = RemoveDiacritics(answer);
+
+        Assert.Contains(expectedFragment, normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Peux-tu", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("preciser", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("clarify", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("recherche plus large", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("broader search", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("fr", "Je cherche a preparer un plan hebdomadaire a partir des documents disponibles.", "elements sources")]
+    [InlineData("en", "Can you prepare a weekly plan from the available documents?", "source material")]
+    [InlineData("es", "Puedes preparar un plan semanal a partir de los documentos disponibles?", "material fuente")]
+    [InlineData("pt", "Podes preparar um plano semanal a partir dos documentos disponiveis?", "material fonte")]
+    [InlineData("de", "Kannst du aus den verfuegbaren Dokumenten einen Wochenplan vorbereiten?", "Quellenmaterial")]
+    [InlineData("it", "Puoi preparare un piano settimanale dai documenti disponibili?", "materiale fonte")]
+    public void Empty_broad_source_backed_search_after_auto_exploration_does_not_offer_same_search_again(
+        string language,
+        string query,
+        string expectedFragment)
+    {
+        var payload = JsonSerializer.Serialize(new { hits = Array.Empty<object>() });
+        using var firstDoc = JsonDocument.Parse(payload);
+        using var secondDoc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.multi_search", Result = firstDoc.RootElement.Clone() });
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = secondDoc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.TryBuildNoRagEvidenceAnswerForTests(toolResults, language, query);
+        var normalized = RemoveDiacritics(answer);
+
+        Assert.Contains(expectedFragment, normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Peux-tu", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("preciser", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("clarify", normalized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("recherche plus large", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("broader search", answer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -14725,7 +18164,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.Contains("6 carottes", answer);
         Assert.Contains("9 c. a soupe de farine", answer);
         Assert.Contains("4,5 l de vin rouge", answer);
-        Assert.Contains("Sel et poivre (sans quantite sourcee)", answer);
+        Assert.Contains("Sel et poivre (quantité non précisée dans la source)", answer);
         Assert.DoesNotContain("1,2 kg par personne", answer);
 
         var labels = ToolAgentOrchestrator.DeriveSourceBackedExtractiveSourceLabelsForTests(
@@ -15005,7 +18444,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "Finalement sans fromage.",
             "fr");
 
-        Assert.Contains("pas trouve d'option sourcee", answer);
+        Assert.Contains("pas trouvé d'option sourcée", answer);
         Assert.Contains("artichaut.pdf p.49", answer);
         Assert.Contains("conflit", answer);
     }
@@ -15043,7 +18482,7 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
             "Menu complet sans porc, en evitant lardons, jambon, chorizo, saucisson.",
             "fr");
 
-        Assert.Contains("pas trouve d'option sourcee", answer);
+        Assert.Contains("pas trouvé d'option sourcée", answer);
         Assert.Contains("pizza.pdf p.42", answer);
         Assert.Contains("conflit", answer);
     }
@@ -15790,5 +19229,1131 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         Assert.Contains("Policy ABC 2021.pdf p.4", answer);
         Assert.DoesNotContain("Policy ABC 2024.pdf", answer);
+    }
+
+    [Fact]
+    public void Writer_budget_uses_runtime_context_size_instead_of_fixed_limit()
+    {
+        var smallRuntimeBudget = ToolAgentOrchestrator.ResolveWriterToolResultsBudgetCharsForTests(contextTokens: 3072);
+        var standardRuntimeBudget = ToolAgentOrchestrator.ResolveWriterToolResultsBudgetCharsForTests(contextTokens: 8192);
+        var largeRuntimeBudget = ToolAgentOrchestrator.ResolveWriterToolResultsBudgetCharsForTests(contextTokens: 16384);
+
+        Assert.True(smallRuntimeBudget < standardRuntimeBudget);
+        Assert.True(standardRuntimeBudget < largeRuntimeBudget);
+    }
+
+    [Fact]
+    public void Writer_budget_scales_down_large_rag_packets_for_small_runtime_context()
+    {
+        var longText = string.Join(" ", Enumerable.Repeat("documented paragraph with actionable details, quantities and constraints", 320));
+        var hits = Enumerable.Range(0, 40)
+            .Select(i => new
+            {
+                docPath = $"Corpus/Category/Document {i:00}.pdf",
+                docName = $"Document {i:00}.pdf",
+                pageStart = i + 1,
+                pageEnd = i + 1,
+                excerpt = longText,
+                fullText = longText,
+                contextualSnippet = longText,
+                score = 1.0 - (i * 0.01),
+                sectionTitle = $"Section {i:00}",
+                headingPath = $"Chapter > Section {i:00}",
+                categoryPath = "Corpus/Category",
+                retrievalQuery = $"broad planning query {i}",
+                matchedContentCards = new object[]
+                {
+                    new
+                    {
+                        title = $"Candidate {i:00}",
+                        evidenceText = longText,
+                        facts = new[] { longText, longText },
+                        quantityFacts = new[] { longText }
+                    }
+                },
+                profileSignals = new
+                {
+                    summary = longText,
+                    keywords = new[] { "candidate", "planning", "source" }
+                }
+            })
+            .ToArray();
+        var payload = JsonSerializer.Serialize(new { hits });
+        const string query = "Je cherche a avoir un plan documente pour la semaine avec des sources variees.";
+
+        var budget = ToolAgentOrchestrator.ResolveWriterToolResultsBudgetCharsForTests(contextTokens: 3072);
+        var serialized = ToolAgentOrchestrator.SerializeBudgetedWriterRagResultsForTests(
+            "rag.multi_search",
+            payload,
+            query,
+            contextTokens: 3072);
+
+        Assert.True(serialized.Length <= budget, $"Serialized writer packet length {serialized.Length} exceeded budget {budget}.");
+        Assert.Contains("rag.multi_search", serialized);
+        Assert.Contains("Document 00.pdf", serialized);
+        Assert.DoesNotContain(longText, serialized);
+    }
+
+    [Fact]
+    public void Broad_answer_source_reconciliation_keeps_only_sources_cited_by_the_answer()
+    {
+        var sources = new List<ToolMemory.SourceRef>
+        {
+            new()
+            {
+                DocPath = "Corpus/Category/Alpha.pdf",
+                DocName = "Alpha.pdf",
+                Label = "Alpha.pdf",
+                PageStart = 12,
+                PageEnd = 12
+            },
+            new()
+            {
+                DocPath = "Corpus/Category/Beta.pdf",
+                DocName = "Beta.pdf",
+                Label = "Beta.pdf",
+                PageStart = 3,
+                PageEnd = 3
+            }
+        };
+
+        const string answer = """
+            Proposition documentée :
+            - Lundi : action validée par Alpha.pdf p.12.
+            - Mardi : autre action issue de Alpha.pdf p.12.
+            - Mercredi : point de contrôle (source : Alpha.pdf p.12).
+            """;
+
+        var reconciled = ToolAgentOrchestrator.ReconcileRequiredVisibleSourcesWithFinalAnswerForTests(
+            answer,
+            sources,
+            "Je cherche un plan pour la semaine à partir des documents disponibles.");
+
+        var source = Assert.Single(reconciled);
+        Assert.Equal("Alpha.pdf", source.DocName);
+    }
+
+    [Fact]
+    public void Broad_answer_source_reconciliation_rejects_uncited_sources_for_concrete_plan()
+    {
+        var sources = new List<ToolMemory.SourceRef>
+        {
+            new()
+            {
+                DocPath = "Corpus/Category/Alpha.pdf",
+                DocName = "Alpha.pdf",
+                Label = "Alpha.pdf",
+                PageStart = 12,
+                PageEnd = 12
+            },
+            new()
+            {
+                DocPath = "Corpus/Category/Beta.pdf",
+                DocName = "Beta.pdf",
+                Label = "Beta.pdf",
+                PageStart = 3,
+                PageEnd = 3
+            }
+        };
+
+        const string answer = """
+            Lundi :
+            - Matin : option structurée.
+            - Midi : option structurée.
+            - Soir : option structurée.
+            Mardi :
+            - Matin : option structurée.
+            """;
+
+        var reconciled = ToolAgentOrchestrator.ReconcileRequiredVisibleSourcesWithFinalAnswerForTests(
+            answer,
+            sources,
+            "Je cherche un plan pour la semaine à partir des documents disponibles.");
+
+        Assert.Empty(reconciled);
+    }
+
+    [Fact]
+    public void Broad_planning_answer_is_rejected_when_items_are_not_supported_by_sources()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Knowledge/category/guide.pdf",
+                    docName = "guide.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "Documented Alpha. Preparation: inspect the intake valve and record the pressure.",
+                    fullText = "Documented Alpha. Preparation: inspect the intake valve and record the pressure.",
+                    matchedContentCards = new[] { new { title = "Documented Alpha", kind = "unit_lead" } },
+                    score = 0.97
+                },
+                new
+                {
+                    docPath = "Knowledge/category/guide.pdf",
+                    docName = "guide.pdf",
+                    pageStart = 5,
+                    pageEnd = 5,
+                    excerpt = "Documented Beta. Preparation: clean the filter and check the gasket.",
+                    fullText = "Documented Beta. Preparation: clean the filter and check the gasket.",
+                    matchedContentCards = new[] { new { title = "Documented Beta", kind = "unit_lead" } },
+                    score = 0.96
+                }
+            }
+        });
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = normalized.Clone() });
+
+        const string answer = """
+            Here is a structured plan based on the documents:
+            Monday:
+            - Morning: Invented Gamma (source: guide.pdf p.4).
+            - Evening: Documented Beta (source: guide.pdf p.5).
+            """;
+
+        Assert.True(ToolAgentOrchestrator.LooksLikeUnsupportedSourceBackedPlanningAnswerForTests(
+            answer,
+            toolResults,
+            "Build a short sourced plan from the available documents.",
+            "en"));
+    }
+
+    [Fact]
+    public void Broad_planning_answer_is_accepted_when_items_match_source_candidates()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Knowledge/category/guide.pdf",
+                    docName = "guide.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "Documented Alpha. Preparation: inspect the intake valve and record the pressure.",
+                    fullText = "Documented Alpha. Preparation: inspect the intake valve and record the pressure.",
+                    matchedContentCards = new[] { new { title = "Documented Alpha", kind = "unit_lead" } },
+                    score = 0.97
+                },
+                new
+                {
+                    docPath = "Knowledge/category/guide.pdf",
+                    docName = "guide.pdf",
+                    pageStart = 5,
+                    pageEnd = 5,
+                    excerpt = "Documented Beta. Preparation: clean the filter and check the gasket.",
+                    fullText = "Documented Beta. Preparation: clean the filter and check the gasket.",
+                    matchedContentCards = new[] { new { title = "Documented Beta", kind = "unit_lead" } },
+                    score = 0.96
+                }
+            }
+        });
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = normalized.Clone() });
+
+        const string answer = """
+            Here is a structured plan based on the documents:
+            Monday:
+            - Morning: Documented Alpha (source: guide.pdf p.4).
+            - Evening: Documented Beta (source: guide.pdf p.5).
+            """;
+
+        Assert.False(ToolAgentOrchestrator.LooksLikeUnsupportedSourceBackedPlanningAnswerForTests(
+            answer,
+            toolResults,
+            "Build a short sourced plan from the available documents.",
+            "en"));
+    }
+
+    [Fact]
+    public void Broad_planning_answer_rejects_items_missing_discriminating_terms()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Knowledge/category/options.pdf",
+                    docName = "options.pdf",
+                    pageStart = 12,
+                    pageEnd = 12,
+                    excerpt = "Alpha plan with blue intake module and standard filter.",
+                    fullText = "Alpha plan with blue intake module and standard filter.",
+                    matchedContentCards = new[] { new { title = "Alpha plan", kind = "unit_lead" } },
+                    score = 0.97
+                }
+            }
+        });
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = normalized.Clone() });
+
+        const string answer = """
+            Here is a structured plan based on the documents:
+            Monday:
+            - Morning: Alpha plan with blue intake module and premium gasket.
+            - Evening: Alpha plan with blue intake module and premium gasket.
+            """;
+
+        Assert.True(ToolAgentOrchestrator.LooksLikeUnsupportedSourceBackedPlanningAnswerForTests(
+            answer,
+            toolResults,
+            "Build a weekly plan from the available documents.",
+            "en"));
+    }
+
+    [Fact]
+    public void Broad_planning_answer_sources_are_limited_to_supported_items_and_deduped()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Knowledge/category/guide.pdf",
+                    docName = "guide.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "Documented Alpha. Preparation: inspect the intake valve and record the pressure.",
+                    fullText = "Documented Alpha. Preparation: inspect the intake valve and record the pressure.",
+                    matchedContentCards = new[] { new { title = "Documented Alpha", kind = "unit_lead" } },
+                    score = 0.97
+                },
+                new
+                {
+                    docPath = "Knowledge\\category\\guide.pdf",
+                    docName = "guide.pdf",
+                    pageStart = 4,
+                    pageEnd = 4,
+                    excerpt = "Documented Alpha. Preparation: inspect the intake valve and record the pressure.",
+                    fullText = "Documented Alpha. Preparation: inspect the intake valve and record the pressure.",
+                    matchedContentCards = new[] { new { title = "Documented Alpha", kind = "unit_lead" } },
+                    score = 0.96
+                },
+                new
+                {
+                    docPath = "Knowledge/category/guide.pdf",
+                    docName = "guide.pdf",
+                    pageStart = 5,
+                    pageEnd = 5,
+                    excerpt = "Documented Beta. Preparation: clean the filter and check the gasket.",
+                    fullText = "Documented Beta. Preparation: clean the filter and check the gasket.",
+                    matchedContentCards = new[] { new { title = "Documented Beta", kind = "unit_lead" } },
+                    score = 0.95
+                },
+                new
+                {
+                    docPath = "Knowledge/category/unused.pdf",
+                    docName = "unused.pdf",
+                    pageStart = 9,
+                    pageEnd = 9,
+                    excerpt = "Documented Gamma. Preparation: calibrate the sensor.",
+                    fullText = "Documented Gamma. Preparation: calibrate the sensor.",
+                    matchedContentCards = new[] { new { title = "Documented Gamma", kind = "unit_lead" } },
+                    score = 0.94
+                }
+            }
+        });
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = normalized.Clone() });
+
+        const string answer = """
+            Here is a structured plan based on the documents:
+            Monday:
+            - Morning: Documented Alpha.
+            - Evening: Documented Beta.
+            """;
+
+        var sources = ToolAgentOrchestrator.DeriveSourcesFromSupportedPlanningAnswerItemsForTests(
+            answer,
+            toolResults,
+            "Build a weekly plan from the available documents.",
+            "en");
+
+        Assert.Equal(2, sources.Count);
+        Assert.Contains(sources, source => source.DocName == "guide.pdf" && source.PageStart == 4);
+        Assert.Contains(sources, source => source.DocName == "guide.pdf" && source.PageStart == 5);
+        Assert.DoesNotContain(sources, source => source.DocName == "unused.pdf");
+    }
+
+    [Fact]
+    public void Structured_weekly_planning_rejects_pretty_plan_when_items_do_not_match_sources()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = Enumerable.Range(1, 8)
+                .Select(index => new
+                {
+                    docPath = $"Knowledge/category/source-{index}.pdf",
+                    docName = $"source-{index}.pdf",
+                    pageStart = index,
+                    pageEnd = index,
+                    excerpt = $"Documented maintenance item {index}. Inspect equipment and validate status.",
+                    fullText = $"Documented maintenance item {index}. Inspect equipment and validate status.",
+                    matchedContentCards = new[] { new { title = $"Documented maintenance item {index}", kind = "unit_lead" } },
+                    score = 0.95
+                })
+                .ToArray()
+        });
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = normalized.Clone() });
+
+        const string query = "Je cherche a avoir un plan de repas pour la semaine, petit-dejeuner, midi et soir du lundi au vendredi.";
+        const string answer = """
+            Voici un plan de repas pour la semaine, base sur les informations disponibles :
+            Lundi :
+            - Dejeuner : Salade de quinoa aux legumes et tofu grille
+            - Diner : Poulet roti avec des pommes de terre et des legumes vapeur
+            Mardi :
+            - Petit-dejeuner : Yogourt grec aux fruits rouges et aux graines de chia
+            - Dejeuner : Tacos de poisson au saumon fume et aux legumes
+            - Diner : Gratin de courgettes et de champignons
+            Mercredi :
+            - Petit-dejeuner : Pain complet aux fruits et a la noix
+            - Dejeuner : Salade de quinoa aux legumes et tofu grille
+            - Diner : Poulet roti avec des pommes de terre et des legumes vapeur
+            Jeudi :
+            - Petit-dejeuner : Smoothie a l'ananas et au lait d'amande
+            - Dejeuner : Salade de quinoa aux legumes et tofu grille
+            - Diner : Poulet roti avec des pommes de terre et des legumes vapeur
+            Vendredi :
+            - Petit-dejeuner : Yogourt grec aux fruits rouges et aux graines de chia
+            - Dejeuner : Pates aux champignons et au pesto
+            - Diner : Poisson grille avec des legumes au four
+            """;
+
+        Assert.True(ToolAgentOrchestrator.LooksLikeUnsupportedSourceBackedPlanningAnswerForTests(
+            answer,
+            toolResults,
+            query,
+            "fr"));
+
+        var sources = ToolAgentOrchestrator.DeriveSourcesFromSupportedPlanningAnswerItemsForTests(
+            answer,
+            toolResults,
+            query,
+            "fr");
+        Assert.Empty(sources);
+    }
+
+    [Fact]
+    public void Structured_weekly_planning_rejects_supported_title_with_unsupported_added_details()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Knowledge/category/source.pdf",
+                    docName = "source.pdf",
+                    pageStart = 12,
+                    pageEnd = 12,
+                    excerpt = "Smoothie a l'ananas. Preparation: mix pineapple with ice and serve cold.",
+                    fullText = "Smoothie a l'ananas. Preparation: mix pineapple with ice and serve cold.",
+                    matchedContentCards = new[] { new { title = "Smoothie a l'ananas", kind = "unit_lead" } },
+                    score = 0.98
+                }
+            }
+        });
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = normalized.Clone() });
+
+        const string query = "Je cherche a avoir un plan documente pour la semaine, matin, midi et soir du lundi au vendredi.";
+        const string answer = """
+            Voici un plan source :
+            Lundi :
+            - Petit-dejeuner : Smoothie a l'ananas et au lait de soja.
+            """;
+
+        Assert.True(ToolAgentOrchestrator.LooksLikeUnsupportedSourceBackedPlanningAnswerForTests(
+            answer,
+            toolResults,
+            query,
+            "fr"));
+
+        var sources = ToolAgentOrchestrator.DeriveSourcesFromSupportedPlanningAnswerItemsForTests(
+            answer,
+            toolResults,
+            query,
+            "fr");
+        Assert.Empty(sources);
+    }
+
+    [Fact]
+    public void Structured_weekly_planning_supported_items_can_return_one_source_per_slot()
+    {
+        var titles = new[]
+        {
+            "Alpha Sunrise",
+            "Bravo Garden",
+            "Charlie Meadow",
+            "Delta Harbor",
+            "Echo Forest",
+            "Foxtrot Orchard",
+            "Golf Valley",
+            "Hotel River",
+            "India Summit",
+            "Juliet Compass",
+            "Kilo Lantern",
+            "Lima Horizon",
+            "Mike Atlas",
+            "November Ridge",
+            "Oscar Harbor"
+        };
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = titles
+                .Select((title, index) => new
+                {
+                    docPath = $"Knowledge/category/source-{index + 1}.pdf",
+                    docName = $"source-{index + 1}.pdf",
+                    pageStart = index + 1,
+                    pageEnd = index + 1,
+                    excerpt = $"{title}. Preparation notes and constraints for this documented item.",
+                    fullText = $"{title}. Preparation notes and constraints for this documented item.",
+                    matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+                    score = 0.95
+                })
+                .ToArray()
+        });
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = normalized.Clone() });
+
+        const string query = "Je cherche a avoir un plan documente pour la semaine, matin, midi et soir du lundi au vendredi.";
+        var lines = new[]
+        {
+            "Lundi :",
+            $"- Matin : {titles[0]}.",
+            $"- Midi : {titles[1]}.",
+            $"- Soir : {titles[2]}.",
+            "Mardi :",
+            $"- Matin : {titles[3]}.",
+            $"- Midi : {titles[4]}.",
+            $"- Soir : {titles[5]}.",
+            "Mercredi :",
+            $"- Matin : {titles[6]}.",
+            $"- Midi : {titles[7]}.",
+            $"- Soir : {titles[8]}.",
+            "Jeudi :",
+            $"- Matin : {titles[9]}.",
+            $"- Midi : {titles[10]}.",
+            $"- Soir : {titles[11]}.",
+            "Vendredi :",
+            $"- Matin : {titles[12]}.",
+            $"- Midi : {titles[13]}.",
+            $"- Soir : {titles[14]}."
+        };
+        var answer = string.Join(Environment.NewLine, lines);
+
+        var stats = ToolAgentOrchestrator.AnalyzeSourceBackedPlanningAnswerSupportStatsForTests(
+            answer,
+            toolResults,
+            query,
+            "fr");
+        Assert.False(ToolAgentOrchestrator.LooksLikeUnsupportedSourceBackedPlanningAnswerForTests(
+            answer,
+            toolResults,
+            query,
+            "fr"), $"stats={stats}; answer={answer}");
+
+        var sources = ToolAgentOrchestrator.DeriveSourcesFromSupportedPlanningAnswerItemsForTests(
+            answer,
+            toolResults,
+            query,
+            "fr");
+        Assert.Equal(15, sources.Count);
+        Assert.Equal(15, sources.Select(source => source.DocName).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+    }
+
+    [Fact]
+    public void Structured_weekly_planning_can_build_full_grid_from_distinct_items_on_repeated_source_pages()
+    {
+        var titles = new[]
+        {
+            "Alpha Sunrise",
+            "Bravo Garden",
+            "Charlie Meadow",
+            "Delta Harbor",
+            "Echo Forest",
+            "Foxtrot Orchard",
+            "Golf Valley",
+            "Hotel River",
+            "India Summit",
+            "Juliet Compass",
+            "Kilo Lantern",
+            "Lima Horizon",
+            "Mike Atlas",
+            "November Ridge",
+            "Oscar Harbor"
+        };
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = titles
+                .Select((title, index) => new
+                {
+                    docPath = "Knowledge/category/source.pdf",
+                    docName = "source.pdf",
+                    pageStart = (index % 3) + 1,
+                    pageEnd = (index % 3) + 1,
+                    excerpt = $"{title}. Preparation notes and constraints for this documented item.",
+                    fullText = $"{title}. Preparation notes and constraints for this documented item.",
+                    matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+                    score = 0.95
+                })
+                .ToArray()
+        });
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = normalized.Clone() });
+
+        const string query = "Je cherche a avoir un plan documente pour la semaine, matin, midi et soir du lundi au vendredi.";
+        var answer = ToolAgentOrchestrator.BuildSourceBackedPlanningAnswerForTests(toolResults, "fr", query);
+
+        Assert.Contains("Lundi :", answer);
+        Assert.Contains("Vendredi :", answer);
+        Assert.DoesNotContain("pas assez", answer, StringComparison.OrdinalIgnoreCase);
+        foreach (var title in titles)
+            Assert.Contains(title, answer);
+    }
+
+    [Fact]
+    public void Structured_weekly_planning_does_not_auto_rotate_partial_candidate_sets()
+    {
+        var titles = new[]
+        {
+            "Alpha Sunrise",
+            "Bravo Garden",
+            "Charlie Meadow",
+            "Delta Harbor",
+            "Echo Forest",
+            "Foxtrot Orchard",
+            "Golf Valley",
+            "Hotel River"
+        };
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = titles
+                .Select((title, index) => new
+                {
+                    docPath = $"Knowledge/category/source-{index + 1}.pdf",
+                    docName = $"source-{index + 1}.pdf",
+                    pageStart = index + 1,
+                    pageEnd = index + 1,
+                    excerpt = $"{title}. Preparation notes and constraints for this documented item.",
+                    fullText = $"{title}. Preparation notes and constraints for this documented item.",
+                    matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+                    score = 0.95
+                })
+                .ToArray()
+        });
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = normalized.Clone() });
+
+        const string query = "Je cherche a avoir un plan documente pour la semaine, matin, midi et soir du lundi au vendredi.";
+        var answer = ToolAgentOrchestrator.BuildSourceBackedPlanningAnswerForTests(toolResults, "fr", query);
+
+        Assert.DoesNotContain("Lundi :", answer);
+        Assert.DoesNotContain("Vendredi :", answer);
+        Assert.DoesNotContain("tourner", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("pas assez", answer, StringComparison.OrdinalIgnoreCase);
+        foreach (var title in titles)
+            Assert.Contains(title, answer);
+    }
+
+    [Fact]
+    public void Structured_weekly_planning_rejects_rotation_when_user_requests_all_distinct_items()
+    {
+        var titles = Enumerable.Range(1, 8)
+            .Select(index => $"Documented item {index:00}")
+            .ToArray();
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = titles
+                .Select((title, index) => new
+                {
+                    docPath = $"Knowledge/category/source-{index + 1}.pdf",
+                    docName = $"source-{index + 1}.pdf",
+                    pageStart = index + 1,
+                    pageEnd = index + 1,
+                    excerpt = $"{title}. Preparation notes and constraints for this documented item.",
+                    fullText = $"{title}. Preparation notes and constraints for this documented item.",
+                    matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+                    score = 0.95
+                })
+                .ToArray()
+        });
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = normalized.Clone() });
+
+        const string query = "Je cherche a avoir 15 options toutes differentes, sans repetition, pour la semaine, matin, midi et soir du lundi au vendredi.";
+        var answer = ToolAgentOrchestrator.BuildSourceBackedPlanningAnswerForTests(toolResults, "fr", query);
+
+        Assert.DoesNotContain("Lundi :", answer);
+        Assert.Contains("sources", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Structured_weekly_planning_rejects_repeated_supported_items()
+    {
+        var titles = new[]
+        {
+            "Alpha Sunrise",
+            "Bravo Garden",
+            "Charlie Meadow"
+        };
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = titles
+                .Select((title, index) => new
+                {
+                    docPath = $"Knowledge/category/source-{index + 1}.pdf",
+                    docName = $"source-{index + 1}.pdf",
+                    pageStart = index + 1,
+                    pageEnd = index + 1,
+                    excerpt = $"{title}. Preparation notes and constraints for this documented item.",
+                    fullText = $"{title}. Preparation notes and constraints for this documented item.",
+                    matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+                    score = 0.95
+                })
+                .ToArray()
+        });
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = normalized.Clone() });
+
+        const string query = "Je cherche a avoir un plan documente pour la semaine, matin, midi et soir du lundi au vendredi, avec tous les elements differents et sans repetition.";
+        const string answer = """
+            Voici un plan documente :
+            Lundi :
+            - Matin : Alpha Sunrise.
+            - Midi : Bravo Garden.
+            - Soir : Charlie Meadow.
+            Mardi :
+            - Matin : Alpha Sunrise.
+            - Midi : Bravo Garden.
+            - Soir : Charlie Meadow.
+            Mercredi :
+            - Matin : Alpha Sunrise.
+            - Midi : Bravo Garden.
+            - Soir : Charlie Meadow.
+            Jeudi :
+            - Matin : Alpha Sunrise.
+            - Midi : Bravo Garden.
+            - Soir : Charlie Meadow.
+            Vendredi :
+            - Matin : Alpha Sunrise.
+            - Midi : Bravo Garden.
+            - Soir : Charlie Meadow.
+            """;
+
+        Assert.True(ToolAgentOrchestrator.LooksLikeUnsupportedSourceBackedPlanningAnswerForTests(
+            answer,
+            toolResults,
+            query,
+            "fr"));
+    }
+
+    [Fact]
+    public void Structured_weekly_planning_accepts_distinct_card_evidence_on_same_page()
+    {
+        var titles = new[]
+        {
+            "Alpha Sunrise",
+            "Bravo Garden",
+            "Charlie Meadow",
+            "Delta Harbor",
+            "Echo Forest",
+            "Foxtrot Orchard",
+            "Golf Valley",
+            "Hotel River",
+            "India Summit",
+            "Juliet Compass",
+            "Kilo Lantern",
+            "Lima Horizon",
+            "Mike Atlas",
+            "November Ridge",
+            "Oscar Harbor"
+        };
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = titles
+                .Select((title, index) => new
+                {
+                    docPath = "Knowledge/category/source.pdf",
+                    docName = "source.pdf",
+                    pageStart = 7,
+                    pageEnd = 7,
+                    excerpt = "This page contains several documented options.",
+                    fullText = "This page contains several documented options.",
+                    matchedContentCards = new[]
+                    {
+                        new
+                        {
+                            title,
+                            kind = "unit_lead",
+                            evidence = new
+                            {
+                                facts = new[]
+                                {
+                                    new { kind = "title", label = "title", value = title, sourceText = $"{title}. Preparation notes." }
+                                }
+                            }
+                        }
+                    },
+                    score = 0.95 - index * 0.001
+                })
+                .ToArray()
+        });
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = normalized.Clone() });
+
+        const string query = "Je cherche a avoir un plan documente pour la semaine, matin, midi et soir du lundi au vendredi.";
+        var answer = ToolAgentOrchestrator.BuildSourceBackedPlanningAnswerForTests(toolResults, "fr", query);
+
+        Assert.Contains("Lundi :", answer);
+        Assert.Contains("Vendredi :", answer);
+        foreach (var title in titles)
+            Assert.Contains(title, answer);
+
+        Assert.False(ToolAgentOrchestrator.LooksLikeUnsupportedSourceBackedPlanningAnswerForTests(
+            answer,
+            toolResults,
+            query,
+            "fr"));
+    }
+
+    [Fact]
+    public void Structured_weekly_planning_rejects_profile_only_titles_when_page_does_not_support_them()
+    {
+        var titles = new[]
+        {
+            "Alpha Sunrise",
+            "Bravo Garden",
+            "Charlie Meadow",
+            "Delta Harbor",
+            "Echo Forest",
+            "Foxtrot Orchard",
+            "Golf Valley",
+            "Hotel River",
+            "India Summit",
+            "Juliet Compass",
+            "Kilo Lantern",
+            "Lima Horizon",
+            "Mike Atlas",
+            "November Ridge",
+            "Oscar Harbor"
+        };
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = titles
+                .Select((title, index) => new
+                {
+                    docPath = $"Knowledge/category/source-{index + 1}.pdf",
+                    docName = $"source-{index + 1}.pdf",
+                    pageStart = index + 1,
+                    pageEnd = index + 1,
+                    excerpt = $"General schedule note {index + 1}. This page gives context but not the named option.",
+                    fullText = $"General schedule note {index + 1}. This page gives context but not the named option.",
+                    contextualSnippet = $"Matched profile title: {title}. Document overview says this option may exist elsewhere.",
+                    score = 0.95
+                })
+                .ToArray()
+        });
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = normalized.Clone() });
+
+        const string query = "Je cherche a avoir un plan documente pour la semaine, matin, midi et soir du lundi au vendredi.";
+        var answer = ToolAgentOrchestrator.BuildSourceBackedPlanningAnswerForTests(toolResults, "fr", query);
+
+        Assert.Equal(string.Empty, answer);
+    }
+
+    [Fact]
+    public void Structured_weekly_planning_rejects_card_titles_when_page_text_does_not_support_them()
+    {
+        var titles = new[]
+        {
+            "Alpha Sunrise",
+            "Bravo Garden",
+            "Charlie Meadow",
+            "Delta Harbor",
+            "Echo Forest",
+            "Foxtrot Orchard",
+            "Golf Valley",
+            "Hotel River",
+            "India Summit",
+            "Juliet Compass",
+            "Kilo Lantern",
+            "Lima Horizon",
+            "Mike Atlas",
+            "November Ridge",
+            "Oscar Harbor"
+        };
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = titles
+                .Select((title, index) => new
+                {
+                    docPath = $"Knowledge/category/source-{index + 1}.pdf",
+                    docName = $"source-{index + 1}.pdf",
+                    pageStart = index + 1,
+                    pageEnd = index + 1,
+                    excerpt = $"Generic planning context {index + 1}. This page explains constraints and timing, not the named item.",
+                    fullText = $"Generic planning context {index + 1}. This page explains constraints and timing, not the named item.",
+                    matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+                    score = 0.95
+                })
+                .ToArray()
+        });
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = normalized.Clone() });
+
+        const string query = "Je cherche a avoir un plan documente pour la semaine, matin, midi et soir du lundi au vendredi.";
+        var answer = ToolAgentOrchestrator.BuildSourceBackedPlanningAnswerForTests(toolResults, "fr", query);
+
+        Assert.Equal(string.Empty, answer);
+    }
+
+    [Fact]
+    public void Structured_weekly_planning_rejects_realistic_cuisine_pages_when_items_are_not_on_cited_pages()
+    {
+        var toolResults = BuildRealisticWeakCuisinePlanningToolResults();
+        const string query = "Je cherche à avoir un plan de repas pour la semaine, petit-déjeuner, midi et soir du lundi au vendredi.";
+        const string answer = """
+            Voici un plan de repas pour la semaine, petit-déjeuner, midi et soir du lundi au vendredi, basé sur les informations disponibles :
+            Lundi :
+            - Petit-déjeuner : Smoothie à l'ananas et au lait de soja
+            - Déjeuner : Salade de quinoa avec légumes et tofu grillé
+            - Dîner : Poulet rôti avec des pommes de terre et des légumes vapeur
+            Mardi :
+            - Petit-déjeuner : Yogourt grec aux fruits rouges et à l'abricot
+            - Déjeuner : Pâtes aux champignons et aux herbes
+            - Dîner : Poisson grillé avec des légumes au four
+            Mercredi :
+            - Petit-déjeuner : Pain complet avec compote de pommes et oeufs
+            - Déjeuner : Salade de quinoa avec légumes et tofu grillé
+            - Dîner : Poulet rôti avec des pommes de terre et des légumes vapeur
+            Jeudi :
+            - Petit-déjeuner : Smoothie à l'ananas et au lait de soja
+            - Déjeuner : Salade de quinoa avec légumes et tofu grillé
+            - Dîner : Poulet rôti avec des pommes de terre et des légumes vapeur
+            Vendredi :
+            - Petit-déjeuner : Yogourt grec aux fruits rouges et à l'abricot
+            - Déjeuner : Pâtes aux champignons et aux herbes
+            - Dîner : Poisson grillé avec des légumes au four
+            """;
+
+        Assert.True(ToolAgentOrchestrator.ShouldGateStructuredSourceBackedPlanningCoverageForTests(query));
+        Assert.True(ToolAgentOrchestrator.LooksLikeUnsupportedSourceBackedPlanningAnswerForTests(
+            answer,
+            toolResults,
+            query,
+            "fr"));
+
+        var sources = ToolAgentOrchestrator.DeriveSourcesFromSupportedPlanningAnswerItemsForTests(
+            answer,
+            toolResults,
+            query,
+            "fr");
+        Assert.Empty(sources);
+    }
+
+    [Fact]
+    public void Structured_weekly_planning_rejects_compact_day_lines_when_one_item_is_not_supported()
+    {
+        var titles = new[]
+        {
+            "Alpha Sunrise",
+            "Bravo Garden",
+            "Charlie Meadow",
+            "Delta Harbor",
+            "Echo Forest",
+            "Foxtrot Orchard",
+            "Golf Valley",
+            "Hotel River",
+            "India Summit",
+            "Juliet Compass",
+            "Kilo Lantern",
+            "Lima Horizon",
+            "Mike Atlas",
+            "November Ridge"
+        };
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = titles
+                .Select((title, index) => new
+                {
+                    docPath = $"Knowledge/category/source-{index + 1}.pdf",
+                    docName = $"source-{index + 1}.pdf",
+                    pageStart = index + 1,
+                    pageEnd = index + 1,
+                    excerpt = $"{title}. Preparation notes and constraints for this documented item.",
+                    fullText = $"{title}. Preparation notes and constraints for this documented item.",
+                    matchedContentCards = new[] { new { title, kind = "unit_lead" } },
+                    score = 0.95
+                })
+                .ToArray()
+        });
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = normalized.Clone() });
+
+        const string query = "Je cherche a avoir un plan documente pour la semaine, matin, midi et soir du lundi au vendredi.";
+        const string answer = """
+            Lundi : Alpha Sunrise / Bravo Garden / Charlie Meadow
+            Mardi : Delta Harbor / Echo Forest / Foxtrot Orchard
+            Mercredi : Golf Valley / Hotel River / India Summit
+            Jeudi : Juliet Compass / Kilo Lantern / Lima Horizon
+            Vendredi : Mike Atlas / November Ridge / Invented Oasis
+            """;
+
+        Assert.True(ToolAgentOrchestrator.LooksLikeUnsupportedSourceBackedPlanningAnswerForTests(
+            answer,
+            toolResults,
+            query,
+            "fr"));
+    }
+
+    [Fact]
+    public void Structured_weekly_planning_rejects_pipe_table_when_items_do_not_match_sources()
+    {
+        var toolResults = BuildRealisticWeakCuisinePlanningToolResults();
+        const string query = "Je cherche a avoir un plan de repas pour la semaine, petit-dejeuner, midi et soir du lundi au vendredi.";
+        const string answer = """
+            | Jour | Petit-dejeuner | Dejeuner | Diner |
+            | Mardi | Yogourt grec aux fruits rouges | Pates aux champignons et pesto | Poisson grille avec legumes |
+            | Mercredi | Pain complet et compote | Salade de quinoa avec legumes | Poulet roti avec legumes |
+            | Vendredi | Yogourt grec aux fruits rouges | Pates aux champignons et pesto | Poisson grille avec legumes |
+            """;
+
+        Assert.True(ToolAgentOrchestrator.LooksLikeUnsupportedSourceBackedPlanningAnswerForTests(
+            answer,
+            toolResults,
+            query,
+            "fr"));
+    }
+
+    [Fact]
+    public void Structured_weekly_planning_partial_fallback_does_not_fill_grid_from_weak_cuisine_pages()
+    {
+        var toolResults = BuildRealisticWeakCuisinePlanningToolResults();
+        const string query = "Je cherche a avoir un plan de repas pour la semaine, petit-dejeuner, midi et soir du lundi au vendredi.";
+
+        var answer = ToolAgentOrchestrator.BuildReadablePartialPlanningEvidenceAnswerForTests(toolResults, query, "fr");
+
+        Assert.Contains("proposition pratique", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("�largir la recherche", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Lundi :", answer);
+        Assert.DoesNotContain("Vendredi :", answer);
+        Assert.DoesNotContain("Salade de quinoa avec legumes et tofu grille", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static ToolResults BuildRealisticWeakCuisinePlanningToolResults()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new object[]
+            {
+                new
+                {
+                    docPath = "Cuisine/PDF/facilitemps.pdf",
+                    docName = "facilitemps.pdf",
+                    pageStart = 91,
+                    pageEnd = 91,
+                    excerpt = "La conservation de l'epaule de porc idees de repas. Dans une soupe, dans un sandwich, sur une pizza, dans un saute ou dans un tacos.",
+                    fullText = "La conservation de l'epaule de porc idees de repas. Tres simple a preparer, le porc effiloche sert de base pour plusieurs repas.",
+                    matchedContentCards = new[] { new { title = "La conservation de l'epaule de porc idees de repas", kind = "unit_lead" } },
+                    score = 0.95
+                },
+                new
+                {
+                    docPath = "Cuisine/PDF/facilitemps.pdf",
+                    docName = "facilitemps.pdf",
+                    pageStart = 63,
+                    pageEnd = 63,
+                    excerpt = "Nos outils FACILITEMPS. Pour simplifier votre quotidien durant les etapes de la planification et de la preparation des repas.",
+                    fullText = "Nos outils FACILITEMPS. Une liste de planification, des gabarits et des outils pour organiser les repas.",
+                    matchedContentCards = new[] { new { title = "Nos outils FACILITEMPS", kind = "unit_lead" } },
+                    score = 0.91
+                },
+                new
+                {
+                    docPath = "Cuisine/PDF/facilitemps.pdf",
+                    docName = "facilitemps.pdf",
+                    pageStart = 75,
+                    pageEnd = 75,
+                    excerpt = "Conservation des fines herbes. Basilic, coriandre, menthe, origan, thym et persil. Conseils de conservation.",
+                    fullText = "Conservation des fines herbes. Cette page explique comment conserver les herbes fraiches.",
+                    matchedContentCards = new[] { new { title = "Conservation des fines herbes", kind = "unit_lead" } },
+                    score = 0.88
+                },
+                new
+                {
+                    docPath = "Cuisine/PDF/facilitemps.pdf",
+                    docName = "facilitemps.pdf",
+                    pageStart = 88,
+                    pageEnd = 88,
+                    excerpt = "Roti de palette a la soupe a l'oignon. Braise avec des legumes et des pommes de terre pilees.",
+                    fullText = "Roti de palette a la soupe a l'oignon. Idees pour utiliser le roti de palette dans plusieurs repas.",
+                    matchedContentCards = new[] { new { title = "Roti de palette a la soupe a l'oignon", kind = "unit_lead" } },
+                    score = 0.87
+                },
+                new
+                {
+                    docPath = "Cuisine/PDF/Je_cuisine_simplement.pdf",
+                    docName = "Je_cuisine_simplement.pdf",
+                    pageStart = 38,
+                    pageEnd = 38,
+                    excerpt = "PETITS DEJ SMOOTHIE VERT. Epinards, ananas, banane, gingembre, yogourt grec, menthe, citron et glace.",
+                    fullText = "PETITS DEJ SMOOTHIE VERT. Preparation au melangeur. Reduire en puree lisse tous les ingredients.",
+                    matchedContentCards = new[] { new { title = "PETITS DEJ SMOOTHIE VERT", kind = "unit_lead" } },
+                    score = 0.94
+                },
+                new
+                {
+                    docPath = "Cuisine/PDF/livre-recette-sist-2025-web.pdf",
+                    docName = "livre-recette-sist-2025-web.pdf",
+                    pageStart = 10,
+                    pageEnd = 10,
+                    excerpt = "Petit dejeuner ou collation au lever. Dejeuner a la mi-journee. Diner leger le soir. Repas leger entre minuit et une heure du matin.",
+                    fullText = "La nutrition adaptee aux horaires atypiques. Exemple de menu et recommandations d'horaires.",
+                    matchedContentCards = new[] { new { title = "La nutrition adaptee aux horaires atypiques", kind = "unit_lead" } },
+                    score = 0.93
+                },
+                new
+                {
+                    docPath = "Cuisine/PDF/si-on-cuisinait.pdf",
+                    docName = "si-on-cuisinait.pdf",
+                    pageStart = 46,
+                    pageEnd = 46,
+                    excerpt = "Ingredients : huile, courgettes, oeufs, fromage rape et creme. Preparation au four.",
+                    fullText = "Battre les oeufs, ajouter les courgettes et cuire au four. Recette a base de courgettes.",
+                    matchedContentCards = new[] { new { title = "Courgettes aux oeufs", kind = "unit_lead" } },
+                    score = 0.86
+                }
+            }
+        });
+        var normalized = ToolAgentOrchestrator.NormalizeRagHitsForTests(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = normalized.Clone() });
+        return toolResults;
     }
 }

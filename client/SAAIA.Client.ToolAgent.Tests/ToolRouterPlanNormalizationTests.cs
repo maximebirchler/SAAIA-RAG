@@ -21,6 +21,42 @@ public sealed class ToolRouterPlanNormalizationTests
     }
 
     [Fact]
+    public void Router_json_repair_salvages_extra_closing_bracket_inside_tool_call_args()
+    {
+        const string malformed = """
+        {
+          "mode": "auto",
+          "language": "fr",
+          "intent": "rag.multi_search",
+          "toolCalls": [
+            {
+              "name": "rag.multi_search",
+              "args": {
+                "queries": ["petit dejeuner recettes", "diner recettes"]],
+                "topK": 8
+              }
+            }
+          ],
+          "needClarification": false
+        }
+        """;
+
+        Assert.True(ToolAgentOrchestrator.TryRepairJsonObjectForParsingForTests(malformed, out var repaired), repaired);
+        using var doc = JsonDocument.Parse(repaired);
+        Assert.Equal(JsonValueKind.Object, doc.RootElement.ValueKind);
+
+        var plan = JsonSerializer.Deserialize<RouterPlan>(
+            repaired,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        Assert.NotNull(plan);
+        Assert.Equal("rag.multi_search", plan!.Intent);
+        Assert.Single(plan.ToolCalls);
+        Assert.Equal("rag.multi_search", plan.ToolCalls[0].Name);
+        Assert.Equal(2, plan.ToolCalls[0].Args.GetProperty("queries").GetArrayLength());
+    }
+
+    [Fact]
     public void Stored_summary_store_intent_routes_to_backoffice_generate()
     {
         Assert.Equal("admin.summary.generate", ToolAgentOrchestrator.NormalizeRouterIntentForTests("summary.store"));
@@ -130,6 +166,88 @@ public sealed class ToolRouterPlanNormalizationTests
     }
 
     [Fact]
+    public void Normalize_tool_args_preserves_rag_document_and_page_scope()
+    {
+        var search = ToolAgentOrchestrator.NormalizeToolArgsForTests(
+            "rag.search",
+            """
+            {
+              "query": "target section",
+              "filters": {
+                "docId": "doc-123",
+                "docPath": "Knowledge/Guide.pdf",
+                "maxPerDoc": 4,
+                "maxPerPage": 2,
+                "pageStart": 12,
+                "pageEnd": 14
+              }
+            }
+            """);
+        var multi = ToolAgentOrchestrator.NormalizeToolArgsForTests(
+            "rag.multi_search",
+            """
+            {
+              "queries": ["target section", "target page"],
+              "docId": "doc-123",
+              "docPath": "Knowledge/Guide.pdf",
+              "maxPerDoc": 4,
+              "maxPerPage": 2,
+              "pageStart": 12,
+              "pageEnd": 14
+            }
+            """);
+
+        Assert.Equal("doc-123", search.GetProperty("docId").GetString());
+        Assert.Equal("Knowledge/Guide.pdf", search.GetProperty("docPath").GetString());
+        Assert.Equal(4, search.GetProperty("maxPerDoc").GetInt32());
+        Assert.Equal(2, search.GetProperty("maxPerPage").GetInt32());
+        Assert.Equal(12, search.GetProperty("pageStart").GetInt32());
+        Assert.Equal(14, search.GetProperty("pageEnd").GetInt32());
+
+        Assert.Equal("doc-123", multi.GetProperty("docId").GetString());
+        Assert.Equal("Knowledge/Guide.pdf", multi.GetProperty("docPath").GetString());
+        Assert.Equal(4, multi.GetProperty("maxPerDoc").GetInt32());
+        Assert.Equal(2, multi.GetProperty("maxPerPage").GetInt32());
+        Assert.Equal(12, multi.GetProperty("pageStart").GetInt32());
+        Assert.Equal(14, multi.GetProperty("pageEnd").GetInt32());
+    }
+
+    [Fact]
+    public void Normalize_tool_args_preserves_rag_research_surface_flags()
+    {
+        var search = ToolAgentOrchestrator.NormalizeToolArgsForTests(
+            "rag.search",
+            """
+            {
+              "query": "broad planning",
+              "filters": {
+                "researchMode": "source_exploration",
+                "includeResearchSurfaces": true
+              },
+              "mode": "broad"
+            }
+            """);
+        var multi = ToolAgentOrchestrator.NormalizeToolArgsForTests(
+            "rag.multi_search",
+            """
+            {
+              "queries": ["broad planning", "source options"],
+              "researchMode": "source_exploration",
+              "includeResearchSurfaces": true,
+              "mode": "broad"
+            }
+            """);
+
+        Assert.Equal("broad", search.GetProperty("mode").GetString());
+        Assert.Equal("source_exploration", search.GetProperty("researchMode").GetString());
+        Assert.True(search.GetProperty("includeResearchSurfaces").GetBoolean());
+
+        Assert.Equal("broad", multi.GetProperty("mode").GetString());
+        Assert.Equal("source_exploration", multi.GetProperty("researchMode").GetString());
+        Assert.True(multi.GetProperty("includeResearchSurfaces").GetBoolean());
+    }
+
+    [Fact]
     public void Sanitize_tool_calls_caps_rag_calls_to_five()
     {
         var calls = Enumerable.Range(1, 7)
@@ -230,6 +348,140 @@ public sealed class ToolRouterPlanNormalizationTests
         Assert.Equal("rag.multi_search", call.Name);
         Assert.True(call.Args.GetProperty("topK").GetInt32() >= 8);
         Assert.True(call.Args.GetProperty("queries").GetArrayLength() > 1);
+    }
+
+    [Fact]
+    public void Documentary_defaults_repair_router_search_fragment_and_drop_sentence_category()
+    {
+        var plan = new RouterPlan
+        {
+            Intent = "rag.answer",
+            Language = "fr",
+            Mode = "auto",
+            ToolCalls = new()
+            {
+                new RouterPlan.ToolCall
+                {
+                    Name = "rag.search",
+                    Args = ParseArgs("""{"query":"et reponds avec les sources","topK":8,"category":"s documents si le controle SLA est mentionne et reponds","mode":"auto"}""")
+                }
+            }
+        };
+
+        ToolAgentOrchestrator.ApplyDocumentaryRagDefaultsForTests(
+            plan,
+            "Cherche dans les documents si le controle SLA est mentionne et reponds avec les sources.");
+
+        var call = Assert.Single(plan.ToolCalls);
+        Assert.Equal("rag.search", call.Name);
+        var query = call.Args.GetProperty("query").GetString() ?? string.Empty;
+        Assert.Contains("controle SLA", query, StringComparison.OrdinalIgnoreCase);
+        Assert.NotEqual("et reponds avec les sources", query, StringComparer.OrdinalIgnoreCase);
+        Assert.True(
+            !call.Args.TryGetProperty("category", out var category)
+            || category.ValueKind == JsonValueKind.Null
+            || string.IsNullOrWhiteSpace(category.GetString()));
+    }
+
+    [Theory]
+    [InlineData("bonjour")]
+    [InlineData("Dis simplement bonjour.")]
+    [InlineData("Merci.")]
+    public void Documentary_defaults_respect_llm_general_without_tools(string input)
+    {
+        var plan = new RouterPlan
+        {
+            Intent = "chat.general",
+            Language = "fr",
+            Mode = "auto",
+            Origin = RouterPlanOrigin.Llm
+        };
+
+        ToolAgentOrchestrator.ApplyDocumentaryRagDefaultsForTests(plan, input);
+
+        Assert.Equal("chat.general", plan.Intent);
+        Assert.Empty(plan.ToolCalls);
+    }
+
+    [Fact]
+    public void Documentary_defaults_preserve_explicit_llm_rag_even_for_short_phrase()
+    {
+        var plan = new RouterPlan
+        {
+            Intent = "rag.answer",
+            Language = "fr",
+            Mode = "auto",
+            Origin = RouterPlanOrigin.Llm,
+            ToolCalls = new()
+            {
+                new RouterPlan.ToolCall
+                {
+                    Name = "rag.multi_search",
+                    Args = ParseArgs("""{"queries":["Dis simplement bonjour.","bonjour"],"topK":8,"mode":"balanced"}""")
+                }
+            }
+        };
+
+        ToolAgentOrchestrator.ApplyDocumentaryRagDefaultsForTests(plan, "Dis simplement bonjour.");
+
+        Assert.Equal("rag.answer", plan.Intent);
+        var call = Assert.Single(plan.ToolCalls);
+        Assert.Equal("rag.multi_search", call.Name);
+    }
+
+    [Fact]
+    public void Evidence_exploration_respects_llm_general_without_tools()
+    {
+        var plan = new RouterPlan
+        {
+            Intent = "chat.general",
+            Language = "fr",
+            Mode = "auto",
+            Origin = RouterPlanOrigin.Llm
+        };
+
+        Assert.True(ToolAgentOrchestrator.ShouldRespectLlmRouterGeneralWithoutToolsForTests(plan));
+    }
+
+    [Fact]
+    public void Evidence_exploration_does_not_skip_when_llm_rag_tool_is_explicit()
+    {
+        var plan = new RouterPlan
+        {
+            Intent = "rag.answer",
+            Language = "fr",
+            Mode = "auto",
+            Origin = RouterPlanOrigin.Llm,
+            ToolCalls = new()
+            {
+                new RouterPlan.ToolCall
+                {
+                    Name = "rag.search",
+                    Args = ParseArgs("""{"query":"bonjour","topK":8}""")
+                }
+            }
+        };
+
+        Assert.False(ToolAgentOrchestrator.ShouldRespectLlmRouterGeneralWithoutToolsForTests(plan));
+    }
+
+    [Fact]
+    public void Documentary_defaults_do_not_rewrite_llm_general_documentary_request()
+    {
+        var plan = new RouterPlan
+        {
+            Intent = "chat.general",
+            Language = "fr",
+            Mode = "auto",
+            Origin = RouterPlanOrigin.Llm
+        };
+
+        ToolAgentOrchestrator.ApplyDocumentaryRagDefaultsForTests(
+            plan,
+            "Je veux des informations sur l'inertage.");
+
+        Assert.Equal("chat.general", plan.Intent);
+        Assert.Empty(plan.ToolCalls);
     }
 
     [Fact]
@@ -381,6 +633,20 @@ public sealed class ToolRouterPlanNormalizationTests
 
         Assert.True(ToolAgentOrchestrator.LooksLikeSourceBackedPlanningRequestForTests(query));
         Assert.False(ToolAgentOrchestrator.LooksLikeUnresolvedSourceBackedDeicticFollowupForTests(query));
+    }
+
+    [Fact]
+    public void Exact_item_pre_router_shortcut_skips_structured_planning_requests()
+    {
+        Assert.True(ToolAgentOrchestrator.ShouldSkipExactItemPreRouterShortcutForTests(
+            "Je cherche à avoir un plan de repas pour la semaine, petit-déjeuner, midi et soir du lundi au vendredi."));
+    }
+
+    [Fact]
+    public void Exact_item_pre_router_shortcut_still_allows_precise_item_requests()
+    {
+        Assert.False(ToolAgentOrchestrator.ShouldSkipExactItemPreRouterShortcutForTests(
+            "Donne-moi la recette du coq au vin avec les sources."));
     }
 
     [Fact]
@@ -571,6 +837,149 @@ public sealed class ToolRouterPlanNormalizationTests
         var call = Assert.Single(plan.ToolCalls);
         Assert.StartsWith("rag.", call.Name, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("rag.answer", plan.Intent);
+    }
+
+    [Fact]
+    public void Documentary_planning_defaults_use_compact_initial_probe_queries()
+    {
+        const string userMessage = "Je cherche à avoir un plan de repas pour la semaine, petit-déjeuner, midi et soir du lundi au vendredi.";
+        var plan = new RouterPlan
+        {
+            Intent = "chat.general",
+            Language = "fr",
+            Mode = "strict"
+        };
+
+        ToolAgentOrchestrator.ApplyDocumentaryRagDefaultsForTests(plan, userMessage);
+
+        var call = Assert.Single(plan.ToolCalls);
+        Assert.Equal("rag.multi_search", call.Name);
+        var queries = call.Args.GetProperty("queries").EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToArray();
+        var explorationQueries = ToolAgentOrchestrator.BuildPlanningExplorationRetrievalQueriesForTests(userMessage);
+
+        Assert.True(explorationQueries.Length > 12);
+        Assert.InRange(queries.Length, 1, 4);
+        Assert.DoesNotContain(queries, query => string.Equals(query, "sommaire", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, query => string.Equals(query, "table des matieres", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, query => string.Equals(query, "index", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, query => query.Contains("catalogue", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, query => query.Contains("liste", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => query.Contains("repas", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, query => query.StartsWith("Je cherche", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, query => query.Contains("source", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, query => query.Contains("proposer", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, query => query.Contains("partir", StringComparison.OrdinalIgnoreCase));
+        Assert.All(queries, query => Assert.True(query.Length <= 90, $"Unexpectedly long initial probe query: {query}"));
+        Assert.Equal(
+            queries.Length,
+            queries.Select(ToolAgentOrchestrator.NormalizeRagQueryForTests).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Equal(
+            queries.Length,
+            queries
+                .Select(ToolAgentOrchestrator.NormalizeInitialSourceBackedPlanningProbeFamilyKeyForTests)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count());
+        Assert.Equal(8, call.Args.GetProperty("topK").GetInt32());
+        Assert.Equal("source_exploration", call.Args.GetProperty("researchMode").GetString());
+        Assert.True(call.Args.GetProperty("includeResearchSurfaces").GetBoolean());
+    }
+
+    [Fact]
+    public void Documentary_planning_normalization_compacts_noisy_router_exploration_queries()
+    {
+        const string userMessage = "Je cherche à avoir un plan de repas pour la semaine, petit-déjeuner, midi et soir du lundi au vendredi.";
+        var plan = new RouterPlan
+        {
+            Intent = "rag.answer",
+            Language = "fr",
+            Mode = "strict",
+            ToolCalls = new()
+            {
+                new RouterPlan.ToolCall
+                {
+                    Name = "rag.multi_search",
+                    Args = ParseArgs("""{"queries":["sommaire","table des matieres","index","sections principales","contents","table of contents","sections","indice","index repas","repas index","liste repas","repas liste"],"topK":20,"mode":"broad","researchMode":"source_exploration","includeResearchSurfaces":true}""")
+                }
+            }
+        };
+
+        ToolAgentOrchestrator.ApplyDocumentaryRagDefaultsForTests(plan, userMessage);
+
+        var call = Assert.Single(plan.ToolCalls);
+        Assert.Equal("rag.multi_search", call.Name);
+        var queries = call.Args.GetProperty("queries").EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToArray();
+        var explorationQueries = ToolAgentOrchestrator.BuildPlanningExplorationRetrievalQueriesForTests(userMessage);
+
+        Assert.True(explorationQueries.Length > 12);
+        Assert.InRange(queries.Length, 1, 4);
+        Assert.DoesNotContain(queries, query => string.Equals(query, "sommaire", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, query => string.Equals(query, "table des matieres", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, query => string.Equals(query, "index", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, query => query.Contains("catalogue", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, query => query.Contains("liste", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => query.Contains("repas", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, query => query.StartsWith("Je cherche", StringComparison.OrdinalIgnoreCase));
+        Assert.All(queries, query => Assert.True(query.Length <= 90, $"Unexpectedly long initial probe query: {query}"));
+        Assert.Equal(
+            queries.Length,
+            queries.Select(ToolAgentOrchestrator.NormalizeRagQueryForTests).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Equal(8, call.Args.GetProperty("topK").GetInt32());
+        Assert.Equal("broad", call.Args.GetProperty("mode").GetString());
+        Assert.Equal("source_exploration", call.Args.GetProperty("researchMode").GetString());
+        Assert.True(call.Args.GetProperty("includeResearchSurfaces").GetBoolean());
+    }
+
+    [Fact]
+    public void Vague_weekly_meal_plan_initial_probes_avoid_filler_and_navigation_terms()
+    {
+        const string userMessage = "Je ne sais pas quoi faire pour les repas de cette semaine, tu peux me proposer un plan de repas pour la semaine a partir des documents disponibles, avec les sources utiles ?";
+
+        var queries = ToolAgentOrchestrator.BuildInitialSourceBackedPlanningProbeQueriesForTests(userMessage);
+
+        Assert.InRange(queries.Length, 1, 4);
+        Assert.Contains(queries, query => query.Contains("repas", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, query => ContainsProbeToken(query, "sais"));
+        Assert.DoesNotContain(queries, query => ContainsProbeToken(query, "pas"));
+        Assert.DoesNotContain(queries, query => ContainsProbeToken(query, "table"));
+        Assert.DoesNotContain(queries, query => ContainsProbeToken(query, "matieres"));
+        Assert.DoesNotContain(queries, query => ContainsProbeToken(query, "liste"));
+        Assert.DoesNotContain(queries, query => ContainsProbeToken(query, "catalogue"));
+        Assert.DoesNotContain(queries, query => ContainsProbeToken(query, "elements"));
+        Assert.DoesNotContain(queries, query => ContainsProbeToken(query, "candidats"));
+        Assert.All(queries, query => Assert.True(query.Length <= 90, $"Unexpectedly long initial probe query: {query}"));
+
+        static bool ContainsProbeToken(string query, string token)
+            => ToolAgentOrchestrator.NormalizeRagQueryForTests(query)
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Contains(token, StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public void Detailed_weekly_meal_plan_exploration_covers_each_requested_meal_slot_before_query_budget_cutoff()
+    {
+        const string userMessage = "J'ai besoin que tu me asses un plan de repas pour la semaine du lundi au vrendredi en y mettant petit-dejeuner, diner, souper et gouter / collation, avec les sources utiles.";
+
+        var primaryQueries = ToolAgentOrchestrator.BuildPlanningRetrievalQueriesForTests(userMessage);
+        var explorationQueries = ToolAgentOrchestrator.BuildPlanningExplorationRetrievalQueriesForTests(userMessage);
+        var firstBudgetedExplorationQueries = explorationQueries.Take(12).ToArray();
+
+        Assert.DoesNotContain(primaryQueries, query => ContainsNormalizedToken(query, "besoin"));
+        Assert.DoesNotContain(primaryQueries, query => ContainsNormalizedToken(query, "asses"));
+        Assert.DoesNotContain(primaryQueries, query => ContainsNormalizedToken(query, "utiles"));
+        Assert.DoesNotContain(primaryQueries, query => ContainsNormalizedToken(query, "sources"));
+        Assert.Contains(firstBudgetedExplorationQueries, query => ContainsNormalizedToken(query, "petit") && ContainsNormalizedToken(query, "dejeuner"));
+        Assert.Contains(firstBudgetedExplorationQueries, query => ContainsNormalizedToken(query, "diner"));
+        Assert.Contains(firstBudgetedExplorationQueries, query => ContainsNormalizedToken(query, "souper"));
+        Assert.Contains(firstBudgetedExplorationQueries, query => ContainsNormalizedToken(query, "collation"));
+        Assert.Contains(firstBudgetedExplorationQueries, query => ContainsNormalizedToken(query, "gouter"));
+        Assert.Contains(firstBudgetedExplorationQueries, query => ContainsNormalizedToken(query, "dessert"));
+        Assert.DoesNotContain(firstBudgetedExplorationQueries, query => string.Equals(query, "sommaire", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(firstBudgetedExplorationQueries, query => string.Equals(query, "index", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(firstBudgetedExplorationQueries, query => ContainsNormalizedToken(query, "recettes"));
+
+        static bool ContainsNormalizedToken(string query, string token)
+            => ToolAgentOrchestrator.NormalizeRagQueryForTests(query)
+                .Contains(token, StringComparison.Ordinal);
     }
 
     [Fact]

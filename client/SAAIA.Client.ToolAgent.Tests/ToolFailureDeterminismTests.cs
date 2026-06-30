@@ -55,7 +55,7 @@ public sealed class ToolFailureDeterminismTests
         var answer = method!.Invoke(null, new object[] { plan, results, "fr" }) as string;
 
         Assert.False(string.IsNullOrWhiteSpace(answer));
-        Assert.Contains("reessaie", answer!, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Réessaie", answer!, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("pas assez", answer!, StringComparison.OrdinalIgnoreCase);
     }
 }

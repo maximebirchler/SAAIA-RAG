@@ -1,6 +1,13 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace SAAIA.Client.WinUI.Services.ToolAgent;
+
+public enum RouterPlanOrigin
+{
+    LocalFallback,
+    Llm
+}
 
 public sealed class RouterPlan
 {
@@ -8,6 +15,9 @@ public sealed class RouterPlan
     public string Language { get; set; } = "fr";       // fr|en|es|pt|de|it
     public string Intent { get; set; } = "chat.general";
     public string ResponseFormat { get; set; } = "auto";
+
+    [JsonIgnore]
+    public RouterPlanOrigin Origin { get; set; } = RouterPlanOrigin.LocalFallback;
 
     public bool NeedClarification { get; set; } = false;
     public List<string> ClarificationQuestions { get; set; } = new();
