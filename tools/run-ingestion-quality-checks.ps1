@@ -375,7 +375,7 @@ LEFT JOIN LATERAL (
   FROM document_navigation_entries ne
   WHERE ne.revision_id=c.revision_id
 ) ne ON true
-WHERE c.content_role IN ('navigation','mixed_navigation_content')
+WHERE c.content_role='navigation'
    OR c.chunk_type='navigation_index_v1'
 GROUP BY c.category, c.doc_path, ne.entries
 HAVING count(*) >= 5 AND coalesce(ne.entries, 0)=0
