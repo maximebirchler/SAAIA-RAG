@@ -188,6 +188,30 @@ static class QdrantClient
                 return values.Length == 0 ? null : values;
             }
 
+            int[]? GetIntArray(string k)
+            {
+                if (payload.ValueKind != JsonValueKind.Object
+                    || !payload.TryGetProperty(k, out var v)
+                    || v.ValueKind != JsonValueKind.Array)
+                    return null;
+
+                var values = v.EnumerateArray()
+                    .Select(static item =>
+                    {
+                        if (item.ValueKind == JsonValueKind.Number && item.TryGetInt32(out var number))
+                            return number;
+                        if (item.ValueKind == JsonValueKind.String && int.TryParse(item.GetString(), out var parsed))
+                            return parsed;
+                        return (int?)null;
+                    })
+                    .Where(static item => item.HasValue)
+                    .Select(static item => item!.Value)
+                    .Distinct()
+                    .OrderBy(static item => item)
+                    .ToArray();
+                return values.Length == 0 ? null : values;
+            }
+
             var m = new RagMatch(
                 Score: score,
                 DocId: GetStr("doc_id"),
@@ -223,7 +247,12 @@ static class QdrantClient
                 ExtractionTextStatus: GetStr("extraction_text_status"),
                 ExtractionTextSparse: GetBool("extraction_text_sparse"),
                 ExtractionOcrCandidate: GetBool("extraction_ocr_candidate"),
-                ExtractionQualitySignals: GetStringArray("extraction_quality_signals")
+                ExtractionQualitySignals: GetStringArray("extraction_quality_signals"),
+                SourceUnitOrdinals: GetIntArray("source_unit_ordinals"),
+                SourceUnitStartOrdinal: GetInt("source_unit_start_ordinal"),
+                SourceUnitEndOrdinal: GetInt("source_unit_end_ordinal"),
+                SourceUnitCount: GetInt("source_unit_count"),
+                ChunkComposition: GetStr("chunk_composition")
             );
 
             list.Add(m);
@@ -308,5 +337,10 @@ public sealed record RagMatch(
     string? ExtractionTextStatus = null,
     bool? ExtractionTextSparse = null,
     bool? ExtractionOcrCandidate = null,
-    IReadOnlyList<string>? ExtractionQualitySignals = null
+    IReadOnlyList<string>? ExtractionQualitySignals = null,
+    IReadOnlyList<int>? SourceUnitOrdinals = null,
+    int? SourceUnitStartOrdinal = null,
+    int? SourceUnitEndOrdinal = null,
+    int? SourceUnitCount = null,
+    string? ChunkComposition = null
 );

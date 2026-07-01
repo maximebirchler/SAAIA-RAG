@@ -743,6 +743,17 @@ internal static partial class RetrievalChunkProjector
         var prefixedText = PrefixDetectedEmbeddedTitle(normalizedText);
         var classification = RetrievalContentClassifier.ClassifyChunk(prefixedText, chunkType);
         var extractionQuality = ResolveExtractionQuality(sourceUnits);
+        var sourceUnitOrdinals = sourceUnits
+            .Select(static unit => unit.Ordinal)
+            .Distinct()
+            .OrderBy(static ordinal => ordinal)
+            .ToArray();
+        var chunkComposition = sourceUnitOrdinals.Length switch
+        {
+            0 => "unknown_source_units",
+            1 => "single_unit",
+            _ => "multi_unit_window"
+        };
 
         return new(
             ChunkIndex: chunkIndex,
@@ -764,7 +775,12 @@ internal static partial class RetrievalChunkProjector
             ExtractionTextStatus: extractionQuality.TextStatus,
             ExtractionTextSparse: extractionQuality.TextSparse,
             ExtractionOcrCandidate: extractionQuality.OcrCandidate,
-            ExtractionQualitySignals: extractionQuality.Signals);
+            ExtractionQualitySignals: extractionQuality.Signals,
+            SourceUnitOrdinals: sourceUnitOrdinals,
+            SourceUnitStartOrdinal: sourceUnitOrdinals.Length == 0 ? null : sourceUnitOrdinals[0],
+            SourceUnitEndOrdinal: sourceUnitOrdinals.Length == 0 ? null : sourceUnitOrdinals[^1],
+            SourceUnitCount: sourceUnitOrdinals.Length,
+            ChunkComposition: chunkComposition);
     }
 
     private static RetrievalChunkExtractionQuality ResolveExtractionQuality(IReadOnlyList<ExtractedDocumentUnit> units)
@@ -1148,7 +1164,12 @@ internal sealed record ProjectedRetrievalChunk(
     string? ExtractionTextStatus = null,
     bool ExtractionTextSparse = false,
     bool ExtractionOcrCandidate = false,
-    IReadOnlyList<string>? ExtractionQualitySignals = null);
+    IReadOnlyList<string>? ExtractionQualitySignals = null,
+    IReadOnlyList<int>? SourceUnitOrdinals = null,
+    int? SourceUnitStartOrdinal = null,
+    int? SourceUnitEndOrdinal = null,
+    int? SourceUnitCount = null,
+    string? ChunkComposition = null);
 
 internal sealed record RetrievalChunkExtractionQuality(
     string? TextStatus,

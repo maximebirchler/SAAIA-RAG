@@ -171,6 +171,21 @@ public sealed class RagItemContext
 
     [JsonPropertyName("contentDensityScore")]
     public double? ContentDensityScore { get; set; }
+
+    [JsonPropertyName("sourceUnitOrdinals")]
+    public List<int>? SourceUnitOrdinals { get; set; }
+
+    [JsonPropertyName("sourceUnitStartOrdinal")]
+    public int? SourceUnitStartOrdinal { get; set; }
+
+    [JsonPropertyName("sourceUnitEndOrdinal")]
+    public int? SourceUnitEndOrdinal { get; set; }
+
+    [JsonPropertyName("sourceUnitCount")]
+    public int? SourceUnitCount { get; set; }
+
+    [JsonPropertyName("chunkComposition")]
+    public string? ChunkComposition { get; set; }
 }
 
 public sealed class RagItemExtractionQuality

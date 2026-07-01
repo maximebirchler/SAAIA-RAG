@@ -67,7 +67,12 @@ public sealed record RagItemContextDto(
     string? NavigationReason = null,
     string? OriginalChunkType = null,
     double? NavigationScore = null,
-    double? ContentDensityScore = null
+    double? ContentDensityScore = null,
+    IReadOnlyList<int>? SourceUnitOrdinals = null,
+    int? SourceUnitStartOrdinal = null,
+    int? SourceUnitEndOrdinal = null,
+    int? SourceUnitCount = null,
+    string? ChunkComposition = null
 );
 
 /// <summary>

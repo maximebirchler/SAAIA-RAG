@@ -30,10 +30,16 @@ public sealed class RetrievalChunkProjectorTests
         Assert.Equal(0, projected[0].UnitOrdinal);
         Assert.Equal(0, projected[0].OffsetStart);
         Assert.Equal(11, projected[0].OffsetEnd);
+        Assert.Equal([0], projected[0].SourceUnitOrdinals);
+        Assert.Equal(1, projected[0].SourceUnitCount);
+        Assert.Equal("single_unit", projected[0].ChunkComposition);
         Assert.Equal(1, projected[1].SectionOrdinal);
         Assert.Equal(1, projected[1].UnitOrdinal);
         Assert.Equal(13, projected[1].OffsetStart);
         Assert.Equal(23, projected[1].OffsetEnd);
+        Assert.Equal([1], projected[1].SourceUnitOrdinals);
+        Assert.Equal(1, projected[1].SourceUnitCount);
+        Assert.Equal("single_unit", projected[1].ChunkComposition);
     }
 
     [Fact]
@@ -83,6 +89,34 @@ public sealed class RetrievalChunkProjectorTests
         Assert.All(projected.Skip(2), chunk => Assert.Equal(1, chunk.SectionOrdinal));
         Assert.All(projected, chunk => Assert.NotEqual("legacy_word_window_v1", chunk.ChunkType));
         Assert.All(projected, chunk => Assert.True(chunk.OffsetEnd > chunk.OffsetStart));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_exposes_composite_source_unit_trace()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, "first paragraph with usable content", 35, 5, [1], 0, 35),
+            new ExtractedDocumentUnit(1, 0, 1, 1, "second paragraph with related detail", 36, 5, [2], 37, 73)
+        };
+
+        var chunk = Assert.Single(RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 20,
+            overlapWords: 0,
+            minWords: 1));
+
+        Assert.Null(chunk.UnitOrdinal);
+        Assert.Equal([0, 1], chunk.SourceUnitOrdinals);
+        Assert.Equal(0, chunk.SourceUnitStartOrdinal);
+        Assert.Equal(1, chunk.SourceUnitEndOrdinal);
+        Assert.Equal(2, chunk.SourceUnitCount);
+        Assert.Equal("multi_unit_window", chunk.ChunkComposition);
     }
 
     [Fact]

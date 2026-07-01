@@ -1493,6 +1493,8 @@ WHERE job_id=@job_id
     {
         var chunkId = DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, ingestionVersion, projectedChunk.ChunkIndex);
         var usesContextualText = !string.Equals(projectedChunk.Text, embeddingText, StringComparison.Ordinal);
+        var sourceUnitOrdinals = projectedChunk.SourceUnitOrdinals ?? Array.Empty<int>();
+        var sourceUnitCount = projectedChunk.SourceUnitCount ?? sourceUnitOrdinals.Count;
 
         return new Dictionary<string, object?>
         {
@@ -1517,6 +1519,11 @@ WHERE job_id=@job_id
             ["embedding_input_format"] = embeddingInputFormat,
             ["section_ordinal"] = projectedChunk.SectionOrdinal,
             ["unit_ordinal"] = projectedChunk.UnitOrdinal,
+            ["source_unit_ordinals"] = sourceUnitOrdinals,
+            ["source_unit_start_ordinal"] = projectedChunk.SourceUnitStartOrdinal,
+            ["source_unit_end_ordinal"] = projectedChunk.SourceUnitEndOrdinal,
+            ["source_unit_count"] = sourceUnitCount,
+            ["chunk_composition"] = projectedChunk.ChunkComposition,
             ["chunk_type"] = projectedChunk.ChunkType,
             ["content_role"] = projectedChunk.ContentRole,
             ["navigation_reason"] = projectedChunk.NavigationReason,
@@ -1608,7 +1615,9 @@ WHERE job_id=@job_id
             NavigationReason: null,
             OriginalChunkType: null,
             NavigationScore: 0.0,
-            ContentDensityScore: 0.0);
+            ContentDensityScore: 0.0,
+            SourceUnitCount: 0,
+            ChunkComposition: "legacy_word_window_unknown_units");
     }
 
     internal static string? ResolveSectionTitle(

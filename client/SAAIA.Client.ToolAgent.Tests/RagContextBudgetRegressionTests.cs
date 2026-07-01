@@ -248,7 +248,12 @@ public sealed class RagContextBudgetRegressionTests
                 "contentRole": "mixed_navigation_content",
                 "navigationReason": "inline_page_number_list",
                 "navigationScore": 0.42,
-                "contentDensityScore": 0.76
+                "contentDensityScore": 0.76,
+                "sourceUnitOrdinals": [12, 13],
+                "sourceUnitStartOrdinal": 12,
+                "sourceUnitEndOrdinal": 13,
+                "sourceUnitCount": 2,
+                "chunkComposition": "multi_unit_window"
               }
             }
           ]
@@ -271,6 +276,11 @@ public sealed class RagContextBudgetRegressionTests
         Assert.Equal("inline_page_number_list", card.NavigationReason);
         Assert.Equal(0.42, card.RetrievalNavigationScore);
         Assert.Equal(0.76, card.ContentDensityScore);
+        Assert.Equal([12, 13], card.SourceUnitOrdinals);
+        Assert.Equal(12, card.SourceUnitStartOrdinal);
+        Assert.Equal(13, card.SourceUnitEndOrdinal);
+        Assert.Equal(2, card.SourceUnitCount);
+        Assert.Equal("multi_unit_window", card.ChunkComposition);
     }
 
     [Fact]

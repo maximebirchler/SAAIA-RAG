@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Security.Cryptography;
+using System.Text;
 using PdfPig = UglyToad.PdfPig;
 
 static class PdfExtractor
@@ -19,7 +20,7 @@ static class PdfExtractor
         {
             ct.ThrowIfCancellationRequested();
 
-            var rawText = page.Text ?? string.Empty;
+            var rawText = ExtractLayoutAwarePageText(page);
             var text = PdfTextSanitizer.ForStorage(rawText);
             rawPages.Add((page.Number, text, CountPageImages(page)));
             replacementStatsByPage[page.Number] = (
@@ -81,6 +82,120 @@ static class PdfExtractor
             return 0;
         }
     }
+
+    private static string ExtractLayoutAwarePageText(UglyToad.PdfPig.Content.Page page)
+    {
+        var fallback = page.Text ?? string.Empty;
+        try
+        {
+            var words = page.GetWords()
+                .Select(static word => new PdfLayoutWord(
+                    word.Text,
+                    word.BoundingBox.Left,
+                    word.BoundingBox.Right,
+                    word.BoundingBox.Top,
+                    word.BoundingBox.Bottom))
+                .ToArray();
+            return BuildLayoutAwareText(words, fallback);
+        }
+        catch
+        {
+            return fallback;
+        }
+    }
+
+    internal static string BuildLayoutAwareText(IReadOnlyList<PdfLayoutWord> words, string? fallback)
+    {
+        fallback ??= string.Empty;
+        var usableWords = words
+            .Where(static word =>
+                !string.IsNullOrWhiteSpace(word.Text)
+                && IsFinite(word.Left)
+                && IsFinite(word.Right)
+                && IsFinite(word.Top)
+                && IsFinite(word.Bottom)
+                && word.Right >= word.Left
+                && word.Top >= word.Bottom)
+            .ToArray();
+        if (usableWords.Length == 0)
+            return fallback;
+
+        var fallbackTokenCount = SplitWords(fallback).Count();
+        if (fallbackTokenCount > 0 && usableWords.Length < Math.Max(4, fallbackTokenCount / 2))
+            return fallback;
+
+        var medianHeight = ResolveMedianPositive(usableWords.Select(static word => word.Height));
+        var medianWidth = ResolveMedianPositive(usableWords.Select(static word => word.Width));
+        if (medianHeight <= 0 || medianWidth <= 0)
+            return fallback;
+
+        var sameLineTolerance = Math.Clamp(medianHeight * 0.45d, 2.0d, 8.0d);
+        var paragraphGapThreshold = Math.Clamp(medianHeight * 1.15d, 7.0d, 28.0d);
+        var wrapBackThreshold = Math.Clamp(medianWidth * 2.5d, 18.0d, 72.0d);
+
+        var builder = new StringBuilder();
+        PdfLayoutWord? previous = null;
+        foreach (var word in usableWords)
+        {
+            var text = PdfTextSanitizer.ForStorage(word.Text).Trim();
+            if (text.Length == 0)
+                continue;
+
+            if (previous is null)
+            {
+                builder.Append(text);
+                previous = word;
+                continue;
+            }
+
+            var verticalDelta = Math.Abs(word.CenterY - previous.Value.CenterY);
+            var wrapsBack = word.Left + wrapBackThreshold < previous.Value.Left;
+            if (verticalDelta > sameLineTolerance || wrapsBack)
+            {
+                var verticalGap = previous.Value.Bottom - word.Top;
+                builder.Append(verticalGap > paragraphGapThreshold ? "\n\n" : "\n");
+            }
+            else if (builder.Length > 0 && !char.IsWhiteSpace(builder[^1]))
+            {
+                builder.Append(' ');
+            }
+
+            builder.Append(text);
+            previous = word;
+        }
+
+        var reconstructed = builder.ToString().Trim();
+        if (reconstructed.Length == 0)
+            return fallback;
+
+        if (!fallback.Contains('\n', StringComparison.Ordinal)
+            && reconstructed.Contains('\n', StringComparison.Ordinal))
+        {
+            return reconstructed;
+        }
+
+        return reconstructed.Length >= Math.Max(20, fallback.Length / 2)
+            ? reconstructed
+            : fallback;
+    }
+
+    private static double ResolveMedianPositive(IEnumerable<double> values)
+    {
+        var ordered = values
+            .Where(static value => IsFinite(value) && value > 0)
+            .OrderBy(static value => value)
+            .ToArray();
+        if (ordered.Length == 0)
+            return 0;
+
+        var mid = ordered.Length / 2;
+        return ordered.Length % 2 == 1
+            ? ordered[mid]
+            : (ordered[mid - 1] + ordered[mid]) / 2d;
+    }
+
+    private static bool IsFinite(double value)
+        => !double.IsNaN(value) && !double.IsInfinity(value);
 
     private static int CountReplacementCharacters(string? text)
         => string.IsNullOrEmpty(text)
@@ -217,6 +332,18 @@ static class PdfExtractor
 }
 
 sealed record WordToken(string Word, int Page);
+internal readonly record struct PdfLayoutWord(
+    string Text,
+    double Left,
+    double Right,
+    double Top,
+    double Bottom)
+{
+    public double Width => Math.Max(0d, Right - Left);
+    public double Height => Math.Max(0d, Top - Bottom);
+    public double CenterY => (Top + Bottom) / 2d;
+}
+
 sealed record ExtractedPdfPage(
     int PageNumber,
     string Text,

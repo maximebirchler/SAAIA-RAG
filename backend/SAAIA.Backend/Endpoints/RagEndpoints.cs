@@ -34713,7 +34713,12 @@ LIMIT @top_k;
             NavigationReason: navigationReason,
             OriginalChunkType: match.OriginalChunkType,
             NavigationScore: navigationScore,
-            ContentDensityScore: contentDensityScore);
+            ContentDensityScore: contentDensityScore,
+            SourceUnitOrdinals: match.SourceUnitOrdinals,
+            SourceUnitStartOrdinal: match.SourceUnitStartOrdinal,
+            SourceUnitEndOrdinal: match.SourceUnitEndOrdinal,
+            SourceUnitCount: match.SourceUnitCount,
+            ChunkComposition: match.ChunkComposition);
     }
 
     private static bool ShouldPromoteMeasuredSequentialContentSignal(RagMatch match)

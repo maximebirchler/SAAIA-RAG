@@ -4462,7 +4462,12 @@ public sealed class RetrievalRuntimeSwitchTests
             Checksum: [5],
             ChunkType: "section_window_v1",
             OffsetStart: 120,
-            OffsetEnd: 133);
+            OffsetEnd: 133,
+            SourceUnitOrdinals: [9, 10],
+            SourceUnitStartOrdinal: 9,
+            SourceUnitEndOrdinal: 10,
+            SourceUnitCount: 2,
+            ChunkComposition: "multi_unit_window");
 
         var payload = IngestionWorker.BuildQdrantChunkPayload(
             tenantId,
@@ -4490,6 +4495,11 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.Equal("e5_passage_v1", payload["embedding_input_format"]);
         Assert.Equal(2, payload["section_ordinal"]);
         Assert.Equal(9, payload["unit_ordinal"]);
+        Assert.Equal(new[] { 9, 10 }, Assert.IsAssignableFrom<IReadOnlyList<int>>(payload["source_unit_ordinals"]));
+        Assert.Equal(9, payload["source_unit_start_ordinal"]);
+        Assert.Equal(10, payload["source_unit_end_ordinal"]);
+        Assert.Equal(2, payload["source_unit_count"]);
+        Assert.Equal("multi_unit_window", payload["chunk_composition"]);
         Assert.Equal(120, payload["offset_start"]);
         Assert.Equal(133, payload["offset_end"]);
         Assert.Equal("Introduction", payload["section_title"]);
@@ -8673,7 +8683,12 @@ ALPHA BETA MODULE
             "unit_exact_v1",
             "prev-1",
             "next-1",
-            "same-1");
+            "same-1",
+            SourceUnitOrdinals: [1],
+            SourceUnitStartOrdinal: 1,
+            SourceUnitEndOrdinal: 1,
+            SourceUnitCount: 1,
+            ChunkComposition: "single_unit");
 
         var context = RagEndpoints.BuildContextInfo(match);
 
@@ -8683,6 +8698,11 @@ ALPHA BETA MODULE
         Assert.Equal("prev-1", context.PrevChunkId);
         Assert.Equal("next-1", context.NextChunkId);
         Assert.Equal("same-1", context.SameSectionChunkId);
+        Assert.Equal([1], context.SourceUnitOrdinals);
+        Assert.Equal(1, context.SourceUnitStartOrdinal);
+        Assert.Equal(1, context.SourceUnitEndOrdinal);
+        Assert.Equal(1, context.SourceUnitCount);
+        Assert.Equal("single_unit", context.ChunkComposition);
     }
 
     [Fact]

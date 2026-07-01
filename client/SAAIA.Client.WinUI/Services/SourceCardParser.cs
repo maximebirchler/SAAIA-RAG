@@ -210,6 +210,11 @@ public static class SourceCardParser
             OriginalChunkType = PickString(sources, static s => s.OriginalChunkType),
             OffsetStart = PickInt(sources, static s => s.OffsetStart),
             OffsetEnd = PickInt(sources, static s => s.OffsetEnd),
+            SourceUnitOrdinals = PickIntList(sources, static s => s.SourceUnitOrdinals),
+            SourceUnitStartOrdinal = PickInt(sources, static s => s.SourceUnitStartOrdinal),
+            SourceUnitEndOrdinal = PickInt(sources, static s => s.SourceUnitEndOrdinal),
+            SourceUnitCount = PickInt(sources, static s => s.SourceUnitCount),
+            ChunkComposition = PickString(sources, static s => s.ChunkComposition),
             ExtractionSource = PickString(sources, static s => s.ExtractionSource),
             DocumentQualityStatus = PickString(sources, static s => s.DocumentQualityStatus),
             PageQualityStatus = PickString(sources, static s => s.PageQualityStatus),
@@ -266,6 +271,9 @@ public static class SourceCardParser
         score += HasValue(source.OriginalChunkType) * 1;
         score += source.OffsetStart is null ? 0 : 1;
         score += source.OffsetEnd is null ? 0 : 1;
+        score += Math.Min(4, source.SourceUnitOrdinals?.Count ?? 0);
+        score += source.SourceUnitCount is null ? 0 : 1;
+        score += HasValue(source.ChunkComposition) * 1;
         score += HasValue(source.ExtractionSource) * 4;
         score += HasValue(source.DocumentQualityStatus) * 3;
         score += HasValue(source.PageQualityStatus) * 3;
@@ -321,6 +329,14 @@ public static class SourceCardParser
         => sources
             .Select(selector)
             .FirstOrDefault(static value => value.HasValue);
+
+    private static List<int> PickIntList(IEnumerable<SourceCard> sources, Func<SourceCard, List<int>> selector)
+        => sources
+            .Select(selector)
+            .FirstOrDefault(static values => values.Count > 0)?
+            .Distinct()
+            .OrderBy(static value => value)
+            .ToList() ?? new List<int>();
 
     private static List<string> MergeStringLists(IEnumerable<IEnumerable<string>> lists, int maxItems)
         => lists
@@ -630,6 +646,31 @@ public static class SourceCardParser
                 "originalChunkType", "original_chunk_type", "OriginalChunkType"),
             OffsetStart = GetIntFromObjectOrRoot(el, provenanceInfo, "offsetStart", "offset_start", "OffsetStart"),
             OffsetEnd = GetIntFromObjectOrRoot(el, provenanceInfo, "offsetEnd", "offset_end", "OffsetEnd"),
+            SourceUnitOrdinals = GetIntListFromContextHintsOrRoot(
+                el,
+                contentSignals,
+                selectionHints,
+                "sourceUnitOrdinals", "source_unit_ordinals", "SourceUnitOrdinals"),
+            SourceUnitStartOrdinal = GetIntFromContextHintsOrRoot(
+                el,
+                contentSignals,
+                selectionHints,
+                "sourceUnitStartOrdinal", "source_unit_start_ordinal", "SourceUnitStartOrdinal"),
+            SourceUnitEndOrdinal = GetIntFromContextHintsOrRoot(
+                el,
+                contentSignals,
+                selectionHints,
+                "sourceUnitEndOrdinal", "source_unit_end_ordinal", "SourceUnitEndOrdinal"),
+            SourceUnitCount = GetIntFromContextHintsOrRoot(
+                el,
+                contentSignals,
+                selectionHints,
+                "sourceUnitCount", "source_unit_count", "SourceUnitCount"),
+            ChunkComposition = GetStringFromContextHintsOrRoot(
+                el,
+                contentSignals,
+                selectionHints,
+                "chunkComposition", "chunk_composition", "ChunkComposition"),
             ExtractionSource = GetStringFromQualityOrRoot(
                 el,
                 extractionQuality,
@@ -768,6 +809,52 @@ public static class SourceCardParser
         => value is { } objectValue
             ? GetIntAny(objectValue, names) ?? GetIntAny(root, names)
             : GetIntAny(root, names);
+
+    private static int? GetIntFromContextHintsOrRoot(
+        JsonElement root,
+        JsonElement? contentSignals,
+        JsonElement? selectionHints,
+        params string[] names)
+    {
+        if (contentSignals is { } context)
+        {
+            var value = GetIntAny(context, names);
+            if (value.HasValue)
+                return value;
+        }
+
+        if (selectionHints is { } hints)
+        {
+            var value = GetIntAny(hints, names);
+            if (value.HasValue)
+                return value;
+        }
+
+        return GetIntAny(root, names);
+    }
+
+    private static List<int> GetIntListFromContextHintsOrRoot(
+        JsonElement root,
+        JsonElement? contentSignals,
+        JsonElement? selectionHints,
+        params string[] names)
+    {
+        if (contentSignals is { } context)
+        {
+            var values = GetIntListAny(context, names);
+            if (values.Count > 0)
+                return values;
+        }
+
+        if (selectionHints is { } hints)
+        {
+            var values = GetIntListAny(hints, names);
+            if (values.Count > 0)
+                return values;
+        }
+
+        return GetIntListAny(root, names);
+    }
 
     private static double? GetDoubleFromContextHintsOrRoot(
         JsonElement root,
@@ -1142,6 +1229,38 @@ public static class SourceCardParser
             }
         }
         return null;
+    }
+
+    private static List<int> GetIntListAny(JsonElement el, params string[] keys)
+    {
+        foreach (var k in keys)
+        {
+            if (el.ValueKind != JsonValueKind.Object
+                || !el.TryGetProperty(k, out var values)
+                || values.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            var result = values.EnumerateArray()
+                .Select(static value =>
+                {
+                    if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number))
+                        return number;
+                    if (value.ValueKind == JsonValueKind.String && int.TryParse(value.GetString(), out var parsed))
+                        return parsed;
+                    return (int?)null;
+                })
+                .Where(static value => value.HasValue)
+                .Select(static value => value!.Value)
+                .Distinct()
+                .OrderBy(static value => value)
+                .ToList();
+            if (result.Count > 0)
+                return result;
+        }
+
+        return new List<int>();
     }
 
     private static double? GetDoubleAny(JsonElement el, params string[] keys)

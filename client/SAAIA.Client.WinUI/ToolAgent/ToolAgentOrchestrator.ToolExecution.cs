@@ -600,6 +600,15 @@ public sealed partial class ToolAgentOrchestrator
             OriginalChunkType = NullIfWhiteSpace(source.OriginalChunkType) ?? NullIfWhiteSpace(fallback.OriginalChunkType),
             OffsetStart = source.OffsetStart ?? fallback.OffsetStart,
             OffsetEnd = source.OffsetEnd ?? fallback.OffsetEnd,
+            SourceUnitOrdinals = contentSignalSource.SourceUnitOrdinals.Count > 0
+                ? contentSignalSource.SourceUnitOrdinals.Distinct().OrderBy(static ordinal => ordinal).ToList()
+                : source.SourceUnitOrdinals.Count > 0
+                    ? source.SourceUnitOrdinals.Distinct().OrderBy(static ordinal => ordinal).ToList()
+                    : fallback.SourceUnitOrdinals.Distinct().OrderBy(static ordinal => ordinal).ToList(),
+            SourceUnitStartOrdinal = contentSignalSource.SourceUnitStartOrdinal ?? source.SourceUnitStartOrdinal ?? fallback.SourceUnitStartOrdinal,
+            SourceUnitEndOrdinal = contentSignalSource.SourceUnitEndOrdinal ?? source.SourceUnitEndOrdinal ?? fallback.SourceUnitEndOrdinal,
+            SourceUnitCount = contentSignalSource.SourceUnitCount ?? source.SourceUnitCount ?? fallback.SourceUnitCount,
+            ChunkComposition = NullIfWhiteSpace(contentSignalSource.ChunkComposition) ?? NullIfWhiteSpace(source.ChunkComposition) ?? NullIfWhiteSpace(fallback.ChunkComposition),
             ExtractionSource = NullIfWhiteSpace(source.ExtractionSource) ?? NullIfWhiteSpace(fallback.ExtractionSource),
             DocumentQualityStatus = NullIfWhiteSpace(source.DocumentQualityStatus) ?? NullIfWhiteSpace(fallback.DocumentQualityStatus),
             PageQualityStatus = NullIfWhiteSpace(pageQualitySource.PageQualityStatus) ?? NullIfWhiteSpace(source.PageQualityStatus) ?? NullIfWhiteSpace(fallback.PageQualityStatus),

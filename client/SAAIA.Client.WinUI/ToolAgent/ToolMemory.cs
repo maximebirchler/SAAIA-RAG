@@ -485,6 +485,11 @@ public sealed class ToolMemory
         public string? OriginalChunkType { get; set; }
         public int? OffsetStart { get; set; }
         public int? OffsetEnd { get; set; }
+        public List<int> SourceUnitOrdinals { get; set; } = new();
+        public int? SourceUnitStartOrdinal { get; set; }
+        public int? SourceUnitEndOrdinal { get; set; }
+        public int? SourceUnitCount { get; set; }
+        public string? ChunkComposition { get; set; }
         public string? ExtractionSource { get; set; }
         public string? DocumentQualityStatus { get; set; }
         public string? PageQualityStatus { get; set; }

@@ -966,6 +966,27 @@ CURRENT_USER_MESSAGE:
             ? TryGetDouble(contentSignalsElement.Value, "contentDensityScore") ?? TryGetDouble(contentSignalsElement.Value, "content_density_score") ?? TryGetDouble(contentSignalsElement.Value, "ContentDensityScore")
             : null;
         contentDensityScore ??= TryGetDouble(src, "contentDensityScore") ?? TryGetDouble(src, "content_density_score") ?? TryGetDouble(src, "ContentDensityScore");
+        var sourceUnitOrdinals = contentSignalsElement.HasValue
+            ? TryGetIntList(contentSignalsElement.Value, "sourceUnitOrdinals", "source_unit_ordinals", "SourceUnitOrdinals")
+            : new List<int>();
+        if (sourceUnitOrdinals.Count == 0)
+            sourceUnitOrdinals = TryGetIntList(src, "sourceUnitOrdinals", "source_unit_ordinals", "SourceUnitOrdinals");
+        var sourceUnitStartOrdinal = contentSignalsElement.HasValue
+            ? TryGetInt(contentSignalsElement.Value, "sourceUnitStartOrdinal") ?? TryGetInt(contentSignalsElement.Value, "source_unit_start_ordinal") ?? TryGetInt(contentSignalsElement.Value, "SourceUnitStartOrdinal")
+            : null;
+        sourceUnitStartOrdinal ??= TryGetInt(src, "sourceUnitStartOrdinal") ?? TryGetInt(src, "source_unit_start_ordinal") ?? TryGetInt(src, "SourceUnitStartOrdinal");
+        var sourceUnitEndOrdinal = contentSignalsElement.HasValue
+            ? TryGetInt(contentSignalsElement.Value, "sourceUnitEndOrdinal") ?? TryGetInt(contentSignalsElement.Value, "source_unit_end_ordinal") ?? TryGetInt(contentSignalsElement.Value, "SourceUnitEndOrdinal")
+            : null;
+        sourceUnitEndOrdinal ??= TryGetInt(src, "sourceUnitEndOrdinal") ?? TryGetInt(src, "source_unit_end_ordinal") ?? TryGetInt(src, "SourceUnitEndOrdinal");
+        var sourceUnitCount = contentSignalsElement.HasValue
+            ? TryGetInt(contentSignalsElement.Value, "sourceUnitCount") ?? TryGetInt(contentSignalsElement.Value, "source_unit_count") ?? TryGetInt(contentSignalsElement.Value, "SourceUnitCount")
+            : null;
+        sourceUnitCount ??= TryGetInt(src, "sourceUnitCount") ?? TryGetInt(src, "source_unit_count") ?? TryGetInt(src, "SourceUnitCount");
+        var chunkComposition = contentSignalsElement.HasValue
+            ? TryGetString(contentSignalsElement.Value, "chunkComposition") ?? TryGetString(contentSignalsElement.Value, "chunk_composition") ?? TryGetString(contentSignalsElement.Value, "ChunkComposition")
+            : null;
+        chunkComposition ??= TryGetString(src, "chunkComposition") ?? TryGetString(src, "chunk_composition") ?? TryGetString(src, "ChunkComposition");
 
         return new ToolMemory.SourceRef
         {
@@ -990,6 +1011,11 @@ CURRENT_USER_MESSAGE:
             OriginalChunkType = NullIfWhiteSpace(originalChunkType),
             OffsetStart = offsetStart,
             OffsetEnd = offsetEnd,
+            SourceUnitOrdinals = sourceUnitOrdinals,
+            SourceUnitStartOrdinal = sourceUnitStartOrdinal,
+            SourceUnitEndOrdinal = sourceUnitEndOrdinal,
+            SourceUnitCount = sourceUnitCount,
+            ChunkComposition = NullIfWhiteSpace(chunkComposition),
             ExtractionSource = NullIfWhiteSpace(extractionSource),
             DocumentQualityStatus = NullIfWhiteSpace(documentQualityStatus),
             PageQualityStatus = NullIfWhiteSpace(pageQualityStatus),
@@ -1241,6 +1267,14 @@ CURRENT_USER_MESSAGE:
             OriginalChunkType = NullIfWhiteSpace(hit.OriginalChunkType),
             OffsetStart = hit.OffsetStart,
             OffsetEnd = hit.OffsetEnd,
+            SourceUnitOrdinals = hit.SourceUnitOrdinals?
+                .Distinct()
+                .OrderBy(static ordinal => ordinal)
+                .ToList() ?? new List<int>(),
+            SourceUnitStartOrdinal = hit.SourceUnitStartOrdinal,
+            SourceUnitEndOrdinal = hit.SourceUnitEndOrdinal,
+            SourceUnitCount = hit.SourceUnitCount,
+            ChunkComposition = NullIfWhiteSpace(hit.ChunkComposition),
             ExtractionSource = NullIfWhiteSpace(hit.ExtractionSource),
             DocumentQualityStatus = NullIfWhiteSpace(hit.DocumentQualityStatus),
             PageQualityStatus = NullIfWhiteSpace(hit.PageQualityStatus),
@@ -1630,7 +1664,8 @@ CURRENT_USER_MESSAGE:
     private static string BuildSourceRefVisiblePageMergeKey(ToolMemory.SourceRef source)
     {
         var pageStart = Math.Max(1, source.PageStart);
-        var pagePart = $"p:{pageStart}";
+        var pageEnd = Math.Max(pageStart, source.PageEnd);
+        var pagePart = $"p:{pageStart}-{pageEnd}";
 
         var path = NormalizeVisibleSourcePathIdentity(source.DocPath);
         if (!string.IsNullOrWhiteSpace(path) && LooksLikeQualifiedDocumentPath(source.DocPath))
@@ -1721,6 +1756,11 @@ CURRENT_USER_MESSAGE:
             OriginalChunkType = PickSourceString(sources, static source => source.OriginalChunkType),
             OffsetStart = PickSourceInt(sources, static source => source.OffsetStart),
             OffsetEnd = PickSourceInt(sources, static source => source.OffsetEnd),
+            SourceUnitOrdinals = PickSourceIntList(sources, static source => source.SourceUnitOrdinals),
+            SourceUnitStartOrdinal = PickSourceInt(sources, static source => source.SourceUnitStartOrdinal),
+            SourceUnitEndOrdinal = PickSourceInt(sources, static source => source.SourceUnitEndOrdinal),
+            SourceUnitCount = PickSourceInt(sources, static source => source.SourceUnitCount),
+            ChunkComposition = PickSourceString(sources, static source => source.ChunkComposition),
             ExtractionSource = PickSourceString(sources, static source => source.ExtractionSource),
             DocumentQualityStatus = PickSourceString(sources, static source => source.DocumentQualityStatus),
             PageQualityStatus = PickSourceString(sources, static source => source.PageQualityStatus),
@@ -1979,6 +2019,9 @@ CURRENT_USER_MESSAGE:
            + (source.OffsetEnd.HasValue ? 1 : 0)
            + (!string.IsNullOrWhiteSpace(source.ContentRole) ? 2 : 0)
            + (source.ContentDensityScore.HasValue ? 1 : 0)
+           + (source.SourceUnitOrdinals.Count > 0 ? 2 : 0)
+           + (source.SourceUnitCount.HasValue ? 1 : 0)
+           + (!string.IsNullOrWhiteSpace(source.ChunkComposition) ? 1 : 0)
            + (source.ExtractionDiagnosticSummary is not null ? 2 : 0)
            + (!string.IsNullOrWhiteSpace(source.ChunkTextStatus) ? 2 : 0)
            + (source.ChunkTextSparse.HasValue ? 1 : 0)
@@ -2045,6 +2088,16 @@ CURRENT_USER_MESSAGE:
         => sources
             .Select(selector)
             .FirstOrDefault(static value => value.HasValue);
+
+    private static List<int> PickSourceIntList(
+        IEnumerable<ToolMemory.SourceRef> sources,
+        Func<ToolMemory.SourceRef, List<int>> selector)
+        => sources
+            .Select(selector)
+            .FirstOrDefault(static values => values.Count > 0)?
+            .Distinct()
+            .OrderBy(static value => value)
+            .ToList() ?? new List<int>();
 
     private static bool? PickSourceBool(
         IEnumerable<ToolMemory.SourceRef> sources,
@@ -2155,18 +2208,34 @@ CURRENT_USER_MESSAGE:
         }).Cast<object>().ToList();
 
     private static object? BuildSourceContentSignalsPayload(ToolMemory.SourceRef source)
-        => string.IsNullOrWhiteSpace(source.ContentRole)
-           && string.IsNullOrWhiteSpace(source.NavigationReason)
-           && source.RetrievalNavigationScore is null
-           && source.ContentDensityScore is null
-            ? null
-            : new
-            {
-                contentRole = source.ContentRole,
-                navigationReason = source.NavigationReason,
-                navigationScore = source.RetrievalNavigationScore,
-                contentDensityScore = source.ContentDensityScore
-            };
+    {
+        var hasCompositionSignals = source.SourceUnitOrdinals.Count > 0
+                                    || source.SourceUnitStartOrdinal.HasValue
+                                    || source.SourceUnitEndOrdinal.HasValue
+                                    || source.SourceUnitCount.HasValue
+                                    || !string.IsNullOrWhiteSpace(source.ChunkComposition);
+        if (string.IsNullOrWhiteSpace(source.ContentRole)
+            && string.IsNullOrWhiteSpace(source.NavigationReason)
+            && source.RetrievalNavigationScore is null
+            && source.ContentDensityScore is null
+            && !hasCompositionSignals)
+        {
+            return null;
+        }
+
+        return new
+        {
+            contentRole = source.ContentRole,
+            navigationReason = source.NavigationReason,
+            navigationScore = source.RetrievalNavigationScore,
+            contentDensityScore = source.ContentDensityScore,
+            sourceUnitOrdinals = source.SourceUnitOrdinals.Count == 0 ? null : source.SourceUnitOrdinals,
+            sourceUnitStartOrdinal = source.SourceUnitStartOrdinal,
+            sourceUnitEndOrdinal = source.SourceUnitEndOrdinal,
+            sourceUnitCount = source.SourceUnitCount,
+            chunkComposition = source.ChunkComposition
+        };
+    }
 
     private static object? BuildSourceProvenancePayload(ToolMemory.SourceRef source)
         => source.OffsetStart is null && source.OffsetEnd is null
@@ -11950,7 +12019,7 @@ CURRENT_USER_MESSAGE:
             return "procedure_sentence_title";
         if (LooksLikeShortConnectorStructuredPlanningFieldValueCandidate(candidate))
             return "short_connector_field_value";
-        if (LooksLikeEmbeddedStructuredPlanningFieldValueCandidate(candidate))
+        if (!hasStrictEvidence && LooksLikeEmbeddedStructuredPlanningFieldValueCandidate(candidate))
             return "embedded_field_value";
         if (!SourceBackedPlanningCandidateMatchesDominantTopLevel(candidate, dominantTopLevelScope))
             return "outside_dominant_scope";
@@ -14494,7 +14563,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var families = new HashSet<string>(StringComparer.Ordinal);
         if (Regex.IsMatch(
                 normalizedText,
-                @"\b(?:ingredients?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|items?|[eé]l[eé]ments?|values?|valeurs?|parameters?|param[eè]tres?|quantit(?:y|ies)|quantit[eé]s?)\b",
+                @"\b(?:components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|items?|[eé]l[eé]ments?|values?|valeurs?|parameters?|param[eè]tres?|quantit(?:y|ies)|quantit[eé]s?)\b",
                 RegexOptions.CultureInvariant))
         {
             families.Add("inputs");
@@ -14713,7 +14782,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var structureMatch = Regex.Match(
             afterTitle,
-            @"\b(?:ingredients?|components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
+            @"\b(?:components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
             RegexOptions.CultureInvariant);
         if (!structureMatch.Success)
             return false;
@@ -14758,7 +14827,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var hasStructureLabel = Regex.IsMatch(
             normalized,
-            @"\b(?:ingredients?|components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|valeurs?|values?|components?|composants?|operation|workflow|actions?|tasks?|taches?|tâches?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
+            @"\b(?:components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|valeurs?|values?|components?|composants?|operation|workflow|actions?|tasks?|taches?|tâches?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
             RegexOptions.CultureInvariant);
         var hasActionOrMeasure = Regex.IsMatch(
             normalized,
@@ -14814,11 +14883,12 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var hasStructureLabel = Regex.IsMatch(
             normalized,
-            @"\b(?:ingredients?|components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
+            @"\b(?:components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
             RegexOptions.CultureInvariant);
         if (!hasStructureLabel)
             return false;
 
+        var hasGenericFieldSequence = LooksLikeGenericStructuredLabelValueSequence(value, normalized);
         var hasActionOrMeasure = Regex.IsMatch(
             normalized,
             @"\b(?:\d+\s*(?:g|kg|mg|ml|cl|l|min|minutes?|h|heure|heures|hours?|%|mm|cm|m|units?|pieces?|items?)|ajouter|add|retirer|remove|modifier|modify|adapter|adapt|utiliser|use|inspecter|inspect|record|enregistrer|consigner|noter|note|documenter|document|escalader|escalate|verifier|v[eé]rifier|verify|check|valider|validate|executer|ex[eé]cuter|run|selectionner|s[eé]lectionner|select|requirements?|exigences?|constraints?|contraintes?|conditions?|criteria|criteres|crit[eè]res|parameters?|param[eè]tres?|notes?|observations?|checklist|validation|review|revue)\b",
@@ -14828,7 +14898,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var hasProcedureShape = CountProcedureStepMarkers(normalized) >= 1
             || CountBulletListMarkers(value) >= 2;
 
-        if (!(hasActionOrMeasure || hasMeasuredFact || hasProcedureShape))
+        if (!(hasActionOrMeasure || hasMeasuredFact || hasProcedureShape || hasGenericFieldSequence))
             return false;
 
         if (LooksLikeStructuredPlanningNavigationOrIndexNoise(value)
@@ -14838,6 +14908,34 @@ If evidence is partial, write the best useful sourced answer possible and state 
         }
 
         return true;
+    }
+
+    private static bool LooksLikeGenericStructuredLabelValueSequence(string rawText, string normalizedText)
+    {
+        if (string.IsNullOrWhiteSpace(rawText) || string.IsNullOrWhiteSpace(normalizedText))
+            return false;
+
+        var labelValueCount = Regex.Matches(
+            rawText,
+            @"(?:^|[\s.!?;])[\p{L}][\p{L}'\u2019\-]{3,32}\s*(?:[:*]|\u2022)\s*\S",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant).Count;
+        if (labelValueCount >= 2)
+            return true;
+
+        if (labelValueCount == 0)
+            return false;
+
+        var hasKnownProcessLabel = Regex.IsMatch(
+            normalizedText,
+            @"\b(?:preparation|pr[eÃ©]paration|procedure|proc[eÃ©]dure|instructions?|method|m[eÃ©]thode|steps?|[eÃ©]tapes?|operation|workflow|technique)\b",
+            RegexOptions.CultureInvariant);
+        if (!hasKnownProcessLabel)
+            return false;
+
+        return CountMeasuredValueMarkers(normalizedText) >= 1
+            || CountNumericFactMarkers(normalizedText) >= 1
+            || CountProcedureStepMarkers(normalizedText) >= 1
+            || Regex.IsMatch(rawText, @"[:*]\s*[^.!?;:]{3,80}(?:,\s*[^.!?;:]{2,60})+", RegexOptions.CultureInvariant);
     }
 
     private static bool StructuredPlanningItemTermsAreFullySupported(
@@ -15650,7 +15748,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (!looksLikeNavigationOrIndexSurface
             && Regex.IsMatch(
                 normalized,
-                @"\b(?:ingredients?|components?|preparation|préparation|etapes?|steps?|methode|method|procedure|instructions?|quantites?|quantities?|materiel|materials?|requirements?|components?|operation|workflow|actions?|tasks?|criteria|criteres|conditions?|parameters?)\b",
+                @"\b(?:components?|preparation|préparation|etapes?|steps?|methode|method|procedure|instructions?|quantites?|quantities?|materiel|materials?|requirements?|components?|operation|workflow|actions?|tasks?|criteria|criteres|conditions?|parameters?)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -15724,9 +15822,10 @@ If evidence is partial, write the best useful sourced answer possible and state 
             || LooksLikeGenericInventorySurfaceDerivedPlanningCandidate(candidate)
             || LooksLikeGenericPlanningContextCandidate(candidate)
             || LooksLikePageContextLabelPlanningCandidate(candidate)
+            || LooksLikeGenericStructuredFieldLabelCandidate(candidate)
             || LooksLikeDelimitedStructuredPlanningFieldValueCandidate(candidate)
             || LooksLikeShortConnectorStructuredPlanningFieldValueCandidate(candidate)
-            || LooksLikeEmbeddedStructuredPlanningFieldValueCandidate(candidate)
+            || (!hasStrictEvidence && LooksLikeEmbeddedStructuredPlanningFieldValueCandidate(candidate))
             || LooksLikePlanningFrameOrAdviceCandidate(candidate, hasStrictEvidence)
             || LooksLikeNoisyStructuredPlanningCandidateTitle(candidate.Title)
             || LooksLikeProcedureSentenceTitle(normalizedTitle))
@@ -15741,6 +15840,48 @@ If evidence is partial, write the best useful sourced answer possible and state 
             return hasStrictEvidence;
 
         return true;
+    }
+
+    private static bool LooksLikeGenericStructuredFieldLabelCandidate(SourceBackedOptionCandidate candidate)
+    {
+        var rawTitle = CollapseWhitespace(CleanSourceBackedOptionTitle(candidate.Title));
+        var normalizedTitle = NormalizeLexicalLookup(rawTitle);
+        if (string.IsNullOrWhiteSpace(rawTitle) || string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+        if (rawTitle.Length > 64)
+            return false;
+        if (Regex.IsMatch(
+                rawTitle,
+                @"^[\p{L}][\p{L}'\u2019\-]{3,32}\s*(?:[:*]|\u2022)\s+\p{L}",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        var proofText = CollapseWhitespace(BuildPageLocalSourceBackedPlanningProofText(candidate.Hit));
+        if (proofText.Length < rawTitle.Length + 8)
+            return false;
+
+        var escapedTitle = Regex.Escape(rawTitle).Replace("\\ ", @"\s+");
+        var leadingField = Regex.Match(
+            proofText,
+            @"^\s*" + escapedTitle + @"\s*(?:[:*]|\u2022)\s*(?<tail>.+)$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (!leadingField.Success)
+            return false;
+
+        var tail = CollapseWhitespace(leadingField.Groups["tail"].Value);
+        if (tail.Length < 8)
+            return true;
+
+        var normalizedTail = NormalizeStructuredScanText(tail);
+        return LooksLikeGenericStructuredLabelValueSequence(tail, normalizedTail)
+            || Regex.IsMatch(
+                normalizedTail,
+                @"\b(?:preparation|pr[eÃ©]paration|procedure|proc[eÃ©]dure|instructions?|method|m[eÃ©]thode|steps?|[eÃ©]tapes?|operation|workflow|technique)\b",
+                RegexOptions.CultureInvariant)
+            || CountMeasuredValueMarkers(normalizedTail) >= 1
+            || CountNumericFactMarkers(normalizedTail) >= 2;
     }
 
     private static bool LooksLikeDelimitedStructuredPlanningFieldValueCandidate(SourceBackedOptionCandidate candidate)
@@ -15935,7 +16076,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var firstFieldLabel = Regex.Match(
             normalizedProof,
-            @"\b(?:ingredients?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|items?|[eé]l[eé]ments?|values?|valeurs?|parameters?|param[eè]tres?|quantit(?:y|ies)|quantit[eé]s?|preparation|pr[eé]paration|procedure|proc[eé]dure|instructions?|method|m[eé]thode|steps?|[eé]tapes?|technique|operation|workflow)\b",
+            @"\b(?:components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|items?|[eé]l[eé]ments?|values?|valeurs?|parameters?|param[eè]tres?|quantit(?:y|ies)|quantit[eé]s?|preparation|pr[eé]paration|procedure|proc[eé]dure|instructions?|method|m[eé]thode|steps?|[eé]tapes?|technique|operation|workflow)\b",
             RegexOptions.CultureInvariant);
         if (!firstFieldLabel.Success || firstFieldLabel.Index <= titleIndex)
             return false;
@@ -16328,7 +16469,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         return Regex.IsMatch(
                 normalizedTitle,
-                @"^(?:ingredients?|components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|temps|dur[eé]e|duration|time|materiel|mat[eé]riel|materials?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)$",
+                @"^(?:components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|temps|dur[eé]e|duration|time|materiel|mat[eé]riel|materials?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)$",
                 RegexOptions.CultureInvariant)
             || Regex.IsMatch(
                 normalizedTitle,
@@ -16346,7 +16487,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var hasFieldLabel = Regex.IsMatch(
             normalizedTitle,
-            @"\b(?:ingredients?|components?|preparation|pr[eé]paration|nombre|number|quantite|quantity|quantit[eé]|portions?|units?|temps|dur[eé]e|duration|time|materiel|mat[eé]riel|materials?)\b",
+            @"\b(?:components?|preparation|pr[eé]paration|nombre|number|quantite|quantity|quantit[eé]|portions?|units?|temps|dur[eé]e|duration|time|materiel|mat[eé]riel|materials?)\b",
             RegexOptions.CultureInvariant);
         if (!hasFieldLabel)
             return false;
@@ -17705,10 +17846,25 @@ If evidence is partial, write the best useful sourced answer possible and state 
     private static IEnumerable<string> ExtractPageLocalStructuredPlanningTitleCandidates(RagHitSummary hit)
     {
         const string structureLabelPattern =
-            @"ingredients?|components?|composants?|requirements?|exigences?|quantit(?:y|ies)|quantit[eé]s?|values?|valeurs?|materials?|mat[eé]riel|items?|[eé]l[eé]ments?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
+            @"components?|composants?|requirements?|exigences?|quantit(?:y|ies)|quantit[eé]s?|values?|valeurs?|materials?|mat[eé]riel|items?|[eé]l[eé]ments?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
         var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var text in EnumeratePlanExtractionTexts(hit))
         {
+            foreach (Match match in Regex.Matches(
+                         text,
+                         $@"(?i)(?:^|[.!?]\s+)(?<title>[\p{{Lu}}\p{{Lt}}0-9][\p{{Lu}}\p{{Lt}}0-9 '&/,\-\u00c0-\u017f]{{5,90}}?)\s+[\p{{Lu}}\p{{Lt}}][\p{{L}}'\u2019\-]{{3,32}}\s*(?:[:*]|\u2022)\s*.{{0,240}}\b(?:{structureLabelPattern})\b",
+                         RegexOptions.CultureInvariant))
+            {
+                var title = HumanizePlanItemTitleV2(match.Groups["title"].Value);
+                if (!string.IsNullOrWhiteSpace(title)
+                    && emitted.Add(title)
+                    && !LooksLikePlanPageHeading(text, title)
+                    && IsUsableSourceBackedOptionTitle(title))
+                {
+                    yield return title;
+                }
+            }
+
             foreach (Match match in Regex.Matches(
                          text,
                          $@"(?i)(?:^|[.!?]\s+)(?<title>\p{{Lu}}[\p{{L}}\p{{N}}'\u2019 &/,\-\u00c0-\u017f]{{3,90}}?)\s*[.:]\s*(?:{structureLabelPattern})\b",
@@ -18085,7 +18241,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var hasStructuredCardCue = Regex.IsMatch(
             normalized,
-            @"\b(?:ingredients?|components?|preparation|pr[eé]paration|temps\s+de\s+(?:preparation|pr[eé]paration|operation)|operation\s*:|categories?\s+de\s+options?|modes?\s+de\s+preparation|pour\s+\d{1,3}\s+(?:portions?|personnes?|pieces?|pi[eè]ces?))\b",
+            @"\b(?:components?|preparation|pr[eé]paration|temps\s+de\s+(?:preparation|pr[eé]paration|operation)|operation\s*:|categories?\s+de\s+options?|modes?\s+de\s+preparation|pour\s+\d{1,3}\s+(?:portions?|personnes?|pieces?|pi[eè]ces?))\b",
             RegexOptions.CultureInvariant);
         if (!hasStructuredCardCue)
             return false;
@@ -19086,7 +19242,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 normalizedSuffix,
-                @"^(?:ingredients?|components?|preparation|pr[eé]paration|technique|method|m[eé]thode|procedure|temps|time|duration|operation|nombre|quantit[eé]s?|quantities|pour\s+\d+|for\s+\d+|min|mn|pages?|sources?)\b",
+                @"^(?:components?|preparation|pr[eé]paration|technique|method|m[eé]thode|procedure|temps|time|duration|operation|nombre|quantit[eé]s?|quantities|pour\s+\d+|for\s+\d+|min|mn|pages?|sources?)\b",
                 RegexOptions.CultureInvariant))
         {
             return false;
@@ -19112,7 +19268,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             return current;
         if (Regex.IsMatch(
                 normalizedOriginal,
-                @"\b(?:ingredients?|components?|preparation|pr[eé]paration|procedure|proc[eé]dure|method|m[eé]thode|steps?|[eé]tapes?|materials?|mat[eé]riel)\b",
+                @"\b(?:components?|preparation|pr[eé]paration|procedure|proc[eé]dure|method|m[eé]thode|steps?|[eé]tapes?|materials?|mat[eé]riel)\b",
                 RegexOptions.CultureInvariant))
         {
             return current;
@@ -19590,18 +19746,18 @@ If evidence is partial, write the best useful sourced answer possible and state 
         }
         if (LooksLikeGenericStructuredInventoryTitle(normalized))
             score -= 80;
-        if (Regex.IsMatch(normalized, @"\b(?:ingredients?|components?|preparation|pr[eé]paration|technique)\b", RegexOptions.CultureInvariant))
+        if (Regex.IsMatch(normalized, @"\b(?:components?|preparation|pr[eé]paration|technique)\b", RegexOptions.CultureInvariant))
             score -= 60;
 
         return score;
     }
 
     private static readonly Regex LeadingStructuredPlanningFieldLabelTitleRegex = new(
-        @"^(?:ingredients?|components?|preparation|pr[eé]paration|technique|m[eé]thode|methode|procedure|etapes?|[eé]tapes?)\s*(?:[:\-/]\s*)?(?<rest>[\p{L}\p{N} '&/,\-\u00c0-\u017f]{4,100})$",
+        @"^(?:components?|preparation|pr[eé]paration|technique|m[eé]thode|methode|procedure|etapes?|[eé]tapes?)\s*(?:[:\-/]\s*)?(?<rest>[\p{L}\p{N} '&/,\-\u00c0-\u017f]{4,100})$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private static readonly Regex LeadingUpperStructuredPlanningFieldLabelTitleRegex = new(
-        @"^(?:INGREDIENTS?|COMPONENTS?|COMPOSANTS?|REQUIREMENTS?|PREPARATION|PR[EÉ]PARATION|TECHNIQUE|M[EÉ]THODE|METHODE|PROCEDURE|ETAPES?|[EÉ]TAPES?)(?<rest>[\p{Lu}0-9 '&/,\-\u00c0-\u017f]{4,100})$",
+        @"^(?:COMPONENTS?|COMPOSANTS?|REQUIREMENTS?|PREPARATION|PR[EÉ]PARATION|TECHNIQUE|M[EÉ]THODE|METHODE|PROCEDURE|ETAPES?|[EÉ]TAPES?)(?<rest>[\p{Lu}0-9 '&/,\-\u00c0-\u017f]{4,100})$",
         RegexOptions.CultureInvariant);
 
     private static string StripLeadingStructuredPlanningFieldLabelFromTitle(string title)
@@ -26865,7 +27021,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             yield return quotedTitle;
 
         const string structureLabelPattern =
-            @"ingredients?|components?|composants?|requirements?|exigences?|quantit(?:y|ies)|quantit[eé]s?|values?|valeurs?|materials?|mat[eé]riel|items?|[eé]l[eé]ments?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
+            @"components?|composants?|requirements?|exigences?|quantit(?:y|ies)|quantit[eé]s?|values?|valeurs?|materials?|mat[eé]riel|items?|[eé]l[eé]ments?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
         var sectionLeadPattern =
             $@"(?i)(?:^|[.!?]\s+)(?<title>\p{{Lu}}[\p{{L}}'\u2019 \-/]{{5,80}}?)(?:\.|\s)\s*(?:{structureLabelPattern})\b";
         foreach (Match match in Regex.Matches(text, sectionLeadPattern, RegexOptions.CultureInvariant))
@@ -26902,9 +27058,10 @@ If evidence is partial, write the best useful sourced answer possible and state 
         text = Regex.Replace(text, @"^\d+", string.Empty, RegexOptions.CultureInvariant).Trim();
         text = Regex.Replace(text, @"(?<=[\p{Ll}])(?=(?:Pour|For|Para|Per)\b)", " ", RegexOptions.CultureInvariant);
         const string structureLabelPattern =
-            @"ingredients?|components?|composants?|requirements?|exigences?|quantit(?:y|ies)|quantit[eé]s?|values?|valeurs?|materials?|mat[eé]riel|items?|[eé]l[eé]ments?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
+            @"components?|composants?|requirements?|exigences?|quantit(?:y|ies)|quantit[eé]s?|values?|valeurs?|materials?|mat[eé]riel|items?|[eé]l[eé]ments?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
         var patterns = new[]
         {
+            $@"(?i)^(?<title>[\p{{Lu}}\p{{Lt}}0-9][\p{{Lu}}\p{{Lt}}0-9 '&/,\-\u00c0-\u017f]{{5,90}}?)\s+[\p{{Lu}}\p{{Lt}}][\p{{L}}'\u2019\-]{{3,32}}\s*(?:[:*]|\u2022)\s*.{{0,240}}\b(?:{structureLabelPattern})\b",
             @"^(?<title>[\p{Lu}\p{Lt}0-9][\p{Lu}\p{Lt}0-9 '\u2019&/,\-\u00c0-\u017f]{5,120}?)(?:\s+\d+[\.)]\s|\s+[•\u2022]\s)",
             $@"(?i)^(?<title>\p{{Lu}}[\p{{L}}'\u2019 &/,\-]{{5,90}}?)\s+(?:{structureLabelPattern})\b",
             @"^(?:[\p{Lu}\p{Lt}][\p{Ll}]{2,24})?(?<title>[\p{Lu}\p{Lt}][\p{Lu}\p{Lt}0-9 '&/,\-]{5,90}?)(?:\d+\s*min|\d+(?:[,.]\d+)?\s*(?:eur|euros?|chf))",
@@ -29773,7 +29930,12 @@ If evidence is partial, write the best useful sourced answer possible and state 
         int? RetrievalQueryIndex = null,
         int? RetrievalHitRank = null,
         int? RetrievalQuerySpecificity = null,
-        bool HasTable = false);
+        bool HasTable = false,
+        IReadOnlyList<int>? SourceUnitOrdinals = null,
+        int? SourceUnitStartOrdinal = null,
+        int? SourceUnitEndOrdinal = null,
+        int? SourceUnitCount = null,
+        string? ChunkComposition = null);
 
     private sealed record RagHitContentCardSummary(
         string Title,
@@ -29900,6 +30062,45 @@ If evidence is partial, write the best useful sourced answer possible and state 
                                    ?? TryGetDouble(h, "ContentDensityScore")
                                    ?? TryGetNestedDouble(h, "context", "contentDensityScore")
                                    ?? TryGetNestedDouble(h, "Context", "ContentDensityScore");
+        var contextElement = TryGetObject(h, "context")
+                             ?? TryGetObject(h, "Context")
+                             ?? TryGetObject(h, "contentSignals")
+                             ?? TryGetObject(h, "content_signals")
+                             ?? TryGetObject(h, "ContentSignals");
+        var contentSignalsElement = TryGetObject(h, "contentSignals")
+                                    ?? TryGetObject(h, "content_signals")
+                                    ?? TryGetObject(h, "ContentSignals");
+        var sourceUnitOrdinals = contextElement.HasValue
+            ? TryGetIntList(contextElement.Value, "sourceUnitOrdinals", "source_unit_ordinals", "SourceUnitOrdinals")
+            : new List<int>();
+        if (sourceUnitOrdinals.Count == 0 && contentSignalsElement.HasValue)
+            sourceUnitOrdinals = TryGetIntList(contentSignalsElement.Value, "sourceUnitOrdinals", "source_unit_ordinals", "SourceUnitOrdinals");
+        if (sourceUnitOrdinals.Count == 0)
+            sourceUnitOrdinals = TryGetIntList(h, "sourceUnitOrdinals", "source_unit_ordinals", "SourceUnitOrdinals");
+        var sourceUnitStartOrdinal = contextElement.HasValue
+            ? TryGetInt(contextElement.Value, "sourceUnitStartOrdinal") ?? TryGetInt(contextElement.Value, "source_unit_start_ordinal") ?? TryGetInt(contextElement.Value, "SourceUnitStartOrdinal")
+            : null;
+        if (!sourceUnitStartOrdinal.HasValue && contentSignalsElement.HasValue)
+            sourceUnitStartOrdinal = TryGetInt(contentSignalsElement.Value, "sourceUnitStartOrdinal") ?? TryGetInt(contentSignalsElement.Value, "source_unit_start_ordinal") ?? TryGetInt(contentSignalsElement.Value, "SourceUnitStartOrdinal");
+        sourceUnitStartOrdinal ??= TryGetInt(h, "sourceUnitStartOrdinal") ?? TryGetInt(h, "source_unit_start_ordinal") ?? TryGetInt(h, "SourceUnitStartOrdinal");
+        var sourceUnitEndOrdinal = contextElement.HasValue
+            ? TryGetInt(contextElement.Value, "sourceUnitEndOrdinal") ?? TryGetInt(contextElement.Value, "source_unit_end_ordinal") ?? TryGetInt(contextElement.Value, "SourceUnitEndOrdinal")
+            : null;
+        if (!sourceUnitEndOrdinal.HasValue && contentSignalsElement.HasValue)
+            sourceUnitEndOrdinal = TryGetInt(contentSignalsElement.Value, "sourceUnitEndOrdinal") ?? TryGetInt(contentSignalsElement.Value, "source_unit_end_ordinal") ?? TryGetInt(contentSignalsElement.Value, "SourceUnitEndOrdinal");
+        sourceUnitEndOrdinal ??= TryGetInt(h, "sourceUnitEndOrdinal") ?? TryGetInt(h, "source_unit_end_ordinal") ?? TryGetInt(h, "SourceUnitEndOrdinal");
+        var sourceUnitCount = contextElement.HasValue
+            ? TryGetInt(contextElement.Value, "sourceUnitCount") ?? TryGetInt(contextElement.Value, "source_unit_count") ?? TryGetInt(contextElement.Value, "SourceUnitCount")
+            : null;
+        if (!sourceUnitCount.HasValue && contentSignalsElement.HasValue)
+            sourceUnitCount = TryGetInt(contentSignalsElement.Value, "sourceUnitCount") ?? TryGetInt(contentSignalsElement.Value, "source_unit_count") ?? TryGetInt(contentSignalsElement.Value, "SourceUnitCount");
+        sourceUnitCount ??= TryGetInt(h, "sourceUnitCount") ?? TryGetInt(h, "source_unit_count") ?? TryGetInt(h, "SourceUnitCount");
+        var chunkComposition = contextElement.HasValue
+            ? TryGetString(contextElement.Value, "chunkComposition") ?? TryGetString(contextElement.Value, "chunk_composition") ?? TryGetString(contextElement.Value, "ChunkComposition")
+            : null;
+        if (string.IsNullOrWhiteSpace(chunkComposition) && contentSignalsElement.HasValue)
+            chunkComposition = TryGetString(contentSignalsElement.Value, "chunkComposition") ?? TryGetString(contentSignalsElement.Value, "chunk_composition") ?? TryGetString(contentSignalsElement.Value, "ChunkComposition");
+        chunkComposition ??= TryGetString(h, "chunkComposition") ?? TryGetString(h, "chunk_composition") ?? TryGetString(h, "ChunkComposition");
         var hasTable = TryGetBool(h, "hasTable") ?? TryGetBool(h, "HasTable") ?? false;
 
         return new RagHitSummary(
@@ -29966,7 +30167,12 @@ If evidence is partial, write the best useful sourced answer possible and state 
             retrievalQueryIndex,
             retrievalHitRank,
             retrievalQuerySpecificity,
-            hasTable);
+            hasTable,
+            sourceUnitOrdinals,
+            sourceUnitStartOrdinal,
+            sourceUnitEndOrdinal,
+            sourceUnitCount,
+            chunkComposition);
     }
 
     private static int ReadRagHitPageStart(JsonElement h, int fallback = 1)
@@ -30915,11 +31121,55 @@ If evidence is partial, write the best useful sourced answer possible and state 
                                   ?? TryGetDouble(item, "ContentDensityScore")
                                   ?? TryGetNestedDouble(item, "context", "contentDensityScore")
                                   ?? TryGetNestedDouble(item, "Context", "ContentDensityScore");
+        var contextElement = TryGetObject(item, "context")
+                             ?? TryGetObject(item, "Context")
+                             ?? TryGetObject(item, "contentSignals")
+                             ?? TryGetObject(item, "content_signals")
+                             ?? TryGetObject(item, "ContentSignals");
+        var contentSignalsElement = TryGetObject(item, "contentSignals")
+                                    ?? TryGetObject(item, "content_signals")
+                                    ?? TryGetObject(item, "ContentSignals");
+        var sourceUnitOrdinals = contextElement.HasValue
+            ? TryGetIntList(contextElement.Value, "sourceUnitOrdinals", "source_unit_ordinals", "SourceUnitOrdinals")
+            : new List<int>();
+        if (sourceUnitOrdinals.Count == 0 && contentSignalsElement.HasValue)
+            sourceUnitOrdinals = TryGetIntList(contentSignalsElement.Value, "sourceUnitOrdinals", "source_unit_ordinals", "SourceUnitOrdinals");
+        if (sourceUnitOrdinals.Count == 0)
+            sourceUnitOrdinals = TryGetIntList(item, "sourceUnitOrdinals", "source_unit_ordinals", "SourceUnitOrdinals");
+        var sourceUnitStartOrdinal = contextElement.HasValue
+            ? TryGetInt(contextElement.Value, "sourceUnitStartOrdinal") ?? TryGetInt(contextElement.Value, "source_unit_start_ordinal") ?? TryGetInt(contextElement.Value, "SourceUnitStartOrdinal")
+            : null;
+        if (!sourceUnitStartOrdinal.HasValue && contentSignalsElement.HasValue)
+            sourceUnitStartOrdinal = TryGetInt(contentSignalsElement.Value, "sourceUnitStartOrdinal") ?? TryGetInt(contentSignalsElement.Value, "source_unit_start_ordinal") ?? TryGetInt(contentSignalsElement.Value, "SourceUnitStartOrdinal");
+        sourceUnitStartOrdinal ??= TryGetInt(item, "sourceUnitStartOrdinal") ?? TryGetInt(item, "source_unit_start_ordinal") ?? TryGetInt(item, "SourceUnitStartOrdinal");
+        var sourceUnitEndOrdinal = contextElement.HasValue
+            ? TryGetInt(contextElement.Value, "sourceUnitEndOrdinal") ?? TryGetInt(contextElement.Value, "source_unit_end_ordinal") ?? TryGetInt(contextElement.Value, "SourceUnitEndOrdinal")
+            : null;
+        if (!sourceUnitEndOrdinal.HasValue && contentSignalsElement.HasValue)
+            sourceUnitEndOrdinal = TryGetInt(contentSignalsElement.Value, "sourceUnitEndOrdinal") ?? TryGetInt(contentSignalsElement.Value, "source_unit_end_ordinal") ?? TryGetInt(contentSignalsElement.Value, "SourceUnitEndOrdinal");
+        sourceUnitEndOrdinal ??= TryGetInt(item, "sourceUnitEndOrdinal") ?? TryGetInt(item, "source_unit_end_ordinal") ?? TryGetInt(item, "SourceUnitEndOrdinal");
+        var sourceUnitCount = contextElement.HasValue
+            ? TryGetInt(contextElement.Value, "sourceUnitCount") ?? TryGetInt(contextElement.Value, "source_unit_count") ?? TryGetInt(contextElement.Value, "SourceUnitCount")
+            : null;
+        if (!sourceUnitCount.HasValue && contentSignalsElement.HasValue)
+            sourceUnitCount = TryGetInt(contentSignalsElement.Value, "sourceUnitCount") ?? TryGetInt(contentSignalsElement.Value, "source_unit_count") ?? TryGetInt(contentSignalsElement.Value, "SourceUnitCount");
+        sourceUnitCount ??= TryGetInt(item, "sourceUnitCount") ?? TryGetInt(item, "source_unit_count") ?? TryGetInt(item, "SourceUnitCount");
+        var chunkComposition = contextElement.HasValue
+            ? TryGetString(contextElement.Value, "chunkComposition") ?? TryGetString(contextElement.Value, "chunk_composition") ?? TryGetString(contextElement.Value, "ChunkComposition")
+            : null;
+        if (string.IsNullOrWhiteSpace(chunkComposition) && contentSignalsElement.HasValue)
+            chunkComposition = TryGetString(contentSignalsElement.Value, "chunkComposition") ?? TryGetString(contentSignalsElement.Value, "chunk_composition") ?? TryGetString(contentSignalsElement.Value, "ChunkComposition");
+        chunkComposition ??= TryGetString(item, "chunkComposition") ?? TryGetString(item, "chunk_composition") ?? TryGetString(item, "ChunkComposition");
 
         if (string.IsNullOrWhiteSpace(contentRole)
             && string.IsNullOrWhiteSpace(navigationReason)
             && !navigationScore.HasValue
-            && !contentDensityScore.HasValue)
+            && !contentDensityScore.HasValue
+            && sourceUnitOrdinals.Count == 0
+            && !sourceUnitStartOrdinal.HasValue
+            && !sourceUnitEndOrdinal.HasValue
+            && !sourceUnitCount.HasValue
+            && string.IsNullOrWhiteSpace(chunkComposition))
         {
             return null;
         }
@@ -30929,7 +31179,12 @@ If evidence is partial, write the best useful sourced answer possible and state 
             contentRole,
             navigationReason,
             navigationScore,
-            contentDensityScore
+            contentDensityScore,
+            sourceUnitOrdinals = sourceUnitOrdinals.Count == 0 ? null : sourceUnitOrdinals,
+            sourceUnitStartOrdinal,
+            sourceUnitEndOrdinal,
+            sourceUnitCount,
+            chunkComposition
         };
     }
 
@@ -31531,6 +31786,37 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var n)) return n;
         if (v.ValueKind == JsonValueKind.String && int.TryParse(v.GetString(), out var n2)) return n2;
         return null;
+    }
+
+    private static List<int> TryGetIntList(JsonElement obj, params string[] props)
+    {
+        if (obj.ValueKind != JsonValueKind.Object)
+            return new List<int>();
+
+        foreach (var prop in props)
+        {
+            if (!obj.TryGetProperty(prop, out var value) || value.ValueKind != JsonValueKind.Array)
+                continue;
+
+            var values = value.EnumerateArray()
+                .Select(static item =>
+                {
+                    if (item.ValueKind == JsonValueKind.Number && item.TryGetInt32(out var number))
+                        return number;
+                    if (item.ValueKind == JsonValueKind.String && int.TryParse(item.GetString(), out var parsed))
+                        return parsed;
+                    return (int?)null;
+                })
+                .Where(static item => item.HasValue)
+                .Select(static item => item!.Value)
+                .Distinct()
+                .OrderBy(static item => item)
+                .ToList();
+            if (values.Count > 0)
+                return values;
+        }
+
+        return new List<int>();
     }
 
     private static long? TryGetLong(JsonElement obj, string prop)

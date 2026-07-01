@@ -30,6 +30,11 @@ public sealed class QdrantClientTests
                 "extraction_text_status": "low_text",
                 "extraction_text_sparse": true,
                 "extraction_ocr_candidate": true,
+                "source_unit_ordinals": [2, 3, 3, "4", "bad"],
+                "source_unit_start_ordinal": 2,
+                "source_unit_end_ordinal": 4,
+                "source_unit_count": 3,
+                "chunk_composition": "multi_unit_window",
                 "extraction_quality_signals": [
                   " sparse_text_on_page ",
                   "ocr_candidate_text",
@@ -48,6 +53,11 @@ public sealed class QdrantClientTests
         Assert.True(match.ExtractionTextSparse);
         Assert.True(match.ExtractionOcrCandidate);
         Assert.Equal(["sparse_text_on_page", "ocr_candidate_text"], match.ExtractionQualitySignals);
+        Assert.Equal([2, 3, 4], match.SourceUnitOrdinals);
+        Assert.Equal(2, match.SourceUnitStartOrdinal);
+        Assert.Equal(4, match.SourceUnitEndOrdinal);
+        Assert.Equal(3, match.SourceUnitCount);
+        Assert.Equal("multi_unit_window", match.ChunkComposition);
     }
 
     [Fact]
