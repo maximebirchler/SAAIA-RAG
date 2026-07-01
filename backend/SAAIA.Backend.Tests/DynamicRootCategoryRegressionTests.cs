@@ -175,6 +175,167 @@ WHERE tenant_id=@tenant_id AND job_id=@job_id;
         }
     }
 
+    [Fact]
+    public async Task Scanner_suppresses_duplicate_pdf_content_and_queues_delete_for_known_duplicate()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var root = Path.Combine(Path.GetTempPath(), $"saaia-duplicate-scan-regression-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(root, "Alpha", "PDF"));
+
+        try
+        {
+            const string canonicalDocPath = "Alpha/guide.pdf";
+            const string duplicateDocPath = "Alpha/PDF/guide.pdf";
+            var canonicalFilePath = Path.Combine(root, "Alpha", "guide.pdf");
+            var duplicateFilePath = Path.Combine(root, "Alpha", "PDF", "guide.pdf");
+            var bytes = "%PDF-1.4\nsame-content\n"u8.ToArray();
+            await File.WriteAllBytesAsync(canonicalFilePath, bytes);
+            await File.WriteAllBytesAsync(duplicateFilePath, bytes);
+
+            var fixedMtimeUtc = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+            File.SetLastWriteTimeUtc(canonicalFilePath, fixedMtimeUtc);
+            File.SetLastWriteTimeUtc(duplicateFilePath, fixedMtimeUtc);
+
+            var tenantId = Guid.NewGuid();
+            await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+            await SeedExistingDocumentAsync(ds, tenantId, canonicalDocPath, "alpha", bytes.Length, fixedMtimeUtc);
+            await SeedExistingDocumentAsync(ds, tenantId, duplicateDocPath, "alpha", bytes.Length, fixedMtimeUtc);
+
+            await RunScannerOnceAsync(ds, root, tenantId);
+
+            await using var conn = await ds.OpenConnectionAsync();
+            var canonicalStatus = await conn.ExecuteScalarAsync<string>(
+                """
+SELECT status
+FROM documents
+WHERE tenant_id=@tenant_id AND doc_path=@doc_path;
+""",
+                new { tenant_id = tenantId, doc_path = canonicalDocPath });
+            var duplicateStatus = await conn.ExecuteScalarAsync<string>(
+                """
+SELECT status
+FROM documents
+WHERE tenant_id=@tenant_id AND doc_path=@doc_path;
+""",
+                new { tenant_id = tenantId, doc_path = duplicateDocPath });
+
+            Assert.Equal("indexed", canonicalStatus);
+            Assert.Equal("missing", duplicateStatus);
+
+            var deleteJob = await conn.QuerySingleAsync<QueuedJobState>(
+                """
+SELECT
+  category AS "Category",
+  action AS "Action",
+  status AS "Status"
+FROM ingestion_jobs
+WHERE tenant_id=@tenant_id AND doc_path=@doc_path;
+""",
+                new { tenant_id = tenantId, doc_path = duplicateDocPath });
+
+            Assert.Null(deleteJob.Category);
+            Assert.Equal("delete", deleteJob.Action);
+            Assert.Equal("queued", deleteJob.Status);
+
+            var canonicalJobCount = await conn.ExecuteScalarAsync<int>(
+                """
+SELECT count(*)::int
+FROM ingestion_jobs
+WHERE tenant_id=@tenant_id AND doc_path=@doc_path;
+""",
+                new { tenant_id = tenantId, doc_path = canonicalDocPath });
+            Assert.Equal(0, canonicalJobCount);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(root, recursive: true);
+            }
+            catch
+            {
+                // Best-effort cleanup for temp files created by this test.
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Scanner_suppresses_duplicate_pdf_content_without_delete_when_duplicate_is_already_clean()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var root = Path.Combine(Path.GetTempPath(), $"saaia-duplicate-clean-regression-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(root, "Alpha", "PDF"));
+
+        try
+        {
+            const string canonicalDocPath = "Alpha/guide.pdf";
+            const string duplicateDocPath = "Alpha/PDF/guide.pdf";
+            var canonicalFilePath = Path.Combine(root, "Alpha", "guide.pdf");
+            var duplicateFilePath = Path.Combine(root, "Alpha", "PDF", "guide.pdf");
+            var bytes = "%PDF-1.4\nsame-content\n"u8.ToArray();
+            await File.WriteAllBytesAsync(canonicalFilePath, bytes);
+            await File.WriteAllBytesAsync(duplicateFilePath, bytes);
+
+            var fixedMtimeUtc = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+            File.SetLastWriteTimeUtc(canonicalFilePath, fixedMtimeUtc);
+            File.SetLastWriteTimeUtc(duplicateFilePath, fixedMtimeUtc);
+
+            var tenantId = Guid.NewGuid();
+            await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+            await SeedExistingDocumentAsync(ds, tenantId, canonicalDocPath, "alpha", bytes.Length, fixedMtimeUtc);
+            await SeedExistingDocumentAsync(
+                ds,
+                tenantId,
+                duplicateDocPath,
+                "alpha",
+                bytes.Length,
+                fixedMtimeUtc,
+                status: "missing",
+                indexedVersion: 0,
+                missingSinceUtc: fixedMtimeUtc);
+
+            await RunScannerOnceAsync(ds, root, tenantId);
+
+            await using var conn = await ds.OpenConnectionAsync();
+            var duplicateState = await conn.QuerySingleAsync<(string Status, int IndexedVersion)>(
+                """
+SELECT status AS "Status", COALESCE(indexed_version, 0) AS "IndexedVersion"
+FROM documents
+WHERE tenant_id=@tenant_id AND doc_path=@doc_path;
+""",
+                new { tenant_id = tenantId, doc_path = duplicateDocPath });
+
+            Assert.Equal("missing", duplicateState.Status);
+            Assert.Equal(0, duplicateState.IndexedVersion);
+
+            var duplicateJobCount = await conn.ExecuteScalarAsync<int>(
+                """
+SELECT count(*)::int
+FROM ingestion_jobs
+WHERE tenant_id=@tenant_id AND doc_path=@doc_path;
+""",
+                new { tenant_id = tenantId, doc_path = duplicateDocPath });
+            Assert.Equal(0, duplicateJobCount);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(root, recursive: true);
+            }
+            catch
+            {
+                // Best-effort cleanup for temp files created by this test.
+            }
+        }
+    }
+
     private static async Task RunScannerOnceAsync(NpgsqlDataSource ds, string root, Guid tenantId)
     {
         var scanner = new IngestionScanner(
@@ -214,14 +375,19 @@ WHERE tenant_id=@tenant_id AND job_id=@job_id;
         string docPath,
         string category,
         long fileSize,
-        DateTime fileMtimeUtc)
+        DateTime fileMtimeUtc,
+        string status = "indexed",
+        int ingestionVersion = 1,
+        int indexedVersion = 1,
+        DateTime? missingSinceUtc = null)
     {
         await using var conn = await ds.OpenConnectionAsync();
 
         await conn.ExecuteAsync(
             """
 INSERT INTO tenants(tenant_id, name, is_active)
-VALUES(@tenant_id, 'category-regression', true);
+VALUES(@tenant_id, 'category-regression', true)
+ON CONFLICT (tenant_id) DO NOTHING;
 
 INSERT INTO documents(
   tenant_id, doc_id, doc_path, doc_name, category,
@@ -231,8 +397,8 @@ INSERT INTO documents(
 )
 VALUES(
   @tenant_id, @doc_id, @doc_path, @doc_name, @category,
-  'indexed', now(), now(), @file_size, @file_mtime,
-  now(), NULL, 1, 1,
+  @status, now(), now(), @file_size, @file_mtime,
+  now(), @missing_since, @ingestion_version, @indexed_version,
   false, NULL, NULL
 );
 """,
@@ -244,7 +410,13 @@ VALUES(
                 doc_name = Path.GetFileName(docPath),
                 category,
                 file_size = fileSize,
-                file_mtime = DateTime.SpecifyKind(fileMtimeUtc, DateTimeKind.Utc)
+                file_mtime = DateTime.SpecifyKind(fileMtimeUtc, DateTimeKind.Utc),
+                status,
+                missing_since = missingSinceUtc.HasValue
+                    ? DateTime.SpecifyKind(missingSinceUtc.Value, DateTimeKind.Utc)
+                    : (DateTime?)null,
+                ingestion_version = ingestionVersion,
+                indexed_version = indexedVersion
             });
     }
 

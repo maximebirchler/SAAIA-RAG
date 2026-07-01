@@ -1,3 +1,4 @@
+using Dapper;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using SAAIA.Backend.Audit;
@@ -48,10 +49,11 @@ public static class AdminEndpoints
         var files = Directory.EnumerateFiles(root, "*.pdf", SearchOption.AllDirectories)
             .Take(max)
             .ToArray();
+        var duplicateFiles = await BuildDuplicateFileMapAsync(files, root, ingest, ct);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
 
-        int enqueued = 0;
+        int enqueued = 0, duplicateSuppressed = 0, duplicateDeletes = 0;
         foreach (var abs in files)
         {
             var rel = DocPathNormalizer.NormalizeToRelative(abs, root);
@@ -63,6 +65,18 @@ public static class AdminEndpoints
 
             if (categoryFilter is not null && category != categoryFilter)
                 continue;
+
+            if (duplicateFiles.TryGetValue(rel, out _))
+            {
+                duplicateSuppressed++;
+                if (await ActiveDocumentExistsAsync(conn, tenantId, rel, ct))
+                {
+                    await IngestionEnqueue.EnqueueDeleteAsync(conn, tenantId, rel, ct);
+                    duplicateDeletes++;
+                }
+
+                continue;
+            }
 
             var fi = new FileInfo(abs);
             await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct, enqueueSource: "admin");
@@ -76,11 +90,59 @@ public static class AdminEndpoints
             actorIsAdmin,
             action: "ingestion.scan",
             target: "admin.reindex",
-            payload: new { scanned = files.Length, enqueued, max, category = categoryFilter, forceWholeCatalog = req.ForceWholeCatalog },
+            payload: new { scanned = files.Length, enqueued, duplicateSuppressed, duplicateDeletes, max, category = categoryFilter, forceWholeCatalog = req.ForceWholeCatalog },
             ip: ctx.Connection.RemoteIpAddress?.ToString(),
             ct: ct);
 
-        return Results.Ok(new { enqueued, scanned = files.Length, max, category = categoryFilter, forceWholeCatalog = req.ForceWholeCatalog });
+        return Results.Ok(new { enqueued, scanned = files.Length, duplicateSuppressed, duplicateDeletes, max, category = categoryFilter, forceWholeCatalog = req.ForceWholeCatalog });
+    }
+
+    private static async Task<IReadOnlyDictionary<string, IngestionDuplicateFileDecision>> BuildDuplicateFileMapAsync(
+        IReadOnlyCollection<string> files,
+        string root,
+        IngestionOptions opt,
+        CancellationToken ct)
+    {
+        var candidates = new List<IngestionDuplicateFileCandidate>();
+        foreach (var file in files)
+        {
+            FileInfo fi;
+            try { fi = new FileInfo(file); }
+            catch { continue; }
+
+            var rel = DocPathNormalizer.NormalizeToRelative(file, root);
+            if (IngestionPathFilter.ShouldIgnoreRel(rel))
+                continue;
+
+            candidates.Add(new IngestionDuplicateFileCandidate(rel, file, fi.Length));
+        }
+
+        return await IngestionDuplicateFilePlanner.FindDuplicatesByContentAsync(candidates, ct).ConfigureAwait(false);
+    }
+
+    private static async Task<bool> ActiveDocumentExistsAsync(
+        NpgsqlConnection conn,
+        Guid tenantId,
+        string docPath,
+        CancellationToken ct)
+    {
+        const string sql = """
+SELECT 1
+FROM documents
+WHERE tenant_id=@tenantId
+  AND doc_path=@docPath
+  AND COALESCE(status, '') <> 'deleted'
+  AND NOT (
+    COALESCE(status, '') = 'missing'
+    AND COALESCE(indexed_version, 0) <= 0
+  )
+LIMIT 1;
+""";
+        var exists = await conn.ExecuteScalarAsync<int?>(new CommandDefinition(
+            sql,
+            new { tenantId, docPath },
+            cancellationToken: ct));
+        return exists.HasValue;
     }
 }
 

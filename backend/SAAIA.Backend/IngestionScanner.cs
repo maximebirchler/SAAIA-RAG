@@ -163,9 +163,10 @@ WHERE tenant_id = @tenant_id
             }
         }
 
+        var duplicateFiles = await BuildDuplicateFileMapAsync(files, root, opt, now, ct);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        int enqUpsert = 0, enqDelete = 0, skippedTooFresh = 0, unchanged = 0, suppressedAuto = 0;
+        int enqUpsert = 0, enqDelete = 0, skippedTooFresh = 0, unchanged = 0, suppressedAuto = 0, suppressedDuplicateContent = 0;
         bool anyTooFresh = false;
 
         // 4) Upserts
@@ -199,6 +200,40 @@ WHERE tenant_id = @tenant_id
             }
 
             var category = IngestionCategoryResolver.Derive(rel, opt);
+
+            if (duplicateFiles.TryGetValue(rel, out var duplicate))
+            {
+                suppressedDuplicateContent++;
+                existing.TryGetValue(rel, out var duplicateRow);
+                var knownDocument = duplicateRow is not null;
+                var shouldDeleteKnownDuplicate = false;
+                if (duplicateRow is not null)
+                    shouldDeleteKnownDuplicate = ShouldEnqueueDuplicateDelete(duplicateRow.Status, duplicateRow.IndexedVersion);
+                var hasActiveDuplicateJob = shouldDeleteKnownDuplicate
+                                            && await HasActiveJobForDocAsync(conn, tenantId, rel, ct);
+                if (shouldDeleteKnownDuplicate && !hasActiveDuplicateJob)
+                {
+                    await IngestionEnqueue.EnqueueDeleteAsync(conn, tenantId, rel, ct);
+                    enqDelete++;
+                    _log.LogWarning(
+                        "Scanner: duplicate PDF content suppressed for {DocPath}; canonical={CanonicalDocPath} hash={SourceHash}",
+                        rel,
+                        duplicate.CanonicalPath,
+                        duplicate.ContentHashHex);
+                }
+                else
+                {
+                    _log.LogInformation(
+                        "Scanner: duplicate PDF content ignored for {DocPath}; canonical={CanonicalDocPath} active_job={HasActiveJob} known_document={KnownDocument} delete_required={DeleteRequired}",
+                        rel,
+                        duplicate.CanonicalPath,
+                        hasActiveDuplicateJob,
+                        knownDocument,
+                        shouldDeleteKnownDuplicate);
+                }
+
+                continue;
+            }
 
             if (!existing.TryGetValue(rel, out var row))
             {
@@ -356,9 +391,39 @@ WHERE tenant_id = @tenant_id
         }
 
         _log.LogInformation(
-            "Scanner: files={Files} unchanged={Unchanged} upsert_enqueued={Upserts} delete_enqueued={Deletes} skipped_too_fresh={TooFresh} suppressed_auto={Suppressed} force_reindex={Force}",
-            files.Count, unchanged, enqUpsert, enqDelete, skippedTooFresh, suppressedAuto, forceReindexAll
+            "Scanner: files={Files} unchanged={Unchanged} upsert_enqueued={Upserts} delete_enqueued={Deletes} skipped_too_fresh={TooFresh} suppressed_auto={Suppressed} suppressed_duplicate_content={SuppressedDuplicates} force_reindex={Force}",
+            files.Count, unchanged, enqUpsert, enqDelete, skippedTooFresh, suppressedAuto, suppressedDuplicateContent, forceReindexAll
         );
+    }
+
+    private static async Task<IReadOnlyDictionary<string, IngestionDuplicateFileDecision>> BuildDuplicateFileMapAsync(
+        IReadOnlyCollection<string> files,
+        string root,
+        IngestionOptions opt,
+        DateTime now,
+        CancellationToken ct)
+    {
+        var candidates = new List<IngestionDuplicateFileCandidate>();
+        foreach (var file in files)
+        {
+            FileInfo fi;
+            try { fi = new FileInfo(file); }
+            catch { continue; }
+
+            var rel = PathUtil.NormalizeRelativePath(
+                Path.GetRelativePath(root, file).Replace('\\', '/'));
+
+            if (IngestionPathFilter.ShouldIgnoreRel(rel))
+                continue;
+
+            var ageSeconds = (now - fi.LastWriteTimeUtc).TotalSeconds;
+            if (ageSeconds < Math.Max(0, opt.MinFileAgeSeconds))
+                continue;
+
+            candidates.Add(new IngestionDuplicateFileCandidate(rel, file, fi.Length));
+        }
+
+        return await IngestionDuplicateFilePlanner.FindDuplicatesByContentAsync(candidates, ct).ConfigureAwait(false);
     }
 
     private static async Task<int?> TryGetTenantPointCountAsync(
@@ -424,6 +489,19 @@ WHERE tenant_id = @tenant_id
         var fsUtc = DateTime.SpecifyKind(fsMtimeUtc, DateTimeKind.Utc);
 
         return Math.Abs((dbUtc - fsUtc).TotalSeconds) <= 2.0;
+    }
+
+    private static bool ShouldEnqueueDuplicateDelete(string? status, int indexedVersion)
+    {
+        var normalizedStatus = (status ?? string.Empty).Trim();
+        if (string.Equals(normalizedStatus, "deleted", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (string.Equals(normalizedStatus, "missing", StringComparison.OrdinalIgnoreCase)
+            && indexedVersion <= 0)
+            return false;
+
+        return true;
     }
 
     private static async Task<bool> IsFreshAutoIngestPausedAsync(NpgsqlConnection conn, Guid tenantId, string docPath, CancellationToken ct)
