@@ -219,6 +219,46 @@ public sealed partial class ApiClient
             .ConfigureAwait(false);
     }
 
+    public async Task<JsonElement> DocumentsContextAsync(
+        string? docId,
+        string? docPath,
+        string? chunkId,
+        int? pageStart,
+        int? pageEnd,
+        int before,
+        int after,
+        int limit,
+        int offset,
+        CancellationToken ct)
+    {
+        var qs = new List<string>
+        {
+            $"before={Math.Clamp(before, 0, 20)}",
+            $"after={Math.Clamp(after, 0, 30)}",
+            $"limit={Math.Clamp(limit, 1, 50)}",
+            $"offset={Math.Max(offset, 0)}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(docId))
+            qs.Add($"docId={Uri.EscapeDataString(docId.Trim())}");
+        if (!string.IsNullOrWhiteSpace(docPath))
+            qs.Add($"docPath={Uri.EscapeDataString(docPath.Trim().Replace('\\', '/').Trim('/'))}");
+        if (!string.IsNullOrWhiteSpace(chunkId))
+            qs.Add($"chunkId={Uri.EscapeDataString(chunkId.Trim())}");
+        if (pageStart is > 0)
+            qs.Add($"pageStart={pageStart.Value}");
+        if (pageEnd is > 0)
+            qs.Add($"pageEnd={pageEnd.Value}");
+
+        return await SendJsonAsync(
+                HttpMethod.Get,
+                "/documents/context?" + string.Join("&", qs),
+                null,
+                admin: false,
+                ct)
+            .ConfigureAwait(false);
+    }
+
     public async Task<JsonElement> DocumentsEmptyFoldersCountAsync(string? path, CancellationToken ct)
     {
         var qs = string.IsNullOrWhiteSpace(path)

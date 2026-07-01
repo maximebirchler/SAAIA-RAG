@@ -632,14 +632,36 @@ public sealed partial class ApiClient
     /// Optional admin endpoint (may not exist on older builds): list chunks for debug.
     /// When not supported, returns { items:[], nextCursor:null, error:"not_supported" }.
     /// </summary>
-    public async Task<JsonElement> RagDebugScrollAsync(string? cursor, int limit, string? docPath, CancellationToken ct)
+    public async Task<JsonElement> RagDebugScrollAsync(
+        string? cursor,
+        int limit,
+        string? docPath,
+        CancellationToken ct,
+        string? docId = null,
+        string? category = null,
+        int? pageStart = null,
+        int? pageEnd = null,
+        string? chunkType = null,
+        string? contentRole = null)
     {
         var lim = Math.Clamp(limit, 1, 1000);
         var qs = new List<string> { $"limit={lim}" };
         if (!string.IsNullOrWhiteSpace(cursor))
             qs.Add($"cursor={Uri.EscapeDataString(cursor)}");
+        if (!string.IsNullOrWhiteSpace(docId))
+            qs.Add($"docId={Uri.EscapeDataString(docId.Trim())}");
         if (!string.IsNullOrWhiteSpace(docPath))
             qs.Add($"docPath={Uri.EscapeDataString(docPath.Trim().Replace('\\', '/').TrimStart('/'))}");
+        if (!string.IsNullOrWhiteSpace(category))
+            qs.Add($"category={Uri.EscapeDataString(category.Trim().Replace('\\', '/').Trim('/'))}");
+        if (pageStart is > 0)
+            qs.Add($"pageStart={pageStart.Value}");
+        if (pageEnd is > 0)
+            qs.Add($"pageEnd={pageEnd.Value}");
+        if (!string.IsNullOrWhiteSpace(chunkType))
+            qs.Add($"chunkType={Uri.EscapeDataString(chunkType.Trim())}");
+        if (!string.IsNullOrWhiteSpace(contentRole))
+            qs.Add($"contentRole={Uri.EscapeDataString(contentRole.Trim())}");
 
         var path = "/rag/debug/scroll?" + string.Join("&", qs);
         using var resp = await SendWithRateLimitRetryAsync(() => NewAdminRequest(HttpMethod.Get, path), ct).ConfigureAwait(false);

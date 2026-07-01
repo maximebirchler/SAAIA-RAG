@@ -30,7 +30,7 @@ public sealed partial class ToolAgentOrchestrator
     private const int RagMultiSearchCategoryCatalogProbeLimit = 24;
     private const int RagMultiSearchCategoryChildProbeMaxParents = 4;
     private const int RagMultiSearchCategoryChildProbeLimit = 24;
-    private static readonly TimeSpan DefaultRagMultiSearchSourceExplorationQueryTimeout = TimeSpan.FromSeconds(65);
+    private static readonly TimeSpan DefaultRagMultiSearchSourceExplorationQueryTimeout = TimeSpan.FromSeconds(35);
     private static readonly TimeSpan RagMultiSearchCategoryProbeQueryTimeout = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan RagMultiSearchCategoryCatalogProbeQueryTimeout = TimeSpan.FromSeconds(4);
 #if DEBUG
@@ -2369,16 +2369,21 @@ public sealed partial class ToolAgentOrchestrator
                 .Select(ComputeRagMultiSearchQuerySpecificity)
                 .ToArray();
             var fanoutParallelism = Math.Min(RagMultiSearchMaxParallelism, Math.Max(1, selectedQueries.Length));
+            var perQueryTimeout = ResolveRagMultiSearchPerQueryTimeout(
+                researchMode,
+                includeResearchSurfaces == true);
             ClientLog.Info(
                 "ToolAgent rag.multi_search scope start: " +
                 $"scope={FormatRagTraceValue(scope)}|categoryInferred={categoryInferred}|selectedQueries={selectedQueries.Length}|" +
-                $"fanout={fanoutParallelism}|queries={TruncateForPrompt(string.Join(" || ", selectedQueries.Select(q => FormatRagTraceValue(q, 90))), 520)}");
+                $"fanout={fanoutParallelism}|perQueryTimeoutMs={(perQueryTimeout.HasValue ? (int)Math.Round(perQueryTimeout.Value.TotalMilliseconds) : 0)}|" +
+                $"queries={TruncateForPrompt(string.Join(" || ", selectedQueries.Select(q => FormatRagTraceValue(q, 90))), 520)}");
             EmitRagTrace(
                 "rag.multi_search.scope.start",
                 ("scope", scope),
                 ("category_inferred", categoryInferred),
                 ("selected_queries", selectedQueries.Length),
                 ("fanout", fanoutParallelism),
+                ("per_query_timeout_ms", perQueryTimeout.HasValue ? (int)Math.Round(perQueryTimeout.Value.TotalMilliseconds) : (int?)null),
                 ("queries", selectedQueries));
             using var gate = new SemaphoreSlim(fanoutParallelism);
             var runs = await Task.WhenAll(selectedQueries.Select(async (q, index) =>
@@ -2387,19 +2392,20 @@ public sealed partial class ToolAgentOrchestrator
                 var querySw = Stopwatch.StartNew();
                 ClientLog.Info(
                     "ToolAgent rag.multi_search query start: " +
-                    $"scope={FormatRagTraceValue(scope)}|index={index + 1}/{selectedQueries.Length}|query={FormatRagTraceValue(q, 180)}");
+                    $"scope={FormatRagTraceValue(scope)}|index={index + 1}/{selectedQueries.Length}|" +
+                    $"timeoutMs={(perQueryTimeout.HasValue ? (int)Math.Round(perQueryTimeout.Value.TotalMilliseconds) : 0)}|" +
+                    $"query={FormatRagTraceValue(q, 180)}");
                 EmitRagTrace(
                     "rag.multi_search.query.start",
                     ("scope", scope),
                     ("index", index + 1),
                     ("total", selectedQueries.Length),
+                    ("timeout_ms", perQueryTimeout.HasValue ? (int)Math.Round(perQueryTimeout.Value.TotalMilliseconds) : (int?)null),
                     ("query", q));
                 try
                 {
                     JsonElement norm;
-                    var queryTimeout = ResolveRagMultiSearchPerQueryTimeout(
-                        researchMode,
-                        includeResearchSurfaces == true);
+                    var queryTimeout = perQueryTimeout;
                     try
                     {
                         using var queryTimeoutCts = queryTimeout.HasValue
@@ -2532,6 +2538,7 @@ public sealed partial class ToolAgentOrchestrator
                     error = string.IsNullOrWhiteSpace(run.Error) ? null : run.Error,
                     busy = run.Busy ? true : (bool?)null,
                     retryAfterSeconds = run.Busy ? run.RetryAfterSeconds : (int?)null,
+                    timeoutMs = perQueryTimeout.HasValue ? (int)Math.Round(perQueryTimeout.Value.TotalMilliseconds) : (int?)null,
                     degradedRetrievers = run.DegradedRetrievers.Length == 0 ? null : run.DegradedRetrievers,
                     guidance = run.Guidance,
                     meta = run.Meta
@@ -2686,6 +2693,7 @@ public sealed partial class ToolAgentOrchestrator
                     includeResearchSurfaces,
                     categoryInferred,
                     fanoutParallelism,
+                    perQueryTimeoutMs = perQueryTimeout.HasValue ? (int)Math.Round(perQueryTimeout.Value.TotalMilliseconds) : (int?)null,
                     busyQueries = busyRuns.Length == 0 ? null : busyRuns.Select(static run => run.Query).ToArray(),
                     degradedRetrievers = degradedRetrievers.Count == 0 ? null : degradedRetrievers.ToArray(),
                     queryRuns
@@ -2958,11 +2966,18 @@ private JsonElement ExecExportCreate(JsonElement args)
     {
         var cursor = args.TryGetProperty("cursor", out var c) && c.ValueKind == JsonValueKind.String ? c.GetString() : null;
         var limit = args.TryGetProperty("limit", out var l) && l.ValueKind == JsonValueKind.Number ? l.GetInt32() : 100;
+        var docId = GetStringArg(args, "docId");
+        var category = NormalizeCategoryPathArg(GetStringArg(args, "category") ?? GetStringArg(args, "categoryPath"));
+        var pageStart = GetIntArg(args, "pageStart") ?? GetIntArg(args, "page_start");
+        var pageEnd = GetIntArg(args, "pageEnd") ?? GetIntArg(args, "page_end");
+        var chunkType = GetStringArg(args, "chunkType") ?? GetStringArg(args, "chunk_type");
+        var contentRole = GetStringArg(args, "contentRole") ?? GetStringArg(args, "content_role");
         string? docPath = null;
         if (args.TryGetProperty("docRef", out var dref) && dref.ValueKind == JsonValueKind.String)
         {
             var resolved = await ResolveDocRefAsync(dref.GetString() ?? string.Empty, ct).ConfigureAwait(false);
             docPath = resolved?.DocPath;
+            docId ??= resolved?.DocId;
         }
         else if (args.TryGetProperty("docPath", out var dp) && dp.ValueKind == JsonValueKind.String)
         {
@@ -2971,7 +2986,18 @@ private JsonElement ExecExportCreate(JsonElement args)
 
         try
         {
-            var raw = await _api.RagDebugScrollAsync(cursor, limit, docPath, ct).ConfigureAwait(false);
+            var raw = await _api.RagDebugScrollAsync(
+                    cursor,
+                    limit,
+                    docPath,
+                    ct,
+                    docId,
+                    category,
+                    pageStart,
+                    pageEnd,
+                    chunkType,
+                    contentRole)
+                .ConfigureAwait(false);
             return raw;
         }
         catch

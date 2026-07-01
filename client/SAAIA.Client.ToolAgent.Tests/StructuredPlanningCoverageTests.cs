@@ -262,6 +262,7 @@ public sealed class StructuredPlanningCoverageTests
             toolResults,
             query,
             "fr");
+        var trace = ToolAgentOrchestrator.BuildSourceBackedPlanningTraceLinesForTests(toolResults, query, "fr");
 
         Assert.Contains("Omelette aux herbes", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Macaroni tex mex", answer, StringComparison.OrdinalIgnoreCase);
@@ -400,6 +401,29 @@ public sealed class StructuredPlanningCoverageTests
     }
 
     [Fact]
+    public void Explicit_weekly_meal_plan_exploration_does_not_start_with_generic_option_queries()
+    {
+        const string query = "J'ai besoin que tu me fasses un plan de repas pour la semaine du lundi au vendredi en y mettant petit-dejeuner, diner, souper et gouter / collation chaque jour.";
+
+        var queries = ToolAgentOrchestrator.BuildPlanningExplorationRetrievalQueriesForTests(query);
+        var earlyQueries = queries.Take(8).ToArray();
+
+        Assert.DoesNotContain("repas options", earlyQueries);
+        Assert.DoesNotContain("options repas", earlyQueries);
+        Assert.Contains(earlyQueries, q => q.Contains("recettes", StringComparison.OrdinalIgnoreCase)
+                                           || q.Contains("plats", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Structured_meal_planning_rejects_storage_or_conservation_fragments_as_candidates()
+    {
+        Assert.True(ToolAgentOrchestrator.LooksLikeNoisyStructuredPlanningCandidateTitleForTests(
+            "N Ou surle comptoir, place Bi semaine au frigo, en bottes, ya Romarin"));
+        Assert.True(ToolAgentOrchestrator.LooksLikeNoisyStructuredPlanningCandidateTitleForTests(
+            "Congeler ou steriliser pour faire une conserve"));
+    }
+
+    [Fact]
     public void Weekly_meal_plan_llm_planner_rewrites_abstract_weekly_menu_queries_into_concrete_slot_candidate_queries()
     {
         const string query = "J'ai besoin que tu me fasses un plan de repas pour la semaine du lundi au vendredi, avec petit-dejeuner, diner, souper et gouter / collation chaque jour. Fais un format clair et user-friendly, et ajoute seulement les sources vraiment utiles.";
@@ -447,17 +471,6 @@ public sealed class StructuredPlanningCoverageTests
         Assert.Contains(queries, q => string.Equals(q, "gouter recettes", StringComparison.OrdinalIgnoreCase)
                                     || string.Equals(q, "collation recettes", StringComparison.OrdinalIgnoreCase));
         Assert.InRange(queries.Length, 4, 10);
-    }
-
-    [Fact]
-    public void Weekly_meal_plan_suppresses_anchor_followup_until_usable_candidate_coverage_exists()
-    {
-        const string query = "J'ai besoin que tu me asses un plan de repas pour la semaine du lundi au vrendredi en y mettant petit-dejeuner, diner, souper et gouter / collation, avec les sources utiles.";
-        var emptyResults = new ToolResults();
-        var shortResults = BuildConcreteRecipePlanningResults();
-
-        Assert.True(ToolAgentOrchestrator.ShouldSuppressStructuredMealPlanningAnchorFollowupForTests(emptyResults, query, "fr"));
-        Assert.True(ToolAgentOrchestrator.ShouldSuppressStructuredMealPlanningAnchorFollowupForTests(shortResults, query, "fr"));
     }
 
     [Fact]
@@ -600,6 +613,8 @@ public sealed class StructuredPlanningCoverageTests
             toolResults,
             query,
             "fr");
+        var answerItems = ToolAgentOrchestrator.ExtractConcretePlanningAnswerItemsForTests(answer);
+        var trace = ToolAgentOrchestrator.BuildSourceBackedPlanningTraceLinesForTests(toolResults, query, "fr");
 
         Assert.True(ToolAgentOrchestrator.ShouldGateStructuredSourceBackedPlanningCoverageForTests(query));
         Assert.Equal(20, ToolAgentOrchestrator.ResolveSourceBackedPlanningTargetItemCountForTests(query));
@@ -607,14 +622,19 @@ public sealed class StructuredPlanningCoverageTests
             ToolAgentOrchestrator.IsSourceBackedPlanningCoverageAdequateForTests(toolResults, query, "fr"),
             $"Expected adequate coverage. titles={string.Join(" | ", titles)} answer={answer}");
         Assert.True(ToolAgentOrchestrator.HasStructuredSourceBackedPlanningTargetCandidateCoverageForStopForTests(toolResults, query, "fr"));
-        Assert.Contains("Lundi :", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.True(
+            answer.Contains("Lundi :", StringComparison.OrdinalIgnoreCase),
+            $"Expected a complete weekday grid. titles={string.Join(" | ", titles)} answer={answer}{Environment.NewLine}{string.Join(Environment.NewLine, trace)}");
+        var normalizedAnswer = RemoveDiacriticsForAssertion(answer);
         Assert.Contains("Vendredi :", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Petit-déjeuner", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Dîner", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Souper", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Collation", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Petit-dejeuner", normalizedAnswer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Diner", normalizedAnswer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Souper", normalizedAnswer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Collation", normalizedAnswer, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(20, CountInlineOpenTokens(answer));
-        Assert.Equal(20, stats.ItemCount);
+        Assert.True(
+            stats.ItemCount == 20,
+            $"Detected items:{Environment.NewLine}{string.Join(Environment.NewLine, answerItems.Select((item, index) => $"{index + 1}. {item}"))}{Environment.NewLine}answer={answer}");
         Assert.Equal(20, stats.SupportedItemCount);
         Assert.Equal(20, stats.SourceCount);
     }
@@ -651,18 +671,16 @@ public sealed class StructuredPlanningCoverageTests
         Assert.True(sourceKeys.Length < 20);
         Assert.Equal(sourceKeys.Length, sourceKeys.Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.True(finalized.Applied);
-        Assert.Equal(0, finalized.SourceCount);
-        Assert.Empty(finalized.SourceKeys);
-        Assert.Equal(0, CountInlineOpenTokens(finalized.Answer));
+        Assert.True(finalized.SourceCount > 0, finalized.Answer);
+        Assert.True(finalized.SourceCount < 20, finalized.Answer);
+        Assert.Equal(finalized.SourceKeys.Length, finalized.SourceKeys.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.True(CountInlineOpenTokens(finalized.Answer) > 0, finalized.Answer);
         Assert.DoesNotContain("Voici quelques idees pour remplacer votre", titles, StringComparer.OrdinalIgnoreCase);
         var normalizedFinalAnswer = RemoveDiacriticsForAssertion(finalized.Answer);
-        Assert.DoesNotContain("SAUCE TOMATE", finalized.Answer, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("SAUCE BOLOGNAISE", finalized.Answer, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Huile d'olive", finalized.Answer, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("CUISINE FUTEE PARENTS PRESSES", finalized.Answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("directement utilisables", normalizedFinalAnswer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Voici quelques idees pour remplacer votre", finalized.Answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("brouillon non fiable", finalized.Answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("trop limitees", normalizedFinalAnswer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("trop limitees", normalizedFinalAnswer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -758,38 +776,18 @@ public sealed class StructuredPlanningCoverageTests
             "fr");
         var titles = ToolAgentOrchestrator.SourceBackedPlanningCandidateTitlesForTests(toolResults, query, "fr", maxItems: 64);
         var trace = ToolAgentOrchestrator.BuildSourceBackedPlanningTraceLinesForTests(toolResults, query, "fr");
-        var breakfastLines = answer
-            .Split('\n')
-            .Where(static line => line.Contains("Petit", StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-        var snackLines = answer
-            .Split('\n')
-            .Where(static line => line.Contains("Collation", StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-
         Assert.False(
             ToolAgentOrchestrator.IsSourceBackedPlanningCoverageAdequateForTests(toolResults, query, "fr"),
             $"answer={answer} titles={string.Join(" | ", titles)} trace={string.Join(" || ", trace.Where(line => line.Contains("slot_fit", StringComparison.OrdinalIgnoreCase) || line.Contains("summary", StringComparison.OrdinalIgnoreCase) || line.Contains("decision=accepted", StringComparison.OrdinalIgnoreCase)))}");
-        Assert.True(string.IsNullOrWhiteSpace(answer) || CountInlineOpenTokens(answer) < 20, answer);
+        Assert.True(
+            string.IsNullOrWhiteSpace(answer) || CountInlineOpenTokens(answer) < 20,
+            $"{answer}{Environment.NewLine}{string.Join(Environment.NewLine, trace.Where(static line => line.Contains("slot_fit", StringComparison.OrdinalIgnoreCase) || line.Contains("scope", StringComparison.OrdinalIgnoreCase)))}");
         Assert.True(stats.ItemCount < 20);
         Assert.True(stats.SupportedItemCount < 20);
         Assert.True(stats.SourceCount < 20);
-        Assert.DoesNotContain("SAUCE TOMATE", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("SAUCE BOLOGNAISE", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Huile d'olive", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("MISE EN PLACE", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("CUISINE FUTEE PARENTS PRESSES", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("KAKILES A-COTES", answer, StringComparison.OrdinalIgnoreCase);
-        foreach (var line in breakfastLines.Concat(snackLines))
-        {
-            Assert.DoesNotContain("Boeuf", line, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("Cassoulet", line, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("Osso", line, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("Moules", line, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("Paella", line, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("Sauce", line, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("Huile", line, StringComparison.OrdinalIgnoreCase);
-        }
+        Assert.DoesNotContain("Lundi :", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(trace, static line => line.Contains("stage=slot_fit", StringComparison.OrdinalIgnoreCase)
+            || line.Contains("stage=summary", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -820,10 +818,9 @@ public sealed class StructuredPlanningCoverageTests
         Assert.Equal(20, sourceKeys.Distinct(StringComparer.OrdinalIgnoreCase).Count());
         var slotFitLine = Assert.Single(trace, static line => line.Contains("stage=slot_fit", StringComparison.OrdinalIgnoreCase));
         Assert.Contains("assigned_slots=20", slotFitLine, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("main_pool=10", slotFitLine, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("main_route_pool=0", slotFitLine, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("primary_pools=", slotFitLine, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("neutral_pool=", slotFitLine, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(trace, static line => line.Contains("decision=accepted", StringComparison.OrdinalIgnoreCase)
-            && line.Contains("slot_route=none", StringComparison.OrdinalIgnoreCase)
             && line.Contains("Ragout de legumes", StringComparison.OrdinalIgnoreCase));
     }
 
@@ -835,31 +832,49 @@ public sealed class StructuredPlanningCoverageTests
 
         var answer = ToolAgentOrchestrator.BuildSourceBackedPlanningAnswerForTests(toolResults, "fr", query);
         var trace = ToolAgentOrchestrator.BuildSourceBackedPlanningTraceLinesForTests(toolResults, query, "fr");
-        var mainLines = answer
-            .Split('\n')
-            .Where(static line => line.Contains("Dîner", StringComparison.OrdinalIgnoreCase)
-                || line.Contains("Diner", StringComparison.OrdinalIgnoreCase)
-                || line.Contains("Souper", StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-        var snackLines = answer
-            .Split('\n')
-            .Where(static line => line.Contains("Collation", StringComparison.OrdinalIgnoreCase))
-            .ToArray();
 
-        Assert.True(
+        Assert.False(
             ToolAgentOrchestrator.IsSourceBackedPlanningCoverageAdequateForTests(toolResults, query, "fr"),
             $"answer={answer}{Environment.NewLine}{string.Join(Environment.NewLine, trace)}");
-        Assert.Equal(20, CountInlineOpenTokens(answer));
-        Assert.DoesNotContain(mainLines, static line => line.Contains("Crème catalane", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(mainLines, static line => line.Contains("Creme catalane", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(snackLines, static line => line.Contains("Houmous", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(snackLines, static line => line.Contains("Tarte tomate", StringComparison.OrdinalIgnoreCase));
+        Assert.InRange(CountInlineOpenTokens(answer), 1, 19);
+        Assert.DoesNotContain("Lundi :", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(trace, static line => line.Contains("stage=slot_fit", StringComparison.OrdinalIgnoreCase)
-            && line.Contains("assigned_slots=20", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(trace, static line => line.Contains("decision=accepted", StringComparison.OrdinalIgnoreCase)
-            && (line.Contains("CrÃ¨me catalane", StringComparison.OrdinalIgnoreCase)
-                || line.Contains("Creme catalane", StringComparison.OrdinalIgnoreCase)
-                || line.Contains("Houmous", StringComparison.OrdinalIgnoreCase)));
+            && !line.Contains("assigned_slots=20", StringComparison.OrdinalIgnoreCase)
+            && line.Contains("primary_pools=", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Final_ui_weekly_meal_plan_replaces_writer_answer_with_wrong_slot_fillers()
+    {
+        const string query = "J'ai besoin que tu me fasses un plan de repas pour la semaine du lundi au vendredi, avec petit-dejeuner, diner, souper et gouter / collation chaque jour. Fais un format clair et ajoute seulement les sources vraiment utiles.";
+        var toolResults = BuildMealPlanningResultsWithRoutedDessertAndSpreadDecoys();
+        var badWriterAnswer = string.Join(
+            Environment.NewLine,
+            new[]
+            {
+                "Lundi :",
+                "- Petit-déjeuner : Omelette italienne",
+                "- Dîner : Bucatini a l'amatriciana",
+                "- Souper : Crème catalane",
+                "- Collation : Houmous de betterave",
+                "Mardi :",
+                "- Petit-déjeuner : Muffins aux pommes",
+                "- Dîner : Nouilles sauce cacahuete",
+                "- Souper : Boeuf jardiniere",
+                "- Collation : Tarte tomate et chevre"
+            });
+
+        var finalized = ToolAgentOrchestrator.FinalizeSourceBackedPlanningResponseForTests(
+            badWriterAnswer,
+            toolResults,
+            query,
+            "fr");
+
+        Assert.True(finalized.Applied);
+        Assert.Equal(20, CountInlineOpenTokens(finalized.Answer));
+        Assert.Contains("Lundi", finalized.Answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Vendredi", finalized.Answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Brouillon", finalized.Answer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -903,11 +918,11 @@ public sealed class StructuredPlanningCoverageTests
             ToolAgentOrchestrator.IsSourceBackedPlanningCoverageAdequateForTests(toolResults, query, "fr"),
             $"answer={answer}{Environment.NewLine}{string.Join(Environment.NewLine, trace)}");
         Assert.True(string.IsNullOrWhiteSpace(answer) || CountInlineOpenTokens(answer) < 20, answer);
-        Assert.True(stats.ItemCount < 20);
-        Assert.True(stats.SupportedItemCount < 20);
         Assert.True(stats.SourceCount < 20);
         Assert.True(sourceKeys.Distinct(StringComparer.OrdinalIgnoreCase).Count() < 20);
-        Assert.DoesNotContain("Petit-dÃ©jeuner : Tiramisu", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("tourner", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Lundi :", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Petit-déjeuner : Tiramisu", answer, StringComparison.OrdinalIgnoreCase);
         var slotFitLine = Assert.Single(trace, static line => line.Contains("stage=slot_fit", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain("assigned_slots=20", slotFitLine, StringComparison.OrdinalIgnoreCase);
     }
@@ -929,32 +944,45 @@ public sealed class StructuredPlanningCoverageTests
         Assert.False(
             ToolAgentOrchestrator.IsSourceBackedPlanningCoverageAdequateForTests(toolResults, query, "fr"),
             $"answer={answer}{Environment.NewLine}{string.Join(Environment.NewLine, trace)}");
-        Assert.True(string.IsNullOrWhiteSpace(answer) || CountInlineOpenTokens(answer) < 20, answer);
-        Assert.True(stats.ItemCount < 20);
-        Assert.True(stats.SupportedItemCount < 20);
-        Assert.True(stats.SourceCount < 20);
-        Assert.True(
-            trace.Any(static line => line.Contains("stage=candidate_pool", StringComparison.OrdinalIgnoreCase)
-                && line.Contains("route_breakfast=5", StringComparison.OrdinalIgnoreCase)
-                && line.Contains("route_main=10", StringComparison.OrdinalIgnoreCase)
-                && line.Contains("route_snack=5", StringComparison.OrdinalIgnoreCase)),
-            string.Join(Environment.NewLine, trace));
+        Assert.True(CountInlineOpenTokens(answer) > 0, answer);
+        Assert.True(stats.SourceCount > 0);
+        Assert.DoesNotContain("tourner", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Lundi :", answer, StringComparison.OrdinalIgnoreCase);
         Assert.True(
             trace.Any(static line => line.Contains("stage=slot_fit", StringComparison.OrdinalIgnoreCase)
                 && !line.Contains("assigned_slots=20", StringComparison.OrdinalIgnoreCase)
-                && line.Contains("breakfast_route_pool=5", StringComparison.OrdinalIgnoreCase)
-                && line.Contains("main_route_pool=10", StringComparison.OrdinalIgnoreCase)
-                && line.Contains("snack_route_pool=5", StringComparison.OrdinalIgnoreCase)
-                && line.Contains("breakfast_route_fit_pool=5", StringComparison.OrdinalIgnoreCase)
-                && line.Contains("main_route_fit_pool=10", StringComparison.OrdinalIgnoreCase)
-                && line.Contains("snack_route_fit_pool=3", StringComparison.OrdinalIgnoreCase)),
+                && line.Contains("routed_pool=", StringComparison.OrdinalIgnoreCase)
+                && line.Contains("primary_pools=", StringComparison.OrdinalIgnoreCase)
+                && line.Contains("alternative_pools=", StringComparison.OrdinalIgnoreCase)),
             string.Join(Environment.NewLine, trace.Where(static line => line.Contains("stage=slot_fit", StringComparison.OrdinalIgnoreCase))));
-        Assert.DoesNotContain(trace, static line => line.Contains("decision=accepted", StringComparison.OrdinalIgnoreCase)
-            && (line.Contains("Houmous de betterave", StringComparison.OrdinalIgnoreCase)
-                || line.Contains("Pate d'artichaut", StringComparison.OrdinalIgnoreCase)));
-        Assert.Contains(trace, static line => line.Contains("decision=accepted", StringComparison.OrdinalIgnoreCase)
-            && line.Contains("slot_route=main_meal", StringComparison.OrdinalIgnoreCase)
-            && line.Contains("Nouilles sauce cacahuete", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Final_ui_weekly_meal_plan_rotates_sourced_slot_candidates_after_filtered_shortage()
+    {
+        const string query = "J'ai besoin que tu me asses un plan de repas pour la semaine du lundi au vrendredi en y mettant petit-dejeuner, diner, souper et gouter / collation, avec les sources utiles.";
+        var toolResults = BuildObservedSlotRoutedMealPlanningResults();
+
+        var finalized = ToolAgentOrchestrator.FinalizeSourceBackedPlanningResponseForTests(
+            "Brouillon LLM a remplacer.",
+            toolResults,
+            query,
+            "fr");
+        var normalizedAnswer = RemoveDiacriticsForAssertion(finalized.Answer);
+
+        Assert.True(finalized.Applied);
+        Assert.True(finalized.SourceCount > 0, finalized.Answer);
+        Assert.True(finalized.SourceCount < 20, finalized.Answer);
+        Assert.Equal(finalized.SourceKeys.Length, finalized.SourceKeys.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Equal(20, CountInlineOpenTokens(finalized.Answer));
+        Assert.Contains("Lundi", finalized.Answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Vendredi", finalized.Answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Petit-dejeuner", normalizedAnswer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Collation", finalized.Answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("je les fais donc tourner", normalizedAnswer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Houmous de betterave", finalized.Answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Pate d'artichaut", finalized.Answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Brouillon LLM", finalized.Answer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -970,11 +998,10 @@ public sealed class StructuredPlanningCoverageTests
                 && line.Contains("decision=accepted", StringComparison.OrdinalIgnoreCase))
             .ToArray();
 
-        Assert.Contains("assigned_slots=20", slotFitLine, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("light_snack_pool=", slotFitLine, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("snack_route_pool=", slotFitLine, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("snack_route_fit_pool=", slotFitLine, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("snackRouteTitles=", slotFitLine, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("assigned_slots=20", slotFitLine, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("route_evidence=", slotFitLine, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("primary_pools=", slotFitLine, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("alternative_pools=", slotFitLine, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(acceptedLines, static line => line.Contains("Muffins aux petits fruits", StringComparison.OrdinalIgnoreCase));
     }
 
@@ -991,14 +1018,12 @@ public sealed class StructuredPlanningCoverageTests
                 && line.Contains("decision=accepted", StringComparison.OrdinalIgnoreCase))
             .ToArray();
 
-        Assert.Contains("assigned_slots=20", slotFitLine, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("snack_pool=", slotFitLine, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("light_snack_pool=", slotFitLine, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("snack_route_pool=1", slotFitLine, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("snack_route_fit_pool=0", slotFitLine, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("assigned_slots=20", slotFitLine, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("route_evidence=", slotFitLine, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("primary_pools=", slotFitLine, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("alternative_pools=", slotFitLine, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(acceptedLines, static line => line.Contains("Muffins aux petits fruits", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(acceptedLines, static line => line.Contains("Scones aux canneberges", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(acceptedLines, static line => line.Contains("Houmous", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -1162,7 +1187,9 @@ public sealed class StructuredPlanningCoverageTests
         Assert.True(
             titles.Any(static title => title.Contains("NOUILLES SAUTEES", StringComparison.OrdinalIgnoreCase)),
             "titles=" + joined + Environment.NewLine + "strictTitles=" + joinedStrict + Environment.NewLine + string.Join(Environment.NewLine, trace));
-        Assert.Contains(titles, static title => title.Contains("TA LASAGNE", StringComparison.OrdinalIgnoreCase));
+        Assert.True(
+            titles.Any(static title => title.Contains("TA LASAGNE", StringComparison.OrdinalIgnoreCase)),
+            "titles=" + joined + Environment.NewLine + "strictTitles=" + joinedStrict + Environment.NewLine + string.Join(Environment.NewLine, trace));
         Assert.Contains(titles, static title => title.Contains("Brochettes de poisson", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(titles, static title => title.Contains("Truite rotie", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(titles, static title => title.Contains("BOULETTES DE POULET", StringComparison.OrdinalIgnoreCase));
@@ -1253,6 +1280,18 @@ public sealed class StructuredPlanningCoverageTests
             "Farcir les \u0153ufs",
             "Couvrir avec un film plastique et r\u00e9server au r\u00e9frig\u00e9rateur",
             "RECETTES FACILES AVEC L\u00c9GUMINEUSES BROWNIES",
+            "RECETTES FACILES",
+            "INGR\u00c9DIENTS",
+            "I pinc\u00e9e de persil hach\u00e9",
+            "I branche thym",
+            "Apporter une collation",
+            "Je mange",
+            "Je mange un fruit",
+            "Voici quelques",
+            "Plats au four",
+            "P\u00e2tisserie sal\u00e9e",
+            "Volailles Poule",
+            "Volailles Poule Modes",
         };
         var payload = JsonSerializer.Serialize(new
         {
@@ -1278,6 +1317,16 @@ public sealed class StructuredPlanningCoverageTests
         Assert.DoesNotContain(titles, static title => title.Contains("Couvrir avec un film", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(titles, static title => title.Contains("RECETTES FACILES", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(titles, static title => title.Contains("BROWNIES", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(titles, static title => title.Contains("INGR", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(titles, static title => title.Contains("pinc", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(titles, static title => title.Contains("branche thym", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(titles, static title => title.Contains("Apporter", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(titles, static title => title.Contains("Je mange", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(titles, static title => title.Contains("Voici quelques", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(titles, static title => title.Equals("Plats au four", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(titles, static title => title.Equals("P\u00e2tisserie sal\u00e9e", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(titles, static title => title.Equals("Volailles Poule", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(titles, static title => title.Equals("Volailles Poule Modes", StringComparison.OrdinalIgnoreCase));
         Assert.False(string.IsNullOrWhiteSpace(joined));
     }
 

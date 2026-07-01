@@ -864,7 +864,8 @@ public sealed class ToolRouterPlanNormalizationTests
         Assert.DoesNotContain(queries, query => string.Equals(query, "index", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, query => query.Contains("catalogue", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, query => query.Contains("liste", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(queries, query => query.Contains("repas", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => ContainsAnyNormalizedToken(query, "petit", "dejeuner", "midi", "soir"));
+        Assert.DoesNotContain(queries, query => ContainsAnyNormalizedToken(query, "collation", "gouter", "dessert"));
         Assert.DoesNotContain(queries, query => query.StartsWith("Je cherche", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, query => query.Contains("source", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, query => query.Contains("proposer", StringComparison.OrdinalIgnoreCase));
@@ -882,6 +883,12 @@ public sealed class ToolRouterPlanNormalizationTests
         Assert.Equal(8, call.Args.GetProperty("topK").GetInt32());
         Assert.Equal("source_exploration", call.Args.GetProperty("researchMode").GetString());
         Assert.True(call.Args.GetProperty("includeResearchSurfaces").GetBoolean());
+
+        static bool ContainsAnyNormalizedToken(string query, params string[] tokens)
+        {
+            var normalized = ToolAgentOrchestrator.NormalizeRagQueryForTests(query);
+            return tokens.Any(token => normalized.Contains(token, StringComparison.Ordinal));
+        }
     }
 
     [Fact]
@@ -917,7 +924,8 @@ public sealed class ToolRouterPlanNormalizationTests
         Assert.DoesNotContain(queries, query => string.Equals(query, "index", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, query => query.Contains("catalogue", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, query => query.Contains("liste", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(queries, query => query.Contains("repas", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => ContainsAnyNormalizedToken(query, "petit", "dejeuner", "midi", "soir"));
+        Assert.DoesNotContain(queries, query => ContainsAnyNormalizedToken(query, "collation", "gouter", "dessert"));
         Assert.DoesNotContain(queries, query => query.StartsWith("Je cherche", StringComparison.OrdinalIgnoreCase));
         Assert.All(queries, query => Assert.True(query.Length <= 90, $"Unexpectedly long initial probe query: {query}"));
         Assert.Equal(
@@ -927,6 +935,12 @@ public sealed class ToolRouterPlanNormalizationTests
         Assert.Equal("broad", call.Args.GetProperty("mode").GetString());
         Assert.Equal("source_exploration", call.Args.GetProperty("researchMode").GetString());
         Assert.True(call.Args.GetProperty("includeResearchSurfaces").GetBoolean());
+
+        static bool ContainsAnyNormalizedToken(string query, params string[] tokens)
+        {
+            var normalized = ToolAgentOrchestrator.NormalizeRagQueryForTests(query);
+            return tokens.Any(token => normalized.Contains(token, StringComparison.Ordinal));
+        }
     }
 
     [Fact]
@@ -972,7 +986,7 @@ public sealed class ToolRouterPlanNormalizationTests
         Assert.Contains(firstBudgetedExplorationQueries, query => ContainsNormalizedToken(query, "souper"));
         Assert.Contains(firstBudgetedExplorationQueries, query => ContainsNormalizedToken(query, "collation"));
         Assert.Contains(firstBudgetedExplorationQueries, query => ContainsNormalizedToken(query, "gouter"));
-        Assert.Contains(firstBudgetedExplorationQueries, query => ContainsNormalizedToken(query, "dessert"));
+        Assert.DoesNotContain(firstBudgetedExplorationQueries, query => ContainsNormalizedToken(query, "dessert"));
         Assert.DoesNotContain(firstBudgetedExplorationQueries, query => string.Equals(query, "sommaire", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(firstBudgetedExplorationQueries, query => string.Equals(query, "index", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(

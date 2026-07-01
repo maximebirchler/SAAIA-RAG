@@ -36049,7 +36049,14 @@ LIMIT 500;
         IOptions<RagOptions> ragOpt,
         IHttpClientFactory httpFactory,
         int? limit,
-        string? docPath)
+        string? cursor,
+        Guid? docId,
+        string? docPath,
+        string? category,
+        int? pageStart,
+        int? pageEnd,
+        string? chunkType,
+        string? contentRole)
     {
         AdminAuth.EnsureAdmin(ctx);
         var tenantId = ctx.GetTenantId();
@@ -36061,23 +36068,42 @@ LIMIT 500;
         docPath = string.IsNullOrWhiteSpace(docPath)
             ? null
             : docPath.Trim().Replace('\\', '/').TrimStart('/');
+        category = DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(category);
+        chunkType = string.IsNullOrWhiteSpace(chunkType) ? null : chunkType.Trim();
+        contentRole = string.IsNullOrWhiteSpace(contentRole) ? null : contentRole.Trim();
+        var normalizedPageStart = pageStart is > 0 ? pageStart.Value : (int?)null;
+        var normalizedPageEnd = pageEnd is > 0 ? pageEnd.Value : normalizedPageStart;
+        if (normalizedPageStart is not null && normalizedPageEnd is not null && normalizedPageEnd < normalizedPageStart)
+            normalizedPageEnd = normalizedPageStart;
 
         var must = new List<object>
         {
             new { key = "tenant_id", match = new { value = tenantId.ToString() } }
         };
+        if (docId is not null)
+            must.Add(new { key = "doc_id", match = new { value = docId.Value.ToString() } });
         if (!string.IsNullOrWhiteSpace(docPath))
             must.Add(new { key = "doc_path", match = new { value = docPath } });
+        if (!string.IsNullOrWhiteSpace(category))
+            must.Add(new { key = "category", match = new { value = category } });
+        if (normalizedPageEnd is not null)
+            must.Add(new { key = "page_start", range = new { lte = normalizedPageEnd.Value } });
+        if (normalizedPageStart is not null)
+            must.Add(new { key = "page_end", range = new { gte = normalizedPageStart.Value } });
+        if (!string.IsNullOrWhiteSpace(chunkType))
+            must.Add(new { key = "chunk_type", match = new { value = chunkType } });
+        if (!string.IsNullOrWhiteSpace(contentRole))
+            must.Add(new { key = "content_role", match = new { value = contentRole } });
 
-        var body = new
+        var body = new Dictionary<string, object?>
         {
-            limit = Math.Clamp(limit ?? 20, 1, 200),
-            with_payload = true,
-            filter = new
-            {
-                must = must.ToArray()
-            }
+            ["limit"] = Math.Clamp(limit ?? 20, 1, 500),
+            ["with_payload"] = true,
+            ["with_vector"] = false,
+            ["filter"] = new { must = must.ToArray() }
         };
+        if (!string.IsNullOrWhiteSpace(cursor))
+            body["offset"] = cursor.Trim();
 
         using var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
         using var resp = await qdrant.PostAsync(

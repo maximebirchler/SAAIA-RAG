@@ -209,15 +209,6 @@ public sealed partial class ToolAgentOrchestrator
             "research.inventory.snapshot",
             ("candidate_count", snapshot.CandidateCount),
             ("candidate_titles", snapshot.CandidateTitles),
-            ("main_dish_candidates", snapshot.MainDishCandidateCount),
-            ("sweet_candidates", snapshot.SweetCandidateCount),
-            ("breakfast_slot_candidates", snapshot.BreakfastSlotCandidateCount),
-            ("main_slot_candidates", snapshot.MainSlotCandidateCount),
-            ("snack_slot_candidates", snapshot.SnackSlotCandidateCount),
-            ("breakfast_route_candidates", snapshot.BreakfastRouteCandidateCount),
-            ("main_route_candidates", snapshot.MainRouteCandidateCount),
-            ("snack_route_candidates", snapshot.SnackRouteCandidateCount),
-            ("slot_assigned_candidates", snapshot.SlotAssignedCandidateCount),
             ("distinct_candidate_pages", snapshot.DistinctCandidatePageCount),
             ("preview_count", snapshot.InventoryPreview.Length),
             ("candidate_ms", snapshot.CandidateMs),
@@ -243,15 +234,6 @@ public sealed partial class ToolAgentOrchestrator
             ("accepted_exploration_passes", explorationTraces.Count(static pass => pass.Accepted)),
             ("rejected_exploration_passes", explorationTraces.Count(static pass => !pass.Accepted)),
             ("planner_passes", explorationTraces.Count(static pass => string.Equals(pass.Origin, "llm_planner", StringComparison.OrdinalIgnoreCase))),
-            ("main_dish_candidates", snapshot.MainDishCandidateCount),
-            ("sweet_candidates", snapshot.SweetCandidateCount),
-            ("breakfast_slot_candidates", snapshot.BreakfastSlotCandidateCount),
-            ("main_slot_candidates", snapshot.MainSlotCandidateCount),
-            ("snack_slot_candidates", snapshot.SnackSlotCandidateCount),
-            ("breakfast_route_candidates", snapshot.BreakfastRouteCandidateCount),
-            ("main_route_candidates", snapshot.MainRouteCandidateCount),
-            ("snack_route_candidates", snapshot.SnackRouteCandidateCount),
-            ("slot_assigned_candidates", snapshot.SlotAssignedCandidateCount),
             ("distinct_candidate_pages", snapshot.DistinctCandidatePageCount),
             ("candidate_titles", snapshot.CandidateTitles),
             ("inventory_preview", snapshot.InventoryPreview),
@@ -262,15 +244,6 @@ public sealed partial class ToolAgentOrchestrator
         string[] CandidateTitles,
         string[] InventoryPreview,
         int CandidateCount,
-        int MainDishCandidateCount,
-        int SweetCandidateCount,
-        int BreakfastSlotCandidateCount,
-        int MainSlotCandidateCount,
-        int SnackSlotCandidateCount,
-        int BreakfastRouteCandidateCount,
-        int MainRouteCandidateCount,
-        int SnackRouteCandidateCount,
-        int SlotAssignedCandidateCount,
         int DistinctCandidatePageCount,
         long CandidateMs,
         long PreviewMs);
@@ -307,23 +280,6 @@ public sealed partial class ToolAgentOrchestrator
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(12)
             .ToArray();
-        var mainDishCandidateCount = candidates.Count(LooksLikeMainDishPlanningCandidate);
-        var sweetCandidateCount = candidates.Count(LooksLikeSweetOrDessertPlanningCandidate);
-        var breakfastSlotCandidateCount = CountStructuredMealPlanningSlotCandidates(candidates, StructuredMealPlanningSlotKind.Breakfast, query);
-        var mainSlotCandidateCount = CountStructuredMealPlanningSlotCandidates(candidates, StructuredMealPlanningSlotKind.MainMeal, query);
-        var snackSlotCandidateCount = CountStructuredMealPlanningSlotCandidates(candidates, StructuredMealPlanningSlotKind.Snack, query);
-        var breakfastRouteCandidateCount = candidates.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Breakfast));
-        var mainRouteCandidateCount = candidates.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal));
-        var snackRouteCandidateCount = candidates.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack));
-        var requestedPeriodLabels = DetectRequestedPeriodAxisLabels(query, NormalizeLanguageCode(language));
-        var slotAssignedCandidateCount = ShouldApplyMealPlanningSlotSemantics(query) && requestedPeriodLabels.Count > 0
-            ? SelectStructuredMealPlanningCandidatesForSlots(
-                    candidates,
-                    requestedPeriodLabels,
-                    Math.Max(1, analysis.TargetSlotCount),
-                    query)
-                .Count
-            : 0;
         var distinctCandidatePageCount = candidates
             .Select(static candidate => BuildRagHitVisiblePageMergeKey(candidate.Hit))
             .Where(static key => !string.IsNullOrWhiteSpace(key))
@@ -369,15 +325,6 @@ public sealed partial class ToolAgentOrchestrator
                 .Take(8)
                 .ToArray(),
             candidates.Count,
-            mainDishCandidateCount,
-            sweetCandidateCount,
-            breakfastSlotCandidateCount,
-            mainSlotCandidateCount,
-            snackSlotCandidateCount,
-            breakfastRouteCandidateCount,
-            mainRouteCandidateCount,
-            snackRouteCandidateCount,
-            slotAssignedCandidateCount,
             distinctCandidatePageCount,
             candidateMs,
             previewSw.ElapsedMilliseconds);

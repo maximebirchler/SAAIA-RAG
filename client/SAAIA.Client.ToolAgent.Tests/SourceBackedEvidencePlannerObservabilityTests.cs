@@ -124,6 +124,130 @@ public sealed class SourceBackedEvidencePlannerObservabilityTests
     }
 
     [Fact]
+    public void Router_repair_rejects_coverage_that_regresses_previously_covered_structured_axis()
+    {
+        const string query = "J'ai besoin que tu me fasses un plan de repas pour la semaine du lundi au vendredi, avec petit-dejeuner, diner, souper et gouter / collation chaque jour.";
+
+        var missingBefore = ToolAgentOrchestrator.DetectMissingStructuredRouterSearchAxesForTests(
+            query,
+            "fr",
+            "repas recettes",
+            "recettes repas",
+            "petit dejeuner",
+            "petit dejeuner plats");
+        var missingAfter = ToolAgentOrchestrator.DetectMissingStructuredRouterSearchAxesForTests(
+            query,
+            "fr",
+            "diner recettes",
+            "diner plats",
+            "souper recettes",
+            "souper plats",
+            "collation recettes",
+            "collation plats",
+            "repas recettes",
+            "repas plats");
+
+        var regressed = ToolAgentOrchestrator.FindStructuredRouterSearchAxisRegressionsForTests(
+            missingBefore,
+            missingAfter);
+        var (fallbackQueries, fallbackMissingAfter) = ToolAgentOrchestrator.BuildStructuredRouterSearchAxisFallbackQueriesForTests(
+            query,
+            "fr",
+            "repas recettes",
+            "recettes repas",
+            "petit dejeuner",
+            "petit dejeuner plats");
+
+        Assert.DoesNotContain(missingBefore, axis => axis.Contains("petit", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(regressed, axis => axis.Contains("petit", StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(fallbackMissingAfter);
+        Assert.True(fallbackQueries.Length <= 8);
+        Assert.DoesNotContain(fallbackQueries.Take(3), q => string.Equals(q, "repas recettes", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(fallbackQueries.Take(3), q => string.Equals(q, "recettes repas", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(fallbackQueries, q => q.Contains("petit", StringComparison.OrdinalIgnoreCase)
+                                           && q.Contains("dejeuner", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(fallbackQueries, q => q.Contains("diner", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(fallbackQueries, q => q.Contains("souper", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(fallbackQueries, q => (q.Contains("collation", StringComparison.OrdinalIgnoreCase)
+                                               || q.Contains("gouter", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    [Fact]
+    public void Initial_llm_planner_queries_replace_generic_queries_when_structured_coverage_is_preserved()
+    {
+        const string query = "J'ai besoin que tu me fasses un plan de repas pour la semaine du lundi au vendredi, avec petit-dejeuner, diner, souper et gouter / collation chaque jour.";
+        var currentQueries = new[]
+        {
+            "repas recettes",
+            "recettes repas",
+            "petit dejeuner",
+            "petit dejeuner plats",
+            "diner",
+            "souper",
+            "collation",
+            "gouter"
+        };
+        var plannerQueries = new[]
+        {
+            "petit dejeuner recettes",
+            "diner recettes",
+            "souper recettes",
+            "collation recettes",
+            "gouter recettes",
+            "recettes petit dejeuner",
+            "recettes diner",
+            "recettes souper"
+        };
+
+        var decision = ToolAgentOrchestrator.ShouldApplyInitialLlmPlannerQueriesForTests(
+            query,
+            "fr",
+            currentQueries,
+            plannerQueries);
+
+        Assert.True(decision.Apply);
+        Assert.True(
+            decision.Reason is "coverage_preserved" or "coverage_improved",
+            $"reason={decision.Reason}");
+        Assert.Empty(decision.MissingAfter);
+        Assert.Empty(decision.RegressedAxes);
+    }
+
+    [Fact]
+    public void Initial_llm_planner_queries_are_rejected_when_they_drop_an_already_covered_structured_axis()
+    {
+        const string query = "J'ai besoin que tu me fasses un plan de repas pour la semaine du lundi au vendredi, avec petit-dejeuner, diner, souper et gouter / collation chaque jour.";
+        var currentQueries = new[]
+        {
+            "repas recettes",
+            "recettes repas",
+            "petit dejeuner",
+            "petit dejeuner plats",
+            "diner",
+            "souper",
+            "collation",
+            "gouter"
+        };
+        var plannerQueries = new[]
+        {
+            "diner recettes",
+            "souper recettes",
+            "collation recettes",
+            "gouter recettes"
+        };
+
+        var decision = ToolAgentOrchestrator.ShouldApplyInitialLlmPlannerQueriesForTests(
+            query,
+            "fr",
+            currentQueries,
+            plannerQueries);
+
+        Assert.False(decision.Apply);
+        Assert.Equal("coverage_regressed", decision.Reason);
+        Assert.Contains(decision.RegressedAxes, axis => axis.Contains("petit", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void Router_repair_fallback_does_not_count_one_global_query_as_slot_coverage()
     {
         const string query = "J'ai besoin que tu me fasses un plan de repas pour la semaine du lundi au vendredi, avec petit-dejeuner, diner, souper et gouter / collation chaque jour.";
@@ -392,7 +516,7 @@ public sealed class SourceBackedEvidencePlannerObservabilityTests
         Assert.True(ToolAgentOrchestrator.LooksLikeNoisyStructuredPlanningCandidateTitleForTests(
             "Calibrer ajuster en petites valeurs un dispositif"));
         Assert.True(ToolAgentOrchestrator.LooksLikeNoisyStructuredPlanningCandidateTitleForTests(
-            "Peler les poires et les couper en tranches"));
+            "Ajouter les valeurs et retirer le capteur"));
         Assert.False(ToolAgentOrchestrator.LooksLikeNoisyStructuredPlanningCandidateTitleForTests(
             "Légumes racines rôtis"));
         Assert.False(ToolAgentOrchestrator.LooksLikeNoisyStructuredPlanningCandidateTitleForTests(
@@ -712,9 +836,18 @@ public sealed class SourceBackedEvidencePlannerObservabilityTests
                 {
                   "name": "rag.multi_search",
                   "args": {
-                    "queries": ["repas preparations semaine", "options repas"],
-                    "category": "Cuisine/PDF",
+                    "queries": ["maintenance planning", "workflow options"],
+                    "category": "Operations/PDF",
                     "researchMode": "source_exploration"
+                  }
+                },
+                {
+                  "name": "documents.context",
+                  "args": {
+                    "docId": "doc-123",
+                    "chunkId": "chunk-456",
+                    "before": 2,
+                    "after": 4
                   }
                 }
               ]
@@ -725,9 +858,9 @@ public sealed class SourceBackedEvidencePlannerObservabilityTests
         var queries = ToolAgentOrchestrator.ParseSourceBackedLlmEvidenceExplorationQueriesForTests(rawJson);
         var categories = ToolAgentOrchestrator.ParseSourceBackedLlmEvidenceExplorationCategoriesForTests(rawJson);
 
-        Assert.Equal(new[] { "llm_tool_call" }, labels);
-        Assert.Equal(new[] { "repas preparations semaine", "options repas" }, queries);
-        Assert.Equal(new[] { "Cuisine/PDF" }, categories);
+        Assert.Equal(new[] { "llm_tool_call", "llm_context_read" }, labels);
+        Assert.Equal(new[] { "maintenance planning", "workflow options" }, queries);
+        Assert.Equal(new[] { "Operations/PDF", null }, categories);
     }
 
     [Fact]
@@ -737,6 +870,8 @@ public sealed class SourceBackedEvidencePlannerObservabilityTests
 
         Assert.Contains("retrieval strategist", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("tools you can orchestrate", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("documents.context", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("scrolling a document", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("REQUEST_SHAPE", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("minimumCandidates", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("only allowed scope values", prompt, StringComparison.OrdinalIgnoreCase);

@@ -59,6 +59,7 @@ public sealed class ToolContractParityTests
     [Theory]
     [InlineData("documents.categories")]
     [InlineData("documents.navigation")]
+    [InlineData("documents.context")]
     [InlineData("support.bundle")]
     [InlineData("diagnostic.performance")]
     [InlineData("summary.get")]
@@ -189,7 +190,7 @@ public sealed class ToolContractParityTests
     }
 
     [Fact]
-    public void Structured_router_coverage_detects_missing_requested_slots_before_retrieval()
+    public void Structured_router_coverage_detects_missing_explicit_axes_before_retrieval()
     {
         var missing = ToolAgentOrchestrator.DetectMissingStructuredRouterSearchAxesForTests(
             "J'ai besoin que tu me fasses un plan de repas pour la semaine du lundi au vendredi, avec petit-dejeuner, diner, souper et gouter / collation chaque jour.",
@@ -199,11 +200,18 @@ public sealed class ToolContractParityTests
             "diner",
             "dejeuner");
 
-        Assert.Equal(new[] { "Souper", "Collation" }, missing);
+        Assert.Contains("souper", missing);
+        Assert.Contains(missing, axis => axis.Contains("gouter", StringComparison.OrdinalIgnoreCase)
+                                      || axis.Contains("collation", StringComparison.OrdinalIgnoreCase));
+        Assert.False(
+            missing.Any(axis => axis.Contains("gouter", StringComparison.OrdinalIgnoreCase))
+            && missing.Any(axis => axis.Contains("collation", StringComparison.OrdinalIgnoreCase)),
+            string.Join(", ", missing));
+        Assert.DoesNotContain(missing, axis => axis.Contains("dessert", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
-    public void Structured_router_coverage_accepts_queries_covering_requested_slots()
+    public void Structured_router_coverage_accepts_queries_covering_explicit_axes()
     {
         var missing = ToolAgentOrchestrator.DetectMissingStructuredRouterSearchAxesForTests(
             "J'ai besoin que tu me fasses un plan de repas pour la semaine du lundi au vendredi, avec petit-dejeuner, diner, souper et gouter / collation chaque jour.",

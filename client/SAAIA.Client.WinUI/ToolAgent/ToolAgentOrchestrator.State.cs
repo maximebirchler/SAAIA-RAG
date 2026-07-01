@@ -1052,30 +1052,11 @@ CURRENT_USER_MESSAGE:
     {
         try
         {
-            // Accept both rag.search and rag.multi_search results.
-            var candidates = toolResults.Items
-                .Where(x => x.ToolName is "rag.search" or "rag.multi_search")
-                .Select(x => x.Result)
-                .ToList();
-
-            var sources = new List<ToolMemory.SourceRef>();
-            foreach (var res in candidates)
-            {
-                if (res.ValueKind != JsonValueKind.Object) continue;
-                if (!res.TryGetProperty("hits", out var hits) || hits.ValueKind != JsonValueKind.Array) continue;
-
-                foreach (var h in hits.EnumerateArray()
-                    .Where(static h => h.ValueKind == JsonValueKind.Object)
-                    .Select(static h => BuildRagHitSummary(h))
+            return MergeSourceRefsByPage(EnumerateRagHitSummaries(toolResults)
                     .Where(static hit => !LooksLikeNavigationOnlyHit(hit))
-                    .Where(static hit => !LooksLikeLowSignalContentCandidateHit(hit)))
-                {
-                    if (string.IsNullOrWhiteSpace(h.DocPath)) continue;
-                    sources.Add(BuildSourceRefFromRagHit(h));
-                }
-            }
-
-            return MergeSourceRefsByPage(sources)
+                    .Where(static hit => !LooksLikeLowSignalContentCandidateHit(hit))
+                    .Where(static hit => !string.IsNullOrWhiteSpace(hit.DocPath))
+                    .Select(BuildSourceRefFromRagHit))
                 .Take(8)
                 .ToList();
         }
@@ -1091,6 +1072,15 @@ CURRENT_USER_MESSAGE:
             && result.TryGetProperty("hits", out var hits)
             && hits.ValueKind == JsonValueKind.Array
             && hits.GetArrayLength() > 0;
+    }
+
+    private static bool HasDocumentContextItems(JsonElement result)
+    {
+        return result.ValueKind == JsonValueKind.Object
+            && (TryGetBool(result, "found") ?? true)
+            && result.TryGetProperty("items", out var items)
+            && items.ValueKind == JsonValueKind.Array
+            && items.GetArrayLength() > 0;
     }
 
     private static int CountRagHits(JsonElement result)
@@ -1471,18 +1461,14 @@ CURRENT_USER_MESSAGE:
             normalized,
             @"\b(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday|lunes|martes|miercoles|miércoles|jueves|viernes|sabado|sábado|domingo|segunda|ter[cç]a|quarta|quinta|sexta|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|lunedi|lunedì|martedi|martedì|mercoledi|mercoledì|giovedi|giovedì|venerdi|venerdì|sabato|domenica)\b",
             RegexOptions.CultureInvariant).Count;
-        var periodMarkerCount = Regex.Matches(
-            normalized,
-            @"\b(?:petit\s+dejeuner|petit\s+déjeuner|dejeuner|déjeuner|diner|dîner|repas|breakfast|lunch|dinner|meal|desayuno|almuerzo|comida|cena|pequeno\s+almoco|pequeno\s+almoço|almoco|almoço|jantar|fruhstuck|frühstück|mittagessen|abendessen|colazione|pranzo|cena)\b",
-            RegexOptions.CultureInvariant).Count;
         var bulletCount = Regex.Matches(
             withoutSourceBlock,
             @"(?m)^\s*(?:[-*\u2022\u25E6]|\d+[.)])\s+\S",
             RegexOptions.CultureInvariant).Count;
 
-        return (dayMarkerCount >= 2 && periodMarkerCount >= 2)
+        return dayMarkerCount >= 2
             || bulletCount >= 3
-            || (normalized.Contains('|', StringComparison.Ordinal) && periodMarkerCount >= 2);
+            || normalized.Contains('|', StringComparison.Ordinal);
     }
 
     private static bool IsSourceRefCitedInAnswer(string answer, ToolMemory.SourceRef source)
@@ -2656,7 +2642,7 @@ CURRENT_USER_MESSAGE:
         var hasSourceReference = s.Contains("[[open|", StringComparison.OrdinalIgnoreCase)
             || Regex.IsMatch(
                 s,
-                @"(?i)\b(?:p\.?|page|pagina|p[aÃ¡]gina|seite|pagina)\s*\d+\b",
+                @"(?i)\b(?:p\.?|page|pagina|p[aá]gina|seite|pagina)\s*\d+\b",
                 RegexOptions.CultureInvariant)
             || Regex.IsMatch(
                 s,
@@ -2667,7 +2653,7 @@ CURRENT_USER_MESSAGE:
 
         var bodyBeforeSourceList = Regex.Split(
             s,
-            @"(?im)^\s*(?:source|sources|references?|r[eÃ©]f[eÃ©]rences?|fuente|fuentes|fonte|fontes|quelle|quellen|fonti)\s*:\s*$",
+            @"(?im)^\s*(?:source|sources|references?|r[eé]f[eé]rences?|fuente|fuentes|fonte|fontes|quelle|quellen|fonti)\s*:\s*$",
             RegexOptions.CultureInvariant)[0];
         var bulletCount = Regex.Matches(
             bodyBeforeSourceList,
@@ -3750,7 +3736,7 @@ CURRENT_USER_MESSAGE:
                 RegexOptions.CultureInvariant)
             && Regex.IsMatch(
                 prefix,
-                @"(?i)\b(?:de|du|des|d['\u2019]|dans|sur|pour|concernant|from|of|for|in|about|regarding|sobre|ueber|Ã¼ber|su)\s*$",
+                @"(?i)\b(?:de|du|des|d['\u2019]|dans|sur|pour|concernant|from|of|for|in|about|regarding|sobre|ueber|über|su)\s*$",
                 RegexOptions.CultureInvariant);
     }
 
@@ -3946,7 +3932,7 @@ CURRENT_USER_MESSAGE:
 
         title = Regex.Replace(
             title,
-            @"(?i)\s+(?:etapes?|[Ã©e]tapes?|steps?|temps|time|source|sources|quantites?|values?|valeurs?|reglages?|r[Ã©e]glages?)\b.*$",
+            @"(?i)\s+(?:etapes?|[ée]tapes?|steps?|temps|time|source|sources|quantites?|values?|valeurs?|reglages?|r[ée]glages?)\b.*$",
             string.Empty,
             RegexOptions.CultureInvariant).Trim();
 
@@ -5404,7 +5390,7 @@ CURRENT_USER_MESSAGE:
 
         var language = DetectRetrievalExpansionLanguage(query);
         var hasExplicitStructuredPlanningAxes = DetectRequestedDayAxisLabels(query, language).Count > 0
-            || DetectRequestedPeriodAxisLabels(query, language).Count > 0;
+            || DetectRequestedPlanningSlotAxisLabels(query, language).Count > 0;
         var addedStructuredPlanningQueries = false;
         if (ShouldGateStructuredSourceBackedPlanningCoverage(query) && hasExplicitStructuredPlanningAxes)
         {
@@ -5461,12 +5447,6 @@ CURRENT_USER_MESSAGE:
             .Where(static term => !IsGenericPlanningCoverageTerm(term))
             .Take(5)
             .ToArray();
-        var structuredSubjectTerms = signalTerms
-            .Where(static term => !IsMealPeriodSlotRetrievalTerm(term))
-            .Where(static term => IsMainMealPlanningSlotRetrievalTerm(term) || !IsGenericPlanningCoverageTerm(term))
-            .Distinct(StringComparer.Ordinal)
-            .Take(3)
-            .ToArray();
         var slotTerms = ExtractPlanningSlotRetrievalTerms(query)
             .Take(5)
             .ToArray();
@@ -5479,89 +5459,24 @@ CURRENT_USER_MESSAGE:
             .ToArray();
         var language = DetectRetrievalExpansionLanguage(query);
 
+        var initialInventoryTerms = BuildStructuredPlanningInventoryTermsForRetrieval(language, query);
+
+        foreach (var slot in slotTerms.Take(6))
+        {
+            foreach (var inventory in initialInventoryTerms.Take(1))
+            {
+                AddDistinctQuery(queries, $"{slot} {inventory}");
+                AddDistinctQuery(queries, $"{inventory} {slot}");
+            }
+        }
+
         foreach (var subject in subjectTerms.Take(1))
         {
-            foreach (var inventory in BuildStructuredPlanningInventoryTermsForRetrieval(language, query).Take(1))
+            foreach (var inventory in initialInventoryTerms.Take(1))
             {
                 AddDistinctQuery(queries, $"{subject} {inventory}");
                 AddDistinctQuery(queries, $"{inventory} {subject}");
             }
-        }
-
-        if (ShouldApplyMealPlanningSlotSemantics(query))
-        {
-            var concreteInventoryTerms = BuildConcreteStructuredPlanningInventoryTermsForRetrieval(language, query)
-                .Take(2)
-                .ToArray();
-            foreach (var subject in structuredSubjectTerms.Take(1))
-            {
-                foreach (var inventory in concreteInventoryTerms.Take(1))
-                {
-                    AddDistinctQuery(queries, $"{subject} {inventory}");
-                    AddDistinctQuery(queries, $"{inventory} {subject}");
-                }
-            }
-
-            foreach (var subject in subjectTerms.Take(1))
-            {
-                foreach (var inventory in concreteInventoryTerms)
-                {
-                    AddDistinctQuery(queries, $"{subject} {inventory}");
-                    AddDistinctQuery(queries, $"planning {subject} {inventory}");
-                }
-            }
-
-            var periodAxis = DetectRequestedPeriodAxisLabels(query, language);
-            if (LooksLikeWeeklyPlanningRequest(query) && periodAxis.Count == 0)
-            {
-                AddDistinctQuery(queries, "repas options");
-                AddDistinctQuery(queries, "options repas");
-                AddDistinctQuery(queries, "repas candidats");
-                AddDistinctQuery(queries, "candidats repas");
-            }
-
-            var requestedSlotTerms = (periodAxis.Count > 0
-                    ? BuildStructuredAxisPlannerSlotTerms(periodAxis, query)
-                    : ExtractPlanningSlotRetrievalTerms(query)
-                        .SelectMany(ExpandPlanningSlotRetrievalTermVariants)
-                        .Select(NormalizeLexicalLookup))
-                .Where(static term => !string.IsNullOrWhiteSpace(term))
-                .Where(IsMealPeriodSlotRetrievalTerm)
-                .Distinct(StringComparer.Ordinal)
-                .Take(8)
-                .ToArray();
-
-            foreach (var slot in requestedSlotTerms)
-            {
-                AddDistinctQuery(queries, $"{slot} options");
-            }
-
-            var firstConcreteInventoryTerm = concreteInventoryTerms.FirstOrDefault();
-            if (!string.IsNullOrWhiteSpace(firstConcreteInventoryTerm))
-            {
-                foreach (var slot in requestedSlotTerms)
-                {
-                    AddDistinctQuery(queries, $"{slot} {firstConcreteInventoryTerm}");
-                    AddDistinctQuery(queries, $"{firstConcreteInventoryTerm} {slot}");
-                }
-            }
-
-            foreach (var slot in requestedSlotTerms)
-            {
-                AddDistinctQuery(queries, $"candidats {slot}");
-            }
-
-            foreach (var slot in requestedSlotTerms)
-            {
-                foreach (var inventory in concreteInventoryTerms)
-                {
-                    AddDistinctQuery(queries, $"{slot} {inventory}");
-                    AddDistinctQuery(queries, $"{inventory} {slot}");
-                }
-            }
-
-            foreach (var retrievalQuery in BuildStructuredMealPlanningCandidateDiscoveryRetrievalQueries(query))
-                AddDistinctQuery(queries, retrievalQuery);
         }
 
         foreach (var retrievalQuery in BuildStructuredPlanningCandidateDiscoveryRetrievalQueries(query))
@@ -5609,7 +5524,7 @@ CURRENT_USER_MESSAGE:
         foreach (var retrievalQuery in BuildSourceBackedActionRetrievalQueries(query))
             AddDistinctQuery(queries, retrievalQuery);
 
-        if (!ShouldApplyMealPlanningSlotSemantics(query))
+        if (!UsesSourceBackedPlanningCoverage(query))
         {
             foreach (var retrievalQuery in BuildNavigationDiscoveryRetrievalQueries(query).Take(8))
                 AddDistinctQuery(queries, retrievalQuery);
@@ -5634,7 +5549,7 @@ CURRENT_USER_MESSAGE:
         var language = DetectRetrievalExpansionLanguage(query);
         var normalized = NormalizeLexicalLookup(query);
         var dayAxis = DetectRequestedDayAxisLabels(query, language);
-        var periodAxis = DetectRequestedPeriodAxisLabels(query, language);
+        var periodAxis = DetectRequestedPlanningSlotAxisLabels(query, language);
         var wantsSeveralCandidates = dayAxis.Count > 1 || periodAxis.Count > 1 || LooksLikeWeeklyPlanningRequest(query);
         var inventoryTerms = BuildStructuredPlanningInventoryTermsForRetrieval(language, query).ToArray();
         var slotTerms = periodAxis
@@ -5657,30 +5572,28 @@ CURRENT_USER_MESSAGE:
 
         if (wantsSeveralCandidates)
         {
-            var expandedPeriodSlotTerms = periodAxis
-                .Concat(ExtractPlanningSlotRetrievalTerms(query).Where(IsMealPeriodSlotRetrievalTerm))
+            var requestedSlotTerms = periodAxis
+                .Concat(ExtractPlanningSlotRetrievalTerms(query))
                 .SelectMany(ExpandPlanningSlotRetrievalTermVariants)
                 .Select(NormalizeLexicalLookup)
                 .Where(static term => term.Length >= 4)
                 .Distinct(StringComparer.Ordinal)
                 .ToArray();
-            var hasSnackPeriodSlot = expandedPeriodSlotTerms.Any(IsSnackPlanningSlotRetrievalTerm);
-            var periodSlotTerms = expandedPeriodSlotTerms
-                .Take(hasSnackPeriodSlot ? 8 : 4)
+            var slotQueryTerms = requestedSlotTerms
+                .Take(8)
                 .ToArray();
             foreach (var subject in subjectTerms.Take(1))
             {
                 foreach (var inventory in inventoryTerms.Take(1))
                 {
                     yield return $"{subject} {inventory}";
-                    if (!hasSnackPeriodSlot)
-                        yield return $"{inventory} {subject}";
+                    yield return $"{inventory} {subject}";
                 }
             }
 
             foreach (var subject in subjectTerms.Take(1))
             {
-                foreach (var slot in periodSlotTerms.Take(4))
+                foreach (var slot in slotQueryTerms.Take(4))
                 {
                     yield return $"{subject} {slot}";
                     yield return $"{slot} {subject}";
@@ -5689,7 +5602,7 @@ CURRENT_USER_MESSAGE:
 
             foreach (var inventory in inventoryTerms.Take(2))
             {
-                foreach (var slot in periodSlotTerms)
+                foreach (var slot in slotQueryTerms)
                 {
                     yield return $"{slot} {inventory}";
                     yield return $"{inventory} {slot}";
@@ -5738,14 +5651,6 @@ CURRENT_USER_MESSAGE:
             }
         }
 
-        if (ShouldApplyMealPlanningSlotSemantics(query))
-            yield break;
-
-        foreach (var term in subjectTerms.Concat(inventoryTerms).Distinct(StringComparer.OrdinalIgnoreCase).Take(12))
-        {
-            foreach (var discoveryQuery in BuildDocumentCandidateListDiscoveryQueries(term, language))
-                yield return discoveryQuery;
-        }
     }
 
     private static IEnumerable<string> BuildGenericStructuredPlanningInventoryTerms(string language, string? query = null)
@@ -5760,7 +5665,7 @@ CURRENT_USER_MESSAGE:
             "it" => new[] { "opzioni", "candidati", "esempi", "proposte", "preparazioni" },
             _ => new[] { "options", "candidats", "exemples", "propositions", "preparations" }
         };
-        return ShouldGateStructuredSourceBackedPlanningCoverage(query) || ShouldApplyMealPlanningSlotSemantics(query)
+        return ShouldGateStructuredSourceBackedPlanningCoverage(query)
             ? genericTerms.Where(static term => !LooksLikeDecorativeStructuredAxisPlannerQuery(NormalizeLexicalLookup(term)))
             : genericTerms;
     }
@@ -5772,62 +5677,13 @@ CURRENT_USER_MESSAGE:
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        if (!ShouldApplyMealPlanningSlotSemantics(query))
-        {
-            foreach (var term in genericTerms)
-                yield return term;
-            yield break;
-        }
-
-        language = NormalizeLanguageCode(language);
-        var domainTerms = language switch
-        {
-            "en" => new[] { "options", "items", "main items", "snacks" },
-            "es" => new[] { "recetas", "opciones", "opciones principales", "meriendas" },
-            "pt" => new[] { "receitas", "opcoes", "opcoes principais", "lanches" },
-            "de" => new[] { "rezepte", "gerichte", "hauptgerichte", "snacks" },
-            "it" => new[] { "ricette", "piatti", "piatti principali", "spuntini" },
-            _ => new[] { "options", "options", "options principaux", "gouters" }
-        };
-
-        var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var term in genericTerms.Take(2))
-        {
-            if (emitted.Add(term))
-                yield return term;
-        }
-
-        foreach (var term in domainTerms)
-        {
-            if (emitted.Add(term))
-                yield return term;
-        }
-
-        foreach (var term in genericTerms.Skip(2))
-        {
-            if (emitted.Add(term))
-                yield return term;
-        }
+        foreach (var term in genericTerms)
+            yield return term;
     }
 
     private static IEnumerable<string> BuildConcreteStructuredPlanningInventoryTermsForRetrieval(string language, string? query = null)
     {
-        if (!ShouldApplyMealPlanningSlotSemantics(query))
-            yield break;
-
-        language = NormalizeLanguageCode(language);
-        var domainTerms = language switch
-        {
-            "en" => new[] { "options", "items", "main items", "snacks" },
-            "es" => new[] { "recetas", "opciones", "opciones principales", "meriendas" },
-            "pt" => new[] { "receitas", "opcoes", "opcoes principais", "lanches" },
-            "de" => new[] { "rezepte", "gerichte", "hauptgerichte", "snacks" },
-            "it" => new[] { "ricette", "piatti", "piatti principali", "spuntini" },
-            _ => new[] { "options", "options", "options principaux", "gouters" }
-        };
-
-        foreach (var term in domainTerms)
-            yield return term;
+        yield break;
     }
 
     private static IEnumerable<string> BuildDocumentCandidateListDiscoveryQueries(string candidateNoun, string language)
@@ -5861,19 +5717,7 @@ CURRENT_USER_MESSAGE:
             yield break;
 
         yield return normalized;
-
-        if (Regex.IsMatch(
-                normalized,
-                @"\b(?:gouter|go[uû]ter|collation|snack|encas|merienda|lanche|merenda)\b",
-                RegexOptions.CultureInvariant))
-        {
-            yield return "gouter";
-            yield return "collation";
-            yield return "encas";
-            yield return "dessert";
-        }
     }
-
     private static string SelectPreferredPlanningSlotRetrievalTerm(string? term)
     {
         var variants = ExpandPlanningSlotRetrievalTermVariants(term)
@@ -5884,59 +5728,7 @@ CURRENT_USER_MESSAGE:
         if (variants.Length == 0)
             return string.Empty;
 
-        var snack = variants.FirstOrDefault(IsSnackPlanningSlotRetrievalTerm);
-        if (!string.IsNullOrWhiteSpace(snack))
-            return "gouter";
-
         return variants[0];
-    }
-
-    private static bool IsMealPeriodSlotRetrievalTerm(string? term)
-    {
-        var normalized = NormalizeLexicalLookup(term);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return false;
-
-        return Regex.IsMatch(
-            normalized,
-            @"\b(?:petit[-\s]+dejeuner|breakfast|desayuno|pequeno\s+almoco|cafe\s+da\s+manha|fruhstuck|colazione|midi|dejeuner|lunch|almuerzo|almoco|mittag|pranzo|soir|diner|dinner|souper|supper|cena|abend|gouter|go[uû]ter|collation|snack|encas|desserts?|matin|morning|manha|morgen|mattina|apres[-\s]+midi|afternoon|tarde|nachmittag|pomeriggio)\b",
-            RegexOptions.CultureInvariant);
-    }
-
-    private static bool IsSnackPlanningSlotRetrievalTerm(string? term)
-    {
-        var normalized = NormalizeLexicalLookup(term);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return false;
-
-        return Regex.IsMatch(
-            normalized,
-            @"\b(?:gouter|go[uû]ter|collation|snack|encas|desserts?|merienda|lanche|merenda)\b",
-            RegexOptions.CultureInvariant);
-    }
-
-    private static bool IsBreakfastPlanningSlotRetrievalTerm(string? term)
-    {
-        var normalized = NormalizeLexicalLookup(term);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return false;
-
-        return Regex.IsMatch(
-            normalized,
-            @"\b(?:petit[-\s]*dejeuner|dejeuners?|brunch|breakfast|desayuno|pequeno\s+almoco|cafe\s+da\s+manha|fruhstuck|colazione|matin|morning|manha|morgen|mattina)\b",
-            RegexOptions.CultureInvariant);
-    }
-
-    private static bool IsMainMealPlanningSlotRetrievalTerm(string? term)
-    {
-        var normalized = NormalizeLexicalLookup(term);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return false;
-
-        return Regex.IsMatch(
-            normalized,
-            @"\b(?:midi|dejeuner|lunch|almuerzo|almoco|mittag|pranzo|soir|diner|dinner|souper|supper|cena|abend|repas|meal|options?|items?|principal|principaux|principales?|main|primary|complete|complets?|completes?|full)\b",
-            RegexOptions.CultureInvariant);
     }
 
     private static IEnumerable<string> ExtractPlanningSlotRetrievalTerms(string? query)
@@ -5945,66 +5737,108 @@ CURRENT_USER_MESSAGE:
         if (string.IsNullOrWhiteSpace(normalized))
             yield break;
 
-        var patterns = new[]
-        {
-            @"petit[-\s]+dejeuner",
-            @"breakfast",
-            @"desayuno",
-            @"pequeno\s+almoco",
-            @"cafe\s+da\s+manha",
-            @"fruhstuck",
-            @"colazione",
-            @"\bmidi\b",
-            @"\bdejeuner\b",
-            @"\blunch\b",
-            @"\balmuerzo\b",
-            @"\balmoco\b",
-            @"\bmittag\b",
-            @"\bpranzo\b",
-            @"\bsoir\b",
-            @"\bdiner\b",
-            @"\bdinner\b",
-            @"\bsouper\b",
-            @"\bsupper\b",
-            @"\bcena\b",
-            @"\babend\b",
-            @"\bgouter\b",
-            @"\bgo[uû]ter\b",
-            @"\bcollation\b",
-            @"\bsnack\b",
-            @"\bencas\b",
-            @"\bmatin\b",
-            @"\bmorning\b",
-            @"\bmanha\b",
-            @"\bmorgen\b",
-            @"\bmattina\b",
-            @"apres[-\s]+midi",
-            @"\bafternoon\b",
-            @"\btarde\b",
-            @"\bnachmittag\b",
-            @"\bpomeriggio\b",
-            @"\blundi\b",
-            @"\bmardi\b",
-            @"\bmercredi\b",
-            @"\bjeudi\b",
-            @"\bvendredi\b",
-            @"\bmonday\b",
-            @"\btuesday\b",
-            @"\bwednesday\b",
-            @"\bthursday\b",
-            @"\bfriday\b"
-        };
-
         var emitted = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var pattern in patterns)
+        var segments = new List<string>();
+        var commaRaw = CollapseWhitespace(query ?? string.Empty).Replace('/', ',').Replace(';', ',');
+        var commaNormalized = normalized.Replace('/', ',').Replace(';', ',');
+        foreach (Match match in Regex.Matches(
+                     commaNormalized,
+                     @"\b(?:avec|incluant|inclure|inclut|including|include|mettant|mettre|mets|contenant|contient|with)\b\s+(?<items>[^.?!]{0,180})",
+                     RegexOptions.CultureInvariant))
         {
-            foreach (Match match in Regex.Matches(normalized, pattern, RegexOptions.CultureInvariant))
+            var items = match.Groups["items"].Value;
+            if (!string.IsNullOrWhiteSpace(items))
+                segments.Add(items);
+        }
+
+        if (segments.Count == 0 && commaRaw.Contains(',', StringComparison.Ordinal))
+        {
+            var rawSegments = commaRaw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var startIndex = rawSegments.Length > 1 && LooksLikePlanningListLeadIn(rawSegments[0])
+                ? 1
+                : 0;
+            segments.AddRange(rawSegments
+                .Skip(startIndex)
+                .Select(NormalizeLexicalLookup)
+                .Where(static value => !string.IsNullOrWhiteSpace(value)));
+        }
+        else if (segments.Count == 0 && commaNormalized.Contains(',', StringComparison.Ordinal))
+        {
+            segments.AddRange(commaNormalized.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        }
+
+        foreach (var rawSegment in segments)
+        {
+            var segment = Regex.Replace(
+                rawSegment,
+                @"\b(?:avec|with|sources?|documents?|disponibles?|available|utiles?|useful)\b.*$",
+                " ",
+                RegexOptions.CultureInvariant);
+            foreach (var rawPart in Regex.Split(
+                         segment,
+                         @"\s*(?:,|\bet\b|\band\b|\by\b|\be\b|\bou\b|\bor\b)\s*",
+                         RegexOptions.CultureInvariant))
             {
-                var value = CollapseWhitespace(match.Value);
-                if (value.Length >= 4 && emitted.Add(value))
-                    yield return value;
+                var term = CollapseWhitespace(Regex.Replace(
+                    rawPart,
+                    @"\b(?:du|de|des|depuis|from|to|au|jusqu)\b.*$",
+                    " ",
+                    RegexOptions.CultureInvariant));
+                term = CollapseWhitespace(Regex.Replace(
+                    term,
+                    @"^(?:un|une|des|du|de\s+la|le|la|les|l|the|a|an|some)\s+",
+                    string.Empty,
+                    RegexOptions.CultureInvariant));
+                term = CollapseWhitespace(Regex.Replace(
+                    term,
+                    @"\b(?:chaque|tous\s+les|toutes\s+les|each|every|cada|ogni|jeder|jede)\s+(?:jour|jours|day|days|dia|dias|tag|tage|giorno|giorni)\b.*$",
+                    string.Empty,
+                    RegexOptions.CultureInvariant));
+
+                if (IsUsefulGenericPlanningSlotTerm(term) && emitted.Add(term))
+                    yield return term;
             }
         }
+    }
+
+    private static bool IsUsefulGenericPlanningSlotTerm(string? term)
+    {
+        var normalized = NormalizeLexicalLookup(term);
+        if (string.IsNullOrWhiteSpace(normalized) || normalized.Length < 4 || normalized.Length > 48)
+            return false;
+
+        if (Regex.IsMatch(
+                normalized,
+                @"\b(?:sources?|documents?|disponibles?|available|utiles?|useful|chaque|jour|jours|days?|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        if (IsInitialSourceBackedPlanningProbeModifierToken(normalized)
+            || IsNavigationDiscoveryNoiseTerm(normalized)
+            || IsWeakRouterRagQueryToken(normalized))
+        {
+            return false;
+        }
+
+        return Regex.IsMatch(normalized, @"\p{L}", RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikePlanningListLeadIn(string? segment)
+    {
+        var normalized = NormalizeLexicalLookup(segment);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        var tokenCount = Regex.Matches(normalized, @"[\p{L}\p{Nd}]{2,}", RegexOptions.CultureInvariant).Count;
+        if (tokenCount < 5)
+            return false;
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:je|j|tu|vous|nous|me|moi|i|you|we|need|besoin|cherche|chercher|want|veux|voudrais|plan|planning|programme|schedule|semaine|week|hebdomadaire|weekly|faire|fasse|preparer|prepare|create|build)\b",
+            RegexOptions.CultureInvariant);
     }
 
     private static IEnumerable<string> ExtractPlanningRetrievalTerms(string normalizedQuery)
@@ -6312,7 +6146,10 @@ CURRENT_USER_MESSAGE:
         string? DocPath = null,
         int? PageStart = null,
         int? PageEnd = null,
-        string? Origin = null);
+        string? Origin = null,
+        string? DocRef = null,
+        string? ChunkId = null,
+        string? ToolName = null);
 
     private sealed record SourceBackedLlmCategoryScopeDecision(
         string? CategoryScope,
@@ -6542,19 +6379,6 @@ CURRENT_USER_MESSAGE:
         var usesPlanningCoverage = UsesSourceBackedPlanningCoverage(query);
         if (usesPlanningCoverage)
         {
-            var suppressGenericDiscoveryQueries = ShouldSuppressStructuredMealPlanningGenericDiscovery(analysis, query);
-            var usesStructuredSlots = ShouldApplyMealPlanningSlotSemantics(query);
-            var addedEarlyNavigationDiscovery = false;
-            if (!usesStructuredSlots && !suppressGenericDiscoveryQueries)
-            {
-                AddPass(
-                    "navigation_discovery",
-                    "Find document profiles, indexes and title anchors before selecting concrete units.",
-                    BuildNavigationDiscoveryRetrievalQueries(query),
-                    16);
-                addedEarlyNavigationDiscovery = true;
-            }
-
             AddPass(
                 "planning_exploration",
                 "Find more candidate units and slots for a structured source-backed plan.",
@@ -6565,35 +6389,11 @@ CURRENT_USER_MESSAGE:
                 "Explore adjacent candidate vocabulary when the first planning evidence is too narrow.",
                 BuildSourceBackedCandidateDiscoveryRetrievalQueries(query),
                 18);
-            if (usesStructuredSlots)
-            {
-                AddPass(
-                    "slot_balancing_inventory",
-                    "Balance retrieval across the requested structured slots before using expensive anchor follow-ups.",
-                    BuildStructuredMealPlanningSlotBalancedRetrievalQueries(query),
-                    16);
-                AddPass(
-                    "candidate_inventory",
-                    "Build a broader candidate inventory when the structured plan still lacks enough concrete sourced units.",
-                    BuildStructuredPlanningInventoryRetrievalQueries(query),
-                    12);
-            }
-            if (!suppressGenericDiscoveryQueries && !addedEarlyNavigationDiscovery)
-            {
-                AddPass(
-                    "navigation_discovery",
-                    "Find document profiles, indexes and title anchors after concrete candidate probes.",
-                    BuildNavigationDiscoveryRetrievalQueries(query),
-                    16);
-            }
-            if (!suppressGenericDiscoveryQueries)
-            {
-                AddPass(
-                    "anchor_discovery",
-                    "Probe requested anchors, constraints and slot terms independently.",
-                    BuildSourceBackedAnchorDiscoveryRetrievalQueries(query),
-                    16);
-            }
+            AddPass(
+                "anchor_discovery",
+                "Probe requested anchors, constraints and slot terms independently.",
+                BuildSourceBackedAnchorDiscoveryRetrievalQueries(query),
+                16);
         }
         else
         {
@@ -6717,7 +6517,6 @@ CURRENT_USER_MESSAGE:
                     if (!IsUsableSourceBackedOptionTitle(cleaned)
                         || LooksLikeNavigationIndexHeadingTitle(cleaned)
                         || LooksLikeWeakSourceBackedOptionTitle(cleaned)
-                        || LooksLikeWeakStructuredMealPlanningAnchorFollowupTitle(cleaned, query)
                         || StructuredPlanningAnchorTitleAlreadyObservedAsCandidate(cleaned, observedPlanningCandidateTitleKeys)
                         || (guardSubjectlessReferenceAnchors
                             && LooksLikeSubjectlessReferenceNavigationFollowupLabel(candidate, cleaned, queryTerms)))
@@ -6747,7 +6546,6 @@ CURRENT_USER_MESSAGE:
                 if (!IsUsableSourceBackedOptionTitle(cleaned)
                     || LooksLikeNavigationIndexHeadingTitle(cleaned)
                     || LooksLikeWeakSourceBackedOptionTitle(cleaned)
-                    || LooksLikeWeakStructuredMealPlanningAnchorFollowupTitle(cleaned, query)
                     || StructuredPlanningAnchorTitleAlreadyObservedAsCandidate(cleaned, observedPlanningCandidateTitleKeys)
                     || (guardSubjectlessReferenceAnchors
                         && LooksLikeSubjectlessReferenceNavigationFollowupLabel(candidate, cleaned, queryTerms)))
@@ -6880,6 +6678,52 @@ CURRENT_USER_MESSAGE:
         }
 
         return score;
+    }
+
+    private static int? NormalizeSourceBackedNavigationTargetPageStart(int? page)
+        => page is > 0 ? page.Value : null;
+
+    private static int? NormalizeSourceBackedNavigationTargetPageEnd(int? pageEnd, int? pageStart)
+    {
+        if (pageStart is null)
+            return null;
+
+        if (pageEnd is null || pageEnd.Value < pageStart.Value)
+            return pageStart.Value;
+
+        return pageEnd.Value;
+    }
+
+    private static IEnumerable<string> BuildSourceBackedNavigationTargetPageQueries(
+        string title,
+        SourceBackedDocumentNavigationFollowupLabel label)
+    {
+        if (string.IsNullOrWhiteSpace(title)
+            || label.TargetPageStart is null
+            || label.TargetPageStart.Value <= 0)
+        {
+            yield break;
+        }
+
+        var start = label.TargetPageStart.Value;
+        var end = label.TargetPageEnd is not null && label.TargetPageEnd.Value >= start
+            ? label.TargetPageEnd.Value
+            : start;
+
+        yield return $"{title} page {start}";
+        yield return $"{title} p {start}";
+
+        if (end > start)
+        {
+            yield return $"{title} pages {start}-{end}";
+            yield return $"{title} p {start}-{end}";
+        }
+        else
+        {
+            var neighborEnd = Math.Min(start + 1, 9999);
+            yield return $"{title} pages {start}-{neighborEnd}";
+            yield return $"{title} p {start}-{neighborEnd}";
+        }
     }
 
     private static bool NormalizedLookupContainsWholePhrase(string haystack, string needle)
@@ -7050,7 +6894,6 @@ CURRENT_USER_MESSAGE:
     {
         var cleaned = CleanSourceBackedOptionTitle(title);
         if (string.IsNullOrWhiteSpace(cleaned)
-            || LooksLikeWeakStructuredMealPlanningAnchorFollowupTitle(cleaned, query)
             || LooksLikeNoisyStructuredPlanningCandidateTitle(cleaned)
             || !LooksLikeConcreteStructuredPlanningCandidateTitle(cleaned))
         {
@@ -7072,329 +6915,6 @@ CURRENT_USER_MESSAGE:
         var key = NormalizeLexicalLookup(CleanSourceBackedOptionTitle(title));
         return !string.IsNullOrWhiteSpace(key)
                && observedCandidateTitleKeys.Contains(key);
-    }
-
-    private static bool LooksLikeWeakStructuredMealPlanningAnchorFollowupTitle(string? title, string? query)
-    {
-        if (!ShouldApplyMealPlanningSlotSemantics(query))
-            return false;
-
-        var normalizedTitle = NormalizeLexicalLookup(title);
-        if (string.IsNullOrWhiteSpace(normalizedTitle))
-            return true;
-
-        if (LooksLikeGenericMealPlanningInventoryTitle(normalizedTitle, query)
-            || LooksLikeNoisyStructuredPlanningCandidateTitle(normalizedTitle)
-            || LooksLikeMealPlanningInstructionFragment(normalizedTitle)
-            || LooksLikeStructuredPlanningAdviceOrFrameAnchor(normalizedTitle)
-            || LooksLikeBrokenStructuredPlanningOcrAnchor(normalizedTitle))
-        {
-            return true;
-        }
-
-        if (!LooksLikeConcreteMealPlanningAnchorTitle(normalizedTitle, query))
-            return true;
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:planification|planning|etapes?|references?|components? preparation|components? preparation\d*|preparation\d*)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"\bcomponents?\b.*\b(?:nombre|portions?|temps|preparation|pr[eé]paration)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:presentation\s+d['\s]+une\s+fiche|possibilit[eé]\s+de\s+l['\s]+evolution|quantit[eé]s?\s+donn[eé]es?|fondat(?:i)?on|foundation)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:https?|www|\.com)\b|(?:com)$",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"^(?:\d+\s+)?references?\b|^(?:sauces?|huile|huiles|vinaigre|vinaigrette|marinade|bouillon|condiments?|epices?|assaisonnements?)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"^(?:a\s+partir\s+de|votre\s+enfant|colwell\s+preparation|preparation|repas\s+(?:de|des)\b)",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:imprime\s+par|graphic\s+impression|tel|telephone)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:parents?\s+press[eé]s?|press[eé]s?)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:sonde\s+de\s+rotissage|sonde\s+de\s+temperature)\b|^mcrc\d",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"^(?:preparer|melanger|verser|cuire)\b.*\b(?:bol|pot|confiture|mayonnaise|mijoteuse|temperature|four|eau|oudans)\b|^(?:dans\s*une|dansune)\b.*\b(?:cocotte|poele|casserole|four|bol)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:petite\s+poign[eé]e|poign[eé]e\s+de|feuilles?\s+de|measures?|tasses?|grammes?|kilogrammes?|millilitres?|centilitres?)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        return normalizedTitle.Length > 90
-            && Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:preparation|preparer|prechauffer|mijoteuse|temperature|low|votre|enfant)\b",
-                RegexOptions.CultureInvariant);
-    }
-
-    private static bool LooksLikeConcreteMealPlanningAnchorTitle(string? title, string? query)
-    {
-        var normalizedTitle = NormalizeLexicalLookup(title);
-        if (string.IsNullOrWhiteSpace(normalizedTitle)
-            || normalizedTitle.Length is < 4 or > 90
-            || LooksLikeGenericCadenceOrTimingStatement(normalizedTitle)
-            || LooksLikeLeadingConnectorStructuredPlanningFragment(normalizedTitle)
-            || LooksLikeNoisyStructuredPlanningCandidateTitle(normalizedTitle)
-            || LooksLikeProcedureSentenceTitle(normalizedTitle)
-            || LooksLikeStructuredPlanningAdviceOrFrameAnchor(normalizedTitle)
-            || LooksLikeBrokenStructuredPlanningOcrAnchor(normalizedTitle)
-            || LooksLikeStandaloneStructuredPlanningFieldLabel(normalizedTitle)
-            || LooksLikeStructuredPlanningFieldOrOcrFragment(normalizedTitle)
-            || LooksLikeGenericMealPlanningInventoryTitle(normalizedTitle, query))
-        {
-            return false;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:guide|conseils?|astuces?|principes?|organisation|planning|planification|calendrier|overview|introduction|summary|resume|methode|recommandations?|faq|glossaire|vocabulaire|sommaire|table\s+des\s+matieres|contents?|index|source|document|page)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return false;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"^(?:collecter|collectez|preparer|preparez|organiser|planifier|utiliser|choisir|verifier|lire|couper|verser|melanger|saupoudrer|recouvrir|casser|faire)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return false;
-        }
-
-        if (Regex.IsMatch(normalizedTitle, @"^\d+\b|[/\\]|[|]", RegexOptions.CultureInvariant))
-            return false;
-
-        var terms = ExtractQuerySignalTerms(normalizedTitle)
-            .Where(term => term.Length >= 4 && !IsGenericPlanningAnswerSupportTerm(term))
-            .Take(8)
-            .ToArray();
-        return terms.Length is >= 1 and <= 6
-               && terms.Any(static term => term.Length >= 5);
-    }
-
-    private static bool LooksLikeStructuredPlanningAdviceOrFrameAnchor(string normalizedTitle)
-    {
-        if (string.IsNullOrWhiteSpace(normalizedTitle))
-            return true;
-
-        var terms = ExtractQuerySignalTerms(normalizedTitle)
-            .Where(static term => term.Length >= 3)
-            .Take(12)
-            .ToArray();
-        var isShortAnchor = normalizedTitle.Length <= 110 && terms.Length <= 9;
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:en\s+(?:soir[eé]e|matin[eé]e|journ[eé]e)|le\s+(?:matin|midi|soir)|la\s+nuit)\b.{0,70}\b(?:r[eé]alisez|realisez|preparez|pr[eé]parez|organisez|collectez|servez|choisissez)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (isShortAnchor
-            && Regex.IsMatch(
-                normalizedTitle,
-                @"^(?:dans|in|inside|within)\s+(?:son|sa|ses|le|la|les|un|une|the|your|votre)\s+\p{L}{4,}$",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (isShortAnchor
-            && Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:politique|policy|exactitude|accuracy|prix|price|tarifs?|cost|couts?)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (isShortAnchor
-            && Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:fonction\s+des|en\s+fonction\s+de|selon\s+(?:la|le|les|des|vos)|depending\s+on|based\s+on)\b.{0,50}\b(?:saisons?|season|seasons?|periode|period|availability|disponibilite)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"^(?:evitez|eviter|avoid|n\s+achetez|ne\s+pas\s+acheter|achetez|acheter|choisissez|choisir|preferez|preferer)\b.{0,90}\b(?:produits?|products?|portions?|formats?|emballages?|individuelles?|prices?|prix)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (isShortAnchor
-            && Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:portions?\s+individuelles?|produits?\s+en\s+portions?|individual\s+portions?)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (isShortAnchor
-            && Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:temps|duration|dur[eé]e|time)\s+(?:de|of)?$|\b(?:nombre|number|quantit[eé]|quantity)\s+(?:de|of)?$",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"^(?:temps|duration|dur[eé]e|time)\b.{0,90}\b(?:signal|faire\s+cuire|cuire|minutes?|seconds?|secondes?|heures?|hours?|\d+)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (isShortAnchor
-            && Regex.IsMatch(
-                normalizedTitle,
-                @"^(?:utilis[eé]|utilisee|utiliser|used|use)\s+(?:si|if)$|^(?:a|à)\s+(?:vos|votre|toi|vous)\b|\b(?:petits?\s+mangeurs?|small\s+eaters?)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool LooksLikeBrokenStructuredPlanningOcrAnchor(string normalizedTitle)
-    {
-        if (string.IsNullOrWhiteSpace(normalizedTitle))
-            return true;
-
-        return Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:ca\s+repousse\s+tout\s+seulw?|tout\s+seulw?|craque\s+lins?|lins?\s+casses?)\b",
-                RegexOptions.CultureInvariant)
-            || Regex.IsMatch(
-                normalizedTitle,
-                @"^(?:cou\s*per|couper)\s+en\s+(?:tranches?|morceaux?|des|de)\b",
-                RegexOptions.CultureInvariant);
-    }
-
-    private static int? NormalizeSourceBackedNavigationTargetPageStart(int? page)
-        => page is > 0 ? page.Value : null;
-
-    private static int? NormalizeSourceBackedNavigationTargetPageEnd(int? pageEnd, int? pageStart)
-    {
-        if (pageStart is null)
-            return null;
-
-        if (pageEnd is null || pageEnd.Value < pageStart.Value)
-            return pageStart.Value;
-
-        return pageEnd.Value;
-    }
-
-    private static IEnumerable<string> BuildSourceBackedNavigationTargetPageQueries(
-        string title,
-        SourceBackedDocumentNavigationFollowupLabel label)
-    {
-        if (string.IsNullOrWhiteSpace(title)
-            || label.TargetPageStart is null
-            || label.TargetPageStart.Value <= 0)
-        {
-            yield break;
-        }
-
-        var start = label.TargetPageStart.Value;
-        var end = label.TargetPageEnd is not null && label.TargetPageEnd.Value >= start
-            ? label.TargetPageEnd.Value
-            : start;
-
-        yield return $"{title} page {start}";
-        yield return $"{title} p {start}";
-
-        if (end > start)
-        {
-            yield return $"{title} pages {start}-{end}";
-            yield return $"{title} p {start}-{end}";
-        }
-        else
-        {
-            var neighborEnd = Math.Min(start + 1, 9999);
-            yield return $"{title} pages {start}-{neighborEnd}";
-            yield return $"{title} p {start}-{neighborEnd}";
-        }
-
-        yield return $"{title} pagina {start}";
-        yield return $"{title} seite {start}";
-
-        if (end > start)
-        {
-            yield return $"{title} pagina {start}-{end}";
-            yield return $"{title} seite {start}-{end}";
-        }
     }
 
     private static bool HasSourceBackedRouteAnchorFollowupQueries(
@@ -7495,7 +7015,6 @@ CURRENT_USER_MESSAGE:
                     var cleaned = CleanNavigationRouteAnchorTitle(title);
                     if (!IsUsableSourceBackedOptionTitle(cleaned)
                         || LooksLikeNavigationIndexHeadingTitle(cleaned)
-                        || LooksLikeWeakStructuredMealPlanningAnchorFollowupTitle(cleaned, query)
                         || !emitted.Add(cleaned))
                     {
                         continue;
@@ -7535,7 +7054,6 @@ CURRENT_USER_MESSAGE:
                     if (!IsUsableSourceBackedOptionTitle(cleaned)
                         || LooksLikeNavigationIndexHeadingTitle(cleaned)
                         || LooksLikeWeakSourceBackedOptionTitle(cleaned)
-                        || LooksLikeWeakStructuredMealPlanningAnchorFollowupTitle(cleaned, query)
                         || (UsesSourceBackedPlanningCoverage(query)
                             && LooksLikeSubjectlessReferenceNavigationFollowupLabel(candidate, cleaned, queryTerms))
                         || !emitted.Add(cleaned))
@@ -7568,7 +7086,6 @@ CURRENT_USER_MESSAGE:
                 .Where(IsUsableSourceBackedOptionTitle)
                 .Where(static title => !LooksLikeNavigationIndexHeadingTitle(title))
                 .Where(static title => !LooksLikeWeakSourceBackedOptionTitle(title))
-                .Where(title => !LooksLikeWeakStructuredMealPlanningAnchorFollowupTitle(title, query))
                 .Where(title => !guardSubjectlessReferenceAnchors
                                 || !LooksLikeSubjectlessReferenceNavigationFollowupLabel(candidate, title, queryTerms)))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -7938,7 +7455,7 @@ CURRENT_USER_MESSAGE:
         {
             var text = CollapseWhitespace(raw);
             text = Regex.Replace(text, @"^[\s\-\*\+\u2022\u00b7|`>\\/.]+", string.Empty, RegexOptions.CultureInvariant);
-            text = Regex.Replace(text, @"^(?:[â”œâ””â”‚â”€]+\s*)+", string.Empty, RegexOptions.CultureInvariant);
+            text = Regex.Replace(text, @"^(?:[????]+\s*)+", string.Empty, RegexOptions.CultureInvariant);
             text = CollapseWhitespace(text.Trim());
             if (!string.IsNullOrWhiteSpace(text))
                 yield return text;
@@ -8172,9 +7689,6 @@ CURRENT_USER_MESSAGE:
                          .Where(IsUsableSourceBackedOptionTitle))
             {
                 if (LooksLikeWeakSourceBackedOptionTitle(title))
-                    continue;
-
-                if (LooksLikeWeakStructuredMealPlanningAnchorFollowupTitle(title, query))
                     continue;
 
                 var key = NormalizeLexicalLookup(title);
@@ -8469,7 +7983,7 @@ CURRENT_USER_MESSAGE:
 
         var needsStructuredDecision =
             DetectRequestedDayAxisLabels(query, normalizedLanguage).Count > 1
-            && DetectRequestedPeriodAxisLabels(query, normalizedLanguage).Count > 0;
+            && DetectRequestedPlanningSlotAxisLabels(query, normalizedLanguage).Count > 0;
 
         return needsBroadDecision
                || needsStructuredDecision
@@ -8492,24 +8006,38 @@ CURRENT_USER_MESSAGE:
 
         language = NormalizeLanguageCode(language);
         var dayAxis = DetectRequestedDayAxisLabels(query, language);
-        var periodAxis = DetectRequestedPeriodAxisLabels(query, language);
-        if (dayAxis.Count < 2 || periodAxis.Count == 0)
+        var periodAxis = DetectRequestedPlanningSlotAxisLabels(query, language);
+        var requestedSlotLabels = periodAxis
+            .Concat(ExtractPlanningSlotRetrievalTerms(query))
+            .Select(NormalizeLexicalLookup)
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (dayAxis.Count < 2 || requestedSlotLabels.Length == 0)
             return passes;
 
         var dayTerms = BuildStructuredAxisPlannerDayTerms(dayAxis, language)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
-        var slotTerms = BuildStructuredAxisPlannerSlotTerms(periodAxis, query)
+        var slotTerms = BuildStructuredAxisPlannerSlotTerms(requestedSlotLabels, query)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
         if (dayTerms.Length == 0 || slotTerms.Length == 0)
             return passes;
 
-        var slotTermGroups = BuildStructuredAxisPlannerSlotTermGroups(periodAxis, query);
+        var slotTermGroups = BuildStructuredAxisPlannerSlotTermGroups(requestedSlotLabels, query);
         var genericInventoryTerms = BuildStructuredAxisPlannerGenericInventoryTerms(language, query)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
-        var minimumDistinctSlotCoverage = Math.Min(2, Math.Max(1, periodAxis.Count));
+        var querySubjectTerms = ExtractStructuredAxisPlannerUnknownSignalTerms(
+                NormalizeLexicalLookup(query),
+                dayTerms,
+                slotTerms,
+                genericInventoryTerms)
+            .Where(static term => term.Length >= 4)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var minimumDistinctSlotCoverage = Math.Min(2, Math.Max(1, requestedSlotLabels.Length));
         var kept = new List<SourceBackedEvidenceExplorationPass>(passes.Count);
         var rejectedLabels = new List<string>();
         var rejectedQueries = new List<string>();
@@ -8522,6 +8050,7 @@ CURRENT_USER_MESSAGE:
                     slotTerms,
                     slotTermGroups,
                     genericInventoryTerms,
+                    querySubjectTerms,
                     minimumDistinctSlotCoverage))
             {
                 rejectedLabels.Add(pass.Label);
@@ -8534,21 +8063,8 @@ CURRENT_USER_MESSAGE:
                 pass.Queries,
                 dayTerms,
                 slotTerms,
-                genericInventoryTerms);
-
-            sanitizedQueries = SanitizeStructuredMealPlanningLlmEvidenceExplorationQueries(
-                sanitizedQueries,
-                query,
-                language,
-                plannedCategoryScope,
-                pass.CategoryScope,
-                out var rejectedMealPlanningQueries);
-            if (rejectedMealPlanningQueries.Length > 0)
-            {
-                rejectedLabels.Add(pass.Label);
-                rejectedQueries.AddRange(rejectedMealPlanningQueries.Take(4));
-                changed = true;
-            }
+                genericInventoryTerms,
+                querySubjectTerms);
 
             if (sanitizedQueries.Length == 0)
             {
@@ -8583,6 +8099,7 @@ CURRENT_USER_MESSAGE:
         IReadOnlyCollection<string> slotTerms,
         IReadOnlyList<string[]> slotTermGroups,
         IReadOnlyCollection<string> genericInventoryTerms,
+        IReadOnlyCollection<string> querySubjectTerms,
         int minimumDistinctSlotCoverage)
     {
         var queries = pass.Queries
@@ -8610,7 +8127,8 @@ CURRENT_USER_MESSAGE:
                 normalizedQuery,
                 dayTerms,
                 slotTerms,
-                genericInventoryTerms);
+                genericInventoryTerms,
+                querySubjectTerms);
             AddStructuredAxisPlannerSlotMatches(normalizedQuery, slotTerms, distinctSlotTerms);
             AddStructuredAxisPlannerSlotGroupMatches(normalizedQuery, slotTermGroups, distinctSlotGroups);
             if (!hasSpecificSignal && LooksLikeDecorativeStructuredAxisPlannerQuery(normalizedQuery))
@@ -8621,7 +8139,8 @@ CURRENT_USER_MESSAGE:
                         normalizedQuery,
                         dayTerms,
                         slotTerms,
-                        genericInventoryTerms)
+                        genericInventoryTerms,
+                        querySubjectTerms)
                     .Take(3)
                     .ToArray();
                 if (specificTerms.Length is > 0 and <= 2)
@@ -8698,14 +8217,15 @@ CURRENT_USER_MESSAGE:
     private static bool LooksLikeDecorativeStructuredAxisPlannerQuery(string normalizedQuery)
         => Regex.IsMatch(
             normalizedQuery,
-            @"\b(?:exemples?|examples?|id[eé]es?|ideas?|suggestions?|menus?|id[eé]aux|ideals?)\b",
+            @"\b(?:exemples?|examples?|id[eé]es?|ideas?|suggestions?|menus?|id[eé]aux|ideals?|details?|detailed|d[eé]taill[eé]s?)\b",
             RegexOptions.CultureInvariant);
 
     private static string[] SanitizeStructuredAxisLlmEvidenceExplorationQueries(
         IReadOnlyList<string> queries,
         IReadOnlyCollection<string> dayTerms,
         IReadOnlyCollection<string> slotTerms,
-        IReadOnlyCollection<string> genericInventoryTerms)
+        IReadOnlyCollection<string> genericInventoryTerms,
+        IReadOnlyCollection<string> querySubjectTerms)
     {
         var results = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -8721,10 +8241,16 @@ CURRENT_USER_MESSAGE:
                 normalizedQuery,
                 dayTerms,
                 slotTerms,
-                genericInventoryTerms);
-            if (!mentionsSlot
-                && !hasSpecificSignal
-                && LooksLikeDecorativeStructuredAxisPlannerQuery(normalizedQuery))
+                genericInventoryTerms,
+                querySubjectTerms);
+            var unknownSignalTerms = ExtractStructuredAxisPlannerUnknownSignalTerms(
+                normalizedQuery,
+                dayTerms,
+                slotTerms,
+                genericInventoryTerms,
+                querySubjectTerms);
+            if (LooksLikeDecorativeStructuredAxisPlannerQuery(normalizedQuery)
+                && unknownSignalTerms.Length <= 1)
             {
                 continue;
             }
@@ -8744,223 +8270,6 @@ CURRENT_USER_MESSAGE:
         }
 
         return results.ToArray();
-    }
-
-    private static string[] SanitizeStructuredMealPlanningLlmEvidenceExplorationQueries(
-        IReadOnlyList<string> queries,
-        string? query,
-        string language,
-        string? plannedCategoryScope,
-        string? passCategoryScope,
-        out string[] rejectedQuerySamples)
-    {
-        rejectedQuerySamples = Array.Empty<string>();
-        if (queries.Count == 0 || !ShouldApplyMealPlanningSlotSemantics(query))
-            return queries.ToArray();
-
-        language = NormalizeLanguageCode(language);
-        var periodAxis = DetectRequestedPeriodAxisLabels(query, language);
-        if (periodAxis.Count == 0)
-            return queries.ToArray();
-
-        var dayTerms = BuildStructuredAxisPlannerDayTerms(DetectRequestedDayAxisLabels(query, language), language)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        var slotTerms = BuildStructuredAxisPlannerSlotTerms(periodAxis, query)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        var concreteInventoryTerms = BuildConcreteStructuredPlanningInventoryTermsForRetrieval(language, query)
-            .Select(NormalizeLexicalLookup)
-            .Where(static term => !string.IsNullOrWhiteSpace(term))
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        var candidateIntentTerms = BuildStructuredMealPlanningCandidateIntentTerms(language, query)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        var abstractPlannerTerms = BuildStructuredMealPlanningAbstractPlannerTerms(language)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        var categoryScopeTerms = BuildStructuredMealPlanningCategoryScopeTerms(plannedCategoryScope, passCategoryScope)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-
-        if (slotTerms.Length == 0 || concreteInventoryTerms.Length == 0)
-            return queries.ToArray();
-
-        var kept = new List<string>(queries.Count);
-        var rejected = new List<string>();
-        foreach (var llmQuery in queries)
-        {
-            var normalizedQuery = NormalizeLexicalLookup(llmQuery);
-            if (string.IsNullOrWhiteSpace(normalizedQuery))
-                continue;
-
-            if (LooksLikeLowValueStructuredMealPlanningLlmQuery(
-                    normalizedQuery,
-                    dayTerms,
-                    slotTerms,
-                    concreteInventoryTerms,
-                    candidateIntentTerms,
-                    abstractPlannerTerms,
-                    categoryScopeTerms))
-            {
-                rejected.Add(llmQuery);
-                continue;
-            }
-
-            AddDistinctQuery(kept, CollapseWhitespace(llmQuery));
-        }
-
-        if (rejected.Count > 0 && kept.Count > 0)
-        {
-            foreach (var repairQuery in BuildStructuredMealPlanningLlmConcreteRepairQueries(query, language))
-                AddDistinctQuery(kept, repairQuery);
-        }
-
-        rejectedQuerySamples = rejected.ToArray();
-        return kept
-            .Where(static q => !string.IsNullOrWhiteSpace(q))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(MaxSourceBackedLlmEvidenceExplorationQueries)
-            .ToArray();
-    }
-
-    private static IEnumerable<string> BuildStructuredMealPlanningCandidateIntentTerms(string language, string? query)
-    {
-        foreach (var term in BuildGenericStructuredPlanningInventoryTerms(language, query))
-        {
-            var normalized = NormalizeLexicalLookup(term);
-            if (!string.IsNullOrWhiteSpace(normalized))
-                yield return normalized;
-        }
-
-        var fallbackTerms = new[]
-        {
-            "option", "options", "candidate", "candidates", "candidat", "candidats",
-            "proposal", "proposals", "proposition", "propositions", "preparation", "preparations"
-        };
-        foreach (var term in fallbackTerms)
-            yield return term;
-    }
-
-    private static IEnumerable<string> BuildStructuredMealPlanningAbstractPlannerTerms(string language)
-    {
-        language = NormalizeLanguageCode(language);
-        var localizedTerms = language switch
-        {
-            "en" => new[] { "plan", "weekly", "week", "menu", "menus", "meal", "items", "details", "ideas", "suggestions", "examples" },
-            "es" => new[] { "plan", "semanal", "semana", "menu", "menus", "comida", "comidas", "detalles", "ideas", "sugerencias", "ejemplos" },
-            "pt" => new[] { "plano", "semanal", "semana", "menu", "menus", "refeicao", "refeicoes", "detalhes", "ideias", "sugestoes", "exemplos" },
-            "de" => new[] { "plan", "wochenplan", "woche", "menu", "menus", "mahlzeit", "mahlzeiten", "details", "ideen", "vorschlaege", "beispiele" },
-            "it" => new[] { "piano", "settimanale", "settimana", "menu", "menus", "pasto", "pasti", "dettagli", "idee", "suggerimenti", "esempi" },
-            _ => new[] { "plan", "planning", "semaine", "hebdomadaire", "menu", "menus", "repas", "details", "detail", "idees", "idee", "suggestions", "suggestion", "exemples", "exemple" }
-        };
-
-        foreach (var term in localizedTerms)
-        {
-            var normalized = NormalizeLexicalLookup(term);
-            if (!string.IsNullOrWhiteSpace(normalized))
-                yield return normalized;
-        }
-    }
-
-    private static IEnumerable<string> BuildStructuredMealPlanningCategoryScopeTerms(params string?[] scopes)
-    {
-        foreach (var scope in scopes)
-        {
-            var normalizedScope = NormalizeLexicalLookup(scope);
-            if (string.IsNullOrWhiteSpace(normalizedScope))
-                continue;
-
-            yield return normalizedScope;
-            foreach (var term in ExtractQuerySignalTerms(normalizedScope))
-            {
-                if (term.Length >= 3)
-                    yield return term;
-            }
-        }
-    }
-
-    private static bool LooksLikeLowValueStructuredMealPlanningLlmQuery(
-        string normalizedQuery,
-        IReadOnlyCollection<string> dayTerms,
-        IReadOnlyCollection<string> slotTerms,
-        IReadOnlyCollection<string> concreteInventoryTerms,
-        IReadOnlyCollection<string> candidateIntentTerms,
-        IReadOnlyCollection<string> abstractPlannerTerms,
-        IReadOnlyCollection<string> categoryScopeTerms)
-    {
-        var mentionsConcreteInventory = concreteInventoryTerms.Any(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
-        var mentionsCandidateIntent = candidateIntentTerms.Any(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
-        var mentionsAbstractPlannerTerm = abstractPlannerTerms.Any(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
-        if (!mentionsAbstractPlannerTerm)
-            return false;
-
-        var mentionsSlot = MentionsStructuredAxisSlotTerm(normalizedQuery, slotTerms);
-        var tokenCount = ExtractQuerySignalTerms(normalizedQuery).Count();
-        var abstractTermCount = abstractPlannerTerms.Count(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
-        var unknownSignalTerms = ExtractStructuredAxisPlannerUnknownSignalTerms(
-            normalizedQuery,
-            dayTerms,
-            slotTerms,
-            concreteInventoryTerms,
-            candidateIntentTerms,
-            abstractPlannerTerms,
-            categoryScopeTerms);
-        var hasSpecificSignal = unknownSignalTerms.Length > 0;
-
-        if (LooksLikeDecorativeStructuredAxisPlannerQuery(normalizedQuery)
-            && (mentionsSlot || mentionsConcreteInventory || mentionsCandidateIntent || abstractTermCount >= 2)
-            && unknownSignalTerms.Length <= 1)
-        {
-            return true;
-        }
-
-        if (mentionsConcreteInventory || mentionsCandidateIntent)
-            return false;
-
-        if (hasSpecificSignal)
-            return false;
-
-        return mentionsSlot || abstractTermCount >= 2 || tokenCount <= 5;
-    }
-
-    private static IEnumerable<string> BuildStructuredMealPlanningLlmConcreteRepairQueries(string? query, string language)
-    {
-        if (string.IsNullOrWhiteSpace(query))
-            yield break;
-
-        language = NormalizeLanguageCode(language);
-        var periodAxis = DetectRequestedPeriodAxisLabels(query, language);
-        var slotTerms = (periodAxis.Count > 0
-                ? periodAxis.Select(SelectPreferredPlanningSlotRetrievalTerm)
-                : ExtractPlanningSlotRetrievalTerms(query)
-                    .SelectMany(ExpandPlanningSlotRetrievalTermVariants)
-                    .Select(NormalizeLexicalLookup))
-            .Where(static term => !string.IsNullOrWhiteSpace(term))
-            .Where(IsMealPeriodSlotRetrievalTerm)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        var concreteInventoryTerms = BuildConcreteStructuredPlanningInventoryTermsForRetrieval(language, query)
-            .Where(static term => !string.IsNullOrWhiteSpace(term))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(3)
-            .ToArray();
-
-        foreach (var inventory in concreteInventoryTerms.Take(2))
-        {
-            foreach (var slot in slotTerms)
-                yield return $"{slot} {inventory}";
-        }
-
-        foreach (var inventory in concreteInventoryTerms.Take(2))
-        {
-            foreach (var slot in slotTerms)
-                yield return $"{inventory} {slot}";
-        }
-
-        foreach (var candidateQuery in BuildStructuredMealPlanningCandidateDiscoveryRetrievalQueries(query))
-            yield return candidateQuery;
     }
 
     private static string RemoveStructuredAxisPlannerTermsFromQuery(
@@ -9021,7 +8330,7 @@ CURRENT_USER_MESSAGE:
             }
         }
 
-        foreach (var term in ExtractPlanningSlotRetrievalTerms(query).Where(IsMealPeriodSlotRetrievalTerm))
+        foreach (var term in ExtractPlanningSlotRetrievalTerms(query))
         {
             foreach (var variant in ExpandPlanningSlotRetrievalTermVariants(term))
             {
@@ -9062,7 +8371,7 @@ CURRENT_USER_MESSAGE:
         foreach (var label in requestedPeriodLabels)
             AddGroup(label);
 
-        foreach (var term in ExtractPlanningSlotRetrievalTerms(query).Where(IsMealPeriodSlotRetrievalTerm))
+        foreach (var term in ExtractPlanningSlotRetrievalTerms(query))
             AddGroup(term);
 
         return groups
@@ -9084,7 +8393,7 @@ CURRENT_USER_MESSAGE:
             "option", "options", "candidate", "candidates", "candidat", "candidats", "example", "examples",
             "exemple", "exemples", "proposal", "proposals", "proposition", "propositions", "preparation",
             "preparations", "plan", "planning", "programme", "schedule", "calendar", "calendrier",
-            "menu", "menus", "meal", "items", "repas", "item", "items", "option", "options", "option",
+            "item", "items", "element", "elements", "rubrique", "rubriques", "entry", "entries",
             "options", "option", "options", "detail", "details", "detailed", "detaille", "detailles",
             "idee", "idees", "idea", "ideas", "ideal", "ideals", "ideaux",
             "suggestion", "suggestions"
@@ -9129,14 +8438,8 @@ CURRENT_USER_MESSAGE:
 
     private static bool HasStructuredAxisPlannerSpecificSignal(
         string normalizedQuery,
-        IReadOnlyCollection<string> dayTerms,
-        IReadOnlyCollection<string> slotTerms,
-        IReadOnlyCollection<string> genericInventoryTerms)
-        => ExtractStructuredAxisPlannerUnknownSignalTerms(
-                normalizedQuery,
-                dayTerms,
-                slotTerms,
-                genericInventoryTerms)
+        params IReadOnlyCollection<string>[] knownTermGroups)
+        => ExtractStructuredAxisPlannerUnknownSignalTerms(normalizedQuery, knownTermGroups)
             .Length > 0;
 
     private static string[] ExtractStructuredAxisPlannerUnknownSignalTerms(
@@ -9190,8 +8493,10 @@ CURRENT_USER_MESSAGE:
                 continue;
 
             var name = NormalizeToolName(TryGetString(call, "name") ?? TryGetString(call, "tool"));
+            var isDocumentContextCall = string.Equals(name, "documents.context", StringComparison.OrdinalIgnoreCase);
             if (!string.Equals(name, "rag.search", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(name, "rag.multi_search", StringComparison.OrdinalIgnoreCase))
+                && !string.Equals(name, "rag.multi_search", StringComparison.OrdinalIgnoreCase)
+                && !isDocumentContextCall)
             {
                 continue;
             }
@@ -9202,8 +8507,10 @@ CURRENT_USER_MESSAGE:
             if (args is null)
                 continue;
 
-            var queries = ExtractSanitizedSourceBackedLlmExplorationQueries(args.Value, emitted);
-            if (queries.Length == 0)
+            var queries = isDocumentContextCall
+                ? Array.Empty<string>()
+                : ExtractSanitizedSourceBackedLlmExplorationQueries(args.Value, emitted);
+            if (!isDocumentContextCall && queries.Length == 0)
             {
                 var query = SanitizeSourceBackedLlmExplorationQuery(
                     TryGetString(args.Value, "query")
@@ -9216,25 +8523,46 @@ CURRENT_USER_MESSAGE:
                 }
             }
 
-            if (queries.Length == 0)
+            var docRef = NullIfWhiteSpace(
+                TryGetString(args.Value, "docRef")
+                ?? TryGetString(args.Value, "documentRef")
+                ?? TryGetString(args.Value, "ref"));
+            var docId = NullIfWhiteSpace(TryGetString(args.Value, "docId") ?? TryGetString(args.Value, "documentId"));
+            var docPath = NullIfWhiteSpace(TryGetString(args.Value, "docPath") ?? TryGetString(args.Value, "documentPath"));
+            var chunkId = NullIfWhiteSpace(TryGetString(args.Value, "chunkId") ?? TryGetString(args.Value, "chunk_id"));
+            var pageStart = ReadSourceBackedNavigationTargetPageStart(args.Value);
+            var pageEnd = ReadSourceBackedNavigationTargetPageEnd(args.Value, pageStart);
+
+            if (!isDocumentContextCall && queries.Length == 0)
                 continue;
+            if (isDocumentContextCall
+                && string.IsNullOrWhiteSpace(docRef)
+                && string.IsNullOrWhiteSpace(docId)
+                && string.IsNullOrWhiteSpace(docPath)
+                && string.IsNullOrWhiteSpace(chunkId))
+            {
+                continue;
+            }
 
             passes.Add(new SourceBackedEvidenceExplorationPass(
-                "llm_tool_call",
-                "LLM-planned retrieval tool call converted to an exploration pass.",
+                isDocumentContextCall ? "llm_context_read" : "llm_tool_call",
+                isDocumentContextCall
+                    ? "LLM-planned document context read converted to an exploration pass."
+                    : "LLM-planned retrieval tool call converted to an exploration pass.",
                 queries,
                 SanitizeSourceBackedLlmExplorationCategory(
                     TryGetString(args.Value, "categoryScope")
                     ?? TryGetString(args.Value, "category")
                     ?? TryGetString(args.Value, "categoryPath")
                     ?? TryGetString(args.Value, "categoryRef")),
-                NullIfWhiteSpace(TryGetString(args.Value, "docId") ?? TryGetString(args.Value, "documentId")),
-                NullIfWhiteSpace(TryGetString(args.Value, "docPath") ?? TryGetString(args.Value, "documentPath")),
-                ReadSourceBackedNavigationTargetPageStart(args.Value),
-                ReadSourceBackedNavigationTargetPageEnd(
-                    args.Value,
-                    ReadSourceBackedNavigationTargetPageStart(args.Value)),
-                "llm_planner"));
+                docId,
+                docPath,
+                pageStart,
+                pageEnd,
+                "llm_planner",
+                docRef,
+                chunkId,
+                isDocumentContextCall ? "documents.context" : name));
             if (passes.Count >= MaxSourceBackedLlmEvidenceExplorationPasses)
                 break;
         }
@@ -9248,11 +8576,13 @@ CURRENT_USER_MESSAGE:
         var normalized = NormalizeLexicalLookup(NormalizeRagQueryForRetrieval(query));
         if (string.IsNullOrWhiteSpace(normalized))
             normalized = NormalizeLexicalLookup(query);
-        var usesStructuredSlots = UsesSourceBackedPlanningCoverage(query)
-            && ShouldApplyMealPlanningSlotSemantics(query);
-
+        var planningCoverage = UsesSourceBackedPlanningCoverage(query);
         foreach (var retrievalQuery in BuildSoftChoiceOptionKindRetrievalQueries(query))
+        {
+            if (planningCoverage && LooksLikeNavigationDiscoveryProbeQuery(retrievalQuery))
+                continue;
             AddDistinctQuery(queries, retrievalQuery);
+        }
 
         var subjectTerms = ExtractQuerySignalTerms(normalized)
             .Concat(ExtractPlanningRetrievalTerms(normalized))
@@ -9277,25 +8607,19 @@ CURRENT_USER_MESSAGE:
             .Take(4)
             .ToArray();
 
-        if (UsesSourceBackedPlanningCoverage(query))
+        if (planningCoverage)
         {
-            if (usesStructuredSlots)
-            {
-                foreach (var retrievalQuery in BuildStructuredMealPlanningCandidateDiscoveryRetrievalQueries(query).Take(18))
-                    AddDistinctQuery(queries, retrievalQuery);
-            }
-
             foreach (var retrievalQuery in BuildStructuredPlanningCandidateDiscoveryRetrievalQueries(query).Take(14))
                 AddDistinctQuery(queries, retrievalQuery);
         }
 
-        if (!usesStructuredSlots)
+        if (!planningCoverage)
         {
             foreach (var retrievalQuery in BuildNavigationDiscoveryRetrievalQueries(query).Take(8))
                 AddDistinctQuery(queries, retrievalQuery);
-            foreach (var retrievalQuery in BuildBroadSourceBackedDiscoveryRetrievalQueries(query).Take(14))
-                AddDistinctQuery(queries, retrievalQuery);
         }
+        foreach (var retrievalQuery in BuildBroadSourceBackedDiscoveryRetrievalQueries(query).Take(14))
+            AddDistinctQuery(queries, retrievalQuery);
 
         foreach (var subject in subjectTerms)
         {
@@ -9331,139 +8655,11 @@ CURRENT_USER_MESSAGE:
     private static IEnumerable<string> BuildStructuredPlanningInventoryRetrievalQueries(string query)
     {
         var language = DetectRetrievalExpansionLanguage(query);
-        foreach (var queryVariant in BuildStructuredPlanningGenericInventoryRetrievalQueries(language, query))
+        foreach (var queryVariant in BuildStructuredPlanningInventoryTermsForRetrieval(language, query))
         {
             yield return queryVariant;
         }
 
-        foreach (var retrievalQuery in BuildStructuredMealPlanningCandidateDiscoveryRetrievalQueries(query))
-            yield return retrievalQuery;
-    }
-
-    private static IEnumerable<string> BuildStructuredMealPlanningSlotBalancedRetrievalQueries(string query)
-    {
-        var language = DetectRetrievalExpansionLanguage(query);
-        var periodLabels = DetectRequestedPeriodAxisLabels(query, language);
-        var targetSlots = Math.Max(1, ResolveSourceBackedPlanningTargetItemCount(query));
-        var slotKinds = periodLabels.Count == 0
-            ? new[] { StructuredMealPlanningSlotKind.MainMeal }
-            : Enumerable.Range(0, targetSlots)
-                .Select(index => ResolveStructuredMealPlanningSlotKind(periodLabels[index % periodLabels.Count]))
-                .ToArray();
-        var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var slotKind in slotKinds
-                     .GroupBy(static kind => kind)
-                     .OrderByDescending(static group => group.Count())
-                     .ThenBy(static group => ResolveStructuredMealPlanningSlotBalancingPriority(group.Key))
-                     .Select(static group => group.Key))
-        {
-            foreach (var queryVariant in BuildStructuredMealPlanningSlotInventoryRetrievalQueries(slotKind, language))
-            {
-                var normalized = CollapseWhitespace(queryVariant);
-                if (!string.IsNullOrWhiteSpace(normalized) && emitted.Add(normalized))
-                    yield return normalized;
-            }
-        }
-
-        foreach (var queryVariant in BuildStructuredPlanningGenericInventoryRetrievalQueries(language, query))
-        {
-            var normalized = CollapseWhitespace(queryVariant);
-            if (!string.IsNullOrWhiteSpace(normalized) && emitted.Add(normalized))
-                yield return normalized;
-        }
-    }
-
-    private static int ResolveStructuredMealPlanningSlotBalancingPriority(StructuredMealPlanningSlotKind slotKind)
-        => slotKind switch
-        {
-            StructuredMealPlanningSlotKind.MainMeal => 0,
-            StructuredMealPlanningSlotKind.Breakfast => 1,
-            StructuredMealPlanningSlotKind.Snack => 2,
-            _ => 3
-        };
-
-    private static IEnumerable<string> BuildStructuredPlanningGenericInventoryRetrievalQueries(string language, string? query)
-        => BuildStructuredPlanningInventoryTermsForRetrieval(language, query);
-
-    private static IEnumerable<string> BuildStructuredMealPlanningSlotInventoryRetrievalQueries(
-        StructuredMealPlanningSlotKind slotKind,
-        string language)
-    {
-        language = NormalizeLanguageCode(language);
-        var slotTerms = slotKind switch
-        {
-            StructuredMealPlanningSlotKind.Breakfast => language switch
-            {
-                "en" => new[] { "breakfast", "morning", "brunch" },
-                "es" => new[] { "desayuno" },
-                "pt" => new[] { "pequeno almoco", "cafe da manha" },
-                "de" => new[] { "fruehstueck", "morgen", "brunch" },
-                "it" => new[] { "colazione", "brunch" },
-                _ => new[] { "petit-dejeuner", "dejeuners", "brunch" }
-            },
-            StructuredMealPlanningSlotKind.Snack => language switch
-            {
-                "en" => new[] { "snack", "afternoon snack" },
-                "es" => new[] { "merienda" },
-                "pt" => new[] { "lanche" },
-                "de" => new[] { "snack", "zwischenmahlzeit" },
-                "it" => new[] { "merenda", "snack" },
-                _ => new[] { "gouter", "collation", "encas" }
-            },
-            _ => language switch
-            {
-                "en" => new[] { "main item", "lunch", "dinner", "supper", "complete meal" },
-                "es" => new[] { "opciones principales", "almuerzo", "cena", "comida completa" },
-                "pt" => new[] { "opcoes principais", "almoco", "jantar", "refeicao completa" },
-                "de" => new[] { "hauptgericht", "mittagessen", "abendessen", "vollstaendige mahlzeit" },
-                "it" => new[] { "piatti principali", "pranzo", "cena", "pasto completo" },
-                _ => new[] { "options principaux", "diner", "souper", "repas complets" }
-            }
-        };
-
-        var inventoryTerms = BuildStructuredPlanningInventoryTermsForRetrieval(language, string.Join(' ', slotTerms))
-            .Where(static term => !string.IsNullOrWhiteSpace(term))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(4)
-            .ToArray();
-
-        foreach (var slotTerm in slotTerms)
-        {
-            yield return slotTerm;
-            foreach (var inventoryTerm in inventoryTerms)
-            {
-                yield return $"{slotTerm} {inventoryTerm}";
-                yield return $"{inventoryTerm} {slotTerm}";
-            }
-        }
-    }
-
-    private static IEnumerable<string> BuildStructuredMealPlanningCandidateDiscoveryRetrievalQueries(string query)
-    {
-        var language = DetectRetrievalExpansionLanguage(query);
-        var periodAxis = DetectRequestedPeriodAxisLabels(query, language);
-        var slotTerms = (periodAxis.Count > 0
-                ? periodAxis.Select(SelectPreferredPlanningSlotRetrievalTerm)
-                : ExtractPlanningSlotRetrievalTerms(query)
-                    .SelectMany(ExpandPlanningSlotRetrievalTermVariants)
-                    .Select(NormalizeLexicalLookup))
-            .Where(static term => term.Length >= 4)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        var mealInventoryTerms = BuildStructuredPlanningInventoryTermsForRetrieval(language, query)
-            .Where(static term => !string.IsNullOrWhiteSpace(term))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-        foreach (var inventory in mealInventoryTerms.Take(4))
-        {
-            foreach (var slot in slotTerms)
-            {
-                yield return $"{slot} {inventory}";
-                yield return $"{inventory} {slot}";
-            }
-        }
     }
 
     private static string[] BuildSourceBackedAnchorDiscoveryRetrievalQueries(string query)
@@ -10011,12 +9207,12 @@ CURRENT_USER_MESSAGE:
 
         var scores = new (string Language, int Score)[]
         {
-            ("fr", CountRetrievalLanguageSignals(normalized, @"\b(?:aide|aider|peux|pourrais|semaine|hebdomadaire|lundi|mardi|mercredi|jeudi|vendredi|matin|midi|soir|dejeuner|diner|quoi|veux|voudrais|propose|conseille)\b")),
-            ("en", CountRetrievalLanguageSignals(normalized, @"\b(?:help|make|week|weekly|monday|tuesday|wednesday|thursday|friday|morning|lunch|dinner|breakfast|what|which|want|would|suggest|recommend)\b")),
-            ("es", CountRetrievalLanguageSignals(normalized, @"\b(?:ayuda|ayudame|hacer|semana|lunes|martes|miercoles|jueves|viernes|manana|desayuno|almuerzo|cena|quiero|puedes|podrias|sugiere|recomienda)\b")),
-            ("pt", CountRetrievalLanguageSignals(normalized, @"\b(?:ajuda|ajudar|fazer|semana|segunda|terca|quarta|quinta|sexta|manha|almoco|jantar|quero|podes|poderias|sugere|recomenda|controlo)\b")),
-            ("de", CountRetrievalLanguageSignals(normalized, @"\b(?:hilf|helfen|woche|wochenplan|montag|dienstag|mittwoch|donnerstag|freitag|morgen|mittag|abend|fruhstuck|erstellen|welche|was|mochte|vorschlag|empfiehl)\b")),
-            ("it", CountRetrievalLanguageSignals(normalized, @"\b(?:aiuta|aiutami|fare|settimana|lunedi|martedi|mercoledi|giovedi|venerdi|mattina|colazione|pranzo|cena|voglio|puoi|potresti|suggerisci|consiglia)\b"))
+            ("fr", CountRetrievalLanguageSignals(normalized, @"\b(?:aide|aider|peux|pourrais|semaine|hebdomadaire|lundi|mardi|mercredi|jeudi|vendredi|quoi|veux|voudrais|propose|conseille|plan|planning|liste|options?)\b")),
+            ("en", CountRetrievalLanguageSignals(normalized, @"\b(?:help|make|week|weekly|monday|tuesday|wednesday|thursday|friday|what|which|want|would|suggest|recommend|plan|schedule|list|options?)\b")),
+            ("es", CountRetrievalLanguageSignals(normalized, @"\b(?:ayuda|ayudame|hacer|semana|lunes|martes|miercoles|jueves|viernes|quiero|puedes|podrias|sugiere|recomienda|plan|lista|opciones)\b")),
+            ("pt", CountRetrievalLanguageSignals(normalized, @"\b(?:ajuda|ajudar|fazer|semana|segunda|terca|quarta|quinta|sexta|quero|podes|poderias|sugere|recomenda|controlo|plano|lista|opcoes)\b")),
+            ("de", CountRetrievalLanguageSignals(normalized, @"\b(?:hilf|helfen|woche|wochenplan|montag|dienstag|mittwoch|donnerstag|freitag|erstellen|welche|was|mochte|vorschlag|empfiehl|plan|liste|optionen)\b")),
+            ("it", CountRetrievalLanguageSignals(normalized, @"\b(?:aiuta|aiutami|fare|settimana|lunedi|martedi|mercoledi|giovedi|venerdi|voglio|puoi|potresti|suggerisci|consiglia|piano|lista|opzioni)\b"))
         };
 
         var best = scores
@@ -10626,7 +9822,26 @@ CURRENT_USER_MESSAGE:
     }
 
     private static string BuildSourceBackedPlanningAnswer(ToolResults toolResults, string language, int minItems = 1, string? query = null)
-        => BuildSourceBackedPlanningDraft(toolResults, language, minItems, query).Answer;
+    {
+        var draft = BuildSourceBackedPlanningDraft(toolResults, language, minItems, query);
+        if (!string.IsNullOrWhiteSpace(draft.Answer))
+            return draft.Answer;
+
+        if (minItems <= 1
+            && (ShouldGateStructuredSourceBackedPlanningCoverage(query) || LooksLikeAnyDocumentaryPlanningRequest(query)))
+        {
+            var partialDraft = BuildSourceBackedPlanningDraft(
+                toolResults,
+                language,
+                minItems: 1,
+                query: query,
+                allowPartialStructuredPlanningDraft: true);
+            if (!string.IsNullOrWhiteSpace(partialDraft.Answer))
+                return partialDraft.Answer;
+        }
+
+        return string.Empty;
+    }
 
     private static bool ShouldAllowSourceBackedWriterRepairForCurrentTurn(string? query)
         => !LooksLikeStrictCertificationOrExactProofRequest(query);
@@ -10636,14 +9851,15 @@ CURRENT_USER_MESSAGE:
         string language,
         int minItems = 1,
         string? query = null,
-        bool allowPartialStructuredPlanningDraft = false)
+        bool allowPartialStructuredPlanningDraft = false,
+        bool allowSourcedRotationForPartialStructuredPlanning = false)
     {
         language = NormalizeLanguageCode(language);
         var targetItemCount = ResolveSourceBackedPlanningTargetItemCount(query);
         var wantsWeeklyPlan = LooksLikeWeeklyPlanningRequest(query);
         var wantsVerificationChecklist = LooksLikeSourceBackedVerificationChecklistRequest(query);
         var requestedDayLabels = DetectRequestedDayAxisLabels(query, language);
-        var requestedPeriodLabels = DetectRequestedPeriodAxisLabels(query, language);
+        var requestedPeriodLabels = DetectRequestedPlanningSlotAxisLabels(query, language);
         var hasStructuredPlanningAxes = !wantsVerificationChecklist
             && requestedDayLabels.Count > 0
             && requestedPeriodLabels.Count > 0;
@@ -10669,20 +9885,6 @@ CURRENT_USER_MESSAGE:
             .ToList();
         ClientLog.Info(
             $"ToolAgent planning draft build: stage=item_selection.end|selected={planItems.Count}|mode={(requiresStrictStructuredEvidence ? "page_diverse" : "ranked")}|ms={itemSelectionStopwatch.ElapsedMilliseconds}|titles={string.Join("; ", planItems.Take(20).Select(static candidate => candidate.Title))}");
-
-        if (requiresStrictStructuredEvidence && hasStructuredPlanningAxes && ShouldApplyMealPlanningSlotSemantics(query))
-        {
-            var requestedSlots = requestedDayLabels.Count * requestedPeriodLabels.Count;
-            var slotSelectionStopwatch = Stopwatch.StartNew();
-            planItems = SelectStructuredMealPlanningCandidatesForSlots(
-                    candidatePool,
-                    requestedPeriodLabels,
-                    requestedSlots,
-                    query)
-                .ToList();
-            ClientLog.Info(
-                $"ToolAgent planning draft build: stage=slot_selection.end|requiredSlots={requestedSlots}|selected={planItems.Count}|periods={string.Join(",", requestedPeriodLabels)}|ms={slotSelectionStopwatch.ElapsedMilliseconds}|titles={string.Join("; ", planItems.Take(20).Select(static candidate => candidate.Title))}");
-        }
 
         if (planItems.Count == 0 || (!allowPartialStructuredPlanningDraft && planItems.Count < minItems))
             return SourceBackedPlanningDraft.Empty;
@@ -10713,26 +9915,62 @@ CURRENT_USER_MESSAGE:
                 query,
                 requiredSlots,
                 hasStructuredAxes: true);
-            if (!HasEnoughSourceBackedCandidatesForStructuredPlan(planItems, requiredDistinctItems))
+            var routeAwareGrid = BuildStructuredSourceBackedSlotAwareGrid(
+                planItems,
+                requestedPeriodLabels,
+                requiredSlots,
+                query,
+                allowSourcedRotationForPartialStructuredPlanning && ShouldAllowSourcedStructuredPlanningRotation(query),
+                requireDistinctItems: !allowSourcedRotationForPartialStructuredPlanning,
+                out var routeAwareFit);
+            var requiresExplicitSlotEvidence = RequiresExplicitStructuredPlanningSlotEvidence(query);
+            var hasRouteAwareShortage = (routeAwareFit.HasRouteEvidence && routeAwareGrid.Count < requiredSlots)
+                || (requiresExplicitSlotEvidence && !routeAwareFit.HasRouteEvidence);
+            if (!HasEnoughSourceBackedCandidatesForStructuredPlan(planItems, requiredDistinctItems)
+                || hasRouteAwareShortage)
             {
                 if (!allowPartialStructuredPlanningDraft)
                     return SourceBackedPlanningDraft.Empty;
 
-                var partialItems = planItems
-                    .Take(Math.Min(planItems.Count, Math.Clamp(requiredSlots, 8, 24)))
-                    .ToArray();
-                var partialAnswer = BuildStructuredSourceBackedCandidateBankAnswer(partialItems, requiredSlots, language, query);
+                var unscopedPartialLimit = hasRouteAwareShortage && routeAwareGrid.Count == 0
+                    ? Math.Clamp(requestedPeriodLabels.Count * 2, 4, 8)
+                    : Math.Clamp(requiredSlots, 8, 24);
+                var partialItems = routeAwareGrid.Count > 0
+                    ? routeAwareGrid
+                        .GroupBy(BuildSourceBackedPlanningCandidateLeadKey, StringComparer.OrdinalIgnoreCase)
+                        .Select(static group => group.First())
+                        .ToArray()
+                    : planItems
+                        .Take(Math.Min(planItems.Count, unscopedPartialLimit))
+                        .ToArray();
+                var partialAnswer = BuildStructuredSourceBackedPlanAnswer(
+                    partialItems,
+                    requestedDayLabels,
+                    requestedPeriodLabels,
+                    language,
+                    query,
+                    requiredDistinctItems,
+                    allowSourcedRotation: allowSourcedRotationForPartialStructuredPlanning
+                        && ShouldAllowSourcedStructuredPlanningRotation(query));
                 return CreateSourceBackedPlanningDraft(partialAnswer, partialItems, query);
             }
 
-            var usedItems = planItems.Take(requiredSlots).ToArray();
+            var usedItems = routeAwareGrid.Count > 0
+                ? routeAwareGrid
+                    .GroupBy(BuildSourceBackedPlanningCandidateLeadKey, StringComparer.OrdinalIgnoreCase)
+                    .Select(static group => group.First())
+                    .Take(requiredSlots)
+                    .ToArray()
+                : planItems.Take(requiredSlots).ToArray();
             var structuredAnswer = BuildStructuredSourceBackedPlanAnswer(
                 planItems,
                 requestedDayLabels,
                 requestedPeriodLabels,
                 language,
                 query,
-                requiredDistinctItems);
+                requiredDistinctItems,
+                allowSourcedRotation: allowSourcedRotationForPartialStructuredPlanning
+                    && ShouldAllowSourcedStructuredPlanningRotation(query));
             return CreateSourceBackedPlanningDraft(structuredAnswer, usedItems, query);
         }
 
@@ -10857,12 +10095,12 @@ CURRENT_USER_MESSAGE:
 
     private static int ResolveSourceBackedPlanningCandidatePoolSize(string? query, int requestedCandidateCount)
     {
-        var maxPoolSize = ShouldApplyMealPlanningSlotSemantics(query) ? 96 : 64;
+        const int maxPoolSize = 64;
         requestedCandidateCount = Math.Clamp(requestedCandidateCount, 1, maxPoolSize);
         if (!ShouldGateStructuredSourceBackedPlanningCoverage(query))
             return requestedCandidateCount;
 
-        var multiplier = ShouldPreferMainDishPlanningCandidates(query) ? 4 : 2;
+        const int multiplier = 2;
         return Math.Clamp(requestedCandidateCount * multiplier, requestedCandidateCount, maxPoolSize);
     }
 
@@ -10882,8 +10120,7 @@ CURRENT_USER_MESSAGE:
         IEnumerable<SourceBackedOptionCandidate> candidates,
         string? query)
         => candidates
-            .OrderByDescending(candidate => ComputeStructuredMealPlanningRoutePreservationScore(candidate, query))
-            .ThenByDescending(candidate => ComputeSourceBackedPlanningCandidateRankScore(candidate, query))
+            .OrderByDescending(candidate => ComputeSourceBackedPlanningCandidateRankScore(candidate, query))
             .ThenByDescending(static candidate => candidate.Score)
             .ThenByDescending(static candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit))
             .ThenByDescending(static candidate => candidate.Hit.Score)
@@ -10893,9 +10130,6 @@ CURRENT_USER_MESSAGE:
         IEnumerable<SourceBackedOptionCandidate> candidates,
         string? query)
     {
-        if (ShouldApplyMealPlanningSlotSemantics(query))
-            return SelectBestSourceBackedPlanningDuplicate(candidates, query);
-
         return candidates
             .OrderByDescending(static candidate => candidate.Score)
             .ThenByDescending(static candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit))
@@ -10950,80 +10184,7 @@ CURRENT_USER_MESSAGE:
         string? query)
     {
         var score = candidate.Score;
-        if (!ShouldPreferMainDishPlanningCandidates(query))
-            return score;
-
         score += ComputeSourceBackedPlanningCandidateReadabilityScore(candidate);
-
-        if (LooksLikeSweetOrDessertPlanningCandidate(candidate))
-            score -= 90;
-        if (LooksLikeMainDishPlanningCandidate(candidate))
-            score += 24;
-
-        if (ShouldApplyMealPlanningSlotSemantics(query))
-        {
-            if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal)
-                && LooksRouteCompatibleMainMealPlanningCandidate(candidate))
-            {
-                score += 70;
-            }
-            else if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Breakfast)
-                     && !LooksLikeHeavyMainMealPlanningCandidate(candidate))
-            {
-                score += 48;
-            }
-            else if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack)
-                     && !LooksLikeHeavyMainMealPlanningCandidate(candidate)
-                     && !LooksLikeMainDishPlanningCandidate(candidate)
-                     && !LooksLikeStandaloneSpreadOrDipPlanningCandidate(candidate))
-            {
-                score += 48;
-            }
-        }
-
-        return score;
-    }
-
-    private static int ComputeStructuredMealPlanningRoutePreservationScore(
-        SourceBackedOptionCandidate candidate,
-        string? query)
-    {
-        if (!ShouldApplyMealPlanningSlotSemantics(query))
-            return 0;
-
-        var score = 0;
-        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))
-        {
-            score += 80;
-            if (LooksLikeSnackFriendlyPlanningCandidate(candidate)
-                && !LooksLikeHeavyMainMealPlanningCandidate(candidate)
-                && !LooksLikeStandaloneSpreadOrDipPlanningCandidate(candidate))
-            {
-                score += 90;
-            }
-        }
-        else if (LooksLikeStandaloneLightSnackPlanningCandidate(candidate))
-        {
-            score += 45;
-        }
-
-        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Breakfast))
-        {
-            score += 70;
-            if (LooksLikeBreakfastFriendlyPlanningCandidate(candidate)
-                && !LooksLikeHeavyMainMealPlanningCandidate(candidate))
-            {
-                score += 70;
-            }
-        }
-
-        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal))
-        {
-            score += 60;
-            if (LooksRouteCompatibleMainMealPlanningCandidate(candidate))
-                score += 60;
-        }
-
         return score;
     }
 
@@ -11041,1297 +10202,6 @@ CURRENT_USER_MESSAGE:
         }
 
         return score;
-    }
-
-    private static bool ShouldPreferMainDishPlanningCandidates(string? query)
-    {
-        var normalizedQuery = NormalizeLexicalLookup(query);
-        if (string.IsNullOrWhiteSpace(normalizedQuery))
-            return false;
-
-        if (QueryExplicitlyRequestsSweetPlanningCandidate(normalizedQuery))
-            return false;
-
-        return LooksLikeWeeklyPlanningRequest(query)
-            || Regex.IsMatch(
-                normalizedQuery,
-                @"\b(?:repas|meal|items|menu|menus|dejeuner|diner|lunch|dinner|souper|semaine|week)\b",
-                RegexOptions.CultureInvariant);
-    }
-
-    private static bool QueryExplicitlyRequestsSweetPlanningCandidate(string normalizedQuery)
-        => Regex.IsMatch(
-            normalizedQuery,
-            @"\b(?:desserts?|sweet|sweets|sucre|sucr[eé]s?|patisseries?|p[aâ]tisseries?|g[aâ]teaux?|cakes?|postres?|sobremesas?)\b",
-            RegexOptions.CultureInvariant);
-
-    private static bool ShouldRejectLowFitPlanningCandidateForStructuredSlot(
-        SourceBackedOptionCandidate candidate,
-        string? query)
-        => ShouldApplyVagueMainMealDessertGuard(query)
-           && LooksLikeSweetOrDessertPlanningCandidate(candidate)
-           && !LooksLikeMainDishPlanningCandidate(candidate);
-
-    private static bool ShouldApplyVagueMainMealDessertGuard(string? query)
-    {
-        if (!ShouldPreferMainDishPlanningCandidates(query))
-            return false;
-
-        var language = DetectRetrievalExpansionLanguage(query);
-        var hasStructuredAxes = DetectRequestedDayAxisLabels(query, language).Count > 0
-            && DetectRequestedPeriodAxisLabels(query, language).Count > 0;
-        if (hasStructuredAxes)
-            return false;
-
-        var normalizedQuery = NormalizeLexicalLookup(query);
-        if (Regex.IsMatch(
-                normalizedQuery,
-                @"\b(?:petit[-\s]+dejeune(?:r)?|breakfast|gouter|go[uû]ter|collation|snack|encas)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    private static string BuildStructuredMealPlanningSemanticText(SourceBackedOptionCandidate candidate)
-        => NormalizeLexicalLookup(string.Join(
-            ' ',
-            new[]
-            {
-                candidate.Title,
-                candidate.Hit.RetrievalQuery,
-                candidate.Hit.SectionTitle,
-                candidate.Hit.HeadingPath,
-                candidate.Hit.ContextualSnippet,
-                candidate.Hit.Excerpt
-            }.Where(static value => !string.IsNullOrWhiteSpace(value))));
-
-    private static bool LooksLikeSweetOrDessertPlanningCandidate(SourceBackedOptionCandidate candidate)
-    {
-        var text = BuildStructuredMealPlanningSemanticText(candidate);
-        if (string.IsNullOrWhiteSpace(text))
-            return false;
-
-        if (Regex.IsMatch(
-                text,
-                @"\b(?:desserts?|sweet|sweets|sucre|sucr[eé]s?|patisseries?|p[aâ]tisseries?|g[aâ]teaux?|cakes?|tiramisu|millefeuille|profiteroles?|meringue|brownies?|pouding|pudding|cr[eè]me\s+brulee|creme\s+brulee|cr[eè]me\s+catalane|creme\s+catalane|crema\s+catalana)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        var hasLowFitComponentCue = Regex.IsMatch(
-            text,
-            @"\b(?:sucre|miel|sirop|chocolat|cacao|caramel|vanille|mascarpone|creme|cr[eè]me|framboises?|fraises?|mangues?|pommes?|poires?|bleuets?|canneberges?|cannelle)\b",
-            RegexOptions.CultureInvariant);
-        if (!hasLowFitComponentCue)
-            return false;
-
-        return Regex.IsMatch(
-            text,
-            @"\b(?:tartes?|tartelettes?|beignets?|muffins?|scones?|compotes?|biscuits?|cookies?|smoothies?|riz\s+gluant|lait\s+de\s+coco)\b",
-            RegexOptions.CultureInvariant);
-    }
-
-    private static bool LooksLikeMainDishPlanningCandidate(SourceBackedOptionCandidate candidate)
-    {
-        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
-        if (string.IsNullOrWhiteSpace(normalizedTitle))
-            return false;
-
-        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal)
-            && !LooksLikeSweetOrDessertPlanningCandidate(candidate))
-        {
-            return true;
-        }
-
-        if (TitleContainsStructuredMealPlanningRoleCue(
-                normalizedTitle,
-                StructuredMealPlanningSlotKind.MainMeal))
-        {
-            return true;
-        }
-
-        return !LooksLikeSweetOrDessertPlanningCandidate(candidate)
-            && !LooksLikeBreakfastFriendlyPlanningCandidate(candidate)
-            && !LooksLikeSnackFriendlyPlanningCandidate(candidate)
-            && !LooksLikeGenericMealPlanningInventoryTitle(candidate.Title, query: "repas")
-            && !LooksLikeResidualMealPlanningInventoryFragment(candidate)
-            && !LooksLikeNoisyStructuredPlanningCandidateTitle(candidate.Title)
-            && !LooksLikeAudienceOrCollectionMealPlanningTitle(candidate.Title)
-            && HasDirectSourceBackedPlanningCandidateEvidence(candidate);
-    }
-
-    private static bool LooksLikeBreakfastFriendlyPlanningCandidate(SourceBackedOptionCandidate candidate)
-    {
-        var text = BuildStructuredMealPlanningSemanticText(candidate);
-        if (string.IsNullOrWhiteSpace(text))
-            return false;
-
-        var hasBreakfastCue = TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Breakfast)
-            || Regex.IsMatch(
-                text,
-                @"\b(?:brunch|gruau|avoine|porridge|granola|c[eé]r[eé]ales?|cereals?|pancakes?|cr[eê]pes?|crepes?|gaufres?|waffles?|smoothies?|scones?|muffins?|compotes?|yogourts?|yaourts?|yogurts?)\b",
-                RegexOptions.CultureInvariant);
-        if (hasBreakfastCue)
-            return true;
-
-        return RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Breakfast)
-            && !LooksLikeClearlyHeavyMainMealPlanningSemanticText(text)
-            && !LooksLikeSweetOrDessertPlanningCandidate(candidate);
-    }
-
-    private static bool LooksLikeSnackFriendlyPlanningCandidate(SourceBackedOptionCandidate candidate)
-    {
-        var text = BuildStructuredMealPlanningSemanticText(candidate);
-        if (string.IsNullOrWhiteSpace(text))
-            return false;
-
-        var hasSnackCue = TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Snack)
-            || Regex.IsMatch(
-                text,
-                @"\b(?:collations?|gouters?|go[uû]ters?|snacks?|encas|barres?|bouch[eé]es?|crackers?|trempettes?|houmous|hummus|compotes?|fruits?|beignets?|brownies?|muffins?|scones?)\b",
-                RegexOptions.CultureInvariant);
-        if (hasSnackCue)
-            return true;
-
-        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))
-        {
-            return !LooksLikeClearlyHeavyMainMealPlanningSemanticText(text)
-                && !LooksLikeStandaloneSpreadOrDipPlanningCandidate(candidate);
-        }
-
-        return LooksLikeSweetOrDessertPlanningCandidate(candidate)
-            && !RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal)
-            && !TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal);
-    }
-
-    private static bool LooksLikeStandaloneLightSnackPlanningCandidate(SourceBackedOptionCandidate candidate)
-    {
-        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
-        if (string.IsNullOrWhiteSpace(normalizedTitle))
-            return false;
-
-        if (LooksLikeStandaloneSpreadOrDipPlanningCandidate(candidate)
-            || LooksLikeHeavyMainMealPlanningCandidate(candidate)
-            || TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal)
-            || TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Snack)
-            || LooksLikeNoisyStructuredPlanningCandidateTitle(candidate.Title)
-            || !LooksLikeConcreteStructuredPlanningCandidateTitle(candidate.Title)
-            || !HasDirectSourceBackedPlanningCandidateEvidence(candidate))
-        {
-            return false;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:tiramisu|profiteroles?|mille[-\s]*feuilles?|cr[eè]me\s+catalane|creme\s+catalane|cr[eè]me\s+brulee|creme\s+brulee|ile\s+flottante|fondants?\s+au\s+chocolat)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return false;
-        }
-
-        return Regex.IsMatch(
-            normalizedTitle,
-            @"\b(?:barres?|bouch[eé]es?|crackers?|compotes?|fruits?|brownies?|muffins?|scones?|biscuits?|cookies?|galettes?|yaou?rts?|yogou?rts?|yogurts?|smoothies?|pains?\s+aux?\s+bananes?)\b",
-            RegexOptions.CultureInvariant);
-    }
-
-    private static bool LooksLikeClearlyHeavyMainMealPlanningSemanticText(string normalizedText)
-    {
-        if (string.IsNullOrWhiteSpace(normalizedText))
-            return false;
-
-        return Regex.IsMatch(
-            normalizedText,
-            @"\b(?:boeuf|b[oeœ]uf|poulet|volaille|veau|porc|agneau|poisson|crevettes?|moules?|saucisses?|chorizo|cassoulet|paella|quiche|gratin|osso|curry|ragout|rago[uû]t|risotto|macaroni|pates?|p[aâ]tes?|bucatini|nouilles?|ramen|soupe|bisque|tortilla|courgettes?\s+farcies?|tomates?\s+farcies?|riz\s+saute|sauce\s+cacahu[eè]te|items?\s+principaux?|main\s+items?)\b",
-            RegexOptions.CultureInvariant);
-    }
-
-    private static bool LooksLikeStandaloneSpreadOrDipPlanningCandidate(SourceBackedOptionCandidate candidate)
-    {
-        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:trempettes?|dips?|spreads?|tartinades?|houmous|hummus|tapenade|p[aâ]t[eé]s?\s+d(?:e|'))\b",
-                RegexOptions.CultureInvariant)
-            && !Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:sandwichs?|wraps?|salades?|bols?|bowls?|repas|meal|options?|items?|crudites?|crudit[eé]s?)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        var text = BuildStructuredMealPlanningSemanticText(candidate);
-        if (string.IsNullOrWhiteSpace(text))
-            return false;
-
-        if (!Regex.IsMatch(
-                text,
-                @"\b(?:trempettes?|dips?|spreads?|tartinades?|houmous|hummus|tapenade|p[aâ]tes?\s+d(?:e|')|p[aâ]t[eé]s?\s+d(?:e|'))\b",
-                RegexOptions.CultureInvariant))
-        {
-            return false;
-        }
-
-        return !Regex.IsMatch(
-            text,
-            @"\b(?:sandwichs?|wraps?|salades?|bols?|bowls?|repas|meal|options?|items?)\b",
-            RegexOptions.CultureInvariant);
-    }
-
-    private static IReadOnlyList<SourceBackedOptionCandidate> SelectStructuredMealPlanningCandidatesForSlots(
-        IReadOnlyList<SourceBackedOptionCandidate> candidates,
-        IReadOnlyList<string> periodLabels,
-        int requiredSlots,
-        string? query)
-    {
-        if (candidates.Count == 0 || periodLabels.Count == 0 || requiredSlots <= 0)
-            return Array.Empty<SourceBackedOptionCandidate>();
-
-        var rankedCandidates = RankDistinctSourceBackedPlanningLeadCandidates(candidates, query).ToList();
-        var slotKinds = Enumerable.Range(0, requiredSlots)
-            .Select(index => ResolveStructuredMealPlanningSlotKind(periodLabels[index % periodLabels.Count]))
-            .ToArray();
-        var requiredBreakfast = slotKinds.Count(static kind => kind == StructuredMealPlanningSlotKind.Breakfast);
-        var requiredMain = slotKinds.Count(static kind => kind == StructuredMealPlanningSlotKind.MainMeal);
-        var requiredSnack = slotKinds.Count(static kind => kind == StructuredMealPlanningSlotKind.Snack);
-        var strictAssignments = AssignStructuredMealPlanningSlotCandidates(
-            rankedCandidates,
-            slotKinds,
-            query,
-            allowRouteBackfill: false,
-            out var strictMatchingEdges);
-        var assignments = strictAssignments;
-        var routeAssignments = strictAssignments;
-        var routeMatchingEdges = 0;
-        var strictSelectedCount = strictAssignments.Count(static candidate => candidate is not null);
-        var routeSelectedCount = strictSelectedCount;
-        if (strictSelectedCount < requiredSlots)
-        {
-            routeAssignments = AssignStructuredMealPlanningSlotCandidates(
-                rankedCandidates,
-                slotKinds,
-                query,
-                allowRouteBackfill: true,
-                out routeMatchingEdges);
-            routeSelectedCount = routeAssignments.Count(static candidate => candidate is not null);
-            if (routeSelectedCount > strictSelectedCount)
-                assignments = routeAssignments;
-        }
-
-        var routeBackfilled = assignments
-            .Select((candidate, index) => candidate is not null
-                && CandidateFitsStructuredMealPlanningSlot(candidate, slotKinds[index], query, allowRouteBackfill: true)
-                && !CandidateFitsStructuredMealPlanningSlot(candidate, slotKinds[index], query, allowRouteBackfill: false))
-            .Count(static backfilled => backfilled);
-
-        var selected = assignments
-            .Where(static candidate => candidate is not null)
-            .Select(static candidate => candidate!)
-            .ToArray();
-        var snackRouteTitles = string.Join(
-            "; ",
-            rankedCandidates
-                .Where(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))
-                .Take(32)
-                .Select(static candidate => $"{candidate.Title} <= {candidate.Hit.RetrievalQuery}"));
-        var slotPoolStats = BuildStructuredMealPlanningSlotPoolStats(rankedCandidates, query);
-        ClientLog.Info(
-            "ToolAgent planning slot assignment: stage=end"
-            + $"|requiredSlots={requiredSlots}"
-            + $"|requiredBreakfast={requiredBreakfast}"
-            + $"|requiredMain={requiredMain}"
-            + $"|requiredSnack={requiredSnack}"
-            + $"|candidatePool={rankedCandidates.Count}"
-            + $"|selected={selected.Length}"
-            + $"|strictSelected={strictSelectedCount}"
-            + $"|routeSelected={routeSelectedCount}"
-            + $"|routeBackfilled={routeBackfilled}"
-            + $"|matchingMode={(ReferenceEquals(assignments, routeAssignments) && routeSelectedCount > strictSelectedCount ? "route_backfill" : "strict")}"
-            + $"|strictMatchingEdges={strictMatchingEdges}"
-            + $"|routeMatchingEdges={routeMatchingEdges}"
-            + $"|missingBreakfast={CountMissingStructuredMealPlanningSlots(assignments, slotKinds, StructuredMealPlanningSlotKind.Breakfast)}"
-            + $"|missingMain={CountMissingStructuredMealPlanningSlots(assignments, slotKinds, StructuredMealPlanningSlotKind.MainMeal)}"
-            + $"|missingSnack={CountMissingStructuredMealPlanningSlots(assignments, slotKinds, StructuredMealPlanningSlotKind.Snack)}"
-            + $"|availableBreakfast={slotPoolStats.AvailableBreakfast}"
-            + $"|availableMain={slotPoolStats.AvailableMain}"
-            + $"|availableSnack={slotPoolStats.AvailableSnack}"
-            + $"|lightSnackPool={slotPoolStats.LightSnackPool}"
-            + $"|titleBreakfast={slotPoolStats.TitleBreakfast}"
-            + $"|titleMain={slotPoolStats.TitleMain}"
-            + $"|titleSnack={slotPoolStats.TitleSnack}"
-            + $"|routeFitBreakfast={slotPoolStats.RouteFitBreakfast}"
-            + $"|routeFitMain={slotPoolStats.RouteFitMain}"
-            + $"|routeFitSnack={slotPoolStats.RouteFitSnack}"
-            + $"|snackRouteTitles={FormatPlanningTraceValue(snackRouteTitles)}"
-            + $"|titles={string.Join("; ", selected.Take(20).Select(static candidate => candidate.Title))}");
-
-        return selected;
-    }
-
-    private static SourceBackedOptionCandidate?[] AssignStructuredMealPlanningSlotCandidates(
-        IReadOnlyList<SourceBackedOptionCandidate> rankedCandidates,
-        StructuredMealPlanningSlotKind[] slotKinds,
-        string? query,
-        bool allowRouteBackfill,
-        out int matchingEdges)
-    {
-        var exploredMatchingEdges = 0;
-        var assignments = new SourceBackedOptionCandidate?[slotKinds.Length];
-        if (rankedCandidates.Count == 0 || slotKinds.Length == 0)
-        {
-            matchingEdges = exploredMatchingEdges;
-            return assignments;
-        }
-
-        var distinctSlotKinds = slotKinds
-            .Distinct()
-            .ToArray();
-        var pageKeys = rankedCandidates
-            .Select(candidate => BuildRagHitVisiblePageMergeKey(candidate.Hit))
-            .ToArray();
-        var rejectNonMealCache = new bool?[rankedCandidates.Count];
-        bool ShouldRejectCandidate(int candidateIndex)
-        {
-            var cached = rejectNonMealCache[candidateIndex];
-            if (cached.HasValue)
-                return cached.Value;
-
-            var rejected = ShouldRejectStandaloneMealPlanningNonMealItem(rankedCandidates[candidateIndex], query);
-            rejectNonMealCache[candidateIndex] = rejected;
-            return rejected;
-        }
-
-        var hasExplicitRoutesByKind = distinctSlotKinds
-            .ToDictionary(
-                static slotKind => slotKind,
-                slotKind => rankedCandidates.Any(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, slotKind)));
-        var optionsByKind = distinctSlotKinds.ToDictionary(
-            static slotKind => slotKind,
-            slotKind =>
-            {
-                var rawOptions = new List<(string PageKey, int CandidateIndex, int FitScore, SourceBackedOptionCandidate Candidate)>();
-                for (var candidateIndex = 0; candidateIndex < rankedCandidates.Count; candidateIndex++)
-                {
-                    var pageKey = pageKeys[candidateIndex];
-                    if (string.IsNullOrWhiteSpace(pageKey))
-                        continue;
-
-                    var rejectNonMeal = ShouldRejectCandidate(candidateIndex);
-                    var candidate = rankedCandidates[candidateIndex];
-                    if (!CandidateFitsStructuredMealPlanningSlot(
-                            candidate,
-                            slotKind,
-                            query,
-                            allowRouteBackfill,
-                            rejectNonMeal))
-                    {
-                        continue;
-                    }
-
-                    if (!CandidateHasEnoughExplicitStructuredSlotEvidence(
-                            candidate,
-                            slotKind,
-                            hasExplicitRoutesByKind[slotKind]))
-                    {
-                        continue;
-                    }
-
-                    rawOptions.Add((
-                        pageKey,
-                        candidateIndex,
-                        ComputeStructuredMealPlanningSlotFitScore(candidate, slotKind, query, rejectNonMeal),
-                        candidate));
-                }
-
-                return rawOptions
-                    .GroupBy(static option => option.PageKey, StringComparer.OrdinalIgnoreCase)
-                    .Select(group => group
-                        .OrderByDescending(static option => option.FitScore)
-                        .ThenByDescending(option => ComputeSourceBackedPlanningCandidateRankScore(option.Candidate, query))
-                        .ThenByDescending(static option => option.Candidate.Score)
-                        .ThenByDescending(static option => ComputeSourceBackedEvidenceRichnessScore(option.Candidate.Hit))
-                        .ThenByDescending(static option => option.Candidate.Hit.Score)
-                        .First())
-                    .OrderByDescending(static option => option.FitScore)
-                    .ThenByDescending(option => ComputeSourceBackedPlanningCandidateRankScore(option.Candidate, query))
-                    .ThenByDescending(static option => option.Candidate.Score)
-                    .ThenByDescending(static option => ComputeSourceBackedEvidenceRichnessScore(option.Candidate.Hit))
-                    .ThenByDescending(static option => option.Candidate.Hit.Score)
-                    .Select(static option => (option.PageKey, option.CandidateIndex, option.FitScore))
-                    .ToList();
-            });
-        var optionsBySlot = new List<(string PageKey, int CandidateIndex, int FitScore)>[slotKinds.Length];
-        for (var slotIndex = 0; slotIndex < slotKinds.Length; slotIndex++)
-        {
-            optionsBySlot[slotIndex] = optionsByKind[slotKinds[slotIndex]];
-        }
-
-        var slotOrder = Enumerable.Range(0, slotKinds.Length)
-            .OrderBy(index => optionsBySlot[index].Count)
-            .ThenBy(static index => index)
-            .ToArray();
-        var pageToSlot = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var slotToCandidateIndex = new int?[slotKinds.Length];
-
-        bool TryAssignSlot(int slotIndex, HashSet<string> seenPages)
-        {
-            foreach (var option in optionsBySlot[slotIndex])
-            {
-                exploredMatchingEdges++;
-                if (!seenPages.Add(option.PageKey))
-                    continue;
-
-                if (!pageToSlot.TryGetValue(option.PageKey, out var previousSlotIndex)
-                    || TryAssignSlot(previousSlotIndex, seenPages))
-                {
-                    pageToSlot[option.PageKey] = slotIndex;
-                    slotToCandidateIndex[slotIndex] = option.CandidateIndex;
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        foreach (var slotIndex in slotOrder)
-        {
-            TryAssignSlot(slotIndex, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-        }
-
-        for (var slotIndex = 0; slotIndex < slotToCandidateIndex.Length; slotIndex++)
-        {
-            if (slotToCandidateIndex[slotIndex] is { } candidateIndex)
-                assignments[slotIndex] = rankedCandidates[candidateIndex];
-        }
-
-        matchingEdges = exploredMatchingEdges;
-        return assignments;
-    }
-
-    private static bool CandidateHasEnoughExplicitStructuredSlotEvidence(
-        SourceBackedOptionCandidate candidate,
-        StructuredMealPlanningSlotKind slotKind,
-        bool slotHasExplicitRoutes)
-    {
-        if (!slotHasExplicitRoutes)
-            return true;
-
-        if (slotKind == StructuredMealPlanningSlotKind.MainMeal)
-            return true;
-
-        return RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, slotKind)
-            || TitleContainsStructuredMealPlanningRoleCue(candidate.Title, slotKind)
-            || (slotKind == StructuredMealPlanningSlotKind.Snack
-                && LooksLikeStandaloneLightSnackPlanningCandidate(candidate));
-    }
-
-    private static StructuredMealPlanningSlotKind ResolveStructuredMealPlanningSlotKind(string? periodLabel)
-    {
-        var normalized = NormalizeLexicalLookup(periodLabel);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return StructuredMealPlanningSlotKind.MainMeal;
-
-        if (Regex.IsMatch(
-                normalized,
-                @"\b(?:petit[-\s]*dejeuner|breakfast|desayuno|pequeno[-\s]*almoco|cafe[-\s]*da[-\s]*manha|fruhstuck|colazione|matin|morning|manana|manha|morgen|mattina)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return StructuredMealPlanningSlotKind.Breakfast;
-        }
-
-        if (Regex.IsMatch(
-                normalized,
-                @"\b(?:gouter|collation|snack|encas|desserts?|merienda|lanche|merenda)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return StructuredMealPlanningSlotKind.Snack;
-        }
-
-        return StructuredMealPlanningSlotKind.MainMeal;
-    }
-
-    private static bool CandidateFitsStructuredMealPlanningSlot(
-        SourceBackedOptionCandidate candidate,
-        StructuredMealPlanningSlotKind slotKind,
-        string? query,
-        bool allowRouteBackfill = false,
-        bool? rejectStandaloneNonMealItem = null)
-    {
-        if (rejectStandaloneNonMealItem ?? ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query))
-            return false;
-
-        var retrievalQueryTargetsSlot = RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, slotKind);
-        var requiresHighConfidenceSlotEvidence = RequiresHighConfidenceUsefulStructuredPlanningSources(query);
-        return slotKind switch
-        {
-            StructuredMealPlanningSlotKind.Breakfast => TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Breakfast)
-                && !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Breakfast)
-                || ((!requiresHighConfidenceSlotEvidence || retrievalQueryTargetsSlot)
-                    && LooksLikeBreakfastFriendlyPlanningCandidate(candidate)
-                    && !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Breakfast)
-                    && !LooksLikeMainDishPlanningCandidate(candidate))
-                || (allowRouteBackfill
-                    && !requiresHighConfidenceSlotEvidence
-                    && retrievalQueryTargetsSlot
-                    && !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Breakfast)),
-            StructuredMealPlanningSlotKind.Snack => !LooksLikeStandaloneSpreadOrDipPlanningCandidate(candidate)
-                && (TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Snack)
-                    && !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Snack)
-                    || ((!requiresHighConfidenceSlotEvidence || retrievalQueryTargetsSlot || LooksLikeStandaloneLightSnackPlanningCandidate(candidate))
-                        && LooksLikeSnackFriendlyPlanningCandidate(candidate)
-                        && !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Snack)
-                        && !LooksLikeHeavyMainMealPlanningCandidate(candidate))
-                    || (retrievalQueryTargetsSlot
-                        && !requiresHighConfidenceSlotEvidence
-                        && !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Snack))),
-            _ => TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal)
-                && !LooksLikeSweetOrDessertPlanningCandidate(candidate)
-                && !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal)
-                || (retrievalQueryTargetsSlot
-                    && !LooksLikeSweetOrDessertPlanningCandidate(candidate)
-                    && !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal))
-                || CanUseGenericStructuredPlanningDefaultSlotCandidate(candidate, query)
-        };
-    }
-
-    private static int ComputeStructuredMealPlanningSlotFitScore(
-        SourceBackedOptionCandidate candidate,
-        StructuredMealPlanningSlotKind slotKind,
-        string? query,
-        bool? rejectStandaloneNonMealItem = null)
-    {
-        var score = ComputeSourceBackedPlanningCandidateRankScore(candidate, query);
-        if (rejectStandaloneNonMealItem ?? ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query))
-            return int.MinValue;
-
-        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, slotKind))
-            score += 140;
-
-        switch (slotKind)
-        {
-            case StructuredMealPlanningSlotKind.Breakfast:
-                if (TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Breakfast))
-                    score += 180;
-                else if (LooksLikeBreakfastFriendlyPlanningCandidate(candidate))
-                    score += 90;
-                if (TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Breakfast))
-                    score -= 240;
-                break;
-            case StructuredMealPlanningSlotKind.Snack:
-                if (TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Snack))
-                    score += 180;
-                else if (LooksLikeStandaloneLightSnackPlanningCandidate(candidate))
-                    score += 120;
-                else if (LooksLikeSnackFriendlyPlanningCandidate(candidate))
-                    score += 90;
-                if (TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Snack))
-                    score -= 260;
-                break;
-            default:
-                if (TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal))
-                    score += 150;
-                else if (CanUseGenericStructuredPlanningDefaultSlotCandidate(candidate, query))
-                    score += 60;
-                if (TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal))
-                    score -= 180;
-                break;
-        }
-
-        return score;
-    }
-
-    private static bool CanUseGenericStructuredPlanningDefaultSlotCandidate(
-        SourceBackedOptionCandidate candidate,
-        string? query)
-    {
-        if (ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query))
-            return false;
-
-        if (TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal))
-            return false;
-
-        if (LooksLikeSweetOrDessertPlanningCandidate(candidate)
-            || LooksLikeBreakfastOnlyPlanningCandidate(candidate)
-            || LooksLikeSnackOnlyPlanningCandidate(candidate))
-        {
-            return false;
-        }
-
-        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Breakfast)
-            || RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))
-        {
-            return false;
-        }
-
-        return IsUsableSourceBackedPlanningCandidate(candidate)
-            && LooksLikeConcreteStructuredPlanningCandidateTitle(candidate.Title)
-            && HasDirectSourceBackedPlanningCandidateEvidence(candidate);
-    }
-
-    private static bool RetrievalQueryTargetsStructuredMealPlanningSlot(
-        string? retrievalQuery,
-        StructuredMealPlanningSlotKind slotKind)
-    {
-        var normalizedQuery = NormalizeLexicalLookup(retrievalQuery);
-        if (string.IsNullOrWhiteSpace(normalizedQuery))
-            return false;
-
-        return slotKind switch
-        {
-            StructuredMealPlanningSlotKind.Breakfast => IsBreakfastPlanningSlotRetrievalTerm(normalizedQuery),
-            StructuredMealPlanningSlotKind.Snack => IsSnackPlanningSlotRetrievalTerm(normalizedQuery),
-            _ => !IsBreakfastPlanningSlotRetrievalTerm(normalizedQuery)
-                && !IsSnackPlanningSlotRetrievalTerm(normalizedQuery)
-                && IsMainMealPlanningSlotRetrievalTerm(normalizedQuery)
-        };
-    }
-
-    private static bool TitleContainsStructuredMealPlanningRoleCue(
-        string? title,
-        StructuredMealPlanningSlotKind slotKind)
-    {
-        var normalizedTitle = NormalizeLexicalLookup(title);
-        if (string.IsNullOrWhiteSpace(normalizedTitle))
-            return false;
-
-        return slotKind switch
-        {
-            StructuredMealPlanningSlotKind.Breakfast => IsBreakfastPlanningSlotRetrievalTerm(normalizedTitle)
-                || Regex.IsMatch(
-                    normalizedTitle,
-                    @"\b(?:matin|morning|brunch|desayuno|pequeno\s+almoco|cafe\s+da\s+manha|fruehstueck|colazione)\b",
-                    RegexOptions.CultureInvariant),
-            StructuredMealPlanningSlotKind.Snack => IsSnackPlanningSlotRetrievalTerm(normalizedTitle)
-                || Regex.IsMatch(
-                    normalizedTitle,
-                    @"\b(?:apres[-\s]*midi|apr[eè]s[-\s]*midi|afternoon|merienda|lanche|zwischenmahlzeit|merenda)\b",
-                    RegexOptions.CultureInvariant),
-            _ => IsMainMealPlanningSlotRetrievalTerm(normalizedTitle)
-                || Regex.IsMatch(
-                    normalizedTitle,
-                    @"\b(?:repas\s+complets?|complete\s+items?|items?\s+principaux?|main\s+items?|lunch|dinner|supper|dejeuner|d[eé]jeuner|diner|d[iî]ner|souper|almuerzo|cena|almoco|almo[cç]o|jantar|mittagessen|abendessen|pranzo|cena)\b",
-                    RegexOptions.CultureInvariant)
-        };
-    }
-
-    private static bool TitleContainsConflictingStructuredMealPlanningRoleCue(
-        string? title,
-        StructuredMealPlanningSlotKind targetSlotKind)
-    {
-        var normalizedTitle = NormalizeLexicalLookup(title);
-        if (string.IsNullOrWhiteSpace(normalizedTitle))
-            return false;
-
-        return targetSlotKind switch
-        {
-            StructuredMealPlanningSlotKind.Breakfast => TitleContainsStructuredMealPlanningRoleCue(normalizedTitle, StructuredMealPlanningSlotKind.MainMeal)
-                || TitleContainsStructuredMealPlanningRoleCue(normalizedTitle, StructuredMealPlanningSlotKind.Snack),
-            StructuredMealPlanningSlotKind.Snack => TitleContainsStructuredMealPlanningRoleCue(normalizedTitle, StructuredMealPlanningSlotKind.MainMeal)
-                || TitleContainsStructuredMealPlanningRoleCue(normalizedTitle, StructuredMealPlanningSlotKind.Breakfast),
-            _ => TitleContainsStructuredMealPlanningRoleCue(normalizedTitle, StructuredMealPlanningSlotKind.Breakfast)
-                || TitleContainsStructuredMealPlanningRoleCue(normalizedTitle, StructuredMealPlanningSlotKind.Snack)
-        };
-    }
-
-    private static string FormatStructuredMealPlanningRetrievalRoute(SourceBackedOptionCandidate candidate)
-    {
-        var routes = new List<string>(3);
-        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Breakfast))
-            routes.Add("breakfast");
-        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal))
-            routes.Add("main_meal");
-        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))
-            routes.Add("snack");
-
-        return routes.Count == 0 ? "none" : string.Join(",", routes);
-    }
-
-    private static bool ShouldApplyMealPlanningSlotSemantics(string? query)
-    {
-        var normalized = NormalizeLexicalLookup(query);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return false;
-
-        return Regex.IsMatch(
-            normalized,
-            @"\b(?:repas|meal|items|menu|menus|options?|options?|petit[-\s]*dejeuner|breakfast|dejeuner|lunch|diner|dinner|souper|supper|gouter|collation|snack|encas)\b",
-            RegexOptions.CultureInvariant);
-    }
-
-    private static bool RequiresHighConfidenceUsefulStructuredPlanningSources(string? query)
-    {
-        var normalized = NormalizeLexicalLookup(query);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return false;
-
-        return Regex.IsMatch(
-                normalized,
-                @"\b(?:seulement|uniquement|strictement|only|just|solely|solo|solamente|apenas|nur|solo)\b.{0,80}\b(?:sources?|citations?|preuves?|evidence|fuentes?|fontes?|quellen)\b",
-                RegexOptions.CultureInvariant)
-            || Regex.IsMatch(
-                normalized,
-                @"\b(?:sources?|citations?|preuves?|evidence|fuentes?|fontes?|quellen)\b.{0,80}\b(?:vraiment|really|truly|strictement|strictly)\b.{0,50}\b(?:utiles?|useful|pertinentes?|relevant|uteis?|brauchbar)\b",
-                RegexOptions.CultureInvariant)
-            || Regex.IsMatch(
-                normalized,
-                @"\b(?:sans|without|sin|sem|ohne|senza)\b.{0,80}\b(?:sources?|citations?|preuves?|evidence|fuentes?|fontes?|quellen)\b.{0,80}\b(?:inutiles?|useless|irrelevant|doublons?|duplicates?)\b",
-                RegexOptions.CultureInvariant);
-    }
-
-    private static bool ShouldRejectStandaloneMealPlanningNonMealItem(
-        SourceBackedOptionCandidate candidate,
-        string? query)
-    {
-        if (!ShouldApplyMealPlanningSlotSemantics(query))
-            return false;
-
-        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
-        if (string.IsNullOrWhiteSpace(normalizedTitle))
-            return true;
-
-        if (LooksLikeGenericMealPlanningInventoryTitle(candidate.Title, query))
-            return true;
-
-        if (LooksLikeResidualMealPlanningInventoryFragment(candidate))
-            return true;
-
-        if (LooksLikeAudienceOrCollectionMealPlanningHeading(candidate))
-            return true;
-
-        return Regex.IsMatch(
-                normalizedTitle,
-                @"^(?:sauces?|huile|huiles|vinaigre|vinaigrette|marinade|bouillon|condiments?|epices?|assaisonnements?)\b",
-                RegexOptions.CultureInvariant)
-            || Regex.IsMatch(
-                normalizedTitle,
-                @"\bmise\s+en\s+place\b",
-                RegexOptions.CultureInvariant)
-            || Regex.IsMatch(
-                normalizedTitle,
-                @"^(?:collection|guide|manuel|livre|document|volume|tome|dossier)\b",
-                RegexOptions.CultureInvariant)
-            || Regex.IsMatch(
-                normalizedTitle,
-                @"^(?:components?|preparation|etapes?|methode|procedure|materiel|sommaire|index)$",
-                RegexOptions.CultureInvariant);
-    }
-
-    private static bool LooksLikeAudienceOrCollectionMealPlanningHeading(SourceBackedOptionCandidate candidate)
-    {
-        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
-        if (string.IsNullOrWhiteSpace(normalizedTitle))
-            return true;
-
-        var terms = ExtractQuerySignalTerms(normalizedTitle)
-            .Where(static term => term.Length >= 3)
-            .Take(8)
-            .ToArray();
-        if (terms.Length == 0 || terms.Length > 6)
-            return false;
-
-        var hasAudienceCue = Regex.IsMatch(
-            normalizedTitle,
-            @"\b(?:parents?|parental|familles?|families?|family|enfants?|children|kids?|busy|press[eé]s?|presses?|actifs?|active)\b",
-            RegexOptions.CultureInvariant);
-        if (!hasAudienceCue)
-            return false;
-
-        return !LooksLikeMainDishPlanningCandidate(candidate)
-            && !LooksLikeBreakfastPlanningCandidate(candidate)
-            && !LooksLikeSnackPlanningCandidate(candidate)
-            && !LooksLikeSweetOrDessertPlanningCandidate(candidate);
-    }
-
-    private static bool LooksLikeAudienceOrCollectionMealPlanningTitle(string? title)
-    {
-        var normalizedTitle = NormalizeLexicalLookup(title);
-        if (string.IsNullOrWhiteSpace(normalizedTitle))
-            return true;
-
-        return Regex.IsMatch(
-            normalizedTitle,
-            @"\b(?:parents?|parental|familles?|families?|family|enfants?|children|kids?|busy|press[eé]s?|presses?|actifs?|active)\b",
-            RegexOptions.CultureInvariant);
-    }
-
-    private static bool LooksLikeResidualMealPlanningInventoryFragment(SourceBackedOptionCandidate candidate)
-    {
-        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
-        if (string.IsNullOrWhiteSpace(normalizedTitle))
-            return true;
-
-        if (LooksLikeMealPlanningInstructionFragment(normalizedTitle))
-            return true;
-
-        var evidence = BuildStructuredMealPlanningSemanticText(candidate);
-        if (Regex.IsMatch(
-                evidence,
-                @"\b(?:fragment\s+ocr|ocr\s+fragment|non\s+exploitable|not\s+exploitable|unusable\s+fragment)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool LooksLikeLeadingConnectorStructuredPlanningFragment(string? title)
-    {
-        var normalizedTitle = NormalizeLexicalLookup(title);
-        if (string.IsNullOrWhiteSpace(normalizedTitle))
-            return true;
-
-        var terms = ExtractQuerySignalTerms(normalizedTitle)
-            .Where(static term => term.Length >= 2)
-            .Take(8)
-            .ToArray();
-        if (terms.Length is < 1 or > 6)
-            return false;
-
-        return Regex.IsMatch(
-            normalizedTitle,
-            @"^(?:a|au|aux|avec|chez|dans|de|des|du|d|en|et|pour|sans|sous|sur)\b",
-            RegexOptions.CultureInvariant);
-    }
-
-    private static bool LooksLikeMealPlanningInstructionFragment(string? title)
-    {
-        var normalizedTitle = NormalizeLexicalLookup(title);
-        if (string.IsNullOrWhiteSpace(normalizedTitle))
-            return true;
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"^(?:lorsqu|lorsque|quand|si)\b.*\b(?:cuisin\w*|options?|options?|gouter|role)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"^(?:il|ils|elle|elles|on|vous|nous)\b.*\b(?:cuisin\w*|gouter|jouent?|role|tentes?|remue|remuent|rassemble|rassemblent|melange|melangent|bat|battre|battent|fouette|fouettent|incorpore|incorporent|verse|versent)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"^(?:en\s+(?:soir[eé]e|matin[eé]e|journ[eé]e)|le\s+(?:matin|midi|soir)|la\s+nuit)\b.*\b(?:r[eé]alisez|preparez|pr[eé]parez|collectez|servez|choisissez)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"^(?:gratiner|blanchir|plonger|recouvrir|couvrir|prechauffer|deguster|farcir)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"^(?:preparer|melanger|verser|cuire|rincer|rincez|laver|lavez|secher|sechez|eponger|epongez)\b.*\b(?:bol|pot|confiture|mayonnaise|mijoteuse|temperature|four|eau|oudans|froide|filet|blancs?|secouer|secher|eponger)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:placer|placez|mettre|mettez)\s+(?:la\s+)?(?:lame|couteau|fouet|spatule|accessoire)\s+dans\s+(?:le\s+|la\s+)?(?:recipient|bol|cuve)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalizedTitle,
-                @"\b(?:sel|poivre|persil|huile|beurre)\b.{0,70}\b(?:placer|placez|mettre|mettez|ajouter|ajoutez|verser|versez)\b.{0,70}\b(?:recipient|bol|cuve|lame|couteau|fouet|spatule)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        return Regex.IsMatch(
-            normalizedTitle,
-            @"\b(?:recouvrir\s+un\s+option|quelques\s+minutes\s+un\s+aliment|eau\s+bouillante|mettre\s+au\s+four|jouent\s+un\s+role|gouter\s+un\s+option|apres\s+le\s+signal.{0,40}faire\s+cuire)\b",
-            RegexOptions.CultureInvariant);
-    }
-
-    private static bool LooksLikeGenericMealPlanningInventoryTitle(string? title, string? query)
-    {
-        if (!ShouldApplyMealPlanningSlotSemantics(query))
-            return false;
-
-        var normalizedTitle = NormalizeLexicalLookup(title);
-        if (string.IsNullOrWhiteSpace(normalizedTitle))
-            return true;
-
-        var terms = ExtractQuerySignalTerms(normalizedTitle)
-            .Where(static term => term.Length >= 3)
-            .Take(8)
-            .ToArray();
-        if (terms.Length == 0 || terms.Length > 5)
-            return false;
-
-        return LooksLikeGenericStructuredInventoryTitle(normalizedTitle)
-            || LooksLikeMealPlanningToolOrEquipmentAnchor(normalizedTitle);
-    }
-
-    private static readonly Regex MealPlanningToolOrEquipmentAnchorRegex = new(
-        @"\b(?:spatules?|fouets?|couteaux?|measures?|measures?|fourchettes?|louches?|pinces?|bols?|saladiers?|planches?|poeles?|po[eê]les?|casseroles?|paniers?\s+vapeur|steam(?:er)?\s+baskets?|vaporera|cestelli?\s+vapore|dampfgareinsatz|robots?|device|mixeurs?|blenders?|mijoteuses?|cocottes?|ustensiles?|materiel|mat[eé]riel|outils?|equipment|tools?)\b",
-        RegexOptions.CultureInvariant);
-
-    private static readonly Regex GenericStructuredInventoryTitleRegex = new(
-        @"^(?:(?:\d+\s+)?(?:a\s+){0,2}voir\s+dans\s+son\s+\p{L}{3,}|options?\s+faciles?(?:\s+avec\b.*)?|options?|options?|options?|items?|menus?|mise\s+en\s+place)$",
-        RegexOptions.CultureInvariant);
-
-    private static readonly Regex GenericStructuredInventoryWaterTitleRegex = new(
-        @"^\p{L}{5,}s\s+d\s+eau\s+\p{L}{3,}(?:\s+\p{L}{3,})?$",
-        RegexOptions.CultureInvariant);
-
-    private static bool LooksLikeMealPlanningToolOrEquipmentAnchor(string normalizedTitle)
-    {
-        if (string.IsNullOrWhiteSpace(normalizedTitle))
-            return true;
-
-        var terms = ExtractQuerySignalTerms(normalizedTitle)
-            .Where(static term => term.Length >= 3)
-            .Take(8)
-            .ToArray();
-        if (terms.Length == 0 || terms.Length > 5)
-            return false;
-
-        if (!MealPlanningToolOrEquipmentAnchorRegex.IsMatch(normalizedTitle))
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    private static bool LooksLikeGenericStructuredInventoryTitle(string normalizedTitle)
-    {
-        var lexicalTitle = CollapseWhitespace(Regex.Replace(normalizedTitle, @"[^\p{L}\p{N}]+", " ")).Trim();
-        return GenericStructuredInventoryTitleRegex.IsMatch(lexicalTitle)
-            || GenericStructuredInventoryWaterTitleRegex.IsMatch(lexicalTitle);
-    }
-
-    private static bool LooksLikeGenericInventorySurfaceDerivedPlanningCandidate(SourceBackedOptionCandidate candidate)
-    {
-        var normalizedTitle = NormalizeLexicalLookup(CleanSourceBackedOptionTitle(candidate.Title));
-        if (string.IsNullOrWhiteSpace(normalizedTitle))
-            return true;
-
-        var titleTerms = ExtractPlanningAnswerSupportTerms(normalizedTitle)
-            .Where(static term => term.Length >= 3)
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-        if (titleTerms.Length == 0 || titleTerms.Length > 4)
-            return false;
-
-        foreach (var surface in EnumeratePlanningCandidateRawTitleSurfaces(candidate.Hit))
-        {
-            var normalizedSurface = NormalizeLexicalLookup(surface);
-            if (string.IsNullOrWhiteSpace(normalizedSurface)
-                || string.Equals(normalizedSurface, normalizedTitle, StringComparison.Ordinal)
-                || !normalizedSurface.Contains(normalizedTitle, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            if (LooksLikeGenericStructuredInventoryTitle(normalizedSurface)
-                || Regex.IsMatch(
-                    normalizedSurface,
-                    @"^(?:options?\s+faciles?|easy\s+options?|options?\s+easy|idees?\s+de\s+repas|meal\s+ideas|suggestions?\s+de\s+repas)\b",
-                    RegexOptions.CultureInvariant))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static IEnumerable<string> EnumeratePlanningCandidateRawTitleSurfaces(RagHitSummary hit)
-    {
-        if (!string.IsNullOrWhiteSpace(hit.SectionTitle))
-            yield return hit.SectionTitle!;
-        if (!string.IsNullOrWhiteSpace(hit.HeadingPath))
-            yield return hit.HeadingPath!;
-
-        foreach (var card in hit.MatchedContentCards ?? Array.Empty<RagHitContentCardSummary>())
-        {
-            if (!string.IsNullOrWhiteSpace(card.Title))
-                yield return card.Title;
-        }
-    }
-
-    private static bool LooksLikeMainMealPlanningCandidateForSlot(SourceBackedOptionCandidate candidate)
-    {
-        if (LooksLikeSweetOrDessertPlanningCandidate(candidate) && !LooksLikeMainDishPlanningCandidate(candidate))
-            return false;
-
-        return TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal)
-            || RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal);
-    }
-
-    private static bool LooksRouteCompatibleMainMealPlanningCandidate(SourceBackedOptionCandidate candidate)
-    {
-        if (LooksLikeSweetOrDessertPlanningCandidate(candidate) && !LooksLikeMainDishPlanningCandidate(candidate))
-            return false;
-
-        return !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal);
-    }
-
-    private static bool LooksLikeBreakfastOnlyPlanningCandidate(SourceBackedOptionCandidate candidate)
-        => LooksLikeBreakfastFriendlyPlanningCandidate(candidate)
-           && !TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal)
-           && !LooksLikeSnackFriendlyPlanningCandidate(candidate);
-
-    private static bool LooksLikeSnackOnlyPlanningCandidate(SourceBackedOptionCandidate candidate)
-        => LooksLikeSnackFriendlyPlanningCandidate(candidate)
-           && !TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal)
-           && !LooksLikeBreakfastFriendlyPlanningCandidate(candidate);
-
-    private static bool LooksLikeBreakfastPlanningCandidate(SourceBackedOptionCandidate candidate)
-        => LooksLikeBreakfastFriendlyPlanningCandidate(candidate);
-
-    private static bool LooksLikeBreakfastFriendlySweetPlanningTitle(string normalizedTitle)
-        => TitleContainsStructuredMealPlanningRoleCue(normalizedTitle, StructuredMealPlanningSlotKind.Breakfast);
-
-    private static bool LooksLikeSnackPlanningCandidate(SourceBackedOptionCandidate candidate)
-        => LooksLikeSnackFriendlyPlanningCandidate(candidate);
-
-    private static bool LooksLikeRouteCompatibleBreakfastPlanningCandidate(SourceBackedOptionCandidate candidate)
-        => !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.Breakfast)
-           && !ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query: null);
-
-    private static bool LooksLikeLightMealOrSnackPlanningCandidate(SourceBackedOptionCandidate candidate)
-        => LooksLikeBreakfastPlanningCandidate(candidate)
-            || LooksLikeSnackPlanningCandidate(candidate);
-
-    private static bool LooksLikeHeavyMainMealPlanningCandidate(SourceBackedOptionCandidate candidate)
-        => LooksLikeMainDishPlanningCandidate(candidate)
-           || TitleContainsStructuredMealPlanningRoleCue(candidate.Title, StructuredMealPlanningSlotKind.MainMeal)
-           || RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal);
-
-    private static int CountStructuredMealPlanningSlotCandidates(
-        IReadOnlyList<SourceBackedOptionCandidate> candidates,
-        StructuredMealPlanningSlotKind slotKind,
-        string? query)
-        => candidates
-            .Where(candidate => !string.IsNullOrWhiteSpace(BuildRagHitVisiblePageMergeKey(candidate.Hit)))
-            .Where(candidate => CandidateFitsStructuredMealPlanningSlot(candidate, slotKind, query))
-            .Select(BuildSourceBackedPlanningCandidateLeadKey)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Count();
-
-    private static int CountStructuredMealPlanningExplicitSlotCandidates(
-        IReadOnlyList<SourceBackedOptionCandidate> candidates,
-        StructuredMealPlanningSlotKind slotKind,
-        string? query)
-        => candidates
-            .Where(candidate => !string.IsNullOrWhiteSpace(BuildRagHitVisiblePageMergeKey(candidate.Hit)))
-            .Where(candidate => !ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query))
-            .Where(candidate =>
-                RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, slotKind)
-                || TitleContainsStructuredMealPlanningRoleCue(candidate.Title, slotKind))
-            .Where(candidate => CandidateFitsStructuredMealPlanningSlot(candidate, slotKind, query))
-            .Select(BuildSourceBackedPlanningCandidateLeadKey)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Count();
-
-    private static int CountStructuredMealPlanningLightSnackCandidates(
-        IReadOnlyList<SourceBackedOptionCandidate> candidates,
-        string? query)
-        => candidates
-            .Where(candidate => !string.IsNullOrWhiteSpace(BuildRagHitVisiblePageMergeKey(candidate.Hit)))
-            .Where(candidate => !ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query))
-            .Where(LooksLikeStandaloneLightSnackPlanningCandidate)
-            .Select(BuildSourceBackedPlanningCandidateLeadKey)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Count();
-
-    private static int CountStructuredMealPlanningSlotTitleCueCandidates(
-        IReadOnlyList<SourceBackedOptionCandidate> candidates,
-        StructuredMealPlanningSlotKind slotKind,
-        string? query)
-        => candidates
-            .Where(candidate => !string.IsNullOrWhiteSpace(BuildRagHitVisiblePageMergeKey(candidate.Hit)))
-            .Where(candidate => !ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query))
-            .Where(candidate => CandidateHasStructuredMealPlanningSlotTitleCue(candidate, slotKind, query))
-            .Select(BuildSourceBackedPlanningCandidateLeadKey)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Count();
-
-    private static int CountStructuredMealPlanningSlotRouteCompatibleCandidates(
-        IReadOnlyList<SourceBackedOptionCandidate> candidates,
-        StructuredMealPlanningSlotKind slotKind,
-        string? query)
-        => candidates
-            .Where(candidate => !string.IsNullOrWhiteSpace(BuildRagHitVisiblePageMergeKey(candidate.Hit)))
-            .Where(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, slotKind))
-            .Where(candidate => CandidateFitsStructuredMealPlanningSlot(candidate, slotKind, query, allowRouteBackfill: true))
-            .Select(BuildSourceBackedPlanningCandidateLeadKey)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Count();
-
-    private static StructuredMealPlanningSlotPoolStats BuildStructuredMealPlanningSlotPoolStats(
-        IReadOnlyList<SourceBackedOptionCandidate> candidates,
-        string? query)
-    {
-        var availableBreakfast = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var availableMain = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var availableSnack = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var titleBreakfast = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var titleMain = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var titleSnack = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var routeFitBreakfast = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var routeFitMain = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var routeFitSnack = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var lightSnackPool = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var candidate in candidates)
-        {
-            if (string.IsNullOrWhiteSpace(BuildRagHitVisiblePageMergeKey(candidate.Hit)))
-                continue;
-
-            var key = BuildSourceBackedPlanningCandidateLeadKey(candidate);
-            if (string.IsNullOrWhiteSpace(key))
-                continue;
-
-            var rejectNonMeal = ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query);
-            if (!rejectNonMeal && LooksLikeStandaloneLightSnackPlanningCandidate(candidate))
-                lightSnackPool.Add(key);
-
-            AddStructuredMealPlanningSlotPoolStats(
-                candidate,
-                StructuredMealPlanningSlotKind.Breakfast,
-                query,
-                rejectNonMeal,
-                key,
-                availableBreakfast,
-                titleBreakfast,
-                routeFitBreakfast);
-            AddStructuredMealPlanningSlotPoolStats(
-                candidate,
-                StructuredMealPlanningSlotKind.MainMeal,
-                query,
-                rejectNonMeal,
-                key,
-                availableMain,
-                titleMain,
-                routeFitMain);
-            AddStructuredMealPlanningSlotPoolStats(
-                candidate,
-                StructuredMealPlanningSlotKind.Snack,
-                query,
-                rejectNonMeal,
-                key,
-                availableSnack,
-                titleSnack,
-                routeFitSnack);
-        }
-
-        return new StructuredMealPlanningSlotPoolStats(
-            availableBreakfast.Count,
-            availableMain.Count,
-            availableSnack.Count,
-            lightSnackPool.Count,
-            titleBreakfast.Count,
-            titleMain.Count,
-            titleSnack.Count,
-            routeFitBreakfast.Count,
-            routeFitMain.Count,
-            routeFitSnack.Count);
-    }
-
-    private static void AddStructuredMealPlanningSlotPoolStats(
-        SourceBackedOptionCandidate candidate,
-        StructuredMealPlanningSlotKind slotKind,
-        string? query,
-        bool rejectNonMeal,
-        string key,
-        HashSet<string> available,
-        HashSet<string> titleCue,
-        HashSet<string> routeFit)
-    {
-        if (CandidateFitsStructuredMealPlanningSlot(
-                candidate,
-                slotKind,
-                query,
-                allowRouteBackfill: false,
-                rejectStandaloneNonMealItem: rejectNonMeal))
-        {
-            available.Add(key);
-        }
-
-        if (!rejectNonMeal && CandidateHasStructuredMealPlanningSlotTitleCue(candidate, slotKind, query))
-            titleCue.Add(key);
-
-        if (RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, slotKind)
-            && CandidateFitsStructuredMealPlanningSlot(
-                candidate,
-                slotKind,
-                query,
-                allowRouteBackfill: true,
-                rejectStandaloneNonMealItem: rejectNonMeal))
-        {
-            routeFit.Add(key);
-        }
-    }
-
-    private sealed record StructuredMealPlanningSlotPoolStats(
-        int AvailableBreakfast,
-        int AvailableMain,
-        int AvailableSnack,
-        int LightSnackPool,
-        int TitleBreakfast,
-        int TitleMain,
-        int TitleSnack,
-        int RouteFitBreakfast,
-        int RouteFitMain,
-        int RouteFitSnack);
-
-    private static bool CandidateHasStructuredMealPlanningSlotTitleCue(
-        SourceBackedOptionCandidate candidate,
-        StructuredMealPlanningSlotKind slotKind,
-        string? query)
-    {
-        if (slotKind == StructuredMealPlanningSlotKind.MainMeal
-            && CanUseGenericStructuredPlanningDefaultSlotCandidate(candidate, query))
-        {
-            return true;
-        }
-
-        return TitleContainsStructuredMealPlanningRoleCue(candidate.Title, slotKind)
-            && !TitleContainsConflictingStructuredMealPlanningRoleCue(candidate.Title, slotKind);
-    }
-
-    private static int CountMissingStructuredMealPlanningSlots(
-        SourceBackedOptionCandidate?[] assignments,
-        StructuredMealPlanningSlotKind[] slotKinds,
-        StructuredMealPlanningSlotKind slotKind)
-    {
-        var limit = Math.Min(assignments.Length, slotKinds.Length);
-        var count = 0;
-        for (var i = 0; i < limit; i++)
-        {
-            if (assignments[i] is null && slotKinds[i] == slotKind)
-                count++;
-        }
-
-        return count;
     }
 
     private static IReadOnlyList<ToolMemory.SourceRef> BuildPlanningSourcesFromCandidates(
@@ -12363,7 +10233,8 @@ CURRENT_USER_MESSAGE:
         IReadOnlyList<string> periodLabels,
         string language,
         string? query,
-        int requiredDistinctItems)
+        int requiredDistinctItems,
+        bool allowSourcedRotation = false)
     {
         if (planItems.Count == 0 || dayLabels.Count == 0 || periodLabels.Count == 0)
             return string.Empty;
@@ -12372,6 +10243,29 @@ CURRENT_USER_MESSAGE:
         var requiredSlots = dayLabels.Count * periodLabels.Count;
         requiredDistinctItems = Math.Clamp(requiredDistinctItems, 1, requiredSlots);
         var hasEnoughDistinctItems = planItems.Count >= requiredDistinctItems;
+        var canBuildDistinctGrid = hasEnoughDistinctItems && planItems.Count >= requiredSlots;
+        var canUseSourcedRotation = allowSourcedRotation && ShouldAllowSourcedStructuredPlanningRotation(query);
+        var routeAwareGrid = BuildStructuredSourceBackedSlotAwareGrid(
+            planItems,
+            periodLabels,
+            requiredSlots,
+            query,
+            canUseSourcedRotation,
+            requireDistinctItems: canBuildDistinctGrid && !canUseSourcedRotation,
+            out var routeAwareFit);
+        var requiresExplicitSlotEvidence = RequiresExplicitStructuredPlanningSlotEvidence(query);
+        var gridItems = routeAwareGrid.Count > 0
+            ? routeAwareGrid
+            : routeAwareFit.HasRouteEvidence || requiresExplicitSlotEvidence
+                ? Array.Empty<SourceBackedOptionCandidate>()
+                : canBuildDistinctGrid
+                    ? planItems.Take(requiredSlots).ToArray()
+                    : canUseSourcedRotation
+                        ? BuildStructuredSourceBackedRotatingGrid(planItems, periodLabels, requiredSlots, query)
+                        : Array.Empty<SourceBackedOptionCandidate>();
+        var usesSourcedRotationGrid = routeAwareGrid.Count > 0
+            && routeAwareFit.HasRouteEvidence
+            && canUseSourcedRotation;
         var labels = language switch
         {
             "en" => (
@@ -12412,14 +10306,14 @@ CURRENT_USER_MESSAGE:
                 Verify: "Avant d'en faire un planning définitif, vérifie les pages citées pour les quantités, horaires, contraintes et remplacements.")
         };
 
-        if (!hasEnoughDistinctItems || planItems.Count < requiredSlots)
+        if (gridItems.Count < requiredSlots)
         {
             return BuildStructuredSourceBackedCandidateBankAnswer(planItems, requiredSlots, language, query);
         }
 
         var sb = new StringBuilder();
         sb.AppendLine(labels.Header);
-        sb.AppendLine(labels.Complete);
+        sb.AppendLine(canBuildDistinctGrid && !usesSourcedRotationGrid ? labels.Complete : labels.Rotation);
 
         var slotIndex = 0;
         foreach (var day in dayLabels)
@@ -12428,9 +10322,9 @@ CURRENT_USER_MESSAGE:
             sb.AppendLine($"{day} :");
             foreach (var period in periodLabels)
             {
-                var candidate = planItems[slotIndex];
+                var candidate = gridItems[slotIndex];
                 sb.Append("  - ");
-                sb.Append(period);
+                sb.Append(FormatStructuredPlanningAxisDisplayLabel(period));
                 sb.Append(" : ");
                 sb.Append(FormatSourceBackedCandidateDisplayTitle(candidate));
                 sb.Append(' ');
@@ -12443,6 +10337,280 @@ CURRENT_USER_MESSAGE:
         sb.AppendLine();
         sb.Append(labels.Verify);
         return sb.ToString().TrimEnd();
+    }
+
+    private static IReadOnlyList<SourceBackedOptionCandidate> BuildStructuredSourceBackedSlotAwareGrid(
+        IReadOnlyList<SourceBackedOptionCandidate> planItems,
+        IReadOnlyList<string> periodLabels,
+        int requiredSlots,
+        string? query,
+        bool allowSourcedRotation,
+        bool requireDistinctItems,
+        out StructuredPlanningSlotFitSummary summary)
+    {
+        summary = StructuredPlanningSlotFitSummary.Empty;
+        if (planItems.Count == 0 || periodLabels.Count == 0 || requiredSlots <= 0)
+            return Array.Empty<SourceBackedOptionCandidate>();
+
+        var slotGroups = BuildStructuredPlanningSlotTermGroups(periodLabels, query);
+        if (slotGroups.Count == 0)
+            return Array.Empty<SourceBackedOptionCandidate>();
+
+        var distinctItems = planItems
+            .GroupBy(BuildSourceBackedPlanningCandidateLeadKey, StringComparer.OrdinalIgnoreCase)
+            .Select(static group => group.First())
+            .ToArray();
+        if (distinctItems.Length == 0)
+            return Array.Empty<SourceBackedOptionCandidate>();
+
+        var primaryPools = slotGroups.Select(static _ => new List<SourceBackedOptionCandidate>()).ToArray();
+        var alternativePools = slotGroups.Select(static _ => new List<SourceBackedOptionCandidate>()).ToArray();
+        var neutralPool = new List<SourceBackedOptionCandidate>();
+        var routedPool = 0;
+        foreach (var candidate in distinctItems)
+        {
+            var primaryMatches = FindStructuredPlanningCandidateSlotMatches(candidate, slotGroups, useAlternativeTerms: false);
+            var alternativeMatches = primaryMatches.Length == 0
+                ? FindStructuredPlanningCandidateSlotMatches(candidate, slotGroups, useAlternativeTerms: true)
+                : Array.Empty<int>();
+
+            if (primaryMatches.Length > 0)
+            {
+                routedPool++;
+                foreach (var index in primaryMatches)
+                    primaryPools[index].Add(candidate);
+            }
+            else if (alternativeMatches.Length > 0)
+            {
+                routedPool++;
+                foreach (var index in alternativeMatches)
+                    alternativePools[index].Add(candidate);
+            }
+            else
+            {
+                neutralPool.Add(candidate);
+            }
+        }
+
+        var hasRouteEvidence = routedPool > 0;
+        summary = new StructuredPlanningSlotFitSummary(
+            hasRouteEvidence,
+            AssignedSlots: 0,
+            RoutedPool: routedPool,
+            NeutralPool: neutralPool.Count,
+            PrimaryPools: primaryPools.Select(static pool => pool.Count).ToArray(),
+            AlternativePools: alternativePools.Select(static pool => pool.Count).ToArray());
+        if (!hasRouteEvidence)
+            return Array.Empty<SourceBackedOptionCandidate>();
+
+        var grid = allowSourcedRotation && !requireDistinctItems
+            ? BuildRotatingStructuredPlanningSlotAwareGrid(requiredSlots, periodLabels.Count, primaryPools, alternativePools, neutralPool)
+            : BuildDistinctStructuredPlanningSlotAwareGrid(requiredSlots, periodLabels.Count, primaryPools, alternativePools, neutralPool);
+        summary = summary with { AssignedSlots = grid.Count };
+        return grid.Count == requiredSlots ? grid : Array.Empty<SourceBackedOptionCandidate>();
+    }
+
+    private static IReadOnlyList<SourceBackedOptionCandidate> BuildDistinctStructuredPlanningSlotAwareGrid(
+        int requiredSlots,
+        int periodCount,
+        IReadOnlyList<SourceBackedOptionCandidate>[] primaryPools,
+        IReadOnlyList<SourceBackedOptionCandidate>[] alternativePools,
+        IReadOnlyList<SourceBackedOptionCandidate> neutralPool)
+    {
+        var grid = new List<SourceBackedOptionCandidate>(requiredSlots);
+        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var slotIndex = 0; slotIndex < requiredSlots; slotIndex++)
+        {
+            var periodIndex = slotIndex % periodCount;
+            var candidate = PickNextUnusedStructuredPlanningSlotCandidate(primaryPools[periodIndex], used)
+                ?? (primaryPools[periodIndex].Count == 0
+                    ? PickNextUnusedStructuredPlanningSlotCandidate(alternativePools[periodIndex], used)
+                    : null)
+                ?? (primaryPools[periodIndex].Count == 0 && alternativePools[periodIndex].Count == 0
+                    ? PickNextUnusedStructuredPlanningSlotCandidate(neutralPool, used)
+                    : null);
+            if (candidate is null)
+                break;
+
+            used.Add(BuildSourceBackedPlanningCandidateLeadKey(candidate));
+            grid.Add(candidate);
+        }
+
+        return grid;
+    }
+
+    private static IReadOnlyList<SourceBackedOptionCandidate> BuildRotatingStructuredPlanningSlotAwareGrid(
+        int requiredSlots,
+        int periodCount,
+        IReadOnlyList<SourceBackedOptionCandidate>[] primaryPools,
+        IReadOnlyList<SourceBackedOptionCandidate>[] alternativePools,
+        IReadOnlyList<SourceBackedOptionCandidate> neutralPool)
+    {
+        var grid = new List<SourceBackedOptionCandidate>(requiredSlots);
+        var cursors = new int[periodCount];
+        for (var slotIndex = 0; slotIndex < requiredSlots; slotIndex++)
+        {
+            var periodIndex = slotIndex % periodCount;
+            var pool = primaryPools[periodIndex].Count > 0
+                ? primaryPools[periodIndex]
+                : alternativePools[periodIndex].Count > 0
+                    ? alternativePools[periodIndex]
+                    : neutralPool;
+            if (pool.Count == 0)
+                break;
+
+            grid.Add(pool[cursors[periodIndex] % pool.Count]);
+            cursors[periodIndex]++;
+        }
+
+        return grid;
+    }
+
+    private static SourceBackedOptionCandidate? PickNextUnusedStructuredPlanningSlotCandidate(
+        IEnumerable<SourceBackedOptionCandidate> candidates,
+        HashSet<string> used)
+    {
+        foreach (var candidate in candidates)
+        {
+            var key = BuildSourceBackedPlanningCandidateLeadKey(candidate);
+            if (!used.Contains(key))
+                return candidate;
+        }
+
+        return null;
+    }
+
+    private static IReadOnlyList<StructuredPlanningSlotTermGroup> BuildStructuredPlanningSlotTermGroups(
+        IReadOnlyList<string> periodLabels,
+        string? query)
+    {
+        var normalizedQuery = NormalizeLexicalLookup(query);
+        var rawTerms = ExtractPlanningSlotRetrievalTerms(query)
+            .Select(NormalizeLexicalLookup)
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var groups = new List<StructuredPlanningSlotTermGroup>();
+        foreach (var label in periodLabels)
+        {
+            var normalizedLabel = NormalizeLexicalLookup(label);
+            if (string.IsNullOrWhiteSpace(normalizedLabel))
+                continue;
+
+            var primary = new HashSet<string>(StringComparer.Ordinal);
+            AddStructuredPlanningSlotTermVariants(primary, normalizedLabel);
+            var alternatives = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var term in rawTerms)
+            {
+                if (string.Equals(term, normalizedLabel, StringComparison.Ordinal))
+                    continue;
+                if (PlanningSlotAxisLabelsAreExplicitAlternatives(normalizedQuery, term, normalizedLabel)
+                    || PlanningSlotAxisLabelsAreExplicitAlternatives(normalizedQuery, normalizedLabel, term))
+                {
+                    AddStructuredPlanningSlotTermVariants(alternatives, term);
+                }
+            }
+
+            groups.Add(new StructuredPlanningSlotTermGroup(
+                normalizedLabel,
+                primary.ToArray(),
+                alternatives.Except(primary, StringComparer.Ordinal).ToArray()));
+        }
+
+        return groups;
+    }
+
+    private static void AddStructuredPlanningSlotTermVariants(HashSet<string> terms, string value)
+    {
+        var normalized = NormalizeLexicalLookup(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return;
+
+        terms.Add(normalized);
+        foreach (var token in ExtractQuerySignalTerms(normalized))
+        {
+            if (token.Length < 4)
+                continue;
+            terms.Add(token);
+            if (token.EndsWith('s') && token.Length > 4)
+                terms.Add(token[..^1]);
+            else
+                terms.Add(token + "s");
+        }
+    }
+
+    private static int[] FindStructuredPlanningCandidateSlotMatches(
+        SourceBackedOptionCandidate candidate,
+        IReadOnlyList<StructuredPlanningSlotTermGroup> slotGroups,
+        bool useAlternativeTerms)
+    {
+        var routeText = NormalizeLexicalLookup(candidate.Hit.RetrievalQuery);
+        if (string.IsNullOrWhiteSpace(routeText))
+            return Array.Empty<int>();
+
+        var matches = new List<int>();
+        for (var i = 0; i < slotGroups.Count; i++)
+        {
+            var terms = useAlternativeTerms ? slotGroups[i].AlternativeTerms : slotGroups[i].PrimaryTerms;
+            if (terms.Any(term => ContainsStructuredAxisPlannerTerm(routeText, term)))
+                matches.Add(i);
+        }
+
+        return matches.ToArray();
+    }
+
+    private sealed record StructuredPlanningSlotTermGroup(
+        string Label,
+        IReadOnlyList<string> PrimaryTerms,
+        IReadOnlyList<string> AlternativeTerms);
+
+    private sealed record StructuredPlanningSlotFitSummary(
+        bool HasRouteEvidence,
+        int AssignedSlots,
+        int RoutedPool,
+        int NeutralPool,
+        IReadOnlyList<int> PrimaryPools,
+        IReadOnlyList<int> AlternativePools)
+    {
+        public static StructuredPlanningSlotFitSummary Empty { get; } = new(
+            HasRouteEvidence: false,
+            AssignedSlots: 0,
+            RoutedPool: 0,
+            NeutralPool: 0,
+            PrimaryPools: Array.Empty<int>(),
+            AlternativePools: Array.Empty<int>());
+    }
+
+    private static string FormatStructuredPlanningAxisDisplayLabel(string? label)
+    {
+        var value = CollapseWhitespace(label ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        return char.ToUpperInvariant(value[0]) + (value.Length == 1 ? string.Empty : value[1..]);
+    }
+
+    private static IReadOnlyList<SourceBackedOptionCandidate> BuildStructuredSourceBackedRotatingGrid(
+        IReadOnlyList<SourceBackedOptionCandidate> planItems,
+        IReadOnlyList<string> periodLabels,
+        int requiredSlots,
+        string? query)
+    {
+        if (planItems.Count == 0 || periodLabels.Count == 0 || requiredSlots <= 0)
+            return Array.Empty<SourceBackedOptionCandidate>();
+
+        var distinctItems = planItems
+            .GroupBy(BuildSourceBackedPlanningCandidateLeadKey, StringComparer.OrdinalIgnoreCase)
+            .Select(static group => group.First())
+            .ToArray();
+        if (distinctItems.Length == 0)
+            return Array.Empty<SourceBackedOptionCandidate>();
+
+        var grid = new List<SourceBackedOptionCandidate>(requiredSlots);
+        for (var slotIndex = 0; slotIndex < requiredSlots; slotIndex++)
+            grid.Add(distinctItems[slotIndex % distinctItems.Length]);
+
+        return grid;
     }
 
     private static bool HasEnoughSourceBackedCandidatesForStructuredPlan(
@@ -12583,7 +10751,7 @@ CURRENT_USER_MESSAGE:
 
     private static string HumanizeSourceBackedDisplayTitle(string? title)
     {
-        var value = RepairSplitOcrPlanningAxisTerms(CollapseWhitespace(title ?? string.Empty)).Trim();
+        var value = RepairSplitOcrBrokenTitleWords(CollapseWhitespace(title ?? string.Empty)).Trim();
         if (string.IsNullOrWhiteSpace(value) || !LooksLikePredominantlyUppercaseDisplayTitle(value))
             return value;
 
@@ -12756,18 +10924,16 @@ CURRENT_USER_MESSAGE:
                     "ToolAgent writer partial planning gate: decision=allow|reason=complete_candidate_bank"
                     + $"|resolvedFromEnvelope={FormatPlanningTraceBool(resolvedFromEnvelope)}"
                     + $"|previousStructured={FormatPlanningTraceBool(previousEnvelopeIsStructuredPlanning)}"
-                    + $"|structuredSlots={FormatPlanningTraceBool(ShouldApplyMealPlanningSlotSemantics(coverageQuery))}"
                     + $"|candidates={coverage.CandidateCount}"
                     + $"|minimum={coverage.MinimumCandidates}"
                     + $"|sourcePages={coverage.DistinctSourcePages}");
                 return true;
             }
 
-            var allowConfirmedMealPartial = (IsBroadenedSourceSearchConfirmationEnvelope(query)
+            var allowConfirmedStructuredPartial = (IsBroadenedSourceSearchConfirmationEnvelope(query)
                     || previousEnvelopeIsStructuredPlanning
                     || resolvedFromEnvelope
                     || hasSourceBackedConfirmationEnvelopeMarkers)
-                && ShouldApplyMealPlanningSlotSemantics(coverageQuery)
                 && (HasCompleteStrictStructuredPlanningCandidateBank(
                         toolResults,
                         coverageQuery,
@@ -12780,21 +10946,20 @@ CURRENT_USER_MESSAGE:
                         searchWasExpanded: HasExpandedSourceBackedSearchEvidence(toolResults)));
             ClientLog.Info(
                 "ToolAgent writer partial planning gate: decision="
-                + (allowConfirmedMealPartial ? "allow" : "reject")
+                + (allowConfirmedStructuredPartial ? "allow" : "reject")
                 + "|reason=structured_partial"
                 + $"|resolvedFromEnvelope={FormatPlanningTraceBool(resolvedFromEnvelope)}"
                 + $"|envelopeMarkers={FormatPlanningTraceBool(hasSourceBackedConfirmationEnvelopeMarkers)}"
                 + $"|previousStructured={FormatPlanningTraceBool(previousEnvelopeIsStructuredPlanning)}"
                 + $"|broadened={FormatPlanningTraceBool(IsBroadenedSourceSearchConfirmationEnvelope(query))}"
-                + $"|structuredSlots={FormatPlanningTraceBool(ShouldApplyMealPlanningSlotSemantics(coverageQuery))}"
                 + $"|candidates={coverage.CandidateCount}"
                 + $"|minimum={coverage.MinimumCandidates}"
                 + $"|sourcePages={coverage.DistinctSourcePages}");
-            return allowConfirmedMealPartial;
+            return allowConfirmedStructuredPartial;
         }
 
         var hasExplicitStructure = DetectRequestedDayAxisLabels(intentQuery, language).Count > 0
-            || DetectRequestedPeriodAxisLabels(intentQuery, language).Count > 0;
+            || DetectRequestedPlanningSlotAxisLabels(intentQuery, language).Count > 0;
         var asksForSynthesis = LooksLikeUserNeedsSynthesizedDecisionOrPlan(intentQuery)
             || LooksLikeMultipleCandidateSynthesisRequest(intentQuery)
             || LooksLikeBroadSourceBackedCompositionRequest(intentQuery);
@@ -13063,29 +11228,6 @@ CURRENT_USER_MESSAGE:
         return analysis.DistinctSourcePageCount >= target;
     }
 
-    private static bool ShouldSuppressStructuredMealPlanningAnchorFollowup(
-        ToolResults toolResults,
-        string? query,
-        string language)
-        => ShouldSuppressStructuredMealPlanningAnchorFollowup(
-            AnalyzeSourceBackedEvidenceSufficiency(toolResults, query, language),
-            query);
-
-    private static bool ShouldSuppressStructuredMealPlanningAnchorFollowup(
-        SourceBackedEvidenceSufficiency analysis,
-        string? query)
-    {
-        if (!ShouldGateStructuredSourceBackedPlanningCoverage(query)
-            || !ShouldApplyMealPlanningSlotSemantics(query)
-            || !string.Equals(analysis.Kind, "planning", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return (analysis.CandidateCount <= 0 && analysis.UsableHitCount <= 0)
-            || ShouldDeferSparseSourceBackedPlanningAnchorFollowup(analysis, query);
-    }
-
     private static bool ShouldDeferSparseSourceBackedPlanningAnchorFollowup(
         SourceBackedEvidenceSufficiency analysis,
         string? query)
@@ -13139,23 +11281,6 @@ CURRENT_USER_MESSAGE:
             return false;
 
         return acceptedAnyExplorationPass;
-    }
-
-    private static bool ShouldSuppressStructuredMealPlanningGenericDiscovery(
-        SourceBackedEvidenceSufficiency analysis,
-        string? query)
-    {
-        if (!ShouldGateStructuredSourceBackedPlanningCoverage(query)
-            || !ShouldApplyMealPlanningSlotSemantics(query)
-            || !string.Equals(analysis.Kind, "planning", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        var requiredConcreteCandidates = Math.Max(
-            Math.Max(1, analysis.MinimumCandidateCount),
-            Math.Max(1, analysis.TargetSlotCount));
-        return analysis.CandidateCount < requiredConcreteCandidates;
     }
 
     private static bool ShouldExpandSourceBackedEvidenceRetrieval(ToolResults toolResults, string? query, string language)
@@ -13247,9 +11372,6 @@ CURRENT_USER_MESSAGE:
 
         var scoreTolerance = UsesSourceBackedPlanningCoverage(query) ? 24 : 18;
         if (candidateAnalysis.Score < currentAnalysis.Score - scoreTolerance)
-            return false;
-
-        if (ShouldSuppressStructuredMealPlanningGenericDiscovery(candidateAnalysis, query))
             return false;
 
         var currentPivots = CountSourceBackedOrientationPivots(current, query, language);
@@ -13422,7 +11544,7 @@ CURRENT_USER_MESSAGE:
         language = NormalizeLanguageCode(language);
         var targetSlots = ResolveSourceBackedPlanningTargetItemCount(query);
         var hasStructuredAxes = DetectRequestedDayAxisLabels(query, language).Count > 0
-            && DetectRequestedPeriodAxisLabels(query, language).Count > 0;
+            && DetectRequestedPlanningSlotAxisLabels(query, language).Count > 0;
         var minimumCandidates = ResolveMinimumSourceBackedPlanningCandidateCount(query, targetSlots, hasStructuredAxes);
         var strictStructuredPlanning = ShouldGateStructuredSourceBackedPlanningCoverage(query);
         var candidatePoolSize = strictStructuredPlanning
@@ -13449,18 +11571,6 @@ CURRENT_USER_MESSAGE:
             : RankDistinctSourceBackedPlanningLeadCandidates(candidates, query).ToList();
         ClientLog.Info(
             $"ToolAgent planning coverage evaluate: stage=lead_selection.end|selected={distinctLeadCandidates.Count}|mode={(strictStructuredPlanning ? "page_diverse" : "ranked")}|ms={selectionStopwatch.ElapsedMilliseconds}|topTitles={string.Join("; ", distinctLeadCandidates.Take(8).Select(static candidate => candidate.Title))}");
-        if (strictStructuredPlanning && hasStructuredAxes && ShouldApplyMealPlanningSlotSemantics(query))
-        {
-            var slotSelectionStopwatch = Stopwatch.StartNew();
-            distinctLeadCandidates = SelectStructuredMealPlanningCandidatesForSlots(
-                    candidates,
-                    DetectRequestedPeriodAxisLabels(query, language),
-                    targetSlots,
-                    query)
-                .ToList();
-            ClientLog.Info(
-                $"ToolAgent planning coverage evaluate: stage=slot_selection.end|requiredSlots={targetSlots}|selected={distinctLeadCandidates.Count}|ms={slotSelectionStopwatch.ElapsedMilliseconds}|topTitles={string.Join("; ", distinctLeadCandidates.Take(20).Select(static candidate => candidate.Title))}");
-        }
         ClientLog.Info(
             $"ToolAgent planning coverage evaluate: stage=candidate_pool.end|candidates={candidates.Count}|selected={distinctLeadCandidates.Count}|totalMs={coverageStopwatch.ElapsedMilliseconds}|topTitles={string.Join("; ", distinctLeadCandidates.Take(10).Select(static candidate => candidate.Title))}");
 
@@ -13476,15 +11586,31 @@ CURRENT_USER_MESSAGE:
             : 1;
         var richEvidenceCount = distinctLeadCandidates.Count(static candidate => HasRichSourceBackedEvidence(candidate.Hit));
         var evidenceRichnessScore = distinctLeadCandidates.Sum(static candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit));
+        var routeAwareFit = StructuredPlanningSlotFitSummary.Empty;
+        var routeAwareGrid = hasStructuredAxes
+            ? BuildStructuredSourceBackedSlotAwareGrid(
+                distinctLeadCandidates,
+                DetectRequestedPlanningSlotAxisLabels(query, language),
+                targetSlots,
+                query,
+                allowSourcedRotation: false,
+                requireDistinctItems: true,
+                out routeAwareFit)
+            : Array.Empty<SourceBackedOptionCandidate>();
+        var hasRouteAwareCoverage = !hasStructuredAxes
+            || (!routeAwareFit.HasRouteEvidence && !RequiresExplicitStructuredPlanningSlotEvidence(query))
+            || routeAwareGrid.Count >= targetSlots;
         var hasFullStrictStructuredCoverage = strictStructuredPlanning
             && distinctCandidateCount >= minimumCandidates
             && distinctSourcePages >= requiredSourcePageCount
-            && richEvidenceCount >= Math.Min(3, minimumCandidates);
+            && richEvidenceCount >= Math.Min(3, minimumCandidates)
+            && hasRouteAwareCoverage;
         var hasRequiredAnchor = HasSourceBackedPlanningAnchorCoverage(toolResults, query)
             || hasFullStrictStructuredCoverage;
         var isAdequate = distinctCandidateCount >= minimumCandidates
             && distinctSourcePages >= requiredSourcePageCount
-            && hasRequiredAnchor;
+            && hasRequiredAnchor
+            && hasRouteAwareCoverage;
         var score = Math.Min(distinctCandidateCount, minimumCandidates) * 10
             + Math.Min(distinctSourcePages, requiredSourcePageCount) * 4
             + (hasRequiredAnchor ? 8 : 0)
@@ -13512,7 +11638,7 @@ CURRENT_USER_MESSAGE:
         language = NormalizeLanguageCode(language);
         var targetSlots = ResolveSourceBackedPlanningTargetItemCount(query);
         var hasStructuredAxes = DetectRequestedDayAxisLabels(query, language).Count > 0
-            && DetectRequestedPeriodAxisLabels(query, language).Count > 0;
+            && DetectRequestedPlanningSlotAxisLabels(query, language).Count > 0;
         var minimumCandidates = ResolveMinimumSourceBackedPlanningCandidateCount(query, targetSlots, hasStructuredAxes);
         var strictStructuredPlanning = ShouldGateStructuredSourceBackedPlanningCoverage(query);
         var trace = new List<string>
@@ -13532,9 +11658,6 @@ CURRENT_USER_MESSAGE:
         trace.Add(
             "stage=candidate_pool"
             + $"|raw_candidates={acceptedPool.Count}"
-            + $"|route_breakfast={acceptedPool.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Breakfast))}"
-            + $"|route_main={acceptedPool.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal))}"
-            + $"|route_snack={acceptedPool.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))}"
             + $"|top_titles={FormatPlanningTraceValue(string.Join("; ", acceptedPool.Take(12).Select(static candidate => candidate.Title)))}");
         var optionPool = SelectSourceBackedOptionCandidates(
                 toolResults,
@@ -13571,7 +11694,6 @@ CURRENT_USER_MESSAGE:
                 + $"|candidate_key={FormatPlanningTraceValue(BuildSourceBackedPlanningCandidateKey(optionCandidate))}"
                 + $"|strict_evidence={FormatPlanningTraceBool(HasStrictStructuredPlanningCandidateEvidence(optionCandidate))}"
                 + $"|direct_evidence={FormatPlanningTraceBool(HasDirectSourceBackedPlanningCandidateEvidence(optionCandidate))}"
-                + $"|slot_route={FormatPlanningTraceValue(FormatStructuredMealPlanningRetrievalRoute(optionCandidate))}"
                 + $"|retrieval_query={FormatPlanningTraceValue(optionCandidate.Hit.RetrievalQuery)}"
                 + BuildSourceBackedPlanningCandidateEvidenceDiagnostics(optionCandidate)
                 + $"|title={FormatPlanningTraceValue(optionCandidate.Title)}"
@@ -13586,49 +11708,27 @@ CURRENT_USER_MESSAGE:
                     query)
                 .ToList()
             : acceptedPool;
-        if (strictStructuredPlanning && hasStructuredAxes && ShouldApplyMealPlanningSlotSemantics(query))
+        if (hasStructuredAxes)
         {
-            var periodLabels = DetectRequestedPeriodAxisLabels(query, language);
-            var slotAccepted = SelectStructuredMealPlanningCandidatesForSlots(
-                    acceptedPool,
-                    periodLabels,
-                    targetSlots,
-                    query)
-                .ToList();
-            var slotKinds = Enumerable.Range(0, targetSlots)
-                .Select(index => ResolveStructuredMealPlanningSlotKind(periodLabels[index % periodLabels.Count]))
-                .ToArray();
-            var snackRouteTitles = string.Join(
-                "; ",
-                acceptedPool
-                    .Where(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))
-                    .Take(32)
-                    .Select(static candidate => $"{candidate.Title} <= {candidate.Hit.RetrievalQuery}"));
+            var periodLabels = DetectRequestedPlanningSlotAxisLabels(query, language);
+            var routeAwareGrid = BuildStructuredSourceBackedSlotAwareGrid(
+                accepted,
+                periodLabels,
+                targetSlots,
+                query,
+                allowSourcedRotation: false,
+                requireDistinctItems: true,
+                out var routeAwareFit);
             trace.Add(
                 "stage=slot_fit"
+                + $"|assigned_slots={routeAwareFit.AssignedSlots}"
                 + $"|required_slots={targetSlots}"
-                + $"|assigned_slots={slotAccepted.Count}"
-                + $"|route_backfilled={CountRouteBackfilledStructuredMealPlanningSlotAssignments(slotAccepted, slotKinds, query)}"
-                + $"|snack_pool={CountStructuredMealPlanningExplicitSlotCandidates(acceptedPool, StructuredMealPlanningSlotKind.Snack, query)}"
-                + $"|snack_compatible_pool={CountStructuredMealPlanningSlotCandidates(acceptedPool, StructuredMealPlanningSlotKind.Snack, query)}"
-                + $"|light_snack_pool={CountStructuredMealPlanningLightSnackCandidates(acceptedPool, query)}"
-                + $"|snack_route_pool={acceptedPool.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))}"
-                + $"|snack_route_fit_pool={CountStructuredMealPlanningSlotRouteCompatibleCandidates(acceptedPool, StructuredMealPlanningSlotKind.Snack, query)}"
-                + $"|breakfast_pool={CountStructuredMealPlanningSlotCandidates(acceptedPool, StructuredMealPlanningSlotKind.Breakfast, query)}"
-                + $"|main_pool={CountStructuredMealPlanningSlotCandidates(acceptedPool, StructuredMealPlanningSlotKind.MainMeal, query)}"
-                + $"|breakfast_route_pool={acceptedPool.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Breakfast))}"
-                + $"|main_route_pool={acceptedPool.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal))}"
-                + $"|breakfast_route_fit_pool={CountStructuredMealPlanningSlotRouteCompatibleCandidates(acceptedPool, StructuredMealPlanningSlotKind.Breakfast, query)}"
-                + $"|main_route_fit_pool={CountStructuredMealPlanningSlotRouteCompatibleCandidates(acceptedPool, StructuredMealPlanningSlotKind.MainMeal, query)}"
-                + $"|periods={FormatPlanningTraceValue(string.Join(", ", periodLabels))}"
-                + $"|breakfast_title_pool={CountStructuredMealPlanningSlotTitleCueCandidates(acceptedPool, StructuredMealPlanningSlotKind.Breakfast, query)}"
-                + $"|main_title_pool={CountStructuredMealPlanningSlotTitleCueCandidates(acceptedPool, StructuredMealPlanningSlotKind.MainMeal, query)}"
-                + $"|snack_title_pool={CountStructuredMealPlanningSlotTitleCueCandidates(acceptedPool, StructuredMealPlanningSlotKind.Snack, query)}"
-                + $"|snackRouteTitles={FormatPlanningTraceValue(snackRouteTitles)}"
-                + $"|non_meal_rejected={acceptedPool.Count(candidate => ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query))}");
-            accepted = slotAccepted;
+                + $"|route_evidence={FormatPlanningTraceBool(routeAwareFit.HasRouteEvidence)}"
+                + $"|routed_pool={routeAwareFit.RoutedPool}"
+                + $"|neutral_pool={routeAwareFit.NeutralPool}"
+                + $"|primary_pools={FormatPlanningTraceValue(FormatStructuredPlanningSlotPoolCounts(periodLabels, routeAwareFit.PrimaryPools))}"
+                + $"|alternative_pools={FormatPlanningTraceValue(FormatStructuredPlanningSlotPoolCounts(periodLabels, routeAwareFit.AlternativePools))}");
         }
-
         var acceptedKeys = accepted
             .Select(BuildSourceBackedPlanningCandidateKey)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -13644,7 +11744,6 @@ CURRENT_USER_MESSAGE:
                 + $"|page_key={FormatPlanningTraceValue(pageKey)}"
                 + $"|strict_evidence={FormatPlanningTraceBool(HasStrictStructuredPlanningCandidateEvidence(candidate))}"
                 + $"|direct_evidence={FormatPlanningTraceBool(HasDirectSourceBackedPlanningCandidateEvidence(candidate))}"
-                + $"|slot_route={FormatPlanningTraceValue(FormatStructuredMealPlanningRetrievalRoute(candidate))}"
                 + $"|retrieval_query={FormatPlanningTraceValue(candidate.Hit.RetrievalQuery)}"
                 + BuildSourceBackedPlanningCandidateEvidenceDiagnostics(candidate)
                 + $"|title={FormatPlanningTraceValue(candidate.Title)}"
@@ -13685,7 +11784,6 @@ CURRENT_USER_MESSAGE:
                 + $"|page_key={FormatPlanningTraceValue(pageKey)}"
                 + $"|strict_evidence={FormatPlanningTraceBool(HasStrictStructuredPlanningCandidateEvidence(candidate))}"
                 + $"|direct_evidence={FormatPlanningTraceBool(HasDirectSourceBackedPlanningCandidateEvidence(candidate))}"
-                + $"|slot_route={FormatPlanningTraceValue(FormatStructuredMealPlanningRetrievalRoute(candidate))}"
                 + $"|retrieval_query={FormatPlanningTraceValue(hit.RetrievalQuery)}"
                 + BuildSourceBackedPlanningCandidateEvidenceDiagnostics(candidate)
                 + $"|title={FormatPlanningTraceValue(title)}"
@@ -13716,26 +11814,6 @@ CURRENT_USER_MESSAGE:
             + $"|adequate={FormatPlanningTraceBool(coverage.IsAdequate)}");
 
         return trace.ToArray();
-    }
-
-    private static int CountRouteBackfilledStructuredMealPlanningSlotAssignments(
-        IReadOnlyList<SourceBackedOptionCandidate> assignments,
-        IReadOnlyList<StructuredMealPlanningSlotKind> slotKinds,
-        string? query)
-    {
-        var limit = Math.Min(assignments.Count, slotKinds.Count);
-        var count = 0;
-        for (var i = 0; i < limit; i++)
-        {
-            var candidate = assignments[i];
-            if (CandidateFitsStructuredMealPlanningSlot(candidate, slotKinds[i], query, allowRouteBackfill: true)
-                && !CandidateFitsStructuredMealPlanningSlot(candidate, slotKinds[i], query, allowRouteBackfill: false))
-            {
-                count++;
-            }
-        }
-
-        return count;
     }
 
     private static string BuildSourceBackedPlanningCandidateEvidenceDiagnostics(SourceBackedOptionCandidate candidate)
@@ -13874,12 +11952,8 @@ CURRENT_USER_MESSAGE:
             return "short_connector_field_value";
         if (LooksLikeEmbeddedStructuredPlanningFieldValueCandidate(candidate))
             return "embedded_field_value";
-        if (ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query))
-            return "non_standalone_meal_item";
         if (!SourceBackedPlanningCandidateMatchesDominantTopLevel(candidate, dominantTopLevelScope))
             return "outside_dominant_scope";
-        if (ShouldRejectLowFitPlanningCandidateForStructuredSlot(candidate, query))
-            return "sweet_candidate_not_meal_slot";
         if (!IsUsableSourceBackedPlanningCandidate(candidate))
             return "unusable_or_generic_candidate";
         if (requireDirectPageEvidence && !LooksLikeConcreteStructuredPlanningCandidateTitle(candidate.Title))
@@ -13912,6 +11986,19 @@ CURRENT_USER_MESSAGE:
             .Replace("|", "/", StringComparison.Ordinal)
             .Replace("\r", " ", StringComparison.Ordinal)
             .Replace("\n", " ", StringComparison.Ordinal);
+    }
+
+    private static string FormatStructuredPlanningSlotPoolCounts(
+        IReadOnlyList<string> labels,
+        IReadOnlyList<int> counts)
+    {
+        if (labels.Count == 0 || counts.Count == 0)
+            return string.Empty;
+
+        return string.Join(
+            ",",
+            labels.Take(counts.Count).Select((label, index) =>
+                $"{NormalizeLexicalLookup(label)}:{counts[index].ToString(CultureInfo.InvariantCulture)}"));
     }
 
     private static string FormatSourceBackedOptionCandidateTraceSamples(
@@ -13959,6 +12046,24 @@ CURRENT_USER_MESSAGE:
             RegexOptions.CultureInvariant);
     }
 
+    private static bool ShouldAllowSourcedStructuredPlanningRotation(string? query)
+        => !RequiresFullyDistinctStructuredPlanningItems(query);
+
+    private static bool RequiresExplicitStructuredPlanningSlotEvidence(string? query)
+    {
+        if (!ShouldGateStructuredSourceBackedPlanningCoverage(query))
+            return false;
+
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return Regex.IsMatch(
+            normalized,
+            @"\b(?:seulement|uniquement|only|solo|solamente|apenas|nur|solo)\b.{0,56}\b(?:sources?|source|utile|utiles|useful|relevant|pertinent|pertinentes?|adaptees?|adapted|adequat|adequates?)\b|\b(?:vraiment|really|truly|bien|best)\b.{0,32}\b(?:utile|utiles|useful|relevant|pertinent|pertinentes?|adaptees?|adapted)\b",
+            RegexOptions.CultureInvariant);
+    }
+
     private static bool HasSourceBackedPlanningAnchorCoverage(ToolResults toolResults, string? query)
     {
         var anchorTerms = ExtractPlanningCoverageAnchorTerms(query).ToArray();
@@ -13999,12 +12104,9 @@ CURRENT_USER_MESSAGE:
             "woche" or "wochenplan" or "settimana" or "settimanale" or
             "lundi" or "mardi" or "mercredi" or "jeudi" or "vendredi" or "vrendredi" or "samedi" or "dimanche" or
             "monday" or "tuesday" or "wednesday" or "thursday" or "friday" or "saturday" or "sunday" or
-            "repas" or "meal" or "items" or "menu" or "menus" or "option" or "options" or "item" or "items" or
+            "items" or "menu" or "menus" or "option" or "options" or "item" or "items" or
             "option" or "options" or "option" or "options" or
-            "petit" or "dejeuner" or "midi" or "diner" or "soir" or "matin" or "breakfast" or "lunch" or
-            "dinner" or "souper" or "supper" or "gouter" or "collation" or "snack" or "encas" or
-            "morning" or "afternoon" or "evening" or "desayuno" or "almuerzo" or "cena" or
-            "almoco" or "jantar" or "fruhstuck" or "mittag" or "abend" or "colazione" or "pranzo" or
+            "morning" or "afternoon" or "evening" or
             "rapide" or "rapides" or "simple" or "simples" or "facile" or "faciles" or
             "utile" or "utiles" or "useful" or "available" or "disponible" or "disponibles" or
             "options" or "option" or "suggestions" or "suggestion" or "idees" or "idee" or "ideas" or
@@ -14349,7 +12451,7 @@ CURRENT_USER_MESSAGE:
         {
             var targetSlots = ResolveSourceBackedPlanningTargetItemCount(query);
             var hasStructuredAxes = DetectRequestedDayAxisLabels(query, "en").Count > 0
-                && DetectRequestedPeriodAxisLabels(query, "en").Count > 0;
+                && DetectRequestedPlanningSlotAxisLabels(query, "en").Count > 0;
             return ResolveMinimumSourceBackedPlanningCandidateCount(query, targetSlots, hasStructuredAxes);
         }
 
@@ -14373,13 +12475,10 @@ CURRENT_USER_MESSAGE:
 
     private static bool RequiresStructuredSourceBackedPlanningCoverage(string? query)
         => LooksLikeWeeklyPlanningRequest(query)
-           || DetectRequestedDayAxisLabels(query, "en").Count > 0
-           || DetectRequestedPeriodAxisLabels(query, "en").Count > 0;
+           || DetectRequestedDayAxisLabels(query, "en").Count > 0;
 
     private static bool ShouldRequireDeterministicStructuredPlanningAnswer(string? query)
-        => LooksLikeWeeklyPlanningRequest(query)
-           && DetectRequestedDayAxisLabels(query, "en").Count > 0
-           && DetectRequestedPeriodAxisLabels(query, "en").Count > 0;
+        => false;
 
     private static bool ShouldGateStructuredSourceBackedPlanningCoverage(string? query)
     {
@@ -14571,7 +12670,7 @@ Generic output contract:
         {
             var coverage = EvaluateSourceBackedPlanningCoverage(toolResults, query, language);
             var dayAxis = DetectRequestedDayAxisLabels(query, language);
-            var periodAxis = DetectRequestedPeriodAxisLabels(query, language);
+            var periodAxis = DetectRequestedPlanningSlotAxisLabels(query, language);
             var hasExplicitGrid = dayAxis.Count > 0 && periodAxis.Count > 0;
 
             var sb = new StringBuilder();
@@ -14622,12 +12721,12 @@ If evidence is partial, write the best useful sourced answer possible and state 
         {
             var coverage = EvaluateSourceBackedPlanningCoverage(toolResults, query, language);
             var dayAxis = DetectRequestedDayAxisLabels(query, language);
-            var periodAxis = DetectRequestedPeriodAxisLabels(query, language);
+            var periodAxis = DetectRequestedPlanningSlotAxisLabels(query, language);
             if (dayAxis.Count > 0 && periodAxis.Count > 0)
             {
                 sb.AppendLine("The user requested an explicit grid. Decide whether to fill it with a sourced rotation, provide a partial proposal, or ask one clarifying question. The decision should follow the user's wording, not a fixed source count.");
                 sb.AppendLine("For each grid place, decide candidate suitability from the candidate title and local evidence. Search routes and retrieval labels are only discovery hints, not proof that the item fits that place.");
-                sb.AppendLine("Privately adjudicate every EVIDENCE_ITEM before drafting: keep it only when the title, local evidence and requested slot are compatible; use slotRoute/slotFit/retrievalQuery as hints, and leave a place incomplete rather than forcing a weak candidate.");
+                sb.AppendLine("Privately adjudicate every EVIDENCE_ITEM before drafting: keep it only when the title, local evidence, retrievalQuery and requested axes are compatible; leave a place incomplete rather than forcing a weak candidate.");
             }
             else
             {
@@ -14762,18 +12861,18 @@ If evidence is partial, write the best useful sourced answer possible and state 
     private static string BuildRequestedStructureGuidanceForWriter(string? query, string language)
     {
         var dayLabels = DetectRequestedDayAxisLabels(query, language);
-        var periodLabels = DetectRequestedPeriodAxisLabels(query, language);
-        if (dayLabels.Count == 0 && periodLabels.Count == 0)
+        var slotLabels = DetectRequestedPlanningSlotAxisLabels(query, language);
+        if (dayLabels.Count == 0 && slotLabels.Count == 0)
             return string.Empty;
 
         var sb = new StringBuilder();
         sb.AppendLine("Detected explicit structure from the user message:");
         if (dayLabels.Count > 0)
             sb.AppendLine($"- Day axis requested: {string.Join(" | ", dayLabels)}");
-        if (periodLabels.Count > 0)
-            sb.AppendLine($"- Slot/time axis requested: {string.Join(" | ", periodLabels)}");
+        if (slotLabels.Count > 0)
+            sb.AppendLine($"- Slot/type axis requested: {string.Join(" | ", slotLabels)}");
 
-        if (dayLabels.Count > 0 && periodLabels.Count > 0)
+        if (dayLabels.Count > 0 && slotLabels.Count > 0)
         {
             sb.AppendLine("- Use compact day sections with the requested slots inside each section when that is readable.");
             sb.AppendLine("- Fill places only with concrete sourced candidates; if a place cannot be supported, write a short 'to validate/complete' marker instead of hiding the gap.");
@@ -14862,75 +12961,89 @@ If evidence is partial, write the best useful sourced answer possible and state 
         return null;
     }
 
-    private static IReadOnlyList<string> DetectRequestedPeriodAxisLabels(string? query, string language)
+    private static IReadOnlyList<string> DetectRequestedPlanningSlotAxisLabels(string? query, string language)
     {
-        var normalized = NormalizeLexicalLookup(query);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return Array.Empty<string>();
+        var labels = ExtractPlanningSlotRetrievalTerms(query)
+            .Select(NormalizeLexicalLookup)
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        return CollapseExplicitAlternativePlanningSlotAxisLabels(query, labels);
+    }
 
-        var hasMorning = Regex.IsMatch(normalized, @"\b(?:matin|morning|manana|manha|morgen|mattina)\b", RegexOptions.CultureInvariant);
-        var hasBreakfast = Regex.IsMatch(
-            normalized,
-            @"\b(?:petit[-\s]+dejeune(?:r)?|breakfast|desayuno|pequeno[-\s]+almoco|cafe[-\s]+da[-\s]+manha|fruhstuck|colazione)\b",
-            RegexOptions.CultureInvariant);
-        var hasLunch = Regex.IsMatch(
-            normalized,
-            @"\b(?:midi|(?<!petit[-\s])dejeuner|lunch|almuerzo|almoco|mittag|pranzo)\b",
-            RegexOptions.CultureInvariant);
-        var hasDinner = Regex.IsMatch(
-            normalized,
-            @"\b(?:soir|diner|dinner|cena|abend)\b",
-            RegexOptions.CultureInvariant);
-        var hasSupper = Regex.IsMatch(
-            normalized,
-            @"\b(?:souper|supper)\b",
-            RegexOptions.CultureInvariant);
-        var hasSnack = Regex.IsMatch(
-            normalized,
-            @"\b(?:gouter|go[uû]ter|collation|snack|encas)\b",
-            RegexOptions.CultureInvariant);
-        var asksThreeDailySlots = Regex.IsMatch(
-            normalized,
-            @"\b(?:3|trois|three|tres|três|drei|tre)\s+(?:repas|items?|comidas?|refei[cç]oes|refeições|mahlzeiten|pasti)\b",
-            RegexOptions.CultureInvariant);
-        if (hasBreakfast || hasLunch || hasDinner || hasSupper || hasSnack)
+    private static IReadOnlyList<string> CollapseExplicitAlternativePlanningSlotAxisLabels(
+        string? query,
+        IReadOnlyList<string> labels)
+    {
+        if (labels.Count <= 1)
+            return labels;
+
+        var normalizedQuery = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalizedQuery))
+            return labels;
+
+        var removed = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < labels.Count; i++)
         {
-            var dailySlotLabels = hasBreakfast
-                ? LocalizedDailySlotLabels(language)
-                : LocalizedMorningMiddayEveningLabels(language);
-            var slots = new List<string>();
-            if (hasBreakfast || hasMorning)
-                slots.Add(dailySlotLabels[0]);
-            if (hasLunch)
-                slots.Add(dailySlotLabels[1]);
-            if (hasDinner)
-                slots.Add(dailySlotLabels[2]);
-            if (hasSupper)
-                slots.Add(LocalizedSupperSlotLabel(language));
-            if (hasSnack)
-                slots.Add(LocalizedSnackSlotLabel(language));
+            var left = labels[i];
+            if (string.IsNullOrWhiteSpace(left) || removed.Contains(left))
+                continue;
 
-            return slots
-                .Where(static label => !string.IsNullOrWhiteSpace(label))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+            for (var j = 0; j < labels.Count; j++)
+            {
+                if (i == j)
+                    continue;
+
+                var right = labels[j];
+                if (string.IsNullOrWhiteSpace(right) || removed.Contains(right))
+                    continue;
+
+                if (PlanningSlotAxisLabelsAreExplicitAlternatives(normalizedQuery, left, right))
+                {
+                    removed.Add(left);
+                    break;
+                }
+            }
         }
 
-        if (asksThreeDailySlots)
-            return LocalizedDailySlotLabels(language);
+        return labels
+            .Where(label => !removed.Contains(label))
+            .ToArray();
+    }
 
-        var hasAfternoon = Regex.IsMatch(normalized, @"\b(?:apres\s+midi|afternoon|tarde|nachmittag|pomeriggio)\b", RegexOptions.CultureInvariant);
-        var hasEvening = Regex.IsMatch(normalized, @"\b(?:soir|soiree|evening|noche|noite|abend|sera)\b", RegexOptions.CultureInvariant);
-        if (!hasMorning && !hasAfternoon && !hasEvening)
-            return Array.Empty<string>();
+    private static bool PlanningSlotAxisLabelsAreExplicitAlternatives(
+        string normalizedQuery,
+        string left,
+        string right)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedQuery)
+            || string.IsNullOrWhiteSpace(left)
+            || string.IsNullOrWhiteSpace(right)
+            || string.Equals(left, right, StringComparison.Ordinal))
+        {
+            return false;
+        }
 
-        var periodLabels = LocalizedDayPeriodLabels(language);
-        return new[]
-            {
-                hasMorning ? periodLabels[0] : null,
-                hasAfternoon ? periodLabels[1] : null,
-                hasEvening ? periodLabels[2] : null
-            }.Where(static label => !string.IsNullOrWhiteSpace(label)).ToArray()!;
+        var leftPattern = BuildFlexibleNormalizedPlanningTermPattern(left);
+        var rightPattern = BuildFlexibleNormalizedPlanningTermPattern(right);
+        if (string.IsNullOrWhiteSpace(leftPattern) || string.IsNullOrWhiteSpace(rightPattern))
+            return false;
+
+        return Regex.IsMatch(
+            normalizedQuery,
+            $@"\b(?:{leftPattern})\b\s*(?:/|\bou\b|\bor\b)\s*\b(?:{rightPattern})\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static string BuildFlexibleNormalizedPlanningTermPattern(string term)
+    {
+        var normalized = NormalizeLexicalLookup(term);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return string.Empty;
+
+        return Regex.Escape(normalized)
+            .Replace("\\ ", @"\s+", StringComparison.Ordinal)
+            .Replace("\\-", @"[-\s]+", StringComparison.Ordinal);
     }
 
     private static string[] LocalizedWeekdayLabels(string language)
@@ -14942,61 +13055,6 @@ If evidence is partial, write the best useful sourced answer possible and state 
             "de" => new[] { "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag" },
             "it" => new[] { "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica" },
             _ => new[] { "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche" }
-        };
-
-    private static string[] LocalizedDailySlotLabels(string language)
-        => NormalizeLanguageCode(language) switch
-        {
-            "en" => new[] { "Breakfast", "Lunch", "Dinner" },
-            "es" => new[] { "Desayuno", "Almuerzo", "Cena" },
-            "pt" => new[] { "Pequeno-almoço", "Almoço", "Jantar" },
-            "de" => new[] { "Frühstück", "Mittagessen", "Abendessen" },
-            "it" => new[] { "Colazione", "Pranzo", "Cena" },
-            _ => new[] { "Petit-déjeuner", "Déjeuner", "Dîner" }
-        };
-
-    private static string LocalizedSupperSlotLabel(string language)
-        => NormalizeLanguageCode(language) switch
-        {
-            "en" => "Supper",
-            "es" => "Cena",
-            "pt" => "Jantar",
-            "de" => "Abendessen",
-            "it" => "Cena",
-            _ => "Souper"
-        };
-
-    private static string LocalizedSnackSlotLabel(string language)
-        => NormalizeLanguageCode(language) switch
-        {
-            "en" => "Snack",
-            "es" => "Merienda",
-            "pt" => "Lanche",
-            "de" => "Snack",
-            "it" => "Merenda",
-            _ => "Collation"
-        };
-
-    private static string[] LocalizedMorningMiddayEveningLabels(string language)
-        => NormalizeLanguageCode(language) switch
-        {
-            "en" => new[] { "Morning", "Midday", "Evening" },
-            "es" => new[] { "Mañana", "Mediodía", "Noche" },
-            "pt" => new[] { "Manhã", "Meio-dia", "Noite" },
-            "de" => new[] { "Morgen", "Mittag", "Abend" },
-            "it" => new[] { "Mattina", "Mezzogiorno", "Sera" },
-            _ => new[] { "Matin", "Midi", "Soir" }
-        };
-
-    private static string[] LocalizedDayPeriodLabels(string language)
-        => NormalizeLanguageCode(language) switch
-        {
-            "en" => new[] { "Morning", "Afternoon", "Evening" },
-            "es" => new[] { "Mañana", "Tarde", "Noche" },
-            "pt" => new[] { "Manhã", "Tarde", "Noite" },
-            "de" => new[] { "Morgen", "Nachmittag", "Abend" },
-            "it" => new[] { "Mattina", "Pomeriggio", "Sera" },
-            _ => new[] { "Matin", "Après-midi", "Soir" }
         };
 
     private static string BuildSourceBackedCandidateLeadsForWriter(ToolResults toolResults, string query, string language)
@@ -15133,28 +13191,10 @@ If evidence is partial, write the best useful sourced answer possible and state 
             ? string.Empty
             : $"; evidence=\"{CollapseWhitespace(supportCue)}\"";
         var retrievalQuery = TruncateForPrompt(CollapseWhitespace(hit.RetrievalQuery ?? string.Empty), 90);
-        var slotRoute = FormatStructuredMealPlanningRetrievalRoute(candidate);
         var pageKey = BuildRagHitVisiblePageMergeKey(hit);
         var candidateKey = BuildSourceBackedPlanningCandidateLeadKey(candidate);
-        var slotFit = BuildSourceBackedCandidateSlotFitHint(candidate, query);
         lines.Add(
-            $"EVIDENCE_ITEM role=\"{role}\" title=\"{CollapseWhitespace(candidate.Title)}\" source=\"{source}\" page=\"{Math.Max(1, hit.PageStart)}\" pageKey=\"{pageKey}\" candidateKey=\"{candidateKey}\" slotRoute=\"{slotRoute}\" slotFit=\"{slotFit}\" retrievalQuery=\"{retrievalQuery}\" instruction=\"{writingNote}\"{supportSuffix}");
-    }
-
-    private static string BuildSourceBackedCandidateSlotFitHint(SourceBackedOptionCandidate candidate, string? query)
-    {
-        if (!ShouldApplyMealPlanningSlotSemantics(query))
-            return "not_applicable";
-
-        var fits = new List<string>(3);
-        if (CandidateFitsStructuredMealPlanningSlot(candidate, StructuredMealPlanningSlotKind.Breakfast, query, allowRouteBackfill: true))
-            fits.Add("breakfast");
-        if (CandidateFitsStructuredMealPlanningSlot(candidate, StructuredMealPlanningSlotKind.MainMeal, query, allowRouteBackfill: true))
-            fits.Add("main_meal");
-        if (CandidateFitsStructuredMealPlanningSlot(candidate, StructuredMealPlanningSlotKind.Snack, query, allowRouteBackfill: true))
-            fits.Add("snack");
-
-        return fits.Count == 0 ? "none" : string.Join(",", fits);
+            $"EVIDENCE_ITEM role=\"{role}\" title=\"{CollapseWhitespace(candidate.Title)}\" source=\"{source}\" page=\"{Math.Max(1, hit.PageStart)}\" pageKey=\"{pageKey}\" candidateKey=\"{candidateKey}\" retrievalQuery=\"{retrievalQuery}\" instruction=\"{writingNote}\"{supportSuffix}");
     }
 
     private static string BuildSourceBackedCandidateWritingNote(string contentRole, RagHitSummary hit, string language)
@@ -15489,11 +13529,11 @@ If evidence is partial, write the best useful sourced answer possible and state 
             .Select(static match => match.Value)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Count();
-        var slotLineCount = Regex.Matches(
+        var labelledLineCount = Regex.Matches(
             answer,
-            @"(?im)^\s*(?:[-*\u2022\u25e6]|\d+[.)])?\s*(?:petit[- ]?d[ée]jeuner|d[ée]jeuner|d[îi]ner|soir|matin|midi|breakfast|lunch|dinner|morning|evening|desayuno|almuerzo|cena|jantar|fr[uü]hst[uü]ck|mittag|abend|colazione|pranzo)\s*:",
+            @"(?im)^\s*(?:[-*\u2022\u25e6]|\d+[.)])?\s*[\p{L}\p{N}][\p{L}\p{N} '\-/]{2,48}\s*:",
             RegexOptions.CultureInvariant).Count;
-        if (dayMentions < 3 && slotLineCount < 6)
+        if (dayMentions < 3 && labelledLineCount < 6)
             return false;
 
         var sourceRefs = Regex.Matches(
@@ -15592,7 +13632,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var sourceLeadLineCount = Regex.Matches(
             answer,
-            @"(?im)^\s*(?:[-*\u2022â€¢]|\d+[.)])?\s*[^:\r\n]{1,160}\.(?:pdf|docx?|xlsx?|pptx?)\s+p\.?\s*\d+\s*(?::|-|–)",
+            @"(?im)^\s*(?:[-*\u2022•]|\d+[.)])?\s*[^:\r\n]{1,160}\.(?:pdf|docx?|xlsx?|pptx?)\s+p\.?\s*\d+\s*(?::|-|–)",
             RegexOptions.CultureInvariant).Count;
         return sourceLeadLineCount >= 2;
     }
@@ -15893,6 +13933,30 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
             rebuildSw.Stop();
             ClientLog.Info($"ToolAgent planning finalizer: stage=supported_rebuild.end|result=False|ms={rebuildSw.ElapsedMilliseconds}");
+            var partialCoverage = EvaluateSourceBackedPlanningCoverage(toolResults, query, language);
+            var partialDraft = BuildSourceBackedPlanningDraft(
+                toolResults,
+                language,
+                minItems: 1,
+                query: query,
+                allowPartialStructuredPlanningDraft: true,
+                allowSourcedRotationForPartialStructuredPlanning: true);
+            if (HasTrustedPartialSourceBackedPlanningDraftCoverage(
+                    partialDraft,
+                    partialCoverage,
+                    query,
+                    IsBroadenedSourceSearchConfirmationEnvelope(query),
+                    HasExpandedSourceBackedSearchEvidence(toolResults)))
+            {
+                finalAnswer = RemoveTrailingModelEmittedSourceList(partialDraft.Answer).Trim();
+                finalSources = partialDraft.Sources.ToList();
+                analysis = BuildTrustedPartialSourceBackedPlanningDraftAnalysis(partialDraft);
+                resolution = "structured_planning_supported_partial_rebuild";
+                ClientLog.Info(
+                    $"ToolAgent planning finalizer: stage=partial_supported_rebuild.end|result=True|items={analysis.ItemCount}|supported={analysis.SupportedItemCount}|sources={finalSources.Count}");
+                return true;
+            }
+
             finalAnswer = BuildBroadEvidenceStillInsufficientAnswer(
                 language,
                 query,
@@ -16104,8 +14168,8 @@ If evidence is partial, write the best useful sourced answer possible and state 
         {
             var line = CollapseWhitespace(rawLine);
             if (line.Length < 8
-                || Regex.IsMatch(line, @"^(?:source|sources|note|notes|r[eé]f[eé]rences?|fuentes?|fontes?|quellen?|fonti)\s*:", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
-                || Regex.IsMatch(line, @"^(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday|lunes|martes|miercoles|miércoles|jueves|viernes|sabado|sábado|domingo|segunda|ter[cç]a|quarta|quinta|sexta|sabado|sábado|domingo|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|lunedi|lunedì|martedi|martedì|mercoledi|mercoledì|giovedi|giovedì|venerdi|venerdì|sabato|domenica)\s*:$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+                || Regex.IsMatch(line, @"^(?:source|sources|note|notes|references?|refs?|fuentes?|fontes?|quellen?|fonti)\s*:", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+                || IsPlanningDayAxisOnlyLine(line))
             {
                 continue;
             }
@@ -16121,15 +14185,19 @@ If evidence is partial, write the best useful sourced answer possible and state 
                     RegexOptions.CultureInvariant)
                 || Regex.IsMatch(
                     normalizedLine,
-                    @"\b(?:tourner|rotate|rotacion|rotacao|rotiere|alterno|alternance)\b.*\b(?:invent|invente|inventar|erfinden)\b",
+                    @"\b(?:tourner|rotate|rotacion|rotacao|alterno|alternance)\b.*\b(?:invent|invente|inventar|erfinden)\b",
                     RegexOptions.CultureInvariant)
                 || Regex.IsMatch(
                     normalizedLine,
-                    @"\b(?:trouve|found|encontr|gefunden|trov)\b.*\b(?:option|options|element|elements|item|items|candidat|candidates?)\b.*\b(?:creneaux|slots|huecos|espacos|plätze|spazi|demand)\b",
+                    @"\b(?:trouve|found|encontr|gefunden|trov)\b.*\b(?:option|options|element|elements|item|items|candidat|candidates?)\b.*\b(?:creneaux|slots|huecos|espacos|plaetze|spazi|demand)\b",
                     RegexOptions.CultureInvariant)
                 || Regex.IsMatch(
                     normalizedLine,
-                    @"\b(?:avant|before|antes|prima|vor)\b.*\b(?:verifie|verifier|check|revisa|verifica|prufe|prüfe)\b.*\b(?:page|pages|source|sources)\b",
+                    @"\b(?:avant|before|antes|prima|vor)\b.*\b(?:verifie|verifier|check|revisa|verifica|prufe)\b.*\b(?:page|pages|source|sources)\b",
+                    RegexOptions.CultureInvariant)
+                || Regex.IsMatch(
+                    normalizedLine,
+                    @"\b(?:avant|before|antes|prima|vor)\b.*\b(?:page|pages|source|sources|quantit|timing|horair|constraint|contrainte|restri|remplacement|substitution|alternativ)\b",
                     RegexOptions.CultureInvariant))
             {
                 continue;
@@ -16151,7 +14219,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
             line = Regex.Replace(line, @"\[\[open\|[^\]]+\]\]", string.Empty, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
             line = Regex.Replace(line, @"\(\s*\)", string.Empty, RegexOptions.CultureInvariant);
-            line = Regex.Replace(line, @"\((?:source|src|ref|réf|referencia|quelle|fonte)\s*:[^)]+\)", string.Empty, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            line = Regex.Replace(line, @"\((?:source|src|ref|referencia|quelle|fonte)\s*:[^)]+\)", string.Empty, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
             line = Regex.Replace(line, @"\([^)]*\b(?:p\.?|page)\s*\d+[^)]*\)", string.Empty, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
             line = Regex.Replace(line, @"[*_`#>|]+", string.Empty, RegexOptions.CultureInvariant);
             line = CollapseWhitespace(line.Trim(' ', '.', ';', ':', '-', '\u2013', '\u2014'));
@@ -16184,40 +14252,39 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (string.IsNullOrWhiteSpace(line))
             return Array.Empty<string>();
 
-        var normalized = NormalizeLexicalLookup(line);
-        var looksLikeDayPrefixedLine = Regex.IsMatch(
-            normalized,
-            @"^(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday|lunes|martes|miercoles|miércoles|jueves|viernes|sabado|sábado|domingo|segunda|terca|terça|quarta|quinta|sexta|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|lunedi|lunedì|martedi|martedì|mercoledi|mercoledì|giovedi|giovedì|venerdi|venerdì|sabato|domenica)\b",
-            RegexOptions.CultureInvariant);
-        var looksLikeCompactPlanLine = looksLikeDayPrefixedLine
-            || Regex.IsMatch(
-                normalized,
-                @"\b(?:petit\s+dejeuner|dejeuner|diner|breakfast|lunch|dinner|desayuno|almuerzo|cena|pequeno\s+almoco|almoco|jantar|fruhstuck|mittagessen|abendessen|colazione|pranzo)\b",
-                RegexOptions.CultureInvariant);
-
-        if (!looksLikeCompactPlanLine
-            || (!line.Contains('|', StringComparison.Ordinal)
-                && !line.Contains(" / ", StringComparison.Ordinal)
-                && !line.Contains(" ; ", StringComparison.Ordinal)
-                && !line.Contains(" - ", StringComparison.Ordinal)))
-        {
+        var delimiterCount = Regex.Matches(line, @"\||/|;|\s+-\s+", RegexOptions.CultureInvariant).Count;
+        var hasDelimiter = line.Contains('|', StringComparison.Ordinal)
+            || line.Contains(" / ", StringComparison.Ordinal)
+            || line.Contains(" ; ", StringComparison.Ordinal)
+            || line.Contains(" - ", StringComparison.Ordinal);
+        var looksLikeCompactPlanLine = IsPlanningDayAxisPrefixedLine(line) || delimiterCount >= 2;
+        if (!looksLikeCompactPlanLine || !hasDelimiter)
             return new[] { line };
-        }
 
         var fragments = Regex
             .Split(line, @"\s*(?:\||/|;|\s+-\s+)\s*", RegexOptions.CultureInvariant)
             .Select(CollapseWhitespace)
             .Select(static fragment => fragment.Trim(' ', '.', ';', ':', '-', '\u2013', '\u2014'))
             .Where(static fragment => !string.IsNullOrWhiteSpace(fragment))
-            .Where(static fragment => !Regex.IsMatch(
-                NormalizeLexicalLookup(fragment),
-                @"^(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday|lunes|martes|miercoles|miércoles|jueves|viernes|sabado|sábado|domingo|segunda|terca|terça|quarta|quinta|sexta|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|lunedi|lunedì|martedi|martedì|mercoledi|mercoledì|giovedi|giovedì|venerdi|venerdì|sabato|domenica|petit\s+dejeuner|dejeuner|diner|breakfast|lunch|dinner|desayuno|almuerzo|cena|pequeno\s+almoco|almoco|jantar|fruhstuck|mittagessen|abendessen|colazione|pranzo)$",
-                RegexOptions.CultureInvariant))
+            .Where(static fragment => !IsPlanningDayAxisOnlyLine(fragment))
             .ToArray();
 
         return fragments.Length > 1 ? fragments : new[] { line };
     }
 
+    private static bool IsPlanningDayAxisPrefixedLine(string? value)
+    {
+        var normalized = NormalizeLexicalLookup(value);
+        return !string.IsNullOrWhiteSpace(normalized)
+            && Regex.IsMatch(normalized, @"^(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday|lunes|martes|miercoles|jueves|viernes|sabado|domingo|segunda|terca|quarta|quinta|sexta|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|lunedi|martedi|mercoledi|giovedi|venerdi|sabato|domenica)\b", RegexOptions.CultureInvariant);
+    }
+
+    private static bool IsPlanningDayAxisOnlyLine(string? value)
+    {
+        var normalized = NormalizeLexicalLookup(value)?.Trim(' ', ':', '-', '.', ';');
+        return !string.IsNullOrWhiteSpace(normalized)
+            && Regex.IsMatch(normalized, @"^(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday|lunes|martes|miercoles|jueves|viernes|sabado|domingo|segunda|terca|quarta|quinta|sexta|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|lunedi|martedi|mercoledi|giovedi|venerdi|sabato|domenica)$", RegexOptions.CultureInvariant);
+    }
     private static bool PlanningAnswerItemIsSupportedByAnyCandidate(
         string item,
         IReadOnlyList<SourceBackedOptionCandidate> candidates)
@@ -16372,9 +14439,17 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (directEvidence.Length < 24)
             return false;
 
+        var normalizedDirectEvidence = NormalizeLexicalLookup(directEvidence);
+        var titleIndex = normalizedDirectEvidence.IndexOf(normalizedTitle, StringComparison.Ordinal);
         return PrimaryEvidenceContainsLocalStructuredPlanningProof(candidate.Hit, normalizedTitle, directEvidence)
             || PrimaryEvidenceContainsRelaxedLocalStructuredPlanningProof(candidate.Hit, normalizedTitle, directEvidence)
-            || TitleWindowContainsStrongLocalStructuredPlanningProof(normalizedTitle, directEvidence);
+            || TitleWindowContainsStrongLocalStructuredPlanningProof(normalizedTitle, directEvidence)
+            || (titleIndex >= 0
+                && ContentCardTitleAnchorsCandidateBeforeStructuredFields(
+                    candidate,
+                    normalizedTitle,
+                    normalizedDirectEvidence,
+                    titleIndex));
     }
 
     private static bool TitleWindowContainsStrongLocalStructuredPlanningProof(
@@ -16409,6 +14484,39 @@ If evidence is partial, write the best useful sourced answer possible and state 
         }
 
         return false;
+    }
+
+    private static int CountStructuredFieldLabelFamilies(string normalizedText)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedText))
+            return 0;
+
+        var families = new HashSet<string>(StringComparer.Ordinal);
+        if (Regex.IsMatch(
+                normalizedText,
+                @"\b(?:ingredients?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|items?|[eé]l[eé]ments?|values?|valeurs?|parameters?|param[eè]tres?|quantit(?:y|ies)|quantit[eé]s?)\b",
+                RegexOptions.CultureInvariant))
+        {
+            families.Add("inputs");
+        }
+
+        if (Regex.IsMatch(
+                normalizedText,
+                @"\b(?:preparation|pr[eé]paration|procedure|proc[eé]dure|instructions?|method|m[eé]thode|steps?|[eé]tapes?|technique|operation|workflow|actions?|tasks?|taches?|tâches?)\b",
+                RegexOptions.CultureInvariant))
+        {
+            families.Add("process");
+        }
+
+        if (Regex.IsMatch(
+                normalizedText,
+                @"\b(?:constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
+                RegexOptions.CultureInvariant))
+        {
+            families.Add("checks");
+        }
+
+        return families.Count;
     }
 
     private static bool HasConcreteStructuredPlanningCardProof(
@@ -16605,7 +14713,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var structureMatch = Regex.Match(
             afterTitle,
-            @"\b(?:components?|components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
+            @"\b(?:ingredients?|components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
             RegexOptions.CultureInvariant);
         if (!structureMatch.Success)
             return false;
@@ -16650,7 +14758,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var hasStructureLabel = Regex.IsMatch(
             normalized,
-            @"\b(?:components?|components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|valeurs?|values?|components?|composants?|operation|workflow|actions?|tasks?|taches?|tâches?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
+            @"\b(?:ingredients?|components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|valeurs?|values?|components?|composants?|operation|workflow|actions?|tasks?|taches?|tâches?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
             RegexOptions.CultureInvariant);
         var hasActionOrMeasure = Regex.IsMatch(
             normalized,
@@ -16706,14 +14814,14 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var hasStructureLabel = Regex.IsMatch(
             normalized,
-            @"\b(?:components?|components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
+            @"\b(?:ingredients?|components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|materiel|mat[eé]riel|materials?|elements?|[eé]l[eé]ments?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)\b",
             RegexOptions.CultureInvariant);
         if (!hasStructureLabel)
             return false;
 
         var hasActionOrMeasure = Regex.IsMatch(
             normalized,
-            @"\b(?:\d+\s*(?:g|kg|mg|ml|cl|l|min|minutes?|h|heure|heures|hours?|%|mm|cm|m|units?|pieces?|items?)|ajouter|add|mixer|mix|melanger|m[eé]langer|cuire|cook|servir|serve|preparer|pr[eé]parer|prepare|verser|verse|chauffer|heat|incorporer|couper|cut|slice|griller|bake|roast|fry|utiliser|use|inspecter|inspect|record|enregistrer|consigner|noter|note|documenter|document|escalader|escalate|verifier|v[eé]rifier|verify|check|valider|validate|executer|ex[eé]cuter|run|selectionner|s[eé]lectionner|select|requirements?|exigences?|constraints?|contraintes?|conditions?|criteria|criteres|crit[eè]res|parameters?|param[eè]tres?|notes?|observations?|checklist|validation|review|revue)\b",
+            @"\b(?:\d+\s*(?:g|kg|mg|ml|cl|l|min|minutes?|h|heure|heures|hours?|%|mm|cm|m|units?|pieces?|items?)|ajouter|add|retirer|remove|modifier|modify|adapter|adapt|utiliser|use|inspecter|inspect|record|enregistrer|consigner|noter|note|documenter|document|escalader|escalate|verifier|v[eé]rifier|verify|check|valider|validate|executer|ex[eé]cuter|run|selectionner|s[eé]lectionner|select|requirements?|exigences?|constraints?|contraintes?|conditions?|criteria|criteres|crit[eè]res|parameters?|param[eè]tres?|notes?|observations?|checklist|validation|review|revue)\b",
             RegexOptions.CultureInvariant);
         var hasMeasuredFact = CountMeasuredValueMarkers(normalized) >= 1
             || CountNumericFactMarkers(normalized) >= 2;
@@ -16737,7 +14845,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         IReadOnlyList<string> itemTerms,
         SourceBackedOptionCandidate candidate)
     {
-        if (!PrimaryPageEvidenceContainsExactPlanningCandidateTitle(candidate))
+        if (!PlanningCandidateHasAnswerSupportAnchor(candidate))
             return false;
 
         var directEvidence = NormalizeLexicalLookup(BuildPageLocalSourceBackedPlanningProofText(candidate.Hit));
@@ -16767,6 +14875,11 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         return false;
     }
+
+    private static bool PlanningCandidateHasAnswerSupportAnchor(SourceBackedOptionCandidate candidate)
+        => PrimaryPageEvidenceContainsExactPlanningCandidateTitle(candidate)
+           || HasPageLocalStructuredPlanningCandidateSupport(candidate)
+           || PrimaryPageEvidenceSupportsSourceBackedPlanningCandidateTitle(candidate);
 
     private static IEnumerable<string> EnumeratePlanningCandidateSupportTexts(SourceBackedOptionCandidate candidate)
     {
@@ -16817,8 +14930,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             return true;
 
         return term is
-            "matin" or "midi" or "soir" or "dejeuner" or "diner" or "dinner" or "lunch" or "breakfast" or
-            "petit" or "repas" or "meal" or "items" or "semaine" or "week" or "weekly" or
+            "items" or "semaine" or "week" or "weekly" or
             "lundi" or "mardi" or "mercredi" or "jeudi" or "vendredi" or "samedi" or "dimanche" or
             "monday" or "tuesday" or "wednesday" or "thursday" or "friday" or "saturday" or "sunday" or
             "source" or "sources" or "page" or "pages" or "document" or "documents" or
@@ -17113,40 +15225,22 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 $"ToolAgent planning candidate selection: stage=fallback_filter.noisy_title|remaining={fallbackNotNoisy.Count}|removed={fallbackUsable.Count - fallbackNotNoisy.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackNotNoisy.Take(8).Select(static candidate => candidate.Title))}");
         }
 
-        var fallbackMealCompatible = fallbackNotNoisy
-            .Where(candidate => !ShouldRejectStandaloneMealPlanningNonMealItem(candidate, query))
-            .ToList();
-        if (traceSelection)
-        {
-            ClientLog.Info(
-                $"ToolAgent planning candidate selection: stage=fallback_filter.request_semantics|remaining={fallbackMealCompatible.Count}|removed={fallbackNotNoisy.Count - fallbackMealCompatible.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackMealCompatible.Take(8).Select(static candidate => candidate.Title))}");
-        }
-
-        var fallbackDominantScope = fallbackMealCompatible
+        var fallbackDominantScope = fallbackNotNoisy
             .Where(candidate => SourceBackedPlanningCandidateMatchesDominantTopLevel(candidate, dominantTopLevelScope))
             .ToList();
         if (traceSelection)
         {
             ClientLog.Info(
-                $"ToolAgent planning candidate selection: stage=fallback_filter.dominant_scope|remaining={fallbackDominantScope.Count}|removed={fallbackMealCompatible.Count - fallbackDominantScope.Count}|scope={FormatPlanningTraceValue(dominantTopLevelScope)}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackDominantScope.Take(8).Select(static candidate => candidate.Title))}");
+                $"ToolAgent planning candidate selection: stage=fallback_filter.dominant_scope|remaining={fallbackDominantScope.Count}|removed={fallbackNotNoisy.Count - fallbackDominantScope.Count}|scope={FormatPlanningTraceValue(dominantTopLevelScope)}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackDominantScope.Take(8).Select(static candidate => candidate.Title))}");
         }
 
-        var fallbackNotSweetOnly = fallbackDominantScope
-            .Where(candidate => !ShouldRejectLowFitPlanningCandidateForStructuredSlot(candidate, query))
-            .ToList();
-        if (traceSelection)
-        {
-            ClientLog.Info(
-                $"ToolAgent planning candidate selection: stage=fallback_filter.slot_fit|remaining={fallbackNotSweetOnly.Count}|removed={fallbackDominantScope.Count - fallbackNotSweetOnly.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackNotSweetOnly.Take(8).Select(static candidate => candidate.Title))}");
-        }
-
-        var fallbackConcreteTitle = fallbackNotSweetOnly
+        var fallbackConcreteTitle = fallbackDominantScope
             .Where(candidate => !requireDirectPageEvidence || LooksLikeConcreteStructuredPlanningCandidateTitle(candidate.Title))
             .ToList();
         if (traceSelection)
         {
             ClientLog.Info(
-                $"ToolAgent planning candidate selection: stage=fallback_filter.concrete_title|remaining={fallbackConcreteTitle.Count}|removed={fallbackNotSweetOnly.Count - fallbackConcreteTitle.Count}|required={requireDirectPageEvidence}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackConcreteTitle.Take(8).Select(static candidate => candidate.Title))}");
+                $"ToolAgent planning candidate selection: stage=fallback_filter.concrete_title|remaining={fallbackConcreteTitle.Count}|removed={fallbackDominantScope.Count - fallbackConcreteTitle.Count}|required={requireDirectPageEvidence}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackConcreteTitle.Take(8).Select(static candidate => candidate.Title))}");
         }
 
         var fallbackStructuredEvidence = fallbackConcreteTitle
@@ -17556,7 +15650,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (!looksLikeNavigationOrIndexSurface
             && Regex.IsMatch(
                 normalized,
-                @"\b(?:components?|components?|preparation|préparation|etapes?|steps?|methode|method|procedure|instructions?|quantites?|quantities?|materiel|materials?|requirements?|components?|operation|workflow|actions?|tasks?|criteria|criteres|conditions?|parameters?)\b",
+                @"\b(?:ingredients?|components?|preparation|préparation|etapes?|steps?|methode|method|procedure|instructions?|quantites?|quantities?|materiel|materials?|requirements?|components?|operation|workflow|actions?|tasks?|criteria|criteres|conditions?|parameters?)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -17769,6 +15863,9 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (titleIndex < 0)
             return false;
 
+        if (ContentCardTitleAnchorsCandidateBeforeStructuredFields(candidate, normalizedTitle, normalizedProof, titleIndex))
+            return false;
+
         if (ContentCardEvidenceNamesDifferentStructuredPlanningItem(candidate, normalizedTitle))
             return true;
 
@@ -17810,6 +15907,42 @@ If evidence is partial, write the best useful sourced answer possible and state 
             localAfter,
             @"^(?:\s|[.,;:)•-]){0,16}.{0,160}\b(?:preparation|pr[eé]paration|procedure|proc[eé]dure|instructions?|method|m[eé]thode|steps?|[eé]tapes?|technique|operation|workflow)\b",
             RegexOptions.CultureInvariant);
+    }
+
+    private static bool ContentCardTitleAnchorsCandidateBeforeStructuredFields(
+        SourceBackedOptionCandidate candidate,
+        string normalizedTitle,
+        string normalizedProof,
+        int titleIndex)
+    {
+        if (candidate.Hit.MatchedContentCards is not { Count: > 0 } cards
+            || string.IsNullOrWhiteSpace(normalizedTitle)
+            || string.IsNullOrWhiteSpace(normalizedProof)
+            || titleIndex < 0
+            || titleIndex > 180)
+        {
+            return false;
+        }
+
+        var hasMatchingTitleAnchor = cards.Any(card =>
+            ContentCardKindLooksLikeStructuredPlanningTitleAnchor(card)
+            && string.Equals(
+                NormalizeLexicalLookup(CleanSourceBackedOptionTitle(card.Title)),
+                normalizedTitle,
+                StringComparison.Ordinal));
+        if (!hasMatchingTitleAnchor)
+            return false;
+
+        var firstFieldLabel = Regex.Match(
+            normalizedProof,
+            @"\b(?:ingredients?|components?|composants?|materials?|mat[eé]riel|requirements?|exigences?|items?|[eé]l[eé]ments?|values?|valeurs?|parameters?|param[eè]tres?|quantit(?:y|ies)|quantit[eé]s?|preparation|pr[eé]paration|procedure|proc[eé]dure|instructions?|method|m[eé]thode|steps?|[eé]tapes?|technique|operation|workflow)\b",
+            RegexOptions.CultureInvariant);
+        if (!firstFieldLabel.Success || firstFieldLabel.Index <= titleIndex)
+            return false;
+
+        var titleWindow = normalizedProof[titleIndex..Math.Min(normalizedProof.Length, titleIndex + normalizedTitle.Length + 520)];
+        return !LooksLikeStructuredPlanningNavigationOrIndexNoise(titleWindow)
+            && CountStructuredFieldLabelFamilies(titleWindow) >= 2;
     }
 
     private static bool ContentCardEvidenceNamesDifferentStructuredPlanningItem(
@@ -17920,7 +16053,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 normalized,
-                @"^(?:collecter|collectez|preparer|preparez|prepare|cook|organiser|organize|planifier|planifiez|schedule|utiliser|use|using|choisir|choose|verifier|verify|check|lire|read)\b",
+                @"^(?:collecter|collectez|organiser|organize|planifier|planifiez|schedule|utiliser|use|using|choisir|choose|verifier|verify|check|lire|read|inspecter|inspect|documenter|document)\b",
                 RegexOptions.CultureInvariant))
         {
             return false;
@@ -17979,7 +16112,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 normalized,
-                @"^(?:collecter|collectez|preparer|preparez|prepare|cook|organiser|organize|planifier|planifiez|schedule|utiliser|use|using|choisir|choose|verifier|verify|check|lire|read)\b",
+                @"^(?:collecter|collectez|organiser|organize|planifier|planifiez|schedule|utiliser|use|using|choisir|choose|verifier|verify|check|lire|read|inspecter|inspect|documenter|document)\b",
                 RegexOptions.CultureInvariant))
         {
             return false;
@@ -18029,6 +16162,24 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (LooksLikeShortOcrContinuationStructuredPlanningTitle(raw, normalized))
             return true;
 
+
+        if (Regex.IsMatch(
+                normalized,
+                @"^(?:[ivxlcdm]{1,4}|[a-z])\s+(?:g|kg|mg|ml|cl|l|oz|lb|lbs|mm|cm|m|%)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+
+        if (Regex.IsMatch(
+                normalized,
+                @"^(?:je|j|tu|il|elle|on|nous|vous|ils|elles)\s+\p{L}{3,}(?:\s+\p{L}{2,20}){0,2}$",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
         if (Regex.IsMatch(
                 normalized,
                 @"^(?:\d+[a-z]?|[ivxlcdm]{1,6})\s+(?:(?:a\s+){0,2}voir|see|refer|consulter|page|section|chapter|part|partie|annexe|appendix|table|index)\b",
@@ -18040,18 +16191,10 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (LooksLikeLeadingConnectorStructuredPlanningFragment(normalized))
             return true;
 
-        if (LooksLikeMealPlanningInstructionFragment(normalized))
-            return true;
-
-        if (LooksLikeStructuredPlanningAdviceOrFrameAnchor(normalized)
-            || LooksLikeBrokenStructuredPlanningOcrAnchor(normalized))
-        {
-            return true;
-        }
 
         if (Regex.IsMatch(
                 normalized,
-                @"^(?:cette|ce|this|esta|essa|questa)\s+option$|\bet\s+al\b|^couperen\b",
+                @"^(?:cette|ce|this|esta|essa|questa)\s+option$|\bet\s+al\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -18061,6 +16204,20 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 normalized,
                 @"^(?:voici|here\s+(?:are|is)|aqui\s+(?:hay|esta)|eis|hier\s+(?:sind|ist)|ecco)\b.{0,90}\b(?:idees?|ideas?|suggestions?|conseils?|tips?|recommandations?|recommendations?|alternatives?|remplacer|replace|instead)\b",
                 RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                normalized,
+                @"^(?:voici|here\s+(?:are|is)|aqui\s+(?:hay|esta)|eis|hier\s+(?:sind|ist)|ecco)\s+(?:quelques|some|several|various)$",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (normalized.Contains("capitulatif", StringComparison.Ordinal)
+            && Regex.IsMatch(normalized, @"^(?:voici|here\s+(?:are|is)|aqui\s+(?:hay|esta)|eis|hier\s+(?:sind|ist)|ecco)\b", RegexOptions.CultureInvariant))
         {
             return true;
         }
@@ -18077,33 +16234,13 @@ If evidence is partial, write the best useful sourced answer possible and state 
             return true;
         }
 
-        if (Regex.IsMatch(
-                normalized,
-                @"\b(?:con\s+servation|conservation|congelation|d[eé]congelation|decongelation|entreposage|rangement|restes?|id[eé]es?\s+de\s+repas|idees?\s+de\s+repas|suggestions?\s+de\s+repas)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
+
+
+
 
         if (Regex.IsMatch(
                 normalized,
-                @"\b(?:con\s+combre|tomatesa|tomatea)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalized,
-                @"^(?:le|la|les)\s+.+\b(?:cuit|cuite|cuits|cuites|cru|crue|crus|crues|hache|hachee|haches|congele|congelee|refrigere|refrigeree)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
-
-        if (Regex.IsMatch(
-                normalized,
-                @"^(?:egoutter|egouttez|peler|pelez|preparer|preparez|faire|faites|ajouter|ajoutez|laisser|laissez|placer|placez|retirer|retirez|couper|coupez|hacher|hachez|trancher|tranchez|deposer|deposez|verser|versez|melanger|melangez|remuer|remuez|cuire|mijoter|servir|peel|cut|chop|slice|place|put|add|remove|mix|cook|serve)\b",
+                @"^(?:preparer|preparez|faire|faites|ajouter|ajoutez|laisser|laissez|placer|placez|retirer|retirez|deposer|deposez|remuer|remuez|place|put|add|remove)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -18111,7 +16248,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         return Regex.IsMatch(
             normalized,
-            @"\b(?:une\s+fois\s+cuit|une\s+fois\s+cuite|avant\s+de\s+servir|apres\s+operation|après\s+operation|jusqu\s+a\s+operation|jusqu\s+à\s+operation)\b",
+            @"\b(?:apres\s+operation|après\s+operation|jusqu\s+a\s+operation|jusqu\s+à\s+operation)\b",
             RegexOptions.CultureInvariant);
     }
 
@@ -18180,7 +16317,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         return Regex.IsMatch(
             normalizedTitle,
-            @"^(?:\p{L}{3,}\s+){1,3}(?:couper|cut|decouper|d[eé]couper|divide|separer|s[eé]parer|separate|reduire|r[eé]duire|reduce|mettre|place|put|adjust|ajuster|regler|r[eé]gler|calibrate|inspect|verify)\b.{0,90}\b(?:un|une|des|les|le|la|a|an|the|item|element|[eé]l[eé]ment|objet|object|device|dispositif|matiere|mati[eè]re|aliment)\b",
+            @"^(?:\p{L}{3,}\s+){1,3}(?:divide|separer|s[eé]parer|separate|reduire|r[eé]duire|reduce|mettre|place|put|adjust|ajuster|regler|r[eé]gler|calibrate|inspect|verify)\b.{0,90}\b(?:un|une|des|les|le|la|a|an|the|item|element|[eé]l[eé]ment|objet|object|device|dispositif|matiere|mati[eè]re)\b",
             RegexOptions.CultureInvariant);
     }
 
@@ -18191,11 +16328,11 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         return Regex.IsMatch(
                 normalizedTitle,
-                @"^(?:components?|components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|temps|dur[eé]e|duration|time|materiel|mat[eé]riel|materials?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)$",
+                @"^(?:ingredients?|components?|preparation|pr[eé]paration|etapes?|[eé]tapes?|steps?|m[eé]thode|methode|method|procedure|proc[eé]dure|instructions?|quantites?|quantit[eé]s?|quantities?|temps|dur[eé]e|duration|time|materiel|mat[eé]riel|materials?|components?|composants?|requirements?|exigences?|constraints?|contraintes?|notes?|observations?|criteria|criteres|crit[eè]res|conditions?|parameters?|param[eè]tres?|checklist|controle|contr[oô]le|verification|v[eé]rification|validation|review|revue)$",
                 RegexOptions.CultureInvariant)
             || Regex.IsMatch(
                 normalizedTitle,
-                @"^(?:nombre|number|quantite|quantity|quantit[eé])\s+(?:de\s+|of\s+)?(?:portions?|units?|elements?|[eé]l[eé]ments?|items?|pieces?|pi[eè]ces?|galettes?|parts?)$",
+                @"^(?:nombre|number|quantite|quantity|quantit[eé])\s+(?:de\s+|of\s+)?(?:portions?|units?|elements?|[eé]l[eé]ments?|items?|pieces?|pi[eè]ces?|parts?)$",
                 RegexOptions.CultureInvariant);
     }
 
@@ -18209,7 +16346,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var hasFieldLabel = Regex.IsMatch(
             normalizedTitle,
-            @"\b(?:components?|components?|preparation|pr[eé]paration|nombre|number|quantite|quantity|quantit[eé]|portions?|units?|temps|dur[eé]e|duration|time|materiel|mat[eé]riel|materials?)\b",
+            @"\b(?:ingredients?|components?|preparation|pr[eé]paration|nombre|number|quantite|quantity|quantit[eé]|portions?|units?|temps|dur[eé]e|duration|time|materiel|mat[eé]riel|materials?)\b",
             RegexOptions.CultureInvariant);
         if (!hasFieldLabel)
             return false;
@@ -18219,7 +16356,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var startsWithDurationField = Regex.IsMatch(normalizedTitle, @"^(?:temps|dur[eé]e|duration|time)\b", RegexOptions.CultureInvariant);
         var hasDurationActionCue = Regex.IsMatch(
             normalizedTitle,
-            @"\b(?:signal|faire\s+cuire|cuire|minutes?|seconds?|secondes?|heures?|hours?|\d+)\b",
+            @"\b(?:signal|minutes?|seconds?|secondes?|heures?|hours?|\d+)\b",
             RegexOptions.CultureInvariant);
         var hasOcrPrefix = Regex.IsMatch(
             normalizedTitle,
@@ -18261,6 +16398,87 @@ If evidence is partial, write the best useful sourced answer possible and state 
             || CountNumericFactMarkers(normalizedEvidence) >= 2;
 
         return !hasConcreteCardEvidence && !hasActionableEvidence;
+    }
+
+    private static bool LooksLikeLeadingConnectorStructuredPlanningFragment(string? title)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(title);
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        var terms = ExtractQuerySignalTerms(normalizedTitle)
+            .Where(static term => term.Length >= 2)
+            .Take(8)
+            .ToArray();
+        if (terms.Length is < 1 or > 6)
+            return false;
+
+        return Regex.IsMatch(
+            normalizedTitle,
+            @"^(?:a|au|aux|avec|chez|dans|de|des|du|d|en|et|pour|sans|sous|sur|with|for|in|into|from|to|under|over)\b",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeGenericStructuredInventoryTitle(string normalizedTitle)
+    {
+        var lexicalTitle = CollapseWhitespace(Regex.Replace(normalizedTitle, @"[^\p{L}\p{N}]+", " ")).Trim();
+        if (string.IsNullOrWhiteSpace(lexicalTitle))
+            return true;
+
+        return Regex.IsMatch(
+            lexicalTitle,
+            @"^(?:(?:\d+\s+)?(?:a\s+){0,2}voir\s+dans\s+son\s+\p{L}{3,}|options?|items?|elements?|rubriques?|entries?|candidates?|candidats?|examples?|exemples?|proposals?|propositions?|suggestions?|liste|list|catalog(?:ue)?|index|sommaire|contents?|table\s+des\s+matieres|mise\s+en\s+place)$",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeGenericInventorySurfaceDerivedPlanningCandidate(SourceBackedOptionCandidate candidate)
+    {
+        var normalizedTitle = NormalizeLexicalLookup(CleanSourceBackedOptionTitle(candidate.Title));
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return true;
+
+        var titleTerms = ExtractPlanningAnswerSupportTerms(normalizedTitle)
+            .Where(static term => term.Length >= 3)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (titleTerms.Length == 0 || titleTerms.Length > 4)
+            return false;
+
+        foreach (var surface in EnumeratePlanningCandidateRawTitleSurfaces(candidate.Hit))
+        {
+            var normalizedSurface = NormalizeLexicalLookup(surface);
+            if (string.IsNullOrWhiteSpace(normalizedSurface)
+                || string.Equals(normalizedSurface, normalizedTitle, StringComparison.Ordinal)
+                || !normalizedSurface.Contains(normalizedTitle, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (LooksLikeGenericStructuredInventoryTitle(normalizedSurface)
+                || Regex.IsMatch(
+                    normalizedSurface,
+                    @"^(?:options?|easy\s+options?|suggestions?|ideas?|idees?|examples?|exemples?|candidates?|candidats?|items?|elements?|rubriques?|entries?)\b",
+                    RegexOptions.CultureInvariant))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<string> EnumeratePlanningCandidateRawTitleSurfaces(RagHitSummary hit)
+    {
+        if (!string.IsNullOrWhiteSpace(hit.SectionTitle))
+            yield return hit.SectionTitle!;
+        if (!string.IsNullOrWhiteSpace(hit.HeadingPath))
+            yield return hit.HeadingPath!;
+
+        foreach (var card in hit.MatchedContentCards ?? Array.Empty<RagHitContentCardSummary>())
+        {
+            if (!string.IsNullOrWhiteSpace(card.Title))
+                yield return card.Title;
+        }
     }
 
     private static bool LooksLikeGenericPlanningContextCandidate(SourceBackedOptionCandidate candidate)
@@ -18404,9 +16622,14 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (!string.IsNullOrWhiteSpace(normalized))
         {
             var requestedDays = DetectRequestedDayAxisLabels(query, "en");
-            var requestedPeriods = DetectRequestedPeriodAxisLabels(query, "en");
-            if (requestedDays.Count > 0 && requestedPeriods.Count > 0)
-                return Math.Clamp(requestedDays.Count * requestedPeriods.Count, 1, 20);
+            var requestedAxes = DetectRequestedPlanningSlotAxisLabels(query, "en")
+                .Concat(ExtractPlanningSlotRetrievalTerms(query))
+                .Select(NormalizeLexicalLookup)
+                .Where(static term => !string.IsNullOrWhiteSpace(term))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (requestedDays.Count > 0 && requestedAxes.Length > 0)
+                return Math.Clamp(requestedDays.Count * requestedAxes.Length, 1, 20);
 
             var explicitCount = Regex.Match(
                 normalized,
@@ -18421,13 +16644,6 @@ If evidence is partial, write the best useful sourced answer possible and state 
         }
 
         return LooksLikeWeeklyPlanningRequest(query) ? 7 : 5;
-    }
-
-    private enum StructuredMealPlanningSlotKind
-    {
-        Breakfast,
-        MainMeal,
-        Snack
     }
 
     private sealed record SourceBackedOptionCandidate(RagHitSummary Hit, string Title, int Score, int? VisibleMinutes);
@@ -19278,22 +17494,32 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var emittedCardCandidate = false;
         foreach (var card in hit.MatchedContentCards ?? Array.Empty<RagHitContentCardSummary>())
         {
-            foreach (var title in ExtractSourceBackedCardTitleVariants(card.Title))
+            LogSourceBackedCardCandidateInspect(hit, card, requiresStructuredPlanning);
+            var titleVariants = ExtractSourceBackedCardTitleVariants(card.Title);
+            if (titleVariants.Count == 0)
+            {
+                LogSourceBackedCardCandidateNoVariant(hit, card.Title, requiresStructuredPlanning);
+            }
+
+            foreach (var title in titleVariants)
             {
                 if (!IsUsableSourceBackedOptionTitle(title))
                 {
+                    LogSourceBackedCardCandidateSkip(hit, title, "unusable_title", requiresStructuredPlanning);
                     continue;
                 }
 
                 if (requiresStrictStructuredPlanning
                     && LooksLikeNoisyStructuredPlanningCandidateTitle(title))
                 {
+                    LogSourceBackedCardCandidateSkip(hit, title, "noisy_title", requiresStructuredPlanning);
                     continue;
                 }
 
                 if (requiresStrictStructuredPlanning
                     && !ContentCardHasPageLocalStructuredPlanningProof(hit, card, title))
                 {
+                    LogSourceBackedCardCandidateSkip(hit, title, "missing_page_local_card_proof", requiresStructuredPlanning);
                     continue;
                 }
 
@@ -19311,7 +17537,10 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 if (requiresStrictStructuredPlanning)
                 {
                     if (!HasStrictStructuredPlanningCandidateEvidence(scopedCandidate))
+                    {
+                        LogSourceBackedCardCandidateSkip(hit, title, "missing_strict_candidate_evidence", requiresStructuredPlanning);
                         continue;
+                    }
 
                     scopedCandidate = BoostStrictStructuredPlanningCandidate(scopedCandidate);
                 }
@@ -19370,6 +17599,62 @@ If evidence is partial, write the best useful sourced answer possible and state 
         }
     }
 
+    private static void LogSourceBackedCardCandidateSkip(
+        RagHitSummary hit,
+        string? title,
+        string reason,
+        bool enabled)
+    {
+        if (!enabled)
+            return;
+
+        ClientLog.Info(
+            "ToolAgent option candidate selection: stage=card_candidate.skip"
+            + $"|reason={FormatPlanningTraceValue(reason)}"
+            + $"|title={FormatPlanningTraceValue(title)}"
+            + $"|doc={FormatPlanningTraceValue(hit.DocPath)}"
+            + $"|page={hit.PageStart}");
+    }
+
+    private static void LogSourceBackedCardCandidateInspect(
+        RagHitSummary hit,
+        RagHitContentCardSummary card,
+        bool enabled)
+    {
+        if (!enabled)
+            return;
+
+        ClientLog.Info(
+            "ToolAgent option candidate selection: stage=card_candidate.inspect"
+            + $"|title={FormatPlanningTraceValue(card.Title)}"
+            + $"|kind={FormatPlanningTraceValue(card.Kind)}"
+            + $"|doc={FormatPlanningTraceValue(hit.DocPath)}"
+            + $"|page={hit.PageStart}");
+    }
+
+    private static void LogSourceBackedCardCandidateNoVariant(
+        RagHitSummary hit,
+        string? rawTitle,
+        bool enabled)
+    {
+        if (!enabled)
+            return;
+
+        var cleaned = CleanSourceBackedOptionTitle(rawTitle);
+        var normalized = NormalizeLexicalLookup(cleaned);
+        ClientLog.Info(
+            "ToolAgent option candidate selection: stage=card_candidate.skip"
+            + "|reason=no_usable_title_variant"
+            + $"|rawTitle={FormatPlanningTraceValue(rawTitle)}"
+            + $"|cleaned={FormatPlanningTraceValue(cleaned)}"
+            + $"|useful={FormatPlanningTraceBool(IsUsefulSourceBackedDisplayTitle(cleaned))}"
+            + $"|planNoise={FormatPlanningTraceBool(LooksLikePlanItemNoise(cleaned))}"
+            + $"|weak={FormatPlanningTraceBool(LooksLikeWeakSourceBackedOptionTitle(cleaned))}"
+            + $"|procedure={FormatPlanningTraceBool(LooksLikeProcedureSentenceTitle(normalized))}"
+            + $"|doc={FormatPlanningTraceValue(hit.DocPath)}"
+            + $"|page={hit.PageStart}");
+    }
+
     private static SourceBackedOptionCandidate BoostStrictStructuredPlanningCandidate(SourceBackedOptionCandidate candidate)
     {
         var evidenceScore = ComputeSourceBackedEvidenceRichnessScore(candidate.Hit);
@@ -19420,7 +17705,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
     private static IEnumerable<string> ExtractPageLocalStructuredPlanningTitleCandidates(RagHitSummary hit)
     {
         const string structureLabelPattern =
-            @"components?|components?|requirements?|quantit(?:y|ies)|quantit[eé]s?|values?|materials?|mat[eé]riel|components?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
+            @"ingredients?|components?|composants?|requirements?|exigences?|quantit(?:y|ies)|quantit[eé]s?|values?|valeurs?|materials?|mat[eé]riel|items?|[eé]l[eé]ments?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
         var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var text in EnumeratePlanExtractionTexts(hit))
         {
@@ -19800,7 +18085,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var hasStructuredCardCue = Regex.IsMatch(
             normalized,
-            @"\b(?:components?|components?|preparation|pr[eé]paration|temps\s+de\s+(?:preparation|pr[eé]paration|operation)|operation\s*:|categories?\s+de\s+options?|modes?\s+de\s+preparation|pour\s+\d{1,3}\s+(?:portions?|personnes?|pieces?|pi[eè]ces?))\b",
+            @"\b(?:ingredients?|components?|preparation|pr[eé]paration|temps\s+de\s+(?:preparation|pr[eé]paration|operation)|operation\s*:|categories?\s+de\s+options?|modes?\s+de\s+preparation|pour\s+\d{1,3}\s+(?:portions?|personnes?|pieces?|pi[eè]ces?))\b",
             RegexOptions.CultureInvariant);
         if (!hasStructuredCardCue)
             return false;
@@ -20143,7 +18428,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         foreach (Match match in Regex.Matches(
             normalized,
-            @"\b(?:quel|quelle|quels|quelles|which|what|cual|cu[aÃ¡]l|qual|welche|welcher|welches|quale)\s+(?<kinds>[\p{L}\s'\u2019-]{3,90}?)(?=\s+(?:trouve|trouves|trouv[eé]s|dans|pour|avec|qui|que|would|could|found|in|for|with|para|con|com|mit|per|irait|iraient|vont|goes?|pair|pairs?|compatible)\b|[?.!,;:]|$)",
+            @"\b(?:quel|quelle|quels|quelles|which|what|cual|cu[aá]l|qual|welche|welcher|welches|quale)\s+(?<kinds>[\p{L}\s'\u2019-]{3,90}?)(?=\s+(?:trouve|trouves|trouv[eé]s|dans|pour|avec|qui|que|would|could|found|in|for|with|para|con|com|mit|per|irait|iraient|vont|goes?|pair|pairs?|compatible)\b|[?.!,;:]|$)",
             RegexOptions.CultureInvariant))
         {
             var kinds = NormalizeLexicalLookup(match.Groups["kinds"].Value);
@@ -20180,7 +18465,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         foreach (Match match in Regex.Matches(
             normalized,
-            @"\b(?:quel|quelle|quels|quelles|which|what|cual|cu[aÃ¡]l|qual|welche|welcher|welches|quale)\s+(?<kinds>[\p{L}\s'\u2019-]{3,90}?)(?=\s+(?:trouve|trouves|trouves|dans|pour|avec|qui|que|would|could|found|in|for|with|para|con|com|mit|per)\b|[?.!,;:]|$)",
+            @"\b(?:quel|quelle|quels|quelles|which|what|cual|cu[aá]l|qual|welche|welcher|welches|quale)\s+(?<kinds>[\p{L}\s'\u2019-]{3,90}?)(?=\s+(?:trouve|trouves|trouves|dans|pour|avec|qui|que|would|could|found|in|for|with|para|con|com|mit|per)\b|[?.!,;:]|$)",
             RegexOptions.CultureInvariant))
         {
             var kinds = NormalizeLexicalLookup(match.Groups["kinds"].Value);
@@ -20706,7 +18991,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (!string.IsNullOrWhiteSpace(compositeTitle))
             return compositeTitle;
 
-        var title = RepairSplitOcrPlanningAxisTerms(HumanizePlanItemTitleV2(value ?? string.Empty));
+        var title = RepairSplitOcrBrokenTitleWords(HumanizePlanItemTitleV2(value ?? string.Empty));
         if (string.IsNullOrWhiteSpace(title))
             return string.Empty;
 
@@ -20716,6 +19001,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         title = StripTrailingAllCapsContextLabelFromTitle(title);
         title = StripTrailingStructuredPlanningContextSuffixFromTitle(title);
         title = StripTrailingGenericStructuredContextPhraseFromTitle(title);
+        title = StripTrailingBrokenPrincipalContextSuffixFromTitle(title);
         title = StripTrailingCompactOcrContextLabelFromTitle(title);
         title = StripLeadingStructuredSectionNoiseFromTitle(title);
         title = StripTrailingStructuredSectionNoiseFromTitle(title);
@@ -20759,6 +19045,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         title = StripTrailingVariantNoiseFromTitle(title);
         title = StripTrailingStructuredPlanningContextSuffixFromTitle(title);
         title = StripTrailingGenericStructuredContextPhraseFromTitle(title);
+        title = StripTrailingBrokenPrincipalContextSuffixFromTitle(title);
         title = RecoverTitleBeforeTrailingGenericPrincipalContext(originalTitle, title);
         title = StripLeadingLowSignalStructuredFieldValuePrefixFromTitle(title);
         title = StripLeadingConnectorFieldValuePrefixBeforeStrongTitle(title);
@@ -20799,7 +19086,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 normalizedSuffix,
-                @"^(?:components?|components?|preparation|pr[eé]paration|technique|method|m[eé]thode|procedure|temps|time|duration|operation|nombre|quantit[eé]s?|quantities|pour\s+\d+|for\s+\d+|min|mn|pages?|sources?)\b",
+                @"^(?:ingredients?|components?|preparation|pr[eé]paration|technique|method|m[eé]thode|procedure|temps|time|duration|operation|nombre|quantit[eé]s?|quantities|pour\s+\d+|for\s+\d+|min|mn|pages?|sources?)\b",
                 RegexOptions.CultureInvariant))
         {
             return false;
@@ -20825,7 +19112,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             return current;
         if (Regex.IsMatch(
                 normalizedOriginal,
-                @"\b(?:components?|components?|preparation|pr[eé]paration|procedure|proc[eé]dure|method|m[eé]thode|steps?|[eé]tapes?|materials?|mat[eé]riel)\b",
+                @"\b(?:ingredients?|components?|preparation|pr[eé]paration|procedure|proc[eé]dure|method|m[eé]thode|steps?|[eé]tapes?|materials?|mat[eé]riel)\b",
                 RegexOptions.CultureInvariant))
         {
             return current;
@@ -20850,11 +19137,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
             var lead = CollapseWhitespace(match.Groups["lead"].Value).Trim(' ', '-', ':', '.', ',', ';');
             var normalizedLead = NormalizeLexicalLookup(lead);
-            var leadTerms = ExtractPlanningAnswerSupportTerms(normalizedLead)
-                .Where(static value => value.Length >= 3)
-                .Take(8)
-                .ToArray();
-            if (leadTerms.Length < 2 || leadTerms.All(static value => value.Length < 5))
+            if (!LooksLikeConcreteTitleBeforeStructuredContextSuffix(lead))
                 continue;
 
             var normalizedCurrent = NormalizeLexicalLookup(current);
@@ -20932,7 +19215,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
     }
 
     private static bool IsUppercaseOcrBoundaryVowel(char value)
-        => "AEIOUYÀÁÂÃÄÅÈÉÊËÌÍÎÏÒÓÔÕÖÙÚÛÜÝ".Contains(value);
+        => "AEIOUY????????????????????????".Contains(value);
 
     private static bool IsUppercaseOcrBoundaryConsonant(char value)
         => char.IsUpper(value) && !IsUppercaseOcrBoundaryVowel(value);
@@ -21034,20 +19317,134 @@ If evidence is partial, write the best useful sourced answer possible and state 
             if (!looksLikeContextSuffix)
                 continue;
 
-            var leadTerms = ExtractPlanningAnswerSupportTerms(NormalizeLexicalLookup(lead))
-                .Where(static term => term.Length >= 3)
-                .Take(8)
-                .ToArray();
-            var lastLeadTerm = leadTerms.LastOrDefault() ?? string.Empty;
-            if (leadTerms.Length >= 2
-                && leadTerms.Any(static term => term.Length >= 5)
-                && (leadTerms.Length >= 3 || lastLeadTerm.Length >= 5))
+            if (LooksLikeConcreteTitleBeforeStructuredContextSuffix(lead))
             {
                 return lead;
             }
         }
 
         return value;
+    }
+
+    private static string StripTrailingBrokenPrincipalContextSuffixFromTitle(string? title)
+    {
+        var value = CollapseWhitespace(title ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        string? bestLead = null;
+        var bestScore = int.MinValue;
+        var maxSplit = Math.Min(90, value.Length - 6);
+        for (var split = 6; split <= maxSplit; split++)
+        {
+            var lead = CollapseWhitespace(value[..split]).Trim(' ', '-', ':', '.', ',', ';');
+            var suffix = CollapseWhitespace(value[split..]).Trim(' ', '-', ':', '.', ',', ';');
+            if (string.IsNullOrWhiteSpace(lead) || string.IsNullOrWhiteSpace(suffix))
+                continue;
+
+            var previous = value[split - 1];
+            var current = value[split];
+            var hasBoundary = char.IsWhiteSpace(previous)
+                || previous is '-' or ':' or ';' or ',' or '|'
+                || (char.IsLetterOrDigit(previous) && char.IsLetter(current));
+            if (!hasBoundary)
+                continue;
+
+            var suffixTerms = ExtractQuerySignalTerms(NormalizeLexicalLookup(suffix))
+                .Where(static term => term.Length >= 3)
+                .Take(5)
+                .ToArray();
+            if (suffixTerms.Length is < 2 or > 4)
+                continue;
+
+            var hasBrokenPrincipalTail = suffixTerms.Skip(1).Any(static term => term is "princi" or "paux");
+            if (!hasBrokenPrincipalTail)
+                continue;
+
+            var firstSuffixTerm = suffixTerms[0];
+            var suffixScore = ScoreBrokenPrincipalContextSuffixFirstTerm(firstSuffixTerm);
+            if (suffixScore <= 0)
+                continue;
+
+            var leadTerms = ExtractPlanningAnswerSupportTerms(NormalizeLexicalLookup(lead))
+                .Where(static term => term.Length >= 3)
+                .Where(static term => !IsGenericPlanningCoverageTerm(term))
+                .Take(6)
+                .ToArray();
+            if (leadTerms.Length < 2 || leadTerms.All(static term => term.Length < 5))
+                continue;
+
+            if (!LooksLikePlausibleTitleBeforeBrokenPrincipalContext(lead))
+                continue;
+
+            var score = (suffixScore * 100) + Math.Min(lead.Length, 90);
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestLead = lead;
+            }
+        }
+
+        return bestLead ?? value;
+    }
+
+    private static int ScoreBrokenPrincipalContextSuffixFirstTerm(string term)
+    {
+        var normalized = NormalizeLexicalLookup(term);
+        if (string.IsNullOrWhiteSpace(normalized)
+            || IsGenericPlanningCoverageTerm(normalized)
+            || IsLowercaseSourceBackedDisplayParticle(normalized)
+            || normalized is "princi" or "paux"
+            || normalized.Length is < 4 or > 12)
+        {
+            return 0;
+        }
+
+        if (Regex.IsMatch(normalized, @"[bcdfghjklmnpqrstvwxyz]{3,}", RegexOptions.CultureInvariant))
+            return 0;
+
+        var score = 10;
+        if (normalized.Length is >= 5 and <= 8)
+            score += 10;
+        else if (normalized.Length > 8)
+            score -= 8;
+
+        if (Regex.IsMatch(
+                normalized,
+                @"^(?:bl|br|ch|cl|cr|dr|fl|fr|gl|gr|pl|pr|qu|sc|sk|sl|sm|sn|sp|st|tr|tw|wh)[aeiouy]",
+                RegexOptions.CultureInvariant))
+        {
+            score += 12;
+        }
+        else if (Regex.IsMatch(normalized, @"^[aeiouy]", RegexOptions.CultureInvariant))
+        {
+            score += 4;
+        }
+
+        return score;
+    }
+
+    private static bool LooksLikePlausibleTitleBeforeBrokenPrincipalContext(string? lead)
+    {
+        var value = CollapseWhitespace(lead ?? string.Empty).Trim(' ', '-', ':', '.', ',', ';');
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var normalized = NormalizeLexicalLookup(value);
+        if (string.IsNullOrWhiteSpace(normalized)
+            || LooksLikeStandaloneStructuredPlanningFieldLabel(normalized)
+            || LooksLikeStructuredPlanningFieldOrOcrFragment(normalized)
+            || LooksLikeGenericStructuredInventoryTitle(normalized))
+        {
+            return false;
+        }
+
+        var terms = ExtractPlanningAnswerSupportTerms(normalized)
+            .Where(static term => term.Length >= 3)
+            .Where(static term => !IsGenericPlanningCoverageTerm(term))
+            .Take(8)
+            .ToArray();
+        return terms.Length >= 2 && terms.Any(static term => term.Length >= 5);
     }
 
     private static bool IsLikelyCompactOcrContextSuffixFirstTerm(string term)
@@ -21193,18 +19590,18 @@ If evidence is partial, write the best useful sourced answer possible and state 
         }
         if (LooksLikeGenericStructuredInventoryTitle(normalized))
             score -= 80;
-        if (Regex.IsMatch(normalized, @"\b(?:components?|components?|preparation|pr[eé]paration|technique)\b", RegexOptions.CultureInvariant))
+        if (Regex.IsMatch(normalized, @"\b(?:ingredients?|components?|preparation|pr[eé]paration|technique)\b", RegexOptions.CultureInvariant))
             score -= 60;
 
         return score;
     }
 
     private static readonly Regex LeadingStructuredPlanningFieldLabelTitleRegex = new(
-        @"^(?:components?|components?|preparation|pr[eé]paration|technique|m[eé]thode|methode|procedure|etapes?|[eé]tapes?)\s*(?:[:\-/]\s*)?(?<rest>[\p{L}\p{N} '&/,\-\u00c0-\u017f]{4,100})$",
+        @"^(?:ingredients?|components?|preparation|pr[eé]paration|technique|m[eé]thode|methode|procedure|etapes?|[eé]tapes?)\s*(?:[:\-/]\s*)?(?<rest>[\p{L}\p{N} '&/,\-\u00c0-\u017f]{4,100})$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private static readonly Regex LeadingUpperStructuredPlanningFieldLabelTitleRegex = new(
-        @"^(?:COMPONENTS?|COMPOSANTS?|REQUIREMENTS?|PREPARATION|PR[EÉ]PARATION|TECHNIQUE|M[EÉ]THODE|METHODE|PROCEDURE|ETAPES?|[EÉ]TAPES?)(?<rest>[\p{Lu}0-9 '&/,\-\u00c0-\u017f]{4,100})$",
+        @"^(?:INGREDIENTS?|COMPONENTS?|COMPOSANTS?|REQUIREMENTS?|PREPARATION|PR[EÉ]PARATION|TECHNIQUE|M[EÉ]THODE|METHODE|PROCEDURE|ETAPES?|[EÉ]TAPES?)(?<rest>[\p{Lu}0-9 '&/,\-\u00c0-\u017f]{4,100})$",
         RegexOptions.CultureInvariant);
 
     private static string StripLeadingStructuredPlanningFieldLabelFromTitle(string title)
@@ -21343,16 +19740,47 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (!looksLikeOcrContextSuffix)
             return value;
 
-        var leadTerms = ExtractPlanningAnswerSupportTerms(NormalizeLexicalLookup(lead))
+        return LooksLikeConcreteTitleBeforeStructuredContextSuffix(lead) ? lead : value;
+    }
+
+    private static bool LooksLikeConcreteTitleBeforeStructuredContextSuffix(string? lead)
+    {
+        var value = CollapseWhitespace(lead ?? string.Empty).Trim(' ', '-', ':', '.', ',', ';');
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var normalized = NormalizeLexicalLookup(value);
+        if (string.IsNullOrWhiteSpace(normalized)
+            || LooksLikeStandaloneStructuredPlanningFieldLabel(normalized)
+            || LooksLikeStructuredPlanningFieldOrOcrFragment(normalized)
+            || LooksLikeGenericStructuredInventoryTitle(normalized)
+            || Regex.IsMatch(
+                normalized,
+                @"\b(?:page|pages?|section|chapitre|chapter|annexe|appendix|sommaire|index|table\s+des\s+matieres|contents?)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return false;
+        }
+
+        var terms = ExtractPlanningAnswerSupportTerms(normalized)
             .Where(static term => term.Length >= 3)
+            .Where(static term => !IsGenericPlanningCoverageTerm(term))
             .Take(8)
             .ToArray();
-        var lastLeadTerm = leadTerms.LastOrDefault() ?? string.Empty;
-        return leadTerms.Length >= 2
-            && leadTerms.Any(static term => term.Length >= 5)
-            && (leadTerms.Length >= 3 || lastLeadTerm.Length >= 5)
-            ? lead
-            : value;
+        if (terms.Length == 0)
+            return false;
+
+        if (terms.Length >= 2)
+        {
+            var lastTerm = terms[^1];
+            return terms.Any(static term => term.Length >= 5)
+                && (terms.Length >= 3 || lastTerm.Length >= 5);
+        }
+
+        var rawTokenCount = Regex.Matches(value, @"[\p{L}\p{N}'\u2019-]+", RegexOptions.CultureInvariant).Count;
+        return terms[0].Length >= 5
+            && value.Length >= 6
+            && rawTokenCount <= 5;
     }
 
     private static string StripLeadingLowSignalStructuredFieldValuePrefixFromTitle(string? title)
@@ -21408,6 +19836,14 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 .Where(static term => term.Length >= 3)
                 .Take(8)
                 .ToArray();
+            var restLetters = rest.Where(char.IsLetter).ToArray();
+            if (restLetters.Length < 6)
+                continue;
+
+            var upperRatio = restLetters.Count(char.IsUpper) / (double)restLetters.Length;
+            if (upperRatio < 0.55)
+                continue;
+
             if (restTerms.Length >= 2 && restTerms.Any(static term => term.Length >= 5))
                 return rest;
         }
@@ -21450,7 +19886,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             score -= 12;
         if (Regex.IsMatch(normalizedTitle, @"\b(?:document|section|categories?|modes?|preparation|operation|workflow|execution|pages?)\b", RegexOptions.CultureInvariant))
             score -= 16;
-        if (LooksLikeGenericMealPlanningInventoryTitle(title, query))
+        if (LooksLikeGenericStructuredInventoryTitle(normalizedTitle))
             score -= 70;
         if (LooksLikeWeakSourceBackedOptionTitle(title))
             score -= 50;
@@ -24798,13 +23234,6 @@ If evidence is partial, write the best useful sourced answer possible and state 
             return true;
 
         var lead = StripShortOcrPrefixForTitleQuality(normalized);
-        if (Regex.IsMatch(
-                lead,
-                @"^(?:repas|meal|items|petit\s+dejeuner|dejeuner|diner|breakfast|lunch|dinner|cena|pranzo|colazione|jantar|almoco|almoço|fruhstuck|mittagessen|abendessen)$",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
 
         if (LooksLikeNoisyGeneratedSourceBackedExplorationQuery(raw))
             return true;
@@ -24824,7 +23253,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             RegexOptions.CultureInvariant);
         var unitMarkerCount = Regex.Matches(
                 lead,
-                @"\b(?:g|kg|mg|ml|cl|l|oz|lb|lbs|mm|cm|m|%|tablespoons?|teaspoons?|tsp|tbsp|boites?|pieces?|items?|units?|valeurs?|values?)\b",
+                @"\b(?:g|kg|mg|ml|cl|l|oz|lb|lbs|mm|cm|m|%|pieces?|items?|units?|valeurs?|values?)\b",
                 RegexOptions.CultureInvariant)
             .Count;
         if (startsWithQuantity
@@ -24837,7 +23266,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 lead,
-                @"^(?:\p{L}{1,3}\s+){0,3}(?:mettre|mettez|placer|placez|ajouter|ajoutez|retirer|retirez|ouvrir|ouvrez|fermer|fermez|programmer|programmez|verifier|verifiez|controler|controlez|inspecter|inspectez|noter|notez|signer|signez|verser|versez|melanger|m[eé]langez|incorporer|incorporez|faconner|fagonner|former|cuire|collecter|mijoter|servir|gouter|go[uû]ter|set|add|remove|place|put|open|close|program|check|verify|inspect|record|sign|pour|mix|cook|serve|taste)\b",
+                @"^(?:\p{L}{1,3}\s+){0,3}(?:mettre|mettez|placer|placez|ajouter|ajoutez|retirer|retirez|ouvrir|ouvrez|fermer|fermez|programmer|programmez|verifier|verifiez|controler|controlez|inspecter|inspectez|noter|notez|signer|signez|former|collecter|set|add|remove|place|put|open|close|program|check|verify|inspect|record|sign)\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
@@ -24851,37 +23280,9 @@ If evidence is partial, write the best useful sourced answer possible and state 
             return true;
         }
 
-        if (Regex.IsMatch(
-                lead,
-                @"^(?:sa|son|ses|ta|ton|tes|ma|mon|mes|my|your|his|her|their|its)\s+(?:repas|meal|items|petit\s+dejeuner|dejeuner|diner|breakfast|lunch|dinner|cena|pranzo|colazione)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
 
-        if (Regex.IsMatch(
-                lead,
-                @"^(?:repas|meal|items|petit\s+dejeuner|dejeuner|diner|breakfast|lunch|dinner|cena|pranzo|colazione)\s+(?:leger|light|entre|between|vers|around|avant|before|apres|after|minuit|midnight)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
 
-        if (Regex.IsMatch(
-                lead,
-                @"^(?:collation|snack|pause|break|sieste|rest|repos)\b.{0,32}\b(?:vers|around|avant|before|apres|after|entre|between|\d+\s*(?:h|heure|hour))\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
 
-        if (Regex.IsMatch(
-                lead,
-                @"^(?:collecter|collectez|preparer|preparez|cook|prepare)\b.{0,50}\b(?:repas|meal|items)\b.{0,24}\b(?:par\s+semaine|per\s+week|cada\s+semana|por\s+semana)\b",
-                RegexOptions.CultureInvariant))
-        {
-            return true;
-        }
 
         if (unitMarkerCount >= 2 && ExtractQuerySignalTerms(lead).Count() >= 7)
             return true;
@@ -24965,7 +23366,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         return terms.All(static term => Regex.IsMatch(
             term,
-            @"^(?:collection|cookbook|collection|pratique|practical|fut[eé]e?|smart|parents?|parental|familles?|families?|family|enfants?|children|kids?|busy|press[eé]s?|presses?|actifs?|active|guide|livre|book|edition|magazine)$",
+            @"^(?:collection|pratique|practical|fut[eé]e?|smart|parents?|parental|familles?|families?|family|enfants?|children|kids?|busy|press[eé]s?|presses?|actifs?|active|guide|livre|book|edition|magazine)$",
             RegexOptions.CultureInvariant));
     }
 
@@ -25025,17 +23426,47 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (Regex.IsMatch(
                 normalizedTitle,
-                @"^(?:le|la|les|l|un|une|des|du|de\s+la|the|a|an)?\s*(?:occuper|occupez|organiser|organize|planifier|planifiez|schedule|utiliser|use|using|egoutter|egouttez|peler|pelez|preparer|preparez|verser|versez|melanger|m[eé]langez|incorporer|incorporez|faconner|fagonner|former|faire|faites|ajouter|ajoutez|laisser|laissez|placer|placez|retirer|retirez|couper|coupez|hacher|hachez|trancher|tranchez|deposer|deposez|remuer|remuez|cuire|collecter|mijoter|servir|gouter|go[uû]ter|pour|mix|peel|cut|chop|cook|serve|taste|" + OperationalActionLeadPattern + @")\b",
+                @"^(?:le|la|les|l|un|une|des|du|de\s+la|the|a|an)?\s*(?:occuper|occupez|organiser|organize|planifier|planifiez|schedule|utiliser|use|using|collecter|collectez|choisir|choose|verifier|verify|check|valider|validate|executer|execute|run|lire|read|documenter|document|noter|note|enregistrer|record|consigner|escalader|escalate|prioriser|prioritize|classer|rank|filtrer|filter|comparer|compare|analyser|analyze|analyser|inspecter|inspect|" + OperationalActionLeadPattern + @")\b",
                 RegexOptions.CultureInvariant))
         {
             return true;
         }
+
+        if (LooksLikeFusedFunctionWordProcedureFragment(normalizedTitle))
+            return true;
 
         return Regex.IsMatch(
             normalizedTitle,
             @"\b(?:\d+\s*(?:min|h|hours?|minutes?|seconds?|secondes?|%|(?:\u00b0|deg|degres?)\s*c)|step\s+\d+|etape\s+\d+|page\s+\d+|section\s+\d+)\b",
             RegexOptions.CultureInvariant)
             || Regex.IsMatch(normalizedTitle, @"[.;:!?]\s+\p{L}", RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeFusedFunctionWordProcedureFragment(string normalizedTitle)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedTitle))
+            return false;
+
+        var fusedFunctionWords = Regex.Matches(
+                normalizedTitle,
+                @"\b(?:des|les|la|le|du|de|au|aux|un|une)[a-z]{4,}(?:et|and)?\b",
+                RegexOptions.CultureInvariant)
+            .Count;
+        if (fusedFunctionWords == 0)
+            return false;
+
+        if (fusedFunctionWords >= 2)
+            return true;
+
+        var startsLikeInstruction = Regex.IsMatch(
+            normalizedTitle,
+            @"^\p{L}{5,}(?:er|ez|ir|re)\b",
+            RegexOptions.CultureInvariant);
+        var endsWithDanglingConnector = Regex.IsMatch(
+            normalizedTitle,
+            @"\b(?:a|au|aux|avec|chez|dans|de|des|du|en|et|pour|sans|sous|sur|to|with|in|on|under|over|from)$",
+            RegexOptions.CultureInvariant);
+        return startsLikeInstruction && endsWithDanglingConnector;
     }
 
     private static int ComputeSourceBackedDisplayTitleScore(string requestedTitle, string candidateTitle)
@@ -26885,6 +25316,20 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 return strictPlanningAnswer;
 
             var coverage = EvaluateSourceBackedPlanningCoverage(toolResults, intentQuery, language);
+            var partialPlanningAnswer = BuildUsefulPartialStructuredPlanningAnswerBeforeWriter(
+                toolResults,
+                intentQuery,
+                language,
+                coverage,
+                searchWasBroadened: IsBroadenedSourceSearchConfirmationEnvelope(query),
+                searchWasExpanded: HasExpandedSourceBackedSearchEvidence(toolResults));
+            if (!string.IsNullOrWhiteSpace(partialPlanningAnswer))
+                return SuppressBroadenedSearchOfferIfAlreadyConfirmed(partialPlanningAnswer, query, language);
+
+            var readableCandidateFallback = BuildReadableSourceBackedCandidateListFallbackAnswer(toolResults, intentQuery, language);
+            if (!string.IsNullOrWhiteSpace(readableCandidateFallback))
+                return SuppressBroadenedSearchOfferIfAlreadyConfirmed(readableCandidateFallback, query, language);
+
             return BuildBroadEvidenceStillInsufficientAnswer(
                 language,
                 query,
@@ -28420,7 +26865,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             yield return quotedTitle;
 
         const string structureLabelPattern =
-            @"components?|components?|requirements?|quantit(?:y|ies)|quantit[eé]s?|values?|materials?|mat[eé]riel|components?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
+            @"ingredients?|components?|composants?|requirements?|exigences?|quantit(?:y|ies)|quantit[eé]s?|values?|valeurs?|materials?|mat[eé]riel|items?|[eé]l[eé]ments?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
         var sectionLeadPattern =
             $@"(?i)(?:^|[.!?]\s+)(?<title>\p{{Lu}}[\p{{L}}'\u2019 \-/]{{5,80}}?)(?:\.|\s)\s*(?:{structureLabelPattern})\b";
         foreach (Match match in Regex.Matches(text, sectionLeadPattern, RegexOptions.CultureInvariant))
@@ -28438,7 +26883,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         foreach (Match match in Regex.Matches(
             text,
-            @"[«“""]\s*(?<title>[\p{L}\p{N}][^«»“”""]{3,90}?)\s*[»”""]",
+            @"[??""]\s*(?<title>[\p{L}\p{N}][^????""]{3,90}?)\s*[??""]",
             RegexOptions.CultureInvariant))
         {
             var title = CollapseWhitespace(match.Groups["title"].Value)
@@ -28457,7 +26902,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         text = Regex.Replace(text, @"^\d+", string.Empty, RegexOptions.CultureInvariant).Trim();
         text = Regex.Replace(text, @"(?<=[\p{Ll}])(?=(?:Pour|For|Para|Per)\b)", " ", RegexOptions.CultureInvariant);
         const string structureLabelPattern =
-            @"components?|components?|requirements?|quantit(?:y|ies)|quantit[eé]s?|values?|materials?|mat[eé]riel|components?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
+            @"ingredients?|components?|composants?|requirements?|exigences?|quantit(?:y|ies)|quantit[eé]s?|values?|valeurs?|materials?|mat[eé]riel|items?|[eé]l[eé]ments?|procedure|proc[eé]dure|instructions?|method|m[eé]thode|preparation|pr[eé]paration|technique|operation|workflow|temps\s+total|total\s+time";
         var patterns = new[]
         {
             @"^(?<title>[\p{Lu}\p{Lt}0-9][\p{Lu}\p{Lt}0-9 '\u2019&/,\-\u00c0-\u017f]{5,120}?)(?:\s+\d+[\.)]\s|\s+[•\u2022]\s)",
@@ -28510,12 +26955,12 @@ If evidence is partial, write the best useful sourced answer possible and state 
             @"\b(?:WITHOUT|SENZA|SELON|AVEC|SANS|PARA|OHNE|WITH|POUR|AUX|DES|AND|FOR|CON|SIN|MIT|PER|DU|AU|A|D['\u2019])(?=[\p{Lu}\p{Lt}]{4})",
             "$0 ",
             RegexOptions.CultureInvariant);
-        title = RepairSplitOcrPlanningAxisTerms(title);
+        title = RepairSplitOcrBrokenTitleWords(title);
         title = Regex.Replace(title, @"\s+", " ").Trim(' ', '-', ':');
         return title;
     }
 
-    private static string RepairSplitOcrPlanningAxisTerms(string? value)
+    private static string RepairSplitOcrBrokenTitleWords(string? value)
     {
         var repaired = CollapseWhitespace(value ?? string.Empty);
         if (string.IsNullOrWhiteSpace(repaired))
@@ -28523,9 +26968,39 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         return Regex.Replace(
             repaired,
-            @"\bd[eé]j\s+euner\b",
-            match => match.Value.Any(char.IsUpper) ? "DEJEUNER" : "dejeuner",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            @"\b(?<left>[\p{L}]{2,4})\s+(?<right>[\p{L}]{4,10})\b",
+            match => LooksLikeUppercaseOcrSplitTitleWord(match.Groups["left"].Value, match.Groups["right"].Value)
+                ? match.Groups["left"].Value + match.Groups["right"].Value
+                : match.Value,
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeUppercaseOcrSplitTitleWord(string left, string right)
+    {
+        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+            return false;
+
+        var normalizedLeft = NormalizeLexicalLookup(left);
+        var normalizedRight = NormalizeLexicalLookup(right);
+        if (normalizedLeft.Length is < 2 or > 4 || normalizedRight.Length is < 4 or > 10)
+            return false;
+
+        if (normalizedLeft is "a" or "au" or "aux" or "de" or "du" or "des" or "la" or "le" or "les"
+            or "avec" or "sans" or "pour" or "chez" or "vers" or "dans" or "sous" or "plus"
+            or "with" or "and" or "the" or "for" or "of" or "von" or "und" or "mit"
+            or "con" or "com" or "per" or "para" or "las" or "los" or "les" or "des" or "une")
+        {
+            return false;
+        }
+
+        var leftLetters = left.Where(char.IsLetter).ToArray();
+        var rightLetters = right.Where(char.IsLetter).ToArray();
+        if (leftLetters.Length != left.Length || rightLetters.Length != right.Length)
+            return false;
+
+        var leftUpperRatio = leftLetters.Count(char.IsUpper) / (double)leftLetters.Length;
+        var rightUpperRatio = rightLetters.Count(char.IsUpper) / (double)rightLetters.Length;
+        return leftUpperRatio >= 0.75 && rightUpperRatio >= 0.75;
     }
 
     private static bool LooksLikePlanItemNoise(string value)
@@ -29253,7 +27728,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 sb.Append(c);
         }
 
-        return RepairSplitOcrPlanningAxisTerms(sb.ToString().Normalize(NormalizationForm.FormC));
+        return RepairSplitOcrBrokenTitleWords(sb.ToString().Normalize(NormalizationForm.FormC));
     }
 
     private static string NormalizeLooseLookup(string? value)
@@ -29995,11 +28470,11 @@ If evidence is partial, write the best useful sourced answer possible and state 
             ("it", false, _) =>
                 "Non ho ancora trovato abbastanza materiale fonte utile per rispondere in modo affidabile.",
             (_, true, true) =>
-                "Les pages trouvées restent trop limitées pour une réponse solide. Elles donnent des pistes utiles, mais il me faut des sources plus larges ou plus variées pour produire quelque chose de fiable.",
+                "Les pages trouv\u00e9es restent trop limit\u00e9es pour une r\u00e9ponse solide. Elles donnent des pistes utiles, mais il me faut des sources plus larges ou plus vari\u00e9es pour produire quelque chose de fiable.",
             (_, true, false) =>
-                "Les pages trouvées sont trop limitées pour une réponse solide. Elles donnent des pistes utiles, mais il me faut des sources plus larges ou plus variées pour produire quelque chose de fiable.",
+                "Les pages trouv\u00e9es sont trop limit\u00e9es pour une r\u00e9ponse solide. Elles donnent des pistes utiles, mais il me faut des sources plus larges ou plus vari\u00e9es pour produire quelque chose de fiable.",
             _ =>
-                "Je n'ai pas encore trouvé assez d'éléments sources utiles pour répondre de manière fiable."
+                "Je n'ai pas encore trouv\u00e9 assez d'\u00e9l\u00e9ments sources utiles pour r\u00e9pondre de mani\u00e8re fiable."
         };
 
         return alreadyConfirmed || searchAlreadyExpanded
@@ -30295,7 +28770,6 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (coverage.IsAdequate
             || (searchWasBroadened
-                && ShouldApplyMealPlanningSlotSemantics(intentQuery)
                 && HasUsefulPartialSourceBackedPlanningCoverage(coverage, searchWasBroadened, searchWasExpanded)))
         {
             return string.Empty;
@@ -30407,10 +28881,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             return string.Empty;
 
         var minimumUsefulCandidateCount = structuredPlanning
-            ? Math.Min(maxItems, ResolveMinimumSourceBackedPlanningCandidateCount(
-                query,
-                Math.Max(1, ResolveSourceBackedPlanningTargetItemCount(query)),
-                hasStructuredAxes: true))
+            ? Math.Min(maxItems, 2)
             : LooksLikeAnyDocumentaryPlanningRequest(query)
             ? 3
             : LooksLikeGenericCollectionOrListRequest(query)
@@ -30534,7 +29005,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         var match = Regex.Match(
             evidence,
-            @"^(?<title>[\p{L}\p{N}][\p{L}\p{N} '&/\-,]{3,88})\s+(?:[:\-–]|(?:PREPARATION|PR[Ã‰E]PARATION|ETAPES?|[Ã‰E]TAPES?|STEPS?|METHOD|M[Ã‰E]THODE|PROCEDURE|PROC[Ã‰E]DURE|MATERIALS?|MATERIEL)\b)",
+            @"^(?<title>[\p{L}\p{N}][\p{L}\p{N} '&/\-,]{3,88})\s+(?:[:\-–]|(?:PREPARATION|PR[ÉE]PARATION|ETAPES?|[ÉE]TAPES?|STEPS?|METHOD|M[ÉE]THODE|PROCEDURE|PROC[ÉE]DURE|MATERIALS?|MATERIEL)\b)",
             RegexOptions.CultureInvariant);
         return match.Success ? match.Groups["title"].Value : string.Empty;
     }
@@ -30678,7 +29149,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
         string language)
     {
         var dayLabels = DetectRequestedDayAxisLabels(query, language);
-        var periodLabels = DetectRequestedPeriodAxisLabels(query, language);
+        var periodLabels = DetectRequestedPlanningSlotAxisLabels(query, language);
         if (dayLabels.Count == 0 || periodLabels.Count == 0)
             return string.Empty;
 
@@ -31911,6 +30382,74 @@ If evidence is partial, write the best useful sourced answer possible and state 
                     continue;
 
                 yield return BuildRagHitSummary(h);
+            }
+        }
+
+        foreach (var hit in EnumerateDocumentContextHitSummaries(toolResults))
+            yield return hit;
+    }
+
+    private static IEnumerable<RagHitSummary> EnumerateDocumentContextHitSummaries(ToolResults toolResults)
+    {
+        foreach (var item in toolResults.Items.Where(static x => x.ToolName == "documents.context"))
+        {
+            var root = item.Result;
+            if (root.ValueKind != JsonValueKind.Object
+                || !root.TryGetProperty("items", out var contextItems)
+                || contextItems.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            var document = TryGetObject(root, "document") ?? TryGetObject(root, "Document");
+            var docPath = document.HasValue
+                ? TryGetString(document.Value, "docPath") ?? TryGetString(document.Value, "DocPath") ?? string.Empty
+                : string.Empty;
+            var docName = document.HasValue
+                ? TryGetString(document.Value, "docName") ?? TryGetString(document.Value, "DocName") ?? Path.GetFileName(docPath)
+                : Path.GetFileName(docPath);
+            var docId = document.HasValue
+                ? TryGetString(document.Value, "docId") ?? TryGetString(document.Value, "DocId")
+                : null;
+            var category = document.HasValue
+                ? TryGetString(document.Value, "category") ?? TryGetString(document.Value, "Category")
+                : null;
+
+            foreach (var contextItem in contextItems.EnumerateArray())
+            {
+                if (contextItem.ValueKind != JsonValueKind.Object)
+                    continue;
+
+                var text = TryGetString(contextItem, "text") ?? TryGetString(contextItem, "Text") ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(text))
+                    continue;
+
+                var pageStart = TryGetInt(contextItem, "pageStart")
+                                ?? TryGetInt(contextItem, "PageStart")
+                                ?? 1;
+                var pageEnd = TryGetInt(contextItem, "pageEnd")
+                              ?? TryGetInt(contextItem, "PageEnd")
+                              ?? pageStart;
+                yield return new RagHitSummary(
+                    docPath,
+                    docName,
+                    Math.Max(1, pageStart),
+                    Math.Max(Math.Max(1, pageStart), pageEnd),
+                    text,
+                    TryGetString(contextItem, "sectionTitle") ?? TryGetString(contextItem, "SectionTitle"),
+                    TryGetString(contextItem, "headingPath") ?? TryGetString(contextItem, "HeadingPath"),
+                    Retriever: "documents.context",
+                    Score: 0.0,
+                    ExactMatchHit: true,
+                    FullText: text,
+                    ContextualSnippet: text,
+                    DocId: docId,
+                    Category: category,
+                    ChunkId: TryGetString(contextItem, "chunkId") ?? TryGetString(contextItem, "ChunkId"),
+                    ContentRole: TryGetString(contextItem, "contentRole") ?? TryGetString(contextItem, "ContentRole"),
+                    NavigationReason: TryGetString(contextItem, "navigationReason") ?? TryGetString(contextItem, "NavigationReason"),
+                    PrevChunkId: TryGetString(contextItem, "previousChunkId") ?? TryGetString(contextItem, "PreviousChunkId"),
+                    NextChunkId: TryGetString(contextItem, "nextChunkId") ?? TryGetString(contextItem, "NextChunkId"));
             }
         }
     }

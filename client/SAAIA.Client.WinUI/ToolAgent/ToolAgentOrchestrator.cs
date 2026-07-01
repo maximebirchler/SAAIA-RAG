@@ -1951,6 +1951,107 @@ public sealed partial class ToolAgentOrchestrator
             if (!ShouldContinueExploring() || remainingRagCalls <= 0)
                 return false;
 
+            var passToolName = NormalizeToolName(pass.ToolName);
+            if (string.Equals(passToolName, "documents.context", StringComparison.OrdinalIgnoreCase))
+            {
+                var hasContextTarget = !string.IsNullOrWhiteSpace(pass.DocRef)
+                                       || !string.IsNullOrWhiteSpace(pass.DocId)
+                                       || !string.IsNullOrWhiteSpace(pass.DocPath)
+                                       || !string.IsNullOrWhiteSpace(pass.ChunkId);
+                if (!hasContextTarget)
+                    return false;
+
+                var contextBeforeAnalysis = currentAnalysis;
+                var contextArgs = CreateJsonArgs(new
+                {
+                    docRef = pass.DocRef,
+                    docId = pass.DocId,
+                    docPath = pass.DocPath,
+                    chunkId = pass.ChunkId,
+                    pageStart = pass.PageStart,
+                    pageEnd = pass.PageEnd,
+                    before = 2,
+                    after = 4,
+                    limit = 12,
+                    offset = 0
+                });
+
+                var contextStopwatch = Stopwatch.StartNew();
+                try
+                {
+                    onPhase?.Invoke(DeterministicAgentText.PhaseRag(plan.Language));
+                    onProgress?.Invoke(DeterministicAgentText.ProgressExploreFollowupSources(plan.Language));
+                    EmitRagTrace(
+                        "evidence.exploration.context.start",
+                        ("label", pass.Label),
+                        ("origin", pass.Origin),
+                        ("doc_ref", pass.DocRef),
+                        ("doc_id", pass.DocId),
+                        ("doc_path", pass.DocPath),
+                        ("chunk_id", pass.ChunkId),
+                        ("page_start", pass.PageStart),
+                        ("page_end", pass.PageEnd));
+                    var contextResult = await ExecDocumentsContextAsync(contextArgs, ct).ConfigureAwait(false);
+                    contextStopwatch.Stop();
+                    if (!HasDocumentContextItems(contextResult))
+                    {
+                        _lastToolDurations.Add(("documents.context", contextStopwatch.ElapsedMilliseconds, true));
+                        RememberSourceBackedEvidenceExplorationPass(pass, contextBeforeAnalysis, null, contextStopwatch.ElapsedMilliseconds, accepted: false, rejectReason: "no_context_items", effectiveUserMessage: effectiveUserMessage, language: plan.Language);
+                        EmitRagTrace(
+                            "evidence.exploration.context.end",
+                            ("label", pass.Label),
+                            ("origin", pass.Origin),
+                            ("accepted", false),
+                            ("reason", "no_context_items"),
+                            ("elapsed_ms", contextStopwatch.ElapsedMilliseconds));
+                        return false;
+                    }
+
+                    var candidate = new ToolResults();
+                    candidate.Items.AddRange(toolResults.Items);
+                    candidate.Items.Add(new ToolResults.Item
+                    {
+                        ToolName = "documents.context",
+                        Result = contextResult,
+                        DurationMs = contextStopwatch.ElapsedMilliseconds
+                    });
+
+                    var candidateAnalysis = AnalyzeSourceBackedEvidenceSufficiency(candidate, explorationQuery, plan.Language);
+                    toolResults.Items.Add(new ToolResults.Item
+                    {
+                        ToolName = "documents.context",
+                        Result = contextResult,
+                        DurationMs = contextStopwatch.ElapsedMilliseconds
+                    });
+                    currentAnalysis = candidateAnalysis;
+                    _lastToolDurations.Add(("documents.context", contextStopwatch.ElapsedMilliseconds, true));
+                    RememberSourceBackedEvidenceExplorationPass(pass, contextBeforeAnalysis, candidateAnalysis, contextStopwatch.ElapsedMilliseconds, accepted: true, rejectReason: null, effectiveUserMessage: effectiveUserMessage, language: plan.Language);
+                    EmitRagTrace(
+                        "evidence.exploration.context.end",
+                        ("label", pass.Label),
+                        ("origin", pass.Origin),
+                        ("accepted", true),
+                        ("elapsed_ms", contextStopwatch.ElapsedMilliseconds),
+                        ("score", candidateAnalysis.Score),
+                        ("usable_hits", candidateAnalysis.UsableHitCount),
+                        ("candidates", candidateAnalysis.CandidateCount));
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    contextStopwatch.Stop();
+                    _lastToolDurations.Add(("documents.context", contextStopwatch.ElapsedMilliseconds, false));
+                    RememberSourceBackedEvidenceExplorationPass(pass, contextBeforeAnalysis, null, contextStopwatch.ElapsedMilliseconds, accepted: false, rejectReason: "error", effectiveUserMessage: effectiveUserMessage, language: plan.Language);
+                    EmitRagTrace(
+                        "evidence.exploration.context.error",
+                        ("label", pass.Label),
+                        ("origin", pass.Origin),
+                        ("elapsed_ms", contextStopwatch.ElapsedMilliseconds),
+                        ("error", ex.Message));
+                    return false;
+                }
+            }
+
             if (pass.Queries.Length == 0)
             {
                 var scopeOnlyHasDocumentScope = !string.IsNullOrWhiteSpace(pass.DocId) || !string.IsNullOrWhiteSpace(pass.DocPath);
@@ -2486,18 +2587,6 @@ public sealed partial class ToolAgentOrchestrator
                 return false;
             }
 
-            if (ShouldSuppressStructuredMealPlanningAnchorFollowup(currentAnalysis, explorationQuery))
-            {
-                EmitRagTrace(
-                    "evidence.exploration.anchor_followup.skipped",
-                    ("reason", "structured_planning_candidate_bank_absent"),
-                    ("candidates", currentAnalysis.CandidateCount),
-                    ("minimum_candidates", currentAnalysis.MinimumCandidateCount),
-                    ("target_slots", currentAnalysis.TargetSlotCount),
-                    ("score", currentAnalysis.Score));
-                return false;
-            }
-
             if (ShouldDeferSparseSourceBackedPlanningAnchorFollowup(currentAnalysis, explorationQuery))
             {
                 EmitRagTrace(
@@ -2643,9 +2732,6 @@ public sealed partial class ToolAgentOrchestrator
             SourceBackedEvidenceSufficiency candidateAnalysis)
         {
             if (remainingRagCalls <= 0 || anchorFollowupAttempts >= anchorFollowupRoundLimit)
-                return false;
-
-            if (ShouldSuppressStructuredMealPlanningAnchorFollowup(candidateAnalysis, explorationQuery))
                 return false;
 
             if (ShouldDeferSparseSourceBackedPlanningAnchorFollowup(candidateAnalysis, explorationQuery))
@@ -3298,15 +3384,19 @@ public sealed partial class ToolAgentOrchestrator
         }
 
         var broadRequest = LooksLikeSourceBackedBroadResearchRequest(effectiveUserMessage);
+        var planningRequest = LooksLikeAnyDocumentaryPlanningRequest(effectiveUserMessage)
+                              || UsesSourceBackedPlanningCoverage(effectiveUserMessage);
 
         if (broadRequest)
         {
-            foreach (var query in BuildNavigationDiscoveryRetrievalQueries(effectiveUserMessage).Take(4))
-                Add(query);
-
-            if (LooksLikeAnyDocumentaryPlanningRequest(effectiveUserMessage))
+            if (planningRequest)
             {
                 foreach (var query in BuildPlanningExplorationRetrievalQueries(effectiveUserMessage).Take(3))
+                    Add(query);
+            }
+            else
+            {
+                foreach (var query in BuildNavigationDiscoveryRetrievalQueries(effectiveUserMessage).Take(4))
                     Add(query);
             }
 
@@ -3320,12 +3410,14 @@ public sealed partial class ToolAgentOrchestrator
 
         if (!broadRequest)
         {
-            foreach (var query in BuildNavigationDiscoveryRetrievalQueries(effectiveUserMessage).Take(4))
-                Add(query);
-
-            if (LooksLikeAnyDocumentaryPlanningRequest(effectiveUserMessage))
+            if (planningRequest)
             {
                 foreach (var query in BuildPlanningExplorationRetrievalQueries(effectiveUserMessage).Take(3))
+                    Add(query);
+            }
+            else
+            {
+                foreach (var query in BuildNavigationDiscoveryRetrievalQueries(effectiveUserMessage).Take(4))
                     Add(query);
             }
 
@@ -3355,15 +3447,19 @@ public sealed partial class ToolAgentOrchestrator
         }
 
         var broadRequest = LooksLikeSourceBackedBroadResearchRequest(effectiveUserMessage);
+        var planningRequest = LooksLikeAnyDocumentaryPlanningRequest(effectiveUserMessage)
+                              || UsesSourceBackedPlanningCoverage(effectiveUserMessage);
 
         if (broadRequest)
         {
-            foreach (var query in BuildNavigationDiscoveryRetrievalQueries(effectiveUserMessage).Take(4))
-                Add(query);
-
-            if (LooksLikeAnyDocumentaryPlanningRequest(effectiveUserMessage))
+            if (planningRequest)
             {
                 foreach (var query in BuildPlanningExplorationRetrievalQueries(effectiveUserMessage).Take(4))
+                    Add(query);
+            }
+            else
+            {
+                foreach (var query in BuildNavigationDiscoveryRetrievalQueries(effectiveUserMessage).Take(4))
                     Add(query);
             }
 
@@ -3377,12 +3473,14 @@ public sealed partial class ToolAgentOrchestrator
 
         if (!broadRequest)
         {
-            foreach (var query in BuildNavigationDiscoveryRetrievalQueries(effectiveUserMessage).Take(4))
-                Add(query);
-
-            if (LooksLikeAnyDocumentaryPlanningRequest(effectiveUserMessage))
+            if (planningRequest)
             {
                 foreach (var query in BuildPlanningExplorationRetrievalQueries(effectiveUserMessage).Take(4))
+                    Add(query);
+            }
+            else
+            {
+                foreach (var query in BuildNavigationDiscoveryRetrievalQueries(effectiveUserMessage).Take(4))
                     Add(query);
             }
 
@@ -3747,7 +3845,8 @@ You are SAAIA's retrieval strategist, not the final answer writer.
 Target user language: {NormalizeLanguageCode(language)}.
 
 Choose the next retrieval path. Do not answer the user.
-The tools you can orchestrate are rag.search and rag.multi_search.
+The tools you can orchestrate are rag.search, rag.multi_search and documents.context.
+Use documents.context only when CURRENT_SOURCE_LEADS or STRUCTURE_HINTS already provide a docId, docPath, docRef, chunkId or page range worth reading around. It is for inspecting indexed chunk text like scrolling a document, not for broad discovery without an anchor.
 Use REQUEST_SHAPE as the coverage target, especially targetSlots and minimumCandidates.
 Use CATEGORY_HINTS as the only allowed scope values: copy an exact category/path/ref from a hint, but judge fit semantically.
 A broad category can fit when it naturally contains the user's requested content, even if the label is not a literal query word.
@@ -3755,6 +3854,8 @@ When the user asks to compose a plan, schedule, list or recommendation from sour
 Treat STRUCTURE_HINTS as maps to concrete pages.
 Use WORKING_NOTES as a bounded research notebook: it can guide pivots, repeats to avoid and promising query families, but it is not source evidence.
 Prefer short complementary queries from intent, labels, headings, paths and page anchors.
+For structured requests with several requested slots/types, cover every requested slot/type at least once before repeating or refining a single slot/type.
+For structured plans, infer requested axes from REQUEST_SHAPE and USER_REQUEST; do not rely on domain-specific hardcoded slot routes.
 If a clue has docId/docPath/pageStart/pageEnd, scope the pass there to retrieve concrete content.
 If evidence is weak, propose the next pass yourself. Do not ask the user to broaden the search.
 Avoid duplicates already tried. Keep queries short and domain-neutral.
@@ -3777,6 +3878,12 @@ Return strict JSON only:
       ""pageStart"": ""optional first page number from a source clue, otherwise null"",
       ""pageEnd"": ""optional last page number from a source clue, otherwise null"",
       ""queries"": [""short query 1"", ""short query 2""]
+    }}
+  ],
+  ""toolCalls"": [
+    {{
+      ""name"": ""documents.context"",
+      ""args"": {{""docId"": null, ""docPath"": null, ""chunkId"": null, ""pageStart"": null, ""pageEnd"": null, ""before"": 2, ""after"": 4, ""limit"": 12}}
     }}
   ]
 }}";
@@ -3887,7 +3994,7 @@ OUTPUT_RULES:
 - When an explicit axis has already been searched with low/zero hits, diversify the lexical family: use user-provided aliases, source-language variants, broader/narrower option-kind words, or concrete source labels from CURRENT_SOURCE_LEADS. Do not keep repeating the same failed term.
 - For structured plans with several requested slots/criteria/phases, cover those requested types broadly before adding variants around one type. Do not over-focus one slot unless CURRENT_SOURCE_LEADS proves it is the only missing part.
 - Avoid decorative variants of the same broad noun such as details, ideas, ideal examples, suggestions or menus unless paired with a requested slot/type, a concrete source label, a constraint or a candidate name.
-- Do not use examples/ideas/suggestions/menus as filler words. A query like ""meal snack examples"" is weak; prefer the slot/type itself, a source/category label, a document/page clue, or a concrete candidate name.
+- Do not use examples/ideas/suggestions/menus as filler words. A query like ""generic slot examples"" is weak; prefer the slot/type itself, a source/category label, a document/page clue, or a concrete candidate name.
 - Do not create one query per visible day/row/column when those labels are only placement axes. Query each useful option kind, constraint, source label or concrete candidate once; the writer will place supported candidates into the visible structure later.
 - Use discovered navigation/profile labels only to reach real content pages.
 - If a category is uncertain or only weakly hinted, keep categoryScope null and broaden with semantic queries.
@@ -4049,10 +4156,10 @@ OUTPUT_RULES:
             flags.Add("composition");
         if (LooksLikeUserNeedsSynthesizedDecisionOrPlan(message))
             flags.Add("synthesis");
-        if (DetectRequestedPeriodAxisLabels(message, "fr").Count > 0
-            || DetectRequestedPeriodAxisLabels(message, "en").Count > 0)
+        if (DetectRequestedPlanningSlotAxisLabels(message, "fr").Count > 0
+            || DetectRequestedPlanningSlotAxisLabels(message, "en").Count > 0)
         {
-            flags.Add("period_axes");
+            flags.Add("slot_axes");
         }
         if (DetectRequestedDayAxisLabels(message, "fr").Count > 0
             || DetectRequestedDayAxisLabels(message, "en").Count > 0)
@@ -4106,8 +4213,8 @@ OUTPUT_RULES:
         }
 
         language = NormalizeLanguageCode(language);
-        var periodAxis = DetectRequestedPeriodAxisLabels(effectiveUserMessage, language);
-        if (periodAxis.Count == 0)
+        var slotAxis = DetectRequestedPlanningSlotAxisLabels(effectiveUserMessage, language);
+        if (slotAxis.Count == 0)
             return "none";
 
         var targetSlots = Math.Max(1, ResolveSourceBackedPlanningTargetItemCount(effectiveUserMessage));
@@ -4139,9 +4246,9 @@ OUTPUT_RULES:
         var normalizedUser = NormalizeLexicalLookup(effectiveUserMessage);
         var lines = new List<string>();
 
-        for (var axisIndex = 0; axisIndex < periodAxis.Count; axisIndex++)
+        for (var axisIndex = 0; axisIndex < slotAxis.Count; axisIndex++)
         {
-            var axis = periodAxis[axisIndex];
+            var axis = slotAxis[axisIndex];
             var axisTerms = BuildStructuredAxisPromptTerms(axis, effectiveUserMessage)
                 .Distinct(StringComparer.Ordinal)
                 .ToArray();
@@ -4159,7 +4266,7 @@ OUTPUT_RULES:
             var axisHitCount = axisRuns.Length > 0
                 ? axisRuns.Sum(static run => Math.Max(0, run.HitCount))
                 : hits.Count(hit => QueryMentionsAnyStructuredAxisTerm(hit.RetrievalQuery, axisTerms));
-            var requiredSlots = CountRequiredStructuredAxisSlots(periodAxis, axisIndex, targetSlots);
+            var requiredSlots = CountRequiredStructuredAxisSlots(slotAxis, axisIndex, targetSlots);
             var routeCandidateCount = candidates.Count(candidate =>
                 QueryMentionsAnyStructuredAxisTerm(candidate.Hit.RetrievalQuery, axisTerms));
             var titleCandidateCount = candidates.Count(candidate =>
@@ -4167,14 +4274,6 @@ OUTPUT_RULES:
             var candidatePool = Math.Max(routeCandidateCount, titleCandidateCount);
             var routeFitPool = routeCandidateCount;
             var titlePool = titleCandidateCount;
-
-            if (ShouldApplyMealPlanningSlotSemantics(effectiveUserMessage))
-            {
-                var slotKind = ResolveStructuredMealPlanningSlotKind(axis);
-                candidatePool = CountStructuredMealPlanningSlotCandidates(candidates, slotKind, effectiveUserMessage);
-                routeFitPool = CountStructuredMealPlanningSlotRouteCompatibleCandidates(candidates, slotKind, effectiveUserMessage);
-                titlePool = CountStructuredMealPlanningSlotTitleCueCandidates(candidates, slotKind, effectiveUserMessage);
-            }
 
             var hasLowRuns = axisRuns.Any(static run => run.HitCount <= 1 || run.Busy || !string.IsNullOrWhiteSpace(run.Error));
             var requiredProbeFloor = Math.Min(Math.Max(1, requiredSlots), 3);
@@ -4334,8 +4433,8 @@ OUTPUT_RULES:
         language = NormalizeLanguageCode(language);
         var targetSlots = ResolveSourceBackedPlanningTargetItemCount(effectiveUserMessage);
         var dayAxis = DetectRequestedDayAxisLabels(effectiveUserMessage, language);
-        var periodAxis = DetectRequestedPeriodAxisLabels(effectiveUserMessage, language);
-        var hasStructuredAxes = dayAxis.Count > 0 && periodAxis.Count > 0;
+        var slotAxis = DetectRequestedPlanningSlotAxisLabels(effectiveUserMessage, language);
+        var hasStructuredAxes = dayAxis.Count > 0 && slotAxis.Count > 0;
         var minimumCandidates = ResolveMinimumSourceBackedPlanningCandidateCount(
             effectiveUserMessage,
             targetSlots,
@@ -4357,9 +4456,6 @@ OUTPUT_RULES:
             $"stage=scope|target_slots={targetSlots}|minimum_candidates={minimumCandidates}|structured_axes={FormatPlanningTraceBool(hasStructuredAxes)}|strict={FormatPlanningTraceBool(strictStructuredPlanning)}",
             "stage=candidate_pool"
             + $"|raw_candidates={acceptedPool.Count}"
-            + $"|route_breakfast={acceptedPool.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Breakfast))}"
-            + $"|route_main={acceptedPool.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal))}"
-            + $"|route_snack={acceptedPool.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))}"
             + $"|top_titles={FormatPlanningTraceValue(string.Join("; ", acceptedPool.Take(12).Select(static candidate => candidate.Title)))}"
         };
 
@@ -4370,74 +4466,11 @@ OUTPUT_RULES:
                     effectiveUserMessage)
                 .ToList()
             : acceptedPool;
-        if (strictStructuredPlanning && hasStructuredAxes && ShouldApplyMealPlanningSlotSemantics(effectiveUserMessage))
-        {
-            var slotKinds = Enumerable.Range(0, targetSlots)
-                .Select(index => ResolveStructuredMealPlanningSlotKind(periodAxis[index % periodAxis.Count]))
-                .ToArray();
-            var rankedCandidates = RankDistinctSourceBackedPlanningLeadCandidates(acceptedPool, effectiveUserMessage).ToList();
-            var assignments = AssignStructuredMealPlanningSlotCandidates(
-                rankedCandidates,
-                slotKinds,
-                effectiveUserMessage,
-                allowRouteBackfill: false,
-                out _);
-            if (assignments.Count(static candidate => candidate is not null) < targetSlots)
-            {
-                var routeAssignments = AssignStructuredMealPlanningSlotCandidates(
-                    rankedCandidates,
-                    slotKinds,
-                    effectiveUserMessage,
-                    allowRouteBackfill: true,
-                    out _);
-                if (routeAssignments.Count(static candidate => candidate is not null)
-                    > assignments.Count(static candidate => candidate is not null))
-                {
-                    assignments = routeAssignments;
-                }
-            }
-
-            var slotAccepted = assignments
-                .Where(static candidate => candidate is not null)
-                .Select(static candidate => candidate!)
-                .ToList();
-            var snackRouteTitles = string.Join(
-                "; ",
-                rankedCandidates
-                    .Where(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))
-                    .Take(32)
-                    .Select(static candidate => $"{candidate.Title} <= {candidate.Hit.RetrievalQuery}"));
-            lines.Add(
-                "stage=slot_fit"
-                + $"|required_slots={targetSlots}"
-                + $"|assigned_slots={slotAccepted.Count}"
-                + $"|missingBreakfast={CountMissingStructuredMealPlanningSlots(assignments, slotKinds, StructuredMealPlanningSlotKind.Breakfast)}"
-                + $"|missingMain={CountMissingStructuredMealPlanningSlots(assignments, slotKinds, StructuredMealPlanningSlotKind.MainMeal)}"
-                + $"|missingSnack={CountMissingStructuredMealPlanningSlots(assignments, slotKinds, StructuredMealPlanningSlotKind.Snack)}"
-                + $"|snack_pool={CountStructuredMealPlanningExplicitSlotCandidates(acceptedPool, StructuredMealPlanningSlotKind.Snack, effectiveUserMessage)}"
-                + $"|snack_compatible_pool={CountStructuredMealPlanningSlotCandidates(acceptedPool, StructuredMealPlanningSlotKind.Snack, effectiveUserMessage)}"
-                + $"|light_snack_pool={CountStructuredMealPlanningLightSnackCandidates(acceptedPool, effectiveUserMessage)}"
-                + $"|snack_route_pool={acceptedPool.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Snack))}"
-                + $"|snack_route_fit_pool={CountStructuredMealPlanningSlotRouteCompatibleCandidates(acceptedPool, StructuredMealPlanningSlotKind.Snack, effectiveUserMessage)}"
-                + $"|breakfast_pool={CountStructuredMealPlanningSlotCandidates(acceptedPool, StructuredMealPlanningSlotKind.Breakfast, effectiveUserMessage)}"
-                + $"|main_pool={CountStructuredMealPlanningSlotCandidates(acceptedPool, StructuredMealPlanningSlotKind.MainMeal, effectiveUserMessage)}"
-                + $"|breakfast_route_pool={acceptedPool.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.Breakfast))}"
-                + $"|main_route_pool={acceptedPool.Count(candidate => RetrievalQueryTargetsStructuredMealPlanningSlot(candidate.Hit.RetrievalQuery, StructuredMealPlanningSlotKind.MainMeal))}"
-                + $"|breakfast_route_fit_pool={CountStructuredMealPlanningSlotRouteCompatibleCandidates(acceptedPool, StructuredMealPlanningSlotKind.Breakfast, effectiveUserMessage)}"
-                + $"|main_route_fit_pool={CountStructuredMealPlanningSlotRouteCompatibleCandidates(acceptedPool, StructuredMealPlanningSlotKind.MainMeal, effectiveUserMessage)}"
-                + $"|periods={FormatPlanningTraceValue(string.Join(", ", periodAxis))}"
-                + $"|breakfast_title_pool={CountStructuredMealPlanningSlotTitleCueCandidates(acceptedPool, StructuredMealPlanningSlotKind.Breakfast, effectiveUserMessage)}"
-                + $"|main_title_pool={CountStructuredMealPlanningSlotTitleCueCandidates(acceptedPool, StructuredMealPlanningSlotKind.MainMeal, effectiveUserMessage)}"
-                + $"|snack_title_pool={CountStructuredMealPlanningSlotTitleCueCandidates(acceptedPool, StructuredMealPlanningSlotKind.Snack, effectiveUserMessage)}"
-                + $"|snackRouteTitles={FormatPlanningTraceValue(snackRouteTitles)}");
-            accepted = slotAccepted;
-        }
 
         foreach (var candidate in accepted.Take(Math.Max(0, maxLines - lines.Count - 1)))
         {
             lines.Add(
                 "stage=candidate|decision=accepted"
-                + $"|slot_route={FormatPlanningTraceValue(FormatStructuredMealPlanningRetrievalRoute(candidate))}"
                 + $"|retrieval_query={FormatPlanningTraceValue(candidate.Hit.RetrievalQuery)}"
                 + $"|title={FormatPlanningTraceValue(candidate.Title)}"
                 + $"|doc={FormatPlanningTraceValue(candidate.Hit.DocPath)}"
@@ -4590,8 +4623,8 @@ DECISION_RULES:
             flags.Add("targeted");
 
         var dayLabels = DetectRequestedDayAxisLabels(intentQuery, normalizedLanguage);
-        var periodLabels = DetectRequestedPeriodAxisLabels(intentQuery, normalizedLanguage);
-        var hasStructuredAxes = dayLabels.Count > 0 && periodLabels.Count > 0;
+        var explicitSlotLabels = DetectRequestedPlanningSlotAxisLabels(intentQuery, normalizedLanguage);
+        var hasStructuredAxes = dayLabels.Count > 0 && explicitSlotLabels.Count > 0;
         var targetSlots = ResolveSourceBackedPlanningTargetItemCount(intentQuery);
         var minimumCandidates = ResolveMinimumSourceBackedPlanningCandidateCount(intentQuery, targetSlots, hasStructuredAxes);
 
@@ -4606,12 +4639,13 @@ DECISION_RULES:
 
         if (dayLabels.Count > 0)
             lines.Add($"- requestedDayAxis: {string.Join(", ", dayLabels.Take(10))}");
-        if (periodLabels.Count > 0)
-            lines.Add($"- requestedPeriodAxis: {string.Join(", ", periodLabels.Take(10))}");
+        if (explicitSlotLabels.Count > 0)
+            lines.Add($"- requestedSlotAxis: {string.Join(", ", explicitSlotLabels.Take(10))}");
         if (hasStructuredAxes)
         {
             lines.Add("- structuredSearchGuidance: search complementary slot/type/facet terms, constraints, candidate inventory and concrete candidate labels; day-axis labels are placement targets, not enough as broad retrieval queries unless source leads are explicitly organized by those labels. Do not fan out the same query once per day/row/column.");
             lines.Add("- balancedSlotCoverage: cover multiple requested slot/type/facet labels before repeating one label with near-duplicate wording.");
+            lines.Add("- plannerCoverageContract: your query set is invalid if it drops a requested slot/type/facet already covered by the current router queries.");
         }
 
         lines.Add("- searchObjective: gather enough distinct page-grounded candidates and context to let the writer synthesize a useful answer; if evidence is weak, keep exploring before falling back.");
@@ -4890,7 +4924,7 @@ DECISION_RULES:
 
             var text = CollapseWhitespace(raw);
             text = Regex.Replace(text, @"^[\s\-\*\+\u2022\u00b7|`>\\/.]+", string.Empty, RegexOptions.CultureInvariant);
-            text = Regex.Replace(text, @"^(?:[├└│─]+\s*)+", string.Empty, RegexOptions.CultureInvariant);
+            text = Regex.Replace(text, @"^(?:[????]+\s*)+", string.Empty, RegexOptions.CultureInvariant);
             text = CollapseWhitespace(text.Trim());
             if (string.IsNullOrWhiteSpace(text))
                 continue;
@@ -6597,7 +6631,7 @@ DECISION_RULES:
         var sourceLinePattern =
             $@"(?i)^\s*(?:[-*\u2022]|\d+[.)])?\s*(?:\[\[open\|.+|.*(?:{SourceReferenceExtensionRegex}|\(?\s*p\.?\s*\d+\s*\)?|page\s+\d+).*)\s*$";
         var sourceHeadingLinePattern =
-            @"(?i)^\s*(?:source|sources|references?|r[eÃ©]f[eÃ©]rences?|fuente|fuentes|fonte|fontes|quelle|quellen|fonti)(?:\s+(?:used|cited|consulted|utilis[eÃ©]es?|cit[eÃ©]es?|consult[eÃ©]es?|usadas?|utilizadas?|consultadas?|verwendete|consultate|citate))?\s*:\s*$";
+            @"(?i)^\s*(?:source|sources|references?|r[eé]f[eé]rences?|fuente|fuentes|fonte|fontes|quelle|quellen|fonti)(?:\s+(?:used|cited|consulted|utilis[eé]es?|cit[eé]es?|consult[eé]es?|usadas?|utilizadas?|consultadas?|verwendete|consultate|citate))?\s*:\s*$";
         var naturalSourceHeadingLinePattern =
             @"(?i)^\s*(?:sources?\s+(?:used|cited|consulted)|sources?\s+(?:utilisees?|citees?|consultees?)|fuentes\s+(?:usadas?|utilizadas?|consultadas?)|fontes\s+(?:usadas?|utilizadas?|consultadas?)|verwendete\s+quellen|genutzte\s+quellen|zitierte\s+quellen|fonti\s+(?:consultate|citate|usate))\s*:\s*$";
         var removedSourceLines = 0;
@@ -9150,14 +9184,17 @@ USER_MESSAGE:
 
             var repairedMissingAxes = DetectMissingStructuredRouterSearchAxes(repairedPlan, effectiveUserMessage, repairedPlan.Language);
             var repairedQueries = ExtractRouterPlanRagQueries(repairedPlan).Take(12).ToArray();
+            var regressedAxes = FindStructuredRouterSearchAxisRegressions(missingAxes, repairedMissingAxes);
             var accepted = repairedPlan.ToolCalls.Any(call => IsRagToolName(NormalizeToolName(call.Name)))
-                           && repairedMissingAxes.Length < missingAxes.Length;
+                           && repairedMissingAxes.Length < missingAxes.Length
+                           && regressedAxes.Length == 0;
             EmitRagTrace(
                 "router.repair.end",
                 ("accepted", accepted),
-                ("reason", accepted ? "coverage_improved" : "coverage_not_improved"),
+                ("reason", accepted ? "coverage_improved" : regressedAxes.Length > 0 ? "coverage_regressed" : "coverage_not_improved"),
                 ("missing_before", missingAxes),
                 ("missing_after", repairedMissingAxes),
+                ("regressed_axes", regressedAxes),
                 ("queries_before", existingQueries),
                 ("queries_after", repairedQueries),
                 ("elapsed_ms", sw.ElapsedMilliseconds));
@@ -9265,30 +9302,39 @@ USER_MESSAGE:
         RouterPlan plan,
         string effectiveUserMessage,
         string language)
+        => DetectMissingStructuredRouterSearchAxesForQueries(
+            ExtractRouterPlanRagQueries(plan),
+            effectiveUserMessage,
+            language);
+
+    private static string[] DetectMissingStructuredRouterSearchAxesForQueries(
+        IReadOnlyList<string> queries,
+        string effectiveUserMessage,
+        string language)
     {
         if (!ShouldGateStructuredSourceBackedPlanningCoverage(effectiveUserMessage))
             return Array.Empty<string>();
 
         language = NormalizeLanguageCode(language);
         var dayAxis = DetectRequestedDayAxisLabels(effectiveUserMessage, language);
-        var periodAxis = DetectRequestedPeriodAxisLabels(effectiveUserMessage, language);
-        if (dayAxis.Count < 2 || periodAxis.Count == 0)
+        var explicitRequestedAxes = DetectRequestedPlanningSlotAxisLabels(effectiveUserMessage, language);
+        if (dayAxis.Count < 2 || explicitRequestedAxes.Count == 0)
             return Array.Empty<string>();
 
-        var normalizedQueries = ExtractRouterPlanRagQueries(plan)
+        var normalizedQueries = queries
             .Select(NormalizeLexicalLookup)
             .Where(static query => !string.IsNullOrWhiteSpace(query))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
         if (normalizedQueries.Length == 0)
-            return periodAxis.ToArray();
+            return explicitRequestedAxes.ToArray();
 
-        var requestedAxisTerms = periodAxis
-            .Select(label => new
+        var requestedAxisTerms = BuildStructuredPlanningSlotTermGroups(explicitRequestedAxes, effectiveUserMessage)
+            .Select(group => new
             {
-                Label = label,
-                Terms = ExpandPlanningSlotRetrievalTermVariants(label)
-                    .Select(NormalizeLexicalLookup)
+                Label = group.Label,
+                Terms = group.PrimaryTerms
+                    .Concat(group.AlternativeTerms)
                     .Where(static term => !string.IsNullOrWhiteSpace(term))
                     .Distinct(StringComparer.Ordinal)
                     .ToArray()
@@ -9308,6 +9354,20 @@ USER_MESSAGE:
         }
 
         return missing
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static string[] FindStructuredRouterSearchAxisRegressions(
+        IReadOnlyList<string> missingBefore,
+        IReadOnlyList<string> missingAfter)
+    {
+        if (missingAfter.Count == 0)
+            return Array.Empty<string>();
+
+        var missingBeforeSet = new HashSet<string>(missingBefore, StringComparer.OrdinalIgnoreCase);
+        return missingAfter
+            .Where(axis => !missingBeforeSet.Contains(axis))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
@@ -9391,7 +9451,9 @@ USER_MESSAGE:
                 var originalQueries = NormalizeRagMultiSearchQueries(call.Args);
                 var enriched = BuildStructuredRouterAxisFallbackQueries(
                     originalQueries,
-                    missingAxes);
+                    missingAxes,
+                    effectiveUserMessage,
+                    language);
                 if (enriched.Length > originalQueries.Length)
                 {
                     toolCalls.Add(new RouterPlan.ToolCall
@@ -9421,7 +9483,9 @@ USER_MESSAGE:
 
                 var enriched = BuildStructuredRouterAxisFallbackQueries(
                     new[] { TryGetStringArg(toolCalls[i].Args, "query") ?? string.Empty },
-                    missingAxes);
+                    missingAxes,
+                    effectiveUserMessage,
+                    language);
                 if (enriched.Length == 0)
                     continue;
 
@@ -9463,30 +9527,38 @@ USER_MESSAGE:
 
     private static string[] BuildStructuredRouterAxisFallbackQueries(
         IEnumerable<string> existingQueries,
-        IReadOnlyList<string> missingAxes)
+        IReadOnlyList<string> missingAxes,
+        string? effectiveUserMessage,
+        string language)
     {
         var originalQueries = new List<string>();
         foreach (var query in existingQueries)
             AddDistinctRagQuery(originalQueries, query);
 
+        var genericInventoryTerms = BuildStructuredPlanningInventoryTermsForRetrieval(language, effectiveUserMessage)
+            .Take(1)
+            .ToArray();
+
         var axisVariants = missingAxes
-            .Select(axis => ExpandPlanningSlotRetrievalTermVariants(axis)
-                .Select(CollapseWhitespace)
-                .Where(static value => !string.IsNullOrWhiteSpace(value))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray())
+            .Select(axis => BuildStructuredRouterAxisFallbackVariants(axis, effectiveUserMessage))
             .Where(static variants => variants.Length > 0)
             .ToArray();
 
         var queries = new List<string>();
-        var firstExistingCount = Math.Clamp(8 - axisVariants.Length, 0, 6);
-        foreach (var query in originalQueries.Take(firstExistingCount))
+        var prioritizedOriginalQueries = originalQueries.ToArray();
+
+        var firstExistingCount = 0;
+        foreach (var query in prioritizedOriginalQueries.Take(firstExistingCount))
             AddDistinctRagQuery(queries, query);
 
         foreach (var variants in axisVariants)
+        {
+            foreach (var inventory in genericInventoryTerms.Take(1))
+                AddRouterAxisFallbackQueryIfMissing(queries, $"{variants[0]} {inventory}", axisVariants);
             AddRouterAxisFallbackQueryIfMissing(queries, variants[0], axisVariants);
+        }
 
-        foreach (var query in originalQueries.Skip(firstExistingCount))
+        foreach (var query in prioritizedOriginalQueries.Skip(firstExistingCount))
         {
             if (queries.Count >= 8)
                 break;
@@ -9505,6 +9577,23 @@ USER_MESSAGE:
         }
 
         return queries.ToArray();
+    }
+
+    private static string[] BuildStructuredRouterAxisFallbackVariants(
+        string axis,
+        string? effectiveUserMessage)
+    {
+        var group = BuildStructuredPlanningSlotTermGroups(new[] { axis }, effectiveUserMessage)
+            .FirstOrDefault();
+        var terms = group is null
+            ? ExpandPlanningSlotRetrievalTermVariants(axis).Select(NormalizeLexicalLookup)
+            : group.PrimaryTerms.Concat(group.AlternativeTerms);
+
+        return terms
+            .Select(CollapseWhitespace)
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     private static void AddRouterAxisFallbackQueryIfMissing(
@@ -9643,6 +9732,9 @@ Decide the path for the current message:
 - clarification only if a safe tool choice is impossible.
 
 Available tools:
+- documents.categories args: {{""path"":null,""categoryRef"":null,""limit"":40,""offset"":0}}
+- documents.navigation args: {{""categoryPath"":null,""docPath"":null,""q"":null,""limit"":80,""offset"":0}}
+- documents.context args: {{""docId"":null,""docPath"":null,""chunkId"":null,""pageStart"":null,""pageEnd"":null,""before"":2,""after"":4,""limit"":12}}
 - rag.search args: {{""query"":""short query"",""topK"":8,""mode"":""balanced""}}
 - rag.multi_search args: {{""queries"":[""short query""],""topK"":8,""category"":null,""mode"":""broad"",""researchMode"":""source_exploration"",""includeResearchSurfaces"":true}}
 
@@ -9653,12 +9745,14 @@ Rules:
 - For weekly plans or broad candidate requests, choose rag.multi_search with 2-4 compact candidate queries.
 - If the user names distinct slots, criteria, phases, roles or option kinds, preserve those explicit types in the search strategy. Do not omit a requested type just because a broader noun is present.
 - CATEGORY_HINTS are exact known categories. If one clearly fits the user need, set args.category to the exact categoryPath; otherwise null.
+- Use documents.categories/documents.navigation as maps when you need to inspect corpus structure; do not use them as final factual evidence.
+- Use documents.context only when the user or previous context gives a concrete doc/page/chunk anchor to read around.
 - Never invent a category and never copy explanatory text into category.
 - Do not use sommaire, index, table of contents, catalogue, list/liste as initial queries.
 - Keep queries short. Remove filler such as je ne sais pas, peux-tu, disponible, source, utile.
 
 Schema:
-{{""mode"":""auto|standard|strict"",""language"":""fr|en|es|pt|de|it"",""intent"":""chat.general|rag.answer|rag.compare|rag.followup"",""responseFormat"":""auto"",""needClarification"":false,""clarificationQuestions"":[],""reasoningTracePublic"":[],""riskFlags"":[],""memoryUpdate"":null,""routerConfidence"":0.0,""toolCalls"":[{{""name"":""rag.search|rag.multi_search"",""args"":{{}}}}]}}
+{{""mode"":""auto|standard|strict"",""language"":""fr|en|es|pt|de|it"",""intent"":""chat.general|rag.answer|rag.compare|rag.followup"",""responseFormat"":""auto"",""needClarification"":false,""clarificationQuestions"":[],""reasoningTracePublic"":[],""riskFlags"":[],""memoryUpdate"":null,""routerConfidence"":0.0,""toolCalls"":[{{""name"":""documents.categories|documents.navigation|documents.context|rag.search|rag.multi_search"",""args"":{{}}}}]}}
 ";
 
     private string BuildCompactSourceBackedRouterUserPrompt(
@@ -12310,6 +12404,19 @@ TOOL_RESULTS (json):
                 limit = NormalizeIntArg(GetIntArg(args, "limit"), 120, 1, 200),
                 offset = NormalizeIntArg(GetIntArg(args, "offset"), 0, 0, 100000)
             },
+            "documents.context" => new
+            {
+                docRef = GetDocRefFromArgs(args),
+                docId = GetStringArg(args, "docId"),
+                docPath = NormalizeCategoryPathArg(GetStringArg(args, "docPath")),
+                chunkId = GetStringArg(args, "chunkId") ?? GetStringArg(args, "chunk_id"),
+                pageStart = NormalizeNullableIntArg(GetIntArg(args, "pageStart") ?? GetIntArg(args, "page_start"), 1, 100000),
+                pageEnd = NormalizeNullableIntArg(GetIntArg(args, "pageEnd") ?? GetIntArg(args, "page_end"), 1, 100000),
+                before = NormalizeIntArg(GetIntArg(args, "before"), 2, 0, 20),
+                after = NormalizeIntArg(GetIntArg(args, "after"), 4, 0, 30),
+                limit = NormalizeIntArg(GetIntArg(args, "limit"), 12, 1, 50),
+                offset = NormalizeIntArg(GetIntArg(args, "offset"), 0, 0, 100000)
+            },
             "documents.stats" => new
             {
                 path = NormalizeCategoryPathArg(GetStringArg(args, "path") ?? GetStringArg(args, "categoryPath")),
@@ -12459,8 +12566,14 @@ TOOL_RESULTS (json):
             "rag.debug.scroll" => new
             {
                 docRef = GetDocRefFromArgs(args),
+                docId = GetStringArg(args, "docId"),
                 docPath = GetStringArg(args, "docPath"),
+                category = NormalizeCategoryPathArg(GetStringArg(args, "category") ?? GetStringArg(args, "categoryPath")),
                 cursor = GetStringArg(args, "cursor"),
+                pageStart = NormalizeNullableIntArg(GetIntArg(args, "pageStart") ?? GetIntArg(args, "page_start"), 1, 100000),
+                pageEnd = NormalizeNullableIntArg(GetIntArg(args, "pageEnd") ?? GetIntArg(args, "page_end"), 1, 100000),
+                chunkType = GetStringArg(args, "chunkType") ?? GetStringArg(args, "chunk_type"),
+                contentRole = GetStringArg(args, "contentRole") ?? GetStringArg(args, "content_role"),
                 limit = NormalizeIntArg(GetIntArg(args, "limit"), 100, 1, 500)
             },
             _ => JsonSerializer.Deserialize<object>(args.GetRawText()) ?? new { }
@@ -12894,13 +13007,6 @@ TOOL_RESULTS (json):
             score += 25;
         if (modifierTokenCount > 0)
             score += Math.Min(40, modifierTokenCount * 12);
-
-        if (LooksLikeWeeklyPlanningRequest(effectiveUserMessage)
-            && Regex.IsMatch(normalizedQuery, @"\brepas\b", RegexOptions.CultureInvariant)
-            && !Regex.IsMatch(normalizedQuery, @"\b(?:petit|dejeuner|diner|souper|gouter|collation|midi|soir)\b", RegexOptions.CultureInvariant))
-        {
-            score -= 58;
-        }
 
         var normalizedUserMessage = NormalizeLexicalLookup(NormalizeRagQueryForRetrieval(effectiveUserMessage));
         if (!string.IsNullOrWhiteSpace(normalizedUserMessage)
@@ -13785,6 +13891,14 @@ TOOL_RESULTS (json):
         string? rawPlannerCategoryScope = null;
         string? resolvedCategoryScope = null;
         var plannerQueryCount = 0;
+        var plannerQueries = plannerPasses
+            .SelectMany(static pass => pass.Queries)
+            .Where(static query => !string.IsNullOrWhiteSpace(query))
+            .Select(CollapseWhitespace)
+            .Where(static query => !string.IsNullOrWhiteSpace(query))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(MaxSourceBackedLlmEvidenceExplorationQueries)
+            .ToArray();
         foreach (var plannerPass in plannerPasses)
         {
             plannerQueryCount += plannerPass.Queries.Length;
@@ -13805,18 +13919,118 @@ TOOL_RESULTS (json):
             ("confidence", (object?)(string.IsNullOrWhiteSpace(resolvedCategoryScope) ? null : "planner")),
             ("raw_category", rawPlannerCategoryScope),
             ("resolved_category", resolvedCategoryScope),
-            ("accepted", !string.IsNullOrWhiteSpace(resolvedCategoryScope)),
-            ("planner_passes", plannerPasses.Count),
-            ("planner_queries", plannerQueryCount));
-        if (string.IsNullOrWhiteSpace(resolvedCategoryScope))
+                ("accepted", !string.IsNullOrWhiteSpace(resolvedCategoryScope)),
+                ("planner_passes", plannerPasses.Count),
+                ("planner_queries", plannerQueryCount));
+        var applyPlannerQueries = ShouldApplyInitialLlmPlannerQueries(
+            queries,
+            plannerQueries,
+            userMessage,
+            plan.Language,
+            out var plannerQueryReason,
+            out var missingBeforePlannerQueries,
+            out var missingAfterPlannerQueries,
+            out var regressedPlannerQueryAxes);
+        var plannerQueriesToApply = applyPlannerQueries
+            ? BuildInitialLlmPlannerQueriesToApply(queries, plannerQueries, userMessage, plan.Language)
+            : plannerQueries;
+        if (plannerQueries.Length > 0)
+        {
+            EmitRagTrace(
+                applyPlannerQueries
+                    ? "router.llm_category_scope.queries_applied"
+                    : "router.llm_category_scope.queries_skipped",
+                ("reason", plannerQueryReason),
+                ("queries_before", queries),
+                ("queries_after", plannerQueriesToApply),
+                ("planner_queries", plannerQueries),
+                ("missing_before", missingBeforePlannerQueries),
+                ("missing_after", missingAfterPlannerQueries),
+                ("regressed_axes", regressedPlannerQueryAxes));
+        }
+
+        if (string.IsNullOrWhiteSpace(resolvedCategoryScope) && !applyPlannerQueries)
             return args;
 
-        var updated = ApplyResolvedInitialSourceBackedLlmCategoryScopeArg(args, resolvedCategoryScope);
+        var updated = string.IsNullOrWhiteSpace(resolvedCategoryScope)
+            ? args
+            : ApplyResolvedInitialSourceBackedLlmCategoryScopeArg(args, resolvedCategoryScope);
+        if (applyPlannerQueries)
+            updated = ApplyInitialSourceBackedLlmPlannerQueriesArg(updated, plannerQueriesToApply);
+
         EmitRagTrace(
             "router.llm_category_scope.applied",
             ("category", resolvedCategoryScope),
-            ("queries", queries));
+            ("queries", applyPlannerQueries ? plannerQueriesToApply : queries));
         return updated;
+    }
+
+    private static string[] BuildInitialLlmPlannerQueriesToApply(
+        IReadOnlyList<string> currentQueries,
+        IReadOnlyList<string> plannerQueries,
+        string userMessage,
+        string language)
+    {
+        return plannerQueries
+            .Where(static query => !string.IsNullOrWhiteSpace(query))
+            .Select(CollapseWhitespace)
+            .Where(static query => !string.IsNullOrWhiteSpace(query))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(MaxSourceBackedLlmEvidenceExplorationQueries)
+            .ToArray();
+    }
+
+    private static bool ShouldApplyInitialLlmPlannerQueries(
+        IReadOnlyList<string> currentQueries,
+        IReadOnlyList<string> plannerQueries,
+        string userMessage,
+        string language,
+        out string reason,
+        out string[] missingBefore,
+        out string[] missingAfter,
+        out string[] regressedAxes)
+    {
+        missingBefore = Array.Empty<string>();
+        missingAfter = Array.Empty<string>();
+        regressedAxes = Array.Empty<string>();
+
+        var normalizedPlannerQueries = plannerQueries
+            .Where(static query => !string.IsNullOrWhiteSpace(query))
+            .Select(CollapseWhitespace)
+            .Where(static query => !string.IsNullOrWhiteSpace(query))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (normalizedPlannerQueries.Length == 0)
+        {
+            reason = "no_planner_queries";
+            return false;
+        }
+
+        if (!ShouldGateStructuredSourceBackedPlanningCoverage(userMessage))
+        {
+            reason = "planner_queries_available";
+            return true;
+        }
+
+        missingBefore = DetectMissingStructuredRouterSearchAxesForQueries(currentQueries, userMessage, language);
+        missingAfter = DetectMissingStructuredRouterSearchAxesForQueries(normalizedPlannerQueries, userMessage, language);
+        regressedAxes = FindStructuredRouterSearchAxisRegressions(missingBefore, missingAfter);
+        if (regressedAxes.Length > 0)
+        {
+            reason = "coverage_regressed";
+            return false;
+        }
+
+        if (missingAfter.Length > missingBefore.Length)
+        {
+            reason = "coverage_worse";
+            return false;
+        }
+
+        reason = missingAfter.Length < missingBefore.Length
+            ? "coverage_improved"
+            : "coverage_preserved";
+        return true;
     }
 
     private static bool ShouldRunInitialLlmSourceBackedCategoryScopeAdjudication(
@@ -13860,6 +14074,24 @@ TOOL_RESULTS (json):
         map["category"] = JsonSerializer.SerializeToElement(resolvedCategoryScope);
         map["categoryPath"] = JsonSerializer.SerializeToElement(resolvedCategoryScope);
         map["trustCategoryScope"] = JsonSerializer.SerializeToElement(true);
+        return JsonSerializer.SerializeToElement(map);
+    }
+
+    private static JsonElement ApplyInitialSourceBackedLlmPlannerQueriesArg(JsonElement args, IReadOnlyList<string> plannerQueries)
+    {
+        var queries = plannerQueries
+            .Where(static query => !string.IsNullOrWhiteSpace(query))
+            .Select(CollapseWhitespace)
+            .Where(static query => !string.IsNullOrWhiteSpace(query))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(MaxSourceBackedLlmEvidenceExplorationQueries)
+            .ToArray();
+        if (queries.Length == 0)
+            return args;
+
+        var map = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(args.GetRawText())
+                  ?? new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+        map["queries"] = JsonSerializer.SerializeToElement(queries);
         return JsonSerializer.SerializeToElement(map);
     }
 

@@ -8881,9 +8881,9 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
 
         Assert.Contains("planning_exploration", labels);
         Assert.Contains("candidate_discovery", labels);
-        Assert.Contains("navigation_discovery", labels);
+        Assert.DoesNotContain("navigation_discovery", labels);
         Assert.True(labels.Length >= 2);
-        Assert.True(labels.Length <= 4);
+        Assert.True(labels.Length <= 3);
         Assert.True(queries.Length <= 52);
         Assert.Contains(queries, q => q.Contains("maintenance", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, q => q.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
@@ -14229,8 +14229,10 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.False(ToolAgentOrchestrator.ShouldRequireWriterForBroadDocumentaryFinalForTests(toolResults, query, "fr"));
         Assert.False(ToolAgentOrchestrator.ShouldRouteSourceBackedAnswerThroughWriterForTests(toolResults, query, "fr"));
         Assert.False(ToolAgentOrchestrator.ShouldPreferWriterForPolishedSourceBackedAnswerForTests(toolResults, query));
-        Assert.Contains("trop limitees", RemoveDiacritics(answer), StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Maintenance ventilation", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Elements directement utilisables", RemoveDiacritics(answer), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Maintenance ventilation", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Maintenance reseau", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Lundi :", answer, StringComparison.OrdinalIgnoreCase);
 
         static object BuildHit(string title, string path, int page) => new
         {
@@ -14292,7 +14294,10 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.False(ToolAgentOrchestrator.ShouldRequireWriterForBroadDocumentaryFinalForTests(toolResults, query, "fr"));
         Assert.False(ToolAgentOrchestrator.ShouldRouteSourceBackedAnswerThroughWriterForTests(toolResults, query, "fr"));
         Assert.False(ToolAgentOrchestrator.ShouldPreferWriterForPolishedSourceBackedAnswerForTests(toolResults, query));
-        Assert.Contains("trop limitees", RemoveDiacritics(bypass), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Elements directement utilisables", RemoveDiacritics(bypass), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Maintenance ventilation", bypass, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Maintenance reseau", bypass, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Lundi :", bypass, StringComparison.OrdinalIgnoreCase);
 
         static object BuildHit(string title, string path, int page) => new
         {
@@ -14352,7 +14357,10 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
         Assert.False(ToolAgentOrchestrator.ShouldRequireWriterForBroadDocumentaryFinalForTests(toolResults, query, "fr"));
         Assert.False(ToolAgentOrchestrator.ShouldRouteSourceBackedAnswerThroughWriterForTests(toolResults, query, "fr"));
         Assert.False(ToolAgentOrchestrator.ShouldPreferWriterForPolishedSourceBackedAnswerForTests(toolResults, query));
-        Assert.Contains("trop limitees", RemoveDiacritics(bypass), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Elements directement utilisables", RemoveDiacritics(bypass), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Maintenance ventilation", bypass, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Maintenance securite", bypass, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Lundi :", bypass, StringComparison.OrdinalIgnoreCase);
 
         static object BuildHit(string title, string path, int page) => new
         {
@@ -15134,7 +15142,7 @@ Continue the previous source-backed request by running a broader retrieval explo
     }
 
     [Fact]
-    public void Broad_source_backed_planning_exploration_adds_generic_navigation_queries()
+    public void Broad_source_backed_planning_exploration_avoids_generic_navigation_queries()
     {
         using var doc = JsonDocument.Parse("""{"hits":[]}""");
         var toolResults = new ToolResults();
@@ -15145,9 +15153,9 @@ Continue the previous source-backed request by running a broader retrieval explo
             "Je cherche a avoir un plan pour la semaine avec les documents.",
             "fr");
 
-        Assert.Contains(queries, q => q.Contains("sommaire", StringComparison.OrdinalIgnoreCase)
-                                      || q.Contains("table des matieres", StringComparison.OrdinalIgnoreCase)
-                                      || q.Contains("index", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, q => q.Contains("sommaire", StringComparison.OrdinalIgnoreCase)
+                                            || q.Contains("table des matieres", StringComparison.OrdinalIgnoreCase)
+                                            || q.Contains("index", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, q => q.Contains("recette", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, q => q.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
     }
@@ -15189,7 +15197,7 @@ Continue the previous source-backed request by running a broader retrieval explo
     }
 
     [Fact]
-    public void Broad_planning_exploration_starts_with_navigation_discovery_before_candidate_followup()
+    public void Broad_planning_exploration_starts_with_concrete_candidate_followup()
     {
         var toolResults = new ToolResults();
         toolResults.Items.Add(new ToolResults.Item
@@ -15209,17 +15217,18 @@ Continue the previous source-backed request by running a broader retrieval explo
             "fr");
 
         Assert.NotEmpty(labels);
-        Assert.Equal("navigation_discovery", labels[0]);
+        Assert.Equal("planning_exploration", labels[0]);
         Assert.Contains(labels, label => string.Equals(label, "planning_exploration", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(queries, q => q.Contains("sommaire", StringComparison.OrdinalIgnoreCase)
-                                      || q.Contains("table des matieres", StringComparison.OrdinalIgnoreCase)
-                                      || q.Contains("index", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(labels, label => string.Equals(label, "navigation_discovery", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, q => q.Contains("sommaire", StringComparison.OrdinalIgnoreCase)
+                                            || q.Contains("table des matieres", StringComparison.OrdinalIgnoreCase)
+                                            || q.Contains("index", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, q => q.Contains("recette", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, q => q.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
-    public void Broad_planning_navigation_discovery_keeps_multilingual_structure_terms_for_cross_language_corpora()
+    public void Broad_planning_exploration_does_not_use_multilingual_navigation_terms_as_rag_queries()
     {
         var toolResults = new ToolResults();
         toolResults.Items.Add(new ToolResults.Item
@@ -15234,12 +15243,12 @@ Continue the previous source-backed request by running a broader retrieval explo
             query,
             "en");
 
-        Assert.Contains(queries, q => q.Contains("table of contents", StringComparison.OrdinalIgnoreCase)
-                                      || q.Contains("contents", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(queries, q => q.Contains("sommaire", StringComparison.OrdinalIgnoreCase)
-                                      || q.Contains("table des matieres", StringComparison.OrdinalIgnoreCase)
-                                      || q.Contains("inhaltsverzeichnis", StringComparison.OrdinalIgnoreCase)
-                                      || q.Contains("sommario", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, q => q.Contains("table of contents", StringComparison.OrdinalIgnoreCase)
+                                            || q.Contains("contents", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(queries, q => q.Contains("sommaire", StringComparison.OrdinalIgnoreCase)
+                                            || q.Contains("table des matieres", StringComparison.OrdinalIgnoreCase)
+                                            || q.Contains("inhaltsverzeichnis", StringComparison.OrdinalIgnoreCase)
+                                            || q.Contains("sommario", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, q => q.Contains("recette", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, q => q.Contains("cuisine", StringComparison.OrdinalIgnoreCase));
     }
@@ -15683,7 +15692,7 @@ Continue the previous source-backed request by running a broader retrieval explo
             "fr");
 
         Assert.Contains("proposition pratique", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("élargir la recherche", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Ã©largir la recherche", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Controle quotidien", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("element demande", answer, StringComparison.OrdinalIgnoreCase);
     }
@@ -20260,7 +20269,7 @@ Continue the previous source-backed request by running a broader retrieval explo
         var answer = ToolAgentOrchestrator.BuildReadablePartialPlanningEvidenceAnswerForTests(toolResults, query, "fr");
 
         Assert.Contains("proposition pratique", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("élargir la recherche", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Ã©largir la recherche", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Lundi :", answer);
         Assert.DoesNotContain("Vendredi :", answer);
         Assert.DoesNotContain("Salade de quinoa avec legumes et tofu grille", answer, StringComparison.OrdinalIgnoreCase);

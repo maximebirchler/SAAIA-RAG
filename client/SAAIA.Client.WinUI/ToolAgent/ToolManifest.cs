@@ -44,6 +44,7 @@ public static class ToolManifest
         new("documents.categories", "user", "List categories from the catalog snapshot. Top-level categories are returned in stable display order and may include explicit multilingual aliases. Use this to choose a corpus scope before content retrieval when the user implies a category/subset.", Schema(("path", "string|null"), ("categoryRef", "string|null"), ("limit", "int|null"), ("offset", "int|null"))),
         new("documents.tree", "user", "Get the multi-level category tree for catalog structure exploration. Use it as a navigation map for broad requests, not as final evidence for factual answers.", Schema(("path", "string|null"), ("categoryRef", "string|null"), ("depth", "int|null"), ("format", "json|markdown"), ("limit", "int|null"), ("offset", "int|null"))),
         new("documents.navigation", "user", "Get document title anchors and table-of-contents/navigation entries for a category or document. Use these entries only as a search map to plan follow-up rag.search/rag.multi_search calls; never use them as final factual evidence.", Schema(("path", "string|null"), ("categoryPath", "string|null"), ("categoryRef", "string|null"), ("docRef", "string|null"), ("docPath", "string|null"), ("q", "string|null"), ("limit", "int|null"), ("offset", "int|null"))),
+        new("documents.context", "user", "Read indexed chunk text around a document, page range or RAG chunk. Use it to inspect surrounding source evidence after rag.search/rag.multi_search or navigation anchors; continue with nextOffset when more context is needed.", Schema(("docRef", "string|null"), ("docId", "string|null"), ("docPath", "string|null"), ("chunkId", "string|null"), ("pageStart", "int|null"), ("pageEnd", "int|null"), ("before", "int|null"), ("after", "int|null"), ("limit", "int|null"), ("offset", "int|null"))),
         new("documents.stats", "user", "Get inventory statistics for the indexed catalog.", Schema(("path", "string|null"), ("categoryRef", "string|null"))),
         new("documents.empty_count", "admin", "Count empty folders on the server filesystem for admin/health diagnostics.", Schema(("path", "string|null"))),
         new("documents.empty_list", "admin", "List empty folders on the server filesystem for admin/health diagnostics.", Schema(("path", "string|null"), ("limit", "int|null"), ("offset", "int|null"))),
@@ -73,7 +74,7 @@ public static class ToolManifest
         new("admin.jobs.cancel", "admin", "Cancel an admin job.", Schema(("jobId", "string"))),
         new("admin.audit", "admin", "List recent audit events for admin diagnostics.", Schema(("action", "string|null"), ("target", "string|null"), ("since", "string|null"), ("until", "string|null"), ("limit", "int"), ("offset", "int"))),
         new("admin.summary.generate", "admin", "Generate or queue an admin summary generation for a document.", Schema(("docRef", "string"), ("level", "medium"), ("force", "bool|null"))),
-        new("rag.debug.scroll", "admin", "Scroll/paginate raw chunks for debugging RAG ingestion.", Schema(("docRef", "string|null"), ("docPath", "string|null"), ("cursor", "string|null"), ("limit", "int|null"))),
+        new("rag.debug.scroll", "admin", "Scroll/paginate raw Qdrant payload chunks for debugging RAG ingestion. Prefer documents.context for user-facing source reading.", Schema(("docRef", "string|null"), ("docId", "string|null"), ("docPath", "string|null"), ("category", "string|null"), ("categoryPath", "string|null"), ("cursor", "string|null"), ("limit", "int|null"), ("pageStart", "int|null"), ("pageEnd", "int|null"), ("chunkType", "string|null"), ("contentRole", "string|null"))),
         new("admin.qdrant.health", "admin", "Qdrant health checks (if available on deployment).", EmptySchema)
     };
 
@@ -148,6 +149,7 @@ public static class ToolManifest
             "documents.categories" => "List catalog categories for corpus scoping.",
             "documents.tree" => "Get category tree as a navigation map, not final evidence.",
             "documents.navigation" => "Get headings/table-of-contents anchors as search pointers, not final evidence.",
+            "documents.context" => "Read indexed page/chunk context around a doc, page or RAG hit.",
             "documents.stats" => "Get catalog statistics.",
             "sources.resolve" => "Resolve an explicit source/document/link/opening reference.",
             "rag.search" => "Single-query RAG for factual corpus answers; supports category, doc/page scope and source_exploration.",
@@ -205,6 +207,7 @@ public static class ToolManifest
         "- For the first broad-plan rag.multi_search, keep the payload compact: 1 to 4 subject/candidate queries, not raw table-of-contents/index/navigation fan-out.",
         "- The user does not need to literally say 'sources' or 'documents' for broad documentary work: if the request asks for a grounded plan, selection, comparison, recommendation or synthesis, explore the available corpus before refusing.",
         "- When navigation entries expose document/page anchors, follow promising entries with rag.search/rag.multi_search using docId/docPath plus pageStart/pageEnd. Navigation titles are pointers, not final evidence.",
+        "- Use documents.context to read surrounding indexed chunk text around promising document/page/chunk anchors when snippets or navigation titles are not enough to decide or cite.",
         "- RAG hits can contain page text, headings, profile signals, source quality, selection hints and content-card evidence. Treat these as research aids for choosing and explaining sources; concrete facts still need page text or card evidence.",
         "- For broad research where the first concrete hits are too narrow, set researchMode=source_exploration and includeResearchSurfaces=true on rag.search/rag.multi_search. Profile/card/navigation signals are orientation aids, not final proof.",
         "- If a broad request is under-supported by the first retrieval but has a clear topic or corpus scope, broaden with complementary rag.multi_search queries before asking for clarification.",
@@ -232,6 +235,7 @@ public static class ToolManifest
         "- For the first broad-plan rag.multi_search, keep the payload compact: 1 to 4 subject/candidate queries, not raw table-of-contents/index/navigation fan-out.",
         "- The user does not need to literally say 'sources' or 'documents' for broad documentary work: if the request asks for a grounded plan, selection, comparison, recommendation or synthesis, explore the available corpus before refusing.",
         "- When navigation gives document/page anchors, follow promising anchors with rag.search/rag.multi_search using docId/docPath plus pageStart/pageEnd before writing.",
+        "- Use documents.context to inspect surrounding indexed chunk text around promising document/page/chunk anchors when snippets are not enough to decide or cite.",
         "- For broad research where the first concrete hits are too narrow, set researchMode=source_exploration and includeResearchSurfaces=true on rag.search/rag.multi_search. Profile/card/navigation signals are orientation aids, not final proof.",
         "- For broad documentary requests with a clear topic or corpus scope, explore with complementary rag.multi_search queries before asking the user to clarify.",
         "- Do not invent tools or admin-only alternatives."

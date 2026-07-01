@@ -706,6 +706,9 @@ public sealed partial class ToolAgentOrchestrator
             analysis.Sources.Count);
     }
 
+    internal static string[] ExtractConcretePlanningAnswerItemsForTests(string answer)
+        => ExtractConcretePlanningAnswerItems(answer).ToArray();
+
     internal static bool ShouldRejectUnsupportedPlanningAnswerForFinalForTests(
         string? answer,
         ToolResults toolResults,
@@ -823,12 +826,6 @@ public sealed partial class ToolAgentOrchestrator
         string language)
         => HasSourceBackedRouteAnchorFollowupQueries(toolResults, query, language);
 
-    internal static bool ShouldSuppressStructuredMealPlanningAnchorFollowupForTests(
-        ToolResults toolResults,
-        string query,
-        string language)
-        => ShouldSuppressStructuredMealPlanningAnchorFollowup(toolResults, query, language);
-
     internal static bool ShouldDeferSparseSourceBackedPlanningAnchorFollowupForTests(
         ToolResults toolResults,
         string query,
@@ -905,6 +902,30 @@ public sealed partial class ToolAgentOrchestrator
         };
 
         return DetectMissingStructuredRouterSearchAxes(plan, query, language);
+    }
+
+    internal static string[] FindStructuredRouterSearchAxisRegressionsForTests(
+        IReadOnlyList<string> missingBefore,
+        IReadOnlyList<string> missingAfter)
+        => FindStructuredRouterSearchAxisRegressions(missingBefore, missingAfter);
+
+    internal static (bool Apply, string Reason, string[] MissingBefore, string[] MissingAfter, string[] RegressedAxes)
+        ShouldApplyInitialLlmPlannerQueriesForTests(
+            string query,
+            string language,
+            string[] currentQueries,
+            string[] plannerQueries)
+    {
+        var apply = ShouldApplyInitialLlmPlannerQueries(
+            currentQueries,
+            plannerQueries,
+            query,
+            language,
+            out var reason,
+            out var missingBefore,
+            out var missingAfter,
+            out var regressedAxes);
+        return (apply, reason, missingBefore, missingAfter, regressedAxes);
     }
 
     internal static (string[] Queries, string[] MissingAfter) BuildStructuredRouterSearchAxisFallbackQueriesForTests(

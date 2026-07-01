@@ -30,6 +30,7 @@ public static partial class DocumentsEndpoints
         app.MapGet("/documents/categories", CategoriesAsync);
         app.MapGet("/documents/tree", TreeAsync);
         app.MapGet("/documents/navigation", NavigationAsync);
+        app.MapGet("/documents/context", ContextAsync);
         app.MapGet("/documents/stats", StatsAsync);
         app.MapPost("/documents/resolve-category", ResolveCategoryAsync);
 
@@ -673,6 +674,220 @@ LIMIT @lim OFFSET @off;";
                 hasTargetChunk = row.HasTargetChunk,
                 hasTargetAnchor = row.HasTargetAnchor,
                 sourceKind = row.SourceKind
+            })
+        });
+    }
+
+    private static async Task<IResult> ContextAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        Guid? docId,
+        string? docPath,
+        Guid? chunkId,
+        int? pageStart,
+        int? pageEnd,
+        int? before,
+        int? after,
+        int? limit,
+        int? offset)
+    {
+        var tenantId = ctx.GetTenantId();
+        var ct = ctx.RequestAborted;
+
+        docPath = DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(docPath);
+        if (docId is null && string.IsNullOrWhiteSpace(docPath) && chunkId is null)
+        {
+            return Results.BadRequest(new
+            {
+                found = false,
+                error = "missing_document_scope",
+                usage = "Provide docId/docPath from rag.search, rag.multi_search, documents.navigation or sources.resolve, or provide a chunkId from a RAG hit."
+            });
+        }
+
+        var beforeCount = Math.Clamp(before ?? 2, 0, 20);
+        var afterCount = Math.Clamp(after ?? 4, 0, 30);
+        var lim = Math.Clamp(limit ?? Math.Max(6, beforeCount + afterCount + 1), 1, 50);
+        var off = Math.Max(offset ?? 0, 0);
+
+        int? normalizedPageStart = pageStart is > 0 ? pageStart.Value : null;
+        int? normalizedPageEnd = pageEnd is > 0 ? pageEnd.Value : normalizedPageStart;
+        if (normalizedPageStart is not null && normalizedPageEnd is not null && normalizedPageEnd < normalizedPageStart)
+            normalizedPageEnd = normalizedPageStart;
+
+        await using var conn = await ds.OpenConnectionAsync(ct);
+
+        const string documentSql = @"
+SELECT
+  d.doc_id AS ""DocId"",
+  d.doc_path AS ""DocPath"",
+  d.doc_name AS ""DocName"",
+  d.category AS ""Category"",
+  d.page_count AS ""PageCount"",
+  r.revision_id AS ""RevisionId""
+FROM documents d
+JOIN document_revisions r
+  ON r.tenant_id = d.tenant_id
+ AND r.doc_id = d.doc_id
+ AND r.indexed_version = d.indexed_version
+WHERE d.tenant_id = @tenant
+  AND d.status = 'indexed'
+  AND d.indexed_version > 0
+  AND (@docId IS NULL OR d.doc_id = @docId)
+  AND (@docPath IS NULL OR d.doc_path = @docPath)
+  AND (
+    @chunkId IS NULL
+    OR @hasDocumentScope
+    OR EXISTS (
+      SELECT 1
+      FROM retrieval_chunks arc
+      WHERE arc.tenant_id = d.tenant_id
+        AND arc.revision_id = r.revision_id
+        AND arc.retrieval_chunk_id = @chunkId
+    )
+  )
+ORDER BY d.doc_path ASC
+LIMIT 1;";
+
+        var document = await conn.QueryFirstOrDefaultAsync<DocumentContextDocumentRow>(new CommandDefinition(
+            documentSql,
+            new
+            {
+                tenant = tenantId,
+                docId,
+                docPath,
+                chunkId,
+                hasDocumentScope = docId is not null || !string.IsNullOrWhiteSpace(docPath)
+            },
+            cancellationToken: ct));
+
+        if (document is null)
+        {
+            return Results.Ok(new
+            {
+                found = false,
+                error = "doc_not_found",
+                docId,
+                docPath,
+                chunkId
+            });
+        }
+
+        int? anchorIndex = null;
+        if (chunkId is not null)
+        {
+            const string anchorSql = @"
+SELECT chunk_index
+FROM retrieval_chunks
+WHERE tenant_id = @tenant
+  AND revision_id = @revisionId
+  AND retrieval_chunk_id = @chunkId
+LIMIT 1;";
+
+            anchorIndex = await conn.QueryFirstOrDefaultAsync<int?>(new CommandDefinition(
+                anchorSql,
+                new { tenant = tenantId, revisionId = document.RevisionId, chunkId },
+                cancellationToken: ct));
+        }
+
+        var hasAnchor = anchorIndex is not null;
+        var hasPageScope = normalizedPageStart is not null;
+        var anchorStart = Math.Max(0, (anchorIndex ?? 0) - beforeCount);
+        var anchorEnd = (anchorIndex ?? 0) + afterCount;
+
+        const string chunksSql = @"
+WITH scoped_chunks AS (
+  SELECT
+    rc.retrieval_chunk_id AS ""ChunkId"",
+    rc.chunk_index AS ""ChunkIndex"",
+    rc.page_start AS ""PageStart"",
+    rc.page_end AS ""PageEnd"",
+    rc.text_content AS ""Text"",
+    rc.token_count AS ""TokenCount"",
+    NULLIF(rc.metadata ->> 'chunkType', '') AS ""ChunkType"",
+    NULLIF(rc.metadata ->> 'contentRole', '') AS ""ContentRole"",
+    NULLIF(rc.metadata ->> 'sectionTitle', '') AS ""SectionTitle"",
+    NULLIF(rc.metadata ->> 'headingPath', '') AS ""HeadingPath"",
+    NULLIF(rc.metadata ->> 'navigationReason', '') AS ""NavigationReason"",
+    NULLIF(rc.metadata ->> 'prevChunkId', '') AS ""PreviousChunkId"",
+    NULLIF(rc.metadata ->> 'nextChunkId', '') AS ""NextChunkId"",
+    COUNT(*) OVER() AS ""Total""
+  FROM retrieval_chunks rc
+  WHERE rc.tenant_id = @tenant
+    AND rc.revision_id = @revisionId
+    AND (
+      (@hasAnchor AND rc.chunk_index BETWEEN @anchorStart AND @anchorEnd)
+      OR (NOT @hasAnchor AND @hasPageScope AND rc.page_start <= @pageEnd AND rc.page_end >= @pageStart)
+      OR (NOT @hasAnchor AND NOT @hasPageScope)
+    )
+)
+SELECT *
+FROM scoped_chunks
+ORDER BY ""ChunkIndex"" ASC
+LIMIT @lim OFFSET @off;";
+
+        var rows = (await conn.QueryAsync<DocumentContextChunkRow>(new CommandDefinition(
+                chunksSql,
+                new
+                {
+                    tenant = tenantId,
+                    revisionId = document.RevisionId,
+                    hasAnchor,
+                    anchorStart,
+                    anchorEnd,
+                    hasPageScope,
+                    pageStart = normalizedPageStart ?? 0,
+                    pageEnd = normalizedPageEnd ?? normalizedPageStart ?? 0,
+                    lim,
+                    off
+                },
+                cancellationToken: ct)))
+            .ToList();
+
+        var total = rows.Count == 0 ? 0 : rows[0].Total;
+        int? nextOffset = off + rows.Count < total ? off + rows.Count : null;
+
+        return Results.Ok(new
+        {
+            found = true,
+            anchorFound = chunkId is null || hasAnchor,
+            contextKind = hasAnchor ? "around_chunk" : hasPageScope ? "page_window" : "document_scroll",
+            usage = "Use this indexed chunk text as source-backed context. Cite the returned document and page range, and continue with nextOffset or adjacent page/chunk context if the evidence is incomplete.",
+            document = new
+            {
+                docId = document.DocId,
+                docPath = document.DocPath,
+                docName = document.DocName,
+                category = document.Category,
+                pageCount = document.PageCount
+            },
+            scope = new
+            {
+                chunkId,
+                pageStart = normalizedPageStart,
+                pageEnd = normalizedPageEnd,
+                before = beforeCount,
+                after = afterCount,
+                limit = lim,
+                offset = off,
+                nextOffset
+            },
+            total,
+            items = rows.Select(row => new
+            {
+                chunkId = row.ChunkId,
+                chunkIndex = row.ChunkIndex,
+                pageStart = row.PageStart,
+                pageEnd = row.PageEnd,
+                text = row.Text,
+                tokenCount = row.TokenCount,
+                chunkType = row.ChunkType,
+                contentRole = row.ContentRole,
+                sectionTitle = row.SectionTitle,
+                headingPath = row.HeadingPath,
+                navigationReason = row.NavigationReason,
+                previousChunkId = row.PreviousChunkId,
+                nextChunkId = row.NextChunkId
             })
         });
     }
@@ -2158,6 +2373,34 @@ WHERE d.tenant_id=@tenant
         public bool HasTargetAnchor { get; set; }
         public string? SourceKind { get; set; }
         public int RankBucket { get; set; }
+        public int Total { get; set; }
+    }
+
+    private sealed class DocumentContextDocumentRow
+    {
+        public Guid DocId { get; set; }
+        public string DocPath { get; set; } = "";
+        public string DocName { get; set; } = "";
+        public string? Category { get; set; }
+        public int? PageCount { get; set; }
+        public Guid RevisionId { get; set; }
+    }
+
+    private sealed class DocumentContextChunkRow
+    {
+        public Guid ChunkId { get; set; }
+        public int ChunkIndex { get; set; }
+        public int PageStart { get; set; }
+        public int PageEnd { get; set; }
+        public string Text { get; set; } = "";
+        public int TokenCount { get; set; }
+        public string? ChunkType { get; set; }
+        public string? ContentRole { get; set; }
+        public string? SectionTitle { get; set; }
+        public string? HeadingPath { get; set; }
+        public string? NavigationReason { get; set; }
+        public string? PreviousChunkId { get; set; }
+        public string? NextChunkId { get; set; }
         public int Total { get; set; }
     }
 

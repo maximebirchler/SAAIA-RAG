@@ -372,16 +372,19 @@ public sealed class ApiClientDocumentsTransitionTests
         Assert.Contains("slow", calls);
         Assert.Contains("fast", calls);
         Assert.Single(result.GetProperty("hits").EnumerateArray());
+        Assert.Equal(50, result.GetProperty("meta").GetProperty("perQueryTimeoutMs").GetInt32());
 
         var queryRuns = result.GetProperty("meta").GetProperty("queryRuns")
             .EnumerateArray()
             .ToArray();
         Assert.Contains(queryRuns, run =>
             string.Equals(run.GetProperty("query").GetString(), "slow", StringComparison.OrdinalIgnoreCase)
-            && string.Equals(run.GetProperty("error").GetString(), "rag_search_query_timeout", StringComparison.OrdinalIgnoreCase));
+            && string.Equals(run.GetProperty("error").GetString(), "rag_search_query_timeout", StringComparison.OrdinalIgnoreCase)
+            && run.GetProperty("timeoutMs").GetInt32() == 50);
         Assert.Contains(queryRuns, run =>
             string.Equals(run.GetProperty("query").GetString(), "fast", StringComparison.OrdinalIgnoreCase)
-            && run.GetProperty("hitCount").GetInt32() == 1);
+            && run.GetProperty("hitCount").GetInt32() == 1
+            && run.GetProperty("timeoutMs").GetInt32() == 50);
 
         var degraded = result.GetProperty("meta").GetProperty("degradedRetrievers")
             .EnumerateArray()
@@ -4127,6 +4130,70 @@ public sealed class ApiClientDocumentsTransitionTests
         Assert.Equal("failed", item.GetProperty("capabilityBLastJobStatus").GetString());
         Assert.Equal("timeout", item.GetProperty("capabilityBLastJobError").GetString());
         Assert.Equal("summary_stale", item.GetProperty("capabilityBReasons")[0].GetString());
+    }
+
+    [Fact]
+    public async Task DocumentsContextAsync_reads_user_context_endpoint_with_anchor_scope()
+    {
+        HttpRequestMessage? capturedRequest = null;
+        var handler = new StubHttpHandler(req =>
+        {
+            capturedRequest = req;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "found": true,
+                      "contextKind": "around_chunk",
+                      "items": [
+                        {
+                          "chunkId": "chunk-1",
+                          "chunkIndex": 12,
+                          "pageStart": 7,
+                          "pageEnd": 8,
+                          "text": "Indexed context"
+                        }
+                      ]
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var api = CreateApiClient(handler, adminKey: "test-admin-key");
+        var result = await api.DocumentsContextAsync(
+            " doc-123 ",
+            " Knowledge\\Generic\\source.pdf ",
+            " chunk-456 ",
+            pageStart: 7,
+            pageEnd: 8,
+            before: 99,
+            after: 99,
+            limit: 99,
+            offset: -4,
+            CancellationToken.None);
+
+        Assert.NotNull(capturedRequest);
+        Assert.Equal(HttpMethod.Get, capturedRequest!.Method);
+        Assert.Equal("/documents/context", capturedRequest.RequestUri!.AbsolutePath);
+        Assert.True(capturedRequest.Headers.TryGetValues("X-Api-Key", out var userKeys));
+        Assert.Equal("test-api-key", Assert.Single(userKeys));
+        Assert.False(capturedRequest.Headers.Contains("X-Admin-Key"));
+
+        var qs = System.Web.HttpUtility.ParseQueryString(capturedRequest.RequestUri.Query);
+        Assert.Equal("doc-123", qs.Get("docId"));
+        Assert.Equal("Knowledge/Generic/source.pdf", qs.Get("docPath"));
+        Assert.Equal("chunk-456", qs.Get("chunkId"));
+        Assert.Equal("7", qs.Get("pageStart"));
+        Assert.Equal("8", qs.Get("pageEnd"));
+        Assert.Equal("20", qs.Get("before"));
+        Assert.Equal("30", qs.Get("after"));
+        Assert.Equal("50", qs.Get("limit"));
+        Assert.Equal("0", qs.Get("offset"));
+        Assert.True(result.GetProperty("found").GetBoolean());
+        Assert.Equal("Indexed context", result.GetProperty("items")[0].GetProperty("text").GetString());
     }
 
     private static HttpResponseMessage CaptureRagSearch(HttpRequestMessage request, Func<string, string> responseFactory)

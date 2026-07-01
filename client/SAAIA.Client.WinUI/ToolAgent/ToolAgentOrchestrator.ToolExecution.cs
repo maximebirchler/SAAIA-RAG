@@ -73,6 +73,43 @@ public sealed partial class ToolAgentOrchestrator
         return await _api.DocumentsNavigationAsync(path, categoryRef, docId, docPath, q, limit, offset, ct).ConfigureAwait(false);
     }
 
+    private async Task<JsonElement> ExecDocumentsContextAsync(JsonElement args, CancellationToken ct)
+    {
+        var docRef = GetPreferredDocRef(args);
+        string? docId = GetStringArg(args, "docId");
+        string? docPath = GetStringArg(args, "docPath");
+        if (!string.IsNullOrWhiteSpace(docRef) && string.IsNullOrWhiteSpace(docId) && string.IsNullOrWhiteSpace(docPath))
+        {
+            var resolved = await ResolveDocRefAsync(docRef, ct).ConfigureAwait(false);
+            if (resolved is null)
+                return JsonDocument.Parse("{\"found\":false,\"error\":\"doc_not_found\"}").RootElement.Clone();
+
+            docId = resolved.DocId;
+            docPath = resolved.DocPath;
+        }
+
+        var chunkId = GetStringArg(args, "chunkId") ?? GetStringArg(args, "chunk_id");
+        var pageStart = GetIntArg(args, "pageStart") ?? GetIntArg(args, "page_start");
+        var pageEnd = GetIntArg(args, "pageEnd") ?? GetIntArg(args, "page_end");
+        var before = GetIntArg(args, "before") ?? 2;
+        var after = GetIntArg(args, "after") ?? 4;
+        var limit = GetIntArg(args, "limit") ?? 12;
+        var offset = GetIntArg(args, "offset") ?? 0;
+
+        return await _api.DocumentsContextAsync(
+                docId,
+                docPath,
+                chunkId,
+                pageStart,
+                pageEnd,
+                before,
+                after,
+                limit,
+                offset,
+                ct)
+            .ConfigureAwait(false);
+    }
+
     private async Task<JsonElement> ExecDocumentsStatsAsync(JsonElement args, CancellationToken ct)
     {
         var (path, categoryRef) = await ResolveCategoryScopeArgsAsync(args, ct).ConfigureAwait(false);
