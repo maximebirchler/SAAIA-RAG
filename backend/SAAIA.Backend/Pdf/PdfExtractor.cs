@@ -21,7 +21,7 @@ static class PdfExtractor
             ct.ThrowIfCancellationRequested();
 
             var rawText = ExtractLayoutAwarePageText(page);
-            var text = PdfTextSanitizer.ForStorage(rawText);
+            var text = OcrNoiseFilter.RemoveSpacedLetterRunNoise(PdfTextSanitizer.ForStorage(rawText));
             rawPages.Add((page.Number, text, CountPageImages(page)));
             replacementStatsByPage[page.Number] = (
                 CountReplacementCharacters(rawText),
@@ -133,38 +133,12 @@ static class PdfExtractor
         var paragraphGapThreshold = Math.Clamp(medianHeight * 1.15d, 7.0d, 28.0d);
         var wrapBackThreshold = Math.Clamp(medianWidth * 2.5d, 18.0d, 72.0d);
 
-        var builder = new StringBuilder();
-        PdfLayoutWord? previous = null;
-        foreach (var word in usableWords)
-        {
-            var text = PdfTextSanitizer.ForStorage(word.Text).Trim();
-            if (text.Length == 0)
-                continue;
-
-            if (previous is null)
-            {
-                builder.Append(text);
-                previous = word;
-                continue;
-            }
-
-            var verticalDelta = Math.Abs(word.CenterY - previous.Value.CenterY);
-            var wrapsBack = word.Left + wrapBackThreshold < previous.Value.Left;
-            if (verticalDelta > sameLineTolerance || wrapsBack)
-            {
-                var verticalGap = previous.Value.Bottom - word.Top;
-                builder.Append(verticalGap > paragraphGapThreshold ? "\n\n" : "\n");
-            }
-            else if (builder.Length > 0 && !char.IsWhiteSpace(builder[^1]))
-            {
-                builder.Append(' ');
-            }
-
-            builder.Append(text);
-            previous = word;
-        }
-
-        var reconstructed = builder.ToString().Trim();
+        var reconstructed = BuildPositionedLayoutText(
+            usableWords,
+            sameLineTolerance,
+            paragraphGapThreshold,
+            medianWidth,
+            wrapBackThreshold).Trim();
         if (reconstructed.Length == 0)
             return fallback;
 
@@ -177,6 +151,412 @@ static class PdfExtractor
         return reconstructed.Length >= Math.Max(20, fallback.Length / 2)
             ? reconstructed
             : fallback;
+    }
+
+    private static string BuildPositionedLayoutText(
+        IReadOnlyList<PdfLayoutWord> words,
+        double sameLineTolerance,
+        double paragraphGapThreshold,
+        double medianWidth,
+        double wrapBackThreshold)
+    {
+        var lines = BuildLayoutLines(words, sameLineTolerance);
+        if (lines.Count == 0)
+            return string.Empty;
+
+        var segments = lines
+            .SelectMany((line, index) => SplitLineIntoSegments(line, index, medianWidth))
+            .ToArray();
+
+        return TryBuildColumnarText(segments, lines.Count, paragraphGapThreshold, medianWidth, out var columnar)
+            ? columnar
+            : BuildLineOrderedText(lines, paragraphGapThreshold, wrapBackThreshold);
+    }
+
+    private static List<PdfLayoutLine> BuildLayoutLines(IReadOnlyList<PdfLayoutWord> words, double sameLineTolerance)
+    {
+        var ordered = words
+            .Select(static word => word with { Text = PdfTextSanitizer.ForStorage(word.Text).Trim() })
+            .Where(static word => word.Text.Length > 0)
+            .OrderByDescending(static word => word.CenterY)
+            .ThenBy(static word => word.Left)
+            .ToArray();
+
+        var lines = new List<PdfLayoutLine>();
+        foreach (var word in ordered)
+        {
+            var line = lines.LastOrDefault();
+            if (line is null || Math.Abs(word.CenterY - line.CenterY) > sameLineTolerance)
+            {
+                lines.Add(new PdfLayoutLine([word]));
+                continue;
+            }
+
+            line.Words.Add(word);
+        }
+
+        foreach (var line in lines)
+            line.Words.Sort(static (left, right) => left.Left.CompareTo(right.Left));
+
+        return lines;
+    }
+
+    private static IReadOnlyList<PdfLayoutSegment> SplitLineIntoSegments(
+        PdfLayoutLine line,
+        int lineIndex,
+        double medianWidth)
+    {
+        if (line.Words.Count == 0)
+            return Array.Empty<PdfLayoutSegment>();
+
+        var gapThreshold = Math.Clamp(medianWidth * 1.50d, 20.0d, 58.0d);
+        var segments = new List<PdfLayoutSegment>();
+        var buffer = new List<PdfLayoutWord>();
+        PdfLayoutWord? previous = null;
+
+        void Flush()
+        {
+            if (buffer.Count == 0)
+                return;
+
+            segments.Add(new PdfLayoutSegment(
+                lineIndex,
+                string.Join(' ', buffer.Select(static word => word.Text)),
+                buffer.Min(static word => word.Left),
+                buffer.Max(static word => word.Right),
+                buffer.Max(static word => word.Top),
+                buffer.Min(static word => word.Bottom)));
+            buffer.Clear();
+        }
+
+        for (var i = 0; i < line.Words.Count; i++)
+        {
+            var word = line.Words[i];
+            var next = i + 1 < line.Words.Count ? line.Words[i + 1] : (PdfLayoutWord?)null;
+            if (previous is not null
+                && (word.Left - previous.Value.Right > gapThreshold
+                    || ShouldStartInlineNumberedLayoutSegment(buffer, word, next)))
+            {
+                Flush();
+            }
+
+            buffer.Add(word);
+            previous = word;
+        }
+
+        Flush();
+        return segments;
+    }
+
+    private static bool ShouldStartInlineNumberedLayoutSegment(
+        IReadOnlyList<PdfLayoutWord> buffer,
+        PdfLayoutWord current,
+        PdfLayoutWord? next)
+    {
+        if (buffer.Count < 3 || next is null)
+            return false;
+
+        var marker = current.Text.Trim(' ', '.', ')', ']', ':');
+        if (!int.TryParse(marker, out var stepNumber) || stepNumber is < 1 or > 50)
+            return false;
+
+        var nextFirstLetter = next.Value.Text.FirstOrDefault(char.IsLetter);
+        if (nextFirstLetter == default || !char.IsUpper(nextFirstLetter))
+            return false;
+
+        var previousText = buffer[^1].Text.Trim();
+        if (previousText.EndsWith("(", StringComparison.Ordinal)
+            || previousText.EndsWith("[", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool TryBuildColumnarText(
+        IReadOnlyList<PdfLayoutSegment> segments,
+        int lineCount,
+        double paragraphGapThreshold,
+        double medianWidth,
+        out string text)
+    {
+        text = string.Empty;
+        if (segments.Count < 6 || lineCount < 3)
+            return false;
+
+        var multiSegmentLineCount = segments
+            .GroupBy(static segment => segment.LineIndex)
+            .Count(static group => group.Count() >= 2);
+        if (multiSegmentLineCount < Math.Max(3, (int)Math.Ceiling(lineCount * 0.30d)))
+            return false;
+
+        var columns = ClusterSegmentsIntoColumns(segments, medianWidth)
+            .Where(static column => column.Count >= 3)
+            .OrderBy(static column => column.Min(static segment => segment.Left))
+            .ToArray();
+        if (columns.Length < 2)
+            return false;
+
+        var columnSegmentCount = columns.Sum(static column => column.Count);
+        if (columnSegmentCount < Math.Ceiling(segments.Count * 0.60d))
+            return false;
+
+        var builder = new StringBuilder();
+        for (var columnIndex = 0; columnIndex < columns.Length; columnIndex++)
+        {
+            if (builder.Length > 0)
+                builder.Append("\n\n");
+
+            AppendSegmentsReadingOrder(builder, columns[columnIndex], paragraphGapThreshold, medianWidth);
+        }
+
+        text = builder.ToString();
+        return !string.IsNullOrWhiteSpace(text);
+    }
+
+    private static List<List<PdfLayoutSegment>> ClusterSegmentsIntoColumns(
+        IReadOnlyList<PdfLayoutSegment> segments,
+        double medianWidth)
+    {
+        var tolerance = Math.Clamp(medianWidth * 3.5d, 45.0d, 110.0d);
+        var columns = new List<List<PdfLayoutSegment>>();
+        foreach (var segment in segments.OrderBy(static segment => segment.Left))
+        {
+            var column = columns
+                .Where(column => Math.Abs(segment.Left - column.Average(static item => item.Left)) <= tolerance
+                                 || segment.Left <= column.Max(static item => item.Right) + tolerance
+                                    && segment.Right >= column.Min(static item => item.Left) - tolerance)
+                .OrderBy(column => Math.Abs(segment.Left - column.Average(static item => item.Left)))
+                .FirstOrDefault();
+
+            if (column is null)
+            {
+                columns.Add([segment]);
+            }
+            else
+            {
+                column.Add(segment);
+            }
+        }
+
+        return columns;
+    }
+
+    private static string BuildLineOrderedText(
+        IReadOnlyList<PdfLayoutLine> lines,
+        double paragraphGapThreshold,
+        double wrapBackThreshold)
+    {
+        var builder = new StringBuilder();
+        PdfLayoutLine? previous = null;
+        foreach (var line in lines)
+        {
+            if (line.Words.Count == 0)
+                continue;
+
+            if (previous is not null)
+            {
+                var verticalGap = previous.Bottom - line.Top;
+                var wrapsBack = line.Left + wrapBackThreshold < previous.Left;
+                builder.Append(verticalGap > paragraphGapThreshold || wrapsBack ? "\n\n" : "\n");
+            }
+
+            builder.Append(string.Join(' ', line.Words.Select(static word => word.Text)));
+            previous = line;
+        }
+
+        return builder.ToString();
+    }
+
+    private static void AppendSegmentsTopDown(
+        StringBuilder builder,
+        IReadOnlyList<PdfLayoutSegment> segments,
+        double paragraphGapThreshold)
+    {
+        PdfLayoutSegment? previous = null;
+        foreach (var segment in segments.OrderBy(static segment => segment.LineIndex))
+        {
+            if (string.IsNullOrWhiteSpace(segment.Text))
+                continue;
+
+            if (previous is not null)
+            {
+                var verticalGap = previous.Value.Bottom - segment.Top;
+                builder.Append(verticalGap > paragraphGapThreshold ? "\n\n" : "\n");
+            }
+
+            builder.Append(segment.Text);
+            previous = segment;
+        }
+    }
+
+    private static void AppendSegmentsReadingOrder(
+        StringBuilder builder,
+        IReadOnlyList<PdfLayoutSegment> segments,
+        double paragraphGapThreshold,
+        double medianWidth)
+    {
+        if (TryBuildNestedColumnarSegmentText(segments, paragraphGapThreshold, medianWidth, out var nestedText))
+        {
+            builder.Append(nestedText);
+            return;
+        }
+
+        AppendSegmentsTopDown(builder, segments, paragraphGapThreshold);
+    }
+
+    private static bool TryBuildNestedColumnarSegmentText(
+        IReadOnlyList<PdfLayoutSegment> segments,
+        double paragraphGapThreshold,
+        double medianWidth,
+        out string text)
+    {
+        text = string.Empty;
+        if (segments.Count < 7)
+            return false;
+
+        var distinctLineCount = segments.Select(static segment => segment.LineIndex).Distinct().Count();
+        var multiSegmentLineCount = segments
+            .GroupBy(static segment => segment.LineIndex)
+            .Count(static group => group.Count() >= 2);
+        if (multiSegmentLineCount < Math.Max(3, (int)Math.Ceiling(distinctLineCount * 0.15d)))
+            return false;
+
+        var tolerance = Math.Clamp(medianWidth * 2.1d, 28.0d, 48.0d);
+        var nestedColumns = ClusterSegmentsByLeftAnchor(segments, tolerance)
+            .OrderBy(static column => column.Min(static segment => segment.Left))
+            .ToArray();
+        var stableColumns = nestedColumns
+            .Where(static column => column.Count >= 3)
+            .ToArray();
+        if (stableColumns.Length < 2)
+            return false;
+
+        var stableSegmentCount = stableColumns.Sum(static column => column.Count);
+        if (stableSegmentCount < Math.Ceiling(segments.Count * 0.60d))
+            return false;
+
+        var stableLeft = stableColumns.Min(static column => column.Min(static segment => segment.Left));
+        var stableRight = stableColumns.Max(static column => column.Max(static segment => segment.Right));
+        if (stableRight - stableLeft < Math.Max(120.0d, medianWidth * 6.0d))
+            return false;
+
+        var firstStableLine = stableColumns
+            .SelectMany(static column => column)
+            .Min(static segment => segment.LineIndex);
+        var prefixEndLine = ResolveNestedColumnPrefixEndLine(segments, firstStableLine);
+        var prefix = segments
+            .Where(segment => segment.LineIndex <= prefixEndLine)
+            .OrderBy(static segment => segment.LineIndex)
+            .ThenBy(static segment => segment.Left)
+            .ToArray();
+        var bodySegments = segments
+            .Where(segment => segment.LineIndex > prefixEndLine)
+            .ToArray();
+        if (bodySegments.Length == 0)
+            return false;
+
+        var bodyColumns = ClusterSegmentsByLeftAnchor(bodySegments, tolerance)
+            .OrderBy(static column => column.Min(static segment => segment.Left))
+            .ToArray();
+
+        var builder = new StringBuilder();
+        if (prefix.Length > 0)
+            AppendSegmentsTopDown(builder, prefix, paragraphGapThreshold);
+
+        foreach (var column in bodyColumns)
+        {
+            if (column.Count == 0)
+                continue;
+
+            if (builder.Length > 0)
+                builder.Append("\n\n");
+            AppendSegmentsTopDown(builder, column, paragraphGapThreshold);
+        }
+
+        text = builder.ToString();
+        return !string.IsNullOrWhiteSpace(text);
+    }
+
+    private static int ResolveNestedColumnPrefixEndLine(
+        IReadOnlyList<PdfLayoutSegment> segments,
+        int firstStableLine)
+    {
+        var headingSearchEndLine = firstStableLine + 8;
+        var headingLine = segments
+            .Where(segment => segment.LineIndex <= headingSearchEndLine)
+            .Where(static segment => LooksLikeLayoutHeadingSegment(segment.Text))
+            .Select(static segment => segment.LineIndex)
+            .DefaultIfEmpty(firstStableLine - 1)
+            .Max();
+
+        return Math.Max(firstStableLine - 1, headingLine);
+    }
+
+    private static bool LooksLikeLayoutHeadingSegment(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var normalized = NormalizeBoilerplateLine(text);
+        if (normalized.Length is < 4 or > 140)
+            return false;
+        if (normalized.EndsWith(".", StringComparison.Ordinal)
+            || normalized.EndsWith(",", StringComparison.Ordinal)
+            || normalized.EndsWith(";", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var letterCount = normalized.Count(char.IsLetter);
+        if (letterCount < 3)
+            return false;
+
+        var digitCount = normalized.Count(char.IsDigit);
+        if (digitCount > Math.Max(2, letterCount / 3))
+            return false;
+
+        var words = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length is < 1 or > 16)
+            return false;
+
+        var uppercaseLetters = normalized.Count(char.IsUpper);
+        if (uppercaseLetters >= Math.Ceiling(letterCount * 0.70d))
+            return true;
+
+        var titleCaseWords = words.Count(static word =>
+        {
+            var firstLetter = word.FirstOrDefault(char.IsLetter);
+            return firstLetter != default && char.IsUpper(firstLetter);
+        });
+
+        return words.Length >= 2 && titleCaseWords >= Math.Max(2, words.Length - 1);
+    }
+
+    private static List<List<PdfLayoutSegment>> ClusterSegmentsByLeftAnchor(
+        IReadOnlyList<PdfLayoutSegment> segments,
+        double tolerance)
+    {
+        var columns = new List<List<PdfLayoutSegment>>();
+        foreach (var segment in segments.OrderBy(static segment => segment.Left))
+        {
+            var column = columns
+                .Where(column => Math.Abs(segment.Left - column.Average(static item => item.Left)) <= tolerance)
+                .OrderBy(column => Math.Abs(segment.Left - column.Average(static item => item.Left)))
+                .FirstOrDefault();
+
+            if (column is null)
+            {
+                columns.Add([segment]);
+            }
+            else
+            {
+                column.Add(segment);
+            }
+        }
+
+        return columns;
     }
 
     private static double ResolveMedianPositive(IEnumerable<double> values)
@@ -281,7 +661,8 @@ static class PdfExtractor
         {
             var normalized = NormalizeBoilerplateLine(line);
             return !IsRepeatedBoilerplateLine(normalized, repeated, repeatedPatterns)
-                   && !IsLocalPageMarkerLine(normalized, pageNumber, pageCount, index, lines.Length);
+                   && !IsLocalPageMarkerLine(normalized, pageNumber, pageCount, index, lines.Length)
+                   && !IsFloatingStandaloneNumericMarkerLine(normalized, index, lines);
         })).Trim();
     }
 
@@ -329,6 +710,39 @@ static class PdfExtractor
         var singlePagePattern = $@"^(?:page|p\.?)\s*0*{pageNumber}$";
         return System.Text.RegularExpressions.Regex.IsMatch(normalized, singlePagePattern, System.Text.RegularExpressions.RegexOptions.CultureInvariant);
     }
+
+    private static bool IsFloatingStandaloneNumericMarkerLine(string line, int index, IReadOnlyList<string> lines)
+    {
+        if (lines.Count < 5 || index <= 0 || index >= lines.Count - 1)
+            return false;
+
+        var normalized = NormalizeBoilerplateLine(line)
+            .Trim('-', '\u2010', '\u2011', '\u2012', '\u2013', '\u2014', ' ');
+        if (normalized.Length is < 2 or > 4)
+            return false;
+        if (!normalized.All(char.IsDigit))
+            return false;
+
+        var previous = NormalizeBoilerplateLine(lines[index - 1]);
+        var next = NormalizeBoilerplateLine(lines[index + 1]);
+        if (!LooksLikeProseOrInstructionLine(previous) || !LooksLikeProseOrInstructionLine(next))
+            return false;
+
+        return true;
+    }
+
+    private static bool LooksLikeProseOrInstructionLine(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line) || line.Length < 8)
+            return false;
+
+        var letterCount = line.Count(char.IsLetter);
+        if (letterCount < 6)
+            return false;
+
+        var tokenCount = SplitWords(line).Count();
+        return tokenCount >= 3;
+    }
 }
 
 sealed record WordToken(string Word, int Page);
@@ -343,6 +757,23 @@ internal readonly record struct PdfLayoutWord(
     public double Height => Math.Max(0d, Top - Bottom);
     public double CenterY => (Top + Bottom) / 2d;
 }
+
+internal sealed class PdfLayoutLine(List<PdfLayoutWord> words)
+{
+    public List<PdfLayoutWord> Words { get; } = words;
+    public double Left => Words.Count == 0 ? 0 : Words.Min(static word => word.Left);
+    public double Top => Words.Count == 0 ? 0 : Words.Max(static word => word.Top);
+    public double Bottom => Words.Count == 0 ? 0 : Words.Min(static word => word.Bottom);
+    public double CenterY => Words.Count == 0 ? 0 : Words.Average(static word => word.CenterY);
+}
+
+internal readonly record struct PdfLayoutSegment(
+    int LineIndex,
+    string Text,
+    double Left,
+    double Right,
+    double Top,
+    double Bottom);
 
 sealed record ExtractedPdfPage(
     int PageNumber,

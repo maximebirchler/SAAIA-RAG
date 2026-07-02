@@ -5786,6 +5786,15 @@ CURRENT_USER_MESSAGE:
             yield break;
 
         yield return normalized;
+
+        if (normalized is "gouter" or "collation" or "encas" or "snack")
+        {
+            foreach (var variant in new[] { "gouter", "collation", "encas", "snack" })
+            {
+                if (!string.Equals(variant, normalized, StringComparison.Ordinal))
+                    yield return variant;
+            }
+        }
     }
     private static string SelectPreferredPlanningSlotRetrievalTerm(string? term)
     {
@@ -8306,6 +8315,8 @@ CURRENT_USER_MESSAGE:
 
             var mentionsDayAxis = dayTerms.Any(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
             var mentionsSlot = MentionsStructuredAxisSlotTerm(normalizedQuery, slotTerms);
+            var mentionsGenericInventory = genericInventoryTerms.Any(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
+            var mentionsCandidateInventory = MentionsStructuredAxisCandidateInventoryTerm(normalizedQuery, genericInventoryTerms);
             var hasSpecificSignal = HasStructuredAxisPlannerSpecificSignal(
                 normalizedQuery,
                 dayTerms,
@@ -8318,6 +8329,32 @@ CURRENT_USER_MESSAGE:
                 slotTerms,
                 genericInventoryTerms,
                 querySubjectTerms);
+            var inventoryReplacements = BuildStructuredAxisInventoryReplacementsForAbstractLlmQuery(
+                normalizedQuery,
+                slotTerms,
+                genericInventoryTerms,
+                mentionsSlot,
+                mentionsCandidateInventory);
+            if (inventoryReplacements.Length > 0)
+            {
+                foreach (var replacement in inventoryReplacements)
+                {
+                    var replacementKey = NormalizeLexicalLookup(replacement);
+                    if (!string.IsNullOrWhiteSpace(replacementKey) && seen.Add(replacementKey))
+                        results.Add(replacement);
+                }
+
+                continue;
+            }
+
+            if (LooksLikeStructuredAxisPlanningScaffoldQuery(normalizedQuery)
+                && !mentionsSlot
+                && !mentionsCandidateInventory
+                && unknownSignalTerms.Length <= 1)
+            {
+                continue;
+            }
+
             if (LooksLikeDecorativeStructuredAxisPlannerQuery(normalizedQuery)
                 && unknownSignalTerms.Length <= 1)
             {
@@ -8360,6 +8397,70 @@ CURRENT_USER_MESSAGE:
 
     private static string CleanupStructuredAxisPlannerQuery(string query)
         => Regex.Replace(query ?? string.Empty, @"[\s_/,;:()]+", " ").Trim();
+
+    private static string[] BuildStructuredAxisInventoryReplacementsForAbstractLlmQuery(
+        string normalizedQuery,
+        IReadOnlyCollection<string> slotTerms,
+        IReadOnlyCollection<string> genericInventoryTerms,
+        bool mentionsSlot,
+        bool mentionsCandidateInventory)
+    {
+        if (!mentionsSlot
+            || mentionsCandidateInventory
+            || !LooksLikeStructuredAxisPlanningScaffoldQuery(normalizedQuery))
+        {
+            return Array.Empty<string>();
+        }
+
+        var inventoryTerm = genericInventoryTerms
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .Where(static term => !LooksLikeDecorativeStructuredAxisPlannerQuery(NormalizeLexicalLookup(term)))
+            .DefaultIfEmpty("options")
+            .First();
+        var replacements = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var slot in slotTerms.Where(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term)))
+        {
+            Add($"{slot} {inventoryTerm}");
+            Add($"{inventoryTerm} {slot}");
+        }
+
+        return replacements.Take(8).ToArray();
+
+        void Add(string value)
+        {
+            value = CleanupStructuredAxisPlannerQuery(value);
+            var key = NormalizeLexicalLookup(value);
+            if (!string.IsNullOrWhiteSpace(key) && seen.Add(key))
+                replacements.Add(value);
+        }
+    }
+
+    private static bool LooksLikeStructuredAxisPlanningScaffoldQuery(string normalizedQuery)
+        => Regex.IsMatch(
+            normalizedQuery,
+            @"\b(?:plan|planning|programme|schedule|agenda|calendrier|semaine|hebdomadaire|week|weekly|semana|semanal|woche|wochenplan|settimana|settimanale)\b",
+            RegexOptions.CultureInvariant);
+
+    private static bool MentionsStructuredAxisCandidateInventoryTerm(
+        string normalizedQuery,
+        IReadOnlyCollection<string> genericInventoryTerms)
+        => genericInventoryTerms
+            .Where(IsStructuredAxisCandidateInventoryTerm)
+            .Any(term => ContainsStructuredAxisPlannerTerm(normalizedQuery, term));
+
+    private static bool IsStructuredAxisCandidateInventoryTerm(string? term)
+    {
+        var normalized = NormalizeLexicalLookup(term);
+        if (string.IsNullOrWhiteSpace(normalized) || LooksLikeDecorativeStructuredAxisPlannerQuery(normalized))
+            return false;
+
+        return normalized is not (
+            "plan" or "planning" or "programme" or "schedule" or "calendar" or "calendrier" or
+            "detail" or "details" or "detailed" or "detaille" or "detailles" or
+            "idee" or "idees" or "idea" or "ideas" or "ideal" or "ideals" or "ideaux" or
+            "suggestion" or "suggestions");
+    }
 
     private static IEnumerable<string> BuildStructuredAxisPlannerDayTerms(
         IReadOnlyCollection<string> requestedDayLabels,

@@ -78,7 +78,7 @@ sealed class IngestionOptions
     public int OcrImagePageSegmentationMode { get; set; } = 3;
     public int OcrImagePageTimeoutSeconds { get; set; } = 120;
     // Global per-document budget for image-page OCR. 0 disables the global budget.
-    public int OcrImagePageMaxTotalSeconds { get; set; } = 1800;
+    public int OcrImagePageMaxTotalSeconds { get; set; } = 0;
     public int OcrImagePageMinWords { get; set; } = 3;
 
     // Backoff auto-upsert après échecs répétés (évite les boucles infinies scanner -> worker failed -> scanner)

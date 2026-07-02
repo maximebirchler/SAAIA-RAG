@@ -19,6 +19,18 @@ public sealed class RetrievalContentClassifierTests
         Assert.NotNull(reason);
     }
 
+    [Theory]
+    [InlineData("Sommaire")]
+    [InlineData("Contents")]
+    [InlineData("TOC")]
+    public void AnalyzeChunk_marks_standalone_toc_marker_as_navigation(string text)
+    {
+        var signal = RetrievalContentClassifier.AnalyzeChunk(text);
+
+        Assert.Equal(RetrievalContentClassifier.NavigationRole, signal.ContentRole);
+        Assert.Equal("table_of_contents", signal.NavigationReason);
+    }
+
     [Fact]
     public void DetectNavigationReason_does_not_treat_content_indice_as_navigation()
     {

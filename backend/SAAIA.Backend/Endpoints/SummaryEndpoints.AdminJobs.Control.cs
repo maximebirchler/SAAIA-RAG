@@ -39,9 +39,12 @@ SET status='paused',
     started_at=NULL,
     last_error=NULL,
     payload = jsonb_set(
-        jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,pauseRequested}', 'true'::jsonb, true),
-        '{control,requestedAction}',
-        to_jsonb('pause'::text),
+        COALESCE(payload, '{}'::jsonb),
+        '{control}',
+        COALESCE(payload->'control', '{}'::jsonb)
+            || jsonb_build_object(
+                'pauseRequested', true,
+                'requestedAction', 'pause'::text),
         true)
 WHERE tenant_id=@tenant
   AND job_id=@jobId
@@ -199,9 +202,12 @@ SET status='paused',
     locked_at=NULL,
     available_at=now(),
     payload = jsonb_set(
-        jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true),
-        '{control,requestedAction}',
-        to_jsonb(@requestedAction::text),
+        COALESCE(payload, '{}'::jsonb),
+        '{control}',
+        COALESCE(payload->'control', '{}'::jsonb)
+            || jsonb_build_object(
+                'cancelRequested', true,
+                'requestedAction', @requestedAction::text),
         true)
 WHERE tenant_id=@tenant
   AND job_id=@jobId
@@ -215,9 +221,12 @@ WHERE tenant_id=@tenant
                 """
 UPDATE ingestion_jobs
 SET payload = jsonb_set(
-        jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true),
-        '{control,requestedAction}',
-        to_jsonb(@requestedAction::text),
+        COALESCE(payload, '{}'::jsonb),
+        '{control}',
+        COALESCE(payload->'control', '{}'::jsonb)
+            || jsonb_build_object(
+                'cancelRequested', true,
+                'requestedAction', @requestedAction::text),
         true)
 WHERE tenant_id=@tenant
   AND job_id=@jobId
@@ -241,8 +250,9 @@ SET status='paused',
     available_at=now(),
     payload = jsonb_set(
         (COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}'),
-        '{control,requestedAction}',
-        to_jsonb(@requestedAction::text),
+        '{control}',
+        COALESCE((COALESCE(payload, '{}'::jsonb) #- '{control,cancelRequested}')->'control', '{}'::jsonb)
+            || jsonb_build_object('requestedAction', @requestedAction::text),
         true)
 WHERE tenant_id=@tenant
   AND job_id=@jobId

@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Dapper;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -29,7 +30,7 @@ sealed record IngestionJob(
     int Version,
     IngestionCapabilityAProfileSeed? CapabilityAProfileSeed);
 
-sealed class IngestionWorker : BackgroundService
+sealed partial class IngestionWorker : BackgroundService
 {
     private readonly IServiceProvider _sp;
     private readonly ILogger<IngestionWorker> _log;
@@ -343,10 +344,74 @@ sealed class IngestionWorker : BackgroundService
             return "replacement_chars_remaining";
         }
 
-        if (OcrNoiseFilter.LooksLikeProbableNoiseText(chunk.Text))
+        if (OcrNoiseFilter.LooksLikeProbableNoiseText(chunk.Text)
+            && !LooksLikePublishableRepairedContinuationChunk(chunk))
             return "ocr_noise";
 
+        if (LooksLikeLowSubstanceRetrievalChunk(chunk))
+            return "low_substance";
+
         return null;
+    }
+
+    private static bool LooksLikeLowSubstanceRetrievalChunk(ProjectedRetrievalChunk chunk)
+    {
+        if (chunk.TokenCount >= 8)
+            return false;
+        if (string.IsNullOrWhiteSpace(chunk.Text))
+            return true;
+
+        var normalized = Regex.Replace(chunk.Text, @"\s+", " ").Trim();
+        normalized = normalized.Trim(' ', '\t', '-', '\u2013', '\u2014', ',', ';', ':', '.', '|', '/', '\\', '(', ')', '[', ']');
+        if (normalized.Length == 0)
+            return true;
+
+        if (LowSubstanceNumericRangeRegex().IsMatch(normalized))
+            return true;
+
+        if (LowSubstanceQuantityLeadRegex().IsMatch(normalized))
+            return true;
+
+        if (chunk.TokenCount <= 3)
+            return true;
+
+        if (normalized.Any(static ch => ch is '.' or '!' or '?' or '\u2026' or '\u2022'))
+            return false;
+
+        var meaningfulWords = SubstantiveWordRegex().Matches(normalized).Count;
+        return meaningfulWords < 3;
+    }
+
+    private static bool LooksLikePublishableRepairedContinuationChunk(ProjectedRetrievalChunk chunk)
+    {
+        if (!string.Equals(chunk.ChunkType, "unit_exact_v1", StringComparison.Ordinal)
+            || chunk.SourceUnitCount is null or < 2
+            || chunk.SourceUnitOrdinals is null || chunk.SourceUnitOrdinals.Count < 2)
+        {
+            return false;
+        }
+
+        if (RetrievalContentClassifier.IsPredominantlyNavigationContent(
+                chunk.ContentRole,
+                chunk.ChunkType,
+                chunk.NavigationScore,
+                chunk.ContentDensityScore))
+        {
+            return false;
+        }
+
+        if (chunk.ContentDensityScore < 0.55 || chunk.TokenCount < 30)
+            return false;
+
+        var text = chunk.Text ?? string.Empty;
+        var sentenceOrBulletCount = text.Count(static ch => ch is '.' or '!' or '?' or '\u2026' or '\u2022');
+        var structuredMeasureCount = Regex.Matches(
+                text,
+                @"\b\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|mm|cm|m|km|nm|bar|pa|kpa|mpa|v|kv|a|ma|w|kw|hz|rpm|pct|percent|pourcent|deg|degrees?|degres?|c|f|units?|unites?|items?|elements?|entries?|parts?|pieces?|pages?|s|sec|secs|secondes?|seconds?|min|mins?|minutes?|h|hr|hrs?|hours?)\b",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+            .Count;
+
+        return sentenceOrBulletCount >= 3 && structuredMeasureCount >= 2;
     }
 
     internal static IngestionRetrievalChunkQualitySummary BuildRetrievalChunkQualitySummary(
@@ -1234,9 +1299,9 @@ WHERE job_id=@job_id
                 .Select(chunk =>
                 {
                     var projectedChunk = ResolveProjectedRetrievalChunk(chunk, retrievalChunksByIndex);
-                    var embeddingText = ResolveEmbeddingText(projectedChunk.ChunkIndex, projectedChunk.Text, contextualTextByChunkIndex);
-                    var sectionTitle = ResolveSectionTitle(projectedChunk.SectionOrdinal, sectionTitleByOrdinal);
-                    var headingPath = ContextualTextProjector.ResolveHeadingPath(projectedChunk.SectionOrdinal, headingPathBySectionOrdinal);
+                    var embeddingText = CleanTextForIndexing(ResolveEmbeddingText(projectedChunk.ChunkIndex, projectedChunk.Text, contextualTextByChunkIndex));
+                    var sectionTitle = CleanOptionalTextForIndexing(ResolveSectionTitle(projectedChunk.SectionOrdinal, sectionTitleByOrdinal));
+                    var headingPath = CleanOptionalTextForIndexing(ContextualTextProjector.ResolveHeadingPath(projectedChunk.SectionOrdinal, headingPathBySectionOrdinal));
                     chunkLinkMap.TryGetValue(projectedChunk.ChunkIndex, out var chunkLinks);
                     return new EmbeddingChunkWorkItem(projectedChunk, embeddingText, sectionTitle, headingPath, chunkLinks);
                 })
@@ -1492,7 +1557,12 @@ WHERE job_id=@job_id
         string? embeddingInputFormat = null)
     {
         var chunkId = DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, ingestionVersion, projectedChunk.ChunkIndex);
-        var usesContextualText = !string.Equals(projectedChunk.Text, embeddingText, StringComparison.Ordinal);
+        var text = CleanTextForIndexing(projectedChunk.Text);
+        var cleanEmbeddingText = CleanTextForIndexing(embeddingText);
+        var cleanSectionTitle = CleanOptionalTextForIndexing(sectionTitle);
+        var cleanHeadingPath = CleanOptionalTextForIndexing(headingPath);
+        var textCleaningChanged = !string.Equals(projectedChunk.Text, text, StringComparison.Ordinal);
+        var usesContextualText = !string.Equals(text, cleanEmbeddingText, StringComparison.Ordinal);
         var sourceUnitOrdinals = projectedChunk.SourceUnitOrdinals ?? Array.Empty<int>();
         var sourceUnitCount = projectedChunk.SourceUnitCount ?? sourceUnitOrdinals.Count;
 
@@ -1512,8 +1582,14 @@ WHERE job_id=@job_id
             ["hash_doc"] = hashHex,
             ["created_at"] = nowIso,
             ["updated_at"] = nowIso,
-            ["text"] = projectedChunk.Text,
-            ["embed_text"] = embeddingText,
+            ["text"] = text,
+            ["embed_text"] = cleanEmbeddingText,
+            ["text_cleaning_version"] = "mojibake_repair_v2",
+            ["text_cleaning_changed"] = textCleaningChanged,
+            ["text_mojibake_after"] = LooksLikeMojibakeForDiagnostics(text)
+                || LooksLikeMojibakeForDiagnostics(cleanEmbeddingText)
+                || LooksLikeMojibakeForDiagnostics(cleanSectionTitle)
+                || LooksLikeMojibakeForDiagnostics(cleanHeadingPath),
             ["embedding_basis"] = usesContextualText ? "contextual_text_v1" : "chunk_text",
             ["embedding_model"] = embeddingModel,
             ["embedding_input_format"] = embeddingInputFormat,
@@ -1534,13 +1610,52 @@ WHERE job_id=@job_id
             ["extraction_text_sparse"] = projectedChunk.ExtractionTextSparse,
             ["extraction_ocr_candidate"] = projectedChunk.ExtractionOcrCandidate,
             ["extraction_quality_signals"] = projectedChunk.ExtractionQualitySignals ?? Array.Empty<string>(),
-            ["section_title"] = sectionTitle,
-            ["heading_path"] = headingPath ?? sectionTitle,
+            ["section_title"] = cleanSectionTitle,
+            ["heading_path"] = cleanHeadingPath ?? cleanSectionTitle,
             ["prev_chunk_id"] = chunkLinks?.PreviousChunkId?.ToString(),
             ["next_chunk_id"] = chunkLinks?.NextChunkId?.ToString(),
             ["same_section_chunk_id"] = chunkLinks?.SameSectionChunkId?.ToString(),
             ["ingestion_version"] = ingestionVersion
         };
+    }
+
+    private static string CleanTextForIndexing(string? text)
+        => PdfTextSanitizer.ForStorage(text ?? string.Empty).Trim();
+
+    private static string? CleanOptionalTextForIndexing(string? text)
+    {
+        var cleaned = CleanTextForIndexing(text);
+        return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned;
+    }
+
+    private static bool LooksLikeMojibakeForDiagnostics(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return false;
+
+        if (text.Contains('\ufffd', StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        for (var i = 0; i < text.Length; i++)
+        {
+            var ch = text[i];
+            if (ch is >= '\u0080' and <= '\u009f')
+                return true;
+
+            if (i + 1 >= text.Length)
+                continue;
+
+            var next = text[i + 1];
+            if ((ch is '\u00c2' or '\u00c3' or '\u00c5') && next is >= '\u0080' and <= '\u00bf')
+                return true;
+
+            if (ch == '\u00e2' && (next is '\u0080' or '\u20ac'))
+                return true;
+        }
+
+        return false;
     }
 
     internal static IReadOnlyDictionary<int, ChunkLinkInfo> BuildChunkLinkMap(
@@ -1634,6 +1749,15 @@ WHERE job_id=@job_id
 
     private static int CountWords(string text)
         => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+
+    [GeneratedRegex(@"^\d{1,4}(?:\s*(?:[-\u2013\u2014\u2022\u00b7/]|to|a|and|et|und)\s*\d{1,4}|\s+\d{1,4})+$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex LowSubstanceNumericRangeRegex();
+
+    [GeneratedRegex(@"^\d{1,4}(?:[,.]\d+)?\s+(?:\p{Ll}|g|kg|mg|ml|cl|l|oz|lb|mm|cm|m|km|v|a|w|hz|rpm|s|sec|secs|seconds?|secondes?|min|mins?|minutes?|h|hr|hrs?|hours?|heures?|units?|unites?|items?|elements?|entries?|parts?|pieces?)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex LowSubstanceQuantityLeadRegex();
+
+    [GeneratedRegex(@"\p{L}[\p{L}\p{M}'\u2019\-]{2,}", RegexOptions.CultureInvariant)]
+    private static partial Regex SubstantiveWordRegex();
 
     private sealed record EmbeddingChunkWorkItem(
         ProjectedRetrievalChunk ProjectedChunk,

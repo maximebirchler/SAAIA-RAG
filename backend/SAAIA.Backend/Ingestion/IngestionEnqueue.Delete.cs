@@ -57,9 +57,12 @@ SET status='failed',
     locked_at=NULL,
     available_at=now(),
     payload = jsonb_set(
-        jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true),
-        '{control,requestedAction}',
-        to_jsonb('cancel'::text),
+        COALESCE(payload, '{}'::jsonb),
+        '{control}',
+        COALESCE(payload->'control', '{}'::jsonb)
+            || jsonb_build_object(
+                'cancelRequested', true,
+                'requestedAction', 'cancel'::text),
         true)
 WHERE tenant_id=@tenant_id
   AND doc_path=@doc_path
@@ -93,9 +96,12 @@ DO UPDATE SET
           THEN ingestion_jobs.payload
       WHEN (LOWER(COALESCE(ingestion_jobs.payload #>> '{control,cancelRequested}', '')) = 'true')
           THEN jsonb_set(
-              jsonb_set(EXCLUDED.payload, '{control,cancelRequested}', 'true'::jsonb, true),
-              '{control,requestedAction}',
-              to_jsonb(COALESCE(ingestion_jobs.payload #>> '{control,requestedAction}', 'cancel')::text),
+              COALESCE(EXCLUDED.payload, '{}'::jsonb),
+              '{control}',
+              COALESCE(EXCLUDED.payload->'control', '{}'::jsonb)
+                  || jsonb_build_object(
+                      'cancelRequested', true,
+                      'requestedAction', COALESCE(ingestion_jobs.payload #>> '{control,requestedAction}', 'cancel')::text),
               true)
       ELSE EXCLUDED.payload
   END,

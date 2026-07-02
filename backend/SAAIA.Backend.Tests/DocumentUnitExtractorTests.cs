@@ -54,6 +54,127 @@ public sealed class DocumentUnitExtractorTests
     }
 
     [Fact]
+    public void Extract_removes_component_lines_from_merged_section_titles()
+    {
+        const string text =
+            "PRIMARY CONTROL MATRIX\n"
+            + "AND SAFETY LIMITS\n"
+            + "Validate the control matrix and record the pressure limit.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 18, text.Length, [1])
+        };
+        var sections = DocumentSectionExtractor.Extract(pages);
+
+        var section = Assert.Single(sections);
+        var unit = Assert.Single(DocumentUnitExtractor.Extract(pages, sections));
+
+        Assert.Equal("PRIMARY CONTROL MATRIX AND SAFETY LIMITS", section.Title);
+        Assert.Equal(section.Ordinal, unit.SectionOrdinal);
+        Assert.Contains("Validate the control matrix", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("PRIMARY CONTROL MATRIX", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("AND SAFETY LIMITS", unit.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Extract_removes_component_lines_from_unmarked_merged_section_titles()
+    {
+        const string text =
+            "PRIMARY CONTROL MATRIX\n"
+            + "VALIDATION LIMITS\n"
+            + "10 units inspected\n"
+            + "Inspect the actuator and record the pressure value.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 20, text.Length, [1])
+        };
+        var sections = DocumentSectionExtractor.Extract(pages);
+
+        var section = Assert.Single(sections);
+        var unit = Assert.Single(DocumentUnitExtractor.Extract(pages, sections));
+
+        Assert.Equal("PRIMARY CONTROL MATRIX VALIDATION LIMITS", section.Title);
+        Assert.Contains("10 units inspected", unit.Text, StringComparison.Ordinal);
+        Assert.Contains("Inspect the actuator", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("PRIMARY CONTROL MATRIX", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("VALIDATION LIMITS", unit.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Extract_removes_component_lines_from_contextual_mixed_case_merged_section_titles()
+    {
+        const string text =
+            "Preparation : 1 hour\n"
+            + "Duration : 45 minutes\n"
+            + "Medium\n"
+            + "Regional control\n"
+            + "Matrix alpha\n"
+            + "\u2022 6 components inspected before startup\n"
+            + "\u2022 Record the result in the validation log.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 28, text.Length, [1])
+        };
+        var sections = DocumentSectionExtractor.Extract(pages);
+
+        var section = Assert.Single(sections);
+        var unit = Assert.Single(DocumentUnitExtractor.Extract(pages, sections));
+
+        Assert.Equal("Regional control Matrix alpha", section.Title);
+        Assert.Contains("6 components inspected", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Regional control", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Matrix alpha", unit.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Extract_splits_long_structured_list_paragraphs_into_bounded_units()
+    {
+        var items = Enumerable.Range(1, 16)
+            .Select(index =>
+                $"\u2022 Step {index} validates the component, records the measurement, confirms the operator sign-off, and stores the evidence in the maintenance file.");
+        var text = string.Join(' ', items);
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 260, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, null, null)
+        };
+
+        var units = DocumentUnitExtractor.Extract(pages, sections);
+
+        Assert.True(units.Count >= 2);
+        Assert.All(units, unit => Assert.True(unit.TokenCount <= 170, $"Unit {unit.Ordinal} had {unit.TokenCount} tokens."));
+        Assert.Contains(units, unit => unit.Text.Contains("Step 1 validates", StringComparison.Ordinal));
+        Assert.Contains(units, unit => unit.Text.Contains("Step 16 validates", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Extract_splits_long_narrative_paragraphs_into_bounded_units()
+    {
+        var sentences = Enumerable.Range(1, 14)
+            .Select(index =>
+                $"Paragraph sentence {index} explains the obligation, preserves the supporting evidence, identifies the responsible party, and keeps the wording readable for retrieval.");
+        var text = string.Join(' ', sentences);
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 280, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, null, null)
+        };
+
+        var units = DocumentUnitExtractor.Extract(pages, sections);
+
+        Assert.True(units.Count >= 2);
+        Assert.All(units, unit => Assert.True(unit.TokenCount <= 200, $"Unit {unit.Ordinal} had {unit.TokenCount} tokens."));
+        Assert.Contains(units, unit => unit.Text.Contains("Paragraph sentence 1", StringComparison.Ordinal));
+        Assert.Contains(units, unit => unit.Text.Contains("Paragraph sentence 14", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Extract_carries_page_extraction_quality_to_units()
     {
         var quality = new PdfPageExtractionQuality(
@@ -78,6 +199,85 @@ public sealed class DocumentUnitExtractorTests
         Assert.True(unit.ExtractionTextSparse);
         Assert.True(unit.ExtractionOcrCandidate);
         Assert.Contains("sparse_text_on_page", unit.ExtractionQualitySignals!);
+    }
+
+    [Fact]
+    public void Extract_removes_repeated_short_layout_units_without_dropping_content()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, "MENU\n\nLYCEE PROFESSIONNEL\n\nIngredients Preparation\n\nFirst procedure paragraph explains the setup and records the useful evidence.", 14, 128, [1]),
+            new ExtractedPdfPage(2, "MENU\n\nLYCEE PROFESSIONNEL\n\nIngredients Preparation\n\nSecond procedure paragraph keeps a separate page-specific instruction.", 13, 120, [2]),
+            new ExtractedPdfPage(3, "MENU\n\nLYCEE PROFESSIONNEL\n\nIngredients Preparation\n\nThird procedure paragraph preserves the useful operational text.", 12, 112, [3]),
+            new ExtractedPdfPage(4, "MENU\n\nLYCEE PROFESSIONNEL\n\nIngredients Preparation\n\nFourth procedure paragraph closes the document with real content.", 12, 108, [4])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 4, 1, null, null)
+        };
+
+        var units = DocumentUnitExtractor.Extract(pages, sections);
+
+        Assert.Equal(4, units.Count);
+        Assert.DoesNotContain(units, unit => unit.Text.Equals("MENU", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(units, unit => unit.Text.Equals("LYCEE PROFESSIONNEL", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(units, unit => unit.Text.Equals("Ingredients Preparation", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(units, unit => unit.Text.StartsWith("First procedure paragraph", StringComparison.Ordinal));
+        Assert.Contains(units, unit => unit.Text.StartsWith("Fourth procedure paragraph", StringComparison.Ordinal));
+        Assert.Equal(Enumerable.Range(0, units.Count), units.Select(static unit => unit.Ordinal));
+        Assert.Equal(0, units[0].OffsetStart);
+        Assert.True(units[1].OffsetStart > units[0].OffsetEnd);
+    }
+
+    [Fact]
+    public void Extract_skips_short_standalone_layout_metadata_schedule_units()
+    {
+        const string text =
+            "CONTROL CHECK\n\n"
+            + "* OPERATIONS * Safety 15 min 25 min\n\n"
+            + "Inspect the actuator, verify the signal, and record the result in the maintenance log.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 18, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "CONTROL CHECK", 1, 1, 1, 1, null)
+        };
+
+        var unit = Assert.Single(DocumentUnitExtractor.Extract(pages, sections));
+
+        Assert.Contains("Inspect the actuator", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("OPERATIONS", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("15 min 25 min", unit.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Extract_trims_noisy_trailing_supplements_from_materialized_units()
+    {
+        const string text =
+            "Farcissez-en les tomates. Enfournez pour 30 minutes. Servez a la sortie du four. "
+            + "Sel et poivre N Preparation : I5 minutes D Cuisson : 30 minutes ESA Pas cher "
+            + "Provence : s : Selet poivre du four. tes | Remplacez par des restes effiloches "
+            + "de pot-au-feu, de sees de porc ou de poulet roti... antigaspi garanti. "
+            + "Profitez de l recycler les res la chair a saucisse";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 75, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 1, 1, null, null)
+        };
+
+        var unit = Assert.Single(DocumentUnitExtractor.Extract(pages, sections));
+
+        Assert.Contains("Servez a la sortie du four", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("N Preparation", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Selet poivre", unit.Text, StringComparison.Ordinal);
+        Assert.Equal(0, unit.Ordinal);
+        Assert.Equal(0, unit.OffsetStart);
+        Assert.Equal(unit.Text.Length, unit.OffsetEnd);
     }
 
     [Fact]
@@ -396,6 +596,236 @@ public sealed class DocumentUnitExtractorTests
         var noisyWindow = "iS) m =| a O om Mm Zz @ = m m 2 Zz Q@) OQ Oo Zz G - > z as | op) oo > Cc ie) m UJ O TT ro) = J | a u Mm U A 0 OQ =| Zz UO | W = cr O = 0";
 
         Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(string.Join(" ", Enumerable.Repeat(noisyWindow, 3))));
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_detects_spaced_letter_runs_without_removing_useful_text()
+    {
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "i j o t e s l a g a r b u r e Faites griller les tranches de pain et frottez-les"));
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "i j o t é s l a g a r b u r e • Faites griller les tranches de pain de campagne et frottez-les"));
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "t e n c o r e m e i l l e u r e avec la gousse d'ail restante et les tranches"));
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "15 L L ne) 18 3 [A L cl \u00a3 \u00a3 Xue all ade ade JE UE & y d9 \u00a3 \u00a3 ell alle al alle alle all "
+            + "[4 L 9 G S G y L S G G ra L g Aug esn 36 45 8 L L 8 i$ [4 L J00pu] Xy "
+            + "XUE aque e4d ol UE ade A y Xp HE aque oque JE JE ale L y se XHE aque aque all ade"));
+
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "M I X I N G V A L V E Overview Components Process mode Categories For 2 sections"));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "A B testing validates release candidates with clear rollback notes and monitoring signals."));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "DIN EN ISO 13849 defines safety related control functions and validation requirements."));
+
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText("e Igousse d'ail"));
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText("e Ibouquet garni"));
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "Pour 8 perronner Choisissez une grande ele a ds evases poele a bor E ou a defaut un wok : a ana ajout d'ingredient poussez les precedents vers les bords"));
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "N Preparation : I5 minutes D Cuisson : 30 minutes ESA Pas cher Provence : s : Selet poivre du four. tes | Remplacez par des restes effiloches"));
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "N Preparation : I5 minutes D Cuisson : 30 minutes ESA Pas cher Provence : s : Selet poivre du four. tes | Remplacez par des restes effiloches de pot-au-feu, de sees de porc ou de poulet roti... antigaspi garanti. Profitez de l recycler les res la chair a saucisse"));
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "Vhuile de coude | Letape du filage doit etre realisee a feu doux, : un geste energique Va igo commence a filer apres 5 a 10 minutes."));
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "Sao Pr\u00e9paration 120 minutes mi Cuisson : 30 minutes ER Pas cher Q Facile qui preferent leur magret rose, Dans tous Les ca ez 5 a 10 minutes de moins."));
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "Ne Preparation : 50 minutes QI Cuisson : 40 minutes & Repos : I heure ESA Pas cher Q Facile"));
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "Preparation : 1 hour Duration : 3 h 30 Intermediate pending I hour"));
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "Dorlotez le gigot! Evitez a tout prix de le piquer ou ercer en le manipu de le p et son moelleux."));
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText("ESA Pas cher"));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText("I mode confirms local operation"));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "Inspection mode confirms local operation, records the validation result, and preserves rollback evidence for the release."));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "Preparation : 1 hour. Inspect the module, record the validation result, and preserve the release evidence."));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "Preparation : 50 minutes Cuisson : 40 minutes Repos : 1 heure Facile"));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(
+            "The technician records the pressure value p in the report and verifies the enclosure before release."));
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_preserves_dense_structured_quantity_steps()
+    {
+        const string text =
+            "300 g component alpha 40 g component beta 100 g module seal 4 clamps "
+            + "115 g fastener set 170 g carrier plate 125 g support bracket "
+            + "1 Prepare the enclosure. 2 Install the module and tighten the clamps. "
+            + "3 Verify the signal in the controller. 4 Record the validation result in the log.";
+
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(text));
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_tolerates_symbol_only_fragments_from_real_ocr()
+    {
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText("• / - — ..."));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText("() [] {}"));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText("® , ’"));
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_trims_short_layout_prefix_before_structural_labels()
+    {
+        var cleaned = OcrNoiseFilter.RemoveTrailingNoisySupplement(
+            "D\u00c9J PR\u00c9PARATION INGR\u00c9DIENTS \u2022 Dans un bol, melanger les elements puis verifier le resultat.");
+        var cleanedFromSplitHeader = OcrNoiseFilter.RemoveTrailingNoisySupplement(
+            "PAUX INGR\u00c9DIENTS PR\u00c9PARATION 1 module de test \u2022 Verifier la ligne puis enregistrer le resultat.");
+
+        Assert.StartsWith("PR\u00c9PARATION INGR\u00c9DIENTS", cleaned, StringComparison.Ordinal);
+        Assert.False(cleaned.StartsWith("D\u00c9J", StringComparison.Ordinal));
+        Assert.StartsWith("INGR\u00c9DIENTS PR\u00c9PARATION", cleanedFromSplitHeader, StringComparison.Ordinal);
+        Assert.False(cleanedFromSplitHeader.StartsWith("PAUX", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_skips_short_broken_uppercase_header_fragments()
+    {
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText("DES-"));
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText("PLATS PRINCI-"));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText("OPEN-LOOP calibration remains active."));
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_preserves_single_letter_measure_abbreviation_tails()
+    {
+        var thyme = OcrNoiseFilter.RemoveTrailingNoisySupplement(
+            "TRUCS CULINAIRES 45 ml de contenu utile. Pensez a economiser au maximum sur la diversite de vos elements. 10 ml (2 c. a the) de traceur frais, environ 4-5 branches 79");
+        var vanilla = OcrNoiseFilter.RemoveTrailingNoisySupplement(
+            "Cuire au four environ 1h ou jusqu'a ce qu'un controle insere au centre ressorte propre. 125 ml de module, ramolli 3 elements, ecrases 2 oeufs 5 ml (1 c. a the) d'extrait de vanille 99");
+
+        Assert.Contains("c. a the) de traceur", thyme, StringComparison.Ordinal);
+        Assert.Contains("4-5 branches 79", thyme, StringComparison.Ordinal);
+        Assert.Contains("c. a the) d'extrait", vanilla, StringComparison.Ordinal);
+        Assert.EndsWith("99", vanilla, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_preserves_title_before_dense_inline_index_codes()
+    {
+        var cleaned = OcrNoiseFilter.RemoveTrailingNoisySupplement(
+            "Alpha Beta Module [Index: ] MCRC01072833_BO_Alpha_Beta_Module-010 MCRC01072992_SE_Alpha_Beta_Module-007");
+
+        Assert.Equal("Alpha Beta Module", cleaned);
+    }
+
+    [Fact]
+    public void Extract_skips_short_uppercase_page_header_fragments()
+    {
+        const string usefulParagraph =
+            "Useful paragraph with enough context to describe the operation and preserve the document content.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(85, $"PLATS PRINCI- PAUX 85\n\n{usefulParagraph}", 16, usefulParagraph.Length + 22, [85])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 85, 85, null, null)
+        };
+
+        var units = DocumentUnitExtractor.Extract(pages, sections);
+
+        Assert.DoesNotContain(units, unit => unit.Text.Contains("PLATS PRINCI", StringComparison.Ordinal));
+        Assert.Contains(units, unit => unit.Text.Contains(usefulParagraph, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_trims_noisy_trailing_supplements_after_complete_content()
+    {
+        var tomato = OcrNoiseFilter.RemoveTrailingNoisySupplement(
+            "Farcissez-en les tomates. Enfournez pour 30 minutes. Servez a la sortie du four. Sel et poivre N Preparation : I5 minutes D Cuisson : 30 minutes ESA Pas cher Provence : s : Selet poivre du four. tes | Remplacez par des restes effiloches");
+        var tomatoWithLongNoisyTail = OcrNoiseFilter.RemoveTrailingNoisySupplement(
+            "Farcissez-en les tomates. Enfournez pour 30 minutes. Servez a la sortie du four. Sel et poivre N Preparation : I5 minutes D Cuisson : 30 minutes ESA Pas cher Provence : s : Selet poivre du four. tes | Remplacez par des restes effiloches de pot-au-feu, de sees de porc ou de poulet roti... antigaspi garanti. Profitez de l recycler les res la chair a saucisse");
+        var chocolate = OcrNoiseFilter.RemoveTrailingNoisySupplement(
+            "Refermez avec la moitie superieure. Nappez les profiteroles de chocolat et servez aussitot ! ® , N Preparation : 20 minutes mi Cuisson : 35 minutes Q Facile Ic. a soupe de sucre 7 les choux, changez el Remplacez la glace rune creme patissiere. la sauce au choco at e au sucre colore");
+
+        var gigot = OcrNoiseFilter.RemoveTrailingNoisySupplement(
+            "Placez ensuite au milieu du four pour 7 heures. Versez le jus de cuisson et ses legumes dans une casserole et faites reduire jusqu'a obtenir une sauce onctueuse. Portez a ebullition puis versez-en une partie sur le gigot et presentez le reste en sauciere. C'est pret ! il perdrait son jus Quant a l'accompag");
+        var magret = OcrNoiseFilter.RemoveTrailingNoisySupplement(
+            "Entaillez la peau des magrets en losanges et enfournez pour 30 min, en aspergeant la viande de temps en temps avec le jus de la marinade. A la sortie du four, decoupez les magrets en tranches. Servez accompagne de riz et de legumes ! 5 a 1 0 m d 1 0 ans le placard ? Pas de miel d erable.");
+        var fondant = OcrNoiseFilter.RemoveTrailingNoisySupplement(
+            "Facile Fondant chocolat au 200 g de chocolat. Repartissez dans des ramequins allant au four et enfournez pendant 7 min. Servez tiede ! Pour # personnes Et si vous ajoutiez un . Ss fondants ?");
+        var brokenMetadataFragment = OcrNoiseFilter.RemoveTrailingNoisySupplement(
+            "blanc avant d'enfourner, les gourmands en resteront N Preparation : 10 minutes D Cuisson : 8 minutes ESA Pas cher Q Facile");
+        var creme = OcrNoiseFilter.RemoveTrailingNoisySupplement(
+            "Au moment de servir, parsemez de cassonade et faites carameliser a l'aide d'un chalumeau. Degustez sans attendre ! ' N Preparation : 10 minutes D Cuisson : 25 minutes ESA Pas cher Q");
+        var cremeCurly = OcrNoiseFilter.RemoveTrailingNoisySupplement(
+            "Au moment de servir, parsemez de cassonade et faites caram\u00e9liser \u00e0 l'aide d'un chalumeau. D\u00e9gustez sans attendre ! \u2019 N Pr\u00e9paration : 10 minutes D Cuisson : 25 minutes Q");
+        var appleFragment = OcrNoiseFilter.RemoveTrailingNoisySupplement(
+            "Quant aux accros de la pomme; ils se regaleront avec des pommes caramelisees dans le sucre et le beurre au prealable, ou parsemees de pepites de chocolat juste N Preparation : 10 minutes D Cuisson : 30 minutes Q Facile");
+        var millefeuille = OcrNoiseFilter.RemoveTrailingNoisySupplement(
+            "R\u00e9servez au frais jusqu'au service. Servez saupoudr\u00e9 de sucre glace ! \u2018 N Preparation : I5 minutes mi Cuisson : 15 minutes Q Facile Changez de fruits, vous changerez de millefeuille.");
+        var shortMetadataTailAfterFragment = OcrNoiseFilter.RemoveTrailingNoisySupplement(
+            "Zappez le chocolat ant Ic. a cafe de cafe le lait de la creme glacage de sucre de blanc d'oeuf parfume patissiere, puis un N Preparation : 40 minutes");
+
+        Assert.Contains("Servez a la sortie du four", tomato, StringComparison.Ordinal);
+        Assert.DoesNotContain("Selet poivre", tomato, StringComparison.Ordinal);
+        Assert.DoesNotContain("N Preparation", tomato, StringComparison.Ordinal);
+        Assert.Contains("Servez a la sortie du four", tomatoWithLongNoisyTail, StringComparison.Ordinal);
+        Assert.DoesNotContain("Selet poivre", tomatoWithLongNoisyTail, StringComparison.Ordinal);
+        Assert.DoesNotContain("N Preparation", tomatoWithLongNoisyTail, StringComparison.Ordinal);
+        Assert.Contains("Nappez les profiteroles", chocolate, StringComparison.Ordinal);
+        Assert.DoesNotContain("choco at e", chocolate, StringComparison.Ordinal);
+        Assert.DoesNotContain("N Preparation", chocolate, StringComparison.Ordinal);
+        Assert.Contains("C'est pret !", gigot, StringComparison.Ordinal);
+        Assert.DoesNotContain("accompag", gigot, StringComparison.Ordinal);
+        Assert.Contains("Servez accompagne de riz et de legumes !", magret, StringComparison.Ordinal);
+        Assert.DoesNotContain("1 0 m d", magret, StringComparison.Ordinal);
+        Assert.EndsWith("Servez tiede !", fondant, StringComparison.Ordinal);
+        Assert.DoesNotContain("Pour # personnes", fondant, StringComparison.Ordinal);
+        Assert.True(string.IsNullOrWhiteSpace(brokenMetadataFragment));
+        Assert.EndsWith("Degustez sans attendre !", creme, StringComparison.Ordinal);
+        Assert.DoesNotContain("N Preparation", creme, StringComparison.Ordinal);
+        Assert.EndsWith("D\u00e9gustez sans attendre !", cremeCurly, StringComparison.Ordinal);
+        Assert.DoesNotContain("Pr\u00e9paration", cremeCurly, StringComparison.Ordinal);
+        Assert.True(string.IsNullOrWhiteSpace(appleFragment));
+        Assert.EndsWith("Servez saupoudr\u00e9 de sucre glace !", millefeuille, StringComparison.Ordinal);
+        Assert.DoesNotContain("N Preparation", millefeuille, StringComparison.Ordinal);
+        Assert.True(string.IsNullOrWhiteSpace(shortMetadataTailAfterFragment));
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_trims_decorative_schedule_metadata_after_complete_content()
+    {
+        var cleaned = OcrNoiseFilter.RemoveTrailingNoisySupplement(
+            "Verify the actuator setting. * SAFETY MODE * 10 min 4 min 1 h 15 min");
+
+        Assert.Equal("Verify the actuator setting.", cleaned);
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_removes_spaced_letter_runs_while_preserving_adjacent_text()
+    {
+        var text = string.Join('\n',
+            "A s t u c e ! encore 35 minutes. Cinq minutes avant la fin, ajoutez les",
+            "C o m",
+            "i j o t é s l a g a r b u r e • Faites griller les tranches de pain de campagne et frottez-les",
+            "t e n c o r e m e i l l e u r e avec la gousse d'ail restante.",
+            "l a grande cocotte.",
+            "P r o fi t e z au-feu, effilochez les restes.",
+            "Servez avec quelques gouttes de colorant pour des e n - c i e l !",
+            "M I X I N G V A L V E Overview Components Process mode Categories For 2 sections");
+
+        var cleaned = OcrNoiseFilter.RemoveSpacedLetterRunNoise(text);
+
+        Assert.DoesNotContain("A s t u c e", cleaned, StringComparison.Ordinal);
+        Assert.DoesNotContain("i j o t", cleaned, StringComparison.Ordinal);
+        Assert.DoesNotContain("t e n c", cleaned, StringComparison.Ordinal);
+        Assert.DoesNotContain("l a grande", cleaned, StringComparison.Ordinal);
+        Assert.DoesNotContain("P r o fi", cleaned, StringComparison.Ordinal);
+        Assert.DoesNotContain("e n - c", cleaned, StringComparison.Ordinal);
+        Assert.Contains("encore 35 minutes", cleaned, StringComparison.Ordinal);
+        Assert.Contains("Faites griller les tranches", cleaned, StringComparison.Ordinal);
+        Assert.Contains("avec la gousse d'ail restante", cleaned, StringComparison.Ordinal);
+        Assert.Contains("grande cocotte", cleaned, StringComparison.Ordinal);
+        Assert.Contains("au-feu, effilochez les restes", cleaned, StringComparison.Ordinal);
+        Assert.Contains("Servez avec quelques gouttes", cleaned, StringComparison.Ordinal);
+        Assert.Contains("M I X I N G V A L V E Overview", cleaned, StringComparison.Ordinal);
     }
 
     [Fact]

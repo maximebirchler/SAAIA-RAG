@@ -36120,7 +36120,7 @@ LIMIT 500;
             return Results.Problem($"Qdrant scroll failed: {(int)resp.StatusCode} {resp.ReasonPhrase}");
 
         var json = await resp.Content.ReadAsStringAsync(ctx.RequestAborted);
-        return Results.Text(json, "application/json");
+        return Results.Text(json, "application/json; charset=utf-8", Encoding.UTF8);
     }
 }
 

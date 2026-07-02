@@ -304,6 +304,81 @@ public sealed class PdfOcrTextExtractorTests
     }
 
     [Fact]
+    public void MergeImageOcrText_replaces_layout_compressed_native_text_when_ocr_preserves_blocks()
+    {
+        const string nativeText =
+            "Control module procedure Start the pump 10 bar pressure 2 kg load Confirm valve position Components pressure gauge pump valve safety label release handle Inspection notes complete.";
+        const string ocrText = """
+Control module procedure
+Start the pump
+Confirm valve position
+Inspection notes complete
+Components
+10 bar pressure
+2 kg load
+pressure gauge
+pump valve
+safety label
+release handle
+""";
+        var nativePage = new ExtractedPdfPage(
+            1,
+            nativeText,
+            nativeText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+            nativeText.Length,
+            [1],
+            ImageCount: 1);
+        var native = new PdfExtractionResult(
+            [new WordToken("Control", 1)],
+            [nativePage],
+            PdfExtractionQualitySummary.FromPages([nativePage]));
+
+        var merged = PdfOcrTextExtractor.MergeImageOcrText(
+            native,
+            new Dictionary<int, string> { [1] = ocrText },
+            "eng",
+            minWords: 3);
+
+        Assert.NotNull(merged);
+        Assert.Equal(ocrText.Trim(), merged!.Pages[0].Text);
+        Assert.Contains("image_ocr_replaced_layout_text", merged.Pages[0].Quality!.Signals);
+    }
+
+    [Fact]
+    public void MergeImageOcrText_keeps_native_text_when_structured_ocr_has_weak_coverage()
+    {
+        const string nativeText =
+            "Control module procedure Start the pump 10 bar pressure 2 kg load Confirm valve position Components pressure gauge pump valve safety label release handle Inspection notes complete.";
+        const string ocrText = """
+Control module procedure
+Start the pump
+Unrelated panel note
+Different alarm label
+""";
+        var nativePage = new ExtractedPdfPage(
+            1,
+            nativeText,
+            nativeText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+            nativeText.Length,
+            [1],
+            ImageCount: 1);
+        var native = new PdfExtractionResult(
+            [new WordToken("Control", 1)],
+            [nativePage],
+            PdfExtractionQualitySummary.FromPages([nativePage]));
+
+        var merged = PdfOcrTextExtractor.MergeImageOcrText(
+            native,
+            new Dictionary<int, string> { [1] = ocrText },
+            "eng",
+            minWords: 3);
+
+        Assert.NotNull(merged);
+        Assert.StartsWith(nativeText, merged!.Pages[0].Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("image_ocr_replaced_layout_text", merged.Pages[0].Quality!.Signals);
+    }
+
+    [Fact]
     public void MergeImageOcrText_keeps_short_important_image_ocr_lines_below_word_threshold()
     {
         var nativePage = new ExtractedPdfPage(
@@ -419,6 +494,128 @@ public sealed class PdfOcrTextExtractorTests
         Assert.NotNull(merged);
         Assert.DoesNotContain("Ingredientconstraints", merged!.Pages[0].Text, StringComparison.Ordinal);
         Assert.Contains("IMAGE LABEL KEEP COLD", merged.Pages[0].Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MergeImageOcrText_skips_low_novelty_ocr_lines_with_minor_recognition_errors()
+    {
+        var nativePage = new ExtractedPdfPage(
+            1,
+            "Motor protection relay configuration requirements\nSet the current threshold and confirm the reset procedure.",
+            13,
+            102,
+            [1],
+            ImageCount: 1);
+        var native = new PdfExtractionResult(
+            [new WordToken("Motor", 1)],
+            [nativePage],
+            PdfExtractionQualitySummary.FromPages([nativePage]));
+
+        var merged = PdfOcrTextExtractor.MergeImageOcrText(
+            native,
+            new Dictionary<int, string>
+            {
+                [1] = "Motor protectlon relay configuration requlrements\nSet the current threshold and confirm the reset procedure\nPHOTO LABEL SERVICE MODE"
+            },
+            "eng",
+            minWords: 3);
+
+        Assert.NotNull(merged);
+        Assert.DoesNotContain("protectlon", merged!.Pages[0].Text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("requlrements", merged.Pages[0].Text, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, CountOccurrences(merged.Pages[0].Text, "reset procedure"));
+        Assert.Contains("PHOTO LABEL SERVICE MODE", merged.Pages[0].Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MergeImageOcrText_skips_short_ocr_lines_already_covered_by_native_text()
+    {
+        var nativeText = "1 branche de celeri\n2 l de bouillon de volaille\n1 c. a soupe de graisse\n1 pincee de noix de muscade";
+        var nativePage = new ExtractedPdfPage(
+            1,
+            nativeText,
+            nativeText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+            nativeText.Length,
+            [1],
+            ImageCount: 1);
+        var native = new PdfExtractionResult(
+            [new WordToken("branche", 1)],
+            [nativePage],
+            PdfExtractionQualitySummary.FromPages([nativePage]));
+
+        var merged = PdfOcrTextExtractor.MergeImageOcrText(
+            native,
+            new Dictionary<int, string>
+            {
+                [1] = "I branche de celeri\n2 1 de bouillon de volaille\nIc. a soupe de graisse\nIpincee de noix de muscade\nVISIBLE PANEL LABEL"
+            },
+            "fra+eng",
+            minWords: 3);
+
+        Assert.NotNull(merged);
+        Assert.DoesNotContain("I branche", merged!.Pages[0].Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("2 1 de bouillon", merged.Pages[0].Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Ic. a soupe", merged.Pages[0].Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Ipincee", merged.Pages[0].Text, StringComparison.Ordinal);
+        Assert.Contains("VISIBLE PANEL LABEL", merged.Pages[0].Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FilterLowConfidenceImageOcrText_removes_lines_with_low_confidence_meaningful_words()
+    {
+        const string cleanedText = """
+Pour 4 perronney
+Comme tous les plats mijotes
+VISIBLE PANEL LABEL
+""";
+        const string tsvText = """
+level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	text
+5	1	1	1	1	1	0	0	10	10	67.5	Pour
+5	1	1	1	1	2	0	0	10	10	82.0	4
+5	1	1	1	1	3	0	0	10	10	33.5	perronney
+5	1	1	1	2	1	0	0	10	10	94.0	Comme
+5	1	1	1	2	2	0	0	10	10	92.0	tous
+5	1	1	1	2	3	0	0	10	10	93.0	les
+5	1	1	1	2	4	0	0	10	10	91.0	plats
+5	1	1	1	2	5	0	0	10	10	90.0	mijotes
+5	1	1	1	3	1	0	0	10	10	96.0	VISIBLE
+5	1	1	1	3	2	0	0	10	10	96.0	PANEL
+5	1	1	1	3	3	0	0	10	10	96.0	LABEL
+""";
+
+        var filtered = PdfOcrTextExtractor.FilterLowConfidenceImageOcrText(cleanedText, tsvText);
+
+        Assert.DoesNotContain("perronney", filtered, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Comme tous les plats", filtered, StringComparison.Ordinal);
+        Assert.Contains("VISIBLE PANEL LABEL", filtered, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MergeImageOcrText_does_not_append_noisy_duplicate_structured_lines()
+    {
+        var nativeText = "Pour 4 personnes\n1 kg de pommes de terre\n100 g de beurre\nPreparation : pelez et coupez les pommes de terre, puis servez chaud.";
+        var nativePage = new ExtractedPdfPage(
+            1,
+            nativeText,
+            nativeText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+            nativeText.Length,
+            [1],
+            ImageCount: 1);
+        var native = new PdfExtractionResult(
+            [new WordToken("Pour", 1)],
+            [nativePage],
+            PdfExtractionQualitySummary.FromPages([nativePage]));
+
+        var merged = PdfOcrTextExtractor.MergeImageOcrText(
+            native,
+            new Dictionary<int, string>
+            {
+                [1] = "Pour 4 perronney Preparation e 1kg de pommes de terre e\n100 g de beurre Preparation : pelez et coupez les pommes de terre"
+            },
+            "fra+eng",
+            minWords: 3);
+
+        Assert.Null(merged);
     }
 
     [Fact]

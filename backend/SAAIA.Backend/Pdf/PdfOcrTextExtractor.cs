@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
 internal static class PdfOcrTextExtractor
 {
@@ -414,7 +415,7 @@ internal static class PdfOcrTextExtractor
                 var pageSegmentationMode = Math.Clamp(options.OcrImagePageSegmentationMode, 3, 13);
                 var ocrDone = await RunProcessWithDiagnosticsAsync(
                     ResolveImageTextCommand(options),
-                    $"{QuoteArgument(imagePath)} {QuoteArgument(outputBase)} -l {QuoteArgument(languages)} --psm {pageSegmentationMode}",
+                    $"{QuoteArgument(imagePath)} {QuoteArgument(outputBase)} -l {QuoteArgument(languages)} --psm {pageSegmentationMode} txt tsv",
                     ocrTimeout.Value,
                     ct).ConfigureAwait(false);
                 await callbacks.ThrowIfCancellationRequestedAsync(ct).ConfigureAwait(false);
@@ -437,6 +438,12 @@ internal static class PdfOcrTextExtractor
 
                 var text = await File.ReadAllTextAsync(outputText, Encoding.UTF8, ct).ConfigureAwait(false);
                 var cleanedText = PdfTextSanitizer.ForStorage(text);
+                var outputTsv = outputBase + ".tsv";
+                if (File.Exists(outputTsv))
+                {
+                    var tsvText = await File.ReadAllTextAsync(outputTsv, Encoding.UTF8, ct).ConfigureAwait(false);
+                    cleanedText = FilterLowConfidenceImageOcrText(cleanedText, tsvText);
+                }
                 if (string.IsNullOrWhiteSpace(cleanedText))
                 {
                     pageDiagnostics[pageNumber] = new PdfImagePageOcrDiagnostic(
@@ -820,12 +827,20 @@ internal static class PdfOcrTextExtractor
         foreach (var page in nativeExtraction.Pages)
         {
             var text = page.Text;
+            IReadOnlyList<string> pageAppliedSignals = [];
             if (ocrTextByPage.TryGetValue(page.PageNumber, out var ocrText))
             {
                 var cleanedOcrText = CleanOcrReplacementText(ocrText);
                 if (ShouldReplaceCorruptNativeText(text, cleanedOcrText, minWords))
                 {
                     text = cleanedOcrText;
+                    pageAppliedSignals = ["image_ocr_text_extracted", "image_ocr_replaced_corrupt_text"];
+                    changed = true;
+                }
+                else if (ShouldReplaceLayoutCompressedNativeText(text, cleanedOcrText, minWords))
+                {
+                    text = cleanedOcrText;
+                    pageAppliedSignals = ["image_ocr_text_extracted", "image_ocr_replaced_layout_text"];
                     changed = true;
                 }
                 else
@@ -836,6 +851,7 @@ internal static class PdfOcrTextExtractor
                         text = string.IsNullOrWhiteSpace(text)
                             ? string.Join('\n', novelLines)
                             : text.TrimEnd() + "\n" + string.Join('\n', novelLines);
+                        pageAppliedSignals = ["image_ocr_text_extracted"];
                         changed = true;
                     }
                 }
@@ -848,14 +864,10 @@ internal static class PdfOcrTextExtractor
             var quality = PdfPageExtractionQuality.FromText(text, words.Length, text.Length);
             if (!string.Equals(text, page.Text, StringComparison.Ordinal))
             {
-                var appliedSignals = HasReplacementCharacters(page.Text) && !HasReplacementCharacters(text)
-                    ? new[] { "image_ocr_text_extracted", "image_ocr_replaced_corrupt_text" }
-                    : ["image_ocr_text_extracted"];
-
                 quality = quality with
                 {
                     Signals = quality.Signals
-                        .Concat(appliedSignals)
+                        .Concat(pageAppliedSignals.Count == 0 ? ["image_ocr_text_extracted"] : pageAppliedSignals)
                         .Distinct(StringComparer.Ordinal)
                         .ToArray()
                 };
@@ -928,6 +940,38 @@ internal static class PdfOcrTextExtractor
                && !OcrNoiseFilter.LooksLikeProbableNoiseText(cleanedOcrText);
     }
 
+    private static bool ShouldReplaceLayoutCompressedNativeText(string nativeText, string cleanedOcrText, int minWords)
+    {
+        if (string.IsNullOrWhiteSpace(nativeText) || string.IsNullOrWhiteSpace(cleanedOcrText))
+            return false;
+        if (HasReplacementCharacters(nativeText))
+            return false;
+
+        var nativeWords = SplitWords(nativeText).ToArray();
+        var ocrWords = SplitWords(cleanedOcrText).ToArray();
+        if (nativeWords.Length < Math.Max(12, minWords * 3))
+            return false;
+        if (ocrWords.Length < Math.Max(minWords, nativeWords.Length * 65 / 100))
+            return false;
+        if (!HasStrongBidirectionalCoverageForLayoutReplacement(nativeText, cleanedOcrText))
+            return false;
+
+        var nativeLines = GetMeaningfulOcrLayoutLines(nativeText);
+        var ocrLines = GetMeaningfulOcrLayoutLines(cleanedOcrText);
+        if (ocrLines.Length < 6)
+            return false;
+
+        var nativeAverageLineLength = AverageLineLength(nativeLines);
+        var ocrAverageLineLength = AverageLineLength(ocrLines);
+        var nativeLooksCompressed =
+            nativeLines.Length <= Math.Max(3, ocrLines.Length / 3)
+            || nativeAverageLineLength >= 120 && ocrAverageLineLength <= nativeAverageLineLength * 0.75;
+        if (!nativeLooksCompressed)
+            return false;
+
+        return CountDistinctLineStarts(ocrLines) >= Math.Min(6, ocrLines.Length);
+    }
+
     private static int CountReplacementCharacters(string text)
         => text.Count(static ch => ch == '\uFFFD');
 
@@ -943,6 +987,100 @@ internal static class PdfOcrTextExtractor
             .ToArray();
 
         return string.Join('\n', lines);
+    }
+
+    internal static string FilterLowConfidenceImageOcrText(string cleanedText, string? tsvText)
+    {
+        if (string.IsNullOrWhiteSpace(cleanedText) || string.IsNullOrWhiteSpace(tsvText))
+            return cleanedText;
+
+        var lowConfidenceLines = ParseLowConfidenceTsvLines(tsvText)
+            .Where(static line => line.Tokens.Count > 0)
+            .ToArray();
+        if (lowConfidenceLines.Length == 0)
+            return cleanedText;
+
+        var filtered = cleanedText
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Split('\n')
+            .Where(line => !MatchesLowConfidenceOcrLine(line, lowConfidenceLines))
+            .ToArray();
+
+        return string.Join('\n', filtered).Trim();
+    }
+
+    private static IReadOnlyList<OcrLineConfidence> ParseLowConfidenceTsvLines(string tsvText)
+    {
+        var groups = new Dictionary<(string Block, string Paragraph, string Line), List<OcrWordConfidence>>();
+        foreach (var rawLine in tsvText.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n'))
+        {
+            if (string.IsNullOrWhiteSpace(rawLine) || rawLine.StartsWith("level\t", StringComparison.Ordinal))
+                continue;
+
+            var parts = rawLine.Split('\t');
+            if (parts.Length < 12 || !string.Equals(parts[0], "5", StringComparison.Ordinal))
+                continue;
+            if (!double.TryParse(parts[10], NumberStyles.Float, CultureInfo.InvariantCulture, out var confidence))
+                continue;
+
+            var text = string.Join('\t', parts.Skip(11)).Trim();
+            if (string.IsNullOrWhiteSpace(text))
+                continue;
+
+            var normalized = NormalizeCompactForOcrMerge(text);
+            if (normalized.Length < 2)
+                continue;
+
+            var key = (Block: parts[2], Paragraph: parts[3], Line: parts[4]);
+            if (!groups.TryGetValue(key, out var words))
+            {
+                words = [];
+                groups[key] = words;
+            }
+
+            words.Add(new OcrWordConfidence(normalized, confidence));
+        }
+
+        var lines = new List<OcrLineConfidence>();
+        foreach (var words in groups.Values)
+        {
+            var meaningful = words
+                .Where(static word => word.Token.Any(char.IsLetter))
+                .ToArray();
+            if (meaningful.Length < 2)
+                continue;
+
+            var average = meaningful.Average(static word => word.Confidence);
+            var lowMeaningfulWords = meaningful.Count(static word => word.Confidence < 58);
+            var hasVeryLowLongWord = meaningful.Any(static word => word.Token.Length >= 5 && word.Confidence < 45);
+            if (!hasVeryLowLongWord && lowMeaningfulWords < 2 && average >= 55)
+                continue;
+
+            lines.Add(new OcrLineConfidence(
+                meaningful.Select(static word => word.Token).Distinct(StringComparer.Ordinal).ToArray()));
+        }
+
+        return lines;
+    }
+
+    private static bool MatchesLowConfidenceOcrLine(string line, IReadOnlyList<OcrLineConfidence> lowConfidenceLines)
+    {
+        var tokens = ExtractComparableTokens(line, skipTokensWithReplacementCharacters: false)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (tokens.Length < 2)
+            return false;
+
+        foreach (var lowConfidenceLine in lowConfidenceLines)
+        {
+            var covered = tokens.Count(lowConfidenceLine.Tokens.Contains);
+            var coverage = (double)covered / tokens.Length;
+            if (coverage >= 0.67 && covered >= 2)
+                return true;
+        }
+
+        return false;
     }
 
     private static bool HasSufficientNativeCoverageForReplacement(string nativeText, string ocrText)
@@ -965,6 +1103,50 @@ internal static class PdfOcrTextExtractor
 
         return coverage >= 0.7 && relativeTokenVolume >= 0.65;
     }
+
+    private static bool HasStrongBidirectionalCoverageForLayoutReplacement(string nativeText, string ocrText)
+    {
+        var nativeTokens = ExtractComparableTokens(nativeText, skipTokensWithReplacementCharacters: true)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (nativeTokens.Length < 8)
+            return false;
+
+        var ocrTokens = ExtractComparableTokens(ocrText, skipTokensWithReplacementCharacters: false)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (ocrTokens.Length < 8)
+            return false;
+
+        var ocrTokenSet = ocrTokens.ToHashSet(StringComparer.Ordinal);
+        var nativeTokenSet = nativeTokens.ToHashSet(StringComparer.Ordinal);
+        var nativeCovered = nativeTokens.Count(ocrTokenSet.Contains) / (double)nativeTokens.Length;
+        var ocrCovered = ocrTokens.Count(nativeTokenSet.Contains) / (double)ocrTokens.Length;
+        var relativeTokenVolume = ocrTokens.Length / (double)nativeTokens.Length;
+
+        return nativeCovered >= 0.82
+            && ocrCovered >= 0.70
+            && relativeTokenVolume is >= 0.70 and <= 1.35;
+    }
+
+    private static string[] GetMeaningfulOcrLayoutLines(string text)
+        => text
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Split('\n')
+            .Select(CollapseWhitespace)
+            .Where(static line => line.Length >= 8)
+            .ToArray();
+
+    private static double AverageLineLength(IReadOnlyList<string> lines)
+        => lines.Count == 0 ? 0 : lines.Average(static line => line.Length);
+
+    private static int CountDistinctLineStarts(IReadOnlyList<string> lines)
+        => lines
+            .Select(static line => NormalizeCompactForOcrMerge(line.Length <= 16 ? line : line[..16]))
+            .Where(static line => line.Length >= 3)
+            .Distinct(StringComparer.Ordinal)
+            .Count();
 
     private static IEnumerable<string> ExtractComparableTokens(string text, bool skipTokensWithReplacementCharacters)
     {
@@ -1421,40 +1603,221 @@ internal static class PdfOcrTextExtractor
     {
         var nativeNormalized = NormalizeForOcrMerge(nativeText);
         var nativeCompact = NormalizeCompactForOcrMerge(nativeText);
+        var nativeComparableTokenSequence = ExtractComparableTokens(nativeText, skipTokensWithReplacementCharacters: true)
+            .ToArray();
+        var nativeComparableTokens = nativeComparableTokenSequence
+            .Distinct(StringComparer.Ordinal)
+            .ToHashSet(StringComparer.Ordinal);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var lines = new List<string>();
         foreach (var rawLine in ocrText.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
         {
             var line = PdfTextSanitizer.ForStorage(rawLine);
             line = CollapseWhitespace(line);
+            var comparisonLine = RemoveLeadingOcrListMarkerNoise(line);
 
-            var words = SplitWords(line).ToArray();
+            var words = SplitWords(comparisonLine).ToArray();
             var shortLineKind = ClassifyShortImportantOcrLine(line);
             var isImportantShortLine = shortLineKind != ShortOcrLineKind.None;
-            if (!isImportantShortLine && line.Length < 8)
+            if (!isImportantShortLine && comparisonLine.Length < 8)
                 continue;
             if (!isImportantShortLine && words.Length < minWords)
                 continue;
             if (OcrNoiseFilter.LooksLikeProbableNoiseText(line))
                 continue;
 
-            var normalized = NormalizeForOcrMerge(line);
+            var normalized = NormalizeForOcrMerge(comparisonLine);
             var minimumComparableLength = isImportantShortLine ? 2 : 8;
             if (normalized.Length < minimumComparableLength || !seen.Add(normalized))
                 continue;
             if (NativeContainsNormalizedOcrLine(nativeNormalized, normalized, shortLineKind))
                 continue;
 
-            var compact = NormalizeCompactForOcrMerge(line);
+            var compact = NormalizeCompactForOcrMerge(comparisonLine);
             if (compact.Length < minimumComparableLength)
                 continue;
             if (NativeContainsCompactOcrLine(nativeText, nativeCompact, compact, shortLineKind))
                 continue;
+            if (!isImportantShortLine
+                && LooksLikeLowNoveltyOcrLine(
+                    nativeComparableTokens,
+                    nativeComparableTokenSequence,
+                    comparisonLine,
+                    HasReplacementCharacters(nativeText)))
+                continue;
 
-            lines.Add(line);
+            lines.Add(comparisonLine);
         }
 
         return lines;
+    }
+
+    private static string RemoveLeadingOcrListMarkerNoise(string line)
+        => Regex.Replace(
+            line,
+            @"^\s*(?:[eE]\s+)(?=(?:\d|[I1l]\p{Ll}|\p{Lu}?\p{Ll}{3,}))",
+            string.Empty,
+            RegexOptions.CultureInvariant).Trim();
+
+    private static bool LooksLikeLowNoveltyOcrLine(
+        HashSet<string> nativeComparableTokens,
+        IReadOnlyList<string> nativeComparableTokenSequence,
+        string line,
+        bool nativeHasReplacementCharacters)
+    {
+        if (nativeComparableTokens.Count < 4 || string.IsNullOrWhiteSpace(line))
+            return false;
+
+        var ocrTokens = ExtractComparableTokens(line, skipTokensWithReplacementCharacters: false)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (ocrTokens.Length < 3)
+            return false;
+
+        var coveredTokens = ocrTokens
+            .Select(token => new
+            {
+                Token = token,
+                Covered = IsCoveredByNativeComparableToken(nativeComparableTokens, token)
+            })
+            .ToArray();
+        var covered = coveredTokens.Count(static token => token.Covered);
+        if (covered < 3)
+            return false;
+        if (nativeHasReplacementCharacters
+            && coveredTokens.Any(static token => token.Token.Length >= 5 && !token.Covered))
+        {
+            return false;
+        }
+
+        var coverage = (double)covered / ocrTokens.Length;
+        var hasMeaningfulUncoveredToken = coveredTokens.Any(static token => token.Token.Length >= 3 && !token.Covered);
+        var requiredCoverage = ocrTokens.Length <= 5 && hasMeaningfulUncoveredToken
+            ? 0.80
+            : ocrTokens.Length <= 5
+                ? 0.75
+                : ocrTokens.Length <= 10
+                    ? 0.67
+                    : 0.55;
+        if (coverage < requiredCoverage)
+            return false;
+        if (!HasLocalNativeCoverage(nativeComparableTokenSequence, ocrTokens, requiredCoverage))
+            return false;
+
+        if (ocrTokens.Length <= 5)
+            return true;
+        if (ocrTokens.Length <= 10)
+            return true;
+
+        return covered >= 6;
+    }
+
+    private static bool HasLocalNativeCoverage(
+        IReadOnlyList<string> nativeComparableTokenSequence,
+        IReadOnlyList<string> ocrTokens,
+        double requiredCoverage)
+    {
+        if (nativeComparableTokenSequence.Count == 0 || ocrTokens.Count == 0)
+            return false;
+
+        var windowLength = Math.Min(nativeComparableTokenSequence.Count, ocrTokens.Count + 2);
+        for (var start = 0; start <= nativeComparableTokenSequence.Count - windowLength; start++)
+        {
+            var window = nativeComparableTokenSequence
+                .Skip(start)
+                .Take(windowLength)
+                .ToHashSet(StringComparer.Ordinal);
+            var covered = ocrTokens.Count(token => IsCoveredByNativeComparableToken(window, token));
+            if ((double)covered / ocrTokens.Count >= requiredCoverage)
+                return true;
+        }
+
+        if (nativeComparableTokenSequence.Count <= windowLength)
+        {
+            var window = nativeComparableTokenSequence.ToHashSet(StringComparer.Ordinal);
+            var covered = ocrTokens.Count(token => IsCoveredByNativeComparableToken(window, token));
+            return (double)covered / ocrTokens.Count >= requiredCoverage;
+        }
+
+        return false;
+    }
+
+    private static bool IsCoveredByNativeComparableToken(HashSet<string> nativeComparableTokens, string token)
+    {
+        if (nativeComparableTokens.Contains(token))
+            return true;
+        if (token.Length < 5)
+            return false;
+
+        if (token[0] is 'i' or 'l' or '1')
+        {
+            var suffix = token[1..];
+            if (suffix.Length >= 4 && nativeComparableTokens.Contains(suffix))
+                return true;
+        }
+
+        var maxDistance = token.Length >= 9 ? 2 : 1;
+        foreach (var nativeToken in nativeComparableTokens)
+        {
+            if (token[0] is 'i' or 'l' or '1')
+            {
+                var suffix = token[1..];
+                if (suffix.Length >= 4
+                    && Math.Abs(nativeToken.Length - suffix.Length) <= maxDistance
+                    && nativeToken[0] == suffix[0]
+                    && ComputeBoundedEditDistance(nativeToken, suffix, maxDistance) <= maxDistance)
+                {
+                    return true;
+                }
+            }
+
+            if (Math.Abs(nativeToken.Length - token.Length) > maxDistance)
+                continue;
+            if (nativeToken.Length < 5)
+                continue;
+            if (nativeToken[0] != token[0])
+                continue;
+            if (token.Length < 8 && nativeToken[^1] != token[^1])
+                continue;
+            if (ComputeBoundedEditDistance(nativeToken, token, maxDistance) <= maxDistance)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static int ComputeBoundedEditDistance(string left, string right, int maxDistance)
+    {
+        if (left == right)
+            return 0;
+        if (Math.Abs(left.Length - right.Length) > maxDistance)
+            return maxDistance + 1;
+
+        var previous = new int[right.Length + 1];
+        var current = new int[right.Length + 1];
+        for (var j = 0; j <= right.Length; j++)
+            previous[j] = j;
+
+        for (var i = 1; i <= left.Length; i++)
+        {
+            current[0] = i;
+            var rowBest = current[0];
+            for (var j = 1; j <= right.Length; j++)
+            {
+                var cost = left[i - 1] == right[j - 1] ? 0 : 1;
+                current[j] = Math.Min(
+                    Math.Min(current[j - 1] + 1, previous[j] + 1),
+                    previous[j - 1] + cost);
+                rowBest = Math.Min(rowBest, current[j]);
+            }
+
+            if (rowBest > maxDistance)
+                return maxDistance + 1;
+
+            (previous, current) = (current, previous);
+        }
+
+        return previous[right.Length];
     }
 
     private static ShortOcrLineKind ClassifyShortImportantOcrLine(string line)
@@ -2012,6 +2375,10 @@ internal static class PdfOcrTextExtractor
         {
         }
     }
+
+    private sealed record OcrLineConfidence(IReadOnlyList<string> Tokens);
+
+    private sealed record OcrWordConfidence(string Token, double Confidence);
 
     private sealed record OcrProcessResult(
         bool Succeeded,

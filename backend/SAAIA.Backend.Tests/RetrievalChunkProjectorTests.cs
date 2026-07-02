@@ -491,6 +491,41 @@ public sealed class RetrievalChunkProjectorTests
     }
 
     [Fact]
+    public void Project_does_not_prefix_quantity_phrase_as_embedded_title()
+    {
+        const string text =
+            "600 g salmon 1 orange 2 c. a s. de Fond de Volaille MAGGI "
+            + "300 g carrots 200 ml water 10 stems chives 1 c. a s. cream "
+            + "1 Cut the components into large cubes. 2 Verify the result and record the note.";
+
+        var chunk = Assert.Single(RetrievalChunkProjector.Project(
+            [new Chunk(0, 1, 1, text)],
+            [],
+            []));
+
+        Assert.StartsWith("600 g salmon", chunk.Text, StringComparison.Ordinal);
+        Assert.False(chunk.Text.StartsWith("Fond de Volaille MAGGI", StringComparison.Ordinal));
+        Assert.DoesNotContain("Fond de Volaille MAGGI" + Environment.NewLine + Environment.NewLine, chunk.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Project_still_prefixes_real_embedded_structured_title_after_sentence_boundary()
+    {
+        const string text =
+            "Previous paragraph ends cleanly. CONTROL VALVE CHECKLIST "
+            + "Materials gasket seal kit actuator module. Procedure isolate the device, "
+            + "verify zero energy, replace the component, test the assembly, and record the result.";
+
+        var chunk = Assert.Single(RetrievalChunkProjector.Project(
+            [new Chunk(0, 1, 1, text)],
+            [],
+            []));
+
+        Assert.StartsWith("CONTROL VALVE CHECKLIST" + Environment.NewLine + Environment.NewLine, chunk.Text, StringComparison.Ordinal);
+        Assert.Contains("Previous paragraph ends cleanly", chunk.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ProjectStructureAware_does_not_overlap_tail_into_next_recipe_with_production_window_settings()
     {
         var sections = new[]
@@ -557,6 +592,594 @@ public sealed class RetrievalChunkProjectorTests
             && chunk.Text.Contains("Gratin dauphinois", StringComparison.Ordinal));
         Assert.Contains(projected, chunk =>
             chunk.Text.StartsWith("Gratin dauphinois", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_does_not_merge_metadata_prefixed_new_item_below_min_words()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 14, 15, null, null)
+        };
+        const string first =
+            "Accessible Standard Alpha module • 12 units inspected before activation. • Record the panel value and close the cover. • Confirm the final report before release. • Verify the cable marker, archive the checklist, note the operator initials and keep the measurement sheet with the module file.";
+        const string second =
+            "Duration : 1 hour Beta module Standard setup For the housing • Place the module in the enclosure and record the 12 V value.";
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                21,
+                0,
+                14,
+                14,
+                first,
+                first.Length,
+                first.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [14],
+                0,
+                first.Length),
+            new ExtractedDocumentUnit(
+                22,
+                0,
+                15,
+                15,
+                second,
+                second.Length,
+                second.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [15],
+                first.Length + 2,
+                first.Length + 2 + second.Length)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 180,
+            overlapWords: 0,
+            minWords: 80);
+
+        Assert.DoesNotContain(projected, chunk =>
+            chunk.Text.Contains("Alpha module", StringComparison.Ordinal)
+            && chunk.Text.Contains("Beta module", StringComparison.Ordinal));
+        Assert.Contains(projected, chunk =>
+            chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([21]));
+        Assert.Contains(projected, chunk =>
+            chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([22]));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_does_not_overflow_window_for_short_continuation_tail()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 21, 21, null, null)
+        };
+        var first = string.Join(' ', Enumerable.Range(1, 216).Select(index => $"evidence{index}"));
+        var second = "continuation " + string.Join(' ', Enumerable.Range(1, 23).Select(index => $"tail{index}")) + ".";
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                21,
+                21,
+                first,
+                first.Length,
+                first.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [21],
+                0,
+                first.Length),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                21,
+                21,
+                second,
+                second.Length,
+                second.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [21],
+                first.Length + 2,
+                first.Length + 2 + second.Length)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 0,
+            minWords: 1);
+
+        Assert.DoesNotContain(projected, chunk =>
+            chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([0, 1]));
+        Assert.All(projected, chunk => Assert.True(chunk.TokenCount <= 238, $"Chunk {chunk.ChunkIndex} had {chunk.TokenCount} tokens."));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_excludes_short_metadata_schedule_cards_from_retrieval_windows()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 12, 12, null, null)
+        };
+        const string metadataOnly =
+            "Preparation : 1 hour Duration : 3 h 30 Cost tier Intermediate";
+        const string substantive =
+            "Validated operating method The technician inspects the module, records the result, confirms the release evidence, and stores the signed checklist with the equipment file.";
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                13,
+                0,
+                12,
+                12,
+                metadataOnly,
+                metadataOnly.Length,
+                metadataOnly.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [12],
+                0,
+                metadataOnly.Length),
+            new ExtractedDocumentUnit(
+                14,
+                0,
+                12,
+                12,
+                substantive,
+                substantive.Length,
+                substantive.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [12],
+                metadataOnly.Length + 2,
+                metadataOnly.Length + 2 + substantive.Length)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 180,
+            overlapWords: 0,
+            minWords: 12);
+
+        Assert.DoesNotContain(projected, chunk => chunk.Text.Contains("Duration : 3 h 30", StringComparison.Ordinal));
+        Assert.Contains(projected, chunk =>
+            chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([14])
+            && chunk.Text.Contains("Validated operating method", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_excludes_low_substance_standalone_fragments_from_retrieval_windows()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 20, 20, null, null)
+        };
+        const string substantive =
+            "Operational validation method The technician inspects the module, records the pressure value, confirms the release evidence, stores the signed checklist, and reports the final status before handover.";
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(20, 0, 20, 20, "Sel", 3, 1, [20], 0, 3),
+            new ExtractedDocumentUnit(21, 0, 20, 20, "31", 2, 1, [20], 5, 7),
+            new ExtractedDocumentUnit(22, 0, 20, 20, "2 units", 7, 2, [20], 9, 16),
+            new ExtractedDocumentUnit(23, 0, 20, 20, "For", 3, 1, [20], 18, 21),
+            new ExtractedDocumentUnit(
+                24,
+                0,
+                20,
+                20,
+                substantive,
+                substantive.Length,
+                substantive.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [20],
+                23,
+                23 + substantive.Length)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 180,
+            overlapWords: 0,
+            minWords: 25);
+
+        var chunk = Assert.Single(projected);
+        Assert.Equal([24], chunk.SourceUnitOrdinals);
+        Assert.Contains("Operational validation method", chunk.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Sel", chunk.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("31", chunk.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("2 units", chunk.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("For", chunk.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_keeps_short_substantive_tail_separate_before_next_high_signal_unit()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 17, 18, null, null)
+        };
+        const string tomatoTail = "Farcissez-en les tomates. 1 pincee d'Herbes de Provence. Enfournez pour 30 minutes. Servez a la sortie du four. Sel et poivre";
+        const string magret = "Repos : 2 heures Magret de canard Facile miel au 2 magrets de canard Pelez les gousses d'ail et retirez le germe. Faites des entailles dans la peau des magrets. Melangez 3 c. a soupe de miel avec 2 c. a cafe de sauce soja. Prechauffez le four. Servez accompagne de riz et de legumes !";
+        var magretStart = tomatoTail.Length + 1;
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                33,
+                0,
+                17,
+                17,
+                tomatoTail,
+                tomatoTail.Length,
+                24,
+                [1],
+                0,
+                tomatoTail.Length),
+            new ExtractedDocumentUnit(
+                34,
+                0,
+                18,
+                18,
+                magret,
+                magret.Length,
+                58,
+                [2],
+                magretStart,
+                magretStart + magret.Length)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 200,
+            overlapWords: 35,
+            minWords: 25);
+
+        Assert.DoesNotContain(projected, chunk =>
+            chunk.Text.Contains("Sel et poivre", StringComparison.Ordinal)
+            && chunk.Text.Contains("Magret de canard", StringComparison.Ordinal));
+        Assert.Contains(projected, chunk =>
+            chunk.SourceUnitCount == 1
+            && chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([33])
+            && chunk.ChunkType == "unit_exact_v1");
+        Assert.Contains(projected, chunk =>
+            chunk.SourceUnitCount == 1
+            && chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([34])
+            && chunk.Text.StartsWith("Repos : 2 heures Magret de canard", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_does_not_append_short_new_page_tail_to_complete_structured_unit()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 28, 29, null, null)
+        };
+        const string creme =
+            "Creme brulee Pour 6 personnes 50 cl de creme liquide 6 jaunes d'oeufs 80 g de sucre Preparation Fouettez les jaunes. Faites cuire la creme. Au moment de servir, parsemez de cassonade et faites carameliser. Degustez sans attendre !";
+        const string profiterolesTail =
+            "Refermez avec la moitie superieure. Nappez les profiteroles de chocolat et servez aussitot !";
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(43, 0, 28, 28, creme, creme.Length, 38, [28], 0, creme.Length),
+            new ExtractedDocumentUnit(44, 0, 29, 29, profiterolesTail, profiterolesTail.Length, 13, [29], creme.Length + 2, creme.Length + 2 + profiterolesTail.Length)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 25);
+
+        Assert.DoesNotContain(projected, chunk =>
+            chunk.Text.Contains("Creme brulee", StringComparison.Ordinal)
+            && chunk.Text.Contains("Nappez les profiteroles", StringComparison.Ordinal));
+        Assert.Contains(projected, chunk =>
+            chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([43]));
+        Assert.Contains(projected, chunk =>
+            chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([44]));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_stops_short_new_page_continuation_after_complete_substantive_unit()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 12, 13, null, null)
+        };
+        const string completePrevious =
+            "Control panel calibration uses 4 units, a 120 V supply, a 2 A fuse, a 45 min stabilization window and 3 parts recorded. Verify connector torque before powering the module. Record baseline pressure at 2 bar and compare it with the acceptance sheet. Close the cabinet after the display reports stable operation. Keep the completed checklist with the module file.";
+        const string nextPageTail =
+            "Replace the upper cover. Confirm the actuator reset report and store the spare label.";
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                120,
+                0,
+                12,
+                12,
+                completePrevious,
+                completePrevious.Length,
+                completePrevious.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [12],
+                0,
+                completePrevious.Length),
+            new ExtractedDocumentUnit(
+                121,
+                0,
+                13,
+                13,
+                nextPageTail,
+                nextPageTail.Length,
+                nextPageTail.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [13],
+                completePrevious.Length + 2,
+                completePrevious.Length + 2 + nextPageTail.Length)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 25);
+
+        Assert.DoesNotContain(projected, chunk =>
+            chunk.Text.Contains("Control panel calibration", StringComparison.Ordinal)
+            && chunk.Text.Contains("Confirm the actuator reset report", StringComparison.Ordinal));
+        Assert.Contains(projected, chunk =>
+            chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([120]));
+        Assert.Contains(projected, chunk =>
+            chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([121]));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_repairs_short_lowercase_continuation_tail_when_budget_would_split()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 42, 42, null, null)
+        };
+        const string previous =
+            "Operational note 45 ml of sealant is applied after inspection. The operator checks the housing, records the pressure, validates the screen output, confirms the relay status and keeps the unit in";
+        const string tail =
+            "service for the validation window. 10 ml of tracer fluid, approximately 4-5 branches 79";
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                128,
+                0,
+                42,
+                42,
+                previous,
+                previous.Length,
+                previous.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [42],
+                0,
+                previous.Length),
+            new ExtractedDocumentUnit(
+                129,
+                0,
+                42,
+                42,
+                tail,
+                tail.Length,
+                tail.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [42],
+                previous.Length + 2,
+                previous.Length + 2 + tail.Length)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 32,
+            overlapWords: 0,
+            minWords: 12);
+
+        var repaired = Assert.Single(projected);
+        Assert.Equal([128, 129], repaired.SourceUnitOrdinals);
+        Assert.Contains("keeps the unit in", repaired.Text, StringComparison.Ordinal);
+        Assert.Contains("service for the validation window", repaired.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_repairs_short_quantity_tail_that_looks_like_footer_split()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 52, 52, null, null)
+        };
+        const string previous =
+            "Mix the dry elements, verify the enclosure and record the final value. Add the remaining component before closing. Stable operation is confirmed.";
+        const string tail = "2 modules 5 ml of calibration fluid 99";
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                168,
+                0,
+                52,
+                52,
+                previous,
+                previous.Length,
+                previous.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [52],
+                0,
+                previous.Length),
+            new ExtractedDocumentUnit(
+                169,
+                0,
+                52,
+                52,
+                tail,
+                tail.Length,
+                tail.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [52],
+                previous.Length + 2,
+                previous.Length + 2 + tail.Length)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 64,
+            overlapWords: 0,
+            minWords: 12);
+
+        var repaired = Assert.Single(projected);
+        Assert.Equal([168, 169], repaired.SourceUnitOrdinals);
+        Assert.Contains("Stable operation is confirmed.", repaired.Text, StringComparison.Ordinal);
+        Assert.Contains("2 modules 5 ml of calibration fluid", repaired.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_repairs_realistic_short_continuation_tail_after_overlapped_windows()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 42, 42, null, null)
+        };
+        const string first =
+            "INGRÉDIENTS PRÉPARATION 1 rôti de surlonge de • Placer la grille au centre du four. porc d’environ 1 kg (2 lb) Préchauffer le four à 200 °C (400 °F). 30 ml (2 c. à soupe) • Dans une poêle, dorer le rôti de tous les côtés dans l’huile. d’huile Saler et poivrer. Réserver. Dans la même poêle, faire revenir les échalotes françaises et l’ail. Déglacer à l’aide du bouillon";
+        const string second =
+            "de poulet, ajouter la moutarde, les pommes et le thym frais. coupées deux en sur Saler et poivrer. la longueur • Cuire au four une heure. Laisser reposer 10 minutes après la 1 tête d’ail, soit environ sortie du four.";
+        const string third =
+            "Garnir de thym frais et servir avec du couscous, une dizaine de gousses une purée de patates douces et des légumes grillés.";
+        const string previous =
+            "TRUCS CULINAIRES 45 ml (3 c. à soupe) de Il est possible d’utiliser d’autres coupes du porc, par exemple, les moutarde à l’ancienne côtelettes, le filet ou même la bavette pour cette recette. Pensez 4 coupées à acheter vos protéines lorsqu’elles se retrouvent en solde, ceci pommes, cubes (Red vous permettra d’économiser et de miser au maximum sur la en";
+        const string tail =
+            "diversité de vos aliments. 10 ml (2 c. à thé) de thym frais, environ 4-5 branches 79";
+        const string next =
+            "d’huile végétale anti-adhésive et la transférer dans un plat allant au four. 80";
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(123, 0, 42, 42, first, first.Length, 69, [42], 0, first.Length),
+            new ExtractedDocumentUnit(124, 0, 42, 42, second, second.Length, 40, [42], first.Length + 2, first.Length + 2 + second.Length),
+            new ExtractedDocumentUnit(125, 0, 42, 42, third, third.Length, 22, [42], first.Length + second.Length + 4, first.Length + second.Length + 4 + third.Length),
+            new ExtractedDocumentUnit(126, 0, 42, 42, previous, previous.Length, 60, [42], first.Length + second.Length + third.Length + 6, first.Length + second.Length + third.Length + 6 + previous.Length),
+            new ExtractedDocumentUnit(127, 0, 42, 42, tail, tail.Length, 17, [42], first.Length + second.Length + third.Length + previous.Length + 8, first.Length + second.Length + third.Length + previous.Length + 8 + tail.Length),
+            new ExtractedDocumentUnit(128, 0, 42, 42, next, next.Length, 13, [42], first.Length + second.Length + third.Length + previous.Length + tail.Length + 10, first.Length + second.Length + third.Length + previous.Length + tail.Length + 10 + next.Length)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 200,
+            overlapWords: 35,
+            minWords: 25);
+
+        Assert.DoesNotContain(projected, chunk =>
+            chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([127]));
+        var repaired = Assert.Single(projected, chunk =>
+            chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.Contains(126)
+            && chunk.SourceUnitOrdinals.Contains(127)
+            && chunk.Text.Contains("diversité de vos aliments", StringComparison.Ordinal));
+        Assert.Null(IngestionWorker.ResolveRetrievalChunkEmbeddingRejectionReason(repaired));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_does_not_append_new_page_short_title_after_complete_structured_unit()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 34, 35, null, null)
+        };
+        const string eclairs =
+            "Eclairs au chocolat Pour 8 pieces 250 ml d'eau 80 g de beurre 150 g de farine 4 oeufs Preparation Faites la pate a choux. Garnissez les eclairs puis glacez-les. Vous preferez les eclairs au cafe?";
+        const string tarteLead =
+            "Facile Tarte citron au meringuee Pour la pate minute sucree Dans un saladier, melangez la farine et le beurre.";
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(60, 0, 34, 34, eclairs, eclairs.Length, 34, [34], 0, eclairs.Length),
+            new ExtractedDocumentUnit(61, 0, 35, 35, tarteLead, tarteLead.Length, 17, [35], eclairs.Length + 2, eclairs.Length + 2 + tarteLead.Length)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 25);
+
+        Assert.DoesNotContain(projected, chunk =>
+            chunk.Text.Contains("Eclairs au chocolat", StringComparison.Ordinal)
+            && chunk.Text.Contains("Tarte citron", StringComparison.Ordinal));
+        Assert.Contains(projected, chunk =>
+            chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([60]));
+        Assert.Contains(projected, chunk =>
+            chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([61]));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_keeps_clean_short_title_with_body_without_inline_index_metadata()
+    {
+        const string firstTitle =
+            "Alpha Beta Module [Index: ] MCRC01072833_BO_Alpha_Beta_Module-010 MCRC01072992_SE_Alpha_Beta_Module-007";
+        const string firstMetadata =
+            "016CategoryControlsModes classificationCategory entriesFor 4 items 16";
+        const string firstBody =
+            "ITEMS STEPS 4 units 1. Inspect the module and record the result.";
+        const string secondTitle =
+            "Gamma Delta Module [Index: ] MCRC01072834_BO_Gamma_Delta_Module-010 MCRC01072993_SE_Gamma_Delta_Module-007";
+        const string secondMetadata =
+            "020CategoryControlsModes classificationCategory entriesFor 2 items 20";
+        const string secondBody =
+            "ITEMS STEPS 2 units 1. Calibrate the panel and save the report.";
+        var pageText = string.Join(
+            Environment.NewLine + Environment.NewLine,
+            firstTitle,
+            firstMetadata,
+            firstBody,
+            secondTitle,
+            secondMetadata,
+            secondBody);
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                16,
+                pageText,
+                pageText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                pageText.Length,
+                [16])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 16, 16, null, null)
+        };
+        var units = DocumentUnitExtractor.Extract(pages, sections);
+
+        Assert.Contains(units, unit => string.Equals(unit.Text, "Alpha Beta Module", StringComparison.Ordinal));
+        Assert.Contains(units, unit => string.Equals(unit.Text, "Gamma Delta Module", StringComparison.Ordinal));
+        Assert.DoesNotContain(units, unit => unit.Text.Contains("MCRC010", StringComparison.Ordinal));
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 120,
+            overlapWords: 0,
+            minWords: 25);
+
+        Assert.DoesNotContain(projected, chunk => chunk.Text.Contains("MCRC010", StringComparison.Ordinal));
+        Assert.DoesNotContain(projected, chunk => chunk.Text.Contains("classificationCategory", StringComparison.Ordinal));
+        Assert.Contains(projected, chunk =>
+            chunk.Text.Contains("Alpha Beta Module", StringComparison.Ordinal)
+            && chunk.Text.Contains("Inspect the module", StringComparison.Ordinal)
+            && !chunk.Text.Contains("Gamma Delta Module", StringComparison.Ordinal));
+        Assert.Contains(projected, chunk =>
+            chunk.Text.Contains("Gamma Delta Module", StringComparison.Ordinal)
+            && chunk.Text.Contains("Calibrate the panel", StringComparison.Ordinal)
+            && !chunk.Text.Contains("Alpha Beta Module", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -982,6 +1605,92 @@ public sealed class RetrievalChunkProjectorTests
             && chunk.Text.Contains("30 cl de lait", StringComparison.Ordinal)
             && chunk.Text.Contains("Formez des boudins", StringComparison.Ordinal)
             && !chunk.Text.Contains("CHOUQUETTES", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_does_not_add_footer_window_for_spaced_letter_layout_noise()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 21, 21, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                21,
+                21,
+                "6 jaunes d'oeufs 80 g de sucre 50 cl de lait 1 c. a c. de vanille liquide Dans le robot muni du batteur, mettez les jaunes d'oeufs puis mixez en vitesse 7 pendant 7 min.",
+                188,
+                38,
+                [1],
+                0,
+                188),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                21,
+                21,
+                "Lancez le robot en vitesse 4 a 85 C pendant 12 min. A la fin de la cuisson, laissez refroidir, puis servez. A S I QU E Cette recette permet de preparer 125 g de beurre.",
+                176,
+                34,
+                [2],
+                190,
+                366)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 25);
+
+        Assert.DoesNotContain(projected, chunk => chunk.ChunkType == "footer_titled_item_window_v1");
+    }
+
+    [Fact]
+    public void ProjectStructureAware_does_not_add_footer_window_for_short_digit_brand_fragment()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 52, 52, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                52,
+                52,
+                "1 kg de courgettes 500 ml d'eau 2 cubes de bouillon legumes et herbes 150 g de ricotta 20 feuilles de menthe",
+                112,
+                23,
+                [1],
+                0,
+                112),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                52,
+                52,
+                "Duo legumes et herbes du marche MAGGI 2 Demarrer la cuisson en lancant le programme soupe pour 25 min. Ajoutez la menthe et la ricotta puis mixez en pulse pendant 10 s.",
+                170,
+                31,
+                [2],
+                114,
+                284)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 25);
+
+        Assert.DoesNotContain(projected, chunk => chunk.ChunkType == "footer_titled_item_window_v1");
     }
 
     [Fact]

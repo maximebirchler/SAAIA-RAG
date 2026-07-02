@@ -87,6 +87,11 @@ internal static partial class RetrievalContentClassifier
 
         var hasExplicitTocMarker = ContainsExplicitTableOfContentsMarker(folded, padded);
         var hasShortTocMarker = ContainsShortTableOfContentsMarker(padded);
+        if (hasShortTocMarker && IsStandaloneShortTableOfContentsMarker(padded))
+        {
+            return new RetrievalNavigationSignal(NavigationRole, "table_of_contents", 0.95, 0.0);
+        }
+
         if (hasExplicitTocMarker
             || (hasShortTocMarker
                 && (inlinePageNumberBoundaries >= 3
@@ -323,6 +328,16 @@ internal static partial class RetrievalContentClassifier
             || paddedNormalizedText.Contains(" sumario ", StringComparison.Ordinal)
             || paddedNormalizedText.Contains(" indice ", StringComparison.Ordinal)
             || paddedNormalizedText.Contains(" toc ", StringComparison.Ordinal);
+
+    private static bool IsStandaloneShortTableOfContentsMarker(string paddedNormalizedText)
+        => paddedNormalizedText.Trim() is "sommaire"
+            or "contents"
+            or "sommario"
+            or "sumario"
+            or "indice"
+            or "index"
+            or "toc"
+            or "inhaltsverzeichnis";
 
     private static int CountBulletMarkers(string text)
         => string.IsNullOrWhiteSpace(text)

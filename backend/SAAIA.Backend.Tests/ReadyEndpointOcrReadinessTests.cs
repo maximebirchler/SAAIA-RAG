@@ -162,6 +162,7 @@ public sealed class ReadyEndpointOcrReadinessTests
         Assert.True((bool)details["ingestion_embeddings_batch_size_dynamic"]!);
         Assert.True((bool)details["ingestion_embeddings_batch_adaptive_retry_enabled"]!);
         Assert.Equal("all", details["ingestion_ocr_image_page_max_pages"]);
+        Assert.Equal("disabled", details["ingestion_ocr_image_page_max_total_seconds"]);
         Assert.Equal("complete", details["ingestion_ocr_image_page_reliability"]);
     }
 

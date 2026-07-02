@@ -109,7 +109,7 @@ services:
       Ingestion__OcrImagePageRenderDpi: ${SAAIA_OCR_IMAGE_PAGE_RENDER_DPI:-220}
       Ingestion__OcrImagePageSegmentationMode: ${SAAIA_OCR_IMAGE_PAGE_SEGMENTATION_MODE:-3}
       Ingestion__OcrImagePageTimeoutSeconds: ${SAAIA_OCR_IMAGE_PAGE_TIMEOUT_SECONDS:-120}
-      Ingestion__OcrImagePageMaxTotalSeconds: ${SAAIA_OCR_IMAGE_PAGE_MAX_TOTAL_SECONDS:-1800}
+      Ingestion__OcrImagePageMaxTotalSeconds: ${SAAIA_OCR_IMAGE_PAGE_MAX_TOTAL_SECONDS:-0}
       Ingestion__OcrImagePageMinWords: ${SAAIA_OCR_IMAGE_PAGE_MIN_WORDS:-3}
       RuntimeGovernance__CapabilityBWorkerEnabled: ${SAAIA_CAPABILITY_B_WORKER_ENABLED:-true}
       RuntimeGovernance__CapabilityBRequireIngestionIdleForExecution: ${SAAIA_CAPABILITY_B_REQUIRE_INGESTION_IDLE:-true}

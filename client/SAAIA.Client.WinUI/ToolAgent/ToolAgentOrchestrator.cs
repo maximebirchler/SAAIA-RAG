@@ -74,17 +74,19 @@ public sealed partial class ToolAgentOrchestrator
     private const int MaxToolCalls = 8;
     private const int MaxRagToolCalls = 5;
     private const int MaxBroadExplorationRagToolCalls = 16;
-    private const int MaxInitialSourceBackedPlanningProbeQueries = 4;
-    private const int InitialSourceBackedPlanningProbeTopK = 8;
+    private const int MaxInitialSourceBackedPlanningProbeQueries = 6;
+    private const int InitialSourceBackedPlanningProbeTopK = 12;
     private const int InitialSourceBackedPlanningProbeMaxPerDoc = 8;
     private const int InitialSourceBackedPlanningProbeMaxPerPage = 4;
     private const int RouterLlmTimeoutMs = 8000;
     private const int SourceBackedRouterLlmTimeoutMs = 180000;
+    private const int SourceBackedEvidenceExplorationTimeoutMs = 180000;
     private const int SourceBackedLlmEvidencePlannerTimeoutMs = 240000;
+    private const int SourceBackedPlanningWriterTimeoutMs = 240000;
     private const int MaxSourceBackedLlmEvidencePlannerSourceLeadLines = 2;
     private const int MaxSourceBackedLlmEvidencePlannerStructureHintLines = 3;
     private const int MaxSourceBackedLlmEvidencePlannerCategoryHints = 4;
-    private const int MaxSourceBackedLlmEvidencePlannerDeterministicSeeds = 4;
+    private const int MaxSourceBackedLlmEvidencePlannerDeterministicSeeds = 6;
     private const int MaxSourceBackedLlmEvidencePlannerAlreadyTriedQueries = 4;
     private const int MaxSourceBackedLlmEvidencePlannerCoverageTraceLines = 14;
     private const int MaxSourceBackedLlmEvidencePlannerWorkingNoteLines = 8;
@@ -1064,15 +1066,41 @@ public sealed partial class ToolAgentOrchestrator
         onPhase?.Invoke(DeterministicAgentText.PhaseWriting(plan.Language));
         onProgress?.Invoke(DeterministicAgentText.ProgressDraftFinalAnswer(plan.Language));
         var swWriter = Stopwatch.StartNew();
-        var (answer, sources) = await AnswerAsync(
-                chatHistory,
-                effectiveUserMessage,
-                plan,
+        string answer;
+        List<ToolMemory.SourceRef>? sources;
+        var usedSourceBackedWriterTimeoutFallback = false;
+        try
+        {
+            using var sourceBackedWriterTimeoutCts = shouldBufferWriterOutputForSourceBackedGuard
+                ? CancellationTokenSource.CreateLinkedTokenSource(ct)
+                : null;
+            if (sourceBackedWriterTimeoutCts is not null)
+                sourceBackedWriterTimeoutCts.CancelAfter(SourceBackedPlanningWriterTimeoutMs);
+
+            (answer, sources) = await AnswerAsync(
+                    chatHistory,
+                    effectiveUserMessage,
+                    plan,
+                    toolResults,
+                    sourceBackedWriterTimeoutCts?.Token ?? ct,
+                    shouldBufferWriterOutputForSourceBackedGuard ? null : onDelta,
+                    onProgress)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (shouldBufferWriterOutputForSourceBackedGuard && !ct.IsCancellationRequested)
+        {
+            EmitRagTrace(
+                "writer.stage.timeout",
+                ("intent", plan.Intent),
+                ("timeout_ms", SourceBackedPlanningWriterTimeoutMs),
+                ("tool_items", toolResults.Items.Count));
+            (answer, sources) = BuildSourceBackedWriterTimeoutFallback(
                 toolResults,
-                ct,
-                shouldBufferWriterOutputForSourceBackedGuard ? null : onDelta,
-                onProgress)
-            .ConfigureAwait(false);
+                effectiveUserMessage,
+                plan.Language);
+            usedSourceBackedWriterTimeoutFallback = true;
+            _lastAnswerSource = $"router+tools_source_backed_writer_timeout_fallback:{plan.Intent}";
+        }
         swWriter.Stop();
         _lastWriterMs = swWriter.ElapsedMilliseconds;
         EmitRagTrace(
@@ -1137,7 +1165,8 @@ public sealed partial class ToolAgentOrchestrator
             _mem.LastSourcesUsed = new List<ToolMemory.SourceRef>();
         }
 
-        if (TryFinalizeSourceBackedPlanningResponse(
+        if (!usedSourceBackedWriterTimeoutFallback
+            && TryFinalizeSourceBackedPlanningResponse(
                 answer,
                 toolResults,
                 effectiveUserMessage,
@@ -1172,7 +1201,8 @@ public sealed partial class ToolAgentOrchestrator
             _lastAnswerSource = $"router+tools_{outerFinalizedPlanningResolution}:{plan.Intent}";
         }
 
-        if (shouldBufferWriterOutputForSourceBackedGuard
+        if (!usedSourceBackedWriterTimeoutFallback
+            && shouldBufferWriterOutputForSourceBackedGuard
             && ShouldAllowSourceBackedWriterRepairForCurrentTurn(effectiveUserMessage)
             && toolResults.Items.Any(static x => x.ToolName is "rag.search" or "rag.multi_search" && HasRagHits(x.Result))
             && (LooksLikeWriterControlLeak(answer)
@@ -1202,7 +1232,8 @@ public sealed partial class ToolAgentOrchestrator
                 sources = DeriveSourcesFromRagHits(toolResults).Take(8).ToList();
         }
 
-        if (shouldBufferWriterOutputForSourceBackedGuard
+        if (!usedSourceBackedWriterTimeoutFallback
+            && shouldBufferWriterOutputForSourceBackedGuard
             && ShouldGateStructuredSourceBackedPlanningCoverage(effectiveUserMessage)
             && toolResults.Items.Any(static x => x.ToolName is "rag.search" or "rag.multi_search" && HasRagHits(x.Result)))
         {
@@ -1256,7 +1287,8 @@ public sealed partial class ToolAgentOrchestrator
             }
         }
 
-        if (TryFinalizeSourceBackedPlanningResponse(
+        if (!usedSourceBackedWriterTimeoutFallback
+            && TryFinalizeSourceBackedPlanningResponse(
                 answer,
                 toolResults,
                 effectiveUserMessage,
@@ -1291,7 +1323,8 @@ public sealed partial class ToolAgentOrchestrator
             _lastAnswerSource = $"router+tools_{finalOuterPlanningResolution}:{plan.Intent}";
         }
 
-        if (ShouldSuppressVisibleSourcesForInsufficientStructuredPlanningAnswer(answer, toolResults, effectiveUserMessage, plan.Language))
+        if (!usedSourceBackedWriterTimeoutFallback
+            && ShouldSuppressVisibleSourcesForInsufficientStructuredPlanningAnswer(answer, toolResults, effectiveUserMessage, plan.Language))
         {
             sources?.Clear();
             _mem.LastSourcesUsed = new List<ToolMemory.SourceRef>();
@@ -1371,6 +1404,73 @@ public sealed partial class ToolAgentOrchestrator
             ("reason", reason),
             ("candidate_count", candidateCount),
             ("search_expanded", searchAlreadyExpanded));
+
+    private static (string answer, List<ToolMemory.SourceRef> sources) BuildSourceBackedWriterTimeoutFallback(
+        ToolResults toolResults,
+        string query,
+        string language)
+    {
+        var intentQuery = ResolveSourceBackedFallbackIntentQuery(query);
+        if (ShouldGateStructuredSourceBackedPlanningCoverage(intentQuery)
+            && TryBuildSupportedStructuredPlanningAnswer(
+                toolResults,
+                language,
+                intentQuery,
+                out var supportedAnswer,
+                out var supportedSources,
+                out _))
+        {
+            return (RemoveTrailingModelEmittedSourceList(supportedAnswer).Trim(), supportedSources);
+        }
+
+        var answer = BuildReadableSourceBackedCandidateListFallbackAnswer(toolResults, intentQuery, language);
+        if (string.IsNullOrWhiteSpace(answer) && LooksLikeAnyDocumentaryPlanningRequest(intentQuery))
+        {
+            answer = BuildReadablePartialPlanningEvidenceAnswer(
+                SelectSourceBackedExtractiveHits(toolResults, intentQuery, maxHits: 8).ToList(),
+                intentQuery,
+                language);
+        }
+
+        if (string.IsNullOrWhiteSpace(answer))
+        {
+            var planningOrExtractive = BuildSourceBackedPlanningOrExtractiveAnswer(
+                toolResults,
+                intentQuery,
+                language,
+                minPlanningItems: 1);
+            if (!LooksLikeBroadEvidenceStillInsufficientAnswer(planningOrExtractive))
+                answer = planningOrExtractive;
+            else if (string.IsNullOrWhiteSpace(answer))
+                answer = planningOrExtractive;
+        }
+
+        if (string.IsNullOrWhiteSpace(answer) || LooksLikeBroadEvidenceStillInsufficientAnswer(answer))
+        {
+            var readableFallback = BuildReadableSourceBackedCandidateListFallbackAnswer(toolResults, intentQuery, language);
+            if (!string.IsNullOrWhiteSpace(readableFallback))
+                answer = readableFallback;
+        }
+
+        if (string.IsNullOrWhiteSpace(answer))
+        {
+            answer = BuildSourceBackedSafeFallbackAnswer(
+                toolResults,
+                query,
+                language,
+                shouldAvoidRaw: true);
+        }
+
+        var sources = LooksLikeAnyDocumentaryPlanningRequest(intentQuery)
+            ? DeriveSourcesFromPlanningHits(toolResults, intentQuery)
+            : DeriveSourcesForSourceBackedFallback(toolResults, intentQuery);
+        if (sources.Count == 0)
+            sources = DeriveSourcesFromRankedRagHits(toolResults, intentQuery);
+        if (sources.Count == 0)
+            sources = DeriveSourcesFromRagHits(toolResults).Take(8).ToList();
+
+        return ((answer ?? string.Empty).Trim(), sources);
+    }
 
     private static string TryBuildNoRagEvidenceAnswerForEmptySearch(ToolResults toolResults, string language, string? query)
     {
@@ -1849,10 +1949,41 @@ public sealed partial class ToolAgentOrchestrator
             plannerFirstEligible
             || LooksLikeSourceBackedBroadResearchRequest(explorationQuery);
         var structuredPlanningTargetCoverageReached = false;
+        var explorationSw = Stopwatch.StartNew();
+        var explorationTimeBudgetStopEmitted = false;
+
+        bool ShouldStopForExplorationTimeBudget(string stage)
+        {
+            if (explorationSw.ElapsedMilliseconds < SourceBackedEvidenceExplorationTimeoutMs)
+                return false;
+
+            if (!explorationTimeBudgetStopEmitted)
+            {
+                explorationTimeBudgetStopEmitted = true;
+                EmitRagTrace(
+                    "evidence.exploration.time_budget.stop",
+                    ("stage", stage),
+                    ("elapsed_ms", explorationSw.ElapsedMilliseconds),
+                    ("timeout_ms", SourceBackedEvidenceExplorationTimeoutMs),
+                    ("kind", currentAnalysis.Kind),
+                    ("reason", currentAnalysis.Reason),
+                    ("score", currentAnalysis.Score),
+                    ("usable_hits", currentAnalysis.UsableHitCount),
+                    ("candidates", currentAnalysis.CandidateCount),
+                    ("minimum_candidates", currentAnalysis.MinimumCandidateCount),
+                    ("target_slots", currentAnalysis.TargetSlotCount),
+                    ("distinct_pages", currentAnalysis.DistinctSourcePageCount),
+                    ("remaining_rag_calls", remainingRagCalls));
+            }
+
+            return true;
+        }
 
         bool ShouldContinueExploring()
         {
             if (structuredPlanningTargetCoverageReached)
+                return false;
+            if (ShouldStopForExplorationTimeBudget("continue_check"))
                 return false;
 
             if (currentAnalysis.ShouldExplore
@@ -2337,6 +2468,15 @@ public sealed partial class ToolAgentOrchestrator
                         ("reason", "document_scoped_sequence_already_built"),
                         ("remaining_rag_calls", remainingRagCalls));
                 }
+                else if (ShouldStopForExplorationTimeBudget("after_pass_analysis"))
+                {
+                    EmitRagTrace(
+                        "evidence.exploration.pass.followup_probe.skipped",
+                        ("label", pass.Label),
+                        ("origin", pass.Origin),
+                        ("reason", "time_budget_reached"),
+                        ("remaining_rag_calls", remainingRagCalls));
+                }
                 else
                 {
                     var followupSw = Stopwatch.StartNew();
@@ -2571,8 +2711,12 @@ public sealed partial class ToolAgentOrchestrator
 
         async Task<bool> TryExecuteAnchorFollowupPassAsync()
         {
-            if (remainingRagCalls <= 0 || anchorFollowupAttempts >= anchorFollowupRoundLimit)
+            if (remainingRagCalls <= 0
+                || anchorFollowupAttempts >= anchorFollowupRoundLimit
+                || ShouldStopForExplorationTimeBudget("anchor_followup_start"))
+            {
                 return false;
+            }
 
             if (UsesSourceBackedPlanningCoverage(explorationQuery)
                 && currentAnalysis.UsableHitCount == 0
@@ -3898,7 +4042,6 @@ Return strict JSON only:
     {
         var deterministicSeeds = BuildSourceBackedLlmEvidencePlannerDeterministicQuerySeeds(effectiveUserMessage, language)
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(static query => query.Length)
             .Take(MaxSourceBackedLlmEvidencePlannerDeterministicSeeds)
             .ToArray();
         var sourceLeads = BuildSourceBackedLlmEvidenceSnapshotForPrompt(
@@ -4352,6 +4495,8 @@ OUTPUT_RULES:
                 .Distinct(StringComparer.Ordinal)
                 .ToArray();
             if (variants.Any(variant => ContainsStructuredAxisPlannerTerm(normalizedAxis, variant))
+                || variants.Any(variant => PlanningSlotAxisLabelsAreExplicitAlternatives(normalizedUser, variant, normalizedAxis))
+                || variants.Any(variant => PlanningSlotAxisLabelsAreExplicitAlternatives(normalizedUser, normalizedAxis, variant))
                 || variants.Any(variant => ContainsStructuredAxisPlannerTerm(normalizedUser, variant)
                                            && ContainsStructuredAxisPlannerTerm(normalizedAxis, normalized)))
             {
@@ -5204,6 +5349,8 @@ DECISION_RULES:
         string language)
     {
         var queries = new List<string>();
+        var intentProbe = BuildInitialSourceBackedPlanningIntentProbeQuery(effectiveUserMessage);
+        var intentProbeKey = NormalizeLexicalLookup(intentProbe);
         void Add(string? query)
         {
             if (!string.IsNullOrWhiteSpace(query))
@@ -5212,6 +5359,7 @@ DECISION_RULES:
 
         if (LooksLikeAnyDocumentaryPlanningRequest(effectiveUserMessage))
         {
+            Add(intentProbe);
             foreach (var query in BuildPlanningExplorationRetrievalQueries(effectiveUserMessage))
                 Add(query);
             foreach (var query in BuildPlanningRetrievalQueries(effectiveUserMessage))
@@ -5230,7 +5378,7 @@ DECISION_RULES:
         return queries
             .Where(static query => !string.IsNullOrWhiteSpace(query))
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(query => ScoreSourceBackedLlmPlannerPromptQuery(query, effectiveUserMessage))
+            .OrderBy(query => string.Equals(NormalizeLexicalLookup(query), intentProbeKey, StringComparison.Ordinal) ? -200 : ScoreSourceBackedLlmPlannerPromptQuery(query, effectiveUserMessage))
             .ThenBy(static query => query.Length)
             .Take(MaxSourceBackedLlmEvidencePlannerDeterministicSeeds)
             .ToArray();
@@ -8194,8 +8342,44 @@ DECISION_RULES:
                         "evidence.planning.writer.start",
                         ("structured_gate", requiresStructuredPlanningGate),
                         ("tool_items", planningToolResults.Items.Count),
-                        ("use_writer", shouldUsePlanningWriter));
-                    var (writerAnswer, writerSources) = await AnswerAsync(chatHistory, effectiveUserMessage, planningWriterPlan, planningToolResults, ct, writerDelta, onProgress).ConfigureAwait(false);
+                        ("use_writer", shouldUsePlanningWriter),
+                        ("timeout_ms", SourceBackedPlanningWriterTimeoutMs));
+                    string writerAnswer;
+                    List<ToolMemory.SourceRef>? writerSources;
+                    try
+                    {
+                        using var writerTimeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                        writerTimeoutCts.CancelAfter(SourceBackedPlanningWriterTimeoutMs);
+                        (writerAnswer, writerSources) = await AnswerAsync(
+                                chatHistory,
+                                effectiveUserMessage,
+                                planningWriterPlan,
+                                planningToolResults,
+                                writerTimeoutCts.Token,
+                                writerDelta,
+                                onProgress)
+                            .ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                    {
+                        EmitRagTrace(
+                            "evidence.planning.writer.timeout",
+                            ("structured_gate", requiresStructuredPlanningGate),
+                            ("timeout_ms", SourceBackedPlanningWriterTimeoutMs),
+                            ("tool_items", planningToolResults.Items.Count));
+                        writerAnswer = deterministicPlanningDraft.Answer ?? string.Empty;
+                        writerSources = deterministicPlanningDraft.Sources.ToList();
+                        if (string.IsNullOrWhiteSpace(writerAnswer))
+                        {
+                            writerAnswer = BuildSourceBackedSafeFallbackAnswer(
+                                planningToolResults,
+                                effectiveUserMessage,
+                                plan.Language,
+                                shouldAvoidRaw: shouldUsePlanningWriter);
+                            writerSources = DeriveSourcesFromPlanningHits(planningToolResults, effectiveUserMessage);
+                        }
+                        _lastAnswerSource = "standalone_topic_rag:source_backed_planning_writer_timeout_fallback";
+                    }
                     EmitRagTrace(
                         "evidence.planning.writer.end",
                         ("answer_chars", writerAnswer?.Length ?? 0),
@@ -12890,6 +13074,16 @@ TOOL_RESULTS (json):
     {
         var candidates = new List<string>();
         var routerCandidateKeys = new HashSet<string>(StringComparer.Ordinal);
+        var pinnedIntentQueries = new List<string>();
+        var intentProbe = BuildInitialSourceBackedPlanningIntentProbeQuery(effectiveUserMessage);
+        AddInitialSourceBackedPlanningProbeQuery(pinnedIntentQueries, intentProbe);
+        foreach (var query in pinnedIntentQueries)
+            AddDistinctQuery(candidates, query);
+        var pinnedIntentKeys = pinnedIntentQueries
+            .Select(NormalizeLexicalLookup)
+            .Where(static key => !string.IsNullOrWhiteSpace(key))
+            .ToHashSet(StringComparer.Ordinal);
+        var preferredCandidateKeys = new HashSet<string>(pinnedIntentKeys, StringComparer.Ordinal);
 
         if (routerQueries is not null)
         {
@@ -12901,7 +13095,10 @@ TOOL_RESULTS (json):
                 {
                     var key = NormalizeLexicalLookup(candidates[^1]);
                     if (!string.IsNullOrWhiteSpace(key))
+                    {
                         routerCandidateKeys.Add(key);
+                        preferredCandidateKeys.Add(key);
+                    }
                 }
             }
         }
@@ -12915,17 +13112,144 @@ TOOL_RESULTS (json):
         if (candidates.Count == 0)
             AddDistinctQuery(candidates, NormalizeRagQueryForRetrieval(effectiveUserMessage));
 
-        return candidates
+        var selectedQueries = candidates
             .Where(static query => !string.IsNullOrWhiteSpace(query))
             .GroupBy(static query => NormalizeInitialSourceBackedPlanningProbeFamilyKey(query), StringComparer.Ordinal)
             .Select(group => group
-                .OrderBy(query => ScoreInitialSourceBackedPlanningProbeQuery(query, effectiveUserMessage, routerCandidateKeys))
+                .OrderBy(query => ScoreInitialSourceBackedPlanningProbeQuery(query, effectiveUserMessage, preferredCandidateKeys))
                 .ThenBy(static query => query.Length)
                 .First())
-            .OrderBy(query => ScoreInitialSourceBackedPlanningProbeQuery(query, effectiveUserMessage, routerCandidateKeys))
+            .OrderBy(query => ScoreInitialSourceBackedPlanningProbeQuery(query, effectiveUserMessage, preferredCandidateKeys))
             .ThenBy(static query => query.Length)
+            .ToArray();
+
+        return pinnedIntentQueries
+            .Concat(selectedQueries.Where(query => !pinnedIntentKeys.Contains(NormalizeLexicalLookup(query))))
             .Take(MaxInitialSourceBackedPlanningProbeQueries)
             .ToArray();
+    }
+
+    private static string BuildInitialSourceBackedPlanningIntentProbeQuery(string? effectiveUserMessage)
+    {
+        var normalized = NormalizeLexicalLookup(NormalizeRagQueryForRetrieval(effectiveUserMessage));
+        if (string.IsNullOrWhiteSpace(normalized))
+            normalized = NormalizeLexicalLookup(effectiveUserMessage);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return string.Empty;
+
+        var language = DetectRetrievalExpansionLanguage(effectiveUserMessage);
+        var terms = new List<string>();
+        var emitted = new HashSet<string>(StringComparer.Ordinal);
+
+        void AddTerm(string? value)
+        {
+            var normalizedTerm = NormalizeLexicalLookup(value);
+            if (string.IsNullOrWhiteSpace(normalizedTerm))
+                return;
+
+            var tokens = Regex.Matches(normalizedTerm, @"[\p{L}\p{Nd}]{3,}", RegexOptions.CultureInvariant)
+                .Cast<Match>()
+                .Select(static match => match.Value)
+                .Where(static token => !IsSourceBackedPlanningIntentProbeNoiseToken(token))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (tokens.Length == 0)
+                return;
+
+            var cleaned = CollapseWhitespace(string.Join(' ', tokens));
+            if (cleaned.Length is < 3 or > 54
+                || LooksLikeNavigationDiscoveryProbeQuery(cleaned)
+                || IsInitialSourceBackedPlanningProbeModifierToken(cleaned))
+            {
+                return;
+            }
+
+            if (emitted.Add(cleaned))
+                terms.Add(cleaned);
+        }
+
+        var dayAxis = DetectRequestedDayAxisLabels(effectiveUserMessage, language);
+        var slotAxis = DetectRequestedPlanningSlotAxisLabels(effectiveUserMessage, language)
+            .Concat(ExtractPlanningSlotRetrievalTerms(effectiveUserMessage))
+            .Select(SelectPreferredPlanningSlotRetrievalTerm)
+            .Where(static term => !string.IsNullOrWhiteSpace(term))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var axisTokens = dayAxis
+            .Concat(slotAxis)
+            .SelectMany(static term => Regex.Matches(NormalizeLexicalLookup(term), @"[\p{L}\p{Nd}]{3,}", RegexOptions.CultureInvariant)
+                .Cast<Match>()
+                .Select(static match => match.Value))
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (Match match in Regex.Matches(
+                     normalized,
+                     @"\b(?:plan|planning|programme|schedule|calendar|calendrier|semaine|hebdomadaire|week|weekly|semana|semanal|woche|wochenplan|settimana|settimanale)\b",
+                     RegexOptions.CultureInvariant))
+        {
+            AddTerm(match.Value);
+        }
+
+        foreach (var term in Regex.Matches(normalized, @"[\p{L}\p{Nd}]{4,}", RegexOptions.CultureInvariant)
+                     .Cast<Match>()
+                     .Select(static match => match.Value)
+                     .Where(static term => term.Length >= 4)
+                     .Where(term => !axisTokens.Contains(term))
+                     .Where(static term => !IsGenericPlanningCoverageTerm(term))
+                     .Where(static term => !IsSourceBackedPlanningIntentProbeNoiseToken(term))
+                     .Where(static term => !IsInitialSourceBackedPlanningProbeModifierToken(term))
+                     .Where(static term => !IsNavigationDiscoveryNoiseTerm(term))
+                     .Distinct(StringComparer.Ordinal)
+                     .Take(6))
+        {
+            AddTerm(term);
+        }
+
+        var compactDayAxis = dayAxis.Count > 2
+            ? new[] { dayAxis[0], dayAxis[^1] }
+            : dayAxis.ToArray();
+        foreach (var day in compactDayAxis)
+            AddTerm(day);
+
+        foreach (var slot in slotAxis.Take(8))
+        {
+            AddTerm(slot);
+        }
+
+        if (terms.Count < 2)
+            return string.Empty;
+
+        var selected = new List<string>();
+        foreach (var term in terms)
+        {
+            var candidate = selected.Count == 0
+                ? term
+                : string.Join(' ', selected.Concat(new[] { term }));
+            if (candidate.Length > 90)
+                continue;
+
+            selected.Add(term);
+        }
+
+        return selected.Count >= 2
+            ? CollapseWhitespace(string.Join(' ', selected))
+            : string.Empty;
+    }
+
+    private static bool IsSourceBackedPlanningIntentProbeNoiseToken(string token)
+    {
+        var normalized = NormalizeLexicalLookup(token);
+        return string.IsNullOrWhiteSpace(normalized)
+            || IsWeakRouterRagQueryToken(normalized)
+            || normalized is
+                "uniquement" or "seulement" or "only" or "strictement" or "juste" or
+                "utilise" or "utiliser" or "utilises" or "using" or
+                "evite" or "eviter" or "evites" or "avoid" or "avoids" or
+                "doublon" or "doublons" or "duplicate" or "duplicates" or "duplique" or "dupplique" or
+                "inutile" or "inutiles" or "unneeded" or "unnecessary" or
+                "donne" or "donner" or "donnes" or "provide" or
+                "format" or "clair" or "claire" or "clear" or "friendly" or "lisible" or "readable" or
+                "user" or "markdown" or "tableau" or "table" or "final" or "finale" or "reponse" or "answer";
     }
 
     private static void AddInitialSourceBackedPlanningProbeQuery(List<string> queries, string? query)

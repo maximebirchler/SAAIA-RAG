@@ -64,7 +64,7 @@ internal static partial class RetrievalChunkProjector
             .ThenBy(unit => unit.PageStart)
             .ThenBy(unit => unit.Ordinal)
             .ToList();
-        var windowUnits = SelectWindowUnits(orderedUnits);
+        var windowUnits = SelectWindowUnits(orderedUnits, minWords);
 
         var chunks = new List<ProjectedRetrievalChunk>();
         var chunkIndex = 0;
@@ -92,9 +92,16 @@ internal static partial class RetrievalChunkProjector
                     var candidate = sectionUnits[cursor];
                     var candidateTokens = Math.Max(1, candidate.TokenCount);
 
+                    if (window.Count > 0 && LooksLikeCompleteNewPageBoundary(window[^1], candidate))
+                    {
+                        stoppedBeforeStructuredBoundary = true;
+                        break;
+                    }
+
                     var startsStructuredBoundary = window.Count > 0
                         && (LooksLikeHighSignalUnit(candidate)
                             || LooksLikeStructuredItemBoundaryUnit(candidate)
+                            || LooksLikeShortStandaloneTitleBoundaryUnit(candidate)
                             || LooksLikePostFooterStructuredBodyBoundary(window[^1], candidate));
                     if (startsStructuredBoundary)
                     {
@@ -145,10 +152,9 @@ internal static partial class RetrievalChunkProjector
                     tokenTotal = Math.Max(1, sectionUnits[start].TokenCount);
                 }
 
-                var shouldKeepShortBoundaryLead = !stoppedBeforeStructuredBoundary
-                    || tokenTotal >= minWords
-                    || WindowContainsHighSignalUnit(window);
-                if (tokenTotal >= minWords || (chunks.Count == 0 && shouldKeepShortBoundaryLead))
+                var shouldKeepWindow = tokenTotal >= minWords
+                    || ShouldKeepShortRetrievalWindow(window, tokenTotal, minWords);
+                if (shouldKeepWindow)
                 {
                     var first = window[0];
                     var last = window[^1];
@@ -178,8 +184,11 @@ internal static partial class RetrievalChunkProjector
                 if (stoppedBeforeStructuredBoundary
                     && start < cursor
                     && cursor < sectionUnits.Count
-                    && (LooksLikeStructuredItemBoundaryUnit(sectionUnits[cursor])
-                        || LooksLikePostFooterStructuredBodyBoundary(sectionUnits[Math.Max(start, cursor - 1)], sectionUnits[cursor])))
+                    && (LooksLikeHighSignalUnit(sectionUnits[cursor])
+                        || LooksLikeStructuredItemBoundaryUnit(sectionUnits[cursor])
+                        || LooksLikeShortStandaloneTitleBoundaryUnit(sectionUnits[cursor])
+                        || LooksLikePostFooterStructuredBodyBoundary(sectionUnits[Math.Max(start, cursor - 1)], sectionUnits[cursor])
+                        || LooksLikeCompleteNewPageBoundary(sectionUnits[Math.Max(start, cursor - 1)], sectionUnits[cursor])))
                 {
                     start = cursor;
                 }
@@ -216,16 +225,20 @@ internal static partial class RetrievalChunkProjector
         return chunks;
     }
 
-    private static IReadOnlyList<ExtractedDocumentUnit> SelectWindowUnits(IReadOnlyList<ExtractedDocumentUnit> orderedUnits)
+    private static IReadOnlyList<ExtractedDocumentUnit> SelectWindowUnits(
+        IReadOnlyList<ExtractedDocumentUnit> orderedUnits,
+        int minWords)
     {
         var reliableUnits = orderedUnits
             .Where(ExtractionQualityPolicy.ShouldUseUnitForRetrievalWindow)
+            .Where(unit => !LooksLikeLowSubstanceStandaloneUnit(unit, minWords))
             .ToList();
         if (reliableUnits.Count > 0)
             return reliableUnits;
 
         var targetedFallbackUnits = orderedUnits
             .Where(ExtractionQualityPolicy.ShouldUseUnitForProfileCards)
+            .Where(unit => !LooksLikeLowSubstanceStandaloneUnit(unit, minWords))
             .ToList();
         return targetedFallbackUnits;
     }
@@ -414,6 +427,121 @@ internal static partial class RetrievalChunkProjector
     private static bool WindowContainsHighSignalUnit(IReadOnlyList<ExtractedDocumentUnit> window)
         => window.Any(LooksLikeHighSignalUnit);
 
+    private static bool LooksLikeLowSubstanceStandaloneUnit(ExtractedDocumentUnit unit, int minWords)
+    {
+        if (minWords <= 8)
+            return false;
+        if (unit.TokenCount >= 8 || string.IsNullOrWhiteSpace(unit.Text))
+            return false;
+        if (LooksLikeShortStandaloneTitleBoundaryUnit(unit))
+            return false;
+
+        var text = InsertStructuralBoundarySpaces(unit.Text).Trim();
+        var normalized = text.Trim(' ', '\t', '-', '\u2013', '\u2014', ',', ';', ':', '.', '|', '/', '\\', '(', ')', '[', ']');
+        if (normalized.Length == 0)
+            return true;
+
+        if (LowSubstanceNumericRangeRegex().IsMatch(normalized))
+            return true;
+
+        if (CountStructuredQuantityUnitEvidence(normalized) > 0)
+            return true;
+
+        if (unit.TokenCount <= 3)
+            return true;
+
+        if (normalized.Any(static ch => ch is '.' or '!' or '?' or '\u2026' or '\u2022'))
+            return false;
+
+        var meaningfulWords = SubstantiveWordRegex().Matches(normalized).Count;
+        return meaningfulWords < 3;
+    }
+
+    private static bool ShouldKeepShortRetrievalWindow(
+        IReadOnlyList<ExtractedDocumentUnit> window,
+        int tokenTotal,
+        int minWords)
+    {
+        if (window.Count == 0 || tokenTotal >= minWords)
+            return false;
+
+        return WindowContainsHighSignalUnit(window)
+            || WindowLooksLikeShortTitleWithStructuredBody(window)
+            || WindowLooksLikeSubstantiveShortBoundaryLead(window, minWords);
+    }
+
+    private static bool WindowLooksLikeShortTitleWithStructuredBody(IReadOnlyList<ExtractedDocumentUnit> window)
+    {
+        if (window.Count is < 2 or > 3)
+            return false;
+        if (!LooksLikeShortStandaloneTitleBoundaryUnit(window[0]))
+            return false;
+
+        var bodyText = InsertStructuralBoundarySpaces(string.Join(ChunkSeparator, window.Skip(1).Select(static unit => unit.Text)));
+        var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(bodyText));
+        if (string.IsNullOrWhiteSpace(normalized) || LooksLikeReferenceList(normalized))
+            return false;
+
+        return LooksLikeStructuredBodyLead(bodyText)
+            || ContainsProcedureSectionHeading(normalized)
+            || CountNumberedSteps(bodyText) >= 1
+            || CountStructuredQuantityUnitEvidence(bodyText) >= 1;
+    }
+
+    private static bool WindowLooksLikeSubstantiveShortBoundaryLead(
+        IReadOnlyList<ExtractedDocumentUnit> window,
+        int minWords)
+    {
+        if (window.Count != 1)
+            return false;
+
+        var unit = window[0];
+        if (unit.TokenCount < Math.Min(12, Math.Max(8, minWords / 2)))
+            return false;
+
+        var text = InsertStructuralBoundarySpaces(unit.Text);
+        var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(text));
+        if (string.IsNullOrWhiteSpace(normalized) || LooksLikeReferenceList(normalized))
+            return false;
+
+        return text.Any(static ch => ch is '.' or '!' or '?' or '\u2026' or '\u2022')
+            || CountStructuredQuantityUnitEvidence(text) > 0
+            || CountStructuredQuantityUnitEvidence(normalized) > 0;
+    }
+
+    private static bool LooksLikeShortStandaloneTitleBoundaryUnit(ExtractedDocumentUnit unit)
+    {
+        if (unit.TokenCount is < 2 or > 10 || string.IsNullOrWhiteSpace(unit.Text))
+            return false;
+
+        var text = InsertStructuralBoundarySpaces(unit.Text).Trim();
+        if (text.Length is < 6 or > 120)
+            return false;
+        if (text.Any(static ch => ch is '.' or '!' or '?' or '\u2026' or '\u2022' or ':'))
+            return false;
+        if (CountStructuredQuantityUnitEvidence(text) > 0)
+            return false;
+        if (GenericStructuredCueLeadRegex().IsMatch(text))
+            return false;
+
+        var first = FirstNonWhitespaceOrDefault(text);
+        if (first is null || !char.IsLetter(first.Value) || !char.IsUpper(first.Value))
+            return false;
+
+        var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(text));
+        if (string.IsNullOrWhiteSpace(normalized) || LooksLikeReferenceList(normalized))
+            return false;
+
+        var tokens = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        var contentTokens = tokens.Count(static token =>
+            token.Any(char.IsLetter)
+            && token.Length >= 3
+            && !ShortTitleConnectorTokens.Contains(
+                FoldDiacritics(token.Trim(' ', '-', ':', ';', ',', '.', '|', '/', '\\', '(', ')')).ToLowerInvariant()));
+
+        return contentTokens >= 1;
+    }
+
     private static string ResolveStructureAwareChunkType(
         IReadOnlyList<ExtractedDocumentUnit> window,
         bool repairsDanglingStructuredContinuation = false)
@@ -451,7 +579,7 @@ internal static partial class RetrievalChunkProjector
         if (!CanAppendDanglingStructuredContinuation(previous, candidate, maxWords))
             return false;
 
-        var budgetOverflowLimit = maxWords + Math.Max(24, maxWords / 2);
+        var budgetOverflowLimit = maxWords + 18;
         return tokenTotal + candidateTokens <= budgetOverflowLimit;
     }
 
@@ -468,15 +596,19 @@ internal static partial class RetrievalChunkProjector
             return false;
         if (ContainsTrailingStructuredFooterTitle(previous.Text))
             return false;
-        if (!LooksLikeDanglingStructuredContinuationTail(previous.Text))
-            return false;
 
         var normalizedCandidate = NormalizeRetrievalText(candidate.Text);
         if (string.IsNullOrWhiteSpace(normalizedCandidate) || LooksLikeReferenceList(normalizedCandidate))
             return false;
 
-        return StructuredItemEvidenceRegex().IsMatch(normalizedCandidate)
-            || CountStructuredQuantityUnitEvidence(normalizedCandidate) > 0;
+        if (LooksLikeDanglingStructuredContinuationTail(previous.Text)
+            && (StructuredItemEvidenceRegex().IsMatch(normalizedCandidate)
+                || CountStructuredQuantityUnitEvidence(normalizedCandidate) > 0))
+        {
+            return true;
+        }
+
+        return LooksLikeShortStructuredContinuationTail(candidate);
     }
 
     private static bool LooksLikeDanglingStructuredContinuationTail(string text)
@@ -486,6 +618,128 @@ internal static partial class RetrievalChunkProjector
 
         var normalized = NormalizeRetrievalText(text);
         return DanglingStructuredContinuationTailRegex().IsMatch(normalized);
+    }
+
+    private static bool LooksLikeShortStructuredContinuationTail(ExtractedDocumentUnit candidate)
+    {
+        if (candidate.TokenCount is < 4 or > 24 || string.IsNullOrWhiteSpace(candidate.Text))
+            return false;
+
+        var normalized = NormalizeRetrievalText(candidate.Text);
+        if (string.IsNullOrWhiteSpace(normalized) || LooksLikeReferenceList(normalized))
+            return false;
+        if (LooksLikeStructuredItemBoundaryUnit(candidate) || LooksLikeStructuredItemTitleLeadBoundary(candidate))
+            return false;
+
+        var first = FirstNonWhitespaceOrDefault(normalized);
+        if (first is null)
+            return false;
+
+        var startsAsProseContinuation = char.IsLetter(first.Value) && char.IsLower(first.Value);
+        var startsAsStructuredQuantityTail = char.IsDigit(first.Value)
+            && CountStructuredQuantityUnitEvidence(normalized) >= 1;
+
+        if (!startsAsProseContinuation && !startsAsStructuredQuantityTail)
+            return false;
+
+        return normalized.Any(static ch => ch is '.' or '!' or '?' or '\u2026')
+            || CountStructuredQuantityUnitEvidence(normalized) > 0
+            || EndsWithShortNumericFooter(normalized);
+    }
+
+    private static char? FirstNonWhitespaceOrDefault(string text)
+    {
+        foreach (var ch in text)
+        {
+            if (!char.IsWhiteSpace(ch))
+                return ch;
+        }
+
+        return null;
+    }
+
+    private static bool EndsWithShortNumericFooter(string text)
+    {
+        var normalized = NormalizeRetrievalText(text);
+        var match = ShortNumericFooterRegex().Match(normalized);
+        return match.Success;
+    }
+
+    private static bool LooksLikeCompleteNewPageBoundary(
+        ExtractedDocumentUnit previous,
+        ExtractedDocumentUnit candidate)
+    {
+        if (previous.SectionOrdinal != candidate.SectionOrdinal)
+            return false;
+        if (candidate.PageStart <= previous.PageEnd)
+            return false;
+        if (!EndsLikeCompleteRetrievalContent(previous.Text))
+            return false;
+        if (!StartsWithUppercaseDigitOrBullet(candidate.Text))
+            return false;
+
+        var normalizedCandidate = NormalizeRetrievalText(candidate.Text);
+        if (string.IsNullOrWhiteSpace(normalizedCandidate) || LooksLikeReferenceList(normalizedCandidate))
+            return false;
+
+        if (candidate.PageStart > previous.PageEnd + 1)
+            return true;
+        if (LooksLikeStructuredItemBoundaryUnit(candidate) || LooksLikeStructuredBodyLead(candidate.Text))
+            return true;
+
+        return candidate.TokenCount <= 64
+            && LooksLikeCompleteSubstantiveBoundarySource(previous)
+            && (candidate.Text.Any(static ch => ch is '.' or '!' or '?' or '\u2026' or '\u2022')
+                || CountStructuredQuantityUnitEvidence(normalizedCandidate) > 0);
+    }
+
+    private static bool LooksLikeCompleteSubstantiveBoundarySource(ExtractedDocumentUnit unit)
+    {
+        if (LooksLikeHighSignalUnit(unit))
+            return true;
+        if (unit.TokenCount < 48 || string.IsNullOrWhiteSpace(unit.Text))
+            return false;
+
+        var normalized = NormalizeRetrievalText(unit.Text);
+        if (string.IsNullOrWhiteSpace(normalized) || LooksLikeReferenceList(normalized))
+            return false;
+
+        return normalized.Any(static ch => ch is '.' or '!' or '?' or '\u2026')
+            && (StructuredItemEvidenceRegex().IsMatch(normalized)
+                || CountStructuredQuantityUnitEvidence(normalized) >= 1
+                || CountNumberedSteps(normalized) >= 1
+                || LooksLikeStructuredBodyLead(normalized));
+    }
+
+    private static bool EndsLikeCompleteRetrievalContent(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var trimmed = text.TrimEnd();
+        if (trimmed.Length == 0)
+            return false;
+
+        return trimmed[^1] is '.' or '!' or '?' or '\u2026' or '"' or '\u201d' or '\u00bb';
+    }
+
+    private static bool StartsWithUppercaseDigitOrBullet(string text)
+    {
+        foreach (var ch in text)
+        {
+            if (char.IsWhiteSpace(ch))
+                continue;
+            if (ch is '\u2022' or '-' or '\u2013' or '\u2014')
+                return true;
+            if (char.IsDigit(ch))
+                return true;
+            if (char.IsLetter(ch))
+                return char.IsUpper(ch);
+
+            return false;
+        }
+
+        return false;
     }
 
     private static bool LooksLikeHighSignalUnit(ExtractedDocumentUnit unit)
@@ -522,6 +776,8 @@ internal static partial class RetrievalChunkProjector
         var text = InsertStructuralBoundarySpaces(unit.Text);
         var lead = text.Length <= 260 ? text : text[..260];
         if (StructuredContentLexicon.TryExtractStructuredItemTitleLead(lead, out _))
+            return true;
+        if (LooksLikeMetadataPrefixedStructuredItemBoundary(lead))
             return true;
 
         return StructuredItemTitleLeadRegex().IsMatch(lead)
@@ -583,6 +839,116 @@ internal static partial class RetrievalChunkProjector
             || CountStructuredQuantityUnitEvidence(lead) >= 2;
     }
 
+    private static bool LooksLikeMetadataPrefixedStructuredItemBoundary(string lead)
+    {
+        if (!TryStripLeadingStructuredMetadataEntries(lead, out var body))
+            return false;
+        if (body.Length < 24 || GenericStructuredCueLeadRegex().IsMatch(body))
+            return false;
+
+        if (LooksLikeLooseMetadataPrefixedStructuredItemBoundary(body))
+            return true;
+
+        var titleLeadMatch = StructuredItemTitleLeadRegex().Match(body);
+        if (!titleLeadMatch.Success)
+            return false;
+
+        var title = CleanEmbeddedTitleCandidate(titleLeadMatch.Value);
+        if (!IsUsefulMetadataPrefixedTitle(title))
+            return false;
+
+        var afterTitle = body[Math.Min(body.Length, titleLeadMatch.Length)..];
+        if (CountTokens(afterTitle) < 6)
+            return false;
+
+        var metadataOrQuantityEvidence = LeadingStructuredMetadataEntryRegex().IsMatch(lead)
+            || StructuredItemEvidenceRegex().IsMatch(lead)
+            || CountStructuredQuantityUnitEvidence(lead) > 0;
+        var bodyEvidence = afterTitle.Any(static ch => ch is '.' or '!' or '?' or ';')
+            || CountStructuredQuantityUnitEvidence(afterTitle) > 0
+            || CountNumberedSteps(afterTitle) > 0;
+
+        return metadataOrQuantityEvidence && bodyEvidence;
+    }
+
+    private static bool LooksLikeLooseMetadataPrefixedStructuredItemBoundary(string body)
+    {
+        var markerIndex = FindLooseStructuredBodyMarkerIndex(body);
+        if (markerIndex is < 8 or > 130)
+            return false;
+
+        var title = CleanEmbeddedTitleCandidate(body[..markerIndex]);
+        if (!IsUsefulMetadataPrefixedTitle(title))
+            return false;
+
+        var afterMarker = body[markerIndex..];
+        if (CountTokens(afterMarker) < 6)
+            return false;
+
+        return afterMarker.Contains('\u2022', StringComparison.Ordinal)
+            || CountNumberedSteps(afterMarker) > 0
+            || CountStructuredQuantityUnitEvidence(afterMarker) > 0
+            || afterMarker.Any(static ch => ch is '.' or '!' or '?' or ';');
+    }
+
+    private static int FindLooseStructuredBodyMarkerIndex(string body)
+    {
+        var bulletIndex = body.IndexOf('\u2022', StringComparison.Ordinal);
+        if (bulletIndex >= 0)
+            return bulletIndex;
+
+        var markerMatch = LooseStructuredBodyMarkerRegex().Match(body);
+        return markerMatch.Success ? markerMatch.Index : -1;
+    }
+
+    private static bool TryStripLeadingStructuredMetadataEntries(string lead, out string body)
+    {
+        body = HorizontalWhitespaceRegex().Replace(lead ?? string.Empty, " ").TrimStart();
+        var strippedAny = false;
+
+        for (var i = 0; i < 4; i++)
+        {
+            var match = LeadingStructuredMetadataEntryRegex().Match(body);
+            if (!match.Success)
+                break;
+
+            var rest = match.Groups["rest"].Value.TrimStart();
+            if (rest.Length < 12)
+                break;
+
+            strippedAny = true;
+            body = rest;
+        }
+
+        return strippedAny && body.Length > 0;
+    }
+
+    private static bool IsUsefulMetadataPrefixedTitle(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title) || title.Length is < 4 or > 90)
+            return false;
+
+        var tokenCount = CountTokens(title);
+        if (tokenCount is < 2 or > 10)
+            return false;
+        if (!title.Any(char.IsLetter) || title.Count(char.IsDigit) > 2)
+            return false;
+
+        var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(title));
+        if (string.IsNullOrWhiteSpace(normalized)
+            || EmbeddedTitleStopwords.Contains(normalized)
+            || ContainsGenericNavigationTitle(normalized))
+        {
+            return false;
+        }
+
+        var firstToken = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        if (firstToken is null || firstToken.Length >= 5 && firstToken.EndsWith("ez", StringComparison.Ordinal))
+            return false;
+
+        return title.Any(char.IsUpper);
+    }
+
     private static bool ContainsTrailingStructuredFooterTitle(string text)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -634,9 +1000,29 @@ internal static partial class RetrievalChunkProjector
         if (!title.Any(char.IsLetter) || !LooksLikeMostlyUppercaseTitle(title))
             return false;
 
+        if (LooksLikeSpacedLetterFooterTitleNoise(title))
+            return false;
+
+        if (title.Any(char.IsDigit) && tokenCount <= 3)
+            return false;
+
         var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(title));
         return !EmbeddedTitleStopwords.Contains(normalized)
             && !ContainsGenericNavigationTitle(normalized);
+    }
+
+    private static bool LooksLikeSpacedLetterFooterTitleNoise(string title)
+    {
+        var tokens = title
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+            .Select(static token => token.Trim(' ', '-', '\u2010', '\u2011', '\u2012', '\u2013', '\u2014', '.', ',', ';', ':', '|', '/', '\\', '(', ')'))
+            .Where(static token => token.Length > 0)
+            .ToArray();
+        if (tokens.Length < 4)
+            return false;
+
+        var singleLetterTokens = tokens.Count(static token => token.Length == 1 && token.Any(char.IsLetter));
+        return singleLetterTokens >= 4 && singleLetterTokens >= Math.Ceiling(tokens.Length * 0.60d);
     }
 
     private static bool ContainsItemizedSectionHeading(string normalized)
@@ -906,8 +1292,11 @@ internal static partial class RetrievalChunkProjector
         var bestScore = 0;
         foreach (Match match in EmbeddedUppercaseTitleRegex().Matches(text))
         {
-            var candidate = CleanEmbeddedTitleCandidate(match.Groups["title"].Value);
+            var titleGroup = match.Groups["title"];
+            var candidate = CleanEmbeddedTitleCandidate(titleGroup.Value);
             if (!IsUsefulEmbeddedTitle(candidate))
+                continue;
+            if (LooksLikeEmbeddedTitleInsideQuantityRun(text, titleGroup.Index, titleGroup.Length))
                 continue;
 
             var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(candidate));
@@ -938,6 +1327,10 @@ internal static partial class RetrievalChunkProjector
                 ? -1
                 : FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(text))
                     .IndexOf(normalized, StringComparison.Ordinal);
+            var exactIndex = text.IndexOf(candidate, StringComparison.Ordinal);
+            if (exactIndex >= 0 && LooksLikeEmbeddedTitleInsideQuantityRun(text, exactIndex, candidate.Length))
+                continue;
+
             var score = candidate.Length + 35;
             if (index > 40)
                 score += 20;
@@ -952,6 +1345,41 @@ internal static partial class RetrievalChunkProjector
         }
 
         return bestScore >= 30 ? best : null;
+    }
+
+    private static bool LooksLikeEmbeddedTitleInsideQuantityRun(string text, int index, int length)
+    {
+        if (string.IsNullOrWhiteSpace(text) || index <= 0 || length <= 0 || index >= text.Length)
+            return false;
+
+        var afterStart = Math.Min(text.Length, index + length);
+        var after = text[afterStart..];
+        if (ScaleBasisAfterEmbeddedTitleRegex().IsMatch(after))
+            return false;
+
+        var afterWindow = after[..Math.Min(after.Length, 120)];
+        if (!QuantityAfterEmbeddedTitleRegex().IsMatch(afterWindow))
+            return false;
+
+        var before = text[..index];
+        var clause = GetTrailingEmbeddedTitlePrefixClause(before);
+        if (clause.Length < 6)
+            return false;
+
+        return NumericPhraseBeforeEmbeddedTitleRegex().IsMatch(clause)
+            || QuantityDenseMarkerRegex().Matches(clause).Count >= 2;
+    }
+
+    private static string GetTrailingEmbeddedTitlePrefixClause(string before)
+    {
+        if (string.IsNullOrWhiteSpace(before))
+            return string.Empty;
+
+        var normalized = HorizontalWhitespaceRegex().Replace(before, " ").TrimEnd();
+        var boundary = normalized.LastIndexOfAny(['!', '?', '\r', '\n']);
+        var clause = boundary >= 0 ? normalized[(boundary + 1)..] : normalized;
+        clause = clause.Trim();
+        return clause.Length <= 180 ? clause : clause[^180..];
     }
 
     private static string CleanEmbeddedTitleCandidate(string value)
@@ -1050,6 +1478,32 @@ internal static partial class RetrievalChunkProjector
         "pages"
     };
 
+    private static readonly HashSet<string> ShortTitleConnectorTokens = new(StringComparer.Ordinal)
+    {
+        "a",
+        "an",
+        "and",
+        "au",
+        "aux",
+        "avec",
+        "con",
+        "de",
+        "del",
+        "des",
+        "di",
+        "du",
+        "et",
+        "for",
+        "la",
+        "le",
+        "les",
+        "of",
+        "the",
+        "to",
+        "und",
+        "with"
+    };
+
     [GeneratedRegex(@"(?:^|[^\p{L}\p{N}])(?:pour|for|para|per)\s+\d+|(?:^|[^\p{L}\p{N}])\d+\s*[\.)]\s+\p{L}", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex CountOrStepMarkerRegex();
 
@@ -1067,6 +1521,12 @@ internal static partial class RetrievalChunkProjector
 
     [GeneratedRegex(@"^\s*(?:\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|units?|items?|pieces?|min|h)\b|(?:materials?|components?|requirements?|items?|elements?|steps?|method|procedure|procedures?)\b)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex StructuredBodyLeadEvidenceRegex();
+
+    [GeneratedRegex(@"^\s*[\p{L}][\p{L}'\u2019\-]{1,24}(?:\s+[\p{L}][\p{L}'\u2019\-]{1,24}){0,3}\s*:\s*(?:\d+(?:[,.]\d+)?\s*(?:s|sec|secs|secondes?|seconds?|min|mins?|minutes?|h|hr|hrs?|hours?|heures?|j|jr|jours?|d|days?|dias?|g|kg|mg|ml|cl|l|oz|lb|mm|cm|m|km|units?|unites?|items?|pieces?)\b|[^\.;!?]{1,36})(?<rest>\s+.+)$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex LeadingStructuredMetadataEntryRegex();
+
+    [GeneratedRegex(@"\s(?:[\u2022*]\s+|\d{1,3}\s*[\.)]\s+\p{L})", RegexOptions.CultureInvariant)]
+    private static partial Regex LooseStructuredBodyMarkerRegex();
 
     [GeneratedRegex(@"(?:^|[^\p{L}\p{N}])\d+\s*[\.)]\s+\p{L}", RegexOptions.CultureInvariant)]
     private static partial Regex NumberedStepRegex();
@@ -1128,6 +1588,15 @@ internal static partial class RetrievalChunkProjector
     [GeneratedRegex(@"(?<![\p{L}\p{N}])(?<title>[\p{Lu}][\p{Lu}\p{Nd}'\u2019\-\s]{4,90}?)(?=(?:\s+\d{1,4}\s*(?:g|kg|mg|ml|cl|l|oz|lb|mm|cm|m|bar|pa|kpa|mpa|v|a|w|hz|rpm|%|min|h)\b|\s+\p{Lu}[\p{Ll}]{2,}|\s+\p{Lu}['\u2019]\p{Ll}{2,}|\s+\p{Ll}{1,4}\.|\s*$|[\.:\-\u2013\u2014]))", RegexOptions.CultureInvariant)]
     private static partial Regex EmbeddedUppercaseTitleRegex();
 
+    [GeneratedRegex(@"^\s*(?:pour|for|para|per|fur|fuer|zu|a|da)\s+\d{1,3}\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex ScaleBasisAfterEmbeddedTitleRegex();
+
+    [GeneratedRegex(@"^\s*(?:[\p{L}\p{N}'\u2019\-\.\u00ae&]+\s+){0,8}\d+(?:[,.]\d+)?\s*[\p{L}%]{1,12}\.?\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex QuantityAfterEmbeddedTitleRegex();
+
+    [GeneratedRegex(@"\b\d+(?:[,.]\d+)?(?:\s+[\p{L}\p{N}'\u2019\.\-\u00ae&]{1,24}){0,10}\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex NumericPhraseBeforeEmbeddedTitleRegex();
+
     [GeneratedRegex(@"(?<=[\p{Lu}])\d{1,4}$", RegexOptions.CultureInvariant)]
     private static partial Regex MostlyUppercaseTrailingMeasureNumberRegex();
 
@@ -1142,6 +1611,15 @@ internal static partial class RetrievalChunkProjector
 
     [GeneratedRegex(@"\b\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|units?|items?|elements?|parts?|pieces?)\s+(?:de|d['\u2019]|du|des|of)\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex DanglingStructuredContinuationTailRegex();
+
+    [GeneratedRegex(@"(?:^|\s)\d{1,4}\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex ShortNumericFooterRegex();
+
+    [GeneratedRegex(@"^\d{1,4}(?:\s*(?:[-\u2013\u2014\u2022\u00b7/]|to|a|and|et|und)\s*\d{1,4}|\s+\d{1,4})+$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex LowSubstanceNumericRangeRegex();
+
+    [GeneratedRegex(@"\p{L}[\p{L}\p{M}'\u2019\-]{2,}", RegexOptions.CultureInvariant)]
+    private static partial Regex SubstantiveWordRegex();
 }
 
 internal sealed record ProjectedRetrievalChunk(

@@ -858,7 +858,7 @@ public sealed class ToolRouterPlanNormalizationTests
         var explorationQueries = ToolAgentOrchestrator.BuildPlanningExplorationRetrievalQueriesForTests(userMessage);
 
         Assert.True(explorationQueries.Length > 12);
-        Assert.InRange(queries.Length, 1, 4);
+        Assert.InRange(queries.Length, 1, 6);
         Assert.DoesNotContain(queries, query => string.Equals(query, "sommaire", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, query => string.Equals(query, "table des matieres", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, query => string.Equals(query, "index", StringComparison.OrdinalIgnoreCase));
@@ -880,7 +880,7 @@ public sealed class ToolRouterPlanNormalizationTests
                 .Select(ToolAgentOrchestrator.NormalizeInitialSourceBackedPlanningProbeFamilyKeyForTests)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Count());
-        Assert.Equal(8, call.Args.GetProperty("topK").GetInt32());
+        Assert.Equal(12, call.Args.GetProperty("topK").GetInt32());
         Assert.Equal("source_exploration", call.Args.GetProperty("researchMode").GetString());
         Assert.True(call.Args.GetProperty("includeResearchSurfaces").GetBoolean());
 
@@ -918,7 +918,7 @@ public sealed class ToolRouterPlanNormalizationTests
         var explorationQueries = ToolAgentOrchestrator.BuildPlanningExplorationRetrievalQueriesForTests(userMessage);
 
         Assert.True(explorationQueries.Length > 12);
-        Assert.InRange(queries.Length, 1, 4);
+        Assert.InRange(queries.Length, 1, 6);
         Assert.DoesNotContain(queries, query => string.Equals(query, "sommaire", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, query => string.Equals(query, "table des matieres", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, query => string.Equals(query, "index", StringComparison.OrdinalIgnoreCase));
@@ -931,7 +931,7 @@ public sealed class ToolRouterPlanNormalizationTests
         Assert.Equal(
             queries.Length,
             queries.Select(ToolAgentOrchestrator.NormalizeRagQueryForTests).Distinct(StringComparer.OrdinalIgnoreCase).Count());
-        Assert.Equal(8, call.Args.GetProperty("topK").GetInt32());
+        Assert.Equal(12, call.Args.GetProperty("topK").GetInt32());
         Assert.Equal("broad", call.Args.GetProperty("mode").GetString());
         Assert.Equal("source_exploration", call.Args.GetProperty("researchMode").GetString());
         Assert.True(call.Args.GetProperty("includeResearchSurfaces").GetBoolean());
@@ -950,7 +950,7 @@ public sealed class ToolRouterPlanNormalizationTests
 
         var queries = ToolAgentOrchestrator.BuildInitialSourceBackedPlanningProbeQueriesForTests(userMessage);
 
-        Assert.InRange(queries.Length, 1, 4);
+        Assert.InRange(queries.Length, 1, 6);
         Assert.Contains(queries, query => query.Contains("repas", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(queries, query => ContainsProbeToken(query, "sais"));
         Assert.DoesNotContain(queries, query => ContainsProbeToken(query, "pas"));
@@ -966,6 +966,32 @@ public sealed class ToolRouterPlanNormalizationTests
             => ToolAgentOrchestrator.NormalizeRagQueryForTests(query)
                 .Split(' ', StringSplitOptions.RemoveEmptyEntries)
                 .Contains(token, StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public void Detailed_weekly_meal_plan_initial_probe_keeps_user_supplied_content_kind_and_axes()
+    {
+        const string userMessage = "J'ai besoin que tu me fasses un plan de repas pour la semaine du lundi au vendredi en y mettant petit-dejeuner, diner, souper et collation. Utilise uniquement les recettes et sources disponibles, evite les doublons de sources inutiles et donne un format clair, user-friendly.";
+
+        var queries = ToolAgentOrchestrator.BuildInitialSourceBackedPlanningProbeQueriesForTests(userMessage);
+        var intentQuery = Assert.Single(queries, query =>
+        {
+            var normalized = ToolAgentOrchestrator.NormalizeRagQueryForTests(query);
+            return normalized.Contains("recettes", StringComparison.Ordinal)
+                && normalized.Contains("repas", StringComparison.Ordinal)
+                && normalized.Contains("lundi", StringComparison.Ordinal)
+                && normalized.Contains("vendredi", StringComparison.Ordinal)
+                && normalized.Contains("petit", StringComparison.Ordinal)
+                && normalized.Contains("dejeuner", StringComparison.Ordinal)
+                && normalized.Contains("diner", StringComparison.Ordinal)
+                && normalized.Contains("souper", StringComparison.Ordinal)
+                && normalized.Contains("collation", StringComparison.Ordinal);
+        });
+
+        Assert.DoesNotContain("doublons", intentQuery, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("friendly", intentQuery, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("format", intentQuery, StringComparison.OrdinalIgnoreCase);
+        Assert.True(intentQuery.Length <= 90, $"Unexpectedly long initial probe query: {intentQuery}");
     }
 
     [Fact]

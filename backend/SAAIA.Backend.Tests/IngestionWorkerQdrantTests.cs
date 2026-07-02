@@ -132,6 +132,11 @@ public sealed class IngestionWorkerQdrantTests
                     3)),
             TokenCount = 120
         };
+        var lowSubstance = content with
+        {
+            Text = "31",
+            TokenCount = 1
+        };
         var balancedMixedNavigationContent = content with
         {
             ContentRole = RetrievalContentClassifier.MixedNavigationContentRole,
@@ -152,6 +157,8 @@ public sealed class IngestionWorkerQdrantTests
         Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(sparse));
         Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(replacementChars));
         Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(ocrNoise));
+        Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(lowSubstance));
+        Assert.Equal("low_substance", IngestionWorker.ResolveRetrievalChunkEmbeddingRejectionReason(lowSubstance));
     }
 
     [Fact]
@@ -200,18 +207,25 @@ public sealed class IngestionWorkerQdrantTests
                     3)),
             TokenCount = 120
         };
+        var lowSubstance = content with
+        {
+            ChunkIndex = 6,
+            Text = "31",
+            TokenCount = 1
+        };
 
         var summary = IngestionWorker.BuildRetrievalChunkQualitySummary(
-            [content, navigation, sparse, replacementChars, empty, ocrNoise]);
+            [content, navigation, sparse, replacementChars, empty, ocrNoise, lowSubstance]);
 
-        Assert.Equal(6, summary.TotalChunkCount);
+        Assert.Equal(7, summary.TotalChunkCount);
         Assert.Equal(1, summary.SearchableChunkCount);
-        Assert.Equal(5, summary.RejectedChunkCount);
+        Assert.Equal(6, summary.RejectedChunkCount);
         Assert.Equal(1, summary.NavigationChunkCount);
         Assert.Equal(1, summary.SparseRejectedChunkCount);
         Assert.Equal(1, summary.ReplacementCharRejectedChunkCount);
         Assert.Equal(1, summary.EmptyTextRejectedChunkCount);
         Assert.Equal(1, summary.OcrNoiseRejectedChunkCount);
+        Assert.Equal(1, summary.OtherRejectedChunkCount);
         Assert.False(summary.ManualReviewRecommended);
 
         var rejectedOnly = IngestionWorker.BuildRetrievalChunkQualitySummary(

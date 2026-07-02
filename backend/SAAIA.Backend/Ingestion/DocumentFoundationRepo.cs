@@ -628,10 +628,10 @@ WHERE tenant_id=@tenant_id
         => IdUtil.DeterministicGuid($"{revisionId:N}|navigation-entry|{entryIndex}");
 
     internal static string NormalizePostgresTextForStorage(string? text)
-        => PostgresTextSanitizer.Clean(text);
+        => PostgresTextSanitizer.Clean(PdfTextSanitizer.ForStorage(text));
 
     private static string? NormalizeOptionalPostgresTextForStorage(string? text)
-        => PostgresTextSanitizer.CleanOrNull(text);
+        => PostgresTextSanitizer.CleanOrNull(PdfTextSanitizer.ForStorage(text));
 
     private static string[] NormalizePostgresTextArrayForStorage(IEnumerable<string>? values)
         => PostgresTextSanitizer.CleanArray(values);

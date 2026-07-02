@@ -88,6 +88,7 @@ infra/req*.json
 # Local CI/runtime reports
 out/
 artifacts/runtime-ci/
+artifacts/chunk-audit/
 artifacts/llm-validation/
 artifacts/llama-*/
 artifacts/llm-bench-*/
@@ -105,6 +106,7 @@ artifacts/neff-page*.txt
 artifacts/manual-test-checklist/*.xlsx
 Test Bench/
 support-bundles/
+tmp/
 
 # Ignore build artifacts anywhere (client included)
 **/.vs/

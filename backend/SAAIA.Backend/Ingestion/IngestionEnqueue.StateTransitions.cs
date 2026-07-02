@@ -79,9 +79,12 @@ WHERE tenant_id=@tenant_id
             const string requestCancelRunningJobsSql = """
 UPDATE ingestion_jobs
 SET payload = jsonb_set(
-        jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true),
-        '{control,requestedAction}',
-        to_jsonb('cancel'::text),
+        COALESCE(payload, '{}'::jsonb),
+        '{control}',
+        COALESCE(payload->'control', '{}'::jsonb)
+            || jsonb_build_object(
+                'cancelRequested', true,
+                'requestedAction', 'cancel'::text),
         true)
 WHERE tenant_id=@tenant_id
   AND doc_path=@doc_path
@@ -150,9 +153,12 @@ WHERE tenant_id=@tenant_id
         const string requestCancelRunningDeleteJobsSql = """
 UPDATE ingestion_jobs
 SET payload = jsonb_set(
-        jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true),
-        '{control,requestedAction}',
-        to_jsonb('cancel'::text),
+        COALESCE(payload, '{}'::jsonb),
+        '{control}',
+        COALESCE(payload->'control', '{}'::jsonb)
+            || jsonb_build_object(
+                'cancelRequested', true,
+                'requestedAction', 'cancel'::text),
         true)
 WHERE tenant_id=@tenant_id
   AND doc_path=@doc_path
@@ -267,9 +273,12 @@ SET status='failed',
     locked_at=NULL,
     available_at=now(),
     payload = jsonb_set(
-        jsonb_set(COALESCE(payload, '{}'::jsonb), '{control,cancelRequested}', 'true'::jsonb, true),
-        '{control,requestedAction}',
-        to_jsonb('cancel'::text),
+        COALESCE(payload, '{}'::jsonb),
+        '{control}',
+        COALESCE(payload->'control', '{}'::jsonb)
+            || jsonb_build_object(
+                'cancelRequested', true,
+                'requestedAction', 'cancel'::text),
         true)
 WHERE tenant_id=@tenant_id
   AND doc_path=@doc_path
