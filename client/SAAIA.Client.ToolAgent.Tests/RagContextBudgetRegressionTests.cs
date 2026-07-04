@@ -11392,6 +11392,139 @@ Pour 20 churros Churros avec sauce au chocolat et au piment 1. Versez 200 ml d'e
     }
 
     [Fact]
+    public void Weekly_meal_planning_filters_metadata_titles_before_building_grid()
+    {
+        const string query = "J'ai besoin que tu me fasses un plan de repas pour la semaine du lundi au vendredi en y mettant petit-dejeuner, diner, souper et gouter / collation.";
+        const string payload = """
+        {
+          "hits": [
+            {
+              "docPath": "Cuisine/good.pdf",
+              "docName": "good.pdf",
+              "pageStart": 35,
+              "pageEnd": 35,
+              "retrievalQuery": "petit-dejeuner options",
+              "retrievalQueryIndex": 0,
+              "retrievalHitRank": 0,
+              "selectionHints": { "evidenceRole": "actionable_item", "actionabilityScore": 10 },
+              "excerpt": "Fajitas dejeuner. Ingredients : tortillas, oeufs, poivron. Preparation : cuire les oeufs puis garnir les tortillas.",
+              "fullText": "Fajitas dejeuner. Ingredients : tortillas, oeufs, poivron. Preparation : cuire les oeufs puis garnir les tortillas.",
+              "contextualSnippet": "Matched profile title: Fajitas dejeuner\nDocument: good.pdf\nEvidence: Ingredients : tortillas, oeufs, poivron. Preparation : cuire les oeufs.",
+              "matchedContentCards": [
+                {
+                  "title": "Fajitas dejeuner",
+                  "kind": "unit_exact_v1",
+                  "evidence": {
+                    "quantityFacts": [
+                      { "label": "oeufs", "value": 2, "unit": "", "sourceText": "2 oeufs" }
+                    ],
+                    "facts": [
+                      { "kind": "procedure", "label": "preparation", "value": "cuire les oeufs", "sourceText": "Preparation : cuire les oeufs puis garnir les tortillas." }
+                    ]
+                  }
+                }
+              ],
+              "score": 1.2
+            },
+            {
+              "docPath": "Cuisine/noise.pdf",
+              "docName": "noise.pdf",
+              "pageStart": 2,
+              "pageEnd": 2,
+              "retrievalQuery": "diner options",
+              "retrievalQueryIndex": 1,
+              "retrievalHitRank": 0,
+              "selectionHints": { "evidenceRole": "actionable_item", "actionabilityScore": 10 },
+              "excerpt": "Quantites donnees pour six personnes. Ingredients : farine, eau. Preparation : melanger.",
+              "fullText": "Quantites donnees pour six personnes. Ingredients : farine, eau. Preparation : melanger.",
+              "contextualSnippet": "Matched profile title: Quantites donnees\nDocument: noise.pdf\nEvidence: Ingredients : farine, eau. Preparation : melanger.",
+              "matchedContentCards": [ { "title": "Quantites donnees", "kind": "unit_exact_v1" } ],
+              "score": 1.1
+            },
+            {
+              "docPath": "Cuisine/noise.pdf",
+              "docName": "noise.pdf",
+              "pageStart": 3,
+              "pageEnd": 3,
+              "retrievalQuery": "souper options",
+              "retrievalQueryIndex": 2,
+              "retrievalHitRank": 0,
+              "selectionHints": { "evidenceRole": "actionable_item", "actionabilityScore": 10 },
+              "excerpt": "Degre de difficulte. Ingredients : pommes, eau. Preparation : couper et melanger.",
+              "fullText": "Degre de difficulte. Ingredients : pommes, eau. Preparation : couper et melanger.",
+              "contextualSnippet": "Matched profile title: Degre de difficulte\nDocument: noise.pdf\nEvidence: Ingredients : pommes, eau. Preparation : couper.",
+              "matchedContentCards": [ { "title": "Degre de difficulte", "kind": "unit_exact_v1" } ],
+              "score": 1.0
+            },
+            {
+              "docPath": "Cuisine/noise.pdf",
+              "docName": "noise.pdf",
+              "pageStart": 4,
+              "pageEnd": 4,
+              "retrievalQuery": "collation options",
+              "retrievalQueryIndex": 3,
+              "retrievalHitRank": 0,
+              "selectionHints": { "evidenceRole": "actionable_item", "actionabilityScore": 10 },
+              "excerpt": "Toutes les recettes. Ingredients : lait, sucre. Preparation : chauffer.",
+              "fullText": "Toutes les recettes. Ingredients : lait, sucre. Preparation : chauffer.",
+              "contextualSnippet": "Matched profile title: Toutes les recettes\nDocument: noise.pdf\nEvidence: Ingredients : lait, sucre. Preparation : chauffer.",
+              "matchedContentCards": [ { "title": "Toutes les recettes", "kind": "unit_exact_v1" } ],
+              "score": 0.99
+            },
+            {
+              "docPath": "Cuisine/noise.pdf",
+              "docName": "noise.pdf",
+              "pageStart": 5,
+              "pageEnd": 5,
+              "retrievalQuery": "collation options",
+              "retrievalQueryIndex": 3,
+              "retrievalHitRank": 1,
+              "selectionHints": { "evidenceRole": "actionable_item", "actionabilityScore": 10 },
+              "excerpt": "Scones aux des canneberges serts ingredients. Ingredients : canneberges, farine. Preparation : cuire.",
+              "fullText": "Scones aux des canneberges serts ingredients. Ingredients : canneberges, farine. Preparation : cuire.",
+              "contextualSnippet": "Matched profile title: Scones aux des canneberges serts ingredients\nDocument: noise.pdf\nEvidence: Ingredients : canneberges, farine. Preparation : cuire.",
+              "matchedContentCards": [ { "title": "Scones aux des canneberges serts ingredients", "kind": "unit_exact_v1" } ],
+              "score": 0.98
+            },
+            {
+              "docPath": "Cuisine/noise.pdf",
+              "docName": "noise.pdf",
+              "pageStart": 6,
+              "pageEnd": 6,
+              "retrievalQuery": "diner options",
+              "retrievalQueryIndex": 1,
+              "retrievalHitRank": 1,
+              "selectionHints": { "evidenceRole": "actionable_item", "actionabilityScore": 10 },
+              "excerpt": "Sections. Ingredients : riz, legumes. Preparation : cuire puis servir.",
+              "fullText": "Sections. Ingredients : riz, legumes. Preparation : cuire puis servir.",
+              "contextualSnippet": "Matched profile title: Sections\nDocument: noise.pdf\nEvidence: Ingredients : riz, legumes. Preparation : cuire.",
+              "matchedContentCards": [ { "title": "Sections", "kind": "unit_exact_v1" } ],
+              "score": 0.97
+            }
+          ]
+        }
+        """;
+
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item
+        {
+            ToolName = "rag.multi_search",
+            Result = doc.RootElement.Clone()
+        });
+
+        var answer = ToolAgentOrchestrator.BuildSourceBackedPlanningAnswerForTests(toolResults, "fr", query);
+
+        Assert.Contains("Fajitas", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Quantites donnees", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Degre de difficulte", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Toutes les recettes", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Sections", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Scones aux des canneberges serts ingredients", answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Matched profile", answer, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Explicit_planning_axes_fallback_returns_structured_slots_instead_of_loose_options()
     {
         const string query = "Je cherche a avoir un plan pour la semaine, petit-dejeuner, midi et soir du lundi au vendredi.";

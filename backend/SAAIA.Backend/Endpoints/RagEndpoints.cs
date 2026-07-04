@@ -36078,6 +36078,7 @@ LIMIT 500;
             ? null
             : docPath.Trim().Replace('\\', '/').TrimStart('/');
         category = DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(category);
+        category = string.IsNullOrWhiteSpace(category) ? null : category.ToLowerInvariant();
         chunkType = string.IsNullOrWhiteSpace(chunkType) ? null : chunkType.Trim();
         contentRole = string.IsNullOrWhiteSpace(contentRole) ? null : contentRole.Trim();
         var normalizedPageStart = pageStart is > 0 ? pageStart.Value : (int?)null;

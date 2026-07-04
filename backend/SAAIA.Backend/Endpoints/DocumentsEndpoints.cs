@@ -528,6 +528,11 @@ WHERE tenant_id=@tenant AND status='indexed';";
         categoryRef = DocumentsCategoryScopeResolver.NormalizeCategoryRefOrNull(categoryRef);
         docPath = DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(docPath);
         q = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
+        var normalizedQ = NormalizeNavigationLookupQuery(q);
+        var queryTokens = q is null
+            ? Array.Empty<string>()
+            : RagEndpoints.ExtractLexicalQueryTokens(q).ToArray();
+        var requiredTokenMatches = queryTokens.Length <= 1 ? queryTokens.Length : Math.Min(2, queryTokens.Length);
         var lim = Math.Clamp(limit ?? 120, 1, 200);
         var off = Math.Max(offset ?? 0, 0);
 
@@ -575,8 +580,11 @@ navigation_rows AS (
         ne.target_chunk_id IS NOT NULL AS ""HasTargetChunk"",
         ne.target_anchor_id IS NOT NULL AS ""HasTargetAnchor"",
         NULL::text AS ""SourceKind"",
+        nav_token_match.token_overlap AS ""TokenOverlap"",
         CASE
             WHEN @q IS NULL THEN 2
+            WHEN ne.normalized_label LIKE ('%' || @normalizedQ || '%') THEN 0
+            WHEN @requiredTokenMatches > 0 AND nav_token_match.token_overlap >= @requiredTokenMatches THEN 0
             WHEN lower(ne.label) LIKE ('%' || lower(@q) || '%') THEN 0
             WHEN lower(d.doc_name) LIKE ('%' || lower(@q) || '%') OR lower(d.doc_path) LIKE ('%' || lower(@q) || '%') THEN 1
             ELSE 2
@@ -585,6 +593,11 @@ navigation_rows AS (
     JOIN document_navigation_entries ne
       ON ne.tenant_id = @tenant
      AND ne.revision_id = d.revision_id
+    CROSS JOIN LATERAL (
+        SELECT COUNT(*)::int AS token_overlap
+        FROM unnest(@queryTokens::text[]) AS token
+        WHERE token = ANY(ne.label_tokens)
+    ) nav_token_match
     WHERE NULLIF(BTRIM(ne.label), '') IS NOT NULL
 ),
 anchor_rows AS (
@@ -606,8 +619,11 @@ anchor_rows AS (
         a.retrieval_chunk_id IS NOT NULL AS ""HasTargetChunk"",
         TRUE AS ""HasTargetAnchor"",
         a.source_kind AS ""SourceKind"",
+        anchor_token_match.token_overlap AS ""TokenOverlap"",
         CASE
             WHEN @q IS NULL THEN 2
+            WHEN a.normalized_title LIKE ('%' || @normalizedQ || '%') THEN 0
+            WHEN @requiredTokenMatches > 0 AND anchor_token_match.token_overlap >= @requiredTokenMatches THEN 0
             WHEN lower(a.title) LIKE ('%' || lower(@q) || '%') THEN 0
             WHEN lower(d.doc_name) LIKE ('%' || lower(@q) || '%') OR lower(d.doc_path) LIKE ('%' || lower(@q) || '%') THEN 1
             ELSE 2
@@ -616,6 +632,11 @@ anchor_rows AS (
     JOIN document_title_anchors a
       ON a.tenant_id = @tenant
      AND a.revision_id = d.revision_id
+    CROSS JOIN LATERAL (
+        SELECT COUNT(*)::int AS token_overlap
+        FROM unnest(@queryTokens::text[]) AS token
+        WHERE token = ANY(a.title_tokens)
+    ) anchor_token_match
     WHERE NULLIF(BTRIM(a.title), '') IS NOT NULL
 ),
 all_rows AS (
@@ -633,6 +654,7 @@ SELECT *
 FROM ranked
 ORDER BY
   ""RankBucket"" ASC,
+  ""TokenOverlap"" DESC,
   ""DocPath"" ASC,
   COALESCE(""TargetPageStart"", ""SourcePage"", 2147483647) ASC,
   ""Kind"" ASC,
@@ -641,7 +663,7 @@ LIMIT @lim OFFSET @off;";
 
         var rows = (await conn.QueryAsync<NavigationRow>(new CommandDefinition(
                 sql,
-                new { tenant = tenantId, path, docId, docPath, q, lim, off },
+                new { tenant = tenantId, path, docId, docPath, q, normalizedQ, queryTokens, requiredTokenMatches, lim, off },
                 cancellationToken: ct)))
             .ToList();
         var total = rows.Count == 0 ? 0 : rows[0].Total;
@@ -2292,6 +2314,13 @@ WHERE d.tenant_id=@tenant
         return trimmed.Length == 0 ? null : trimmed;
     }
 
+    private static string? NormalizeNavigationLookupQuery(string? value)
+    {
+        var normalized = ExactMatchEntryExtractor.NormalizeForLookup(value ?? string.Empty);
+        normalized = RagEndpoints.FoldDiacritics(normalized).ToLowerInvariant().Trim();
+        return normalized.Length == 0 ? null : normalized;
+    }
+
     private sealed class CatalogCategoriesCursor
     {
         public string? Path { get; set; }
@@ -2372,6 +2401,7 @@ WHERE d.tenant_id=@tenant
         public bool HasTargetChunk { get; set; }
         public bool HasTargetAnchor { get; set; }
         public string? SourceKind { get; set; }
+        public int TokenOverlap { get; set; }
         public int RankBucket { get; set; }
         public int Total { get; set; }
     }

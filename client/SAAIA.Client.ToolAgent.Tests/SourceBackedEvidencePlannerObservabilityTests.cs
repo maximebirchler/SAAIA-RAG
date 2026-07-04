@@ -523,6 +523,18 @@ public sealed class SourceBackedEvidencePlannerObservabilityTests
             "Plan de maintenance A"));
     }
 
+    [Theory]
+    [InlineData("Matched profile")]
+    [InlineData("Quantites donnees")]
+    [InlineData("Degre de difficulte")]
+    [InlineData("Sections")]
+    [InlineData("Toutes les recettes")]
+    [InlineData("Scones aux des canneberges serts ingredients")]
+    public void Structured_planning_rejects_observed_metadata_and_field_label_titles(string title)
+    {
+        Assert.True(ToolAgentOrchestrator.LooksLikeNoisyStructuredPlanningCandidateTitleForTests(title));
+    }
+
     [Fact]
     public void Deterministic_structured_planning_exploration_avoids_decorative_generic_queries()
     {

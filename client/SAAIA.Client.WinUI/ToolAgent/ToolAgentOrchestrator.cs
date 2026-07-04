@@ -4435,11 +4435,12 @@ OUTPUT_RULES:
                 .Where(term => !axisTriedQueries.Any(query => QueryMentionsAnyStructuredAxisTerm(query, new[] { term })))
                 .Take(8)
                 .ToArray();
-            var suggestedPivots = unusedPivots
-                .Concat(axisTerms)
-                .Distinct(StringComparer.Ordinal)
-                .Take(8)
-                .ToArray();
+            var suggestedPivots = unusedPivots.Length > 0
+                ? unusedPivots
+                : axisTerms
+                    .Distinct(StringComparer.Ordinal)
+                    .Take(8)
+                    .ToArray();
             var failedOrLow = axisRuns
                 .Where(static run => run.HitCount <= 1 || run.Busy || !string.IsNullOrWhiteSpace(run.Error))
                 .OrderBy(static run => run.HitCount)
@@ -4612,7 +4613,8 @@ OUTPUT_RULES:
                 .ToList()
             : acceptedPool;
 
-        foreach (var candidate in accepted.Take(Math.Max(0, maxLines - lines.Count - 1)))
+        var reservedTailLines = hasStructuredAxes ? 2 : 1;
+        foreach (var candidate in accepted.Take(Math.Max(0, maxLines - lines.Count - reservedTailLines)))
         {
             lines.Add(
                 "stage=candidate|decision=accepted"
@@ -4620,6 +4622,28 @@ OUTPUT_RULES:
                 + $"|title={FormatPlanningTraceValue(candidate.Title)}"
                 + $"|doc={FormatPlanningTraceValue(candidate.Hit.DocPath)}"
                 + $"|page={candidate.Hit.PageStart}");
+        }
+
+        if (hasStructuredAxes)
+        {
+            var slotLabels = DetectRequestedPlanningSlotAxisLabels(effectiveUserMessage, language);
+            _ = BuildStructuredSourceBackedSlotAwareGrid(
+                accepted,
+                slotLabels,
+                targetSlots,
+                effectiveUserMessage,
+                allowSourcedRotation: false,
+                requireDistinctItems: true,
+                out var routeAwareFit);
+            lines.Add(
+                "stage=slot_fit"
+                + $"|assigned_slots={routeAwareFit.AssignedSlots}"
+                + $"|required_slots={targetSlots}"
+                + $"|route_evidence={FormatPlanningTraceBool(routeAwareFit.HasRouteEvidence)}"
+                + $"|routed_pool={routeAwareFit.RoutedPool}"
+                + $"|neutral_pool={routeAwareFit.NeutralPool}"
+                + $"|primary_pools={FormatPlanningTraceValue(FormatStructuredPlanningSlotPoolCounts(slotLabels, routeAwareFit.PrimaryPools))}"
+                + $"|alternative_pools={FormatPlanningTraceValue(FormatStructuredPlanningSlotPoolCounts(slotLabels, routeAwareFit.AlternativePools))}");
         }
 
         lines.Add(

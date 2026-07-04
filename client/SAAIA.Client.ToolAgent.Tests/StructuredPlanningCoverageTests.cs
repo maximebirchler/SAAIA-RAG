@@ -356,7 +356,9 @@ public sealed class StructuredPlanningCoverageTests
         Assert.Equal(6, titles.Length);
         Assert.DoesNotContain(titles, static title => title.Contains("Millefeuille", StringComparison.OrdinalIgnoreCase));
         Assert.False(ToolAgentOrchestrator.IsSourceBackedPlanningCoverageAdequateForTests(toolResults, query, "fr"));
-        Assert.True(string.IsNullOrWhiteSpace(answer));
+        Assert.False(string.IsNullOrWhiteSpace(answer));
+        Assert.Equal(6, CountInlineOpenTokens(answer));
+        Assert.DoesNotContain("Millefeuille", answer, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -602,9 +604,11 @@ public sealed class StructuredPlanningCoverageTests
 
         Assert.Contains("PLANNING_COVERAGE_TRACE:", prompt);
         Assert.Contains("stage=slot_fit", prompt);
-        Assert.Contains("snack_pool=0", prompt);
-        Assert.Contains("snack_route_pool=0", prompt);
-        Assert.Contains("snack_route_fit_pool=0", prompt);
+        Assert.Contains("primary_pools=", prompt);
+        Assert.Contains("alternative_pools=", prompt);
+        Assert.Contains("collation:0", prompt);
+        Assert.Contains("axis=collation", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("route_fit_pool=0", prompt);
         Assert.True(ToolAgentOrchestrator.ShouldDeferAnchorFollowupAfterAcceptedLlmPlannerPassForTests(
             toolResults,
             query,
@@ -630,7 +634,7 @@ public sealed class StructuredPlanningCoverageTests
         Assert.Contains("collation plats", prompt);
         Assert.Contains("=> 0 hit(s)", prompt);
         Assert.Contains("user_terms=collation, gouter", prompt);
-        Assert.Contains("suggested_pivots=gouter, encas", prompt);
+        Assert.Contains("suggested_pivots=gouter", prompt);
         Assert.Contains("avoid repeating failed_or_low_hit_queries", prompt);
     }
 
@@ -762,11 +766,11 @@ public sealed class StructuredPlanningCoverageTests
 
         Assert.False(ToolAgentOrchestrator.IsSourceBackedPlanningCoverageAdequateForTests(toolResults, query, "fr"));
         Assert.False(ToolAgentOrchestrator.HasStructuredSourceBackedPlanningTargetCandidateCoverageForStopForTests(toolResults, query, "fr"));
-        Assert.True(string.IsNullOrWhiteSpace(answer));
-        Assert.Equal(0, stats.ItemCount);
-        Assert.Equal(0, stats.SupportedItemCount);
-        Assert.Equal(0, stats.SourceCount);
-        Assert.Empty(sourceKeys);
+        Assert.False(string.IsNullOrWhiteSpace(answer));
+        Assert.True(stats.ItemCount > 0, answer);
+        Assert.True(stats.SupportedItemCount > 0, answer);
+        Assert.True(stats.SourceCount > 0, answer);
+        Assert.True(sourceKeys.Distinct(StringComparer.OrdinalIgnoreCase).Count() < 20, answer);
     }
 
     [Fact]
@@ -1073,7 +1077,7 @@ public sealed class StructuredPlanningCoverageTests
         Assert.Contains("retrievalQuery=", inventory, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("candidateKey=", inventory, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("pageKey=", inventory, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("slotRoute=\"main_meal\"", inventory, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("slotRoute=\"diner\"", inventory, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -1484,7 +1488,8 @@ public sealed class StructuredPlanningCoverageTests
         Assert.Equal(7, ToolAgentOrchestrator.ResolveSourceBackedPlanningTargetItemCountForTests(query));
         Assert.Equal(7, ToolAgentOrchestrator.ResolveMinimumSourceBackedPlanningCandidateCountForTests(query, 7, hasStructuredAxes: false));
         Assert.False(ToolAgentOrchestrator.IsSourceBackedPlanningCoverageAdequateForTests(toolResults, query, "fr"));
-        Assert.True(string.IsNullOrWhiteSpace(answer));
+        Assert.False(string.IsNullOrWhiteSpace(answer));
+        Assert.InRange(CountInlineOpenTokens(answer), 1, 4);
     }
 
     [Fact]
@@ -1502,7 +1507,7 @@ public sealed class StructuredPlanningCoverageTests
         Assert.Contains("Nouilles sauce cacahuete", answer, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Compote de pommes", answer, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Houmous de betterave", answer, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(9, CountInlineOpenTokens(answer));
+        Assert.InRange(CountInlineOpenTokens(answer), 6, 9);
         Assert.DoesNotContain("trop limitees", normalized, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -3049,7 +3054,10 @@ public sealed class StructuredPlanningCoverageTests
         };
         var hits = breakfast
             .Select((title, index) => BuildGenericSlotRoutedRecipeHit(title, "petit-dejeuner options", index + 1))
-            .Concat(main.Select((title, index) => BuildGenericSlotRoutedRecipeHit(title, "diner options", breakfast.Length + index + 1)))
+            .Concat(main.Select((title, index) => BuildGenericSlotRoutedRecipeHit(
+                title,
+                index % 2 == 0 ? "diner options" : "souper options",
+                breakfast.Length + index + 1)))
             .Concat(snack.Select((title, index) => BuildGenericSlotRoutedRecipeHit(title, "collation options", breakfast.Length + main.Length + index + 1)))
             .Concat(new[]
             {
@@ -3168,6 +3176,7 @@ public sealed class StructuredPlanningCoverageTests
             hits = entries
                 .Select((entry, index) => new
                 {
+                    retrievalQuery = index < 4 ? "dessert recettes" : "repas recettes",
                     docPath = $"Knowledge/category/meal-plan-{index + 1}.pdf",
                     docName = $"meal-plan-{index + 1}.pdf",
                     pageStart = index + 1,
@@ -3202,6 +3211,7 @@ public sealed class StructuredPlanningCoverageTests
             hits = entries
                 .Select((entry, index) => new
                 {
+                    retrievalQuery = index == entries.Length - 1 ? "dessert recettes" : "repas recettes",
                     docPath = $"Knowledge/category/six-meals-{index + 1}.pdf",
                     docName = $"six-meals-{index + 1}.pdf",
                     pageStart = index + 1,

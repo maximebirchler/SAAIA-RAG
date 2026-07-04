@@ -5722,6 +5722,90 @@ CURRENT_USER_MESSAGE:
 
     }
 
+    private static string[] BuildStructuredPlanningSlotBalancingInventoryRetrievalQueries(string query)
+    {
+        if (!ShouldGateStructuredSourceBackedPlanningCoverage(query))
+            return Array.Empty<string>();
+
+        var language = DetectRetrievalExpansionLanguage(query);
+        var inventoryTerms = BuildStructuredPlanningInventoryTermsForRetrieval(language, query)
+            .Take(2)
+            .ToArray();
+        if (inventoryTerms.Length == 0)
+            return Array.Empty<string>();
+
+        var slots = DetectRequestedPlanningSlotAxisLabels(query, language)
+            .Concat(ExtractPlanningSlotRetrievalTerms(query))
+            .SelectMany(ExpandPlanningSlotRetrievalTermVariants)
+            .Select(NormalizeLexicalLookup)
+            .Where(static term => term.Length >= 4)
+            .Distinct(StringComparer.Ordinal)
+            .Take(12)
+            .ToArray();
+        if (slots.Length == 0)
+            return Array.Empty<string>();
+
+        var queries = new List<string>();
+        foreach (var slot in slots)
+        {
+            foreach (var inventory in inventoryTerms)
+            {
+                AddDistinctQuery(queries, $"{slot} {inventory}");
+                AddDistinctQuery(queries, $"{inventory} {slot}");
+            }
+        }
+
+        return queries
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(CollapseWhitespace)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(24)
+            .ToArray();
+    }
+
+    private static string[] BuildStructuredPlanningCandidateInventoryRetrievalQueries(string query)
+    {
+        if (!ShouldGateStructuredSourceBackedPlanningCoverage(query))
+            return Array.Empty<string>();
+
+        var language = DetectRetrievalExpansionLanguage(query);
+        var inventoryTerms = BuildStructuredPlanningInventoryTermsForRetrieval(language, query)
+            .Take(4)
+            .ToArray();
+        if (inventoryTerms.Length == 0)
+            return Array.Empty<string>();
+
+        var normalized = NormalizeLexicalLookup(query);
+        var subjectTerms = ExtractPlanningRetrievalTerms(normalized)
+            .Where(static term => term.Length >= 4 && !IsGenericPlanningCoverageTerm(term))
+            .Where(static term => !IsWeakRouterRagQueryToken(term))
+            .Where(static term => !IsInitialSourceBackedPlanningProbeModifierToken(term))
+            .Where(static term => !IsNavigationDiscoveryNoiseTerm(term))
+            .Distinct(StringComparer.Ordinal)
+            .Take(6)
+            .ToArray();
+
+        var queries = new List<string>();
+        foreach (var inventory in inventoryTerms)
+            AddDistinctQuery(queries, inventory);
+
+        foreach (var subject in subjectTerms)
+        {
+            foreach (var inventory in inventoryTerms.Take(3))
+            {
+                AddDistinctQuery(queries, $"{subject} {inventory}");
+                AddDistinctQuery(queries, $"{inventory} {subject}");
+            }
+        }
+
+        return queries
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(CollapseWhitespace)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(18)
+            .ToArray();
+    }
+
     private static IEnumerable<string> BuildGenericStructuredPlanningInventoryTerms(string language, string? query = null)
     {
         language = NormalizeLanguageCode(language);
@@ -6450,6 +6534,16 @@ CURRENT_USER_MESSAGE:
         if (usesPlanningCoverage)
         {
             AddPass(
+                "slot_balancing_inventory",
+                "Probe each requested slot/type with generic inventory vocabulary before broader discovery.",
+                BuildStructuredPlanningSlotBalancingInventoryRetrievalQueries(query),
+                24);
+            AddPass(
+                "candidate_inventory",
+                "Search generic candidate inventories without binding to placement axes.",
+                BuildStructuredPlanningCandidateInventoryRetrievalQueries(query),
+                18);
+            AddPass(
                 "planning_exploration",
                 "Find more candidate units and slots for a structured source-backed plan.",
                 BuildPlanningExplorationRetrievalQueries(query),
@@ -6459,11 +6553,14 @@ CURRENT_USER_MESSAGE:
                 "Explore adjacent candidate vocabulary when the first planning evidence is too narrow.",
                 BuildSourceBackedCandidateDiscoveryRetrievalQueries(query),
                 18);
-            AddPass(
-                "anchor_discovery",
-                "Probe requested anchors, constraints and slot terms independently.",
-                BuildSourceBackedAnchorDiscoveryRetrievalQueries(query),
-                16);
+            if (!ShouldDeferSparseSourceBackedPlanningAnchorFollowup(analysis, query))
+            {
+                AddPass(
+                    "anchor_discovery",
+                    "Probe requested anchors, constraints and slot terms independently.",
+                    BuildSourceBackedAnchorDiscoveryRetrievalQueries(query),
+                    16);
+            }
         }
         else
         {
@@ -10346,9 +10443,95 @@ CURRENT_USER_MESSAGE:
         string? query)
     {
         var score = candidate.Score;
+        score += ComputeSourceBackedPlanningCandidateRetrievalRouteScore(candidate, query);
         score += ComputeSourceBackedPlanningCandidateReadabilityScore(candidate);
         return score;
     }
+
+    private static IReadOnlyList<SourceBackedOptionCandidate> FilterSourceBackedPlanningCandidatesToRequestedRetrievalRoutes(
+        IReadOnlyList<SourceBackedOptionCandidate> candidates,
+        string? query)
+    {
+        if (candidates.Count == 0)
+            return candidates;
+
+        var routeTerms = ExtractSourceBackedPlanningRetrievalRouteFitTerms(query);
+        if (routeTerms.Length == 0)
+            return candidates;
+
+        if (!candidates.Any(candidate => SourceBackedPlanningCandidateRetrievalRouteMatchesAny(candidate, routeTerms)))
+            return candidates;
+
+        var filtered = candidates
+            .Where(candidate => string.IsNullOrWhiteSpace(candidate.Hit.RetrievalQuery)
+                || SourceBackedPlanningCandidateRetrievalRouteLooksGeneric(candidate.Hit.RetrievalQuery)
+                || SourceBackedPlanningCandidateRetrievalRouteMatchesAny(candidate, routeTerms))
+            .ToArray();
+        return filtered.Length == 0 ? candidates : filtered;
+    }
+
+    private static int ComputeSourceBackedPlanningCandidateRetrievalRouteScore(
+        SourceBackedOptionCandidate candidate,
+        string? query)
+    {
+        var routeTerms = ExtractSourceBackedPlanningRetrievalRouteFitTerms(query);
+        if (routeTerms.Length == 0)
+            return 0;
+
+        return SourceBackedPlanningCandidateRetrievalRouteMatchesAny(candidate, routeTerms) ? 80 : 0;
+    }
+
+    private static string[] ExtractSourceBackedPlanningRetrievalRouteFitTerms(string? query)
+    {
+        var normalized = NormalizeLexicalLookup(query);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return Array.Empty<string>();
+
+        return ExtractPlanningRetrievalTerms(normalized)
+            .Concat(ExtractPlanningSlotRetrievalTerms(query))
+            .SelectMany(ExpandPlanningSlotRetrievalTermVariants)
+            .Select(NormalizeLexicalLookup)
+            .Where(static term => term.Length >= 4)
+            .Where(static term => !IsSourceBackedActionRetrievalNoiseTerm(term))
+            .Where(static term => !IsInitialSourceBackedPlanningProbeModifierToken(term))
+            .Where(static term => !IsNavigationDiscoveryNoiseTerm(term))
+            .Distinct(StringComparer.Ordinal)
+            .Take(16)
+            .ToArray();
+    }
+
+    private static bool SourceBackedPlanningCandidateRetrievalRouteMatchesAny(
+        SourceBackedOptionCandidate candidate,
+        IReadOnlyCollection<string> routeTerms)
+    {
+        var route = NormalizeLexicalLookup(candidate.Hit.RetrievalQuery);
+        return !string.IsNullOrWhiteSpace(route)
+            && routeTerms.Any(term => ContainsStructuredAxisPlannerTerm(route, term));
+    }
+
+    private static bool SourceBackedPlanningCandidateRetrievalRouteLooksGeneric(string? retrievalQuery)
+    {
+        var route = NormalizeLexicalLookup(retrievalQuery);
+        if (string.IsNullOrWhiteSpace(route))
+            return true;
+
+        var tokens = ExtractQuerySignalTerms(route)
+            .Where(static token => token.Length >= 4)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        return tokens.Length > 0 && tokens.All(IsGenericSourceBackedPlanningRetrievalRouteToken);
+    }
+
+    private static bool IsGenericSourceBackedPlanningRetrievalRouteToken(string token)
+        => token is
+            "selection" or "documente" or "documentee" or "documentes" or "documented"
+            or "source" or "sources"
+            or "option" or "options"
+            or "candidat" or "candidats" or "candidate" or "candidates"
+            or "exemple" or "exemples" or "example" or "examples"
+            or "proposition" or "propositions" or "proposal" or "proposals"
+            or "preparation" or "preparations"
+            or "element" or "elements" or "item" or "items";
 
     private static int ComputeSourceBackedPlanningCandidateReadabilityScore(SourceBackedOptionCandidate candidate)
     {
@@ -10585,9 +10768,7 @@ CURRENT_USER_MESSAGE:
         {
             var periodIndex = slotIndex % periodCount;
             var candidate = PickNextUnusedStructuredPlanningSlotCandidate(primaryPools[periodIndex], used)
-                ?? (primaryPools[periodIndex].Count == 0
-                    ? PickNextUnusedStructuredPlanningSlotCandidate(alternativePools[periodIndex], used)
-                    : null)
+                ?? PickNextUnusedStructuredPlanningSlotCandidate(alternativePools[periodIndex], used)
                 ?? (primaryPools[periodIndex].Count == 0 && alternativePools[periodIndex].Count == 0
                     ? PickNextUnusedStructuredPlanningSlotCandidate(neutralPool, used)
                     : null);
@@ -10877,10 +11058,11 @@ CURRENT_USER_MESSAGE:
         var sb = new StringBuilder();
         sb.AppendLine(labels.Header);
         sb.AppendLine(labels.Intro);
-        var itemLimit = Math.Min(planItems.Count, Math.Clamp(requiredSlots, 8, 24));
+        var bankItems = OrderStructuredSourceBackedCandidateBankItems(planItems, query, language);
+        var itemLimit = Math.Min(bankItems.Count, Math.Clamp(requiredSlots, 8, 24));
         for (var i = 0; i < itemLimit; i++)
         {
-            var candidate = planItems[i];
+            var candidate = bankItems[i];
             sb.Append("- ");
             sb.Append(FormatSourceBackedCandidateDisplayTitle(candidate));
             sb.Append(' ');
@@ -10890,6 +11072,56 @@ CURRENT_USER_MESSAGE:
 
         sb.Append(labels.Next);
         return AppendBroadenedSearchOfferIfHelpful(sb.ToString(), query, language);
+    }
+
+    private static IReadOnlyList<SourceBackedOptionCandidate> OrderStructuredSourceBackedCandidateBankItems(
+        IReadOnlyList<SourceBackedOptionCandidate> planItems,
+        string? query,
+        string language)
+    {
+        if (planItems.Count == 0)
+            return planItems;
+
+        language = NormalizeLanguageCode(language);
+        var periodLabels = DetectRequestedPlanningSlotAxisLabels(query, language);
+        var slotGroups = BuildStructuredPlanningSlotTermGroups(periodLabels, query);
+        if (slotGroups.Count == 0)
+            return planItems;
+
+        var primaryMatchesByCandidate = planItems
+            .Select(candidate => FindStructuredPlanningCandidateSlotMatches(candidate, slotGroups, useAlternativeTerms: false))
+            .ToArray();
+        var primaryCounts = new int[slotGroups.Count];
+        foreach (var matches in primaryMatchesByCandidate)
+        {
+            foreach (var match in matches)
+            {
+                if ((uint)match < (uint)primaryCounts.Length)
+                    primaryCounts[match]++;
+            }
+        }
+
+        var selected = new List<SourceBackedOptionCandidate>(planItems.Count);
+        var selectedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < planItems.Count; i++)
+        {
+            var candidate = planItems[i];
+            var primaryMatches = primaryMatchesByCandidate[i];
+            var alternativeMatches = primaryMatches.Length == 0
+                ? FindStructuredPlanningCandidateSlotMatches(candidate, slotGroups, useAlternativeTerms: true)
+                : Array.Empty<int>();
+            if (alternativeMatches.Length > 0
+                && alternativeMatches.All(match => (uint)match < (uint)primaryCounts.Length && primaryCounts[match] > 0))
+            {
+                continue;
+            }
+
+            var key = BuildSourceBackedPlanningCandidateLeadKey(candidate);
+            if (selectedKeys.Add(key))
+                selected.Add(candidate);
+        }
+
+        return selected.Count == 0 ? planItems : selected;
     }
 
     private static string FormatSourceBackedCandidateReference(SourceBackedOptionCandidate candidate, string language)
@@ -13355,8 +13587,47 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var retrievalQuery = TruncateForPrompt(CollapseWhitespace(hit.RetrievalQuery ?? string.Empty), 90);
         var pageKey = BuildRagHitVisiblePageMergeKey(hit);
         var candidateKey = BuildSourceBackedPlanningCandidateLeadKey(candidate);
+        var slotMetadata = BuildSourceBackedCandidateSlotMetadataForInventory(candidate, query, language);
         lines.Add(
-            $"EVIDENCE_ITEM role=\"{role}\" title=\"{CollapseWhitespace(candidate.Title)}\" source=\"{source}\" page=\"{Math.Max(1, hit.PageStart)}\" pageKey=\"{pageKey}\" candidateKey=\"{candidateKey}\" retrievalQuery=\"{retrievalQuery}\" instruction=\"{writingNote}\"{supportSuffix}");
+            $"EVIDENCE_ITEM role=\"{role}\" title=\"{CollapseWhitespace(candidate.Title)}\" source=\"{source}\" page=\"{Math.Max(1, hit.PageStart)}\" pageKey=\"{pageKey}\" candidateKey=\"{candidateKey}\" slotRoute=\"{slotMetadata.Route}\" slotFit=\"{slotMetadata.Fit}\" retrievalQuery=\"{retrievalQuery}\" instruction=\"{writingNote}\"{supportSuffix}");
+    }
+
+    private static (string Route, string Fit) BuildSourceBackedCandidateSlotMetadataForInventory(
+        SourceBackedOptionCandidate candidate,
+        string? query,
+        string language)
+    {
+        language = NormalizeLanguageCode(language);
+        var labels = DetectRequestedPlanningSlotAxisLabels(query, language);
+        var slotGroups = BuildStructuredPlanningSlotTermGroups(labels, query);
+        if (slotGroups.Count == 0)
+            return (string.Empty, "none");
+
+        var primaryMatches = FindStructuredPlanningCandidateSlotMatches(candidate, slotGroups, useAlternativeTerms: false);
+        if (primaryMatches.Length > 0)
+            return (FormatStructuredPlanningSlotRouteLabels(slotGroups, primaryMatches), "primary");
+
+        var alternativeMatches = FindStructuredPlanningCandidateSlotMatches(candidate, slotGroups, useAlternativeTerms: true);
+        if (alternativeMatches.Length > 0)
+            return (FormatStructuredPlanningSlotRouteLabels(slotGroups, alternativeMatches), "alternative");
+
+        return (string.Empty, string.IsNullOrWhiteSpace(candidate.Hit.RetrievalQuery) ? "unrouted" : "neutral");
+    }
+
+    private static string FormatStructuredPlanningSlotRouteLabels(
+        IReadOnlyList<StructuredPlanningSlotTermGroup> slotGroups,
+        IReadOnlyList<int> matches)
+    {
+        if (slotGroups.Count == 0 || matches.Count == 0)
+            return string.Empty;
+
+        return string.Join(
+            ",",
+            matches
+                .Where(index => (uint)index < (uint)slotGroups.Count)
+                .Select(index => slotGroups[index].Label)
+                .Where(static label => !string.IsNullOrWhiteSpace(label))
+                .Distinct(StringComparer.Ordinal));
     }
 
     private static string BuildSourceBackedCandidateWritingNote(string contentRole, RagHitSummary hit, string language)
@@ -15283,11 +15554,13 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 + $"|ms={selectionStopwatch!.ElapsedMilliseconds}");
         }
 
-        var candidates = primaryFilterInput
+        var filteredCandidates = primaryFilterInput
             .Where(static item => string.IsNullOrWhiteSpace(item.RejectionReason))
             .Select(static item => item.Candidate)
             .GroupBy(BuildSourceBackedPlanningCandidateKey, StringComparer.OrdinalIgnoreCase)
             .Select(group => SelectBestSourceBackedPlanningDuplicate(group, query))
+            .ToArray();
+        var candidates = FilterSourceBackedPlanningCandidatesToRequestedRetrievalRoutes(filteredCandidates, query)
             .OrderByDescending(candidate => ComputeSourceBackedPlanningCandidateRankScore(candidate, query))
             .ThenByDescending(static candidate => candidate.Score)
             .ThenByDescending(static candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit))
@@ -15455,7 +15728,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
                 $"ToolAgent planning candidate selection: stage=fallback_filter.score|remaining={fallbackPositiveScore.Count}|removed={fallbackStructuredEvidence.Count - fallbackPositiveScore.Count}|ms={selectionStopwatch!.ElapsedMilliseconds}|topTitles={string.Join("; ", fallbackPositiveScore.Take(8).Select(static candidate => candidate.Title))}");
         }
 
-        var fallbackCandidates = fallbackPositiveScore
+        var fallbackCandidates = FilterSourceBackedPlanningCandidatesToRequestedRetrievalRoutes(fallbackPositiveScore, query)
             .OrderByDescending(candidate => ComputeSourceBackedPlanningCandidateRankScore(candidate, query))
             .ThenByDescending(candidate => candidate.Score)
             .ThenByDescending(candidate => ComputeSourceBackedEvidenceRichnessScore(candidate.Hit))
@@ -15479,7 +15752,7 @@ If evidence is partial, write the best useful sourced answer possible and state 
             .ThenByDescending(candidate => candidate.Hit.Score)
             .ToList();
 
-        var finalFilterInput = combinedCandidates
+        var finalFilterInput = FilterSourceBackedPlanningCandidatesToRequestedRetrievalRoutes(combinedCandidates, query)
             .Select(candidate => new
             {
                 Candidate = candidate,
@@ -16396,6 +16669,9 @@ If evidence is partial, write the best useful sourced answer possible and state 
         if (LooksLikeShortOcrContinuationStructuredPlanningTitle(raw, normalized))
             return true;
 
+        if (Regex.IsMatch(normalized, @"\b(?:ingredients?|ingr[eé]dients?)\b", RegexOptions.CultureInvariant))
+            return true;
+
 
         if (Regex.IsMatch(
                 normalized,
@@ -16658,6 +16934,22 @@ If evidence is partial, write the best useful sourced answer possible and state 
         var lexicalTitle = CollapseWhitespace(Regex.Replace(normalizedTitle, @"[^\p{L}\p{N}]+", " ")).Trim();
         if (string.IsNullOrWhiteSpace(lexicalTitle))
             return true;
+
+        if (Regex.IsMatch(
+                lexicalTitle,
+                @"^(?:matched\s+(?:profile|quoted)(?:\s+title)?|profil\s+documentaire|document\s+profile|sections?|rubriques?|chapitres?|chapters?|parts?|parties?|degre\s+de\s+difficulte|niveau\s+de\s+difficulte|difficulty\s+(?:level|rating)|level\s+of\s+difficulty|quantites?\s+donnees?|quantit(?:y|ies)\s+(?:given|provided)|given\s+quantit(?:y|ies)|provided\s+quantit(?:y|ies)|valeurs?\s+donnees?|values?\s+(?:given|provided))$",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(
+                lexicalTitle,
+                @"^(?:tous|toutes|all|todos|todas|alle)\s+(?:les\s+)?(?:[\p{L}\p{N}]{3,})(?:\s+[\p{L}\p{N}]{3,}){0,2}$",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
 
         return Regex.IsMatch(
             lexicalTitle,
@@ -23486,6 +23778,14 @@ If evidence is partial, write the best useful sourced answer possible and state 
 
         if (LooksLikeNoisyGeneratedSourceBackedExplorationQuery(raw))
             return true;
+
+        if (Regex.IsMatch(
+                lead,
+                @"\b(?:ingredients?|ingr[eé]dients?)\b",
+                RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
 
         if (Regex.IsMatch(
                 lead,
