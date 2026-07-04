@@ -14,8 +14,11 @@ internal static partial class ExtractionQualityPolicy
         if (string.Equals(unit.ExtractionTextStatus, "empty_text", StringComparison.Ordinal))
             return true;
 
-        if (OcrNoiseFilter.LooksLikeProbableNoiseText(unit.Text))
+        if (OcrNoiseFilter.LooksLikeProbableNoiseText(unit.Text)
+            && !LooksLikeClassifierConfirmedRetrievalContent(unit.Text, unit.TokenCount))
+        {
             return true;
+        }
 
         if (LooksLikeShortIndexOrClassificationMetadata(unit.Text, unit.TokenCount))
             return true;
@@ -57,6 +60,17 @@ internal static partial class ExtractionQualityPolicy
     private static bool LooksLikeTargetedReferenceCarrier(string? text)
         => !string.IsNullOrWhiteSpace(text)
            && ExactMatchEntryExtractor.ExtractTargetedReferences(text).Any();
+
+    private static bool LooksLikeClassifierConfirmedRetrievalContent(string? text, int tokenCount)
+    {
+        if (string.IsNullOrWhiteSpace(text) || tokenCount < 20)
+            return false;
+
+        var signal = RetrievalContentClassifier.AnalyzeChunk(text);
+        return string.Equals(signal.ContentRole, RetrievalContentClassifier.ContentRole, StringComparison.Ordinal)
+            && string.IsNullOrWhiteSpace(signal.NavigationReason)
+            && signal.ContentDensityScore >= 0.35;
+    }
 
     private static bool LooksLikeStrongStandaloneHeading(string? text)
     {

@@ -342,6 +342,183 @@ public sealed class DocumentSectionExtractorTests
     }
 
     [Fact]
+    public void Extract_rejects_numbered_standard_table_rows_as_section_titles()
+    {
+        const string text =
+            "5 Data fields in the title block\n"
+            + "The real section introduces the data fields used by the document.\n"
+            + "5.1.3 Identification number No 16 M\n"
+            + "5.1.4 Revision index No 2 Oo\n"
+            + "5.3.4 | Approval person No/Yes? 20 M\n"
+            + "5.3.7 Classification/key words No/Yes? Unspecified O\n"
+            + "5.1.3 Identification number\n"
+            + "The document identification number is used as the reference to the document.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 56, text.Length, [1])
+        };
+
+        var sections = DocumentSectionExtractor.Extract(pages);
+
+        Assert.Contains(sections, section => string.Equals(section.Title, "5 Data fields in the title block", StringComparison.Ordinal));
+        Assert.Contains(sections, section => string.Equals(section.Title, "5.1.3 Identification number", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => section.Title.Contains("No 16 M", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => section.Title.Contains("No 2 Oo", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => section.Title.Contains("No/Yes? 20 M", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => section.Title.Contains("Unspecified O", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Extract_rejects_title_case_table_example_and_back_matter_fragments()
+    {
+        const string text =
+            "6 Title block arrangement\n"
+            + "The arrangement section explains the position of title blocks on drawings.\n"
+            + "Responsible dept. Technical reference Document type Document status\n"
+            + "Patricia Johnson\n"
+            + "Title, Supplementary title\n"
+            + "Sub-assembly drawing Released\n"
+            + "Sub-assembly drawing Released Title, Supplementary title\n"
+            + "Jane Smith David Brown\n"
+            + "Figure 1 - Title block in compact form - Provides maximum space for factual content\n"
+            + "Publication Year Title EN Year\n"
+            + "389 Chiswick High Road\n"
+            + "BSI \u2014 British Standards Institution\n"
+            + "Annex ZA\n"
+            + "Normative references are listed for the associated publications.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 70, text.Length, [1])
+        };
+
+        var sections = DocumentSectionExtractor.Extract(pages);
+
+        Assert.Contains(sections, section => string.Equals(section.Title, "6 Title block arrangement", StringComparison.Ordinal));
+        Assert.Contains(sections, section => string.Equals(section.Title, "Annex ZA", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "Patricia Johnson", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "Title, Supplementary title", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "Sub-assembly drawing Released", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "Sub-assembly drawing Released Title, Supplementary title", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "Jane Smith David Brown", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => section.Title.StartsWith("Figure 1", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "Publication Year Title EN Year", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "389 Chiswick High Road", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "BSI \u2014 British Standards Institution", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Extract_extends_previous_section_to_next_page_until_next_heading_line()
+    {
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                "3 Terms and definitions\n"
+                + "segment\n"
+                + "portion in a low-level physical substructure of a document.",
+                18,
+                94,
+                [1]),
+            new ExtractedPdfPage(
+                2,
+                "The definition continues before the next numbered heading.\n"
+                + "5 Data fields in the title block\n"
+                + "The data field section starts here.",
+                22,
+                132,
+                [2])
+        };
+
+        var sections = DocumentSectionExtractor.Extract(pages);
+
+        var terms = Assert.Single(sections, section => string.Equals(section.Title, "3 Terms and definitions", StringComparison.Ordinal));
+        Assert.Equal(1, terms.PageStart);
+        Assert.Equal(2, terms.PageEnd);
+        Assert.Equal(1, terms.EndLine);
+
+        var dataFields = Assert.Single(sections, section => string.Equals(section.Title, "5 Data fields in the title block", StringComparison.Ordinal));
+        Assert.Equal(2, dataFields.PageStart);
+        Assert.Equal(2, dataFields.StartLine);
+    }
+
+    [Fact]
+    public void Extract_rejects_single_numbered_connector_table_fragments()
+    {
+        const string text =
+            "5 Data fields in the title block\n"
+            + "The real section introduces the data fields used by the document.\n"
+            + "4 per language\n"
+            + "3 of document\n"
+            + "2 pour utilisateur\n"
+            + "5.1.2 Legal owner\n"
+            + "The legal owner field identifies the owner of the document.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 54, text.Length, [1])
+        };
+
+        var sections = DocumentSectionExtractor.Extract(pages);
+
+        Assert.Contains(sections, section => string.Equals(section.Title, "5 Data fields in the title block", StringComparison.Ordinal));
+        Assert.Contains(sections, section => string.Equals(section.Title, "5.1.2 Legal owner", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "4 per language", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "3 of document", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "2 pour utilisateur", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Extract_rejects_roster_names_and_representative_table_headers_as_sections()
+    {
+        const string text =
+            "Committee roster\n"
+            + "Organization Represented:\n"
+            + "Name of Representative:\n"
+            + "Alliance of Example Insurers Stephen Young\n"
+            + "American Society of Safety Engineers J. Paul Frantz Thomas F. Bresnahan (Alt.)\n"
+            + "Al Clapp\n"
+            + "L. Dale Baker & Associates\n"
+            + "L. Dale Baker\n"
+            + "Dan Pahl\n"
+            + "Safety Message Requirements\n"
+            + "The section body explains the requirements that shall be applied in the product manual.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 70, text.Length, [1])
+        };
+
+        var sections = DocumentSectionExtractor.Extract(pages);
+
+        Assert.Contains(sections, section => string.Equals(section.Title, "Safety Message Requirements", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "Organization Represented:", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "Name of Representative:", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "Al Clapp", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "L. Dale Baker & Associates", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "L. Dale Baker", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "Dan Pahl", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Extract_rejects_short_uppercase_plus_lowercase_letter_ocr_heading_artifacts()
+    {
+        const string text =
+            "10.5 Grouped Safety Messages\n"
+            + "METTETE a\n"
+            + "The foreword explains the standard committee history and its purpose.\n"
+            + "FOREWORD\n"
+            + "This standard provides requirements for collateral safety messages.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, text, 34, text.Length, [1])
+        };
+
+        var sections = DocumentSectionExtractor.Extract(pages);
+
+        Assert.Contains(sections, section => string.Equals(section.Title, "10.5 Grouped Safety Messages", StringComparison.Ordinal));
+        Assert.Contains(sections, section => string.Equals(section.Title, "FOREWORD", StringComparison.Ordinal));
+        Assert.DoesNotContain(sections, section => string.Equals(section.Title, "METTETE a", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Stable_section_id_is_deterministic_for_same_revision_and_ordinal()
     {
         var revisionId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");

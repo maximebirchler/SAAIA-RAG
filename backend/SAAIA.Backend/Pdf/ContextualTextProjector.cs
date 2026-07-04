@@ -3,6 +3,8 @@ using System.Text;
 
 internal static class ContextualTextProjector
 {
+    internal const string SchemaVersion = "contextual_text_v2";
+
     public static IReadOnlyList<ProjectedContextualTextEntry> Project(
         string docPath,
         IReadOnlyList<ExtractedDocumentSection> sections,
@@ -28,6 +30,7 @@ internal static class ContextualTextProjector
             unitsByOrdinal.TryGetValue(chunk.UnitOrdinal ?? -1, out var unit);
             var previousUnit = ResolveNeighborUnit(unitsByOrdinal, unit, direction: -1);
             var nextUnit = ResolveNeighborUnit(unitsByOrdinal, unit, direction: 1);
+            var includeCurrentUnit = ShouldIncludeCurrentUnitContext(unit, chunk);
             var includePreviousUnit = ShouldIncludeNeighborContext(previousUnit, includeNeighborContextByOrdinal);
             var includeNextUnit = ShouldIncludeNeighborContext(nextUnit, includeNeighborContextByOrdinal);
             var headingPath = ResolveHeadingPath(chunk.SectionOrdinal, headingPathBySectionOrdinal);
@@ -38,6 +41,7 @@ internal static class ContextualTextProjector
                 headingPath,
                 chunk,
                 unit,
+                includeCurrentUnit,
                 previousUnit,
                 includePreviousUnit,
                 nextUnit,
@@ -52,7 +56,23 @@ internal static class ContextualTextProjector
                 Text: text,
                 CharCount: text.Length,
                 TokenCount: CountTokens(text),
-                Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(text))));
+                Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(text)),
+                SchemaVersion: SchemaVersion,
+                SectionTitle: section?.Title,
+                HeadingPath: headingPath,
+                ChunkType: chunk.ChunkType,
+                ContentRole: chunk.ContentRole,
+                NavigationReason: chunk.NavigationReason,
+                NavigationScore: chunk.NavigationScore,
+                ContentDensityScore: chunk.ContentDensityScore,
+                SourceUnitOrdinals: chunk.SourceUnitOrdinals ?? Array.Empty<int>(),
+                SourceUnitStartOrdinal: chunk.SourceUnitStartOrdinal,
+                SourceUnitEndOrdinal: chunk.SourceUnitEndOrdinal,
+                SourceUnitCount: chunk.SourceUnitCount,
+                ChunkComposition: chunk.ChunkComposition,
+                IncludesCurrentUnitContext: includeCurrentUnit,
+                IncludesPreviousContext: includePreviousUnit,
+                IncludesNextContext: includeNextUnit));
         }
 
         return entries;
@@ -64,6 +84,7 @@ internal static class ContextualTextProjector
         string? headingPath,
         ProjectedRetrievalChunk chunk,
         ExtractedDocumentUnit? unit,
+        bool includeCurrentUnit,
         ExtractedDocumentUnit? previousUnit,
         bool includePreviousUnit,
         ExtractedDocumentUnit? nextUnit,
@@ -86,7 +107,7 @@ internal static class ContextualTextProjector
         sb.AppendLine(chunk.Text.Trim());
         sb.AppendLine();
 
-        if (ShouldIncludeCurrentUnitContext(unit, chunk))
+        if (includeCurrentUnit)
         {
             sb.AppendLine("context:");
             sb.AppendLine(unit!.Text.Trim());
@@ -226,4 +247,20 @@ internal sealed record ProjectedContextualTextEntry(
     string Text,
     int CharCount,
     int TokenCount,
-    byte[] Checksum);
+    byte[] Checksum,
+    string SchemaVersion = ContextualTextProjector.SchemaVersion,
+    string? SectionTitle = null,
+    string? HeadingPath = null,
+    string? ChunkType = null,
+    string? ContentRole = null,
+    string? NavigationReason = null,
+    double NavigationScore = 0.0,
+    double ContentDensityScore = 0.0,
+    IReadOnlyList<int>? SourceUnitOrdinals = null,
+    int? SourceUnitStartOrdinal = null,
+    int? SourceUnitEndOrdinal = null,
+    int? SourceUnitCount = null,
+    string? ChunkComposition = null,
+    bool IncludesCurrentUnitContext = false,
+    bool IncludesPreviousContext = false,
+    bool IncludesNextContext = false);

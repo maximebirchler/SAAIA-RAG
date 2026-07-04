@@ -137,6 +137,18 @@ public sealed class IngestionWorkerQdrantTests
             Text = "31",
             TokenCount = 1
         };
+        var shortOcrLayoutFragment = content with
+        {
+            Text = "S 8 N ol 1 A % 1 3 Bild 1.11. Anwendung:",
+            TokenCount = 12,
+            ContentDensityScore = 0.35
+        };
+        var shortUsefulHeading = content with
+        {
+            Text = "Seite 6 zu DVS 2205 Bild 3.3. Anwendung Behälter",
+            TokenCount = 9,
+            ContentDensityScore = 0.35
+        };
         var balancedMixedNavigationContent = content with
         {
             ContentRole = RetrievalContentClassifier.MixedNavigationContentRole,
@@ -158,7 +170,10 @@ public sealed class IngestionWorkerQdrantTests
         Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(replacementChars));
         Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(ocrNoise));
         Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(lowSubstance));
+        Assert.False(IngestionWorker.ShouldEmbedRetrievalChunk(shortOcrLayoutFragment));
+        Assert.True(IngestionWorker.ShouldEmbedRetrievalChunk(shortUsefulHeading));
         Assert.Equal("low_substance", IngestionWorker.ResolveRetrievalChunkEmbeddingRejectionReason(lowSubstance));
+        Assert.Equal("low_substance", IngestionWorker.ResolveRetrievalChunkEmbeddingRejectionReason(shortOcrLayoutFragment));
     }
 
     [Fact]

@@ -17,7 +17,7 @@ sealed class IngestionOptions
 
     // Chunking / embeddings
     public int ChunkMaxWords { get; set; } = 200;
-    public int ChunkOverlapWords { get; set; } = 35;
+    public int ChunkOverlapWords { get; set; } = 0;
     public int ChunkMinWords { get; set; } = 25;
     public int EmbeddingsBatchSize { get; set; } = DefaultEmbeddingsBatchSize;
     public bool EmbeddingsBatchAdaptiveRetryEnabled { get; set; } = true;
@@ -50,7 +50,9 @@ sealed class IngestionOptions
     // Temps max d'attente pour entrer dans un bulkhead (évite deadlocks)
     public int BulkheadAcquireTimeoutSeconds { get; set; } = 30;
     public int OcrBulkheadAcquireTimeoutSeconds { get; set; } = 1800;
-    public int OcrBulkheadQueueWaitTimeoutSeconds { get; set; } = 60;
+    // 0 preserves the legacy OCR acquire timeout; explicit values can be longer
+    // for serialized OCR queues on large scanned-document batches.
+    public int OcrBulkheadQueueWaitTimeoutSeconds { get; set; } = 0;
 
     // Auto-heal si Qdrant est vide alors que la DB contient des documents
     public bool ReindexIfQdrantEmpty { get; set; } = true;
@@ -66,7 +68,7 @@ sealed class IngestionOptions
     public string OcrAutoFallbackLanguages { get; set; } = "fra+eng+deu+ita+spa";
     public int OcrMaxLanguages { get; set; } = 5;
     public bool OcrAutoDetectLanguages { get; set; } = true;
-    public int OcrTimeoutSeconds { get; set; } = 900;
+    public int OcrTimeoutSeconds { get; set; } = 3600;
     public int OcrMinWords { get; set; } = 5;
     public int OcrMaxConcurrency { get; set; } = 1;
     public bool OcrImagePageEnabled { get; set; } = true;
@@ -74,9 +76,9 @@ sealed class IngestionOptions
     public string OcrImageTextCommand { get; set; } = "tesseract";
     // 0 means no page budget: OCR every image-bearing page for maximum ingestion fidelity.
     public int OcrImagePageMaxPages { get; set; } = 0;
-    public int OcrImagePageRenderDpi { get; set; } = 220;
-    public int OcrImagePageSegmentationMode { get; set; } = 3;
-    public int OcrImagePageTimeoutSeconds { get; set; } = 120;
+    public int OcrImagePageRenderDpi { get; set; } = 400;
+    public int OcrImagePageSegmentationMode { get; set; } = 11;
+    public int OcrImagePageTimeoutSeconds { get; set; } = 180;
     // Global per-document budget for image-page OCR. 0 disables the global budget.
     public int OcrImagePageMaxTotalSeconds { get; set; } = 0;
     public int OcrImagePageMinWords { get; set; } = 3;
@@ -133,8 +135,10 @@ sealed class IngestionOptions
         int ocrBulkheadAcquireTimeoutSeconds,
         int ocrBulkheadQueueWaitTimeoutSeconds)
     {
-        var legacyCeiling = Math.Clamp(ocrBulkheadAcquireTimeoutSeconds, 1, 86400);
-        var queueWait = Math.Clamp(ocrBulkheadQueueWaitTimeoutSeconds, 1, 3600);
-        return Math.Min(legacyCeiling, queueWait);
+        var legacyTimeout = Math.Clamp(ocrBulkheadAcquireTimeoutSeconds, 1, 86400);
+        if (ocrBulkheadQueueWaitTimeoutSeconds <= 0)
+            return legacyTimeout;
+
+        return Math.Clamp(ocrBulkheadQueueWaitTimeoutSeconds, 1, 86400);
     }
 }

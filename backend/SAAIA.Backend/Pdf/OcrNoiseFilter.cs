@@ -32,6 +32,9 @@ internal static partial class OcrNoiseFilter
             return false;
 
         text = Regex.Replace(text, @"\s+", " ").Trim();
+        if (text.Length >= 180 && LooksLikePreservableEntityRosterOrContactListText(text))
+            return false;
+
         if (LooksLikeSpacedLetterRunNoise(text))
             return true;
 
@@ -71,6 +74,22 @@ internal static partial class OcrNoiseFilter
         return LooksLikeProbableNoiseSegment(text);
     }
 
+    internal static bool LooksLikeProbableNoisePublishedUnitText(string? text)
+    {
+        if (!LooksLikeProbableNoiseText(text))
+            return false;
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var signal = RetrievalContentClassifier.AnalyzeChunk(text);
+        return RetrievalContentClassifier.IsPredominantlyNavigationContent(
+                signal.ContentRole,
+                chunkType: null,
+                signal.NavigationScore,
+                signal.ContentDensityScore)
+            || signal.ContentDensityScore < 0.35;
+    }
+
     internal static string RemoveTrailingNoisySupplement(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -103,6 +122,14 @@ internal static partial class OcrNoiseFilter
 
             if (!EndsLikeCompleteContentBeforeSupplement(prefix))
             {
+                if (suffixStartsWithNoisyMetadata
+                    && (LooksLikePreservableTechnicalFigureOrChartText(prefix)
+                        || LooksLikePreservableTechnicalReferenceText(prefix)
+                        || LooksLikePreservableStructuredContentText(prefix)))
+                {
+                    return prefix;
+                }
+
                 if (suffixStartsWithNoisyMetadata
                     || LooksLikeProbableNoiseText(suffix) && LooksLikeFragmentBeforeNoisyMetadata(prefix))
                 {
@@ -196,6 +223,27 @@ internal static partial class OcrNoiseFilter
         const int windowLength = 180;
         const int stepLength = 120;
 
+        if (LooksLikePreservableLongProseText(text))
+            return false;
+
+        if (LooksLikePreservableStandardsGovernanceText(text))
+            return false;
+
+        if (LooksLikePreservableTechnicalReferenceText(text))
+            return false;
+
+        if (LooksLikePreservableTechnicalTopicListText(text))
+            return false;
+
+        if (LooksLikePreservableTechnicalDecisionMatrixText(text))
+            return false;
+
+        if (LooksLikePreservableEntityRosterOrContactListText(text))
+            return false;
+
+        if (LooksLikePreservableTechnicalFigureOrChartText(text))
+            return false;
+
         if (LooksLikeMetadataLayoutDamagedSupplement(text)
             || LooksLikeDamagedMetadataPrefix(text)
             || LooksLikeMetadataLayoutDamagedSupplement(text[..Math.Min(windowLength, text.Length)]))
@@ -224,6 +272,348 @@ internal static partial class OcrNoiseFilter
         }
 
         return checkedWindows <= 1 && noisyWindows == 1;
+    }
+
+    private static bool LooksLikePreservableLongProseText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || text.Length < 240)
+            return false;
+        if (NoisyMetadataLeadMarkerRegex().IsMatch(text))
+            return false;
+
+        var tokens = TokenRegex().Matches(text)
+            .Select(static match => TrimToken(match.Value))
+            .Where(static token => token.Length >= 2)
+            .ToArray();
+        if (tokens.Length < 45)
+            return false;
+
+        var normalizedTokens = tokens.Select(static token => token.ToLowerInvariant()).ToArray();
+        var commonWordCount = normalizedTokens.Count(CommonWords.Contains);
+        var longWordCount = normalizedTokens.Count(static token =>
+            token.Count(IsLatinLetter) >= 7
+            && LatinLetterVowelRatio(token) >= 0.18);
+        var singleLetterCount = TokenRegex().Matches(text)
+            .Select(static match => TrimToken(match.Value))
+            .Count(IsSingleLetterToken);
+        var suspiciousInternalCaseTokens = tokens.Count(static token =>
+            ContainsLatinLetter(token) && HasSuspiciousInternalCaseSwitch(token));
+        var mixedLetterDigitTokens = normalizedTokens.Count(ContainsLatinLettersAndDigits);
+        var quoteSlashPipeCount = text.Count(static ch =>
+            ch is '\'' or '\u2019' or '\u2018' or '"' or '/' or '\\' or '|');
+        var symbolCount = text.Count(static ch =>
+            !char.IsLetterOrDigit(ch)
+            && !char.IsWhiteSpace(ch)
+            && ch is not '.' and not ',' and not ';' and not ':' and not '(' and not ')' and not '-' and not '\u2013' and not '\u2014' and not '+');
+        var symbolRatio = (double)symbolCount / Math.Max(1, text.Length);
+        var sentencePunctuationCount = text.Count(static ch => ch is '.' or '!' or '?' or '\u2026');
+
+        if (symbolRatio >= 0.035 || quoteSlashPipeCount >= 8)
+            return false;
+        if (singleLetterCount >= Math.Max(5, tokens.Length / 12))
+            return false;
+        if (suspiciousInternalCaseTokens >= Math.Max(8, tokens.Length / 8))
+            return false;
+        if (mixedLetterDigitTokens >= Math.Max(10, tokens.Length / 6))
+            return false;
+
+        return sentencePunctuationCount >= 4
+            && commonWordCount >= 4
+            && longWordCount >= Math.Max(12, tokens.Length / 5);
+    }
+
+    private static bool LooksLikePreservableTechnicalReferenceText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || text.Length < 160)
+            return false;
+        if (LooksLikeSpacedLetterRunNoise(text) || NoisyMetadataLeadMarkerRegex().IsMatch(text))
+            return false;
+
+        var tokens = TokenRegex().Matches(text)
+            .Select(static match => TrimToken(match.Value))
+            .Where(static token => token.Length >= 2)
+            .ToArray();
+        if (tokens.Length < 28)
+            return false;
+
+        var substantiveWords = tokens.Count(static token =>
+            token.Count(IsLatinLetter) >= 4
+            && LatinLetterVowelRatio(token) >= 0.16);
+        var singleLetterCount = TokenRegex().Matches(text)
+            .Select(static match => TrimToken(match.Value))
+            .Count(IsSingleLetterToken);
+        var quoteSlashPipeCount = text.Count(static ch =>
+            ch is '\'' or '\u2019' or '\u2018' or '"' or '/' or '\\' or '|');
+        var symbolCount = text.Count(static ch =>
+            !char.IsLetterOrDigit(ch)
+            && !char.IsWhiteSpace(ch)
+            && ch is not '.' and not ',' and not ';' and not ':' and not '(' and not ')' and not '[' and not ']'
+            && ch is not '-' and not '\u2013' and not '\u2014' and not '+' and not '*' and not '\u00b0');
+        var symbolRatio = (double)symbolCount / Math.Max(1, text.Length);
+        if (symbolRatio >= 0.075 || quoteSlashPipeCount >= Math.Max(10, tokens.Length / 4))
+            return false;
+        if (singleLetterCount >= Math.Max(6, tokens.Length / 10))
+            return false;
+
+        var technicalIdentifierCount = TechnicalIdentifierRegex().Matches(text).Count;
+        var sectionReferenceCount = TechnicalSectionReferenceRegex().Matches(text).Count;
+        var technicalCueCount = TechnicalContentCueRegex().Matches(text).Count;
+        return substantiveWords >= Math.Max(14, tokens.Length / 4)
+            && (technicalIdentifierCount + sectionReferenceCount >= 3
+                || technicalCueCount >= 4 && sectionReferenceCount >= 1);
+    }
+
+    private static bool LooksLikePreservableTechnicalTopicListText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || text.Length < 120)
+            return false;
+        if (LooksLikeSpacedLetterRunNoise(text) || NoisyMetadataLeadMarkerRegex().IsMatch(text))
+            return false;
+
+        var tokens = TokenRegex().Matches(text)
+            .Select(static match => TrimToken(match.Value))
+            .Where(static token => token.Length >= 2)
+            .ToArray();
+        if (tokens.Length < 24)
+            return false;
+
+        var substantiveWords = tokens.Count(static token =>
+            token.Count(IsLatinLetter) >= 4
+            && LatinLetterVowelRatio(token) >= 0.16);
+        var singleLetterCount = TokenRegex().Matches(text)
+            .Select(static match => TrimToken(match.Value))
+            .Count(IsSingleLetterToken);
+        var symbolCount = text.Count(static ch =>
+            !char.IsLetterOrDigit(ch)
+            && !char.IsWhiteSpace(ch)
+            && ch is not '.' and not ',' and not ';' and not ':' and not '(' and not ')'
+            && ch is not '[' and not ']' and not '-' and not '\u2013' and not '\u2014' and not '+');
+        var symbolRatio = (double)symbolCount / Math.Max(1, text.Length);
+        if (symbolRatio >= 0.075 || singleLetterCount >= Math.Max(5, tokens.Length / 8))
+            return false;
+
+        var technicalCueCount = TechnicalContentCueRegex().Matches(text).Count;
+        var topicCueCount = TechnicalTopicListCueRegex().Matches(text).Count;
+        return substantiveWords >= Math.Max(12, tokens.Length / 4)
+            && technicalCueCount >= 4
+            && topicCueCount >= 4;
+    }
+
+    private static bool LooksLikePreservableEntityRosterOrContactListText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || text.Length < 180)
+            return false;
+        if (NoisyMetadataLeadMarkerRegex().IsMatch(text))
+            return false;
+
+        var tokens = TokenRegex().Matches(text)
+            .Select(static match => TrimToken(match.Value))
+            .Where(static token => token.Length >= 2)
+            .ToArray();
+        if (tokens.Length < 30)
+            return false;
+
+        var substantiveWords = tokens.Count(static token =>
+            token.Count(IsLatinLetter) >= 4
+            && LatinLetterVowelRatio(token) >= 0.16);
+        var singleLetterCount = TokenRegex().Matches(text)
+            .Select(static match => TrimToken(match.Value))
+            .Count(IsSingleLetterToken);
+        var suspiciousInternalCaseTokens = tokens.Count(static token =>
+            ContainsLatinLetter(token) && HasSuspiciousInternalCaseSwitch(token));
+        var quoteSlashPipeCount = text.Count(static ch =>
+            ch is '\'' or '\u2019' or '\u2018' or '"' or '/' or '\\' or '|');
+        var symbolCount = text.Count(static ch =>
+            !char.IsLetterOrDigit(ch)
+            && !char.IsWhiteSpace(ch)
+            && ch is not '.' and not ',' and not ';' and not ':' and not '(' and not ')'
+            && ch is not '[' and not ']' and not '-' and not '\u2013' and not '\u2014'
+            && ch is not '+' and not '&' and not '@');
+        var symbolRatio = (double)symbolCount / Math.Max(1, text.Length);
+        var entityCueCount = EntityRosterCueRegex().Matches(text).Count;
+        var entityAbbreviationCount = EntityAbbreviationRegex().Matches(text).Count;
+        var personNamePairCount = PersonNamePairRegex().Matches(text).Count;
+        var initialPersonNameCount = InitialPersonNameRegex().Matches(text).Count;
+        var contactSignalCount = ContactSignalRegex().Matches(text).Count
+            + PostalAddressSignalRegex().Matches(text).Count;
+        var personLikeNameCount = personNamePairCount + initialPersonNameCount;
+        var strongRosterEvidence = personLikeNameCount >= 6
+            && entityCueCount + entityAbbreviationCount + contactSignalCount >= 4;
+
+        if (symbolRatio >= 0.09
+            || quoteSlashPipeCount >= Math.Max(12, tokens.Length / 4)
+            || !strongRosterEvidence && singleLetterCount >= Math.Max(10, tokens.Length / 6)
+            || suspiciousInternalCaseTokens >= Math.Max(12, tokens.Length / 5))
+        {
+            return false;
+        }
+
+        var rosterShape = personLikeNameCount >= 4
+            && (entityCueCount >= 3
+                || entityAbbreviationCount >= 3
+                || contactSignalCount >= 2);
+        var contactListShape = contactSignalCount >= 3
+            && (entityCueCount >= 1 || personLikeNameCount >= 2)
+            && substantiveWords >= Math.Max(10, tokens.Length / 4);
+
+        return substantiveWords >= Math.Max(12, tokens.Length / 5)
+            && (rosterShape || contactListShape);
+    }
+
+    private static bool LooksLikePreservableTechnicalDecisionMatrixText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || text.Length < 180)
+            return false;
+        if (LooksLikeSpacedLetterRunNoise(text) || NoisyMetadataLeadMarkerRegex().IsMatch(text))
+            return false;
+
+        var tokens = TokenRegex().Matches(text)
+            .Select(static match => TrimToken(match.Value))
+            .Where(static token => token.Length >= 2)
+            .ToArray();
+        if (tokens.Length < 30)
+            return false;
+
+        var normalizedTokens = tokens.Select(static token => token.ToLowerInvariant()).ToArray();
+        var commonWordCount = normalizedTokens.Count(CommonWords.Contains);
+        var substantiveWords = tokens.Count(static token =>
+            token.Count(IsLatinLetter) >= 4
+            && LatinLetterVowelRatio(token) >= 0.16);
+        var singleLetterCount = TokenRegex().Matches(text)
+            .Select(static match => TrimToken(match.Value))
+            .Count(IsSingleLetterToken);
+        var suspiciousInternalCaseTokens = tokens.Count(static token =>
+            ContainsLatinLetter(token) && HasSuspiciousInternalCaseSwitch(token));
+        var quoteSlashPipeCount = text.Count(static ch =>
+            ch is '\'' or '\u2019' or '\u2018' or '"' or '/' or '\\' or '|');
+        var symbolCount = text.Count(static ch =>
+            !char.IsLetterOrDigit(ch)
+            && !char.IsWhiteSpace(ch)
+            && ch is not '.' and not ',' and not ';' and not ':' and not '(' and not ')'
+            && ch is not '[' and not ']' and not '-' and not '\u2013' and not '\u2014'
+            && ch is not '+' and not '&');
+        var symbolRatio = (double)symbolCount / Math.Max(1, text.Length);
+        if (symbolRatio >= 0.11
+            || quoteSlashPipeCount >= Math.Max(16, tokens.Length / 3)
+            || singleLetterCount >= Math.Max(10, tokens.Length / 5)
+            || suspiciousInternalCaseTokens >= Math.Max(14, tokens.Length / 4))
+        {
+            return false;
+        }
+
+        var technicalIdentifierCount = TechnicalIdentifierRegex().Matches(text).Count;
+        var sectionReferenceCount = TechnicalSectionReferenceRegex().Matches(text).Count;
+        var technicalCueCount = TechnicalContentCueRegex().Matches(text).Count;
+        var matrixCueCount = TechnicalDecisionMatrixCueRegex().Matches(text).Count;
+        return substantiveWords >= Math.Max(14, tokens.Length / 5)
+            && commonWordCount >= 5
+            && matrixCueCount >= 5
+            && (technicalIdentifierCount + sectionReferenceCount >= 1
+                || technicalCueCount >= 3);
+    }
+
+    private static bool LooksLikePreservableTechnicalFigureOrChartText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || text.Length < 140)
+            return false;
+        if (LooksLikeSpacedLetterRunNoise(text) || NoisyMetadataLeadMarkerRegex().IsMatch(text))
+            return false;
+
+        var tokens = TokenRegex().Matches(text)
+            .Select(static match => TrimToken(match.Value))
+            .Where(static token => token.Length >= 2)
+            .ToArray();
+        if (tokens.Length < 20)
+            return false;
+
+        var normalizedTokens = tokens.Select(static token => token.ToLowerInvariant()).ToArray();
+        var commonWordCount = normalizedTokens.Count(CommonWords.Contains);
+        var substantiveWords = tokens.Count(static token =>
+            token.Count(IsLatinLetter) >= 4
+            && LatinLetterVowelRatio(token) >= 0.16);
+        var singleLetterCount = TokenRegex().Matches(text)
+            .Select(static match => TrimToken(match.Value))
+            .Count(IsSingleLetterToken);
+        var suspiciousInternalCaseTokens = tokens.Count(static token =>
+            ContainsLatinLetter(token) && HasSuspiciousInternalCaseSwitch(token));
+        var quoteSlashPipeCount = text.Count(static ch =>
+            ch is '\'' or '\u2019' or '\u2018' or '"' or '/' or '\\' or '|');
+        var symbolCount = text.Count(static ch =>
+            !char.IsLetterOrDigit(ch)
+            && !char.IsWhiteSpace(ch)
+            && ch is not '.' and not ',' and not ';' and not ':' and not '(' and not ')'
+            && ch is not '[' and not ']' and not '-' and not '\u2013' and not '\u2014'
+            && ch is not '+' and not '&' and not '@' and not '=' and not '<' and not '>');
+        var symbolRatio = (double)symbolCount / Math.Max(1, text.Length);
+        if (symbolRatio >= 0.18
+            || quoteSlashPipeCount >= Math.Max(20, tokens.Length / 2)
+            || singleLetterCount >= Math.Max(18, tokens.Length / 4)
+            || suspiciousInternalCaseTokens >= Math.Max(18, tokens.Length / 3))
+        {
+            return false;
+        }
+
+        var technicalIdentifierCount = TechnicalIdentifierRegex().Matches(text).Count;
+        var technicalCueCount = TechnicalContentCueRegex().Matches(text).Count;
+        var figureCueCount = TechnicalFigureOrChartCueRegex().Matches(text).Count;
+        var instructionCueCount = EnumeratedInstructionCueRegex().Matches(text).Count;
+        var compactAnnotatedFigure = figureCueCount >= 6
+            && technicalCueCount >= 3
+            && substantiveWords >= Math.Max(10, tokens.Length / 7);
+        if (tokens.Length < 28 && !compactAnnotatedFigure)
+            return false;
+
+        return substantiveWords >= Math.Max(12, tokens.Length / 6)
+            && (commonWordCount >= 3 || compactAnnotatedFigure)
+            && figureCueCount >= 4
+            && (technicalIdentifierCount >= 1
+                || technicalCueCount >= 3
+                || instructionCueCount >= 2);
+    }
+
+    private static bool LooksLikePreservableStandardsGovernanceText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || text.Length < 160)
+            return false;
+        if (LooksLikeSpacedLetterRunNoise(text) || NoisyMetadataLeadMarkerRegex().IsMatch(text))
+            return false;
+
+        var tokens = TokenRegex().Matches(text)
+            .Select(static match => TrimToken(match.Value))
+            .Where(static token => token.Length >= 2)
+            .ToArray();
+        if (tokens.Length < 28)
+            return false;
+
+        var normalizedTokens = tokens.Select(static token => token.ToLowerInvariant()).ToArray();
+        var normalizedText = text.ToLowerInvariant();
+        var commonWordCount = normalizedTokens.Count(CommonWords.Contains);
+        var substantiveWords = tokens.Count(static token =>
+            token.Count(IsLatinLetter) >= 4
+            && LatinLetterVowelRatio(token) >= 0.16);
+        var sentencePunctuationCount = text.Count(static ch => ch is '.' or '!' or '?' or '\u2026');
+        var quoteSlashPipeCount = text.Count(static ch =>
+            ch is '\'' or '\u2019' or '\u2018' or '"' or '/' or '\\' or '|');
+        var symbolCount = text.Count(static ch =>
+            !char.IsLetterOrDigit(ch)
+            && !char.IsWhiteSpace(ch)
+            && ch is not '.' and not ',' and not ';' and not ':' and not '(' and not ')'
+            && ch is not '-' and not '\u2013' and not '\u2014' and not '+' and not '*');
+        var symbolRatio = (double)symbolCount / Math.Max(1, text.Length);
+        if (symbolRatio >= 0.08 || quoteSlashPipeCount >= Math.Max(10, tokens.Length / 4))
+            return false;
+
+        var technicalIdentifierCount = TechnicalIdentifierRegex().Matches(text).Count;
+        var governanceCueCount = StandardsGovernanceCueRegex().Matches(normalizedText).Count;
+        var rosterCue = StandardsRosterCueRegex().IsMatch(normalizedText);
+        return governanceCueCount >= 4
+            && commonWordCount >= 6
+            && substantiveWords >= Math.Max(12, tokens.Length / 5)
+            && sentencePunctuationCount >= 2
+            && (technicalIdentifierCount >= 1
+                || normalizedText.Contains("standard", StringComparison.Ordinal)
+                || normalizedText.Contains("standards", StringComparison.Ordinal))
+            && (rosterCue || sentencePunctuationCount >= 3);
     }
 
     private static bool LooksLikePreservableStructuredContentText(string text)
@@ -504,6 +894,9 @@ internal static partial class OcrNoiseFilter
             || LooksLikeUsefulProseWithStructuredQuantityContinuation(trimmed))
             return false;
 
+        if (LooksLikeTechnicalFigureLabelFragment(trimmed))
+            return false;
+
         if (LooksLikeProbableNoiseText(suffix))
             return true;
 
@@ -514,6 +907,42 @@ internal static partial class OcrNoiseFilter
             return false;
 
         return trimmed.Length <= 90 && StartsWithLowercaseLetter(trimmed);
+    }
+
+    private static bool LooksLikeTechnicalFigureLabelFragment(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || text.Length is < 24 or > 180)
+            return false;
+        if (NoisyMetadataLeadMarkerRegex().IsMatch(text)
+            || TrailingSupplementStartRegex().IsMatch($" {text}")
+            || LooksLikeSymbolDamagedShortSupplement(text))
+        {
+            return false;
+        }
+
+        var tokens = TokenRegex().Matches(text)
+            .Select(static match => TrimToken(match.Value))
+            .Where(static token => token.Length >= 2)
+            .ToArray();
+        if (tokens.Length is < 4 or > 28)
+            return false;
+
+        var substantiveWords = tokens.Count(static token =>
+            token.Count(IsLatinLetter) >= 4
+            && LatinLetterVowelRatio(token) >= 0.16);
+        var technicalCueCount = TechnicalContentCueRegex().Matches(text).Count;
+        var figureCueCount = TechnicalFigureOrChartCueRegex().Matches(text).Count;
+        var symbolCount = text.Count(static ch =>
+            !char.IsLetterOrDigit(ch)
+            && !char.IsWhiteSpace(ch)
+            && ch is not '.' and not ',' and not ';' and not ':' and not '(' and not ')'
+            && ch is not '[' and not ']' and not '-' and not '\u2013' and not '\u2014'
+            && ch is not '+' and not '&' and not '@' and not '=' and not '<' and not '>');
+
+        return symbolCount <= Math.Max(2, text.Length / 24)
+            && substantiveWords >= Math.Max(4, tokens.Length / 3)
+            && figureCueCount >= 3
+            && technicalCueCount >= 1;
     }
 
     private static bool LooksLikeUsefulProseWithStructuredQuantityContinuation(string text)
@@ -1196,7 +1625,8 @@ internal static partial class OcrNoiseFilter
         "el", "los", "las", "una", "un", "para", "por", "esta", "este", "y", "o",
         "il", "lo", "gli", "per", "nel", "nella", "sono", "come",
         "uma", "um", "voce", "nao", "se", "si", "este", "esta",
-        "das", "ist", "sind", "mit", "fuer", "von",
+        "das", "den", "dem", "ist", "sind", "mit", "fuer", "für", "von", "zu", "im",
+        "werden", "wird", "durch", "nach", "bei", "aus",
         "de", "het", "een", "van", "voor", "met", "op",
         "och", "att", "som", "den", "det",
         "og", "af", "til",
@@ -1213,8 +1643,50 @@ internal static partial class OcrNoiseFilter
     [GeneratedRegex(@"[\p{L}]{2,}\d[\p{L}\p{N}_\-]{6,}", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex InternalReferenceCodeRegex();
 
-    [GeneratedRegex(@"\b(?:EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR|TS|PD|BS|NF|SN|UL|CSA)(?:[\s._/\-]+[A-Z]{1,6}){0,4}[\s._/\-]*\d[A-Z0-9._/\-:]*\b", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\b(?:EN|ISO|IEC|ASTM|DIN|DVS|NFPA|API|ANSI|CEN|TR|TS|PD|BS|NF|SN|UL|CSA)(?:[\s._/\-]+[A-Z]{1,6}){0,4}[\s._/\-]*\d[A-Z0-9._/\-:]*\b", RegexOptions.CultureInvariant)]
     private static partial Regex TechnicalIdentifierRegex();
+
+    [GeneratedRegex(@"\b(?:A\.)?\d{1,3}(?:[\.,]\d{1,3}){1,5}\b|\b(?:annex|appendix|chapter|figure|fig\.?|section|table)\s+[A-Z]?\d{1,4}(?:[\.,]\d{1,4}){0,5}\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex TechnicalSectionReferenceRegex();
+
+    [GeneratedRegex(@"\b(?:abmessungen|anforderungen|authority|berechnung|bild|circuit|clamp|conductor|control|dichtung(?:en)?|disconnecting|drive|druck|electrical|enclosure|equipment|fault|fitting|flansch(?:e|es)?|gasket|gleichung|ground(?:ed|ing)?|industrial|interlock(?:ing)?|kunststoff(?:e|en)?|machine(?:ry)?|material|materials|mechanische|motor|normen?|overcurrent|pipe|pressure|probe(?:n|koerper)?|probekorper|protect(?:ion|ive)?|pruef(?:en|ung)|pruf(?:en|ung)|rating|richtlinien?|rohre?|safety|schwei(?:ss|b|\u00df)|shall|standard|standards|switch(?:ing)?|symbol|tabelle|technical|technische|thermoplast(?:e|en|ic|ics)|tube|voltage|werkstoff(?:e|en|s)?|wire(?:way|s)?|wiring)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex TechnicalContentCueRegex();
+
+    [GeneratedRegex(@"\b(?:collateral|directive|embedded|examples?|information|messages?|panel|product|section|signal|supplemental)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex TechnicalTopicListCueRegex();
+
+    [GeneratedRegex(@"\b(?:accident|alert|assigned|avoid(?:ed|ance)?|category|categories|caution|classification|classify|combination|credible|damage|decision|hazard(?:ous)?|harm|injur(?:y|ies)|matrix|matrices|moderate|minor|notice|preferred|probabilit(?:y|ies)|risk|selection|serious|severity|signal|symbol|warning|worst)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex TechnicalDecisionMatrixCueRegex();
+
+    [GeneratedRegex(@"\b(?:axis|bar|bars|bus|caption|chart|circuit|connection|control|current|diagram|distribution|electrical|enclosure|exterior|figure|horizontal|input|interior|layout|legend|line|lockout|main|module|output|panel|plot|rated|rating|remote|schematic|short-circuit|support(?:s|ed)?|supply|terminal|value|vertical|voltage|wiring)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex TechnicalFigureOrChartCueRegex();
+
+    [GeneratedRegex(@"(?:^|[\s;:.])(?:[a-z]\)|\d+\)|\([a-z]\)|\(\d+\))\s+\p{Lu}|\b(?:obtain|select|move|determine|verify|record|install|connect|disconnect)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex EnumeratedInstructionCueRegex();
+
+    [GeneratedRegex(@"\b(?:agency|agencies|association|associations|assoc|authority|authorities|center|centre|college|commission|committee|company|companies|corporation|council|department|division|engineers?|equipment|foundation|group|institute|institutes|industry|industries|laborator(?:y|ies)|lab|manufacturer(?:s)?|mfrs|office|organization|organisations?|organizations?|partners?|service|services|societ(?:y|ies)|supplier(?:s)?|supply|systems|university)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex EntityRosterCueRegex();
+
+    [GeneratedRegex(@"\b(?:AG|Alt|Assoc|Co|Corp|Div|GmbH|Inc|Inst|Lab|LLC|Ltd|Mfrs|PLC|SA|Sarl)\.?\b", RegexOptions.CultureInvariant)]
+    private static partial Regex EntityAbbreviationRegex();
+
+    [GeneratedRegex(@"\b\p{Lu}[\p{Ll}\u00df-\u024f]{2,}(?:\s+\p{Lu}\.)?\s+\p{Lu}[\p{Ll}\u00df-\u024f]{2,}\b", RegexOptions.CultureInvariant)]
+    private static partial Regex PersonNamePairRegex();
+
+    [GeneratedRegex(@"\*?\b\p{Lu}\.\s+\p{Lu}[\p{Ll}\u00df-\u024f]{2,}\b", RegexOptions.CultureInvariant)]
+    private static partial Regex InitialPersonNameRegex();
+
+    [GeneratedRegex(@"\b(?:address|adresse|contact|courriel|e-?mail|fax|mail|phone|postcode|postal|strasse|street|tel(?:ephone)?|www|zip)\b|[\p{L}\p{N}._%+\-]+@[\p{L}\p{N}.\-]+\.[\p{L}]{2,}", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex ContactSignalRegex();
+
+    [GeneratedRegex(@"\b\d{1,6}\s+(?:[\p{Lu}][\p{Ll}\u00df-\u024f]{2,}|[\p{Lu}]{2,})(?:\s+(?:street|strasse|road|avenue|lane|rue|weg|platz|drive|boulevard|blvd|st\.?|ave\.?))?\b|\b[A-Z]{1,3}-?\d{4,6}\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex PostalAddressSignalRegex();
+
+    [GeneratedRegex(@"\b(?:accredited|approval|approved|approves?|chair(?:person)?|committee|committees|member|members|organization|represented|representative|secretary|standard|standards|submittal|subcommittee|voted)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex StandardsGovernanceCueRegex();
+
+    [GeneratedRegex(@"\b(?:organization\s+represented|name\s+of\s+representative|chair(?:person)?|secretary|vice\s+chair|members?)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex StandardsRosterCueRegex();
 
     [GeneratedRegex(@"^\d+(?:[,.]\d+)?[a-z\u00c0-\u024f]{1,4}$", RegexOptions.CultureInvariant)]
     private static partial Regex CompactMeasureRegex();

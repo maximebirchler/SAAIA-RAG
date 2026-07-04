@@ -3,6 +3,26 @@ using System.Text.RegularExpressions;
 
 internal static partial class DocumentSectionExtractor
 {
+    private static readonly HashSet<string> SingleNumberedConnectorTokens = new(StringComparer.Ordinal)
+    {
+        "a",
+        "an",
+        "and",
+        "de",
+        "des",
+        "du",
+        "et",
+        "for",
+        "of",
+        "par",
+        "para",
+        "per",
+        "por",
+        "pour",
+        "to",
+        "und"
+    };
+
     public static IReadOnlyList<ExtractedDocumentSection> Extract(IReadOnlyList<ExtractedPdfPage> pages)
     {
         if (pages.Count == 0)
@@ -38,6 +58,10 @@ internal static partial class DocumentSectionExtractor
                 var words = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                 if (LooksLikeInlineDenseHeadingNoise(line, page.Lines, i, words))
                     continue;
+                if (LooksLikeContextualRosterHeadingNoise(line, page.Lines, i, words))
+                    continue;
+                if (LooksLikeWeakTitleCaseHeadingNoise(line, page.Lines, i, words))
+                    continue;
 
                 candidates.Add(new SectionCandidate(page.PageNumber, i + 1, line, level));
             }
@@ -67,14 +91,7 @@ internal static partial class DocumentSectionExtractor
         {
             var current = selectedCandidates[idx];
             var next = idx + 1 < selectedCandidates.Count ? selectedCandidates[idx + 1] : null;
-            var pageEnd = next is null
-                ? pages.Max(p => p.PageNumber)
-                : next.PageNumber > current.PageNumber
-                    ? next.PageNumber - 1
-                    : current.PageNumber;
-            int? endLine = next is null || next.PageNumber != current.PageNumber
-                ? null
-                : Math.Max(current.LineNumber, next.LineNumber - 1);
+            var (pageEnd, endLine) = ResolveSectionEnd(current, next, pages.Max(p => p.PageNumber));
 
             sections.Add(new ExtractedDocumentSection(
                 Ordinal: idx,
@@ -87,6 +104,23 @@ internal static partial class DocumentSectionExtractor
         }
 
         return sections;
+    }
+
+    private static (int PageEnd, int? EndLine) ResolveSectionEnd(
+        SectionCandidate current,
+        SectionCandidate? next,
+        int documentLastPage)
+    {
+        if (next is null)
+            return (documentLastPage, null);
+
+        if (next.PageNumber == current.PageNumber)
+            return (current.PageNumber, Math.Max(current.LineNumber, next.LineNumber - 1));
+
+        if (next.PageNumber > current.PageNumber && next.LineNumber > 1)
+            return (next.PageNumber, next.LineNumber - 1);
+
+        return (Math.Max(current.PageNumber, next.PageNumber - 1), null);
     }
 
     private static IReadOnlyList<SectionCandidate> FilterDenseLayoutNoise(
@@ -387,6 +421,8 @@ internal static partial class DocumentSectionExtractor
         if (LooksLikeHeaderFooterLine(line)
             || LooksLikeShortNumericOrRangeFragment(line, words)
             || LooksLikeShortQuantityLeadFragment(line, words)
+            || LooksLikeSingleNumberedConnectorFragment(line, words)
+            || LooksLikeShortMixedCaseOcrHeadingNoise(line, words)
             || LooksLikeShortLegendOrAbbreviationFragment(line, words)
             || LooksLikeShortTrailingPunctuationFragment(line, words)
             || LooksLikeSpacedLetterNoise(line)
@@ -395,6 +431,12 @@ internal static partial class DocumentSectionExtractor
             || LooksLikeShortAcronymLeadFragment(line, words)
             || LooksLikeShortHyphenatedBodyFragment(line, words)
             || LooksLikeShortListValueFragment(line, words)
+            || LooksLikeShortCommaSeparatedLabelFragment(line, words)
+            || LooksLikeShortStatusValueFragment(line, words)
+            || LooksLikeFigureOrTableCaptionLine(line)
+            || LooksLikeAddressLine(line, words)
+            || LooksLikeOrganizationFooterLine(line, words)
+            || LooksLikeNumberedTableRowFragment(line, words)
             || LooksLikeBodySentenceFragment(line, words))
         {
             return false;
@@ -451,6 +493,12 @@ internal static partial class DocumentSectionExtractor
             || LooksLikeMeasureDenseFragment(normalized, words)
             || LooksLikeShortMetadataValueFragment(normalized, words)
             || LooksLikeShortListValueFragment(normalized, words)
+            || LooksLikeShortCommaSeparatedLabelFragment(normalized, words)
+            || LooksLikeShortStatusValueFragment(normalized, words)
+            || LooksLikeFigureOrTableCaptionLine(normalized)
+            || LooksLikeAddressLine(normalized, words)
+            || LooksLikeOrganizationFooterLine(normalized, words)
+            || LooksLikeNumberedTableRowFragment(normalized, words)
             || LooksLikeBodySentenceFragment(normalized, words))
         {
             return false;
@@ -490,6 +538,32 @@ internal static partial class DocumentSectionExtractor
             });
     }
 
+    private static bool LooksLikeSingleNumberedConnectorFragment(string line, IReadOnlyList<string> words)
+    {
+        if (words.Count is < 3 or > 6)
+            return false;
+
+        var normalized = NormalizeWhitespace(line);
+        if (!SingleNumberHeadingLeadRegex().IsMatch(normalized))
+            return false;
+        if (normalized.Contains('.', StringComparison.Ordinal))
+            return false;
+
+        var firstValueToken = TrimToken(words[1]).ToLowerInvariant();
+        if (!SingleNumberedConnectorTokens.Contains(firstValueToken))
+            return false;
+
+        return words
+            .Skip(1)
+            .Select(TrimToken)
+            .Where(static token => token.Length > 0)
+            .All(static token =>
+            {
+                var first = token.FirstOrDefault(char.IsLetter);
+                return first == default || char.IsLower(first);
+            });
+    }
+
     private static bool LooksLikeMostlyUppercaseHeading(string line)
     {
         var letters = line.Where(char.IsLetter).ToArray();
@@ -518,6 +592,117 @@ internal static partial class DocumentSectionExtractor
         });
 
         return titleCaseWords >= Math.Max(2, words.Count - 1);
+    }
+
+    private static bool LooksLikeWeakTitleCaseHeadingNoise(
+        string line,
+        IReadOnlyList<string> lines,
+        int index,
+        IReadOnlyList<string> words)
+    {
+        if (!LooksLikeWeakStandaloneTitleCaseHeading(line, words))
+            return false;
+
+        return !HasNarrativeBodyAfterWeakTitle(lines, index);
+    }
+
+    private static bool LooksLikeWeakStandaloneTitleCaseHeading(string line, IReadOnlyList<string> words)
+    {
+        var normalized = NormalizeWhitespace(line);
+        if (normalized.Length is < 4 or > 100)
+            return false;
+        if (words.Count is < 2 or > 8)
+            return false;
+        if (NumberedHeadingRegex().IsMatch(normalized)
+            || RomanHeadingRegex().IsMatch(normalized)
+            || LooksLikeMostlyUppercaseHeading(normalized))
+        {
+            return false;
+        }
+        if (normalized.Any(static ch => ch is ':' or ';' or '|' or '\u2022'))
+            return false;
+        if (LooksLikeFigureOrTableCaptionLine(normalized)
+            || LooksLikeAddressLine(normalized, words)
+            || LooksLikeOrganizationFooterLine(normalized, words)
+            || LooksLikeShortTrailingPunctuationFragment(normalized, words)
+            || LooksLikeShortListValueFragment(normalized, words)
+            || LooksLikeShortCommaSeparatedLabelFragment(normalized, words)
+            || LooksLikeShortStatusValueFragment(normalized, words)
+            || LooksLikeMeasureDenseFragment(normalized, words))
+        {
+            return false;
+        }
+
+        var letterCount = normalized.Count(char.IsLetter);
+        if (letterCount < 8)
+            return false;
+
+        var titleCaseWords = words.Count(static word =>
+        {
+            var firstLetter = word.FirstOrDefault(char.IsLetter);
+            return firstLetter != default && char.IsUpper(firstLetter);
+        });
+
+        return titleCaseWords >= Math.Max(2, words.Count - 1);
+    }
+
+    private static bool HasNarrativeBodyAfterWeakTitle(IReadOnlyList<string> lines, int index)
+    {
+        var inspected = 0;
+        for (var i = index + 1; i < lines.Count && inspected < 5; i++)
+        {
+            var line = NormalizeWhitespace(lines[i]);
+            if (line.Length == 0)
+                continue;
+
+            inspected++;
+            var words = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (LooksLikeFigureOrTableCaptionLine(line)
+                || LooksLikeAddressLine(line, words)
+                || LooksLikeOrganizationFooterLine(line, words)
+                || LooksLikeNumberedTableRowFragment(line, words)
+                || LooksLikeShortNumericOrRangeFragment(line, words)
+                || LooksLikeMeasureDenseFragment(line, words))
+            {
+                continue;
+            }
+
+            if (TryClassifyHeading(line, out _))
+                return false;
+
+            if (LooksLikeNarrativeBodyLine(line, words))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool LooksLikeNarrativeBodyLine(string line, IReadOnlyList<string> words)
+    {
+        if (words.Count is < 5 or > 80)
+            return false;
+
+        var lowerWords = words.Count(static word =>
+        {
+            var firstLetter = word.FirstOrDefault(char.IsLetter);
+            return firstLetter != default && char.IsLower(firstLetter);
+        });
+        if (lowerWords < Math.Max(3, words.Count / 2))
+            return false;
+
+        if (line.EndsWith(".", StringComparison.Ordinal)
+            || line.EndsWith(";", StringComparison.Ordinal)
+            || line.EndsWith(":", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return words.Any(static word =>
+        {
+            var token = TrimToken(word).ToLowerInvariant();
+            return token is "is" or "are" or "was" or "were" or "be" or "being" or "been"
+                or "shall" or "should" or "must" or "may";
+        });
     }
 
     private static bool LooksLikeHeadingContinuation(string line)
@@ -564,6 +749,99 @@ internal static partial class DocumentSectionExtractor
         return LooksLikeDenseInlineContext(previous) && LooksLikeDenseInlineContext(next);
     }
 
+    private static bool LooksLikeContextualRosterHeadingNoise(
+        string line,
+        IReadOnlyList<string> lines,
+        int index,
+        IReadOnlyList<string> words)
+    {
+        var normalized = NormalizeWhitespace(line).TrimEnd(':');
+        var folded = FoldDiacritics(normalized).ToLowerInvariant();
+        if (folded is "organization represented" or "organisation represented" or "name of representative"
+            or "representative" or "representatives")
+        {
+            return true;
+        }
+
+        if (HasNarrativeBodyAfterWeakTitle(lines, index))
+            return false;
+
+        if (!LooksLikeRosterNameOrOrganizationFragment(normalized, words))
+            return false;
+
+        var contextLines = 0;
+        var first = Math.Max(0, index - 4);
+        var last = Math.Min(lines.Count - 1, index + 4);
+        for (var i = first; i <= last; i++)
+        {
+            if (i == index)
+                continue;
+            if (LooksLikeRosterContextLine(lines[i]))
+                contextLines++;
+        }
+
+        return contextLines >= 2;
+    }
+
+    private static bool LooksLikeRosterNameOrOrganizationFragment(string normalized, IReadOnlyList<string> words)
+    {
+        if (words.Count is < 2 or > 7)
+            return false;
+        if (normalized.Any(char.IsDigit) || normalized.Contains(':', StringComparison.Ordinal))
+            return false;
+
+        var folded = FoldDiacritics(normalized).ToLowerInvariant();
+        if (folded.Contains("associate", StringComparison.Ordinal)
+            || folded.Contains("consulting", StringComparison.Ordinal)
+            || folded.Contains("corporation", StringComparison.Ordinal)
+            || folded.Contains("company", StringComparison.Ordinal)
+            || folded.Contains("institute", StringComparison.Ordinal)
+            || folded.Contains("laborator", StringComparison.Ordinal)
+            || folded.Contains("society", StringComparison.Ordinal)
+            || folded.Contains("association", StringComparison.Ordinal)
+            || normalized.Contains('&', StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var nameLikeTokens = words
+            .Select(TrimToken)
+            .Where(static token => token.Length > 0)
+            .Count(static token =>
+            {
+                var first = token.FirstOrDefault(char.IsLetter);
+                return first != default && (char.IsUpper(first) || token.Length == 1);
+            });
+
+        return nameLikeTokens >= Math.Min(2, words.Count)
+            && words.Any(static word => TrimToken(word).Length is >= 2 and <= 24);
+    }
+
+    private static bool LooksLikeRosterContextLine(string line)
+    {
+        var normalized = NormalizeWhitespace(line);
+        if (normalized.Length == 0)
+            return false;
+
+        var folded = FoldDiacritics(normalized).ToLowerInvariant();
+        return folded.Contains("(alt", StringComparison.Ordinal)
+            || folded.Contains(" chairperson", StringComparison.Ordinal)
+            || folded.Contains(" secretary", StringComparison.Ordinal)
+            || folded.Contains(" representative", StringComparison.Ordinal)
+            || folded.Contains(" association", StringComparison.Ordinal)
+            || folded.Contains(" associates", StringComparison.Ordinal)
+            || folded.Contains(" committee", StringComparison.Ordinal)
+            || folded.Contains(" company", StringComparison.Ordinal)
+            || folded.Contains(" corporation", StringComparison.Ordinal)
+            || folded.Contains(" institute", StringComparison.Ordinal)
+            || folded.Contains(" laboratory", StringComparison.Ordinal)
+            || folded.Contains(" laboratories", StringComparison.Ordinal)
+            || folded.Contains(" manufacturers", StringComparison.Ordinal)
+            || folded.Contains(" society", StringComparison.Ordinal)
+            || folded.Contains(" standards", StringComparison.Ordinal)
+            || normalized.Contains('&', StringComparison.Ordinal);
+    }
+
     private static bool LooksLikeDenseInlineContext(string line)
     {
         var normalized = NormalizeWhitespace(line);
@@ -595,6 +873,22 @@ internal static partial class DocumentSectionExtractor
             return false;
 
         return ShortQuantityLeadFragmentRegex().IsMatch(NormalizeWhitespace(line));
+    }
+
+    private static bool LooksLikeShortMixedCaseOcrHeadingNoise(string line, IReadOnlyList<string> words)
+    {
+        if (words.Count != 2)
+            return false;
+
+        var first = TrimToken(words[0]);
+        var second = TrimToken(words[1]);
+        if (first.Length is < 5 or > 20 || second.Length != 1)
+            return false;
+        if (!first.Any(char.IsLetter) || first.Any(char.IsLower))
+            return false;
+
+        var secondLetter = second.FirstOrDefault(char.IsLetter);
+        return secondLetter != default && char.IsLower(secondLetter);
     }
 
     private static bool LooksLikeNumberedHeadingCandidate(string line)
@@ -753,6 +1047,102 @@ internal static partial class DocumentSectionExtractor
             && words.Any(static word => word.Length >= 2 && char.IsLower(word[0]));
     }
 
+    private static bool LooksLikeShortCommaSeparatedLabelFragment(string line, IReadOnlyList<string> words)
+    {
+        var normalized = NormalizeWhitespace(line);
+        if (words.Count is < 2 or > 6)
+            return false;
+        if (!normalized.Contains(',', StringComparison.Ordinal))
+            return false;
+        if (normalized.EndsWith(".", StringComparison.Ordinal)
+            || normalized.EndsWith(";", StringComparison.Ordinal)
+            || normalized.Contains(':', StringComparison.Ordinal)
+            || normalized.Contains('|', StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var folded = FoldDiacritics(normalized).ToLowerInvariant();
+        if (folded.Contains(" and ", StringComparison.Ordinal)
+            || folded.Contains(" et ", StringComparison.Ordinal)
+            || folded.Contains(" und ", StringComparison.Ordinal)
+            || folded.Contains(" of ", StringComparison.Ordinal)
+            || folded.Contains(" de ", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return normalized.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .All(static part => part.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length <= 3);
+    }
+
+    private static bool LooksLikeShortStatusValueFragment(string line, IReadOnlyList<string> words)
+    {
+        var normalized = NormalizeWhitespace(line);
+        if (words.Count is < 2 or > 6)
+            return false;
+        if (normalized.EndsWith(".", StringComparison.Ordinal)
+            || normalized.Contains(':', StringComparison.Ordinal)
+            || normalized.Contains('|', StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var last = FoldDiacritics(TrimToken(words[^1])).ToLowerInvariant();
+        if (last is not ("active" or "approved" or "archived" or "current" or "draft" or "inactive"
+            or "obsolete" or "preliminary" or "released" or "valid" or "withdrawn"))
+        {
+            return false;
+        }
+
+        return words.Take(words.Count - 1).Any(static word =>
+        {
+            var firstLetter = word.FirstOrDefault(char.IsLetter);
+            return firstLetter != default && char.IsLower(firstLetter);
+        });
+    }
+
+    private static bool LooksLikeFigureOrTableCaptionLine(string line)
+    {
+        var normalized = NormalizeWhitespace(line);
+        return FigureOrTableCaptionRegex().IsMatch(normalized);
+    }
+
+    private static bool LooksLikeAddressLine(string line, IReadOnlyList<string> words)
+    {
+        if (words.Count is < 3 or > 10)
+            return false;
+
+        return AddressLineRegex().IsMatch(NormalizeWhitespace(line));
+    }
+
+    private static bool LooksLikeOrganizationFooterLine(string line, IReadOnlyList<string> words)
+    {
+        if (words.Count is < 3 or > 10)
+            return false;
+
+        return OrganizationFooterRegex().IsMatch(NormalizeWhitespace(line));
+    }
+
+    private static bool LooksLikeNumberedTableRowFragment(string line, IReadOnlyList<string> words)
+    {
+        var normalized = NormalizeWhitespace(line);
+        if (words.Count is < 4 or > 18)
+            return false;
+
+        var match = NumberedHeadingRegex().Match(normalized);
+        if (!match.Success)
+            return false;
+
+        var prefix = normalized.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries)[0];
+        if (!prefix.Contains('.', StringComparison.Ordinal) && !prefix.Contains(':', StringComparison.Ordinal))
+            return false;
+
+        return normalized.Contains('|', StringComparison.Ordinal)
+            || NumberedBooleanMetadataRowRegex().IsMatch(normalized)
+            || NumberedTrailingObligationRowRegex().IsMatch(normalized);
+    }
+
     private static bool LooksLikeBodySentenceFragment(string line, IReadOnlyList<string> words)
     {
         if (words.Count < 4)
@@ -877,6 +1267,21 @@ internal static partial class DocumentSectionExtractor
 
     [GeneratedRegex(@"^\p{Lu}[\p{Ll}\p{M}]{2,30}-(?:y|en|le|la|les|lui|leur|vous|nous|moi|toi|se|s)\b", RegexOptions.CultureInvariant)]
     private static partial Regex HyphenatedBodyLeadRegex();
+
+    [GeneratedRegex(@"^(?:figure|fig\.?|table|tableau|tabelle|abb\.?|abbildung|figura)\s+\d{1,4}\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex FigureOrTableCaptionRegex();
+
+    [GeneratedRegex(@"^\d{1,6}\s+[\p{L}\p{M}'\u2019\.-]+(?:\s+[\p{L}\p{M}'\u2019\.-]+){0,6}\s+(?:road|rd\.?|street|st\.?|avenue|ave\.?|drive|dr\.?|lane|ln\.?|way|boulevard|blvd\.?|square|place|rue|route|strasse|stra\u00dfe|platz)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex AddressLineRegex();
+
+    [GeneratedRegex(@"^[\p{Lu}\p{N}]{2,8}\s*(?:[-\u2010-\u2015]|\u2014|\u2013)\s*[\p{Lu}][\p{L}\p{M}'\u2019-]+(?:\s+[\p{Lu}][\p{L}\p{M}'\u2019-]+){1,6}\s+(?:association|associates?|authority|commission|committee|company|corporation|council|federation|foundation|group|institute|institution|laborator(?:y|ies)|organization|organisation|society|standards?)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex OrganizationFooterRegex();
+
+    [GeneratedRegex(@"^\d{1,2}(?:[\.:]\d{1,3}){1,5}\s+\S.{2,100}\b(?:no|yes|oui|non|ja|nein|si|s\u00ed)(?:\s*/\s*(?:no|yes|oui|non|ja|nein|si|s\u00ed))?[\p{L}\?]*\s+\d{1,4}\b.*(?:\b[mo0o]{1,2}\b|\([mo0o]{1,2}\))\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex NumberedBooleanMetadataRowRegex();
+
+    [GeneratedRegex(@"^\d{1,2}(?:[\.:]\d{1,3}){1,5}\s+\S.{2,100}\b(?:unspecified|characters?|language|langue|sprache|\d{1,4})\b.*(?:\b[mo0o]{1,2}\b|\([mo0o]{1,2}\))\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex NumberedTrailingObligationRowRegex();
 
     [GeneratedRegex(@"^\d{1,4}\s+\p{Ll}[\p{L}'\u2019\-]{1,30}(?:\s+\p{L}[\p{L}'\u2019\-]{1,30}){0,5}\s*,", RegexOptions.CultureInvariant)]
     private static partial Regex LeadingNumberedLowercaseCommaFragmentRegex();

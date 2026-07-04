@@ -191,14 +191,14 @@ raw_candidates AS (
     p.profile_version,
     rc.page_start,
     rc.page_end,
-    REGEXP_REPLACE(BTRIM(title_match.match[1]), '[[:space:]]+', ' ', 'g') AS title
+    REGEXP_REPLACE(BTRIM(title_match.match[2]), '[[:space:]]+', ' ', 'g') AS title
   FROM profile_targets p
   JOIN retrieval_chunks rc
     ON rc.tenant_id = p.tenant_id
    AND rc.revision_id = p.revision_id
   CROSS JOIN LATERAL regexp_matches(
     rc.text_content,
-    '(?:^|[0-9.!?;:)])([[:upper:]][[:alpha:]'' -]{3,90}?)[0-9]{5,}(?=[[:space:]]|[[:upper:]]|$)',
+    '(^|[0-9.!?;:)])([[:upper:]][[:alpha:]'' -]{3,90}?)[0-9]{5,}(?=[[:space:]]|[[:upper:]]|$)',
     'g') AS title_match(match)
 ),
 normalized_candidates AS (

@@ -692,6 +692,74 @@ public sealed class DocumentProfileProjectorTests
     }
 
     [Fact]
+    public void BuildProfile_filters_truncated_standard_reference_cards_and_normative_sentence_leads()
+    {
+        var profile = DocumentProfileProjector.BuildProfile(
+            "deterministic_v1",
+            "en",
+            "Generic technical profile.",
+            [], [], [], [], [],
+            "Generic/Standards.pdf",
+            "Standards.pdf",
+            [
+                new DocumentProfileContentCard("ISO 545", 1, 1, "exact_lead", ["iso"]),
+                new DocumentProfileContentCard("ISO 5457, Technical product documentation", 1, 1, "exact_lead", ["iso", "documentation"]),
+                new DocumentProfileContentCard("EN ISO 5457 199", 2, 2, "exact_lead", ["iso"]),
+                new DocumentProfileContentCard("EN ISO 5457 1999", 2, 2, "exact_lead", ["iso"]),
+                new DocumentProfileContentCard("ISO 7200:2004(E", 3, 3, "section", ["iso"]),
+                new DocumentProfileContentCard("ISO 7200:2004", 3, 3, "standard_ref", ["iso"]),
+                new DocumentProfileContentCard("The identification number shall be unique", 4, 4, "exact_lead", ["identification"]),
+                new DocumentProfileContentCard("ISO shall not be held responsible", 5, 5, "exact_lead", ["iso"]),
+                new DocumentProfileContentCard("ISO collaborates closely", 6, 6, "exact_lead", ["iso"]),
+                new DocumentProfileContentCard("EN 15281", 7, 7, "standard_ref", ["en"]),
+                new DocumentProfileContentCard("NFPA 7", 8, 8, "exact_lead", ["nfpa"]),
+                new DocumentProfileContentCard("NFPA 70", 8, 8, "standard_ref", ["nfpa"]),
+                new DocumentProfileContentCard("UL 50", 9, 9, "standard_ref", ["ul"]),
+                new DocumentProfileContentCard("One reference to recommended practices on static electricity is NFPA 77", 10, 10, "exact_lead", ["nfpa"]),
+                new DocumentProfileContentCard("NFPA 77, Recommended Practice on Static Electricity", 10, 10, "standard_ref", ["nfpa"]),
+                new DocumentProfileContentCard("The detailed selection and testing", 11, 11, "exact_lead", ["selection"]),
+                new DocumentProfileContentCard("Without demonstrated understandability", 12, 12, "exact_lead", ["understandability"]),
+                new DocumentProfileContentCard("A.16.2,3 See NFPA 70E", 13, 13, "exact_lead", ["nfpa"]),
+                new DocumentProfileContentCard("To study the special electrical problems involved", 14, 14, "exact_lead", ["study"]),
+                new DocumentProfileContentCard("ASTM B", 15, 15, "exact_lead", ["astm"]),
+                new DocumentProfileContentCard("ASTM B174, Standard Specification", 15, 15, "standard_ref", ["astm"]),
+                new DocumentProfileContentCard("ASTM B8, Standard Specification", 15, 15, "standard_ref", ["astm"]),
+                new DocumentProfileContentCard("Other parts of ISO", 16, 16, "exact_lead", ["iso"]),
+                new DocumentProfileContentCard("Other parts of ISO 14644 may provide complementary information", 16, 16, "exact_lead", ["iso", "cleanroom"]),
+                new DocumentProfileContentCard("# UL 121201 This is the harmonized CSA Group and UL standard", 17, 17, "exact_lead", ["ul", "standard"]),
+                new DocumentProfileContentCard("Series Fuseholders CAN/CSA C22.2 No", 18, 18, "exact_lead", ["fuseholders"])
+            ]);
+
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "ISO 545", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "ISO 5457, Technical product documentation", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "EN ISO 5457 199", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "EN ISO 5457 1999", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "ISO 7200:2004(E", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "ISO 7200:2004", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "The identification number shall be unique", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "ISO shall not be held responsible", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "ISO collaborates closely", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "EN 15281", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "NFPA 7", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "NFPA 70", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "UL 50", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "One reference to recommended practices on static electricity is NFPA 77", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "NFPA 77, Recommended Practice on Static Electricity", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "The detailed selection and testing", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Without demonstrated understandability", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "A.16.2,3 See NFPA 70E", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "To study the special electrical problems involved", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "ASTM B", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "ASTM B174, Standard Specification", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "ASTM B8, Standard Specification", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Other parts of ISO", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "Other parts of ISO 14644 may provide complementary information", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("#", StringComparison.Ordinal));
+        Assert.Contains(profile.ContentCards, card => string.Equals(card.Title, "UL 121201 This is the harmonized CSA Group and UL standard", StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.ContentCards, card => string.Equals(card.Title, "Series Fuseholders CAN/CSA C22.2 No", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void BuildProfile_keeps_lowercase_source_backed_content_cards()
     {
         var evidence = new DocumentProfileCardEvidence(
@@ -1547,7 +1615,9 @@ CatalogPollutionMarker Procedure body: Materials lock padlock warning tag. Proce
             new ExtractedDocumentSection(0, "CONTROL PROCEDURE", 1, 1, 1, 1, null),
             new ExtractedDocumentSection(1, "Pour ne plus se poser la fameuse question", 1, 1, 1, 2, null),
             new ExtractedDocumentSection(2, "De plus, les articles se nettoient plus facilement", 1, 1, 1, 2, null),
-            new ExtractedDocumentSection(3, "DES GUIDES POUR CHAQUE TYPE D'UTILISATEUR", 1, 1, 1, 2, null)
+            new ExtractedDocumentSection(3, "DES GUIDES POUR CHAQUE TYPE D'UTILISATEUR", 1, 1, 1, 2, null),
+            new ExtractedDocumentSection(4, "Zum Beurteilen der Anwend", 1, 1, 1, 2, null),
+            new ExtractedDocumentSection(5, "Zur Ermittlung des Zeitstandverhaltens sind Prufungen analog zu den", 1, 1, 1, 2, null)
         };
         var units = new[]
         {
@@ -1573,6 +1643,8 @@ CatalogPollutionMarker Procedure body: Materials lock padlock warning tag. Proce
         Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Pour ", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("De plus", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("DES GUIDES", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Zum Beurteilen", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(profile.ContentCards, card => card.Title.StartsWith("Zur Ermittlung", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

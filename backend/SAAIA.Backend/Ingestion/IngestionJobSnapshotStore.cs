@@ -1,5 +1,6 @@
 using Dapper;
 using Npgsql;
+using System.Text.Json;
 
 internal static class IngestionJobSnapshotStore
 {
@@ -104,29 +105,46 @@ WHERE j.job_id = @job_id
     }
 
     public static async Task UpdateProgressAsync(NpgsqlDataSource ds, Guid jobId, string phase, int? current, int? total, CancellationToken ct)
+        => await UpdateProgressAsync(ds, jobId, phase, current, total, details: null, ct);
+
+    public static async Task UpdateProgressAsync(
+        NpgsqlDataSource ds,
+        Guid jobId,
+        string phase,
+        int? current,
+        int? total,
+        object? details,
+        CancellationToken ct)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
         int? percent = null;
         if (current.HasValue && total.HasValue && total.Value > 0)
             percent = Math.Clamp((int)Math.Round((current.Value * 100d) / total.Value, MidpointRounding.AwayFromZero), 0, 100);
+        var detailsJson = details is null ? null : JsonSerializer.Serialize(details);
 
         const string sql = @"
 UPDATE ingestion_jobs
 SET payload = jsonb_set(
         COALESCE(payload, '{}'::jsonb),
         '{progress}',
-        jsonb_strip_nulls(jsonb_build_object(
-            'phase', @phase,
-            'current', @current,
-            'total', @total,
-            'percent', @percent
-        )),
+        jsonb_strip_nulls(
+            jsonb_build_object(
+                'phase', @phase,
+                'current', @current,
+                'total', @total,
+                'percent', @percent
+            )
+            || CASE
+                WHEN @details_json IS NULL THEN '{}'::jsonb
+                ELSE jsonb_build_object('details', CAST(@details_json AS jsonb))
+            END
+        ),
         true
     ),
     locked_at = CASE WHEN status='running' THEN now() ELSE locked_at END
 WHERE job_id=@job_id;";
 
-        await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId, phase, current, total, percent }, cancellationToken: ct));
+        await conn.ExecuteAsync(new CommandDefinition(sql, new { job_id = jobId, phase, current, total, percent, details_json = detailsJson }, cancellationToken: ct));
     }
 
     public static async Task StoreResumeCheckpointAsync(

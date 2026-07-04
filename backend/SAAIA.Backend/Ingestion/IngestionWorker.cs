@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -59,12 +60,33 @@ sealed partial class IngestionWorker : BackgroundService
     {
         using var scope0 = _sp.CreateScope();
         var opt = scope0.ServiceProvider.GetRequiredService<IOptions<IngestionOptions>>().Value;
+        var workerInstanceId = CreateWorkerInstanceId();
 
         var tasks = Enumerable.Range(0, Math.Clamp(opt.WorkerConcurrency, 1, 16))
-            .Select(i => RunLoopAsync(workerId: $"w{i}", ct))
+            .Select(i => RunLoopAsync(workerId: BuildWorkerId(workerInstanceId, i), ct))
             .ToArray();
 
         await Task.WhenAll(tasks);
+    }
+
+    internal static string CreateWorkerInstanceId()
+    {
+        var host = Regex.Replace(Environment.MachineName ?? string.Empty, @"[^\p{L}\p{N}_-]+", "-").Trim('-');
+        if (string.IsNullOrWhiteSpace(host))
+            host = "host";
+        if (host.Length > 12)
+            host = host[..12];
+
+        var nonce = Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture)[..8];
+        return $"{host}-{Environment.ProcessId}-{nonce}";
+    }
+
+    internal static string BuildWorkerId(string workerInstanceId, int workerIndex)
+    {
+        var normalizedInstance = string.IsNullOrWhiteSpace(workerInstanceId)
+            ? "instance-unknown"
+            : workerInstanceId.Trim();
+        return $"{normalizedInstance}-w{Math.Max(0, workerIndex)}";
     }
 
     private async Task RunLoopAsync(string workerId, CancellationToken ct)
@@ -206,6 +228,25 @@ sealed partial class IngestionWorker : BackgroundService
                             if (ex is IngestionBulkheadTimeoutException bulkheadTimeout)
                             {
                                 var retryDelay = ComputeBulkheadDeferralDelay(bulkheadTimeout);
+                                if (string.Equals(bulkheadTimeout.BulkheadName, "OCR", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    await JobRepo.UpdateProgressAsync(
+                                        ds,
+                                        job.JobId,
+                                        "ocr_waiting_for_slot_timeout",
+                                        null,
+                                        null,
+                                        new
+                                        {
+                                            bulkhead = bulkheadTimeout.BulkheadName,
+                                            maxConcurrency = bulkheadTimeout.MaxConcurrency,
+                                            waitTimeoutSeconds = Math.Max(0, (int)Math.Ceiling(bulkheadTimeout.WaitTimeout.TotalSeconds)),
+                                            retryDelaySeconds = Math.Max(1, (int)Math.Ceiling(retryDelay.TotalSeconds)),
+                                            deferred = true
+                                        },
+                                        ct);
+                                }
+
                                 _log.LogWarning(
                                     ex,
                                     "Job deferred because ingestion bulkhead is saturated job={JobId} action={Action} doc={DocPath} bulkhead={Bulkhead} delay_seconds={DelaySeconds}",
@@ -345,8 +386,11 @@ sealed partial class IngestionWorker : BackgroundService
         }
 
         if (OcrNoiseFilter.LooksLikeProbableNoiseText(chunk.Text)
-            && !LooksLikePublishableRepairedContinuationChunk(chunk))
+            && !LooksLikePublishableRepairedContinuationChunk(chunk)
+            && !LooksLikeClassifierConfirmedRetrievalContent(chunk))
+        {
             return "ocr_noise";
+        }
 
         if (LooksLikeLowSubstanceRetrievalChunk(chunk))
             return "low_substance";
@@ -357,7 +401,7 @@ sealed partial class IngestionWorker : BackgroundService
     private static bool LooksLikeLowSubstanceRetrievalChunk(ProjectedRetrievalChunk chunk)
     {
         if (chunk.TokenCount >= 8)
-            return false;
+            return LooksLikeShortOcrLayoutFragment(chunk);
         if (string.IsNullOrWhiteSpace(chunk.Text))
             return true;
 
@@ -380,6 +424,33 @@ sealed partial class IngestionWorker : BackgroundService
 
         var meaningfulWords = SubstantiveWordRegex().Matches(normalized).Count;
         return meaningfulWords < 3;
+    }
+
+    private static bool LooksLikeShortOcrLayoutFragment(ProjectedRetrievalChunk chunk)
+    {
+        if (chunk.TokenCount is < 8 or > 16 || string.IsNullOrWhiteSpace(chunk.Text))
+            return false;
+        if (chunk.ContentDensityScore > 0.45)
+            return false;
+
+        var tokens = OcrLayoutTokenRegex()
+            .Matches(chunk.Text)
+            .Select(static match => match.Value)
+            .Where(static token => !string.IsNullOrWhiteSpace(token))
+            .ToArray();
+        if (tokens.Length < 6)
+            return false;
+
+        var meaningfulWords = SubstantiveWordRegex().Matches(chunk.Text).Count;
+        if (meaningfulWords >= 4)
+            return false;
+
+        var shortOrSymbolicTokens = tokens.Count(static token =>
+            token.Length <= 2
+            || token.All(char.IsDigit)
+            || token.Any(static ch => !char.IsLetterOrDigit(ch)));
+
+        return shortOrSymbolicTokens >= Math.Max(4, (int)Math.Ceiling(tokens.Length * 0.55));
     }
 
     private static bool LooksLikePublishableRepairedContinuationChunk(ProjectedRetrievalChunk chunk)
@@ -413,6 +484,12 @@ sealed partial class IngestionWorker : BackgroundService
 
         return sentenceOrBulletCount >= 3 && structuredMeasureCount >= 2;
     }
+
+    private static bool LooksLikeClassifierConfirmedRetrievalContent(ProjectedRetrievalChunk chunk)
+        => string.Equals(chunk.ContentRole, RetrievalContentClassifier.ContentRole, StringComparison.Ordinal)
+            && string.IsNullOrWhiteSpace(chunk.NavigationReason)
+            && chunk.TokenCount >= 20
+            && chunk.ContentDensityScore >= 0.35;
 
     internal static IngestionRetrievalChunkQualitySummary BuildRetrievalChunkQualitySummary(
         IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks)
@@ -504,9 +581,11 @@ sealed partial class IngestionWorker : BackgroundService
         string workerId,
         Func<CancellationToken, Task<T>> operation,
         CancellationToken ct,
-        TimeSpan? heartbeatInterval = null)
+        TimeSpan? heartbeatInterval = null,
+        Func<int, TimeSpan, CancellationToken, Task>? onHeartbeatAsync = null)
     {
         var interval = heartbeatInterval ?? TimeSpan.FromSeconds(20);
+        var elapsed = Stopwatch.StartNew();
         try
         {
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
@@ -517,6 +596,7 @@ sealed partial class IngestionWorker : BackgroundService
         }
 
         using var heartbeatCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var heartbeatCount = 0;
         var heartbeatTask = Task.Run(async () =>
         {
             while (!heartbeatCts.Token.IsCancellationRequested)
@@ -525,6 +605,9 @@ sealed partial class IngestionWorker : BackgroundService
                 {
                     await Task.Delay(interval, heartbeatCts.Token);
                     await TouchJobLockAsync(ds, job.JobId, workerId, heartbeatCts.Token);
+                    heartbeatCount++;
+                    if (onHeartbeatAsync is not null)
+                        await onHeartbeatAsync(heartbeatCount, elapsed.Elapsed, heartbeatCts.Token);
                 }
                 catch (OperationCanceledException) when (heartbeatCts.IsCancellationRequested)
                 {
@@ -598,6 +681,55 @@ WHERE job_id=@job_id
             : Math.Max(0, current);
 
         await JobRepo.UpdateProgressAsync(ds, jobId, "image_ocr", progressCurrent, progressTotal, ct);
+        await TouchJobLockAsync(ds, jobId, workerId, ct);
+    }
+
+    private static async Task ReportOcrWaitingForSlotHeartbeatAsync(
+        NpgsqlDataSource ds,
+        Guid jobId,
+        string workerId,
+        bool fullDocumentOcrRecommended,
+        bool imagePageOcrRecommended,
+        int pageCount,
+        bool forceFullDocumentOcr,
+        int heartbeatCount,
+        TimeSpan elapsed,
+        CancellationToken ct)
+    {
+        var details = new
+        {
+            heartbeat = Math.Max(0, heartbeatCount),
+            elapsedSeconds = Math.Max(0, (int)Math.Round(elapsed.TotalSeconds, MidpointRounding.AwayFromZero)),
+            fullDocumentOcrRecommended,
+            imagePageOcrRecommended,
+            pageCount = Math.Max(0, pageCount),
+            forceFullDocumentOcr,
+            state = "waiting_for_ocr_bulkhead"
+        };
+        await JobRepo.UpdateProgressAsync(ds, jobId, "ocr_waiting_for_slot", Math.Max(0, heartbeatCount), null, details, ct);
+        await TouchJobLockAsync(ds, jobId, workerId, ct);
+    }
+
+    private static async Task ReportFullDocumentOcrHeartbeatAsync(
+        NpgsqlDataSource ds,
+        Guid jobId,
+        string workerId,
+        int pageCount,
+        string? languages,
+        bool forceOcr,
+        int heartbeatCount,
+        TimeSpan elapsed,
+        CancellationToken ct)
+    {
+        var details = new
+        {
+            heartbeat = Math.Max(0, heartbeatCount),
+            elapsedSeconds = Math.Max(0, (int)Math.Round(elapsed.TotalSeconds, MidpointRounding.AwayFromZero)),
+            pageCount = Math.Max(0, pageCount),
+            languages = string.IsNullOrWhiteSpace(languages) ? null : languages.Trim(),
+            forceOcr
+        };
+        await JobRepo.UpdateProgressAsync(ds, jobId, "ocr_full_document", Math.Max(0, heartbeatCount), null, details, ct);
         await TouchJobLockAsync(ds, jobId, workerId, ct);
     }
 
@@ -933,8 +1065,17 @@ WHERE job_id=@job_id
         {
             ocrAttempted = true;
             var forceFullDocumentOcr = fullDocumentOcrRecommended && PdfOcrTextExtractor.ShouldForceOcrNativeText(nativeExtraction);
-            await JobRepo.UpdateProgressAsync(ds, job.JobId, fullDocumentOcrRecommended ? "ocr" : "image_ocr", null, null, ct);
-            await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+            await ReportOcrWaitingForSlotHeartbeatAsync(
+                ds,
+                job.JobId,
+                workerId,
+                fullDocumentOcrRecommended,
+                imagePageOcrRecommended,
+                nativeExtraction.Pages.Count,
+                forceFullDocumentOcr,
+                0,
+                TimeSpan.Zero,
+                ct);
             var swOcr = Stopwatch.StartNew();
             PdfExtractionResult? fullOcrExtraction = null;
             PdfExtractionResult? imageOcrExtraction = null;
@@ -948,17 +1089,48 @@ WHERE job_id=@job_id
                 job,
                 workerId,
                 operationCt => _bulkheads.AcquireOcrAsync(operationCt),
-                ct))
+                ct,
+                onHeartbeatAsync: (heartbeat, elapsed, operationCt) => ReportOcrWaitingForSlotHeartbeatAsync(
+                    ds,
+                    job.JobId,
+                    workerId,
+                    fullDocumentOcrRecommended,
+                    imagePageOcrRecommended,
+                    nativeExtraction.Pages.Count,
+                    forceFullDocumentOcr,
+                    heartbeat,
+                    elapsed,
+                    operationCt)))
             {
                 ocrLanguages = PdfOcrTextExtractor.ResolveLanguagesForDocument(absPath, ingest, nativeExtraction);
                 if (fullDocumentOcrRecommended)
                 {
+                    await ReportFullDocumentOcrHeartbeatAsync(
+                        ds,
+                        job.JobId,
+                        workerId,
+                        nativeExtraction.Pages.Count,
+                        ocrLanguages,
+                        forceFullDocumentOcr,
+                        0,
+                        TimeSpan.Zero,
+                        ct);
                     var fullOcrResult = await RunWithJobHeartbeatAsync(
                         ds,
                         job,
                         workerId,
                         operationCt => PdfOcrTextExtractor.TryExtractWithDiagnosticsAsync(absPath, ingest, operationCt, ocrLanguages, forceFullDocumentOcr),
-                        ct);
+                        ct,
+                        onHeartbeatAsync: (heartbeat, elapsed, operationCt) => ReportFullDocumentOcrHeartbeatAsync(
+                            ds,
+                            job.JobId,
+                            workerId,
+                            nativeExtraction.Pages.Count,
+                            ocrLanguages,
+                            forceFullDocumentOcr,
+                            heartbeat,
+                            elapsed,
+                            operationCt));
                     fullOcrDiagnostics = fullOcrResult?.Diagnostics;
                     fullOcrExtraction = fullOcrResult?.Extraction;
                     fullOcrApplied = fullOcrExtraction is not null
@@ -979,7 +1151,7 @@ WHERE job_id=@job_id
                         await TouchJobLockAsync(ds, job.JobId, workerId, ct);
                     }
 
-                    var imageMergeBase = ocrExtraction ?? nativeExtraction;
+                    var imageMergeBase = ResolveImageOcrMergeBase(nativeExtraction, ocrExtraction, fullOcrApplied);
                     var imageOcrPlan = PdfOcrTextExtractor.BuildImagePageOcrPlan(imageMergeBase, ingest);
                     await JobRepo.UpdateProgressAsync(ds, job.JobId, "image_ocr", 0, imageOcrPlan.AttemptedPageCount, ct);
                     await TouchJobLockAsync(ds, job.JobId, workerId, ct);
@@ -1474,6 +1646,27 @@ WHERE job_id=@job_id
                || PdfOcrTextExtractor.HasReplacementSignal(page)
                || PdfOcrTextExtractor.HasTextRecoverySignal(page));
 
+    internal static PdfExtractionResult ResolveImageOcrMergeBase(
+        PdfExtractionResult nativeExtraction,
+        PdfExtractionResult? currentOcrExtraction,
+        bool fullOcrApplied)
+    {
+        if (!fullOcrApplied || currentOcrExtraction is null)
+            return nativeExtraction;
+
+        return ShouldPreferImageOcrFromNativeBase(nativeExtraction)
+            ? nativeExtraction
+            : currentOcrExtraction;
+    }
+
+    private static bool ShouldPreferImageOcrFromNativeBase(PdfExtractionResult nativeExtraction)
+    {
+        var quality = nativeExtraction.Quality;
+        return string.Equals(quality.TextStatus, "empty_text", StringComparison.Ordinal)
+               || quality.TotalWordCount <= 0
+               || nativeExtraction.Pages.All(static page => string.IsNullOrWhiteSpace(page.Text));
+    }
+
     internal static bool IsOcrRequiredButDisabled(
         IngestionOptions options,
         bool fullDocumentOcrRecommended,
@@ -1565,6 +1758,14 @@ WHERE job_id=@job_id
         var usesContextualText = !string.Equals(text, cleanEmbeddingText, StringComparison.Ordinal);
         var sourceUnitOrdinals = projectedChunk.SourceUnitOrdinals ?? Array.Empty<int>();
         var sourceUnitCount = projectedChunk.SourceUnitCount ?? sourceUnitOrdinals.Count;
+        var pageSpan = projectedChunk.PageStart == projectedChunk.PageEnd
+            ? projectedChunk.PageStart.ToString(CultureInfo.InvariantCulture)
+            : $"{projectedChunk.PageStart.ToString(CultureInfo.InvariantCulture)}-{projectedChunk.PageEnd.ToString(CultureInfo.InvariantCulture)}";
+        var sourceUnitSpan = projectedChunk.SourceUnitStartOrdinal.HasValue && projectedChunk.SourceUnitEndOrdinal.HasValue
+            ? projectedChunk.SourceUnitStartOrdinal.Value == projectedChunk.SourceUnitEndOrdinal.Value
+                ? projectedChunk.SourceUnitStartOrdinal.Value.ToString(CultureInfo.InvariantCulture)
+                : $"{projectedChunk.SourceUnitStartOrdinal.Value.ToString(CultureInfo.InvariantCulture)}-{projectedChunk.SourceUnitEndOrdinal.Value.ToString(CultureInfo.InvariantCulture)}"
+            : null;
 
         return new Dictionary<string, object?>
         {
@@ -1577,6 +1778,7 @@ WHERE job_id=@job_id
             ["chunk_index"] = projectedChunk.ChunkIndex,
             ["page_start"] = projectedChunk.PageStart,
             ["page_end"] = projectedChunk.PageEnd,
+            ["page_span"] = pageSpan,
             ["offset_start"] = projectedChunk.OffsetStart,
             ["offset_end"] = projectedChunk.OffsetEnd,
             ["hash_doc"] = hashHex,
@@ -1590,7 +1792,8 @@ WHERE job_id=@job_id
                 || LooksLikeMojibakeForDiagnostics(cleanEmbeddingText)
                 || LooksLikeMojibakeForDiagnostics(cleanSectionTitle)
                 || LooksLikeMojibakeForDiagnostics(cleanHeadingPath),
-            ["embedding_basis"] = usesContextualText ? "contextual_text_v1" : "chunk_text",
+            ["embedding_basis"] = usesContextualText ? ContextualTextProjector.SchemaVersion : "chunk_text",
+            ["context_schema_version"] = ContextualTextProjector.SchemaVersion,
             ["embedding_model"] = embeddingModel,
             ["embedding_input_format"] = embeddingInputFormat,
             ["section_ordinal"] = projectedChunk.SectionOrdinal,
@@ -1598,6 +1801,7 @@ WHERE job_id=@job_id
             ["source_unit_ordinals"] = sourceUnitOrdinals,
             ["source_unit_start_ordinal"] = projectedChunk.SourceUnitStartOrdinal,
             ["source_unit_end_ordinal"] = projectedChunk.SourceUnitEndOrdinal,
+            ["source_unit_span"] = sourceUnitSpan,
             ["source_unit_count"] = sourceUnitCount,
             ["chunk_composition"] = projectedChunk.ChunkComposition,
             ["chunk_type"] = projectedChunk.ChunkType,
@@ -1758,6 +1962,9 @@ WHERE job_id=@job_id
 
     [GeneratedRegex(@"\p{L}[\p{L}\p{M}'\u2019\-]{2,}", RegexOptions.CultureInvariant)]
     private static partial Regex SubstantiveWordRegex();
+
+    [GeneratedRegex(@"[\p{L}\p{N}%]+", RegexOptions.CultureInvariant)]
+    private static partial Regex OcrLayoutTokenRegex();
 
     private sealed record EmbeddingChunkWorkItem(
         ProjectedRetrievalChunk ProjectedChunk,

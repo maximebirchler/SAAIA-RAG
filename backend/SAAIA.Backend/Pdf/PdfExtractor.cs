@@ -632,15 +632,40 @@ static class PdfExtractor
         foreach (var line in SplitLikelyLines(text))
         {
             var normalized = NormalizeBoilerplateLine(line);
-            if (normalized.Length is < 8 or > 120)
+            if (normalized.Length is < 8 or > 260)
                 continue;
 
             var tokenCount = SplitWords(normalized).Count();
-            if (tokenCount is < 2 or > 12)
+            if (tokenCount is < 2 or > 24)
+                continue;
+            if (tokenCount > 12 && !LooksLikeExtendedBoilerplateLine(normalized))
                 continue;
 
             yield return normalized;
         }
+    }
+
+    private static bool LooksLikeExtendedBoilerplateLine(string normalized)
+    {
+        var layoutMarkerCount = normalized.Count(static ch =>
+            ch is '=' or '|' or '\u00a9' or '\u2022' or '+' or '*' or '\u00ae');
+        if (layoutMarkerCount >= 2)
+            return true;
+
+        if (System.Text.RegularExpressions.Regex.IsMatch(
+                normalized,
+                @"\b(?:page|edition|revision|revisions|copyright|document|section|chapter)\b",
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+        {
+            var letters = normalized.Where(char.IsLetter).ToArray();
+            if (letters.Length >= 12)
+            {
+                var uppercase = letters.Count(char.IsUpper);
+                return uppercase >= Math.Ceiling(letters.Length * 0.35);
+            }
+        }
+
+        return false;
     }
 
     private static string RemoveRepeatedLines(

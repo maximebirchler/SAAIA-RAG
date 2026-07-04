@@ -31,6 +31,28 @@ function Escape-SqlLiteral([string]$Value) {
     return $Value.Replace("'", "''")
 }
 
+function Format-SqlUnicodeLiteral([string]$Value) {
+    $builder = New-Object System.Text.StringBuilder
+    [void]$builder.Append("U&'")
+    foreach ($ch in $Value.ToCharArray()) {
+        $code = [int][char]$ch
+        if ($ch -eq "'") {
+            [void]$builder.Append("''")
+        }
+        elseif ($ch -eq "\") {
+            [void]$builder.Append("\005C")
+        }
+        elseif ($code -ge 32 -and $code -le 126) {
+            [void]$builder.Append($ch)
+        }
+        else {
+            [void]$builder.Append("\" + $code.ToString("X4", [System.Globalization.CultureInfo]::InvariantCulture))
+        }
+    }
+    [void]$builder.Append("'")
+    return $builder.ToString()
+}
+
 function Invoke-PostgresQuery([string]$Query) {
     if ([string]::IsNullOrWhiteSpace($SshTarget)) {
         $output = $Query | docker exec -i -e PGCLIENTENCODING=UTF8 $PostgresContainer psql -U $PostgresUser -d $Database -v ON_ERROR_STOP=1 -tA -F "|"
@@ -149,10 +171,10 @@ $categoryFilterDocuments = ""
 $categoryFilterJobs = ""
 $categoryFilterCurrent = ""
 if (-not [string]::IsNullOrWhiteSpace($Category)) {
-    $categoryLiteral = Escape-SqlLiteral $Category.Trim().ToLowerInvariant()
-    $categoryFilterDocuments = " AND lower(d.category) = '$categoryLiteral'"
-    $categoryFilterJobs = " AND lower(coalesce(j.category, '')) = '$categoryLiteral'"
-    $categoryFilterCurrent = " AND lower(cr.category) = '$categoryLiteral'"
+    $categoryLiteral = Format-SqlUnicodeLiteral $Category.Trim().ToLowerInvariant()
+    $categoryFilterDocuments = " AND lower(d.category) = $categoryLiteral"
+    $categoryFilterJobs = " AND lower(coalesce(j.category, '')) = $categoryLiteral"
+    $categoryFilterCurrent = " AND lower(cr.category) = $categoryLiteral"
 }
 
 $sql = @"
@@ -205,12 +227,12 @@ chunk_flags AS (
          lower(coalesce(c.metadata->>'contentRole', 'content')) AS content_role,
          coalesce(c.metadata->>'chunkType', '') AS chunk_type,
          CASE
-           WHEN NULLIF(c.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+           WHEN NULLIF(c.metadata->>'navigationScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
              THEN greatest(0.0, least(1.0, (c.metadata->>'navigationScore')::double precision))
            ELSE 0
          END AS navigation_score,
          CASE
-           WHEN NULLIF(c.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+           WHEN NULLIF(c.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
              THEN greatest(0.0, least(1.0, (c.metadata->>'contentDensityScore')::double precision))
            ELSE 0
          END AS content_density_score,
@@ -228,6 +250,15 @@ chunk_flags AS (
   JOIN retrieval_chunks c ON c.revision_id=cr.revision_id
   WHERE NOT cr.has_active_job
 ),
+section_flags AS (
+  SELECT cr.category,
+         cr.doc_path,
+         s.ordinal,
+         s.title
+  FROM current_rev cr
+  JOIN document_sections s ON s.revision_id=cr.revision_id
+  WHERE NOT cr.has_active_job
+),
 page_flags AS (
   SELECT cr.category,
          cr.doc_path,
@@ -235,10 +266,87 @@ page_flags AS (
          p.page_number,
          coalesce(p.metadata #>> '{extractionQuality,qualityStatus}', '') AS quality_status,
          lower(coalesce(p.metadata #>> '{extractionQuality,manualReviewRecommended}', 'false')) = 'true'
-           OR coalesce(p.metadata #>> '{extractionQuality,qualityStatus}', '') LIKE 'manual_review_%' AS manual_review
+           OR coalesce(p.metadata #>> '{extractionQuality,qualityStatus}', '') LIKE 'manual_review_%' AS manual_review,
+         coalesce(p.metadata #>> '{extractionQuality,qualityStatus}', '') LIKE 'manual_review_%'
+           AND coalesce(p.metadata #>> '{extractionQuality,qualityStatus}', '') NOT IN (
+             'manual_review_empty_text',
+             'manual_review_low_text'
+           ) AS actionable_manual_review
   FROM current_rev cr
   JOIN document_page_index p ON p.revision_id=cr.revision_id
   WHERE NOT cr.has_active_job
+),
+chunk_source_units AS (
+  SELECT category,
+         doc_path,
+         revision_id,
+         chunk_index,
+         token_count,
+         content_role,
+         chunk_type,
+         (jsonb_array_elements_text(
+           CASE
+             WHEN jsonb_typeof(metadata->'sourceUnitOrdinals') = 'array'
+               THEN metadata->'sourceUnitOrdinals'
+             ELSE '[]'::jsonb
+           END
+         ))::int AS source_unit_ordinal
+  FROM chunk_flags
+  WHERE embeddable
+),
+unit_flags AS (
+  SELECT cr.category,
+         cr.doc_path,
+         u.revision_id,
+         u.ordinal,
+         u.page_start,
+         u.page_end,
+         u.token_count,
+         u.text_content,
+         lower(coalesce(u.metadata->>'contentRole', 'content')) AS content_role,
+         lower(coalesce(u.metadata->>'navigationReason', '')) AS navigation_reason,
+         lower(coalesce(u.metadata->>'extractionTextStatus', 'ok')) AS extraction_status,
+         lower(coalesce(u.metadata->>'extractionTextSparse', 'false')) = 'true' AS extraction_sparse,
+         coalesce((u.metadata->'extractionQualitySignals') ? 'replacement_chars_remaining', false) AS has_replacement_chars
+  FROM current_rev cr
+  JOIN document_units u ON u.revision_id=cr.revision_id
+  WHERE NOT cr.has_active_job
+),
+uncovered_substantive_units AS (
+  SELECT u.*
+  FROM unit_flags u
+  LEFT JOIN chunk_source_units cs
+    ON cs.revision_id=u.revision_id
+   AND cs.source_unit_ordinal=u.ordinal
+  WHERE cs.source_unit_ordinal IS NULL
+    AND u.token_count >= 25
+    AND length(trim(coalesce(u.text_content, ''))) >= 120
+    AND u.extraction_status <> 'empty_text'
+    AND NOT u.extraction_sparse
+    AND NOT u.has_replacement_chars
+    AND u.content_role NOT IN ('navigation','mixed_navigation_content')
+    AND u.navigation_reason = ''
+    AND u.text_content NOT LIKE '%' || U&'\FFFD' || '%'
+),
+overlapping_source_unit_pairs AS (
+  SELECT a.category,
+         a.doc_path,
+         a.chunk_index AS left_chunk,
+         b.chunk_index AS right_chunk,
+         count(*) AS shared_units,
+         min(a.token_count) AS left_tokens,
+         min(b.token_count) AS right_tokens,
+         min(a.chunk_type) AS left_type,
+         min(b.chunk_type) AS right_type
+  FROM chunk_source_units a
+  JOIN chunk_source_units b
+    ON b.revision_id=a.revision_id
+   AND b.chunk_index>a.chunk_index
+   AND b.source_unit_ordinal=a.source_unit_ordinal
+  WHERE a.chunk_type <> 'footer_titled_item_window_v1'
+    AND b.chunk_type <> 'footer_titled_item_window_v1'
+  GROUP BY a.category, a.doc_path, a.chunk_index, b.chunk_index
+  HAVING count(*) > 0
 )
 SELECT 'active_jobs', coalesce(j.category, ''), j.status, count(*)::text
 FROM ingestion_jobs j
@@ -329,18 +437,18 @@ GROUP BY category, doc_path
 HAVING count(*) >= 3
 UNION ALL
 SELECT 'poor_page_ratio', category,
-       left(doc_path || ': manual=' || manual_pages || '/' || pages || ',ratio=' || round(manual_pages::numeric / greatest(pages, 1), 3), 500),
-       manual_pages::text
+       left(doc_path || ': actionable_manual=' || actionable_manual_pages || '/' || pages || ',ratio=' || round(actionable_manual_pages::numeric / greatest(pages, 1), 3), 500),
+       actionable_manual_pages::text
 FROM (
   SELECT category,
          doc_path,
          count(*) AS pages,
-         count(*) FILTER (WHERE quality_status LIKE 'manual_review_%') AS manual_pages
+         count(*) FILTER (WHERE actionable_manual_review) AS actionable_manual_pages
   FROM page_flags
   GROUP BY category, doc_path
 ) poor_pages
-WHERE (pages >= 5 AND manual_pages::numeric / greatest(pages, 1) >= 0.20)
-   OR manual_pages >= 3
+WHERE (pages >= 5 AND actionable_manual_pages::numeric / greatest(pages, 1) >= 0.20)
+   OR actionable_manual_pages >= 3
 UNION ALL
 SELECT 'navigation_score_content_conflict', category,
        left(string_agg(doc_path || '#chunk=' || chunk_index, ' ; ' ORDER BY doc_path, chunk_index), 900),
@@ -356,14 +464,14 @@ SELECT 'invalid_navigation_score', category,
        left(string_agg(doc_path || '#chunk=' || chunk_index, ' ; ' ORDER BY doc_path, chunk_index), 900),
        count(*)::text
 FROM chunk_flags
-WHERE (NULLIF(metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+WHERE (NULLIF(metadata->>'navigationScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
        AND ((metadata->>'navigationScore')::double precision < 0.0 OR (metadata->>'navigationScore')::double precision > 1.0))
-   OR (NULLIF(metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+   OR (NULLIF(metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
        AND ((metadata->>'contentDensityScore')::double precision < 0.0 OR (metadata->>'contentDensityScore')::double precision > 1.0))
    OR (NULLIF(metadata->>'navigationScore', '') IS NOT NULL
-       AND NOT (metadata->>'navigationScore') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$')
+       AND NOT (metadata->>'navigationScore') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$')
    OR (NULLIF(metadata->>'contentDensityScore', '') IS NOT NULL
-       AND NOT (metadata->>'contentDensityScore') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$')
+       AND NOT (metadata->>'contentDensityScore') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$')
 GROUP BY category
 UNION ALL
 SELECT 'navigation_without_entries', c.category,
@@ -409,6 +517,61 @@ WHERE c.embeddable
   AND p.quality_status='manual_review_low_text'
 GROUP BY p.category
 UNION ALL
+SELECT 'overlapping_source_unit_chunks', category,
+       left(
+         string_agg(
+           doc_path
+           || '#chunks=' || left_chunk || '/' || right_chunk
+           || ',shared_units=' || shared_units
+           || ',types=' || left_type || '/' || right_type,
+           ' ; '
+           ORDER BY doc_path, left_chunk, right_chunk),
+         900),
+       count(*)::text
+FROM overlapping_source_unit_pairs
+GROUP BY category
+UNION ALL
+SELECT 'uncovered_substantive_units', category,
+       left(
+         string_agg(
+           doc_path
+           || '#unit=' || ordinal
+           || ',p=' || page_start || '-' || page_end
+           || ',tokens=' || token_count,
+           ' ; '
+           ORDER BY doc_path, ordinal),
+         900),
+       count(*)::text
+FROM uncovered_substantive_units
+GROUP BY category
+UNION ALL
+SELECT 'revision_legend_text_in_chunks', category,
+       left(
+         string_agg(
+           doc_path || '#chunk=' || chunk_index,
+           ' ; '
+           ORDER BY doc_path, chunk_index),
+         900),
+       count(*)::text
+FROM chunk_flags
+WHERE embeddable
+  AND text_content ~* '(Shaded text[[:space:]]*=|Delet[[:alpha:]]* text[[:space:]]*=|Text deletion|Text deletions|Section deletions|New material|figure/table revisions)'
+GROUP BY category
+UNION ALL
+SELECT 'soft_line_hyphen_candidate_chunks', category,
+       left(
+         string_agg(
+           doc_path || '#chunk=' || chunk_index,
+           ' ; '
+           ORDER BY doc_path, chunk_index),
+         900),
+       count(*)::text
+FROM chunk_flags
+WHERE embeddable
+  AND text_content ~ '[[:lower:]]-[[:space:]]+[[:lower:]]'
+  AND text_content !~* '[[:alpha:]]-[[:space:]]+(and|e|et|nor|o|oder|ou|or|und|y)($|[^[:alpha:]])'
+GROUP BY category
+UNION ALL
 SELECT 'profile_card_problem', cr.category, 'count', count(*)::text
 FROM current_rev cr
 JOIN document_profile_content_cards cc ON cc.revision_id=cr.revision_id
@@ -446,6 +609,23 @@ HAVING count(*) >= 20
                        OR COALESCE(c.metadata->>'chunkType', '') IN ('navigation','mixed_navigation_content','navigation_index_v1'))
    )::numeric / greatest(count(*), 1) >= 0.35
 UNION ALL
+SELECT 'suspicious_section_title', category,
+       left(
+         string_agg(
+           left(doc_path || '#section=' || ordinal || ' => ' || title, 180),
+           ' ; '
+           ORDER BY doc_path, ordinal),
+         900),
+       count(*)::text
+FROM section_flags
+WHERE NULLIF(BTRIM(title), '') IS NOT NULL
+  AND (
+    title ~ '^[[:upper:]]{5,}[[:space:]]+[[:lower:]]$'
+    OR lower(title) ~ '^(organization represented|organisation represented|name of representative|representatives?)[[:space:]:]*$'
+    OR lower(title) ~ '(^|[[:space:]])(chairperson|secretary|representative|committee roster)($|[[:space:][:punct:]])'
+  )
+GROUP BY category
+UNION ALL
 SELECT 'suspicious_profile_card_title', cr.category,
        left(
          string_agg(
@@ -460,9 +640,63 @@ WHERE NOT cr.has_active_job
   AND NULLIF(BTRIM(cc.title), '') IS NOT NULL
   AND (
     (cc.title ~ '^[[:lower:]]' AND NOT (cc.metadata ? 'evidence'))
-    OR lower(cc.title) ~ '^(a|à|au|aux|de|du|des|d[''’]|pour|par|avec|sans|sur|of|for|with|without|and|or|the|to|in|on|from|per|con|senza|su|di|del|della|para|por|com|do|da|dos|das|e|y|und|oder|zu|zur|zum|von|mit)([[:space:][:punct:]]|$)'
-    OR length(regexp_replace(cc.title, '[^[:alpha:]]', '', 'g')) < 4
+    OR lower(cc.title) ~ '^(a|au|aux|de|du|des|d['']|pour|par|avec|sans|sur|of|for|with|without|and|or|the|to|in|on|from|per|con|senza|su|di|del|della|para|por|com|do|da|dos|das|e|y|und|oder|zu|zur|zum|von|mit)([[:space:][:punct:]]|$)'
+    OR (
+      length(regexp_replace(cc.title, '[^[:alpha:]]', '', 'g')) < 4
+      AND NOT cc.title ~ '^[[:space:]]*(EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR|TS|PD|BS|NF|SN|UL|CSA)[[:space:]._/:-]*[A-Z0-9]'
+    )
+    OR (
+      cardinality(regexp_split_to_array(btrim(cc.title), '[[:space:]]+')) >= 4
+      AND lower(cc.title) ~ '(^|[^[:alpha:]])(est|sont|doit|doivent|peut|peuvent|permet|permettent|is|are|can|must|shall|should|allows|allow|collaborates|collaborate|use|uses|using|open|close|remove|verify|check)($|[^[:alpha:]])'
+      AND NOT cc.title ~ '^[[:space:]]*(EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR|TS|PD|BS|NF|SN|UL|CSA)[[:space:]._/:-]+[A-Z0-9]'
+    )
   )
+  AND NOT (
+    cc.metadata ? 'evidence'
+    AND (
+      cc.signals && ARRAY[
+        'quantity_list',
+        'structured_facts',
+        'non_scalable_quantities',
+        'safety',
+        'standard',
+        'standards',
+        'warning',
+        'hazard',
+        'color',
+        'colors'
+      ]::text[]
+    )
+  )
+  AND NOT cc.title ~* '^[[:space:]]*(?:B[0-9]{1,3}(?:[[:space:]._-]*TR[0-9]+)?|DO[[:space:]]+NOT|DANGER|WARNING|CAUTION|NOTICE)\b'
+GROUP BY cr.category
+UNION ALL
+SELECT 'truncated_profile_card_title', cr.category,
+       left(
+         string_agg(
+           left(cr.doc_path || ' => ' || short_card.title || ' < ' || long_card.title, 180),
+           ' ; '
+           ORDER BY cr.doc_path, short_card.card_index),
+         900),
+       count(DISTINCT short_card.content_card_id)::text
+FROM current_rev cr
+JOIN document_profile_content_cards short_card ON short_card.revision_id=cr.revision_id
+JOIN document_profile_content_cards long_card
+  ON long_card.revision_id=short_card.revision_id
+ AND long_card.content_card_id<>short_card.content_card_id
+ AND COALESCE(short_card.page_start, -1) <= COALESCE(long_card.page_end, long_card.page_start, -2)
+ AND COALESCE(long_card.page_start, -1) <= COALESCE(short_card.page_end, short_card.page_start, -2)
+CROSS JOIN LATERAL (
+  SELECT lower(regexp_replace(short_card.title, '[^[:alnum:]]', '', 'g')) AS short_key,
+         lower(regexp_replace(long_card.title, '[^[:alnum:]]', '', 'g')) AS long_key
+) keys
+WHERE NOT cr.has_active_job
+  AND short_card.title ~ '(EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR|TS|PD|BS|NF|SN|UL|CSA)'
+  AND long_card.title ~ '(EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR|TS|PD|BS|NF|SN|UL|CSA)'
+  AND length(keys.short_key) >= 4
+  AND length(keys.long_key) > length(keys.short_key)
+  AND keys.long_key LIKE keys.short_key || '%'
+  AND substring(keys.long_key from length(keys.short_key) + 1 for 1) ~ '[0-9]'
 GROUP BY cr.category
 UNION ALL
 SELECT 'image_ocr_page_metadata_mismatch', cr.category,
@@ -687,14 +921,32 @@ foreach ($row in $rows) {
         "low_text_page_embeddable_chunk" {
             if ($valueNumber -gt 0) { $warnings.Add("low-text review pages overlap embeddable chunks: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }
         }
+        "overlapping_source_unit_chunks" {
+            if ($valueNumber -gt 0) { $warnings.Add("overlapping source-unit chunks: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }
+        }
+        "uncovered_substantive_units" {
+            if ($valueNumber -gt 0) { $warnings.Add("substantive extracted units are not covered by embeddable retrieval chunks: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }
+        }
+        "revision_legend_text_in_chunks" {
+            if ($valueNumber -gt 0) { $warnings.Add("revision legend text remains in embeddable chunks: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }
+        }
+        "soft_line_hyphen_candidate_chunks" {
+            if ($valueNumber -gt 0) { $warnings.Add("possible soft line-hyphen joins left in embeddable chunks: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }
+        }
         "profile_card_problem" {
             if ($valueNumber -gt 0) { $warnings.Add("profile cards missing page/evidence metadata: category='$($row.Scope)' count=$valueNumber") }
         }
         "navigation_heavy_document" {
             if ($valueNumber -gt 0) { $warnings.Add("navigation-heavy document: category='$($row.Scope)' $($row.Metric)") }
         }
+        "suspicious_section_title" {
+            if ($valueNumber -gt 0) { $warnings.Add("suspicious section titles: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }
+        }
         "suspicious_profile_card_title" {
             if ($valueNumber -gt 0) { $warnings.Add("suspicious profile card titles: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }
+        }
+        "truncated_profile_card_title" {
+            if ($valueNumber -gt 0) { $warnings.Add("truncated profile card titles: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }
         }
         "image_ocr_page_metadata_mismatch" {
             if ($valueNumber -gt 0) { $issues.Add("image OCR page diagnostics mismatch in page metadata: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }

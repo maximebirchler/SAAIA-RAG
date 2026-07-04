@@ -11,6 +11,19 @@ internal static partial class DocumentUnitExtractor
     private const int LongStructuredListSoftMaxTokens = 140;
     private const int LongStructuredListMinimumTokens = 55;
     private const int LongNarrativeSoftMaxTokens = 180;
+    private static readonly HashSet<string> SoftHyphenContinuationStopwords = new(StringComparer.Ordinal)
+    {
+        "and",
+        "e",
+        "et",
+        "nor",
+        "o",
+        "oder",
+        "ou",
+        "or",
+        "und",
+        "y"
+    };
 
     public static IReadOnlyList<ExtractedDocumentUnit> Extract(
         IReadOnlyList<ExtractedPdfPage> pages,
@@ -34,6 +47,7 @@ internal static partial class DocumentUnitExtractor
             if (paragraphs.Count == 0)
                 continue;
 
+            var pageCandidateCount = 0;
             foreach (var paragraph in paragraphs)
             {
                 var normalized = NormalizeLine(paragraph.Text);
@@ -69,6 +83,19 @@ internal static partial class DocumentUnitExtractor
                     ExtractionTextSparse: quality.TextSparse,
                     ExtractionOcrCandidate: quality.OcrCandidate,
                     ExtractionQualitySignals: quality.Signals));
+                pageCandidateCount++;
+            }
+
+            if (pageCandidateCount == 0
+                && TryBuildWholePageFallbackCandidate(
+                    page,
+                    quality,
+                    sections,
+                    normalizedSectionTitles,
+                    paragraphs,
+                    out var fallbackCandidate))
+            {
+                candidates.Add(fallbackCandidate);
             }
         }
 
@@ -107,10 +134,25 @@ internal static partial class DocumentUnitExtractor
         }
 
         var filteredCandidates = RemoveRepeatedShortLayoutUnits(candidates, pages.Count);
+        filteredCandidates = MergeBoundarySoftHyphenatedCandidates(filteredCandidates);
+        filteredCandidates = AddWholePageFallbackCandidatesForUncoveredPages(
+            filteredCandidates,
+            pages,
+            sections,
+            normalizedSectionTitles);
         if (filteredCandidates.Count == 0)
             return Array.Empty<ExtractedDocumentUnit>();
 
-        return MaterializeUnits(filteredCandidates);
+        var units = MaterializeUnits(filteredCandidates);
+        var repairedCandidates = AddWholePageFallbackCandidatesForUncoveredPages(
+            filteredCandidates,
+            pages,
+            sections,
+            normalizedSectionTitles,
+            units);
+        return repairedCandidates.Count == filteredCandidates.Count
+            ? units
+            : MaterializeUnits(repairedCandidates);
     }
 
     private static IReadOnlyList<ExtractedDocumentUnit> MaterializeUnits(IReadOnlyList<CandidateDocumentUnit> candidates)
@@ -125,8 +167,14 @@ internal static partial class DocumentUnitExtractor
                 continue;
 
             var tokenCount = CountTokens(text);
-            if (tokenCount <= 0 || OcrNoiseFilter.LooksLikeProbableNoiseText(text))
+            if (tokenCount <= 0)
                 continue;
+            if (OcrNoiseFilter.LooksLikeProbableNoiseText(text)
+                && !ShouldAllowSubstantiveCandidateFallback(candidate, text, tokenCount))
+            {
+                continue;
+            }
+
             if (LooksLikeStandaloneStructuredMetadataUnit(text))
                 continue;
 
@@ -152,6 +200,133 @@ internal static partial class DocumentUnitExtractor
         return units;
     }
 
+    private static bool TryBuildWholePageFallbackCandidate(
+        ExtractedPdfPage page,
+        PdfPageExtractionQuality quality,
+        IReadOnlyList<ExtractedDocumentSection> sections,
+        ISet<string> normalizedSectionTitles,
+        IReadOnlyList<DocumentParagraph> paragraphs,
+        out CandidateDocumentUnit candidate)
+    {
+        candidate = default!;
+
+        var text = NormalizeLine(page.Text);
+        text = OcrNoiseFilter.RemoveTrailingNoisySupplement(text);
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+        if (normalizedSectionTitles.Contains(text))
+            return false;
+
+        var tokenCount = CountTokens(text);
+        if (tokenCount < 12)
+            return false;
+        if (OcrNoiseFilter.LooksLikeProbableNoiseText(text)
+            && !ShouldAllowSubstantiveWholePageFallback(page, quality, text, tokenCount))
+        {
+            return false;
+        }
+
+        if (LooksLikeStandaloneStructuredMetadataUnit(text))
+            return false;
+
+        candidate = new CandidateDocumentUnit(
+            SectionOrdinal: ResolveSectionForParagraph(
+                sections,
+                page.PageNumber,
+                paragraphs.Count > 0 ? paragraphs[0].StartLine : 0)?.Ordinal,
+            PageStart: page.PageNumber,
+            PageEnd: page.PageNumber,
+            Text: text,
+            TokenCount: tokenCount,
+            StartLine: paragraphs.Count > 0 ? paragraphs[0].StartLine : 0,
+            EndLine: paragraphs.Count > 0 ? paragraphs[^1].EndLine : 0,
+            ExtractionTextStatus: quality.TextStatus,
+            ExtractionTextSparse: quality.TextSparse,
+            ExtractionOcrCandidate: quality.OcrCandidate,
+            ExtractionQualitySignals: quality.Signals);
+        return true;
+    }
+
+    private static bool ShouldAllowSubstantiveCandidateFallback(
+        CandidateDocumentUnit candidate,
+        string text,
+        int tokenCount)
+    {
+        if (tokenCount < 40 || text.Length < 300)
+            return false;
+        if (candidate.ExtractionTextSparse || string.Equals(candidate.ExtractionTextStatus, "empty_text", StringComparison.Ordinal))
+            return false;
+
+        var signal = RetrievalContentClassifier.AnalyzeChunk(text);
+        return !RetrievalContentClassifier.IsPredominantlyNavigationContent(
+                signal.ContentRole,
+                chunkType: null,
+                signal.NavigationScore,
+                signal.ContentDensityScore)
+            && signal.ContentDensityScore >= 0.35;
+    }
+
+    private static bool ShouldAllowSubstantiveWholePageFallback(
+        ExtractedPdfPage page,
+        PdfPageExtractionQuality quality,
+        string text,
+        int tokenCount)
+    {
+        if (tokenCount < 40 || page.CharCount < 300 || page.WordCount < 30)
+            return false;
+        if (quality.TextSparse || string.Equals(quality.TextStatus, "empty_text", StringComparison.Ordinal))
+            return false;
+
+        var signal = RetrievalContentClassifier.AnalyzeChunk(text);
+        return !RetrievalContentClassifier.IsPredominantlyNavigationContent(
+                signal.ContentRole,
+                chunkType: null,
+                signal.NavigationScore,
+                signal.ContentDensityScore)
+            && signal.ContentDensityScore >= 0.35;
+    }
+
+    private static IReadOnlyList<CandidateDocumentUnit> AddWholePageFallbackCandidatesForUncoveredPages(
+        IReadOnlyList<CandidateDocumentUnit> candidates,
+        IReadOnlyList<ExtractedPdfPage> pages,
+        IReadOnlyList<ExtractedDocumentSection> sections,
+        ISet<string> normalizedSectionTitles,
+        IReadOnlyList<ExtractedDocumentUnit>? units = null)
+    {
+        var additions = new List<CandidateDocumentUnit>();
+        foreach (var page in pages.OrderBy(static p => p.PageNumber))
+        {
+            var covered = units is null
+                ? candidates.Any(candidate => candidate.PageStart <= page.PageNumber && candidate.PageEnd >= page.PageNumber)
+                : units.Any(unit => unit.PageStart <= page.PageNumber && unit.PageEnd >= page.PageNumber);
+            if (covered)
+                continue;
+
+            var quality = page.Quality ?? PdfPageExtractionQuality.FromText(page.Text, page.WordCount, page.CharCount);
+            var paragraphs = SplitParagraphs(page.Text, normalizedSectionTitles);
+            if (TryBuildWholePageFallbackCandidate(
+                    page,
+                    quality,
+                    sections,
+                    normalizedSectionTitles,
+                    paragraphs,
+                    out var fallbackCandidate))
+            {
+                additions.Add(fallbackCandidate);
+            }
+        }
+
+        if (additions.Count == 0)
+            return candidates;
+
+        return candidates
+            .Concat(additions)
+            .OrderBy(static candidate => candidate.PageStart)
+            .ThenBy(static candidate => candidate.StartLine)
+            .ThenBy(static candidate => candidate.EndLine)
+            .ToArray();
+    }
+
     private static IReadOnlyList<CandidateDocumentUnit> RemoveRepeatedShortLayoutUnits(
         IReadOnlyList<CandidateDocumentUnit> candidates,
         int pageCount)
@@ -171,6 +346,101 @@ internal static partial class DocumentUnitExtractor
 
         return candidates
             .Where(unit => !repeatedLayoutKeys.Contains(NormalizeRepeatedLayoutKey(unit.Text)))
+            .ToArray();
+    }
+
+    private static IReadOnlyList<CandidateDocumentUnit> MergeBoundarySoftHyphenatedCandidates(
+        IReadOnlyList<CandidateDocumentUnit> candidates)
+    {
+        if (candidates.Count < 2)
+            return candidates;
+
+        var merged = new List<CandidateDocumentUnit>(candidates.Count);
+        foreach (var candidate in candidates)
+        {
+            if (merged.Count == 0)
+            {
+                merged.Add(candidate);
+                continue;
+            }
+
+            var previous = merged[^1];
+            if (!CanMergeBoundarySoftHyphen(previous, candidate))
+            {
+                merged.Add(candidate);
+                continue;
+            }
+
+            var mergedText = BoundarySoftHyphenatedCandidateRegex().Replace(
+                $"{previous.Text} {candidate.Text}",
+                "${left}${right}");
+            mergedText = NormalizeLine(mergedText);
+            merged[^1] = previous with
+            {
+                PageEnd = candidate.PageEnd,
+                Text = mergedText,
+                TokenCount = CountTokens(mergedText),
+                EndLine = candidate.EndLine,
+                ExtractionTextSparse = previous.ExtractionTextSparse || candidate.ExtractionTextSparse,
+                ExtractionOcrCandidate = previous.ExtractionOcrCandidate || candidate.ExtractionOcrCandidate,
+                ExtractionQualitySignals = MergeQualitySignals(previous.ExtractionQualitySignals, candidate.ExtractionQualitySignals),
+                ExtractionTextStatus = ResolveMergedTextStatus(previous.ExtractionTextStatus, candidate.ExtractionTextStatus)
+            };
+        }
+
+        return merged;
+    }
+
+    private static bool CanMergeBoundarySoftHyphen(CandidateDocumentUnit previous, CandidateDocumentUnit candidate)
+    {
+        if (candidate.PageStart > previous.PageEnd + 1)
+            return false;
+        if (StartsWithSoftHyphenContinuationStopword(candidate.Text))
+            return false;
+        if (!BoundarySoftHyphenatedCandidateRegex().IsMatch($"{previous.Text} {candidate.Text}"))
+            return false;
+        if (previous.SectionOrdinal != candidate.SectionOrdinal && candidate.PageStart != previous.PageEnd)
+            return false;
+
+        return StartsWithLowercaseWord(candidate.Text);
+    }
+
+    private static bool StartsWithLowercaseWord(string text)
+    {
+        foreach (var ch in text)
+        {
+            if (!char.IsLetter(ch))
+                return false;
+
+            return char.IsLower(ch);
+        }
+
+        return false;
+    }
+
+    private static bool StartsWithSoftHyphenContinuationStopword(string text)
+    {
+        var match = LeadingLowercaseWordRegex().Match(text);
+        return match.Success && SoftHyphenContinuationStopwords.Contains(match.Value.ToLowerInvariant());
+    }
+
+    private static string? ResolveMergedTextStatus(string? left, string? right)
+    {
+        var resolved = ResolveWorseTextStatus(left ?? string.Empty, right ?? string.Empty);
+        return string.IsNullOrEmpty(resolved) ? null : resolved;
+    }
+
+    private static IReadOnlyList<string>? MergeQualitySignals(
+        IReadOnlyList<string>? left,
+        IReadOnlyList<string>? right)
+    {
+        if ((left is null || left.Count == 0) && (right is null || right.Count == 0))
+            return null;
+
+        return (left ?? [])
+            .Concat(right ?? [])
+            .Where(static signal => !string.IsNullOrWhiteSpace(signal))
+            .Distinct(StringComparer.Ordinal)
             .ToArray();
     }
 
@@ -415,8 +685,73 @@ internal static partial class DocumentUnitExtractor
         if (index >= lines.Length)
             return string.Empty;
 
-        return NormalizeLine(string.Join(' ', lines.Skip(index)));
+        return JoinParagraphLines(lines.Skip(index));
     }
+
+    private static string JoinParagraphLines(IEnumerable<string> lines)
+    {
+        var joined = new StringBuilder();
+        foreach (var rawLine in lines)
+        {
+            var line = NormalizeLine(rawLine);
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            if (joined.Length == 0)
+            {
+                joined.Append(line);
+                continue;
+            }
+
+            if (ShouldJoinSoftHyphenatedLineBreak(joined, line))
+            {
+                RemoveTrailingSoftHyphen(joined);
+                joined.Append(line.TrimStart());
+                continue;
+            }
+
+            joined.Append(' ');
+            joined.Append(line);
+        }
+
+        return NormalizeLine(joined.ToString());
+    }
+
+    private static bool ShouldJoinSoftHyphenatedLineBreak(StringBuilder previous, string nextLine)
+    {
+        var previousIndex = previous.Length - 1;
+        while (previousIndex >= 0 && char.IsWhiteSpace(previous[previousIndex]))
+            previousIndex--;
+        if (previousIndex <= 0 || !IsSoftLineHyphen(previous[previousIndex]))
+            return false;
+
+        var beforeHyphenIndex = previousIndex - 1;
+        while (beforeHyphenIndex >= 0 && char.IsWhiteSpace(previous[beforeHyphenIndex]))
+            beforeHyphenIndex--;
+        if (beforeHyphenIndex < 0 || !char.IsLetter(previous[beforeHyphenIndex]))
+            return false;
+
+        var nextIndex = 0;
+        while (nextIndex < nextLine.Length && char.IsWhiteSpace(nextLine[nextIndex]))
+            nextIndex++;
+
+        return nextIndex < nextLine.Length
+            && char.IsLower(nextLine[nextIndex])
+            && !StartsWithSoftHyphenContinuationStopword(nextLine[nextIndex..]);
+    }
+
+    private static void RemoveTrailingSoftHyphen(StringBuilder text)
+    {
+        while (text.Length > 0 && char.IsWhiteSpace(text[^1]))
+            text.Length--;
+        if (text.Length > 0 && IsSoftLineHyphen(text[^1]))
+            text.Length--;
+        while (text.Length > 0 && char.IsWhiteSpace(text[^1]))
+            text.Length--;
+    }
+
+    private static bool IsSoftLineHyphen(char ch)
+        => ch is '-' or '\u2010' or '\u2011' or '\u2012' or '\u2013' or '\u2014';
 
     private static IReadOnlyList<string> SplitDenseStructuredParagraph(string paragraph)
     {
@@ -973,7 +1308,44 @@ internal static partial class DocumentUnitExtractor
     }
 
     private static string NormalizeLine(string text)
-        => Regex.Replace(text, @"\s+", " ").Trim();
+    {
+        var normalized = Regex.Replace(text, @"\s+", " ").Trim();
+        if (normalized.Length == 0)
+            return normalized;
+
+        normalized = RemoveInlineRevisionLegendFragments(normalized, out var removedRevisionLegend);
+        if (removedRevisionLegend)
+            normalized = RepairInlineSoftHyphenatedWordBreaks(normalized);
+        normalized = RepairInlineHyphenatedCompoundSpacing(normalized);
+        normalized = RepairInlineShortPrefixSoftHyphenatedWordBreaks(normalized);
+        normalized = LeadingOcrSectionColonRegex().Replace(normalized, "${left}.${right}");
+        normalized = BooleanChoiceLabelBeforeDigitRegex().Replace(normalized, "${label} ");
+        return normalized;
+    }
+
+    private static string RemoveInlineRevisionLegendFragments(string text, out bool removed)
+    {
+        removed = false;
+        if (string.IsNullOrWhiteSpace(text))
+            return string.Empty;
+
+        var matches = InlineRevisionLegendRegex().Matches(text);
+        removed = matches.Count > 0;
+        if (!removed)
+            return text;
+
+        var cleaned = InlineRevisionLegendRegex().Replace(text, " ");
+        return Regex.Replace(cleaned, @"\s+", " ").Trim();
+    }
+
+    private static string RepairInlineSoftHyphenatedWordBreaks(string text)
+        => InlineSoftHyphenatedWordBreakRegex().Replace(text, "${left}${right}");
+
+    private static string RepairInlineHyphenatedCompoundSpacing(string text)
+        => InlineHyphenatedCompoundSpacingRegex().Replace(text, "${left}-${right}");
+
+    private static string RepairInlineShortPrefixSoftHyphenatedWordBreaks(string text)
+        => InlineShortPrefixSoftHyphenatedWordBreakRegex().Replace(text, "${left}${right}");
 
     private static IEnumerable<string> ExpandNormalizedSectionTitles(string title)
     {
@@ -1093,6 +1465,30 @@ internal static partial class DocumentUnitExtractor
 
     [GeneratedRegex(@"[\.!?;:]\s*$", RegexOptions.CultureInvariant)]
     private static partial Regex SentenceEndRegex();
+
+    [GeneratedRegex(@"(?<![\p{L}\p{N}])(?:\d{4}\s+Edition\s+)?(?:(?:(?:Shaded|Deleted|Deletec|Deleti\w*|Jeleti)\s+text\s*=\s*Revisi\w*|(?:A|\u00c0|4)\s*=\s*Text\s+deleti\w*(?:\s+and\s+figure\s*/\s*table\s+revisions?)?|(?:A|\u00c0|4)\s*=\s*Text\s+deletion:?\s*s\s+and\s+figure\s*/\s*table\s+revisions?|:?\s*s\s+and\s+figure\s*/\s*table\s+revisions?|(?:\*|\+|e|\u00b0|\u00ae)?\s*=\s*Section\s+deletions?|N\s*=\s*New\s+material)[\.,;]?\s*)+(?:\d{4}\s+Edition)?", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex InlineRevisionLegendRegex();
+
+    [GeneratedRegex(@"(?<left>\p{Ll}[\p{Ll}\p{M}]{2,})[-\u2010\u2011\u2012\u2013\u2014]\s+(?<right>(?!and\b|nor\b|oder\b|or\b|und\b)\p{Ll}[\p{Ll}\p{M}]{2,})", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex InlineSoftHyphenatedWordBreakRegex();
+
+    [GeneratedRegex(@"(?<left>\p{L}[\p{L}\p{M}]{2,})[-\u2010\u2011\u2012\u2013\u2014]\s+(?<right>based|circuit|controlled|current|load|mounted|operated|phase|pole|proof|protected|rated|related|resistant|section|tight|time|type|types|voltage|wire)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex InlineHyphenatedCompoundSpacingRegex();
+
+    [GeneratedRegex(@"(?<left>\p{Ll}[\p{Ll}\p{M}]{1,2})[-\u2010\u2011\u2012\u2013\u2014]\s+(?<right>(?!and\b|e\b|et\b|nor\b|o\b|oder\b|ou\b|or\b|und\b|y\b)\p{Ll}[\p{Ll}\p{M}]{3,})", RegexOptions.CultureInvariant)]
+    private static partial Regex InlineShortPrefixSoftHyphenatedWordBreakRegex();
+
+    [GeneratedRegex(@"(?<left>\p{Ll}[\p{Ll}\p{M}]{2,})[-\u2010\u2011\u2012\u2013\u2014]\s+(?<right>(?!and\b|e\b|et\b|nor\b|o\b|oder\b|ou\b|or\b|und\b|y\b)\p{Ll}[\p{Ll}\p{M}]{2,})", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex BoundarySoftHyphenatedCandidateRegex();
+
+    [GeneratedRegex(@"^\p{Ll}[\p{Ll}\p{M}]*", RegexOptions.CultureInvariant)]
+    private static partial Regex LeadingLowercaseWordRegex();
+
+    [GeneratedRegex(@"^(?<left>\d{1,2}):(?<right>\d(?:\.\d){1,5})(?=\b|\s)", RegexOptions.CultureInvariant)]
+    private static partial Regex LeadingOcrSectionColonRegex();
+
+    [GeneratedRegex(@"\b(?<label>(?:no|yes|oui|non|ja|nein|si|s\u00ed)/(?:no|yes|oui|non|ja|nein|si|s\u00ed))(?=\d)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex BooleanChoiceLabelBeforeDigitRegex();
 
     [GeneratedRegex(@"^\s*(?:\d{1,4}\s*)?(?:[\p{Lu}][\p{Lu}\p{Ll}'\u2019\-]{2,}|[\p{Lu}]{2,})(?:\s+(?:[\p{Lu}][\p{Lu}\p{Ll}'\u2019\-]{2,}|[\p{Lu}]{2,}|a|au|aux|de|des|du|la|le|les|et|with|and|of|the|to|con|al|alla|mit|und)){1,9}", RegexOptions.CultureInvariant)]
     private static partial Regex StructuredTitleLeadRegex();

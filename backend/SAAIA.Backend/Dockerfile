@@ -29,6 +29,7 @@ WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ocrmypdf \
+        unpaper \
         tesseract-ocr-all \
     && rm -rf /var/lib/apt/lists/*
 

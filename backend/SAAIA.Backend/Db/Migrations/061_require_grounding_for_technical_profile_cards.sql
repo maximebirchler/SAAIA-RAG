@@ -74,7 +74,7 @@ AS $$
             ELSE 0
           END > 0
       AND CASE
-            WHEN COALESCE(p_metadata #>> '{evidence,confidence}', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            WHEN COALESCE(p_metadata #>> '{evidence,confidence}', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
               THEN (p_metadata #>> '{evidence,confidence}')::double precision
             ELSE 0.0
           END >= 0.7

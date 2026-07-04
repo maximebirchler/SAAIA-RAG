@@ -160,8 +160,11 @@ internal static partial class DocumentTitleNavigationProjector
                     continue;
 
                 var resolved = ResolveNavigationTarget(parsed, anchors, targetRetrievalChunks);
-                if (string.Equals(resolved.ResolutionMethod, "page_unresolved", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(resolved.ResolutionMethod, "page_unresolved", StringComparison.OrdinalIgnoreCase)
+                    && !ShouldKeepUnresolvedNavigationEntry(chunk, parsed, resolved, maxPage))
+                {
                     continue;
+                }
 
                 entries.Add(new ProjectedDocumentNavigationEntry(
                     EntryIndex: entries.Count,
@@ -456,6 +459,31 @@ internal static partial class DocumentTitleNavigationProjector
                 nearbyTargetChunk.ChunkIndex,
                 "nearby_page_content_chunk",
                 0.70);
+    }
+
+    private static bool ShouldKeepUnresolvedNavigationEntry(
+        ProjectedRetrievalChunk sourceChunk,
+        ParsedNavigationEntry entry,
+        NavigationResolution resolution,
+        int maxPage)
+    {
+        if (!string.Equals(resolution.ResolutionMethod, "page_unresolved", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (resolution.TargetPageStart <= 0)
+            return false;
+        if (entry.LabelTokens.Count < 2)
+            return false;
+
+        var reason = sourceChunk.NavigationReason ?? string.Empty;
+        if (string.Equals(reason, "table_of_contents", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(reason, "explicit_index_marker", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var earlyWindow = maxPage <= 0 ? 6 : Math.Max(6, (int)Math.Ceiling(maxPage * 0.08));
+        return sourceChunk.NavigationScore >= 0.93
+            && sourceChunk.PageStart <= earlyWindow;
     }
 
     private static NavigationResolution ResolveAnchoredNavigationTarget(
@@ -790,19 +818,19 @@ internal static partial class DocumentTitleNavigationProjector
     [GeneratedRegex(@"(?:\s{3,}|\s+[\.\u00b7\u2022]{2,}\s+)", RegexOptions.CultureInvariant)]
     private static partial Regex CleanSoftNavigationBreakRegex();
 
-    [GeneratedRegex(@"^(?<label>.{3,180}?)(?:\s*[\.\u00b7\u2022]{2,}\s*|\s+[-\u2013\u2014]\s+|\s{2,})(?<page>\d{1,4})\s*$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^(?<label>.{3,180}?)(?:\s*[\.\u00b7\u2022]{2,}\s*|\s+[-\u2013\u2014]\s+|\s{2,})(?<![\d.])(?<page>\d{1,4})(?![\d.])\s*$", RegexOptions.CultureInvariant)]
     private static partial Regex CleanLabelLeaderPageRegex();
 
-    [GeneratedRegex(@"^(?:\d{1,3}(?:[.)\-:]\d{1,3})*[.)\-:]?\s+)?(?<label>.{3,180}?)(?:\s*[\.\u00b7\u2022]{2,}\s*|\s+[-\u2013\u2014]\s+|\s{2,}|\s+page\s+)(?<page>\d{1,4})\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:\d{1,3}(?:[.)\-:]\d{1,3})*[.)\-:]?\s+)?(?<label>.{3,180}?)(?:\s*[\.\u00b7\u2022]{2,}\s*|\s+[-\u2013\u2014]\s+|\s{2,}|\s+page\s+)(?<![\d.])(?<page>\d{1,4})(?![\d.])\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex CleanNumberedLabelLeaderPageRegex();
 
-    [GeneratedRegex(@"^(?<label>[\p{L}\p{N}][\p{L}\p{N}'\u2019/&+(),:;.\-\s]{3,170}?[^\d\s])\s+(?<page>\d{1,4})\s*$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^(?<label>[\p{L}\p{N}][\p{L}\p{N}'\u2019/&+(),:;.\-\s]{3,170}?[^\d\s])\s+(?<![\d.])(?<page>\d{1,4})(?![\d.])\s*$", RegexOptions.CultureInvariant)]
     private static partial Regex CleanCompactLabelPageRegex();
 
-    [GeneratedRegex(@"^(?:p(?:age)?\.?\s*)?(?<page>\d{1,4})\s+[-\u2013\u2014:]\s+(?<label>.{3,180})$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:p(?:age)?\.?\s*)?(?<![\d.])(?<page>\d{1,4})(?![\d.])\s+[-\u2013\u2014:]\s+(?<label>.{3,180})$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex CleanPageThenLabelRegex();
 
-    [GeneratedRegex(@"(?<!\d)(?<page>\d{1,4})(?!\d)", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"(?<![\d.])(?<page>\d{1,4})(?![\d.])", RegexOptions.CultureInvariant)]
     private static partial Regex InlinePageNumberRegex();
 
     [GeneratedRegex(@"^(?<title>.{4,120}?)(?:\s{2,}|[.:;\u2013\u2014-]\s+|$)", RegexOptions.CultureInvariant)]

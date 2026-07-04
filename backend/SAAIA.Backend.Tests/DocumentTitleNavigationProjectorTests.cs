@@ -426,7 +426,13 @@ public sealed class DocumentTitleNavigationProjectorTests
 
         var index = DocumentTitleNavigationProjector.Project(sections, units, chunks, profile);
 
-        Assert.Single(index.NavigationEntries);
+        Assert.Equal(2, index.NavigationEntries.Count);
+        var unresolved = Assert.Single(index.NavigationEntries, entry => entry.Label == "Alpha Procedure");
+        Assert.Equal(12, unresolved.TargetPageStart);
+        Assert.Equal("page_unresolved", unresolved.ResolutionMethod);
+        Assert.Null(unresolved.TargetChunkIndex);
+        Assert.Null(unresolved.TargetAnchorIndex);
+
         var entry = Assert.Single(index.NavigationEntries, entry => entry.Label == "Beta Checklist");
         Assert.Equal(18, entry.TargetPageStart);
         Assert.Equal("page_content_chunk", entry.ResolutionMethod);
@@ -435,7 +441,7 @@ public sealed class DocumentTitleNavigationProjectorTests
     }
 
     [Fact]
-    public void Project_does_not_resolve_navigation_entry_to_navigation_dominant_mixed_target_page()
+    public void Project_keeps_strong_navigation_entry_unresolved_when_target_page_is_navigation_dominant()
     {
         var sections = new[]
         {
@@ -506,7 +512,12 @@ public sealed class DocumentTitleNavigationProjectorTests
 
         var index = DocumentTitleNavigationProjector.Project(sections, units, chunks, profile);
 
-        Assert.Empty(index.NavigationEntries);
+        var entry = Assert.Single(index.NavigationEntries);
+        Assert.Equal("Acceptance Criteria", entry.Label);
+        Assert.Equal(7, entry.TargetPageStart);
+        Assert.Null(entry.TargetChunkIndex);
+        Assert.Null(entry.TargetAnchorIndex);
+        Assert.Equal("page_unresolved", entry.ResolutionMethod);
     }
 
     [Fact]
@@ -947,6 +958,74 @@ public sealed class DocumentTitleNavigationProjectorTests
             "Content.pdf");
 
         var index = DocumentTitleNavigationProjector.Project(sections, units, chunks, profile);
+
+        Assert.Empty(index.NavigationEntries);
+    }
+
+    [Fact]
+    public void Project_ignores_decimal_section_numbers_in_technical_content()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Technical Requirements", 1, 1, 31, 1, null)
+        };
+        var sourceText =
+            "Where a contactor is installed ahead of the 17.10* Parts List. " +
+            "tests shall be performed to ensure compliance with Section 6.5.";
+        var chunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                0,
+                31,
+                31,
+                sourceText,
+                16,
+                [2],
+                "unit_exact_v1",
+                ContentRole: RetrievalContentClassifier.MixedNavigationContentRole,
+                NavigationReason: "explicit_index_marker",
+                NavigationScore: 0.69,
+                ContentDensityScore: 0.70),
+            new ProjectedRetrievalChunk(
+                1,
+                0,
+                1,
+                17,
+                17,
+                "Equipment Grounding Conductor Terminal. Where capacitors are installed for motor power factor correction, conductors and terminals shall meet the listed requirements.",
+                20,
+                [3],
+                "unit_exact_v1",
+                ContentRole: RetrievalContentClassifier.ContentRole,
+                ContentDensityScore: 0.70),
+            new ProjectedRetrievalChunk(
+                2,
+                0,
+                2,
+                6,
+                6,
+                "Specific provisions and compliance requirements are described for the applicable equipment.",
+                11,
+                [4],
+                "unit_exact_v1",
+                ContentRole: RetrievalContentClassifier.ContentRole,
+                ContentDensityScore: 0.70)
+        };
+        var profile = DocumentProfileProjector.BuildProfile(
+            "deterministic_v1",
+            "en",
+            "Technical content with decimal section references.",
+            [],
+            [],
+            [],
+            [],
+            [],
+            "Standards/Technical.pdf",
+            "Technical.pdf");
+
+        var index = DocumentTitleNavigationProjector.Project(sections, [], chunks, profile);
 
         Assert.Empty(index.NavigationEntries);
     }

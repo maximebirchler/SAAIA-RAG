@@ -62,16 +62,27 @@ public sealed class DocumentFoundationIntegrationTests
         };
         var retrievalChunks = new[]
         {
-            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "Intro text", 2, [3], "unit_exact_v1")
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                0,
+                1,
+                1,
+                "Intro text",
+                2,
+                [3],
+                "unit_exact_v1",
+                SourceUnitOrdinals: [0],
+                SourceUnitStartOrdinal: 0,
+                SourceUnitEndOrdinal: 0,
+                SourceUnitCount: 1,
+                ChunkComposition: "single_unit")
         };
         var exactMatchEntries = new[]
         {
             new ExtractedExactMatchEntry(0, 0, 0, 1, 1, "Intro text", "intro text", 10, 2, [4], "verbatim_excerpt")
         };
-        var contextualTextEntries = new[]
-        {
-            new ProjectedContextualTextEntry(0, 0, 0, 0, 1, 1, "Document: CEN.pdf\n\nExcerpt:\nIntro text", 37, 5, [5])
-        };
+        var contextualTextEntries = ContextualTextProjector.Project(docPath, sections, units, retrievalChunks);
 
         var ds = NpgsqlDataSource.Create(db.ConnectionString);
         var committed = await JobRepo.CompleteUpsertAsync(
@@ -117,6 +128,25 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal(1, profileCount);
         Assert.Equal(1, profileCardCount);
         Assert.Equal(8, artifactCount);
+
+        var contextualMetadataJson = await conn.ExecuteScalarAsync<string>(
+            "SELECT metadata::text FROM contextual_text_entries LIMIT 1;");
+        using var contextualMetadata = JsonDocument.Parse(contextualMetadataJson ?? "{}");
+        var metadataRoot = contextualMetadata.RootElement;
+        Assert.Equal("contextual_text_v2", metadataRoot.GetProperty("schemaVersion").GetString());
+        Assert.Equal(0, metadataRoot.GetProperty("chunkIndex").GetInt32());
+        Assert.Equal("unit_exact_v1", metadataRoot.GetProperty("chunkType").GetString());
+        Assert.Equal("content", metadataRoot.GetProperty("contentRole").GetString());
+        Assert.Equal("Introduction", metadataRoot.GetProperty("sectionTitle").GetString());
+        Assert.Equal("Introduction", metadataRoot.GetProperty("headingPath").GetString());
+        Assert.Equal("single_unit", metadataRoot.GetProperty("chunkComposition").GetString());
+        Assert.Equal([0], metadataRoot.GetProperty("sourceUnitOrdinals").EnumerateArray().Select(item => item.GetInt32()).ToArray());
+
+        var unitMetadataJson = await conn.ExecuteScalarAsync<string>(
+            "SELECT metadata::text FROM document_units LIMIT 1;");
+        using var unitMetadata = JsonDocument.Parse(unitMetadataJson ?? "{}");
+        Assert.Equal("content", unitMetadata.RootElement.GetProperty("contentRole").GetString());
+        Assert.Equal(0.0, unitMetadata.RootElement.GetProperty("navigationScore").GetDouble());
 
         var revision = await conn.QuerySingleAsync<(int ingestion_version, int indexed_version)>(
             "SELECT ingestion_version, indexed_version FROM document_revisions LIMIT 1;");
@@ -5304,7 +5334,21 @@ VALUES(
         await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 2, indexedVersion: 1);
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
 
-        await JobRepo.UpdateProgressAsync(ds, jobId, "embedding", current: 16, total: 32, CancellationToken.None);
+        await JobRepo.UpdateProgressAsync(
+            ds,
+            jobId,
+            "embedding",
+            current: 16,
+            total: 32,
+            details: new
+            {
+                heartbeat = 3,
+                elapsedSeconds = 61,
+                pageCount = 12,
+                languages = "eng+fra",
+                forceOcr = true
+            },
+            CancellationToken.None);
         await JobRepo.StoreResumeCheckpointAsync(
             ds,
             jobId,
@@ -5325,6 +5369,20 @@ VALUES(
         Assert.Equal(32, checkpoint.ChunkTotal);
         Assert.Equal("intfloat/multilingual-e5-base", checkpoint.EmbeddingModel);
         Assert.Equal("e5_passage_v1", checkpoint.EmbeddingInputFormat);
+
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+        var payloadJson = await conn.ExecuteScalarAsync<string>(
+            "SELECT payload::text FROM ingestion_jobs WHERE job_id=@job_id;",
+            new { job_id = jobId });
+        using var payloadDoc = JsonDocument.Parse(payloadJson ?? "{}");
+        var details = payloadDoc.RootElement.GetProperty("progress").GetProperty("details");
+        Assert.Equal(3, details.GetProperty("heartbeat").GetInt32());
+        Assert.Equal(61, details.GetProperty("elapsedSeconds").GetInt32());
+        Assert.Equal(12, details.GetProperty("pageCount").GetInt32());
+        Assert.Equal("eng+fra", details.GetProperty("languages").GetString());
+        Assert.True(details.GetProperty("forceOcr").GetBoolean());
+
         Assert.True(IngestionWorker.IsResumeCheckpointCompatible(
             checkpoint,
             "ABC123",

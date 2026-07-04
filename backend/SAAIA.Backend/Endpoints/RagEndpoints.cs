@@ -10908,7 +10908,7 @@ LEFT JOIN LATERAL (
             ELSE 2
         END,
         CASE
-            WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
                 THEN (rc.metadata->>'contentDensityScore')::double precision
             ELSE 0.0
         END DESC,
@@ -11313,12 +11313,12 @@ SELECT
     rc.metadata->>'navigationReason' AS "NavigationReason",
     rc.metadata->>'originalChunkType' AS "OriginalChunkType",
     CASE
-        WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (rc.metadata->>'navigationScore')::double precision
         ELSE NULL
     END AS "NavigationScore",
     CASE
-        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (rc.metadata->>'contentDensityScore')::double precision
         ELSE NULL
     END AS "ContentDensityScore",
@@ -11578,7 +11578,7 @@ scored_chunks AS (
         token_match.token_hits,
         token_match.body_token_hits,
         CASE
-            WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
                 THEN (rc.metadata->>'contentDensityScore')::double precision
             ELSE 0.0
         END AS content_density_score
@@ -11678,12 +11678,12 @@ SELECT
     metadata->>'navigationReason' AS "NavigationReason",
     metadata->>'originalChunkType' AS "OriginalChunkType",
     CASE
-        WHEN NULLIF(metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(metadata->>'navigationScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (metadata->>'navigationScore')::double precision
         ELSE NULL
     END AS "NavigationScore",
     CASE
-        WHEN NULLIF(metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (metadata->>'contentDensityScore')::double precision
         ELSE NULL
     END AS "ContentDensityScore",
@@ -12238,7 +12238,7 @@ ranked_chunks AS (
         rc.section_id,
         s.title AS section_title,
         CASE
-            WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
                 THEN (rc.metadata->>'contentDensityScore')::double precision
             ELSE 0.0
         END AS content_density_score,
@@ -12261,7 +12261,7 @@ ranked_chunks AS (
                     ELSE 3
                 END,
                 CASE
-                    WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+                    WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
                         THEN (rc.metadata->>'contentDensityScore')::double precision
                     ELSE 0.0
                 END DESC,
@@ -12316,12 +12316,12 @@ SELECT
     metadata->>'navigationReason' AS "NavigationReason",
     metadata->>'originalChunkType' AS "OriginalChunkType",
     CASE
-        WHEN NULLIF(metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(metadata->>'navigationScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (metadata->>'navigationScore')::double precision
         ELSE NULL
     END AS "NavigationScore",
     CASE
-        WHEN NULLIF(metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (metadata->>'contentDensityScore')::double precision
         ELSE NULL
     END AS "ContentDensityScore",
@@ -12726,7 +12726,7 @@ anchor_routes AS (
                     )),
                     'œ', 'oe'), 'æ', 'ae'), 'ß', 'ss'), 'ø', 'o'), 'ł', 'l'), 'đ', 'd'), '[^[:alnum:]]+', ' ', 'g') || ' ' AS searchable_words,
                 CASE
-                    WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+                    WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
                         THEN (rc.metadata->>'contentDensityScore')::double precision
                     ELSE 0.0
                 END AS content_density_score,
@@ -12975,7 +12975,7 @@ navigation_routes AS (
                 ELSE 0
             END,
             CASE
-                WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+                WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
                     THEN (rc.metadata->>'contentDensityScore')::double precision
                 ELSE 0.0
             END DESC,
@@ -13018,7 +13018,7 @@ navigation_catalog_routes AS (
         SELECT
             rc.retrieval_chunk_id,
             CASE
-                WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+                WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
                     THEN (rc.metadata->>'contentDensityScore')::double precision
                 ELSE 0.0
             END AS content_density_score,
@@ -13050,7 +13050,7 @@ navigation_catalog_routes AS (
                 ELSE 0
             END,
             CASE
-                WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+                WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
                     THEN (rc.metadata->>'contentDensityScore')::double precision
                 ELSE 0.0
             END DESC,
@@ -13119,7 +13119,7 @@ direct_chunk_routes AS (
                 'AAAAAAaaaaaaCcEEEEeeeeIIIIiiiiNnOOOOOOooooooUUUUuuuuYyy'
             )), '[^[:alnum:]]+', ' ', 'g') || ' ' AS searchable_words,
             CASE
-                WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+                WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
                     THEN (rc.metadata->>'contentDensityScore')::double precision
                 ELSE 0.0
             END AS content_density_score
@@ -13151,7 +13151,7 @@ direct_chunk_routes AS (
       AND COALESCE(rc.metadata->>'chunkType', '') <> 'navigation_index_v1'
       AND (
             NULLIF(rc.metadata->>'navigationScore', '') IS NULL
-         OR NULLIF(rc.metadata->>'navigationScore', '') !~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+         OR NULLIF(rc.metadata->>'navigationScore', '') !~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
          OR (rc.metadata->>'navigationScore')::double precision < 0.82
          OR direct_stats.content_density_score >= 0.50
       )
@@ -13220,12 +13220,12 @@ SELECT
     rc.metadata->>'navigationReason' AS "NavigationReason",
     rc.metadata->>'originalChunkType' AS "OriginalChunkType",
     CASE
-        WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (rc.metadata->>'navigationScore')::double precision
         ELSE NULL
     END AS "NavigationScore",
     CASE
-        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (rc.metadata->>'contentDensityScore')::double precision
         ELSE NULL
     END AS "ContentDensityScore",
@@ -13534,12 +13534,12 @@ SELECT
     cc.metadata->>'navigationReason' AS "NavigationReason",
     cc.metadata->>'originalChunkType' AS "OriginalChunkType",
     CASE
-        WHEN NULLIF(cc.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(cc.metadata->>'navigationScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (cc.metadata->>'navigationScore')::double precision
         ELSE NULL
     END AS "NavigationScore",
     CASE
-        WHEN NULLIF(cc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(cc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (cc.metadata->>'contentDensityScore')::double precision
         ELSE NULL
     END AS "ContentDensityScore",
@@ -14058,12 +14058,12 @@ SELECT
     rc.metadata->>'navigationReason' AS "NavigationReason",
     rc.metadata->>'originalChunkType' AS "OriginalChunkType",
     CASE
-        WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (rc.metadata->>'navigationScore')::double precision
         ELSE NULL
     END AS "NavigationScore",
     CASE
-        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (rc.metadata->>'contentDensityScore')::double precision
         ELSE NULL
     END AS "ContentDensityScore",
@@ -14401,12 +14401,12 @@ SELECT
     rc.metadata->>'navigationReason' AS "NavigationReason",
     rc.metadata->>'originalChunkType' AS "OriginalChunkType",
     CASE
-        WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (rc.metadata->>'navigationScore')::double precision
         ELSE NULL
     END AS "NavigationScore",
     CASE
-        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (rc.metadata->>'contentDensityScore')::double precision
         ELSE NULL
     END AS "ContentDensityScore",
@@ -14613,12 +14613,12 @@ SELECT
     rc.metadata->>'navigationReason' AS "NavigationReason",
     rc.metadata->>'originalChunkType' AS "OriginalChunkType",
     CASE
-        WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (rc.metadata->>'navigationScore')::double precision
         ELSE NULL
     END AS "NavigationScore",
     CASE
-        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (rc.metadata->>'contentDensityScore')::double precision
         ELSE NULL
     END AS "ContentDensityScore",
@@ -15043,12 +15043,12 @@ SELECT
     rc.metadata->>'navigationReason' AS "NavigationReason",
     rc.metadata->>'originalChunkType' AS "OriginalChunkType",
     CASE
-        WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (rc.metadata->>'navigationScore')::double precision
         ELSE NULL
     END AS "NavigationScore",
     CASE
-        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (rc.metadata->>'contentDensityScore')::double precision
         ELSE NULL
     END AS "ContentDensityScore",
@@ -15318,7 +15318,7 @@ scoped_docs AS (
         regexp_replace(LOWER(d.doc_path || ' ' || d.doc_name), '[^a-z0-9]+', ' ', 'g') AS normalized_doc_text,
         substring(
             regexp_replace(LOWER(d.doc_path || ' ' || d.doc_name), '[^a-z0-9]+', ' ', 'g')
-            from '((?:en|iso|iec|astm|din|nfpa|api|ansi|ul|cen|tr|ts|pd|bs|nist|sp) (?:sp )?[0-9]{2,6}(?: [0-9]{1,4}[a-z0-9]*)?)') AS family_key
+            from '((en|iso|iec|astm|din|nfpa|api|ansi|ul|cen|tr|ts|pd|bs|nist|sp) (sp )?[0-9]{2,6}( [0-9]{1,4}[a-z0-9]*)?)') AS family_key
     FROM documents d
     JOIN document_revisions r
       ON r.tenant_id = d.tenant_id
@@ -15384,12 +15384,12 @@ ranked_chunks AS (
         rc.metadata->>'navigationReason' AS navigation_reason,
         rc.metadata->>'originalChunkType' AS original_chunk_type,
         CASE
-            WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
                 THEN (rc.metadata->>'navigationScore')::double precision
             ELSE NULL
         END AS navigation_score,
         CASE
-            WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
                 THEN (rc.metadata->>'contentDensityScore')::double precision
             ELSE NULL
         END AS content_density_score,
@@ -15770,7 +15770,7 @@ scoped_docs AS (
         regexp_replace(LOWER(d.doc_path || ' ' || d.doc_name), '[^a-z0-9]+', ' ', 'g') AS normalized_doc_text,
         substring(
             regexp_replace(LOWER(d.doc_path || ' ' || d.doc_name), '[^a-z0-9]+', ' ', 'g')
-            from '((?:en|iso|iec|astm|din|nfpa|api|ansi|ul|cen|tr|ts|pd|bs|nist|sp) (?:sp )?[0-9]{2,6}(?: [0-9]{1,4}[a-z0-9]*)?)') AS family_key
+            from '((en|iso|iec|astm|din|nfpa|api|ansi|ul|cen|tr|ts|pd|bs|nist|sp) (sp )?[0-9]{2,6}( [0-9]{1,4}[a-z0-9]*)?)') AS family_key
     FROM documents d
     JOIN document_revisions r
       ON r.tenant_id = d.tenant_id
@@ -15915,7 +15915,7 @@ matched_docs AS (
 ranked_chunks AS (
     SELECT
         d.*,
-        COALESCE(substring(d.normalized_doc_text from '((?:19|20)[0-9]{2})')::int, 0) AS document_year,
+        COALESCE(substring(d.normalized_doc_text from '((19|20)[0-9]{2})')::int, 0) AS document_year,
         rc.page_start,
         rc.page_end,
         CASE
@@ -15946,12 +15946,12 @@ ranked_chunks AS (
         rc.metadata->>'navigationReason' AS navigation_reason,
         rc.metadata->>'originalChunkType' AS original_chunk_type,
         CASE
-            WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
                 THEN (rc.metadata->>'navigationScore')::double precision
             ELSE NULL
         END AS navigation_score,
         CASE
-            WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
                 THEN (rc.metadata->>'contentDensityScore')::double precision
             ELSE NULL
         END AS content_density_score,
@@ -16225,12 +16225,12 @@ ranked_chunks AS (
         rc.metadata->>'navigationReason' AS navigation_reason,
         rc.metadata->>'originalChunkType' AS original_chunk_type,
         CASE
-            WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
                 THEN (rc.metadata->>'navigationScore')::double precision
             ELSE NULL
         END AS navigation_score,
         CASE
-            WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
                 THEN (rc.metadata->>'contentDensityScore')::double precision
             ELSE NULL
         END AS content_density_score,
@@ -16463,12 +16463,12 @@ ranked_chunks AS (
         rc.metadata->>'navigationReason' AS navigation_reason,
         rc.metadata->>'originalChunkType' AS original_chunk_type,
         CASE
-            WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
                 THEN (rc.metadata->>'navigationScore')::double precision
             ELSE NULL
         END AS navigation_score,
         CASE
-            WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+            WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
                 THEN (rc.metadata->>'contentDensityScore')::double precision
             ELSE NULL
         END AS content_density_score,
@@ -21189,12 +21189,12 @@ SELECT
     rc.metadata->>'navigationReason' AS "NavigationReason",
     rc.metadata->>'originalChunkType' AS "OriginalChunkType",
     CASE
-        WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(rc.metadata->>'navigationScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (rc.metadata->>'navigationScore')::double precision
         ELSE NULL
     END AS "NavigationScore",
     CASE
-        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (rc.metadata->>'contentDensityScore')::double precision
         ELSE NULL
     END AS "ContentDensityScore",
@@ -21253,7 +21253,7 @@ ORDER BY
         ELSE 2
     END,
     CASE
-        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$'
+        WHEN NULLIF(rc.metadata->>'contentDensityScore', '') ~ '^[-+]?([0-9]+(\.[0-9]+)?|\.[0-9]+)([eE][-+]?[0-9]+)?$'
             THEN (rc.metadata->>'contentDensityScore')::double precision
         ELSE 0.0
     END DESC,
@@ -29827,11 +29827,15 @@ LIMIT @top_k;
 
         if (!string.IsNullOrWhiteSpace(match.HeadingPath))
             boost += 0.005;
-        if (string.Equals(match.EmbeddingBasis, "contextual_text_v1", StringComparison.Ordinal))
+        if (IsContextualEmbeddingBasis(match.EmbeddingBasis))
             boost += 0.005;
 
         return boost;
     }
+
+    private static bool IsContextualEmbeddingBasis(string? embeddingBasis)
+        => !string.IsNullOrWhiteSpace(embeddingBasis)
+           && embeddingBasis.StartsWith("contextual_text_", StringComparison.Ordinal);
 
     internal static double NormalizeRerankScore(double rawScore, double minScore, double maxScore)
     {

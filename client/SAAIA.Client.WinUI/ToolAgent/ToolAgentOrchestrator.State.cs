@@ -5786,16 +5786,8 @@ CURRENT_USER_MESSAGE:
             yield break;
 
         yield return normalized;
-
-        if (normalized is "gouter" or "collation" or "encas" or "snack")
-        {
-            foreach (var variant in new[] { "gouter", "collation", "encas", "snack" })
-            {
-                if (!string.Equals(variant, normalized, StringComparison.Ordinal))
-                    yield return variant;
-            }
-        }
     }
+
     private static string SelectPreferredPlanningSlotRetrievalTerm(string? term)
     {
         var variants = ExpandPlanningSlotRetrievalTermVariants(term)

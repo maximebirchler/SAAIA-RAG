@@ -170,6 +170,25 @@ public sealed class PdfExtractorBoilerplateTests
     }
 
     [Fact]
+    public void RemoveRepeatedPageBoilerplate_removes_long_repeated_layout_legend_lines()
+    {
+        const string legend = "Shaded text = Revisions, A = Text deletions and figure/table revisions. += Section deletions. N = New material.";
+        var pages = new List<(int PageNumber, string Text, int ImageCount)>
+        {
+            (1, $"First useful paragraph remains searchable.\n{legend}\nContinuation text stays available.", 0),
+            (2, $"Second useful paragraph remains searchable.\n{legend}\nMore content stays available.", 0),
+            (3, $"Third useful paragraph remains searchable.\n{legend}\nFinal content stays available.", 0),
+            (4, $"Fourth useful paragraph remains searchable.\n{legend}\nClosing content stays available.", 0)
+        };
+
+        var cleaned = PdfExtractor.RemoveRepeatedPageBoilerplate(pages);
+
+        Assert.All(cleaned, page => Assert.DoesNotContain("Shaded text = Revisions", page.Text, StringComparison.Ordinal));
+        Assert.Contains(cleaned, page => page.Text.Contains("First useful paragraph", StringComparison.Ordinal));
+        Assert.Contains(cleaned, page => page.Text.Contains("Closing content stays available.", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void RemoveRepeatedPageBoilerplate_removes_variable_page_number_lines()
     {
         var pages = new List<(int PageNumber, string Text, int ImageCount)>

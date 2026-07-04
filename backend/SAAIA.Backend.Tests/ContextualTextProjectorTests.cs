@@ -20,7 +20,21 @@ public sealed class ContextualTextProjectorTests
         };
         var chunks = new[]
         {
-            new ProjectedRetrievalChunk(0, 1, 1, 1, 1, "Extrait principal", 2, [4], "unit_exact_v1")
+            new ProjectedRetrievalChunk(
+                0,
+                1,
+                1,
+                1,
+                1,
+                "Extrait principal",
+                2,
+                [4],
+                "unit_exact_v1",
+                SourceUnitOrdinals: [1],
+                SourceUnitStartOrdinal: 1,
+                SourceUnitEndOrdinal: 1,
+                SourceUnitCount: 1,
+                ChunkComposition: "single_unit")
         };
 
         var entries = ContextualTextProjector.Project("ATEX/CEN.pdf", sections, units, chunks);
@@ -41,6 +55,19 @@ public sealed class ContextualTextProjectorTests
         Assert.DoesNotContain("Document:", entry.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("Section:", entry.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("Excerpt:", entry.Text, StringComparison.Ordinal);
+        Assert.Equal("contextual_text_v2", entry.SchemaVersion);
+        Assert.Equal("Introduction", entry.SectionTitle);
+        Assert.Equal("Chapter 1 > Introduction", entry.HeadingPath);
+        Assert.Equal("unit_exact_v1", entry.ChunkType);
+        Assert.Equal("content", entry.ContentRole);
+        Assert.Equal([1], entry.SourceUnitOrdinals);
+        Assert.Equal(1, entry.SourceUnitStartOrdinal);
+        Assert.Equal(1, entry.SourceUnitEndOrdinal);
+        Assert.Equal(1, entry.SourceUnitCount);
+        Assert.Equal("single_unit", entry.ChunkComposition);
+        Assert.True(entry.IncludesCurrentUnitContext);
+        Assert.True(entry.IncludesPreviousContext);
+        Assert.True(entry.IncludesNextContext);
     }
 
     [Fact]

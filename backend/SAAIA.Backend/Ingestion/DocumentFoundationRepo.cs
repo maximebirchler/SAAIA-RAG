@@ -1632,7 +1632,7 @@ SET char_count = EXCLUDED.char_count,
             var suspiciousUnitCount = units.Count(unit =>
                 unit.PageStart <= page.PageNumber
                 && page.PageNumber <= unit.PageEnd
-                && OcrNoiseFilter.LooksLikeProbableNoiseText(unit.Text));
+                && OcrNoiseFilter.LooksLikeProbableNoisePublishedUnitText(unit.Text));
             var chunksOnPage = retrievalChunks.Count(chunk => chunk.PageStart <= page.PageNumber && page.PageNumber <= chunk.PageEnd);
             var pageReview = ExtractionQualityDiagnostics.AssessPage(
                 page.WordCount,
@@ -1647,6 +1647,7 @@ SET char_count = EXCLUDED.char_count,
             {
                 wordCount = page.WordCount,
                 textLength = page.Text.Length,
+                textPreview = BuildPageTextPreview(page.Text),
                 imageCount = page.ImageCount,
                 extractionQuality = BuildPageExtractionQualityPayload(pageReview, unitsOnPage, suspiciousUnitCount, chunksOnPage),
                 imageOcrStatus = imageDiagnostic?.Status,
@@ -1667,6 +1668,16 @@ SET char_count = EXCLUDED.char_count,
                 metadata
             }, transaction: tx, cancellationToken: ct));
         }
+    }
+
+    private static string BuildPageTextPreview(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return string.Empty;
+
+        var collapsed = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        const int maxChars = 1200;
+        return collapsed.Length <= maxChars ? collapsed : collapsed[..maxChars];
     }
 
     private static object BuildExtractionQualityPayload(PdfExtractionQualitySummary quality)
@@ -2055,11 +2066,16 @@ SET section_id = EXCLUDED.section_id,
         foreach (var unit in units)
         {
             var text = NormalizePostgresTextForStorage(unit.Text);
+            var unitSignal = RetrievalContentClassifier.AnalyzeChunk(text);
             var metadata = SerializePostgresJsonForStorage(new
             {
                 inferred = true,
                 offsetStart = unit.OffsetStart,
                 offsetEnd = unit.OffsetEnd,
+                contentRole = NormalizePostgresTextForStorage(unitSignal.ContentRole),
+                navigationReason = NormalizeOptionalPostgresTextForStorage(unitSignal.NavigationReason),
+                navigationScore = Math.Round(unitSignal.NavigationScore, 4),
+                contentDensityScore = Math.Round(unitSignal.ContentDensityScore, 4),
                 extractionTextStatus = NormalizeOptionalPostgresTextForStorage(unit.ExtractionTextStatus),
                 extractionTextSparse = unit.ExtractionTextSparse,
                 extractionOcrCandidate = unit.ExtractionOcrCandidate,
@@ -2392,10 +2408,28 @@ SET section_id = EXCLUDED.section_id,
             Guid? unitId = unitIdValue == Guid.Empty ? null : unitIdValue;
             Guid retrievalChunkId = BuildStableRetrievalChunkId(docId, ingestionVersion, entry.ChunkIndex);
             var text = NormalizePostgresTextForStorage(entry.Text);
+            var sourceUnitOrdinals = entry.SourceUnitOrdinals ?? Array.Empty<int>();
 
             var metadata = SerializePostgresJsonForStorage(new
             {
-                inferred = true
+                inferred = true,
+                schemaVersion = NormalizePostgresTextForStorage(entry.SchemaVersion),
+                chunkIndex = entry.ChunkIndex,
+                chunkType = NormalizeOptionalPostgresTextForStorage(entry.ChunkType),
+                contentRole = NormalizeOptionalPostgresTextForStorage(entry.ContentRole),
+                navigationReason = NormalizeOptionalPostgresTextForStorage(entry.NavigationReason),
+                navigationScore = Math.Round(entry.NavigationScore, 4),
+                contentDensityScore = Math.Round(entry.ContentDensityScore, 4),
+                sectionTitle = NormalizeOptionalPostgresTextForStorage(entry.SectionTitle),
+                headingPath = NormalizeOptionalPostgresTextForStorage(entry.HeadingPath),
+                sourceUnitOrdinals = sourceUnitOrdinals,
+                sourceUnitStartOrdinal = entry.SourceUnitStartOrdinal,
+                sourceUnitEndOrdinal = entry.SourceUnitEndOrdinal,
+                sourceUnitCount = entry.SourceUnitCount ?? sourceUnitOrdinals.Count,
+                chunkComposition = NormalizeOptionalPostgresTextForStorage(entry.ChunkComposition),
+                includesCurrentUnitContext = entry.IncludesCurrentUnitContext,
+                includesPreviousContext = entry.IncludesPreviousContext,
+                includesNextContext = entry.IncludesNextContext
             });
 
             await conn.ExecuteAsync(new CommandDefinition(sql, new

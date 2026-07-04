@@ -428,7 +428,7 @@ public static class ReadyEndpoints
             ingestion.OcrBulkheadAcquireTimeoutSeconds,
             ingestion.OcrBulkheadQueueWaitTimeoutSeconds);
         details["ingestion_ocr_bulkhead_acquire_timeout_seconds_configured"] = Math.Clamp(ingestion.OcrBulkheadAcquireTimeoutSeconds, 1, 86400);
-        details["ingestion_ocr_bulkhead_queue_wait_timeout_seconds"] = Math.Clamp(ingestion.OcrBulkheadQueueWaitTimeoutSeconds, 1, 3600);
+        details["ingestion_ocr_bulkhead_queue_wait_timeout_seconds"] = Math.Clamp(ingestion.OcrBulkheadQueueWaitTimeoutSeconds, 0, 86400);
         details["ingestion_ocr_image_page_max_pages"] = ingestion.OcrImagePageMaxPages <= 0
             ? "all"
             : Math.Clamp(ingestion.OcrImagePageMaxPages, 1, 500).ToString(CultureInfo.InvariantCulture);

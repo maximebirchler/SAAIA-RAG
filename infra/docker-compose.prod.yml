@@ -74,7 +74,7 @@ services:
       Rag__SearchDenseEmbeddingTimeoutSeconds: ${SAAIA_RAG_SEARCH_DENSE_EMBEDDING_TIMEOUT_SECONDS:-15}
       Rag__SearchSparseCommandTimeoutSeconds: ${SAAIA_RAG_SEARCH_SPARSE_COMMAND_TIMEOUT_SECONDS:-12}
       Ingestion__ChunkMaxWords: ${SAAIA_INGESTION_CHUNK_MAX_WORDS:-200}
-      Ingestion__ChunkOverlapWords: ${SAAIA_INGESTION_CHUNK_OVERLAP_WORDS:-35}
+      Ingestion__ChunkOverlapWords: ${SAAIA_INGESTION_CHUNK_OVERLAP_WORDS:-0}
       Ingestion__ChunkMinWords: ${SAAIA_INGESTION_CHUNK_MIN_WORDS:-25}
       Ingestion__EmbeddingsBatchSize: ${SAAIA_INGESTION_EMBEDDINGS_BATCH_SIZE:-16}
       Ingestion__WorkerConcurrency: ${SAAIA_INGESTION_WORKER_CONCURRENCY:-2}
@@ -90,7 +90,7 @@ services:
       Ingestion__QdrantMaxConcurrency: ${SAAIA_INGESTION_QDRANT_MAX_CONCURRENCY:-4}
       Ingestion__TeiInteractiveQuietPeriodMs: ${SAAIA_INGESTION_TEI_INTERACTIVE_QUIET_PERIOD_MS:-1500}
       Ingestion__BulkheadAcquireTimeoutSeconds: ${SAAIA_INGESTION_BULKHEAD_ACQUIRE_TIMEOUT_SECONDS:-30}
-      Ingestion__OcrBulkheadQueueWaitTimeoutSeconds: ${SAAIA_INGESTION_OCR_BULKHEAD_QUEUE_WAIT_TIMEOUT_SECONDS:-1800}
+      Ingestion__OcrBulkheadQueueWaitTimeoutSeconds: ${SAAIA_INGESTION_OCR_BULKHEAD_QUEUE_WAIT_TIMEOUT_SECONDS:-21600}
       Ingestion__OcrEnabled: ${SAAIA_OCR_ENABLED:-true}
       Ingestion__OcrCommand: ${SAAIA_OCR_COMMAND:-ocrmypdf}
       Ingestion__OcrArguments: ${SAAIA_OCR_ARGUMENTS:-}
@@ -99,16 +99,16 @@ services:
       Ingestion__OcrAutoFallbackLanguages: ${SAAIA_OCR_AUTO_FALLBACK_LANGUAGES:-fra+eng+deu+ita+spa}
       Ingestion__OcrMaxLanguages: ${SAAIA_OCR_MAX_LANGUAGES:-5}
       Ingestion__OcrAutoDetectLanguages: ${SAAIA_OCR_AUTO_DETECT_LANGUAGES:-true}
-      Ingestion__OcrTimeoutSeconds: ${SAAIA_OCR_TIMEOUT_SECONDS:-900}
+      Ingestion__OcrTimeoutSeconds: ${SAAIA_OCR_TIMEOUT_SECONDS:-3600}
       Ingestion__OcrMinWords: ${SAAIA_OCR_MIN_WORDS:-5}
       Ingestion__OcrMaxConcurrency: ${SAAIA_OCR_MAX_CONCURRENCY:-1}
       Ingestion__OcrImagePageEnabled: ${SAAIA_OCR_IMAGE_PAGE_ENABLED:-true}
       Ingestion__OcrImageRendererCommand: ${SAAIA_OCR_IMAGE_RENDERER_COMMAND:-gs}
       Ingestion__OcrImageTextCommand: ${SAAIA_OCR_IMAGE_TEXT_COMMAND:-tesseract}
       Ingestion__OcrImagePageMaxPages: ${SAAIA_OCR_IMAGE_PAGE_MAX_PAGES:-0}
-      Ingestion__OcrImagePageRenderDpi: ${SAAIA_OCR_IMAGE_PAGE_RENDER_DPI:-220}
-      Ingestion__OcrImagePageSegmentationMode: ${SAAIA_OCR_IMAGE_PAGE_SEGMENTATION_MODE:-3}
-      Ingestion__OcrImagePageTimeoutSeconds: ${SAAIA_OCR_IMAGE_PAGE_TIMEOUT_SECONDS:-120}
+      Ingestion__OcrImagePageRenderDpi: ${SAAIA_OCR_IMAGE_PAGE_RENDER_DPI:-400}
+      Ingestion__OcrImagePageSegmentationMode: ${SAAIA_OCR_IMAGE_PAGE_SEGMENTATION_MODE:-11}
+      Ingestion__OcrImagePageTimeoutSeconds: ${SAAIA_OCR_IMAGE_PAGE_TIMEOUT_SECONDS:-180}
       Ingestion__OcrImagePageMaxTotalSeconds: ${SAAIA_OCR_IMAGE_PAGE_MAX_TOTAL_SECONDS:-0}
       Ingestion__OcrImagePageMinWords: ${SAAIA_OCR_IMAGE_PAGE_MIN_WORDS:-3}
       RuntimeGovernance__CapabilityBWorkerEnabled: ${SAAIA_CAPABILITY_B_WORKER_ENABLED:-true}

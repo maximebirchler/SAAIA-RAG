@@ -101,6 +101,30 @@ public sealed class DocumentUnitExtractorTests
     }
 
     [Fact]
+    public void Extract_repairs_narrow_ocr_table_artifacts_without_rewriting_standard_references()
+    {
+        const string text =
+            "5:3.3 Technical reference No/Yes4 20\n\n"
+            + "ISO 9001:2015 remains a dated normative reference.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(8, text, 11, text.Length, [8])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 8, 8, null, null)
+        };
+
+        var units = DocumentUnitExtractor.Extract(pages, sections);
+        var combined = string.Join(" ", units.Select(unit => unit.Text));
+
+        Assert.Contains("5.3.3 Technical reference No/Yes 4 20", combined, StringComparison.Ordinal);
+        Assert.Contains("ISO 9001:2015", combined, StringComparison.Ordinal);
+        Assert.DoesNotContain("5:3.3", combined, StringComparison.Ordinal);
+        Assert.DoesNotContain("No/Yes4", combined, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Extract_removes_component_lines_from_contextual_mixed_case_merged_section_titles()
     {
         const string text =
@@ -227,6 +251,238 @@ public sealed class DocumentUnitExtractorTests
         Assert.Equal(Enumerable.Range(0, units.Count), units.Select(static unit => unit.Ordinal));
         Assert.Equal(0, units[0].OffsetStart);
         Assert.True(units[1].OffsetStart > units[0].OffsetEnd);
+    }
+
+    [Fact]
+    public void Extract_rejoins_soft_hyphenated_words_after_repeated_layout_lines_are_removed()
+    {
+        const string legend = "Shaded text = Revisions, A = Text deletions and figure/table revisions. += Section deletions. N = New material.";
+        var cleaned = PdfExtractor.RemoveRepeatedPageBoilerplate(
+        [
+            (1, $"Manual control of such opera-\n{legend}\ntions shall be by hold-to-run controls together with enabling control, where appropriate.", 0),
+            (2, $"Inspection procedure keeps the useful para-\n{legend}\ngraph searchable for retrieval.", 0),
+            (3, $"Validation evidence keeps the useful require-\n{legend}\nment searchable for retrieval.", 0),
+            (4, $"Maintenance notes keep the useful docu-\n{legend}\nment searchable for retrieval.", 0)
+        ]);
+        var pages = cleaned
+            .Select(page => new ExtractedPdfPage(
+                page.PageNumber,
+                page.Text,
+                page.Text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                page.Text.Length,
+                [(byte)page.PageNumber]))
+            .ToArray();
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 4, 1, null, null)
+        };
+
+        var units = DocumentUnitExtractor.Extract(pages, sections);
+
+        var first = Assert.Single(units, unit => unit.PageStart == 1);
+        Assert.Contains("operations shall be by hold-to-run controls", first.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("opera-", first.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("opera- tions", first.Text, StringComparison.Ordinal);
+        Assert.False(first.Text.StartsWith("tions shall", StringComparison.Ordinal), first.Text);
+        Assert.DoesNotContain("Shaded text = Revisions", string.Join(' ', units.Select(static unit => unit.Text)), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Extract_removes_inline_revision_legend_and_repairs_interrupted_soft_hyphen()
+    {
+        const string text =
+            "Manual control of such opera- Shaded text = Revisions. A = Text deletions and figure/table revisions. += Section deletions. N = New material. tions shall be by hold-to-run controls together with enabling control.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(18, text, text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length, text.Length, [18])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 18, 18, null, null)
+        };
+
+        var unit = Assert.Single(DocumentUnitExtractor.Extract(pages, sections));
+
+        Assert.Contains("operations shall be by hold-to-run controls", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Shaded text", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text deletions", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("opera-", unit.Text, StringComparison.Ordinal);
+        Assert.False(unit.Text.StartsWith("tions shall", StringComparison.Ordinal), unit.Text);
+    }
+
+    [Fact]
+    public void Extract_removes_accented_revision_legend_letter_ocr_variant()
+    {
+        const string text =
+            "Block diagrams describe the control logic and interlocks. À = Text deletions and figure/table revisions.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(39, text, text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length, text.Length, [39])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Annex", 1, 39, 39, null, null)
+        };
+
+        var unit = Assert.Single(DocumentUnitExtractor.Extract(pages, sections));
+
+        Assert.Contains("Block diagrams describe the control logic and interlocks.", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text deletions", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("figure/table revisions", unit.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Extract_removes_digit_four_revision_legend_letter_ocr_variant()
+    {
+        const string text =
+            "Control circuits remain available for safe machine stopping. 4 = Text deletions and figure/table revisions.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(19, text, text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length, text.Length, [19])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Control circuits", 1, 19, 19, null, null)
+        };
+
+        var unit = Assert.Single(DocumentUnitExtractor.Extract(pages, sections));
+
+        Assert.Contains("Control circuits remain available", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text deletions", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("figure/table revisions", unit.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Extract_rejoins_soft_hyphenated_words_across_unit_boundaries()
+    {
+        const string text =
+            "The document describes materials made from thermo-\n\n"
+            + "plastischen Kunststoffen and lists the inspection evidence required for acceptance.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(15, text, text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length, text.Length, [15])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Inspection", 1, 15, 15, null, null)
+        };
+
+        var unit = Assert.Single(DocumentUnitExtractor.Extract(pages, sections));
+
+        Assert.Contains("thermoplastischen Kunststoffen", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("thermo-", unit.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Extract_rejoins_soft_hyphenated_words_across_spurious_section_boundaries()
+    {
+        const string text =
+            "The scan assigns this paragraph to a first section and ends with thermo-\n\n"
+            + "plastischen Kunststoffen even though the OCR section detector split the continuation.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(15, text, text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length, text.Length, [15])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "First OCR island", 1, 15, 15, 1, 1),
+            new ExtractedDocumentSection(1, "Second OCR island", 1, 15, 15, 2, 2)
+        };
+
+        var unit = Assert.Single(DocumentUnitExtractor.Extract(pages, sections));
+
+        Assert.Contains("thermoplastischen Kunststoffen", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("thermo-", unit.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Extract_preserves_hyphen_before_conjunction_at_line_or_unit_boundary()
+    {
+        const string text =
+            "Safety-related software-\n"
+            + "and firmware-based controls remain listed for the application.\n\n"
+            + "Inspection-related mesure-\n"
+            + "et controle entries remain separate terms for the checklist.\n\n"
+            + "Documented carga-\n"
+            + "y descarga steps remain listed in the operating manual.\n\n"
+            + "Konstruktions-\n"
+            + "und Berechnungsregeln remain separate terms in the scanned standard.\n\n"
+            + "The same rule applies to load-\n\n"
+            + "and speed-sensitive protective devices in the control circuit.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(20, text, text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length, text.Length, [20])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Control circuits", 1, 20, 20, null, null)
+        };
+
+        var combined = string.Join(" ", DocumentUnitExtractor.Extract(pages, sections).Select(static unit => unit.Text));
+
+        Assert.Contains("software- and firmware-based", combined, StringComparison.Ordinal);
+        Assert.Contains("mesure- et controle", combined, StringComparison.Ordinal);
+        Assert.Contains("carga- y descarga", combined, StringComparison.Ordinal);
+        Assert.Contains("Konstruktions- und Berechnungsregeln", combined, StringComparison.Ordinal);
+        Assert.Contains("load- and speed-sensitive", combined, StringComparison.Ordinal);
+        Assert.DoesNotContain("softwareand", combined, StringComparison.Ordinal);
+        Assert.DoesNotContain("mesureet", combined, StringComparison.Ordinal);
+        Assert.DoesNotContain("cargay", combined, StringComparison.Ordinal);
+        Assert.DoesNotContain("Konstruktionsund", combined, StringComparison.Ordinal);
+        Assert.DoesNotContain("loadand", combined, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Extract_repairs_inline_short_prefix_soft_hyphenated_words()
+    {
+        const string text =
+            "The OCR stream flattened a wrapped German word as ge- schweisst inside the same line. An autotransformer- type controller keeps the compound hyphen, while Konstruktions- und Berechnungsregeln keeps its semantic hyphen.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(16, text, text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length, text.Length, [16])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Welding", 1, 16, 16, null, null)
+        };
+
+        var unit = Assert.Single(DocumentUnitExtractor.Extract(pages, sections));
+
+        Assert.Contains("geschweisst inside the same line", unit.Text, StringComparison.Ordinal);
+        Assert.Contains("autotransformer-type controller", unit.Text, StringComparison.Ordinal);
+        Assert.Contains("Konstruktions- und Berechnungsregeln", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("ge- schweisst", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("autotransformer- type", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("autotransformertype", unit.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Konstruktionsund", unit.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Extract_removes_single_revision_legend_fragments_without_rewriting_prefixed_references()
+    {
+        const string text =
+            "N7.2.10.1.11 Semiconductor fuses remain a numbered requirement.\n\n"
+            + "Interlocked equipment precludes energization. Shaded text = Revisions.\n\n"
+            + "Turns of flexible cables always remain on a drum. *= Section deletions. N = New material.\n\n"
+            + "The supply has been disconnected shall be reduced to N = New material. 2024 Edition\n\n"
+            + "Chains are held closed by captive screws. Shaded text = Revisions Jeleti text = Revisions.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(17, text, text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length, text.Length, [17])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 17, 17, null, null)
+        };
+
+        var combined = string.Join(" ", DocumentUnitExtractor.Extract(pages, sections).Select(unit => unit.Text));
+
+        Assert.Contains("N7.2.10.1.11 Semiconductor fuses", combined, StringComparison.Ordinal);
+        Assert.DoesNotContain("Shaded text", combined, StringComparison.Ordinal);
+        Assert.DoesNotContain("Jeleti text", combined, StringComparison.Ordinal);
+        Assert.DoesNotContain("Section deletions", combined, StringComparison.Ordinal);
+        Assert.DoesNotContain("New material", combined, StringComparison.Ordinal);
+        Assert.DoesNotContain("2024 Edition", combined, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -662,6 +918,314 @@ public sealed class DocumentUnitExtractorTests
     }
 
     [Fact]
+    public void Ocr_noise_filter_preserves_interleaved_technical_reference_text()
+    {
+        const string patentAndHistory =
+            "In 1965 a revised NFPA adheres to the policy of the American National Standards Institute (ANSI) regarding the inclusion of patents in edition was adopted, reconfirmed in 1969, and in 1970, 1971, 1973, 1974, 1977, 1980, 1985, 1987, American National Standards and hereby gives the following notice pursuant to that policy. "
+            + "NOTICE: The user attention is called to the possibility that compliance with an NFPA Standard may require use of an invention covered by patent rights. "
+            + "In September 1941, the metalworking machine tool industry wrote its first electrical standard to make machine tools safer to operate, more productive, and less costly to maintain.";
+        const string surgeProtection =
+            "7.8.3.4 Component Assembly and Other Type 4 SPD. Component assembly SPDs Type 1, 2, or 3 shall be applied in accordance with 7.8.3.1 through 7.8.3.3 and any additional conditions of use specified by the device manufacturer. "
+            + "Table 7.2.10.4 Relationship Between Conductor Size and Maximum Rating or Setting of Motor Branch-Circuit Short-Circuit and Ground-Fault Protective Device for Power Circuits.";
+
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(patentAndHistory));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(surgeProtection));
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_preserves_standards_approval_governance_text_before_roster_lines()
+    {
+        var text =
+            "ANSI Z535.3 - 2007 This standard was processed and approved for submittal to ANSI by the Accredited Standards Committee on Safety Signs and Colors, ANSI Z535. "
+            + "Committee approval of this standard does not necessarily imply that all committee members voted for its approval. "
+            + "At the time of approval, the ANSI Z535 Committee had the following members: Gary M. Bell, Chairperson Richard Olesen, Vice Chair Paul Orr, Secretary "
+            + "Organization Represented: Name of Representative: J. Paul Frantz American Society of Safety Engineers Thomas F. Breshnahan Alt. Howard A. Elwell Alt. American Welding Society August F.";
+
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(text));
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_preserves_entity_roster_pages_after_cleanup()
+    {
+        var text =
+            "ANSI Z535.1-2006\n"
+            + "Human Factors & Ergonomics Society Michael Kalsher\n"
+            + "Michael S. Wogalter (Alt.)\n"
+            + "Human Factors & Safety Analytics, Inc. Jay Martin\n"
+            + "Industrial Safety Equip. Assoc. Linda Moquet\n"
+            + "Richard L. Fisk (Alt.)\n"
+            + "Institute of Electrical & Electronics Engineers Al Clapp\n"
+            + "John Dagenhart (Alt.)\n"
+            + "Sue Vogel (Alt.)\n"
+            + "International Staple, Nail, and Tool Assoc. John Kurtz\n"
+            + "L. Dale Baker & Associates L. Dale Baker\n"
+            + "Lab Safety Supply, Inc. Jim Versweyveld\n"
+            + "Marhefka & Associates Russell E. Marhefka\n"
+            + "National Association - Graphic Product Russ Butchko\n"
+            + "Identification Donna Ehrmann\n"
+            + "National Electrical Manufacturers Association John Young\n"
+            + "John Katzbeck (Alt.)\n"
+            + "National Spray Equipment Mfrs. Assoc. Dan Pahl\n"
+            + "Nuclear Suppliers Assoc. Blair Brewster\n"
+            + "Power Tool Institute Wayne Hill\n"
+            + "George Whelchel\n"
+            + "Charles M. Stockinger (Alt.)\n"
+            + "Rural Utilities Service Trung Hiu\n"
+            + "Safety Behavior Analysis, Inc. Shelley Waters Deppa\n"
+            + "Sauder Woodworking Gary Bell\n"
+            + "Scott Helberg (Allt.)\n"
+            + "Scaffold Industry Assoc. Dave Merrifield\n"
+            + "Snapontools Bill Pagac\n"
+            + "Tom Christensen (Alt.)\n"
+            + "Society of the Plastics Industry, Machinery Div. Loren Mills\n"
+            + "Walter Bishop (Alt.)";
+
+        var cleaned = OcrNoiseFilter.RemoveTrailingNoisySupplement(text);
+
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(cleaned));
+        var page = new ExtractedPdfPage(
+            12,
+            text,
+            text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+            text.Length,
+            [12]);
+        var unitsWithoutSections = DocumentUnitExtractor.Extract([page], []);
+
+        Assert.NotEmpty(unitsWithoutSections);
+
+        var units = DocumentUnitExtractor.Extract([page], DocumentSectionExtractor.Extract([page]));
+
+        Assert.NotEmpty(units);
+        Assert.Contains(units, unit => unit.Text.Contains("Human Factors & Ergonomics Society", StringComparison.Ordinal));
+        Assert.Contains(units, unit => unit.Text.Contains("Safety Behavior Analysis", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_preserves_initialed_entity_roster_tables()
+    {
+        var text =
+            "APRIL 1, 2021 CSA C22.2 No. 213-17 UL 121201 7 NAME COMPANY "
+            + "W. Lawrence FM Approvals LLC E. Leubner Eaton's Crouse-Hinds Business "
+            + "W. Lockhart GE Gas Power W. Lowers WCL Corp. *N. Ludlam FM Approvals Ltd. "
+            + "R. Martin USCG E. Massey ABB Motors and Mechanical Inc. "
+            + "T. Michalski Killark Electric Mfg. Co. *J. Miller MSA Innovation LLC "
+            + "B. Miller Mettler-Toledo LLC *O. Murphy Honeywell Inc. "
+            + "D. Nedorostek Bureau of Safety & Environmental Enforcement "
+            + "R. Parks National Instruments L. Ricks ExVeritas North America LLC "
+            + "*K. Robinson Occupational Safety and Health Adm. "
+            + "J. Ruggieri General Machine Corp. S. Sam Tundra Oil & Gas "
+            + "P. Schimmoeller CSA Group *T. Schnaare Rosemount Inc. "
+            + "*R. Teather Det Norske Veritas Certification Inc. "
+            + "* Non-voting member";
+
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(text));
+        var page = new ExtractedPdfPage(
+            10,
+            text,
+            text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+            text.Length,
+            [10]);
+        var units = DocumentUnitExtractor.Extract([page], DocumentSectionExtractor.Extract([page]));
+
+        Assert.NotEmpty(units);
+        Assert.Contains(units, unit => unit.Text.Contains("NAME COMPANY", StringComparison.Ordinal));
+        Assert.Contains(units, unit => unit.Text.Contains("FM Approvals", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_preserves_german_technical_reference_and_welding_blocks()
+    {
+        var welding =
+            "Allgemeine schweisstechnische Gestaltungsgrundsaetze Werden tragende Naehte durch nicht zu vermeidende Teile verdeckt, so ist entweder die Naht vor dem Anschweissen des Teiles zu pruefen oder die Teile sind so zu gestalten. "
+            + "Die Schweissnaehte sind so zu dimensionieren, dass eine Pruefung moeglich ist. DVS, Technischer Ausschuss, Arbeitsgruppe 22 Schweissen und Verarbeiten von Kunststoffhalbfabrikaten.";
+        var references =
+            "DIN 16 963 Rohre aus PB Polybuten 1: Allgemeine Gueteanforderungen und Pruefung. "
+            + "DIN 19531 Rohre und Formstuecke aus PVC hart fuer Abwasserleitungen. "
+            + "DIN 7749 Kunststoff-Formmassen: weichmacherhaltige Polychlorid Werkstoffe, Probekoerpern und Bestimmung ihrer Eigenschaften.";
+
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(welding));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(references));
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_preserves_compact_technical_topic_lists()
+    {
+        var text =
+            "Safety alert symbols Examples of a signal word panel Supplemental directive with safety alert symbol METTETE a "
+            + "Examples of section safety message with signal word panel Examples of section safety message with safety alert symbol "
+            + "Examples of embedded safety message with signal word Embedded safety message with safety alert symbol "
+            + "Providing Information About Safety Messages in Collateral Materials and Product Safety";
+
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(text));
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_preserves_technical_decision_matrix_pages()
+    {
+        var text =
+            "ANSI Z535.6-2006 C4.1. Signal Word Selection Matrices "
+            + "The following matrices show the signal words, colors, and presence or absence of safety alert symbol "
+            + "that are assigned for each combination of accident probability, worst credible harm, and probability of worst credible harm, "
+            + "If Worst Credible Severity of Harm is Death or Serious Injury "
+            + "Probability of Accident if Hazardous Situation is not Avoided "
+            + "Probability of Death or Serious ceed | Le \u2014 Injury if Accident Occurs : - "
+            + "\"| ASWARNING|||A\\ WARNING "
+            + "If Worst Credible Severity of Harm is Moderate or Minor Injury "
+            + "For all probabilities: f CAUTION "
+            + "If Worst Credible Severity of Harm is Property Damage "
+            + "For all probabilities: Preferred: EERIE aeerrcemerr mare "
+            + "(aomy, 7 5 m ea NOTICE\" Alternate: 20";
+
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(text));
+        var page = new ExtractedPdfPage(
+            41,
+            text,
+            text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+            text.Length,
+            [41]);
+        var units = DocumentUnitExtractor.Extract([page], DocumentSectionExtractor.Extract([page]));
+
+        Assert.NotEmpty(units);
+        Assert.Contains(units, unit => unit.Text.Contains("Signal Word Selection Matrices", StringComparison.Ordinal));
+        Assert.Contains(units, unit => unit.Text.Contains("Probability of Accident", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Extract_keeps_structured_page_when_fragments_are_too_short_individually()
+    {
+        var text =
+            "ANSI Z535.6-2006\n"
+            + "C4.1. Signal Word Selection Matrices\n"
+            + "If Worst Credible Severity of Harm is Death or Serious Injury\n"
+            + "Probability of Accident if Hazardous Situation is not Avoided\n"
+            + "Probability of Death or Serious Injury if Accident Occurs\n"
+            + "WARNING\n"
+            + "If Worst Credible Severity of Harm is Moderate or Minor Injury\n"
+            + "For all probabilities: CAUTION\n"
+            + "If Worst Credible Severity of Harm is Property Damage\n"
+            + "For all probabilities: Preferred: NOTICE\n"
+            + "Alternate: 20";
+        var page = new ExtractedPdfPage(
+            41,
+            text,
+            text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+            text.Length,
+            [41]);
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Signal Word Selection Matrices", 41, 41, 41, null, null)
+        };
+
+        var units = DocumentUnitExtractor.Extract([page], sections);
+
+        Assert.NotEmpty(units);
+        Assert.Contains(units, unit => unit.Text.Contains("Signal Word Selection Matrices", StringComparison.Ordinal));
+        Assert.Contains(units, unit => unit.Text.Contains("For all probabilities", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Extract_keeps_noisy_but_substantive_technical_table_pages()
+    {
+        var text =
+            "List, for each piece of equipment, the pressures for all liquids to be utilized in the process, including the maximum, minimum, and nominal rates of introduction "
+            + "and power electric power requirements maximum allowable fluctuation in electrical service that can be accepted without electrical power filtration "
+            + "List, for each piece of equipment, all solids to be rejected in the process purities/concentrations of all solids to be rejected in the process "
+            + "quantities of all solids to be rejected in the and nominal rates of rejection "
+            + "List, for each piece of equipment, all types of exhaust to be utilized in the process "
+            + "List, for each piece of equipment, the types of exhaust flows (e.g. acid, solvent, heat, general, etc.) to be utilized in the process "
+            + "and their respective concentrations, and quantities of all exhaust flows to be utilized in the process, including the maximum, minimum, and nominal rates of introduction";
+        var page = new ExtractedPdfPage(
+            50,
+            text,
+            text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+            text.Length,
+            [50]);
+
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoiseText(text));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoisePublishedUnitText(text));
+
+        var units = DocumentUnitExtractor.Extract([page], DocumentSectionExtractor.Extract([page]));
+
+        Assert.NotEmpty(units);
+        Assert.Contains(units, unit => unit.Text.Contains("for each piece of equipment", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(units, unit => unit.Text.Contains("exhaust flows", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Ocr_noise_filter_preserves_technical_figures_with_captions_and_notes()
+    {
+        var enclosureLayout =
+            "19-78 INDUSTRIAL MACHINERY ANNEX D Manufacturer Rack_1_ Group_3_ Module 6. "
+            + "120 VAC input module Output 0 Spare Master terminal box panel Output 3 "
+            + "1 in. wiring channel Main control panel FIGURE D.1(h) Sample Enclosure Layout - Interior. "
+            + "Door Layout Main panel Electrical control lockout placard "
+            + "FIGURE D.1(i) Sample Enclosure Layout - Exterior.";
+        var busBarSupports =
+            "188 UL 508A JULY 28, 2022 Figure D3.3 Location of supports for right-angle connection "
+            + "of edge-to-edge bus bars for a bus bar assembly in an industrial control panel without a main "
+            + "or marked for use with a remote main SUPPLY DISTRIBUTION DISTRIBUTION "
+            + "In which: X1 - Two supports required at line terminal end except one support may be used for single bus bar "
+            + "with a short-circuit current rating of 50,000 A or less. "
+            + "X2 - One support required at connection of vertical to horizontal bus or as shown in Figure D3.4. "
+            + "Note - For all other supports see Figure D3.2.";
+        var letThroughChart =
+            "172 UL 508A JULY 28, 2022 Available Short Circuit Current RMS Symmetrical Amperes "
+            + "To determine peak let-through current and t value: "
+            + "a) Obtain plots of the maximum let-through values for the specific current limiting circuit breaker from the manufacturer; "
+            + "b) Select the available short circuit current along the horizontal axis at the bottom of the chart that is equal to the short circuit current rating of the industrial control panel; "
+            + "c) Move vertically to the intersection with the curve corresponding to the rated voltage of the circuit breaker; "
+            + "d) Move horizontally left to intersection with the vertical axis to determine the peak let-through current or t value.";
+        var compactAnnotatedLayout =
+            "INDUSTRIAL MACHINERY VO Manufacturer Rack_1_ Group_3_ Module 6. "
+            + "mn 120 VAG input module 14FU Output O 15FU 1FU 2FU 3FU 1% in. wiring channel "
+            + "Master terminal box panel Main control panel Door Layout e = Section deletions. "
+            + "N = New material. Shaded text = Revisions. A = Text deletions and figure/table revisions. "
+            + "Shaded text = Revisions, A = Text deletions and figure/table revisions. "
+            + "+= Section deletions, N = New material.";
+
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(enclosureLayout));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(busBarSupports));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(letThroughChart));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(compactAnnotatedLayout));
+        Assert.Contains(
+            "Main control panel",
+            OcrNoiseFilter.RemoveTrailingNoisySupplement(compactAnnotatedLayout),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Extract_keeps_compact_annotated_technical_figure_pages()
+    {
+        var text =
+            "INDUSTRIAL MACHINERY VO Manufacturer Rack_1_ Group_3_ Module 6. "
+            + "mn 120 VAG input module 14FU Output O 15FU 1FU 2FU 3FU 1% in. wiring channel "
+            + "Master terminal box panel Main control panel Door Layout e = Section deletions. "
+            + "N = New material. Shaded text = Revisions. A = Text deletions and figure/table revisions. "
+            + "Shaded text = Revisions, A = Text deletions and figure/table revisions. "
+            + "+= Section deletions, N = New material.";
+        var expectedPrefix =
+            "INDUSTRIAL MACHINERY VO Manufacturer Rack_1_ Group_3_ Module 6. "
+            + "mn 120 VAG input module 14FU Output O 15FU 1FU 2FU 3FU 1% in. wiring channel "
+            + "Master terminal box panel Main control panel Door Layout";
+        var page = new ExtractedPdfPage(
+            42,
+            text,
+            text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+            text.Length,
+            [42]);
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(text));
+        Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText(expectedPrefix));
+        Assert.Equal(expectedPrefix, OcrNoiseFilter.RemoveTrailingNoisySupplement(expectedPrefix));
+
+        var units = DocumentUnitExtractor.Extract([page], DocumentSectionExtractor.Extract([page]));
+
+        Assert.NotEmpty(units);
+        Assert.Contains(units, unit => unit.Text.Contains("Main control panel", StringComparison.Ordinal));
+        Assert.Contains(units, unit => unit.Text.Contains("wiring channel", StringComparison.Ordinal));
+        Assert.DoesNotContain(units, unit => unit.Text.Contains("Section deletions", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Ocr_noise_filter_tolerates_symbol_only_fragments_from_real_ocr()
     {
         Assert.False(OcrNoiseFilter.LooksLikeProbableNoiseText("• / - — ..."));
@@ -868,6 +1432,37 @@ public sealed class DocumentUnitExtractorTests
         Assert.Contains(
             DocumentUnitExtractor.Extract([cjkPage], cjkSections),
             unit => unit.Text.Contains("安全联锁状态", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Extract_keeps_contact_addresses_as_body_units()
+    {
+        const string text = """
+Contacts in case of incident
+
+Switzerland support contact
+Zurich Service Center, Hardstrasse 12, 8005 Zurich, phone +41 44 555 10 10, email support-ch@example.com
+Geneva Emergency Desk, Rue du Rhone 30, 1204 Geneva, phone +41 22 555 20 20, email support-ge@example.com
+Basel Spare Parts Office, Aeschenplatz 4, 4052 Basel, phone +41 61 555 30 30, email parts-bs@example.com
+
+Use these contacts only after isolating the equipment and recording the alarm code.
+""";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(3, text, 75, text.Length, [3])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Contacts in case of incident", 1, 3, 3, 1, null)
+        };
+
+        var units = DocumentUnitExtractor.Extract(pages, sections);
+        var combined = string.Join(" ", units.Select(unit => unit.Text));
+
+        Assert.Contains("Zurich Service Center", combined, StringComparison.Ordinal);
+        Assert.Contains("support-ch@example.com", combined, StringComparison.Ordinal);
+        Assert.Contains("Geneva Emergency Desk", combined, StringComparison.Ordinal);
+        Assert.Contains("Use these contacts only after isolating", combined, StringComparison.Ordinal);
     }
 
     [Fact]

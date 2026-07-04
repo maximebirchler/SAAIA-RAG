@@ -62,6 +62,281 @@ public sealed class RetrievalChunkProjectorTests
     }
 
     [Fact]
+    public void ProjectStructureAware_does_not_duplicate_high_signal_unit_already_in_compact_content_window()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Safety controls", 1, 1, 1, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                "The panel inspection verifies the enclosure labels, confirms the supply disconnect position, and records the lockout status before work starts.",
+                132,
+                18,
+                [1],
+                0,
+                132),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                1,
+                1,
+                "The operator shall verify the emergency stop circuit, check the guard interlock, record the measured control voltage, confirm that warning labels remain visible, and file the inspection result before releasing the machine.",
+                188,
+                29,
+                [2],
+                134,
+                322)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 80,
+            overlapWords: 0,
+            minWords: 20);
+
+        var window = Assert.Single(projected);
+        Assert.Equal("section_window_v1", window.ChunkType);
+        Assert.Equal([0, 1], window.SourceUnitOrdinals);
+        Assert.DoesNotContain(projected, chunk =>
+            chunk.ChunkType == "unit_exact_v1"
+            && chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([1]));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_does_not_duplicate_high_signal_unit_already_in_medium_content_window()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Safety procedure", 1, 1, 1, null, null)
+        };
+        var highSignalText =
+            "Requirements procedure for the safety circuit includes 1. inspect the disconnecting means, 2. verify the emergency stop response, 3. record the measured control voltage, and 4. confirm warning labels remain visible before the machine is released for operation by authorized personnel after maintenance.";
+        var supportingText =
+            "The inspection record also describes enclosure access, grounding continuity, guard interlock response, operator acknowledgement, reset behavior, and the documented result for the responsible maintenance team before startup authorization is issued.";
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                highSignalText,
+                highSignalText.Length,
+                highSignalText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [1],
+                0,
+                highSignalText.Length),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                1,
+                1,
+                supportingText,
+                supportingText.Length,
+                supportingText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [2],
+                highSignalText.Length + 2,
+                highSignalText.Length + 2 + supportingText.Length)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 120,
+            overlapWords: 0,
+            minWords: 20);
+
+        Assert.Contains(projected, chunk =>
+            chunk.ChunkType == "section_window_v1"
+            && chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([0, 1]));
+        Assert.DoesNotContain(projected, chunk =>
+            chunk.ChunkType == "unit_exact_v1"
+            && chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([0]));
+    }
+
+    [Fact]
+    public void ProjectStructureAware_does_not_duplicate_units_already_in_multi_unit_compact_window()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Safety controls", 1, 1, 1, null, null)
+        };
+        var units = new[]
+        {
+            BuildUnit(0, "Before work starts, inspect the panel labels and verify the isolation point."),
+            BuildUnit(1, "The operator shall verify the emergency stop circuit, check the guard interlock, record the measured control voltage, and file the inspection result before releasing the machine."),
+            BuildUnit(2, "After the inspection, confirm the warning indicator and document the supervisor approval."),
+            BuildUnit(3, "The maintenance lead shall verify the restart procedure, check the safety relay status, and record the final authorization before energizing the equipment.")
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 0,
+            minWords: 20);
+
+        Assert.Contains(projected, chunk =>
+            chunk.ChunkType == "section_window_v1"
+            && chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([0, 1, 2]));
+        Assert.DoesNotContain(projected, chunk =>
+            chunk.ChunkType == "unit_exact_v1"
+            && chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.Any(ordinal => ordinal is 0 or 1 or 2));
+
+        static ExtractedDocumentUnit BuildUnit(int ordinal, string text)
+            => new(
+                ordinal,
+                0,
+                1,
+                1,
+                text,
+                text.Length,
+                text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [(byte)ordinal],
+                ordinal * 100,
+                ordinal * 100 + text.Length);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_does_not_duplicate_units_already_in_dense_mixed_window()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Software verification", 1, 1, 1, null, null)
+        };
+        var units = new[]
+        {
+            BuildUnit(0, "NFPA 70 In addition, the following measures need to be considered: (1) The type of supply and grounding system (2) The impedance values of the different elements of the equipment grounding system (3) The characteristics of protective devices (4) The maximum fault clearing time before restart authorization."),
+            BuildUnit(1, "Additional explanatory notes describe enclosure access, grounding continuity, guard interlock response, operator acknowledgement, reset behavior, and the documented result for the responsible maintenance team before startup authorization is issued.")
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 160,
+            overlapWords: 0,
+            minWords: 20);
+
+        Assert.Contains(projected, chunk =>
+            chunk.ChunkType == "section_window_v1"
+            && chunk.ContentRole == RetrievalContentClassifier.MixedNavigationContentRole
+            && chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([0, 1]));
+        Assert.DoesNotContain(projected, chunk =>
+            chunk.ChunkType == "unit_exact_v1"
+            && chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.Any(ordinal => ordinal is 0 or 1));
+
+        static ExtractedDocumentUnit BuildUnit(int ordinal, string text)
+            => new(
+                ordinal,
+                0,
+                1,
+                1,
+                text,
+                text.Length,
+                text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [(byte)ordinal],
+                ordinal * 500,
+                ordinal * 500 + text.Length);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_adds_exact_chunk_for_content_classified_unit_hidden_by_navigation_window()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Supplement requirements", 1, 1, 1, null, null)
+        };
+        var navigation = """
+Contents
+SB5.1 Nameplate rating ........ 179
+SB5.2 Short circuit current rating ........ 180
+Annex D Spacing requirements ........ 204
+""";
+        var content = "Industrial control panels shall comply with the Standard for Electric Spas Equipment Assemblies and Associated Equipment UL 1563 Supplement SA when the assembly supplies field wiring terminals protection devices and required markings";
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(0, 0, 1, 1, navigation, navigation.Length, CountWords(navigation), [1], 0, navigation.Length),
+            new ExtractedDocumentUnit(1, 0, 1, 1, content, content.Length, CountWords(content), [2], navigation.Length + 2, navigation.Length + 2 + content.Length)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 0,
+            minWords: 20);
+
+        Assert.Contains(projected, chunk =>
+            chunk.ChunkType == "unit_exact_v1"
+            && chunk.ContentRole == RetrievalContentClassifier.ContentRole
+            && chunk.NavigationReason is null
+            && chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([1]));
+
+        static int CountWords(string text)
+            => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+    }
+
+    [Fact]
+    public void ProjectStructureAware_keeps_classifier_confirmed_ocr_contact_notice_searchable()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document notice", 1, 1, 1, null, null)
+        };
+        var text = "Technical Help to Exporters has taken all reasonable measures to ensure the accuracy of this translation but regrets that no responsibility can be accepted for any error, omission or inaccuracy. In cases of doubt o: dispute, the original language text only is valid. Technical Help to Exporters British Standards Institution Tel: Milton Keynes (0908) 220022Telex: 825777";
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                2,
+                0,
+                1,
+                1,
+                text,
+                text.Length,
+                CountWords(text),
+                [2],
+                219,
+                219 + text.Length,
+                ExtractionTextStatus: "ok",
+                ExtractionTextSparse: false,
+                ExtractionOcrCandidate: false,
+                ExtractionQualitySignals: ["text_extraction_ok", "image_ocr_text_extracted"])
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 0,
+            minWords: 20);
+
+        var chunk = Assert.Single(projected);
+        Assert.Equal("unit_exact_v1", chunk.ChunkType);
+        Assert.Equal(RetrievalContentClassifier.ContentRole, chunk.ContentRole);
+        Assert.Null(chunk.NavigationReason);
+        Assert.Equal([2], chunk.SourceUnitOrdinals);
+        Assert.True(IngestionWorker.ShouldPublishRetrievalChunk(chunk));
+
+        static int CountWords(string value)
+            => value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+    }
+
+    [Fact]
     public void ProjectStructureAware_keeps_chunks_inside_section_boundaries()
     {
         var sections = new[]
@@ -1694,6 +1969,92 @@ public sealed class RetrievalChunkProjectorTests
     }
 
     [Fact]
+    public void ProjectStructureAware_does_not_add_footer_window_for_short_acronym_document_marker()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 20, 20, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                20,
+                20,
+                "Safety symbol placement requires field of view checks and environmental review before release.",
+                88,
+                12,
+                [1],
+                0,
+                88),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                20,
+                20,
+                "Requirements include 10 min review, 20 min validation, and documented evidence. ANSI Z",
+                86,
+                13,
+                [2],
+                90,
+                176)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 1);
+
+        Assert.DoesNotContain(projected, chunk => chunk.ChunkType == "footer_titled_item_window_v1");
+    }
+
+    [Fact]
+    public void ProjectStructureAware_does_not_add_footer_window_for_generic_notice_marker()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 1, 7, 7, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                7,
+                7,
+                "Referenced publications remain searchable as ordinary body content.",
+                62,
+                7,
+                [1],
+                0,
+                62),
+            new ExtractedDocumentUnit(
+                1,
+                0,
+                7,
+                7,
+                "Procedure requirements include 10 min checks, 20 min review, and sign-off evidence. NOTICE",
+                88,
+                12,
+                [2],
+                64,
+                152)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 1);
+
+        Assert.DoesNotContain(projected, chunk => chunk.ChunkType == "footer_titled_item_window_v1");
+    }
+
+    [Fact]
     public void ProjectStructureAware_prefixes_embedded_uppercase_title_and_cleans_pdf_artifacts()
     {
         var sections = new[]
@@ -1862,6 +2223,42 @@ public sealed class RetrievalChunkProjectorTests
     }
 
     [Fact]
+    public void ProjectStructureAware_rejoins_technical_section_numbers_split_by_ocr_spacing()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Document", 8, 8, 8, null, null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                8,
+                8,
+                "5.3. 8 Document status Yes 20 (0) A.16. 2 See additional requirements.",
+                75,
+                10,
+                [1],
+                0,
+                75)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 0,
+            minWords: 1);
+
+        var chunk = Assert.Single(projected);
+        Assert.Contains("5.3.8 Document status", chunk.Text, StringComparison.Ordinal);
+        Assert.Contains("A.16.2 See additional", chunk.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("5.3. 8", chunk.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("A.16. 2", chunk.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ProjectStructureAware_marks_compact_index_chunks_as_navigation()
     {
         var sections = new[]
@@ -1970,5 +2367,431 @@ public sealed class RetrievalChunkProjectorTests
         Assert.Equal(RetrievalContentClassifier.MixedNavigationContentRole, chunk.ContentRole);
         Assert.True(chunk.NavigationScore >= 0.55);
         Assert.True(chunk.ContentDensityScore >= 0.50);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_keeps_multilingual_technical_ocr_units_searchable_when_sections_are_interleaved()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(13, "DVS 2203", 1, 15, 15, null, null),
+            new ExtractedDocumentSection(14, "2.2.1 Mechanisches Verhalten", 3, 15, 15, null, null),
+            new ExtractedDocumentSection(15, "Normen und Richtlinien", 1, 15, 15, null, null),
+            new ExtractedDocumentSection(18, "2 Kennzeichnung und Eigenschatismerkmale", 1, 15, 15, null, null),
+            new ExtractedDocumentSection(20, "3 Pruefen von Haibzeug", 1, 15, 15, null, null)
+        };
+        const string unit21 =
+            "DK 62 1: 678.329.43 : 389.6 : 520.17 Pruefen von Halbzeug VERBAND FUER und Schweissverbindungen aus";
+        const string unit23 =
+            "Die in den Normen angegebenen Werte tur die mechanischen Eigenschaften sind an Probekoerpern nach genormten Prufmethoden untereinander erlauben. Mit den Eigenschaften der Fertigteile sind Pruefen von Schweissverbindungen";
+        const string unit24 =
+            "sie nicht unbedingt identisch. da die Einflüsse der Gestaltung und der Verarbeitung unberucksichtiat bleiben. Von Bedeutung sind vor allem auch der Temperatur- und ZeiteinfiuB. so daß die angegebenen Werte nicht die Gebrauchstüchtigkeit der Fertigteile charakterisieren oder unmittelbar der Berechnung einer Konstruktion zugrunde gelegt werden können. Dieses Merkblatt gibt dem Verarbeiter von Halbzeug aus thermoplastischen Kunststoffen und dem Verwenoer der daraus hergestellten Aniagen Hinweise auf gie Prüfmögiichkeiten für die EinHinsichtlich der thermischen Belastbarkeit ist zu berücksichtigen. gangskontrolle. die Schweißeignung das Schweißverfahren und dai3 die Eigenschaftswerte der Thermoplaste im gesamten Anwendie Gute der Verbingungen. Die Wah! der zweckmäßigen Prüfverdungsbereich temperaturabhängig sind. Neben dem Absinken der fahren ist entsprechend der jeweiligen Bearbeitung und AnwenFestigkeit und dem Beginn der Erweichung ist die mögliche zeitabdung zu treffen. Die festgeiegien Werte gelten für den Anliefehängige Schädigung des Werkstoffes zu beachten. führt. müssen die bis dahin aufgetretenen BetriebsbeanspruchunWerkstoffen verhältnismäßig hohe Warmedehnung und die geringe gen bei der Beurteilung berücksichtigt werden. Wärmeleitfähigkeit von Bedeutung.";
+        const string unit25 =
+            "Angaben zur Chemikalienbeständigkeit sind den Normen DIN 16 929 (Hari-PVC) und DIN 16 934 (PE) sowie den Beständigkeitslisten der Hersteller zu entnehmen. Zum Beurteilen der AnwendDie durch dieses Merkblatt vorwiegend erfaßten Werkstoffe sind: Polyathylen hoher Dichte (Hart-PE. HDPE) tur, Zeit. Belastung. Eigenspannungen und anderen Faktoren zu Polyäthylen niederer Dichte (Weich-PE, LDPE) Polybuten —1 (PB) Die Art und Zusammensetzung des Schweißzusatzes sind beim tige Kriterien innerhalb der Gesamtbeurteilung.";
+        const string unit26 =
+            "Polyvinylchlorid hart (Hart-PVC) Polyvinylchlorid hart. erhoeht schlagzaeh (HIPC) Die technischen Lieferbedingungen und die allgemeinen Gueteanforderungen sind den Normen und Richtlinien zu entnehmen. Dar- Die wichtigsten im Zusammenhang mit diesen Werkstoffen und ueber hinaus koennen mit dem Hersteller besondere Bedingungen Richtlinien sind in Abschnitt 5 dieses Merkblattes enthalten. Nicht genannte thermoplastische Kunststoffe koennen sinngemaess Als Beurteilungsmerkmale gelten vor allem folgende Punkte: Farbe (beispieisweise Vergleichsmuster oder RAL) Die Kunststoffe besitzen aufgrund ihres molekularen und struktu- Glanz und Oberflaechenguete rellen Aufbaus spezifische verarbeitungs- und anwendungstech- Truebungen und Flecken (DIN 53 490) nologische Eigenschaften. Bei der Anwendung von Halbzeug aus Thermoplasten. hauptsaechlich fuer tragende Bauteile. sind diese Fehlstellen. Risse und Fremdkoerpereinschluesse. Werkstoffeigenschaften. besonders bei gleichzeitiger mechanischer. thermischer und chemischer Beanspruchung. zu beruecksichtigen.";
+        var units = new[]
+        {
+            Unit(21, 20, unit21),
+            Unit(23, 14, unit23),
+            Unit(24, 15, unit24),
+            Unit(25, 18, unit25),
+            Unit(26, 20, unit26)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 25);
+
+        var normChunk = Assert.Single(projected, chunk =>
+            chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([24]));
+        var markingChunk = Assert.Single(projected, chunk =>
+            chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([25]));
+        Assert.Null(IngestionWorker.ResolveRetrievalChunkEmbeddingRejectionReason(normChunk));
+        Assert.Null(IngestionWorker.ResolveRetrievalChunkEmbeddingRejectionReason(markingChunk));
+        Assert.Contains("thermoplastischen Kunststoffen", normChunk.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("DIN 16 929", markingChunk.Text, StringComparison.OrdinalIgnoreCase);
+
+        static ExtractedDocumentUnit Unit(int ordinal, int sectionOrdinal, string text)
+            => new(
+                ordinal,
+                sectionOrdinal,
+                15,
+                15,
+                text,
+                text.Length,
+                text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [1],
+                ordinal * 1000,
+                ordinal * 1000 + text.Length,
+                "ok",
+                false,
+                false,
+                ["text_extraction_ok", "image_ocr_text_extracted"]);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_keeps_contact_and_address_blocks_searchable()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(0, "Support contacts", 1, 12, 12, null, null)
+        };
+        const string text =
+            "Contacts in case of technical problem. Switzerland: Maintenance desk, Bahnhofstrasse 10, 8001 Zurich, phone +41 44 555 12 34, email support.ch@example.com. "
+            + "Germany: Service center, Industriestrasse 8, 80331 Munich, phone +49 89 555 22 11, email support.de@example.com. "
+            + "Use the local contact when the installation alarm cannot be reset after the documented verification procedure.";
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                12,
+                12,
+                text,
+                text.Length,
+                text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [1],
+                0,
+                text.Length,
+                "ok",
+                false,
+                false,
+                ["text_extraction_ok"])
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 25);
+
+        var chunk = Assert.Single(projected);
+        Assert.Null(IngestionWorker.ResolveRetrievalChunkEmbeddingRejectionReason(chunk));
+        Assert.Contains("support.ch@example.com", chunk.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("+41 44 555 12 34", chunk.Text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_keeps_substantive_units_covered_by_publishable_chunks()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(
+                1,
+                "Z535 Committee recognized that this finite set of referents addressed only a fraction of the hazard",
+                1,
+                9,
+                9,
+                null,
+                null)
+        };
+        const string foreword =
+            "ANSI Z535.3 - 2007 Foreword (This foreword is not part of American National Standard Z535.3-2007.) "
+            + "In 1979, the ANSI Z53 Committee on Safety Colors was combined with the ANSI Z35 Committee on Safety Signs to form the ANSI Z535 Committee on Safety Signs and Colors. "
+            + "This committee has the responsibility to develop standards for the design, application, and use of signs, colors, and symbols intended to identify and warn against specific hazards and for other accident prevention purposes. "
+            + "Six subcommittees were created and assigned the tasks of updating the ANSI Z53 and Z35 Standards, and writing three new standards. "
+            + "The six standards include: ANSI Z535.1, Safety Colors; ANSI Z535.2, Environmental and Facility Safety Signs; ANSI Z535.3, Criteria for Safety Symbols; ANSI Z535.4, Product Safety Signs and Labels; ANSI Z535.5, Safety Tags and Barricade Tapes; and ANSI Z535.6, Product Safety Information in Product Manuals, Instructions and Other Collateral Materials.";
+        const string shortContinuation =
+            "6, Product Safety Information in Product Manuals, Instructions and";
+        const string nextBody =
+            "Other Collateral Materials. Together, these six standards contain information needed to specify formats, colors, and symbols for safety signs used in environmental and facility applications, product applications, temporary accident prevention tags, and product accompanying literature.";
+        var units = new[]
+        {
+            Unit(14, foreword, 0),
+            Unit(15, shortContinuation, foreword.Length + 2),
+            Unit(16, nextBody, foreword.Length + shortContinuation.Length + 4)
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 25);
+
+        var forewordCoverage = Assert.Single(projected, chunk =>
+            chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.Contains(14)
+            && IngestionWorker.ShouldPublishRetrievalChunk(chunk));
+        Assert.Contains("Foreword", forewordCoverage.Text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("six standards include", forewordCoverage.Text, StringComparison.OrdinalIgnoreCase);
+
+        static ExtractedDocumentUnit Unit(int ordinal, string text, int offsetStart)
+            => new(
+                ordinal,
+                1,
+                9,
+                9,
+                text,
+                text.Length,
+                text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [1],
+                offsetStart,
+                offsetStart + text.Length,
+                "ok",
+                false,
+                false,
+                ["text_extraction_ok", "image_ocr_text_extracted"]);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_adds_exact_chunk_for_substantive_unit_after_large_page_boundary_window()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(
+                2,
+                "Principles for Product Safety Labels.",
+                1,
+                10,
+                13,
+                null,
+                null)
+        };
+        var units = new[]
+        {
+            Unit(24, 2, 10, "Lessons learned from each test iteration were used to improve test procedures and clarify test instructions."),
+            Unit(25, 2, 10, "As a result, in addition to thoroughly-tested symbol examples, this revision provides well-tested procedures for evaluating symbols. The subcommittee believes that these ANSI Z535.3 Standard improvements facilitate the creation of symbols with improved legibility and consistency that are reliably comprehension tested. In the 2002 revision, only minor revisions were made. In the 2007 revision, the safety alert symbol was expanded to harmonize with color alternatives that are contained in the International Organization for Standardization ISO 3864-2-2004 Graphical Symbols - Safety Colours and Safety Signs - Part 2: Design."),
+            Unit(26, 2, 10, "In Annex A, Principles and Guidelines for Graphical Design of Safety Symbols, guidance was expanded and more figures were added to illustrate the principles and guidelines presented."),
+            Unit(27, 2, 10, "No significant changes were made to Annex B, General Procedures for Evaluating. In Annex C, Safety Symbol Examples, guidance was also expanded. Not only were safety symbols moved from the normative body of this standard to this informative Annex, but also added were information symbols related to fire safety and safe condition that are contained in the ISO 7010-2003 standard, Graphical Symbols - Safety Colours and Safety Signs - Safety Signs Used in Workplaces and Public Areas. A newly created Annex D Informative References contains references relocated from the body of the standard. See the ANSI Z535-2006 Safety Color Chart for the purpose of viewing accurate colors. Due to differences in color printing technologies and color monitors, the appearance of colors in this document may not be accurate."),
+            Unit(28, 2, 11, "ANSI Z535.3 - 2007 This standard was processed and approved for submittal to ANSI by the Accredited Standards Committee on Safety Signs and Colors, ANSI Z535. Committee approval of this standard does not necessarily imply that all committee members voted for its approval. At the time of approval, the ANSI Z535 Committee had the following members: Gary M. Bell, Chairperson Richard Olesen, Vice Chair Paul Orr, Secretary Organization Represented: Name of Representative: J. Paul Frantz American Society of Safety Engineers Thomas F. Breshnahan Alt. Howard A. Elwell Alt. American Welding Society August F."),
+            Unit(29, 2, 11, "Manz Applied Materials Edward Karl Carl Wong Alt. Applied Safety and Ergonomics, Inc."),
+            Unit(30, 2, 11, "Steven Hall Stephen Young Alt. David Felinski Association for Manufacturing Technology Association of Equipment Manufacturers Richard A. Dressler Dan Taylor Alt. Browning Arms Company Larry D. Nelson Sue A. Hooker Mark A.")
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 25);
+
+        var exactChunk = Assert.Single(projected, chunk =>
+            chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([28]));
+        Assert.Null(IngestionWorker.ResolveRetrievalChunkEmbeddingRejectionReason(exactChunk));
+        Assert.Contains("This standard was processed and approved", exactChunk.Text, StringComparison.OrdinalIgnoreCase);
+
+        static ExtractedDocumentUnit Unit(int ordinal, int sectionOrdinal, int page, string text)
+            => new(
+                ordinal,
+                sectionOrdinal,
+                page,
+                page,
+                text,
+                text.Length,
+                text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [1],
+                ordinal * 1000,
+                ordinal * 1000 + text.Length,
+                "ok",
+                false,
+                false,
+                ["text_extraction_ok", "image_ocr_text_extracted"]);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_does_not_span_missing_pages_inside_section_windows()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(
+                6,
+                "Chromaticity and labeling references",
+                1,
+                20,
+                24,
+                null,
+                null)
+        };
+        var units = new[]
+        {
+            Unit(
+                71,
+                6,
+                20,
+                "American National Standard for Hazardous Industrial Chemicals - Precautionary Labeling. "
+                + "ANSI Z129.1 colors and reference guidance describe how labels should keep safety wording and "
+                + "identification details readable for the intended industrial audience."),
+            Unit(
+                73,
+                6,
+                24,
+                "Chromaticity coordinates and tolerance limits are listed for the safety color sample. "
+                + "The measurement notes describe the illuminant, observation angle, and acceptable range used "
+                + "to verify that the printed color remains within the standard boundary.")
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 25);
+
+        Assert.DoesNotContain(projected, chunk =>
+            chunk.ChunkType == "section_window_v1"
+            && chunk.PageStart <= 22
+            && chunk.PageEnd >= 23
+            && chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.Contains(71)
+            && chunk.SourceUnitOrdinals.Contains(73));
+        Assert.Contains(projected, chunk =>
+            chunk.ChunkType == "unit_exact_v1"
+            && chunk.PageStart == 20
+            && chunk.PageEnd == 20
+            && chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([71]));
+        Assert.Contains(projected, chunk =>
+            chunk.ChunkType == "unit_exact_v1"
+            && chunk.PageStart == 24
+            && chunk.PageEnd == 24
+            && chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([73]));
+
+        static ExtractedDocumentUnit Unit(int ordinal, int sectionOrdinal, int page, string text)
+            => new(
+                ordinal,
+                sectionOrdinal,
+                page,
+                page,
+                text,
+                text.Length,
+                text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [1],
+                ordinal * 1000,
+                ordinal * 1000 + text.Length,
+                "ok",
+                false,
+                false,
+                ["text_extraction_ok", "image_ocr_text_extracted"]);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_keeps_short_questionnaire_example_units_searchable()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(
+                9,
+                "Sample Symbol Test Administration Instructions and Booklet",
+                1,
+                45,
+                49,
+                null,
+                null)
+        };
+        var units = new[]
+        {
+            Unit(
+                145,
+                9,
+                45,
+                "Figure B4 continued Sample Symbol Test Administration Instructions and Booklet"),
+            Unit(
+                146,
+                9,
+                46,
+                "Figure B4 continued Sample Symbol Test Administration Instructions and Booklet Example of a poor answer Context: This symbol appears on appliances and machines used in the home and workplace. Exactly what do you think this symbol means? gears and hand What action would you take in response to this symbol? Participant No."),
+            Unit(
+                147,
+                9,
+                47,
+                "Figure B4 continued Sample Symbol Test Administration Instructions and Booklet Example of a good answer Context: This symbol appears on appliances and machines used in the home and workplace."),
+            Unit(
+                148,
+                9,
+                49,
+                "The purpose of this annex is to provide a collection of safety symbol examples to assist in applying the principles of this standard and making judgments regarding the use of safety symbols.")
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 25);
+
+        var exactChunk = Assert.Single(projected, chunk =>
+            chunk.SourceUnitOrdinals is not null
+            && chunk.SourceUnitOrdinals.SequenceEqual([147]));
+        Assert.Null(IngestionWorker.ResolveRetrievalChunkEmbeddingRejectionReason(exactChunk));
+        Assert.Contains("Example of a good answer", exactChunk.Text, StringComparison.OrdinalIgnoreCase);
+
+        static ExtractedDocumentUnit Unit(int ordinal, int sectionOrdinal, int page, string text)
+            => new(
+                ordinal,
+                sectionOrdinal,
+                page,
+                page,
+                text,
+                text.Length,
+                text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [1],
+                ordinal * 1000,
+                ordinal * 1000 + text.Length,
+                "ok",
+                false,
+                false,
+                ["text_extraction_ok", "image_ocr_text_extracted"]);
+    }
+
+    [Fact]
+    public void ProjectStructureAware_keeps_compact_technical_topic_list_units_searchable()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(
+                3,
+                "Table of Contents",
+                1,
+                8,
+                10,
+                null,
+                null)
+        };
+        var text =
+            "Safety alert symbols Examples of a signal word panel Supplemental directive with safety alert symbol METTETE a "
+            + "Examples of section safety message with signal word panel Examples of section safety message with safety alert symbol "
+            + "Examples of embedded safety message with signal word Embedded safety message with safety alert symbol "
+            + "Providing Information About Safety Messages in Collateral Materials and Product Safety";
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                16,
+                3,
+                9,
+                9,
+                text,
+                text.Length,
+                text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                [1],
+                16000,
+                16000 + text.Length,
+                "ok",
+                false,
+                false,
+                ["text_extraction_ok", "image_ocr_text_extracted"])
+        };
+
+        var projected = RetrievalChunkProjector.ProjectStructureAware(
+            sections,
+            units,
+            maxWords: 220,
+            overlapWords: 35,
+            minWords: 25);
+
+        var chunk = Assert.Single(projected, item =>
+            item.SourceUnitOrdinals is not null
+            && item.SourceUnitOrdinals.SequenceEqual([16]));
+        Assert.Null(IngestionWorker.ResolveRetrievalChunkEmbeddingRejectionReason(chunk));
+        Assert.Contains("Collateral Materials", chunk.Text, StringComparison.OrdinalIgnoreCase);
     }
 }

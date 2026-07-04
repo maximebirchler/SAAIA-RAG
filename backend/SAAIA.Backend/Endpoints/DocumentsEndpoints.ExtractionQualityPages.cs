@@ -273,7 +273,7 @@ ORDER BY chunk_index;";
             var unitsOnPage = unitsByPage.TryGetValue(page.PageNumber, out var pageUnits)
                 ? pageUnits
                 : [];
-            var suspiciousUnitCount = unitsOnPage.Count(unit => OcrNoiseFilter.LooksLikeProbableNoiseText(unit.TextContent));
+            var suspiciousUnitCount = unitsOnPage.Count(unit => OcrNoiseFilter.LooksLikeProbableNoisePublishedUnitText(unit.TextContent));
             var chunksOnPage = chunksByPage.TryGetValue(page.PageNumber, out var pageChunks)
                 ? pageChunks
                 : [];

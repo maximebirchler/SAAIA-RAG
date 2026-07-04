@@ -4490,7 +4490,8 @@ public sealed class RetrievalRuntimeSwitchTests
 
         Assert.Equal("Chunk snippet", payload["text"]);
         Assert.Equal("Document: CEN.pdf\nExcerpt:\nChunk snippet", payload["embed_text"]);
-        Assert.Equal("contextual_text_v1", payload["embedding_basis"]);
+        Assert.Equal("contextual_text_v2", payload["embedding_basis"]);
+        Assert.Equal("contextual_text_v2", payload["context_schema_version"]);
         Assert.Equal("intfloat/multilingual-e5-base", payload["embedding_model"]);
         Assert.Equal("e5_passage_v1", payload["embedding_input_format"]);
         Assert.Equal(2, payload["section_ordinal"]);
@@ -4498,8 +4499,10 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.Equal(new[] { 9, 10 }, Assert.IsAssignableFrom<IReadOnlyList<int>>(payload["source_unit_ordinals"]));
         Assert.Equal(9, payload["source_unit_start_ordinal"]);
         Assert.Equal(10, payload["source_unit_end_ordinal"]);
+        Assert.Equal("9-10", payload["source_unit_span"]);
         Assert.Equal(2, payload["source_unit_count"]);
         Assert.Equal("multi_unit_window", payload["chunk_composition"]);
+        Assert.Equal("3-4", payload["page_span"]);
         Assert.Equal(120, payload["offset_start"]);
         Assert.Equal(133, payload["offset_end"]);
         Assert.Equal("Introduction", payload["section_title"]);

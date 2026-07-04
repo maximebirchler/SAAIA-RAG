@@ -610,6 +610,9 @@ RETURNING job_id;
     public static async Task UpdateProgressAsync(NpgsqlDataSource ds, Guid jobId, string phase, int? current, int? total, CancellationToken ct)
         => await IngestionJobSnapshotStore.UpdateProgressAsync(ds, jobId, phase, current, total, ct);
 
+    public static async Task UpdateProgressAsync(NpgsqlDataSource ds, Guid jobId, string phase, int? current, int? total, object? details, CancellationToken ct)
+        => await IngestionJobSnapshotStore.UpdateProgressAsync(ds, jobId, phase, current, total, details, ct);
+
     public static async Task StoreResumeCheckpointAsync(
         NpgsqlDataSource ds,
         Guid jobId,

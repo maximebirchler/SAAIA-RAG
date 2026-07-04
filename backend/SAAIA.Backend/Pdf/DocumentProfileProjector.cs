@@ -952,6 +952,17 @@ internal static partial class DocumentProfileProjector
             return false;
 
         var tokenCount = CountTokens(title);
+        if (LooksLikeProseLeadWithEmbeddedTechnicalIdentifier(title, normalized, tokenCount))
+            return true;
+
+        if (LooksLikeTechnicalIdentifier(title) && !LooksLikeBrokenTechnicalIdentifierTitle(title))
+        {
+            return false;
+        }
+
+        if (AcronymSubjectVerbTitleRegex().IsMatch(title))
+            return true;
+
         if ((ImperativeInstructionLeadRegex().IsMatch(normalized) || LooksLikeFrenchImperativeSentenceLead(normalized, tokenCount))
             && tokenCount >= 3)
             return true;
@@ -969,6 +980,9 @@ internal static partial class DocumentProfileProjector
         if (LooksLikeLongSentenceLeadTitle(title, normalized, tokenCount))
             return true;
 
+        if (LooksLikeDeterminerProseFragmentTitle(title, normalized, tokenCount))
+            return true;
+
         if (!LooksLikeMostlyUppercaseTitle(title) && ContainsNoisyInlinePunctuation(title, tokenCount))
             return true;
 
@@ -979,6 +993,45 @@ internal static partial class DocumentProfileProjector
         }
 
         return false;
+    }
+
+    private static bool LooksLikeDeterminerProseFragmentTitle(string title, string normalized, int tokenCount)
+    {
+        if (tokenCount < 4 || LooksLikeMostlyUppercaseTitle(title) || LooksLikeTechnicalIdentifier(title))
+            return false;
+
+        var normalizedTokens = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var originalTokens = title.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (normalizedTokens.Length < 4 || originalTokens.Length < 4)
+            return false;
+
+        var firstToken = normalizedTokens[0];
+        if (firstToken is not "the" and not "a" and not "an" and not "its" and not "their" and not "his" and not "her")
+            return false;
+
+        var lowercaseAfterLead = originalTokens
+            .Skip(1)
+            .Count(static token => token.Length > 0 && char.IsLower(token[0]));
+        return lowercaseAfterLead >= Math.Min(2, originalTokens.Length - 1);
+    }
+
+    private static bool LooksLikeProseLeadWithEmbeddedTechnicalIdentifier(string title, string normalized, int tokenCount)
+    {
+        if (tokenCount < 6 || !LooksLikeTechnicalIdentifier(title) || LooksLikeMostlyUppercaseTitle(title))
+            return false;
+
+        var technicalMatch = TechnicalIdentifierRegex().Match(title);
+        if (technicalMatch.Success && technicalMatch.Index <= 2)
+            return false;
+
+        var firstToken = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        if (firstToken is null)
+            return false;
+
+        return ContentCardLeadStopwords.Contains(firstToken)
+            || DanglingFragmentTitleTokens.Contains(firstToken)
+            || ContextualSentenceLeadRegex().IsMatch(normalized)
+            || SentenceVerbTitleRegex().IsMatch(normalized);
     }
 
     private static bool LooksLikeLongSentenceLeadTitle(string title, string normalized, int tokenCount)
@@ -1087,6 +1140,7 @@ internal static partial class DocumentProfileProjector
         if (CountTokens(title) >= 2)
             title = CompactTrailingNumericSuffixRegex().Replace(title, string.Empty);
         title = CollapseWhitespace(title.Trim(' ', '-', ':', ';', '.', ',', '|', '/', '\\', '(', ')', '•', '·'));
+        title = CollapseWhitespace(title.TrimStart('#'));
         return title.Length <= 140 ? title : TrimTo(title, 140);
     }
 
@@ -1107,6 +1161,10 @@ internal static partial class DocumentProfileProjector
             return false;
         var normalizedFolded = FoldDiacritics(normalized);
         var hasTechnicalIdentifier = LooksLikeTechnicalIdentifier(title);
+        if (hasTechnicalIdentifier && LooksLikeBrokenTechnicalIdentifierTitle(title))
+        {
+            return false;
+        }
 
         if ((tokenCount < 2 && !hasTechnicalIdentifier) || tokenCount > 14)
             return false;
@@ -1129,6 +1187,8 @@ internal static partial class DocumentProfileProjector
         }
 
         if (ContentCardTitleStopwords.Contains(normalizedFolded))
+            return false;
+        if (LooksLikeCrossReferencePointerTitle(title, normalizedFolded, tokenCount))
             return false;
         if (LooksLikeGenericContentCardTitle(normalizedFolded) && !hasTechnicalIdentifier)
             return false;
@@ -1224,6 +1284,108 @@ internal static partial class DocumentProfileProjector
             return true;
 
         return match.Groups["digits"].Value.Length >= 3;
+    }
+
+    private static string? BuildCompactTechnicalIdentifierKey(string value)
+    {
+        if (!LooksLikeTechnicalIdentifier(value))
+            return null;
+        if (LooksLikeBrokenTechnicalIdentifierTitle(value))
+            return null;
+
+        return BuildCompactAlphanumericKey(value);
+    }
+
+    private static string? BuildCompactTechnicalIdentifierPrefixKey(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var normalized = CollapseWhitespace(value);
+        if (!TechnicalIdentifierPrefixOnlyRegex().IsMatch(normalized))
+            return null;
+
+        return BuildCompactAlphanumericKey(normalized);
+    }
+
+    private static string? BuildTrailingTechnicalIdentifierPrefixKey(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var normalized = CollapseWhitespace(value);
+        if (normalized.Any(char.IsDigit) || !TrailingTechnicalIdentifierPrefixRegex().IsMatch(normalized))
+            return null;
+
+        return BuildCompactAlphanumericKey(normalized);
+    }
+
+    private static string? BuildCompactAlphanumericKey(string value)
+    {
+        var normalized = ExactMatchEntryExtractor.NormalizeForLookup(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+            return null;
+
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var ch in normalized)
+        {
+            if (char.IsLetterOrDigit(ch))
+                builder.Append(char.ToLowerInvariant(ch));
+        }
+
+        return builder.Length == 0 ? null : builder.ToString();
+    }
+
+    private static bool LooksLikeTruncatedTechnicalIdentifierDuplicate(
+        string title,
+        int? pageStart,
+        int? pageEnd,
+        IReadOnlyCollection<(string Key, int? PageStart, int? PageEnd)> technicalTitles)
+    {
+        var key = BuildCompactTechnicalIdentifierKey(title)
+            ?? BuildCompactTechnicalIdentifierPrefixKey(title)
+            ?? BuildTrailingTechnicalIdentifierPrefixKey(title);
+        if (string.IsNullOrWhiteSpace(key))
+            return false;
+
+        return technicalTitles.Any(candidate =>
+            candidate.Key.Length > key.Length
+            && candidate.Key.StartsWith(key, StringComparison.Ordinal)
+            && char.IsDigit(candidate.Key[key.Length])
+            && PageRangesCouldReferToSameEvidence(pageStart, pageEnd, candidate.PageStart, candidate.PageEnd));
+    }
+
+    private static bool LooksLikeCrossReferencePointerTitle(string title, string normalizedFolded, int tokenCount)
+    {
+        if (tokenCount < 3 || !LooksLikeTechnicalIdentifier(title))
+            return false;
+
+        return CrossReferencePointerTitleRegex().IsMatch(normalizedFolded);
+    }
+
+    private static bool PageRangesCouldReferToSameEvidence(int? leftStart, int? leftEnd, int? rightStart, int? rightEnd)
+    {
+        if (!leftStart.HasValue || !rightStart.HasValue)
+            return !leftStart.HasValue && !rightStart.HasValue;
+
+        var leftLast = leftEnd ?? leftStart.Value;
+        var rightLast = rightEnd ?? rightStart.Value;
+        return leftStart.Value <= rightLast && rightStart.Value <= leftLast;
+    }
+
+    private static bool LooksLikeBrokenTechnicalIdentifierTitle(string title)
+    {
+        var trimmed = title.Trim();
+        if (TrailingUnnumberedTechnicalNoRegex().IsMatch(trimmed))
+            return true;
+
+        if (!HasUnbalancedContentCardDelimiter(title))
+            return false;
+
+        return trimmed.EndsWith('(')
+               || trimmed.EndsWith('[')
+               || trimmed.EndsWith('{')
+               || trimmed.Count(static ch => ch is '(' or '[' or '{') > trimmed.Count(static ch => ch is ')' or ']' or '}');
     }
 
     private static bool LooksLikeGluedNavigationOrHeaderTitle(string title)
@@ -1570,6 +1732,13 @@ internal static partial class DocumentProfileProjector
 
         if (firstToken is "pour" or "for" or "para" or "per" or "sans" or "without" or "senza")
             return true;
+
+        if (firstToken == "to"
+            && tokenCount is >= 4 and <= 10
+            && tokens.Skip(1).Take(5).Any(static token => DanglingFragmentTitleTokens.Contains(token)))
+        {
+            return true;
+        }
 
         if (firstToken is "avec" or "with" or "mit" or "con" or "au" or "aux"
             && tokenCount <= 10
@@ -2468,11 +2637,32 @@ internal static partial class DocumentProfileProjector
         var normalized = new List<DocumentProfileContentCard>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var card in cards)
+        var preparedCards = cards
+            .Select(static card =>
+            {
+                var evidence = NormalizeContentCardEvidence(card.Evidence);
+                var (pageStart, pageEnd) = NormalizeContentCardPageRange(card.PageStart, card.PageEnd, evidence);
+                return (
+                    Card: card,
+                    Title: CleanTitleCandidate(card.Title),
+                    Kind: NormalizeContentCardKind(card.Kind),
+                    Evidence: evidence,
+                    PageStart: pageStart,
+                    PageEnd: pageEnd);
+            })
+            .ToList();
+        var technicalTitles = preparedCards
+            .Select(static item => (
+                Key: BuildCompactTechnicalIdentifierKey(item.Title),
+                item.PageStart,
+                item.PageEnd))
+            .Where(static item => !string.IsNullOrWhiteSpace(item.Key))
+            .Select(static item => (Key: item.Key!, item.PageStart, item.PageEnd))
+            .Distinct()
+            .ToArray();
+
+        foreach (var (card, title, kind, normalizedEvidence, pageStart, pageEnd) in preparedCards)
         {
-            var title = CleanTitleCandidate(card.Title);
-            var kind = NormalizeContentCardKind(card.Kind);
-            var normalizedEvidence = NormalizeContentCardEvidence(card.Evidence);
             if (!IsUsefulContentCardTitle(
                 title,
                 normalizedEvidence,
@@ -2480,7 +2670,8 @@ internal static partial class DocumentProfileProjector
             {
                 continue;
             }
-            var (pageStart, pageEnd) = NormalizeContentCardPageRange(card.PageStart, card.PageEnd, normalizedEvidence);
+            if (LooksLikeTruncatedTechnicalIdentifierDuplicate(title, pageStart, pageEnd, technicalTitles))
+                continue;
             var hasGroundedPageEvidence = HasSourceBackedOrGroundedPageEvidence(normalizedEvidence, pageStart, pageEnd);
             if (LooksLikeLowercaseLead(title) && !hasGroundedPageEvidence)
                 continue;
@@ -2784,8 +2975,8 @@ internal static partial class DocumentProfileProjector
     private static readonly HashSet<string> ContentCardLeadStopwords = new(StringComparer.Ordinal)
     {
         "this", "that", "these", "those", "cette", "cela", "voici", "pour", "avec",
-        "sans", "par", "un", "une", "dans", "vous", "nous", "the", "and", "from", "para", "como", "esta",
-        "este", "oder", "und", "der", "die", "das", "per", "con"
+        "sans", "par", "un", "une", "dans", "vous", "nous", "the", "and", "from", "without", "para", "como", "esta",
+        "este", "its", "their", "his", "her", "oder", "und", "der", "die", "das", "zu", "zur", "zum", "per", "con"
     };
 
     private static readonly HashSet<string> DanglingFragmentTitleTokens = new(StringComparer.Ordinal)
@@ -2794,7 +2985,7 @@ internal static partial class DocumentProfileProjector
         "della", "des", "di", "die", "du", "e", "el", "en", "et", "for", "from", "in",
         "l", "la", "las", "le", "les", "lo", "los", "mit", "of", "on", "or", "ou",
         "au", "aux", "al", "par", "un", "une",
-        "para", "per", "por", "sur", "the", "to", "und", "with", "y", "zu"
+        "para", "per", "por", "sur", "the", "to", "und", "with", "y", "zu", "zur", "zum"
     };
 
     private static readonly HashSet<string> ContentCardMetadataLabelTokens = new(StringComparer.Ordinal)
@@ -2884,6 +3075,18 @@ internal static partial class DocumentProfileProjector
     [GeneratedRegex(@"\b(?:EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR|TS|PD|BS|NF|SN|UL|CSA)(?:[\s._/\-]+[A-Z]{1,6}){0,4}[\s._/\-]*\d[A-Z0-9._/\-:]*\b", RegexOptions.CultureInvariant)]
     private static partial Regex TechnicalIdentifierRegex();
 
+    [GeneratedRegex(@"^(?:EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR|TS|PD|BS|NF|SN|UL|CSA)(?:[\s._/\-]+[A-Z]{1,6}){1,4}$", RegexOptions.CultureInvariant)]
+    private static partial Regex TechnicalIdentifierPrefixOnlyRegex();
+
+    [GeneratedRegex(@"\b(?:EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR|TS|PD|BS|NF|SN|UL|CSA)\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex TrailingTechnicalIdentifierPrefixRegex();
+
+    [GeneratedRegex(@"\b(?:CAN/CSA|CSA|EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR|TS|PD|BS|NF|SN|UL)\b.*\bNo\.?\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex TrailingUnnumberedTechnicalNoRegex();
+
+    [GeneratedRegex(@"^(?:[a-z]\s+)?\d+(?:\s+\d+){0,4}\s+(?:see|voir|siehe|vedi|vease)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex CrossReferencePointerTitleRegex();
+
     [GeneratedRegex(@"^(?:EN|ISO|IEC|ASTM|DIN|NFPA|API|ANSI|CEN|TR|TS|PD|BS|NF|SN|UL|CSA)[\s._/\-]*(?<digits>\d{1,3})$", RegexOptions.CultureInvariant)]
     private static partial Regex ShortStandaloneStandardReferenceRegex();
 
@@ -2926,8 +3129,11 @@ internal static partial class DocumentProfileProjector
     [GeneratedRegex(@"^(?:dans|in|en|con|avec|with|sur|on|au|aux)\s+(?:un|une|le|la|les|l['\u2019]?|the|a|an|el|los|las|il|lo|gli|i)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex ContextualSentenceLeadRegex();
 
-    [GeneratedRegex(@"\b(?:est|sont|doit|doivent|peut|peuvent|pouvez|pourrez|permet|permettent|recommande|recommandons|utilisez|utiliser|trouver|trouvez|ajoutez|ouvrez|fermez|retirez|verifiez|v[ée]rifiez|is|are|can|must|should|allows?|use|uses|using|open|close|remove|verify|check)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:est|sont|doit|doivent|peut|peuvent|pouvez|pourrez|permet|permettent|recommande|recommandons|utilisez|utiliser|trouver|trouvez|ajoutez|ouvrez|fermez|retirez|verifiez|v[ée]rifiez|is|are|can|must|shall|should|allows?|collaborates?|use|uses|using|open|close|remove|verify|check|ist|sind|kann|k[oö]nnen|muss|m[uü]ssen|soll|sollen|darf|d[uü]rfen|wird|werden)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex SentenceVerbTitleRegex();
+
+    [GeneratedRegex(@"^[A-Z]{2,8}\s+(?:is|are|can|must|shall|should|allows?|collaborates?)\b", RegexOptions.CultureInvariant)]
+    private static partial Regex AcronymSubjectVerbTitleRegex();
 
     [GeneratedRegex(@"^(?:ajoutez?|appliquez|arretez|choisissez|configurez|connectez|copiez|demarrez|deconnectez|enlevez|fermez|installez|lancez?|ouvrez|placez|placez-les|posez|programmez|redemarrez|remettez|remplacez?|retirez|saisissez?|selectionnez|supprimez|utilisez?|validez|verifiez|v[ée]rifiez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex ImperativeInstructionLeadRegex();

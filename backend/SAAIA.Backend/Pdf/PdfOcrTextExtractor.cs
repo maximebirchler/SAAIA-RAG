@@ -1217,7 +1217,7 @@ internal static class PdfOcrTextExtractor
 
     private static string ResolveOcrArgumentsTemplate(IngestionOptions options)
         => string.IsNullOrWhiteSpace(options.OcrArguments)
-            ? "--skip-text --tesseract-pagesegmode 3 -l {languages} --sidecar {sidecar} {input} {output}"
+            ? "--rotate-pages --deskew --clean --skip-text --tesseract-pagesegmode 3 -l {languages} --sidecar {sidecar} {input} {output}"
             : options.OcrArguments.Trim();
 
     internal static string ResolveImageRendererCommand(IngestionOptions options)
@@ -1339,16 +1339,6 @@ internal static class PdfOcrTextExtractor
             && (installed.Contains("eng") || configured.Contains("eng")))
         {
             selected.Add("eng");
-        }
-
-        foreach (var language in configuredLanguages.Select(NormalizeConfiguredOcrLanguage))
-        {
-            if (selected.Count >= configured.Count)
-                break;
-            if (!installed.Contains(language) || selected.Contains(language, StringComparer.OrdinalIgnoreCase))
-                continue;
-
-            selected.Add(language);
         }
 
         return selected;

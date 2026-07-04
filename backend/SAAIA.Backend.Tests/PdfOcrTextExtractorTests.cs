@@ -844,14 +844,14 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
     }
 
     [Fact]
-    public void ResolveDetectedAutoOcrLanguages_prefers_detected_language_and_fills_auto_pool()
+    public void ResolveDetectedAutoOcrLanguages_prefers_detected_language_without_filling_auto_pool()
     {
         var languages = PdfOcrTextExtractor.ResolveDetectedAutoOcrLanguages(
             "nl",
             ["fra", "eng", "deu", "ita"],
             ["eng", "fra", "deu", "ita", "nld", "ara"]);
 
-        Assert.Equal(["nld", "eng", "fra", "deu"], languages);
+        Assert.Equal(["nld", "eng"], languages);
     }
 
     [Fact]
@@ -975,6 +975,24 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
     }
 
     [Fact]
+    public void ResolveLanguagesForDocument_uses_multitoken_filename_language_when_confident()
+    {
+        var options = new IngestionOptions
+        {
+            OcrLanguages = "auto",
+            OcrAutoFallbackLanguages = "fra+eng+deu+ita+spa",
+            OcrAutoDetectLanguages = true
+        };
+
+        var languages = PdfOcrTextExtractor.ResolveLanguagesForDocument(
+            "/app/documents/Scans/DVS 2205 Berechnung von Behaltern und Apparaten aus Thermoplasten Flanschverbindungen.pdf",
+            options,
+            nativeExtraction: null);
+
+        Assert.Equal("deu+eng", languages);
+    }
+
+    [Fact]
     public void ResolveLanguagesForDocument_normalizes_configured_language_codes()
     {
         var options = new IngestionOptions
@@ -997,6 +1015,8 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
         var defaults = new IngestionOptions();
         Assert.Equal("gs", PdfOcrTextExtractor.ResolveImageRendererCommand(defaults));
         Assert.Equal("tesseract", PdfOcrTextExtractor.ResolveImageTextCommand(defaults));
+        Assert.Equal(400, defaults.OcrImagePageRenderDpi);
+        Assert.Equal(11, defaults.OcrImagePageSegmentationMode);
 
         var custom = new IngestionOptions
         {
@@ -1293,6 +1313,70 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
 
         Assert.True(extraction.Quality.OcrRecommended);
         Assert.True(IngestionWorker.ShouldAttemptImagePageOcr(new IngestionOptions { OcrImagePageEnabled = true }, extraction));
+    }
+
+    [Fact]
+    public void ResolveImageOcrMergeBase_prefers_native_empty_base_over_full_ocr_result()
+    {
+        var nativePage = new ExtractedPdfPage(
+            1,
+            "",
+            0,
+            0,
+            [1],
+            ImageCount: 1);
+        var native = new PdfExtractionResult(
+            [],
+            [nativePage],
+            PdfExtractionQualitySummary.FromPages([nativePage]));
+        var fullOcrPage = new ExtractedPdfPage(
+            1,
+            "Full document OCR text with plausible recognition errors",
+            8,
+            53,
+            [2],
+            ImageCount: 1);
+        var fullOcr = new PdfExtractionResult(
+            [new WordToken("Full", 1)],
+            [fullOcrPage],
+            PdfExtractionQualitySummary.FromPages([fullOcrPage]),
+            Source: "ocr_sidecar");
+
+        var mergeBase = IngestionWorker.ResolveImageOcrMergeBase(native, fullOcr, fullOcrApplied: true);
+
+        Assert.Same(native, mergeBase);
+    }
+
+    [Fact]
+    public void ResolveImageOcrMergeBase_keeps_full_ocr_base_when_native_has_text()
+    {
+        var nativePage = new ExtractedPdfPage(
+            1,
+            "Native text already extracted from the PDF.",
+            7,
+            43,
+            [1],
+            ImageCount: 1);
+        var native = new PdfExtractionResult(
+            [new WordToken("Native", 1)],
+            [nativePage],
+            PdfExtractionQualitySummary.FromPages([nativePage]));
+        var fullOcrPage = new ExtractedPdfPage(
+            1,
+            "Full OCR text can still provide image-page merge context.",
+            8,
+            55,
+            [2],
+            ImageCount: 1);
+        var fullOcr = new PdfExtractionResult(
+            [new WordToken("Full", 1)],
+            [fullOcrPage],
+            PdfExtractionQualitySummary.FromPages([fullOcrPage]),
+            Source: "ocr_sidecar");
+
+        var mergeBase = IngestionWorker.ResolveImageOcrMergeBase(native, fullOcr, fullOcrApplied: true);
+
+        Assert.Same(fullOcr, mergeBase);
     }
 
     [Fact]
