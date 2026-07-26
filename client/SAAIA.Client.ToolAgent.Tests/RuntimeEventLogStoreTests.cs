@@ -29,7 +29,7 @@ public sealed class RuntimeEventLogStoreTests
                 "runtime_upgrade_activated",
                 "b8901",
                 "b8149",
-                "gemma-4-e2b-it-q4-k-m",
+                "qwen3-4b-instruct-2507-q4-k-m",
                 "upgrade"), root);
 
             var items = await RuntimeEventLogStore.ReadLatestAsync(5, root);

@@ -141,6 +141,34 @@ public sealed class LlamaCppReleaseDownloaderTests
         }
     }
 
+    [Fact]
+    public void TryMarkRuntimePendingQualification_revokes_premature_qualified_state()
+    {
+        var runtimeRoot = NewTempRoot();
+        LlamaCppReleaseDownloader.RuntimeRootOverride = runtimeRoot;
+        RuntimeEventLogStore.RootOverride = runtimeRoot;
+
+        try
+        {
+            var exePath = CreateRuntime(runtimeRoot, "win-vulkan-x64", "b10098");
+            WriteQualifiedRuntimeManifest(runtimeRoot, "llama.cpp-vulkan", "vulkan", exePath, "b10098");
+
+            var ok = LlamaCppReleaseDownloader.TryMarkRuntimePendingQualification("llama.cpp-vulkan");
+
+            Assert.True(ok);
+            var state = LlamaCppReleaseDownloader.TryGetActiveRuntimeState("llama.cpp-vulkan");
+            Assert.NotNull(state);
+            Assert.Equal("pending_qualification", state!.Status);
+            Assert.Null(state.QualifiedAtUtc);
+        }
+        finally
+        {
+            LlamaCppReleaseDownloader.RuntimeRootOverride = null;
+            RuntimeEventLogStore.RootOverride = null;
+            DeleteTempRoot(runtimeRoot);
+        }
+    }
+
     private static string CreateRuntime(string runtimeRoot, string backendDir, string build)
     {
         var runtimeDir = Path.Combine(runtimeRoot, backendDir, build);
@@ -188,6 +216,39 @@ public sealed class LlamaCppReleaseDownloaderTests
         });
 
         File.WriteAllText(Path.Combine(runtimeRoot, "active-runtime.json"), json);
+    }
+
+    private static void WriteQualifiedRuntimeManifest(
+        string runtimeRoot,
+        string runtimeId,
+        string backend,
+        string exePath,
+        string build)
+    {
+        Directory.CreateDirectory(runtimeRoot);
+        File.WriteAllText(
+            Path.Combine(runtimeRoot, "active-runtime.json"),
+            JsonSerializer.Serialize(new
+            {
+                artifact = "active-runtime.json",
+                cdcAlignment = "v3.1",
+                items = new[]
+                {
+                    new
+                    {
+                        runtimeId,
+                        backend,
+                        build,
+                        directoryPath = Path.GetDirectoryName(exePath),
+                        exePath,
+                        assetName = $"llama-{build}-bin-win-{backend}-x64.zip",
+                        activatedAtUtc = "2026-07-23T21:00:00Z",
+                        status = "qualified",
+                        qualifiedAtUtc = "2026-07-23T21:00:00Z",
+                        previous = (object?)null
+                    }
+                }
+            }, new JsonSerializerOptions { WriteIndented = true }));
     }
 
     private static bool InvokeTryResolveInstalledRuntime(

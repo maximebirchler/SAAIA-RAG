@@ -50,20 +50,18 @@ internal static class CapabilityBLiveRuntimeProbe
                     Body: null);
             }
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, "v1/chat/completions")
+            var effectiveOptions = chatOptions ?? new ChatOptions();
+            var outbound = LocalLlmRequestFactory.Create(
+                effectiveOptions,
+                "Return plain text only.",
+                "Reply with: ready",
+                temperature: 0.0,
+                maxTokens: 16);
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, outbound.RelativeUri)
             {
                 Content = new StringContent(
-                    JsonSerializer.Serialize(new
-                    {
-                        model = string.IsNullOrWhiteSpace(chatOptions?.LlmModel) ? "local" : chatOptions!.LlmModel,
-                        temperature = 0.0,
-                        max_tokens = 16,
-                        messages = new object[]
-                        {
-                            new { role = "system", content = "Return plain text only." },
-                            new { role = "user", content = "Reply with: ready" }
-                        }
-                    }),
+                    JsonSerializer.Serialize(outbound.Payload),
                     Encoding.UTF8,
                     "application/json")
             };
@@ -71,7 +69,10 @@ internal static class CapabilityBLiveRuntimeProbe
             using var response = await llm.SendAsync(request, ct);
             sw.Stop();
             var body = await TryReadBodyAsync(response, ct);
-            var hasContent = TryExtractChoiceContent(body, out var content);
+            var hasContent = LocalLlmRequestFactory.TryExtractContent(
+                body,
+                outbound.ResponseShape,
+                out var content);
             var status = response.IsSuccessStatusCode && hasContent
                 ? "ok"
                 : response.IsSuccessStatusCode
@@ -124,35 +125,6 @@ internal static class CapabilityBLiveRuntimeProbe
         }
     }
 
-    private static bool TryExtractChoiceContent(string body, out string? content)
-    {
-        content = null;
-        if (string.IsNullOrWhiteSpace(body))
-            return false;
-
-        try
-        {
-            using var json = JsonDocument.Parse(body);
-            if (!json.RootElement.TryGetProperty("choices", out var choices) || choices.GetArrayLength() == 0)
-                return false;
-
-            var first = choices[0];
-            if (!first.TryGetProperty("message", out var message)
-                || !message.TryGetProperty("content", out var contentElement))
-            {
-                return false;
-            }
-
-            content = contentElement.ValueKind == JsonValueKind.String
-                ? contentElement.GetString()
-                : contentElement.GetRawText();
-            return !string.IsNullOrWhiteSpace(content);
-        }
-        catch
-        {
-            return false;
-        }
-    }
 }
 
 internal sealed record CapabilityBLiveRuntimeProbeResult(

@@ -210,6 +210,7 @@ public sealed class LocalLlmChatClientTests
         Assert.Equal("local", root.GetProperty("model").GetString());
         Assert.Equal(0.25, root.GetProperty("temperature").GetDouble());
         Assert.Equal(4096, root.GetProperty("max_tokens").GetInt32());
+        Assert.False(root.TryGetProperty("chat_template", out _));
 
         var messages = root.GetProperty("messages");
         Assert.Equal(JsonValueKind.Array, messages.ValueKind);
@@ -218,6 +219,87 @@ public sealed class LocalLlmChatClientTests
         Assert.Equal("system prompt", messages[0].GetProperty("content").GetString());
         Assert.Equal("user", messages[1].GetProperty("role").GetString());
         Assert.Equal("user prompt", messages[1].GetProperty("content").GetString());
+    }
+
+    [Fact]
+    public async Task TryCompleteWithTelemetryAsync_sends_configured_chat_template()
+    {
+        string? capturedBody = null;
+        var factory = new StubHttpClientFactory(
+            """{ "choices": [ { "message": { "content": "done" } } ] }""",
+            HttpStatusCode.OK)
+        {
+            OnSendAsync = async (request, _) =>
+            {
+                capturedBody = await request.Content!.ReadAsStringAsync();
+            }
+        };
+        var client = new LocalLlmChatClient(
+            factory,
+            new ChatOptions
+            {
+                LlmBaseUrl = "http://llm.test/",
+                LlmModel = "local",
+                LlmChatTemplate = "  chatml  "
+            });
+
+        var result = await client.TryCompleteWithTelemetryAsync(
+            "system",
+            "user",
+            maxTokens: 128,
+            temperature: 0.1,
+            CancellationToken.None);
+
+        Assert.Equal("done", result.Content);
+        using var json = JsonDocument.Parse(capturedBody!);
+        Assert.Equal("chatml", json.RootElement.GetProperty("chat_template").GetString());
+    }
+
+    [Fact]
+    public async Task TryCompleteWithTelemetryAsync_uses_native_llama_completion_when_configured()
+    {
+        string? capturedUri = null;
+        string? capturedBody = null;
+        var factory = new StubHttpClientFactory(
+            """{ "content": "native done" }""",
+            HttpStatusCode.OK)
+        {
+            OnSendAsync = async (request, _) =>
+            {
+                capturedUri = request.RequestUri?.ToString();
+                capturedBody = await request.Content!.ReadAsStringAsync();
+            }
+        };
+        var client = new LocalLlmChatClient(
+            factory,
+            new ChatOptions
+            {
+                LlmBaseUrl = "http://llm.test/",
+                LlmModel = "local",
+                LlmApiMode = LocalLlmRequestFactory.NativeCompletionMode,
+                LlmPromptFormat = "chatml"
+            });
+
+        var result = await client.TryCompleteWithTelemetryAsync(
+            "system prompt",
+            "user prompt",
+            maxTokens: 128,
+            temperature: 0.1,
+            CancellationToken.None);
+
+        Assert.Equal("native done", result.Content);
+        Assert.Equal("http://llm.test/completion", capturedUri);
+        using var json = JsonDocument.Parse(capturedBody!);
+        var root = json.RootElement;
+        Assert.Equal(4, root.EnumerateObject().Count());
+        Assert.Equal(0.1, root.GetProperty("temperature").GetDouble());
+        Assert.Equal(128, root.GetProperty("n_predict").GetInt32());
+        Assert.Equal("<|im_end|>", root.GetProperty("stop")[0].GetString());
+        Assert.Equal(
+            "<|im_start|>system\nsystem prompt<|im_end|>\n"
+            + "<|im_start|>user\nuser prompt<|im_end|>\n"
+            + "<|im_start|>assistant\n",
+            root.GetProperty("prompt").GetString());
     }
 
     [Fact]
@@ -387,13 +469,48 @@ public sealed class LocalLlmChatClientTests
 
         var result = await CapabilityBLiveRuntimeProbe.ProbeAsync(
             factory,
-            new ChatOptions { LlmModel = "configured-backoffice-model" },
+            new ChatOptions
+            {
+                LlmModel = "configured-backoffice-model",
+                LlmChatTemplate = "chatml"
+            },
             CancellationToken.None);
 
         Assert.True(result.Available);
         Assert.NotNull(capturedBody);
         using var body = JsonDocument.Parse(capturedBody!);
         Assert.Equal("configured-backoffice-model", body.RootElement.GetProperty("model").GetString());
+        Assert.Equal("chatml", body.RootElement.GetProperty("chat_template").GetString());
+    }
+
+    [Fact]
+    public async Task CapabilityBLiveRuntimeProbe_uses_native_completion_shape_when_configured()
+    {
+        string? capturedUri = null;
+        var factory = new StubHttpClientFactory(
+            """{ "content": "ready" }""",
+            HttpStatusCode.OK)
+        {
+            OnSendAsync = (request, _) =>
+            {
+                capturedUri = request.RequestUri?.ToString();
+                return Task.CompletedTask;
+            }
+        };
+
+        var result = await CapabilityBLiveRuntimeProbe.ProbeAsync(
+            factory,
+            new ChatOptions
+            {
+                LlmModel = "configured-backoffice-model",
+                LlmApiMode = LocalLlmRequestFactory.NativeCompletionMode,
+                LlmPromptFormat = "chatml"
+            },
+            CancellationToken.None);
+
+        Assert.True(result.Available);
+        Assert.Equal("ready", result.Preview);
+        Assert.Equal("http://llm.test/completion", capturedUri);
     }
 
     private static LocalLlmChatClient CreateClient(

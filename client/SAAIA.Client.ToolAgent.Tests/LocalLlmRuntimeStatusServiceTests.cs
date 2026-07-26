@@ -16,9 +16,9 @@ public sealed class LocalLlmRuntimeStatusServiceTests
             {
                 UseLocalLlm = true,
                 ManageLocalLlmProcess = true,
-                LlamaExePath = @"C:\runtime\win-cuda-x64\llama-server.exe",
-                ModelId = "qwen2.5-3b-instruct-q4-k-m",
-                QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile()
+                LlamaExePath = CreateCurrentRuntime(root),
+                ModelId = "qwen3-4b-instruct-2507-q5-k-m",
+                QualifiedProfile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile()
             };
 
             await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings, root);
@@ -48,7 +48,7 @@ public sealed class LocalLlmRuntimeStatusServiceTests
     }
 
     [Fact]
-    public async Task EvaluateAsync_returns_runtime_upgrade_required_for_legacy_gemma_runtime()
+    public async Task EvaluateAsync_returns_runtime_upgrade_required_for_legacy_qwen3_runtime()
     {
         var root = NewTempRoot();
         var runtimeRoot = Path.Combine(root, "runtime");
@@ -67,8 +67,8 @@ public sealed class LocalLlmRuntimeStatusServiceTests
                 UseLocalLlm = true,
                 ManageLocalLlmProcess = true,
                 LlamaExePath = exePath,
-                ModelId = "gemma-4-e2b-it-q4-k-m",
-                QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile()
+                ModelId = "qwen3-4b-instruct-2507-q5-k-m",
+                QualifiedProfile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile()
             };
 
             await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings, root);
@@ -118,7 +118,9 @@ public sealed class LocalLlmRuntimeStatusServiceTests
             {
                 UseLocalLlm = true,
                 ManageLocalLlmProcess = true,
-                QualifiedProfile = WarmupProfileStore.CreateReferenceCudaFallbackProfile()
+                LlamaExePath = CreateCurrentRuntime(root),
+                ModelId = "qwen3-4b-instruct-2507-q5-k-m",
+                QualifiedProfile = WarmupProfileStore.CreateQwen3Q5Cuda4GbFallbackProfile()
             };
 
             await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings, root);
@@ -140,11 +142,13 @@ public sealed class LocalLlmRuntimeStatusServiceTests
         var root = NewTempRoot();
         try
         {
-            var profile = WarmupProfileStore.CreateReferenceCudaProfile();
+            var profile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile();
             var settings = new AppSettings
             {
                 UseLocalLlm = true,
                 ManageLocalLlmProcess = true,
+                LlamaExePath = CreateCurrentRuntime(root),
+                ModelId = "qwen3-4b-instruct-2507-q5-k-m",
                 QualifiedProfile = profile
             };
 
@@ -192,11 +196,13 @@ public sealed class LocalLlmRuntimeStatusServiceTests
         var root = NewTempRoot();
         try
         {
-            var profile = WarmupProfileStore.CreateReferenceCudaProfile();
+            var profile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile();
             var settings = new AppSettings
             {
                 UseLocalLlm = true,
                 ManageLocalLlmProcess = true,
+                LlamaExePath = CreateCurrentRuntime(root),
+                ModelId = "qwen3-4b-instruct-2507-q5-k-m",
                 QualifiedProfile = profile
             };
 
@@ -245,7 +251,7 @@ public sealed class LocalLlmRuntimeStatusServiceTests
         var root = NewTempRoot();
         var modelDir = Path.Combine(root, "models");
         Directory.CreateDirectory(modelDir);
-        var modelPath = Path.Combine(modelDir, "Qwen2.5-3B-Instruct-Q4_K_M.gguf");
+        var modelPath = Path.Combine(modelDir, "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf");
 
         try
         {
@@ -256,7 +262,7 @@ public sealed class LocalLlmRuntimeStatusServiceTests
                 ManageLocalLlmProcess = true,
                 ModelPath = modelPath,
                 UiLanguage = "en",
-                QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile()
+                QualifiedProfile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile()
             };
 
             await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings, root);
@@ -279,7 +285,7 @@ public sealed class LocalLlmRuntimeStatusServiceTests
         var root = NewTempRoot();
         var modelDir = Path.Combine(root, "models");
         Directory.CreateDirectory(modelDir);
-        var modelPath = Path.Combine(modelDir, "Qwen2.5-3B-Instruct-Q4_K_M.gguf");
+        var modelPath = Path.Combine(modelDir, "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf");
 
         try
         {
@@ -290,7 +296,7 @@ public sealed class LocalLlmRuntimeStatusServiceTests
                 ManageLocalLlmProcess = true,
                 ModelPath = modelPath,
                 UiLanguage = "en",
-                QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile()
+                QualifiedProfile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile()
             };
 
             await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings, root);
@@ -306,7 +312,7 @@ public sealed class LocalLlmRuntimeStatusServiceTests
     }
 
     [Fact]
-    public async Task EvaluateAsync_returns_runtime_upgrade_required_for_gemma4_with_legacy_runtime()
+    public async Task EvaluateAsync_returns_runtime_upgrade_required_for_qwen3_with_legacy_runtime()
     {
         var root = NewTempRoot();
         var runtimeDir = Path.Combine(root, "runtime", "win-cuda-x64");
@@ -323,8 +329,8 @@ public sealed class LocalLlmRuntimeStatusServiceTests
                 UseLocalLlm = true,
                 ManageLocalLlmProcess = true,
                 LlamaExePath = exePath,
-                ModelId = "gemma-4-e2b-it-q4-k-m",
-                QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile()
+                ModelId = "qwen3-4b-instruct-2507-q5-k-m",
+                QualifiedProfile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile()
             };
 
             await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings, root);
@@ -346,6 +352,16 @@ public sealed class LocalLlmRuntimeStatusServiceTests
         var root = Path.Combine(Path.GetTempPath(), "saaia-local-status-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         return root;
+    }
+
+    private static string CreateCurrentRuntime(string root)
+    {
+        var runtimeDir = Path.Combine(root, "runtime-current", "win-cuda-x64");
+        Directory.CreateDirectory(runtimeDir);
+        var executable = Path.Combine(runtimeDir, "llama-server.exe");
+        File.WriteAllText(executable, "stub");
+        File.WriteAllText(Path.Combine(runtimeDir, "runtime.tag"), "b8901");
+        return executable;
     }
 
     private static void DeleteTempRoot(string root)

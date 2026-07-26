@@ -434,6 +434,133 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
                 return;
             }
 
+            var qualificationPreflight = await LocalLlmAdaptiveQualificationService.InspectAsync(
+                _appSettings,
+                ct: cts.Token);
+            if (qualificationPreflight.Decision.Required)
+            {
+                ClientLog.Info(
+                    "[AdaptiveQualification] Initial qualification required: "
+                    + string.Join(", ", qualificationPreflight.Decision.Reasons));
+                SetStartupStatus(LocalRuntimeText(
+                "Détection des accélérateurs disponibles…",
+                "Detecting available accelerators…",
+                "Detectando aceleradores disponibles…",
+                "A detetar aceleradores disponíveis…",
+                "Verfügbare Beschleuniger werden erkannt…",
+                "Rilevamento degli acceleratori disponibili…",
+                UiLang));
+            var gpus = qualificationPreflight.Hardware.Gpus;
+            var provisioning = await LocalLlmRuntimeProvisioningService.ProvisionApplicableAsync(
+                _appSettings,
+                gpus,
+                prog,
+                ct: cts.Token);
+            if (!provisioning.Succeeded)
+            {
+                ClientLog.Warn(
+                    "[AdaptiveQualification] Runtime provisioning failed: "
+                    + string.Join(", ", provisioning.Reasons));
+                SetStartupStatus(LocalRuntimeText(
+                    "Aucun moteur local compatible n'a pu être préparé.",
+                    "No compatible local engine could be prepared.",
+                    "No se pudo preparar ningún motor local compatible.",
+                    "Não foi possível preparar um motor local compatível.",
+                    "Es konnte keine kompatible lokale Engine vorbereitet werden.",
+                    "Non è stato possibile preparare un motore locale compatibile.",
+                    UiLang));
+                await Task.Delay(1200);
+                return;
+            }
+
+            var qualificationProgress = new Progress<LocalLlmAdaptiveQualificationProgress>(item =>
+                SetStartupStatus(item.Stage switch
+                {
+                    "hardware_probe" => LocalRuntimeText(
+                        "Analyse du matériel et des moteurs…",
+                        "Analyzing hardware and engines…",
+                        "Analizando hardware y motores…",
+                        "A analisar hardware e motores…",
+                        "Hardware und Engines werden analysiert…",
+                        "Analisi di hardware e motori…",
+                        UiLang),
+                    "candidate_factory" => LocalRuntimeText(
+                        "Préparation des profils à mesurer…",
+                        "Preparing profiles to measure…",
+                        "Preparando perfiles para medir…",
+                        "A preparar perfis para medição…",
+                        "Messprofile werden vorbereitet…",
+                        "Preparazione dei profili da misurare…",
+                        UiLang),
+                    "screening" => LocalRuntimeText(
+                        "Vérification de la mémoire et des accélérateurs…",
+                        "Checking memory and accelerators…",
+                        "Comprobando memoria y aceleradores…",
+                        "A verificar memória e aceleradores…",
+                        "Speicher und Beschleuniger werden geprüft…",
+                        "Verifica di memoria e acceleratori…",
+                        UiLang),
+                    "refinement" => LocalRuntimeText(
+                        "Mesure des charges RAG et rédaction…",
+                        "Measuring RAG and writing workloads…",
+                        "Midiendo cargas RAG y de redacción…",
+                        "A medir cargas RAG e de redação…",
+                        "RAG- und Schreiblasten werden gemessen…",
+                        "Misurazione dei carichi RAG e di scrittura…",
+                        UiLang),
+                    "final_validation" => LocalRuntimeText(
+                        "Validation de la qualité du petit modèle…",
+                        "Validating small-model quality…",
+                        "Validando la calidad del modelo pequeño…",
+                        "A validar a qualidade do modelo pequeno…",
+                        "Qualität des kleinen Modells wird validiert…",
+                        "Validazione della qualità del modello piccolo…",
+                        UiLang),
+                    "promotion" => LocalRuntimeText(
+                        "Activation du meilleur profil mesuré…",
+                        "Activating the best measured profile…",
+                        "Activando el mejor perfil medido…",
+                        "A ativar o melhor perfil medido…",
+                        "Bestes gemessenes Profil wird aktiviert…",
+                        "Attivazione del miglior profilo misurato…",
+                        UiLang),
+                    _ => LocalRuntimeText(
+                        "Qualification du moteur local…",
+                        "Qualifying the local engine…",
+                        "Calificando el motor local…",
+                        "A qualificar o motor local…",
+                        "Lokale Engine wird qualifiziert…",
+                        "Qualificazione del motore locale…",
+                        UiLang)
+                }));
+            var qualification = await LocalLlmAdaptiveQualificationService.QualifyIfRequiredAsync(
+                _appSettings,
+                LocalLlmAdaptiveQualificationOptions.CreateInitial(Environment.ProcessorCount),
+                force: true,
+                progress: qualificationProgress,
+                ct: cts.Token);
+            if (!qualification.Succeeded)
+            {
+                ClientLog.Warn(
+                    "[AdaptiveQualification] Initial qualification failed: "
+                    + string.Join(", ", qualification.Reasons));
+                SetStartupStatus(LocalRuntimeText(
+                    "Le moteur local n'a pas satisfait les contrôles de performance et de qualité.",
+                    "The local engine did not pass the performance and quality checks.",
+                    "El motor local no superó los controles de rendimiento y calidad.",
+                    "O motor local não passou nos controlos de desempenho e qualidade.",
+                    "Die lokale Engine hat die Leistungs- und Qualitätsprüfungen nicht bestanden.",
+                    "Il motore locale non ha superato i controlli di prestazioni e qualità.",
+                    UiLang));
+                await Task.Delay(1600);
+                return;
+            }
+            }
+            else
+            {
+                ClientLog.Info("[AdaptiveQualification] Cached measured profile remains valid.");
+            }
+
             SetStartupStatus(LocalRuntimeText("Démarrage de l'assistant…", "Starting assistant…", "Iniciando el asistente…", "A iniciar o assistente…", "Assistent wird gestartet…", "Avvio dell'assistente…", UiLang));
             _appSettings = AppSettings.Load();
             _appSettings.ManageLocalLlmProcess = true;

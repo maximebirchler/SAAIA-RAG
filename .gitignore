@@ -93,8 +93,17 @@ artifacts/llm-validation/
 artifacts/llama-*/
 artifacts/llm-bench-*/
 artifacts/client-live-cuisine-hardcases-*/
+artifacts/client-live-final-*/
+artifacts/live-test-process*/
+artifacts/*-microprobe-*/
+artifacts/*-current-dir.txt
+artifacts/validation-*/
+artifacts/codex-*.err
+artifacts/codex-*.out
+artifacts/codex-*.txt
 artifacts/cuisine-rag-eval-*/
 artifacts/cuisine-llm-sample-*/
+artifacts/live-validation/
 artifacts/local-llm/
 artifacts/pdf-pages/
 artifacts/publish/
@@ -104,6 +113,15 @@ artifacts/validation/*
 !artifacts/validation/question-banks/*.json
 artifacts/neff-page*.txt
 artifacts/manual-test-checklist/*.xlsx
+
+# Les campagnes live et sorties de benchmark sont locales et jetables.
+# Seuls les jeux d'essai gouvernés restent versionnables.
+artifacts/*
+!artifacts/manual-test-checklist/
+!artifacts/manual-test-checklist/**
+!artifacts/validation/
+!artifacts/validation/**
+
 Test Bench/
 support-bundles/
 tmp/

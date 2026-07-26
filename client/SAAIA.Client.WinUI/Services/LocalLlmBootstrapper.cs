@@ -50,6 +50,18 @@ internal sealed class LocalLlmBootstrapper
 
         var installed = new List<string>();
 
+        // Upgrade the governed catalog, sources and compatibility rules before model
+        // selection. Otherwise an existing installation cannot discover a model added
+        // by a newer application release.
+        try
+        {
+            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(s, ct: ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            ClientLog.Warn($"LLM governance bootstrap unavailable: {ex.GetType().Name}: {ex.Message}");
+        }
+
         // Detect GPU (NVIDIA / AMD / Intel / iGPU)
         var bestGpu = await GpuDetector.TryGetBestGpuAsync(ct).ConfigureAwait(false);
         var hasNvidia = bestGpu?.Vendor == GpuVendor.Nvidia && bestGpu.DedicatedVramBytes > 0 && !bestGpu.IsIntegrated;
@@ -297,6 +309,12 @@ internal sealed class LocalLlmBootstrapper
         if (string.Equals(runtimeId, "llama.cpp-vulkan", StringComparison.OrdinalIgnoreCase))
             return await _llamaDl.EnsureWindowsVulkanAsync(progress, decision.RequiredBuild, ct).ConfigureAwait(false);
 
+        if (string.Equals(runtimeId, "llama.cpp-sycl", StringComparison.OrdinalIgnoreCase))
+            return await _llamaDl.EnsureWindowsSyclAsync(progress, decision.RequiredBuild, ct).ConfigureAwait(false);
+
+        if (string.Equals(runtimeId, "llama.cpp-hip", StringComparison.OrdinalIgnoreCase))
+            return await _llamaDl.EnsureWindowsHipAsync(progress, decision.RequiredBuild, ct).ConfigureAwait(false);
+
         return (false, $"Runtime '{runtimeId}' incompatible with '{model.DisplayName}' and cannot be upgraded automatically.", null);
     }
 
@@ -374,6 +392,8 @@ internal sealed class LocalLlmBootstrapper
     {
         try
         {
+            await PromoteRetiredManagedModelWhenAvailableAsync(s, ct).ConfigureAwait(false);
+
             if (!string.IsNullOrWhiteSpace(s.ModelPath) && File.Exists(s.ModelPath))
                 return;
 
@@ -404,6 +424,77 @@ internal sealed class LocalLlmBootstrapper
         }
     }
 
+    private static async Task PromoteRetiredManagedModelWhenAvailableAsync(AppSettings s, CancellationToken ct)
+    {
+        if (!IsRetiredManagedModelSelection(s))
+            return;
+
+        var promoted = Spec(ClientDefaults.LlmModel);
+        if (promoted is null)
+            return;
+
+        var modelsDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "SAAIA", "Models");
+        var promotedPath = Path.Combine(modelsDir, promoted.File);
+
+        // Preserve a working legacy installation when the promoted artifact is neither
+        // already present nor reachable. A later connected startup retries safely.
+        if (!File.Exists(promotedPath) && !await UrlExistsAsync(promoted.Url, ct).ConfigureAwait(false))
+            return;
+
+        var retiredPath = s.ModelPath;
+        s.ModelId = promoted.File;
+        s.ModelPath = promotedPath;
+        s.QualifiedProfile = null;
+        ClientLog.Info(
+            $"AutoModel: promoted retired managed model '{Path.GetFileName(retiredPath)}' " +
+            $"to '{promoted.File}' (source={promoted.SourceRef}).");
+
+        if (!string.IsNullOrWhiteSpace(retiredPath)
+            && !string.Equals(retiredPath, promotedPath, StringComparison.OrdinalIgnoreCase)
+            && File.Exists(retiredPath))
+        {
+            try
+            {
+                File.Delete(retiredPath);
+                ClientLog.Info($"AutoModel: removed retired managed artifact '{Path.GetFileName(retiredPath)}'.");
+            }
+            catch (Exception ex)
+            {
+                ClientLog.Warn(
+                    $"AutoModel: unable to remove retired managed artifact " +
+                    $"'{Path.GetFileName(retiredPath)}': {ex.GetType().Name}: {ex.Message}");
+            }
+        }
+    }
+
+    internal static bool IsRetiredManagedModelSelection(AppSettings s)
+    {
+        ArgumentNullException.ThrowIfNull(s);
+
+        if (string.IsNullOrWhiteSpace(s.ModelPath))
+            return false;
+
+        var selectedId = s.ModelId?.Trim();
+        var selectedFile = Path.GetFileName(s.ModelPath);
+        var remainsSupported = ModelCatalogStore.CreateDefaultCatalog().Items.Any(item =>
+            string.Equals(item.ModelId, selectedId, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(item.FileName, selectedId, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(item.ModelId, selectedFile, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(item.FileName, selectedFile, StringComparison.OrdinalIgnoreCase));
+        if (remainsSupported)
+        {
+            return false;
+        }
+
+        var managedModelsDir = Path.GetFullPath(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "SAAIA", "Models"));
+        var selectedDirectory = Path.GetDirectoryName(Path.GetFullPath(s.ModelPath));
+        return string.Equals(selectedDirectory, managedModelsDir, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static bool IsPackModel(string? modelId)
     {
         if (string.IsNullOrWhiteSpace(modelId)) return false;
@@ -411,36 +502,12 @@ internal sealed class LocalLlmBootstrapper
         return ModelCatalogStore.IsInstallerVisibleClientModel(canonical ?? modelId);
     }
 
-    private static IEnumerable<string> GetPreferredCollectionKeys(GpuInfo? gpu)
+    private static IEnumerable<string> GetPreferredCollectionKeys(GpuInfo? _)
     {
-        var vramMiB = gpu?.DedicatedVramMiB ?? 0;
-        var integrated = gpu?.IsIntegrated ?? true;
-
-        if (integrated || vramMiB <= 0)
-        {
-            yield return "4gb-vram";
-            yield return "client-baseline";
-            yield break;
-        }
-
-        if (vramMiB <= 3584)
-        {
-            yield return "4gb-vram";
-            yield return "client-baseline";
-            yield break;
-        }
-
-        if (vramMiB <= 8192)
-        {
-            yield return "8gb-vram";
-            yield return "4gb-vram";
-            yield return "client-baseline";
-            yield break;
-        }
-
-        yield return "10gb-vram";
-        yield return "8gb-vram";
-        yield return "client-baseline";
+        // The semantic model stays constant across machines. Hardware qualification
+        // selects CUDA/Vulkan/SYCL/HIP/CPU and measured runtime parameters. The
+        // governed collection keeps Q5 first and Q4 as its low-memory fallback.
+        yield return "client-recommended-qwen3-4b-2507";
     }
 
     private static void ResolveExePath(AppSettings s, bool hasNvidiaGpu)
@@ -690,7 +757,13 @@ internal sealed class LocalLlmBootstrapper
     {
         if (string.IsNullOrWhiteSpace(exePath)) return false;
         var p = exePath.ToLowerInvariant();
-        return p.Contains("cuda") || p.Contains("cu12") || p.Contains("cublas") || p.Contains("vulkan");
+        return p.Contains("cuda")
+               || p.Contains("cu12")
+               || p.Contains("cublas")
+               || p.Contains("vulkan")
+               || p.Contains("sycl")
+               || p.Contains("hip")
+               || p.Contains("rocm");
     }
 
     private static bool ContainsArg(string extra, string token)

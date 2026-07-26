@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -68,7 +69,7 @@ internal sealed class LlamaCppProcessManager
                 return (true, "LLM runtime is already running.");
 
             ClientLog.Info("[LlamaCpp] Runtime not running before request - starting managed runtime.");
-            return await StartAsync(s, ct).ConfigureAwait(false);
+            return await StartFromSettingsCoreAsync(s, ct).ConfigureAwait(false);
         }
         finally
         {
@@ -109,6 +110,22 @@ internal sealed class LlamaCppProcessManager
     /// </summary>
     internal async Task<(bool ok, string message)> StartAsync(AppSettings s, CancellationToken ct)
     {
+        await _startGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (IsRunning)
+                return (true, "LLM runtime is already running.");
+
+            return await StartFromSettingsCoreAsync(s, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _startGate.Release();
+        }
+    }
+
+    private async Task<(bool ok, string message)> StartFromSettingsCoreAsync(AppSettings s, CancellationToken ct)
+    {
         var exePath = (s.LlamaExePath ?? "").Trim();
         if (string.IsNullOrWhiteSpace(exePath))
             return (false, "Missing LLM runtime path (LlamaExePath).");
@@ -139,9 +156,11 @@ internal sealed class LlamaCppProcessManager
             }
         }
 
+        await ApplyLastKnownGoodProfileForRuntimeStartAsync(s, ct: ct).ConfigureAwait(false);
+
         _idleTimeoutSeconds = await ResolveIdleTimeoutSecondsAsync(s, ct: ct).ConfigureAwait(false);
         var args = BuildArgs(s);
-        return await StartAsync(exePath, args, ct).ConfigureAwait(false);
+        return await StartCoreAsync(exePath, args, ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -149,6 +168,22 @@ internal sealed class LlamaCppProcessManager
     /// This overload is useful for bootstrap/autotune.
     /// </summary>
     internal async Task<(bool ok, string message)> StartAsync(string exePath, string args, CancellationToken ct)
+    {
+        await _startGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (IsRunning)
+                return (true, "LLM runtime is already running.");
+
+            return await StartCoreAsync(exePath, args, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _startGate.Release();
+        }
+    }
+
+    private async Task<(bool ok, string message)> StartCoreAsync(string exePath, string args, CancellationToken ct)
     {
         // Stop any previous instance we manage
         Stop();
@@ -444,6 +479,55 @@ internal sealed class LlamaCppProcessManager
             ?? fallback;
     }
 
+    internal static async Task ApplyLastKnownGoodProfileForRuntimeStartAsync(
+        AppSettings settings,
+        string? root = null,
+        CancellationToken ct = default)
+    {
+        if (settings.QualifiedProfile is null)
+            return;
+
+        var lastKnownGood = await RollbackManager.ReadLastKnownGoodAsync(root, ct).ConfigureAwait(false);
+        if (lastKnownGood is null)
+            return;
+
+        if (!IsSameProfileTarget(settings, settings.QualifiedProfile, lastKnownGood))
+            return;
+
+        if (!RequalificationTriggerService.HasProfileConfigurationDrift(settings.QualifiedProfile, lastKnownGood))
+            return;
+
+        ClientLog.Warn(
+            "[LlamaCpp] Using last-known-good qualified profile for runtime start: "
+            + $"{settings.QualifiedProfile.ProfileId} ctx={settings.QualifiedProfile.CtxSize} -> ctx={lastKnownGood.CtxSize}.");
+        settings.QualifiedProfile = lastKnownGood;
+    }
+
+    private static bool IsSameProfileTarget(
+        AppSettings settings,
+        QualifiedProfile current,
+        QualifiedProfile candidate)
+    {
+        if (!string.Equals(current.ProfileId, candidate.ProfileId, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(current.Runtime, candidate.Runtime, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(current.ModelId, candidate.ModelId, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var runtime = RequalificationTriggerService.DetectRuntimeKey(settings.LlamaExePath);
+        if (!string.Equals(runtime, candidate.Runtime, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var currentModelId =
+            ModelCatalogStore.ResolveCanonicalModelId(settings.ModelId)
+            ?? ModelCatalogStore.ResolveCanonicalModelId(
+                string.IsNullOrWhiteSpace(settings.ModelPath) ? null : Path.GetFileName(settings.ModelPath))
+            ?? settings.ModelId;
+
+        return string.Equals(currentModelId, candidate.ModelId, StringComparison.OrdinalIgnoreCase);
+    }
+
     private void ScheduleIdleStop()
     {
         if (IsIdleStopSuppressed())
@@ -525,10 +609,31 @@ internal sealed class LlamaCppProcessManager
         var baseArgs = $"--host {host} --port {port} --model \"{model}\"";
 
         var extra = NormalizeExtraArgsForQualifiedProfile(s, (s.ExtraArgs ?? "").Trim());
+        if (RequiresJinjaChatTemplate(s)
+            && !ContainsArg(extra, "--jinja"))
+        {
+            extra = AppendFlag(extra, "--jinja");
+        }
+        extra = EnsureManagedServerSingleRequestSlot(extra);
         if (extra.Length > 0)
             baseArgs += " " + extra;
 
         return baseArgs;
+    }
+
+    private static bool RequiresJinjaChatTemplate(AppSettings settings)
+    {
+        var modelRef = ModelCatalogStore.ResolveCanonicalModelId(settings.ModelId)
+                       ?? ModelCatalogStore.ResolveCanonicalModelId(
+                           string.IsNullOrWhiteSpace(settings.ModelPath)
+                               ? null
+                               : Path.GetFileName(settings.ModelPath))
+                       ?? settings.ModelId;
+        var model = ModelCatalogStore.TryGetItem(modelRef)
+                    ?? ModelCatalogStore.CreateDefaultCatalog().Items.FirstOrDefault(item =>
+                        string.Equals(item.ModelId, modelRef, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(item.FileName, modelRef, StringComparison.OrdinalIgnoreCase));
+        return string.Equals(model?.Gguf.Architecture, "qwen3", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeExtraArgsForQualifiedProfile(AppSettings settings, string extra)
@@ -553,6 +658,20 @@ internal sealed class LlamaCppProcessManager
         extra = RemoveArg(extra, "--flash-attn", 1);
         extra = RemoveArg(extra, "-fa", 1);
         extra = RemoveArg(extra, "--mlock", 0);
+        extra = RemoveArg(extra, "--device", 1);
+        extra = RemoveArg(extra, "-dev", 1);
+        extra = RemoveArg(extra, "--split-mode", 1);
+        extra = RemoveArg(extra, "-sm", 1);
+        extra = RemoveArg(extra, "--tensor-split", 1);
+        extra = RemoveArg(extra, "-ts", 1);
+        extra = RemoveArg(extra, "--main-gpu", 1);
+        extra = RemoveArg(extra, "-mg", 1);
+        extra = RemoveArg(extra, "--cache-type-k", 1);
+        extra = RemoveArg(extra, "-ctk", 1);
+        extra = RemoveArg(extra, "--cache-type-v", 1);
+        extra = RemoveArg(extra, "-ctv", 1);
+        extra = RemoveArg(extra, "--parallel", 1);
+        extra = RemoveArg(extra, "-np", 1);
 
         extra = AppendArg(extra, "--ctx-size", profile.CtxSize.ToString());
         extra = AppendArg(extra, "-t", profile.Threads.ToString());
@@ -564,8 +683,68 @@ internal sealed class LlamaCppProcessManager
         extra = AppendArg(extra, "--flash-attn", profile.FlashAttn ? "on" : "off");
         if (profile.Mlock)
             extra = AppendFlag(extra, "--mlock");
+        var deviceIds = (profile.DeviceIds ?? Array.Empty<string>())
+            .Select(static device => device?.Trim() ?? string.Empty)
+            .Where(IsSafeRuntimeDeviceId)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (deviceIds.Length > 0)
+            extra = AppendArg(extra, "--device", string.Join(',', deviceIds));
+
+        var splitMode = NormalizeSplitMode(profile.SplitMode);
+        extra = AppendArg(extra, "--split-mode", splitMode);
+        var tensorSplit = (profile.TensorSplit ?? Array.Empty<double>())
+            .Where(static value => double.IsFinite(value) && value > 0)
+            .Select(static value => value.ToString("0.######", CultureInfo.InvariantCulture))
+            .ToArray();
+        if (tensorSplit.Length > 0)
+            extra = AppendArg(extra, "--tensor-split", string.Join(',', tensorSplit));
+        if (deviceIds.Length > 1 || !string.Equals(splitMode, "none", StringComparison.Ordinal))
+            extra = AppendArg(extra, "--main-gpu", Math.Max(0, profile.MainGpu).ToString(CultureInfo.InvariantCulture));
+
+        extra = AppendArg(extra, "--cache-type-k", NormalizeCacheType(profile.CacheTypeK));
+        extra = AppendArg(extra, "--cache-type-v", NormalizeCacheType(profile.CacheTypeV));
+        extra = AppendArg(extra, "--parallel", Math.Clamp(profile.Parallel, 1, 16).ToString(CultureInfo.InvariantCulture));
 
         return extra.Trim();
+    }
+
+    private static bool IsSafeRuntimeDeviceId(string value)
+        => value.Length is > 0 and <= 64
+           && value.All(static character => char.IsLetterOrDigit(character)
+                                             || character is '.' or '_' or '-');
+
+    private static string NormalizeSplitMode(string? value)
+        => value?.Trim().ToLowerInvariant() switch
+        {
+            "layer" => "layer",
+            "row" => "row",
+            _ => "none"
+        };
+
+    private static string NormalizeCacheType(string? value)
+        => value?.Trim().ToLowerInvariant() switch
+        {
+            "f32" => "f32",
+            "bf16" => "bf16",
+            "q8_0" => "q8_0",
+            "q4_0" => "q4_0",
+            "q4_1" => "q4_1",
+            "iq4_nl" => "iq4_nl",
+            "q5_0" => "q5_0",
+            "q5_1" => "q5_1",
+            _ => "f16"
+        };
+
+    private static string EnsureManagedServerSingleRequestSlot(string extra)
+    {
+        if (ContainsArg(extra, "--parallel")
+            || ContainsArg(extra, "-np"))
+        {
+            return extra.Trim();
+        }
+
+        return AppendArg(extra, "--parallel", "1").Trim();
     }
 
     private static QualifiedProfile? GetApplicableQualifiedProfile(AppSettings settings)
@@ -607,6 +786,16 @@ internal sealed class LlamaCppProcessManager
         }
 
         return string.Join(" ", tokens);
+    }
+
+    private static bool ContainsArg(string args, string key)
+    {
+        if (string.IsNullOrWhiteSpace(args))
+            return false;
+
+        return args
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Any(token => string.Equals(token, key, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string AppendArg(string extra, string key, string value)

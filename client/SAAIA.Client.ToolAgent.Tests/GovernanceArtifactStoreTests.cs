@@ -9,34 +9,88 @@ public sealed class GovernanceArtifactStoreTests
     [Fact]
     public void QualifiedProfile_roundtrips_with_required_cdc_v31_fields()
     {
-        var profile = WarmupProfileStore.CreateReferenceCudaProfile();
+        var profile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile();
 
         var json = JsonSerializer.Serialize(profile, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         var restored = JsonSerializer.Deserialize<QualifiedProfile>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
         Assert.NotNull(restored);
         Assert.Equal("llama.cpp-cuda", restored!.Runtime);
-        Assert.Equal("qwen2.5-3b-instruct-q4-k-m", restored.ModelId);
-        Assert.Equal(8192, restored.CtxSize);
-        Assert.Equal(1024, restored.BatchSize);
-        Assert.Equal(256, restored.UbatchSize);
-        Assert.Equal(6, restored.ThreadsBatch);
-        Assert.Equal(36, restored.Ngl);
+        Assert.Equal("qwen3-4b-instruct-2507-q5-k-m", restored.ModelId);
+        Assert.Equal(4096, restored.CtxSize);
+        Assert.Equal(512, restored.BatchSize);
+        Assert.Equal(128, restored.UbatchSize);
+        Assert.Equal(4, restored.ThreadsBatch);
+        Assert.Equal(37, restored.Ngl);
         Assert.True(restored.FlashAttn);
+        Assert.Equal(new[] { "CUDA0" }, restored.DeviceIds);
+        Assert.Equal("none", restored.SplitMode);
+        Assert.Equal("f16", restored.CacheTypeK);
+        Assert.Equal("f16", restored.CacheTypeV);
+        Assert.Equal(1, restored.Parallel);
         Assert.False(string.IsNullOrWhiteSpace(restored.FallbackProfileRef));
+    }
+
+    [Fact]
+    public void AppSettings_normalizes_drifted_qualified_profile_to_current_reference()
+    {
+        var drifted = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile() with
+        {
+            CtxSize = 8192,
+            BatchSize = 512
+        };
+
+        var normalized = AppSettings.NormalizeQualifiedProfileForCurrentReference(drifted);
+
+        Assert.NotNull(normalized);
+        Assert.Equal(
+            JsonSerializer.Serialize(
+                WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile(),
+                new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+            JsonSerializer.Serialize(
+                normalized,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+    }
+
+    [Fact]
+    public void AppSettings_preserves_unknown_auto_qualified_profile()
+    {
+        var autoProfile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile() with
+        {
+            ProfileId = "auto-qwen3-4b-2507-q5km-cuda-rtx-workstation",
+            CtxSize = 8192,
+            BatchSize = 2048
+        };
+
+        var normalized = AppSettings.NormalizeQualifiedProfileForCurrentReference(autoProfile);
+
+        Assert.Equal(autoProfile, normalized);
+    }
+
+    [Fact]
+    public void Requalification_detects_runtime_device_and_kv_cache_profile_drift()
+    {
+        var reference = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile();
+        var changed = reference with
+        {
+            DeviceIds = new[] { "CUDA1" },
+            CacheTypeK = "q8_0"
+        };
+
+        Assert.True(RequalificationTriggerService.HasProfileConfigurationDrift(changed, reference));
     }
 
     [Fact]
     public void WarmupProfileStore_exposes_explicit_cpu_safe_profile()
     {
-        var cpuSafe = WarmupProfileStore.FindProfile("qwen25-3b-q4km-cpu-safe");
+        var cpuSafe = WarmupProfileStore.FindProfile("qwen3-4b-2507-q5km-cpu-safe");
 
         Assert.NotNull(cpuSafe);
         Assert.Equal("llama.cpp-cpu", cpuSafe!.Runtime);
         Assert.Equal("safe", cpuSafe.Mode);
         Assert.Equal(0, cpuSafe.Candidate.Ngl);
         Assert.False(cpuSafe.Candidate.FlashAttn);
-        Assert.Equal(4096, cpuSafe.Thresholds.MinAvailableRamMiB);
+        Assert.Equal(6144, cpuSafe.Thresholds.MinAvailableRamMiB);
     }
 
     [Fact]
@@ -56,10 +110,10 @@ public sealed class GovernanceArtifactStoreTests
             Assert.NotNull(read.Value);
             Assert.True(File.Exists(Path.Combine(root, GovernanceArtifactStore.ModelCatalogFile + ".sha256")));
             Assert.Contains(read.Value!.Items, item =>
-                item.ModelId == "qwen2.5-3b-instruct-q4-k-m"
-                && item.License.LicenseFamily == "qwen"
-                && item.License.CommercialUseThresholdMau == 100000000
-                && item.Gguf.HeadCountKv == 2);
+                item.ModelId == "qwen3-4b-instruct-2507-q5-k-m"
+                && item.License.LicenseFamily == "apache-2.0"
+                && item.License.CommercialUseThresholdMau is null
+                && item.Gguf.HeadCountKv == 8);
         }
         finally
         {
@@ -102,7 +156,7 @@ public sealed class GovernanceArtifactStoreTests
             var stale = WarmupProfileStore.CreateDefaultWarmupProfiles() with
             {
                 Items = WarmupProfileStore.CreateDefaultWarmupProfiles().Items
-                    .Select(item => item.ProfileId == "qwen25-3b-q4km-cuda-p520-interactive"
+                    .Select(item => item.ProfileId == "qwen3-4b-2507-q5km-cuda-4gb-quality"
                         ? item with { Candidate = item.Candidate with { CtxSize = 3072 } }
                         : item)
                     .ToArray()
@@ -119,10 +173,10 @@ public sealed class GovernanceArtifactStoreTests
                 GovernanceArtifactStore.WarmupProfilesFile,
                 root);
             var nominal = upgraded.Value!.Items.Single(item =>
-                item.ProfileId == "qwen25-3b-q4km-cuda-p520-interactive");
+                item.ProfileId == "qwen3-4b-2507-q5km-cuda-4gb-quality");
 
             Assert.Equal(GovernanceArtifactReadStatus.Ok, upgraded.Status);
-            Assert.Equal(8192, nominal.Candidate.CtxSize);
+            Assert.Equal(4096, nominal.Candidate.CtxSize);
         }
         finally
         {
@@ -171,7 +225,7 @@ public sealed class GovernanceArtifactStoreTests
                 root);
             Assert.Equal(GovernanceArtifactReadStatus.Ok, runtimePolicy.Status);
             Assert.Contains(runtimePolicy.Value!.MinModelRules, rule =>
-                rule.ModelFamily == "gemma4"
+                rule.ModelFamily == "qwen3"
                 && rule.RuntimeId == "llama.cpp-cuda"
                 && rule.MinBuild == "b8901");
 
@@ -197,7 +251,7 @@ public sealed class GovernanceArtifactStoreTests
             var staleCatalog = ModelCatalogStore.CreateDefaultCatalog() with
             {
                 Items = ModelCatalogStore.CreateDefaultCatalog().Items
-                    .Select(item => item.ModelId == "qwen2.5-3b-instruct-q4-k-m"
+                    .Select(item => item.ModelId == "qwen3-4b-instruct-2507-q5-k-m"
                         ? item with
                         {
                             ChecksumSha256 = null,
@@ -213,10 +267,10 @@ public sealed class GovernanceArtifactStoreTests
             var read = await GovernanceArtifactStore.ReadAsync<ModelCatalogArtifact>(
                 GovernanceArtifactStore.ModelCatalogFile,
                 root);
-            var qwen = Assert.Single(read.Value!.Items, item => item.ModelId == "qwen2.5-3b-instruct-q4-k-m");
+            var qwen = Assert.Single(read.Value!.Items, item => item.ModelId == "qwen3-4b-instruct-2507-q5-k-m");
 
             Assert.Equal(GovernanceArtifactReadStatus.Ok, read.Status);
-            Assert.Equal("9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94", qwen.ChecksumSha256);
+            Assert.Equal("66713ce35a58a82fe87642d4ec13425bf9b9a46800fff5c49a665ef5701439dc", qwen.ChecksumSha256);
             Assert.Equal("verified_reference_hash", qwen.ChecksumStatus);
         }
         finally
@@ -226,7 +280,7 @@ public sealed class GovernanceArtifactStoreTests
     }
 
     [Fact]
-    public async Task EnsureDefaultArtifacts_adds_new_default_server_models_and_backend_collections_without_overwriting_existing_entries()
+    public async Task EnsureDefaultArtifacts_restores_qwen3_fallback_and_backend_collection_without_overwriting_existing_entries()
     {
         var root = NewTempRoot();
         try
@@ -237,8 +291,8 @@ public sealed class GovernanceArtifactStoreTests
                 "stale",
                 DateTimeOffset.UtcNow,
                 ModelCatalogStore.CreateDefaultCatalog().Items
-                    .Where(item => !item.ModelId.StartsWith("qwen3.6-", StringComparison.OrdinalIgnoreCase))
-                    .Select(item => item.ModelId == "qwen2.5-3b-instruct-q4-k-m"
+                    .Where(item => item.ModelId != "qwen3-4b-instruct-2507-q4-k-m")
+                    .Select(item => item.ModelId == "qwen3-4b-instruct-2507-q5-k-m"
                         ? item with { SupportedScopes = new[] { "client", "capability_b_backoffice" } }
                         : item)
                     .ToArray());
@@ -246,9 +300,10 @@ public sealed class GovernanceArtifactStoreTests
                 GovernanceArtifactStore.ModelCollectionsFile,
                 "v3.1",
                 ModelCatalogStore.CreateDefaultCollections().Items
-                    .Where(item => !string.Equals(item.Key, "backend-qwen3.6", StringComparison.OrdinalIgnoreCase)
-                                && !string.Equals(item.Key, "backend-a3b", StringComparison.OrdinalIgnoreCase)
-                                && !string.Equals(item.Key, "backend-low-capacity", StringComparison.OrdinalIgnoreCase))
+                    .Where(item => !string.Equals(
+                        item.Key,
+                        "backend-recommended-qwen3-4b-2507",
+                        StringComparison.OrdinalIgnoreCase))
                     .ToArray());
 
             await GovernanceArtifactStore.WriteAsync(GovernanceArtifactStore.ModelCatalogFile, staleCatalog, root);
@@ -266,24 +321,96 @@ public sealed class GovernanceArtifactStoreTests
             Assert.Equal(GovernanceArtifactReadStatus.Ok, catalogRead.Status);
             Assert.Equal(GovernanceArtifactReadStatus.Ok, collectionsRead.Status);
             Assert.Contains(catalogRead.Value!.Items, item =>
-                item.ModelId == "qwen3.6-27b-q4-k-m"
-                && item.SourceRef == "local-bundle");
+                item.ModelId == "qwen3-4b-instruct-2507-q4-k-m"
+                && item.SourceRef == "hf-bartowski-qwen3-4b-2507");
             Assert.Contains(catalogRead.Value.Items, item =>
-                item.ModelId == "qwen2.5-3b-instruct-q4-k-m"
+                item.ModelId == "qwen3-4b-instruct-2507-q5-k-m"
                 && item.SupportedScopes.Contains("backend"));
-            Assert.Contains(catalogRead.Value.Items, item =>
-                item.ModelId == "qwen3.6-35b-a3b-ud-q4-k-m"
-                && item.Family == "qwen3.6-a3b");
             Assert.Contains(collectionsRead.Value!.Items, item =>
-                item.Key == "backend-qwen3.6"
-                && item.ModelIds.Contains("qwen3.6-27b-q4-k-m"));
+                item.Key == "backend-recommended-qwen3-4b-2507"
+                && item.ModelIds.Contains("qwen3-4b-instruct-2507-q5-k-m")
+                && item.ModelIds.Contains("qwen3-4b-instruct-2507-q4-k-m"));
             Assert.Contains(collectionsRead.Value.Items, item =>
-                item.Key == "backend-a3b"
-                && item.ModelIds.Contains("qwen3.6-35b-a3b-ud-iq4-xs"));
-            Assert.Contains(collectionsRead.Value.Items, item =>
-                item.Key == "backend-low-capacity"
-                && item.ModelIds.Contains("qwen2.5-3b-instruct-q4-k-m"));
-            Assert.Contains(collectionsRead.Value.Items, item => item.Key == "client-baseline");
+                item.Key == "client-recommended-qwen3-4b-2507");
+        }
+        finally
+        {
+            DeleteTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public async Task EnsureDefaultArtifacts_adds_qwen3_source_collection_profiles_and_runtime_rules_to_existing_installation()
+    {
+        var root = NewTempRoot();
+        try
+        {
+            var defaults = ModelCatalogStore.CreateDefaultCatalog();
+            var staleCatalog = defaults with
+            {
+                Items = defaults.Items
+                    .Where(item => !item.ModelId.StartsWith("qwen3-4b-instruct-2507-", StringComparison.OrdinalIgnoreCase))
+                    .ToArray()
+            };
+            var defaultCollections = ModelCatalogStore.CreateDefaultCollections();
+            var staleCollections = defaultCollections with
+            {
+                Items = defaultCollections.Items
+                    .Where(item => item.Key != "client-recommended-qwen3-4b-2507")
+                    .ToArray()
+            };
+            var defaultSources = ModelCatalogStore.CreateDefaultSources();
+            var staleSources = defaultSources with
+            {
+                Items = defaultSources.Items
+                    .Where(item => item.Key != "hf-bartowski-qwen3-4b-2507")
+                    .ToArray()
+            };
+            var defaultRuntimePolicy = RuntimeCompatibilityPolicyStore.CreateDefaultPolicy();
+            var staleRuntimePolicy = defaultRuntimePolicy with
+            {
+                MinModelRules = defaultRuntimePolicy.MinModelRules
+                    .Where(rule => rule.ModelFamily != "qwen3")
+                    .ToArray()
+            };
+
+            await GovernanceArtifactStore.WriteAsync(GovernanceArtifactStore.ModelCatalogFile, staleCatalog, root);
+            await GovernanceArtifactStore.WriteAsync(GovernanceArtifactStore.ModelCollectionsFile, staleCollections, root);
+            await GovernanceArtifactStore.WriteAsync(GovernanceArtifactStore.ModelSourcesFile, staleSources, root);
+            await GovernanceArtifactStore.WriteAsync(
+                GovernanceArtifactStore.RuntimeCompatibilityPolicyFile,
+                staleRuntimePolicy,
+                root);
+
+            await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(new AppSettings(), root);
+
+            var catalog = await GovernanceArtifactStore.ReadAsync<ModelCatalogArtifact>(
+                GovernanceArtifactStore.ModelCatalogFile,
+                root);
+            var collections = await GovernanceArtifactStore.ReadAsync<ModelCollectionsArtifact>(
+                GovernanceArtifactStore.ModelCollectionsFile,
+                root);
+            var sources = await GovernanceArtifactStore.ReadAsync<ModelSourcesArtifact>(
+                GovernanceArtifactStore.ModelSourcesFile,
+                root);
+            var runtimePolicy = await GovernanceArtifactStore.ReadAsync<RuntimeCompatibilityPolicyArtifact>(
+                GovernanceArtifactStore.RuntimeCompatibilityPolicyFile,
+                root);
+            var warmups = await GovernanceArtifactStore.ReadAsync<WarmupProfilesArtifact>(
+                GovernanceArtifactStore.WarmupProfilesFile,
+                root);
+
+            Assert.Contains(catalog.Value!.Items, item => item.ModelId == "qwen3-4b-instruct-2507-q5-k-m");
+            Assert.Contains(collections.Value!.Items, item => item.Key == "client-recommended-qwen3-4b-2507");
+            Assert.Contains(sources.Value!.Items, item =>
+                item.Key == "hf-bartowski-qwen3-4b-2507"
+                && item.Revision == "ae44f08e1392f39c0e474af10c3ff8355c8b6688");
+            Assert.Equal(
+                5,
+                runtimePolicy.Value!.MinModelRules.Count(rule => rule.ModelFamily == "qwen3"));
+            Assert.Contains(
+                warmups.Value!.Items,
+                item => item.ProfileId == "qwen3-4b-2507-q5km-cuda-4gb-quality");
         }
         finally
         {
@@ -372,9 +499,9 @@ public sealed class GovernanceArtifactStoreTests
                 new[]
                 {
                     new ModelSourceItem(
-                        Key: "hf-bartowski-qwen25-3b",
+                        Key: "hf-bartowski-qwen3-4b-2507",
                         Kind: "huggingface",
-                        Uri: "https://huggingface.co/acme/Qwen2.5-3B-Instruct-GGUF",
+                        Uri: "https://huggingface.co/acme/Qwen_Qwen3-4B-Instruct-2507-GGUF",
                         RequiresChecksum: true,
                         AllowedInAirGap: false)
                 });
@@ -383,11 +510,11 @@ public sealed class GovernanceArtifactStoreTests
 
             var model = Assert.Single(
                 ModelCatalogStore.GetEffectiveCatalog(root).Items,
-                item => item.ModelId == "qwen2.5-3b-instruct-q4-k-m");
+                item => item.ModelId == "qwen3-4b-instruct-2507-q5-k-m");
             var url = ModelCatalogStore.TryBuildDownloadUrl(model, root);
 
             Assert.Equal(
-                "https://huggingface.co/acme/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+                "https://huggingface.co/acme/Qwen_Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
                 url);
         }
         finally
@@ -408,10 +535,10 @@ public sealed class GovernanceArtifactStoreTests
                 new[]
                 {
                     new ModelCollectionItem(
-                        Key: "client-baseline",
+                        Key: "client-recommended-qwen3-4b-2507",
                         Scope: "client",
                         VisibleInInstaller: true,
-                        ModelIds: new[] { "gemma-4-e2b-it-q4-k-m" })
+                        ModelIds: new[] { "qwen3-4b-instruct-2507-q4-k-m" })
                 });
 
             await GovernanceArtifactStore.WriteAsync(GovernanceArtifactStore.ModelCollectionsFile, customCollections, root);
@@ -419,7 +546,7 @@ public sealed class GovernanceArtifactStoreTests
             var visible = ModelCatalogStore.GetInstallerVisibleClientModels(root);
 
             Assert.Single(visible);
-            Assert.Equal("gemma-4-e2b-it-q4-k-m", visible[0].ModelId);
+            Assert.Equal("qwen3-4b-instruct-2507-q4-k-m", visible[0].ModelId);
         }
         finally
         {
@@ -430,10 +557,22 @@ public sealed class GovernanceArtifactStoreTests
     [Fact]
     public void Effective_model_policy_blocks_non_catalog_client_models_when_discovery_is_disabled()
     {
-        Assert.False(ModelCatalogStore.IsDiscoveryAllowed());
-        Assert.Equal(1, ModelCatalogStore.GetMaxActiveClientModels());
-        Assert.Null(ModelCatalogStore.GetClientCatalogPolicyViolation("Qwen2.5-3B-Instruct-Q4_K_M.gguf"));
-        Assert.NotNull(ModelCatalogStore.GetClientCatalogPolicyViolation("custom-experimental-model.gguf"));
+        var root = NewTempRoot();
+        try
+        {
+            Assert.False(ModelCatalogStore.IsDiscoveryAllowed(root));
+            Assert.Equal(1, ModelCatalogStore.GetMaxActiveClientModels(root));
+            Assert.Null(ModelCatalogStore.GetClientCatalogPolicyViolation(
+                "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+                root));
+            Assert.NotNull(ModelCatalogStore.GetClientCatalogPolicyViolation(
+                "custom-experimental-model.gguf",
+                root));
+        }
+        finally
+        {
+            DeleteTempRoot(root);
+        }
     }
 
     [Fact]
@@ -512,6 +651,82 @@ public sealed class GovernanceArtifactStoreTests
         Assert.Equal(false, artifact.Hardware["isOnBattery"]);
         Assert.Equal(88, artifact.Hardware["batteryLifePercent"]);
         Assert.Equal("test-power", artifact.Hardware["powerStatusSource"]);
+    }
+
+    [Fact]
+    public void HardwareProbeService_preserves_every_adapter_and_fingerprints_secondary_gpu_changes()
+    {
+        var nvidia = new GpuInfo(
+            GpuVendor.Nvidia,
+            "Quadro P520",
+            4L * 1024 * 1024 * 1024,
+            IsIntegrated: false,
+            DetectionSource: "nvidia-smi+cim")
+        {
+            PnpDeviceId = @"PCI\VEN_10DE&DEV_1D33",
+            StableDeviceId = "GPU-P520",
+            RuntimeDeviceHint = "CUDA0",
+            DriverVersion = "573.71"
+        };
+        var intel = new GpuInfo(
+            GpuVendor.Intel,
+            "Intel(R) UHD Graphics",
+            DedicatedVramBytes: 0,
+            IsIntegrated: true,
+            DetectionSource: "cim")
+        {
+            PnpDeviceId = @"PCI\VEN_8086&DEV_9B41",
+            StableDeviceId = @"PCI\VEN_8086&DEV_9B41",
+            DriverVersion = "31.0.101.2140"
+        };
+        var memory = new SystemMemorySnapshot(
+            TotalRamBytes: 32L * 1024 * 1024 * 1024,
+            AvailableRamBytes: 16L * 1024 * 1024 * 1024,
+            Source: "test");
+
+        var primary = GpuDetector.SelectLegacyPrimaryGpu(new[] { intel, nvidia });
+        Assert.Same(nvidia, primary);
+
+        var multiGpu = HardwareProbeService.CreateArtifact(
+            primary,
+            gpuDriverVersion: "573.71",
+            dxgi: null,
+            memory,
+            "machine-multi",
+            processorCount: 8,
+            is64BitOperatingSystem: true,
+            DateTimeOffset.Parse("2026-07-23T21:00:00Z"),
+            gpus: new[] { intel, nvidia });
+        var singleGpu = HardwareProbeService.CreateArtifact(
+            nvidia,
+            gpuDriverVersion: "573.71",
+            dxgi: null,
+            memory,
+            "machine-multi",
+            processorCount: 8,
+            is64BitOperatingSystem: true,
+            DateTimeOffset.Parse("2026-07-23T21:00:00Z"),
+            gpus: new[] { nvidia });
+
+        Assert.Equal(2, multiGpu.Hardware["gpuCount"]);
+        var adapters = Assert.IsType<Dictionary<string, object?>[]>(multiGpu.Hardware["gpus"]);
+        Assert.Collection(
+            adapters,
+            integrated =>
+            {
+                Assert.Equal("intel", integrated["vendor"]);
+                Assert.Equal(true, integrated["isIntegrated"]);
+                Assert.Equal(0, integrated["dedicatedVramMiB"]);
+                Assert.Equal(false, integrated["isLegacyPrimary"]);
+            },
+            discrete =>
+            {
+                Assert.Equal("nvidia", discrete["vendor"]);
+                Assert.Equal(4096, discrete["dedicatedVramMiB"]);
+                Assert.Equal("CUDA0", discrete["runtimeDeviceHint"]);
+                Assert.Equal(true, discrete["isLegacyPrimary"]);
+            });
+        Assert.NotEqual(singleGpu.MachineFingerprint, multiGpu.MachineFingerprint);
     }
 
     [Fact]
@@ -693,7 +908,7 @@ public sealed class GovernanceArtifactStoreTests
         var root = NewTempRoot();
         try
         {
-            var profile = WarmupProfileStore.CreateReferenceCudaProfile();
+            var profile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile();
             await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(new AppSettings(), root);
             await GovernanceArtifactStore.WriteAsync(
                 GovernanceArtifactStore.HardwareProbeFile,
@@ -716,19 +931,19 @@ public sealed class GovernanceArtifactStoreTests
     [Fact]
     public void ModelCatalogStore_resolves_canonical_model_id_from_file_name()
     {
-        var canonical = ModelCatalogStore.ResolveCanonicalModelId("Qwen2.5-3B-Instruct-Q4_K_M.gguf");
+        var canonical = ModelCatalogStore.ResolveCanonicalModelId("Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf");
 
-        Assert.Equal("qwen2.5-3b-instruct-q4-k-m", canonical);
+        Assert.Equal("qwen3-4b-instruct-2507-q5-k-m", canonical);
     }
 
     [Fact]
-    public void ModelCatalogStore_returns_reference_checksum_for_qwen_q4km()
+    public void ModelCatalogStore_returns_reference_checksum_for_qwen3_q5km()
     {
-        var checksum = ModelCatalogStore.TryGetReferenceChecksum("Qwen2.5-3B-Instruct-Q4_K_M.gguf");
+        var checksum = ModelCatalogStore.TryGetReferenceChecksum("Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf");
         var catalog = ModelCatalogStore.CreateDefaultCatalog();
-        var qwen = Assert.Single(catalog.Items, item => item.ModelId == "qwen2.5-3b-instruct-q4-k-m");
+        var qwen = Assert.Single(catalog.Items, item => item.ModelId == "qwen3-4b-instruct-2507-q5-k-m");
 
-        Assert.Equal("9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94", checksum);
+        Assert.Equal("66713ce35a58a82fe87642d4ec13425bf9b9a46800fff5c49a665ef5701439dc", checksum);
         Assert.Equal(checksum, qwen.ChecksumSha256);
         Assert.Equal("verified_reference_hash", qwen.ChecksumStatus);
     }
@@ -736,11 +951,82 @@ public sealed class GovernanceArtifactStoreTests
     [Fact]
     public void ClientDefaults_default_model_is_governed_and_visible_in_installer()
     {
-        var item = ModelCatalogStore.TryGetItem(ClientDefaults.LlmModel);
-        var installerVisible = ModelCatalogStore.GetInstallerVisibleClientModels();
+        var catalog = ModelCatalogStore.CreateDefaultCatalog();
+        var collections = ModelCatalogStore.CreateDefaultCollections();
+        var item = catalog.Items.Single(candidate => string.Equals(
+            candidate.FileName,
+            ClientDefaults.LlmModel,
+            StringComparison.OrdinalIgnoreCase));
+        var visibleIds = collections.Items
+            .Where(candidate => candidate.VisibleInInstaller
+                                && string.Equals(candidate.Scope, "client", StringComparison.OrdinalIgnoreCase))
+            .SelectMany(candidate => candidate.ModelIds)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         Assert.NotNull(item);
-        Assert.Contains(installerVisible, candidate => string.Equals(candidate.ModelId, item!.ModelId, StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(item.ModelId, visibleIds);
+        Assert.Equal("qwen3-4b-instruct-2507-q5-k-m", item.ModelId);
+    }
+
+    [Fact]
+    public async Task Qwen3_recommended_model_has_pinned_source_verified_hash_and_apache_license()
+    {
+        var root = NewTempRoot();
+        try
+        {
+            await GovernanceArtifactStore.WriteAsync(
+                GovernanceArtifactStore.ModelSourcesFile,
+                ModelCatalogStore.CreateDefaultSources(),
+                root);
+            var qwen3 = Assert.Single(
+                ModelCatalogStore.CreateDefaultCatalog().Items,
+                item => item.ModelId == "qwen3-4b-instruct-2507-q5-k-m");
+            var url = ModelCatalogStore.TryBuildDownloadUrl(qwen3, root);
+
+            Assert.Equal(
+                "66713ce35a58a82fe87642d4ec13425bf9b9a46800fff5c49a665ef5701439dc",
+                qwen3.ChecksumSha256);
+            Assert.Equal("verified_reference_hash", qwen3.ChecksumStatus);
+            Assert.Equal("apache-2.0", qwen3.License.LicenseFamily);
+            Assert.Equal("qwen3", qwen3.Gguf.Architecture);
+            Assert.Equal(36, qwen3.Gguf.BlockCount);
+            Assert.Equal(262144, qwen3.Gguf.ContextLength);
+            Assert.Equal(
+                "https://huggingface.co/bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF/resolve/" +
+                "ae44f08e1392f39c0e474af10c3ff8355c8b6688/" +
+                "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+                url);
+        }
+        finally
+        {
+            DeleteTempRoot(root);
+        }
+    }
+
+    [Fact]
+    public void Retired_model_migration_only_recognizes_unknown_artifacts_in_managed_directory()
+    {
+        var managedPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "SAAIA",
+            "Models",
+            "retired-model.gguf");
+
+        Assert.True(LocalLlmBootstrapper.IsRetiredManagedModelSelection(new AppSettings
+        {
+            ModelId = "retired-model.gguf",
+            ModelPath = managedPath
+        }));
+        Assert.False(LocalLlmBootstrapper.IsRetiredManagedModelSelection(new AppSettings
+        {
+            ModelId = "retired-model.gguf",
+            ModelPath = Path.Combine(Path.GetTempPath(), "retired-model.gguf")
+        }));
+        Assert.False(LocalLlmBootstrapper.IsRetiredManagedModelSelection(new AppSettings
+        {
+            ModelId = ClientDefaults.LlmModel,
+            ModelPath = Path.Combine(Path.GetDirectoryName(managedPath)!, ClientDefaults.LlmModel)
+        }));
     }
 
     [Fact]
@@ -749,146 +1035,40 @@ public sealed class GovernanceArtifactStoreTests
         var catalog = ModelCatalogStore.CreateDefaultCatalog();
 
         Assert.Contains(catalog.Items, item =>
-            item.ModelId == "qwen2.5-3b-instruct-q6-k-l"
-            && item.ChecksumSha256 == "930d792ba9cebbb98faaef6755c62b47cb24bb2d16fb10a338ac80d721b81796"
+            item.ModelId == "qwen3-4b-instruct-2507-q5-k-m"
+            && item.ChecksumSha256 == "66713ce35a58a82fe87642d4ec13425bf9b9a46800fff5c49a665ef5701439dc"
             && item.ChecksumStatus == "verified_reference_hash");
         Assert.Contains(catalog.Items, item =>
-            item.ModelId == "qwen2.5-3b-instruct-q8-0"
-            && item.ChecksumSha256 == "12491ec9f03aab7f0b96cdb7742695e6583d17ee129de48332d04b9cf6acd960"
+            item.ModelId == "qwen3-4b-instruct-2507-q4-k-m"
+            && item.ChecksumSha256 == "2fde00ce69dd4899c70d020845e2638353015bba0fdf161b3eb965f2bca4464e"
             && item.ChecksumStatus == "verified_reference_hash");
-        Assert.Contains(catalog.Items, item =>
-            item.ModelId == "mistral-7b-instruct-v0.3-iq3-m"
-            && item.ChecksumSha256 == "4ea14c5a6c787ac2703505f04a4ee746f746d1ace3ffd907af28f6f179e6b224"
-            && item.License.LicenseFamily == "apache-2.0");
-        Assert.Contains(catalog.Items, item =>
-            item.ModelId == "mistral-7b-instruct-v0.3-q4-k-m"
-            && item.ChecksumSha256 == "56d2db1ee4e4330338433c3a2d1f98f3d647db9cef785fd6e640061e1c98dde2"
-            && item.SourceRef == "hf-bartowski-mistral-7b-v03");
     }
 
     [Fact]
-    public void ModelCatalogStore_includes_gemma4_as_apache_test_family_without_bypassing_checksum_policy()
+    public void RuntimeCompatibilityPolicy_requires_qwen3_capable_runtime_on_every_backend()
     {
-        var catalog = ModelCatalogStore.CreateDefaultCatalog();
-        var sources = ModelCatalogStore.CreateDefaultSources();
-        var collections = ModelCatalogStore.CreateDefaultCollections();
-
-        Assert.Contains(catalog.Items, item =>
-            item.ModelId == "gemma-4-e2b-it-q4-k-m"
-            && item.License.LicenseFamily == "apache-2.0"
-            && item.Gguf.Architecture == "gemma4"
-            && item.ChecksumSha256 == "ac0069ebccd39925d836f24a88c0f0c858d20578c29b21ab7cedce66ee576845"
-            && item.ChecksumStatus == "verified_reference_hash");
-        Assert.Contains(catalog.Items, item =>
-            item.ModelId == "gemma-4-e2b-it-q8-0"
-            && item.License.LicenseFamily == "apache-2.0"
-            && item.Gguf.Architecture == "gemma4"
-            && item.ChecksumSha256 == "6db0088e7e2b6459dfb29fa59b0b1d7299d249ef28debc464d4d564caf444511"
-            && item.ChecksumStatus == "verified_reference_hash");
-        Assert.Contains(catalog.Items, item =>
-            item.ModelId == "gemma-4-e4b-it-q4-k-m"
-            && item.License.LicenseFamily == "apache-2.0"
-            && item.Gguf.BlockCount == 42
-            && item.ChecksumSha256 == "dff0ffba4c90b4082d70214d53ce9504a28d4d8d998276dcb3b8881a656c742a"
-            && item.ChecksumStatus == "verified_reference_hash");
-        Assert.Contains(sources.Items, item =>
-            item.Key == "hf-unsloth-gemma4-e2b"
-            && item.RequiresChecksum);
-        Assert.Contains(collections.Items, item =>
-            item.Key == "apache-test-family"
-            && item.ModelIds.Contains("gemma-4-e2b-it-q4-k-m")
-            && item.ModelIds.Contains("gemma-4-e4b-it-q4-k-m"));
-    }
-
-    [Fact]
-    public void ModelCatalogStore_includes_qwen36_server_models_in_backend_only_collections()
-    {
-        var catalog = ModelCatalogStore.CreateDefaultCatalog();
-        var collections = ModelCatalogStore.CreateDefaultCollections();
-        var installerVisible = ModelCatalogStore.GetInstallerVisibleClientModels();
-
-        Assert.Contains(catalog.Items, item =>
-            item.ModelId == "qwen2.5-3b-instruct-q4-k-m"
-            && item.SupportTier == "client-baseline"
-            && item.SupportedScopes.Contains("client")
-            && item.SupportedScopes.Contains("backend"));
-        Assert.Contains(catalog.Items, item =>
-            item.ModelId == "gemma-4-e2b-it-q4-k-m"
-            && item.SupportedScopes.Contains("backend")
-            && item.BusinessStates.Contains("experimental"));
-        Assert.Contains(catalog.Items, item =>
-            item.ModelId == "qwen3.6-27b-q4-k-m"
-            && item.SourceRef == "local-bundle"
-            && item.License.LicenseFamily == "qwen"
-            && item.SupportedScopes.Contains("backend")
-            && !item.SupportedScopes.Contains("client")
-            && item.ChecksumSha256 == "5ed60d0af4650a854b1755bd392f9aef4872643dc25a254bc68043fa638392a0");
-        Assert.Contains(catalog.Items, item =>
-            item.ModelId == "qwen3.6-35b-a3b-ud-q4-k-m"
-            && item.SourceRef == "local-bundle"
-            && item.Family == "qwen3.6-a3b"
-            && item.Gguf.Architecture == "qwen3"
-            && item.SupportTier == "backend-a3b"
-            && item.ChecksumSha256 == "ac0e2c1189e055faa36eff361580e79c5bd6f8e76bffb4ce547f167d53e31a61");
-        Assert.Contains(catalog.Items, item =>
-            item.ModelId == "qwen3.6-35b-a3b-ud-iq4-xs"
-            && item.SourceRef == "local-bundle"
-            && item.ChecksumSha256 == "649d7508507b84638732c4f52c24c8b15843c6dca2f3ff793ae07c14a67ebbb3");
-        Assert.Contains(collections.Items, item =>
-            item.Key == "backend-qwen3.6"
-            && !item.VisibleInInstaller
-            && item.ModelIds.Contains("qwen3.6-27b-q4-k-m")
-            && item.ModelIds.Contains("qwen3.6-35b-a3b-ud-q5-k-m"));
-        Assert.Contains(collections.Items, item =>
-            item.Key == "backend-a3b"
-            && !item.VisibleInInstaller
-            && item.ModelIds.Contains("qwen3.6-35b-a3b-ud-q3-k-s")
-            && item.ModelIds.Contains("qwen3.6-35b-a3b-ud-iq4-xs"));
-        Assert.Contains(collections.Items, item =>
-            item.Key == "backend-low-capacity"
-            && !item.VisibleInInstaller
-            && item.ModelIds[0] == "qwen2.5-3b-instruct-q4-k-m"
-            && item.ModelIds.Contains("qwen2.5-3b-instruct-q6-k-l")
-            && item.ModelIds.Contains("gemma-4-e2b-it-q4-k-m")
-            && item.ModelIds.Contains("mistral-7b-instruct-v0.3-iq3-m"));
-        Assert.DoesNotContain(installerVisible, item =>
-            item.ModelId.StartsWith("qwen3.6-", StringComparison.OrdinalIgnoreCase));
-    }
-
-    [Fact]
-    public void RuntimeCompatibilityPolicy_requires_b8901_for_gemma4_and_forces_flash_attn_off_on_pascal()
-    {
+        var qwen3 = Assert.Single(
+            ModelCatalogStore.CreateDefaultCatalog().Items,
+            item => item.ModelId == "qwen3-4b-instruct-2507-q5-k-m");
         var policy = RuntimeCompatibilityPolicyStore.CreateDefaultPolicy();
-        var gemma = ModelCatalogStore.TryGetItem("gemma-4-e2b-it-q4-k-m");
-        var gpu = new GpuInfo(
-            GpuVendor.Nvidia,
-            "Quadro P520",
-            4L * 1024 * 1024 * 1024,
-            IsIntegrated: false,
-            DetectionSource: "test");
 
-        var oldRuntime = RuntimeCompatibilityPolicyStore.Evaluate(
-            "llama.cpp-cuda",
-            "b8149",
-            gemma,
-            policy);
-        var newRuntime = RuntimeCompatibilityPolicyStore.Evaluate(
-            "llama.cpp-cuda",
-            "b8901",
-            gemma,
-            policy);
-        var forcedFlashAttn = RuntimeCompatibilityPolicyStore.GetForcedFlashAttn(
-            "llama.cpp-cuda",
-            gemma,
-            gpu,
-            policy);
+        foreach (var runtime in new[]
+                 {
+                     "llama.cpp-cuda",
+                     "llama.cpp-vulkan",
+                     "llama.cpp-sycl",
+                     "llama.cpp-hip",
+                     "llama.cpp-cpu"
+                 })
+        {
+            var old = RuntimeCompatibilityPolicyStore.Evaluate(runtime, "b8149", qwen3, policy);
+            var current = RuntimeCompatibilityPolicyStore.Evaluate(runtime, "b8901", qwen3, policy);
 
-        Assert.NotNull(gemma);
-        Assert.False(oldRuntime.Compatible);
-        Assert.True(oldRuntime.RequiresUpgrade);
-        Assert.Equal("b8901", oldRuntime.RequiredBuild);
-        Assert.True(newRuntime.Compatible);
-        Assert.False(forcedFlashAttn);
+            Assert.False(old.Compatible);
+            Assert.True(old.RequiresUpgrade);
+            Assert.Equal("b8901", old.RequiredBuild);
+            Assert.True(current.Compatible);
+        }
     }
 
     [Fact]
@@ -896,15 +1076,15 @@ public sealed class GovernanceArtifactStoreTests
     {
         var settings = new AppSettings
         {
-            QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile(),
+            QualifiedProfile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile(),
             LlamaExePath = @"C:\llm\llama-server-vulkan.exe",
-            ModelId = "Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+            ModelId = "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf"
         };
 
         var runtimeDrift = RequalificationTriggerService.EvaluateProfileDrift(settings);
 
         settings.LlamaExePath = @"C:\llm\llama-server-cuda.exe";
-        settings.ModelId = "mistral-unknown.gguf";
+        settings.ModelId = "retired-unknown.gguf";
         var modelDrift = RequalificationTriggerService.EvaluateProfileDrift(settings);
 
         Assert.True(runtimeDrift.Required);
@@ -918,12 +1098,12 @@ public sealed class GovernanceArtifactStoreTests
     {
         var settings = new AppSettings
         {
-            QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile() with
+            QualifiedProfile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile() with
             {
-                CtxSize = 4096
+                CtxSize = 8192
             },
             LlamaExePath = @"C:\llm\llama-server-cuda.exe",
-            ModelId = "Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+            ModelId = "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf"
         };
 
         var drift = RequalificationTriggerService.EvaluateProfileDrift(settings);
@@ -935,7 +1115,7 @@ public sealed class GovernanceArtifactStoreTests
     [Fact]
     public void RequalificationTriggerService_detects_perf_drift_repeated_failures_timeout_and_admin_action()
     {
-        var profileId = "qwen2.5-3b-q4km-cuda-balanced";
+        var profileId = "qwen3-4b-2507-q5km-cuda-balanced";
         var baseline = WarmupItem(profileId, WarmupGateStatus.Pass, tokPerSec: 10, ttftMs: 4000, minutesAgo: 20);
         var drift = WarmupItem(profileId, WarmupGateStatus.Pass, tokPerSec: 5.5, ttftMs: 4100, minutesAgo: 1);
         var failures = new[]
@@ -1016,7 +1196,7 @@ public sealed class GovernanceArtifactStoreTests
             DateTimeOffset.UtcNow.AddMinutes(-minutesAgo),
             profileId,
             "llama.cpp-cuda",
-            "qwen2.5-3b-instruct-q4-k-m",
+            "qwen3-4b-instruct-2507-q5-k-m",
             status,
             status == WarmupGateStatus.Pass ? 3 : 0,
             3,

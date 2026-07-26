@@ -9,7 +9,7 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class LocalLlmRuntimeDiagnosticsServiceTests
 {
     [Fact]
-    public async Task EvaluateAsync_returns_pending_runtime_state_and_pascal_flash_attn_override()
+    public async Task EvaluateAsync_returns_pending_runtime_state_for_qwen3()
     {
         var root = NewTempRoot();
         var runtimeRoot = Path.Combine(root, "runtime");
@@ -27,8 +27,8 @@ public sealed class LocalLlmRuntimeDiagnosticsServiceTests
                 UseLocalLlm = true,
                 ManageLocalLlmProcess = true,
                 LlamaExePath = activeExe,
-                ModelId = "gemma-4-e2b-it-q4-k-m",
-                QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile()
+                ModelId = "qwen3-4b-instruct-2507-q5-k-m",
+                QualifiedProfile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile()
             };
 
             await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings, root);
@@ -57,8 +57,8 @@ public sealed class LocalLlmRuntimeDiagnosticsServiceTests
             Assert.Equal(DateTimeOffset.Parse("2026-04-23T10:00:00Z"), diagnostics.ActivatedAtUtc);
             Assert.Null(diagnostics.QualifiedAtUtc);
             Assert.False(diagnostics.UpgradeRequired);
-            Assert.Equal("gemma4", diagnostics.ModelFamily);
-            Assert.False(diagnostics.ForcedFlashAttn);
+            Assert.Equal("qwen3", diagnostics.ModelFamily);
+            Assert.Null(diagnostics.ForcedFlashAttn);
             Assert.Single(diagnostics.RecentEvents);
             Assert.Equal("runtime_upgrade_activated", diagnostics.RecentEvents[0].EventKind);
         }
@@ -71,7 +71,7 @@ public sealed class LocalLlmRuntimeDiagnosticsServiceTests
     }
 
     [Fact]
-    public async Task EvaluateAsync_returns_required_build_for_legacy_gemma_runtime()
+    public async Task EvaluateAsync_returns_required_build_for_legacy_qwen3_runtime()
     {
         var root = NewTempRoot();
         var runtimeRoot = Path.Combine(root, "runtime");
@@ -86,8 +86,8 @@ public sealed class LocalLlmRuntimeDiagnosticsServiceTests
                 UseLocalLlm = true,
                 ManageLocalLlmProcess = true,
                 LlamaExePath = legacyExe,
-                ModelId = "gemma-4-e2b-it-q4-k-m",
-                QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile()
+                ModelId = "qwen3-4b-instruct-2507-q5-k-m",
+                QualifiedProfile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile()
             };
 
             await GovernanceArtifactStore.EnsureDefaultArtifactsAsync(settings, root);
@@ -117,16 +117,16 @@ public sealed class LocalLlmRuntimeDiagnosticsServiceTests
 
         try
         {
-            var activeExe = CreateRuntime(runtimeRoot, "win-cuda-x64", "b8149");
+            var activeExe = CreateRuntime(runtimeRoot, "win-cuda-x64", "b8901");
             WriteQualifiedActiveRuntimeManifest(runtimeRoot, activeExe);
 
-            var profile = WarmupProfileStore.CreateReferenceCudaProfile();
+            var profile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile();
             var settings = new AppSettings
             {
                 UseLocalLlm = true,
                 ManageLocalLlmProcess = true,
                 LlamaExePath = activeExe,
-                ModelId = "qwen2.5-3b-instruct-q4-k-m",
+                ModelId = "qwen3-4b-instruct-2507-q5-k-m",
                 QualifiedProfile = profile
             };
 
@@ -161,14 +161,14 @@ public sealed class LocalLlmRuntimeDiagnosticsServiceTests
                 DateTimeOffset.Parse("2026-04-24T10:01:53Z"),
                 "llama.cpp-cuda",
                 "runtime_qualified",
-                "b8149",
+                "b8901",
                 null,
                 settings.ModelId,
                 "qualified"), root);
 
             var diagnostics = await LocalLlmRuntimeDiagnosticsService.EvaluateAsync(settings, gpu: null, root: root);
 
-            Assert.Equal("b8149", diagnostics.ActiveBuild);
+            Assert.Equal("b8901", diagnostics.ActiveBuild);
             Assert.Equal("qualified", diagnostics.ActiveState);
             Assert.False(diagnostics.UpgradeRequired);
             Assert.Equal(WarmupGateStatus.Pass, diagnostics.LatestWarmupStatus);
@@ -247,10 +247,10 @@ public sealed class LocalLlmRuntimeDiagnosticsServiceTests
                 {
                     runtimeId = "llama.cpp-cuda",
                     backend = "cuda",
-                    build = "b8149",
+                    build = "b8901",
                     directoryPath = Path.GetDirectoryName(activeExe),
                     exePath = activeExe,
-                    assetName = "llama-b8149-bin-win-cuda-12.4-x64.zip",
+                    assetName = "llama-b8901-bin-win-cuda-12.4-x64.zip",
                     activatedAtUtc = "2026-04-24T09:51:52Z",
                     status = "qualified",
                     qualifiedAtUtc = "2026-04-24T10:01:53Z",

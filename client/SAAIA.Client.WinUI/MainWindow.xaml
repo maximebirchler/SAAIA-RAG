@@ -439,7 +439,7 @@
                                                 </StackPanel>
                 
                                                 <TextBlock x:Name="LocalLlmModelLabelText" Text="Model (.gguf)" FontWeight="SemiBold"/>
-                                                <TextBox x:Name="LocalLlmModelPathBox" PlaceholderText="C:\SAAIA\models\Mistral-7B-Instruct-v0.3-IQ3_M.gguf"/>
+                                                <TextBox x:Name="LocalLlmModelPathBox" PlaceholderText="C:\SAAIA\models\Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf"/>
                 
                                                 
                 
@@ -469,7 +469,7 @@
                                                 </Grid>
                 
                                                 <TextBlock x:Name="LocalLlmModelIdLabelText" Text="Model ID (OpenAI 'model')" FontWeight="SemiBold"/>
-                                                <TextBox x:Name="LocalLlmModelIdBox" PlaceholderText="Mistral-7B-Instruct-v0.3-IQ3_M.gguf"/>
+                                                <TextBox x:Name="LocalLlmModelIdBox" PlaceholderText="Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf"/>
                 
                                                 <TextBlock x:Name="LocalLlmExtraArgsLabelText" Text="Extra args (optional)" FontWeight="SemiBold"/>
                                                 <TextBox x:Name="LocalLlmExtraArgsBox"
@@ -642,6 +642,7 @@
                                   VerticalScrollBarVisibility="Auto"
                                   HorizontalScrollBarVisibility="Disabled">
                         <ListView x:Name="MessagesList"
+                                AutomationProperties.AutomationId="MessagesList"
                                 SelectionMode="None"
                                 ItemTemplateSelector="{StaticResource ChatMessageTemplateSelector}"
                                 HorizontalContentAlignment="Stretch"
@@ -679,6 +680,7 @@
                         </Grid.ColumnDefinitions>
 
                         <TextBox x:Name="InputBox"
+                                 AutomationProperties.AutomationId="InputBox"
                                  Style="{StaticResource AppComposerTextBoxStyle}"
                                  PlaceholderText="Tape ta question..."
                                  AcceptsReturn="False"
@@ -691,6 +693,7 @@
 
                         <Button Grid.Column="1"
                                 x:Name="SendCancelButton"
+                                AutomationProperties.AutomationId="SendCancelButton"
                                 Click="SendCancel_Click"
                                 Width="44"
                                 Height="44"
@@ -708,6 +711,7 @@
 
             <!-- ===== RIGHT : Sources ===== -->
             <Border x:Name="SourcesPanel"
+                    AutomationProperties.AutomationId="SourcesPanel"
                     Grid.Column="2"
                     Style="{StaticResource AppPanelBorderStyle}"
                     Padding="12"

@@ -6,7 +6,7 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class LocalLlmAutoTuningTests
 {
-    private const string ReferenceModelFileName = "Qwen2.5-3B-Instruct-Q4_K_M.gguf";
+    private const string ReferenceModelFileName = "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf";
 
     [Fact]
     public void GgufMetadataReader_reads_reference_qwen_model_when_present()
@@ -130,9 +130,9 @@ public sealed class LocalLlmAutoTuningTests
         var settings = new AppSettings
         {
             LlamaExePath = @"C:\Users\test\AppData\Local\SAAIA\llm\runtime\win-cuda-x64\llama-server.exe",
-            ModelId = "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+            ModelId = "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
             ExtraArgs = string.Empty,
-            QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile() with
+            QualifiedProfile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile() with
             {
                 CtxSize = 2048,
                 BatchSize = 768,
@@ -169,9 +169,9 @@ public sealed class LocalLlmAutoTuningTests
         var settings = new AppSettings
         {
             LlamaExePath = @"C:\Users\test\AppData\Local\SAAIA\llm\runtime\win-cuda-x64\llama-server.exe",
-            ModelId = "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+            ModelId = "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
             ExtraArgs = "--ctx-size 1024 -t 2 -b 256 -ngl 12 --ubatch-size 64 --threads-batch 1 --flash-attn on",
-            QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile() with
+            QualifiedProfile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile() with
             {
                 CtxSize = 2048,
                 BatchSize = 768,

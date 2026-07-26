@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -34,17 +35,30 @@ internal sealed class LlamaCppReleaseDownloader
 
     public static string ActiveRuntimeManifestPath => Path.Combine(RuntimeRoot, ActiveRuntimeArtifactName);
 
-    public static string CpuRuntimeBaseDir => Path.Combine(RuntimeRoot, "win-cpu-x64");
-    public static string CudaRuntimeBaseDir => Path.Combine(RuntimeRoot, "win-cuda-x64");
-    public static string VulkanRuntimeBaseDir => Path.Combine(RuntimeRoot, "win-vulkan-x64");
+    internal static string WindowsRuntimeArchitecture =>
+        RuntimeInformation.OSArchitecture == Architecture.Arm64
+            ? "arm64"
+            : RuntimeInformation.OSArchitecture == Architecture.X64
+                ? "x64"
+                : "unsupported";
+
+    public static string CpuRuntimeBaseDir => RuntimeBaseDir("cpu");
+    public static string CudaRuntimeBaseDir => RuntimeBaseDir("cuda");
+    public static string VulkanRuntimeBaseDir => RuntimeBaseDir("vulkan");
+    public static string SyclRuntimeBaseDir => RuntimeBaseDir("sycl");
+    public static string HipRuntimeBaseDir => RuntimeBaseDir("hip");
 
     public static string CpuRuntimeDir => ResolveRuntimeDir("llama.cpp-cpu", CpuRuntimeBaseDir);
     public static string CudaRuntimeDir => ResolveRuntimeDir("llama.cpp-cuda", CudaRuntimeBaseDir);
     public static string VulkanRuntimeDir => ResolveRuntimeDir("llama.cpp-vulkan", VulkanRuntimeBaseDir);
+    public static string SyclRuntimeDir => ResolveRuntimeDir("llama.cpp-sycl", SyclRuntimeBaseDir);
+    public static string HipRuntimeDir => ResolveRuntimeDir("llama.cpp-hip", HipRuntimeBaseDir);
 
     public static string CpuServerExePath => ResolveServerExePath("llama.cpp-cpu", CpuRuntimeBaseDir);
     public static string CudaServerExePath => ResolveServerExePath("llama.cpp-cuda", CudaRuntimeBaseDir);
     public static string VulkanServerExePath => ResolveServerExePath("llama.cpp-vulkan", VulkanRuntimeBaseDir);
+    public static string SyclServerExePath => ResolveServerExePath("llama.cpp-sycl", SyclRuntimeBaseDir);
+    public static string HipServerExePath => ResolveServerExePath("llama.cpp-hip", HipRuntimeBaseDir);
 
     private sealed record GhAsset(string name, string browser_download_url, long? size);
     private sealed record GhRelease(string tag_name, List<GhAsset> assets);
@@ -105,15 +119,15 @@ internal sealed class LlamaCppReleaseDownloader
 
             var cpuZip = rel.assets
                 .FirstOrDefault(a => a.name.Contains("-bin-win-cpu-", StringComparison.OrdinalIgnoreCase)
-                                  && a.name.EndsWith("-x64.zip", StringComparison.OrdinalIgnoreCase)
+                                  && MatchesWindowsRuntimeArchitecture(a.name)
                                   && a.name.StartsWith("llama-", StringComparison.OrdinalIgnoreCase));
 
             if (cpuZip is null)
-                return (false, "Release llama.cpp trouvee, mais aucun binaire Windows CPU x64 n'a ete detecte.", null);
+                return (false, $"Release llama.cpp trouvee, mais aucun binaire Windows CPU {WindowsRuntimeArchitecture} n'a ete detecte.", null);
 
             var dm = new DownloadManager();
             var zipSpec = new DownloadManager.AssetSpec(
-                Id: $"llama.cpp_{rel.tag_name}_win-cpu-x64",
+                Id: $"llama.cpp_{rel.tag_name}_win-cpu-{WindowsRuntimeArchitecture}",
                 Url: cpuZip.browser_download_url,
                 TargetRelativePath: $"downloads/llama.cpp/{rel.tag_name}/{cpuZip.name}",
                 Sha256Hex: null);
@@ -160,7 +174,7 @@ internal sealed class LlamaCppReleaseDownloader
             var cudaCandidates = rel.assets
                 .Where(a => a.name.StartsWith("llama-", StringComparison.OrdinalIgnoreCase)
                          && a.name.Contains("-bin-win-cuda-", StringComparison.OrdinalIgnoreCase)
-                         && a.name.EndsWith("-x64.zip", StringComparison.OrdinalIgnoreCase)
+                         && MatchesWindowsRuntimeArchitecture(a.name)
                          && !a.name.StartsWith("cudart-", StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
@@ -175,14 +189,14 @@ internal sealed class LlamaCppReleaseDownloader
             var cudartZip = rel.assets.FirstOrDefault(a =>
                 a.name.StartsWith("cudart-llama-", StringComparison.OrdinalIgnoreCase)
                 && a.name.Contains("-bin-win-cuda-", StringComparison.OrdinalIgnoreCase)
-                && a.name.EndsWith("-x64.zip", StringComparison.OrdinalIgnoreCase)
+                && MatchesWindowsRuntimeArchitecture(a.name)
                 && (string.IsNullOrWhiteSpace(cudaSuffix) || a.name.Contains(cudaSuffix, StringComparison.OrdinalIgnoreCase)));
 
             var dm = new DownloadManager();
             var specs = new List<DownloadManager.AssetSpec>
             {
                 new(
-                    Id: $"llama.cpp_{rel.tag_name}_win-cuda-x64",
+                    Id: $"llama.cpp_{rel.tag_name}_win-cuda-{WindowsRuntimeArchitecture}",
                     Url: cudaZip.browser_download_url,
                     TargetRelativePath: $"downloads/llama.cpp/{rel.tag_name}/{cudaZip.name}",
                     Sha256Hex: null)
@@ -191,7 +205,7 @@ internal sealed class LlamaCppReleaseDownloader
             if (cudartZip is not null)
             {
                 specs.Add(new DownloadManager.AssetSpec(
-                    Id: $"llama.cpp_{rel.tag_name}_win-cuda-cudart-x64",
+                    Id: $"llama.cpp_{rel.tag_name}_win-cuda-cudart-{WindowsRuntimeArchitecture}",
                     Url: cudartZip.browser_download_url,
                     TargetRelativePath: $"downloads/llama.cpp/{rel.tag_name}/{cudartZip.name}",
                     Sha256Hex: null));
@@ -252,14 +266,14 @@ internal sealed class LlamaCppReleaseDownloader
             var vkZip = rel.assets.FirstOrDefault(a =>
                 a.name.StartsWith("llama-", StringComparison.OrdinalIgnoreCase)
                 && a.name.Contains("-bin-win-vulkan-", StringComparison.OrdinalIgnoreCase)
-                && a.name.EndsWith("-x64.zip", StringComparison.OrdinalIgnoreCase));
+                && MatchesWindowsRuntimeArchitecture(a.name));
 
             if (vkZip is null)
-                return (false, "Release llama.cpp trouvee, mais aucun binaire Windows Vulkan x64 n'a ete detecte.", null);
+                return (false, $"Release llama.cpp trouvee, mais aucun binaire Windows Vulkan {WindowsRuntimeArchitecture} n'a ete detecte.", null);
 
             var dm = new DownloadManager();
             var zipSpec = new DownloadManager.AssetSpec(
-                Id: $"llama.cpp_{rel.tag_name}_win-vulkan-x64",
+                Id: $"llama.cpp_{rel.tag_name}_win-vulkan-{WindowsRuntimeArchitecture}",
                 Url: vkZip.browser_download_url,
                 TargetRelativePath: $"downloads/llama.cpp/{rel.tag_name}/{vkZip.name}",
                 Sha256Hex: null);
@@ -270,6 +284,110 @@ internal sealed class LlamaCppReleaseDownloader
                 return (false, "Telechargement llama.cpp Vulkan echoue.", null);
 
             return InstallRuntimeFromZip("llama.cpp-vulkan", "vulkan", VulkanRuntimeBaseDir, zipPath, rel.tag_name, vkZip.name, progress);
+        }
+        catch (OperationCanceledException)
+        {
+            return (false, "Annule.", null);
+        }
+        catch (Exception ex)
+        {
+            return (false, "Erreur: " + ex.Message, null);
+        }
+    }
+
+    public Task<(bool ok, string message, string? exePath)> EnsureWindowsSyclAsync(
+        IProgress<DownloadManager.ProgressInfo>? progress,
+        CancellationToken ct)
+        => EnsureWindowsSyclAsync(progress, minBuild: null, ct);
+
+    public Task<(bool ok, string message, string? exePath)> EnsureWindowsSyclAsync(
+        IProgress<DownloadManager.ProgressInfo>? progress,
+        string? minBuild,
+        CancellationToken ct)
+        => EnsureWindowsPackagedAcceleratorAsync(
+            runtimeId: "llama.cpp-sycl",
+            backend: "sycl",
+            runtimeBaseDir: SyclRuntimeBaseDir,
+            assetMarker: "-bin-win-sycl-",
+            displayName: "SYCL",
+            progress,
+            minBuild,
+            ct);
+
+    public Task<(bool ok, string message, string? exePath)> EnsureWindowsHipAsync(
+        IProgress<DownloadManager.ProgressInfo>? progress,
+        CancellationToken ct)
+        => EnsureWindowsHipAsync(progress, minBuild: null, ct);
+
+    public Task<(bool ok, string message, string? exePath)> EnsureWindowsHipAsync(
+        IProgress<DownloadManager.ProgressInfo>? progress,
+        string? minBuild,
+        CancellationToken ct)
+        => EnsureWindowsPackagedAcceleratorAsync(
+            runtimeId: "llama.cpp-hip",
+            backend: "hip",
+            runtimeBaseDir: HipRuntimeBaseDir,
+            assetMarker: "-bin-win-hip-",
+            displayName: "HIP",
+            progress,
+            minBuild,
+            ct);
+
+    private static async Task<(bool ok, string message, string? exePath)> EnsureWindowsPackagedAcceleratorAsync(
+        string runtimeId,
+        string backend,
+        string runtimeBaseDir,
+        string assetMarker,
+        string displayName,
+        IProgress<DownloadManager.ProgressInfo>? progress,
+        string? minBuild,
+        CancellationToken ct)
+    {
+        try
+        {
+            if (TryResolveInstalledRuntime(runtimeId, runtimeBaseDir, minBuild, out var existingExe))
+                return (true, "OK", existingExe);
+
+            Directory.CreateDirectory(runtimeBaseDir);
+            progress?.Report(new DownloadManager.ProgressInfo("llama.cpp", "resolve", 0, null, null));
+            var release = await GetLatestReleaseAsync(ct).ConfigureAwait(false);
+            if (release is null)
+                return (false, "Impossible de recuperer la release llama.cpp (GitHub API).", null);
+
+            var archive = release.assets.FirstOrDefault(asset =>
+                asset.name.StartsWith("llama-", StringComparison.OrdinalIgnoreCase)
+                && asset.name.Contains(assetMarker, StringComparison.OrdinalIgnoreCase)
+                && MatchesWindowsRuntimeArchitecture(asset.name));
+            if (archive is null)
+            {
+                return (
+                    false,
+                    $"Release llama.cpp trouvee, mais aucun binaire Windows {displayName} {WindowsRuntimeArchitecture} n'a ete detecte.",
+                    null);
+            }
+
+            var downloader = new DownloadManager();
+            var assetSpec = new DownloadManager.AssetSpec(
+                Id: $"llama.cpp_{release.tag_name}_win-{backend}-{WindowsRuntimeArchitecture}",
+                Url: archive.browser_download_url,
+                TargetRelativePath: $"downloads/llama.cpp/{release.tag_name}/{archive.name}",
+                Sha256Hex: null);
+            var downloaded = await downloader
+                .EnsureAssetsAsync(new[] { assetSpec }, progress, ct)
+                .ConfigureAwait(false);
+            var zipPath = downloaded.FirstOrDefault(path =>
+                path.EndsWith(archive.name, StringComparison.OrdinalIgnoreCase));
+            if (string.IsNullOrWhiteSpace(zipPath) || !File.Exists(zipPath))
+                return (false, $"Telechargement llama.cpp {displayName} echoue.", null);
+
+            return InstallRuntimeFromZip(
+                runtimeId,
+                backend,
+                runtimeBaseDir,
+                zipPath,
+                release.tag_name,
+                archive.name,
+                progress);
         }
         catch (OperationCanceledException)
         {
@@ -309,8 +427,8 @@ internal sealed class LlamaCppReleaseDownloader
             ExePath: result.exePath,
             AssetName: assetName,
             ActivatedAtUtc: DateTimeOffset.UtcNow,
-            Status: hasRollbackCandidate ? RuntimeStatusPendingQualification : RuntimeStatusQualified,
-            QualifiedAtUtc: hasRollbackCandidate ? null : DateTimeOffset.UtcNow,
+            Status: RuntimeStatusPendingQualification,
+            QualifiedAtUtc: null,
             Previous: hasRollbackCandidate
                 ? new RuntimeRollbackCandidate(
                     previous!.Build,
@@ -322,7 +440,7 @@ internal sealed class LlamaCppReleaseDownloader
         RuntimeEventLogStore.Append(new RuntimeEventLogItem(
             At: DateTimeOffset.UtcNow,
             RuntimeId: runtimeId,
-            EventKind: hasRollbackCandidate ? "runtime_upgrade_activated" : "runtime_installed",
+            EventKind: hasRollbackCandidate ? "runtime_upgrade_activated" : "runtime_installed_pending_qualification",
             Build: tag,
             PreviousBuild: previous?.Build,
             ModelId: null,
@@ -417,12 +535,29 @@ internal sealed class LlamaCppReleaseDownloader
             return string.Empty;
 
         i += marker.Length;
-        var j = assetName.IndexOf("-x64.zip", i, StringComparison.OrdinalIgnoreCase);
+        var j = assetName.IndexOf(
+            $"-{WindowsRuntimeArchitecture}.zip",
+            i,
+            StringComparison.OrdinalIgnoreCase);
         if (j < 0)
             return string.Empty;
 
         return assetName.Substring(i, j - i);
     }
+
+    private static string RuntimeBaseDir(string backend)
+        => Path.Combine(
+            RuntimeRoot,
+            $"win-{backend}-{WindowsRuntimeArchitecture}");
+
+    private static bool MatchesWindowsRuntimeArchitecture(string assetName)
+        => !string.Equals(
+               WindowsRuntimeArchitecture,
+               "unsupported",
+               StringComparison.Ordinal)
+           && assetName.EndsWith(
+               $"-{WindowsRuntimeArchitecture}.zip",
+               StringComparison.OrdinalIgnoreCase);
 
     private static async Task<GhRelease?> GetLatestReleaseAsync(CancellationToken ct)
     {
@@ -575,6 +710,8 @@ internal sealed class LlamaCppReleaseDownloader
         {
             "llama.cpp-cuda" => "cuda",
             "llama.cpp-vulkan" => "vulkan",
+            "llama.cpp-sycl" => "sycl",
+            "llama.cpp-hip" => "hip",
             _ => "cpu"
         };
         var runtimeDir = Path.GetDirectoryName(effectiveExePath) ?? RuntimeRoot;
@@ -650,6 +787,34 @@ internal sealed class LlamaCppReleaseDownloader
             PreviousBuild: current.Previous?.Build,
             ModelId: null,
             Detail: current.Status));
+        return true;
+    }
+
+    internal static bool TryMarkRuntimePendingQualification(string runtimeId)
+    {
+        if (!TryReadActiveRuntimeArtifactForUpdate(out var artifact, out var items))
+            return false;
+
+        var index = items.FindIndex(item =>
+            string.Equals(item.RuntimeId, runtimeId, StringComparison.OrdinalIgnoreCase));
+        if (index < 0)
+            return false;
+
+        var current = items[index];
+        items[index] = current with
+        {
+            Status = RuntimeStatusPendingQualification,
+            QualifiedAtUtc = null
+        };
+        WriteActiveRuntimeArtifact(artifact!, items);
+        RuntimeEventLogStore.Append(new RuntimeEventLogItem(
+            At: DateTimeOffset.UtcNow,
+            RuntimeId: runtimeId,
+            EventKind: "runtime_qualification_pending",
+            Build: current.Build,
+            PreviousBuild: current.Previous?.Build,
+            ModelId: null,
+            Detail: current.AssetName));
         return true;
     }
 

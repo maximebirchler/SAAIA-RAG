@@ -23,7 +23,16 @@ internal sealed record QualifiedProfile(
     bool FlashAttn,
     bool Mlock,
     string BatteryPolicyRef,
-    string FallbackProfileRef);
+    string FallbackProfileRef)
+{
+    public IReadOnlyList<string> DeviceIds { get; init; } = Array.Empty<string>();
+    public string SplitMode { get; init; } = "none";
+    public IReadOnlyList<double> TensorSplit { get; init; } = Array.Empty<double>();
+    public int MainGpu { get; init; }
+    public string CacheTypeK { get; init; } = "f16";
+    public string CacheTypeV { get; init; } = "f16";
+    public int Parallel { get; init; } = 1;
+}
 
 internal enum GovernanceArtifactReadStatus
 {
@@ -158,8 +167,8 @@ internal static class GovernanceArtifactStore
         await WriteOrUpgradeModelCatalogAsync(governanceRoot, ct).ConfigureAwait(false);
         await WriteOrUpgradeModelCollectionsAsync(governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(ModelPolicyFile, ModelCatalogStore.CreateDefaultPolicy(), governanceRoot, ct).ConfigureAwait(false);
-        await WriteIfMissingAsync(ModelSourcesFile, ModelCatalogStore.CreateDefaultSources(), governanceRoot, ct).ConfigureAwait(false);
-        await WriteIfMissingAsync(RuntimeCompatibilityPolicyFile, RuntimeCompatibilityPolicyStore.CreateDefaultPolicy(), governanceRoot, ct).ConfigureAwait(false);
+        await WriteOrUpgradeModelSourcesAsync(governanceRoot, ct).ConfigureAwait(false);
+        await WriteOrUpgradeRuntimeCompatibilityPolicyAsync(governanceRoot, ct).ConfigureAwait(false);
         await WriteOrUpgradeWarmupProfilesAsync(governanceRoot, ct).ConfigureAwait(false);
         await WriteIfMissingAsync(BatteryPoliciesFile, BatteryPolicyStore.CreateDefaultPolicies(), governanceRoot, ct).ConfigureAwait(false);
 
@@ -379,6 +388,106 @@ internal static class GovernanceArtifactStore
         };
 
         await WriteAsync(WarmupProfilesFile, upgraded, root, ct).ConfigureAwait(false);
+    }
+
+    private static async Task WriteOrUpgradeModelSourcesAsync(
+        string root,
+        CancellationToken ct)
+    {
+        var defaults = ModelCatalogStore.CreateDefaultSources();
+        var read = await ReadAsync<ModelSourcesArtifact>(ModelSourcesFile, root, ct).ConfigureAwait(false);
+        if (read.Status != GovernanceArtifactReadStatus.Ok || read.Value is null)
+        {
+            await WriteAsync(ModelSourcesFile, defaults, root, ct).ConfigureAwait(false);
+            return;
+        }
+
+        var items = read.Value.Items.ToList();
+        foreach (var defaultItem in defaults.Items)
+        {
+            if (items.Any(item => string.Equals(item.Key, defaultItem.Key, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            items.Add(defaultItem);
+        }
+
+        if (items.Count == read.Value.Items.Count)
+            return;
+
+        await WriteAsync(
+            ModelSourcesFile,
+            read.Value with { Items = items },
+            root,
+            ct).ConfigureAwait(false);
+    }
+
+    private static async Task WriteOrUpgradeRuntimeCompatibilityPolicyAsync(
+        string root,
+        CancellationToken ct)
+    {
+        var defaults = RuntimeCompatibilityPolicyStore.CreateDefaultPolicy();
+        var read = await ReadAsync<RuntimeCompatibilityPolicyArtifact>(
+            RuntimeCompatibilityPolicyFile,
+            root,
+            ct).ConfigureAwait(false);
+        if (read.Status != GovernanceArtifactReadStatus.Ok || read.Value is null)
+        {
+            await WriteAsync(RuntimeCompatibilityPolicyFile, defaults, root, ct).ConfigureAwait(false);
+            return;
+        }
+
+        var runtimes = read.Value.Runtimes.ToList();
+        var rules = read.Value.MinModelRules.ToList();
+        var overrides = read.Value.KnownOverrides.ToList();
+
+        foreach (var defaultItem in defaults.Runtimes)
+        {
+            if (!runtimes.Any(item =>
+                    string.Equals(item.RuntimeId, defaultItem.RuntimeId, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(item.Build, defaultItem.Build, StringComparison.OrdinalIgnoreCase)))
+            {
+                runtimes.Add(defaultItem);
+            }
+        }
+
+        foreach (var defaultRule in defaults.MinModelRules)
+        {
+            if (!rules.Any(item =>
+                    string.Equals(item.ModelFamily, defaultRule.ModelFamily, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(item.RuntimeId, defaultRule.RuntimeId, StringComparison.OrdinalIgnoreCase)))
+            {
+                rules.Add(defaultRule);
+            }
+        }
+
+        foreach (var defaultOverride in defaults.KnownOverrides)
+        {
+            if (!overrides.Any(item =>
+                    string.Equals(item.ModelFamily, defaultOverride.ModelFamily, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(item.RuntimeId, defaultOverride.RuntimeId, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(item.GpuArchitecture, defaultOverride.GpuArchitecture, StringComparison.OrdinalIgnoreCase)))
+            {
+                overrides.Add(defaultOverride);
+            }
+        }
+
+        if (runtimes.Count == read.Value.Runtimes.Count
+            && rules.Count == read.Value.MinModelRules.Count
+            && overrides.Count == read.Value.KnownOverrides.Count)
+        {
+            return;
+        }
+
+        await WriteAsync(
+            RuntimeCompatibilityPolicyFile,
+            read.Value with
+            {
+                Runtimes = runtimes,
+                MinModelRules = rules,
+                KnownOverrides = overrides
+            },
+            root,
+            ct).ConfigureAwait(false);
     }
 
     private static bool JsonEquivalent<T>(T left, T right)

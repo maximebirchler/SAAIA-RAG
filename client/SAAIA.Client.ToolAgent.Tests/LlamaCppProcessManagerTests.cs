@@ -49,24 +49,108 @@ public sealed class LlamaCppProcessManagerTests
             Host = "127.0.0.1",
             Port = 1234,
             LlamaExePath = @"C:\runtime\win-cuda-x64\llama-server.exe",
-            ModelPath = @"C:\models\Qwen2.5-3B-Instruct-Q4_K_M.gguf",
-            ModelId = "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
-            ExtraArgs = "--ctx-size 4096 -t 6 -b 128 -ngl 16 --ubatch-size 128 --threads-batch 2 --flash-attn on --metrics",
-            QualifiedProfile = WarmupProfileStore.CreateReferenceCudaFallbackProfile()
+            ModelPath = @"C:\models\Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+            ModelId = "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+            ExtraArgs = "--ctx-size 8192 -t 6 -b 128 -ngl 16 --ubatch-size 128 --threads-batch 2 --flash-attn on --device Vulkan0 --split-mode row --cache-type-k q4_0 --parallel 2 --metrics",
+            QualifiedProfile = WarmupProfileStore.CreateQwen3Q5Cuda4GbFallbackProfile()
         };
 
         var args = LlamaCppProcessManager.BuildArgs(settings);
 
-        Assert.Contains("--ctx-size 8192", args);
-        Assert.Contains("-b 1024", args);
-        Assert.Contains("-ngl 36", args);
-        Assert.Contains("--ubatch-size 256", args);
-        Assert.Contains("--threads-batch 6", args);
+        Assert.Contains("--ctx-size 3072", args);
+        Assert.Contains("-b 256", args);
+        Assert.Contains("-ngl 37", args);
+        Assert.Contains("--ubatch-size 64", args);
+        Assert.Contains("--threads-batch 4", args);
         Assert.Contains("--flash-attn off", args);
+        Assert.Contains("--device CUDA0", args);
+        Assert.Contains("--split-mode none", args);
+        Assert.Contains("--cache-type-k q8_0", args);
+        Assert.Contains("--cache-type-v q8_0", args);
+        Assert.Contains("--parallel 1", args);
         Assert.Contains("--metrics", args);
-        Assert.DoesNotContain("--ctx-size 4096", args);
+        Assert.DoesNotContain("--ctx-size 8192", args);
         Assert.DoesNotContain("-b 128", args);
         Assert.DoesNotContain("-ngl 16", args);
+        Assert.DoesNotContain("--device Vulkan0", args);
+        Assert.DoesNotContain("--parallel 2", args);
+    }
+
+    [Fact]
+    public void BuildArgs_materializes_a_measured_multi_gpu_and_quantized_kv_profile()
+    {
+        var settings = new AppSettings
+        {
+            Host = "127.0.0.1",
+            Port = 1234,
+            LlamaExePath = @"C:\runtime\win-cuda-x64\llama-server.exe",
+            ModelPath = @"C:\models\Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+            ModelId = "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+            QualifiedProfile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile() with
+            {
+                ProfileId = "measured-multi-gpu",
+                DeviceIds = new[] { "CUDA0", "CUDA1" },
+                SplitMode = "row",
+                TensorSplit = new[] { 3d, 1d },
+                MainGpu = 1,
+                CacheTypeK = "q8_0",
+                CacheTypeV = "q4_0",
+                Parallel = 2
+            }
+        };
+
+        var args = LlamaCppProcessManager.BuildArgs(settings);
+
+        Assert.Contains("--device CUDA0,CUDA1", args);
+        Assert.Contains("--split-mode row", args);
+        Assert.Contains("--tensor-split 3,1", args);
+        Assert.Contains("--main-gpu 1", args);
+        Assert.Contains("--cache-type-k q8_0", args);
+        Assert.Contains("--cache-type-v q4_0", args);
+        Assert.Contains("--parallel 2", args);
+    }
+
+    [Fact]
+    public void BuildArgs_preserves_explicit_parallelism_when_user_supplies_it()
+    {
+        var settings = new AppSettings
+        {
+            Host = "127.0.0.1",
+            Port = 1234,
+            LlamaExePath = @"C:\runtime\win-cuda-x64\llama-server.exe",
+            ModelPath = @"C:\models\Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+            ModelId = "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+            ExtraArgs = "--ctx-size 3072 --parallel 2",
+            QualifiedProfile = null
+        };
+
+        var args = LlamaCppProcessManager.BuildArgs(settings);
+
+        Assert.Contains("--parallel 2", args);
+        Assert.DoesNotContain("--parallel 1", args);
+    }
+
+    [Fact]
+    public void BuildArgs_enables_jinja_for_qwen3_but_not_for_an_unrelated_custom_model()
+    {
+        var qwen3 = new AppSettings
+        {
+            ModelPath = @"C:\models\Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+            ModelId = "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+            ExtraArgs = "--ctx-size 4096"
+        };
+        var custom = new AppSettings
+        {
+            ModelPath = @"C:\models\custom-model.gguf",
+            ModelId = "custom-model.gguf",
+            ExtraArgs = "--ctx-size 4096"
+        };
+
+        var qwen3Args = LlamaCppProcessManager.BuildArgs(qwen3);
+        var customArgs = LlamaCppProcessManager.BuildArgs(custom);
+
+        Assert.Contains("--jinja", qwen3Args);
+        Assert.DoesNotContain("--jinja", customArgs);
     }
 
     [Fact]
@@ -76,14 +160,14 @@ public sealed class LlamaCppProcessManagerTests
         {
           "object": "list",
           "data": [
-            { "id": "Qwen2.5-3B-Instruct-Q4_K_M.gguf", "object": "model" }
+            { "id": "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf", "object": "model" }
           ]
         }
         """;
 
         Assert.True(LlamaCppProcessManager.ExistingModelListContainsExpected(
             json,
-            "Qwen2.5-3B-Instruct-Q4_K_M.gguf"));
+            "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf"));
     }
 
     [Fact]
@@ -99,7 +183,7 @@ public sealed class LlamaCppProcessManagerTests
 
         Assert.False(LlamaCppProcessManager.ExistingModelListContainsExpected(
             json,
-            "Qwen2.5-3B-Instruct-Q4_K_M.gguf"));
+            "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf"));
     }
 
     [Fact]
@@ -110,7 +194,7 @@ public sealed class LlamaCppProcessManagerTests
         {
             var settings = new AppSettings
             {
-                QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile(),
+                QualifiedProfile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile(),
                 StartupTimeoutSeconds = 90
             };
 
@@ -138,7 +222,7 @@ public sealed class LlamaCppProcessManagerTests
         {
             var settings = new AppSettings
             {
-                QualifiedProfile = WarmupProfileStore.CreateReferenceCudaProfile(),
+                QualifiedProfile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile(),
                 StartupTimeoutSeconds = 90
             };
 
@@ -169,6 +253,32 @@ public sealed class LlamaCppProcessManagerTests
         var idleTimeout = await LlamaCppProcessManager.ResolveIdleTimeoutSecondsAsync(settings);
 
         Assert.Equal(75, idleTimeout);
+    }
+
+    [Fact]
+    public async Task ApplyLastKnownGoodProfileForRuntimeStart_uses_compatible_profile_when_current_drifted()
+    {
+        var root = NewTempRoot();
+        try
+        {
+            var lastGood = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile() with { CtxSize = 4096 };
+            await RollbackManager.SaveLastKnownGoodAsync(lastGood, root);
+            var settings = new AppSettings
+            {
+                LlamaExePath = @"C:\runtime\win-cuda-x64\llama-server.exe",
+                ModelPath = @"C:\models\Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+                ModelId = "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+                QualifiedProfile = lastGood with { CtxSize = 8192 }
+            };
+
+            await LlamaCppProcessManager.ApplyLastKnownGoodProfileForRuntimeStartAsync(settings, root);
+
+            Assert.Equal(4096, settings.QualifiedProfile!.CtxSize);
+        }
+        finally
+        {
+            DeleteTempRoot(root);
+        }
     }
 
     private static HardwareProbeArtifact CreateHardwareProbe(bool isOnBattery)

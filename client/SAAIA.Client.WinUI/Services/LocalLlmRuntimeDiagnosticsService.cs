@@ -89,6 +89,8 @@ internal static class LocalLlmRuntimeDiagnosticsService
         {
             "llama.cpp-cuda" => "llama.cpp CUDA",
             "llama.cpp-vulkan" => "llama.cpp Vulkan",
+            "llama.cpp-sycl" => "llama.cpp SYCL",
+            "llama.cpp-hip" => "llama.cpp HIP",
             "llama.cpp-cpu" => "llama.cpp CPU",
             _ => runtimeId
         };

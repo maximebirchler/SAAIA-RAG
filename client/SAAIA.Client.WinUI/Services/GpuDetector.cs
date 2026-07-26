@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -10,7 +11,12 @@ using System.Threading.Tasks;
 
 namespace SAAIA.Client.WinUI.Services;
 
-internal sealed record NvidiaGpuInfo(string Name, int VramMiB, string DriverVersion);
+internal sealed record NvidiaGpuInfo(string Name, int VramMiB, string DriverVersion)
+{
+    public int? Index { get; init; }
+    public string? Uuid { get; init; }
+    public string? PciBusId { get; init; }
+}
 
 internal enum GpuVendor
 {
@@ -29,6 +35,9 @@ internal sealed record GpuInfo(
 {
     public int DedicatedVramMiB => DedicatedVramBytes > 0 ? (int)(DedicatedVramBytes / 1024 / 1024) : 0;
     public string? PnpDeviceId { get; init; }
+    public string? DriverVersion { get; init; }
+    public string? RuntimeDeviceHint { get; init; }
+    public string? StableDeviceId { get; init; }
 }
 
 /// <summary>
@@ -225,13 +234,23 @@ internal static class GpuDetector
     public static bool TryGetNvidia(out NvidiaGpuInfo info)
     {
         info = new NvidiaGpuInfo("Unknown NVIDIA GPU", 0, "");
+        if (!TryGetNvidiaAdapters(out var adapters) || adapters.Count == 0)
+            return false;
 
+        info = adapters[0];
+        return true;
+    }
+
+    internal static bool TryGetNvidiaAdapters(out IReadOnlyList<NvidiaGpuInfo> adapters)
+    {
+        var detected = new List<NvidiaGpuInfo>();
+        adapters = detected;
         try
         {
             var psi = new ProcessStartInfo
             {
                 FileName = "nvidia-smi",
-                Arguments = "--query-gpu=name,memory.total,driver_version --format=csv,noheader,nounits",
+                Arguments = "--query-gpu=index,name,memory.total,driver_version,uuid,pci.bus_id --format=csv,noheader,nounits",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -241,20 +260,36 @@ internal static class GpuDetector
             using var proc = Process.Start(psi);
             if (proc is null) return false;
 
-            var line = proc.StandardOutput.ReadLine();
-            proc.WaitForExit(3000);
+            var output = proc.StandardOutput.ReadToEnd();
+            if (!proc.WaitForExit(3000))
+            {
+                try { proc.Kill(entireProcessTree: true); } catch { }
+                return false;
+            }
 
-            if (string.IsNullOrWhiteSpace(line)) return false;
+            foreach (var line in output.Split(
+                         new[] { "\r\n", "\n" },
+                         StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var parts = line.Split(',').Select(static part => part.Trim()).ToArray();
+                if (parts.Length < 4)
+                    continue;
 
-            var parts = line.Split(',').Select(p => p.Trim()).ToArray();
-            if (parts.Length < 2) return false;
+                _ = int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var index);
+                _ = int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var vramMiB);
+                if (string.IsNullOrWhiteSpace(parts[1]) || vramMiB <= 0)
+                    continue;
 
-            var name = parts[0];
-            _ = int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var vramMiB);
-            var drv = parts.Length >= 3 ? parts[2] : "";
+                detected.Add(new NvidiaGpuInfo(parts[1], vramMiB, parts[3])
+                {
+                    Index = index,
+                    Uuid = parts.Length >= 5 ? EmptyToNull(parts[4]) : null,
+                    PciBusId = parts.Length >= 6 ? EmptyToNull(parts[5]) : null
+                });
+            }
 
-            info = new NvidiaGpuInfo(name, vramMiB, drv);
-            return true;
+            adapters = detected;
+            return detected.Count > 0;
         }
         catch
         {
@@ -263,31 +298,83 @@ internal static class GpuDetector
     }
 
     /// <summary>
-    /// Try to detect the "best" GPU on the machine.
-    /// - NVIDIA: uses nvidia-smi (reliable VRAM).
-    /// - Otherwise: uses Win32_VideoController via PowerShell (CIM) to get Name + AdapterRAM + PNPDeviceID.
+    /// Enumerates every GPU reported by the available vendor and Windows probes.
+    /// NVIDIA telemetry is merged with CIM rather than short-circuiting the other
+    /// adapters, so heterogeneous machines retain their complete inventory.
+    /// Runtime device discovery and measured qualification decide what is usable;
+    /// this inventory alone must not be interpreted as a performance ranking.
+    /// </summary>
+    public static async Task<IReadOnlyList<GpuInfo>> TryGetGpusAsync(CancellationToken ct)
+    {
+        var cimAdapters = await TryGetCimAdaptersAsync(ct).ConfigureAwait(false);
+        if (!TryGetNvidiaAdapters(out var nvidiaAdapters))
+            return cimAdapters;
+
+        var merged = cimAdapters.ToList();
+        var matchedCimIndices = new HashSet<int>();
+        foreach (var nvidia in nvidiaAdapters)
+        {
+            var cimIndex = FindMatchingNvidiaCimIndex(merged, matchedCimIndices, nvidia);
+            if (cimIndex >= 0)
+            {
+                var cim = merged[cimIndex];
+                matchedCimIndices.Add(cimIndex);
+                merged[cimIndex] = cim with
+                {
+                    DedicatedVramBytes = (long)nvidia.VramMiB * 1024L * 1024L,
+                    DetectionSource = "nvidia-smi+cim",
+                    DriverVersion = EmptyToNull(nvidia.DriverVersion) ?? cim.DriverVersion,
+                    RuntimeDeviceHint = nvidia.Index is { } matchedCudaIndex ? $"CUDA{matchedCudaIndex}" : cim.RuntimeDeviceHint,
+                    StableDeviceId = EmptyToNull(nvidia.Uuid)
+                                     ?? EmptyToNull(nvidia.PciBusId)
+                                     ?? cim.StableDeviceId
+                                     ?? cim.PnpDeviceId
+                };
+                continue;
+            }
+
+            merged.Add(new GpuInfo(
+                Vendor: GpuVendor.Nvidia,
+                Name: nvidia.Name,
+                DedicatedVramBytes: (long)nvidia.VramMiB * 1024L * 1024L,
+                IsIntegrated: false,
+                DetectionSource: "nvidia-smi")
+            {
+                DriverVersion = EmptyToNull(nvidia.DriverVersion),
+                RuntimeDeviceHint = nvidia.Index is { } standaloneCudaIndex ? $"CUDA{standaloneCudaIndex}" : null,
+                StableDeviceId = EmptyToNull(nvidia.Uuid) ?? EmptyToNull(nvidia.PciBusId)
+            });
+        }
+
+        return merged;
+    }
+
+    /// <summary>
+    /// Returns one legacy primary adapter for call sites not yet migrated to the
+    /// measured multi-backend qualifier. It never suppresses inventory capture.
+    /// </summary>
+    public static async Task<GpuInfo?> TryGetBestGpuAsync(CancellationToken ct)
+        => SelectLegacyPrimaryGpu(await TryGetGpusAsync(ct).ConfigureAwait(false));
+
+    internal static GpuInfo? SelectLegacyPrimaryGpu(IReadOnlyList<GpuInfo> adapters)
+        => adapters
+            .OrderByDescending(static gpu => !gpu.IsIntegrated && gpu.DedicatedVramBytes > 0)
+            .ThenByDescending(static gpu => gpu.DedicatedVramBytes)
+            .ThenByDescending(static gpu => gpu.Vendor == GpuVendor.Nvidia)
+            .FirstOrDefault();
+
+    /// <summary>
+    /// Reads Win32_VideoController via PowerShell to retain all Windows adapters.
     /// Notes:
     /// - iGPU/APU often reports shared memory; we treat integrated GPUs as DedicatedVramBytes=0 (conservative).
     /// </summary>
-    public static async Task<GpuInfo?> TryGetBestGpuAsync(CancellationToken ct)
+    private static async Task<IReadOnlyList<GpuInfo>> TryGetCimAdaptersAsync(CancellationToken ct)
     {
-        // 1) NVIDIA
-        if (TryGetNvidia(out var n) && n.VramMiB > 0)
-        {
-            return new GpuInfo(
-                Vendor: GpuVendor.Nvidia,
-                Name: n.Name,
-                DedicatedVramBytes: (long)n.VramMiB * 1024L * 1024L,
-                IsIntegrated: false,
-                DetectionSource: "nvidia-smi");
-        }
-
-        // 2) CIM (PowerShell)
         try
         {
             // JSON list of video controllers
             // Using PowerShell avoids System.Management dependency.
-            var cmd = "Get-CimInstance Win32_VideoController | Select-Object Name,AdapterRAM,PNPDeviceID | ConvertTo-Json";
+            var cmd = "Get-CimInstance Win32_VideoController | Select-Object Name,AdapterRAM,PNPDeviceID,DriverVersion | ConvertTo-Json";
 
             var psi = new ProcessStartInfo
             {
@@ -300,12 +387,12 @@ internal static class GpuDetector
             };
 
             using var proc = Process.Start(psi);
-            if (proc is null) return null;
+            if (proc is null) return Array.Empty<GpuInfo>();
 
             var json = await proc.StandardOutput.ReadToEndAsync().ConfigureAwait(false);
             await proc.WaitForExitAsync(ct).ConfigureAwait(false);
 
-            if (string.IsNullOrWhiteSpace(json)) return null;
+            if (string.IsNullOrWhiteSpace(json)) return Array.Empty<GpuInfo>();
 
             using var doc = JsonDocument.Parse(json);
 
@@ -314,14 +401,16 @@ internal static class GpuDetector
                 ? doc.RootElement.EnumerateArray().ToArray()
                 : new[] { doc.RootElement };
 
-            if (items.Length == 0) return null;
+            if (items.Length == 0) return Array.Empty<GpuInfo>();
 
-            GpuInfo? best = null;
-
+            var adapters = new List<GpuInfo>(items.Length);
             foreach (var el in items)
             {
                 var name = el.TryGetProperty("Name", out var pn) ? (pn.GetString() ?? "") : "";
                 var pnp = el.TryGetProperty("PNPDeviceID", out var pp) ? (pp.GetString() ?? "") : "";
+                var driverVersion = el.TryGetProperty("DriverVersion", out var pd)
+                    ? EmptyToNull(pd.GetString())
+                    : null;
 
                 long adapterRam = 0;
                 if (el.TryGetProperty("AdapterRAM", out var pr))
@@ -343,21 +432,48 @@ internal static class GpuDetector
 
                 var info = new GpuInfo(vendor, string.IsNullOrWhiteSpace(name) ? "Unknown GPU" : name, dedicated, integrated, "cim")
                 {
-                    PnpDeviceId = pnp
+                    PnpDeviceId = pnp,
+                    DriverVersion = driverVersion,
+                    StableDeviceId = EmptyToNull(pnp)
                 };
-
-                // Choose the controller with highest dedicated VRAM.
-                if (best is null || info.DedicatedVramBytes > best.DedicatedVramBytes)
-                    best = info;
+                adapters.Add(info);
             }
 
-            return best;
+            return adapters;
         }
         catch
         {
-            return null;
+            return Array.Empty<GpuInfo>();
         }
     }
+
+    private static int FindMatchingNvidiaCimIndex(
+        IReadOnlyList<GpuInfo> adapters,
+        IReadOnlySet<int> alreadyMatched,
+        NvidiaGpuInfo nvidia)
+    {
+        for (var index = 0; index < adapters.Count; index++)
+        {
+            if (alreadyMatched.Contains(index))
+                continue;
+            var adapter = adapters[index];
+            if (adapter.Vendor != GpuVendor.Nvidia)
+                continue;
+            if (string.Equals(adapter.Name.Trim(), nvidia.Name.Trim(), StringComparison.OrdinalIgnoreCase))
+                return index;
+        }
+
+        for (var index = 0; index < adapters.Count; index++)
+        {
+            if (!alreadyMatched.Contains(index) && adapters[index].Vendor == GpuVendor.Nvidia)
+                return index;
+        }
+
+        return -1;
+    }
+
+    private static string? EmptyToNull(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static GpuVendor ParseVendorFromPnp(string pnpDeviceId, string name)
     {

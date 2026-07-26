@@ -11,7 +11,7 @@ public sealed class ModelIntegrityServiceTests
         var root = NewTempRoot();
         var modelDir = Path.Combine(root, "models");
         Directory.CreateDirectory(modelDir);
-        var modelPath = Path.Combine(modelDir, "Qwen2.5-3B-Instruct-Q4_K_M.gguf");
+        var modelPath = Path.Combine(modelDir, "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf");
 
         try
         {
@@ -19,7 +19,7 @@ public sealed class ModelIntegrityServiceTests
             var settings = new AppSettings
             {
                 ModelPath = modelPath,
-                ModelId = "qwen2.5-3b-instruct-q4-k-m",
+                ModelId = "qwen3-4b-instruct-2507-q5-k-m",
                 UiLanguage = "en"
             };
 
@@ -27,7 +27,7 @@ public sealed class ModelIntegrityServiceTests
             var catalog = ModelCatalogStore.CreateDefaultCatalog();
             var patchedCatalog = catalog with
             {
-                Items = catalog.Items.Select(item => item.ModelId == "qwen2.5-3b-instruct-q4-k-m"
+                Items = catalog.Items.Select(item => item.ModelId == "qwen3-4b-instruct-2507-q5-k-m"
                     ? item with
                     {
                         ChecksumSha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

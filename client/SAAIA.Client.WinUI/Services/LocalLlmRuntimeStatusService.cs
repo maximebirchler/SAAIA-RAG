@@ -93,7 +93,10 @@ internal static class LocalLlmRuntimeStatusService
             }
         }
 
-        var profile = WarmupProfileStore.FindProfile(settings.QualifiedProfile.ProfileId);
+        var profile = await WarmupProfileStore.FindProfileAsync(
+            settings.QualifiedProfile.ProfileId,
+            root,
+            ct).ConfigureAwait(false);
         if (profile?.Mode == "fallback")
         {
             return new LocalLlmRuntimeStatus(
@@ -110,7 +113,9 @@ internal static class LocalLlmRuntimeStatusService
                 IsWarning: true);
         }
 
-        var drift = RequalificationTriggerService.EvaluateProfileDrift(settings);
+        var drift = RequalificationTriggerService.EvaluateProfileDrift(
+            settings,
+            profile?.Candidate);
         if (drift.Required)
         {
             return new LocalLlmRuntimeStatus(

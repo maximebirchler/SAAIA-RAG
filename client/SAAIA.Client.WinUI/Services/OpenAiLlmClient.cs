@@ -8,6 +8,8 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using SAAIA.Client.WinUI.Services.ToolAgent;
+using SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag;
 
 
 namespace SAAIA.Client.WinUI.Services;
@@ -26,7 +28,7 @@ public sealed class OpenAiLlmClient
 
     // Exemple llama.cpp server OpenAI compat : http://127.0.0.1:8080/v1
     private string _baseUrl = "http://127.0.0.1:8080/v1";
-    private string _model = "mistral";
+    private string _model = "local";
 
     private static readonly JsonSerializerOptions JsonOpts = ClientJson.CamelCase;
 
@@ -74,47 +76,365 @@ public sealed class OpenAiLlmClient
         IReadOnlyList<(string role, string content)> messages,
         double temperature,
         int maxTokens,
+        CancellationToken ct,
+        bool forceJson = false)
+        => await ChatOnceCoreAsync(
+                messages,
+                temperature,
+                maxTokens,
+                ct,
+                forceJson,
+                structuredOutput: null)
+            .ConfigureAwait(false);
+
+    public async Task<string> ChatOnceStructuredAsync(
+        IReadOnlyList<(string role, string content)> messages,
+        double temperature,
+        int maxTokens,
+        LlmStructuredOutputContract contract,
         CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(contract);
+        return await ChatOnceCoreAsync(
+                messages,
+                temperature,
+                maxTokens,
+                ct,
+                forceJson: true,
+                contract)
+            .ConfigureAwait(false);
+    }
+
+    public async Task<SourceBackedAgentCompletion> ChatOnceNativeAsync(
+        IReadOnlyList<SourceBackedAgentMessage> messages,
+        IReadOnlyList<SourceBackedAgentToolDefinition> tools,
+        double temperature,
+        int maxTokens,
+        CancellationToken ct,
+        bool requireToolCall = false)
+    {
+        ArgumentNullException.ThrowIfNull(messages);
+        ArgumentNullException.ThrowIfNull(tools);
         await EnsureRuntimeReadyAsync(ct).ConfigureAwait(false);
         RuntimeActivityStarted?.Invoke();
         try
         {
-            var payload = new
+            var payload = new Dictionary<string, object?>
             {
-                model = _model,
-                temperature,
-                top_p = 0.85,
-                frequency_penalty = 0.2,
-                presence_penalty = 0.05,
-                max_tokens = maxTokens,
-                stream = false,
-                stop = new[] { "\nUSER_MESSAGE:", "\nTOOL_RESULTS", "\nDRAFT_ANSWER:", "\nCHAT_TAIL:" },
-                messages = messages.Select(m => new { role = m.role, content = m.content }).ToArray()
+                ["model"] = _model,
+                ["max_tokens"] = maxTokens,
+                ["stream"] = false,
+                ["messages"] = messages.Select(ToNativeToolMessagePayload).ToArray()
             };
+            if (tools.Count > 0)
+            {
+                payload["tools"] = tools.Select(static tool => new Dictionary<string, object?>
+                {
+                    ["type"] = "function",
+                    ["function"] = new Dictionary<string, object?>
+                    {
+                        ["name"] = tool.Name,
+                        ["description"] = tool.Description,
+                        ["parameters"] = tool.Parameters
+                    }
+                }).ToArray();
+                payload["tool_choice"] = requireToolCall ? "required" : "auto";
+                payload["parallel_tool_calls"] = !requireToolCall;
+            }
+            LlmSamplingConfiguration.ResolveFromEnvironment().Apply(
+                payload,
+                temperature,
+                structuredOutput: false);
 
             using var req = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/chat/completions");
             req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             req.Content = new StringContent(JsonSerializer.Serialize(payload, JsonOpts), Encoding.UTF8, "application/json");
 
-            using var resp = await _http.SendAsync(req, ct);
+            using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
             await EnsureSuccessAsync(resp, ct).ConfigureAwait(false);
-
-            var json = await resp.Content.ReadAsStringAsync(ct);
-            using var doc = JsonDocument.Parse(json);
-
-            var content = doc.RootElement
-                .GetProperty("choices")[0]
-                .GetProperty("message")
-                .GetProperty("content")
-                .GetString();
-
-            return content ?? "";
+            var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            return ParseNativeToolCompletion(json);
         }
         finally
         {
             RuntimeActivityFinished?.Invoke();
         }
+    }
+
+    private static Dictionary<string, object?> ToNativeToolMessagePayload(SourceBackedAgentMessage message)
+    {
+        var payload = new Dictionary<string, object?>
+        {
+            ["role"] = message.Role
+        };
+
+        if (string.Equals(message.Role, "assistant", StringComparison.OrdinalIgnoreCase))
+        {
+            payload["content"] = string.IsNullOrEmpty(message.Content) ? null : message.Content;
+            if (message.ToolCalls is { Count: > 0 })
+            {
+                payload["tool_calls"] = message.ToolCalls.Select(static call => new Dictionary<string, object?>
+                {
+                    ["id"] = call.Id,
+                    ["type"] = "function",
+                    ["function"] = new Dictionary<string, object?>
+                    {
+                        ["name"] = call.Name,
+                        ["arguments"] = call.Arguments.GetRawText()
+                    }
+                }).ToArray();
+            }
+
+            return payload;
+        }
+
+        payload["content"] = message.Content ?? string.Empty;
+        if (string.Equals(message.Role, "tool", StringComparison.OrdinalIgnoreCase))
+        {
+            payload["tool_call_id"] = message.ToolCallId ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(message.Name))
+                payload["name"] = message.Name;
+        }
+
+        return payload;
+    }
+
+    private static SourceBackedAgentCompletion ParseNativeToolCompletion(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        var choice = root.GetProperty("choices")[0];
+        var message = choice.GetProperty("message");
+        var content = message.TryGetProperty("content", out var contentElement)
+                      && contentElement.ValueKind == JsonValueKind.String
+            ? contentElement.GetString() ?? string.Empty
+            : string.Empty;
+        var calls = new List<SourceBackedAgentToolCall>();
+        if (message.TryGetProperty("tool_calls", out var toolCalls)
+            && toolCalls.ValueKind == JsonValueKind.Array)
+        {
+            var index = 0;
+            foreach (var toolCall in toolCalls.EnumerateArray())
+            {
+                index++;
+                if (!toolCall.TryGetProperty("function", out var function)
+                    || function.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                var id = toolCall.TryGetProperty("id", out var idElement)
+                         && idElement.ValueKind == JsonValueKind.String
+                    ? idElement.GetString()
+                    : null;
+                var name = function.TryGetProperty("name", out var nameElement)
+                           && nameElement.ValueKind == JsonValueKind.String
+                    ? nameElement.GetString()
+                    : null;
+                var argumentText = function.TryGetProperty("arguments", out var argumentsElement)
+                    ? argumentsElement.ValueKind == JsonValueKind.String
+                        ? argumentsElement.GetString()
+                        : argumentsElement.GetRawText()
+                    : "{}";
+
+                var argumentError = default(string);
+                JsonElement arguments;
+                try
+                {
+                    using var argumentDocument = JsonDocument.Parse(
+                        string.IsNullOrWhiteSpace(argumentText) ? "{}" : argumentText);
+                    arguments = argumentDocument.RootElement.Clone();
+                    if (arguments.ValueKind != JsonValueKind.Object)
+                    {
+                        argumentError = "tool_arguments_must_be_an_object";
+                        arguments = JsonSerializer.SerializeToElement(new Dictionary<string, object?>());
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    argumentError = "invalid_tool_arguments_json: " + ex.Message;
+                    arguments = JsonSerializer.SerializeToElement(new Dictionary<string, object?>());
+                }
+
+                calls.Add(new SourceBackedAgentToolCall(
+                    string.IsNullOrWhiteSpace(id) ? $"tool-call-{index}" : id!,
+                    name?.Trim() ?? string.Empty,
+                    arguments,
+                    argumentError));
+            }
+        }
+
+        var finishReason = choice.TryGetProperty("finish_reason", out var finish)
+                           && finish.ValueKind == JsonValueKind.String
+            ? finish.GetString() ?? string.Empty
+            : string.Empty;
+        int? promptTokens = null;
+        int? completionTokens = null;
+        if (root.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object)
+        {
+            if (usage.TryGetProperty("prompt_tokens", out var prompt)
+                && prompt.TryGetInt32(out var promptValue))
+            {
+                promptTokens = promptValue;
+            }
+
+            if (usage.TryGetProperty("completion_tokens", out var completion)
+                && completion.TryGetInt32(out var completionValue))
+            {
+                completionTokens = completionValue;
+            }
+        }
+
+        return new SourceBackedAgentCompletion(
+            content,
+            calls,
+            finishReason,
+            promptTokens,
+            completionTokens);
+    }
+
+    private async Task<string> ChatOnceCoreAsync(
+        IReadOnlyList<(string role, string content)> messages,
+        double temperature,
+        int maxTokens,
+        CancellationToken ct,
+        bool forceJson,
+        LlmStructuredOutputContract? structuredOutput)
+    {
+        await EnsureRuntimeReadyAsync(ct).ConfigureAwait(false);
+        messages = OpenAiChatMessageNormalizer.MergeSystemMessages(messages);
+        RuntimeActivityStarted?.Invoke();
+        try
+        {
+            var resp = await SendChatRequestAsync(
+                    messages,
+                    temperature,
+                    maxTokens,
+                    forceJson,
+                    structuredOutput,
+                    useLegacyLlamaStructuredFormat: false,
+                    ct)
+                .ConfigureAwait(false);
+            if (structuredOutput is not null
+                && ((int)resp.StatusCode == 400 || (int)resp.StatusCode == 422))
+            {
+                ClientLog.Warn(
+                    $"OpenAI-compatible endpoint rejected response_format=json_schema ({(int)resp.StatusCode}); retrying with llama.cpp json_object+schema.");
+                resp.Dispose();
+                resp = await SendChatRequestAsync(
+                        messages,
+                        temperature,
+                        maxTokens,
+                        forceJson: true,
+                        structuredOutput,
+                        useLegacyLlamaStructuredFormat: true,
+                        ct)
+                    .ConfigureAwait(false);
+            }
+
+            if (structuredOutput is not null
+                && ((int)resp.StatusCode == 400 || (int)resp.StatusCode == 422))
+            {
+                ClientLog.Warn(
+                    $"OpenAI-compatible endpoint rejected legacy schema response format ({(int)resp.StatusCode}); retrying with unconstrained json_object.");
+                resp.Dispose();
+                resp = await SendChatRequestAsync(
+                        messages,
+                        temperature,
+                        maxTokens,
+                        forceJson: true,
+                        structuredOutput: null,
+                        useLegacyLlamaStructuredFormat: false,
+                        ct)
+                    .ConfigureAwait(false);
+            }
+            else if (structuredOutput is null
+                     && forceJson
+                && ((int)resp.StatusCode == 400 || (int)resp.StatusCode == 422))
+            {
+                ClientLog.Warn(
+                    $"OpenAI-compatible endpoint rejected response_format=json_object ({(int)resp.StatusCode}); retrying with prompt-only JSON enforcement.");
+                resp.Dispose();
+                resp = await SendChatRequestAsync(
+                        messages,
+                        temperature,
+                        maxTokens,
+                        forceJson: false,
+                        structuredOutput: null,
+                        useLegacyLlamaStructuredFormat: false,
+                        ct)
+                    .ConfigureAwait(false);
+            }
+
+            using (resp)
+            {
+                await EnsureSuccessAsync(resp, ct).ConfigureAwait(false);
+
+                var json = await resp.Content.ReadAsStringAsync(ct);
+                using var doc = JsonDocument.Parse(json);
+
+                var content = doc.RootElement
+                    .GetProperty("choices")[0]
+                    .GetProperty("message")
+                    .GetProperty("content")
+                    .GetString();
+
+                return content ?? "";
+            }
+        }
+        finally
+        {
+            RuntimeActivityFinished?.Invoke();
+        }
+    }
+
+    private async Task<HttpResponseMessage> SendChatRequestAsync(
+        IReadOnlyList<(string role, string content)> messages,
+        double temperature,
+        int maxTokens,
+        bool forceJson,
+        LlmStructuredOutputContract? structuredOutput,
+        bool useLegacyLlamaStructuredFormat,
+        CancellationToken ct)
+    {
+        var payload = new Dictionary<string, object?>
+        {
+            ["model"] = _model,
+            ["max_tokens"] = maxTokens,
+            ["stream"] = false,
+            ["stop"] = new[] { "\nUSER_MESSAGE:", "\nTOOL_RESULTS", "\nDRAFT_ANSWER:", "\nCHAT_TAIL:" },
+            ["messages"] = messages.Select(m => new { role = m.role, content = m.content }).ToArray()
+        };
+        LlmSamplingConfiguration.ResolveFromEnvironment().Apply(
+            payload,
+            temperature,
+            structuredOutput is not null);
+        if (structuredOutput is not null)
+        {
+            payload["response_format"] = useLegacyLlamaStructuredFormat
+                ? new Dictionary<string, object?>
+                {
+                    ["type"] = "json_object",
+                    ["schema"] = structuredOutput.Schema
+                }
+                : new Dictionary<string, object?>
+                {
+                    ["type"] = "json_schema",
+                    ["json_schema"] = new Dictionary<string, object?>
+                    {
+                        ["name"] = structuredOutput.Name,
+                        ["strict"] = true,
+                        ["schema"] = structuredOutput.Schema
+                    }
+                };
+        }
+        else if (forceJson)
+            payload["response_format"] = new Dictionary<string, string> { ["type"] = "json_object" };
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/chat/completions");
+        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        req.Content = new StringContent(JsonSerializer.Serialize(payload, JsonOpts), Encoding.UTF8, "application/json");
+        return await _http.SendAsync(req, ct).ConfigureAwait(false);
     }
 
     public async Task ChatStreamAsync(
@@ -125,21 +445,22 @@ public sealed class OpenAiLlmClient
         CancellationToken ct)
     {
         await EnsureRuntimeReadyAsync(ct).ConfigureAwait(false);
+        messages = OpenAiChatMessageNormalizer.MergeSystemMessages(messages);
         RuntimeActivityStarted?.Invoke();
         try
         {
-            var payload = new
+            var payload = new Dictionary<string, object?>
             {
-                model = _model,
-                temperature,
-                top_p = 0.85,
-                frequency_penalty = 0.2,
-                presence_penalty = 0.05,
-                max_tokens = maxTokens,
-                stream = true,
-                stop = new[] { "\nUSER_MESSAGE:", "\nTOOL_RESULTS", "\nDRAFT_ANSWER:", "\nCHAT_TAIL:" },
-                messages = messages.Select(m => new { role = m.role, content = m.content }).ToArray()
+                ["model"] = _model,
+                ["max_tokens"] = maxTokens,
+                ["stream"] = true,
+                ["stop"] = new[] { "\nUSER_MESSAGE:", "\nTOOL_RESULTS", "\nDRAFT_ANSWER:", "\nCHAT_TAIL:" },
+                ["messages"] = messages.Select(m => new { role = m.role, content = m.content }).ToArray()
             };
+            LlmSamplingConfiguration.ResolveFromEnvironment().Apply(
+                payload,
+                temperature,
+                structuredOutput: false);
 
             using var req = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/chat/completions");
             req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));

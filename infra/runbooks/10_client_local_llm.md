@@ -1,16 +1,17 @@
 # M6.1 — LLM local piloté par le client (llama.cpp)
 
-Objectif : permettre au client WinUI de **démarrer/arrêter** un serveur `llama.cpp` local (OpenAI-compat),
-et d’utiliser ce LLM pour la génération (le serveur SAAIA reste **sans LLM** en v2.7).
+Objectif : permettre au client WinUI de **démarrer/arrêter** un serveur
+`llama.cpp` local compatible OpenAI et d’utiliser le modèle gouverné pour la
+génération.
 
 ## Pré-requis
 
 - Un binaire `llama-server.exe` (llama.cpp) sur la machine client
-- Un modèle GGUF (ex : `Mistral-7B-Instruct-v0.3-IQ3_M.gguf`)
+- Le modèle gouverné `Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf`
 
 Recommandation de chemins :
 - `C:\SAAIA\llm\llama-server.exe`
-- `C:\SAAIA\models\Mistral-7B-Instruct-v0.3-IQ3_M.gguf`
+- `C:\SAAIA\models\Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf`
 
 ## Lancer le client (CLI)
 

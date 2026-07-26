@@ -43,30 +43,44 @@ internal sealed record HardwareProbeChange(
     string? StoredFingerprint,
     string? CurrentFingerprint);
 
+internal sealed record HardwareProbeCapture(
+    HardwareProbeArtifact Artifact,
+    IReadOnlyList<GpuInfo> Gpus,
+    IReadOnlyList<LocalLlmRuntimeCapabilityProbeResult> RuntimeProbes);
+
 internal static class HardwareProbeService
 {
     private static readonly SemaphoreSlim CacheLock = new(1, 1);
-    private static HardwareProbeArtifact? CachedProbe;
+    private static HardwareProbeCapture? CachedCapture;
 
     public static async Task<HardwareProbeArtifact> CaptureAsync(
         bool refresh = false,
         CancellationToken ct = default)
+        => (await CaptureDetailedAsync(refresh, ct).ConfigureAwait(false)).Artifact;
+
+    public static async Task<HardwareProbeCapture> CaptureDetailedAsync(
+        bool refresh = false,
+        CancellationToken ct = default)
     {
-        if (!refresh && CachedProbe is not null)
-            return CachedProbe;
+        if (!refresh && CachedCapture is not null)
+            return CachedCapture;
 
         await CacheLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (!refresh && CachedProbe is not null)
-                return CachedProbe;
+            if (!refresh && CachedCapture is not null)
+                return CachedCapture;
 
-            var gpu = await GpuDetector.TryGetBestGpuAsync(ct).ConfigureAwait(false);
+            var gpus = await GpuDetector.TryGetGpusAsync(ct).ConfigureAwait(false);
+            var gpu = GpuDetector.SelectLegacyPrimaryGpu(gpus);
             var driverVersion = TryGetDriverVersion(gpu);
             var memory = CaptureSystemMemory();
             var power = CapturePowerStatus();
             var dxgi = DxgiVideoMemoryProbe.TryQueryBestAdapter(gpu);
             var vendorTelemetry = CaptureVendorTelemetry(gpu);
+            var runtimeProbes = await LocalLlmRuntimeCapabilityProbe
+                .CaptureInstalledAsync(ct: ct, gpuInventory: gpus)
+                .ConfigureAwait(false);
 
             var probe = CreateArtifact(
                 gpu,
@@ -78,23 +92,32 @@ internal static class HardwareProbeService
                 Environment.Is64BitOperatingSystem,
                 DateTimeOffset.UtcNow,
                 power,
-                vendorTelemetry);
+                vendorTelemetry,
+                gpus,
+                runtimeProbes);
 
-            CachedProbe = probe;
-            return probe;
+            CachedCapture = new HardwareProbeCapture(probe, gpus, runtimeProbes);
+            return CachedCapture;
         }
         catch (Exception ex)
         {
-            return new HardwareProbeArtifact(
-                GovernanceArtifactStore.HardwareProbeFile,
-                "v3.1",
-                "degraded",
-                DateTimeOffset.UtcNow,
-                ComputeFingerprint(Environment.MachineName, Environment.ProcessorCount, Environment.Is64BitOperatingSystem, null),
-                new Dictionary<string, object?>
-                {
-                    ["error"] = ex.GetType().Name
-                });
+            return new HardwareProbeCapture(
+                new HardwareProbeArtifact(
+                    GovernanceArtifactStore.HardwareProbeFile,
+                    "v3.1",
+                    "degraded",
+                    DateTimeOffset.UtcNow,
+                    ComputeFingerprint(
+                        Environment.MachineName,
+                        Environment.ProcessorCount,
+                        Environment.Is64BitOperatingSystem,
+                        null),
+                    new Dictionary<string, object?>
+                    {
+                        ["error"] = ex.GetType().Name
+                    }),
+                Array.Empty<GpuInfo>(),
+                Array.Empty<LocalLlmRuntimeCapabilityProbeResult>());
         }
         finally
         {
@@ -180,8 +203,12 @@ internal static class HardwareProbeService
         bool is64BitOperatingSystem,
         DateTimeOffset capturedAt,
         PowerStatusSnapshot? power = null,
-        VendorGpuTelemetrySnapshot? vendorTelemetry = null)
+        VendorGpuTelemetrySnapshot? vendorTelemetry = null,
+        IReadOnlyList<GpuInfo>? gpus = null,
+        IReadOnlyList<LocalLlmRuntimeCapabilityProbeResult>? runtimeProbes = null)
     {
+        var inventory = NormalizeGpuInventory(gpu, gpus);
+        var primaryInventoryIndex = FindPrimaryInventoryIndex(inventory, gpu);
         var status = gpu is null
             ? "degraded"
             : dxgi is null && gpu.DedicatedVramBytes > 0
@@ -192,6 +219,8 @@ internal static class HardwareProbeService
         {
             ["cpuCount"] = processorCount,
             ["is64BitOperatingSystem"] = is64BitOperatingSystem,
+            ["osArchitecture"] = RuntimeInformation.OSArchitecture.ToString().ToLowerInvariant(),
+            ["processArchitecture"] = RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant(),
             ["totalRamMiB"] = ToMiB(memory.TotalRamBytes),
             ["availableRamMiB"] = ToMiB(memory.AvailableRamBytes),
             ["systemMemorySource"] = memory.Source,
@@ -218,7 +247,47 @@ internal static class HardwareProbeService
             ["gpuVramTotalMiB"] = vendorTelemetry?.VramTotalMiB,
             ["gpuTemperatureC"] = vendorTelemetry?.TemperatureC,
             ["gpuCoreClockMHz"] = vendorTelemetry?.CoreClockMHz,
-            ["gpuUtilizationPercent"] = vendorTelemetry?.UtilizationPercent
+            ["gpuUtilizationPercent"] = vendorTelemetry?.UtilizationPercent,
+            ["gpuCount"] = inventory.Count,
+            ["gpus"] = inventory.Select((adapter, index) => new Dictionary<string, object?>
+            {
+                ["inventoryIndex"] = index,
+                ["vendor"] = adapter.Vendor.ToString().ToLowerInvariant(),
+                ["name"] = adapter.Name,
+                ["dedicatedVramMiB"] = adapter.DedicatedVramMiB,
+                ["isIntegrated"] = adapter.IsIntegrated,
+                ["detectionSource"] = adapter.DetectionSource,
+                ["driverVersion"] = adapter.DriverVersion,
+                ["pnpDeviceId"] = adapter.PnpDeviceId,
+                ["stableDeviceId"] = adapter.StableDeviceId,
+                ["runtimeDeviceHint"] = adapter.RuntimeDeviceHint,
+                ["isLegacyPrimary"] = index == primaryInventoryIndex
+            }).ToArray(),
+            ["runtimeProbeCount"] = runtimeProbes?.Count ?? 0,
+            ["runtimeDeviceCount"] = runtimeProbes?.Sum(static probe => probe.Devices.Count) ?? 0,
+            ["runtimeProbes"] = (runtimeProbes ?? Array.Empty<LocalLlmRuntimeCapabilityProbeResult>())
+                .Select(probe => new Dictionary<string, object?>
+                {
+                    ["runtimeId"] = probe.RuntimeId,
+                    ["executablePath"] = probe.ExecutablePath,
+                    ["succeeded"] = probe.Succeeded,
+                    ["timedOut"] = probe.TimedOut,
+                    ["exitCode"] = probe.ExitCode,
+                    ["durationMs"] = probe.DurationMs,
+                    ["diagnostic"] = probe.Diagnostic,
+                    ["devices"] = probe.Devices.Select(device => new Dictionary<string, object?>
+                    {
+                        ["deviceId"] = device.DeviceId,
+                        ["description"] = device.Description,
+                        ["discoverySource"] = device.DiscoverySource,
+                        ["reportedMemoryMiB"] = device.ReportedMemoryMiB,
+                        ["reportedFreeMemoryMiB"] = device.ReportedFreeMemoryMiB,
+                        ["reportsSharedMemory"] = device.ReportsSharedMemory,
+                        ["memoryArchitecture"] = device.MemoryArchitecture,
+                        ["hardwareMatchSource"] = device.HardwareMatchSource,
+                        ["matchedHardwareDeviceId"] = device.MatchedHardwareDeviceId
+                    }).ToArray()
+                }).ToArray()
         };
 
         return new HardwareProbeArtifact(
@@ -226,8 +295,37 @@ internal static class HardwareProbeService
             "v3.1",
             status,
             capturedAt,
-            ComputeFingerprint(machineName, processorCount, is64BitOperatingSystem, gpu),
+            ComputeFingerprint(machineName, processorCount, is64BitOperatingSystem, gpu, inventory),
             hardware);
+    }
+
+    private static IReadOnlyList<GpuInfo> NormalizeGpuInventory(
+        GpuInfo? primary,
+        IReadOnlyList<GpuInfo>? gpus)
+    {
+        if (gpus is { Count: > 0 })
+            return gpus;
+        return primary is null ? Array.Empty<GpuInfo>() : new[] { primary };
+    }
+
+    private static int FindPrimaryInventoryIndex(IReadOnlyList<GpuInfo> inventory, GpuInfo? primary)
+    {
+        if (primary is null)
+            return -1;
+
+        for (var index = 0; index < inventory.Count; index++)
+        {
+            if (ReferenceEquals(inventory[index], primary))
+                return index;
+        }
+
+        for (var index = 0; index < inventory.Count; index++)
+        {
+            if (Equals(inventory[index], primary))
+                return index;
+        }
+
+        return -1;
     }
 
     private static SystemMemorySnapshot CaptureSystemMemory()
@@ -490,6 +588,8 @@ internal static class HardwareProbeService
 
     private static string? TryGetDriverVersion(GpuInfo? gpu)
     {
+        if (!string.IsNullOrWhiteSpace(gpu?.DriverVersion))
+            return gpu.DriverVersion;
         if (gpu?.Vendor != GpuVendor.Nvidia)
             return null;
 
@@ -597,18 +697,31 @@ internal static class HardwareProbeService
         string machineName,
         int processorCount,
         bool is64BitOperatingSystem,
-        GpuInfo? gpu)
+        GpuInfo? gpu,
+        IReadOnlyList<GpuInfo>? gpus = null)
     {
-        var text = string.Join(
-            "|",
+        var identityParts = new List<string>
+        {
             machineName ?? string.Empty,
             processorCount.ToString(CultureInfo.InvariantCulture),
-            is64BitOperatingSystem ? "x64" : "x86",
-            gpu?.Vendor.ToString() ?? string.Empty,
-            gpu?.Name ?? string.Empty,
-            gpu?.DedicatedVramBytes.ToString(CultureInfo.InvariantCulture) ?? "0",
-            gpu?.IsIntegrated.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+            is64BitOperatingSystem ? "64-bit" : "32-bit",
+            RuntimeInformation.OSArchitecture.ToString(),
+            RuntimeInformation.ProcessArchitecture.ToString()
+        };
+        foreach (var adapter in NormalizeGpuInventory(gpu, gpus)
+                     .OrderBy(static adapter => adapter.StableDeviceId ?? adapter.PnpDeviceId ?? adapter.Name, StringComparer.OrdinalIgnoreCase)
+                     .ThenBy(static adapter => adapter.Vendor)
+                     .ThenBy(static adapter => adapter.DedicatedVramBytes))
+        {
+            identityParts.Add(adapter.Vendor.ToString());
+            identityParts.Add(adapter.Name);
+            identityParts.Add(adapter.DedicatedVramBytes.ToString(CultureInfo.InvariantCulture));
+            identityParts.Add(adapter.IsIntegrated.ToString(CultureInfo.InvariantCulture));
+            identityParts.Add(adapter.StableDeviceId ?? adapter.PnpDeviceId ?? string.Empty);
+            identityParts.Add(adapter.DriverVersion ?? string.Empty);
+        }
 
+        var text = string.Join("|", identityParts);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text))).ToLowerInvariant();
     }
 

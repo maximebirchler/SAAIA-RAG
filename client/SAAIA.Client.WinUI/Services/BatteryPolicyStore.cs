@@ -46,14 +46,14 @@ internal static class BatteryPolicyStore
                 IdleTimeoutSecondsAc: 120,
                 IdleTimeoutSecondsBattery: 60,
                 EagerLoadAllowedOnBattery: false,
-                OnBatteryFallbackProfileRef: "qwen25-3b-q4km-cuda-p520-stable"),
+                OnBatteryFallbackProfileRef: "qwen3-4b-2507-q5km-cuda-4gb-stable"),
             new BatteryPolicyItem(
                 Key: "client-eco",
                 Mode: "eco",
                 IdleTimeoutSecondsAc: 90,
                 IdleTimeoutSecondsBattery: 30,
                 EagerLoadAllowedOnBattery: false,
-                OnBatteryFallbackProfileRef: "qwen25-3b-q4km-cpu-safe")
+                OnBatteryFallbackProfileRef: "qwen3-4b-2507-q5km-cpu-safe")
         });
 
     public static async Task<BatteryPolicyDecision> EvaluateAsync(
@@ -86,7 +86,11 @@ internal static class BatteryPolicyStore
 
         if (isOnBattery.Value)
         {
-            var fallback = policy.OnBatteryFallbackProfileRef;
+            // Measured profiles carry a machine-specific fallback chain. Prefer it over
+            // the historical reference-machine fallback embedded in the default policy.
+            var fallback = !string.IsNullOrWhiteSpace(profile.FallbackProfileRef)
+                ? profile.FallbackProfileRef
+                : policy.OnBatteryFallbackProfileRef;
             var requiresRequalification = !string.IsNullOrWhiteSpace(fallback)
                 && !string.Equals(fallback, profile.ProfileId, StringComparison.OrdinalIgnoreCase);
             return new BatteryPolicyDecision(

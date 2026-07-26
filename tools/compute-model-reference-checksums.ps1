@@ -30,163 +30,32 @@ if ([string]::IsNullOrWhiteSpace($CatalogArtifactPath)) {
 
 $knownModels = @(
     [pscustomobject]@{
-        ModelId = "qwen2.5-3b-instruct-q4-k-m"
-        FileName = "Qwen2.5-3B-Instruct-Q4_K_M.gguf"
-        Family = "qwen2.5"
-        Quantization = "Q4_K_M"
-        VariantState = "approved"
-        DisplayName = "Qwen2.5 3B Instruct Q4_K_M"
-        SourceRef = "hf-bartowski-qwen25-3b"
-        Architecture = "qwen2"
-        BlockCount = 36
-        HeadCount = 16
-        HeadCountKv = 2
-        EmbeddingLength = 2048
-        ContextLength = 32768
-        FeedForwardLength = 11008
-    },
-    [pscustomobject]@{
-        ModelId = "qwen2.5-3b-instruct-q6-k-l"
-        FileName = "Qwen2.5-3B-Instruct-Q6_K_L.gguf"
-        Family = "qwen2.5"
-        Quantization = "Q6_K_L"
-        VariantState = "approved"
-    },
-    [pscustomobject]@{
-        ModelId = "qwen2.5-3b-instruct-q8-0"
-        FileName = "Qwen2.5-3B-Instruct-Q8_0.gguf"
-        Family = "qwen2.5"
-        Quantization = "Q8_0"
-        VariantState = "approved"
-    },
-    [pscustomobject]@{
-        ModelId = "qwen2.5-3b-instruct-q4-k-s"
-        FileName = "Qwen2.5-3B-Instruct-Q4_K_S.gguf"
-        Family = "qwen2.5"
-        Quantization = "Q4_K_S"
-        VariantState = "legacy_optional"
-    },
-    [pscustomobject]@{
-        ModelId = "qwen2.5-3b-instruct-q4-0"
-        FileName = "Qwen2.5-3B-Instruct-Q4_0.gguf"
-        Family = "qwen2.5"
-        Quantization = "Q4_0"
-        VariantState = "legacy_optional"
-    },
-    [pscustomobject]@{
-        ModelId = "qwen2.5-3b-instruct-q6-k"
-        FileName = "Qwen2.5-3B-Instruct-Q6_K.gguf"
-        Family = "qwen2.5"
-        Quantization = "Q6_K"
-        VariantState = "legacy_optional"
-    },
-    [pscustomobject]@{
-        ModelId = "mistral-7b-instruct-v0.3-q4-k-m"
-        FileName = "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf"
-        Family = "mistral"
-        Quantization = "Q4_K_M"
-        VariantState = "approved"
-    },
-    [pscustomobject]@{
-        ModelId = "mistral-7b-instruct-v0.3-iq3-m"
-        FileName = "Mistral-7B-Instruct-v0.3-IQ3_M.gguf"
-        Family = "mistral"
-        Quantization = "IQ3_M"
-        VariantState = "approved"
-    },
-    [pscustomobject]@{
-        ModelId = "mistral-7b-instruct-v0.3-q6-k"
-        FileName = "Mistral-7B-Instruct-v0.3-Q6_K.gguf"
-        Family = "mistral"
-        Quantization = "Q6_K"
-        VariantState = "legacy_optional"
-    },
-    [pscustomobject]@{
-        ModelId = "gemma-4-e2b-it-q4-k-m"
-        FileName = "gemma-4-E2B-it-Q4_K_M.gguf"
-        Family = "gemma4-e2b"
-        Quantization = "Q4_K_M"
-        VariantState = "approved"
-    },
-    [pscustomobject]@{
-        ModelId = "gemma-4-e2b-it-q8-0"
-        FileName = "gemma-4-E2B-it-Q8_0.gguf"
-        Family = "gemma4-e2b"
-        Quantization = "Q8_0"
-        VariantState = "approved"
-    },
-    [pscustomobject]@{
-        ModelId = "gemma-4-e4b-it-q4-k-m"
-        FileName = "gemma-4-E4B-it-Q4_K_M.gguf"
-        Family = "gemma4-e4b"
-        Quantization = "Q4_K_M"
-        VariantState = "approved"
-    },
-    [pscustomobject]@{
-        ModelId = "qwen3.6-27b-q4-k-m"
-        FileName = "Qwen3.6-27B-Q4_K_M.gguf"
-        Family = "qwen3.6"
-        Quantization = "Q4_K_M"
-        VariantState = "approved"
-        DisplayName = "Qwen3.6 27B Q4_K_M"
-        SourceRef = "local-bundle"
-        Architecture = "qwen3"
-        ContextLength = 40960
-    },
-    [pscustomobject]@{
-        ModelId = "qwen3.6-35b-a3b-ud-q3-k-s"
-        FileName = "Qwen3.6-35B-A3B-UD-Q3_K_S.gguf"
-        Family = "qwen3.6-a3b"
-        Quantization = "Q3_K_S"
-        VariantState = "approved"
-        DisplayName = "Qwen3.6 35B A3B UD Q3_K_S"
-        SourceRef = "local-bundle"
-        Architecture = "qwen3"
-        ContextLength = 40960
-    },
-    [pscustomobject]@{
-        ModelId = "qwen3.6-35b-a3b-ud-q3-k-m"
-        FileName = "Qwen3.6-35B-A3B-UD-Q3_K_M.gguf"
-        Family = "qwen3.6-a3b"
-        Quantization = "Q3_K_M"
-        VariantState = "approved"
-        DisplayName = "Qwen3.6 35B A3B UD Q3_K_M"
-        SourceRef = "local-bundle"
-        Architecture = "qwen3"
-        ContextLength = 40960
-    },
-    [pscustomobject]@{
-        ModelId = "qwen3.6-35b-a3b-ud-iq4-xs"
-        FileName = "Qwen3.6-35B-A3B-UD-IQ4_XS.gguf"
-        Family = "qwen3.6-a3b"
-        Quantization = "IQ4_XS"
-        VariantState = "approved"
-        DisplayName = "Qwen3.6 35B A3B UD IQ4_XS"
-        SourceRef = "local-bundle"
-        Architecture = "qwen3"
-        ContextLength = 40960
-    },
-    [pscustomobject]@{
-        ModelId = "qwen3.6-35b-a3b-ud-q4-k-m"
-        FileName = "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf"
-        Family = "qwen3.6-a3b"
-        Quantization = "Q4_K_M"
-        VariantState = "approved"
-        DisplayName = "Qwen3.6 35B A3B UD Q4_K_M"
-        SourceRef = "local-bundle"
-        Architecture = "qwen3"
-        ContextLength = 40960
-    },
-    [pscustomobject]@{
-        ModelId = "qwen3.6-35b-a3b-ud-q5-k-m"
-        FileName = "Qwen3.6-35B-A3B-UD-Q5_K_M.gguf"
-        Family = "qwen3.6-a3b"
+        ModelId = "qwen3-4b-instruct-2507-q5-k-m"
+        FileName = "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf"
+        Family = "qwen3-4b-instruct-2507"
         Quantization = "Q5_K_M"
         VariantState = "approved"
-        DisplayName = "Qwen3.6 35B A3B UD Q5_K_M"
-        SourceRef = "local-bundle"
+        DisplayName = "Qwen3 4B Instruct 2507 Q5_K_M"
+        SourceRef = "hf-bartowski-qwen3-4b-2507"
         Architecture = "qwen3"
-        ContextLength = 40960
+        BlockCount = 36
+        HeadCount = 32
+        HeadCountKv = 8
+        ContextLength = 262144
+    },
+    [pscustomobject]@{
+        ModelId = "qwen3-4b-instruct-2507-q4-k-m"
+        FileName = "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf"
+        Family = "qwen3-4b-instruct-2507"
+        Quantization = "Q4_K_M"
+        VariantState = "approved"
+        DisplayName = "Qwen3 4B Instruct 2507 Q4_K_M"
+        SourceRef = "hf-bartowski-qwen3-4b-2507"
+        Architecture = "qwen3"
+        BlockCount = 36
+        HeadCount = 32
+        HeadCountKv = 8
+        ContextLength = 262144
     }
 )
 
@@ -370,7 +239,7 @@ function New-BootstrapCatalogDocument {
             continue
         }
 
-        if ($item.modelId -ne "qwen2.5-3b-instruct-q4-k-m") {
+        if ($item.modelId -notlike "qwen3-4b-instruct-2507-*") {
             continue
         }
 
@@ -384,12 +253,12 @@ function New-BootstrapCatalogDocument {
             checksumSha256 = $item.sha256
             checksumStatus = "verified_reference_hash"
             license = [pscustomobject]@{
-                licenseFamily = "qwen"
-                licenseDisplayName = "Qwen Research License"
+                licenseFamily = "apache-2.0"
+                licenseDisplayName = "Apache License 2.0"
                 commercialUseAllowed = $true
-                commercialUseConditions = "Commercial use allowed; separate license required above 100,000,000 monthly active users."
-                commercialUseThresholdMau = 100000000
-                requiresSeparateCommercialLicenseAboveThreshold = $true
+                commercialUseConditions = $null
+                commercialUseThresholdMau = $null
+                requiresSeparateCommercialLicenseAboveThreshold = $false
             }
             gguf = [pscustomobject]@{
                 architecture = $item.Architecture
@@ -400,18 +269,18 @@ function New-BootstrapCatalogDocument {
                 contextLength = $item.ContextLength
                 feedForwardLength = $item.FeedForwardLength
             }
-            approvedRuntimeRefs = @("llama.cpp-cuda", "llama.cpp-vulkan", "llama.cpp-cpu")
-            supportedScopes = @("client", "capability_b_backoffice")
-            businessStates = @("known", "authorized", "installable")
+            approvedRuntimeRefs = @("llama.cpp-cuda", "llama.cpp-vulkan", "llama.cpp-sycl", "llama.cpp-hip", "llama.cpp-cpu")
+            supportedScopes = @("client", "backend", "capability_b_backoffice")
+            businessStates = @("known", "authorized", "installable", "qualified")
             artifactStates = @("downloaded_pending", "verification_required")
-            supportTier = "client-baseline"
+            supportTier = if ($item.Quantization -eq "Q5_K_M") { "client-recommended" } else { "client-low-memory-fallback" }
         }
     }
 
     return [pscustomobject]@{
         artifact = "model_catalog.json"
         cdcAlignment = "v3.1"
-        version = "2026-04-22.phase0"
+        version = "2026-07-25.qwen3-4b-2507-promotion"
         generatedAt = [DateTimeOffset]::UtcNow.ToString("o")
         items = $catalogItems
     }

@@ -115,68 +115,62 @@ internal static class StartupMaintenanceMode
         if (!ok)
             throw new InvalidOperationException("Local runtime bootstrap failed: " + message);
 
+        var gpus = await GpuDetector.TryGetGpusAsync(default).ConfigureAwait(false);
+        var provisioning = await LocalLlmRuntimeProvisioningService.ProvisionApplicableAsync(
+            settings,
+            gpus,
+            progress: null).ConfigureAwait(false);
+        foreach (var result in provisioning.Results)
+        {
+            ClientLog.Info(
+                "[MaintenanceMode] Runtime backend provisioning: "
+                + $"{result.Plan.Backend} ok={result.Succeeded} "
+                + $"tracked={result.TrackedForQualification} message={result.Message}.");
+        }
+
+        if (!provisioning.Succeeded)
+        {
+            throw new InvalidOperationException(
+                "Applicable runtime provisioning failed: "
+                + string.Join(", ", provisioning.Reasons));
+        }
+
+        var progress = new Progress<LocalLlmAdaptiveQualificationProgress>(item =>
+            ClientLog.Info(
+                $"[MaintenanceMode] Adaptive qualification {item.StageIndex}/{item.StageCount}: "
+                + $"{item.Stage} - {item.Message}"));
+        var qualification = await LocalLlmAdaptiveQualificationService.QualifyIfRequiredAsync(
+            settings,
+            LocalLlmAdaptiveQualificationOptions.CreateDeep(Environment.ProcessorCount),
+            force: true,
+            root: root,
+            progress: progress).ConfigureAwait(false);
+        if (qualification.Succeeded && qualification.Promotion?.Winner is not null)
+        {
+            ClientLog.Info(
+                "[MaintenanceMode] Adaptive local runtime qualification passed: "
+                + $"{qualification.Promotion.Winner.ProfileId} "
+                + $"runtime={qualification.Promotion.Winner.Runtime}.");
+            return;
+        }
+
         var runtimeId = RequalificationTriggerService.DetectRuntimeKey(settings.LlamaExePath);
-        var modelId = ModelCatalogStore.ResolveCanonicalModelId(settings.ModelId)
-            ?? ModelCatalogStore.ResolveCanonicalModelId(Path.GetFileName(settings.ModelPath))
-            ?? settings.ModelId;
-        var reference = WarmupProfileStore.ResolveReferenceProfile(runtimeId, modelId);
-        if (reference is null)
+        if (LlamaCppReleaseDownloader.TryRollbackPendingRuntime(
+                runtimeId,
+                out var rollbackExe,
+                out var rollbackBuild)
+            && !string.IsNullOrWhiteSpace(rollbackExe))
         {
-            throw new InvalidOperationException(
-                $"No warmup reference profile matches runtime '{runtimeId}' and model '{modelId}'.");
-        }
-
-        if (settings.QualifiedProfile is null
-            || !string.Equals(settings.QualifiedProfile.Runtime, reference.Runtime, StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(settings.QualifiedProfile.ModelId, reference.ModelId, StringComparison.OrdinalIgnoreCase)
-            || RequalificationTriggerService.HasProfileConfigurationDrift(settings.QualifiedProfile, reference.Candidate))
-        {
-            settings.QualifiedProfile = reference.Candidate;
+            settings.LlamaExePath = rollbackExe;
             settings.Save();
-        }
-
-        _ = LlamaCppReleaseDownloader.EnsureRuntimeTrackedForQualification(runtimeId, settings.LlamaExePath);
-
-        var processManager = new LlamaCppProcessManager();
-        try
-        {
-            var start = await processManager.StartAsync(settings, default).ConfigureAwait(false);
-            if (!start.ok)
-                throw new InvalidOperationException("Local runtime start failed: " + start.message);
-
-            var result = await WarmupGate.RunQualificationAsync(
-                settings.QualifiedProfile!,
-                settings.LlmBaseUrl,
-                settings.ModelId,
-                root: root,
-                observedLoadMs: processManager.LastStartupLoadMs,
-                trigger: "maintenance_runtime_qualification",
-                ct: default).ConfigureAwait(false);
-
-            if (result.Status is WarmupGateStatus.Pass or WarmupGateStatus.PassDegraded)
-            {
-                _ = LlamaCppReleaseDownloader.TryMarkRuntimeQualified(runtimeId);
-                settings.QualifiedProfile = result.SelectedProfile ?? settings.QualifiedProfile;
-                settings.Save();
-                ClientLog.Info($"[MaintenanceMode] Local runtime qualification passed ({result.Status}).");
-                return;
-            }
-
-            if (LlamaCppReleaseDownloader.TryRollbackPendingRuntime(runtimeId, out var rollbackExe, out var rollbackBuild)
-                && !string.IsNullOrWhiteSpace(rollbackExe))
-            {
-                settings.LlamaExePath = rollbackExe;
-                settings.Save();
-                throw new InvalidOperationException(
-                    $"Local runtime qualification failed ({result.Status}); rolled back to '{rollbackBuild ?? "rollback"}'.");
-            }
-
             throw new InvalidOperationException(
-                $"Local runtime qualification failed ({result.Status}): {string.Join(", ", result.Reasons)}");
+                "Adaptive local runtime qualification failed; "
+                + $"rolled back to '{rollbackBuild ?? "rollback"}'. "
+                + string.Join(", ", qualification.Reasons));
         }
-        finally
-        {
-            processManager.Stop();
-        }
+
+        throw new InvalidOperationException(
+            "Adaptive local runtime qualification failed: "
+            + string.Join(", ", qualification.Reasons));
     }
 }

@@ -13,6 +13,8 @@ namespace SAAIA.Client.WinUI.Services;
 /// </summary>
 internal static class ClientLog
 {
+    private const long MaximumLogBytes = 10L * 1024 * 1024;
+    private const int RetainedLogCount = 3;
     private static readonly object _lock = new();
     private static string? _logDir;
     private static int _handlersRegistered;
@@ -51,6 +53,7 @@ internal static class ClientLog
             var line = $"{DateTimeOffset.Now:O} [{level}] {message}";
             lock (_lock)
             {
+                RotateIfNeeded(StartupLogPath, MaximumLogBytes, RetainedLogCount);
                 File.AppendAllText(StartupLogPath, line + Environment.NewLine, Encoding.UTF8);
             }
             Debug.WriteLine(line);
@@ -59,6 +62,37 @@ internal static class ClientLog
         {
             // Never throw from logger.
         }
+    }
+
+    internal static void RotateIfNeeded(string logPath, long maximumBytes, int retainedLogCount)
+    {
+        if (maximumBytes <= 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumBytes));
+        if (retainedLogCount < 0)
+            throw new ArgumentOutOfRangeException(nameof(retainedLogCount));
+        if (!File.Exists(logPath) || new FileInfo(logPath).Length < maximumBytes)
+            return;
+
+        if (retainedLogCount == 0)
+        {
+            File.Delete(logPath);
+            return;
+        }
+
+        var oldest = logPath + "." + retainedLogCount;
+        if (File.Exists(oldest))
+            File.Delete(oldest);
+
+        for (var index = retainedLogCount - 1; index >= 1; index--)
+        {
+            var source = logPath + "." + index;
+            if (!File.Exists(source))
+                continue;
+
+            File.Move(source, logPath + "." + (index + 1));
+        }
+
+        File.Move(logPath, logPath + ".1");
     }
 
     /// <summary>

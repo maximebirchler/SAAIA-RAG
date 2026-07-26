@@ -37,7 +37,7 @@ powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 `
   -Mode agent `
   -BackendBaseUrl "https://saaia-server.taila2196b.ts.net" `
   -LlmBaseUrl "http://127.0.0.1:1234" `
-  -LlmModel "Qwen2.5-3B-Instruct-Q4_K_M.gguf" `
+  -LlmModel "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf" `
   -Category "Cuisine"
 ```
 
@@ -119,7 +119,7 @@ powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 `
   -Mode agent `
   -BackendBaseUrl "https://saaia-server.taila2196b.ts.net" `
   -LlmBaseUrl "http://127.0.0.1:1234" `
-  -LlmModel "Qwen2.5-3B-Instruct-Q4_K_M.gguf" `
+  -LlmModel "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf" `
   -Category "Cuisine" `
   -Ids Q030,Q078,Q123,Q159,Q181,Q292 `
   -TimeoutSeconds 300 `

@@ -48,45 +48,64 @@ internal static class RuntimeCompatibilityPolicyStore
         {
             new RuntimeCompatibilityItem(
                 RuntimeId: "llama.cpp-cuda",
-                Build: "b8149",
-                Backend: "cuda",
-                SupportsArchitectures: new[] { "llama", "mistral", "qwen2" },
-                SupportTier: "legacy-current"),
-            new RuntimeCompatibilityItem(
-                RuntimeId: "llama.cpp-cuda",
                 Build: "b8901",
                 Backend: "cuda",
-                SupportsArchitectures: new[] { "llama", "mistral", "qwen2", "qwen3", "gemma4" },
-                SupportTier: "gemma4-compatible"),
+                SupportsArchitectures: new[] { "qwen3" },
+                SupportTier: "qwen3-qualified"),
             new RuntimeCompatibilityItem(
                 RuntimeId: "llama.cpp-cpu",
                 Build: "b8901",
                 Backend: "cpu",
-                SupportsArchitectures: new[] { "llama", "mistral", "qwen2", "qwen3", "gemma4" },
-                SupportTier: "gemma4-compatible")
+                SupportsArchitectures: new[] { "qwen3" },
+                SupportTier: "qwen3-qualified"),
+            new RuntimeCompatibilityItem(
+                RuntimeId: "llama.cpp-vulkan",
+                Build: "b8901",
+                Backend: "vulkan",
+                SupportsArchitectures: new[] { "qwen3" },
+                SupportTier: "qwen3-qualified"),
+            new RuntimeCompatibilityItem(
+                RuntimeId: "llama.cpp-sycl",
+                Build: "b8901",
+                Backend: "sycl",
+                SupportsArchitectures: new[] { "qwen3" },
+                SupportTier: "qwen3-qualified"),
+            new RuntimeCompatibilityItem(
+                RuntimeId: "llama.cpp-hip",
+                Build: "b8901",
+                Backend: "hip",
+                SupportsArchitectures: new[] { "qwen3" },
+                SupportTier: "qwen3-qualified")
         },
         MinModelRules: new[]
         {
             new RuntimeModelRule(
-                ModelFamily: "gemma4",
+                ModelFamily: "qwen3",
                 RuntimeId: "llama.cpp-cuda",
                 MinBuild: "b8901",
-                Reason: "Gemma 4 GGUF uses general.architecture=gemma4, unsupported by the b8149 runtime."),
+                Reason: "Qwen3 GGUF requires a runtime with qwen3 architecture support."),
             new RuntimeModelRule(
-                ModelFamily: "gemma4",
+                ModelFamily: "qwen3",
                 RuntimeId: "llama.cpp-cpu",
                 MinBuild: "b8901",
-                Reason: "Gemma 4 GGUF uses general.architecture=gemma4, unsupported by the b8149 runtime.")
+                Reason: "Qwen3 GGUF requires a runtime with qwen3 architecture support."),
+            new RuntimeModelRule(
+                ModelFamily: "qwen3",
+                RuntimeId: "llama.cpp-vulkan",
+                MinBuild: "b8901",
+                Reason: "Qwen3 GGUF requires a recent Vulkan runtime with qwen3 architecture support."),
+            new RuntimeModelRule(
+                ModelFamily: "qwen3",
+                RuntimeId: "llama.cpp-sycl",
+                MinBuild: "b8901",
+                Reason: "Qwen3 GGUF requires a recent SYCL runtime with qwen3 architecture support."),
+            new RuntimeModelRule(
+                ModelFamily: "qwen3",
+                RuntimeId: "llama.cpp-hip",
+                MinBuild: "b8901",
+                Reason: "Qwen3 GGUF requires a recent HIP runtime with qwen3 architecture support.")
         },
-        KnownOverrides: new[]
-        {
-            new RuntimeCompatibilityOverride(
-                ModelFamily: "gemma4",
-                RuntimeId: "llama.cpp-cuda",
-                GpuArchitecture: "pascal",
-                ForceFlashAttn: false,
-                Reason: "Local b8901 bench on Quadro P520/Pascal showed flash-attn on crashes before warmup.")
-        });
+        KnownOverrides: Array.Empty<RuntimeCompatibilityOverride>());
 
     public static RuntimeCompatibilityDecision Evaluate(
         string? runtimeId,

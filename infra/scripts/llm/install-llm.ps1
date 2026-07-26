@@ -1,8 +1,10 @@
 param(
   [string]$InstallRoot = $(if ($env:SAAIA_INSTALL_ROOT) { $env:SAAIA_INSTALL_ROOT } else { 'C:\SAAIA' }),
-  [string]$Repo = 'bartowski/Qwen2.5-3B-Instruct-GGUF',
-  [string]$File = 'Qwen2.5-3B-Instruct-Q4_K_M.gguf',
-  [string]$Sha256 = '9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94',
+  [string]$Repo = 'bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF',
+  [string]$Revision = 'ae44f08e1392f39c0e474af10c3ff8355c8b6688',
+  [string]$File = 'Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf',
+  [string]$Sha256 = '66713ce35a58a82fe87642d4ec13425bf9b9a46800fff5c49a665ef5701439dc',
+  [string]$LlamaImage = 'saaia/llama.cpp:server-cuda-b10098',
   [string]$BindAddr = '127.0.0.1',
   [int]$HostPort = 1234,
   [int]$ContainerPort = 8080,
@@ -89,38 +91,17 @@ function New-ServerLlmCapacityPlan {
   $cpu = [Math]::Max(1, [int]$Hardware.CpuCount)
 
   $model = [ordered]@{
-    repo = 'bartowski/Qwen2.5-3B-Instruct-GGUF'
-    file = 'Qwen2.5-3B-Instruct-Q4_K_M.gguf'
-    sha256 = '9c9f56a391a3abbd5b89d0245bf6106081bcc3173119d4229235dd9d23253f94'
-    modelId = 'qwen2.5-3b-instruct-q4-k-m'
-    profile = 'server-low-capacity'
-    estimatedModelMiB = 2300
+    repo = 'bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF'
+    revision = 'ae44f08e1392f39c0e474af10c3ff8355c8b6688'
+    file = 'Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf'
+    sha256 = '66713ce35a58a82fe87642d4ec13425bf9b9a46800fff5c49a665ef5701439dc'
+    modelId = 'qwen3-4b-instruct-2507-q5-k-m'
+    profile = 'server-qwen3-quality'
+    estimatedModelMiB = 2900
     ctxSize = 4096
     batch = 512
-    ubatch = 256
-    reason = 'safe default for low/medium servers and high seat counts'
-  }
-
-  if ($vram -ge 8192 -and $ram -ge 16384 -and $seatsSafe -le 25) {
-    $model.repo = 'bartowski/Qwen2.5-3B-Instruct-GGUF'
-    $model.file = 'Qwen2.5-3B-Instruct-Q6_K_L.gguf'
-    $model.sha256 = '930d792ba9cebbb98faaef6755c62b47cb24bb2d16fb10a338ac80d721b81796'
-    $model.modelId = 'qwen2.5-3b-instruct-q6-k-l'
-    $model.profile = 'server-balanced'
-    $model.estimatedModelMiB = 3000
-    $model.reason = 'enough VRAM for better quality while keeping concurrency'
-  }
-
-  if ($vram -ge 12288 -and $ram -ge 24576 -and $seatsSafe -le 10) {
-    $model.repo = 'bartowski/Mistral-7B-Instruct-v0.3-GGUF'
-    $model.file = 'Mistral-7B-Instruct-v0.3-Q4_K_M.gguf'
-    $model.sha256 = '56d2db1ee4e4330338433c3a2d1f98f3d647db9cef785fd6e640061e1c98dde2'
-    $model.modelId = 'mistral-7b-instruct-v0.3-q4-k-m'
-    $model.profile = 'server-quality-small-team'
-    $model.estimatedModelMiB = 5200
-    $model.ctxSize = 4096
-    $model.batch = 512
-    $model.reason = 'small seat count and enough VRAM for a quality 7B model'
+    ubatch = 128
+    reason = 'measured RAG quality winner; concurrency is adapted to available hardware'
   }
 
   $desiredConcurrent = [int][Math]::Ceiling($seatsSafe * 0.12)
@@ -161,6 +142,7 @@ function New-ServerLlmCapacityPlan {
     hardware = $Hardware
     modelId = $model.modelId
     repo = $model.repo
+    revision = $model.revision
     file = $model.file
     sha256 = $model.sha256
     profile = $model.profile
@@ -189,6 +171,7 @@ if ($AutoPlan) {
   $hardware = Get-ServerHardwareSnapshot
   $capacityPlan = New-ServerLlmCapacityPlan -Hardware $hardware -Seats $LicenseSeats -BaseHostPort $HostPort -ContainerPort $ContainerPort
   $Repo = $capacityPlan.repo
+  $Revision = $capacityPlan.revision
   $File = $capacityPlan.file
   $Sha256 = $capacityPlan.sha256
   $ModelPath = Join-Path $ModelsDir $File
@@ -203,6 +186,7 @@ if ($AutoPlan) {
     licenseSeats = [Math]::Max(1, $LicenseSeats)
     modelId = $File
     repo = $Repo
+    revision = $Revision
     file = $File
     sha256 = $Sha256
     profile = 'manual'
@@ -216,18 +200,18 @@ if ($AutoPlan) {
     hostPorts = @($HostPort)
     containerPort = $ContainerPort
     llamaArgs = [ordered]@{
-      ctxSize = 3072
+      ctxSize = 4096
       nParallel = 1
-      threads = 6
-      threadsBatch = 6
-      batch = 256
+      threads = 4
+      threadsBatch = 4
+      batch = 512
       ubatch = 128
       nGpuLayers = 'all'
     }
   }
 }
 
-$ModelUrl = "https://huggingface.co/$Repo/resolve/main/$File"
+$ModelUrl = "https://huggingface.co/$Repo/resolve/$Revision/$File"
 Info "InstallRoot: $InstallRoot"
 Info "Model:      $Repo/$File"
 Info "Url:        $ModelUrl"
@@ -296,7 +280,7 @@ for ($i = 1; $i -le [int]$capacityPlan.instances; $i++) {
   $args = $capacityPlan.llamaArgs
   $compose += @"
   ${serviceName}:
-    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    image: $LlamaImage
     container_name: $containerName
     gpus: all
     deploy:
@@ -324,8 +308,19 @@ for ($i = 1; $i -le [int]$capacityPlan.instances; $i++) {
       LLAMA_ARG_THREADS: $($args.threads)
       LLAMA_ARG_THREADS_BATCH: $($args.threadsBatch)
       LLAMA_ARG_BATCH: $($args.batch)
-      LLAMA_ARG_UBATCH_SIZE: $($args.ubatch)
+      LLAMA_ARG_UBATCH: $($args.ubatch)
       LLAMA_ARG_N_GPU_LAYERS: $($args.nGpuLayers)
+      LLAMA_ARG_JINJA: true
+      # Qwen3-4B-Instruct-2507 is the non-thinking variant. Newer llama.cpp
+      # builds may otherwise auto-select the DeepSeek reasoning parser.
+      LLAMA_ARG_REASONING: off
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "--max-time", "5", "http://localhost:$ContainerPort/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
 
     ports:
       - "${BindAddr}:${port}:${ContainerPort}"
@@ -364,6 +359,7 @@ $manifest = [ordered]@{
   installedAt = (Get-Date).ToString('o')
   installRoot = $InstallRoot
   repo = $Repo
+  revision = $Revision
   file = $File
   url = $ModelUrl
   sha256 = $actual
@@ -397,8 +393,27 @@ for ($i=1; $i -le 60; $i++) {
   try {
     $resp = & curl.exe -s $modelsUrl
     if ($resp -and ($resp -notmatch 'Loading model')) {
-      Ok "LLM is ready."
-      exit 0
+      $probeUrl = "http://${BindAddr}:$HostPort/v1/chat/completions"
+      $probeBody = @{
+        model = 'local'
+        stream = $false
+        temperature = 0
+        max_tokens = 8
+        messages = @(
+          @{ role = 'system'; content = 'Reponds uniquement par READY.' },
+          @{ role = 'user'; content = 'Test de qualification du runtime.' }
+        )
+      } | ConvertTo-Json -Depth 5 -Compress
+      try {
+        $probe = Invoke-RestMethod -Method Post -Uri $probeUrl -ContentType 'application/json' -Body $probeBody -TimeoutSec 60
+        $content = [string]$probe.choices[0].message.content
+        if ($content -match 'READY') {
+          Ok "LLM is ready and completed a live inference probe."
+          exit 0
+        }
+      } catch {
+        Warn "Health endpoint is ready, but live inference probe failed: $($_.Exception.Message)"
+      }
     }
   } catch { }
   Start-Sleep -Seconds 2

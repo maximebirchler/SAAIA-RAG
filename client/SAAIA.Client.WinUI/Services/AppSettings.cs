@@ -14,9 +14,9 @@ namespace SAAIA.Client.WinUI.Services;
 /// </summary>
 internal sealed class AppSettings
 {
-    internal const int DefaultCtxSize = 3072;
-    internal const int DefaultUbatchSize = 256;
-    internal const int DefaultThreadsBatch = 6;
+    internal const int DefaultCtxSize = 4096;
+    internal const int DefaultUbatchSize = 128;
+    internal const int DefaultThreadsBatch = 4;
 
     // Core
     private const string KBackendUrl = "backend.url";
@@ -147,12 +147,12 @@ internal sealed class AppSettings
     /// <summary>OpenAI-compatible model id (what the client sends as "model").</summary>
     public string ModelId { get; set; } = ClientDefaults.LlmModel;
 
-    public string ExtraArgs { get; set; } = $"--ctx-size {DefaultCtxSize}"; // CDC v3.1 LLM-007: 3072 ctx default
+    public string ExtraArgs { get; set; } = $"--ctx-size {DefaultCtxSize}";
 
-    /// <summary>Micro-batch size for eval scheduling (CDC v3.1 LLM-010). Default 256.</summary>
+    /// <summary>Micro-batch size for eval scheduling (CDC v3.1 LLM-010). Default 128.</summary>
     public int UbatchSize { get; set; } = DefaultUbatchSize;
 
-    /// <summary>Thread count for batch processing (CDC v3.1 LLM-010). Default 6.</summary>
+    /// <summary>Thread count for batch processing (CDC v3.1 LLM-010). Default 4.</summary>
     public int ThreadsBatch { get; set; } = DefaultThreadsBatch;
 
     /// <summary>
@@ -265,6 +265,7 @@ internal sealed class AppSettings
             s.ThreadsBatch = (ls.Values[KThreadsBatch] as int?) ?? s.ThreadsBatch;
             s.FlashAttn    = ParseFlashAttn(ls.Values[KFlashAttn] as string);
             s.QualifiedProfile = ParseQualifiedProfile(ls.Values[KQualifiedProfile] as string);
+            s.QualifiedProfile = NormalizeQualifiedProfileForCurrentReference(s.QualifiedProfile);
 
             s.LlmTemperature = (ls.Values[KLlmTemperature] as double?) ?? s.LlmTemperature;
             s.LlmMaxOutputTokens = (ls.Values[KLlmMaxOutputTokens] as int?) ?? s.LlmMaxOutputTokens;
@@ -340,6 +341,7 @@ internal sealed class AppSettings
                 s.FlashAttn = dto.FlashAttn;
             if (Has(nameof(FileDto.QualifiedProfile)))
                 s.QualifiedProfile = dto.QualifiedProfile;
+            s.QualifiedProfile = NormalizeQualifiedProfileForCurrentReference(s.QualifiedProfile);
 
             s.StartupTimeoutSeconds = dto.StartupTimeoutSeconds <= 0 ? 60 : dto.StartupTimeoutSeconds;
 
@@ -515,6 +517,26 @@ internal sealed class AppSettings
         {
             return null;
         }
+    }
+
+    internal static QualifiedProfile? NormalizeQualifiedProfileForCurrentReference(QualifiedProfile? profile)
+    {
+        if (profile is null)
+            return null;
+
+        var reference = WarmupProfileStore.FindProfile(profile.ProfileId)?.Candidate;
+        if (reference is null)
+            return profile;
+
+        if (!string.Equals(profile.Runtime, reference.Runtime, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(profile.ModelId, reference.ModelId, StringComparison.OrdinalIgnoreCase))
+        {
+            return profile;
+        }
+
+        return RequalificationTriggerService.HasProfileConfigurationDrift(profile, reference)
+            ? reference
+            : profile;
     }
 
     // --- Compatibility helpers (UI / older patches) ---

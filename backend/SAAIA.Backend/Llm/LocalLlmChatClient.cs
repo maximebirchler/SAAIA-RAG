@@ -63,20 +63,17 @@ internal sealed class LocalLlmChatClient
                     Error: "llm_queue_full");
             }
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, "v1/chat/completions")
+            var outbound = LocalLlmRequestFactory.Create(
+                _options,
+                systemPrompt,
+                userPrompt,
+                temperature ?? _options.LlmTemperature,
+                Math.Clamp(maxTokens ?? _options.LlmMaxTokens, 64, 4096));
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, outbound.RelativeUri)
             {
                 Content = new StringContent(
-                    JsonSerializer.Serialize(new
-                    {
-                        model = _options.LlmModel,
-                        temperature = temperature ?? _options.LlmTemperature,
-                        max_tokens = Math.Clamp(maxTokens ?? _options.LlmMaxTokens, 64, 4096),
-                        messages = new object[]
-                        {
-                            new { role = "system", content = systemPrompt },
-                            new { role = "user", content = userPrompt }
-                        }
-                    }, JsonOptions),
+                    JsonSerializer.Serialize(outbound.Payload, JsonOptions),
                     Encoding.UTF8,
                     "application/json")
             };
@@ -125,7 +122,12 @@ internal sealed class LocalLlmChatClient
 
             payload.Position = 0;
             using var json = await JsonDocument.ParseAsync(payload, cancellationToken: ct);
-            if (!json.RootElement.TryGetProperty("choices", out var choices) || choices.GetArrayLength() == 0)
+            if (!LocalLlmRequestFactory.TryExtractContent(
+                    json.RootElement,
+                    outbound.ResponseShape,
+                    out var content,
+                    out var contentError))
+            {
                 return new LocalLlmChatCompletionResult(
                     Content: null,
                     DurationMs: sw.ElapsedMilliseconds,
@@ -133,22 +135,11 @@ internal sealed class LocalLlmChatClient
                     FirstByteMs: firstByteMs,
                     StatusCode: (int)response.StatusCode,
                     BytesRead: bytesRead,
-                    Error: "choices_missing");
-
-            var first = choices[0];
-            if (!first.TryGetProperty("message", out var message)
-                || !message.TryGetProperty("content", out var content))
-                return new LocalLlmChatCompletionResult(
-                    Content: null,
-                    DurationMs: sw.ElapsedMilliseconds,
-                    ResponseHeadersMs: responseHeadersMs,
-                    FirstByteMs: firstByteMs,
-                    StatusCode: (int)response.StatusCode,
-                    BytesRead: bytesRead,
-                    Error: "content_missing");
+                    Error: contentError);
+            }
 
             return new LocalLlmChatCompletionResult(
-                Content: ReadContent(content),
+                Content: content,
                 DurationMs: sw.ElapsedMilliseconds,
                 ResponseHeadersMs: responseHeadersMs,
                 FirstByteMs: firstByteMs,
@@ -217,37 +208,6 @@ internal sealed class LocalLlmChatClient
             .ConfigureAwait(false);
     }
 
-    private static string? ReadContent(JsonElement content)
-    {
-        if (content.ValueKind == JsonValueKind.String)
-            return content.GetString();
-
-        if (content.ValueKind != JsonValueKind.Array)
-            return null;
-
-        var builder = new StringBuilder();
-        foreach (var item in content.EnumerateArray())
-        {
-            if (!item.TryGetProperty("type", out var type)
-                || !string.Equals(type.GetString(), "text", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            if (!item.TryGetProperty("text", out var text))
-                continue;
-
-            var value = text.GetString();
-            if (string.IsNullOrWhiteSpace(value))
-                continue;
-
-            if (builder.Length > 0)
-                builder.AppendLine();
-            builder.Append(value.Trim());
-        }
-
-        return builder.Length == 0 ? null : builder.ToString();
-    }
 }
 
 internal sealed record LocalLlmChatCompletionResult(

@@ -15,7 +15,9 @@ internal static class RequalificationTriggerService
     private const double DefaultTokPerSecDropRatio = 0.35;
     private const double DefaultTtftIncreaseRatio = 0.50;
 
-    public static RequalificationDecision EvaluateProfileDrift(AppSettings settings)
+    public static RequalificationDecision EvaluateProfileDrift(
+        AppSettings settings,
+        QualifiedProfile? registeredReference = null)
     {
         if (settings.QualifiedProfile is null)
             return new RequalificationDecision(false, "qualified_profile_missing");
@@ -39,7 +41,8 @@ internal static class RequalificationTriggerService
                 $"model_changed:{settings.QualifiedProfile.ModelId}->{currentModelId}");
         }
 
-        var reference = WarmupProfileStore.FindProfile(settings.QualifiedProfile.ProfileId)?.Candidate;
+        var reference = registeredReference
+                        ?? WarmupProfileStore.FindProfile(settings.QualifiedProfile.ProfileId)?.Candidate;
         if (reference is not null && HasProfileConfigurationDrift(settings.QualifiedProfile, reference))
         {
             return new RequalificationDecision(
@@ -62,6 +65,16 @@ internal static class RequalificationTriggerService
            || stored.Ngl != reference.Ngl
            || stored.FlashAttn != reference.FlashAttn
            || stored.Mlock != reference.Mlock
+           || !(stored.DeviceIds ?? Array.Empty<string>()).SequenceEqual(
+               reference.DeviceIds ?? Array.Empty<string>(),
+               StringComparer.OrdinalIgnoreCase)
+           || !string.Equals(stored.SplitMode, reference.SplitMode, StringComparison.OrdinalIgnoreCase)
+           || !(stored.TensorSplit ?? Array.Empty<double>()).SequenceEqual(
+               reference.TensorSplit ?? Array.Empty<double>())
+           || stored.MainGpu != reference.MainGpu
+           || !string.Equals(stored.CacheTypeK, reference.CacheTypeK, StringComparison.OrdinalIgnoreCase)
+           || !string.Equals(stored.CacheTypeV, reference.CacheTypeV, StringComparison.OrdinalIgnoreCase)
+           || stored.Parallel != reference.Parallel
            || !string.Equals(stored.BatteryPolicyRef, reference.BatteryPolicyRef, StringComparison.OrdinalIgnoreCase)
            || !string.Equals(stored.FallbackProfileRef, reference.FallbackProfileRef, StringComparison.OrdinalIgnoreCase);
 
@@ -148,6 +161,15 @@ internal static class RequalificationTriggerService
 
         if (path.Contains("vulkan", StringComparison.OrdinalIgnoreCase))
             return "llama.cpp-vulkan";
+
+        if (path.Contains("sycl", StringComparison.OrdinalIgnoreCase))
+            return "llama.cpp-sycl";
+
+        if (path.Contains("hip", StringComparison.OrdinalIgnoreCase)
+            || path.Contains("rocm", StringComparison.OrdinalIgnoreCase))
+        {
+            return "llama.cpp-hip";
+        }
 
         return "llama.cpp-cpu";
     }

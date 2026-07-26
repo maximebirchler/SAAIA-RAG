@@ -136,7 +136,9 @@ public sealed partial class MainWindow
             RunOnUiThreadAsync(() =>
                 LocalLlmStatusText.Text = LocalLlmText("Demarrage de llama.cpp...", "Starting llama.cpp...", "Iniciando llama.cpp...", "A iniciar llama.cpp...", "llama.cpp wird gestartet...", "Avvio di llama.cpp...", UiLang)));
 
-        var qualifiedProfileRefreshed = RefreshLocalQualifiedProfileFromCurrentReference(_appSettings);
+        var qualifiedProfileRefreshed = await RefreshLocalQualifiedProfileFromCurrentReferenceAsync(
+            _appSettings,
+            ct).ConfigureAwait(false);
 
         var (ok, msg) = await _llmProc.StartAsync(_appSettings, ct);
         if (!ok)
@@ -184,12 +186,17 @@ public sealed partial class MainWindow
         return ok;
     }
 
-    private static bool RefreshLocalQualifiedProfileFromCurrentReference(AppSettings settings)
+    private static async Task<bool> RefreshLocalQualifiedProfileFromCurrentReferenceAsync(
+        AppSettings settings,
+        CancellationToken ct)
     {
         if (settings.QualifiedProfile is null)
             return false;
 
-        var reference = WarmupProfileStore.FindProfile(settings.QualifiedProfile.ProfileId)?.Candidate;
+        var referenceItem = await WarmupProfileStore.FindProfileAsync(
+            settings.QualifiedProfile.ProfileId,
+            ct: ct).ConfigureAwait(false);
+        var reference = referenceItem?.Candidate;
         if (reference is null)
             return false;
 
@@ -212,10 +219,15 @@ public sealed partial class MainWindow
         if (settings.QualifiedProfile is null)
             return false;
 
-        if (WarmupProfileStore.FindProfile(settings.QualifiedProfile.ProfileId) is null)
+        var registeredProfile = await WarmupProfileStore.FindProfileAsync(
+            settings.QualifiedProfile.ProfileId,
+            ct: ct).ConfigureAwait(false);
+        if (registeredProfile is null)
             return false;
 
-        var drift = RequalificationTriggerService.EvaluateProfileDrift(settings);
+        var drift = RequalificationTriggerService.EvaluateProfileDrift(
+            settings,
+            registeredProfile.Candidate);
         if (drift.Required)
             return true;
 
@@ -355,7 +367,9 @@ public sealed partial class MainWindow
         if (settings.QualifiedProfile is null)
             return true;
 
-        if (WarmupProfileStore.FindProfile(settings.QualifiedProfile.ProfileId) is null)
+        if (await WarmupProfileStore.FindProfileAsync(
+                settings.QualifiedProfile.ProfileId,
+                ct: ct).ConfigureAwait(false) is null)
             return true;
 
         await TrySoftUiAsync("RunLocalLlmWarmupQualificationAsync.Progress", () =>

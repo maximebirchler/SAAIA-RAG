@@ -11,7 +11,7 @@ public sealed class WarmupGateTests
         var root = NewTempRoot();
         try
         {
-            var profile = WarmupProfileStore.CreateReferenceCudaProfile();
+            var profile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile();
             await EnsureDefaultArtifactsWithHardwareAsync(root);
 
             var result = await WarmupGate.EvaluateAsync(
@@ -54,7 +54,7 @@ public sealed class WarmupGateTests
         var root = NewTempRoot();
         try
         {
-            var profile = WarmupProfileStore.CreateReferenceCudaProfile();
+            var profile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile();
             await EnsureDefaultArtifactsWithHardwareAsync(root);
 
             var result = await WarmupGate.EvaluateAsync(
@@ -84,8 +84,8 @@ public sealed class WarmupGateTests
         var root = NewTempRoot();
         try
         {
-            var profile = WarmupProfileStore.CreateReferenceCudaProfile();
-            var fallback = WarmupProfileStore.CreateReferenceCudaFallbackProfile();
+            var profile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile();
+            var fallback = WarmupProfileStore.CreateQwen3Q5Cuda4GbFallbackProfile();
             await EnsureDefaultArtifactsWithHardwareAsync(root);
             await RollbackManager.SaveLastKnownGoodAsync(fallback, root);
 
@@ -123,7 +123,7 @@ public sealed class WarmupGateTests
         var root = NewTempRoot();
         try
         {
-            var profile = WarmupProfileStore.CreateReferenceCudaProfile();
+            var profile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile();
             await EnsureDefaultArtifactsWithHardwareAsync(root);
             await GovernanceArtifactStore.WriteAsync(
                 GovernanceArtifactStore.BlacklistFile,
@@ -160,7 +160,7 @@ public sealed class WarmupGateTests
         var root = NewTempRoot();
         try
         {
-            var profile = WarmupProfileStore.CreateReferenceCudaProfile();
+            var profile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile();
             await EnsureDefaultArtifactsWithHardwareAsync(root);
 
             var result = await WarmupGate.EvaluateAsync(
@@ -190,7 +190,7 @@ public sealed class WarmupGateTests
         var root = NewTempRoot();
         try
         {
-            var profile = WarmupProfileStore.CreateReferenceCudaProfile();
+            var profile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile();
             await EnsureDefaultArtifactsWithHardwareAsync(root);
             var harness = new StubWarmupHarness(new[]
             {
@@ -233,7 +233,7 @@ public sealed class WarmupGateTests
         var root = NewTempRoot();
         try
         {
-            var profile = WarmupProfileStore.CreateReferenceCudaProfile();
+            var profile = WarmupProfileStore.CreateQwen3Q5Cuda4GbProfile();
             await EnsureDefaultArtifactsWithHardwareAsync(root, dxgiBudgetMiB: 1024);
 
             var result = await WarmupGate.EvaluateAsync(

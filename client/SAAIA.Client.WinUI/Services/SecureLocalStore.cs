@@ -85,9 +85,21 @@ public static class SecureLocalStore
             {
                 SetServerApiKey(legacy);
                 ls.Values.Remove(LegacyServerApiKeyPlainKey);
+                return legacy;
             }
 
-            return UnprotectFromLocalSettings(ls, ServerApiKeyProtectedKey);
+            var fromLocalSettings = UnprotectFromLocalSettings(ls, ServerApiKeyProtectedKey);
+            if (!string.IsNullOrWhiteSpace(fromLocalSettings))
+                return fromLocalSettings;
+
+            var fromFileStore = GetServerApiKeyFromFileStore();
+            if (!string.IsNullOrWhiteSpace(fromFileStore))
+            {
+                ProtectToLocalSettings(ls, ServerApiKeyProtectedKey, fromFileStore);
+                return fromFileStore;
+            }
+
+            return null;
         }
         catch (Exception ex)
         {
@@ -118,6 +130,7 @@ public static class SecureLocalStore
         {
             var ls = ApplicationData.Current.LocalSettings;
             ProtectToLocalSettings(ls, ServerApiKeyProtectedKey, apiKey);
+            SetServerApiKeyInFileStore(apiKey);
             return;
         }
         catch (Exception ex)
@@ -139,6 +152,35 @@ public static class SecureLocalStore
 
             var protectedB64 = ProtectString(apiKey);
             dto = dto with { ServerApiKeyProtected = protectedB64, LegacyApiKeyPlain = null };
+            SaveFileDto(dto);
+        }
+    }
+
+    private static string? GetServerApiKeyFromFileStore()
+    {
+        lock (_lock)
+        {
+            var dto = LoadFileDto();
+
+            if (!string.IsNullOrWhiteSpace(dto.LegacyApiKeyPlain))
+            {
+                var migrated = ProtectString(dto.LegacyApiKeyPlain);
+                dto = dto with { ServerApiKeyProtected = migrated, LegacyApiKeyPlain = null };
+                SaveFileDto(dto);
+            }
+
+            return UnprotectString(dto.ServerApiKeyProtected);
+        }
+    }
+
+    private static void SetServerApiKeyInFileStore(string? apiKey)
+    {
+        lock (_lock)
+        {
+            var dto = LoadFileDto();
+            dto = string.IsNullOrWhiteSpace(apiKey)
+                ? dto with { ServerApiKeyProtected = null, LegacyApiKeyPlain = null }
+                : dto with { ServerApiKeyProtected = ProtectString(apiKey), LegacyApiKeyPlain = null };
             SaveFileDto(dto);
         }
     }
