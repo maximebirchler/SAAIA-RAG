@@ -548,6 +548,9 @@ Règles :
 | 2026-07-27 | Mesure streaming Qwen3 Q5 | 35 tokens de prompt, sortie 58 tokens | TTFT 0,136 s; total 2,081 s; 34,77 tok/s | Profil court validé |
 | 2026-07-27 | Validation backend après promotion | `/ready` et sonde LLM réelle | Backend vert; modèle Qwen3 déclaré; OCR prêt | Déploiement conservé |
 | 2026-07-27 | Nettoyage des campagnes temporaires | 834 racines sous `artifacts` | 37 fichiers gouvernés conservés; audit PDF courant conservé; environ 150 Mo purgés | Terminé |
+| 2026-07-27 | Tests ciblés du lot Qwen3 | Client Debug et backend | Client 110/110; backend LLM 16/16; compatibilité OpenAI 10/10 | Lot Qwen3 commitable |
+| 2026-07-27 | Suite client complète du worktree RAG | Exécution sans rebuild après compilation Debug | Régressions source-backed encore actives: transitions `clarify`/`need_more_evidence`, files LLM simulées épuisées, prompts au-dessus des budgets et seuils de modularité | Refactor RAG laissé hors du commit; ne pas supprimer ses fichiers comme des cadavres |
+| 2026-07-27 | Nettoyage des résultats de tests locaux | `client/SAAIA.Client.ToolAgent.Tests/TestResults` | 64 fichiers générés, environ 1,30 GiB supprimés | Terminé |
 
 ## Questions ouvertes
 
