@@ -7,6 +7,19 @@
 > Note : `documents/` est ignore par Git dans ce repo. Le TODO ci-dessous est donc la source suivie dans le worktree partage.
 > Scope : client WinUI (LLM local, tuning, governance) + backend RAG (.NET 8, Postgres, Qdrant, endpoints)
 
+> Mise a jour RAG active du 2026-07-25 :
+> le plan detaille courant et la decision de refonte vers
+> `source-backed-agent-v2` sont dans
+> `TODO-2026-07-16-RAG-LLM-ORCHESTRATION.md`.
+> L'audit externe, les preuves live et le plan d'experiences sont dans
+> `AUDIT-RAG-QWEN3-2026-07-25.md`.
+> Les validations historiques Qwen2.5 ci-dessous ne doivent pas etre lues
+> comme la direction d'orchestration actuelle.
+> Mise a jour nettoyage du 2026-07-27 : le catalogue executable ne contient
+> plus que Qwen3 4B Instruct 2507 Q5_K_M et son repli Q4_K_M. Les mentions
+> d'autres modeles plus bas sont un journal historique, jamais une
+> configuration ni une tache encore applicable.
+
 ## Legende
 
 - `[x]` = fait et verifie

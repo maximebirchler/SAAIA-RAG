@@ -26,9 +26,9 @@ public sealed class RuntimeGovernanceCoreLogicTests
               "plannedAt": "2026-04-29T12:00:00Z",
               "licenseSeats": 25,
               "profile": "small-server",
-              "repo": "bartowski/Qwen2.5-3B-Instruct-GGUF",
-              "file": "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
-              "modelId": "qwen2.5-3b-instruct-q4-k-m",
+              "repo": "bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF",
+              "file": "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+              "modelId": "qwen3-4b-instruct-2507-q5-k-m",
               "placement": "server",
               "instances": 1,
               "slotsPerInstance": 3,
@@ -65,7 +65,7 @@ public sealed class RuntimeGovernanceCoreLogicTests
             Assert.Equal(planPath, response.Path);
             Assert.NotNull(response.Plan);
             Assert.Equal(25, response.Plan!.LicenseSeats);
-            Assert.Equal("Qwen2.5-3B-Instruct-Q4_K_M.gguf", response.Plan.ModelFile);
+            Assert.Equal("Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf", response.Plan.ModelFile);
             Assert.Equal(3, response.Queue.TotalSlots);
             Assert.Equal(40, response.Queue.QueueLimit);
             Assert.Equal(3, response.Queue.AvailableSlots);
@@ -124,9 +124,9 @@ public sealed class RuntimeGovernanceCoreLogicTests
               "version": "v3.1-server-capacity",
               "plannedAt": "2026-04-29T12:00:00Z",
               "licenseSeats": 10,
-              "modelId": "qwen2.5-3b-instruct-q4-k-m",
-              "repo": "bartowski/Qwen2.5-3B-Instruct-GGUF",
-              "file": "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+              "modelId": "qwen3-4b-instruct-2507-q5-k-m",
+              "repo": "bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF",
+              "file": "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
               "profile": "server-low-capacity",
               "instances": 1,
               "slotsPerInstance": 2,
