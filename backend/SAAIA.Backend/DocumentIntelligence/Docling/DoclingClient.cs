@@ -18,7 +18,8 @@ internal sealed class DoclingClient(
 
     public async Task<DoclingConvertResponse> ConvertPdfAsync(
         string pdfPath,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool? forceOcrOverride = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pdfPath);
         if (!File.Exists(pdfPath))
@@ -42,7 +43,7 @@ internal sealed class DoclingClient(
             form.Add(file, "files", Path.GetFileName(pdfPath));
             Add(form, "to_formats", "json");
             Add(form, "do_ocr", options.DoOcr);
-            Add(form, "force_ocr", options.ForceOcr);
+            Add(form, "force_ocr", forceOcrOverride ?? options.ForceOcr);
             Add(form, "ocr_preset", options.OcrPreset);
             Add(form, "pdf_backend", options.PdfBackend);
             Add(form, "table_mode", options.TableMode);

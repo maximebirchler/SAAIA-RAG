@@ -685,6 +685,30 @@ level	page_num	block_num	par_num	line_num	word_num	left	top	width	height	conf	te
     }
 
     [Fact]
+    public void ShouldForceOcrNativeText_detects_invalid_c1_font_mapping()
+    {
+        var text =
+            "Ô\u008e±ºº®» ¼\u008e«²» °®±¼«½¬·ª·¬7 ¿½½®«» Ü»­ ­±´«¬·±²­ ¼\u008e¿«¬±³¿¬·±²";
+        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var page = new ExtractedPdfPage(
+            1,
+            text,
+            words.Length,
+            text.Length,
+            [1],
+            PdfPageExtractionQuality.FromText(
+                text,
+                words.Length,
+                text.Length));
+        var native = new PdfExtractionResult(
+            words.Select(word => new WordToken(word, 1)).ToList(),
+            [page],
+            PdfExtractionQualitySummary.FromPages([page]));
+
+        Assert.True(PdfOcrTextExtractor.ShouldForceOcrNativeText(native));
+    }
+
+    [Fact]
     public void ShouldApplyOcrExtraction_accepts_force_ocr_when_token_count_is_equal()
     {
         var firstGluedToken = string.Concat(Enumerable.Repeat("SupplierCodeOfConductDeliveringBetterPublicServicesTogether", 3));

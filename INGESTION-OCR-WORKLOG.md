@@ -688,6 +688,57 @@ minutes. Les annotations gold et la baseline visuelle restent à produire.
 | 2026-07-27 | Requalification concurrente finale sans bridage | Cuisine v119 et NIST v20 lancés simultanément ; Docling 8 threads, TEI CPU, `HeavyCompute=1` | Cuisine 222,555 s, NIST 230,290 s, soit environ 60 % plus vite que v118/v19 ; aucun 504. Extraction : 170 588/76 882 ms ; embeddings : 43 560/53 407 ms | Gouvernance et profil matériel promus |
 | 2026-07-27 | Contrôle qualité après performance | SQL Foundation, navigation, harnais qualité et Qdrant | Cuisine : 114/114 vecteurs, 114/114 `headingPath`, 30/30 `title_exact` ; NIST : 146/146 vecteurs, 35/35 cibles `title_exact`, 20 lignes/5 blocs récupérés ; catégorie scans : 14 documents, 0 problème, 0 avertissement | Qualité inchangée confirmée |
 | 2026-07-27 | Régression backend finale du lot | Suite Release complète après cache scanner, gouverneur, observabilité et polling | 2 018/2 018 tests réussis, 0 échec, 0 ignoré | Lot backend validé |
+| 2026-07-27 | Couche texte native C1 corrompue, catalogue ABB | Détection générique des contrôles U+0080–U+009F, OCR Docling forcé par conversion et blocage de la réinjection native | 16/16 pages OCRisées en 75,451 s ; 48 chunks et 48 ancres ; zéro caractère C1 ou de remplacement ; aucune page native corrompue réinjectée | Défaut racine corrigé et validé live |
+| 2026-07-27 | Comparatif Docling Heron/Heron101, page de tableau PTFE | Même page, même runtime CPU, modèles officiels chauds | Heron : 21,008 s, tableau correct 23 × 25 / 436 cellules ; Heron101 : 21,088 s, structure erronée à 23 colonnes / 431 cellules malgré une confiance légèrement supérieure | Heron conservé ; challenger supprimé du sidecar |
+| 2026-07-27 | Qualification inter-catégories après correctif C1 | ABB, livre cuisine scanné, brochure PTFE, rapport SDG et guide Yosemite | PostgreSQL et Qdrant concordent à 48/147/68/236/117 chunks-points ; autant d’ancres ; 616/616 points possèdent chemin, pages, ID de chunk et IDs canoniques | Correctif générique qualifié sur cinq structures |
+| 2026-07-27 | Régression finale du correctif C1 | 96 tests ciblés puis suite backend Release complète | 96/96 puis 2 023/2 023 réussis | Lot commitable |
+
+## Qualification de clôture du 2026-07-27
+
+### Défaut racine fermé
+
+Certains PDF contiennent une couche texte qui paraît présente mais transporte des
+caractères de contrôle C1. Cette couche pouvait auparavant éviter l’OCR, puis être
+réinjectée par la réconciliation native. Le pipeline :
+
+1. mesure maintenant ce défaut dans `PdfPageExtractionQuality` avec le signal
+   `invalid_control_chars_detected` ;
+2. force l’OCR Docling uniquement pour la conversion concernée ;
+3. marque toutes les pages comme candidates à cette conversion ;
+4. interdit au réconciliateur de remettre le texte natif corrompu dans le
+   document canonique.
+
+Le mécanisme ne contient aucun nom de document, catégorie ou règle sémantique.
+Il reste mécanique ; le LLM client conserve le choix des sources et leur
+pertinence pour la réponse.
+
+### Résultats live représentatifs
+
+| Famille | Document | Version | Pages | Chunks PostgreSQL | Ancres | Points Qdrant | Métadonnées mécaniques manquantes |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Couche native corrompue | `ABB - CAT-Instruments de mesure-FR.pdf` | 4 | 16 | 48 | 48 | 48 | 0 |
+| Cuisine scannée/mixte | `livre-recette-sist-2025-web.pdf` | 67 | 32 | 147 | 147 | 147 | 0 |
+| Tableau technique | `PTFE Brochure.pdf` | 7 | 11 | 68 | 68 | 68 | 0 |
+| Rapport multi-pages | `UN_SDG_Report_2024.pdf` | 3 | 51 | 236 | 236 | 236 | 0 |
+| Brochure multi-colonnes | `Yosemite-Guide-Volume-50-4-508V1.pdf` | 4 | 7 | 117 | 117 | 117 | 0 |
+
+Les 616 points portent tous `doc_path`, `page_start`, `page_end`, `chunk_id` et
+au moins un identifiant canonique de bloc, span ou cellule. La recherche live
+sur ABB retourne bien le fichier et les pages mécaniques pertinentes.
+
+### Choix du modèle de mise en page
+
+Le catalogue officiel Docling présente Heron comme le profil équilibré par
+défaut et les modèles plus lourds comme des options pour des cas complexes :
+<https://docling-project.github.io/docling/usage/model_catalog/>.
+La publication de référence montre un gain brut possible de Heron101, mais un
+écart de coût CPU et des gains plus faibles après le post-traitement Docling :
+<https://arxiv.org/html/2509.11720>.
+
+La mesure locale sur le tableau PTFE est décisive : Heron101 ne corrige pas le
+cas et dégrade le nombre de colonnes. Heron reste donc le modèle de production.
+Le modèle temporaire Heron101 et le PDF de benchmark ont été supprimés du
+conteneur ; aucun artefact de runtime abandonné n’est conservé.
 
 ## Questions ouvertes
 

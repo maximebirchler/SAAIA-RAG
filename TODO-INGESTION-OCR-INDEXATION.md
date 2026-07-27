@@ -396,6 +396,17 @@ Ce TODO est la liste exécutable de la refonte décrite dans :
 - [x] Rejouer le harnais strict sur les 14 documents scannés après ces
   changements : `ok=true`, zéro problème, zéro avertissement et tous les
   comptes PostgreSQL/Qdrant exacts.
+- [x] Détecter génériquement les couches texte contenant des contrôles C1,
+  forcer l'OCR Docling par conversion et empêcher toute réinjection native
+  corrompue : ABB v4, 16/16 pages OCRisées, 48 chunks/ancres/points, zéro C1.
+- [x] Comparer Heron et Heron101 sur le même tableau PTFE : Heron conserve la
+  grille correcte 23 × 25 / 436 cellules ; Heron101 tombe à 23 colonnes /
+  431 cellules. Conserver Heron et retirer le challenger temporaire.
+- [x] Requalifier cinq familles sans logique de catégorie : ABB v4, cuisine
+  v67, PTFE v7, SDG v3 et Yosemite v4, soit 616 chunks, 616 ancres et
+  616 points Qdrant ; aucune métadonnée mécanique de source manquante.
+- [x] Rejouer 96 tests ciblés puis la suite backend Release complète après le
+  correctif de couche native : 96/96 puis 2 023/2 023 réussis.
 - [ ] Valider WinUI.
 - [ ] Committer par lots cohérents.
 

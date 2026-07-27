@@ -1101,6 +1101,7 @@ WHERE job_id=@job_id
         var useDocling = ResolveUseDocling(documentIntelligence);
         DoclingConvertResponse? doclingConversion = null;
         PdfExtractionResult? nativeTextLayerExtraction = null;
+        var doclingForceOcr = false;
         var swExtract = Stopwatch.StartNew();
         PdfExtractionResult extraction;
         if (useDocling)
@@ -1112,17 +1113,6 @@ WHERE job_id=@job_id
                 null,
                 null,
                 ct);
-            doclingConversion = await RunWithJobHeartbeatAsync(
-                ds,
-                job,
-                workerId,
-                async operationCt =>
-                {
-                    using (await _bulkheads.AcquireOcrAsync(operationCt))
-                        return await doclingClient.ConvertPdfAsync(absPath, operationCt);
-                },
-                ct);
-            extraction = DoclingLegacyExtractionAdapter.Project(doclingConversion);
             if (documentIntelligence
                 .NativeTextCoverageReconciliationEnabled)
             {
@@ -1153,6 +1143,34 @@ WHERE job_id=@job_id
                         nativeTextStopwatch.ElapsedMilliseconds;
                 }
             }
+            doclingForceOcr = ResolveDoclingForceOcr(
+                documentIntelligence,
+                nativeTextLayerExtraction);
+            if (doclingForceOcr && !documentIntelligence.ForceOcr)
+            {
+                _log.LogInformation(
+                    "Docling adaptive force OCR enabled job={JobId} doc={DocPath} native_signals={NativeSignals}",
+                    job.JobId,
+                    relDocPath,
+                    string.Join(
+                        ',',
+                        nativeTextLayerExtraction?.Quality.Signals
+                        ?? Array.Empty<string>()));
+            }
+            doclingConversion = await RunWithJobHeartbeatAsync(
+                ds,
+                job,
+                workerId,
+                async operationCt =>
+                {
+                    using (await _bulkheads.AcquireOcrAsync(operationCt))
+                        return await doclingClient.ConvertPdfAsync(
+                            absPath,
+                            operationCt,
+                            doclingForceOcr);
+                },
+                ct);
+            extraction = DoclingLegacyExtractionAdapter.Project(doclingConversion);
         }
         else
         {
@@ -1169,11 +1187,15 @@ WHERE job_id=@job_id
             && ResolveDoclingTimingCount(doclingConversion, "ocr") > 0;
         string? ocrLanguages = null;
         PdfOcrDiagnostics? ocrDiagnostics = useDocling
-            ? BuildDoclingOcrDiagnostics(documentIntelligence, doclingConversion!, extraction)
+            ? BuildDoclingOcrDiagnostics(
+                documentIntelligence,
+                doclingConversion!,
+                extraction,
+                doclingForceOcr)
             : null;
         if (useDocling)
             ocrMs = ResolveDoclingTimingMs(doclingConversion!, "ocr");
-        var nativeExtraction = extraction;
+        var nativeExtraction = nativeTextLayerExtraction ?? extraction;
         var fullDocumentOcrRecommended =
             !useDocling && nativeExtraction.Quality.OcrRecommended;
         var imagePageOcrRecommended =

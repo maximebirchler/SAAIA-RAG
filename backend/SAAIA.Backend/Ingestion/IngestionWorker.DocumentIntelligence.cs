@@ -42,7 +42,8 @@ sealed partial class IngestionWorker
     internal static PdfOcrDiagnostics BuildDoclingOcrDiagnostics(
         DocumentIntelligenceOptions options,
         DoclingConvertResponse response,
-        PdfExtractionResult extraction)
+        PdfExtractionResult extraction,
+        bool forceOcr = false)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(response);
@@ -51,8 +52,8 @@ sealed partial class IngestionWorker
             ? ResolveDoclingTimingCount(response, "ocr")
             : 0;
         return new(
-            Mode: "docling_auto",
-            CandidatePageCount: 0,
+            Mode: forceOcr ? "docling_force" : "docling_auto",
+            CandidatePageCount: forceOcr ? extraction.Pages.Count : 0,
             AttemptedPageCount: attemptedPageCount,
             SkippedPageCount: 0,
             MaxPages: extraction.Pages.Count,
@@ -63,10 +64,26 @@ sealed partial class IngestionWorker
             PagesWithNovelText: [],
             TimeoutSeconds: options.TimeoutSeconds,
             AppliedReason: attemptedPageCount > 0
-                ? "docling_ocr_stage_completed"
+                ? forceOcr
+                    ? "docling_force_ocr_stage_completed"
+                    : "docling_ocr_stage_completed"
                 : options.DoOcr
                     ? "docling_ocr_stage_not_observed"
                     : "docling_ocr_disabled",
             CoverageStatus: options.DoOcr ? "engine_managed" : "disabled");
+    }
+
+    internal static bool ResolveDoclingForceOcr(
+        DocumentIntelligenceOptions options,
+        PdfExtractionResult? nativeTextLayerExtraction)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.ForceOcr)
+            return true;
+
+        return options.DoOcr
+            && nativeTextLayerExtraction is not null
+            && PdfOcrTextExtractor.ShouldForceOcrNativeText(
+                nativeTextLayerExtraction);
     }
 }

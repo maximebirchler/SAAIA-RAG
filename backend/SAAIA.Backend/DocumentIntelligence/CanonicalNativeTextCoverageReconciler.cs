@@ -233,6 +233,9 @@ internal static partial class CanonicalNativeTextCoverageReconciler
                && page.Quality.SanitizedReplacementCharCount == 0
                && !page.Quality.Signals.Contains(
                    "replacement_chars_remaining",
+                   StringComparer.Ordinal)
+               && !page.Quality.Signals.Contains(
+                   "invalid_control_chars_detected",
                    StringComparer.Ordinal);
     }
 

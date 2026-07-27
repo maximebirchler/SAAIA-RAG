@@ -85,4 +85,28 @@ public sealed class PdfExtractionQualityTests
         Assert.Contains("replacement_chars_detected", quality.Signals);
         Assert.Equal(1, quality.SparsePageCount);
     }
+
+    [Fact]
+    public void FromPages_recommends_ocr_for_invalid_c1_control_characters()
+    {
+        var text = "L\u008eoffre de mesure industrielle contient une couche texte corrompue.";
+        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var page = new ExtractedPdfPage(
+            1,
+            text,
+            words.Length,
+            text.Length,
+            [1],
+            PdfPageExtractionQuality.FromText(
+                text,
+                words.Length,
+                text.Length));
+
+        var quality = PdfExtractionQualitySummary.FromPages([page]);
+
+        Assert.Equal("low_text", quality.TextStatus);
+        Assert.True(quality.OcrRecommended);
+        Assert.Contains("invalid_control_chars_detected", quality.Signals);
+        Assert.True(page.Quality!.OcrCandidate);
+    }
 }

@@ -59,6 +59,49 @@ public sealed class DoclingClientTests
     }
 
     [Fact]
+    public async Task ConvertPdfAsync_CanForceOcrForOneAdaptiveConversion()
+    {
+        string? requestBody = null;
+        var responseBody = JsonSerializer.Serialize(BuildResponse());
+        var factory = new StubHttpClientFactory(async request =>
+        {
+            requestBody = await request.Content!.ReadAsStringAsync();
+            return new(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    responseBody,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+        var client = new DoclingClient(
+            factory,
+            new()
+            {
+                BaseUrl = "http://docling.test",
+                DoOcr = true,
+                ForceOcr = false
+            });
+        var path = Path.GetTempFileName();
+        try
+        {
+            await File.WriteAllBytesAsync(path, [1, 2, 3]);
+
+            await client.ConvertPdfAsync(
+                path,
+                CancellationToken.None,
+                forceOcrOverride: true);
+
+            Assert.Contains("force_ocr", requestBody);
+            Assert.Contains("true", requestBody);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public async Task ConvertPdfAsync_RejectsResponsesAboveConfiguredLimit()
     {
         var oversized = new byte[(1024 * 1024) + 1];
@@ -181,6 +224,34 @@ public sealed class DoclingClientTests
                 Enabled = true,
                 Provider = "unknown"
             }));
+    }
+
+    [Fact]
+    public void ResolveDoclingForceOcr_UsesNativeCorruptionSignal()
+    {
+        var text = "Mesure\u008eindustrielle couche texte corrompue";
+        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var page = new ExtractedPdfPage(
+            1,
+            text,
+            words.Length,
+            text.Length,
+            [1],
+            PdfPageExtractionQuality.FromText(
+                text,
+                words.Length,
+                text.Length));
+        var native = new PdfExtractionResult(
+            words.Select(word => new WordToken(word, 1)).ToList(),
+            [page],
+            PdfExtractionQualitySummary.FromPages([page]));
+
+        Assert.True(IngestionWorker.ResolveDoclingForceOcr(
+            new() { DoOcr = true },
+            native));
+        Assert.False(IngestionWorker.ResolveDoclingForceOcr(
+            new() { DoOcr = false },
+            native));
     }
 
     [Fact]

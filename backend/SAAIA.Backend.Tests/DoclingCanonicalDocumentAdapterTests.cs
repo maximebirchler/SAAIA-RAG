@@ -732,6 +732,47 @@ APPENDIX B: REFERENCES................................17
     }
 
     [Fact]
+    public void NativeTextCoverageReconciliation_SkipsPagesWithInvalidControlCharacters()
+    {
+        var response = BuildResponse();
+        var canonical = DoclingCanonicalDocumentAdapter.Project(
+            BuildContext(),
+            response.Document.JsonContent!);
+        const string nativeText =
+            "Ô\u008e±º corrupted native text layer";
+        var nativePage = new ExtractedPdfPage(
+            1,
+            nativeText,
+            5,
+            nativeText.Length,
+            System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(nativeText)),
+            PdfPageExtractionQuality.FromText(
+                nativeText,
+                5,
+                nativeText.Length));
+        var nativeExtraction = new PdfExtractionResult(
+            [],
+            [nativePage],
+            PdfExtractionQualitySummary.FromPages([nativePage]));
+
+        var summary =
+            CanonicalNativeTextCoverageReconciler.Apply(
+                canonical,
+                nativeExtraction);
+
+        Assert.Equal(1, summary.SkippedLowQualityPageCount);
+        Assert.Equal(0, summary.AuditedPageCount);
+        Assert.Equal(0, summary.RecoveredBlockCount);
+        Assert.DoesNotContain(
+            canonical.Pages[0].Blocks,
+            static block =>
+                block.BlockType
+                == CanonicalNativeTextCoverageReconciler
+                    .RecoveryBlockType);
+    }
+
+    [Fact]
     public void NativeTextCoverageReconciliation_IncludesPartiallyCoveredPreviousLineAsContext()
     {
         var response = BuildResponse();

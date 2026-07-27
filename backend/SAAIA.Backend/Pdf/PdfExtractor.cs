@@ -966,25 +966,38 @@ sealed record PdfPageExtractionQuality(
         var quality = FromCounts(wordCount, charCount);
         rawReplacementCharCount = Math.Max(0, rawReplacementCharCount);
         sanitizedReplacementCharCount = Math.Max(0, sanitizedReplacementCharCount);
-        if (rawReplacementCharCount == 0 && sanitizedReplacementCharCount == 0)
+        var invalidControlCharCount = CountInvalidControlCharacters(text);
+        if (rawReplacementCharCount == 0
+            && sanitizedReplacementCharCount == 0
+            && invalidControlCharCount == 0)
+        {
             return quality;
+        }
 
         var hasRemainingReplacementCharacters = sanitizedReplacementCharCount > 0
             || (!string.IsNullOrEmpty(text) && text.Contains('\uFFFD', StringComparison.Ordinal));
+        var hasInvalidControlCharacters = invalidControlCharCount > 0;
+        var hasRemainingEncodingCorruption =
+            hasRemainingReplacementCharacters || hasInvalidControlCharacters;
 
         return quality with
         {
-            TextStatus = hasRemainingReplacementCharacters ? "low_text" : quality.TextStatus,
-            TextSparse = hasRemainingReplacementCharacters || quality.TextSparse,
-            OcrCandidate = hasRemainingReplacementCharacters || quality.OcrCandidate,
+            TextStatus = hasRemainingEncodingCorruption ? "low_text" : quality.TextStatus,
+            TextSparse = hasRemainingEncodingCorruption || quality.TextSparse,
+            OcrCandidate = hasRemainingEncodingCorruption || quality.OcrCandidate,
             Signals = quality.Signals
                 .Where(static signal => !string.Equals(signal, "text_extraction_ok", StringComparison.Ordinal))
-                .Concat(["replacement_chars_detected"])
+                .Concat(rawReplacementCharCount > 0 || sanitizedReplacementCharCount > 0
+                    ? ["replacement_chars_detected"]
+                    : Array.Empty<string>())
                 .Concat(rawReplacementCharCount > sanitizedReplacementCharCount
                     ? ["replacement_chars_repaired"]
                     : Array.Empty<string>())
                 .Concat(hasRemainingReplacementCharacters
                     ? ["replacement_chars_remaining"]
+                    : Array.Empty<string>())
+                .Concat(hasInvalidControlCharacters
+                    ? ["invalid_control_chars_detected"]
                     : Array.Empty<string>())
                 .Distinct(StringComparer.Ordinal)
                 .ToArray(),
@@ -998,6 +1011,11 @@ sealed record PdfPageExtractionQuality(
         => string.IsNullOrEmpty(text)
             ? 0
             : text.Count(static ch => ch == '\uFFFD');
+
+    private static int CountInvalidControlCharacters(string? text)
+        => string.IsNullOrEmpty(text)
+            ? 0
+            : text.Count(static ch => ch is >= '\u0080' and <= '\u009F');
 }
 
 sealed record PdfExtractionQualitySummary(
@@ -1045,6 +1063,8 @@ sealed record PdfExtractionQualitySummary(
         var emptyPages = qualities.Count(static quality => quality.TextEmpty);
         var sparsePages = qualities.Count(static quality => quality.TextSparse);
         var replacementCharPages = qualities.Count(static quality => quality.Signals.Contains("replacement_chars_detected"));
+        var invalidControlCharPages = qualities.Count(static quality =>
+            quality.Signals.Contains("invalid_control_chars_detected"));
         var textPages = pages.Count - emptyPages;
         var averageWords = Math.Round((double)totalWords / pages.Count, 2);
         var averageChars = Math.Round((double)totalChars / pages.Count, 2);
@@ -1058,6 +1078,11 @@ sealed record PdfExtractionQualitySummary(
         {
             textStatus = "empty_text";
             signals.Add("no_text_extracted");
+        }
+        else if (invalidControlCharPages > 0)
+        {
+            textStatus = "low_text";
+            signals.Add("invalid_control_chars_detected");
         }
         else if (emptyPageRatio >= 0.6)
         {

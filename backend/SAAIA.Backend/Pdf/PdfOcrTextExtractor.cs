@@ -275,7 +275,15 @@ internal static class PdfOcrTextExtractor
         var quality = nativeExtraction.Quality;
         if (!quality.OcrRecommended)
             return false;
-        if (quality.TotalCharCount < 200 || quality.TotalWordCount <= 0)
+        if (quality.TotalWordCount <= 0)
+            return false;
+        if (quality.Signals.Contains(
+                "invalid_control_chars_detected",
+                StringComparer.Ordinal))
+        {
+            return true;
+        }
+        if (quality.TotalCharCount < 200)
             return false;
 
         var averageCharsPerWord = (double)quality.TotalCharCount / Math.Max(1, quality.TotalWordCount);
