@@ -1334,8 +1334,11 @@ internal static partial class OcrNoiseFilter
 
     private static bool IsSpacedLetterNoiseToken(string token)
         => IsSingleLetterToken(token)
+           || string.Equals(token, "ff", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(token, "fl", StringComparison.OrdinalIgnoreCase)
            || string.Equals(token, "fi", StringComparison.OrdinalIgnoreCase)
-           || string.Equals(token, "ffi", StringComparison.OrdinalIgnoreCase);
+           || string.Equals(token, "ffi", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(token, "ffl", StringComparison.OrdinalIgnoreCase);
 
     private static bool LooksLikeShortGluedOcrNoiseText(string text)
     {

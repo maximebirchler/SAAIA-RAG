@@ -8,7 +8,8 @@ param(
   [switch]$SkipRemoteProvision,
   [switch]$SkipConfigSync,
   [switch]$SkipReadyCheck,
-  [switch]$NoCache
+  [switch]$NoCache,
+  [switch]$RemoteSourceBuild
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -79,6 +80,101 @@ function Assert-SafeRemoteInstallPath([string]$Label, [string]$Path) {
   return $trimmed
 }
 
+function Get-DoclingSourceRevisionFromInspect([object[]]$InspectOutput) {
+  if ($null -eq $InspectOutput -or $InspectOutput.Count -eq 0) {
+    return ''
+  }
+
+  try {
+    $containers = (($InspectOutput | ForEach-Object { [string]$_ }) -join "`n") |
+      ConvertFrom-Json
+    if ($null -eq $containers -or $containers.Count -eq 0) {
+      return ''
+    }
+
+    return [string]$containers[0].Config.Labels.'com.saaia.docling.source-revision'
+  }
+  catch {
+    return ''
+  }
+}
+
+function Get-BackendSourceRevision([string]$RepoRoot) {
+  $head = (& git -C $RepoRoot rev-parse HEAD).Trim()
+  if ($LASTEXITCODE -ne 0 -or $head -notmatch '^[0-9a-fA-F]{40}$') {
+    throw 'Unable to resolve the Git HEAD used by the backend build.'
+  }
+
+  $files = New-Object System.Collections.Generic.List[System.IO.FileInfo]
+  $relativeFiles = @(& git -C $RepoRoot ls-files --cached --others --exclude-standard -- `
+    'contracts/SAAIA.Contracts' `
+    'backend/SAAIA.Backend' `
+    '.dockerignore' `
+    'infra/docker-compose.prod.yml' `
+    'infra/docling-sidecar' `
+    'RAG.sln' `
+    'global.json')
+  if ($LASTEXITCODE -ne 0) {
+    throw 'Unable to enumerate the backend Docker source files.'
+  }
+  foreach ($relativeFile in $relativeFiles) {
+    $path = Join-Path $RepoRoot $relativeFile
+    if (Test-Path -LiteralPath $path -PathType Leaf) {
+      $files.Add((Get-Item -LiteralPath $path))
+    }
+  }
+  if ($files.Count -eq 0) {
+    throw 'The backend Docker source inventory is empty.'
+  }
+
+  $lines = foreach ($file in $files | Sort-Object FullName) {
+    $relative = $file.FullName.Substring($RepoRoot.TrimEnd('\', '/').Length).TrimStart('\', '/').Replace('\', '/')
+    $fileHash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    "$relative|$($file.Length)|$fileHash"
+  }
+  $bytes = [Text.Encoding]::UTF8.GetBytes(($lines -join "`n"))
+  $sha256 = [Security.Cryptography.SHA256]::Create()
+  try {
+    $sourceHash = -join ($sha256.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') })
+  }
+  finally {
+    $sha256.Dispose()
+  }
+
+  return "$($head.ToLowerInvariant())-source-$sourceHash"
+}
+
+function Get-DoclingSidecarSourceRevision([string]$RepoRoot) {
+  $relativeFiles = @(& git -C $RepoRoot ls-files --cached --others --exclude-standard -- `
+    'infra/docling-sidecar/Dockerfile' `
+    'infra/docling-sidecar/entrypoint.sh' `
+    'infra/docling-sidecar/saaia_docling')
+  if ($LASTEXITCODE -ne 0) {
+    throw 'Unable to enumerate the Docling sidecar source files.'
+  }
+
+  $lines = foreach ($relativeFile in $relativeFiles | Sort-Object) {
+    $path = Join-Path $RepoRoot $relativeFile
+    if (Test-Path -LiteralPath $path -PathType Leaf) {
+      $file = Get-Item -LiteralPath $path
+      $fileHash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+      "$($relativeFile.Replace('\', '/'))|$($file.Length)|$fileHash"
+    }
+  }
+  if (-not $lines) {
+    throw 'The Docling sidecar source inventory is empty.'
+  }
+
+  $bytes = [Text.Encoding]::UTF8.GetBytes(($lines -join "`n"))
+  $sha256 = [Security.Cryptography.SHA256]::Create()
+  try {
+    return -join ($sha256.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') })
+  }
+  finally {
+    $sha256.Dispose()
+  }
+}
+
 function Ensure-DockerContext([string]$Name, [string]$ServerSpec) {
   $exists = $false
   try {
@@ -112,11 +208,21 @@ $repo = Get-RepoRoot
 $envPath = Resolve-PathFromRepo $repo $EnvFile
 $composePath = Resolve-PathFromRepo $repo $ComposeFile
 $envMap = Read-DotEnv $envPath
+$sourceRevision = Get-BackendSourceRevision -RepoRoot $repo
+$doclingSourceRevision = Get-DoclingSidecarSourceRevision -RepoRoot $repo
+$env:SAAIA_CODE_REVISION = $sourceRevision
+$env:SAAIA_DOCLING_SOURCE_REVISION = $doclingSourceRevision
 
-Require-Command 'docker'
 Require-Command 'ssh'
 Require-Command 'scp'
 Require-Command 'dotnet'
+$useRemoteSourceBuild = $RemoteSourceBuild -or $null -eq (Get-Command docker -ErrorAction SilentlyContinue)
+if ($useRemoteSourceBuild) {
+  Require-Command 'tar'
+}
+else {
+  Require-Command 'docker'
+}
 
 $serverUser = $Server
 if ($Server -match '^(?<u>[^@]+)@(?<h>.+)$') {
@@ -154,6 +260,8 @@ Write-Host "InstallRoot:  $installRoot"
 Write-Host "DeployDir:    $deployDirRemote"
 Write-Host "ComposeFile:  $composePath"
 Write-Host "EnvFile:      $envPath"
+Write-Host "CodeRevision: $sourceRevision"
+Write-Host "DoclingRev:   $doclingSourceRevision"
 
 # Ensure remote runtime directories exist.
 if (-not $SkipRemoteProvision) {
@@ -211,6 +319,110 @@ else {
   Write-Host "== Skip config sync ==" -ForegroundColor Yellow
 }
 
+if ($useRemoteSourceBuild) {
+  $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+  $remoteBuildDir = "$($installRoot.TrimEnd('/'))/deploy/backend-build-$timestamp"
+  $remoteBuildDir = Assert-SafeRemoteInstallPath -Label 'RemoteBuildDir' -Path $remoteBuildDir
+  $localArchiveDir = Resolve-PathFromRepo $repo $DeployWorkDirRel
+  if (-not (Test-Path -LiteralPath $localArchiveDir)) {
+    New-Item -ItemType Directory -Force -Path $localArchiveDir | Out-Null
+  }
+  $localArchive = Join-Path $localArchiveDir "backend-source-$timestamp.tar"
+
+  Write-Host "== Package backend source for remote Docker build ==" -ForegroundColor Cyan
+  & tar -cf $localArchive `
+    --exclude='*/bin' `
+    --exclude='*/bin-codex*' `
+    --exclude='*/obj' `
+    --exclude='*/obj-codex*' `
+    --exclude='*/.vs' `
+    --exclude='*.local.json' `
+    --exclude='deployment.config.json' `
+    --exclude='deployment.config.sig' `
+    -C $repo `
+    RAG.sln `
+    global.json `
+    .dockerignore `
+    contracts/SAAIA.Contracts `
+    backend/SAAIA.Backend `
+    infra/docker-compose.prod.yml `
+    infra/docling-sidecar
+  if ($LASTEXITCODE -ne 0) {
+    throw "Backend source archive failed ($LASTEXITCODE)."
+  }
+
+  try {
+    $qBuildDir = Quote-RemoteShellArg $remoteBuildDir
+    & ssh $Server "install -d -m 0755 $qBuildDir"
+    if ($LASTEXITCODE -ne 0) { throw "Remote build directory creation failed ($LASTEXITCODE)." }
+
+    & scp $localArchive "${Server}:$remoteBuildDir/backend-source.tar"
+    if ($LASTEXITCODE -ne 0) { throw "Backend source upload failed ($LASTEXITCODE)." }
+    & scp $envPath "${Server}:$remoteBuildDir/.env.server-linux"
+    if ($LASTEXITCODE -ne 0) { throw "Remote environment upload failed ($LASTEXITCODE)." }
+
+    $qRevision = Quote-RemoteShellArg $sourceRevision
+    $qDoclingRevision = Quote-RemoteShellArg $doclingSourceRevision
+    $extractCommand = "chmod 0600 $qBuildDir/.env.server-linux && tar -xf $qBuildDir/backend-source.tar -C $qBuildDir && rm -f $qBuildDir/backend-source.tar"
+    & ssh $Server $extractCommand
+    if ($LASTEXITCODE -ne 0) { throw "Remote source extraction failed ($LASTEXITCODE)." }
+
+    $composeCommand = "SAAIA_CODE_REVISION=$qRevision SAAIA_DOCLING_SOURCE_REVISION=$qDoclingRevision docker compose -p infra -f $qBuildDir/infra/docker-compose.prod.yml --env-file $qBuildDir/.env.server-linux"
+    if ($NoCache) {
+      & ssh $Server "$composeCommand build --no-cache backend"
+      if ($LASTEXITCODE -ne 0) { throw "Remote no-cache backend build failed ($LASTEXITCODE)." }
+    }
+    else {
+      & ssh $Server "$composeCommand build backend"
+      if ($LASTEXITCODE -ne 0) { throw "Remote backend build failed ($LASTEXITCODE)." }
+    }
+
+    $currentDoclingInspect = @(& ssh $Server "docker inspect infra-docling-1 2>/dev/null || true")
+    $currentDoclingRevision = (
+      Get-DoclingSourceRevisionFromInspect $currentDoclingInspect
+    ).Trim()
+    if (-not [string]::Equals($currentDoclingRevision, $doclingSourceRevision, [StringComparison]::Ordinal)) {
+      Write-Host "== Build changed Docling sidecar ==" -ForegroundColor Cyan
+      & ssh $Server "$composeCommand build docling"
+      if ($LASTEXITCODE -ne 0) { throw "Remote Docling build failed ($LASTEXITCODE)." }
+    }
+    else {
+      Write-Host "== Reuse unchanged Docling sidecar image ==" -ForegroundColor DarkGray
+    }
+
+    if ($WithDependencies) {
+      & ssh $Server "$composeCommand up -d --no-build --wait --wait-timeout 300 backend postgres qdrant tei docling"
+      if ($LASTEXITCODE -ne 0) { throw "Remote dependency deploy failed ($LASTEXITCODE)." }
+    }
+    else {
+      & ssh $Server "$composeCommand up -d --no-build --no-deps --wait --wait-timeout 300 docling"
+      if ($LASTEXITCODE -ne 0) { throw "Remote Docling deploy failed ($LASTEXITCODE)." }
+      & ssh $Server "$composeCommand up -d --no-build --no-deps backend"
+      if ($LASTEXITCODE -ne 0) { throw "Remote backend deploy failed ($LASTEXITCODE)." }
+    }
+
+    & ssh $Server "$composeCommand ps"
+    if ($LASTEXITCODE -ne 0) { throw "Remote compose ps failed ($LASTEXITCODE)." }
+  }
+  finally {
+    if (Test-Path -LiteralPath $localArchive -PathType Leaf) {
+      $resolvedArchive = (Resolve-Path -LiteralPath $localArchive).Path
+      $resolvedArchiveRoot = (Resolve-Path -LiteralPath $localArchiveDir).Path.TrimEnd('\', '/')
+      if ($resolvedArchive.StartsWith($resolvedArchiveRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+        Remove-Item -LiteralPath $resolvedArchive -Force
+      }
+    }
+  }
+
+  if (-not $SkipReadyCheck) {
+    Wait-BackendReady -ServerSpec $Server -Port $backendPort
+  }
+
+  Write-Host ""
+  Write-Host "Done (remote source build)." -ForegroundColor Green
+  exit 0
+}
+
 Ensure-DockerContext -Name $ContextName -ServerSpec $Server
 
 if ($NoCache) {
@@ -219,18 +431,42 @@ if ($NoCache) {
   & docker @buildArgs
   if ($LASTEXITCODE -ne 0) { throw "Remote backend build failed ($LASTEXITCODE)" }
 }
+else {
+  Write-Host "== Remote build backend ==" -ForegroundColor Cyan
+  $buildArgs = @('--context', $ContextName, 'compose', '-f', $composePath, '--env-file', $envPath, 'build', 'backend')
+  & docker @buildArgs
+  if ($LASTEXITCODE -ne 0) { throw "Remote backend build failed ($LASTEXITCODE)" }
+}
+
+$currentDoclingInspect = @(& docker --context $ContextName inspect infra-docling-1 2>$null)
+$currentDoclingRevision = (
+  Get-DoclingSourceRevisionFromInspect $currentDoclingInspect
+).Trim()
+if (-not [string]::Equals($currentDoclingRevision, $doclingSourceRevision, [StringComparison]::Ordinal)) {
+  Write-Host "== Build changed Docling sidecar ==" -ForegroundColor Cyan
+  $doclingBuildArgs = @('--context', $ContextName, 'compose', '-f', $composePath, '--env-file', $envPath, 'build', 'docling')
+  & docker @doclingBuildArgs
+  if ($LASTEXITCODE -ne 0) { throw "Remote Docling build failed ($LASTEXITCODE)" }
+}
+else {
+  Write-Host "== Reuse unchanged Docling sidecar image ==" -ForegroundColor DarkGray
+}
 
 Write-Host "== Remote deploy ==" -ForegroundColor Cyan
 
 if ($WithDependencies) {
-  $upArgs = @('--context', $ContextName, 'compose', '-f', $composePath, '--env-file', $envPath, 'up', '-d', '--build', 'backend', 'postgres', 'qdrant', 'tei')
+  $upArgs = @('--context', $ContextName, 'compose', '-f', $composePath, '--env-file', $envPath, 'up', '-d', '--no-build', '--wait', '--wait-timeout', '300', 'backend', 'postgres', 'qdrant', 'tei', 'docling')
+  & docker @upArgs
+  if ($LASTEXITCODE -ne 0) { throw "Remote dependency deploy failed ($LASTEXITCODE)" }
 }
 else {
-  $upArgs = @('--context', $ContextName, 'compose', '-f', $composePath, '--env-file', $envPath, 'up', '-d', '--build', '--no-deps', 'backend')
+  $doclingArgs = @('--context', $ContextName, 'compose', '-f', $composePath, '--env-file', $envPath, 'up', '-d', '--no-build', '--no-deps', '--wait', '--wait-timeout', '300', 'docling')
+  & docker @doclingArgs
+  if ($LASTEXITCODE -ne 0) { throw "Remote Docling deploy failed ($LASTEXITCODE)" }
+  $upArgs = @('--context', $ContextName, 'compose', '-f', $composePath, '--env-file', $envPath, 'up', '-d', '--no-build', '--no-deps', 'backend')
+  & docker @upArgs
+  if ($LASTEXITCODE -ne 0) { throw "Remote backend deploy failed ($LASTEXITCODE)" }
 }
-
-& docker @upArgs
-if ($LASTEXITCODE -ne 0) { throw "Remote deploy failed ($LASTEXITCODE)" }
 
 Write-Host "== Remote compose status ==" -ForegroundColor Cyan
 & docker --context $ContextName compose -f $composePath --env-file $envPath ps

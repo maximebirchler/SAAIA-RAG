@@ -10,7 +10,7 @@ namespace SAAIA.Backend.Endpoints;
 public static class ReadyEndpoints
 {
     private static readonly SemaphoreSlim _gate = new(1, 1);
-    private const string ReadyCacheKey = "ready:v8";
+    private const string ReadyCacheKey = "ready:v10";
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(10);
 
     private sealed record ReadinessPayload(
@@ -34,6 +34,7 @@ public static class ReadyEndpoints
         IOptions<RagOptions> ragOpt,
         IOptions<ChatOptions> chatOpt,
         IOptions<IngestionOptions> ingestionOpt,
+        IOptions<DocumentIntelligenceOptions> documentIntelligenceOpt,
         SignedConfigStatus? cfgStatus,
         IMemoryCache cache,
         RagSearchBulkhead ragSearchBulkhead,
@@ -163,10 +164,33 @@ public static class ReadyEndpoints
             var llmReady = await ProbeLlmReadinessAsync(httpFactory, chatOpt.Value, details, ct);
             ApplyBackofficeLlmReadinessPolicy(chatOpt.Value, llmReady, details);
             ProbeIngestionReadiness(ingestionOpt.Value, details);
+            if (!ProbeCanonicalProvenanceReadiness(
+                    ragOpt.Value,
+                    ingestionOpt.Value,
+                    Environment.GetEnvironmentVariable("SAAIA_CODE_REVISION"),
+                    details))
+            {
+                ok = false;
+            }
             ProbeRagSearchReadiness(ragOpt.Value, ragSearchBulkhead, details);
             ProbeTeiWorkloadReadiness(ingestionOpt.Value, teiGovernor, details);
-            if (!ProbeOcrReadiness(ingestionOpt.Value, details))
+            var documentIntelligenceReady = await ProbeDocumentIntelligenceReadinessAsync(
+                httpFactory,
+                documentIntelligenceOpt.Value,
+                details,
+                ct);
+            if (documentIntelligenceOpt.Value.Enabled)
+            {
+                if (!documentIntelligenceReady)
+                    ok = false;
+                details["ocr_status"] = "provided_by_document_intelligence";
+                details["ocr_required"] = true;
+                details["ocr_ready"] = documentIntelligenceReady;
+            }
+            else if (!ProbeOcrReadiness(ingestionOpt.Value, details))
+            {
                 ok = false;
+            }
 
             // Signed deployment config status
             if (cfgStatus is not null)
@@ -189,6 +213,51 @@ public static class ReadyEndpoints
         {
             _gate.Release();
         }
+    }
+
+    internal static bool ProbeCanonicalProvenanceReadiness(
+        RagOptions rag,
+        IngestionOptions ingestion,
+        string? codeRevision,
+        Dictionary<string, object?> details)
+    {
+        ArgumentNullException.ThrowIfNull(rag);
+        ArgumentNullException.ThrowIfNull(ingestion);
+        ArgumentNullException.ThrowIfNull(details);
+
+        details["canonical_artifacts_enabled"] =
+            ingestion.CanonicalArtifactsEnabled;
+        if (!ingestion.CanonicalArtifactsEnabled)
+        {
+            details["canonical_provenance_status"] = "disabled";
+            details["canonical_provenance_ready"] = true;
+            return true;
+        }
+
+        var ready = IngestionProvenanceConfiguration.TryValidate(
+            rag,
+            codeRevision,
+            out var error);
+        details["canonical_provenance_ready"] = ready;
+        details["canonical_provenance_status"] = ready
+            ? "ready"
+            : "invalid";
+        details["embeddings_model_revision"] =
+            string.IsNullOrWhiteSpace(rag.EmbeddingsModelRevision)
+                ? null
+                : rag.EmbeddingsModelRevision;
+        details["embeddings_runtime_revision"] =
+            string.IsNullOrWhiteSpace(rag.EmbeddingsRuntimeRevision)
+                ? null
+                : rag.EmbeddingsRuntimeRevision;
+        details["qdrant_runtime_revision"] =
+            string.IsNullOrWhiteSpace(rag.QdrantRuntimeRevision)
+                ? null
+                : rag.QdrantRuntimeRevision;
+        if (!ready)
+            details["canonical_provenance_error"] = error;
+
+        return ready;
     }
 
     private static ReadinessPayload WithFreshRagSearchReadiness(
@@ -275,6 +344,77 @@ public static class ReadyEndpoints
         {
             details["llm"] = "server-unavailable";
             details["llm_error"] = ex.Message;
+            return false;
+        }
+    }
+
+    internal static async Task<bool> ProbeDocumentIntelligenceReadinessAsync(
+        IHttpClientFactory httpFactory,
+        DocumentIntelligenceOptions options,
+        Dictionary<string, object?> details,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(httpFactory);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(details);
+        details["document_intelligence_enabled"] = options.Enabled;
+        details["document_intelligence_provider"] = options.Provider;
+        details["document_intelligence_engine_version"] = options.EngineVersion;
+        details["document_intelligence_deployment_revision"] = options.DeploymentRevision;
+        details["document_intelligence_device"] = options.Device;
+        details["document_intelligence_threads"] = Math.Max(1, options.NumThreads);
+        details["document_intelligence_workers"] = Math.Max(
+            1,
+            options.ServiceWorkerConcurrency);
+        details["document_intelligence_client_max_conversions"] = Math.Clamp(
+            options.ServiceWorkerConcurrency,
+            1,
+            32);
+        details["document_intelligence_native_text_reconciliation_enabled"] =
+            options.NativeTextCoverageReconciliationEnabled;
+        details["document_intelligence_native_text_minimum_line_coverage"] =
+            Math.Clamp(
+                options.NativeTextCoverageMinimumLineCoverage,
+                0.0,
+                1.0);
+        if (!options.Enabled)
+        {
+            details["document_intelligence_status"] = "disabled";
+            details["document_intelligence_ready"] = true;
+            return true;
+        }
+
+        if (!string.Equals(options.Provider?.Trim(), "docling", StringComparison.OrdinalIgnoreCase))
+        {
+            details["document_intelligence_status"] = "unsupported_provider";
+            details["document_intelligence_ready"] = false;
+            return false;
+        }
+
+        try
+        {
+            var client = httpFactory.CreateClient("docling");
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(5));
+            using var response = await client.GetAsync("health", timeoutCts.Token);
+            details["document_intelligence_http_status"] = (int)response.StatusCode;
+            details["document_intelligence_ready"] = response.IsSuccessStatusCode;
+            details["document_intelligence_status"] = response.IsSuccessStatusCode
+                ? "ready"
+                : "unavailable";
+            return response.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            details["document_intelligence_status"] = "timeout";
+            details["document_intelligence_ready"] = false;
+            return false;
+        }
+        catch (Exception ex)
+        {
+            details["document_intelligence_status"] = "unavailable";
+            details["document_intelligence_ready"] = false;
+            details["document_intelligence_error"] = ex.Message;
             return false;
         }
     }
@@ -419,16 +559,30 @@ public static class ReadyEndpoints
         details["ingestion_embeddings_batch_size_dynamic"] = ingestion.EmbeddingsBatchAdaptiveRetryEnabled;
         details["ingestion_embeddings_batch_adaptive_retry_enabled"] = ingestion.EmbeddingsBatchAdaptiveRetryEnabled;
         details["ingestion_worker_concurrency"] = Math.Max(1, ingestion.WorkerConcurrency);
+        details["ingestion_worker_empty_delay_ms"] =
+            IngestionOptions.ResolveWorkerEmptyDelayMs(
+                ingestion.WorkerEmptyDelayMs);
+        details["ingestion_worker_empty_delay_ms_configured"] =
+            ingestion.WorkerEmptyDelayMs;
         details["ingestion_stale_running_minutes"] = Math.Clamp(ingestion.StaleRunningMinutes, 5, 24 * 60);
         details["ingestion_tei_max_concurrency"] = Math.Max(1, ingestion.TeiMaxConcurrency);
         details["ingestion_qdrant_max_concurrency"] = Math.Max(1, ingestion.QdrantMaxConcurrency);
         details["ingestion_ocr_max_concurrency"] = Math.Max(1, ingestion.OcrMaxConcurrency);
+        details["ingestion_heavy_compute_max_concurrency"] = Math.Clamp(
+            ingestion.HeavyComputeMaxConcurrency,
+            1,
+            16);
         details["ingestion_bulkhead_acquire_timeout_seconds"] = Math.Clamp(ingestion.BulkheadAcquireTimeoutSeconds, 1, 3600);
         details["ingestion_ocr_bulkhead_acquire_timeout_seconds"] = IngestionOptions.ResolveOcrBulkheadQueueWaitTimeoutSeconds(
             ingestion.OcrBulkheadAcquireTimeoutSeconds,
             ingestion.OcrBulkheadQueueWaitTimeoutSeconds);
         details["ingestion_ocr_bulkhead_acquire_timeout_seconds_configured"] = Math.Clamp(ingestion.OcrBulkheadAcquireTimeoutSeconds, 1, 86400);
         details["ingestion_ocr_bulkhead_queue_wait_timeout_seconds"] = Math.Clamp(ingestion.OcrBulkheadQueueWaitTimeoutSeconds, 0, 86400);
+        details["ingestion_heavy_compute_queue_wait_timeout_seconds"] =
+            IngestionOptions.ResolveHeavyComputeQueueWaitTimeoutSeconds(
+                ingestion.HeavyComputeQueueWaitTimeoutSeconds,
+                ingestion.OcrBulkheadAcquireTimeoutSeconds,
+                ingestion.OcrBulkheadQueueWaitTimeoutSeconds);
         details["ingestion_ocr_image_page_max_pages"] = ingestion.OcrImagePageMaxPages <= 0
             ? "all"
             : Math.Clamp(ingestion.OcrImagePageMaxPages, 1, 500).ToString(CultureInfo.InvariantCulture);

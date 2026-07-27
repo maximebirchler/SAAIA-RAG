@@ -200,6 +200,16 @@ WITH current_rev AS (
     AND COALESCE(d.indexed_version, 0) > 0
     $categoryFilterDocuments
 ),
+canonical_revisions AS (
+  SELECT cr.revision_id
+  FROM current_rev cr
+  WHERE EXISTS (
+    SELECT 1
+    FROM document_revision_binary_artifacts a
+    WHERE a.revision_id=cr.revision_id
+      AND a.artifact_type='canonical_ingestion_bundle'
+  )
+),
 coverage AS (
   SELECT cr.*,
     (SELECT count(*) FROM document_page_index p WHERE p.revision_id=cr.revision_id) AS pages,
@@ -319,6 +329,11 @@ uncovered_substantive_units AS (
     ON cs.revision_id=u.revision_id
    AND cs.source_unit_ordinal=u.ordinal
   WHERE cs.source_unit_ordinal IS NULL
+    AND NOT EXISTS (
+      SELECT 1
+      FROM canonical_revisions canonical
+      WHERE canonical.revision_id=u.revision_id
+    )
     AND u.token_count >= 25
     AND length(trim(coalesce(u.text_content, ''))) >= 120
     AND u.extraction_status <> 'empty_text'
@@ -545,6 +560,85 @@ SELECT 'uncovered_substantive_units', category,
 FROM uncovered_substantive_units
 GROUP BY category
 UNION ALL
+SELECT 'canonical_chunk_missing_source_anchor', cr.category,
+       left(
+         string_agg(
+           cr.doc_path || '#chunk=' || c.chunk_index,
+           ' ; '
+           ORDER BY cr.doc_path, c.chunk_index),
+         900),
+       count(*)::text
+FROM current_rev cr
+JOIN canonical_revisions canonical
+  ON canonical.revision_id=cr.revision_id
+JOIN retrieval_chunks c
+  ON c.revision_id=cr.revision_id
+LEFT JOIN document_source_anchors a
+  ON a.revision_id=c.revision_id
+ AND a.projection_type='retrieval_chunk'
+ AND lower(a.projection_id)=lower(c.retrieval_chunk_id::text)
+WHERE NOT cr.has_active_job
+  AND a.anchor_id IS NULL
+GROUP BY cr.category
+UNION ALL
+SELECT 'canonical_source_anchor_without_chunk', cr.category,
+       left(
+         string_agg(
+           cr.doc_path || '#projection=' || a.projection_id,
+           ' ; '
+           ORDER BY cr.doc_path, a.projection_id),
+         900),
+       count(*)::text
+FROM current_rev cr
+JOIN canonical_revisions canonical
+  ON canonical.revision_id=cr.revision_id
+JOIN document_source_anchors a
+  ON a.revision_id=cr.revision_id
+ AND a.projection_type='retrieval_chunk'
+LEFT JOIN retrieval_chunks c
+  ON c.revision_id=a.revision_id
+ AND lower(c.retrieval_chunk_id::text)=lower(a.projection_id)
+WHERE NOT cr.has_active_job
+  AND c.retrieval_chunk_id IS NULL
+GROUP BY cr.category
+UNION ALL
+SELECT 'canonical_chunk_without_evidence_ids', cr.category,
+       left(
+         string_agg(
+           cr.doc_path || '#chunk=' || c.chunk_index,
+           ' ; '
+           ORDER BY cr.doc_path, c.chunk_index),
+         900),
+       count(*)::text
+FROM current_rev cr
+JOIN canonical_revisions canonical
+  ON canonical.revision_id=cr.revision_id
+JOIN retrieval_chunks c
+  ON c.revision_id=cr.revision_id
+WHERE NOT cr.has_active_job
+  AND coalesce(
+        CASE
+          WHEN jsonb_typeof(c.metadata->'canonicalBlockIds')='array'
+            THEN jsonb_array_length(c.metadata->'canonicalBlockIds')
+          ELSE 0
+        END,
+        0) = 0
+  AND coalesce(
+        CASE
+          WHEN jsonb_typeof(c.metadata->'canonicalSpanIds')='array'
+            THEN jsonb_array_length(c.metadata->'canonicalSpanIds')
+          ELSE 0
+        END,
+        0) = 0
+  AND coalesce(
+        CASE
+          WHEN jsonb_typeof(c.metadata->'canonicalTableCellIds')='array'
+            THEN jsonb_array_length(c.metadata->'canonicalTableCellIds')
+          ELSE 0
+        END,
+        0) = 0
+GROUP BY cr.category
+UNION ALL
 SELECT 'revision_legend_text_in_chunks', category,
        left(
          string_agg(
@@ -637,6 +731,10 @@ SELECT 'suspicious_profile_card_title', cr.category,
 FROM current_rev cr
 JOIN document_profile_content_cards cc ON cc.revision_id=cr.revision_id
 WHERE NOT cr.has_active_job
+  AND NOT (
+    cc.kind='section'
+    AND cc.signals @> ARRAY['canonical_section_heading']::text[]
+  )
   AND NULLIF(BTRIM(cc.title), '') IS NOT NULL
   AND (
     (cc.title ~ '^[[:lower:]]' AND NOT (cc.metadata ? 'evidence'))
@@ -926,6 +1024,15 @@ foreach ($row in $rows) {
         }
         "uncovered_substantive_units" {
             if ($valueNumber -gt 0) { $warnings.Add("substantive extracted units are not covered by embeddable retrieval chunks: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }
+        }
+        "canonical_chunk_missing_source_anchor" {
+            if ($valueNumber -gt 0) { $issues.Add("canonical retrieval chunks are missing source anchors: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }
+        }
+        "canonical_source_anchor_without_chunk" {
+            if ($valueNumber -gt 0) { $issues.Add("canonical retrieval source anchors reference missing chunks: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }
+        }
+        "canonical_chunk_without_evidence_ids" {
+            if ($valueNumber -gt 0) { $issues.Add("canonical retrieval chunks are missing block/span/table-cell evidence identifiers: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }
         }
         "revision_legend_text_in_chunks" {
             if ($valueNumber -gt 0) { $warnings.Add("revision legend text remains in embeddable chunks: category='$($row.Scope)' count=$valueNumber examples=$($row.Metric)") }

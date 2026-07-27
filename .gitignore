@@ -130,6 +130,8 @@ tmp/
 **/.vs/
 **/bin/
 **/obj/
+**/__pycache__/
+**/*.py[cod]
 **/*.user
 **/*.suo
 

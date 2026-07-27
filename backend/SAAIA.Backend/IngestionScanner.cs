@@ -17,6 +17,7 @@ sealed class IngestionScanner : BackgroundService
 {
     private readonly IServiceProvider _sp;
     private readonly ILogger<IngestionScanner> _log;
+    private readonly IngestionFileContentHashCache _fileHashCache = new();
 
     // Anti “wipe transitoire”
     private int _emptyScanStreak = 0;
@@ -141,6 +142,19 @@ WHERE tenant_id = @tenant_id
         var existing = (await conn.QueryAsync<DocRow>(loadSql, new { tenant_id = tenantId }))
             .ToDictionary(x => x.DocPath, StringComparer.OrdinalIgnoreCase);
 
+        const string activeJobsSql = """
+SELECT DISTINCT doc_path
+FROM ingestion_jobs
+WHERE tenant_id = @tenant_id
+  AND status IN ('queued', 'running', 'paused');
+""";
+        var activeJobPaths = (await conn.QueryAsync<string>(
+                new CommandDefinition(
+                    activeJobsSql,
+                    new { tenant_id = tenantId },
+                    cancellationToken: ct)))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         // 3.1) Auto-heal: if Qdrant is empty for this tenant but DB has docs, force reindex.
         bool forceReindexAll = false;
         if (opt.ReindexIfQdrantEmpty && existing.Count > 0 && files.Count > 0)
@@ -163,7 +177,13 @@ WHERE tenant_id = @tenant_id
             }
         }
 
-        var duplicateFiles = await BuildDuplicateFileMapAsync(files, root, opt, now, ct);
+        var duplicateScan = await BuildDuplicateFileMapAsync(
+            files,
+            root,
+            opt,
+            now,
+            ct);
+        var duplicateFiles = duplicateScan.Duplicates;
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         int enqUpsert = 0, enqDelete = 0, skippedTooFresh = 0, unchanged = 0, suppressedAuto = 0, suppressedDuplicateContent = 0;
@@ -210,10 +230,11 @@ WHERE tenant_id = @tenant_id
                 if (duplicateRow is not null)
                     shouldDeleteKnownDuplicate = ShouldEnqueueDuplicateDelete(duplicateRow.Status, duplicateRow.IndexedVersion);
                 var hasActiveDuplicateJob = shouldDeleteKnownDuplicate
-                                            && await HasActiveJobForDocAsync(conn, tenantId, rel, ct);
+                                            && activeJobPaths.Contains(rel);
                 if (shouldDeleteKnownDuplicate && !hasActiveDuplicateJob)
                 {
                     await IngestionEnqueue.EnqueueDeleteAsync(conn, tenantId, rel, ct);
+                    activeJobPaths.Add(rel);
                     enqDelete++;
                     _log.LogWarning(
                         "Scanner: duplicate PDF content suppressed for {DocPath}; canonical={CanonicalDocPath} hash={SourceHash}",
@@ -223,7 +244,7 @@ WHERE tenant_id = @tenant_id
                 }
                 else
                 {
-                    _log.LogInformation(
+                    _log.LogDebug(
                         "Scanner: duplicate PDF content ignored for {DocPath}; canonical={CanonicalDocPath} active_job={HasActiveJob} known_document={KnownDocument} delete_required={DeleteRequired}",
                         rel,
                         duplicate.CanonicalPath,
@@ -238,6 +259,7 @@ WHERE tenant_id = @tenant_id
             if (!existing.TryGetValue(rel, out var row))
             {
                 await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct, isAutomatic: true, enqueueSource: "scanner");
+                activeJobPaths.Add(rel);
                 enqUpsert++;
                 continue;
             }
@@ -283,7 +305,7 @@ WHERE tenant_id = @tenant_id
                 categoryChanged;
 
             var normalizedStatus = (row.Status ?? string.Empty).Trim().ToLowerInvariant();
-            var hasActiveJob = await HasActiveJobForDocAsync(conn, tenantId, rel, ct);
+            var hasActiveJob = activeJobPaths.Contains(rel);
             var autoSuppressed = !hasActiveJob
                 && IngestionAutoUpsertGuard.ShouldSuppressAutoUpsert(row.ToAutoUpsertState(), fi.Length, fi.LastWriteTimeUtc);
 
@@ -336,6 +358,7 @@ WHERE tenant_id = @tenant_id
                         "Scanner: enqueue upsert for {DocPath} (status={Status}, changed={Changed}, category_changed={CategoryChanged}, hasActiveJob={HasActiveJob}, pendingOrBroken={PendingOrBroken}, forceReindex={Force})",
                         rel, row.Status, changed, categoryChanged, hasActiveJob, pendingOrBrokenWithoutJob, forceReindexAll);
                     await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, category, fi, ct, isAutomatic: true, enqueueSource: "scanner");
+                    activeJobPaths.Add(rel);
                     enqUpsert++;
                 }
             }
@@ -380,6 +403,7 @@ WHERE tenant_id = @tenant_id
                 if ((now - missingSinceUtc) >= missingGrace)
                 {
                     await IngestionEnqueue.EnqueueDeleteAsync(conn, tenantId, kv.Key, ct);
+                    activeJobPaths.Add(kv.Key);
                     enqDelete++;
                 }
             }
@@ -391,12 +415,21 @@ WHERE tenant_id = @tenant_id
         }
 
         _log.LogInformation(
-            "Scanner: files={Files} unchanged={Unchanged} upsert_enqueued={Upserts} delete_enqueued={Deletes} skipped_too_fresh={TooFresh} suppressed_auto={Suppressed} suppressed_duplicate_content={SuppressedDuplicates} force_reindex={Force}",
-            files.Count, unchanged, enqUpsert, enqDelete, skippedTooFresh, suppressedAuto, suppressedDuplicateContent, forceReindexAll
+            "Scanner: files={Files} unchanged={Unchanged} upsert_enqueued={Upserts} delete_enqueued={Deletes} skipped_too_fresh={TooFresh} suppressed_auto={Suppressed} suppressed_duplicate_content={SuppressedDuplicates} duplicate_hash_cache_hits={HashCacheHits} duplicate_hash_cache_misses={HashCacheMisses} force_reindex={Force}",
+            files.Count,
+            unchanged,
+            enqUpsert,
+            enqDelete,
+            skippedTooFresh,
+            suppressedAuto,
+            suppressedDuplicateContent,
+            duplicateScan.CacheHits,
+            duplicateScan.CacheMisses,
+            forceReindexAll
         );
     }
 
-    private static async Task<IReadOnlyDictionary<string, IngestionDuplicateFileDecision>> BuildDuplicateFileMapAsync(
+    private async Task<DuplicateFileScanResult> BuildDuplicateFileMapAsync(
         IReadOnlyCollection<string> files,
         string root,
         IngestionOptions opt,
@@ -420,11 +453,41 @@ WHERE tenant_id = @tenant_id
             if (ageSeconds < Math.Max(0, opt.MinFileAgeSeconds))
                 continue;
 
-            candidates.Add(new IngestionDuplicateFileCandidate(rel, file, fi.Length));
+            candidates.Add(new IngestionDuplicateFileCandidate(
+                rel,
+                file,
+                fi.Length,
+                fi.LastWriteTimeUtc));
         }
 
-        return await IngestionDuplicateFilePlanner.FindDuplicatesByContentAsync(candidates, ct).ConfigureAwait(false);
+        _fileHashCache.RetainOnly(candidates.Select(static candidate =>
+            candidate.AbsolutePath));
+        var cacheHits = 0;
+        var cacheMisses = 0;
+        var duplicates = await IngestionDuplicateFilePlanner
+            .FindDuplicatesByContentAsync(
+                candidates,
+                ct,
+                async (candidate, hashCt) =>
+                {
+                    var resolved = await _fileHashCache.ResolveAsync(
+                        candidate,
+                        hashCt).ConfigureAwait(false);
+                    if (resolved.CacheHit)
+                        cacheHits++;
+                    else
+                        cacheMisses++;
+                    return resolved.HashHex;
+                })
+            .ConfigureAwait(false);
+
+        return new(duplicates, cacheHits, cacheMisses);
     }
+
+    private sealed record DuplicateFileScanResult(
+        IReadOnlyDictionary<string, IngestionDuplicateFileDecision> Duplicates,
+        int CacheHits,
+        int CacheMisses);
 
     private static async Task<int?> TryGetTenantPointCountAsync(
         IHttpClientFactory httpFactory,
@@ -514,23 +577,6 @@ LIMIT 1;";
 
         return await conn.ExecuteScalarAsync<bool>(
             new CommandDefinition(sql, new { tenant_id = tenantId, doc_path = docPath }, cancellationToken: ct));
-    }
-
-    private static async Task<bool> HasActiveJobForDocAsync(NpgsqlConnection conn, Guid tenantId, string docPath, CancellationToken ct)
-    {
-        const string sql = @"
-SELECT 1
-FROM ingestion_jobs
-WHERE tenant_id=@tenant_id
-  AND doc_path=@doc_path
-  AND status IN ('queued','running','paused')
-LIMIT 1;";
-
-        var exists = await conn.ExecuteScalarAsync<int?>(
-            new CommandDefinition(sql, new { tenant_id = tenantId, doc_path = docPath }, cancellationToken: ct)
-        );
-
-        return exists.HasValue;
     }
 
     private static async Task<AutoRetryBackoffState> GetRecentFailureBackoffStateAsync(

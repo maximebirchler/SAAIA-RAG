@@ -1851,7 +1851,13 @@ internal sealed record ProjectedRetrievalChunk(
     int? SourceUnitStartOrdinal = null,
     int? SourceUnitEndOrdinal = null,
     int? SourceUnitCount = null,
-    string? ChunkComposition = null);
+    string? ChunkComposition = null,
+    IReadOnlyList<string>? CanonicalBlockIds = null,
+    IReadOnlyList<string>? CanonicalSpanIds = null,
+    IReadOnlyList<string>? CanonicalTableCellIds = null,
+    IReadOnlyList<string>? CanonicalContextBlockIds = null,
+    string? SectionTitle = null,
+    string? HeadingPath = null);
 
 internal sealed record RetrievalChunkExtractionQuality(
     string? TextStatus,

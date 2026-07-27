@@ -49,7 +49,7 @@ internal static partial class PdfTextSanitizer
         cleaned = RepairCommonOcrFusedWords(cleaned);
         cleaned = Regex.Replace(cleaned, @"[ \t]+", " ", RegexOptions.CultureInvariant);
         cleaned = Regex.Replace(cleaned, @" *\n *", "\n", RegexOptions.CultureInvariant);
-        cleaned = Regex.Replace(cleaned, @"\n{3,}", "\n\n", RegexOptions.CultureInvariant);
+        cleaned = Regex.Replace(cleaned, @"\n{4,}", "\n\n\n", RegexOptions.CultureInvariant);
         return cleaned;
     }
 

@@ -1390,6 +1390,10 @@ public sealed class DocumentUnitExtractorTests
         Assert.Contains("au-feu, effilochez les restes", cleaned, StringComparison.Ordinal);
         Assert.Contains("Servez avec quelques gouttes", cleaned, StringComparison.Ordinal);
         Assert.Contains("M I X I N G V A L V E Overview", cleaned, StringComparison.Ordinal);
+        Assert.Equal(
+            "Stoppez la cuisson après ébullition.",
+            OcrNoiseFilter.RemoveSpacedLetterRunNoise(
+                "ffl e s u r Stoppez la cuisson après ébullition."));
     }
 
     [Fact]

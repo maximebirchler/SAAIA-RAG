@@ -216,11 +216,12 @@ internal static class PdfOcrTextExtractor
 
     private static PdfExtractionResult BuildExtractionFromSidecarText(string sidecarText, string? ocrLanguages, string source)
     {
-        var pages = sidecarText
+        var rawPages = sidecarText
             .Replace("\r\n", "\n")
             .Replace('\r', '\n')
             .TrimEnd('\f')
-            .Split('\f')
+            .Split('\f');
+        var pages = rawPages
             .Select(static page => PdfTextSanitizer.ForStorage(page))
             .ToArray();
 
@@ -250,7 +251,8 @@ internal static class PdfOcrTextExtractor
                         .Concat(["ocr_text_extracted"])
                         .Distinct(StringComparer.Ordinal)
                         .ToArray()
-                }));
+                },
+                RawText: rawPages[i]));
         }
 
         var summary = PdfExtractionQualitySummary.FromPages(extractedPages);
@@ -827,6 +829,7 @@ internal static class PdfOcrTextExtractor
         foreach (var page in nativeExtraction.Pages)
         {
             var text = page.Text;
+            var rawText = page.RawText ?? page.Text;
             IReadOnlyList<string> pageAppliedSignals = [];
             if (ocrTextByPage.TryGetValue(page.PageNumber, out var ocrText))
             {
@@ -864,6 +867,7 @@ internal static class PdfOcrTextExtractor
             var quality = PdfPageExtractionQuality.FromText(text, words.Length, text.Length);
             if (!string.Equals(text, page.Text, StringComparison.Ordinal))
             {
+                rawText = text;
                 quality = quality with
                 {
                     Signals = quality.Signals
@@ -880,7 +884,10 @@ internal static class PdfOcrTextExtractor
                 text.Length,
                 SHA256.HashData(Encoding.UTF8.GetBytes(text)),
                 quality,
-                page.ImageCount));
+                page.ImageCount,
+                rawText,
+                page.WidthPoints,
+                page.HeightPoints));
         }
 
         if (!changed)
@@ -2189,10 +2196,15 @@ internal static class PdfOcrTextExtractor
         PdfExtractionResult extraction,
         PdfExtractionResult nativeExtraction)
     {
-        var nativeImageCounts = nativeExtraction.Pages.ToDictionary(static page => page.PageNumber, static page => page.ImageCount);
+        var nativePages = nativeExtraction.Pages.ToDictionary(static page => page.PageNumber);
         var pages = extraction.Pages
-            .Select(page => nativeImageCounts.TryGetValue(page.PageNumber, out var imageCount) && imageCount != page.ImageCount
-                ? page with { ImageCount = imageCount }
+            .Select(page => nativePages.TryGetValue(page.PageNumber, out var nativePage)
+                ? page with
+                {
+                    ImageCount = nativePage.ImageCount,
+                    WidthPoints = page.WidthPoints ?? nativePage.WidthPoints,
+                    HeightPoints = page.HeightPoints ?? nativePage.HeightPoints
+                }
                 : page)
             .ToList();
 

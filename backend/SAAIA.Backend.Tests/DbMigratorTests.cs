@@ -124,6 +124,21 @@ public sealed class DbMigratorTests
         Assert.Contains("SELECT saaia_refresh_document_profile_search_entry", migration, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Canonical_artifact_migration_stores_compressed_bundles_and_queryable_anchors()
+    {
+        var migration = File.ReadAllText(Path.Combine(
+            ResolveMigrationsDir(),
+            "064_canonical_ingestion_artifacts.sql"));
+
+        Assert.Contains("document_revision_binary_artifacts", migration, StringComparison.Ordinal);
+        Assert.Contains("payload bytea NOT NULL", migration, StringComparison.Ordinal);
+        Assert.Contains("compression IN ('gzip')", migration, StringComparison.Ordinal);
+        Assert.Contains("document_source_anchors", migration, StringComparison.Ordinal);
+        Assert.Contains("UNIQUE (revision_id, projection_type, projection_id)", migration, StringComparison.Ordinal);
+        Assert.Contains("manifest_hash bytea NOT NULL", migration, StringComparison.Ordinal);
+    }
+
     private static string ResolveMigrationsDir()
         => Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,

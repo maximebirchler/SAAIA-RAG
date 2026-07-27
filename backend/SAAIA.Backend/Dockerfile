@@ -33,6 +33,9 @@ RUN apt-get update \
         tesseract-ocr-all \
     && rm -rf /var/lib/apt/lists/*
 
+ARG SAAIA_CODE_REVISION=unknown
+ENV SAAIA_CODE_REVISION=${SAAIA_CODE_REVISION}
+
 # Kestrel
 ENV ASPNETCORE_URLS=http://0.0.0.0:5122
 EXPOSE 5122

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "ingestion_benchmark_corpus_v1",
+  "description": "Corpus initial de comparaison des pipelines documentaires. Les sélecteurs restent hors du code de production.",
+  "privacy": {
+    "includeDocumentNames": false,
+    "includeDocumentPaths": false,
+    "includeInternalIds": false,
+    "includeExtractedText": false
+  },
+  "waves": [
+    {
+      "waveId": "primary",
+      "selectors": [
+        {
+          "caseFamily": "mixed_content",
+          "category": "Cuisine"
+        },
+        {
+          "caseFamily": "scanned_documents",
+          "category": "Documents scannés  - OCR imparfait"
+        },
+        {
+          "caseFamily": "complex_tables",
+          "category": "Tableaux complexes"
+        }
+      ]
+    }
+  ]
+}

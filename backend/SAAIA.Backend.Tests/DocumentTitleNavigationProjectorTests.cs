@@ -441,6 +441,104 @@ public sealed class DocumentTitleNavigationProjectorTests
     }
 
     [Fact]
+    public void Project_ResolvesMinorOcrTitleDifferencesFromStructuralNavigation()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(
+                0,
+                "Tarte au pommes",
+                1,
+                25,
+                25,
+                null,
+                null),
+            new ExtractedDocumentSection(
+                1,
+                "TarteTatin",
+                1,
+                33,
+                33,
+                null,
+                null)
+        };
+        var chunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                null,
+                null,
+                2,
+                2,
+                "Tarte aux pommes 25 Tarte Tatin 33",
+                8,
+                [1],
+                RetrievalContentClassifier.NavigationChunkType,
+                ContentRole:
+                    RetrievalContentClassifier.NavigationRole,
+                NavigationReason:
+                    "docling_structural_navigation",
+                NavigationScore: 1.0),
+            new ProjectedRetrievalChunk(
+                1,
+                0,
+                null,
+                25,
+                25,
+                "Tarte au pommes\nIngredients and preparation details.",
+                8,
+                [2],
+                "section",
+                ContentRole:
+                    RetrievalContentClassifier.ContentRole,
+                ContentDensityScore: 0.90),
+            new ProjectedRetrievalChunk(
+                2,
+                1,
+                null,
+                33,
+                33,
+                "TarteTatin\nIngredients and preparation details.",
+                8,
+                [3],
+                "section",
+                ContentRole:
+                    RetrievalContentClassifier.ContentRole,
+                ContentDensityScore: 0.90)
+        };
+        var profile = DocumentProfileProjector.BuildProfile(
+            "deterministic_v1",
+            "fr",
+            "Document avec sommaire structurel.",
+            [],
+            [],
+            [],
+            [],
+            [],
+            "Cuisine/Recettes.pdf",
+            "Recettes.pdf");
+
+        var index = DocumentTitleNavigationProjector.Project(
+            sections,
+            [],
+            chunks,
+            profile);
+
+        Assert.Contains(
+            index.NavigationEntries,
+            entry =>
+                entry.Label == "Tarte au pommes"
+                && entry.TargetPageStart == 25
+                && entry.ResolutionMethod == "title_exact");
+        Assert.Contains(
+            index.NavigationEntries,
+            entry =>
+                entry.Label == "TarteTatin"
+                && entry.TargetPageStart == 33
+                && entry.ResolutionMethod == "title_exact");
+    }
+
+    [Fact]
     public void Project_keeps_strong_navigation_entry_unresolved_when_target_page_is_navigation_dominant()
     {
         var sections = new[]
@@ -1105,6 +1203,208 @@ public sealed class DocumentTitleNavigationProjectorTests
     }
 
     [Fact]
+    public void Project_parses_structural_table_of_contents_rows_with_column_separators()
+    {
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(
+                0,
+                "1.0 INTRODUCTION",
+                1,
+                9,
+                9,
+                null,
+                null),
+            new ExtractedDocumentSection(
+                1,
+                "1.1 Purpose and Applicability",
+                2,
+                9,
+                9,
+                null,
+                null),
+            new ExtractedDocumentSection(
+                2,
+                "1.2 Target Audience",
+                2,
+                9,
+                9,
+                null,
+                null),
+            new ExtractedDocumentSection(
+                3,
+                "2.4 Role in the Certification and Accreditation Process",
+                2,
+                13,
+                13,
+                null,
+                null),
+            new ExtractedDocumentSection(
+                4,
+                "Certification",
+                2,
+                44,
+                44,
+                null,
+                null),
+            new ExtractedDocumentSection(
+                5,
+                "3.0 SECURITY CATEGORIZATION OF INFORMATION AND INFORMATION SYSTEMS",
+                1,
+                17,
+                17,
+                null,
+                null),
+            new ExtractedDocumentSection(
+                6,
+                "3.1.1 Security Categories",
+                3,
+                17,
+                17,
+                null,
+                null),
+            new ExtractedDocumentSection(
+                7,
+                "4.1.2 Identification of Management and Support Information",
+                2,
+                25,
+                25,
+                null,
+                null),
+            new ExtractedDocumentSection(
+                8,
+                "4.2.3 Examples of FIPS 199-Based Selection of Impact Levels",
+                2,
+                30,
+                30,
+                null,
+                null),
+            new ExtractedDocumentSection(
+                9,
+                "Volume I: Guide for Mapping Types of Information and Information Systems to Security Categories",
+                1,
+                5,
+                5,
+                null,
+                null)
+        };
+        var navigationText = string.Join(
+            Environment.NewLine,
+            "1.0 | INTRODUCTION..................................................................................................................1",
+            "1.1 | Purpose and Applicability ......................................................................................................1",
+            "1.2 | Target Audience.....................................................................................................................1",
+            "2.4 | Role in the Certification and Accreditation Process ..............................................................5",
+            "3.0 | SECURITY CATEGORIZATION OF INFORMATION AND INFORMATION SYSTEMS.............................................................................................................................. | 9",
+            "3.1.1 Security Categories........................................................................................................9",
+            "4.1.2 Identification of Management and Support Information | .............................................16",
+            "4.2.3 Examples of FIPS 199-Based Selection | of Impact Levels | ..........................................22");
+        var navigationChunk = new ProjectedRetrievalChunk(
+            0,
+            null,
+            null,
+            5,
+            5,
+            navigationText,
+            42,
+            [1],
+            RetrievalContentClassifier.NavigationChunkType,
+            ContentRole: RetrievalContentClassifier.NavigationRole,
+            NavigationReason: "docling_structural_navigation",
+            NavigationScore: 1.0);
+        var targetChunks = sections
+            .Select((section, index) => new ProjectedRetrievalChunk(
+                index + 1,
+                section.Ordinal,
+                null,
+                section.PageStart,
+                section.PageEnd,
+                $"{section.Title}{Environment.NewLine}"
+                + "Substantive body content with controls, context, "
+                + "implementation details and validation evidence.",
+                40,
+                new byte[] { (byte)(index + 2) },
+                "section",
+                ContentRole: RetrievalContentClassifier.ContentRole,
+                ContentDensityScore: 0.95))
+            .ToArray();
+        var profile = DocumentProfileProjector.BuildProfile(
+            "deterministic_canonical_v3",
+            "en",
+            "Structured table of contents fixture.",
+            [],
+            [],
+            [],
+            [],
+            [],
+            "Standards/Contents.pdf",
+            "Contents.pdf");
+
+        var index = DocumentTitleNavigationProjector.Project(
+            sections,
+            [],
+            targetChunks,
+            [navigationChunk, .. targetChunks],
+            profile);
+
+        Assert.All(
+            index.NavigationEntries,
+            static entry =>
+            {
+                Assert.NotNull(entry.TargetChunkIndex);
+                Assert.NotNull(entry.TargetAnchorIndex);
+                Assert.StartsWith("title_", entry.ResolutionMethod);
+            });
+        Assert.Contains(
+            index.NavigationEntries,
+            static entry =>
+                entry.Label == "1.0 INTRODUCTION"
+                && entry.TargetPageStart == 9);
+        Assert.Contains(
+            index.NavigationEntries,
+            static entry =>
+                entry.Label == "1.1 Purpose and Applicability"
+                && entry.TargetPageStart == 9);
+        Assert.Contains(
+            index.NavigationEntries,
+            static entry =>
+                entry.Label == "1.2 Target Audience"
+                && entry.TargetPageStart == 9);
+        Assert.Contains(
+            index.NavigationEntries,
+            static entry =>
+                entry.Label
+                == "2.4 Role in the Certification and Accreditation Process"
+                && entry.TargetPageStart == 13);
+        Assert.DoesNotContain(
+            index.NavigationEntries,
+            static entry => entry.Label == "Certification");
+        Assert.Contains(
+            index.NavigationEntries,
+            static entry =>
+                entry.Label
+                == "3.0 SECURITY CATEGORIZATION OF INFORMATION AND INFORMATION SYSTEMS"
+                && entry.TargetPageStart == 17);
+        Assert.Contains(
+            index.NavigationEntries,
+            static entry =>
+                entry.Label == "3.1.1 Security Categories"
+                && entry.TargetPageStart == 17);
+        Assert.Contains(
+            index.NavigationEntries,
+            static entry =>
+                entry.Label
+                == "4.1.2 Identification of Management and Support Information"
+                && entry.TargetPageStart == 25);
+        Assert.Contains(
+            index.NavigationEntries,
+            static entry =>
+                entry.Label
+                == "4.2.3 Examples of FIPS 199-Based Selection of Impact Levels"
+                && entry.TargetPageStart == 30);
+        Assert.Equal(8, index.NavigationEntries.Count);
+    }
+
+    [Fact]
     public void Project_keeps_duplicate_titles_distinct_by_page()
     {
         var sections = new[]
@@ -1133,5 +1433,78 @@ public sealed class DocumentTitleNavigationProjectorTests
         Assert.Equal(2, anchors.Length);
         Assert.Equal(2, anchors[0].PageStart);
         Assert.Equal(9, anchors[1].PageStart);
+    }
+
+    [Fact]
+    public void Project_reconstructs_wrapped_navigation_entry_only_from_exact_document_title()
+    {
+        var title =
+            "4.3 Step 3: Review Provisional Impact Levels and Adjust/Finalize Information Type Impact Levels";
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(
+                0,
+                title,
+                2,
+                31,
+                31,
+                null,
+                null)
+        };
+        var navigationChunk = new ProjectedRetrievalChunk(
+            0,
+            null,
+            null,
+            6,
+            6,
+            string.Join(
+                Environment.NewLine,
+                "TABLE OF CONTENTS",
+                "4.3 Step 3: Review Provisional Impact Levels and Adjust/Finalize Information Type Impact",
+                "Levels........................................................................23"),
+            24,
+            [1],
+            RetrievalContentClassifier.NavigationChunkType,
+            ContentRole: RetrievalContentClassifier.NavigationRole,
+            NavigationReason: "docling_structural_navigation",
+            NavigationScore: 1.0);
+        var targetChunk = new ProjectedRetrievalChunk(
+            1,
+            0,
+            null,
+            31,
+            31,
+            $"{title}{Environment.NewLine}"
+            + "Substantive body content with implementation details and validation evidence.",
+            40,
+            [2],
+            "section",
+            ContentRole: RetrievalContentClassifier.ContentRole,
+            ContentDensityScore: 0.95);
+        var profile = DocumentProfileProjector.BuildProfile(
+            "deterministic_canonical_v3",
+            "en",
+            "Wrapped table of contents fixture.",
+            [],
+            [],
+            [],
+            [],
+            [],
+            "Standards/Contents.pdf",
+            "Contents.pdf");
+
+        var index = DocumentTitleNavigationProjector.Project(
+            sections,
+            [],
+            [targetChunk],
+            [navigationChunk, targetChunk],
+            profile);
+
+        var entry = Assert.Single(index.NavigationEntries);
+        Assert.Equal(title, entry.Label);
+        Assert.Equal(31, entry.TargetPageStart);
+        Assert.Equal("title_exact", entry.ResolutionMethod);
+        Assert.Equal(1, entry.TargetChunkIndex);
+        Assert.Equal(0, entry.TargetAnchorIndex);
     }
 }

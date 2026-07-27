@@ -152,6 +152,15 @@ public sealed class TextEncodingSanitizerTests
     }
 
     [Fact]
+    public void PdfTextSanitizer_preserves_explicit_layout_region_boundaries()
+    {
+        var sanitized = PdfTextSanitizer.ForStorage(
+            "LEFT ITEM\n400 g material\n\n\nRIGHT ITEM\n900 ml fluid");
+
+        Assert.Contains("400 g material\n\n\nRIGHT ITEM", sanitized, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PdfTextSanitizer_repairs_joined_french_imperative_pronouns_without_rewriting_prepositions()
     {
         var sanitized = PdfTextSanitizer.ForStorage(

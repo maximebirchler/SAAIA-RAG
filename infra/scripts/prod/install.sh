@@ -113,6 +113,7 @@ sed \
   -e "s/__POSTGRES_DB__/${POSTGRES_DB:-saaia}/g" \
   -e "s/__POSTGRES_USER__/${POSTGRES_USER:-saaia}/g" \
   -e "s#__TEI_MODEL_ID__#${TEI_MODEL_ID:-intfloat/multilingual-e5-base}#g" \
+  -e "s/__TEI_MODEL_REVISION__/${TEI_MODEL_REVISION:-d128750597153bb5987e10b1c3493a34e5a4502a}/g" \
   -e "s/__REQUIRE_QDRANT_AUTH__/${REQ_QDRANT}/g" \
   -e "s/__LICENSE_SEATS__/${LICENSE_SEATS}/g" \
   "$TEMPLATE" > "$CFG"

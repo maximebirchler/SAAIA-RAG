@@ -9,12 +9,15 @@ sealed class IngestionBulkheads
     private readonly SemaphoreSlim _tei;
     private readonly SemaphoreSlim _qdrant;
     private readonly SemaphoreSlim _ocr;
+    private readonly SemaphoreSlim _heavyCompute;
 
     private readonly int _teiMax;
     private readonly int _qdrantMax;
     private readonly int _ocrMax;
+    private readonly int _heavyComputeMax;
     private readonly TimeSpan _acquireTimeout;
     private readonly TimeSpan _ocrAcquireTimeout;
+    private readonly TimeSpan _heavyComputeAcquireTimeout;
 
     public IngestionBulkheads(IOptions<IngestionOptions> opt, ILogger<IngestionBulkheads> log)
     {
@@ -25,18 +28,32 @@ sealed class IngestionBulkheads
         _teiMax = Math.Clamp(o.TeiMaxConcurrency, 1, 16);
         _qdrantMax = Math.Clamp(o.QdrantMaxConcurrency, 1, 32);
         _ocrMax = Math.Clamp(o.OcrMaxConcurrency, 1, 8);
+        _heavyComputeMax = Math.Clamp(o.HeavyComputeMaxConcurrency, 1, 16);
 
         _acquireTimeout = TimeSpan.FromSeconds(Math.Clamp(o.BulkheadAcquireTimeoutSeconds, 1, 3600));
         _ocrAcquireTimeout = TimeSpan.FromSeconds(IngestionOptions.ResolveOcrBulkheadQueueWaitTimeoutSeconds(
             o.OcrBulkheadAcquireTimeoutSeconds,
             o.OcrBulkheadQueueWaitTimeoutSeconds));
+        _heavyComputeAcquireTimeout = TimeSpan.FromSeconds(
+            IngestionOptions.ResolveHeavyComputeQueueWaitTimeoutSeconds(
+                o.HeavyComputeQueueWaitTimeoutSeconds,
+                o.OcrBulkheadAcquireTimeoutSeconds,
+                o.OcrBulkheadQueueWaitTimeoutSeconds));
 
         _tei = new SemaphoreSlim(_teiMax, _teiMax);
         _qdrant = new SemaphoreSlim(_qdrantMax, _qdrantMax);
         _ocr = new SemaphoreSlim(_ocrMax, _ocrMax);
+        _heavyCompute = new SemaphoreSlim(_heavyComputeMax, _heavyComputeMax);
 
-        _log.LogInformation("Bulkheads: TEI={Tei} Qdrant={Qdrant} OCR={Ocr} AcquireTimeout={Timeout}s OcrAcquireTimeout={OcrTimeout}s",
-            _teiMax, _qdrantMax, _ocrMax, (int)_acquireTimeout.TotalSeconds, (int)_ocrAcquireTimeout.TotalSeconds);
+        _log.LogInformation(
+            "Bulkheads: TEI={Tei} Qdrant={Qdrant} OCR={Ocr} HeavyCompute={HeavyCompute} AcquireTimeout={Timeout}s OcrAcquireTimeout={OcrTimeout}s HeavyComputeAcquireTimeout={HeavyComputeTimeout}s",
+            _teiMax,
+            _qdrantMax,
+            _ocrMax,
+            _heavyComputeMax,
+            (int)_acquireTimeout.TotalSeconds,
+            (int)_ocrAcquireTimeout.TotalSeconds,
+            (int)_heavyComputeAcquireTimeout.TotalSeconds);
     }
 
     public Task<IDisposable> AcquireTeiAsync(CancellationToken ct)
@@ -46,7 +63,45 @@ sealed class IngestionBulkheads
         => AcquireAsync(_qdrant, "Qdrant", _qdrantMax, ct);
 
     public Task<IDisposable> AcquireOcrAsync(CancellationToken ct)
-        => AcquireAsync(_ocr, "OCR", _ocrMax, _ocrAcquireTimeout, ct);
+        => AcquireDedicatedWithHeavyComputeAsync(
+            _ocr,
+            "OCR",
+            _ocrMax,
+            _ocrAcquireTimeout,
+            ct);
+
+    public Task<IDisposable> AcquireHeavyComputeAsync(CancellationToken ct)
+        => AcquireAsync(
+            _heavyCompute,
+            "HeavyCompute",
+            _heavyComputeMax,
+            _heavyComputeAcquireTimeout,
+            ct);
+
+    private async Task<IDisposable> AcquireDedicatedWithHeavyComputeAsync(
+        SemaphoreSlim dedicated,
+        string dedicatedName,
+        int dedicatedMax,
+        TimeSpan dedicatedTimeout,
+        CancellationToken ct)
+    {
+        var dedicatedLease = await AcquireAsync(
+            dedicated,
+            dedicatedName,
+            dedicatedMax,
+            dedicatedTimeout,
+            ct);
+        try
+        {
+            var computeLease = await AcquireHeavyComputeAsync(ct);
+            return new CompositeReleaser(computeLease, dedicatedLease);
+        }
+        catch
+        {
+            dedicatedLease.Dispose();
+            throw;
+        }
+    }
 
     private Task<IDisposable> AcquireAsync(SemaphoreSlim sem, string name, int max, CancellationToken ct)
         => AcquireAsync(sem, name, max, _acquireTimeout, ct);
@@ -88,6 +143,20 @@ sealed class IngestionBulkheads
         {
             var sem = Interlocked.Exchange(ref _sem, null);
             sem?.Release();
+        }
+    }
+
+    private sealed class CompositeReleaser(
+        IDisposable computeLease,
+        IDisposable dedicatedLease) : IDisposable
+    {
+        private IDisposable? _computeLease = computeLease;
+        private IDisposable? _dedicatedLease = dedicatedLease;
+
+        public void Dispose()
+        {
+            Interlocked.Exchange(ref _computeLease, null)?.Dispose();
+            Interlocked.Exchange(ref _dedicatedLease, null)?.Dispose();
         }
     }
 }

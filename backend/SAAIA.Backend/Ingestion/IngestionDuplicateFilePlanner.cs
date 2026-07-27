@@ -1,6 +1,10 @@
 using System.Security.Cryptography;
 
-public sealed record IngestionDuplicateFileCandidate(string RelativePath, string AbsolutePath, long FileSize);
+public sealed record IngestionDuplicateFileCandidate(
+    string RelativePath,
+    string AbsolutePath,
+    long FileSize,
+    DateTime LastWriteTimeUtc = default);
 
 public sealed record IngestionDuplicateFileDecision(
     string DuplicatePath,
@@ -12,7 +16,8 @@ public static class IngestionDuplicateFilePlanner
 {
     public static async Task<IReadOnlyDictionary<string, IngestionDuplicateFileDecision>> FindDuplicatesByContentAsync(
         IEnumerable<IngestionDuplicateFileCandidate> candidates,
-        CancellationToken ct)
+        CancellationToken ct,
+        Func<IngestionDuplicateFileCandidate, CancellationToken, Task<string>>? hashResolver = null)
     {
         var duplicateMap = new Dictionary<string, IngestionDuplicateFileDecision>(StringComparer.OrdinalIgnoreCase);
 
@@ -29,7 +34,9 @@ public static class IngestionDuplicateFilePlanner
             foreach (var candidate in sizeGroup)
             {
                 ct.ThrowIfCancellationRequested();
-                var hash = await ComputeSha256HexAsync(candidate.AbsolutePath, ct).ConfigureAwait(false);
+                var hash = hashResolver is null
+                    ? await ComputeSha256HexAsync(candidate.AbsolutePath, ct).ConfigureAwait(false)
+                    : await hashResolver(candidate, ct).ConfigureAwait(false);
                 if (!byHash.TryGetValue(hash, out var list))
                 {
                     list = new List<IngestionDuplicateFileCandidate>();
@@ -66,7 +73,9 @@ public static class IngestionDuplicateFilePlanner
         return duplicateMap;
     }
 
-    private static async Task<string> ComputeSha256HexAsync(string absolutePath, CancellationToken ct)
+    internal static async Task<string> ComputeSha256HexAsync(
+        string absolutePath,
+        CancellationToken ct)
     {
         await using var stream = File.OpenRead(absolutePath);
         var bytes = await SHA256.HashDataAsync(stream, ct).ConfigureAwait(false);

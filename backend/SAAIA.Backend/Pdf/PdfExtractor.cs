@@ -14,15 +14,20 @@ static class PdfExtractor
         var pages = new List<ExtractedPdfPage>();
         var rawPages = new List<(int PageNumber, string Text, int ImageCount)>();
         var replacementStatsByPage = new Dictionary<int, (int RawReplacementCharCount, int SanitizedReplacementCharCount)>();
+        var sourceTextByPage = new Dictionary<int, string>();
+        var pageSizeByPage = new Dictionary<int, (double WidthPoints, double HeightPoints)>();
 
         using var doc = PdfPig.PdfDocument.Open(pdfPath);
         foreach (var page in doc.GetPages())
         {
             ct.ThrowIfCancellationRequested();
 
+            var sourceText = page.Text ?? string.Empty;
             var rawText = ExtractLayoutAwarePageText(page);
             var text = OcrNoiseFilter.RemoveSpacedLetterRunNoise(PdfTextSanitizer.ForStorage(rawText));
             rawPages.Add((page.Number, text, CountPageImages(page)));
+            sourceTextByPage[page.Number] = sourceText;
+            pageSizeByPage[page.Number] = (page.Width, page.Height);
             replacementStatsByPage[page.Number] = (
                 CountReplacementCharacters(rawText),
                 CountReplacementCharacters(text));
@@ -44,6 +49,8 @@ static class PdfExtractor
             var replacementStats = replacementStatsByPage.TryGetValue(rawPage.PageNumber, out var stats)
                 ? stats
                 : (RawReplacementCharCount: 0, SanitizedReplacementCharCount: CountReplacementCharacters(text));
+            sourceTextByPage.TryGetValue(rawPage.PageNumber, out var sourceText);
+            var hasPageSize = pageSizeByPage.TryGetValue(rawPage.PageNumber, out var pageSize);
             pages.Add(new ExtractedPdfPage(
                 PageNumber: rawPage.PageNumber,
                 Text: text,
@@ -56,7 +63,10 @@ static class PdfExtractor
                     text.Length,
                     replacementStats.RawReplacementCharCount,
                     replacementStats.SanitizedReplacementCharCount),
-                ImageCount: rawPage.ImageCount));
+                ImageCount: rawPage.ImageCount,
+                RawText: sourceText,
+                WidthPoints: hasPageSize ? pageSize.WidthPoints : null,
+                HeightPoints: hasPageSize ? pageSize.HeightPoints : null));
         }
 
         return new PdfExtractionResult(tokens, pages, PdfExtractionQualitySummary.FromPages(pages));
@@ -306,7 +316,7 @@ static class PdfExtractor
         for (var columnIndex = 0; columnIndex < columns.Length; columnIndex++)
         {
             if (builder.Length > 0)
-                builder.Append("\n\n");
+                builder.Append("\n\n\n");
 
             AppendSegmentsReadingOrder(builder, columns[columnIndex], paragraphGapThreshold, medianWidth);
         }
@@ -463,7 +473,17 @@ static class PdfExtractor
 
         var builder = new StringBuilder();
         if (prefix.Length > 0)
-            AppendSegmentsTopDown(builder, prefix, paragraphGapThreshold);
+        {
+            if (!TryAppendNestedPrefixByColumn(
+                    builder,
+                    prefix,
+                    paragraphGapThreshold,
+                    tolerance,
+                    medianWidth))
+            {
+                AppendSegmentsTopDown(builder, prefix, paragraphGapThreshold);
+            }
+        }
 
         foreach (var column in bodyColumns)
         {
@@ -477,6 +497,45 @@ static class PdfExtractor
 
         text = builder.ToString();
         return !string.IsNullOrWhiteSpace(text);
+    }
+
+    private static bool TryAppendNestedPrefixByColumn(
+        StringBuilder builder,
+        IReadOnlyList<PdfLayoutSegment> prefix,
+        double paragraphGapThreshold,
+        double tolerance,
+        double medianWidth)
+    {
+        if (prefix.Count < 4)
+            return false;
+
+        var columns = ClusterSegmentsByLeftAnchor(prefix, tolerance)
+            .Where(static column => column.Count >= 2)
+            .OrderBy(static column => column.Min(static segment => segment.Left))
+            .ToArray();
+        if (columns.Length < 2)
+            return false;
+
+        var coveredSegmentCount = columns.Sum(static column => column.Count);
+        if (coveredSegmentCount < Math.Ceiling(prefix.Count * 0.75d))
+            return false;
+
+        for (var index = 1; index < columns.Length; index++)
+        {
+            var previousRight = columns[index - 1].Max(static segment => segment.Right);
+            var currentLeft = columns[index].Min(static segment => segment.Left);
+            if (currentLeft - previousRight < Math.Max(10.0d, medianWidth * 0.75d))
+                return false;
+        }
+
+        foreach (var column in columns)
+        {
+            if (builder.Length > 0)
+                builder.Append("\n\n");
+            AppendSegmentsTopDown(builder, column, paragraphGapThreshold);
+        }
+
+        return true;
     }
 
     private static int ResolveNestedColumnPrefixEndLine(
@@ -675,20 +734,59 @@ static class PdfExtractor
         ISet<string> repeated,
         ISet<string> repeatedPatterns)
     {
-        var lines = SplitLikelyLines(text).ToArray();
-        if (lines.Length <= 1)
+        var sourceText = text ?? string.Empty;
+        var sourceLines = sourceText
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Split('\n');
+        var lines = new List<(string Text, int EmptyLinesBefore)>();
+        var emptyLinesBeforeNextLine = 0;
+        foreach (var sourceLine in sourceLines)
         {
-            var normalized = NormalizeBoilerplateLine(text);
-            return IsRepeatedBoilerplateLine(normalized, repeated, repeatedPatterns) ? string.Empty : text;
+            var line = sourceLine.Trim();
+            if (line.Length == 0)
+            {
+                if (lines.Count > 0)
+                    emptyLinesBeforeNextLine++;
+                continue;
+            }
+
+            lines.Add((line, emptyLinesBeforeNextLine));
+            emptyLinesBeforeNextLine = 0;
         }
 
-        return string.Join('\n', lines.Where((line, index) =>
+        if (lines.Count <= 1)
         {
-            var normalized = NormalizeBoilerplateLine(line);
-            return !IsRepeatedBoilerplateLine(normalized, repeated, repeatedPatterns)
-                   && !IsLocalPageMarkerLine(normalized, pageNumber, pageCount, index, lines.Length)
-                   && !IsFloatingStandaloneNumericMarkerLine(normalized, index, lines);
-        })).Trim();
+            var normalized = NormalizeBoilerplateLine(sourceText);
+            return IsRepeatedBoilerplateLine(normalized, repeated, repeatedPatterns) ? string.Empty : sourceText;
+        }
+
+        var lineTexts = lines.Select(static line => line.Text).ToArray();
+        var builder = new StringBuilder();
+        var pendingEmptyLines = 0;
+        for (var index = 0; index < lines.Count; index++)
+        {
+            var line = lines[index];
+            var normalized = NormalizeBoilerplateLine(line.Text);
+            var remove = IsRepeatedBoilerplateLine(normalized, repeated, repeatedPatterns)
+                         || IsLocalPageMarkerLine(normalized, pageNumber, pageCount, index, lines.Count)
+                         || IsFloatingStandaloneNumericMarkerLine(normalized, index, lineTexts);
+            if (remove)
+            {
+                pendingEmptyLines = Math.Max(pendingEmptyLines, line.EmptyLinesBefore);
+                continue;
+            }
+
+            if (builder.Length > 0)
+            {
+                var emptyLines = Math.Max(line.EmptyLinesBefore, pendingEmptyLines);
+                builder.Append(emptyLines >= 2 ? "\n\n\n" : emptyLines == 1 ? "\n\n" : "\n");
+            }
+            builder.Append(line.Text);
+            pendingEmptyLines = 0;
+        }
+
+        return builder.ToString().Trim();
     }
 
     private static IEnumerable<string> SplitLikelyLines(string text)
@@ -807,7 +905,10 @@ sealed record ExtractedPdfPage(
     int CharCount,
     byte[] Checksum,
     PdfPageExtractionQuality? Quality = null,
-    int ImageCount = 0);
+    int ImageCount = 0,
+    string? RawText = null,
+    double? WidthPoints = null,
+    double? HeightPoints = null);
 
 sealed record PdfPageExtractionQuality(
     string TextStatus,

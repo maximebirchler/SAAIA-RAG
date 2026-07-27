@@ -245,6 +245,8 @@ function New-SignedConfig {
 
   $teiModel = 'intfloat/multilingual-e5-base'
   if ($env.ContainsKey('TEI_MODEL_ID') -and -not [string]::IsNullOrWhiteSpace($env['TEI_MODEL_ID'])) { $teiModel = $env['TEI_MODEL_ID'] }
+  $teiModelRevision = 'd128750597153bb5987e10b1c3493a34e5a4502a'
+  if ($env.ContainsKey('TEI_MODEL_REVISION') -and -not [string]::IsNullOrWhiteSpace($env['TEI_MODEL_REVISION'])) { $teiModelRevision = $env['TEI_MODEL_REVISION'] }
 
   $licenseSeats = 1
   if ($env.ContainsKey('SAAIA_LICENSE_SEATS') -and -not [string]::IsNullOrWhiteSpace($env['SAAIA_LICENSE_SEATS'])) {
@@ -263,6 +265,7 @@ function New-SignedConfig {
   $content = $content.Replace('__POSTGRES_DB__', (Escape-JsonString $pgDb))
   $content = $content.Replace('__POSTGRES_USER__', (Escape-JsonString $pgUser))
   $content = $content.Replace('__TEI_MODEL_ID__', (Escape-JsonString $teiModel))
+  $content = $content.Replace('__TEI_MODEL_REVISION__', (Escape-JsonString $teiModelRevision))
   $content = $content.Replace('__REQUIRE_QDRANT_AUTH__', $requireQdrantAuth)
   $content = $content.Replace('__LICENSE_SEATS__', $licenseSeats.ToString([Globalization.CultureInfo]::InvariantCulture))
 

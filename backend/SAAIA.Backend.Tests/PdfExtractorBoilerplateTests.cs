@@ -97,6 +97,60 @@ public sealed class PdfExtractorBoilerplateTests
     }
 
     [Fact]
+    public void BuildLayoutAwareText_keeps_multiline_nested_heading_columns_separate()
+    {
+        var text = PdfExtractor.BuildLayoutAwareText(
+            [
+                Word("PETITS", 10, 820, width: 40),
+                Word("QUICHE", 180, 820, width: 54),
+                Word("À", 240, 820, width: 12),
+                Word("DÉJ", 10, 802, width: 26),
+                Word("LA", 180, 802, width: 18),
+                Word("CLÉRIOT", 204, 802, width: 58),
+                Word("MUFFINS", 510, 820, width: 62),
+                Word("À", 578, 820, width: 12),
+                Word("PETITS", 780, 820, width: 40),
+                Word("LA", 510, 802, width: 18),
+                Word("COURGETTE", 534, 802, width: 78),
+                Word("DÉJ", 780, 802, width: 26),
+
+                Word("1", 10, 770, width: 10),
+                Word("apple", 28, 770, width: 40),
+                Word("Start", 180, 770, width: 40),
+                Word("left.", 226, 770, width: 36),
+                Word("10", 510, 770, width: 18),
+                Word("bolts", 534, 770, width: 38),
+                Word("Start", 690, 770, width: 40),
+                Word("right.", 736, 770, width: 42),
+                Word("2", 10, 752, width: 10),
+                Word("pears", 28, 752, width: 38),
+                Word("Finish", 180, 752, width: 46),
+                Word("left.", 232, 752, width: 36),
+                Word("20", 510, 752, width: 18),
+                Word("nuts", 534, 752, width: 34),
+                Word("Finish", 690, 752, width: 46),
+                Word("right.", 742, 752, width: 42),
+                Word("3", 10, 734, width: 10),
+                Word("plums", 28, 734, width: 42),
+                Word("Serve", 180, 734, width: 40),
+                Word("left.", 226, 734, width: 36),
+                Word("30", 510, 734, width: 18),
+                Word("screws", 534, 734, width: 48),
+                Word("Serve", 690, 734, width: 40),
+                Word("right.", 736, 734, width: 42)
+            ],
+            "PETITS QUICHE À DÉJ LA CLÉRIOT MUFFINS À PETITS LA COURGETTE DÉJ");
+
+        Assert.Contains("PETITS\nDÉJ", text, StringComparison.Ordinal);
+        Assert.Contains("QUICHE À\nLA CLÉRIOT", text, StringComparison.Ordinal);
+        Assert.Contains("MUFFINS À\nLA COURGETTE", text, StringComparison.Ordinal);
+        Assert.True(
+            text.IndexOf("LA COURGETTE", StringComparison.Ordinal)
+            < text.LastIndexOf("PETITS", StringComparison.Ordinal),
+            text);
+    }
+
+    [Fact]
     public void BuildLayoutAwareText_keeps_fallback_when_positioned_words_are_incomplete()
     {
         const string fallback = "Full fallback text keeps every useful token when PDF word geometry is partial.";
@@ -149,6 +203,20 @@ public sealed class PdfExtractorBoilerplateTests
         Assert.All(cleaned, page => Assert.DoesNotContain("Page ", page.Text, StringComparison.Ordinal));
         Assert.Contains(cleaned, page => page.Text.Contains("First useful evidence", StringComparison.Ordinal));
         Assert.Contains(cleaned, page => page.Text.Contains("Third useful evidence", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void RemoveRepeatedPageBoilerplate_preserves_layout_region_boundaries()
+    {
+        var pages = new[]
+        {
+            (PageNumber: 1, Text: "LEFT ITEM\n400 g material\n\n\nRIGHT ITEM\n900 ml fluid", ImageCount: 0)
+        };
+
+        var cleaned = PdfExtractor.RemoveRepeatedPageBoilerplate(pages);
+
+        Assert.Single(cleaned);
+        Assert.Contains("400 g material\n\n\nRIGHT ITEM", cleaned[0].Text, StringComparison.Ordinal);
     }
 
     [Fact]

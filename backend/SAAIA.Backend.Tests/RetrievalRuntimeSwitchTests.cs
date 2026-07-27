@@ -4490,8 +4490,8 @@ public sealed class RetrievalRuntimeSwitchTests
 
         Assert.Equal("Chunk snippet", payload["text"]);
         Assert.Equal("Document: CEN.pdf\nExcerpt:\nChunk snippet", payload["embed_text"]);
-        Assert.Equal("contextual_text_v2", payload["embedding_basis"]);
-        Assert.Equal("contextual_text_v2", payload["context_schema_version"]);
+        Assert.Equal("contextual_text_v3", payload["embedding_basis"]);
+        Assert.Equal("contextual_text_v3", payload["context_schema_version"]);
         Assert.Equal("intfloat/multilingual-e5-base", payload["embedding_model"]);
         Assert.Equal("e5_passage_v1", payload["embedding_input_format"]);
         Assert.Equal(2, payload["section_ordinal"]);

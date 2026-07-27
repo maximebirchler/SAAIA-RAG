@@ -30,6 +30,7 @@ public static partial class DocumentsEndpoints
         app.MapGet("/documents/categories", CategoriesAsync);
         app.MapGet("/documents/tree", TreeAsync);
         app.MapGet("/documents/navigation", NavigationAsync);
+        app.MapGet("/documents/content-cards", ContentCardsAsync);
         app.MapGet("/documents/context", ContextAsync);
         app.MapGet("/documents/stats", StatsAsync);
         app.MapPost("/documents/resolve-category", ResolveCategoryAsync);

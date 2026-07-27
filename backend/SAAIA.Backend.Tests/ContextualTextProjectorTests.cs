@@ -51,11 +51,14 @@ public sealed class ContextualTextProjectorTests
         Assert.Contains("excerpt:", entry.Text, StringComparison.Ordinal);
         Assert.True(
             entry.Text.IndexOf("excerpt:", StringComparison.Ordinal) <
+            entry.Text.IndexOf("section_title:", StringComparison.Ordinal));
+        Assert.True(
+            entry.Text.IndexOf("excerpt:", StringComparison.Ordinal) <
             entry.Text.IndexOf("context:", StringComparison.Ordinal));
         Assert.DoesNotContain("Document:", entry.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("Section:", entry.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("Excerpt:", entry.Text, StringComparison.Ordinal);
-        Assert.Equal("contextual_text_v2", entry.SchemaVersion);
+        Assert.Equal("contextual_text_v3", entry.SchemaVersion);
         Assert.Equal("Introduction", entry.SectionTitle);
         Assert.Equal("Chapter 1 > Introduction", entry.HeadingPath);
         Assert.Equal("unit_exact_v1", entry.ChunkType);

@@ -16,6 +16,7 @@ using SAAIA.Backend.Endpoints;
 using SAAIA.Backend.Middleware;
 using SAAIA.Backend.Models;
 using SAAIA.Contracts;
+using SAAIA.Contracts.DocumentIntelligence;
 using Xunit;
 namespace SAAIA.Backend.Tests;
 
@@ -32,6 +33,138 @@ public sealed class DocumentFoundationIntegrationTests
 
         Assert.Equal(first, second);
         Assert.NotEqual(first, different);
+    }
+
+    [Fact]
+    public async Task CompleteUpsertAsync_publishes_canonical_bundle_and_queryable_source_anchor_atomically()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("41111111-1111-1111-1111-111111111111");
+        var docId = Guid.Parse("42222222-2222-2222-2222-222222222222");
+        var jobId = Guid.Parse("43333333-3333-3333-3333-333333333333");
+        const string docPath = "Canonical/Sample.pdf";
+        const string text = "Canonical source text with enough useful words for publication.";
+        await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 1, indexedVersion: 0);
+
+        var page = new ExtractedPdfPage(
+            1,
+            text,
+            9,
+            text.Length,
+            SHA256.HashData(Encoding.UTF8.GetBytes(text)),
+            RawText: "Raw source text with enough useful words for publication.",
+            WidthPoints: 595,
+            HeightPoints: 842);
+        var pages = new[] { page };
+        var sections = new[] { new ExtractedDocumentSection(0, "Canonical", 1, 1, 1, 0, 0) };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                0,
+                1,
+                1,
+                text,
+                text.Length,
+                9,
+                SHA256.HashData(Encoding.UTF8.GetBytes(text)))
+        };
+        var chunks = new[]
+        {
+            new ProjectedRetrievalChunk(
+                0,
+                0,
+                0,
+                1,
+                1,
+                text,
+                9,
+                SHA256.HashData(Encoding.UTF8.GetBytes(text)),
+                "unit_exact_v1")
+        };
+        var exact = ExactMatchEntryExtractor.Extract(units);
+        var contextual = ContextualTextProjector.Project(docPath, sections, units, chunks);
+        var sourceHash = SHA256.HashData(Encoding.UTF8.GetBytes("source"));
+        var sourceSha256 = Convert.ToHexString(sourceHash).ToLowerInvariant();
+        var revisionId = DocumentFoundationRepo.BuildStableRevisionId(tenantId, docId, 1);
+        var hardware = new IngestionHardwareProfile
+        {
+            ProfileId = "hardware_integration",
+            LogicalProcessorCount = 4,
+            MemoryBytes = 8_000_000_000,
+            Devices = [new() { DeviceId = "cpu:0", DeviceType = "cpu" }]
+        };
+        var extraction = new PdfExtractionResult(
+            [],
+            pages.ToList(),
+            PdfExtractionQualitySummary.FromPages(pages));
+        var bundle = LegacyCanonicalBundleFactory.Create(new(
+            docId,
+            revisionId,
+            DocumentFoundationRepo.BuildStableProcessingRunId(jobId),
+            1,
+            sourceSha256,
+            123,
+            "Sample.pdf",
+            "integration-source-revision",
+            DateTimeOffset.Parse("2026-07-27T08:00:00Z"),
+            hardware,
+            [
+                new()
+                {
+                    StageId = "canonical_projection",
+                    StageType = "canonical_projection",
+                    Engine = "SAAIA.Backend",
+                    EngineVersion = "integration-source-revision",
+                    OptionsSha256 = new string('d', 64),
+                    DeviceId = "cpu:0"
+                }
+            ],
+            extraction,
+            sections,
+            chunks));
+
+        await using var dataSource = NpgsqlDataSource.Create(db.ConnectionString);
+        var committed = await JobRepo.CompleteUpsertAsync(
+            dataSource,
+            tenantId,
+            jobId,
+            docPath,
+            sourceHash,
+            123,
+            DateTime.UtcNow,
+            1,
+            pages,
+            sections,
+            units,
+            chunks,
+            exact,
+            contextual,
+            CancellationToken.None,
+            canonicalBundle: bundle);
+
+        Assert.True(committed);
+        await using var conn = new NpgsqlConnection(db.ConnectionString);
+        await conn.OpenAsync();
+        var artifact = await conn.QuerySingleAsync<(string schema_version, byte[] content_hash, long byte_size, byte[] payload)>(
+            "SELECT schema_version, content_hash, byte_size, payload FROM document_revision_binary_artifacts WHERE revision_id=@revision_id;",
+            new { revision_id = revisionId });
+        var restored = CanonicalArtifactRepo.ReadBundleArtifact(new(
+            CanonicalArtifactRepo.BundleArtifactType,
+            artifact.schema_version,
+            artifact.content_hash,
+            artifact.byte_size,
+            artifact.payload));
+        var anchorCount = await conn.ExecuteScalarAsync<int>(
+            "SELECT count(*) FROM document_source_anchors WHERE revision_id=@revision_id;",
+            new { revision_id = revisionId });
+
+        Assert.Equal(revisionId, restored.Document.RevisionId);
+        Assert.Single(restored.SourceAnchors);
+        Assert.Equal(1, anchorCount);
     }
 
     [Fact]
@@ -133,7 +266,7 @@ public sealed class DocumentFoundationIntegrationTests
             "SELECT metadata::text FROM contextual_text_entries LIMIT 1;");
         using var contextualMetadata = JsonDocument.Parse(contextualMetadataJson ?? "{}");
         var metadataRoot = contextualMetadata.RootElement;
-        Assert.Equal("contextual_text_v2", metadataRoot.GetProperty("schemaVersion").GetString());
+        Assert.Equal("contextual_text_v3", metadataRoot.GetProperty("schemaVersion").GetString());
         Assert.Equal(0, metadataRoot.GetProperty("chunkIndex").GetInt32());
         Assert.Equal("unit_exact_v1", metadataRoot.GetProperty("chunkType").GetString());
         Assert.Equal("content", metadataRoot.GetProperty("contentRole").GetString());
@@ -2198,6 +2331,34 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.All(item.ProfileSignals.Keywords ?? [], value => Assert.True(value.Length <= 160));
         Assert.Contains("maintenance governance", item.ProfileSignals.Topics ?? []);
         Assert.Contains("Use page chunks for exact thresholds.", item.ProfileSignals.Limits ?? []);
+
+        var inventoryContext = BuildRagHttpContext(tenantId);
+        var inventoryResult = await InvokeDocumentsContentCardsAsync(
+            inventoryContext,
+            ds,
+            categoryPath: "Generic",
+            q: "pressure envelope validation",
+            limit: 20,
+            offset: 0);
+        await inventoryResult.ExecuteAsync(inventoryContext);
+
+        Assert.Equal(StatusCodes.Status200OK, inventoryContext.Response.StatusCode);
+        using var inventoryPayload = JsonDocument.Parse(ReadResponseBody(inventoryContext));
+        var inventoryRoot = inventoryPayload.RootElement;
+        Assert.True(inventoryRoot.GetProperty("citable").GetBoolean());
+        Assert.Equal(1, inventoryRoot.GetProperty("total").GetInt32());
+        var inventoryCard = Assert.Single(inventoryRoot.GetProperty("items").EnumerateArray());
+        Assert.Equal("Pressure envelope validation", inventoryCard.GetProperty("title").GetString());
+        Assert.Equal(docPath, inventoryCard.GetProperty("docPath").GetString());
+        Assert.Equal(1, inventoryCard.GetProperty("pageStart").GetInt32());
+        Assert.Equal(1, inventoryCard.GetProperty("pageEnd").GetInt32());
+        Assert.Equal(
+            "Pressure envelope validation accumulator cluster validation review",
+            inventoryCard
+                .GetProperty("evidence")
+                .GetProperty("facts")[0]
+                .GetProperty("sourceText")
+                .GetString());
     }
 
     [Fact]
@@ -8243,6 +8404,23 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
         var method = typeof(DocumentsEndpoints).GetMethod("UnifiedGetAsync", BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
         return await (Task<IResult>)method!.Invoke(null, [ctx, ds, docId])!;
+    }
+
+    private static async Task<IResult> InvokeDocumentsContentCardsAsync(
+        HttpContext ctx,
+        NpgsqlDataSource ds,
+        string? categoryPath,
+        string? q,
+        int limit,
+        int offset)
+    {
+        var method = typeof(DocumentsEndpoints).GetMethod(
+            "ContentCardsAsync",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+        return await (Task<IResult>)method!.Invoke(
+            null,
+            [ctx, ds, categoryPath, null, null, null, q, limit, offset])!;
     }
 
     private static async Task<IResult> InvokeResolveCategoryAsync(

@@ -1,5 +1,6 @@
 ﻿using Dapper;
 using Npgsql;
+using SAAIA.Contracts.DocumentIntelligence;
 
 static partial class JobRepo
 {
@@ -26,7 +27,9 @@ static partial class JobRepo
         long? ocrDurationMs = null,
         PdfOcrDiagnostics? ocrDiagnostics = null,
         PdfExtractionQualitySummary? nativeExtractionQuality = null,
-        IngestionCapabilityAProfileSeed? capabilityAProfileSeed = null)
+        IngestionCapabilityAProfileSeed? capabilityAProfileSeed = null,
+        CanonicalIngestionBundle? canonicalBundle = null,
+        IReadOnlyList<ExtractedDocumentUnit>? structuredProfileUnits = null)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
         await using var tx = await conn.BeginTransactionAsync(ct);
@@ -308,7 +311,9 @@ WHERE job_id=@job_id AND status='running';";
             ocrDurationMs,
             ocrDiagnostics,
             nativeExtractionQuality,
-            capabilityAProfileSeed);
+            capabilityAProfileSeed,
+            canonicalBundle,
+            structuredProfileUnits);
         await FreezeTerminalSnapshotAsync(conn, jobId, tx, ct);
 
         await tx.CommitAsync(ct);

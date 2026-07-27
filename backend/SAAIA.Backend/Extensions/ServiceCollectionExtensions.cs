@@ -40,6 +40,7 @@ public static class ServiceCollectionExtensions
         services.Configure<DatabaseOptions>(config.GetSection("Database"));
         services.Configure<RagOptions>(config.GetSection("Rag"));
         services.Configure<IngestionOptions>(config.GetSection("Ingestion"));
+        services.Configure<DocumentIntelligenceOptions>(config.GetSection("DocumentIntelligence"));
         services.Configure<ChatOptions>(config.GetSection("Chat"));
         services.Configure<RateLimitOptions>(config.GetSection("RateLimiting"));
         services.Configure<OpenTelemetryOptions>(config.GetSection("OpenTelemetry"));
@@ -56,6 +57,9 @@ public static class ServiceCollectionExtensions
         {
             if (!string.IsNullOrWhiteSpace(opt.DocumentsRoot) && !Path.IsPathRooted(opt.DocumentsRoot))
                 opt.DocumentsRoot = Path.GetFullPath(Path.Combine(contentRoot, opt.DocumentsRoot));
+            opt.WorkerEmptyDelayMs =
+                IngestionOptions.ResolveWorkerEmptyDelayMs(
+                    opt.WorkerEmptyDelayMs);
         });
 
         // ---------- Rate limiting (par API key) ----------
@@ -163,6 +167,16 @@ public static class ServiceCollectionExtensions
             }
         });
         services.AddHttpClient("tei", c => c.Timeout = TimeSpan.FromMinutes(5));
+        services.AddHttpClient("docling", (sp, c) =>
+        {
+            var options = sp.GetRequiredService<IOptions<DocumentIntelligenceOptions>>().Value;
+            if (!Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
+                throw new InvalidOperationException(
+                    "DocumentIntelligence:BaseUrl must be an absolute URI.");
+
+            c.BaseAddress = baseUri;
+            c.Timeout = Timeout.InfiniteTimeSpan;
+        });
         services.AddHttpClient("llm", (sp, c) =>
         {
             var chat = sp.GetRequiredService<IOptions<ChatOptions>>().Value;
@@ -177,6 +191,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<RagSearchBulkhead>();
         services.AddSingleton<TeiWorkloadGovernor>();
         services.AddSingleton<IngestionJobCancellationRegistry>();
+        services.AddSingleton(sp => new DoclingClient(
+            sp.GetRequiredService<IHttpClientFactory>(),
+            sp.GetRequiredService<IOptions<DocumentIntelligenceOptions>>().Value));
         services.AddSingleton<RuntimeLlmCapacityPlanService>();
         services.AddSingleton<RuntimeLlmQueueManager>();
         services.AddSingleton(sp => new LocalLlmChatClient(

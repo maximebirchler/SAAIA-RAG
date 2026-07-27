@@ -5,6 +5,9 @@ sealed class IngestionOptions
     public const int MinEmbeddingsBatchSize = 1;
     public const int DefaultEmbeddingsBatchSize = 16;
     public const int MaxEmbeddingsBatchSize = 256;
+    public const int DefaultWorkerEmptyDelayMs = 500;
+    public const int MinWorkerEmptyDelayMs = 100;
+    public const int MaxWorkerEmptyDelayMs = 60_000;
 
     public string DocumentsRoot { get; set; } = "";
 
@@ -21,10 +24,11 @@ sealed class IngestionOptions
     public int ChunkMinWords { get; set; } = 25;
     public int EmbeddingsBatchSize { get; set; } = DefaultEmbeddingsBatchSize;
     public bool EmbeddingsBatchAdaptiveRetryEnabled { get; set; } = true;
+    public bool CanonicalArtifactsEnabled { get; set; } = false;
 
     // Worker
     public int WorkerConcurrency { get; set; } = 2;
-    public int WorkerEmptyDelayMs { get; set; } = 500;
+    public int WorkerEmptyDelayMs { get; set; } = DefaultWorkerEmptyDelayMs;
     public int StaleRunningMinutes { get; set; } = 15;
 
     // Scanner
@@ -46,6 +50,10 @@ sealed class IngestionOptions
     public int TeiMaxConcurrency { get; set; } = 1;
     public int QdrantMaxConcurrency { get; set; } = 4;
     public int TeiInteractiveQuietPeriodMs { get; set; } = 1500;
+    // Shared capacity for CPU-heavy ingestion phases (document intelligence,
+    // legacy OCR and passage embeddings). Deployments with isolated
+    // accelerators may raise it after measurement.
+    public int HeavyComputeMaxConcurrency { get; set; } = 1;
 
     // Temps max d'attente pour entrer dans un bulkhead (évite deadlocks)
     public int BulkheadAcquireTimeoutSeconds { get; set; } = 30;
@@ -53,6 +61,9 @@ sealed class IngestionOptions
     // 0 preserves the legacy OCR acquire timeout; explicit values can be longer
     // for serialized OCR queues on large scanned-document batches.
     public int OcrBulkheadQueueWaitTimeoutSeconds { get; set; } = 0;
+    // 0 inherits the resolved OCR queue wait. This prevents a completed
+    // extraction from being restarted while another job embeds its chunks.
+    public int HeavyComputeQueueWaitTimeoutSeconds { get; set; } = 0;
 
     // Auto-heal si Qdrant est vide alors que la DB contient des documents
     public bool ReindexIfQdrantEmpty { get; set; } = true;
@@ -115,21 +126,20 @@ sealed class IngestionOptions
         set => EmbeddingsBatchSize = ResolveEmbeddingsBatchSize(value);
     }
 
-    // Anciennes clés JSON : ScannerIntervalSeconds / PollSeconds
+    // Ancienne clé JSON : ScannerIntervalSeconds
     public int ScannerIntervalSeconds
     {
         get => ScanIntervalSeconds;
         set => ScanIntervalSeconds = value;
     }
 
-    public int PollSeconds
-    {
-        get => (int)Math.Round(WorkerEmptyDelayMs / 1000.0);
-        set => WorkerEmptyDelayMs = Math.Clamp(value, 0, 3600) * 1000;
-    }
-
     public static int ResolveEmbeddingsBatchSize(int value)
         => Math.Clamp(value, MinEmbeddingsBatchSize, MaxEmbeddingsBatchSize);
+
+    public static int ResolveWorkerEmptyDelayMs(int value)
+        => value <= 0
+            ? DefaultWorkerEmptyDelayMs
+            : Math.Clamp(value, MinWorkerEmptyDelayMs, MaxWorkerEmptyDelayMs);
 
     public static int ResolveOcrBulkheadQueueWaitTimeoutSeconds(
         int ocrBulkheadAcquireTimeoutSeconds,
@@ -140,5 +150,18 @@ sealed class IngestionOptions
             return legacyTimeout;
 
         return Math.Clamp(ocrBulkheadQueueWaitTimeoutSeconds, 1, 86400);
+    }
+
+    public static int ResolveHeavyComputeQueueWaitTimeoutSeconds(
+        int heavyComputeQueueWaitTimeoutSeconds,
+        int ocrBulkheadAcquireTimeoutSeconds,
+        int ocrBulkheadQueueWaitTimeoutSeconds)
+    {
+        if (heavyComputeQueueWaitTimeoutSeconds > 0)
+            return Math.Clamp(heavyComputeQueueWaitTimeoutSeconds, 1, 86400);
+
+        return ResolveOcrBulkheadQueueWaitTimeoutSeconds(
+            ocrBulkheadAcquireTimeoutSeconds,
+            ocrBulkheadQueueWaitTimeoutSeconds);
     }
 }

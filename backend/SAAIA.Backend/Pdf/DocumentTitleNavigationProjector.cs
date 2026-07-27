@@ -197,31 +197,56 @@ internal static partial class DocumentTitleNavigationProjector
             yield break;
 
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var rawLine in SplitNavigationCandidateLines(text))
+        var candidateLines = SplitNavigationCandidateLines(text);
+        var structuredLineCount = 0;
+        for (var lineIndex = 0; lineIndex < candidateLines.Count; lineIndex++)
         {
-            var line = CollapseWhitespace(rawLine);
+            var line = NormalizeNavigationCandidateLine(candidateLines[lineIndex]);
             if (line.Length < 5 || line.Length > 220)
                 continue;
 
-            if (InlinePageNumberRegex().Matches(line).Count > 1)
+            if (InlinePageNumberRegex().Matches(line).Count > 1
+                && !ExplicitNavigationLeaderBeforePageRegex().IsMatch(line))
+            {
                 continue;
+            }
 
             var parsed = TryParseNavigationLine(line, maxPage);
+            if (parsed is null
+                && TryParseWrappedNavigationLine(
+                    candidateLines,
+                    lineIndex,
+                    line,
+                    maxPage,
+                    anchors,
+                    out var wrappedParsed))
+            {
+                parsed = wrappedParsed;
+                lineIndex++;
+            }
+
             if (parsed is null)
                 continue;
+            structuredLineCount++;
 
             var label = ResolveInlineNavigationLabel(parsed.Label, parsed.TargetPage, anchors, allowInlineFallback);
             if (string.IsNullOrWhiteSpace(label))
                 continue;
 
-            var canonicalParsed = string.Equals(label, parsed.Label, StringComparison.Ordinal)
+            var canonicalParsed = string.Equals(
+                    label,
+                    parsed.Label,
+                    StringComparison.Ordinal)
                 ? parsed
-                : CreateParsedNavigationEntry(label, parsed.TargetPage, maxPage);
+                : CreateParsedNavigationEntry(
+                    label,
+                    parsed.TargetPage,
+                    maxPage);
             if (canonicalParsed is not null && seen.Add($"{canonicalParsed.NormalizedLabel}|{canonicalParsed.TargetPage}"))
                 yield return canonicalParsed;
         }
 
-        if (!allowInlineNavigation)
+        if (!allowInlineNavigation || structuredLineCount >= 2)
             yield break;
 
         var inlineEntries = ParseInlineNavigationEntries(text, maxPage, anchors, allowInlineFallback).ToArray();
@@ -233,6 +258,64 @@ internal static partial class DocumentTitleNavigationProjector
             if (seen.Add($"{parsed.NormalizedLabel}|{parsed.TargetPage}"))
                 yield return parsed;
         }
+    }
+
+    private static bool TryParseWrappedNavigationLine(
+        IReadOnlyList<string> candidateLines,
+        int lineIndex,
+        string firstLine,
+        int maxPage,
+        IReadOnlyList<ProjectedDocumentTitleAnchor> anchors,
+        out ParsedNavigationEntry? parsed)
+    {
+        parsed = null;
+        if (lineIndex + 1 >= candidateLines.Count)
+            return false;
+
+        var continuationLine = NormalizeNavigationCandidateLine(candidateLines[lineIndex + 1]);
+        if (continuationLine.Length < 5
+            || continuationLine.Length > 220
+            || !ExplicitNavigationLeaderBeforePageRegex().IsMatch(continuationLine))
+        {
+            return false;
+        }
+
+        var combinedLine = CollapseWhitespace($"{firstLine} {continuationLine}");
+        if (combinedLine.Length > 220)
+            return false;
+
+        var candidate = TryParseNavigationLine(combinedLine, maxPage);
+        if (candidate is null)
+            return false;
+
+        // Joining wrapped lines is only accepted when the reconstructed title has
+        // exact mechanical identity with a title already observed in the document.
+        // This prevents a page header or an unrelated preceding line from being
+        // attached to an otherwise valid navigation entry.
+        if (!anchors.Any(anchor => string.Equals(
+                anchor.NormalizedTitle,
+                candidate.NormalizedLabel,
+                StringComparison.Ordinal)))
+        {
+            return false;
+        }
+
+        parsed = candidate;
+        return true;
+    }
+
+    private static string NormalizeNavigationCandidateLine(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line))
+            return string.Empty;
+
+        var normalized = NavigationTableColumnSeparatorRegex().Replace(
+            line,
+            " ");
+        normalized = LongNavigationLeaderRunRegex().Replace(
+            normalized,
+            " .. ");
+        return CollapseWhitespace(normalized);
     }
 
     private static IReadOnlyList<string> SplitNavigationCandidateLines(string text)
@@ -264,7 +347,11 @@ internal static partial class DocumentTitleNavigationProjector
             if (!int.TryParse(match.Groups["page"].Value, out var page))
                 continue;
 
-            var parsed = CreateParsedNavigationEntry(match.Groups["label"].Value, page, maxPage);
+            var parsed = CreateParsedNavigationEntry(
+                match.Groups["label"].Value,
+                page,
+                maxPage,
+                preserveLeadingSectionNumber: true);
             if (parsed is not null)
                 return parsed;
         }
@@ -315,25 +402,57 @@ internal static partial class DocumentTitleNavigationProjector
         IReadOnlyList<ProjectedDocumentTitleAnchor> anchors,
         bool allowFallback)
     {
-        var label = StripNavigationDecorations(CollapseWhitespace(segment));
+        var sourceLabel = CollapseWhitespace(segment).Trim(
+            ' ',
+            '.',
+            ',',
+            ':',
+            ';',
+            '-',
+            '|',
+            '\u2013',
+            '\u2014',
+            '\u2022',
+            '\u00b7');
+        var label = StripNavigationDecorations(sourceLabel);
         if (string.IsNullOrWhiteSpace(label))
             return null;
 
+        var normalizedSourceLabel =
+            TitleAnchorNormalizer.NormalizeTitle(sourceLabel);
         var normalizedSegment = TitleAnchorNormalizer.NormalizeTitle(label);
         var anchorMatch = anchors
-            .Where(anchor => ContainsNormalizedPhrase(normalizedSegment, anchor.NormalizedTitle))
             .Select(anchor => new
             {
                 Anchor = anchor,
-                MatchRank = EndsWithNormalizedPhrase(normalizedSegment, anchor.NormalizedTitle)
+                MatchRank = string.Equals(
+                        normalizedSourceLabel,
+                        anchor.NormalizedTitle,
+                        StringComparison.Ordinal)
                     ? 0
-                    : ContainsNormalizedPhrase(normalizedSegment, anchor.NormalizedTitle)
+                    : string.Equals(
+                        normalizedSegment,
+                        anchor.NormalizedTitle,
+                        StringComparison.Ordinal)
                         ? 1
-                        : 2,
+                        : EndsWithNormalizedPhrase(
+                            normalizedSourceLabel,
+                            anchor.NormalizedTitle)
+                            ? 2
+                            : EndsWithNormalizedPhrase(
+                                normalizedSegment,
+                                anchor.NormalizedTitle)
+                                ? 3
+                                : EndsWithNormalizedPhrase(
+                                    anchor.NormalizedTitle,
+                                    normalizedSegment)
+                                    ? 4
+                                    : 9,
                 Distance = PageDistance(anchor.PageStart, targetPage)
             })
-            .OrderBy(static item => item.Distance)
-            .ThenBy(static item => item.MatchRank)
+            .Where(static item => item.MatchRank < 9)
+            .OrderBy(static item => item.MatchRank)
+            .ThenBy(static item => item.Distance)
             .ThenByDescending(static item => item.Anchor.TitleTokens.Count)
             .ThenByDescending(static item => item.Anchor.NormalizedTitle.Length)
             .ThenByDescending(static item => item.Anchor.Confidence)
@@ -343,17 +462,66 @@ internal static partial class DocumentTitleNavigationProjector
             return anchorMatch.Anchor.Title;
 
         var tokens = TitleAnchorNormalizer.BuildTitleTokens(label, maxTokens: 16);
+        var approximateAnchorMatch = anchors
+            .Where(static anchor =>
+                anchor.PageStart.HasValue)
+            .GroupBy(
+                static anchor =>
+                    $"{anchor.NormalizedTitle}|{anchor.PageStart}",
+                StringComparer.Ordinal)
+            .Select(static group => group
+                .OrderByDescending(static anchor =>
+                    anchor.Confidence)
+                .First())
+            .Select(anchor => new
+            {
+                Anchor = anchor,
+                CharacterSimilarity =
+                    ComputeNormalizedCharacterSimilarity(
+                        normalizedSegment,
+                        anchor.NormalizedTitle),
+                TokenSimilarity = Math.Min(
+                    TitleAnchorNormalizer.ComputeTokenOverlapScore(
+                        tokens,
+                        anchor.TitleTokens),
+                    TitleAnchorNormalizer.ComputeTokenOverlapScore(
+                        anchor.TitleTokens,
+                        tokens)),
+                Distance = PageDistance(
+                    anchor.PageStart,
+                    targetPage)
+            })
+            .Where(static item =>
+                item.CharacterSimilarity >= 0.88
+                || item.TokenSimilarity >= 0.90)
+            .OrderByDescending(static item =>
+                item.CharacterSimilarity)
+            .ThenByDescending(static item =>
+                item.TokenSimilarity)
+            .ThenBy(static item => item.Distance)
+            .ThenByDescending(static item =>
+                item.Anchor.Confidence)
+            .FirstOrDefault();
+        if (approximateAnchorMatch is not null)
+            return approximateAnchorMatch.Anchor.Title;
+
         return allowFallback && label.Length <= 90 && tokens.Length is >= 2 and <= 12
             ? label
             : null;
     }
 
-    private static ParsedNavigationEntry? CreateParsedNavigationEntry(string label, int page, int maxPage)
+    private static ParsedNavigationEntry? CreateParsedNavigationEntry(
+        string label,
+        int page,
+        int maxPage,
+        bool preserveLeadingSectionNumber = false)
     {
         if (page <= 0 || (maxPage > 0 && page > Math.Max(maxPage + 25, maxPage * 2)))
             return null;
 
-        label = StripNavigationDecorations(label);
+        label = preserveLeadingSectionNumber
+            ? TrimNavigationEdgeDecorations(label)
+            : StripNavigationDecorations(label);
         if (label.Length > 180)
             label = label[..180].Trim();
 
@@ -720,9 +888,22 @@ internal static partial class DocumentTitleNavigationProjector
     private static string StripNavigationDecorations(string label)
     {
         label = LeadingNavigationNumberRegex().Replace(label, string.Empty);
-        label = label.Trim(' ', '.', ',', ':', ';', '-', '\u2013', '\u2014', '\u2022', '\u00b7');
-        return CollapseWhitespace(label);
+        return TrimNavigationEdgeDecorations(label);
     }
+
+    private static string TrimNavigationEdgeDecorations(string label)
+        => label.Trim(
+            ' ',
+            '.',
+            ',',
+            ':',
+            ';',
+            '-',
+            '|',
+            '\u2013',
+            '\u2014',
+            '\u2022',
+            '\u00b7');
 
     private static string CollapseWhitespace(string value)
         => string.IsNullOrWhiteSpace(value)
@@ -803,6 +984,60 @@ internal static partial class DocumentTitleNavigationProjector
             && (string.Equals(haystack, needle, StringComparison.Ordinal)
                 || haystack.EndsWith(" " + needle, StringComparison.Ordinal));
 
+    private static double ComputeNormalizedCharacterSimilarity(
+        string left,
+        string right)
+    {
+        var compactLeft = CompactNormalizedTitle(left);
+        var compactRight = CompactNormalizedTitle(right);
+        if (compactLeft.Length == 0 || compactRight.Length == 0)
+            return 0.0;
+        if (string.Equals(
+                compactLeft,
+                compactRight,
+                StringComparison.Ordinal))
+        {
+            return 1.0;
+        }
+
+        var previous = new int[compactRight.Length + 1];
+        var current = new int[compactRight.Length + 1];
+        for (var column = 0; column <= compactRight.Length; column++)
+            previous[column] = column;
+
+        for (var row = 1; row <= compactLeft.Length; row++)
+        {
+            current[0] = row;
+            for (var column = 1;
+                 column <= compactRight.Length;
+                 column++)
+            {
+                var substitutionCost =
+                    compactLeft[row - 1] == compactRight[column - 1]
+                        ? 0
+                        : 1;
+                current[column] = Math.Min(
+                    Math.Min(
+                        current[column - 1] + 1,
+                        previous[column] + 1),
+                    previous[column - 1] + substitutionCost);
+            }
+
+            (previous, current) = (current, previous);
+        }
+
+        return 1.0
+               - previous[compactRight.Length]
+               / (double)Math.Max(
+                   compactLeft.Length,
+                   compactRight.Length);
+    }
+
+    private static string CompactNormalizedTitle(string value)
+        => string.Concat(
+            value.Where(static character =>
+                char.IsLetterOrDigit(character)));
+
     private static Regex[] NavigationLineRegexes()
         =>
         [
@@ -818,10 +1053,19 @@ internal static partial class DocumentTitleNavigationProjector
     [GeneratedRegex(@"(?:\s{3,}|\s+[\.\u00b7\u2022]{2,}\s+)", RegexOptions.CultureInvariant)]
     private static partial Regex CleanSoftNavigationBreakRegex();
 
-    [GeneratedRegex(@"^(?<label>.{3,180}?)(?:\s*[\.\u00b7\u2022]{2,}\s*|\s+[-\u2013\u2014]\s+|\s{2,})(?<![\d.])(?<page>\d{1,4})(?![\d.])\s*$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\s*\|\s*", RegexOptions.CultureInvariant)]
+    private static partial Regex NavigationTableColumnSeparatorRegex();
+
+    [GeneratedRegex(@"[\.\u00b7\u2022]{3,}", RegexOptions.CultureInvariant)]
+    private static partial Regex LongNavigationLeaderRunRegex();
+
+    [GeneratedRegex(@"[\.\u00b7\u2022]{2,}\s*\d{1,4}\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex ExplicitNavigationLeaderBeforePageRegex();
+
+    [GeneratedRegex(@"^(?<label>.{3,180}?)(?:\s*[\.\u00b7\u2022]{2,}\s*|\s+[-\u2013\u2014]\s+|\s{2,})(?<page>\d{1,4})(?![\d.])\s*$", RegexOptions.CultureInvariant)]
     private static partial Regex CleanLabelLeaderPageRegex();
 
-    [GeneratedRegex(@"^(?:\d{1,3}(?:[.)\-:]\d{1,3})*[.)\-:]?\s+)?(?<label>.{3,180}?)(?:\s*[\.\u00b7\u2022]{2,}\s*|\s+[-\u2013\u2014]\s+|\s{2,}|\s+page\s+)(?<![\d.])(?<page>\d{1,4})(?![\d.])\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:\d{1,3}(?:[.)\-:]\d{1,3})*[.)\-:]?\s+)?(?<label>.{3,180}?)(?:\s*[\.\u00b7\u2022]{2,}\s*|\s+[-\u2013\u2014]\s+|\s{2,}|\s+page\s+)(?<page>\d{1,4})(?![\d.])\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex CleanNumberedLabelLeaderPageRegex();
 
     [GeneratedRegex(@"^(?<label>[\p{L}\p{N}][\p{L}\p{N}'\u2019/&+(),:;.\-\s]{3,170}?[^\d\s])\s+(?<![\d.])(?<page>\d{1,4})(?![\d.])\s*$", RegexOptions.CultureInvariant)]

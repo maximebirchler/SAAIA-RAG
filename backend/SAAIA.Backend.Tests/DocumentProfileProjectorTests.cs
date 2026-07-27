@@ -41,6 +41,181 @@ public sealed class DocumentProfileProjectorTests
     }
 
     [Fact]
+    public void Project_structured_mode_uses_canonical_units_instead_of_raw_page_noise()
+    {
+        const string canonicalText =
+            "Before assembly, inspect the sealing surface and verify the pressure rating. "
+            + "Technical Help to Exporters TRANSLATION remains source content, not a title.";
+        const string rawPageNoise =
+            "TRANSLATION SMS 114 TRANSLATION SMS 1145 999 kg 888 min";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                1,
+                rawPageNoise,
+                10,
+                rawPageNoise.Length,
+                [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(
+                4,
+                "Assembly procedure",
+                1,
+                1,
+                1,
+                null,
+                null)
+        };
+        var structuredUnits = new[]
+        {
+            new ExtractedDocumentUnit(
+                12,
+                4,
+                1,
+                1,
+                canonicalText,
+                canonicalText.Length,
+                11,
+                [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/Assembly.pdf",
+            pages,
+            sections,
+            structuredUnits,
+            exactMatchEntries: [],
+            preferStructuredSources: true);
+
+        Assert.Equal("deterministic_canonical_v3", profile.ProfileVersion);
+        Assert.Contains(
+            profile.ContentCards,
+            static card => string.Equals(
+                card.Title,
+                "Assembly procedure",
+                StringComparison.Ordinal));
+        Assert.All(
+            profile.ContentCards,
+            static card =>
+            {
+                Assert.Equal("section", card.Kind);
+                Assert.Contains(
+                    "canonical_section_heading",
+                    card.Signals);
+                Assert.Null(card.Evidence);
+            });
+        Assert.DoesNotContain(
+            profile.ContentCards,
+            static card => card.Title.Contains(
+                "Technical Help",
+                StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            profile.ContentCards,
+            static card => string.Equals(
+                card.Kind,
+                "page_embedded_title",
+                StringComparison.Ordinal));
+        Assert.Contains(canonicalText, profile.SearchText, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "TRANSLATION SMS 114",
+            profile.SearchText,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            profile.ContentCards
+                .SelectMany(static card =>
+                    card.Evidence?.QuantityFacts
+                    ?? Array.Empty<DocumentProfileQuantityFact>()),
+            static fact => fact.SourceText.Contains(
+                "999 kg",
+                StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Project_structured_mode_preserves_distinct_canonical_headings_without_semantic_guessing()
+    {
+        const string text =
+            "Ingredients and preparation steps grounded in the canonical content blocks.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(5, text, 9, text.Length, [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(
+                0,
+                "Bœuf bourguignon",
+                1,
+                5,
+                5,
+                null,
+                null),
+            new ExtractedDocumentSection(
+                1,
+                "Pour 4 personnes",
+                2,
+                5,
+                5,
+                null,
+                null),
+            new ExtractedDocumentSection(
+                2,
+                "Préparation",
+                2,
+                5,
+                5,
+                null,
+                null),
+            new ExtractedDocumentSection(
+                3,
+                "Préparation",
+                2,
+                6,
+                6,
+                null,
+                null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                2,
+                5,
+                5,
+                text,
+                text.Length,
+                9,
+                [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Cuisine/Fixture.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: [],
+            preferStructuredSources: true);
+
+        Assert.Equal(3, profile.ContentCards.Count);
+        Assert.Contains(
+            profile.ContentCards,
+            static card => card.Title == "Bœuf bourguignon");
+        Assert.Contains(
+            profile.ContentCards,
+            static card => card.Title == "Pour 4 personnes");
+        Assert.Single(
+            profile.ContentCards,
+            static card => card.Title == "Préparation");
+        Assert.All(
+            profile.ContentCards,
+            static card =>
+                Assert.Contains(
+                    "canonical_section_heading",
+                    card.Signals));
+    }
+
+    [Fact]
     public void Project_does_not_create_profile_cards_from_sparse_low_quality_fragments()
     {
         var pages = new[]
@@ -1219,6 +1394,108 @@ CatalogPollutionMarker Procedure body: Materials lock padlock warning tag. Proce
             && fact.PageEnd == 1);
         Assert.Contains("scalable_quantities", profile.SearchText, StringComparison.Ordinal);
         Assert.Contains("structured_facts", profile.SearchText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Project_scopes_page_embedded_card_evidence_to_its_local_layout_block()
+    {
+        const string firstBlock =
+            "MODULE COMPACT ALPHA\nBase 4 elements | 400 g alpha material | 5 cl alpha binder. "
+            + "Procedure: assemble the components, verify alignment, record the measurements, inspect every fastener, and release the batch after control.";
+        const string secondBlock =
+            "VALVE CONTROL\nASSEMBLY\nBase 6 elements | 900 ml beta fluid | 12 kg beta material. "
+            + "Procedure: prepare the assembly, validate positioning, document the readings, examine every connector, and approve the package after review.";
+        var pageText = $"{firstBlock}\n\n\n{secondBlock}";
+        var wordCount = pageText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+        var pages = new[]
+        {
+            new ExtractedPdfPage(1, pageText, wordCount, pageText.Length, [1])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/TwoItems.pdf",
+            pages,
+            sections: [],
+            units: [],
+            exactMatchEntries: []);
+
+        var alpha = Assert.Single(
+            profile.ContentCards,
+            card => string.Equals(card.Title, "MODULE COMPACT ALPHA", StringComparison.Ordinal));
+        var beta = Assert.Single(
+            profile.ContentCards,
+            card => string.Equals(card.Title, "VALVE CONTROL ASSEMBLY", StringComparison.Ordinal));
+
+        Assert.Contains(alpha.Evidence!.QuantityFacts, fact => fact.SourceText.Contains("alpha", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(alpha.Evidence.QuantityFacts, fact => fact.SourceText.Contains("beta", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(beta.Evidence!.QuantityFacts, fact => fact.SourceText.Contains("beta", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(beta.Evidence.QuantityFacts, fact => fact.SourceText.Contains("alpha", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Project_keeps_multiline_short_heading_when_its_local_region_has_grounded_evidence()
+    {
+        const string pageText =
+            "MUFFINS À\nLA COURGETTE\nPRÉPARATION\nINGRÉDIENTS\nBase 6 portions | 750 ml de courgettes | 310 ml de sucre | 10 ml de poudre à pâte. "
+            + "Mélanger les ingrédients, répartir la préparation dans les moules et cuire au four.";
+        var wordCount = pageText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/MultilineHeading.pdf",
+            [new ExtractedPdfPage(1, pageText, wordCount, pageText.Length, [1])],
+            sections: [],
+            units: [],
+            exactMatchEntries: []);
+
+        var card = Assert.Single(
+            profile.ContentCards,
+            card => string.Equals(card.Title, "MUFFINS À LA COURGETTE", StringComparison.Ordinal));
+        Assert.Contains(
+            card.Evidence!.QuantityFacts,
+            fact => fact.SourceText.Contains("courgettes", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(
+            profile.ContentCards,
+            item => item.Title.StartsWith("PRÉPARATION ", StringComparison.OrdinalIgnoreCase)
+                    || item.Title.StartsWith("INGRÉDIENTS ", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void BuildProfile_rejects_instruction_lead_even_when_structured_evidence_is_present()
+    {
+        var evidence = new DocumentProfileCardEvidence(
+            "content_card_evidence_v1",
+            null,
+            [
+                new DocumentProfileQuantityFact(60, "ml", "mixture", "60 ml mixture"),
+                new DocumentProfileQuantityFact(12, "count", "molds", "12 molds")
+            ],
+            [],
+            0.82,
+            "fr",
+            []);
+        var profile = DocumentProfileProjector.BuildProfile(
+            profileVersion: "deterministic_v1",
+            language: "fr",
+            summaryText: "Structured instructions.",
+            keywords: [],
+            entities: [],
+            topics: [],
+            hypotheticalQuestions: [],
+            limits: [],
+            docPath: "Generic/Instructions.pdf",
+            docName: "Instructions.pdf",
+            contentCards:
+            [
+                new DocumentProfileContentCard(
+                    "Remplir chacun des moules avec",
+                    1,
+                    1,
+                    "page_embedded_title",
+                    [],
+                    evidence)
+            ]);
+
+        Assert.Empty(profile.ContentCards);
     }
 
     [Fact]

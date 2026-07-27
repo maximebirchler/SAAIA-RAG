@@ -17,10 +17,13 @@
   "Rag": {
     "QdrantBaseUrl": "http://qdrant:6333",
     "QdrantCollection": "knowledge_base",
+    "QdrantRuntimeRevision": "sha256:6a34a799bed69c7c25c4e87ab04092005e4579062a9bf0e82a75d0b21f030006",
     "QdrantApiKeyRef": "ENV:QDRANT_API_KEY",
     "RequireQdrantAuthInProd": __REQUIRE_QDRANT_AUTH__,
     "EmbeddingsBaseUrl": "http://tei",
     "EmbeddingsModel": "__TEI_MODEL_ID__",
+    "EmbeddingsModelRevision": "__TEI_MODEL_REVISION__",
+    "EmbeddingsRuntimeRevision": "sha256:66db77d7856c9319bbfaf2c5b80a6d0e0ac9ff128ade09eaca1d9c20213617a4",
     "EnableRerank": false,
     "RerankBaseUrl": "",
     "RerankModel": "",
@@ -47,9 +50,11 @@
     "TeiMaxConcurrency": 1,
     "QdrantMaxConcurrency": 4,
     "TeiInteractiveQuietPeriodMs": 1500,
+    "HeavyComputeMaxConcurrency": 1,
     "BulkheadAcquireTimeoutSeconds": 30,
     "OcrBulkheadAcquireTimeoutSeconds": 1800,
-    "OcrBulkheadQueueWaitTimeoutSeconds": 21600
+    "OcrBulkheadQueueWaitTimeoutSeconds": 21600,
+    "HeavyComputeQueueWaitTimeoutSeconds": 21600
   },
   "RateLimiting": {
     "Enabled": true,

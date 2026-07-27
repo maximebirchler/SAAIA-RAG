@@ -35,9 +35,11 @@
     "TeiMaxConcurrency": 1,
     "QdrantMaxConcurrency": 4,
     "TeiInteractiveQuietPeriodMs": 1500,
+    "HeavyComputeMaxConcurrency": 1,
     "BulkheadAcquireTimeoutSeconds": 30,
     "OcrBulkheadAcquireTimeoutSeconds": 1800,
-    "OcrBulkheadQueueWaitTimeoutSeconds": 21600
+    "OcrBulkheadQueueWaitTimeoutSeconds": 21600,
+    "HeavyComputeQueueWaitTimeoutSeconds": 21600
   },
   "Bootstrap": {
     "Enabled": false

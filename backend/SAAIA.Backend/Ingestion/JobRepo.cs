@@ -6,7 +6,6 @@ static partial class JobRepo
     public static async Task<IngestionJob?> TryDequeueAsync(NpgsqlDataSource ds, string workerId, CancellationToken ct)
     {
         await using var conn = await ds.OpenConnectionAsync(ct);
-        await using var tx = await conn.BeginTransactionAsync(ct);
 
         const string sql = @"
 WITH cte AS (
@@ -41,18 +40,14 @@ RETURNING
   j.payload   AS Payload;";
 
         var row = await conn.QueryFirstOrDefaultAsync<IngestionJobRow>(
-            new CommandDefinition(sql, new { worker = workerId }, transaction: tx, cancellationToken: ct));
+            new CommandDefinition(sql, new { worker = workerId }, cancellationToken: ct));
 
         if (row is null)
-        {
-            await tx.CommitAsync(ct);
             return null;
-        }
 
         var docId = row.DocIdFromPayload ?? IdUtil.DeterministicGuid($"{row.TenantId}:{row.DocPath}");
         var version = row.VersionFromPayload ?? 0;
 
-        await tx.CommitAsync(ct);
         return new IngestionJob(
             row.JobId,
             row.TenantId,

@@ -41,6 +41,63 @@ public sealed class IngestionDuplicateFilePlannerTests
         }
     }
 
+    [Fact]
+    public async Task File_hash_cache_reuses_unchanged_content_and_invalidates_on_mtime_change()
+    {
+        var root = Path.Combine(
+            Path.GetTempPath(),
+            $"saaia-duplicate-cache-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+
+        try
+        {
+            var path = Path.Combine(root, "fixture.pdf");
+            await File.WriteAllBytesAsync(path, "content-a"u8.ToArray());
+            var firstMtime = DateTime.UtcNow.AddMinutes(-1);
+            File.SetLastWriteTimeUtc(path, firstMtime);
+            var firstInfo = new FileInfo(path);
+            var cache = new IngestionFileContentHashCache();
+            var firstCandidate = new IngestionDuplicateFileCandidate(
+                "fixture.pdf",
+                path,
+                firstInfo.Length,
+                firstInfo.LastWriteTimeUtc);
+
+            var first = await cache.ResolveAsync(
+                firstCandidate,
+                CancellationToken.None);
+            var second = await cache.ResolveAsync(
+                firstCandidate,
+                CancellationToken.None);
+
+            Assert.False(first.CacheHit);
+            Assert.True(second.CacheHit);
+            Assert.Equal(first.HashHex, second.HashHex);
+            Assert.Equal(1, cache.Count);
+
+            await File.WriteAllBytesAsync(path, "content-b"u8.ToArray());
+            File.SetLastWriteTimeUtc(path, firstMtime.AddSeconds(10));
+            var changedInfo = new FileInfo(path);
+            var changed = await cache.ResolveAsync(
+                firstCandidate with
+                {
+                    FileSize = changedInfo.Length,
+                    LastWriteTimeUtc = changedInfo.LastWriteTimeUtc
+                },
+                CancellationToken.None);
+
+            Assert.False(changed.CacheHit);
+            Assert.NotEqual(first.HashHex, changed.HashHex);
+
+            cache.RetainOnly([]);
+            Assert.Equal(0, cache.Count);
+        }
+        finally
+        {
+            TryDeleteDirectory(root);
+        }
+    }
+
     private static void TryDeleteDirectory(string path)
     {
         try

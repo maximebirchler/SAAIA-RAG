@@ -20,7 +20,7 @@ services:
       - "${SAAIA_INSTALL_ROOT:-..}/data/postgres:/var/lib/postgresql/data"
 
   qdrant:
-    image: qdrant/qdrant:v1.10.1
+    image: ${QDRANT_IMAGE:-qdrant/qdrant:v1.10.1@sha256:6a34a799bed69c7c25c4e87ab04092005e4579062a9bf0e82a75d0b21f030006}
     restart: unless-stopped
     ulimits:
       nofile:
@@ -36,10 +36,10 @@ services:
       - "${SAAIA_INSTALL_ROOT:-..}/data/qdrant:/qdrant/storage"
 
   tei:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.6
+    image: ${TEI_IMAGE:-ghcr.io/huggingface/text-embeddings-inference:cpu-1.6@sha256:66db77d7856c9319bbfaf2c5b80a6d0e0ac9ff128ade09eaca1d9c20213617a4}
     restart: unless-stopped
     # auto-truncate avoids 413 when a chunk slightly exceeds model token limit
-    command: ["--model-id", "${TEI_MODEL_ID:-intfloat/multilingual-e5-base}", "--json-output", "--auto-truncate"]
+    command: ["--model-id", "${TEI_MODEL_ID:-intfloat/multilingual-e5-base}", "--revision", "${TEI_MODEL_REVISION:-d128750597153bb5987e10b1c3493a34e5a4502a}", "--json-output", "--auto-truncate"]
     ports:
       - "${SAAIA_BIND_ADDR:-127.0.0.1}:${TEI_HOST_PORT:-8081}:80"
     environment:
@@ -49,10 +49,55 @@ services:
       # Persist model cache under install root (or repo root by default)
       - "${SAAIA_INSTALL_ROOT:-..}/cache/tei:/data"
 
+  docling:
+    build:
+      context: ..
+      dockerfile: infra/docling-sidecar/Dockerfile
+      args:
+        DOCLING_BASE_IMAGE: ${DOCLING_IMAGE:-quay.io/docling-project/docling-serve-cpu@sha256:a70cd391c5d9e7ad23e8d76adffa5e5f03c536b4d1ea007f512c94e0b435ba45}
+        SAAIA_DOCLING_SOURCE_REVISION: ${SAAIA_DOCLING_SOURCE_REVISION:-unknown}
+    image: ${SAAIA_DOCLING_IMAGE:-saaia-docling-sidecar:structure-v2}
+    restart: unless-stopped
+    cpus: ${SAAIA_DOCLING_CPUS:-8.0}
+    mem_limit: ${SAAIA_DOCLING_MEMORY_LIMIT:-14g}
+    pids_limit: ${SAAIA_DOCLING_PIDS_LIMIT:-1024}
+    expose:
+      - "5001"
+    environment:
+      DOCLING_DEVICE: ${SAAIA_DOCLING_DEVICE:-cpu}
+      DOCLING_NUM_THREADS: ${SAAIA_DOCLING_NUM_THREADS:-8}
+      DOCLING_SERVE_ENG_KIND: local
+      DOCLING_SERVE_ENG_LOC_NUM_WORKERS: ${SAAIA_DOCLING_WORKERS:-1}
+      DOCLING_SERVE_ENG_LOC_SHARE_MODELS: "true"
+      DOCLING_SERVE_ENABLE_UI: "false"
+      DOCLING_SERVE_MAX_NUM_PAGES: ${SAAIA_DOCLING_MAX_PAGES:-1000}
+      DOCLING_SERVE_MAX_FILE_SIZE: ${SAAIA_DOCLING_MAX_FILE_SIZE:-536870912}
+      DOCLING_SERVE_MAX_SYNC_WAIT: ${SAAIA_DOCLING_MAX_SYNC_WAIT_SECONDS:-900}
+      DOCLING_DEBUG_PROFILE_PIPELINE_TIMINGS: "true"
+      SAAIA_DOCLING_UPSTREAM_TIMEOUT_SECONDS: ${SAAIA_DOCLING_TIMEOUT_SECONDS:-900}
+      SAAIA_DOCLING_TABLE_REPAIR_ENABLED: ${SAAIA_DOCLING_TABLE_REPAIR_ENABLED:-true}
+      SAAIA_DOCLING_TABLE_REPAIR_SCALE: ${SAAIA_DOCLING_TABLE_REPAIR_SCALE:-2.5}
+      SAAIA_DOCLING_TABLE_REPAIR_PADDING_POINTS: ${SAAIA_DOCLING_TABLE_REPAIR_PADDING_POINTS:-12}
+      SAAIA_DOCLING_TABLE_REPAIR_MINIMUM_SCORE: ${SAAIA_DOCLING_TABLE_REPAIR_MINIMUM_SCORE:-0.5}
+      SAAIA_DOCLING_HEADING_HIERARCHY_ENABLED: ${SAAIA_DOCLING_HEADING_HIERARCHY_ENABLED:-true}
+      SAAIA_DOCLING_HEADING_HIERARCHY_USE_BOOKMARKS: ${SAAIA_DOCLING_HEADING_HIERARCHY_USE_BOOKMARKS:-true}
+      SAAIA_DOCLING_HEADING_HIERARCHY_USE_NUMBERING: ${SAAIA_DOCLING_HEADING_HIERARCHY_USE_NUMBERING:-true}
+      SAAIA_DOCLING_HEADING_HIERARCHY_USE_STYLE: ${SAAIA_DOCLING_HEADING_HIERARCHY_USE_STYLE:-true}
+      SAAIA_DOCLING_HEADING_HIERARCHY_MAX_LEVEL: ${SAAIA_DOCLING_HEADING_HIERARCHY_MAX_LEVEL:-6}
+      SAAIA_DOCLING_HEADING_HIERARCHY_BOOKMARK_THRESHOLD: ${SAAIA_DOCLING_HEADING_HIERARCHY_BOOKMARK_THRESHOLD:-0.8}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5001/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
   backend:
     build:
       context: ..
       dockerfile: backend/SAAIA.Backend/Dockerfile
+      args:
+        SAAIA_CODE_REVISION: ${SAAIA_CODE_REVISION:-unknown}
     restart: unless-stopped
     ports:
       - "${SAAIA_BIND_ADDR:-127.0.0.1}:${BACKEND_HOST_PORT:-5122}:5122"
@@ -61,6 +106,9 @@ services:
       Qdrant__Host: qdrant
       Qdrant__Port: 6333
       Embeddings__BaseUrl: http://tei
+      Rag__EmbeddingsModelRevision: ${TEI_MODEL_REVISION:-d128750597153bb5987e10b1c3493a34e5a4502a}
+      Rag__EmbeddingsRuntimeRevision: ${TEI_RUNTIME_REVISION:-sha256:66db77d7856c9319bbfaf2c5b80a6d0e0ac9ff128ade09eaca1d9c20213617a4}
+      Rag__QdrantRuntimeRevision: ${QDRANT_RUNTIME_REVISION:-sha256:6a34a799bed69c7c25c4e87ab04092005e4579062a9bf0e82a75d0b21f030006}
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       SAAIA_LICENSE_SEATS: ${SAAIA_LICENSE_SEATS:-1}
       BACKOFFICE_LLM_ENABLED: ${BACKOFFICE_LLM_ENABLED:-false}
@@ -80,6 +128,7 @@ services:
       Ingestion__ChunkOverlapWords: ${SAAIA_INGESTION_CHUNK_OVERLAP_WORDS:-0}
       Ingestion__ChunkMinWords: ${SAAIA_INGESTION_CHUNK_MIN_WORDS:-25}
       Ingestion__EmbeddingsBatchSize: ${SAAIA_INGESTION_EMBEDDINGS_BATCH_SIZE:-16}
+      Ingestion__CanonicalArtifactsEnabled: ${SAAIA_INGESTION_CANONICAL_ARTIFACTS_ENABLED:-true}
       Ingestion__WorkerConcurrency: ${SAAIA_INGESTION_WORKER_CONCURRENCY:-2}
       Ingestion__WorkerEmptyDelayMs: ${SAAIA_INGESTION_WORKER_EMPTY_DELAY_MS:-500}
       Ingestion__StaleRunningMinutes: ${SAAIA_INGESTION_STALE_RUNNING_MINUTES:-60}
@@ -92,8 +141,10 @@ services:
       Ingestion__TeiMaxConcurrency: ${SAAIA_INGESTION_TEI_MAX_CONCURRENCY:-1}
       Ingestion__QdrantMaxConcurrency: ${SAAIA_INGESTION_QDRANT_MAX_CONCURRENCY:-4}
       Ingestion__TeiInteractiveQuietPeriodMs: ${SAAIA_INGESTION_TEI_INTERACTIVE_QUIET_PERIOD_MS:-1500}
+      Ingestion__HeavyComputeMaxConcurrency: ${SAAIA_INGESTION_HEAVY_COMPUTE_MAX_CONCURRENCY:-1}
       Ingestion__BulkheadAcquireTimeoutSeconds: ${SAAIA_INGESTION_BULKHEAD_ACQUIRE_TIMEOUT_SECONDS:-30}
       Ingestion__OcrBulkheadQueueWaitTimeoutSeconds: ${SAAIA_INGESTION_OCR_BULKHEAD_QUEUE_WAIT_TIMEOUT_SECONDS:-21600}
+      Ingestion__HeavyComputeQueueWaitTimeoutSeconds: ${SAAIA_INGESTION_HEAVY_COMPUTE_QUEUE_WAIT_TIMEOUT_SECONDS:-21600}
       Ingestion__OcrEnabled: ${SAAIA_OCR_ENABLED:-true}
       Ingestion__OcrCommand: ${SAAIA_OCR_COMMAND:-ocrmypdf}
       Ingestion__OcrArguments: ${SAAIA_OCR_ARGUMENTS:-}
@@ -114,6 +165,40 @@ services:
       Ingestion__OcrImagePageTimeoutSeconds: ${SAAIA_OCR_IMAGE_PAGE_TIMEOUT_SECONDS:-180}
       Ingestion__OcrImagePageMaxTotalSeconds: ${SAAIA_OCR_IMAGE_PAGE_MAX_TOTAL_SECONDS:-0}
       Ingestion__OcrImagePageMinWords: ${SAAIA_OCR_IMAGE_PAGE_MIN_WORDS:-3}
+      DocumentIntelligence__Enabled: ${SAAIA_DOCUMENT_INTELLIGENCE_ENABLED:-true}
+      DocumentIntelligence__Provider: docling
+      DocumentIntelligence__BaseUrl: http://docling:5001
+      DocumentIntelligence__TimeoutSeconds: ${SAAIA_DOCLING_TIMEOUT_SECONDS:-900}
+      DocumentIntelligence__MaxResponseBytes: ${SAAIA_DOCLING_MAX_RESPONSE_BYTES:-536870912}
+      DocumentIntelligence__DoOcr: ${SAAIA_DOCLING_OCR_ENABLED:-true}
+      DocumentIntelligence__ForceOcr: ${SAAIA_DOCLING_FORCE_OCR:-false}
+      DocumentIntelligence__OcrPreset: ${SAAIA_DOCLING_OCR_PRESET:-auto}
+      DocumentIntelligence__PdfBackend: ${SAAIA_DOCLING_PDF_BACKEND:-docling_parse}
+      DocumentIntelligence__TableMode: ${SAAIA_DOCLING_TABLE_MODE:-accurate}
+      DocumentIntelligence__TableCellMatching: ${SAAIA_DOCLING_TABLE_CELL_MATCHING:-true}
+      DocumentIntelligence__DoTableStructure: ${SAAIA_DOCLING_TABLE_STRUCTURE_ENABLED:-true}
+      DocumentIntelligence__IncludeImages: "false"
+      DocumentIntelligence__IncludePageImages: "false"
+      DocumentIntelligence__HeadingHierarchyEnabled: ${SAAIA_DOCLING_HEADING_HIERARCHY_ENABLED:-true}
+      DocumentIntelligence__HeadingHierarchyUseBookmarks: ${SAAIA_DOCLING_HEADING_HIERARCHY_USE_BOOKMARKS:-true}
+      DocumentIntelligence__HeadingHierarchyUseNumbering: ${SAAIA_DOCLING_HEADING_HIERARCHY_USE_NUMBERING:-true}
+      DocumentIntelligence__HeadingHierarchyUseStyle: ${SAAIA_DOCLING_HEADING_HIERARCHY_USE_STYLE:-true}
+      DocumentIntelligence__HeadingHierarchyMaxLevel: ${SAAIA_DOCLING_HEADING_HIERARCHY_MAX_LEVEL:-6}
+      DocumentIntelligence__HeadingHierarchyBookmarkMatchThreshold: ${SAAIA_DOCLING_HEADING_HIERARCHY_BOOKMARK_THRESHOLD:-0.8}
+      DocumentIntelligence__Device: ${SAAIA_DOCLING_DEVICE:-cpu}
+      DocumentIntelligence__NumThreads: ${SAAIA_DOCLING_NUM_THREADS:-8}
+      DocumentIntelligence__ServiceWorkerConcurrency: ${SAAIA_DOCLING_WORKERS:-1}
+      DocumentIntelligence__RegionalTableRepairEnabled: ${SAAIA_DOCLING_TABLE_REPAIR_ENABLED:-true}
+      DocumentIntelligence__RegionalTableRepairScale: ${SAAIA_DOCLING_TABLE_REPAIR_SCALE:-2.5}
+      DocumentIntelligence__RegionalTableRepairPaddingPoints: ${SAAIA_DOCLING_TABLE_REPAIR_PADDING_POINTS:-12}
+      DocumentIntelligence__RegionalTableRepairMinimumScore: ${SAAIA_DOCLING_TABLE_REPAIR_MINIMUM_SCORE:-0.5}
+      DocumentIntelligence__NativeTextCoverageReconciliationEnabled: ${SAAIA_DOCLING_NATIVE_TEXT_RECONCILIATION_ENABLED:-true}
+      DocumentIntelligence__NativeTextCoverageMinimumLineCoverage: ${SAAIA_DOCLING_NATIVE_TEXT_MINIMUM_LINE_COVERAGE:-0.90}
+      DocumentIntelligence__EngineVersion: docling-serve-1.27.0_docling-slim-2.113.0_saaia-structure-2
+      DocumentIntelligence__ParseEngineVersion: docling-parse-7.8.1
+      DocumentIntelligence__ModelPackageVersion: docling-ibm-models-3.13.3
+      DocumentIntelligence__OcrEngineVersion: rapidocr-3.9.1_onnxruntime-1.27.0
+      DocumentIntelligence__DeploymentRevision: sha256:a70cd391c5d9e7ad23e8d76adffa5e5f03c536b4d1ea007f512c94e0b435ba45+saaia-structure-2
       RuntimeGovernance__CapabilityBWorkerEnabled: ${SAAIA_CAPABILITY_B_WORKER_ENABLED:-true}
       RuntimeGovernance__CapabilityBRequireIngestionIdleForExecution: ${SAAIA_CAPABILITY_B_REQUIRE_INGESTION_IDLE:-true}
       RuntimeGovernance__CapabilityBRequireRagIdleForExecution: ${SAAIA_CAPABILITY_B_REQUIRE_RAG_IDLE:-true}
@@ -132,6 +217,8 @@ services:
         condition: service_started
       tei:
         condition: service_started
+      docling:
+        condition: service_healthy
     volumes:
       # Signed deployment config (persisted under install root)
       - "${SAAIA_INSTALL_ROOT:-..}/deploy:/app/deploy:ro"

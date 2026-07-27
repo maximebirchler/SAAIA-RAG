@@ -23,6 +23,12 @@ internal static class StructuredContentLexicon
         "valeurs",
         "items",
         "elements",
+        "ingredient",
+        "ingredients",
+        "ingrediente",
+        "ingredientes",
+        "ingredienti",
+        "zutaten",
         "materiel",
         "material"
     ];

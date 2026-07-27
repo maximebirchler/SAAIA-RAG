@@ -7,6 +7,7 @@ sealed class RagOptions
 
     public string QdrantBaseUrl { get; set; } = "http://localhost:6333/";
     public string QdrantCollection { get; set; } = "knowledge_base";
+    public string QdrantRuntimeRevision { get; set; } = "";
 
     /// <summary>
     /// Optional: Qdrant API key (recommended in prod).
@@ -38,6 +39,8 @@ sealed class RagOptions
 
     public string EmbeddingsBaseUrl { get; set; } = "http://localhost:8081/";
     public string EmbeddingsModel { get; set; } = "intfloat/multilingual-e5-base";
+    public string EmbeddingsModelRevision { get; set; } = "";
+    public string EmbeddingsRuntimeRevision { get; set; } = "";
     public bool EnableRerank { get; set; } = false;
     public string? RerankBaseUrl { get; set; }
     public string? RerankModel { get; set; }

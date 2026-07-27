@@ -1289,7 +1289,7 @@ internal static partial class DocumentSectionExtractor
     [GeneratedRegex(@"^[\p{Lu}][\p{L}'\u2019\-]{2,30}\s*,\s*[\p{Lu}][\p{L}'\u2019\-]{2,30}\)$", RegexOptions.CultureInvariant)]
     private static partial Regex DanglingClosingParenthesisListFragmentRegex();
 
-    [GeneratedRegex(@"\b(?:add|adds|ajoute|ajoutez|combine|cook|coupez|cut|heat|insert|lancez|mix|m[e\u00e9]langez|place|placez|pour|press|remove|servez|serve|set|stir|versez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:add|adds|ajoute|ajoutez|combine|coupez|cut|heat|insert|lancez|mix|m[e\u00e9]langez|place|placez|pour|press|remove|set|stir|versez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex BodyFragmentVerbRegex();
 
     private sealed record PageLines(int PageNumber, List<string> Lines);

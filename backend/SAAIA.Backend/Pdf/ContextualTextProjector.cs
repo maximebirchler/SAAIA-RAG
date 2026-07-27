@@ -3,7 +3,7 @@ using System.Text;
 
 internal static class ContextualTextProjector
 {
-    internal const string SchemaVersion = "contextual_text_v2";
+    internal const string SchemaVersion = "contextual_text_v3";
 
     public static IReadOnlyList<ProjectedContextualTextEntry> Project(
         string docPath,
@@ -33,11 +33,15 @@ internal static class ContextualTextProjector
             var includeCurrentUnit = ShouldIncludeCurrentUnitContext(unit, chunk);
             var includePreviousUnit = ShouldIncludeNeighborContext(previousUnit, includeNeighborContextByOrdinal);
             var includeNextUnit = ShouldIncludeNeighborContext(nextUnit, includeNeighborContextByOrdinal);
-            var headingPath = ResolveHeadingPath(chunk.SectionOrdinal, headingPathBySectionOrdinal);
+            var sectionTitle = chunk.SectionTitle ?? section?.Title;
+            var headingPath = chunk.HeadingPath
+                              ?? ResolveHeadingPath(
+                                  chunk.SectionOrdinal,
+                                  headingPathBySectionOrdinal);
 
             var text = BuildContextualText(
                 fileName,
-                section,
+                sectionTitle,
                 headingPath,
                 chunk,
                 unit,
@@ -58,7 +62,7 @@ internal static class ContextualTextProjector
                 TokenCount: CountTokens(text),
                 Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(text)),
                 SchemaVersion: SchemaVersion,
-                SectionTitle: section?.Title,
+                SectionTitle: sectionTitle,
                 HeadingPath: headingPath,
                 ChunkType: chunk.ChunkType,
                 ContentRole: chunk.ContentRole,
@@ -80,7 +84,7 @@ internal static class ContextualTextProjector
 
     private static string BuildContextualText(
         string fileName,
-        ExtractedDocumentSection? section,
+        string? sectionTitle,
         string? headingPath,
         ProjectedRetrievalChunk chunk,
         ExtractedDocumentUnit? unit,
@@ -91,18 +95,6 @@ internal static class ContextualTextProjector
         bool includeNextUnit)
     {
         var sb = new StringBuilder();
-        sb.Append("document_name: ").Append(fileName).AppendLine();
-        if (!string.IsNullOrWhiteSpace(section?.Title))
-            sb.Append("section_title: ").Append(section.Title).AppendLine();
-        if (!string.IsNullOrWhiteSpace(headingPath))
-            sb.Append("heading_path: ").Append(headingPath).AppendLine();
-        sb.Append("chunk_type: ").Append(chunk.ChunkType).AppendLine();
-        sb.Append("pages: ").Append(chunk.PageStart);
-        if (chunk.PageEnd != chunk.PageStart)
-            sb.Append('-').Append(chunk.PageEnd);
-        sb.AppendLine();
-        sb.AppendLine();
-
         sb.AppendLine("excerpt:");
         sb.AppendLine(chunk.Text.Trim());
         sb.AppendLine();
@@ -127,6 +119,18 @@ internal static class ContextualTextProjector
             sb.AppendLine(nextUnit!.Text.Trim());
             sb.AppendLine();
         }
+
+        sb.AppendLine("source_metadata:");
+        sb.Append("document_name: ").Append(fileName).AppendLine();
+        if (!string.IsNullOrWhiteSpace(sectionTitle))
+            sb.Append("section_title: ").Append(sectionTitle).AppendLine();
+        if (!string.IsNullOrWhiteSpace(headingPath))
+            sb.Append("heading_path: ").Append(headingPath).AppendLine();
+        sb.Append("chunk_type: ").Append(chunk.ChunkType).AppendLine();
+        sb.Append("pages: ").Append(chunk.PageStart);
+        if (chunk.PageEnd != chunk.PageStart)
+            sb.Append('-').Append(chunk.PageEnd);
+        sb.AppendLine();
 
         return sb.ToString().TrimEnd();
     }

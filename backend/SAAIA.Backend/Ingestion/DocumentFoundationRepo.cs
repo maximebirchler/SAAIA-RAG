@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Dapper;
 using Npgsql;
+using SAAIA.Contracts.DocumentIntelligence;
 
 internal static class DocumentFoundationRepo
 {
@@ -36,7 +37,9 @@ internal static class DocumentFoundationRepo
         long? ocrDurationMs = null,
         PdfOcrDiagnostics? ocrDiagnostics = null,
         PdfExtractionQualitySummary? nativeExtractionQuality = null,
-        IngestionCapabilityAProfileSeed? capabilityAProfileSeed = null)
+        IngestionCapabilityAProfileSeed? capabilityAProfileSeed = null,
+        CanonicalIngestionBundle? canonicalBundle = null,
+        IReadOnlyList<ExtractedDocumentUnit>? structuredProfileUnits = null)
     {
         var revisionId = BuildStableRevisionId(tenantId, docId, indexedVersionAfter);
         var extractionQuality = PdfExtractionQualitySummary.FromPages(pages);
@@ -50,7 +53,13 @@ internal static class DocumentFoundationRepo
         var publishableContextualTextEntries = contextualTextEntries
             .Where(entry => publishableRetrievalChunkIndexes.Contains(entry.ChunkIndex))
             .ToArray();
-        var documentProfile = DocumentProfileProjector.Project(docPath, pages, sections, units, exactMatchEntries);
+        var documentProfile = DocumentProfileProjector.Project(
+            docPath,
+            pages,
+            sections,
+            structuredProfileUnits ?? units,
+            exactMatchEntries,
+            preferStructuredSources: structuredProfileUnits is not null);
         documentProfile = MergeCapabilityAProfileSeed(
             documentProfile,
             capabilityAProfileSeed,
@@ -130,6 +139,7 @@ SET doc_path = EXCLUDED.doc_path,
                 documentLanguage = documentProfile.Language,
                 documentLanguageSource = "document_profile_projector",
                 documentProfileVersion = documentProfile.ProfileVersion,
+                canonicalManifestSha256 = canonicalBundle?.ManifestEnvelope.ManifestSha256,
                 ocrDiagnostics = ocrDiagnostics is null
                     ? null
                     : BuildOcrDiagnosticsPayload(ocrDiagnostics),
@@ -166,6 +176,8 @@ SET doc_path = EXCLUDED.doc_path,
             titleNavigationIndex,
             publishableRetrievalChunkIndexes,
             ct);
+        if (canonicalBundle is not null)
+            await CanonicalArtifactRepo.UpsertBundleAsync(conn, tx, tenantId, revisionId, canonicalBundle, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "page_index", pages, p => $"page:{p.PageNumber}:{p.CharCount}:{Convert.ToHexString(p.Checksum)}", p => p.CharCount, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "sections", sections, s => $"section:{s.Ordinal}:{s.Level}:{s.PageStart}:{s.PageEnd}:{s.Title}", _ => 0, ct);
         await UpsertArtifactSummaryAsync(conn, tx, tenantId, revisionId, "units", units, u => $"unit:{u.Ordinal}:{u.PageStart}:{u.PageEnd}:{u.TokenCount}:{u.Text}", u => u.CharCount, ct);
@@ -2179,8 +2191,12 @@ SET retrieval_chunk_id = EXCLUDED.retrieval_chunk_id,
             unitIdsByOrdinal.TryGetValue(chunk.UnitOrdinal ?? -1, out var unitIdValue);
             Guid? sectionId = sectionIdValue == Guid.Empty ? null : sectionIdValue;
             Guid? unitId = unitIdValue == Guid.Empty ? null : unitIdValue;
-            sectionTitleByOrdinal.TryGetValue(chunk.SectionOrdinal ?? -1, out var sectionTitle);
-            var headingPath = ContextualTextProjector.ResolveHeadingPath(chunk.SectionOrdinal, headingPathBySectionOrdinal);
+            sectionTitleByOrdinal.TryGetValue(chunk.SectionOrdinal ?? -1, out var legacySectionTitle);
+            var sectionTitle = chunk.SectionTitle ?? legacySectionTitle;
+            var headingPath = chunk.HeadingPath
+                              ?? ContextualTextProjector.ResolveHeadingPath(
+                                  chunk.SectionOrdinal,
+                                  headingPathBySectionOrdinal);
             chunkLinkMap.TryGetValue(chunk.ChunkIndex, out var chunkLinks);
             var text = NormalizePostgresTextForStorage(chunk.Text);
             var storedSectionTitle = NormalizeOptionalPostgresTextForStorage(sectionTitle);
@@ -2208,6 +2224,14 @@ SET retrieval_chunk_id = EXCLUDED.retrieval_chunk_id,
                 sourceUnitEndOrdinal = chunk.SourceUnitEndOrdinal,
                 sourceUnitCount = chunk.SourceUnitCount ?? (chunk.SourceUnitOrdinals?.Count ?? 0),
                 chunkComposition = NormalizeOptionalPostgresTextForStorage(chunk.ChunkComposition),
+                canonicalBlockIds = NormalizePostgresTextArrayForStorage(
+                    chunk.CanonicalBlockIds ?? Array.Empty<string>()),
+                canonicalSpanIds = NormalizePostgresTextArrayForStorage(
+                    chunk.CanonicalSpanIds ?? Array.Empty<string>()),
+                canonicalTableCellIds = NormalizePostgresTextArrayForStorage(
+                    chunk.CanonicalTableCellIds ?? Array.Empty<string>()),
+                canonicalContextBlockIds = NormalizePostgresTextArrayForStorage(
+                    chunk.CanonicalContextBlockIds ?? Array.Empty<string>()),
                 prevChunkId = chunkLinks?.PreviousChunkId?.ToString(),
                 nextChunkId = chunkLinks?.NextChunkId?.ToString(),
                 sameSectionChunkId = chunkLinks?.SameSectionChunkId?.ToString()

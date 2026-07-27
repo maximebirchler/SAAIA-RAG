@@ -16,13 +16,16 @@ internal static partial class DocumentProfileProjector
     private const int MaxPageContentCardCandidates = 8;
     private const int MaxExactLeadContentCardCandidates = 4;
     private const int MaxEvidenceDerivedContentCardPageSpan = 8;
+    private const string CanonicalSectionHeadingSignal =
+        "canonical_section_heading";
 
     public static ProjectedDocumentProfile Project(
         string docPath,
         IReadOnlyList<ExtractedPdfPage> pages,
         IReadOnlyList<ExtractedDocumentSection> sections,
         IReadOnlyList<ExtractedDocumentUnit> units,
-        IReadOnlyList<ExtractedExactMatchEntry> exactMatchEntries)
+        IReadOnlyList<ExtractedExactMatchEntry> exactMatchEntries,
+        bool preferStructuredSources = false)
     {
         var docName = Path.GetFileName(docPath.Replace('\\', '/'));
         var profileUnits = SelectProfileContentUnits(units);
@@ -43,9 +46,17 @@ internal static partial class DocumentProfileProjector
         var summary = BuildSummary(docName, pages.Count, sectionTitles, profileUnits, language);
         var hypotheticalQuestions = BuildHypotheticalQuestions(docName, keywords, entities, language);
         var limits = BuildLimits(language);
-        var contentCards = BuildContentCards(sections, profileCardUnits, pages, exactMatchEntries, keywords);
+        var contentCards = BuildContentCards(
+            sections,
+            profileCardUnits,
+            pages,
+            exactMatchEntries,
+            keywords,
+            preferStructuredSources);
         return BuildProfile(
-            profileVersion: "deterministic_v1",
+            profileVersion: preferStructuredSources
+                ? "deterministic_canonical_v3"
+                : "deterministic_v1",
             language,
             summaryText: summary,
             keywords,
@@ -492,8 +503,17 @@ internal static partial class DocumentProfileProjector
         IReadOnlyList<ExtractedDocumentUnit> units,
         IReadOnlyList<ExtractedPdfPage> pages,
         IReadOnlyList<ExtractedExactMatchEntry> exactMatchEntries,
-        IReadOnlyList<string> keywords)
+        IReadOnlyList<string> keywords,
+        bool preferStructuredSources)
     {
+        if (preferStructuredSources)
+        {
+            return BuildCanonicalSectionContentCards(
+                sections,
+                exactMatchEntries,
+                keywords);
+        }
+
         var candidates = new List<DocumentProfileContentCardCandidate>();
         var sectionTitleByOrdinal = sections
             .GroupBy(static section => section.Ordinal)
@@ -539,7 +559,10 @@ internal static partial class DocumentProfileProjector
                 section.PageStart,
                 section.PageEnd,
                 "section",
-                BuildSectionContentCardContext(section, pageTextByNumber, sectionTitle),
+                BuildSectionContentCardContext(
+                    section,
+                    pageTextByNumber,
+                    sectionTitle),
                 keywords,
                 score: 65);
         }
@@ -591,28 +614,69 @@ internal static partial class DocumentProfileProjector
 
         foreach (var page in pages.OrderBy(static page => page.PageNumber))
         {
-            if (hasCardPageScope && !cardPageNumbers.Contains(page.PageNumber))
+            if (hasCardPageScope
+                && !cardPageNumbers.Contains(page.PageNumber))
+            {
                 continue;
+            }
             if (ExtractionQualityPolicy.IsPageUnreliableForEmbeddedCards(page))
                 continue;
 
             var acceptedTitles = 0;
-            foreach (var title in ExtractLeadTitles(page.Text, PageEmbeddedTitleScanLength))
+            var contexts = BuildPageContentCardContexts(page.Text);
+            var maxAcceptedTitlesPerContext = contexts.Count > 1
+                ? Math.Max(
+                    2,
+                    (int)Math.Ceiling(
+                        MaxPageContentCardCandidates
+                        / (double)contexts.Count))
+                : MaxPageContentCardCandidates;
+            foreach (var context in contexts)
             {
-                if (AddContentCardCandidate(
-                    candidates,
-                    title,
-                    page.PageNumber,
-                    page.PageNumber,
-                    "page_embedded_title",
-                    page.Text,
-                    keywords,
-                    score: ComputeContentCardScore("page_embedded_title", title, page.Text, 82)))
+                var acceptedTitlesInContext = 0;
+                var seenTitleKeysInContext =
+                    new HashSet<string>(StringComparer.Ordinal);
+                foreach (var title in ExtractLeadTitles(
+                             context,
+                             PageEmbeddedTitleScanLength))
                 {
-                    acceptedTitles++;
-                    if (acceptedTitles >= MaxPageContentCardCandidates)
+                    var titleKey =
+                        ExactMatchEntryExtractor.NormalizeForLookup(
+                            CleanTitleCandidate(title));
+                    if (string.IsNullOrWhiteSpace(titleKey)
+                        || !seenTitleKeysInContext.Add(titleKey))
+                    {
+                        continue;
+                    }
+
+                    if (AddContentCardCandidate(
+                        candidates,
+                        title,
+                        page.PageNumber,
+                        page.PageNumber,
+                        "page_embedded_title",
+                        context,
+                        keywords,
+                        score: ComputeContentCardScore(
+                            "page_embedded_title",
+                            title,
+                            context,
+                            82)))
+                    {
+                        acceptedTitles++;
+                        acceptedTitlesInContext++;
+                    }
+
+                    if (acceptedTitles >= MaxPageContentCardCandidates
+                        || acceptedTitlesInContext
+                        >= maxAcceptedTitlesPerContext)
+                    {
                         break;
+                    }
                 }
+
+                if (acceptedTitles >= MaxPageContentCardCandidates)
+                    break;
             }
         }
 
@@ -642,6 +706,65 @@ internal static partial class DocumentProfileProjector
         }
 
         return NormalizeContentCards(OrderContentCardsForBalancedCoverage(candidates));
+    }
+
+    private static IReadOnlyList<DocumentProfileContentCard>
+        BuildCanonicalSectionContentCards(
+            IReadOnlyList<ExtractedDocumentSection> sections,
+            IReadOnlyList<ExtractedExactMatchEntry> exactMatchEntries,
+            IReadOnlyList<string> keywords)
+    {
+        var candidates = new List<DocumentProfileContentCardCandidate>();
+        foreach (var section in sections
+                     .OrderBy(static section => section.Ordinal)
+                     .Take(MaxContentCards))
+        {
+            var title = NormalizeCanonicalSectionHeading(section.Title);
+            if (!IsMechanicallyUsableCanonicalSectionHeading(
+                    title,
+                    section.PageStart,
+                    section.PageEnd))
+            {
+                continue;
+            }
+
+            candidates.Add(new(
+                new(
+                    title,
+                    section.PageStart,
+                    section.PageEnd,
+                    "section",
+                    [CanonicalSectionHeadingSignal],
+                    Evidence: null,
+                    ContentCardId: null),
+                Score: 100));
+        }
+
+        foreach (var entry in exactMatchEntries
+                     .Where(static entry =>
+                         entry.Kind is "standard_ref" or "code_ref")
+                     .OrderBy(static entry => entry.EntryIndex))
+        {
+            var title = CleanTitleCandidate(entry.Text);
+            if (!LooksLikeTechnicalIdentifier(title)
+                || !IsPlausibleTechnicalContentCardIdentifier(title))
+            {
+                continue;
+            }
+
+            AddContentCardCandidate(
+                candidates,
+                title,
+                entry.PageStart,
+                entry.PageEnd,
+                entry.Kind,
+                entry.Text,
+                keywords,
+                score: 88);
+        }
+
+        return NormalizeContentCards(
+            OrderContentCardsForBalancedCoverage(candidates));
     }
 
     private static string BuildSectionContentCardContext(
@@ -793,14 +916,32 @@ internal static partial class DocumentProfileProjector
         if (string.IsNullOrWhiteSpace(text))
             yield break;
 
-        foreach (var line in text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n').Take(4))
+        var leadLines = text
+            .Replace("\r\n", "\n")
+            .Replace('\r', '\n')
+            .Split('\n')
+            .Where(static line => !string.IsNullOrWhiteSpace(line))
+            .Select(CollapseWhitespace)
+            .Where(static line => line.Length > 0)
+            .Take(4)
+            .ToArray();
+        for (var index = 0; index < leadLines.Length; index++)
         {
-            var normalizedLine = CollapseWhitespace(line);
-            if (string.IsNullOrWhiteSpace(normalizedLine))
-                continue;
-
-            foreach (var candidate in ExtractLeadTitleCandidatesFromLine(normalizedLine))
+            foreach (var candidate in ExtractLeadTitleCandidatesFromLine(leadLines[index]))
                 yield return candidate;
+
+            if (index + 1 < leadLines.Length)
+            {
+                if (LooksLikeStandaloneLayoutLabel(leadLines[index])
+                    || LooksLikeStandaloneLayoutLabel(leadLines[index + 1]))
+                {
+                    continue;
+                }
+
+                var combinedLine = $"{leadLines[index]} {leadLines[index + 1]}";
+                foreach (var candidate in ExtractLeadTitleCandidatesFromLine(combinedLine))
+                    yield return candidate;
+            }
         }
 
         var compactText = CollapseWhitespace(text);
@@ -817,6 +958,72 @@ internal static partial class DocumentProfileProjector
         }
     }
 
+    private static bool LooksLikeStandaloneLayoutLabel(string line)
+    {
+        var title = CleanTitleCandidate(line);
+        if (string.IsNullOrWhiteSpace(title))
+            return true;
+
+        var normalized = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(title));
+        if (string.IsNullOrWhiteSpace(normalized))
+            return true;
+
+        return LooksLikeMetadataLabelContentCardTitle(title, normalized, CountTokens(title))
+            || StructuredContentLexicon.IsItemizedCueToken(normalized)
+            || StructuredContentLexicon.IsStructuredItemTypeToken(normalized);
+    }
+
+    private static IReadOnlyList<string> BuildPageContentCardContexts(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return [];
+
+        var normalized = text.Replace("\r\n", "\n").Replace('\r', '\n').Trim();
+        if (normalized.Length == 0)
+            return [];
+
+        var blocks = Regex.Split(normalized, @"\n[ \t]*\n[ \t]*\n+")
+            .Select(static block => block.Trim())
+            .Where(static block => block.Length > 0)
+            .ToArray();
+        if (blocks.Length is < 2 or > 8)
+            return [normalized];
+
+        const int substantiveBlockLength = 180;
+        var substantiveBlocks = blocks
+            .Where(static block => block.Length >= substantiveBlockLength)
+            .ToArray();
+        if (substantiveBlocks.Length < 2)
+            return [normalized];
+
+        var substantiveLength = substantiveBlocks.Sum(static block => block.Length);
+        var totalLength = blocks.Sum(static block => block.Length);
+        if (substantiveLength < Math.Ceiling(totalLength * 0.70d))
+            return [normalized];
+
+        var contexts = new List<string>(substantiveBlocks.Length);
+        var pendingPrefix = new List<string>();
+        foreach (var block in blocks)
+        {
+            if (block.Length < substantiveBlockLength)
+            {
+                pendingPrefix.Add(block);
+                continue;
+            }
+
+            var context = pendingPrefix.Count == 0
+                ? block
+                : string.Join("\n\n", pendingPrefix.Append(block));
+            pendingPrefix.Clear();
+            contexts.Add(context);
+        }
+
+        if (pendingPrefix.Count > 0 && contexts.Count > 0)
+            contexts[^1] = $"{contexts[^1]}\n\n{string.Join("\n\n", pendingPrefix)}";
+
+        return contexts.Count >= 2 ? contexts : [normalized];
+    }
+
     private static IEnumerable<string> ExtractLeadTitleCandidatesFromLine(string line)
     {
         foreach (var candidate in StructuredContentLexicon.ExtractEmbeddedStructuredItemTitles(line, limit: 4))
@@ -830,7 +1037,7 @@ internal static partial class DocumentProfileProjector
         }
 
         var cleaned = CleanTitleCandidate(line);
-        if (IsUsefulContentCardTitle(cleaned))
+        if (!string.IsNullOrWhiteSpace(cleaned))
             yield return cleaned;
 
         foreach (var candidate in ExtractCompactNumericSuffixTitleCandidates(line))
@@ -1215,7 +1422,10 @@ internal static partial class DocumentProfileProjector
             return false;
         if (LooksLikeConnectorLeadSentenceFragment(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
-        if (LooksLikeShortAllCapsOcrFragment(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+        if (LooksLikeShortAllCapsOcrFragment(title, normalizedFolded, tokenCount)
+            && !hasTechnicalIdentifier
+            && (!allowShortStructuredEvidence
+                || !LooksLikeShortStructuredContentCardTitle(title, normalizedFolded, tokenCount, evidence)))
             return false;
         if (PageReferenceFragmentRegex().IsMatch(normalizedFolded)
             && !hasTechnicalIdentifier
@@ -1223,7 +1433,11 @@ internal static partial class DocumentProfileProjector
         {
             return false;
         }
-        if (LooksLikeSentenceOrInstructionTitle(normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
+        if (LooksLikeSentenceOrInstructionTitle(normalizedFolded, tokenCount)
+            && !hasTechnicalIdentifier
+            && (!allowShortStructuredEvidence
+                || !LooksLikeMostlyUppercaseTitle(title)
+                || !LooksLikeShortStructuredContentCardTitle(title, normalizedFolded, tokenCount, evidence)))
             return false;
         if (LooksLikeLongProseSentenceTitle(title, normalizedFolded, tokenCount) && !hasTechnicalIdentifier)
             return false;
@@ -2642,13 +2856,18 @@ internal static partial class DocumentProfileProjector
             {
                 var evidence = NormalizeContentCardEvidence(card.Evidence);
                 var (pageStart, pageEnd) = NormalizeContentCardPageRange(card.PageStart, card.PageEnd, evidence);
+                var isCanonicalSectionHeading =
+                    IsCanonicalSectionHeadingCard(card);
                 return (
                     Card: card,
-                    Title: CleanTitleCandidate(card.Title),
+                    Title: isCanonicalSectionHeading
+                        ? NormalizeCanonicalSectionHeading(card.Title)
+                        : CleanTitleCandidate(card.Title),
                     Kind: NormalizeContentCardKind(card.Kind),
                     Evidence: evidence,
                     PageStart: pageStart,
-                    PageEnd: pageEnd);
+                    PageEnd: pageEnd,
+                    IsCanonicalSectionHeading: isCanonicalSectionHeading);
             })
             .ToList();
         var technicalTitles = preparedCards
@@ -2661,35 +2880,81 @@ internal static partial class DocumentProfileProjector
             .Distinct()
             .ToArray();
 
-        foreach (var (card, title, kind, normalizedEvidence, pageStart, pageEnd) in preparedCards)
+        foreach (var (
+                     card,
+                     title,
+                     kind,
+                     normalizedEvidence,
+                     pageStart,
+                     pageEnd,
+                     isCanonicalSectionHeading) in preparedCards)
         {
-            if (!IsUsefulContentCardTitle(
-                title,
-                normalizedEvidence,
-                allowShortStructuredEvidence: !string.Equals(kind, "section", StringComparison.Ordinal)))
+            if (isCanonicalSectionHeading)
             {
-                continue;
+                if (!string.Equals(kind, "section", StringComparison.Ordinal)
+                    || !IsMechanicallyUsableCanonicalSectionHeading(
+                        title,
+                        pageStart,
+                        pageEnd))
+                {
+                    continue;
+                }
             }
-            if (LooksLikeTruncatedTechnicalIdentifierDuplicate(title, pageStart, pageEnd, technicalTitles))
-                continue;
-            var hasGroundedPageEvidence = HasSourceBackedOrGroundedPageEvidence(normalizedEvidence, pageStart, pageEnd);
-            if (LooksLikeLowercaseLead(title) && !hasGroundedPageEvidence)
-                continue;
-            if (LooksLikeLowSubstanceCoverOrMarketingCandidate(title, null, normalizedEvidence))
-                continue;
-            if (LooksLikeLowercaseSectionFragment(title, kind) && !hasGroundedPageEvidence)
-                continue;
-            if (LooksLikeLowSignalContentCardLead(title, kind))
-                continue;
-            if (requireEvidenceForPageScopedExternalCards
-                && !IsSafeNormalizedContentCard(
-                    title,
-                    kind,
-                    normalizedEvidence,
-                    pageStart,
-                    pageEnd))
+            else
             {
-                continue;
+                if (!IsUsefulContentCardTitle(
+                    title,
+                    normalizedEvidence,
+                    allowShortStructuredEvidence:
+                    !string.Equals(
+                        kind,
+                        "section",
+                        StringComparison.Ordinal)))
+                {
+                    continue;
+                }
+                if (LooksLikeTruncatedTechnicalIdentifierDuplicate(
+                    title,
+                    pageStart,
+                    pageEnd,
+                    technicalTitles))
+                {
+                    continue;
+                }
+                var hasGroundedPageEvidence =
+                    HasSourceBackedOrGroundedPageEvidence(
+                        normalizedEvidence,
+                        pageStart,
+                        pageEnd);
+                if (LooksLikeLowercaseLead(title)
+                    && !hasGroundedPageEvidence)
+                {
+                    continue;
+                }
+                if (LooksLikeLowSubstanceCoverOrMarketingCandidate(
+                    title,
+                    null,
+                    normalizedEvidence))
+                {
+                    continue;
+                }
+                if (LooksLikeLowercaseSectionFragment(title, kind)
+                    && !hasGroundedPageEvidence)
+                {
+                    continue;
+                }
+                if (LooksLikeLowSignalContentCardLead(title, kind))
+                    continue;
+                if (requireEvidenceForPageScopedExternalCards
+                    && !IsSafeNormalizedContentCard(
+                        title,
+                        kind,
+                        normalizedEvidence,
+                        pageStart,
+                        pageEnd))
+                {
+                    continue;
+                }
             }
 
             var key = FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(title));
@@ -2716,6 +2981,31 @@ internal static partial class DocumentProfileProjector
 
         return normalized;
     }
+
+    private static bool IsCanonicalSectionHeadingCard(
+        DocumentProfileContentCard card)
+        => card.Signals?.Contains(
+            CanonicalSectionHeadingSignal,
+            StringComparer.Ordinal) == true;
+
+    private static string NormalizeCanonicalSectionHeading(string? value)
+    {
+        var title = CollapseWhitespace(value);
+        return title.Length <= 140
+            ? title
+            : TrimTo(title, 140);
+    }
+
+    private static bool IsMechanicallyUsableCanonicalSectionHeading(
+        string title,
+        int? pageStart,
+        int? pageEnd)
+        => title.Length is >= 2 and <= 140
+           && title.Any(char.IsLetter)
+           && pageStart is > 0
+           && pageEnd is > 0
+           && pageEnd >= pageStart
+           && !title.Any(char.IsControl);
 
     private static bool IsSafeNormalizedContentCard(
         string title,
@@ -3135,13 +3425,13 @@ internal static partial class DocumentProfileProjector
     [GeneratedRegex(@"^[A-Z]{2,8}\s+(?:is|are|can|must|shall|should|allows?|collaborates?)\b", RegexOptions.CultureInvariant)]
     private static partial Regex AcronymSubjectVerbTitleRegex();
 
-    [GeneratedRegex(@"^(?:ajoutez?|appliquez|arretez|choisissez|configurez|connectez|copiez|demarrez|deconnectez|enlevez|fermez|installez|lancez?|ouvrez|placez|placez-les|posez|programmez|redemarrez|remettez|remplacez?|retirez|saisissez?|selectionnez|supprimez|utilisez?|validez|verifiez|v[ée]rifiez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:ajoutez?|appliquez|arretez|choisissez|configurez|connectez|copiez|demarrez|deconnectez|enlevez|fermez|installez|lancez?|ouvrez|placez|placez-les|posez|programmez|redemarrez|remettez|remplacez?|remplissez|retirez|saisissez?|selectionnez|supprimez|utilisez?|validez|verifiez|v[ée]rifiez)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex ImperativeInstructionLeadRegex();
 
 
 
 
-    [GeneratedRegex(@"^(?:ajouter|appliquer|arreter|choisir|configurer|connecter|copier|demarrer|deconnecter|enlever|fermer|installer|lancer|ouvrir|placer|programmer|redemarrer|remettre|remplacer|retirer|selectionner|supprimer|utiliser|valider|verifier|v[ée]rifier)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(?:ajouter|appliquer|arreter|choisir|configurer|connecter|copier|demarrer|deconnecter|enlever|fermer|installer|lancer|ouvrir|placer|programmer|redemarrer|remettre|remplacer|remplir|retirer|selectionner|supprimer|utiliser|valider|verifier|v[ée]rifier)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex InfinitiveInstructionLeadRegex();
 
     [GeneratedRegex(@"^(?:a l aide|a la fin|apres|bien|bonne nouvelle|c est|ca|ceci|cela|dans tous les cas|garder|gardez|l idee|mais la aussi|n hesitez|on|onne|par contre|pour connaitre|pour l|pour vous|pourtant|quant aux|quellesatisfaction|raison de plus|si vous|suivant le|une fois|voici)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
