@@ -208,17 +208,16 @@ internal static class DoclingCanonicalRetrievalProjector
                 if (block.IsRepeatedFurniture
                     || string.IsNullOrWhiteSpace(block.Text.Retrieval))
                     continue;
-                if (IsNativeTextRecoveryBlock(block))
+                if (IsNativeSupplementalBlock(block))
                 {
                     atoms.Add(new(
                         int.MaxValue / 2 + block.ReadingOrder,
                         block.Ordinal,
                         page.PageNumber,
                         NormalizeText(block.Text.Retrieval),
-                        CanonicalNativeTextCoverageReconciler
-                            .RecoveryBlockType,
+                        block.BlockType,
                         block.BlockId,
-                        IsNativeTextRecoveryNavigation(block),
+                        IsNativeSupplementalNavigation(block),
                         false,
                         1,
                         null,
@@ -323,18 +322,26 @@ internal static class DoclingCanonicalRetrievalProjector
         return atoms;
     }
 
-    private static bool IsNativeTextRecoveryBlock(
+    private static bool IsNativeSupplementalBlock(
         CanonicalBlock block)
-        => string.Equals(
-               block.BlockType,
-               CanonicalNativeTextCoverageReconciler.RecoveryBlockType,
-               StringComparison.Ordinal)
-           && string.Equals(
-               block.Provenance.Method,
-               "native_text_coverage_reconciliation",
-               StringComparison.Ordinal);
+        => (string.Equals(
+                block.BlockType,
+                CanonicalNativeTextCoverageReconciler.RecoveryBlockType,
+                StringComparison.Ordinal)
+            && string.Equals(
+                block.Provenance.Method,
+                "native_text_coverage_reconciliation",
+                StringComparison.Ordinal))
+           || (string.Equals(
+                   block.BlockType,
+                   CanonicalNativeLayoutReconciler.RecoveryBlockType,
+                   StringComparison.Ordinal)
+               && string.Equals(
+                   block.Provenance.Method,
+                   "native_layout_reading_order_reconciliation",
+                   StringComparison.Ordinal));
 
-    private static bool IsNativeTextRecoveryNavigation(
+    private static bool IsNativeSupplementalNavigation(
         CanonicalBlock block)
         => block.Provenance.Attributes.TryGetValue(
                "contentRoleHint",

@@ -1,0 +1,291 @@
+{
+  "schemaVersion": "ingestion_layout_gold_v1",
+  "description": "Corpus PDF synthetique legal pour mesurer texte, ordre, geometrie, tables et OCR sans dependance a une categorie metier.",
+  "evaluationPrinciples": [
+    "Le texte seul ne suffit pas : verifier aussi ordre, types, geometrie et relations structurelles.",
+    "Les attentes semantiques restent hors du runtime produit.",
+    "Chaque PDF est genere deterministement et controle par SHA-256."
+  ],
+  "cases": [
+    {
+      "caseId": "native-two-column-v1",
+      "generator": "two_column_order",
+      "sourceSha256": "0630e326a1c116fdd946f87c5ae951448b10786d7fdca35949b08e89fa36316c",
+      "forceOcr": false,
+      "attributes": ["native_pdf", "two_columns", "header_footer"],
+      "expectations": {
+        "pageCount": 1,
+        "markers": [
+          {"text": "LAYOUT GOLD TWO COLUMN ORDER", "minSimilarity": 0.95},
+          {"text": "LEFT ALPHA 101", "minSimilarity": 0.95},
+          {"text": "LEFT BRAVO 102", "minSimilarity": 0.95},
+          {"text": "LEFT CHARLIE 103", "minSimilarity": 0.95},
+          {"text": "LEFT DELTA 104", "minSimilarity": 0.95},
+          {"text": "RIGHT ECHO 201", "minSimilarity": 0.95},
+          {"text": "RIGHT FOXTROT 202", "minSimilarity": 0.95},
+          {"text": "RIGHT GOLF 203", "minSimilarity": 0.95},
+          {"text": "RIGHT HOTEL 204", "minSimilarity": 0.95}
+        ],
+        "orderedMarkers": [
+          "LAYOUT GOLD TWO COLUMN ORDER",
+          "LEFT ALPHA 101",
+          "LEFT BRAVO 102",
+          "LEFT CHARLIE 103",
+          "LEFT DELTA 104",
+          "RIGHT ECHO 201",
+          "RIGHT FOXTROT 202",
+          "RIGHT GOLF 203",
+          "RIGHT HOTEL 204"
+        ],
+        "minimumLabels": {
+          "section_header": 1,
+          "text": 4
+        },
+        "geometry": [
+          {"marker": "LEFT ALPHA 101", "centerX": 0.29, "centerY": 0.2, "tolerance": 0.15},
+          {"marker": "RIGHT ECHO 201", "centerX": 0.72, "centerY": 0.2, "tolerance": 0.15}
+        ]
+      }
+    },
+    {
+      "caseId": "native-three-column-v1",
+      "generator": "three_column_order",
+      "sourceSha256": "912ef2c91233681f38515b45e18c3cdeb847b373bcc3d2fc1cfb41a5e086ebdc",
+      "forceOcr": false,
+      "attributes": ["native_pdf", "three_columns", "header_footer"],
+      "expectations": {
+        "pageCount": 1,
+        "markers": [
+          {"text": "ONE ALPHA 301", "minSimilarity": 0.95},
+          {"text": "ONE BRAVO 302", "minSimilarity": 0.95},
+          {"text": "ONE CHARLIE 303", "minSimilarity": 0.95},
+          {"text": "ONE DELTA 304", "minSimilarity": 0.95},
+          {"text": "TWO ECHO 311", "minSimilarity": 0.95},
+          {"text": "TWO FOXTROT 312", "minSimilarity": 0.95},
+          {"text": "TWO GOLF 313", "minSimilarity": 0.95},
+          {"text": "TWO HOTEL 314", "minSimilarity": 0.95},
+          {"text": "THREE INDIA 321", "minSimilarity": 0.95},
+          {"text": "THREE JULIET 322", "minSimilarity": 0.95},
+          {"text": "THREE KILO 323", "minSimilarity": 0.95},
+          {"text": "THREE LIMA 324", "minSimilarity": 0.95}
+        ],
+        "orderedMarkers": [
+          "ONE ALPHA 301",
+          "ONE BRAVO 302",
+          "ONE CHARLIE 303",
+          "ONE DELTA 304",
+          "TWO ECHO 311",
+          "TWO FOXTROT 312",
+          "TWO GOLF 313",
+          "TWO HOTEL 314",
+          "THREE INDIA 321",
+          "THREE JULIET 322",
+          "THREE KILO 323",
+          "THREE LIMA 324"
+        ],
+        "minimumLabels": {
+          "section_header": 1,
+          "text": 6
+        },
+        "geometry": [
+          {"marker": "ONE ALPHA 301", "centerX": 0.2, "centerY": 0.2, "tolerance": 0.15},
+          {"marker": "TWO ECHO 311", "centerX": 0.5, "centerY": 0.2, "tolerance": 0.15},
+          {"marker": "THREE INDIA 321", "centerX": 0.78, "centerY": 0.2, "tolerance": 0.15}
+        ]
+      }
+    },
+    {
+      "caseId": "native-unequal-columns-v1",
+      "generator": "unequal_column_order",
+      "sourceSha256": "84604de71139c5e5bea1a9da361909b1383438a335863f84a8fcad97120e9b09",
+      "forceOcr": false,
+      "attributes": ["native_pdf", "two_columns", "unequal_columns", "spanning_text"],
+      "expectations": {
+        "pageCount": 1,
+        "markers": [
+          {"text": "LONG LEFT ALPHA 401", "minSimilarity": 0.95},
+          {"text": "LONG LEFT BRAVO 402", "minSimilarity": 0.95},
+          {"text": "LONG LEFT CHARLIE 403", "minSimilarity": 0.95},
+          {"text": "LONG LEFT DELTA 404", "minSimilarity": 0.95},
+          {"text": "LONG LEFT ECHO 405", "minSimilarity": 0.95},
+          {"text": "LONG LEFT FOXTROT 406", "minSimilarity": 0.95},
+          {"text": "SHORT RIGHT GOLF 411", "minSimilarity": 0.95},
+          {"text": "SHORT RIGHT HOTEL 412", "minSimilarity": 0.95},
+          {"text": "SHORT RIGHT INDIA 413", "minSimilarity": 0.95},
+          {"text": "FULL WIDTH NOTE 420", "minSimilarity": 0.95}
+        ],
+        "orderedMarkers": [
+          "LONG LEFT ALPHA 401",
+          "LONG LEFT BRAVO 402",
+          "LONG LEFT CHARLIE 403",
+          "LONG LEFT DELTA 404",
+          "LONG LEFT ECHO 405",
+          "LONG LEFT FOXTROT 406",
+          "SHORT RIGHT GOLF 411",
+          "SHORT RIGHT HOTEL 412",
+          "SHORT RIGHT INDIA 413",
+          "FULL WIDTH NOTE 420"
+        ],
+        "minimumLabels": {
+          "section_header": 1,
+          "text": 5
+        }
+      }
+    },
+    {
+      "caseId": "native-columns-and-table-v1",
+      "generator": "columns_and_table",
+      "sourceSha256": "60de8a516ec9925c0c2d0dfc714233187f91ada1c0dc0607ca2bcb09fe3e4469",
+      "forceOcr": false,
+      "attributes": ["native_pdf", "two_columns", "table", "mixed_layout"],
+      "expectations": {
+        "pageCount": 1,
+        "markers": [
+          {"text": "LEFT NOVEMBER 501", "minSimilarity": 0.95},
+          {"text": "LEFT OSCAR 502", "minSimilarity": 0.95},
+          {"text": "LEFT PAPA 503", "minSimilarity": 0.95},
+          {"text": "RIGHT QUEBEC 511", "minSimilarity": 0.95},
+          {"text": "RIGHT ROMEO 512", "minSimilarity": 0.95},
+          {"text": "RIGHT SIERRA 513", "minSimilarity": 0.95},
+          {"text": "TABLE CAPTION 520", "minSimilarity": 0.95},
+          {"text": "POST GRID NOTE 522", "minSimilarity": 0.95}
+        ],
+        "orderedMarkers": [
+          "LEFT NOVEMBER 501",
+          "LEFT OSCAR 502",
+          "LEFT PAPA 503",
+          "RIGHT QUEBEC 511",
+          "RIGHT ROMEO 512",
+          "RIGHT SIERRA 513",
+          "TABLE CAPTION 520",
+          "GRID 521",
+          "POST GRID NOTE 522"
+        ],
+        "minimumLabels": {
+          "section_header": 1,
+          "text": 4,
+          "table": 1
+        },
+        "tables": [
+          {
+            "containsText": "GRID 521",
+            "rows": 4,
+            "columns": 3,
+            "cells": [
+              {"row": 0, "column": 0, "text": "GRID 521"},
+              {"row": 3, "column": 2, "text": "Closed"}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "structured-table-v1",
+      "generator": "structured_table",
+      "sourceSha256": "7e890e7721eb440b6269c94066adcbb57cbbb17371e510e7f15f390f26aac7bf",
+      "forceOcr": false,
+      "attributes": ["native_pdf", "table", "merged_cell", "empty_cell", "multiline_cell"],
+      "expectations": {
+        "pageCount": 1,
+        "markers": [
+          {"text": "LAYOUT GOLD STRUCTURED TABLE", "minSimilarity": 0.95},
+          {"text": "TABLE CAPTION MATERIAL LIMITS", "minSimilarity": 0.95},
+          {"text": "POST TABLE NOTE 732", "minSimilarity": 0.95}
+        ],
+        "orderedMarkers": [
+          "LAYOUT GOLD STRUCTURED TABLE",
+          "TABLE CAPTION MATERIAL LIMITS",
+          "OPERATING MATRIX 731",
+          "POST TABLE NOTE 732"
+        ],
+        "minimumLabels": {
+          "section_header": 1,
+          "table": 1
+        },
+        "tables": [
+          {
+            "containsText": "OPERATING MATRIX 731",
+            "rows": 5,
+            "columns": 4,
+            "cells": [
+              {"row": 0, "column": 0, "text": "OPERATING MATRIX 731", "columnSpan": 4},
+              {"row": 2, "column": 0, "text": "Alloy AX-11"},
+              {"row": 3, "column": 3, "empty": true},
+              {"row": 4, "column": 2, "text": "45 C continuous"}
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "mixed-image-text-v1",
+      "generator": "mixed_image_text",
+      "sourceSha256": "7ebf33a08461b1310052954141256ac7975eeca5e7eb74fa0dc44a79f60746e8",
+      "forceOcr": true,
+      "attributes": ["mixed_pdf", "embedded_raster_text", "caption", "list"],
+      "expectations": {
+        "pageCount": 1,
+        "markers": [
+          {"text": "NATIVE INTRO 870", "minSimilarity": 0.95},
+          {"text": "IMAGE OCR ALPHA 881", "minSimilarity": 0.82},
+          {"text": "IMAGE OCR BRAVO 882", "minSimilarity": 0.82},
+          {"text": "FIGURE CAPTION 883", "minSimilarity": 0.9},
+          {"text": "LIST ITEM 884", "minSimilarity": 0.9},
+          {"text": "LIST ITEM 885", "minSimilarity": 0.9},
+          {"text": "NATIVE OUTRO 886", "minSimilarity": 0.95}
+        ],
+        "orderedMarkers": [
+          "NATIVE INTRO 870",
+          "IMAGE OCR ALPHA 881",
+          "IMAGE OCR BRAVO 882",
+          "FIGURE CAPTION 883",
+          "LIST ITEM 884",
+          "LIST ITEM 885",
+          "NATIVE OUTRO 886"
+        ],
+        "minimumLabels": {
+          "section_header": 1,
+          "text": 2,
+          "picture": 1
+        },
+        "geometry": [
+          {"marker": "IMAGE OCR ALPHA 881", "centerX": 0.5, "centerY": 0.31, "tolerance": 0.24}
+        ]
+      }
+    },
+    {
+      "caseId": "full-page-scan-v1",
+      "generator": "full_page_scan",
+      "sourceSha256": "b8b6a1b51695119a264919c97545539179fcd0540e0986d384db0a4ed18be4bf",
+      "forceOcr": true,
+      "attributes": ["scan", "multilingual", "low_contrast", "slight_rotation"],
+      "expectations": {
+        "pageCount": 1,
+        "markers": [
+          {"text": "LAYOUT GOLD FULL PAGE SCAN", "minSimilarity": 0.85},
+          {"text": "SCAN ENGLISH 910", "minSimilarity": 0.85},
+          {"text": "SCAN FRANCAIS 911", "minSimilarity": 0.85},
+          {"text": "SCAN DEUTSCH 912", "minSimilarity": 0.85},
+          {"text": "SCAN ITALIANO 913", "minSimilarity": 0.85},
+          {"text": "SCAN FINAL 914", "minSimilarity": 0.85}
+        ],
+        "orderedMarkers": [
+          "LAYOUT GOLD FULL PAGE SCAN",
+          "SCAN ENGLISH 910",
+          "SCAN FRANCAIS 911",
+          "SCAN DEUTSCH 912",
+          "SCAN ITALIANO 913",
+          "SCAN FINAL 914"
+        ],
+        "minimumLabels": {
+          "section_header": 1,
+          "text": 2
+        },
+        "geometry": [
+          {"marker": "SCAN ENGLISH 910", "centerX": 0.5, "centerY": 0.25, "tolerance": 0.22},
+          {"marker": "SCAN FINAL 914", "centerX": 0.5, "centerY": 0.65, "tolerance": 0.22}
+        ]
+      }
+    }
+  ]
+}

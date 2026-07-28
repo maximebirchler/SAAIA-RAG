@@ -16,6 +16,7 @@ static class PdfExtractor
         var replacementStatsByPage = new Dictionary<int, (int RawReplacementCharCount, int SanitizedReplacementCharCount)>();
         var sourceTextByPage = new Dictionary<int, string>();
         var pageSizeByPage = new Dictionary<int, (double WidthPoints, double HeightPoints)>();
+        var nativeLayoutByPage = new Dictionary<int, PdfNativeLayoutExtraction>();
 
         using var doc = PdfPig.PdfDocument.Open(pdfPath);
         foreach (var page in doc.GetPages())
@@ -25,9 +26,11 @@ static class PdfExtractor
             var sourceText = page.Text ?? string.Empty;
             var rawText = ExtractLayoutAwarePageText(page);
             var text = OcrNoiseFilter.RemoveSpacedLetterRunNoise(PdfTextSanitizer.ForStorage(rawText));
+            var nativeLayout = ExtractNativeLayout(page);
             rawPages.Add((page.Number, text, CountPageImages(page)));
             sourceTextByPage[page.Number] = sourceText;
             pageSizeByPage[page.Number] = (page.Width, page.Height);
+            nativeLayoutByPage[page.Number] = nativeLayout;
             replacementStatsByPage[page.Number] = (
                 CountReplacementCharacters(rawText),
                 CountReplacementCharacters(text));
@@ -51,6 +54,9 @@ static class PdfExtractor
                 : (RawReplacementCharCount: 0, SanitizedReplacementCharCount: CountReplacementCharacters(text));
             sourceTextByPage.TryGetValue(rawPage.PageNumber, out var sourceText);
             var hasPageSize = pageSizeByPage.TryGetValue(rawPage.PageNumber, out var pageSize);
+            nativeLayoutByPage.TryGetValue(
+                rawPage.PageNumber,
+                out var nativeLayout);
             pages.Add(new ExtractedPdfPage(
                 PageNumber: rawPage.PageNumber,
                 Text: text,
@@ -66,7 +72,10 @@ static class PdfExtractor
                 ImageCount: rawPage.ImageCount,
                 RawText: sourceText,
                 WidthPoints: hasPageSize ? pageSize.WidthPoints : null,
-                HeightPoints: hasPageSize ? pageSize.HeightPoints : null));
+                HeightPoints: hasPageSize ? pageSize.HeightPoints : null,
+                NativeLayoutText: nativeLayout?.Text,
+                NativeLayoutBlocks: nativeLayout?.Blocks,
+                NativeLayoutAlgorithm: nativeLayout?.Algorithm));
         }
 
         return new PdfExtractionResult(tokens, pages, PdfExtractionQualitySummary.FromPages(pages));
@@ -111,6 +120,22 @@ static class PdfExtractor
         catch
         {
             return fallback;
+        }
+    }
+
+    private static PdfNativeLayoutExtraction ExtractNativeLayout(
+        UglyToad.PdfPig.Content.Page page)
+    {
+        try
+        {
+            return PdfNativeLayoutExtractor.Extract(page);
+        }
+        catch
+        {
+            return new(
+                Text: string.Empty,
+                Blocks: Array.Empty<ExtractedPdfLayoutBlock>(),
+                Algorithm: PdfNativeLayoutExtractor.Algorithm);
         }
     }
 
@@ -908,7 +933,10 @@ sealed record ExtractedPdfPage(
     int ImageCount = 0,
     string? RawText = null,
     double? WidthPoints = null,
-    double? HeightPoints = null);
+    double? HeightPoints = null,
+    string? NativeLayoutText = null,
+    IReadOnlyList<ExtractedPdfLayoutBlock>? NativeLayoutBlocks = null,
+    string? NativeLayoutAlgorithm = null);
 
 sealed record PdfPageExtractionQuality(
     string TextStatus,

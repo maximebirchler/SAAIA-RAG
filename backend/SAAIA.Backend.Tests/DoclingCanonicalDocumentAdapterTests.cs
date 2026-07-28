@@ -732,6 +732,77 @@ APPENDIX B: REFERENCES................................17
     }
 
     [Fact]
+    public void CanonicalRetrievalProjection_PublishesNativeLayoutAlternative()
+    {
+        var response = BuildResponse();
+        var source = response.Document.JsonContent!;
+        var canonical = DoclingCanonicalDocumentAdapter.Project(
+            BuildContext(),
+            source);
+        const string recoveredText =
+            "LEFT COLUMN ALPHA then LEFT COLUMN BRAVO";
+        canonical.Pages[0].Blocks.Add(new()
+        {
+            BlockId = "native_layout_alternative_test",
+            BlockType =
+                CanonicalNativeLayoutReconciler.RecoveryBlockType,
+            Ordinal = canonical.Pages[0].Blocks.Count,
+            ReadingOrder = canonical.Pages[0].Blocks.Count,
+            Text = new()
+            {
+                Raw = recoveredText,
+                Canonical = recoveredText,
+                Normalized = recoveredText.ToLowerInvariant(),
+                Retrieval = recoveredText,
+                Display = recoveredText,
+                RawSha256 = Convert.ToHexString(
+                        System.Security.Cryptography.SHA256.HashData(
+                            System.Text.Encoding.UTF8.GetBytes(
+                                recoveredText)))
+                    .ToLowerInvariant()
+            },
+            QualityFlags =
+            [
+                CanonicalNativeLayoutReconciler
+                    .RecoveryQualityFlag
+            ],
+            Provenance = new()
+            {
+                StageId =
+                    CanonicalNativeTextCoverageReconciler.StageId,
+                Method =
+                    "native_layout_reading_order_reconciliation",
+                Engine = "PdfPig",
+                EngineVersion = "test",
+                Attributes = new(StringComparer.Ordinal)
+                {
+                    ["contentRoleHint"] =
+                        RetrievalContentClassifier.ContentRole,
+                    ["semanticDecisionOwner"] = "llm_client"
+                }
+            }
+        });
+
+        var chunks = DoclingCanonicalRetrievalProjector.Project(
+            canonical,
+            source,
+            maxWords: 220,
+            minWords: 1);
+
+        var recoveredChunk = Assert.Single(
+            chunks,
+            chunk => chunk.Text.Contains(
+                recoveredText,
+                StringComparison.Ordinal));
+        Assert.Contains(
+            "native_layout_alternative_test",
+            recoveredChunk.CanonicalBlockIds!);
+        Assert.Contains(
+            CanonicalNativeLayoutReconciler.RecoveryQualityFlag,
+            recoveredChunk.ExtractionQualitySignals!);
+    }
+
+    [Fact]
     public void NativeTextCoverageReconciliation_SkipsPagesWithInvalidControlCharacters()
     {
         var response = BuildResponse();

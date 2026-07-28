@@ -886,16 +886,19 @@ internal static class PdfOcrTextExtractor
             }
 
             pages.Add(new ExtractedPdfPage(
-                page.PageNumber,
-                text,
-                words.Length,
-                text.Length,
-                SHA256.HashData(Encoding.UTF8.GetBytes(text)),
-                quality,
-                page.ImageCount,
-                rawText,
-                page.WidthPoints,
-                page.HeightPoints));
+                PageNumber: page.PageNumber,
+                Text: text,
+                WordCount: words.Length,
+                CharCount: text.Length,
+                Checksum: SHA256.HashData(Encoding.UTF8.GetBytes(text)),
+                Quality: quality,
+                ImageCount: page.ImageCount,
+                RawText: rawText,
+                WidthPoints: page.WidthPoints,
+                HeightPoints: page.HeightPoints,
+                NativeLayoutText: page.NativeLayoutText,
+                NativeLayoutBlocks: page.NativeLayoutBlocks,
+                NativeLayoutAlgorithm: page.NativeLayoutAlgorithm));
         }
 
         if (!changed)

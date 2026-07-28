@@ -221,8 +221,14 @@ internal static class DoclingIngestionStageManifestFactory
                             .NativeTextCoverageMinimumLineCoverage,
                         0.50,
                         1.0),
-                    algorithm = "line_lcs_v1",
-                    output = "page_anchored_supplemental_blocks"
+                    algorithms = new[]
+                    {
+                        "line_lcs_v1",
+                        PdfNativeLayoutExtractor.Algorithm,
+                        "layout_order_agreement_v1"
+                    },
+                    output =
+                        "page_anchored_supplemental_blocks_and_layout_alternatives"
                 }),
                 DeviceId = "cpu:0",
                 Concurrency = 1,
@@ -247,6 +253,22 @@ internal static class DoclingIngestionStageManifestFactory
                     ["recoveredCharacterCount"] =
                         nativeTextReconciliation
                             .RecoveredCharacterCount
+                            .ToString(CultureInfo.InvariantCulture),
+                    ["candidateLayoutBlockCount"] =
+                        nativeTextReconciliation
+                            .CandidateLayoutBlockCount
+                            .ToString(CultureInfo.InvariantCulture),
+                    ["recoveredLayoutBlockCount"] =
+                        nativeTextReconciliation
+                            .RecoveredLayoutBlockCount
+                            .ToString(CultureInfo.InvariantCulture),
+                    ["recoveredLayoutPageCount"] =
+                        nativeTextReconciliation
+                            .RecoveredLayoutPageCount
+                            .ToString(CultureInfo.InvariantCulture),
+                    ["recoveredLayoutCharacterCount"] =
+                        nativeTextReconciliation
+                            .RecoveredLayoutCharacterCount
                             .ToString(CultureInfo.InvariantCulture),
                     ["skippedLowQualityPageCount"] =
                         nativeTextReconciliation

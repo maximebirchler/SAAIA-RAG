@@ -760,3 +760,109 @@ conteneur ; aucun artefact de runtime abandonné n’est conservé.
 5. Évaluer TATR seulement sur les cas où la structure Docling elle-même est mécaniquement incohérente.
 6. Mesurer OpenVINO/Intel et le partage matériel uniquement si le profil CPU régional ne respecte plus les objectifs de débit.
 7. Mesurer une baseline séquentielle Docling puis TEI, la comparer au chevauchement actuel, puis concevoir un gouverneur de ressources partagé sur des preuves de débit et de latence.
+
+## Passe ordre de lecture et corpus gold du 2026-07-28
+
+### Cause racine mesurée
+
+Les échecs multi-colonnes ne sont pas principalement un défaut d'OCR. Sur des
+PDF natifs légaux et déterministes, Docling Heron et Egret peuvent regrouper
+plusieurs colonnes dans un même bloc ou une fausse table. Une fois les lignes
+fusionnées horizontalement, un simple tri des blocs Docling ne peut plus
+reconstruire les récits indépendants.
+
+Sept fixtures sont maintenant générées par `tools/ingestion_gold` :
+
+1. deux colonnes ;
+2. trois colonnes ;
+3. deux colonnes de hauteurs différentes avec note de fin ;
+4. deux colonnes suivies d'un tableau ;
+5. tableau avec en-tête fusionné, cellule vide et cellule multiligne ;
+6. texte natif, panneau raster, légende et liste ;
+7. scan pleine page multilingue, légèrement tourné et peu contrasté.
+
+Le manifeste versionne les SHA-256 et les invariants. Les attentes ne sont
+jamais chargées par le runtime.
+
+### Comparaison des moteurs
+
+- Egret-large corrige le cas simple à deux colonnes et reste légèrement plus
+  rapide à chaud, mais perd des tables, figures et index sur les documents
+  réels PTFE, cuisine et Yosemite.
+- Egret-medium interprète le récit à deux colonnes comme une table.
+- L'OCR forcé pleine page ne corrige pas la cause lorsque le regroupement de
+  mise en page reste faux.
+- PP-StructureV3 fusionne également les lignes alignées entre colonnes et
+  coûte environ 28 à 30 secondes par page CPU sur les fixtures, contre environ
+  0,5 à 2,8 secondes pour Docling chaud.
+- Heron reste donc le parseur structurel primaire. Les challengers rejetés et
+  leurs conteneurs temporaires ont été supprimés.
+
+### Architecture retenue
+
+Le backend conserve maintenant une seconde observation mécanique du calque
+PDF natif :
+
+- `NearestNeighbourWordExtractor` reconstruit les mots à partir des glyphes ;
+- `RecursiveXYCut` segmente les régions ;
+- `UnsupervisedReadingOrderDetector` produit l'ordre de lecture par colonnes ;
+- chaque bloc conserve texte, page, ordre, rectangle et identifiant
+  d'algorithme ;
+- Docling reste propriétaire des tables, figures, titres, cellules et ancres
+  structurelles.
+
+`CanonicalNativeLayoutReconciler` publie un
+`native_layout_recovery` seulement lorsque :
+
+1. la lecture géométrique et la lecture native aplatie couvrent pratiquement
+   les mêmes mots ;
+2. leur ordre diverge de façon mesurable ;
+3. Docling n'a pas déjà conservé correctement cette lecture ;
+4. les gardes mécaniques de fragmentation et de région tabulaire autorisent
+   le candidat.
+
+Les blocs sont des alternatives, pas une vérité sémantique imposée. Leur
+provenance enregistre moteur, version, algorithme, accords d'ordre et de
+contenu, politique de table et
+`semanticDecisionOwner=llm_client`. Le projecteur de retrieval les transporte
+avec leurs IDs canoniques et signaux de qualité. Le LLM client reste seul juge
+de leur pertinence pour une question.
+
+### Résultats synthétiques et réels avant déploiement
+
+Sur les réponses Heron capturées, la seconde lecture restaure :
+
+- 12 blocs utiles sur le cas colonnes plus tableau, hors cellules structurées ;
+- 17 blocs sur les trois colonnes ;
+- 14 blocs sur les colonnes inégales ;
+- le cas simple à deux colonnes dans le test PDF généré en C#.
+
+Le tableau structuré déjà correct n'est pas dupliqué. Le scan sans calque natif
+ne fabrique aucun bloc. Sur les captures réelles, l'audit local a retenu des
+alternatives sur les pages multi-colonnes de cuisine, PTFE et Yosemite, tout
+en laissant les tables canoniques Docling disponibles séparément. Cette
+mesure qualifie l'algorithme ; elle ne vaut pas encore validation live du
+nombre final de chunks ou de la qualité du retrieval.
+
+### Validation locale
+
+- corpus gold Python : 5/5 ;
+- sidecar Python : 7/7 ;
+- compilation Python : réussie ;
+- tests C# ciblés extraction, OCR, canonique et retrieval : 97/97 après
+  correction du hash du fixture de test ;
+- suite backend Release : 2 027/2 027, zéro échec et zéro test ignoré ;
+- `git diff --check` ciblé : aucune erreur de contenu.
+
+### Limites encore ouvertes
+
+1. L'ordre d'un pied de page ou d'une note pleine largeur peut rester placé
+   entre deux colonnes par le détecteur PdfPig ; le mobilier multi-page est
+   retiré ensuite, mais le cas mono-page doit rester observable.
+2. Le panneau raster synthétique est OCRisé, mais Docling ne le publie pas
+   encore toujours comme figure.
+3. Le harnais évalue actuellement la sortie brute Docling ; il faut ajouter
+   une vue canonique post-réconciliation.
+4. Le lot n'est pas encore déployé : une réingestion en nouvelles révisions et
+   la comparaison PostgreSQL/Qdrant/retrieval sont obligatoires avant
+   promotion définitive.

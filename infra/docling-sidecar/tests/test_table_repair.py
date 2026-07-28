@@ -78,6 +78,7 @@ class TableRepairTests(unittest.TestCase):
 
         self.assertFalse(result.applied)
         self.assertEqual("missing_cells_not_covered_by_ocr", result.reason)
+        self.assertEqual(((2, 1), (2, 2)), result.missing_coordinates)
         self.assertEqual(table, result.table)
 
     def test_rejects_overlapping_source_grid(self) -> None:

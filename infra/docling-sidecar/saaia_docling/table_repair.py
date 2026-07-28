@@ -117,9 +117,17 @@ def repair_sparse_table(
     row_centers = _axis_centers(parsed_cells, row_count, axis="row")
     column_centers = _axis_centers(parsed_cells, column_count, axis="column")
     if row_centers is None or column_centers is None:
-        return _not_applied(original, "grid_centers_unavailable")
+        return _not_applied(
+            original,
+            "grid_centers_unavailable",
+            missing_coordinates=missing,
+        )
     if not _strictly_increasing(row_centers) or not _strictly_increasing(column_centers):
-        return _not_applied(original, "grid_centers_not_monotonic")
+        return _not_applied(
+            original,
+            "grid_centers_not_monotonic",
+            missing_coordinates=missing,
+        )
 
     usable_lines = [
         line
@@ -130,7 +138,11 @@ def repair_sparse_table(
         and len(line.polygon) >= 4
     ]
     if not usable_lines:
-        return _not_applied(original, "ocr_text_unavailable")
+        return _not_applied(
+            original,
+            "ocr_text_unavailable",
+            missing_coordinates=missing,
+        )
 
     assigned: dict[tuple[int, int], list[OcrLine]] = defaultdict(list)
     for line in usable_lines:
@@ -139,7 +151,11 @@ def repair_sparse_table(
         assigned[(row, column)].append(line)
 
     if any(not assigned.get(coordinate) for coordinate in missing):
-        return _not_applied(original, "missing_cells_not_covered_by_ocr")
+        return _not_applied(
+            original,
+            "missing_cells_not_covered_by_ocr",
+            missing_coordinates=missing,
+        )
 
     rendered = {
         coordinate: _render_lines(lines)
@@ -178,11 +194,19 @@ def repair_sparse_table(
             if contains_missing_center or exact_composition:
                 suspects.add(coordinate)
             elif _contains_normalized(parsed.text, missing_text):
-                return _not_applied(original, "absorbed_text_split_is_ambiguous")
+                return _not_applied(
+                    original,
+                    "absorbed_text_split_is_ambiguous",
+                    missing_coordinates=missing,
+                )
 
     affected = set(missing) | suspects
     if any(not assigned.get(coordinate) for coordinate in affected):
-        return _not_applied(original, "affected_cells_not_covered_by_ocr")
+        return _not_applied(
+            original,
+            "affected_cells_not_covered_by_ocr",
+            missing_coordinates=missing,
+        )
 
     repaired = deepcopy(original)
     repaired_data = repaired["data"]
@@ -509,5 +533,15 @@ def _non_negative_int(value: Any) -> int | None:
     return parsed
 
 
-def _not_applied(table: dict[str, Any], reason: str) -> TableRepairResult:
-    return TableRepairResult(applied=False, reason=reason, table=table)
+def _not_applied(
+    table: dict[str, Any],
+    reason: str,
+    *,
+    missing_coordinates: tuple[tuple[int, int], ...] = (),
+) -> TableRepairResult:
+    return TableRepairResult(
+        applied=False,
+        reason=reason,
+        table=table,
+        missing_coordinates=missing_coordinates,
+    )

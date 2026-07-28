@@ -15,7 +15,11 @@ internal sealed record NativeTextCoverageReconciliationSummary(
     int SkippedLowQualityPageCount,
     double MinimumLineCoverage,
     long DurationMs,
-    string EngineVersion);
+    string EngineVersion,
+    int CandidateLayoutBlockCount = 0,
+    int RecoveredLayoutBlockCount = 0,
+    int RecoveredLayoutPageCount = 0,
+    int RecoveredLayoutCharacterCount = 0);
 
 internal static partial class CanonicalNativeTextCoverageReconciler
 {
@@ -61,7 +65,11 @@ internal static partial class CanonicalNativeTextCoverageReconciler
                 0,
                 minimumLineCoverage,
                 started.ElapsedMilliseconds,
-                engineVersion);
+                engineVersion,
+                0,
+                0,
+                0,
+                0);
         }
 
         var canonicalPages = document.Pages.ToDictionary(
@@ -72,6 +80,10 @@ internal static partial class CanonicalNativeTextCoverageReconciler
         var recoveredBlocks = 0;
         var recoveredCharacters = 0;
         var skippedLowQualityPages = 0;
+        var candidateLayoutBlocks = 0;
+        var recoveredLayoutBlocks = 0;
+        var recoveredLayoutPages = 0;
+        var recoveredLayoutCharacters = 0;
 
         foreach (var nativePage in nativeExtraction.Pages
                      .OrderBy(static page => page.PageNumber))
@@ -108,101 +120,118 @@ internal static partial class CanonicalNativeTextCoverageReconciler
                         line.Tokens,
                         navigationHint))
                 .ToArray();
-            if (recoverable.Length == 0)
-                continue;
-            recoverable = ExpandWithPartialContext(
-                lines,
-                recoverable,
-                minimumLineCoverage);
-
-            foreach (var group in GroupAdjacentLines(recoverable))
+            if (recoverable.Length > 0)
             {
-                var text = string.Join(
-                    Environment.NewLine,
-                    group.Select(static line => line.Text));
-                text = CollapseWhitespacePerLine(text);
-                if (string.IsNullOrWhiteSpace(text))
-                    continue;
+                recoverable = ExpandWithPartialContext(
+                    lines,
+                    recoverable,
+                    minimumLineCoverage);
 
-                var firstLine = group[0].SourceLineIndex;
-                var lastLine = group[^1].SourceLineIndex;
-                var blockId = CanonicalStableId.Create(
-                    "block",
-                    document.Source.Sha256,
-                    RecoveryBlockType,
-                    nativePage.PageNumber.ToString(
-                        CultureInfo.InvariantCulture),
-                    firstLine.ToString(CultureInfo.InvariantCulture),
-                    lastLine.ToString(CultureInfo.InvariantCulture),
-                    Sha256(text));
-                var ordinal = canonicalPage.Blocks.Count == 0
-                    ? 0
-                    : canonicalPage.Blocks.Max(
-                        static block => block.Ordinal) + 1;
-                var readingOrder = canonicalPage.Blocks.Count == 0
-                    ? 0
-                    : canonicalPage.Blocks.Max(
-                        static block => block.ReadingOrder) + 1;
-                canonicalPage.Blocks.Add(new()
+                foreach (var group in GroupAdjacentLines(recoverable))
                 {
-                    BlockId = blockId,
-                    BlockType = RecoveryBlockType,
-                    Ordinal = ordinal,
-                    ReadingOrder = readingOrder,
-                    Text = BuildTextVariants(text),
-                    QualityFlags =
-                    [
-                        RecoveryQualityFlag,
-                        PageOnlyAnchorQualityFlag
-                    ],
-                    Provenance = new()
+                    var text = string.Join(
+                        Environment.NewLine,
+                        group.Select(static line => line.Text));
+                    text = CollapseWhitespacePerLine(text);
+                    if (string.IsNullOrWhiteSpace(text))
+                        continue;
+
+                    var firstLine = group[0].SourceLineIndex;
+                    var lastLine = group[^1].SourceLineIndex;
+                    var blockId = CanonicalStableId.Create(
+                        "block",
+                        document.Source.Sha256,
+                        RecoveryBlockType,
+                        nativePage.PageNumber.ToString(
+                            CultureInfo.InvariantCulture),
+                        firstLine.ToString(CultureInfo.InvariantCulture),
+                        lastLine.ToString(CultureInfo.InvariantCulture),
+                        Sha256(text));
+                    var ordinal = canonicalPage.Blocks.Count == 0
+                        ? 0
+                        : canonicalPage.Blocks.Max(
+                            static block => block.Ordinal) + 1;
+                    var readingOrder = canonicalPage.Blocks.Count == 0
+                        ? 0
+                        : canonicalPage.Blocks.Max(
+                            static block => block.ReadingOrder) + 1;
+                    canonicalPage.Blocks.Add(new()
                     {
-                        StageId = StageId,
-                        Method = "native_text_coverage_reconciliation",
-                        Engine = "PdfPig",
-                        EngineVersion = engineVersion,
-                        Attributes = new(StringComparer.Ordinal)
+                        BlockId = blockId,
+                        BlockType = RecoveryBlockType,
+                        Ordinal = ordinal,
+                        ReadingOrder = readingOrder,
+                        Text = BuildTextVariants(text),
+                        QualityFlags =
+                        [
+                            RecoveryQualityFlag,
+                            PageOnlyAnchorQualityFlag
+                        ],
+                        Provenance = new()
                         {
-                            ["sourceType"] = "native_pdf_text_layer",
-                            ["sourcePage"] = nativePage.PageNumber.ToString(
-                                CultureInfo.InvariantCulture),
-                            ["sourceLineStart"] = firstLine.ToString(
-                                CultureInfo.InvariantCulture),
-                            ["sourceLineEnd"] = lastLine.ToString(
-                                CultureInfo.InvariantCulture),
-                            ["coverageAlgorithm"] = "line_lcs_v1",
-                            ["maximumCanonicalCoverage"] = group
-                                .Max(static line =>
-                                    line.CanonicalCoverage)
-                                .ToString(
-                                    "0.######",
+                            StageId = StageId,
+                            Method = "native_text_coverage_reconciliation",
+                            Engine = "PdfPig",
+                            EngineVersion = engineVersion,
+                            Attributes = new(StringComparer.Ordinal)
+                            {
+                                ["sourceType"] = "native_pdf_text_layer",
+                                ["sourcePage"] = nativePage.PageNumber.ToString(
                                     CultureInfo.InvariantCulture),
-                            ["minimumCanonicalCoverage"] = group
-                                .Min(static line =>
-                                    line.CanonicalCoverage)
-                                .ToString(
-                                    "0.######",
+                                ["sourceLineStart"] = firstLine.ToString(
                                     CultureInfo.InvariantCulture),
-                            ["minimumOrderedCanonicalCoverage"] = group
-                                .Min(static line =>
-                                    line.OrderedCanonicalCoverage)
-                                .ToString(
-                                    "0.######",
+                                ["sourceLineEnd"] = lastLine.ToString(
                                     CultureInfo.InvariantCulture),
-                            ["contentRoleHint"] = navigationHint
-                                ? RetrievalContentClassifier.NavigationRole
-                                : RetrievalContentClassifier.ContentRole,
-                            ["semanticDecisionOwner"] = "llm_client"
+                                ["coverageAlgorithm"] = "line_lcs_v1",
+                                ["maximumCanonicalCoverage"] = group
+                                    .Max(static line =>
+                                        line.CanonicalCoverage)
+                                    .ToString(
+                                        "0.######",
+                                        CultureInfo.InvariantCulture),
+                                ["minimumCanonicalCoverage"] = group
+                                    .Min(static line =>
+                                        line.CanonicalCoverage)
+                                    .ToString(
+                                        "0.######",
+                                        CultureInfo.InvariantCulture),
+                                ["minimumOrderedCanonicalCoverage"] = group
+                                    .Min(static line =>
+                                        line.OrderedCanonicalCoverage)
+                                    .ToString(
+                                        "0.######",
+                                        CultureInfo.InvariantCulture),
+                                ["contentRoleHint"] = navigationHint
+                                    ? RetrievalContentClassifier.NavigationRole
+                                    : RetrievalContentClassifier.ContentRole,
+                                ["semanticDecisionOwner"] = "llm_client"
+                            }
                         }
-                    }
-                });
-                AddDistinct(
-                    canonicalPage.QualityFlags,
-                    RecoveryQualityFlag);
-                recoveredLines += group.Count;
-                recoveredBlocks++;
-                recoveredCharacters += text.Length;
+                    });
+                    AddDistinct(
+                        canonicalPage.QualityFlags,
+                        RecoveryQualityFlag);
+                    recoveredLines += group.Count;
+                    recoveredBlocks++;
+                    recoveredCharacters += text.Length;
+                }
             }
+
+            var layoutReconciliation =
+                CanonicalNativeLayoutReconciler.Apply(
+                    document,
+                    canonicalPage,
+                    nativePage,
+                    navigationHint,
+                    engineVersion);
+            candidateLayoutBlocks +=
+                layoutReconciliation.CandidateBlockCount;
+            recoveredLayoutBlocks +=
+                layoutReconciliation.RecoveredBlockCount;
+            recoveredLayoutCharacters +=
+                layoutReconciliation.RecoveredCharacterCount;
+            if (layoutReconciliation.Applied)
+                recoveredLayoutPages++;
         }
 
         CanonicalContractValidator.ValidateOrThrow(document);
@@ -218,7 +247,11 @@ internal static partial class CanonicalNativeTextCoverageReconciler
             skippedLowQualityPages,
             minimumLineCoverage,
             started.ElapsedMilliseconds,
-            engineVersion);
+            engineVersion,
+            candidateLayoutBlocks,
+            recoveredLayoutBlocks,
+            recoveredLayoutPages,
+            recoveredLayoutCharacters);
     }
 
     private static bool IsReliableNativeTextPage(

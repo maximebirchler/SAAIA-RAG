@@ -290,14 +290,21 @@ Ce TODO est la liste exécutable de la refonte décrite dans :
 
 - [ ] Marquer clairement le test OCR E2E lorsqu’il n’est pas exécuté.
 - [ ] Créer profil CI OCR réel.
-- [ ] Ajouter vrais PDF fixtures légales.
-- [ ] Tester bboxes.
-- [ ] Tester ordre multi-colonnes.
-- [ ] Tester tables.
-- [ ] Tester images avec texte.
-- [ ] Tester documents mixtes.
-- [ ] Tester scans faibles.
-- [ ] Tester multilingue.
+- [x] Ajouter des PDF fixtures légales générés de façon déterministe, avec
+  SHA-256 versionnés et aucune donnée privée.
+- [x] Tester les bboxes normalisées dans le harnais gold.
+- [x] Tester l'ordre à deux colonnes, trois colonnes, colonnes inégales et
+  colonnes suivies d'un tableau.
+- [-] Tester tables, cellules vides et cellules fusionnées ; couverture
+  synthétique présente, cas multi-pages et multi-tables à ajouter.
+- [-] Tester images avec texte ; présence OCR couverte, détection de figure
+  encore insuffisante sur le panneau raster synthétique.
+- [-] Tester documents mixtes ; texte natif et raster couverts, élargissement
+  à plusieurs pages encore requis.
+- [-] Tester scans faibles ; rotation légère, faible contraste et plusieurs
+  langues couverts, davantage de dégradations réelles légales à ajouter.
+- [-] Tester multilingue ; fixture synthétique présente, matrice de langues et
+  écritures à élargir.
 - [x] Tester les ancres canoniques et la correspondance mécanique avec les chunks publiés.
 - [x] Tester que le profil canonique conserve les vrais titres courts,
   déduplique les libellés répétés et n’invente plus de cartes à partir du
@@ -407,6 +414,25 @@ Ce TODO est la liste exécutable de la refonte décrite dans :
   616 points Qdrant ; aucune métadonnée mécanique de source manquante.
 - [x] Rejouer 96 tests ciblés puis la suite backend Release complète après le
   correctif de couche native : 96/96 puis 2 023/2 023 réussis.
+- [x] Créer le corpus gold générique de mise en page : sept PDF synthétiques
+  légaux et déterministes, invariants de texte, ordre, labels, géométrie,
+  tables, cellules, spans, OCR et métriques structurelles.
+- [x] Comparer Heron, Egret-large, Egret-medium, OCR forcé et
+  PP-StructureV3 sur les mêmes cas. Aucun changement global de moteur ne
+  corrige les colonnes sans dégrader tables ou figures ; Heron reste primaire.
+- [x] Ajouter une seconde lecture géométrique PdfPig sans décision
+  sémantique : blocs natifs, polygones et ordre `RecursiveXYCut`, détection
+  d'un désaccord d'ordre à contenu égal, exclusion/fragmentation des régions
+  tabulaires et publication de blocs alternatifs traçables.
+- [x] Valider le lot local : 5/5 tests du corpus, 7/7 tests sidecar,
+  compilation Python, 97/97 tests C# ciblés après correction du fixture, puis
+  2 027/2 027 tests backend Release.
+- [ ] Déployer la seconde lecture géométrique sur le serveur, réingérer les
+  documents représentatifs en nouvelles révisions et mesurer chunks, ancres,
+  points, latence, taille d'index et retrieval avant promotion définitive.
+- [ ] Ajouter au rapport gold une évaluation automatisée de la sortie
+  canonique backend après réconciliation, distincte de la sortie brute
+  Docling.
 - [ ] Valider WinUI.
 - [ ] Committer par lots cohérents.
 
