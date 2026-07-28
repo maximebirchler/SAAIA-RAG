@@ -427,12 +427,43 @@ Ce TODO est la liste exécutable de la refonte décrite dans :
 - [x] Valider le lot local : 5/5 tests du corpus, 7/7 tests sidecar,
   compilation Python, 97/97 tests C# ciblés après correction du fixture, puis
   2 027/2 027 tests backend Release.
-- [ ] Déployer la seconde lecture géométrique sur le serveur, réingérer les
-  documents représentatifs en nouvelles révisions et mesurer chunks, ancres,
-  points, latence, taille d'index et retrieval avant promotion définitive.
+- [x] Déployer la seconde lecture géométrique sur le serveur, réingérer les
+  documents représentatifs et mesurer les sorties live : cuisine v72
+  176 chunks/ancres/points, PTFE v11 90/90/90, Yosemite v8 128/128/128 et
+  scan SMS v44 10/10/10. Les quatre bundles ont leur SHA et leur taille
+  vérifiés, le manifeste référence la révision exacte `a1e6bfee`, PdfPig
+  `0.1.13.0` et `semanticDecisionOwner=llm_client`.
+- [x] Isoler les alternatives de lecture native des sections Docling afin
+  qu'elles restent des surfaces de recherche traçables, sans modifier la
+  vérité structurelle primaire ni polluer les chemins de titres.
+- [x] Rejeter mécaniquement les alternatives sous-segmentées qui concatènent
+  une page entière ; Yosemite signale une page refusée et conserve deux pages
+  alternatives utiles.
+- [x] Normaliser les espaces artificiels après tiret dans le texte de
+  retrieval (`Saint- nectaire` vers `Saint-nectaire`) sans supprimer le tiret
+  ni altérer le brut canonique.
+- [x] Borner le contexte de titres à la page, avec héritage inter-page
+  uniquement lorsqu'une section canonique prouve la continuation. Le défaut
+  live de pollution `CHILI CON CARNE` vers le gâteau chocolat-courgette est
+  éliminé.
+- [x] Rejouer la suite backend Release après les correctifs finaux :
+  2 031/2 031 tests réussis, zéro échec et zéro test ignoré.
+- [x] Valider le retrieval live avec des sous-requêtes précises telles que le
+  LLM client doit les choisir : recette page 23, forme PTFE page 5 via
+  alternative, carburant Yosemite page 5, stationnement pages 2/5 et cellule
+  `Rd 48-6` du tableau SMS page 3.
 - [ ] Ajouter au rapport gold une évaluation automatisée de la sortie
   canonique backend après réconciliation, distincte de la sortie brute
   Docling.
+- [ ] Ajouter au corpus gold un cas générique où un titre visuellement placé
+  en haut est livré après le contenu d'une première colonne par le parseur.
+  La page 16 cuisine reste exploitable grâce à l'alternative native, mais le
+  chunk primaire `Ingrédients` ne porte pas encore le titre de la recette.
+- [ ] Valider de bout en bout que le ToolAgent client transforme une question
+  naturelle en sous-requêtes ciblées et itératives. Le backend retrouve les
+  preuves exactes avec ces requêtes ; sa réduction historique d'une question
+  naturelle vers un terme large ne doit pas reprendre la décision sémantique
+  au LLM.
 - [ ] Valider WinUI.
 - [ ] Committer par lots cohérents.
 

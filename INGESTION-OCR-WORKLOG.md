@@ -863,6 +863,114 @@ nombre final de chunks ou de la qualité du retrieval.
    encore toujours comme figure.
 3. Le harnais évalue actuellement la sortie brute Docling ; il faut ajouter
    une vue canonique post-réconciliation.
-4. Le lot n'est pas encore déployé : une réingestion en nouvelles révisions et
-   la comparaison PostgreSQL/Qdrant/retrieval sont obligatoires avant
-   promotion définitive.
+4. À ce checkpoint, le lot n'était pas encore déployé. Cette limite est fermée
+   par la qualification live consignée ci-dessous.
+
+## Qualification live de la seconde lecture — 2026-07-28
+
+### Correctifs promus
+
+La qualification serveur a révélé puis fermé quatre défauts distincts, sans
+ajouter de règle liée à une catégorie ou à un document :
+
+1. les blocs alternatifs PdfPig entraient encore dans la construction des
+   sections Docling ; ils sont désormais isolés comme surfaces de recherche
+   indépendantes ;
+2. une alternative trop peu segmentée pouvait concaténer presque toute une
+   page ; elle est maintenant refusée par des contrôles mécaniques de
+   segmentation et d'accord de contenu ;
+3. le texte de retrieval pouvait conserver un espace artificiel après un
+   tiret (`semi- finished`) ; la variante retrieval est réparée en conservant
+   le tiret et le texte brut ;
+4. un niveau de titre Docling aberrant pouvait contaminer les pages suivantes.
+   La hiérarchie est désormais normalisée page par page et une page sans titre
+   n'hérite d'un contexte antérieur que si la section canonique prouve la
+   continuation.
+
+Les quatre lots correspondants sont commités séparément :
+
+- `515f0ef` — isolation des alternatives natives ;
+- `b19495e` — refus des alternatives sous-segmentées ;
+- `a50dde6` — normalisation du texte de retrieval après tiret ;
+- `a1e6bfe` — contexte de titres borné par page.
+
+La suite backend Release finale réussit **2 031/2 031** tests, sans échec ni
+test ignoré.
+
+### Réingestions finales sur le serveur
+
+Le backend déployé expose exactement la révision
+`a1e6bfeeb3cd201d018a9948bc979bb654c0544f-source-1d147051ae6756266130dda7250044d0c554235600e201708a67986fd9adfcfa`.
+Les quatre jobs ont terminé du premier coup, sans retry ni erreur.
+
+| Famille | Document | Version | Révision | Pages | Chunks | Ancres | Points Qdrant | Alternatives |
+|---|---|---:|---|---:|---:|---:|---:|---:|
+| Cuisine mixte | `livre-recette-sist-2025-web.pdf` | 72 | `9441ef23-04c6-840a-33b1-a64f53c7222a` | 32 | 176 | 176 | 176 | 24 blocs sur 18 pages |
+| Tableau technique | `PTFE Brochure.pdf` | 11 | `12ab9a1c-c37e-6084-051a-101d1a7959a9` | 11 | 90 | 90 | 90 | 23 blocs sur 10 pages |
+| Brochure multi-colonnes | `Yosemite-Guide-Volume-50-4-508V1.pdf` | 8 | `1f9dbf4d-138e-c2ff-0506-8383d41305e2` | 7 | 128 | 128 | 128 | 11 blocs sur 2 pages |
+| Scan + tableau | `SMS 1145…6 atm.pdf` | 44 | `e257edf0-768e-0a00-d038-dc374416cfcc` | 5 | 10 | 10 | 10 | 0 |
+
+Yosemite enregistre en plus une page alternative refusée pour
+sous-segmentation. Le scan conserve son tableau 9 × 3 et ses 27 cellules ;
+PTFE conserve 817 références distinctes de cellules dans 18 chunks de table.
+
+### Intégrité des artefacts
+
+Pour chacun des quatre bundles `canonical_ingestion_bundle_v1`, la charge gzip
+a été relue depuis PostgreSQL et décompressée en mémoire :
+
+- taille décompressée égale à `byte_size` ;
+- SHA-256 recalculé égal à `content_hash` ;
+- `document.manifestSha256` égal au hash de l'enveloppe ;
+- IDs de révision du document et du manifeste égaux à la révision publiée ;
+- nombre d'ancres du JSON égal au nombre d'ancres PostgreSQL et aux chunks ;
+- stage PdfPig en version `0.1.13.0` ;
+- `semanticDecisionOwner=llm_client`.
+
+Les tailles brutes vérifiées sont 2 123 051 octets pour cuisine, 1 587 293
+pour PTFE, 2 480 991 pour Yosemite et 146 225 pour SMS.
+
+### Retrieval orienté par le LLM
+
+Les tests live montrent une frontière architecturale nette :
+
+- `gâteau chocolat-courgette ingrédients préparation` retourne la bonne
+  recette page 23 au rang 1 ;
+- `PTFE product forms compression molded billets sheets rods` retourne
+  l'alternative multi-colonnes correcte page 5 au rang 1 ;
+- une sous-requête précise sur l'absence de carburant dans Yosemite Valley
+  retourne la page 5 au rang 1 ;
+- une sous-requête précise sur les trois parkings principaux retourne la page
+  2 au rang 1 ;
+- `Rd 48-6` retourne le tableau SMS page 3 au rang 1.
+
+À l'inverse, une question naturelle large peut encore être réduite par le
+backend historique à un terme générique ou déclencher trop tôt une route de
+navigation. Ce n'est pas un défaut d'ingestion : le contenu exact, les pages,
+les tableaux et les alternatives sont présents et récupérables. La prochaine
+validation de réponse doit prouver que le LLM client observe ses résultats,
+reformule et choisit lui-même les sous-requêtes suivantes, conformément à
+l'ADR.
+
+### Limite observable conservée
+
+Sur la page 16 du livre cuisine, Docling place le titre visuel de la recette
+après la colonne des ingrédients dans son ordre primaire. Le chunk
+`Ingrédients` ne porte donc que ce titre local. La seconde lecture mécanique
+conserve cependant le titre de recette puis tous les ingrédients dans le bon
+ordre ; une recherche ciblée retourne la préparation rang 1, les ingrédients
+rang 2 et l'alternative complète rang 3.
+
+Il serait fragile de transformer ce cas en règle « recette ». Il est ajouté au
+backlog du corpus gold comme problème générique de titre supérieur livré après
+une première colonne.
+
+### Harnais global
+
+Les quatre catégories restent `ok=true` et les comptes PostgreSQL/Qdrant sont
+exacts. La catégorie des 14 documents scannés ne produit aucun avertissement.
+Les avertissements cuisine, technique et voyages concernent des révisions
+plus anciennes non réingérées : 12 candidats de coupure après tiret au total,
+des cartes de profil tronquées ou suspectes et quatre unités substantives non
+couvertes. Ils restent visibles dans le backlog ; ils ne sont ni masqués ni
+présentés comme corrigés par ce lot.
