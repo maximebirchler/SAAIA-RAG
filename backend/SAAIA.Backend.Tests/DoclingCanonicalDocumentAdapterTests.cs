@@ -1136,6 +1136,154 @@ ffl e s u r Stoppez la cuisson après ébullition.
     }
 
     [Fact]
+    public void CanonicalRetrievalProjection_KeepsHeadingContextLocalToTheCurrentPage()
+    {
+        var response = BuildResponse();
+        var source = response.Document.JsonContent!;
+        source.Texts[0].OriginalText = "First page topic";
+        source.Texts[0].Text = "First page topic";
+        source.Texts[0].Level = 6;
+
+        var latePageOneHeading = Text(
+            "#/texts/4",
+            "section_header",
+            "Page one misplaced action",
+            "Page one misplaced action",
+            "body",
+            Box(10, 45, 90, 35, "BOTTOMLEFT"),
+            level: 1);
+        var latePageOneBody = Text(
+            "#/texts/5",
+            "text",
+            "Page one action details",
+            "Page one action details",
+            "body",
+            Box(10, 34, 90, 24, "BOTTOMLEFT"));
+        var pageTwoHeading = Text(
+            "#/texts/6",
+            "section_header",
+            "Second page topic",
+            "Second page topic",
+            "body",
+            Box(10, 190, 90, 175, "BOTTOMLEFT"),
+            level: 6,
+            pageNumber: 2);
+        var pageTwoSubheading = Text(
+            "#/texts/7",
+            "section_header",
+            "Ingredients",
+            "Ingredients",
+            "body",
+            Box(10, 170, 90, 160, "BOTTOMLEFT"),
+            level: 6,
+            pageNumber: 2);
+        var pageTwoBody = Text(
+            "#/texts/8",
+            "text",
+            "Second page body",
+            "Second page body",
+            "body",
+            Box(10, 150, 90, 135, "BOTTOMLEFT"),
+            pageNumber: 2);
+        source.Pages["2"] = new()
+        {
+            PageNumber = 2,
+            Size = new() { Width = 100, Height = 200 }
+        };
+        source.Texts.AddRange(
+        [
+            latePageOneHeading,
+            latePageOneBody,
+            pageTwoHeading,
+            pageTwoSubheading,
+            pageTwoBody
+        ]);
+        source.Body.Children.AddRange(
+        [
+            new() { Ref = latePageOneHeading.SelfRef },
+            new() { Ref = latePageOneBody.SelfRef },
+            new() { Ref = pageTwoHeading.SelfRef },
+            new() { Ref = pageTwoSubheading.SelfRef },
+            new() { Ref = pageTwoBody.SelfRef }
+        ]);
+
+        var canonical = DoclingCanonicalDocumentAdapter.Project(
+            BuildContext(),
+            source);
+        var chunks = DoclingCanonicalRetrievalProjector.Project(
+            canonical,
+            source,
+            maxWords: 220,
+            minWords: 1);
+
+        var pageTwoContent = Assert.Single(
+            chunks,
+            chunk => chunk.ChunkType
+                     == DoclingCanonicalRetrievalProjector.ContentChunkType
+                     && chunk.PageStart == 2
+                     && chunk.Text.Contains(
+                         "Second page body",
+                         StringComparison.Ordinal));
+        Assert.StartsWith(
+            $"Second page topic{Environment.NewLine}"
+            + $"Ingredients{Environment.NewLine}",
+            pageTwoContent.Text,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "Page one misplaced action",
+            pageTwoContent.Text,
+            StringComparison.Ordinal);
+        Assert.Equal(
+            "Second page topic > Ingredients",
+            pageTwoContent.HeadingPath);
+        Assert.Equal(2, pageTwoContent.CanonicalContextBlockIds!.Count);
+    }
+
+    [Fact]
+    public void CanonicalRetrievalProjection_PreservesASectionAcrossAHeadinglessContinuationPage()
+    {
+        var response = BuildResponse();
+        var source = response.Document.JsonContent!;
+        source.Texts[0].OriginalText = "Spanning section";
+        source.Texts[0].Text = "Spanning section";
+        var continuation = Text(
+            "#/texts/4",
+            "text",
+            "Continuation page body",
+            "Continuation page body",
+            "body",
+            Box(10, 190, 90, 170, "BOTTOMLEFT"),
+            pageNumber: 2);
+        source.Pages["2"] = new()
+        {
+            PageNumber = 2,
+            Size = new() { Width = 100, Height = 200 }
+        };
+        source.Texts.Add(continuation);
+        source.Body.Children.Add(new() { Ref = continuation.SelfRef });
+
+        var canonical = DoclingCanonicalDocumentAdapter.Project(
+            BuildContext(),
+            source);
+        var chunks = DoclingCanonicalRetrievalProjector.Project(
+            canonical,
+            source,
+            maxWords: 220,
+            minWords: 1);
+
+        var continuationChunk = Assert.Single(
+            chunks,
+            chunk => chunk.ChunkType
+                     == DoclingCanonicalRetrievalProjector.ContentChunkType
+                     && chunk.PageStart == 2);
+        Assert.StartsWith(
+            $"Spanning section{Environment.NewLine}",
+            continuationChunk.Text,
+            StringComparison.Ordinal);
+        Assert.Equal("Spanning section", continuationChunk.HeadingPath);
+    }
+
+    [Fact]
     public void Project_InfersRepeatedMarginFurnitureAndOmitsItFromRetrieval()
     {
         var source = new DoclingDocument

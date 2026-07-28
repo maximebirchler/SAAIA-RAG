@@ -63,17 +63,26 @@ internal static class DoclingCanonicalRetrievalProjector
         var orderByRef = DoclingDocumentTraversal.BuildReadingOrder(
             source,
             itemMap);
-        var atoms = BuildAtoms(document, itemMap, orderByRef)
+        var atoms = NormalizeHeadingLevelsWithinPages(
+            BuildAtoms(document, itemMap, orderByRef)
             .OrderBy(static atom => atom.PageNumber)
             .ThenBy(static atom => atom.GlobalOrder)
             .ThenBy(static atom => atom.SubOrder)
             .ThenBy(static atom => atom.GroupKey, StringComparer.Ordinal)
-            .ToArray();
+            .ToArray());
         if (atoms.Length == 0)
             return Array.Empty<ProjectedRetrievalChunk>();
 
         var projected = new List<ProjectedRetrievalChunk>();
         var activeHeadings = new List<SourceAtom>();
+        var pagesContainingHeadings = atoms
+            .Where(static atom => atom.IsHeading)
+            .Select(static atom => atom.PageNumber)
+            .ToHashSet();
+        var sectionPageEndByOrdinal = document.SectionTree.ToDictionary(
+            static section => section.Ordinal,
+            static section => section.PageEnd);
+        int? currentPageNumber = null;
         ChunkBuffer? buffer = null;
 
         void Flush()
@@ -114,6 +123,28 @@ internal static class DoclingCanonicalRetrievalProjector
         for (var index = 0; index < atoms.Length;)
         {
             var atom = atoms[index];
+            if (currentPageNumber != atom.PageNumber)
+            {
+                Flush();
+                currentPageNumber = atom.PageNumber;
+                // A page with its own headings starts a new local reading
+                // context. A headingless page may inherit only a section that
+                // the canonical tree proves continues onto that page.
+                if (pagesContainingHeadings.Contains(atom.PageNumber))
+                {
+                    activeHeadings.Clear();
+                }
+                else
+                {
+                    activeHeadings.RemoveAll(heading =>
+                        !heading.SectionOrdinal.HasValue
+                        || !sectionPageEndByOrdinal.TryGetValue(
+                            heading.SectionOrdinal.Value,
+                            out var pageEnd)
+                        || pageEnd < atom.PageNumber);
+                }
+            }
+
             if (atom.IsHeading)
             {
                 Flush();
@@ -325,6 +356,73 @@ internal static class DoclingCanonicalRetrievalProjector
                             .ToArray()));
                 }
             }
+        }
+
+        return atoms;
+    }
+
+    private static SourceAtom[] NormalizeHeadingLevelsWithinPages(
+        SourceAtom[] atoms)
+    {
+        // Docling heading levels can be visual rather than semantic. In
+        // particular, a late instruction can be labelled level 1 while the
+        // real page title is level 6. Rebase levels within each page so
+        // consecutive headings can form a local title/subtitle hierarchy,
+        // while peer headings separated by content remain peers.
+        int? currentPageNumber = null;
+        var firstHeadingLevel = 1;
+        var hasPageHeading = false;
+        var hasPageSubheading = false;
+        var hasContentAfterPageHeading = false;
+        for (var index = 0; index < atoms.Length; index++)
+        {
+            var atom = atoms[index];
+            if (currentPageNumber != atom.PageNumber)
+            {
+                currentPageNumber = atom.PageNumber;
+                firstHeadingLevel = 1;
+                hasPageHeading = false;
+                hasPageSubheading = false;
+                hasContentAfterPageHeading = false;
+            }
+
+            if (!atom.IsHeading)
+            {
+                if (hasPageHeading)
+                    hasContentAfterPageHeading = true;
+                continue;
+            }
+
+            if (!hasPageHeading)
+            {
+                firstHeadingLevel = atom.HeadingLevel;
+                hasPageHeading = true;
+                atoms[index] = atom with { HeadingLevel = 1 };
+                continue;
+            }
+
+            var relativeLevel = 1;
+            if (atom.HeadingLevel > firstHeadingLevel)
+            {
+                relativeLevel = 1 + (atom.HeadingLevel - firstHeadingLevel);
+                hasPageSubheading = true;
+            }
+            else if (!hasContentAfterPageHeading || hasPageSubheading)
+            {
+                relativeLevel = 2;
+                hasPageSubheading = true;
+            }
+            else
+            {
+                firstHeadingLevel = atom.HeadingLevel;
+                hasContentAfterPageHeading = false;
+                hasPageSubheading = false;
+            }
+
+            atoms[index] = atom with
+            {
+                HeadingLevel = Math.Clamp(relativeLevel, 1, 16)
+            };
         }
 
         return atoms;
