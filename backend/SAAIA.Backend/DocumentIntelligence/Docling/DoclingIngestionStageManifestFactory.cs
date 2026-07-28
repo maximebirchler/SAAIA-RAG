@@ -270,6 +270,10 @@ internal static class DoclingIngestionStageManifestFactory
                         nativeTextReconciliation
                             .RecoveredLayoutCharacterCount
                             .ToString(CultureInfo.InvariantCulture),
+                    ["skippedUndersegmentedLayoutPageCount"] =
+                        nativeTextReconciliation
+                            .SkippedUndersegmentedLayoutPageCount
+                            .ToString(CultureInfo.InvariantCulture),
                     ["skippedLowQualityPageCount"] =
                         nativeTextReconciliation
                             .SkippedLowQualityPageCount

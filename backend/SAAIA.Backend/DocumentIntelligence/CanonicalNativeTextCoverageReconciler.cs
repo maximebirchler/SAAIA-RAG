@@ -19,7 +19,8 @@ internal sealed record NativeTextCoverageReconciliationSummary(
     int CandidateLayoutBlockCount = 0,
     int RecoveredLayoutBlockCount = 0,
     int RecoveredLayoutPageCount = 0,
-    int RecoveredLayoutCharacterCount = 0);
+    int RecoveredLayoutCharacterCount = 0,
+    int SkippedUndersegmentedLayoutPageCount = 0);
 
 internal static partial class CanonicalNativeTextCoverageReconciler
 {
@@ -84,6 +85,7 @@ internal static partial class CanonicalNativeTextCoverageReconciler
         var recoveredLayoutBlocks = 0;
         var recoveredLayoutPages = 0;
         var recoveredLayoutCharacters = 0;
+        var skippedUndersegmentedLayoutPages = 0;
 
         foreach (var nativePage in nativeExtraction.Pages
                      .OrderBy(static page => page.PageNumber))
@@ -232,6 +234,14 @@ internal static partial class CanonicalNativeTextCoverageReconciler
                 layoutReconciliation.RecoveredCharacterCount;
             if (layoutReconciliation.Applied)
                 recoveredLayoutPages++;
+            if (string.Equals(
+                    layoutReconciliation.DecisionReason,
+                    CanonicalNativeLayoutReconciler
+                        .UndersegmentedDecisionReason,
+                    StringComparison.Ordinal))
+            {
+                skippedUndersegmentedLayoutPages++;
+            }
         }
 
         CanonicalContractValidator.ValidateOrThrow(document);
@@ -251,7 +261,8 @@ internal static partial class CanonicalNativeTextCoverageReconciler
             candidateLayoutBlocks,
             recoveredLayoutBlocks,
             recoveredLayoutPages,
-            recoveredLayoutCharacters);
+            recoveredLayoutCharacters,
+            skippedUndersegmentedLayoutPages);
     }
 
     private static bool IsReliableNativeTextPage(

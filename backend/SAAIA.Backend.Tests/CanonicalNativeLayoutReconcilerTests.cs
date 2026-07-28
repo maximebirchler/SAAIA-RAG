@@ -105,6 +105,63 @@ LEFT BRAVO DETAIL RIGHT FOXTROT DETAIL
                     .RecoveryBlockType);
     }
 
+    [Fact]
+    public void Apply_RejectsDominantUndersegmentedBlock()
+    {
+        var dominantTokens = Enumerable.Range(0, 600)
+            .Select(static index => $"main{index}")
+            .ToArray();
+        var secondaryTokens = Enumerable.Range(0, 100)
+            .Select(static index => $"side{index}")
+            .ToArray();
+        var rowWise = string.Join(
+            " ",
+            Enumerable.Range(0, dominantTokens.Length)
+                .SelectMany(index =>
+                    index < secondaryTokens.Length
+                        ? new[]
+                        {
+                            dominantTokens[index],
+                            secondaryTokens[index]
+                        }
+                        : [dominantTokens[index]]));
+        var document = Document(rowWise);
+        var nativePage = NativePage(
+            rowWise,
+            [
+                Layout(
+                    0,
+                    string.Join(" ", dominantTokens),
+                    40,
+                    700),
+                Layout(
+                    1,
+                    string.Join(" ", secondaryTokens),
+                    330,
+                    700)
+            ]);
+
+        var result = CanonicalNativeLayoutReconciler.Apply(
+            document,
+            document.Pages[0],
+            nativePage,
+            navigationHint: false,
+            engineVersion: "test");
+
+        Assert.False(result.Applied);
+        Assert.Equal(
+            CanonicalNativeLayoutReconciler
+                .UndersegmentedDecisionReason,
+            result.DecisionReason);
+        Assert.Equal(2, result.CandidateBlockCount);
+        Assert.DoesNotContain(
+            document.Pages[0].Blocks,
+            static block =>
+                block.BlockType
+                == CanonicalNativeLayoutReconciler
+                    .RecoveryBlockType);
+    }
+
     private static CanonicalDocument Document(string text)
         => new()
         {

@@ -10,7 +10,8 @@ internal sealed record NativeLayoutPageReconciliation(
     int RecoveredCharacterCount,
     double OrderedAgreement,
     double BagAgreement,
-    bool Applied);
+    bool Applied,
+    string DecisionReason);
 
 internal static partial class CanonicalNativeLayoutReconciler
 {
@@ -20,6 +21,8 @@ internal static partial class CanonicalNativeLayoutReconciler
         "canonical_native_layout_alternative_recovered";
     internal const string PageQualityFlag =
         "canonical_native_layout_disagreement";
+    internal const string UndersegmentedDecisionReason =
+        "undersegmented_dominant_block";
     internal const double MaximumOrderedAgreement = 0.97;
     private const double MinimumBagAgreement = 0.85;
     private const double MinimumOrderDisagreement = 0.03;
@@ -27,6 +30,8 @@ internal static partial class CanonicalNativeLayoutReconciler
     private const double MinimumAverageTokensPerBlock = 2.3;
     private const double MaximumSingleTokenBlockRatio = 0.40;
     private const int MaximumUnfragmentedBlockCount = 160;
+    private const int MinimumDominantBlockTokens = 320;
+    private const double MinimumDominantBlockTokenRatio = 0.65;
 
     public static NativeLayoutPageReconciliation Apply(
         CanonicalDocument document,
@@ -43,7 +48,7 @@ internal static partial class CanonicalNativeLayoutReconciler
             || nativePage.WidthPoints is not > 0
             || nativePage.HeightPoints is not > 0)
         {
-            return Empty();
+            return Empty("native_layout_unavailable");
         }
 
         var tableBounds = page.Tables
@@ -86,7 +91,7 @@ internal static partial class CanonicalNativeLayoutReconciler
                          / (double)rawTokenCounts.Length
                          > MaximumSingleTokenBlockRatio;
         if (fragmented && tableBounds.Length == 0)
-            return Empty();
+            return Empty("fragmented_without_table");
         var projectedTokenCount = projected.Sum(
             static candidate => candidate.Tokens.Count);
         var outsideTableTokenRatio = outsideTable.Sum(
@@ -101,7 +106,25 @@ internal static partial class CanonicalNativeLayoutReconciler
             ? outsideTable
             : projected;
         if (candidates.Length < 2)
-            return Empty(candidates.Length);
+            return Empty(
+                "insufficient_layout_candidates",
+                candidates.Length);
+        var candidateTokenCounts = candidates
+            .Select(static candidate => candidate.Tokens.Count)
+            .ToArray();
+        var candidateTokenTotal = candidateTokenCounts.Sum();
+        var dominantBlockTokenCount = candidateTokenCounts.Max();
+        var dominantBlockTokenRatio = dominantBlockTokenCount
+            / (double)Math.Max(1, candidateTokenTotal);
+        if (dominantBlockTokenCount
+                >= MinimumDominantBlockTokens
+            && dominantBlockTokenRatio
+                >= MinimumDominantBlockTokenRatio)
+        {
+            return Empty(
+                UndersegmentedDecisionReason,
+                candidates.Length);
+        }
 
         var nativeTokens = candidates
             .SelectMany(static candidate => candidate.Tokens)
@@ -142,11 +165,15 @@ internal static partial class CanonicalNativeLayoutReconciler
                         Tokenize(cell.Text.Canonical)))
                 .ToArray();
         if (canonicalTokens.Length == 0)
-            return Empty(candidates.Length);
+            return Empty(
+                "canonical_tokens_unavailable",
+                candidates.Length);
 
         var nativeFlatTokens = Tokenize(nativePage.Text);
         if (nativeFlatTokens.Count == 0)
-            return Empty(candidates.Length);
+            return Empty(
+                "native_flat_tokens_unavailable",
+                candidates.Length);
         var orderedAgreement = ComputeOrderedCoverage(
             nativeTokens,
             nativeFlatTokens);
@@ -174,7 +201,8 @@ internal static partial class CanonicalNativeLayoutReconciler
                 0,
                 orderedAgreement,
                 bagAgreement,
-                false);
+                false,
+                "no_material_order_advantage");
         }
 
         var nextOrdinal = page.Blocks.Count == 0
@@ -269,7 +297,8 @@ internal static partial class CanonicalNativeLayoutReconciler
             recoveredCharacters,
             orderedAgreement,
             bagAgreement,
-            true);
+            true,
+            "applied");
     }
 
     private static bool OverlapsAnyTable(
@@ -459,6 +488,7 @@ internal static partial class CanonicalNativeLayoutReconciler
     }
 
     private static NativeLayoutPageReconciliation Empty(
+        string decisionReason,
         int candidateBlockCount = 0)
         => new(
             candidateBlockCount,
@@ -466,7 +496,8 @@ internal static partial class CanonicalNativeLayoutReconciler
             0,
             1.0,
             0.0,
-            false);
+            false,
+            decisionReason);
 
     private static string Sha256(string value)
         => Convert.ToHexString(
