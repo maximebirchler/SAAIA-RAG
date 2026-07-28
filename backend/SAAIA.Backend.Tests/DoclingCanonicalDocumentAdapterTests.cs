@@ -586,6 +586,42 @@ public sealed class DoclingCanonicalDocumentAdapterTests
     }
 
     [Fact]
+    public void CanonicalRetrievalProjection_RepairsHyphenSpacingWithoutRemovingTheHyphen()
+    {
+        var response = BuildResponse();
+        var source = response.Document.JsonContent!;
+        source.Texts[1].OriginalText = "Saint- nectaire";
+        source.Texts[1].Text = "Saint- nectaire";
+        source.Tables[0].Data.Cells[2].Text = "semi- finished";
+        source.Tables[0].Data.Cells[3].Text = "less\u2011 traveled";
+        var canonical = DoclingCanonicalDocumentAdapter.Project(
+            BuildContext(),
+            source);
+
+        var chunks = DoclingCanonicalRetrievalProjector.Project(
+            canonical,
+            source,
+            maxWords: 220,
+            minWords: 1);
+
+        var content = Assert.Single(
+            chunks,
+            chunk => chunk.ChunkType
+                     == DoclingCanonicalRetrievalProjector.ContentChunkType);
+        Assert.Contains("Saint-nectaire", content.Text);
+        Assert.DoesNotContain("Saint- nectaire", content.Text);
+
+        var table = Assert.Single(
+            chunks,
+            chunk => chunk.ChunkType
+                     == DoclingCanonicalRetrievalProjector.TableChunkType);
+        Assert.Contains("semi-finished", table.Text);
+        Assert.Contains("less\u2011traveled", table.Text);
+        Assert.DoesNotContain("semi- finished", table.Text);
+        Assert.DoesNotContain("less\u2011 traveled", table.Text);
+    }
+
+    [Fact]
     public void NativeTextCoverageReconciliation_RecoversOnlyProvenMissingNavigationText()
     {
         var response = BuildResponse();

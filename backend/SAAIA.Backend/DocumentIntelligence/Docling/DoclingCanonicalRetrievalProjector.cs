@@ -796,7 +796,8 @@ internal static class DoclingCanonicalRetrievalProjector
             .ToArray();
 
     private static string NormalizeText(string? value)
-        => string.Join(
+    {
+        var normalized = string.Join(
             Environment.NewLine,
             (value ?? "")
             .Replace("\r\n", "\n", StringComparison.Ordinal)
@@ -809,6 +810,8 @@ internal static class DoclingCanonicalRetrievalProjector
                     StringSplitOptions.RemoveEmptyEntries)))
             .Where(static line => !string.IsNullOrWhiteSpace(line)))
             .Trim();
+        return RetrievalTextHygiene.RepairHyphenatedCompoundSpacing(normalized);
+    }
 
     private static int CountTokens(string? value)
         => (value ?? "").Split(
