@@ -464,6 +464,11 @@ Ce TODO est la liste exécutable de la refonte décrite dans :
   comme figures : inventaire PdfPig page/polygone/dimensions, provenance
   canonique et décision sémantique explicitement réservée au LLM client. Le
   document mixte et le scan pleine page passent dans le corpus final.
+- [x] Déployer l'inventaire natif et le vérifier dans les bundles de
+  production : cuisine v73 (290 placements natifs, 176 chunks/ancres/vecteurs)
+  et scan v45 (5 rasters pleine page, 10 chunks/ancres/vecteurs), hashes et
+  tailles exacts. Les sous-régions Docling imbriquées restent distinctes des
+  rasters source, sans déduplication géométrique destructive.
 - [ ] Valider de bout en bout que le ToolAgent client transforme une question
   naturelle en sous-requêtes ciblées et itératives. Le backend retrouve les
   preuves exactes avec ces requêtes ; sa réduction historique d'une question

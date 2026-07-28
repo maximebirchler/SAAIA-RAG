@@ -1018,3 +1018,30 @@ Résultats saillants de la campagne :
 Le rapport reproductible est écrit localement sous
 `tmp/pdfs/ingestion-layout-canonical-final-report.json`; les réponses et
 snapshots de diagnostic restent sous `tmp/` et ne sont pas versionnés.
+
+## Promotion production de l'inventaire d'images — 2026-07-28
+
+Le commit `fde5b24d` est déployé sous la révision exacte
+`fde5b24db6f78e071fa6e53c4c7c521c69f85bc4-source-0360babcbcd5cfd211c4c41afdb642a95b6c6c8420f1da967f204bd1d7c455d4`.
+`/ready` reste `ok=true` et expose
+`document_intelligence_native_pdf_image_inventory_enabled=true`.
+
+Deux réingestions de production ont terminé au premier essai :
+
+| Famille | Version | Révision | Chunks | Ancres bundle/SQL | Qdrant | Figures Docling | Placements PdfPig |
+|---|---:|---|---:|---:|---:|---:|---:|
+| Cuisine mixte | 73 | `520fac1e-0508-784b-00c8-9ec6125435a6` | 176 | 176/176 | 176 | 149 | 290 |
+| Scan SMS | 45 | `1a44afb5-2a41-fa75-3dec-c89b571225ab` | 10 | 10/10 | 10 | 5 | 5 |
+
+Les deux bundles gzip ont été décompressés et vérifiés en mémoire : taille
+exacte, SHA-256 exact, stage `native_pdf_image_inventory` unique, révision de
+code exacte et `semanticDecisionOwner=llm_client`. Le bundle cuisine mesure
+2 320 458 octets bruts / 343 598 octets stockés ; le bundle scan mesure
+149 518 / 24 029 octets.
+
+Une inspection géométrique du scan a aussi empêché une fausse conclusion de
+duplication : les cinq placements PdfPig couvrent chacun une page raster
+complète, tandis que les cinq figures Docling sont des sous-régions visuelles
+internes (une page 2 et quatre page 4). Ces objets décrivent deux granularités
+de preuve différentes. Leur simple imbrication ne justifie donc pas de
+supprimer l'une d'elles par une heuristique de chevauchement.

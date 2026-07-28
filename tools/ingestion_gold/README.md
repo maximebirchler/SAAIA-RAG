@@ -95,6 +95,9 @@ Cette seconde lecture utilise les algorithmes standards PdfPig
 - PdfPig inventorie aussi chaque placement d’image embarquée avec sa page, son
   polygone et ses dimensions en pixels ; aucune légende ni interprétation
   sémantique n’est inventée par le backend, et le LLM client reste le décideur.
+- cet inventaire décrit l'objet raster source. Une figure Docling contenue
+  dans ce raster décrit une sous-région visuelle à une autre granularité ; les
+  deux preuves ne doivent pas être dédupliquées sur leur seule imbrication.
 
 Le corpus mesure séparément la sortie brute du sidecar et la sortie canonique.
 Une sortie Docling peut donc échouer l'invariant d'ordre ou omettre une figure
