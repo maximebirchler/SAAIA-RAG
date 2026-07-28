@@ -800,6 +800,18 @@ APPENDIX B: REFERENCES................................17
         Assert.Contains(
             CanonicalNativeLayoutReconciler.RecoveryQualityFlag,
             recoveredChunk.ExtractionQualitySignals!);
+        Assert.Equal(
+            DoclingCanonicalRetrievalProjector
+                .NativeLayoutAlternativeChunkType,
+            recoveredChunk.ChunkType);
+        Assert.Equal(recoveredText, recoveredChunk.Text);
+        Assert.Equal(
+            "canonical_native_layout_alternative",
+            recoveredChunk.ChunkComposition);
+        Assert.Null(recoveredChunk.SectionOrdinal);
+        Assert.Null(recoveredChunk.SectionTitle);
+        Assert.Null(recoveredChunk.HeadingPath);
+        Assert.Empty(recoveredChunk.CanonicalContextBlockIds!);
     }
 
     [Fact]

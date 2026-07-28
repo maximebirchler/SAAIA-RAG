@@ -6,6 +6,8 @@ internal static class DoclingCanonicalRetrievalProjector
 {
     internal const string ContentChunkType = "docling_canonical_content_v1";
     internal const string TableChunkType = "docling_canonical_table_v1";
+    internal const string NativeLayoutAlternativeChunkType =
+        "docling_canonical_native_layout_alternative_v1";
 
     private sealed record SourceAtom(
         int GlobalOrder,
@@ -91,13 +93,19 @@ internal static class DoclingCanonicalRetrievalProjector
             string chunkType)
         {
             var next = new ChunkBuffer(content.IsNavigation, chunkType);
-            foreach (var heading in SelectContextHeadings(
-                         activeHeadings,
-                         content.IsNavigation,
-                         maxWords,
-                         CountTokens(content.Text)))
+            if (!string.Equals(
+                    chunkType,
+                    NativeLayoutAlternativeChunkType,
+                    StringComparison.Ordinal))
             {
-                next.Add(heading, isContextHeading: true);
+                foreach (var heading in SelectContextHeadings(
+                             activeHeadings,
+                             content.IsNavigation,
+                             maxWords,
+                             CountTokens(content.Text)))
+                {
+                    next.Add(heading, isContextHeading: true);
+                }
             }
 
             return next;
@@ -535,7 +543,12 @@ internal static class DoclingCanonicalRetrievalProjector
                 TableChunkType,
                 StringComparison.Ordinal)
                 ? "canonical_table_rows"
-                : "canonical_blocks",
+                : string.Equals(
+                    buffer.ChunkType,
+                    NativeLayoutAlternativeChunkType,
+                    StringComparison.Ordinal)
+                    ? "canonical_native_layout_alternative"
+                    : "canonical_blocks",
             CanonicalBlockIds: Distinct(
                 sourceAtoms.SelectMany(static atom => atom.BlockIds)),
             CanonicalSpanIds: Distinct(
@@ -652,9 +665,22 @@ internal static class DoclingCanonicalRetrievalProjector
     }
 
     private static string ResolveChunkType(SourceAtom atom)
-        => string.Equals(atom.Kind, "table_row", StringComparison.Ordinal)
-            ? TableChunkType
+    {
+        if (string.Equals(
+                atom.Kind,
+                "table_row",
+                StringComparison.Ordinal))
+        {
+            return TableChunkType;
+        }
+
+        return string.Equals(
+            atom.Kind,
+            CanonicalNativeLayoutReconciler.RecoveryBlockType,
+            StringComparison.Ordinal)
+            ? NativeLayoutAlternativeChunkType
             : ContentChunkType;
+    }
 
     private static bool IsHeadingBlock(string? blockType)
         => string.Equals(
