@@ -1114,7 +1114,8 @@ WHERE job_id=@job_id
                 null,
                 ct);
             if (documentIntelligence
-                .NativeTextCoverageReconciliationEnabled)
+                    .NativeTextCoverageReconciliationEnabled
+                || documentIntelligence.NativePdfImageInventoryEnabled)
             {
                 var nativeTextStopwatch =
                     Stopwatch.StartNew();
@@ -1386,6 +1387,8 @@ WHERE job_id=@job_id
         CanonicalDocument? canonicalRetrievalDocument = null;
         NativeTextCoverageReconciliationSummary?
             nativeTextReconciliation = null;
+        NativePdfImageInventorySummary?
+            nativePdfImageInventory = null;
         if (doclingConversion?.Document.JsonContent is { } doclingDocument)
         {
             var swCanonicalProjection = Stopwatch.StartNew();
@@ -1415,6 +1418,11 @@ WHERE job_id=@job_id
                         .NativeTextCoverageReconciliationEnabled,
                     documentIntelligence
                         .NativeTextCoverageMinimumLineCoverage);
+            nativePdfImageInventory =
+                CanonicalNativePdfImageInventoryReconciler.Apply(
+                    canonicalRetrievalDocument,
+                    nativeTextLayerExtraction,
+                    documentIntelligence.NativePdfImageInventoryEnabled);
             swCanonicalProjection.Stop();
             canonicalProjectionMs =
                 swCanonicalProjection.ElapsedMilliseconds;
@@ -1433,6 +1441,16 @@ WHERE job_id=@job_id
                 nativeTextReconciliation.MinimumLineCoverage,
                 nativeTextExtractionMs,
                 nativeTextReconciliation.DurationMs);
+            _log.LogInformation(
+                "Native PDF image inventory job={JobId} doc={DocPath} enabled={Enabled} native_pages={NativePages} candidate_images={CandidateImages} added_figures={AddedFigures} enriched_pages={EnrichedPages} duration_ms={DurationMs}",
+                job.JobId,
+                relDocPath,
+                nativePdfImageInventory.Enabled,
+                nativePdfImageInventory.NativePageCount,
+                nativePdfImageInventory.CandidateImageCount,
+                nativePdfImageInventory.AddedFigureCount,
+                nativePdfImageInventory.EnrichedPageCount,
+                nativePdfImageInventory.DurationMs);
         }
         var swSections = Stopwatch.StartNew();
         var sections = canonicalRetrievalDocument is null
@@ -1845,7 +1863,8 @@ WHERE job_id=@job_id
                         embeddingTotalMs,
                         qdrantUpsertTotalMs),
                     codeRevision,
-                    nativeTextReconciliation);
+                    nativeTextReconciliation,
+                    nativePdfImageInventory);
                 canonicalBundle = DoclingCanonicalBundleFactory.Create(new(
                     docId,
                     revisionId,

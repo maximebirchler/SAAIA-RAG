@@ -17,7 +17,9 @@ internal static class DoclingIngestionStageManifestFactory
         DoclingIngestionStageTimings timings,
         string codeRevision,
         NativeTextCoverageReconciliationSummary?
-            nativeTextReconciliation = null)
+            nativeTextReconciliation = null,
+        NativePdfImageInventorySummary?
+            nativePdfImageInventory = null)
     {
         ArgumentNullException.ThrowIfNull(documentIntelligence);
         ArgumentNullException.ThrowIfNull(ingestion);
@@ -278,6 +280,55 @@ internal static class DoclingIngestionStageManifestFactory
                         nativeTextReconciliation
                             .SkippedLowQualityPageCount
                             .ToString(CultureInfo.InvariantCulture),
+                    ["semanticDecisionOwner"] = "llm_client"
+                }
+            });
+        }
+
+        if (nativePdfImageInventory is { Enabled: true })
+        {
+            var nativeTextStageIndex = stages.FindIndex(static stage =>
+                string.Equals(
+                    stage.StageId,
+                    CanonicalNativeTextCoverageReconciler.StageId,
+                    StringComparison.Ordinal));
+            var canonicalStageIndex = stages.FindIndex(static stage =>
+                string.Equals(
+                    stage.StageId,
+                    "canonical_projection",
+                    StringComparison.Ordinal));
+            var insertIndex = nativeTextStageIndex >= 0
+                ? nativeTextStageIndex + 1
+                : canonicalStageIndex + 1;
+            stages.Insert(insertIndex, new()
+            {
+                StageId = CanonicalNativePdfImageInventoryReconciler.StageId,
+                StageType = "image_inventory",
+                Engine = "PdfPig",
+                EngineVersion = nativePdfImageInventory.EngineVersion,
+                OptionsSha256 = HashOptions(new
+                {
+                    documentIntelligence.NativePdfImageInventoryEnabled,
+                    algorithm = "native_pdf_image_placement_inventory_v1",
+                    output = "page_anchored_figure_inventory"
+                }),
+                DeviceId = "cpu:0",
+                Concurrency = 1,
+                DurationMs = nativePdfImageInventory.DurationMs,
+                Attributes = new(StringComparer.Ordinal)
+                {
+                    ["nativePageCount"] =
+                        nativePdfImageInventory.NativePageCount.ToString(
+                            CultureInfo.InvariantCulture),
+                    ["candidateImageCount"] =
+                        nativePdfImageInventory.CandidateImageCount.ToString(
+                            CultureInfo.InvariantCulture),
+                    ["addedFigureCount"] =
+                        nativePdfImageInventory.AddedFigureCount.ToString(
+                            CultureInfo.InvariantCulture),
+                    ["enrichedPageCount"] =
+                        nativePdfImageInventory.EnrichedPageCount.ToString(
+                            CultureInfo.InvariantCulture),
                     ["semanticDecisionOwner"] = "llm_client"
                 }
             });

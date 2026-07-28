@@ -377,6 +377,8 @@ public static class ReadyEndpoints
                 options.NativeTextCoverageMinimumLineCoverage,
                 0.0,
                 1.0);
+        details["document_intelligence_native_pdf_image_inventory_enabled"] =
+            options.NativePdfImageInventoryEnabled;
         if (!options.Enabled)
         {
             details["document_intelligence_status"] = "disabled";

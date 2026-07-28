@@ -452,13 +452,18 @@ Ce TODO est la liste exécutable de la refonte décrite dans :
   LLM client doit les choisir : recette page 23, forme PTFE page 5 via
   alternative, carburant Yosemite page 5, stationnement pages 2/5 et cellule
   `Rd 48-6` du tableau SMS page 3.
-- [ ] Ajouter au rapport gold une évaluation automatisée de la sortie
+- [x] Ajouter au rapport gold une évaluation automatisée de la sortie
   canonique backend après réconciliation, distincte de la sortie brute
-  Docling.
-- [ ] Ajouter au corpus gold un cas générique où un titre visuellement placé
+  Docling : rapport v2, projecteur C# de production et 8/8 cas canoniques
+  réussis contre 2/8 sorties brutes.
+- [x] Ajouter au corpus gold un cas générique où un titre visuellement placé
   en haut est livré après le contenu d'une première colonne par le parseur.
-  La page 16 cuisine reste exploitable grâce à l'alternative native, mais le
-  chunk primaire `Ingrédients` ne porte pas encore le titre de la recette.
+  Le cas déterministe `native-late-page-title-v1` restaure l'ordre complet par
+  une alternative native de 12 blocs.
+- [x] Conserver mécaniquement les images embarquées que Docling ne publie pas
+  comme figures : inventaire PdfPig page/polygone/dimensions, provenance
+  canonique et décision sémantique explicitement réservée au LLM client. Le
+  document mixte et le scan pleine page passent dans le corpus final.
 - [ ] Valider de bout en bout que le ToolAgent client transforme une question
   naturelle en sous-requêtes ciblées et itératives. Le backend retrouve les
   preuves exactes avec ces requêtes ; sa réduction historique d'une question

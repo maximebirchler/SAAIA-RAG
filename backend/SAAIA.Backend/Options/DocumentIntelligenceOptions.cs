@@ -29,6 +29,7 @@ sealed class DocumentIntelligenceOptions
     public double RegionalTableRepairMinimumScore { get; set; } = 0.5;
     public bool NativeTextCoverageReconciliationEnabled { get; set; } = true;
     public double NativeTextCoverageMinimumLineCoverage { get; set; } = 0.90;
+    public bool NativePdfImageInventoryEnabled { get; set; } = true;
     public string Device { get; set; } = "cpu";
     public int NumThreads { get; set; } = 8;
     public int ServiceWorkerConcurrency { get; set; } = 1;

@@ -150,6 +150,49 @@ def build_unequal_columns(path: Path, _: Path) -> None:
     canvas.save()
 
 
+def build_late_page_title_columns(path: Path, _: Path) -> None:
+    canvas = _canvas(path)
+    left_x = 18 * mm
+    right_x = 111 * mm
+    top = PAGE_HEIGHT - 34 * mm
+
+    # Deliberately write both columns into the PDF content stream before the
+    # visually superior title. This reproduces a generic parser failure class:
+    # visual hierarchy and source-object order disagree.
+    canvas.setFont("Helvetica-Bold", 11)
+    canvas.drawString(left_x, top, "LEFT SECTION 1001")
+    canvas.drawString(right_x, top, "RIGHT SECTION 1011")
+    canvas.setFont("Helvetica", 9.5)
+    lines = [
+        (
+            "LEFT ALPHA 1002 begins the complete first narrative.",
+            "RIGHT ECHO 1012 begins only after the left narrative.",
+        ),
+        (
+            "LEFT BRAVO 1003 preserves the first column sequence.",
+            "RIGHT FOXTROT 1013 preserves the second column sequence.",
+        ),
+        (
+            "LEFT CHARLIE 1004 remains above the final left item.",
+            "RIGHT GOLF 1014 remains above the final right item.",
+        ),
+        (
+            "LEFT DELTA 1005 closes the complete left column.",
+            "RIGHT HOTEL 1015 closes the complete right column.",
+        ),
+    ]
+    y = top - 10 * mm
+    for left, right in lines:
+        canvas.drawString(left_x, y, left)
+        canvas.drawString(right_x, y, right)
+        y -= 17 * mm
+
+    _draw_header(canvas, "LATE PAGE TITLE 1000")
+    _draw_footer(canvas, "LAYOUT GOLD FOOTER 007")
+    canvas.showPage()
+    canvas.save()
+
+
 def build_columns_and_table(path: Path, _: Path) -> None:
     canvas = _canvas(path)
     _draw_header(canvas, "LAYOUT GOLD - COLUMNS AND TABLE")
@@ -403,6 +446,7 @@ BUILDERS: dict[str, Callable[[Path, Path], None]] = {
     "two_column_order": build_two_column,
     "three_column_order": build_three_column,
     "unequal_column_order": build_unequal_columns,
+    "late_page_title_columns": build_late_page_title_columns,
     "columns_and_table": build_columns_and_table,
     "structured_table": build_structured_table,
     "mixed_image_text": build_mixed_image_text,

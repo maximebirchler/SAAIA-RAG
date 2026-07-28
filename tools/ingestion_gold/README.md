@@ -15,6 +15,8 @@ et leurs invariants :
 - géométrie normalisée ;
 - dimensions, cellules et spans des tableaux ;
 - OCR de texte raster et scans pleine page.
+- sortie canonique réelle après réconciliation, identité des preuves et
+  inventaire géométrique des images PDF natives.
 
 Les PDF sont générés de façon déterministe et leur SHA-256 est versionné. Les
 attentes du corpus servent uniquement aux tests : elles ne sont jamais chargées
@@ -35,6 +37,12 @@ python -m tools.ingestion_gold.runner `
   --ssh-target maxime@100.80.213.61 `
   --output tmp/pdfs/ingestion-layout-gold-run/report.json
 ```
+
+Par défaut, le runner construit le petit projecteur C# de qualification, puis
+évalue séparément la réponse brute Docling et la sortie canonique réellement
+publiée par le backend. Le rapport v2 ne réussit que si la couche canonique
+réussit. `--skip-canonical` reste disponible pour un diagnostic volontairement
+limité au sidecar ; `--case-id` permet de rejouer un ou plusieurs cas précis.
 
 Comparaison directe d'un modèle Docling dans l'environnement qui possède
 Docling :
@@ -68,7 +76,7 @@ Validation de la seconde lecture géométrique du backend :
 
 ```powershell
 dotnet test backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj `
-  --filter "FullyQualifiedName~PdfNativeLayoutExtractorTests|FullyQualifiedName~CanonicalNativeLayoutReconcilerTests"
+  --filter "FullyQualifiedName~PdfNativeLayoutExtractorTests|FullyQualifiedName~CanonicalNativeLayoutReconcilerTests|FullyQualifiedName~CanonicalNativePdfImageInventoryReconcilerTests"
 ```
 
 Cette seconde lecture utilise les algorithmes standards PdfPig
@@ -84,11 +92,15 @@ Cette seconde lecture utilise les algorithmes standards PdfPig
   une pseudo-narration ;
 - les blocs alternatifs gardent page, polygone, moteur, version, algorithme,
   accords mesurés et le marqueur `semanticDecisionOwner=llm_client`.
+- PdfPig inventorie aussi chaque placement d’image embarquée avec sa page, son
+  polygone et ses dimensions en pixels ; aucune légende ni interprétation
+  sémantique n’est inventée par le backend, et le LLM client reste le décideur.
 
-Le corpus mesure encore séparément la sortie brute du sidecar. Une sortie
-Docling peut donc échouer l'invariant d'ordre tandis que la seconde
-représentation backend le restaure. Les deux niveaux ne doivent pas être
-confondus dans un rapport.
+Le corpus mesure séparément la sortie brute du sidecar et la sortie canonique.
+Une sortie Docling peut donc échouer l'invariant d'ordre ou omettre une figure
+tandis que la représentation backend restaure une surface de lecture ou un
+ancrage mécanique. Les deux niveaux ne doivent pas être confondus dans un
+rapport.
 
 ## Discipline de promotion
 

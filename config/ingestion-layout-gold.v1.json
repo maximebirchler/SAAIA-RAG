@@ -45,6 +45,20 @@
           {"marker": "LEFT ALPHA 101", "centerX": 0.29, "centerY": 0.2, "tolerance": 0.15},
           {"marker": "RIGHT ECHO 201", "centerX": 0.72, "centerY": 0.2, "tolerance": 0.15}
         ]
+      },
+      "canonicalExpectations": {
+        "alternativeOrderedMarkers": [
+          "LEFT ALPHA 101",
+          "LEFT BRAVO 102",
+          "LEFT CHARLIE 103",
+          "LEFT DELTA 104",
+          "RIGHT ECHO 201",
+          "RIGHT FOXTROT 202",
+          "RIGHT GOLF 203",
+          "RIGHT HOTEL 204"
+        ],
+        "minimumAlternativeBlockCount": 1,
+        "requireAllChunksAnchored": true
       }
     },
     {
@@ -92,6 +106,28 @@
           {"marker": "TWO ECHO 311", "centerX": 0.5, "centerY": 0.2, "tolerance": 0.15},
           {"marker": "THREE INDIA 321", "centerX": 0.78, "centerY": 0.2, "tolerance": 0.15}
         ]
+      },
+      "canonicalExpectations": {
+        "alternativeOrderedMarkers": [
+          "ONE ALPHA 301",
+          "ONE BRAVO 302",
+          "ONE CHARLIE 303",
+          "ONE DELTA 304",
+          "TWO ECHO 311",
+          "TWO FOXTROT 312",
+          "TWO GOLF 313",
+          "TWO HOTEL 314",
+          "THREE INDIA 321",
+          "THREE JULIET 322",
+          "THREE KILO 323",
+          "THREE LIMA 324"
+        ],
+        "minimumAlternativeBlockCount": 1,
+        "minimumLabels": {
+          "section_header": 1,
+          "table": 1
+        },
+        "requireAllChunksAnchored": true
       }
     },
     {
@@ -130,6 +166,88 @@
           "section_header": 1,
           "text": 5
         }
+      },
+      "canonicalExpectations": {
+        "alternativeOrderedMarkers": [
+          "LONG LEFT ALPHA 401",
+          "LONG LEFT BRAVO 402",
+          "LONG LEFT CHARLIE 403",
+          "LONG LEFT DELTA 404",
+          "LONG LEFT ECHO 405",
+          "LONG LEFT FOXTROT 406",
+          "SHORT RIGHT GOLF 411",
+          "SHORT RIGHT HOTEL 412",
+          "SHORT RIGHT INDIA 413"
+        ],
+        "minimumAlternativeBlockCount": 1,
+        "minimumLabels": {
+          "section_header": 1,
+          "text": 2
+        },
+        "requireAllChunksAnchored": true
+      }
+    },
+    {
+      "caseId": "native-late-page-title-v1",
+      "generator": "late_page_title_columns",
+      "sourceSha256": "f2e98a62ea501e6470771c9c62e3077b53b01457481ccff716845918cea94058",
+      "forceOcr": false,
+      "attributes": ["native_pdf", "two_columns", "late_visual_title"],
+      "expectations": {
+        "pageCount": 1,
+        "markers": [
+          {"text": "LATE PAGE TITLE 1000", "minSimilarity": 0.95},
+          {"text": "LEFT SECTION 1001", "minSimilarity": 0.95},
+          {"text": "LEFT ALPHA 1002", "minSimilarity": 0.95},
+          {"text": "LEFT BRAVO 1003", "minSimilarity": 0.95},
+          {"text": "LEFT CHARLIE 1004", "minSimilarity": 0.95},
+          {"text": "LEFT DELTA 1005", "minSimilarity": 0.95},
+          {"text": "RIGHT SECTION 1011", "minSimilarity": 0.95},
+          {"text": "RIGHT ECHO 1012", "minSimilarity": 0.95},
+          {"text": "RIGHT FOXTROT 1013", "minSimilarity": 0.95},
+          {"text": "RIGHT GOLF 1014", "minSimilarity": 0.95},
+          {"text": "RIGHT HOTEL 1015", "minSimilarity": 0.95}
+        ],
+        "orderedMarkers": [
+          "LATE PAGE TITLE 1000",
+          "LEFT SECTION 1001",
+          "LEFT ALPHA 1002",
+          "LEFT BRAVO 1003",
+          "LEFT CHARLIE 1004",
+          "LEFT DELTA 1005",
+          "RIGHT SECTION 1011",
+          "RIGHT ECHO 1012",
+          "RIGHT FOXTROT 1013",
+          "RIGHT GOLF 1014",
+          "RIGHT HOTEL 1015"
+        ],
+        "minimumLabels": {
+          "section_header": 1,
+          "text": 4
+        },
+        "geometry": [
+          {"marker": "LATE PAGE TITLE 1000", "centerX": 0.28, "centerY": 0.08, "tolerance": 0.18}
+        ]
+      },
+      "canonicalExpectations": {
+        "orderedMarkersAnySurface": [
+          "LATE PAGE TITLE 1000",
+          "LEFT SECTION 1001",
+          "LEFT ALPHA 1002",
+          "LEFT BRAVO 1003",
+          "LEFT CHARLIE 1004",
+          "LEFT DELTA 1005",
+          "RIGHT SECTION 1011",
+          "RIGHT ECHO 1012",
+          "RIGHT FOXTROT 1013",
+          "RIGHT GOLF 1014",
+          "RIGHT HOTEL 1015"
+        ],
+        "minimumLabels": {
+          "section_header": 1,
+          "table": 1
+        },
+        "requireAllChunksAnchored": true
       }
     },
     {
@@ -177,6 +295,18 @@
             ]
           }
         ]
+      },
+      "canonicalExpectations": {
+        "alternativeOrderedMarkers": [
+          "LEFT NOVEMBER 501",
+          "LEFT OSCAR 502",
+          "LEFT PAPA 503",
+          "RIGHT QUEBEC 511",
+          "RIGHT ROMEO 512",
+          "RIGHT SIERRA 513"
+        ],
+        "minimumAlternativeBlockCount": 1,
+        "requireAllChunksAnchored": true
       }
     },
     {
@@ -215,6 +345,16 @@
             ]
           }
         ]
+      },
+      "canonicalExpectations": {
+        "primaryOrderedMarkers": [
+          "LAYOUT GOLD STRUCTURED TABLE",
+          "TABLE CAPTION MATERIAL LIMITS",
+          "OPERATING MATRIX 731",
+          "POST TABLE NOTE 732"
+        ],
+        "maximumAlternativeBlockCount": 0,
+        "requireAllChunksAnchored": true
       }
     },
     {
@@ -251,6 +391,19 @@
         "geometry": [
           {"marker": "IMAGE OCR ALPHA 881", "centerX": 0.5, "centerY": 0.31, "tolerance": 0.24}
         ]
+      },
+      "canonicalExpectations": {
+        "primaryOrderedMarkers": [
+          "NATIVE INTRO 870",
+          "IMAGE OCR ALPHA 881",
+          "IMAGE OCR BRAVO 882",
+          "FIGURE CAPTION 883",
+          "LIST ITEM 884",
+          "LIST ITEM 885",
+          "NATIVE OUTRO 886"
+        ],
+        "maximumAlternativeBlockCount": 0,
+        "requireAllChunksAnchored": true
       }
     },
     {
@@ -285,6 +438,18 @@
           {"marker": "SCAN ENGLISH 910", "centerX": 0.5, "centerY": 0.25, "tolerance": 0.22},
           {"marker": "SCAN FINAL 914", "centerX": 0.5, "centerY": 0.65, "tolerance": 0.22}
         ]
+      },
+      "canonicalExpectations": {
+        "primaryOrderedMarkers": [
+          "LAYOUT GOLD FULL PAGE SCAN",
+          "SCAN ENGLISH 910",
+          "SCAN FRANCAIS 911",
+          "SCAN DEUTSCH 912",
+          "SCAN ITALIANO 913",
+          "SCAN FINAL 914"
+        ],
+        "maximumAlternativeBlockCount": 0,
+        "requireAllChunksAnchored": true
       }
     }
   ]

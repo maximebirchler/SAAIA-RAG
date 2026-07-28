@@ -17,6 +17,7 @@ static class PdfExtractor
         var sourceTextByPage = new Dictionary<int, string>();
         var pageSizeByPage = new Dictionary<int, (double WidthPoints, double HeightPoints)>();
         var nativeLayoutByPage = new Dictionary<int, PdfNativeLayoutExtraction>();
+        var nativeImagesByPage = new Dictionary<int, IReadOnlyList<ExtractedPdfImageRegion>>();
 
         using var doc = PdfPig.PdfDocument.Open(pdfPath);
         foreach (var page in doc.GetPages())
@@ -27,10 +28,12 @@ static class PdfExtractor
             var rawText = ExtractLayoutAwarePageText(page);
             var text = OcrNoiseFilter.RemoveSpacedLetterRunNoise(PdfTextSanitizer.ForStorage(rawText));
             var nativeLayout = ExtractNativeLayout(page);
-            rawPages.Add((page.Number, text, CountPageImages(page)));
+            var nativeImages = ExtractPageImages(page);
+            rawPages.Add((page.Number, text, nativeImages.Count));
             sourceTextByPage[page.Number] = sourceText;
             pageSizeByPage[page.Number] = (page.Width, page.Height);
             nativeLayoutByPage[page.Number] = nativeLayout;
+            nativeImagesByPage[page.Number] = nativeImages;
             replacementStatsByPage[page.Number] = (
                 CountReplacementCharacters(rawText),
                 CountReplacementCharacters(text));
@@ -75,7 +78,12 @@ static class PdfExtractor
                 HeightPoints: hasPageSize ? pageSize.HeightPoints : null,
                 NativeLayoutText: nativeLayout?.Text,
                 NativeLayoutBlocks: nativeLayout?.Blocks,
-                NativeLayoutAlgorithm: nativeLayout?.Algorithm));
+                NativeLayoutAlgorithm: nativeLayout?.Algorithm,
+                NativeImageRegions: nativeImagesByPage.TryGetValue(
+                    rawPage.PageNumber,
+                    out var nativeImages)
+                    ? nativeImages
+                    : Array.Empty<ExtractedPdfImageRegion>()));
         }
 
         return new PdfExtractionResult(tokens, pages, PdfExtractionQualitySummary.FromPages(pages));
@@ -90,15 +98,26 @@ static class PdfExtractor
     private static IEnumerable<string> SplitWords(string s)
         => s.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
 
-    private static int CountPageImages(UglyToad.PdfPig.Content.Page page)
+    private static IReadOnlyList<ExtractedPdfImageRegion> ExtractPageImages(
+        UglyToad.PdfPig.Content.Page page)
     {
         try
         {
-            return page.GetImages().Count();
+            return page.GetImages()
+                .Select((image, index) => new ExtractedPdfImageRegion(
+                    SourceIndex: index,
+                    Left: image.Bounds.Left,
+                    Right: image.Bounds.Right,
+                    Top: image.Bounds.Top,
+                    Bottom: image.Bounds.Bottom,
+                    WidthInSamples: image.WidthInSamples,
+                    HeightInSamples: image.HeightInSamples))
+                .Where(static image => image.HasUsableGeometry)
+                .ToArray();
         }
         catch
         {
-            return 0;
+            return Array.Empty<ExtractedPdfImageRegion>();
         }
     }
 
@@ -923,6 +942,25 @@ internal readonly record struct PdfLayoutSegment(
     double Top,
     double Bottom);
 
+internal sealed record ExtractedPdfImageRegion(
+    int SourceIndex,
+    double Left,
+    double Right,
+    double Top,
+    double Bottom,
+    int WidthInSamples,
+    int HeightInSamples)
+{
+    public bool HasUsableGeometry =>
+        SourceIndex >= 0
+        && double.IsFinite(Left)
+        && double.IsFinite(Right)
+        && double.IsFinite(Top)
+        && double.IsFinite(Bottom)
+        && Math.Abs(Right - Left) > double.Epsilon
+        && Math.Abs(Top - Bottom) > double.Epsilon;
+}
+
 sealed record ExtractedPdfPage(
     int PageNumber,
     string Text,
@@ -936,7 +974,8 @@ sealed record ExtractedPdfPage(
     double? HeightPoints = null,
     string? NativeLayoutText = null,
     IReadOnlyList<ExtractedPdfLayoutBlock>? NativeLayoutBlocks = null,
-    string? NativeLayoutAlgorithm = null);
+    string? NativeLayoutAlgorithm = null,
+    IReadOnlyList<ExtractedPdfImageRegion>? NativeImageRegions = null);
 
 sealed record PdfPageExtractionQuality(
     string TextStatus,

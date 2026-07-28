@@ -974,3 +974,47 @@ plus anciennes non réingérées : 12 candidats de coupure après tiret au total
 des cartes de profil tronquées ou suspectes et quatre unités substantives non
 couvertes. Ils restent visibles dans le backlog ; ils ne sont ni masqués ni
 présentés comme corrigés par ce lot.
+
+## Qualification canonique automatisée — 2026-07-28
+
+Le harnais gold ne s'arrête plus à la réponse brute du sidecar. Un projecteur
+C# dédié appelle désormais les mêmes composants que la production :
+
+1. projection du document Docling ;
+2. extraction native PdfPig ;
+3. réconciliation de couverture textuelle et de lecture géométrique ;
+4. inventaire des images PDF natives ;
+5. validation du contrat canonique ;
+6. projection des chunks réellement publiables.
+
+Le corpus compte maintenant huit PDF synthétiques déterministes, dont un cas
+générique où l'ordre des objets source diffère de la hiérarchie visuelle d'un
+titre et de deux colonnes. La campagne live finale contre
+`infra-docling-1` réussit **8/8 cas canoniques**, alors que la sortie brute
+Docling seule n'en réussit que **2/8**. Tous les chunks évalués conservent leurs
+identités de preuve et leurs pages.
+
+Le dernier écart du document mixte est fermé sans classification métier :
+PdfPig conserve le placement du raster embarqué sous forme de figure
+`embedded_raster`, avec page, polygone normalisé, dimensions en pixels,
+version du moteur et provenance
+`semanticDecisionOwner=llm_client`. Aucun texte alternatif, aucune légende et
+aucune pertinence ne sont inventés. La même mécanique inventorie correctement
+le raster d'un scan pleine page.
+
+Résultats saillants de la campagne :
+
+- colonnes simples : 12 blocs alternatifs, ordre restauré ;
+- trois colonnes : 17 blocs alternatifs, ordre restauré et table primaire
+  conservée ;
+- colonnes inégales : 14 blocs alternatifs ;
+- titre/ordre source tardif : 12 blocs alternatifs ;
+- colonnes avec tableau : 12 blocs alternatifs et table intacte ;
+- tableau structuré : aucune alternative inutile ;
+- texte + raster : une figure native et tous les marqueurs OCR ;
+- scan pleine page : une figure native, tous les marqueurs OCR, aucune
+  alternative inutile.
+
+Le rapport reproductible est écrit localement sous
+`tmp/pdfs/ingestion-layout-canonical-final-report.json`; les réponses et
+snapshots de diagnostic restent sous `tmp/` et ne sont pas versionnés.

@@ -898,7 +898,8 @@ internal static class PdfOcrTextExtractor
                 HeightPoints: page.HeightPoints,
                 NativeLayoutText: page.NativeLayoutText,
                 NativeLayoutBlocks: page.NativeLayoutBlocks,
-                NativeLayoutAlgorithm: page.NativeLayoutAlgorithm));
+                NativeLayoutAlgorithm: page.NativeLayoutAlgorithm,
+                NativeImageRegions: page.NativeImageRegions));
         }
 
         if (!changed)
@@ -2214,7 +2215,8 @@ internal static class PdfOcrTextExtractor
                 {
                     ImageCount = nativePage.ImageCount,
                     WidthPoints = page.WidthPoints ?? nativePage.WidthPoints,
-                    HeightPoints = page.HeightPoints ?? nativePage.HeightPoints
+                    HeightPoints = page.HeightPoints ?? nativePage.HeightPoints,
+                    NativeImageRegions = nativePage.NativeImageRegions
                 }
                 : page)
             .ToList();

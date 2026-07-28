@@ -194,6 +194,7 @@ services:
       DocumentIntelligence__RegionalTableRepairMinimumScore: ${SAAIA_DOCLING_TABLE_REPAIR_MINIMUM_SCORE:-0.5}
       DocumentIntelligence__NativeTextCoverageReconciliationEnabled: ${SAAIA_DOCLING_NATIVE_TEXT_RECONCILIATION_ENABLED:-true}
       DocumentIntelligence__NativeTextCoverageMinimumLineCoverage: ${SAAIA_DOCLING_NATIVE_TEXT_MINIMUM_LINE_COVERAGE:-0.90}
+      DocumentIntelligence__NativePdfImageInventoryEnabled: ${SAAIA_DOCLING_NATIVE_PDF_IMAGE_INVENTORY_ENABLED:-true}
       DocumentIntelligence__EngineVersion: docling-serve-1.27.0_docling-slim-2.113.0_saaia-structure-2
       DocumentIntelligence__ParseEngineVersion: docling-parse-7.8.1
       DocumentIntelligence__ModelPackageVersion: docling-ibm-models-3.13.3
