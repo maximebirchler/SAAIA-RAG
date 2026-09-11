@@ -13429,3 +13429,48 @@ reste actif.
 Audit consolidé : `AUDIT-GOAL-ACTIF-A755-A763-2026-09-11.md`. Prochaine action
 après confirmation : achat et clé, sonde synthétique sans donnée privée, puis un
 seul essai produit du planning avant toute répétition payante.
+
+## A763 — exécution OpenAI réelle, corrections causales et gel mécanique — 2026-09-11
+
+L'achat de 25 USD et la création de la clé restreinte SAAIA sont terminés. La
+clé est stockée sous DPAPI hors Git. La sonde synthétique et le parcours produit
+complet local → backend → OpenAI ont été exécutés. Le journal applicatif totalise
+0,89830376 USD ; l'interface OpenAI affiche 0,92 USD consommé et 24,09 USD de
+solde. Le compte reste toutefois classé `Free tier` avec 50 requêtes par jour et
+par modèle malgré le seuil Tier 1 annoncé à 5 USD. Aucun achat supplémentaire
+n'a été effectué.
+
+Terra a effectivement produit des plannings de vingt cellules, cinq repas
+sourcés, une comparaison CEN/IEC et sept points NIST. Ces succès ne constituent
+pas encore trois passages consécutifs de toute la banque sur le dernier état.
+Les échecs intermédiaires ont isolé des requêtes externes ou trop littérales, des
+documents voisins, une fenêtre de preuves mal ordonnée, des insuffisances trop
+vagues et des sorties structurées invalides.
+
+Le correctif courant reste généraliste : requêtes privées assainies, résolution
+univoque des documents explicitement nommés, recherches planifiées rattachées à
+leur document, filtre du jeu documentaire, reclassement des preuves par sujet,
+équilibrage entre recherches, fenêtre de 14 000 caractères, contrôle du nombre
+d'unités et une réparation de protocole bornée. Une citation vers un EvidenceId
+non revalidé reste irréparable et provoque un échec. La trace durable conserve
+maintenant le `docPath` réellement résolu.
+
+Deux exécutions Luna consécutives de la comparaison CEN/IEC ont ensuite répondu
+complètement avec la page IEC 238. Une troisième a échoué proprement sur le JSON
+du rédacteur ; sa classe de défaut est maintenant couverte mécaniquement, sans
+rejeu live faute de quota. Luna reste insuffisant pour le planning vingt cellules
+et n'est pas le candidat principal de ce stress-test.
+
+État de vérification après gel : 44/44 tests ciblés fournisseur/worker, 1/1
+résolution live du catalogue, 4 388 tests Debug réussis avec deux sondes live
+ignorées, build Release zéro avertissement/zéro erreur, quatre scripts
+PowerShell valides, diff-check et scan de secrets propres, ports 5123/1234
+libres. Le rapport complet Telegram demandé a été envoyé en cinq parties et
+confirmé par le notifier.
+
+Le produit reste `TESTE_NON_APPROUVE`. Suite irréductible : attendre Tier 1 ou
+la réinitialisation du quota, rejouer la banque Terra trois fois sans changer les
+critères, qualifier le même contrat sur RunPod après fourniture d'un endpoint et
+d'un budget, exécuter la reprise dans le vrai WinUI, puis ouvrir un holdout
+aveugle après gel définitif. Audit détaillé :
+`AUDIT-GOAL-ACTIF-A755-A763-2026-09-11.md`.

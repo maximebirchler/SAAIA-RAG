@@ -1,195 +1,205 @@
 # Audit du Goal actif — frontière locale et capacité avancée A755–A763
 
 Date : 11 septembre 2026
+
 Branche : `SAAIA_V3.1`
+
 Statut produit : **TESTE_NON_APPROUVE**
 
 ## Verdict actuel
 
-La frontière du petit modèle local est qualifiée et reproductible sur la banque
-adversariale connue A755. L'architecture hybride locale-vers-serveur est
-implémentée depuis la décision locale jusqu'au résultat avancé durable dans le
-client. Les contrats, la persistance, le worker, les tools, la reprise WinUI, le
-fournisseur OpenAI-compatible, les garde-fous de coût et les profils de
-déploiement passent les validations mécaniques.
+La frontière du petit modèle local est qualifiée sur la banque connue A755 et
+reste stable après l'intégration de la capacité avancée. L'architecture hybride
+est implémentée de bout en bout : décision locale, handoff typé, job serveur
+durable, retrieval SAAIA, fournisseur OpenAI-compatible, validation des preuves,
+reprise WinUI et affichage des sources.
 
-La capacité avancée n'est pas encore validée sémantiquement avec un grand modèle
-réel. Aucun appel payant OpenAI, RunPod ou serveur client n'a été exécuté. Le
-planning de cinq jours par quatre repas n'a donc pas encore obtenu ses trois
-réussites live consécutives. Le Goal reste actif et le produit ne peut pas être
-approuvé.
+Les appels réels à OpenAI démontrent que Terra peut produire les livrables
+complexes visés, y compris un planning de repas de vingt cellules. Ils ont aussi
+révélé puis permis de corriger des défauts génériques de requêtage, de sélection
+des preuves, de validation sémantique et de protocole. L'état courant n'a pas
+encore trois réussites consécutives sur l'ensemble de la banque avancée après le
+dernier gel. Le produit reste donc `TESTE_NON_APPROUVE`.
 
-## Reprise documentaire et état du dépôt
+## Reprise documentaire et dépôt
 
-Le registre de lecture rapporte 43 documents sur 43 terminés, soit
-15 847 677 caractères sur 15 847 677. Le dépôt de travail est la reprise du
-laptop sur `SAAIA_V3.1`; le transfert initial ne doit pas être rejoué.
+Le registre de reprise rapporte 43 documents sur 43 lus, soit 15 847 677
+caractères sur 15 847 677. Le dépôt du laptop a déjà remplacé l'ancien checkout ;
+ce transfert ne doit pas être rejoué.
 
-Les lots d'architecture précédents ont été commités et poussés :
+Les fondations avancées déjà poussées sont :
 
-- `62b4215e` rend la reprise des jobs avancés durable dans WinUI ;
-- `b30096ac` introduit le contrat de fournisseur LLM et les harnais Terra et
-  RunPod ;
-- `9101e5f5` relie le parcours produit au fournisseur de grand modèle exécuté
-  par le backend.
+- `62b4215e` : reprise durable des jobs avancés dans WinUI ;
+- `b30096ac` : contrat de fournisseur et profils OpenAI, RunPod et serveur client ;
+- `9101e5f5` : exécution du grand modèle par le backend dans le parcours produit ;
+- `0e991044` : topologie interne ou externe liée à la configuration signée ;
+- `5ddcc5ec` : enveloppe de coût Terra vérifiée.
 
-## Ce qui est validé
+## Frontière du petit modèle local
 
-### A755 — frontière du petit modèle local
+La configuration qualifiée est la machine cliente actuelle : RTX 4060,
+Qwen3-4B Instruct Q5_K_M, llama.cpp CUDA b10098 et contexte de 4 096 tokens.
+La banque A755 connue comporte quatorze cas répétés trois fois. Le dernier
+artefact de non-régression contient 42 résultats sur 42, quatorze routes stables
+sur quatorze et aucune erreur.
 
-La configuration qualifiée est la machine cliente actuelle avec RTX 4060,
-Qwen3-4B Instruct Q5_K_M, llama.cpp CUDA b10098 et 4 096 tokens de contexte. La
-banque finale comporte quatorze cas répétés trois fois : 42 résultats sur 42
-sont acceptés sémantiquement, quatorze routes sur quatorze sont stables, sans
-fait non soutenu ni substitution de source, et toutes les portes de latence sont
-respectées.
+Les quatre issues de production sont :
 
-La frontière publiée comporte quatre issues :
+- `local_source_backed_answer` pour une demande directe dans l'enveloppe mesurée ;
+- `clarification` lorsqu'une identité ou contrainte indispensable manque ;
+- `insufficient_evidence` lorsque le corpus est réellement insuffisant ;
+- `advanced_analysis_required` lorsque le nombre d'unités, les comparaisons, la
+  structure ou la profondeur de recherche dépassent l'enveloppe locale.
 
-- `local_source_backed_answer` pour les demandes directes dans l'enveloppe
-  mesurée et l'extraction bornée qualifiée ;
-- `clarification` quand une identité documentaire indispensable manque ;
-- `insufficient_evidence` quand le corpus ne contient réellement pas le
-  document demandé ;
-- `advanced_analysis_required` pour les comparaisons, les structures et les
-  collections au-delà de l'enveloppe, ou après épuisement du budget local.
+Le planning de cinq jours par quatre repas est volontairement hors de
+l'enveloppe locale. Le bon comportement du petit modèle est de détecter sa charge
+avant retrieval et de créer un handoff avancé, sans produire un faux planning.
+Cette frontière est une preuve de régression sur une banque connue. Le holdout
+historique est contaminé ; une généralisation aveugle reste à démontrer après le
+gel final.
 
-Le planning 5 × 4 est correctement classé hors de la capacité locale. Le succès
-du petit modèle consiste ici à transférer la demande, pas à improviser une
-réponse incomplète.
+## Architecture avancée implémentée
 
-### A756–A762 — chemin avancé durable
+`IAdvancedAnalysisProvider` est la frontière unique du grand modèle. Les profils
+`openai-dev`, `runpod-bench` et `customer-server` utilisent le même cycle :
+planificateur, tools SAAIA, preuves revalidées, rédacteur et validateur final.
+Le code RAG ne dépend donc pas de l'emplacement futur du modèle.
 
-Les propriétés suivantes sont couvertes :
+La configuration signée distingue le fournisseur de la topologie : OpenAI et
+RunPod sont des services externes ; le serveur final du client est interne. Les
+droits de transmission de contenu et de métadonnées sont explicites. Une
+combinaison incohérente est rejetée avant l'appel HTTP.
 
-- handoff typé conservant tenant, utilisateur, projet, session, intention,
-  charge observée et références documentaires ;
-- création idempotente d'un job PostgreSQL durable soumise à l'entitlement de
-  licence ;
-- worker avec lease, heartbeat, retry, annulation et revalidation des preuves ;
-- accès au corpus uniquement par des tools SAAIA bornés et isolés par tenant ;
-- trace durable sans corps de preuve ni secret ;
-- transport client create/get/cancel et validation stricte du résultat, des
-  citations et des cartes source ;
-- première persistance avant l'attente de polling, puis reprise du même job
-  après redémarrage de WinUI sans second `POST` ;
-- fermeture de WinUI limitée à l'arrêt du tracker local, sans annulation du job
-  serveur.
+Le job avancé est durable et isolé par tenant. Il possède lease, heartbeat,
+retry, annulation, revalidation des preuves et trace bornée. WinUI persiste
+l'identifiant du job avant le polling, reprend le même job après redémarrage et
+ne l'annule pas lors de la fermeture de l'application.
 
-Le sous-ensemble ciblé de reprise A762 passe à 4/4. Un essai visuel fermant le
-vrai processus WinUI pendant un vrai job long reste requis.
+Les secrets externes sont importés depuis le presse-papiers dans un stockage
+DPAPI hors Git. Le script efface ensuite le presse-papiers et fonctionne aussi
+avec Windows PowerShell 5.1. Ni la clé, ni les prompts, ni le contenu des preuves
+ne sont écrits dans le journal de coût.
 
-### Fournisseur du grand modèle
+## Corrections issues des essais live
 
-`IAdvancedAnalysisProvider` est l'unique frontière backend. Les profils
-`openai-dev`, `runpod-bench` et `customer-server` partagent le même cycle
-planner -> tools SAAIA -> writer, le même EvidenceBundle, le même validateur de
-citations et les mêmes métriques. Une erreur fournisseur reste typée et ne
-provoque aucun basculement silencieux.
+Les essais ont conduit aux protections générales suivantes :
 
-Le budget Terra est persistant et conservateur : 25 USD autorisés, alerte à
-20 USD, arrêt local à 24 USD, 0,50 USD maximum par job et quatre appels maximum
-par job. Le journal contient les métriques d'usage et jamais les prompts, les
-preuves ou les secrets.
+- queries limitées au corpus privé, sans URL, domaine ou catégorie inventée ;
+- une recherche ciblée par document explicitement demandé ;
+- résolution du `DocumentHint` vers un unique `docPath` indexé, sinon absence de
+  cloisonnement plutôt qu'une sélection ambiguë ;
+- exclusion mécanique des documents voisins avant rédaction ;
+- conservation du chemin réellement résolu dans la trace du tool ;
+- requêtes du planificateur rattachées au bon document ;
+- reclassement lexical des passages par rapport au sujet de chaque requête, en
+  retirant les tokens de l'identifiant documentaire du score ;
+- équilibrage des preuves entre recherches et documents ;
+- maximum de 700 caractères par preuve dans le prompt et 14 000 caractères de
+  preuves par rédaction ;
+- validation du nombre d'unités demandées, des doublons, des marqueurs de claims
+  et des EvidenceIds autorisés ;
+- une seule réparation bornée d'un JSON de rédacteur mal formé ou de marqueurs
+  manquants ;
+- aucune réparation autorisée pour une citation vers un EvidenceId non revalidé ;
+- une réponse finale ne transporte que les preuves effectivement citées.
 
-Les tarifs officiels Terra ont été revérifiés le 11 septembre 2026 : 2 USD par
-million de tokens d'entrée, 0,20 USD par million en cache et 12 USD par million
-de tokens de sortie. Le calcul proposé de 7 000 tokens d'entrée et 1 000 tokens
-de sortie donne bien 0,026 USD, soit environ 961 appels avec 25 USD. Il ne donne
-pas 961 questions avancées garanties : le chemin SAAIA emploie normalement un
-appel de planification et un appel de rédaction, avec un volume de preuves
-variable. Le premier essai réel mesurera ce coût avant d'autoriser les trois
-répétitions.
+Aucune règle de production propre aux repas, à IEC, à NIST, à un document ou à
+une réponse attendue n'est conservée. Une variante déterministe spécialisée sur
+le planning a donné de bons résultats expérimentaux, puis a été retirée parce
+qu'elle violait l'exigence d'architecture généraliste. Ses résultats ne servent
+pas à approuver l'état courant.
 
-La configuration signée sépare désormais le profil technique `Provider` de la
-topologie `LlmLocation`. OpenAI et RunPod exigent `external-service`; le serveur
-du client exige `internal`. Les scripts d'installation produisent cette valeur,
-les droits de transmission externe en dépendent, et le backend rejette une
-combinaison incohérente avant tout appel HTTP. Cette séparation permet au futur
-catalogue de licence et aux installateurs de choisir les capacités et
-l'hébergement sans modifier la logique RAG.
+## Résultats OpenAI observés
 
-## Vérifications effectuées sur l'état courant
+La clé restreinte SAAIA a été créée, importée dans DPAPI et testée sans l'écrire
+dans le dépôt. Le parcours complet utilise le petit modèle local pour router,
+le backend local temporaire pour exécuter le job, le corpus PostgreSQL/Qdrant du
+serveur pour rechercher, puis OpenAI pour planifier et rédiger.
 
-- tests ciblés du fournisseur : 12/12 ;
-- tests ciblés de reprise A762 : 4/4 ;
-- suite complète : 4 360 réussis, 2 sondes live explicitement ignorées,
-  0 échec ;
-- build de la solution : 0 avertissement, 0 erreur ;
-- syntaxe de `_common.ps1` : valide ;
-- syntaxe de `install.sh` avec Git Bash : valide ;
-- template de production : 36 placeholders sur 36 pris en charge par les deux
-  installateurs et JSON rendu syntaxiquement valide ;
-- configurations signées réellement générées : 3/3 (`openai-dev`,
-  `runpod-bench`, `customer-server`), avec localisation et politiques externes
-  attendues ; incohérence profil/localisation rejetée ;
-- aucun appel à un fournisseur externe et coût externe nul dans cette passe.
+Terra a démontré :
 
-## Ce qui n'est pas validé
+- plusieurs plannings répondus avec vingt claims et vingt cellules ;
+- exactement cinq idées de repas sourcées ;
+- une comparaison CEN/IEC avec deux claims ;
+- sept points NIST sourcés.
 
-La banque A755 était connue pendant les corrections. Elle prouve une régression
-stable, pas une généralisation aveugle. L'ancien holdout est contaminé et un
-nouveau holdout ne doit être ouvert qu'après gel de l'état candidat final.
+Ces succès ne forment pas une banque finale trois sur trois sur l'état courant.
+Des runs intermédiaires ont aussi produit une insuffisance trop vague, une
+discordance de citations ou une détection de langue incertaine. Ils sont
+conservés comme preuves négatives et ont réouvert les composants responsables.
 
-Les preuves suivantes manquent encore :
+Luna, utilisé pour continuer à faible coût pendant la limite Terra, montre une
+frontière utile :
 
-1. création réelle et appel synthétique de la clé Terra sans donnée privée ;
-2. exécution du parcours produit local -> backend -> Terra sur le planning
-   5 × 4 ;
-3. inspection sémantique puis trois réussites consécutives sur état gelé ;
-4. banque avancée multisource et mesure réelle des coûts, tokens et latences ;
-5. comparaison du même protocole sur un modèle open source RunPod ;
-6. sélection puis validation du modèle final sur serveur client ;
-7. test WinUI réel avec ouverture exacte des cartes source et redémarrage en
-   cours de job ;
-8. nouveau holdout aveugle de bout en bout.
+- les cinq repas étudiants et les sept points NIST sont généralement corrects ;
+- le planning vingt cellules aboutit le plus souvent à une insuffisance plutôt
+  qu'à une réponse complète ;
+- après le reclassement générique des preuves, deux exécutions consécutives de la
+  comparaison CEN/IEC ont cité la page IEC 238 et répondu complètement ;
+- l'exécution suivante a échoué proprement parce que le JSON du rédacteur ne
+  respectait pas le contrat. Une réparation bornée couvre maintenant ce défaut,
+  mais elle n'a pas encore été rejouée live faute de quota disponible.
 
-Docker et WSL ne sont pas disponibles sur cette machine, ce qui empêche ici la
-validation sémantique de la composition des conteneurs. Git Bash valide la
-syntaxe Linux. L'accès SSH sans mot de passe au serveur `saaia-server` est
-refusé, donc aucun déploiement serveur n'a été tenté. Ces limites n'empêchent
-pas la première validation Terra par API.
+Cette observation confirme que Luna peut servir aux tâches avancées modestes ou
+à la planification économique, mais ne constitue pas le modèle de référence pour
+le planning complexe. Terra reste le candidat API principal de validation.
 
-## Rapport avec la vision licence et installation
+## Coût et limites du compte
 
-L'installateur commercial complet reste volontairement hors de ce lot. La
-vision documentée sépare :
+Le journal local enregistre 50 appels Terra, dont 44 réussis et 6 rejets, pour
+216 886 tokens d'entrée, 37 979 tokens de sortie et 0,8412062 USD. Il enregistre
+48 appels Luna réussis, 175 176 tokens d'entrée, 19 768 tokens de sortie et
+0,05709756 USD. Le total journalisé est 0,89830376 USD. L'interface OpenAI
+affiche 0,92 USD consommé et un solde de 24,09 USD ; le faible écart correspond
+aux appels ou arrondis hors journal applicatif.
 
-- les droits signés de licence : local, avancé, hybride et sortie externe ;
-- la topologie choisie : poste client, serveur on-prem, cloud géré ou API ;
-- le profil technique : URL, secret, modèle, contexte, quantification et
-  capacité matérielle.
+Les garde-fous SAAIA restent : 25 USD autorisés, alerte à 20 USD, arrêt local à
+24 USD, 0,50 USD maximum par job et quatre appels maximum par job. Ils protègent
+le budget demandé et sont indépendants des limites de débit OpenAI.
 
-Le code actuel implémente le parcours hybride demandé. Le mode grand modèle seul
-nécessitera plus tard un point d'entrée serveur général, car le trajet actuel
-commence par un handoff de la frontière locale. Les installateurs backend et
-client devront contrôler licence et matériel, collecter les secrets hors Git,
-télécharger les modèles qualifiés, vérifier les hashes, générer la configuration
-signée et exécuter des sondes de diagnostic.
+Le compte OpenAI affiche encore `Free tier` alors que l'achat de 25 USD dépasse
+le seuil de 5 USD annoncé pour Tier 1. Les modèles Terra et Luna restent limités
+à 50 requêtes par jour. Cette limite fournisseur ne peut pas être supprimée dans
+l'interface. Le bouton de changement de palier propose seulement un nouvel achat
+de crédits ; aucun achat supplémentaire n'a été effectué.
 
-## Séquence de validation restante
+## Vérifications de l'état courant
 
-La prochaine action irréductible est la création des moyens Terra. L'interface
-OpenAI montre actuellement zéro crédit et aucun moyen de paiement saisi. Le
-formulaire de clé restreinte est préparé mais n'a pas été validé. Ces deux
-actions nécessitent une confirmation immédiatement avant l'achat et la création
-de la clé.
+- tests ciblés fournisseur, worker et validations : 44/44 ;
+- résolution live des documents FD CEN, IEC et NIST dans le vrai catalogue :
+  1/1 ;
+- suite Debug complète : 4 388 réussis, deux sondes live explicitement ignorées,
+  aucun échec ;
+- build Release complet : zéro avertissement et zéro erreur ;
+- syntaxe des quatre scripts PowerShell modifiés : valide ;
+- `git diff --check` : propre ;
+- scan des changements suivis : aucune clé OpenAI, aucun mot de passe serveur et
+  aucun secret de configuration détecté ;
+- ports temporaires 5123 et 1234 libérés après les campagnes.
 
-Après cette confirmation, la séquence prévue est :
+## Preuves manquantes avant approbation
 
-1. acheter 25 USD de crédits et créer la clé restreinte temporaire ;
-2. importer la clé dans le stockage secret sans la placer dans Git ou les logs ;
-3. lancer une sonde synthétique sans corpus privé et vérifier identité, usage et
-   coupe-circuits ;
-4. activer le profil `openai-dev` dans le backend et exécuter une seule fois
-   `A755-ADV-01-meal-grid-5x4` par le parcours produit ;
-5. inspecter le résultat avant toute répétition payante ;
-6. si le résultat est acceptable, exécuter les trois répétitions gelées puis la
-   banque avancée ;
-7. reproduire le protocole sur RunPod, sélectionner le candidat open source et
-   le valider sur l'infrastructure finale du client ;
-8. geler le code, ouvrir le nouveau holdout et terminer les preuves WinUI.
+1. Rejouer la banque avancée complète trois fois sur l'état gelé avec Terra,
+   après application du Tier 1 ou réinitialisation du quota journalier.
+2. Confirmer live la réparation bornée d'une réponse de protocole mal formée.
+3. Qualifier un modèle open source via RunPod avec le même contrat, après choix
+   concret d'un endpoint, d'un budget et d'un secret RunPod.
+4. Exécuter le même protocole sur le serveur final du client lorsque son matériel
+   et son modèle seront disponibles.
+5. Fermer puis relancer le vrai WinUI pendant un job long, vérifier la reprise du
+   même job et ouvrir les cartes source exactes.
+6. Ouvrir un nouveau holdout aveugle après le gel définitif du code.
 
-Le budget n'est donc pas consommé en lançant aveuglément mille questions. Chaque
-palier commence par la sonde ou le cas minimal qui peut invalider la suite, puis
-les répétitions coûteuses ne sont autorisées que si ce palier est accepté.
+Le palier RunPod, l'hébergement client et le holdout aveugle dépendent de moyens
+externes encore absents. Ils ne justifient pas de modifier deux fois
+l'architecture : le contrat unique permet de changer d'endpoint sans changer la
+logique documentaire.
+
+## Prochaine séquence
+
+L'état courant doit être commité et poussé avec ses tests et son audit. Ensuite,
+dès que le quota Terra est disponible, la banque avancée est rejouée trois fois
+sans modifier les critères. Un résultat sémantiquement incorrect réouvre la
+cause précise ; trois passages complets autorisent le gel du candidat API. La
+qualification RunPod, le test WinUI réel et le holdout aveugle restent ensuite
+les dernières preuves avant toute approbation produit.
