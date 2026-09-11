@@ -215,6 +215,8 @@ $postgresUser = Require-EnvValue $serverEnvironment 'POSTGRES_USER'
 $postgresPassword = Require-EnvValue $serverEnvironment 'POSTGRES_PASSWORD'
 $authPepper = Require-EnvValue $serverEnvironment 'SAAIA_AUTH_PEPPER'
 $serverApiKey = Require-EnvValue $serverEnvironment 'SAAIA_BOOTSTRAP_API_KEY'
+$qdrantApiKey = Require-EnvValue $serverEnvironment 'QDRANT_API_KEY'
+$teiModel = Require-EnvValue $serverEnvironment 'TEI_MODEL_ID'
 
 $localConfigExisted = Test-Path -LiteralPath $localConfigPath -PathType Leaf
 $localConfigBackup = if ($localConfigExisted) {
@@ -238,7 +240,8 @@ $trackedEnvironment = @(
     'DOTNET_ENVIRONMENT',
     'ConfigSignature__ConfigPath',
     'ConfigSignature__SignaturePath',
-    'ConfigSignature__AllowUnsignedInDevelopment'
+    'ConfigSignature__AllowUnsignedInDevelopment',
+    'QDRANT_API_KEY'
 )
 $previousEnvironment = @{}
 foreach ($name in $trackedEnvironment) {
@@ -306,6 +309,16 @@ try {
             Pepper = $authPepper
         }
         Bootstrap = [ordered]@{ Enabled = $false }
+        Rag = [ordered]@{
+            QdrantBaseUrl = 'http://saaia-server:6333'
+            QdrantCollection = 'knowledge_base'
+            QdrantApiKeyRef = 'ENV:QDRANT_API_KEY'
+            RequireQdrantAuthInProd = $true
+            EmbeddingsBaseUrl = 'http://saaia-server:8081'
+            EmbeddingsModel = $teiModel
+            EnableRerank = $false
+            RerankBaseUrl = ''
+        }
         Ingestion = [ordered]@{
             DocumentsRoot = (Join-Path $ArtifactDirectory 'empty-documents')
             WorkerEnabled = $false
@@ -345,6 +358,7 @@ try {
     $env:ConfigSignature__ConfigPath = $unsignedConfigPath
     $env:ConfigSignature__SignaturePath = $missingSignaturePath
     $env:ConfigSignature__AllowUnsignedInDevelopment = 'true'
+    $env:QDRANT_API_KEY = $qdrantApiKey
 
     [ordered]@{
         schemaVersion = 'saaia-advanced-winui-restart-preflight.v1'
@@ -736,6 +750,7 @@ finally {
     $serverApiKey = $null
     $postgresPassword = $null
     $authPepper = $null
+    $qdrantApiKey = $null
 
     [ordered]@{
         endedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
