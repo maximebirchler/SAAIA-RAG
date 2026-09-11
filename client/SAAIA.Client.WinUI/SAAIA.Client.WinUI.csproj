@@ -36,6 +36,10 @@
     <Platform>x64</Platform>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(SAAIATestHooks)'=='true'">
+    <DefineConstants>$(DefineConstants);SAAIA_TEST_HOOKS</DefineConstants>
+  </PropertyGroup>
+
   <!-- PublishProfile is optional; only set it if the file exists to avoid NETSDK1198 warnings. -->
   <PropertyGroup Condition="Exists('Properties\PublishProfiles\win-$(Platform).pubxml')">
     <PublishProfile>win-$(Platform).pubxml</PublishProfile>

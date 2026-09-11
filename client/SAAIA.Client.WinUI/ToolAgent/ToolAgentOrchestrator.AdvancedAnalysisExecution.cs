@@ -759,6 +759,8 @@ public sealed partial class ToolAgentOrchestrator
                 providerKey = job.ProviderKey,
                 providerModel = result?.ProviderModel,
                 providerCallCount = result?.ProviderCallCount,
+                claimCount = result?.Claims.Count,
+                evidenceCount = result?.Evidence.Count,
                 inputTokens = result?.InputTokens,
                 outputTokens = result?.OutputTokens,
                 cachedInputTokens = result?.CachedInputTokens,

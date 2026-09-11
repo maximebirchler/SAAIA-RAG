@@ -38,7 +38,7 @@ public sealed partial class SourceBackedAgentV2Runner
             SourceBackedNamedDocumentIdentity.MismatchRiskFlag,
             StringComparer.OrdinalIgnoreCase);
 
-#if DEBUG
+#if DEBUG || SAAIA_TEST_HOOKS
     internal static EvidenceBundle ApplyNamedDocumentIdentityContractForTests(
         SourceBackedIntake intake,
         EvidenceBundle bundle)

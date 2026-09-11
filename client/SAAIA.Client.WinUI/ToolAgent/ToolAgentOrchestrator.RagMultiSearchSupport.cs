@@ -21,7 +21,7 @@ public sealed partial class ToolAgentOrchestrator
     private static readonly TimeSpan DefaultRagSourceExplorationQueryTimeout = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan RagMultiSearchCategoryProbeQueryTimeout = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan RagMultiSearchCategoryCatalogProbeQueryTimeout = TimeSpan.FromSeconds(4);
-#if DEBUG
+#if DEBUG || SAAIA_TEST_HOOKS
     private static TimeSpan? RagSourceExplorationQueryTimeoutOverrideForTests;
 #endif
 
@@ -29,7 +29,7 @@ public sealed partial class ToolAgentOrchestrator
     {
         get
         {
-#if DEBUG
+#if DEBUG || SAAIA_TEST_HOOKS
             return RagSourceExplorationQueryTimeoutOverrideForTests
                 ?? DefaultRagSourceExplorationQueryTimeout;
 #else

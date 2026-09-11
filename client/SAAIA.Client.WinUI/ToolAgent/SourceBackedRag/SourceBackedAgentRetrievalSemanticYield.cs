@@ -83,7 +83,7 @@ public sealed partial class SourceBackedAgentV2Runner
         }
     }
 
-#if DEBUG
+#if DEBUG || SAAIA_TEST_HOOKS
     internal static bool
         ShouldRequestSemanticAuditZeroYieldResolutionForTests(
             int approvedCount,

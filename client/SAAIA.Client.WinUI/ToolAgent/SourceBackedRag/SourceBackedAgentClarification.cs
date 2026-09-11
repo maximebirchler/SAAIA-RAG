@@ -228,7 +228,7 @@ public sealed partial class SourceBackedAgentV2Runner
             string.Empty);
     }
 
-#if DEBUG
+#if DEBUG || SAAIA_TEST_HOOKS
     internal static SourceBackedAgentToolDefinition
         BuildSourceBackedClarificationToolForTests()
         => BuildSourceBackedClarificationTool();

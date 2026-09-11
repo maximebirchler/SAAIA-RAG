@@ -1,4 +1,4 @@
-﻿#if DEBUG
+﻿#if DEBUG || SAAIA_TEST_HOOKS
 using System;
 using System.Collections.Generic;
 using System.Linq;

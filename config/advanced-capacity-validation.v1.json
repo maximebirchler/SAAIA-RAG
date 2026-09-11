@@ -10,6 +10,8 @@
       "language": "fr",
       "question": "J'ai besoin d'un planning de repas pour la semaine du lundi au vendredi incluant petit-déjeuner, déjeuner, collation et souper. Fais un format clair et professionnel, avec uniquement des sources utiles, non dupliquées inutilement. N'invente rien.",
       "expectedAnswerKind": "source_backed_structured_grid_or_exact_insufficiency",
+      "expectedAnswerUnitCount": 20,
+      "requiredAnswerTerms": ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "petit-déjeuner", "déjeuner", "collation", "souper"],
       "validationPoints": "Cinq lignes lundi à vendredi et quatre colonnes petit-déjeuner, déjeuner, collation et souper. | Vingt propositions concrètes, adaptées, distinctes et rattachées à des preuves si le corpus le permet. | Aucune clarification sur des préférences optionnelles. | Aucune invention. | Si vingt cellules ne peuvent pas être prouvées, expliquer exactement les cellules ou types de preuves manquants."
     },
     {
@@ -21,6 +23,7 @@
       "language": "fr",
       "question": "À partir des documents, propose exactement cinq idées de repas simples pour un étudiant, chacune avec sa source.",
       "expectedAnswerKind": "source_backed_enumeration_or_exact_insufficiency",
+      "expectedAnswerUnitCount": 5,
       "validationPoints": "Exactement cinq repas concrets et distincts. | Une preuve canonique par repas. | Aucun ingrédient, prix, temps ou avantage inventé. | Une insuffisance doit nommer précisément ce qui manque."
     },
     {
@@ -32,6 +35,7 @@
       "language": "fr",
       "question": "Mets en parallèle ce que FD CEN TR 15281 2023 dit de l'inertage et ce que IEC 60079-14 exige pour le gaz de protection.",
       "expectedAnswerKind": "source_backed_comparison_or_exact_insufficiency",
+      "requiredSourceTerms": ["FD CEN TR 15281", "IEC 60079-14"],
       "validationPoints": "Identifier séparément les deux documents. | Chaque affirmation substantielle doit être reliée à la bonne preuve. | Exposer les points comparables sans fusionner les prescriptions. | Ne pas substituer un autre document."
     },
     {
@@ -43,6 +47,8 @@
       "language": "fr",
       "question": "Extrais de NIST_CSF_2_0.pdf exactement sept points distincts à retenir, avec une citation pour chacun.",
       "expectedAnswerKind": "source_backed_enumeration_or_exact_insufficiency",
+      "expectedAnswerUnitCount": 7,
+      "requiredSourceTerms": ["NIST_CSF_2_0.pdf"],
       "validationPoints": "Exactement sept points distincts réellement présents dans NIST_CSF_2_0.pdf. | Conserver le sens du document. | Une citation ou preuve traçable par point. | Aucun autre document substitué."
     }
   ]

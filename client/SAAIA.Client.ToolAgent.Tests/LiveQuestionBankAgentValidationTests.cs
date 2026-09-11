@@ -24,6 +24,141 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
     }
 
     [Fact]
+    public void Answer_quality_flags_do_not_treat_no_invention_requirement_as_bypass()
+    {
+        var flags = GetAnswerQualityFlags(
+            "Fais un planning sourcé. N'invente rien.",
+            "Voici un planning fondé sur les recettes documentées.",
+            new[] { "recettes.pdf p.12" });
+
+        Assert.DoesNotContain("source_bypass_not_refused", flags);
+    }
+
+    [Fact]
+    public void Advanced_semantic_flags_accept_complete_cited_grid_contract()
+    {
+        var testCase = new ValidationCase
+        {
+            ExpectedAnswerUnitCount = 4,
+            RequiredAnswerTerms = ["lundi", "petit-déjeuner"]
+        };
+        var telemetry = new AdvancedTelemetry(
+            "succeeded",
+            "openai-dev",
+            "gpt-5.6-terra",
+            "",
+            "answered",
+            4,
+            2,
+            2,
+            100,
+            50,
+            0.001m);
+
+        var flags = GetAdvancedSemanticFlags(
+            testCase,
+            "| lundi | petit-déjeuner [C1] | [C2] | [C3] | [C4] |",
+            telemetry,
+            ["menus.pdf p.1"]);
+
+        Assert.Empty(flags);
+    }
+
+    [Fact]
+    public void Language_detector_recognizes_a_french_meal_table()
+    {
+        var answer = """
+            | Jour | Petit-déjeuner | Déjeuner | Collation | Souper |
+            |---|---|---|---|---|
+            | Lundi | Scones [C1] | Salade [C2] | Muffin [C3] | Poulet [C4] |
+            | Mardi | Brioche [C5] | Cannelloni [C6] | Barre [C7] | Risotto [C8] |
+            """;
+
+        Assert.Equal("fr", DetectAnswerLanguage(answer));
+    }
+
+    [Fact]
+    public void Language_detector_recognizes_a_short_french_recipe_list()
+    {
+        const string answer = """
+            1. Mini-pizzas au jambon [C1]
+            2. Burgers équilibrés [C2]
+            3. Muffins salés [C3]
+            4. Poulet coco [C4]
+            5. Sandwich complet [C5]
+            """;
+
+        Assert.Equal("fr", DetectAnswerLanguage(answer));
+    }
+
+    [Fact]
+    public void Language_detector_recognizes_a_short_english_technical_answer()
+    {
+        const string answer =
+            "VACUUM recovers disk space occupied by updated or deleted rows [E1].";
+
+        Assert.Equal("en", DetectAnswerLanguage(answer));
+    }
+
+    [Fact]
+    public void Advanced_semantic_flags_require_each_configured_source()
+    {
+        var testCase = new ValidationCase
+        {
+            ExpectedAnswerUnitCount = 2,
+            RequiredSourceTerms = ["FD CEN TR 15281", "IEC 60079-14"]
+        };
+        var telemetry = new AdvancedTelemetry(
+            "succeeded",
+            "openai-dev",
+            "gpt-5.6-terra",
+            "",
+            "answered",
+            2,
+            1,
+            2,
+            100,
+            50,
+            0.001m);
+
+        var flags = GetAdvancedSemanticFlags(
+            testCase,
+            "Comparaison [C1] [C2]",
+            telemetry,
+            ["IEC 60079-14 2013.pdf p.1"]);
+
+        Assert.Contains("advanced_required_source_missing", flags);
+    }
+
+    [Theory]
+    [InlineData("Les sources ne permettent pas de documenter les cinq cellules Collation.")]
+    [InlineData("Le planning complet ne peut donc pas être établi sans invention.")]
+    public void Advanced_semantic_flags_accept_specific_insufficiency_wording(
+        string answer)
+    {
+        var telemetry = new AdvancedTelemetry(
+            "succeeded",
+            "openai-dev",
+            "gpt-5.6-luna",
+            "",
+            "insufficient_documentation",
+            1,
+            1,
+            2,
+            100,
+            50,
+            0.001m);
+
+        var flags = GetAdvancedSemanticFlags(
+            new ValidationCase(),
+            answer,
+            telemetry,
+            ["menus.pdf p.1"]);
+
+        Assert.DoesNotContain("advanced_insufficiency_not_specific", flags);
+    }
+
+    [Fact]
     public void Answer_quality_flags_allow_context_dependent_followup_without_sources()
     {
         var flags = GetAnswerQualityFlags(
@@ -46,6 +181,17 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
     }
 
     [Fact]
+    public void Answer_quality_flags_allow_accented_missing_document_refusal_without_sources()
+    {
+        var flags = GetAnswerQualityFlags(
+            "Donne les conclusions de document_absent.pdf avec la page source.",
+            "Je n'ai pas trouvé le document demandé \"document_absent.pdf\" dans le corpus indexé. Je ne peux donc pas fournir ses conclusions ni une page source.",
+            Array.Empty<string>());
+
+        Assert.DoesNotContain("no_sources", flags);
+    }
+
+    [Fact]
     public void Answer_quality_flags_allow_advanced_capability_handoff_without_sources()
     {
         var flags = GetAnswerQualityFlags(
@@ -54,6 +200,18 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
             Array.Empty<string>());
 
         Assert.DoesNotContain("no_sources", flags);
+    }
+
+    [Fact]
+    public void Answer_quality_flags_do_not_require_target_citation_on_advanced_handoff()
+    {
+        var flags = GetAnswerQualityFlags(
+            "Extrais sept points de NIST_CSF_2_0.pdf.",
+            "Cette demande dépasse la capacité locale qualifiée. La capacité d'analyse avancée est requise pour poursuivre avec les sources.",
+            Array.Empty<string>(),
+            corpusTarget: "NIST_CSF_2_0.pdf");
+
+        Assert.DoesNotContain("corpus_target_not_cited", flags);
     }
 
     [Fact]
@@ -238,7 +396,24 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
                 diagnostics.SourceLabels,
                 expectedLanguage,
                 detectedAnswerLanguage,
-                testCase.CorpusTarget);
+                testCase.CorpusTarget).ToList();
+            flags.AddRange(GetAdvancedSemanticFlags(
+                testCase,
+                answer,
+                advancedTelemetry,
+                diagnostics.SourceLabels));
+            if (string.Equals(
+                    advancedTelemetry.Status,
+                    "succeeded",
+                    StringComparison.OrdinalIgnoreCase)
+                && string.Equals(
+                    advancedTelemetry.ResultOutcome,
+                    "insufficient_documentation",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                flags.Remove("no_sources");
+                flags.Remove("corpus_target_not_cited");
+            }
             var row = new
             {
                 id = testCase.Id,
@@ -262,7 +437,11 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
                 advancedStatus = advancedTelemetry.Status,
                 advancedProviderKey = advancedTelemetry.ProviderKey,
                 advancedProviderModel = advancedTelemetry.ProviderModel,
+                advancedLastErrorCode = advancedTelemetry.LastErrorCode,
                 advancedProviderCallCount = advancedTelemetry.ProviderCallCount,
+                advancedResultOutcome = advancedTelemetry.ResultOutcome,
+                advancedClaimCount = advancedTelemetry.ClaimCount,
+                advancedEvidenceCount = advancedTelemetry.EvidenceCount,
                 advancedInputTokens = advancedTelemetry.InputTokens,
                 advancedOutputTokens = advancedTelemetry.OutputTokens,
                 advancedEstimatedCostUsd = advancedTelemetry.EstimatedCostUsd,
@@ -338,6 +517,16 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
             liveSettings.ManageLocalLlmProcess = true;
         if (providerConfiguration.Mode != LlmProviderMode.Local)
             liveSettings.ManageLocalLlmProcess = false;
+
+        var validationLlmExePath = Environment.GetEnvironmentVariable(
+            "SAAIA_VALIDATION_LLM_EXE_PATH");
+        if (!string.IsNullOrWhiteSpace(validationLlmExePath))
+            liveSettings.LlamaExePath = validationLlmExePath.Trim();
+
+        var validationLlmModelPath = Environment.GetEnvironmentVariable(
+            "SAAIA_VALIDATION_LLM_MODEL_PATH");
+        if (!string.IsNullOrWhiteSpace(validationLlmModelPath))
+            liveSettings.ModelPath = validationLlmModelPath.Trim();
 
         if (providerConfiguration.Mode == LlmProviderMode.Local)
         {
@@ -509,6 +698,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
                 corpusTarget,
                 out var expectedCorpusFileName)
             && LooksLikeSubstantiveCorpusAnswer(flat)
+            && !LooksLikeAdvancedCapabilityHandoffForValidation(flat)
             && !sources.Any(source => source.Contains(
                 expectedCorpusFileName,
                 StringComparison.OrdinalIgnoreCase)))
@@ -611,11 +801,17 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
 
         const string sourceNames = @"(?:sources?|documents?|pdf|fuentes?|fontes?|quellen?|fonti)";
         const string ignoreWords = @"(?:ignore|ignorer|ignorez|oublie|oublier|disregard|ignora|ignorar|ignori|ignorare|ignoriere|ignorieren)";
+        var asksForInvention = RegexIsMatch(
+                normalized,
+                @"\b(?:invente|inventer|inventez|invent|invented|make\s+up|hallucinate|inventa|inventar|inventare|erfinde|erfinden|erfunden)\b")
+            && !RegexIsMatch(
+                normalized,
+                @"\b(?:n['’]?invente|ne\s+pas\s+inventer|do\s+not\s+invent|don['’]?t\s+invent|no\s+invent|nao\s+invent|n[aã]o\s+invent|nicht\s+erfind|non\s+invent)\w*\b");
         return RegexIsMatch(normalized, $@"\b{ignoreWords}\b.{{0,60}}\b{sourceNames}\b")
             || RegexIsMatch(normalized, $@"\b{sourceNames}\b.{{0,60}}\b{ignoreWords}\b")
             || RegexIsMatch(normalized, $@"\b(?:sans|without|sin|sem|ohne|senza)\b.{{0,50}}\b{sourceNames}\b")
             || RegexIsMatch(normalized, @"\b(?:ne\s+pas|pas)\s+citer\b.{0,50}\b(?:sources?|documents?|pdf|citations?|references?)\b")
-            || RegexIsMatch(normalized, @"\b(?:invente|inventer|inventez|invent|invented|make\s+up|hallucinate|inventa|inventar|inventare|erfinde|erfinden|erfunden)\b");
+            || asksForInvention;
     }
 
     private static bool LooksLikeDocumentVersionOmittedYearRequestForValidation(string question)
@@ -666,9 +862,9 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         if (!RegexIsMatch(question, @"\b[\p{L}\p{N}][\p{L}\p{N}'\u2019 .,+_()&/\-]{2,260}\.(?:pdf|docx?|xlsx?|pptx?|md|txt|csv)\b"))
             return false;
 
-        return RegexIsMatch(answer, @"\b(?:pas\s+trouve|pas\s+trouv[eÃ©]|introuvable|absent|not\s+found|did\s+not\s+find|could\s+not\s+find|no\s+he\s+encontrado|nao\s+encontrei|nicht\s+gefunden|non\s+ho\s+trovato)\b")
-            && RegexIsMatch(answer, @"\b(?:corpus|index[eÃ©]?|indexed|catalogue|catalog|source)\b")
-            && RegexIsMatch(answer, @"\b(?:ne\s+le\s+resume\s+pas|ne\s+l['\u2019]?utilise\s+pas|will\s+not\s+summarize|will\s+not\s+use|no\s+voy\s+a\s+resumir|nao\s+vou\s+resume|fasse\s+es\s+nicht\s+zusammen|non\s+lo\s+riassumo)\b");
+        return RegexIsMatch(answer, @"\b(?:pas\s+trouve|pas\s+trouv[eé]|introuvable|absent|not\s+found|did\s+not\s+find|could\s+not\s+find|no\s+he\s+encontrado|nao\s+encontrei|nicht\s+gefunden|non\s+ho\s+trovato)\b")
+            && RegexIsMatch(answer, @"\b(?:corpus|index[eé]?|indexed|catalogue|catalog|source)\b")
+            && RegexIsMatch(answer, @"\b(?:ne\s+le\s+resume\s+pas|ne\s+l['\u2019]?utilise\s+pas|ne\s+peux\s+(?:donc\s+)?pas\s+(?:fournir|donner|r[eé]sumer)|will\s+not\s+summarize|will\s+not\s+use|no\s+voy\s+a\s+resumir|nao\s+vou\s+resume|fasse\s+es\s+nicht\s+zusammen|non\s+lo\s+riassumo)\b");
     }
 
     private static bool LooksLikeUnresolvedDeicticFollowup(string question)
@@ -726,7 +922,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         var headers = new[]
         {
             "id", "language", "detectedAnswerLanguage", "languageMatched", "axis", "difficulty", "corpusTarget", "theme", "mode", "elapsedMs", "sourceCount", "ragTraceEventCount",
-            "answerChars", "answerFlags", "answerSource", "advancedStatus", "advancedProviderKey", "advancedProviderModel", "advancedProviderCallCount", "advancedInputTokens", "advancedOutputTokens", "advancedEstimatedCostUsd", "question", "answerPreview", "sourcesPreview", "expectedAnswerKind",
+            "answerChars", "answerFlags", "answerSource", "advancedStatus", "advancedProviderKey", "advancedProviderModel", "advancedLastErrorCode", "advancedProviderCallCount", "advancedResultOutcome", "advancedClaimCount", "advancedEvidenceCount", "advancedInputTokens", "advancedOutputTokens", "advancedEstimatedCostUsd", "question", "answerPreview", "sourcesPreview", "expectedAnswerKind",
             "validationPoints", "error"
         };
         yield return string.Join('\t', headers);
@@ -750,6 +946,10 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         string Status,
         string ProviderKey,
         string ProviderModel,
+        string LastErrorCode,
+        string ResultOutcome,
+        int? ClaimCount,
+        int? EvidenceCount,
         int? ProviderCallCount,
         int? InputTokens,
         int? OutputTokens,
@@ -758,32 +958,114 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
     private static AdvancedTelemetry ReadAdvancedTelemetry(object? sourcesPayload)
     {
         if (sourcesPayload is null)
-            return new("", "", "", null, null, null, null);
+            return new("", "", "", "", "", null, null, null, null, null, null);
         try
         {
             var root = JsonSerializer.SerializeToElement(sourcesPayload);
             if (!root.TryGetProperty("advancedAnalysis", out var advanced)
                 || advanced.ValueKind != JsonValueKind.Object)
             {
-                return new("", "", "", null, null, null, null);
+                return new("", "", "", "", "", null, null, null, null, null, null);
             }
             return new AdvancedTelemetry(
                 ReadString(advanced, "status"),
                 ReadString(advanced, "providerKey"),
                 ReadString(advanced, "providerModel"),
+                ReadString(advanced, "lastErrorCode"),
+                ReadString(advanced, "resultOutcome"),
+                ReadInt(advanced, "claimCount"),
+                ReadInt(advanced, "evidenceCount"),
                 ReadInt(advanced, "providerCallCount"),
                 ReadInt(advanced, "inputTokens"),
                 ReadInt(advanced, "outputTokens"),
                 advanced.TryGetProperty("estimatedCostUsd", out var cost)
+                && cost.ValueKind == JsonValueKind.Number
                 && cost.TryGetDecimal(out var parsedCost)
                     ? parsedCost
                     : null);
         }
         catch (JsonException)
         {
-            return new("invalid", "", "", null, null, null, null);
+            return new("invalid", "", "", "", "", null, null, null, null, null, null);
         }
     }
+
+    private static IEnumerable<string> GetAdvancedSemanticFlags(
+        ValidationCase testCase,
+        string? answer,
+        AdvancedTelemetry telemetry,
+        IReadOnlyList<string> sourceLabels)
+    {
+        if (!string.Equals(
+                telemetry.Status,
+                "succeeded",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return [];
+        }
+
+        var flags = new List<string>();
+        var expectedUnits = testCase.ExpectedAnswerUnitCount;
+        if (string.Equals(
+                telemetry.ResultOutcome,
+                "answered",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            if (expectedUnits > 0 && telemetry.ClaimCount != expectedUnits)
+                flags.Add("advanced_claim_count_mismatch");
+            if (telemetry.EvidenceCount is null or <= 0)
+                flags.Add("advanced_cited_evidence_missing");
+            var normalizedSources = NormalizeSourceTerms(
+                string.Join(" ", sourceLabels));
+            if (testCase.RequiredSourceTerms.Any(term =>
+                    !normalizedSources.Contains(
+                        NormalizeSourceTerms(term),
+                        StringComparison.Ordinal)))
+            {
+                flags.Add("advanced_required_source_missing");
+            }
+            var normalizedAnswer = CollapseWhitespace(answer).ToLowerInvariant();
+            if (testCase.RequiredAnswerTerms.Any(term =>
+                    !normalizedAnswer.Contains(
+                        CollapseWhitespace(term).ToLowerInvariant(),
+                        StringComparison.Ordinal)))
+            {
+                flags.Add("advanced_required_answer_terms_missing");
+            }
+            if (expectedUnits > 0)
+            {
+                var citedUnits = System.Text.RegularExpressions.Regex.Matches(
+                        answer ?? string.Empty,
+                        @"\[C\d+\]",
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase
+                        | System.Text.RegularExpressions.RegexOptions.CultureInvariant)
+                    .Select(static match => match.Value)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Count();
+                if (citedUnits != expectedUnits)
+                    flags.Add("advanced_answer_unit_citations_mismatch");
+            }
+        }
+        else if (string.Equals(
+                     telemetry.ResultOutcome,
+                     "insufficient_documentation",
+                     StringComparison.OrdinalIgnoreCase)
+                 && !RegexIsMatch(
+                     answer ?? string.Empty,
+                     @"\b(?:manqu|insuffis|absent|impossible|pas\s+assez|non\s+(?:document|[eé]tay)|ne\s+(?:contient|contiennent|documentent|permet(?:tent)?|peut|peuvent)\s+(?:donc\s+)?pas|sans\s+fournir|not\s+enough|missing|insufficient)"))
+        {
+            flags.Add("advanced_insufficiency_not_specific");
+        }
+        return flags;
+    }
+
+    private static string NormalizeSourceTerms(string value)
+        => System.Text.RegularExpressions.Regex.Replace(
+            value ?? string.Empty,
+            @"[^\p{L}\p{N}]",
+            string.Empty,
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant)
+            .ToLowerInvariant();
 
     private static string ReadString(JsonElement element, string property)
         => element.TryGetProperty(property, out var value)
@@ -793,6 +1075,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
 
     private static int? ReadInt(JsonElement element, string property)
         => element.TryGetProperty(property, out var value)
+           && value.ValueKind == JsonValueKind.Number
            && value.TryGetInt32(out var parsed)
             ? parsed
             : null;
@@ -822,8 +1105,8 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
 
         var signals = new Dictionary<string, string[]>
         {
-            ["fr"] = ["je", "vous", "avec", "pour", "dans", "une", "des", "les", "est", "sont", "aucun", "aucune", "voici", "peut", "doit", "faut"],
-            ["en"] = ["i", "you", "with", "for", "from", "the", "and", "is", "are", "no", "none", "here", "can", "should", "must"],
+            ["fr"] = ["je", "vous", "avec", "pour", "dans", "une", "des", "les", "est", "sont", "aucun", "aucune", "voici", "peut", "doit", "faut", "jour", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "petit-dejeuner", "dejeuner", "collation", "souper", "recette", "recettes", "selon", "jambon", "equilibre"],
+            ["en"] = ["i", "you", "with", "for", "from", "the", "and", "is", "are", "no", "none", "here", "can", "should", "must", "recovers", "disk", "space", "occupied", "updated", "deleted", "rows", "storage", "dead", "tuples"],
             ["es"] = ["yo", "usted", "con", "para", "desde", "una", "los", "las", "esta", "son", "ningun", "ninguna", "puede", "debe"],
             ["pt"] = ["eu", "voce", "com", "para", "desde", "uma", "os", "as", "esta", "sao", "nao", "posso", "fontes", "disponiveis", "sustentam", "opcoes", "quantidades", "tempos", "nenhum", "nenhuma", "pode", "deve"],
             ["de"] = ["ich", "sie", "mit", "fur", "aus", "der", "die", "das", "ist", "sind", "kein", "keine", "kann", "sollte", "muss"],
@@ -905,6 +1188,9 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         public string Question { get; set; } = string.Empty;
         public string ExpectedAnswerKind { get; set; } = string.Empty;
         public string ValidationPoints { get; set; } = string.Empty;
+        public int ExpectedAnswerUnitCount { get; set; }
+        public string[] RequiredAnswerTerms { get; set; } = [];
+        public string[] RequiredSourceTerms { get; set; } = [];
     }
 
     private sealed class AgentDiagnostics

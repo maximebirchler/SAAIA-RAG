@@ -7,6 +7,8 @@ param(
     [string]$ExpectedAdvancedModel,
     [string]$LocalLlmBaseUrl = "http://127.0.0.1:1234",
     [string]$LocalModel = "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+    [string]$LocalLlmExePath = "",
+    [string]$LocalModelPath = "",
     [string]$BankPath = "",
     [string]$Ids = "",
     [ValidateRange(1, 3)]
@@ -40,11 +42,11 @@ if (Test-Path -LiteralPath $ArtifactDirectory) {
 New-Item -ItemType Directory -Path $ArtifactDirectory | Out-Null
 
 $bank = Get-Content -LiteralPath $BankPath -Raw | ConvertFrom-Json
-$selectedIds = if ([string]::IsNullOrWhiteSpace($Ids)) {
-    @($bank.validationCases | ForEach-Object id)
+[string[]]$selectedIds = @(if ([string]::IsNullOrWhiteSpace($Ids)) {
+    $bank.validationCases | ForEach-Object id
 } else {
-    @($Ids -split '[,;]' | ForEach-Object Trim | Where-Object { $_ })
-}
+    $Ids -split '[,;]' | ForEach-Object Trim | Where-Object { $_ }
+})
 if ($selectedIds.Count -eq 0) { throw "No validation case was selected." }
 
 $trackedEnvironment = @(
@@ -54,6 +56,8 @@ $trackedEnvironment = @(
     "SAAIA_LIVE_AGENT_BANK",
     "SAAIA_VALIDATION_LLM_BASE_URL",
     "SAAIA_VALIDATION_LLM_MODEL",
+    "SAAIA_VALIDATION_LLM_EXE_PATH",
+    "SAAIA_VALIDATION_LLM_MODEL_PATH",
     "SAAIA_VALIDATION_MANAGE_LOCAL_LLM_PROCESS",
     "SAAIA_AGENT_VALIDATION_ADVANCED_SERVER",
     "SAAIA_AGENT_VALIDATION_BANK_PATH",
@@ -77,6 +81,8 @@ try {
     $env:SAAIA_LIVE_AGENT_BANK = "1"
     $env:SAAIA_VALIDATION_LLM_BASE_URL = $LocalLlmBaseUrl.TrimEnd('/')
     $env:SAAIA_VALIDATION_LLM_MODEL = $LocalModel
+    $env:SAAIA_VALIDATION_LLM_EXE_PATH = $LocalLlmExePath
+    $env:SAAIA_VALIDATION_LLM_MODEL_PATH = $LocalModelPath
     $env:SAAIA_VALIDATION_MANAGE_LOCAL_LLM_PROCESS = "1"
     $env:SAAIA_AGENT_VALIDATION_ADVANCED_SERVER = "1"
     $env:SAAIA_AGENT_VALIDATION_BANK_PATH = $BankPath
@@ -134,7 +140,8 @@ try {
             [string]$_.advancedStatus -ne "succeeded" -or
             [string]$_.advancedProviderKey -ne $ExpectedAdvancedProvider -or
             [string]$_.advancedProviderModel -ne $ExpectedAdvancedModel -or
-            [int]$_.advancedProviderCallCount -le 0
+            [int]$_.advancedProviderCallCount -le 0 -or
+            -not [string]::IsNullOrWhiteSpace([string]$_.answerFlags)
         })
         if ($invalid.Count -gt 0) {
             $ids = ($invalid | ForEach-Object id) -join ","

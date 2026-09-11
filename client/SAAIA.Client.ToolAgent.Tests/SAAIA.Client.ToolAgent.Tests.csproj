@@ -21,7 +21,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SAAIA.Client.WinUI\SAAIA.Client.WinUI.csproj" />
+    <ProjectReference Include="..\SAAIA.Client.WinUI\SAAIA.Client.WinUI.csproj">
+      <AdditionalProperties>SAAIATestHooks=true;IntermediateOutputPath=obj\testhooks\$(Platform)\$(Configuration)\;OutputPath=bin\testhooks\$(Platform)\$(Configuration)\</AdditionalProperties>
+    </ProjectReference>
     <None Update="Fixtures\CanonicalBackendEvidenceContract.json" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Fixtures\CanonicalContextRevisionContract.json" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Fixtures\CanonicalContextualPayloadContract.json" CopyToOutputDirectory="PreserveNewest" />
