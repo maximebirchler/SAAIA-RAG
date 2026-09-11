@@ -11,7 +11,8 @@ param(
     [string]$Ids = "A755-ADV-01-meal-grid-5x4",
     [ValidateRange(1, 3)]
     [int]$Repetitions = 1,
-    [string]$BaseUrl = "",
+    [Alias("BaseUrl")]
+    [string]$ProviderBaseUrl = "",
     [string]$ModelId = "",
     [decimal]$AuthorizedBudgetUsd = 0,
     [decimal]$SoftLimitUsd = 0,
@@ -119,9 +120,9 @@ $secretProperty = if ($Provider -eq "OpenAI") {
 } else {
     "RunPodApiKeyProtected"
 }
-if ([string]::IsNullOrWhiteSpace($BaseUrl)) {
+if ([string]::IsNullOrWhiteSpace($ProviderBaseUrl)) {
     if ($Provider -eq "OpenAI") {
-        $BaseUrl = "https://api.openai.com/v1"
+        $ProviderBaseUrl = "https://api.openai.com/v1"
     } else {
         throw "BaseUrl is required for RunPod."
     }
@@ -133,8 +134,8 @@ if ([string]::IsNullOrWhiteSpace($ModelId)) {
         throw "ModelId is required for RunPod."
     }
 }
-if (-not [Uri]::IsWellFormedUriString($BaseUrl, [UriKind]::Absolute) -or
-    ([Uri]$BaseUrl).Scheme -ne "https") {
+if (-not [Uri]::IsWellFormedUriString($ProviderBaseUrl, [UriKind]::Absolute) -or
+    ([Uri]$ProviderBaseUrl).Scheme -ne "https") {
     throw "External provider BaseUrl must be an absolute HTTPS URI."
 }
 if ($Provider -eq "OpenAI") {
@@ -354,7 +355,7 @@ try {
             Provider = $providerMode
             ProviderKey = ""
             LlmLocation = "external-service"
-            LlmBaseUrl = $BaseUrl.TrimEnd('/')
+            LlmBaseUrl = $ProviderBaseUrl.TrimEnd('/')
             LlmModel = $ModelId
             LlmApiKeyRef = "ENV:SAAIA_ADVANCED_LLM_API_KEY"
             ReasoningEffort = "low"
@@ -429,7 +430,7 @@ try {
         ingestionWorkersEnabled = $false
         expectedAdvancedProvider = $providerMode
         expectedAdvancedModel = $ModelId
-        externalEndpointHost = ([Uri]$BaseUrl).Host
+        externalEndpointHost = ([Uri]$ProviderBaseUrl).Host
         localLlmRuntimeSha256 = (Get-FileHash -LiteralPath $LocalLlmExePath -Algorithm SHA256).Hash
         localModelSha256 = (Get-FileHash -LiteralPath $LocalModelPath -Algorithm SHA256).Hash
         selectedIds = @($Ids -split '[,;]' | ForEach-Object Trim | Where-Object { $_ })

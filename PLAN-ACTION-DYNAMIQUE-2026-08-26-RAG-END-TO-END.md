@@ -13499,3 +13499,35 @@ même parcours produit générique. Validation : 55/55 tests ciblés, 4 388 test
 Debug réussis, deux sondes live ignorées, build Release sans avertissement ni
 erreur, scripts PowerShell valides et rejet du RunPod sans budget vérifié. Aucun
 appel RunPod payant n'a été exécuté.
+
+## A763 — plafond Terra prouvé, support escaladé et planning courant réussi — 2026-09-11
+
+Une réponse 429 fraîche confirme sans ambiguïté la limite d'organisation : type
+`requests`, code `rate_limit_exceeded`, 50 RPD utilisés sur 50, zéro restant.
+La clé SAAIA active appartient au `Default project` de l'organisation qui porte
+les crédits et l'application ne fixe aucun en-tête `OpenAI-Organization` ou
+`OpenAI-Project`. Le problème ne vient donc ni du budget SAAIA, ni des crédits,
+ni d'un mauvais projet. Le ticket authentifié contient l'identifiant de requête
+et les en-têtes de limite demandés. Après confirmation du plafond par le support
+automatique, une escalade vers un agent humain a été demandée : la page Limits
+reste au `Free tier` et son seul bouton d'upgrade ouvre un nouvel achat de
+crédits.
+
+Le dernier cas complexe encore exécutable avec le quota Terra a réussi via le
+parcours produit courant : planning français de cinq jours et quatre repas,
+vingt propositions distinctes, vingt claims, neuf sources, deux appels,
+36 503 ms et 0,043438 USD. Le journal SAAIA totalise désormais 0,94174176 USD.
+Cette unique répétition reste insuffisante pour le verdict trois sur trois.
+
+Un premier lancement s'était arrêté avant HTTP : la casse insensible de
+PowerShell confondait le paramètre `$BaseUrl` du fournisseur et `$baseUrl` du
+backend local. Le contrôle HTTPS a évité toute transmission erronée et toute
+consommation de quota. Le paramètre interne est renommé `$ProviderBaseUrl`, son
+alias public est conservé et la façade RunPod a été alignée. Analyse syntaxique,
+contrôle de collision et `git diff --check` sont verts.
+
+La suite dépend maintenant de la correction Tier 1 ou du reset du bucket Terra
+pour terminer la banque gelée trois fois. RunPod reste prêt mais aucun crédit ni
+appel n'est engagé sans autorisation de dépense propre. Le serveur client, le
+vrai redémarrage WinUI et le nouveau holdout aveugle restent nécessaires avant
+l'approbation. Produit `TESTE_NON_APPROUVE`, Goal actif.

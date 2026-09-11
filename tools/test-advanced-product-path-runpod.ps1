@@ -38,7 +38,7 @@ $runner = Join-Path $PSScriptRoot "test-advanced-product-path-provider.ps1"
     -BackendPort $BackendPort `
     -Ids $Ids `
     -Repetitions $Repetitions `
-    -BaseUrl $BaseUrl `
+    -ProviderBaseUrl $BaseUrl `
     -ModelId $ModelId `
     -AuthorizedBudgetUsd $AuthorizedBudgetUsd `
     -SoftLimitUsd $SoftLimitUsd `

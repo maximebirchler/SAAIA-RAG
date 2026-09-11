@@ -146,10 +146,11 @@ le planning complexe. Terra reste le candidat API principal de validation.
 
 ## Coût et limites du compte
 
-Le journal local enregistre 50 appels Terra, dont 44 réussis et 6 rejets, pour
-216 886 tokens d'entrée, 37 979 tokens de sortie et 0,8412062 USD. Il enregistre
+Le journal local enregistre désormais 52 appels Terra, dont 46 réussis et 6
+rejets, pour 226 635 tokens d'entrée, 39 974 tokens de sortie et 0,8846442 USD.
+Il enregistre
 48 appels Luna réussis, 175 176 tokens d'entrée, 19 768 tokens de sortie et
-0,05709756 USD. Le total journalisé est 0,89830376 USD. L'interface OpenAI
+0,05709756 USD. Le total journalisé est 0,94174176 USD. L'interface OpenAI
 affiche 0,92 USD consommé et un solde actualisé de 24,08 USD ; le faible écart correspond
 aux appels ou arrondis hors journal applicatif.
 
@@ -170,7 +171,15 @@ Quatre rejets Terra `advanced_llm_http_429` sont horodatés entre 17:05 et 18:15
 Un dossier sans secret est prêt sous
 `artifacts/reprise-pc-20260908/a763-provider-comparison/openai-account-tier-support-20260911`.
 Il contient les preuves minimales et un message anglais prêt à transmettre au
-support. Le message n'a pas été envoyé.
+support. Une conversation authentifiée a été ouverte avec le support OpenAI et
+le message a été transmis. À sa demande, une réponse 429 fraîche et nettoyée a
+été fournie avec l'identifiant de requête, le type `requests`, le code
+`rate_limit_exceeded`, la limite 50, le restant 0, le reset et `Retry-After`.
+La clé active appartient au `Default project` de l'organisation financée et le
+code n'envoie ni `OpenAI-Organization` ni `OpenAI-Project`. Le support a confirmé
+qu'il s'agit bien d'un plafond RPD d'organisation, puis une escalade vers un
+agent humain a été demandée car la page Limits ne propose qu'un nouvel achat de
+crédits.
 
 ## Préparation RunPod sans dépense
 
@@ -240,3 +249,33 @@ sans modifier les critères. Un résultat sémantiquement incorrect réouvre la
 cause précise ; trois passages complets autorisent le gel du candidat API. La
 qualification RunPod, le test WinUI réel et le holdout aveugle restent ensuite
 les dernières preuves avant toute approbation produit.
+
+## Dernière exécution Terra sur l'état courant et incident du lanceur
+
+Les deux dernières requêtes Terra disponibles ont servi à une exécution produit
+du planning 5 × 4 après le gel mécanique. La première tentative s'est arrêtée
+avant tout appel externe avec `advanced_external_llm_requires_https`. La cause
+était une collision de variables PowerShell insensible à la casse : le paramètre
+externe `$BaseUrl` et l'URL locale `$baseUrl` désignaient la même variable. Le
+lanceur remplaçait donc par erreur l'URL HTTPS du fournisseur par l'URL HTTP du
+backend local. Le contrôle de sécurité a correctement refusé cette valeur et
+aucun quota Terra n'a été consommé par ce faux départ.
+
+Le lanceur générique emploie maintenant `$ProviderBaseUrl`, avec l'alias public
+`BaseUrl` conservé pour la compatibilité. La façade RunPod passe explicitement ce
+nouveau nom. Les deux scripts sont valides pour l'analyseur PowerShell, le scan
+de collision confirme une seule définition de l'URL locale et
+`git diff --check` reste propre.
+
+Le rejeu a ensuite abouti en 36 503 ms : statut avancé `succeeded`, outcome
+`answered`, deux appels Terra, 9 749 tokens d'entrée, 1 995 de sortie et
+0,043438 USD. La réponse française contient cinq jours, quatre repas par jour,
+vingt propositions distinctes, vingt claims et neuf cartes source. Elle ne porte
+aucun drapeau d'erreur de réponse. Cette preuve valide une répétition du cas
+complexe sur l'état courant ; elle ne remplace pas la banque trois sur trois.
+
+Une sonde minimale exécutée après ce rejeu reçoit HTTP 429 avec
+`x-ratelimit-limit-requests: 50`, `x-ratelimit-remaining-requests: 0` et le code
+`rate_limit_exceeded`. Le plafond fournisseur est donc maintenant épuisé. Le
+budget SAAIA demeure disponible et son arrêt dur à 24 USD est conservé pour
+respecter l'autorisation de dépense de 25 USD.
