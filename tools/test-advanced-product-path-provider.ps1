@@ -113,6 +113,7 @@ $backendProject = Join-Path $repositoryRoot "backend\SAAIA.Backend\SAAIA.Backend
 $backendContentRoot = Join-Path $repositoryRoot "backend\SAAIA.Backend"
 $localConfigPath = Join-Path $backendContentRoot "appsettings.Local.json"
 $agentBankScript = Join-Path $PSScriptRoot "test-advanced-analysis-agent-bank.ps1"
+$assessmentScript = Join-Path $PSScriptRoot "assess-advanced-capacity-results.ps1"
 $secretStorePath = Join-Path $env:LOCALAPPDATA "SAAIA\client\secure.json"
 $providerMode = if ($Provider -eq "OpenAI") { "openai-dev" } else { "runpod-bench" }
 $secretProperty = if ($Provider -eq "OpenAI") {
@@ -488,6 +489,15 @@ try {
         -ArtifactDirectory $bankArtifactDirectory
     if ($LASTEXITCODE -ne 0) {
         throw "Advanced product-path bank failed with exit code $LASTEXITCODE."
+    }
+
+    $assessmentMode = if ($Provider -eq "OpenAI") { "OpenAiDev" } else { "RunPod" }
+    & $assessmentScript `
+        -ArtifactDirectory $bankArtifactDirectory `
+        -ExpectedProviderMode $assessmentMode `
+        -ExpectedModel $ModelId
+    if ($LASTEXITCODE -ne 0) {
+        throw "Advanced product-path mechanical assessment failed with exit code $LASTEXITCODE."
     }
 }
 catch {

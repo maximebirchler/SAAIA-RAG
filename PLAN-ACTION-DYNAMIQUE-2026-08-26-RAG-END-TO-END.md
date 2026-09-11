@@ -13561,3 +13561,7 @@ Rejeu hors coût sur l'artefact Terra courant : fournisseur `openai-dev`, modèl
 contrôle échoué et verdict `PASS_MECHANICAL_REQUIRES_SEMANTIC_REVIEW`. Ce verdict
 ne promeut ni la qualité factuelle ni le produit ; il évite seulement un faux
 rejet lors de la future banque trois fois.
+
+Le lanceur commun OpenAI/RunPod appelle maintenant l'évaluateur après la banque
+et échoue si la porte mécanique est rouge. La revue sémantique reste séparée et
+obligatoire même lorsque cette commande termine avec succès.

@@ -315,3 +315,9 @@ acceptent les EvidenceIds historiques `[E…]` et les ClaimIds du contrat couran
 `PASS_MECHANICAL_REQUIRES_SEMANTIC_REVIEW`, une ligne, zéro échec. Le garde-fou
 rappelle explicitement que cette réussite mécanique ne remplace pas l'inspection
 sémantique ni les trois répétitions.
+
+Le lanceur produit commun exécute désormais cet évaluateur automatiquement
+après toute banque OpenAI ou RunPod réussie. Un rejet mécanique rend la campagne
+rouge avant sa clôture, tandis qu'un PASS conserve explicitement l'obligation de
+revue sémantique. La qualification future ne dépend donc plus d'une commande
+manuelle oubliable.
