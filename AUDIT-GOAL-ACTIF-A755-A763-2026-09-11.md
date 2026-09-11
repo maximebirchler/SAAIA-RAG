@@ -92,6 +92,15 @@ Le budget Terra est persistant et conservateur : 25 USD autorisés, alerte à
 par job. Le journal contient les métriques d'usage et jamais les prompts, les
 preuves ou les secrets.
 
+Les tarifs officiels Terra ont été revérifiés le 11 septembre 2026 : 2 USD par
+million de tokens d'entrée, 0,20 USD par million en cache et 12 USD par million
+de tokens de sortie. Le calcul proposé de 7 000 tokens d'entrée et 1 000 tokens
+de sortie donne bien 0,026 USD, soit environ 961 appels avec 25 USD. Il ne donne
+pas 961 questions avancées garanties : le chemin SAAIA emploie normalement un
+appel de planification et un appel de rédaction, avec un volume de preuves
+variable. Le premier essai réel mesurera ce coût avant d'autoriser les trois
+répétitions.
+
 La configuration signée sépare désormais le profil technique `Provider` de la
 topologie `LlmLocation`. OpenAI et RunPod exigent `external-service`; le serveur
 du client exige `internal`. Les scripts d'installation produisent cette valeur,
@@ -102,9 +111,9 @@ l'hébergement sans modifier la logique RAG.
 
 ## Vérifications effectuées sur l'état courant
 
-- tests ciblés du fournisseur : 11/11 ;
+- tests ciblés du fournisseur : 12/12 ;
 - tests ciblés de reprise A762 : 4/4 ;
-- suite complète : 4 359 réussis, 2 sondes live explicitement ignorées,
+- suite complète : 4 360 réussis, 2 sondes live explicitement ignorées,
   0 échec ;
 - build de la solution : 0 avertissement, 0 erreur ;
 - syntaxe de `_common.ps1` : valide ;

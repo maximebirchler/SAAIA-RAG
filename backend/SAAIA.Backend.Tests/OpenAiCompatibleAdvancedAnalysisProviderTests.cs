@@ -301,6 +301,18 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public void OpenAi_budget_prices_the_reference_7000_input_1000_output_call()
+    {
+        var cost = AdvancedAnalysisExternalBudgetGuard.CalculateCost(
+            inputTokens: 7_000,
+            outputTokens: 1_000,
+            cachedInputTokens: 0,
+            CreateOptions());
+
+        Assert.Equal(0.026m, cost);
+    }
+
+    [Fact]
     public void OpenAi_budget_keeps_per_job_call_limit_across_guard_restarts()
     {
         var options = CreateOptions();

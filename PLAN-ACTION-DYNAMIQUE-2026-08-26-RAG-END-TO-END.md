@@ -13396,6 +13396,10 @@ le parcours produit au grand modèle backend. Les profils `openai-dev`,
 planner/tools/writer, le même EvidenceBundle, le même validateur et les mêmes
 métriques. Le budget Terra persiste avec 25 USD autorisés, une alerte à 20 USD,
 un arrêt à 24 USD, 0,50 USD et quatre appels maximum par job.
+Les tarifs officiels revérifiés restent 2 USD/M en entrée, 0,20 USD/M en cache
+et 12 USD/M en sortie. Le scénario 7 000 tokens d'entrée et 1 000 de sortie
+coûte 0,026 USD par appel, soit environ 961 appels et non 961 jobs garantis,
+puisqu'un job réussi comporte normalement une planification et une rédaction.
 
 Le durcissement suivant sépare dans la configuration signée `Provider` et
 `LlmLocation`. OpenAI et RunPod sont `external-service`; le serveur client est
@@ -13406,7 +13410,7 @@ topologie autorisée et le profil technique fournit URL, secret, modèle et
 dimensionnement. Les assistants d'installation et le format commercial final
 restent hors du lot actuel.
 
-Validation mécanique courante : fournisseur 11/11, suite solution 4 359/4 359
+Validation mécanique courante : fournisseur 12/12, suite solution 4 360/4 360
 avec deux sondes live opt-in ignorées, build 0 avertissement/0 erreur, syntaxes
 PowerShell et Bash valides, 36/36 placeholders de production couverts et JSON
 rendu valide. Les trois profils produisent chacun une configuration signée
