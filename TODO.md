@@ -7,10 +7,13 @@
 > Note : `documents/` est ignore par Git dans ce repo. Le TODO ci-dessous est donc la source suivie dans le worktree partage.
 > Scope : client WinUI (LLM local, tuning, governance) + backend RAG (.NET 8, Postgres, Qdrant, endpoints)
 
-> Mise a jour RAG active du 2026-07-25 :
-> le plan detaille courant et la decision de refonte vers
-> `source-backed-agent-v2` sont dans
-> `TODO-2026-07-16-RAG-LLM-ORCHESTRATION.md`.
+> Mise a jour RAG active du 2026-07-28 :
+> le goal de référence, défini après l'audit du chemin actif et de la
+> compatibilité avec l'ingestion canonique, est
+> `GOAL-2026-07-28-RAG-CANONIQUE-LLM-FIRST.md`.
+> `TODO-2026-07-16-RAG-LLM-ORCHESTRATION.md` reste le journal détaillé du
+> chantier source-backed déjà réalisé; ses tâches historiques ne priment pas
+> sur les critères de sortie du nouveau goal.
 > L'audit externe, les preuves live et le plan d'experiences sont dans
 > `AUDIT-RAG-QWEN3-2026-07-25.md`.
 > Les validations historiques Qwen2.5 ci-dessous ne doivent pas etre lues
@@ -761,3 +764,441 @@ Ces points ne doivent pas etre consideres vrais par defaut : ils doivent etre **
 | 2026-04-29 | Codex | Reprise client : corrections post-Claude stabilisees, garde-fou RAG ajoute pour compacter les hits deja normalises avant prompt writer, message utilisateur explicite sur depassement contexte, suite client `367/367`, suite backend `348/348`, build solution OK. |
 | 2026-04-29 | Codex | Profil local nominal promu a `ctx=4096` uniquement via gouvernance qualifiee : warmup CUDA headless passe (`Pass`, TTFT max 107 ms, min ~10.89 tok/s), artefacts locaux `16/16` verifies, `llama-server` confirme `n_ctx=4096`; fallback CUDA stable reste `ctx=3072`. |
 | 2026-04-29 | Codex | Serveurs faibles capacites : collection gouvernee `backend-low-capacity` ajoutee puis verifiee sur `saaia-server` avec Qwen2.5 3B Q4_K_M (`ctx=4096`, `ngl=36`, `flash-attn=on`) ; hot TTFT ~154 ms, ~6.88 tok/s, VRAM ~2.1 GiB. Une copie locale obsolete dans `Desktop\\ecom\\SAAIA\\Models` a ete quarantainee et remplacee par le fichier gouverne `%LOCALAPPDATA%`. |
+
+---
+
+## Reprise active RAG canonique - 30 juillet 2026
+
+Référence normative détaillée :
+`GOAL-2026-07-28-RAG-CANONIQUE-LLM-FIRST.md`.
+
+### Constat live mesuré
+
+- [x] Route native Qwen3 correcte pour une grille 5 x 4 et 20 preuves atomiques.
+- [x] Recherches documentaires parallèles fonctionnelles : environ 2,4 secondes
+  pour quatre recherches, contre plusieurs dizaines de secondes par appel LLM.
+- [x] Cause dominante de la latence prouvée : environ 95 % du temps de bout en
+  bout est passé dans les appels Qwen3, principalement à relire des états de
+  5 000 à 8 400 tokens.
+- [x] Le run v147 a échoué après 15 minutes : 17 sources visibles, recherches
+  répétées sur le même PDF, puis sélection annulée après 101 secondes.
+- [x] Le rejet d'une sélection contenant plusieurs EvidenceId pour une même
+  source visible est couvert avant rendu par un test déterministe x64.
+- [ ] Confirmer ce rejet dans un run live qui atteint effectivement la
+  sélection; v147 a expiré avant le retour du LLM.
+
+### Correctifs de protocole en cours de validation
+
+- [x] Maintenir la compaction agressive pendant toute mission multi-preuves,
+  pas uniquement après un dépassement imminent de contexte.
+- [x] Exposer au LLM des `groupe_source=Vxxx` mécaniques et le nombre de
+  sources visibles distinctes; le LLM conserve seul le jugement sémantique.
+- [x] Pour une grille canonique déjà décidée par Qwen3, ne plus demander au LLM
+  de répéter le layout lors de la sélection : il renvoie seulement les
+  EvidenceId ordonnés et le code réutilise mécaniquement les axes Qwen3.
+- [x] Compacter l'audit sémantique : Qwen3 renvoie seulement
+  `approvedEvidenceIds`; toute omission est son rejet explicite.
+- [x] Build x64 : 0 avertissement, 0 erreur.
+- [x] Régressions ciblées sélection/audit : 23/23 vertes.
+- [ ] Run live v150 : comparer tokens par tour, répétitions, délai jusqu'à la
+  sélection, validité des 20 sources et durée totale.
+- [ ] Ne promouvoir aucune optimisation sur un seul run probabiliste :
+  exiger ensuite trois succès live consécutifs et contrôler la réponse cellule
+  par cellule.
+
+### Recul live v150 à v153
+
+- [x] v150 : échec à 15 minutes. La compaction et le contrat de sélection sont
+  actifs, mais une décision sans outil a été transformée en sélection impossible
+  avant que 20 sources visibles distinctes soient disponibles.
+- [x] v151 : échec à 15 minutes. La requête contenant des libellés de placement
+  n'est plus rejetée; 20 groupes sources ont finalement été trouvés. Deux
+  sélections ont toutefois choisi plusieurs EvidenceId de la même page et ont
+  été correctement refusées par le vérificateur mécanique.
+- [x] Présenter d'abord un représentant de chaque `groupe_source`, puis seulement
+  les variantes supplémentaires d'un même groupe. Cette largeur est mécanique et
+  ne classe pas la pertinence sémantique.
+- [x] v152 : échec honnête après 10 min 55 s avec 8 sources visibles distinctes.
+  Les prompts de décision ont baissé d'environ 5 900-6 200 tokens à
+  3 300-4 200 tokens, mais Qwen3 a répété neuf fois la même écriture de workspace
+  sans lancer de nouvel outil documentaire.
+- [x] Rejeter comme no-op une mise à jour de workspace strictement identique,
+  conserver la trace dédiée et réutiliser le mécanisme générique de sortie des
+  boucles d'actions identiques.
+- [x] Faire reformuler par le LLM chargé des axes le type de preuve atomique
+  d'une cellule; le code ne fait qu'appliquer cette décision structurée et ne
+  contient aucune interprétation Cuisine/repas/langue.
+- [x] Exposer au LLM que plusieurs appels documentaires indépendants peuvent
+  être émis dans un même tour et seront exécutés en parallèle.
+- [x] Validation v153 avant live : build x64 0 avertissement/0 erreur et
+  13/13 tests ciblés verts.
+- [ ] v153 live : vérifier la preuve atomique reformulée, le choix effectif des
+  capacités, l'absence de boucle workspace, le nombre de groupes sources, la
+  sélection, le rendu et la durée totale.
+- [ ] Même en cas de succès fonctionnel v153, refuser la promotion si la durée
+  dépasse 10 minutes ou si les 20 cellules ne sont pas toutes distinctes,
+  utiles, citées et résolubles.
+
+### Résultat v153 et protocole v154
+
+- [x] v153 live terminé en échec au timeout de 15 minutes :
+  `rag-20260730103145679-ca65a260`,
+  `source-backed-agent-v2-c3bcc4822d`,
+  `artifacts/live-v2-meal-plan-20260730-v153-8k-q8/`.
+- [x] Le corpus et le retrieval n'étaient plus le premier blocage : 21 sources
+  visibles distinctes étaient disponibles à environ 4 min 26 s et les appels
+  backend duraient généralement 1 à 1,8 seconde.
+- [x] Le défaut dominant v153 est la représentation de la sélection : huit
+  appels de sélection ont chacun relu environ 4 150 à 4 600 tokens et choisi
+  plusieurs EvidenceId provenant des mêmes pages. Le vérificateur mécanique
+  les a correctement tous refusés, mais la boucle a consommé le reste des
+  15 minutes sans produire de réponse.
+- [x] Ne plus exposer jusqu'à 59 candidats dans leur ordre d'arrivée lors de la
+  sélection finale. Pour 20 preuves requises, présenter au maximum 28
+  candidats, d'abord un représentant de chaque `VisibleSourceKey`, puis les
+  alternatives de ces groupes en tours successifs.
+- [x] Le regroupement « relation des axes + type de preuve atomique » a dégradé
+  les deux décisions sur v153 : le jour a été classé à tort comme
+  `source_discriminator` et la preuve est restée trop large.
+- [x] Remplacer ce regroupement par deux micro-décisions LLM indépendantes :
+  1. `submit_axis_evidence_relations` arbitre uniquement la relation de chaque
+     axe ;
+  2. `submit_atomic_evidence_type` décrit uniquement le contenu documentaire
+     minimal d'une cellule depuis la demande originale et les relations déjà
+     décidées.
+- [x] Ne jamais injecter le type de preuve proposé par le premier routeur dans
+  le micro-arbitrage atomique : il s'agit précisément de la décision à revoir
+  et il ne doit pas ancrer le second LLM.
+- [x] Build v154 x64 : 0 avertissement, 0 erreur.
+- [x] Validation ciblée v154 : 15/15 tests verts dans
+  `artifacts/targeted-v154/protocol-v154.trx`.
+- [x] Première passe large v154 : 74/91 verts. Les 13 échecs v149 connus
+  étaient toujours présents et quatre régressions de compaction
+  supplémentaires étaient devenues visibles :
+  `CompactState_DoesNotHideRecentSearchEvidenceBehindOlderCardInventory`,
+  `NativeLoop_LetsLlmChooseContentCardInventoryAndCiteItsStablePage`,
+  `NativeLoop_LetsLlmNavigateSearchAndProduceMechanicallyVerifiedAnswer` et
+  `ContextOverflow_RecompressesStateAndRetriesWithoutChangingSemanticOwnership`.
+- [x] Réconcilier ces quatre régressions sans réaugmenter le contexte live ni
+  rendre au code une décision sémantique : trois assertions ont été alignées
+  sur le format compact réellement actif et le message de récupération a été
+  raccourci. Les quatre tests sont verts.
+- [x] Deuxième passe large v154 :
+  `artifacts/targeted-v154/source-backed-v154-r2.trx`, 78/91 verts. Le résultat
+  est revenu exactement au cluster historique de 13 échecs v149, sans nouvelle
+  régression.
+- [ ] Exécuter v154 live et contrôler séparément : les deux micro-arbitrages,
+  les outils choisis, le nombre de groupes visibles au premier passage en
+  sélection, l'unicité physique des 20 preuves, le rendu exact et la durée.
+
+### Résultat live v154 et protocole v155
+
+- [x] v154 live terminé en échec après 14 min 34 s :
+  `rag-20260730105838278-e9738513`,
+  `source-backed-agent-v2-2e67c9f095`,
+  `artifacts/live-v2-meal-plan-20260730-v154-8k-q8/`.
+- [x] La séparation des micro-décisions a corrigé la relation des axes :
+  les lignes Lundi à Vendredi sont `placement_only` et les colonnes de repas
+  sont `source_discriminator`.
+- [x] Le micro-arbitrage atomique reste trop large : Qwen3 a décrit le planning
+  hebdomadaire entier au lieu du contenu d'une cellule. Les requêtes ont donc
+  encore été contaminées par les jours et la structure globale.
+- [x] Qwen3 a spontanément émis quatre recherches documentaires indépendantes
+  dans un même tour; l'exécuteur natif les a réellement exécutées en parallèle
+  en environ 1,3 seconde. Le choix d'outil demeure bien celui du LLM.
+- [x] Une seconde écriture strictement identique de l'espace de preuves a perdu
+  environ 89 secondes avant d'être rejetée comme `workspace_unknown_evidence_ids`.
+  Cause : les EvidenceId déjà refusés avaient été retirés de l'ensemble
+  « visible » avant que `WouldChange` puisse reconnaître le no-op.
+- [x] Autoriser mécaniquement au parseur les EvidenceId toujours présents dans
+  le bundle et déjà mémorisés comme retenus/refusés; conserver le refus des
+  identifiants inventés, puis laisser `WouldChange` classer l'identique comme
+  no-op.
+- [x] Renforcer le contrat atomique générique : une cellule est exactement
+  l'intersection d'une ligne et d'une colonne, et une sortie qui répète un
+  libellé que Qwen3 vient de classer `placement_only` doit être réparée par
+  Qwen3. Aucune règle Cuisine, repas, document ou langue n'est introduite.
+- [x] Construire v155 : build x64 vert, 0 avertissement et 0 erreur.
+- [x] Valider les deux causes v155 : 2/2 tests atomique/workspace verts dans
+  `artifacts/targeted-v155/causal-v155-r2.trx`.
+- [x] Rejouer la suite SourceBacked large : 79/92 verts dans
+  `artifacts/targeted-v155/source-backed-v155.trx`. Les 13 échecs sont
+  strictement les mêmes que les 13 du référentiel v154; le test v155 ajouté
+  explique le passage de 91 à 92 cas sans introduire de nouvelle régression.
+- [ ] Exécuter v155 live à 8K / KV q8 et exiger : preuve atomique réellement
+  cellulaire, requêtes non polluées par les axes de placement, absence de
+  répétition mémoire coûteuse, sélection de 20 groupes physiques distincts,
+  réponse professionnelle complète et durée totale inférieure à 10 minutes.
+
+### Résultat live v155 et protocole v156
+
+- [x] v155 live terminé en 7 min 28 s :
+  `rag-20260730112032455-7f8a5568`,
+  `source-backed-agent-v2-3adae94df3`,
+  `artifacts/live-v2-meal-plan-20260730-v155-8k-q8/`.
+- [x] La représentation compacte de sélection a presque supprimé la boucle :
+  la première sélection ne contenait plus qu'un doublon physique, refusé
+  mécaniquement, puis la deuxième sélection a convergé vers 20 groupes
+  distincts parmi 27 sources visibles.
+- [x] Le rendu mécanique a construit la grille canonique 5 x 4 avec 20
+  citations et 20 cartes sources résolubles. Ce constat ne prouve toutefois
+  pas la pertinence sémantique des cellules.
+- [x] Refuser la promotion de v155 : la plupart des cellules contiennent des
+  extraits bruts de sommaires, des conseils génériques ou des instructions
+  d'appareil, et non 20 recettes ou options de repas nommées et adaptées.
+  La vérification mécanique des sources a donc accepté une réponse
+  sémantiquement médiocre.
+- [x] Le test live a aussi signalé 16 cellules au lieu de 20 alors que la table
+  en contenait bien 20. Cause indépendante de la mauvaise qualité : son
+  parseur découpait les caractères `|` internes pourtant correctement échappés
+  en `\|` par le renderer Markdown.
+- [x] Remplacer le découpage naïf du test par un parseur de délimiteurs Markdown
+  non échappés et couvrir le cas par un test déterministe.
+- [x] Ajouter aussi l'en-tête de ligne aux libellés `placement_only` décidés
+  par Qwen3. Sur v155, le type atomique « liste ... jour par jour » a contourné
+  le contrôle parce qu'il répétait `Jour`, mais aucun des libellés
+  Lundi à Vendredi.
+- [x] Construire v156 séquentiellement : build x64 réussi en 4 min 37 s,
+  0 avertissement et 0 erreur.
+- [x] Valider les trois causes v156 : 3/3 tests verts dans
+  `artifacts/targeted-v156/causal-v156.trx` pour l'en-tête de placement,
+  le no-op workspace et le parseur Markdown.
+- [x] Rejouer exactement la classe v2 de référence : 79/92 verts dans
+  `artifacts/targeted-v156/agent-v2-v156.trx`; les 13 échecs ont exactement
+  les mêmes noms que dans v155, sans nouvelle régression.
+- [x] Conserver aussi la photographie plus large :
+  `artifacts/targeted-v156/source-backed-v156.trx` couvre 472 tests,
+  455 verts et 17 échecs, dont les 13 précédents et quatre dettes
+  pipeline/architecture hors de la base comparative v155.
+- [x] Relancer le live v156 8K / KV q8. Exiger que la preuve atomique soit
+  réparée sans axe de placement, que les recherches ciblent le contenu d'une
+  cellule, et que chaque cellule finale soit une option nommée réellement
+  soutenue par son passage source.
+- [ ] Si v156 conserve une sélection sémantiquement médiocre malgré une cible
+  atomique correcte, réintroduire un audit LLM compact de l'adéquation finale
+  des 20 affectations. Ne jamais assimiler contrat source mécanique et qualité
+  sémantique.
+
+### Résultat live v156 et recul architectural v157
+
+- [x] v156 live terminé en échec honnête après 10 min 55 s :
+  `rag-20260730114134158-3e27621e`,
+  `source-backed-agent-v2-47273e8050`,
+  `artifacts/live-v2-meal-plan-20260730-v156-8k-q8/`.
+- [x] Le contrôle de l'en-tête fonctionne : `Jour` figure désormais dans les
+  libellés `placement_only`, et les deux sorties du micro-arbitrage atomique
+  ont été refusées avec
+  `atomic_evidence_repeats_placement_labels:Jour`.
+- [x] Refuser le fallback v156 : après les deux échecs, le pipeline a repris
+  silencieusement la preuve atomique initiale du routeur,
+  « un exemple de repas concret pour une journée spécifique ». Ce repli
+  contredit la décision d'axes et annule la réparation.
+- [x] La conséquence est visible dans toutes les recherches : Qwen3 a cherché
+  le planning, la semaine ou les jours, puis a filtré les cartes avec
+  `petit-dejeuner lundi vendredi`, `dejeuner lundi vendredi`, etc.
+- [x] Qwen3 a ensuite répété deux fois la même requête de cartes, puis a inventé
+  des `offset=10` sans continuation `nextOffset` issue de la route exacte. Le
+  refus `pagination_route_mismatch` est donc un contrat mécanique correct,
+  pas un défaut du backend de pagination.
+- [x] Après 16 tours, 74 EvidenceId matérialisés mais seulement 17 sources
+  visibles approuvées étaient disponibles pour 20 cellules. La pseudo-sélection
+  textuelle finale de 20 identifiants a été refusée et aucune source n'a été
+  rendue.
+- [x] Probes Qwen3 isolés : renforcer les négations ou demander une phrase
+  atomique projetée conserve « jour par jour »; retirer trop de contexte fait
+  seulement recopier `Petit-déjeuner`; demander une cible par colonne pousse
+  Qwen3 à inventer des repas avant toute recherche. Ne pas empiler un nouveau
+  prompt sur cette abstraction fragile.
+- [x] Probe positif : le contrat structuré existant de rôles de colonnes produit
+  correctement quatre frontières distinctes
+  (`repas du matin`, `repas de midi`, `repas entre les repas`,
+  `repas de la soirée`) sans inventer de recette.
+- [x] v157 : supprimer le micro-arbitrage textuel atomique et son fallback.
+  Faire enrichir par Qwen3 les rôles canoniques de colonnes, puis projeter
+  mécaniquement le contrat depuis les relations `source_discriminator` /
+  `placement_only` qu'il a lui-même décidées.
+- [x] Refuser mécaniquement toute valeur `query`, `queries` ou `q` qui répète
+  exactement un libellé classé `placement_only`, avec retour de réparation à
+  Qwen3. Aucun synonyme ou jugement de pertinence ne doit être codé.
+- [x] Fournir les rôles Qwen3 au juge de candidats et supprimer le raccourci
+  `semantic_review.skipped_after_explicit_selection` : une sélection LLM
+  antérieure ne prouve pas que les 20 affectations finales sont adéquates.
+- [x] Construire et tester v157 avant tout nouveau live. Exiger une première
+  exploration sans jour de placement, un inventaire ou des requêtes de contenu
+  décidés librement par Qwen3, puis un audit sémantique final réel.
+- [x] Build v157 final (`build-v157-r6.out.log`) : 0 avertissement,
+  0 erreur. Les six tests causaux sont verts dans
+  `artifacts/targeted-v157/causal-v157-r3.trx`.
+- [x] Classe v2 comparative :
+  `artifacts/targeted-v157/agent-v2-v157-r2.trx`, 79/92 verts. Les 13 échecs
+  ont exactement les mêmes noms qu'en v156; aucune nouvelle régression.
+- [x] Périmètre source-backed large :
+  `artifacts/targeted-v157/source-backed-v157.trx`, 455/472 verts. Les 17
+  échecs ont exactement les mêmes noms qu'en v156.
+- [x] Le test d'ancrage de citation qui révélait la nouvelle revue obligatoire
+  simule désormais explicitement le verdict sémantique final et redevient vert.
+  La sélection et le remappage mécanique d'une citation ne court-circuitent
+  plus le juge LLM.
+- [x] Exécuter le live v157 à 8K / KV q8 et inspecter directement sa trace :
+  rôles de colonnes réellement enrichis par Qwen3, absence du micro-appel
+  atomique supprimé, contrat projeté appliqué, refus/réparation éventuelle des
+  libellés de placement dans les recherches, candidats approuvés, sélection
+  de 20 groupes physiques distincts, revue sémantique finale et latence totale.
+
+### Résultat live v157 et protocole v158
+
+- [x] v157 live terminé en échec honnête après 9 min 35 s :
+  `rag-20260730125712694-37f57d08`,
+  `artifacts/live-v2-meal-plan-20260730-v157-8k-q8/`.
+  Qwen3 n'a observé que 18 sources distinctes sur les 20 exigées et le
+  pipeline a correctement refusé sa pseudo-sélection textuelle finale.
+- [x] La nouvelle représentation fonctionne mécaniquement : Qwen3 a enrichi
+  les quatre rôles, classé les jours `placement_only`, classé les colonnes
+  `source_discriminator`, et le contrat projeté a remplacé l'ancien type
+  atomique. Aucun appel `submit_atomic_evidence_type` n'a été exécuté.
+- [x] Le contrat de placement a refusé trois recherches contenant littéralement
+  `Lundi` ou `Vendredi`. Qwen3 a toutefois conservé la même erreur sémantique
+  en cherchant ensuite `planning`, `semaine`, `menu complet` et les quatre
+  rôles simultanément. Ne pas coder une liste de synonymes pour masquer cette
+  dérive.
+- [x] Qwen3 a encore inventé cinq continuations `offset=10` ne correspondant
+  pas à une route ayant réellement fourni ce `nextOffset`; les refus
+  `pagination_route_mismatch` restent corrects.
+- [x] Cause de câblage v158 : le planificateur structuré choisissait déjà une
+  première action validée (`initialCapability`, requête, périmètre, limite)
+  et la stockait dans `SemanticPlanPreparation.InitialToolCall`, mais le
+  runner l'ignorait puis payait un nouveau tour LLM de planification.
+- [x] Reconnecter cette décision LLM comme première action du runner, conserver
+  la validation mécanique normale de son appel, et tracer sa source, son outil
+  et ses arguments. Cela augmente l'autorité réelle du LLM tout en supprimant
+  un appel redondant.
+- [x] Rendre sa propre couverture `source_discriminator` saillante à chaque
+  décision : libellés et rôles décidés par Qwen3, nombre mécanique de positions
+  par libellé et rappel qu'une preuve n'a pas à satisfaire tout le livrable.
+  Le choix des requêtes et des outils reste entièrement au LLM.
+- [x] Build de vérification v158 :
+  `artifacts/targeted-v158-build-r5-verify.log`, 0 avertissement, 0 erreur.
+  Les sept tests causaux sont verts dans
+  `artifacts/targeted-v158/causal-v158.trx`.
+- [x] Classe v2 : `artifacts/targeted-v158/agent-v2-v158.trx`, 80/92 verts.
+  Aucun nouvel échec; l'unique échec disparu est
+  `StructuredPlanner_ExecutesItsFirstActionWithoutASecondPlanningTurn`.
+- [x] Périmètre large :
+  `artifacts/targeted-v158/source-backed-v158.trx`, 456/472 verts contre
+  455/472 en v157, avec le même unique échec historique supprimé.
+- [x] Live v158 arrêté exactement au timeout de 15 minutes pendant la revue
+  sémantique finale :
+  `rag-20260730133723045-b23a7654`,
+  `source-backed-agent-v2-0880e2bda5`,
+  `artifacts/live-v2-meal-plan-20260730-v158-8k-q8/`.
+- [x] Convergence mécanique majeure : après le refus d'une première sélection
+  contenant quatre doublons physiques, Qwen3 a sélectionné 20 groupes distincts.
+  Le renderer a produit une table 5 x 4 de 1 824 caractères et le vérificateur
+  a accepté les 20 citations. La qualité sémantique reste non prouvée, car le
+  juge final n'a pas terminé avant le timeout.
+- [x] La couverture `source_discriminator` a amené Qwen3 à lancer quatre
+  recherches séparées, mais le micro-appel de rôles de colonnes a inventé des
+  horaires absents de la demande. Ces inventions ont ensuite contaminé les
+  requêtes avec `avant 12h`, `12h-14h`, `après 19h` et `semaine`.
+- [x] Le câblage v158 de l'action du planificateur est correct, mais la mission
+  live venait du routeur natif. Pour une grille, celui-ci imposait par code une
+  mission sans première action; le tour 1 a donc encore payé 4 170 tokens pour
+  choisir `documents_navigation`.
+- [x] v159 : préserver directement les rôles déjà fournis par le routeur pour
+  des colonnes explicites. N'appeler le micro-juge de rôles que lorsqu'aucun rôle
+  canonique n'existe, afin d'éviter les contraintes inventées et un appel LLM.
+- [x] v159 : faire choisir au même routeur LLM la première action des grilles
+  (`tool`, `query`, `scope`, `pool`), la transmettre comme action initiale
+  exécutable et laisser l'agent de recherche adapter librement la suite.
+- [x] Build client v159 :
+  `artifacts/targeted-v159-client-build-r2.out.log`, 0 avertissement, 0 erreur.
+  Build des tests :
+  `artifacts/targeted-v159-tests-build-r1.out.log`, 0 avertissement, 0 erreur.
+- [x] Quatre tests causaux v159 verts dans
+  `artifacts/targeted-v159/causal-v159-r1.trx`, dont la preuve qu'aucun
+  `submit_column_semantics` n'est appelé lorsque le routeur a déjà fourni les
+  colonnes exactes.
+- [ ] Exécuter à la reprise la classe v2 et le périmètre source-backed large,
+  puis la sonde native Qwen3 et seulement ensuite un nouveau live. Le live doit
+  démontrer une action routeur appliquée sans second tour de planification,
+  aucune invention d'horaire, 20 sources sémantiquement acceptées et une durée
+  maximale de 10 minutes.
+
+### Point d'arrêt propre — 2026-07-30 18:00 — v160
+
+- [x] Les régressions larges v159 n'ont introduit aucun nouvel échec :
+  80/92 tests Agent v2 et 456/472 tests SourceBacked passent; les 12 et 16
+  échecs restants sont exactement ceux déjà connus en v158.
+- [x] La sonde native v159 a invalidé sémantiquement l'action demandée au
+  routeur surchargé : il a recherché le livrable complet
+  (`planning de repas semaine lundi vendredi...`) au lieu d'une preuve
+  documentaire atomique. Aucun live complet n'a donc été lancé.
+- [x] v160 sépare de nouveau l'intake du choix d'action. Un appel LLM compact,
+  exécuté après la décision des relations d'axes et la projection du contrat
+  de preuve, choisit librement l'outil et ses arguments. Le code ne choisit ni
+  la requête, ni sa pertinence sémantique.
+- [x] Le test causal générique
+  `RouterGridMission_ChoosesItsFirstActionAfterAxisResolution` passe :
+  `artifacts/targeted-v160/initial-action-causal-v160-r2.trx`.
+- [x] Builds v160 propres : client
+  `artifacts/targeted-v160-client-build-r1.out.log` et tests
+  `artifacts/targeted-v160-tests-build-r4.out.log`, 0 avertissement,
+  0 erreur.
+- [x] La sonde Qwen3 réelle v160 a terminé en 12,64 s et apporte une preuve
+  discriminante :
+  `artifacts/live-initial-grid-action-20260730-175908/report.txt`.
+  Le modèle choisit bien `rag_search` et le scope exact `Cuisine`, mais sa
+  requête recopie encore le livrable complet ainsi que les jours de placement.
+  Le contrat mécanique la refuse correctement avec
+  `placement_only_query_terms:Lundi,Vendredi`; aucun outil documentaire n'est
+  exécuté et aucune fausse réussite n'est revendiquée.
+- [ ] À la reprise, repenser la représentation remise au décideur d'action :
+  distinguer explicitement, sans vocabulaire métier codé en dur, le livrable
+  final, les coordonnées de placement et la nature de la première preuve
+  atomique recherchée. Comparer plusieurs formulations sur une petite matrice
+  générique avant toute modification supplémentaire du pipeline.
+- [ ] Ne lancer le live complet du plan de repas qu'après une sonde Qwen3 où la
+  première requête cible une preuve atomique légitime sans recopier la grille.
+- [ ] Après cette preuve seulement, rejouer les périmètres Agent v2 et
+  SourceBacked larges, puis mesurer le chemin complet, les 20 preuves, les
+  citations fichier/page, les cartes UI et la latence.
+
+### Point d'arrêt propre — 2026-07-30 19:00 — v165
+
+- [x] La tentative v161 consistant à faire préclasser les axes abstraits par
+  Qwen3 a été invalidée par les sondes réelles : le petit modèle classait de
+  façon instable les mêmes axes comme placement ou discriminateur de source et
+  pouvait contredire sa propre justification. Cette voie a été retirée.
+- [x] v162-v165 conserve, pour une grille déjà interprétée par le routeur LLM,
+  sa cible de preuve atomique positive et transmet les coordonnées brutes au
+  décideur d'action. Aucune projection sémantique d'axe déterminée par le code
+  n'est appliquée sur ce chemin.
+- [x] Le protocole compact d'action exige désormais les champs mécaniques
+  structurés `capability`, `query`, `scope`, `document`, `anchor`, `limit` et
+  `offset`; une soumission incomplète déclenche une réparation LLM bornée avant
+  toute exécution.
+- [x] Les cinq tests causaux v163 passent :
+  `artifacts/targeted-v163/causal-v163-r1.trx`.
+- [x] Les builds v164 et v165 sont propres, sans avertissement ni erreur :
+  `artifacts/targeted-v164-build-r1.out.log` et
+  `artifacts/targeted-v165-build-r1.out.log`.
+- [x] La sonde Cuisine v164 choisit en 14,85 s
+  `documents_content_cards` sur le scope exact `Cuisine`, sans recopier le
+  planning dans la requête et avec une seule exécution :
+  `artifacts/live-initial-grid-action-20260730-184600/report.txt`.
+- [x] La matrice native Qwen3 v165 passe sur trois domaines génériques
+  (maintenance, ingénierie et formation), avec scopes exacts et une action
+  structurée valide :
+  `artifacts/live-initial-grid-matrix-20260730-184944/report.txt`.
+  Elle prouve la propreté du protocole, pas encore l'optimalité sémantique du
+  premier outil dans chaque cas.
+- [x] La régression Agent v2 v165 est terminée : 82/94 tests passent et les
+  12 échecs sont strictement identiques au baseline v159; aucun nouvel échec :
+  `artifacts/targeted-v165/agent-v2-v165.trx`.
+- [ ] À la reprise, exécuter le périmètre SourceBacked large et comparer
+  exactement ses échecs au baseline v159. Si aucun nouvel échec n'apparaît,
+  lancer un seul live complet du planning avec un timeout strict de 10 minutes.
+- [ ] Le live complet devra encore prouver la pertinence des 20 recettes, leur
+  unicité physique, les 20 citations résolubles fichier/page/passage, la
+  qualité finale et le respect du budget de latence. Les microsondes v164-v165
+  ne suffisent pas à revendiquer ces critères.

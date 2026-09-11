@@ -126,6 +126,9 @@ Test Bench/
 support-bundles/
 tmp/
 
+# Local phase campaign outputs restored from development workstations.
+phase5/
+
 # Ignore build artifacts anywhere (client included)
 **/.vs/
 **/bin/

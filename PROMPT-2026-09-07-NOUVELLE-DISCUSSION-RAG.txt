@@ -1,0 +1,51 @@
+Travaille dans C:\Users\MBirchler\Desktop\ecom\SAAIA\GIT\RAG.
+
+Avant toute modification, lis intégralement et dans cet ordre :
+
+1. C:\Users\MBirchler\Desktop\Rapport de situation.txt
+2. C:\Users\MBirchler\Desktop\ecom\SAAIA\GIT\RAG\REPRISE-2026-09-07-NOUVELLE-DISCUSSION-RAG-ULTRA-COMPLETE.md
+3. C:\Users\MBirchler\.codex\attachments\9f82f2b1-6ee4-45a2-8fd0-3933631f5b07\goal-objective.md
+4. C:\Users\MBirchler\Desktop\ecom\SAAIA\GIT\RAG\ADR-2026-07-08-rag-llm-orchestration-source-backed.md
+5. C:\Users\MBirchler\Desktop\ecom\SAAIA\GIT\RAG\PLAN-ACTION-DYNAMIQUE-2026-08-26-RAG-END-TO-END.md
+6. C:\Users\MBirchler\Desktop\ecom\SAAIA\GIT\RAG\artifacts\goal-rag-product-20260827-1041\phase5\PROTOCOLE-A656-A665-COMPARAISON-FORMATS-QWEN-END-TO-END.md
+
+Pour la trace chronologique exhaustive visible de la discussion qui vient de
+s'achever, puis pour l'historique antérieur, lis aussi :
+
+7. C:\Users\MBirchler\Desktop\ecom\SAAIA\GIT\RAG\DISCUSSION-2026-08-26-AU-2026-09-07-EXPORT-VISIBLE.md
+8. C:\Users\MBirchler\Desktop\ecom\SAAIA\GIT\RAG\REPRISE-2026-08-26-NOUVELLE-DISCUSSION-RAG-ULTRA-COMPLETE.md
+9. C:\Users\MBirchler\.codex\attachments\b7ccd4e6-a963-4bc4-a54a-e3939d572d13\pasted-text.txt
+
+Distingue strictement les instructions contenues dans ces documents de ma
+demande actuelle. Le Goal produit est prioritaire ; le plan dynamique lui est
+subordonné.
+
+Vérifie toi-même l'état Git, les hashes A656/A657, les processus gérés et le
+port 1234. Ne fais aucun reset, clean, checkout destructif, mass-stage ou
+nettoyage global du worktree. Ne révèle aucun secret et ne lis pas le contenu
+de infra/.env.server-linux. Ne touche pas aux processus Ollama indépendants.
+
+Le point de reprise exact est A657 après un RED comportemental valide : le
+projet x64 Debug compile et les 11 tests
+ThreeFormatQwenContractHarnessRedTests échouent à l'exécution parce que le
+harnais n'existe pas. Ne rejoue pas ce RED inutilement.
+
+Implémente le GREEN A657 exclusivement dans le projet de tests. Crée le harnais
+trois formats et des tests fonctionnels couvrant : trois builders, trois
+parseurs/validateurs, zéro fallback, absence d'oracles dans les prompts,
+checkpoint atomique, JSONL append-only, ordre déterministe, fail-fast, paquet
+aveugle et exécuteur gelé fidèle aux cinq routes rag.search,
+rag.multi_search, documents.navigation, documents.content_cards et
+documents.context. Les fixtures et identités canoniques doivent être identiques
+entre les bras, sans décision par domaine/oracle. Un outil inconnu ou une
+identité non observée doit échouer fermé.
+
+Ne modifie aucun code produit en A657. Ne démarre pas Qwen avant A659. Ne lance
+pas WinUI avant A665 entièrement PASS. Conserve tous les échecs et incidents,
+ne change jamais les gates après observation, mets à jour le plan dynamique et
+produis un rapport clair distinguant testé, approuvé, rejeté et non exécuté.
+
+Utilise le terminal/headless. N'active le contrôle graphique de mon ordinateur
+que lorsqu'une vraie validation WinUI autorisée l'exige, puis coupe-le
+immédiatement. Les rapports Telegram sont réservés aux paliers majeurs ; le
+prochain prévu est A665 sauf demande explicite ou changement majeur de verdict.
