@@ -232,8 +232,9 @@ secret ou appel payant RunPod n'a été créé à ce stade.
    l'autorisation de dépense RunPod, au moins 5 USD de crédits et une clé RunPod.
 4. Exécuter le même protocole sur le serveur final du client lorsque son matériel
    et son modèle seront disponibles.
-5. Fermer puis relancer le vrai WinUI pendant un job long, vérifier la reprise du
-   même job et ouvrir les cartes source exactes.
+5. Pendant une réponse avancée terminale acceptée, ouvrir les cartes source
+   exactes dans WinUI. La fermeture puis relance du vrai WinUI et la reprise du
+   même job sont désormais prouvées séparément.
 6. Ouvrir un nouveau holdout aveugle après le gel définitif du code.
 
 Le palier RunPod, l'hébergement client et le holdout aveugle dépendent de moyens
@@ -247,8 +248,8 @@ L'état courant doit être commité et poussé avec ses tests et son audit. Ensu
 dès que le quota Terra est disponible, la banque avancée est rejouée trois fois
 sans modifier les critères. Un résultat sémantiquement incorrect réouvre la
 cause précise ; trois passages complets autorisent le gel du candidat API. La
-qualification RunPod, le test WinUI réel et le holdout aveugle restent ensuite
-les dernières preuves avant toute approbation produit.
+qualification RunPod, l'inspection WinUI des sources terminales et le holdout
+aveugle restent ensuite les dernières preuves avant toute approbation produit.
 
 ## Dernière exécution Terra sur l'état courant et incident du lanceur
 
@@ -375,3 +376,38 @@ séparément en Release afin de conserver un TRX par projet : 10 tests contrats,
 et aucun échec. Les deux tests live canoniques restent explicitement ignorés. La
 porte locale est `PASS_MECHANICAL`; elle ne remplace pas la banque Terra 3/3 ni
 sa revue sémantique.
+
+## A763 — reprise réelle du même job après redémarrage WinUI — 2026-09-12
+
+Le commit `e7587810` ajoute une preuve reproductible du cycle de vie dans le
+véritable exécutable `SAAIA.Client.WinUI.exe`. Le runner crée une session, un
+message assistant et un job avancé temporaires, lance WinUI, attend les traces
+backend de reprise, ferme la fenêtre gracieusement, vérifie que le job serveur
+n'a pas été annulé, puis relance WinUI sur la même session.
+
+Les deux processus ont observé le même `jobId`
+`00174700-5608-4c8f-9e27-52cd6fd41591`, le même `handoffId` et le même
+`messageId`. Le backend rapporte un seul `POST` de création du job, quatre
+`GET` sur ce job, deux `PATCH` sur ce message, puis uniquement pendant le
+nettoyage un appel d'annulation et la suppression de la session temporaire.
+Après chaque fermeture réelle, l'état relu est `queued`, révision 1 et
+`cancelRequested: false`. Le verdict est
+`PASS_REAL_WINUI_RESTART_RESUME`.
+
+Le fournisseur est volontairement `disabled` et le worker désactivé pour isoler
+la propriété testée. Le compteur fournisseur vaut zéro et aucun contenu n'a été
+transmis à l'extérieur. Les fichiers `settings.json`, `secure.json` et le journal
+client de l'utilisateur ont été sauvegardés puis restaurés; la configuration
+locale temporaire a aussi été restaurée. Le shutdown final confirme zéro
+processus WinUI, zéro backend temporaire et zéro écoute résiduelle sur les ports
+de test. Aucun secret n'est présent dans l'artefact
+`artifacts/reprise-pc-20260908/a763-winui-restart-resume-e7587810-20260912`.
+
+Trois essais précédents restent conservés comme preuve des corrections du
+runner : dépendances documentaires absentes, champ RunPod optionnel sous mode
+strict, puis détecteur fondé sur un journal client trop indirect. Le dernier
+runner observe les requêtes backend réelles, qui constituent l'autorité pour la
+reprise. Cette validation ferme la porte arrêt/redémarrage du client. Elle ne
+valide ni la réponse sémantique, ni l'état terminal réussi, ni le clic des cartes
+source d'une réponse avancée : ces points restent attachés à la campagne Terra
+acceptée. Le produit reste `TESTE_NON_APPROUVE`.

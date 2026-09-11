@@ -13598,3 +13598,26 @@ Le commit `4b04aa94` a ensuite passé la validation locale complète en Release 
 4 389 tests réussis, aucun échec et deux probes live explicitement ignorées. Les
 trois TRX distincts et l'assessment `PASS_MECHANICAL` sont conservés dans
 `artifacts/reprise-pc-20260908/a763-provider-comparison/local-validation-4b04aa94-20260912`.
+
+## A763 — cycle réel de reprise WinUI validé — 2026-09-12
+
+Le runner `tools/test-advanced-winui-restart-resume.ps1`, figé au commit
+`e7587810`, a lancé deux fois le véritable exécutable WinUI autour d'une
+fermeture gracieuse. Les deux lancements ont repris le même job durable et le
+même message assistant. Un seul job a été créé; les traces backend montrent les
+`GET` de reprise et les deux `PATCH` du même message. Après chaque fermeture, le
+job était toujours `queued`, révision 1, sans annulation demandée. Verdict :
+`PASS_REAL_WINUI_RESTART_RESUME`.
+
+La preuve isole le cycle client : fournisseur `disabled`, worker désactivé,
+zéro appel externe et zéro coût. La session et le job temporaires ont été
+nettoyés après observation; configuration, réglages, magasin sécurisé et journal
+utilisateur ont été restaurés; aucun processus ou port de test n'est resté
+actif. L'artefact complet est
+`artifacts/reprise-pc-20260908/a763-winui-restart-resume-e7587810-20260912`.
+
+La porte de reprise réelle est donc fermée. L'inspection visuelle de l'état
+terminal et des cartes source exactes sera faite sur une réponse avancée retenue
+pendant la banque Terra. Les autres portes ne changent pas : banque Terra 3/3 et
+revue sémantique, qualification RunPod autorisée, serveur client, puis nouveau
+holdout aveugle après gel sémantique. Produit `TESTE_NON_APPROUVE`.

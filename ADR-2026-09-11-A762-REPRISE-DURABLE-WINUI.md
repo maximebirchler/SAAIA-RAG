@@ -1,7 +1,7 @@
 # A762 — Reprise durable de l'analyse avancée dans WinUI v1
 
 Date de décision : 2026-09-11  
-Statut : `ACCEPT_DURABLE_FIRST_SNAPSHOT_AND_RESTART_RESUME_KEEP_LIVE_UI_VALIDATION_OPEN`
+Statut : `ACCEPT_DURABLE_FIRST_SNAPSHOT_AND_REAL_WINUI_RESTART_RESUME_KEEP_TERMINAL_SOURCE_UI_VALIDATION_OPEN`
 
 ## Problème fermé
 
@@ -50,17 +50,32 @@ ont changé et ne copie pas le contenu des sources.
 - parseur de reprise vérifié sur contrat valide, mauvaise session et mauvais
   schéma;
 - transport du patch de `sourcesJson` vérifié sur le même `messageId`;
+- exécutable WinUI réel lancé, fermé gracieusement puis relancé sur une session
+  temporaire : le second processus reprend le même `jobId`, le même `handoffId`
+  et le même `messageId`, sans nouveau `POST` de création;
+- traces backend réelles : un `POST /advanced-analysis/jobs`, quatre `GET` sur
+  le même job et deux `PATCH` sur le même message; après chacune des deux
+  fermetures, le job reste `queued`, révision 1, `cancelRequested: false`;
+- fournisseur volontairement `disabled` et worker désactivé pendant cette
+  preuve de cycle de vie : zéro appel fournisseur et zéro contenu externe
+  transmis;
+- nettoyage vérifié : session temporaire supprimée, job de test annulé après la
+  seconde fermeture, configuration et fichiers utilisateur restaurés octet pour
+  octet, zéro processus WinUI/backend et zéro écoute sur les ports de test;
 - suite complète : contrats 10/10, backend 2 113 réussis et 1 probe live
   ignorée, client 2 194 réussis et 1 probe live ignorée, zéro échec;
 - format Roslyn et contrôle whitespace : propres.
 
 ## Limites encore ouvertes
 
-Le trajet est couvert mécaniquement et compilé dans l'application, mais un test
-visuel avec fermeture réelle du processus WinUI pendant un véritable job long
-reste à exécuter lorsque le fournisseur avancé sera activé. Aucun fournisseur
-réel n'est encore branché et aucune qualité sémantique avancée n'est déduite de
-ces tests de transport.
+Le cycle réel fermeture/redémarrage/reprise est maintenant prouvé par
+`tools/test-advanced-winui-restart-resume.ps1` et l'artefact
+`artifacts/reprise-pc-20260908/a763-winui-restart-resume-e7587810-20260912`.
+Cette preuve emploie un job durable volontairement maintenu en attente. Elle ne
+prouve donc pas encore l'affichage terminal d'une réponse avancée réussie ni
+l'ouverture de ses cartes source exactes. Cette dernière inspection doit être
+faite pendant une campagne fournisseur acceptée. Aucune qualité sémantique
+avancée n'est déduite de la preuve de cycle de vie.
 
 Le test PostgreSQL optionnel du `PATCH sources_json` a été lancé avec la
 configuration d'infrastructure locale. Il a bien atteint le PostgreSQL Windows,
