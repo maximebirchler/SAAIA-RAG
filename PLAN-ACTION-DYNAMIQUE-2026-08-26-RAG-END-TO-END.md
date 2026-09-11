@@ -13565,3 +13565,30 @@ rejet lors de la future banque trois fois.
 Le lanceur commun OpenAI/RunPod appelle maintenant l'évaluateur après la banque
 et échoue si la porte mécanique est rouge. La revue sémantique reste séparée et
 obligatoire même lorsque cette commande termine avec succès.
+
+## A763 — reprise partielle du quota et preuve d'interruption — 2026-09-12
+
+Le quota Terra a libéré assez de créneaux pour terminer trois cas avancés sur
+quatre : planning 5 × 4, cinq repas et comparaison CEN/IEC. NIST a échoué sur
+429 après son plan et ses recherches. La répétition entière reste rejetée. Les
+sept appels réussis de cette tentative ont porté le registre local à
+1,03689176 USD ; la campagne reste très loin de l'arrêt à 24 USD.
+
+Le lanceur de banque accepte désormais un délai configurable entre cas et
+répétitions et scelle le commit Git, l'état des fichiers suivis et le délai
+choisi. Une tentative sur le commit propre `4bd38c98` avec un délai de 60
+secondes a encore reçu deux 429 consécutifs sans coût. Elle a été arrêtée afin de
+ne pas gaspiller les créneaux RPD libérés progressivement. La cadence résout le
+risque RPM, mais ne remplace pas le Tier 1 ni un bucket RPD suffisamment libre.
+
+Les artefacts de shutdown distinguent maintenant `completed: true` d'une
+interruption. Si PowerShell reçoit Ctrl-C avant la fin, ils inscrivent un motif
+d'interruption même lorsque le bloc `catch` n'est pas exécuté. Le nettoyage a
+été vérifié : backend temporaire et Qwen arrêtés, ports 5123/1234 libres,
+configuration restaurée et aucun secret persisté.
+
+Prochaine action externe inchangée : attendre un quota permettant vingt-quatre
+appels utiles ou l'activation du Tier 1, puis lancer la banque complète 3/3 sur
+un commit propre avec le même runner et exécuter la revue sémantique. Les preuves
+RunPod et serveur client, le vrai redémarrage WinUI et le holdout aveugle restent
+nécessaires. Produit `TESTE_NON_APPROUVE`.

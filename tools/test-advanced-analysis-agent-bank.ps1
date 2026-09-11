@@ -83,6 +83,7 @@ foreach ($name in $trackedEnvironment) {
 
 $runs = @()
 $failure = $null
+$campaignCompleted = $false
 try {
     $env:SAAIA_LLM_PROVIDER_MODE = "Local"
     $env:SAAIA_LLM_EXTERNAL_POLICY = "ProductionLocal"
@@ -174,12 +175,16 @@ try {
             Start-Sleep -Seconds $DelayBetweenCasesSeconds
         }
     }
+    $campaignCompleted = $true
 }
 catch {
     $failure = $_.Exception.GetType().Name + ": " + $_.Exception.Message
     throw
 }
 finally {
+    if (-not $campaignCompleted -and [string]::IsNullOrWhiteSpace($failure)) {
+        $failure = "Campaign interrupted before completion."
+    }
     foreach ($name in $trackedEnvironment) {
         [Environment]::SetEnvironmentVariable($name, $previousEnvironment[$name], "Process")
     }
@@ -187,6 +192,7 @@ finally {
     [ordered]@{
         endedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
         runs = $runs
+        completed = $campaignCompleted
         failure = $failure
         environmentRestored = $true
         localPort1234ListenersAfterRun = $portOwned

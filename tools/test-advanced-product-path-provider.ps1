@@ -299,6 +299,7 @@ foreach ($name in $trackedEnvironment) {
 
 $backendProcess = $null
 $failure = $null
+$campaignCompleted = $false
 $ready = $null
 $bankArtifactDirectory = Join-Path $ArtifactDirectory "agent-bank"
 $backendStdout = Join-Path $ArtifactDirectory "backend.stdout.log"
@@ -511,12 +512,16 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Advanced product-path mechanical assessment failed with exit code $LASTEXITCODE."
     }
+    $campaignCompleted = $true
 }
 catch {
     $failure = $_.Exception.GetType().Name + ": " + $_.Exception.Message
     throw
 }
 finally {
+    if (-not $campaignCompleted -and [string]::IsNullOrWhiteSpace($failure)) {
+        $failure = "Campaign interrupted before completion."
+    }
     Stop-OwnedProcess -Process $backendProcess
 
     $portReleaseDeadline = [DateTimeOffset]::UtcNow.AddSeconds(15)
@@ -543,6 +548,7 @@ finally {
 
     [ordered]@{
         endedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
+        completed = $campaignCompleted
         failure = $failure
         environmentRestored = $true
         localConfigRestored = $true

@@ -321,3 +321,48 @@ après toute banque OpenAI ou RunPod réussie. Un rejet mécanique rend la campa
 rouge avant sa clôture, tandis qu'un PASS conserve explicitement l'obligation de
 revue sémantique. La qualification future ne dépend donc plus d'une commande
 manuelle oubliable.
+
+## A763 — créneaux RPD partiels et campagne gelée cadencée — 2026-09-12
+
+Une première tentative de banque complète a été exécutée après la réapparition
+de quelques créneaux Terra. Sur la répétition 1, le planning 5 × 4, les cinq
+repas étudiant et la comparaison CEN/IEC ont terminé avec le fournisseur
+`openai-dev` et le modèle `gpt-5.6-terra`. Leurs durées étaient respectivement
+32 577 ms, 32 938 ms et 64 761 ms. Le planning contient vingt claims et huit
+cartes source ; les cinq repas contiennent cinq claims et deux cartes ; la
+comparaison contient deux claims et les deux documents exigés. Le quatrième cas,
+sept points NIST, a obtenu son plan et ses recherches puis a échoué sur
+`advanced_llm_http_429` avant la rédaction. La dépense de cette tentative est de
+0,09515 USD, dont 0,004714 USD pour le plan NIST sans réponse finale. Le registre
+local atteint 1,03689176 USD.
+
+Cette exécution invalide la répétition et ne compte pas comme un passage de la
+banque. L'évaluateur mécanique scelle trois cas valides et le rejet NIST. Elle
+montre aussi que le plafond fournisseur ne s'est pas réinitialisé en un bloc :
+des requêtes initialement refusées ont ensuite réussi, puis le plafond est
+redevenu indisponible. L'observation est compatible avec des créneaux RPD de la
+veille qui expirent progressivement ; elle ne permet pas de disposer des vingt-
+quatre appels normalement requis pour 4 cas × 3 répétitions.
+
+Le lanceur commun accepte maintenant un délai explicite entre les cas et entre
+les répétitions. Le préflight enregistre ce délai, le commit Git exact et si des
+fichiers suivis étaient modifiés. Le commit `4bd38c98` porte cette correction et
+permet de distinguer une campagne réellement gelée d'un simple répertoire
+d'artefacts. Une seconde tentative a été lancée sur ce commit avec 60 secondes
+de délai. Les deux premiers cas ont reçu 429 sans coût malgré ce délai ; la
+campagne a été interrompue pour ne pas consommer les rares créneaux qui se
+libèrent. Son assessment est `REJECT_MECHANICAL` et une note d'interruption
+explicite complète les fichiers de shutdown.
+
+L'interruption a mis en évidence une seconde faiblesse de preuve : un Ctrl-C
+exécutait bien les blocs `finally`, arrêtait le backend et Qwen, mais laissait
+`failure: null`. Les deux lanceurs communs exposent désormais `completed` et
+inscrivent `Campaign interrupted before completion.` lorsqu'un arrêt se produit
+avant la fin. Les ports 1234 et 5123 sont libres, aucun `llama-server` ne reste
+actif, la configuration locale est restaurée et aucun secret n'a été écrit dans
+les artefacts.
+
+Le délai est conservé comme paramètre reproductible pour les limites RPM ; il ne
+prétend pas supprimer un plafond RPD. La preuve encore requise reste une banque
+complète 3/3 sur un quota réellement disponible ou après activation du Tier 1.
+Le produit reste `TESTE_NON_APPROUVE`.
