@@ -30,9 +30,16 @@ public sealed class ThreeFormatQwenContractHarnessTests
     }
     private static string ToolNameFor(string action) => action switch
     {
-        "answer" => "submit_source_backed_answer_draft", "search" => "rag_search", "navigation" => "documents_navigation",
-        "content_cards" => "documents_content_cards", "context" => "documents_context", "clarify" => "request_source_backed_clarification",
-        "insufficient" => "declare_source_backed_insufficiency", "accept" => "accept_source_backed_answer", "block" => "block_source_backed_answer", _ => throw new ArgumentException(action)
+        "answer" => "submit_source_backed_answer_draft",
+        "search" => "rag_search",
+        "navigation" => "documents_navigation",
+        "content_cards" => "documents_content_cards",
+        "context" => "documents_context",
+        "clarify" => "request_source_backed_clarification",
+        "insufficient" => "declare_source_backed_insufficiency",
+        "accept" => "accept_source_backed_answer",
+        "block" => "block_source_backed_answer",
+        _ => throw new ArgumentException(action)
     };
     private static JsonObject GrammarValue(string action, string role, string args)
     {
@@ -55,7 +62,9 @@ public sealed class ThreeFormatQwenContractHarnessTests
         Assert.Equal("06FD50E1B1A4A3AFD1FEA68679AA9F865DE35EAE6D48B1C3AFC822BFF1980B88", Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(red))));
     }
     [Theory]
-    [InlineData(0)] [InlineData(1)] [InlineData(2)]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
     public void Any_frozen_input_drift_fails_before_request_building(int changed)
     {
         using var temp = new Temporary();
@@ -100,10 +109,20 @@ public sealed class ThreeFormatQwenContractHarnessTests
         { Assert.Equal(256, request.Body.GetProperty("max_tokens").GetInt32()); Assert.Contains("FROZEN_DRAFT", request.Body.GetRawText()); Assert.Contains("SOURCE_CONTRACT", request.Body.GetRawText()); }
     }
     [Theory]
-    [InlineData("controller", "answer")] [InlineData("controller", "search")] [InlineData("controller", "navigation")]
-    [InlineData("controller", "content_cards")] [InlineData("controller", "context")] [InlineData("controller", "clarify")] [InlineData("controller", "insufficient")]
-    [InlineData("reviewer", "accept")] [InlineData("reviewer", "search")] [InlineData("reviewer", "navigation")]
-    [InlineData("reviewer", "content_cards")] [InlineData("reviewer", "context")] [InlineData("reviewer", "clarify")] [InlineData("reviewer", "block")]
+    [InlineData("controller", "answer")]
+    [InlineData("controller", "search")]
+    [InlineData("controller", "navigation")]
+    [InlineData("controller", "content_cards")]
+    [InlineData("controller", "context")]
+    [InlineData("controller", "clarify")]
+    [InlineData("controller", "insufficient")]
+    [InlineData("reviewer", "accept")]
+    [InlineData("reviewer", "search")]
+    [InlineData("reviewer", "navigation")]
+    [InlineData("reviewer", "content_cards")]
+    [InlineData("reviewer", "context")]
+    [InlineData("reviewer", "clarify")]
+    [InlineData("reviewer", "block")]
     public void Three_parsers_agree_for_every_allowed_role_action(string role, string action)
     {
         var response = Native(ToolNameFor(action), Args(action));
@@ -173,8 +192,11 @@ public sealed class ThreeFormatQwenContractHarnessTests
     }
 
     [Theory]
-    [InlineData("rag.search", "search")] [InlineData("rag.multi_search", "multi")]
-    [InlineData("documents.navigation", "navigation")] [InlineData("documents.content_cards", "content_cards")] [InlineData("documents.context", "context")]
+    [InlineData("rag.search", "search")]
+    [InlineData("rag.multi_search", "multi")]
+    [InlineData("documents.navigation", "navigation")]
+    [InlineData("documents.content_cards", "content_cards")]
+    [InlineData("documents.context", "context")]
     public void All_five_routes_produce_product_readable_observations_with_canonical_identities(string route, string action)
     {
         foreach (var state in Inputs.States)
@@ -264,7 +286,11 @@ public sealed class ThreeFormatQwenContractHarnessTests
         Assert.True(ParseJson(packet.PublicJson).GetArrayLength() >= result.Runs.Count(r => !r.Strict));
     }
     [Theory]
-    [InlineData("fallback")] [InlineData("publication")] [InlineData("budget")] [InlineData("identity")] [InlineData("endpoint")]
+    [InlineData("fallback")]
+    [InlineData("publication")]
+    [InlineData("budget")]
+    [InlineData("identity")]
+    [InlineData("endpoint")]
     public async Task Safety_breaks_stop_a_family_before_any_further_run(string fault)
     {
         using var temp = new Temporary();
@@ -273,8 +299,10 @@ public sealed class ThreeFormatQwenContractHarnessTests
             var run = await SearchRun(s, state, ct);
             return fault switch
             {
-                "fallback" => run with { Fallback = true }, "publication" => run with { PublishedText = "unreviewed" },
-                "budget" => run with { ControllerInputTokens = 3393 }, "endpoint" => run with { ForbiddenEndpoint = true },
+                "fallback" => run with { Fallback = true },
+                "publication" => run with { PublishedText = "unreviewed" },
+                "budget" => run with { ControllerInputTokens = 3393 },
+                "endpoint" => run with { ForbiddenEndpoint = true },
                 _ => run with { Controller = run.Controller with { Arguments = ParseJson("{\"query\":\"x\",\"docId\":\"invented\"}") } }
             };
         });
@@ -303,7 +331,8 @@ public sealed class ThreeFormatQwenContractHarnessTests
         Assert.Throws<InvalidOperationException>(() => ParseGrammarResponse(Inputs, State, GrammarResponse(reviewer), "reviewer"));
     }
     [Theory]
-    [InlineData("drift")] [InlineData("unhealthy")]
+    [InlineData("drift")]
+    [InlineData("unhealthy")]
     public async Task An_unusable_runtime_stops_all_families(string fault)
     {
         using var temp = new Temporary();
@@ -354,8 +383,12 @@ public sealed class ThreeFormatQwenContractHarnessTests
                 : SearchRun(s, fixture, ct));
         Assert.True(result.Runs[0].Strict); Assert.Empty(result.Runs[0].FatalReasons);
         var strict = result.Runs[0];
-        var disagreement = strict with { Scheduled = strict.Scheduled with { Variant = Routed }, Strict = false,
-            Outcome = strict.Outcome! with { SourceContractValid = false } };
+        var disagreement = strict with
+        {
+            Scheduled = strict.Scheduled with { Variant = Routed },
+            Strict = false,
+            Outcome = strict.Outcome! with { SourceContractValid = false }
+        };
         var packet = BuildBlindPacket(Inputs, [strict, disagreement], "private-salt-at-least-16-characters");
         Assert.Equal(2, ParseJson(packet.PublicJson).GetArrayLength());
     }

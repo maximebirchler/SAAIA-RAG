@@ -46,54 +46,54 @@ public static class OpenTelemetryServiceCollectionExtensions
         services.AddOpenTelemetry()
             .WithTracing(t =>
             {
-                 t.SetResourceBuilder(resource)
-                 .AddSource(RetrievalTelemetry.ActivitySourceName)
-                 .AddSource(RuntimeGovernanceTelemetry.ActivitySourceName)
-                 .AddAspNetCoreInstrumentation(o =>
-                 {
-                     o.RecordException = true;
+                t.SetResourceBuilder(resource)
+                .AddSource(RetrievalTelemetry.ActivitySourceName)
+                .AddSource(RuntimeGovernanceTelemetry.ActivitySourceName)
+                .AddAspNetCoreInstrumentation(o =>
+                {
+                    o.RecordException = true;
 
-                     // Reduce noise: do not trace lightweight/public endpoints
-                     o.Filter = ctx =>
-                     {
-                         var p = ctx.Request.Path.Value ?? "";
-                         if (p.StartsWith("/health", StringComparison.OrdinalIgnoreCase)) return false;
-                         if (p.StartsWith("/ready", StringComparison.OrdinalIgnoreCase)) return false;
-                         if (p.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase)) return false;
-                         if (p.StartsWith("/ui", StringComparison.OrdinalIgnoreCase)) return false;
-                         return true;
-                     };
-                 })
-                 .AddHttpClientInstrumentation(o =>
-                 {
-                     o.RecordException = true;
+                    // Reduce noise: do not trace lightweight/public endpoints
+                    o.Filter = ctx =>
+                    {
+                        var p = ctx.Request.Path.Value ?? "";
+                        if (p.StartsWith("/health", StringComparison.OrdinalIgnoreCase)) return false;
+                        if (p.StartsWith("/ready", StringComparison.OrdinalIgnoreCase)) return false;
+                        if (p.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase)) return false;
+                        if (p.StartsWith("/ui", StringComparison.OrdinalIgnoreCase)) return false;
+                        return true;
+                    };
+                })
+                .AddHttpClientInstrumentation(o =>
+                {
+                    o.RecordException = true;
 
-                     // Reduce noise: ignore background Qdrant point-count polling
-                     o.FilterHttpRequestMessage = req =>
-                     {
-                         var u = req.RequestUri?.AbsolutePath ?? "";
-                         if (u.EndsWith("/points/count", StringComparison.OrdinalIgnoreCase))
-                             return false;
-                         return true;
-                     };
-                 })
-                 .AddOtlpExporter(o =>
-                 {
-                     o.Endpoint = endpoint;
-                 });
+                    // Reduce noise: ignore background Qdrant point-count polling
+                    o.FilterHttpRequestMessage = req =>
+                    {
+                        var u = req.RequestUri?.AbsolutePath ?? "";
+                        if (u.EndsWith("/points/count", StringComparison.OrdinalIgnoreCase))
+                            return false;
+                        return true;
+                    };
+                })
+                .AddOtlpExporter(o =>
+                {
+                    o.Endpoint = endpoint;
+                });
             })
             .WithMetrics(m =>
             {
-                 m.SetResourceBuilder(resource)
-                 .AddMeter(RetrievalTelemetry.MeterName)
-                 .AddMeter(RuntimeGovernanceTelemetry.MeterName)
-                 .AddAspNetCoreInstrumentation()
-                 .AddHttpClientInstrumentation()
-                 .AddRuntimeInstrumentation()
-                 .AddOtlpExporter(o =>
-                 {
-                     o.Endpoint = endpoint;
-                 });
+                m.SetResourceBuilder(resource)
+                .AddMeter(RetrievalTelemetry.MeterName)
+                .AddMeter(RuntimeGovernanceTelemetry.MeterName)
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddRuntimeInstrumentation()
+                .AddOtlpExporter(o =>
+                {
+                    o.Endpoint = endpoint;
+                });
             });
 
         return services;

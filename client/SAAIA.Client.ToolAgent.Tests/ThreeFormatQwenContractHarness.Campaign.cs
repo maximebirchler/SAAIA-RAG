@@ -163,8 +163,14 @@ public static partial class ThreeFormatQwenContractHarness
     {
         Require(privateSalt.Length >= 16, "blind_salt_too_short");
         var disagreementCases = records.GroupBy(r => r.Scheduled.CasePosition)
-            .Where(group => group.Select(r => Serialize(new { r.Strict, r.Outcome?.ProtocolValid, r.Outcome?.ProvenanceValid,
-                r.Outcome?.SourceContractValid, result = PublicResult(r) })).Distinct(StringComparer.Ordinal).Count() > 1).Select(g => g.Key).ToHashSet();
+            .Where(group => group.Select(r => Serialize(new
+            {
+                r.Strict,
+                r.Outcome?.ProtocolValid,
+                r.Outcome?.ProvenanceValid,
+                r.Outcome?.SourceContractValid,
+                result = PublicResult(r)
+            })).Distinct(StringComparer.Ordinal).Count() > 1).Select(g => g.Key).ToHashSet();
         var selected = records.Where(r => includeAll || !r.Strict || disagreementCases.Contains(r.Scheduled.CasePosition)).ToArray();
         var packets = new SortedDictionary<string, object>(StringComparer.Ordinal);
         var key = new SortedDictionary<string, object>(StringComparer.Ordinal);
@@ -177,7 +183,8 @@ public static partial class ThreeFormatQwenContractHarness
             var oracle = inputs.ScoringCases[position];
             packets.Add(blindId, new
             {
-                blindId, question = Text(ParseJson(state.Json), "question"),
+                blindId,
+                question = Text(ParseJson(state.Json), "question"),
                 evidence = state.Evidence.Select(e => new { e.Id, e.Excerpt, e.PageStart, e.PageEnd }),
                 result = ParseJson(PublicResult(record)),
                 oracle = Project(oracle, ["expectedDecision", "expectedEvidenceIds", "requiredPatterns"])
@@ -192,7 +199,8 @@ public static partial class ThreeFormatQwenContractHarness
     {
         if (record.ProtocolFailure is { } rejected) return Serialize(new
         {
-            decision = "protocol_invalid", publishedText = (string?)null,
+            decision = "protocol_invalid",
+            publishedText = (string?)null,
             modelPayload = rejected.ModelPayload,
             draft = rejected.PartialController?.Arguments,
             claims = rejected.PartialController is { Action: "answer" } partial
@@ -201,7 +209,8 @@ public static partial class ThreeFormatQwenContractHarness
         if (record.Outcome is not { } outcome) return Serialize(new { decision = "execution_failed", publishedText = (string?)null, claims = Array.Empty<object>() });
         return Serialize(new
         {
-            decision = outcome.Controller.Action, publishedText = outcome.PublishedText,
+            decision = outcome.Controller.Action,
+            publishedText = outcome.PublishedText,
             // Retain the actual search/context payload for the auditor, stripping path-bearing scope fields.
             arguments = outcome.Controller.Arguments.EnumerateObject()
                 .Where(p => p.Name is not ("docPath" or "path" or "categoryPath" or "docRef" or "categoryRef"))

@@ -165,23 +165,23 @@ public sealed partial class ToolAgentOrchestrator
 
         var header = wantsVerificationChecklist
             ? language switch
-        {
-            "en" => "Here are the checks I can support with the available documents:",
-            "es" => "Estas son las verificaciones que puedo apoyar con los documentos disponibles:",
-            "pt" => "Estas são as verificações que posso apoiar com os documentos disponíveis:",
-            "de" => "Hier sind die Prüfpunkte, die ich mit den verfügbaren Dokumenten belegen kann:",
-            "it" => "Ecco i controlli che posso sostenere con i documenti disponibili:",
-            _ => "Voici les vérifications que je peux appuyer avec les documents disponibles :"
-        }
+            {
+                "en" => "Here are the checks I can support with the available documents:",
+                "es" => "Estas son las verificaciones que puedo apoyar con los documentos disponibles:",
+                "pt" => "Estas são as verificações que posso apoiar com os documentos disponíveis:",
+                "de" => "Hier sind die Prüfpunkte, die ich mit den verfügbaren Dokumenten belegen kann:",
+                "it" => "Ecco i controlli che posso sostenere con i documenti disponibili:",
+                _ => "Voici les vérifications que je peux appuyer avec les documents disponibles :"
+            }
             : language switch
-        {
-            "en" => "Here is a practical proposal based on the available documents:",
-            "es" => "Aquí tienes una propuesta práctica basada en los documentos disponibles:",
-            "pt" => "Aqui está uma proposta prática baseada nos documentos disponíveis:",
-            "de" => "Hier ist ein praktischer Vorschlag auf Basis der verfügbaren Dokumente:",
-            "it" => "Ecco una proposta pratica basata sui documenti disponibili:",
-            _ => "Voici une proposition pratique appuyée sur les documents disponibles :"
-        };
+            {
+                "en" => "Here is a practical proposal based on the available documents:",
+                "es" => "Aquí tienes una propuesta práctica basada en los documentos disponibles:",
+                "pt" => "Aqui está uma proposta prática baseada nos documentos disponíveis:",
+                "de" => "Hier ist ein praktischer Vorschlag auf Basis der verfügbaren Dokumente:",
+                "it" => "Ecco una proposta pratica basata sui documenti disponibili:",
+                _ => "Voici une proposition pratique appuyée sur les documents disponibles :"
+            };
 
         var sb = new StringBuilder();
         sb.AppendLine(header);
@@ -204,31 +204,31 @@ public sealed partial class ToolAgentOrchestrator
         {
             var label = wantsVerificationChecklist
                 ? language switch
-            {
-                "en" => $"Check {i + 1}",
-                "es" => $"Verificación {i + 1}",
-                "pt" => $"Verificação {i + 1}",
-                "de" => $"Prüfpunkt {i + 1}",
-                "it" => $"Controllo {i + 1}",
-                _ => $"Vérification {i + 1}"
-            }
+                {
+                    "en" => $"Check {i + 1}",
+                    "es" => $"Verificación {i + 1}",
+                    "pt" => $"Verificação {i + 1}",
+                    "de" => $"Prüfpunkt {i + 1}",
+                    "it" => $"Controllo {i + 1}",
+                    _ => $"Vérification {i + 1}"
+                }
                 : useDayLabels
                 ? language switch
-            {
-                "en" => $"Day {i + 1}",
-                "es" => $"Dia {i + 1}",
-                "pt" => $"Dia {i + 1}",
-                "de" => $"Tag {i + 1}",
-                "it" => $"Giorno {i + 1}",
-                _ => $"Jour {i + 1}"
-            }
+                {
+                    "en" => $"Day {i + 1}",
+                    "es" => $"Dia {i + 1}",
+                    "pt" => $"Dia {i + 1}",
+                    "de" => $"Tag {i + 1}",
+                    "it" => $"Giorno {i + 1}",
+                    _ => $"Jour {i + 1}"
+                }
                 : language switch
-            {
-                "es" => $"Opción {i + 1}",
-                "pt" => $"Opção {i + 1}",
-                "it" => $"Opzione {i + 1}",
-                _ => $"Option {i + 1}"
-            };
+                {
+                    "es" => $"Opción {i + 1}",
+                    "pt" => $"Opção {i + 1}",
+                    "it" => $"Opzione {i + 1}",
+                    _ => $"Option {i + 1}"
+                };
 
             var hit = planItems[i].Hit;
             sb.Append("- ");
@@ -242,23 +242,23 @@ public sealed partial class ToolAgentOrchestrator
 
         var note = wantsVerificationChecklist
             ? language switch
-        {
-            "en" => "Note: treat this as a source-backed checklist, then validate exceptions, approvals and legal/compliance impact with the responsible humans before acting.",
-            "es" => "Nota: tratalo como una lista de control con fuente y valida excepciones, aprobaciones e impacto legal/conformidad con las personas responsables antes de actuar.",
-            "pt" => "Nota: trata isto como uma checklist com fonte e valida exceções, aprovações e impacto legal/conformidade com as pessoas responsáveis antes de agir.",
-            "de" => "Hinweis: Nutze dies als quellenbasierte Checkliste und prüfe Ausnahmen, Freigaben sowie rechtliche/Compliance-Auswirkungen mit den Verantwortlichen vor Umsetzung.",
-            "it" => "Nota: trattala come checklist con fonte e valida eccezioni, approvazioni e impatti legali/compliance con i responsabili prima di agire.",
-            _ => "Note : traite ceci comme une checklist sourcée, puis valide les exceptions, approbations et impacts juridiques/conformité avec les responsables avant d'agir."
-        }
+            {
+                "en" => "Note: treat this as a source-backed checklist, then validate exceptions, approvals and legal/compliance impact with the responsible humans before acting.",
+                "es" => "Nota: tratalo como una lista de control con fuente y valida excepciones, aprobaciones e impacto legal/conformidad con las personas responsables antes de actuar.",
+                "pt" => "Nota: trata isto como uma checklist com fonte e valida exceções, aprovações e impacto legal/conformidade com as pessoas responsáveis antes de agir.",
+                "de" => "Hinweis: Nutze dies als quellenbasierte Checkliste und prüfe Ausnahmen, Freigaben sowie rechtliche/Compliance-Auswirkungen mit den Verantwortlichen vor Umsetzung.",
+                "it" => "Nota: trattala come checklist con fonte e valida eccezioni, approvazioni e impatti legali/compliance con i responsabili prima di agire.",
+                _ => "Note : traite ceci comme une checklist sourcée, puis valide les exceptions, approbations et impacts juridiques/conformité avec les responsables avant d'agir."
+            }
             : language switch
-        {
-            "en" => "Note: adapt quantities, timing, and constraints from the source pages before acting.",
-            "es" => "Nota: adapta cantidades, tiempos y restricciones a partir de las paginas fuente antes de actuar.",
-            "pt" => "Nota: adapta quantidades, tempos e restrições a partir das páginas fonte antes de agir.",
-            "de" => "Hinweis: Mengen, Zeiten und Einschränkungen vor der Umsetzung anhand der Quellseiten anpassen.",
-            "it" => "Nota: adatta quantità, tempi e vincoli dalle pagine fonte prima di agire.",
-            _ => "Note : adapte les quantités, délais et contraintes à partir des pages source avant d'agir."
-        };
+            {
+                "en" => "Note: adapt quantities, timing, and constraints from the source pages before acting.",
+                "es" => "Nota: adapta cantidades, tiempos y restricciones a partir de las paginas fuente antes de actuar.",
+                "pt" => "Nota: adapta quantidades, tempos e restrições a partir das páginas fonte antes de agir.",
+                "de" => "Hinweis: Mengen, Zeiten und Einschränkungen vor der Umsetzung anhand der Quellseiten anpassen.",
+                "it" => "Nota: adatta quantità, tempi e vincoli dalle pagine fonte prima di agire.",
+                _ => "Note : adapte les quantités, délais et contraintes à partir des pages source avant d'agir."
+            };
         sb.AppendLine(note);
 
         var answer = sb.ToString().TrimEnd();

@@ -52,9 +52,9 @@ public sealed class LiveCanonicalVerticalClientProbeTests
                 var caseDirectory = Path.Combine(output, $"case-{index + 1:D2}");
                 Directory.CreateDirectory(caseDirectory);
                 using var backendHttp = new HttpClient(new CaptureHandler(caseDirectory, "backend"))
-                    { Timeout = Timeout.InfiniteTimeSpan };
+                { Timeout = Timeout.InfiniteTimeSpan };
                 using var llmHttp = new HttpClient(new CaptureHandler(caseDirectory, "llm"))
-                    { Timeout = Timeout.InfiniteTimeSpan };
+                { Timeout = Timeout.InfiniteTimeSpan };
                 var api = new ApiClient();
                 var httpField = typeof(ApiClient).GetField("_http", BindingFlags.Instance | BindingFlags.NonPublic)!;
                 ((HttpClient)httpField.GetValue(api)!).Dispose();
@@ -64,9 +64,15 @@ public sealed class LiveCanonicalVerticalClientProbeTests
                 llm.Configure("http://127.0.0.1:1234/v1", "local");
                 var settings = new AppSettings
                 {
-                    BackendUrl = backend, UseLocalLlm = true, ManageLocalLlmProcess = false,
-                    ActiveMode = "strict", RagQualityPreset = "balanced", UiLanguage = "en",
-                    LlmTemperature = 0, LlmMaxOutputTokens = 900, ExtraArgs = "--ctx-size 4096"
+                    BackendUrl = backend,
+                    UseLocalLlm = true,
+                    ManageLocalLlmProcess = false,
+                    ActiveMode = "strict",
+                    RagQualityPreset = "balanced",
+                    UiLanguage = "en",
+                    LlmTemperature = 0,
+                    LlmMaxOutputTokens = 900,
+                    ExtraArgs = "--ctx-size 4096"
                 };
                 var agent = new RagChatAgent(api, llm);
                 agent.ApplySettings(settings);
@@ -116,12 +122,26 @@ public sealed class LiveCanonicalVerticalClientProbeTests
                 }).ToArray();
                 var observation = new
                 {
-                    caseId = index + 1, question, elapsedMs = watch.ElapsedMilliseconds, answer,
-                    streamedDeltas = deltas.ToString(), error, sourcesPayload, cardChecks,
-                    diagnostics = new { memory.LastRouterIntent, memory.LastAnswerSource,
-                        memory.LastToolNames, memory.LastSourcesUsed, memory.LastRagQueries,
-                        memory.LastRagHitLabels, memory.LastReasoningTracePublic, memory.LastRagTraceEvents,
-                        memory.SourceBackedConversationTurns },
+                    caseId = index + 1,
+                    question,
+                    elapsedMs = watch.ElapsedMilliseconds,
+                    answer,
+                    streamedDeltas = deltas.ToString(),
+                    error,
+                    sourcesPayload,
+                    cardChecks,
+                    diagnostics = new
+                    {
+                        memory.LastRouterIntent,
+                        memory.LastAnswerSource,
+                        memory.LastToolNames,
+                        memory.LastSourcesUsed,
+                        memory.LastRagQueries,
+                        memory.LastRagHitLabels,
+                        memory.LastReasoningTracePublic,
+                        memory.LastRagTraceEvents,
+                        memory.SourceBackedConversationTurns
+                    },
                     semanticApproval = "PENDING_INSPECTION"
                 };
                 observations.Add(observation);
@@ -178,9 +198,14 @@ public sealed class LiveCanonicalVerticalClientProbeTests
                 var responseBody = isStream ? null : await response.Content.ReadAsStringAsync(ct);
                 await File.WriteAllTextAsync(path, Serialize(new
                 {
-                    started, ended = DateTimeOffset.UtcNow, method = request.Method.Method,
-                    url = request.RequestUri!.AbsoluteUri, requestBody,
-                    status = (int)response.StatusCode, responseBody, streamedResponseNotCaptured = isStream
+                    started,
+                    ended = DateTimeOffset.UtcNow,
+                    method = request.Method.Method,
+                    url = request.RequestUri!.AbsoluteUri,
+                    requestBody,
+                    status = (int)response.StatusCode,
+                    responseBody,
+                    streamedResponseNotCaptured = isStream
                 }), CancellationToken.None);
                 return response;
             }
@@ -188,8 +213,12 @@ public sealed class LiveCanonicalVerticalClientProbeTests
             {
                 await File.WriteAllTextAsync(path, Serialize(new
                 {
-                    started, ended = DateTimeOffset.UtcNow, method = request.Method.Method,
-                    url = request.RequestUri!.AbsoluteUri, requestBody, error = ex.GetType().Name + ": " + ex.Message
+                    started,
+                    ended = DateTimeOffset.UtcNow,
+                    method = request.Method.Method,
+                    url = request.RequestUri!.AbsoluteUri,
+                    requestBody,
+                    error = ex.GetType().Name + ": " + ex.Message
                 }), CancellationToken.None);
                 throw;
             }

@@ -65,7 +65,7 @@ sealed class FileWatcherService : BackgroundService
             tenantId = await ResolveSingleTenantIdAsync(ds, bootstrap, ct);
             _log.LogInformation("FileWatcher: tenant resolved to {TenantId}", tenantId);
         }
-        
+
         catch (Exception ex)
         {
             _log.LogError(ex, "FileWatcher: cannot resolve tenant id");

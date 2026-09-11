@@ -227,48 +227,48 @@ public sealed partial class MainWindow
     }
 
     private async void UserSettings_Click(object sender, RoutedEventArgs e)
-{
-    try
     {
-        // Reload settings (they might have been provisioned or edited externally)
-        _appSettings = AppSettings.Load();
-
-        var dlg = new UserSettingsDialog(_appSettings, RepairAssistantAsync);
-        var settingsDialogSize = GetDialogMaxSize(760, 760, horizontalMargin: 96, verticalMargin: 120);
-        dlg.ApplyResponsiveLayout(settingsDialogSize.Width, settingsDialogSize.Height);
-
-        OverlayDialogSession? overlay = null;
-        var overlayContent = dlg.DetachContentForOverlay(() => overlay?.Close());
-        overlay = ShowOverlayDialog(
-            overlayContent,
-            resizeHandler: _ =>
-            {
-                var size = GetDialogMaxSize(760, 760, horizontalMargin: 96, verticalMargin: 120);
-                dlg.ApplyResponsiveLayout(size.Width, size.Height);
-            });
-        await overlay.Completion;
-
-        if (dlg.WasApplied)
+        try
         {
-            _appSettings = dlg.UpdatedSettings;
-            _appSettings.Save();
+            // Reload settings (they might have been provisioned or edited externally)
+            _appSettings = AppSettings.Load();
 
-            // Apply live to the running agent
-            _agent?.ApplySettings(_appSettings);
+            var dlg = new UserSettingsDialog(_appSettings, RepairAssistantAsync);
+            var settingsDialogSize = GetDialogMaxSize(760, 760, horizontalMargin: 96, verticalMargin: 120);
+            dlg.ApplyResponsiveLayout(settingsDialogSize.Width, settingsDialogSize.Height);
 
-            await Task.Yield();
-            ApplyAppearanceTheme();
-            ApplyUiLanguage();
-            RefreshThemeSensitiveUi();
-            Status(ClientUiText.Get("status.settings_applied", _appSettings.UiLanguage));
+            OverlayDialogSession? overlay = null;
+            var overlayContent = dlg.DetachContentForOverlay(() => overlay?.Close());
+            overlay = ShowOverlayDialog(
+                overlayContent,
+                resizeHandler: _ =>
+                {
+                    var size = GetDialogMaxSize(760, 760, horizontalMargin: 96, verticalMargin: 120);
+                    dlg.ApplyResponsiveLayout(size.Width, size.Height);
+                });
+            await overlay.Completion;
+
+            if (dlg.WasApplied)
+            {
+                _appSettings = dlg.UpdatedSettings;
+                _appSettings.Save();
+
+                // Apply live to the running agent
+                _agent?.ApplySettings(_appSettings);
+
+                await Task.Yield();
+                ApplyAppearanceTheme();
+                ApplyUiLanguage();
+                RefreshThemeSensitiveUi();
+                Status(ClientUiText.Get("status.settings_applied", _appSettings.UiLanguage));
+            }
+        }
+        catch (Exception ex)
+        {
+            ClientLog.Exception("Settings.Open", ex);
+            Status(ClientUiText.Get("status.settings_failed", _appSettings.UiLanguage) + FormatLocalLlmUserActionError(ex, _appSettings.UiLanguage));
         }
     }
-    catch (Exception ex)
-    {
-        ClientLog.Exception("Settings.Open", ex);
-        Status(ClientUiText.Get("status.settings_failed", _appSettings.UiLanguage) + FormatLocalLlmUserActionError(ex, _appSettings.UiLanguage));
-    }
-}
 
 
 }

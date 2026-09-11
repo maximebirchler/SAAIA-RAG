@@ -104,8 +104,8 @@ public sealed partial class SourceBackedAgentV2Tests
         var intake = Intake(
             "Dans Maintenance, prépare lundi à vendredi avec opération et preuve.")
             with
-            {
-                CatalogHints = new[]
+        {
+            CatalogHints = new[]
                 {
                     new SourceBackedCatalogHint(
                         "Maintenance",
@@ -113,7 +113,7 @@ public sealed partial class SourceBackedAgentV2Tests
                         10,
                         Array.Empty<string>())
                 },
-                InitialToolCalls = new[]
+            InitialToolCalls = new[]
                 {
                     new SourceBackedInitialToolCall(
                         "router-plan-1",
@@ -121,7 +121,7 @@ public sealed partial class SourceBackedAgentV2Tests
                         initialArguments,
                         "llm_router")
                 },
-                InitialSemanticMission = new SourceBackedInitialSemanticMission(
+            InitialSemanticMission = new SourceBackedInitialSemanticMission(
                     JsonSerializer.SerializeToElement(new
                     {
                         planKind = "structured_layout",
@@ -143,7 +143,7 @@ public sealed partial class SourceBackedAgentV2Tests
                         columns = new[] { "operation", "preuve" }
                     }),
                     "llm_router")
-            };
+        };
         var llm = new ScriptedAgentLlm();
         var executor = new ScriptedToolExecutor(
             ContentCardInventoryResult(new[]
@@ -182,8 +182,8 @@ public sealed partial class SourceBackedAgentV2Tests
         var intake = Intake(
             "Construis une grille de Premiere a Deuxieme avec Option A et Option B.")
             with
-            {
-                InitialSemanticMission = new SourceBackedInitialSemanticMission(
+        {
+            InitialSemanticMission = new SourceBackedInitialSemanticMission(
                     JsonSerializer.SerializeToElement(new
                     {
                         planKind = "structured_layout",
@@ -199,7 +199,7 @@ public sealed partial class SourceBackedAgentV2Tests
                         columns = new[] { "Option A", "Option B" }
                     }),
                     "llm_router")
-            };
+        };
         var llm = new ScriptedAgentLlm(
             ColumnSemantics(
                 ("Option A", "Premiere famille distincte d'instances documentees."),
@@ -6065,11 +6065,15 @@ public sealed partial class SourceBackedAgentV2Tests
     {
         var repeated = Call("cards-1", "documents_content_cards", new
         {
-            categoryPath = "Cuisine", limit = 5, offset = 0
+            categoryPath = "Cuisine",
+            limit = 5,
+            offset = 0
         });
         var explicitNext = Call("cards-3", "documents_content_cards", new
         {
-            categoryPath = "Cuisine", limit = 5, offset = 5
+            categoryPath = "Cuisine",
+            limit = 5,
+            offset = 5
         });
         var llm = new ScriptedAgentLlm(
             Completion("Livrable: une option documentee."),
@@ -15495,7 +15499,8 @@ public sealed partial class SourceBackedAgentV2Tests
         public List<int> MaxTokens { get; } = new();
         public List<bool> RequireToolCalls { get; } = new();
         public Func<string, IReadOnlyList<string>, IReadOnlyList<string>>?
-            CandidateColumnCompatibilitySelector { get; init; }
+            CandidateColumnCompatibilitySelector
+        { get; init; }
         public List<LlmStructuredOutputContract> StructuredOutputContracts
         {
             get;

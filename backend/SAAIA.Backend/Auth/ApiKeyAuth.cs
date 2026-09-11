@@ -9,7 +9,7 @@ public static class ApiKeyAuth
 {
     public const string TenantIdItemKey = "tenant_id";
     public const string ApiKeyIdItemKey = "api_key_id";
-    public const string IsAdminItemKey  = "is_admin";
+    public const string IsAdminItemKey = "is_admin";
 
     public static string Prefix(string key)
         => key.Length <= 8 ? key : key.Substring(0, 8);

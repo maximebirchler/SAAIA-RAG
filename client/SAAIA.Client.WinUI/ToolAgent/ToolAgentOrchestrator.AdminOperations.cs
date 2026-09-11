@@ -68,7 +68,7 @@ public sealed partial class ToolAgentOrchestrator
     {
         try
         {
-        var json = await _api.AdminJobsListAsync("ingestion", 100, 0, null, null, null, null, ct).ConfigureAwait(false);
+            var json = await _api.AdminJobsListAsync("ingestion", 100, 0, null, null, null, null, ct).ConfigureAwait(false);
             if (json.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
             {
                 foreach (var item in items.EnumerateArray())

@@ -324,11 +324,11 @@ public sealed class LiveDocumentPageStratifiedOverviewProbeTests(
         => ReadInt(item, "tokenCount") < 60
             ? 3
             : ReadString(item, "chunkType") switch
-        {
-            "unit_exact_v1" => 0,
-            "section_window_v1" => 1,
-            _ => 2
-        };
+            {
+                "unit_exact_v1" => 0,
+                "section_window_v1" => 1,
+                _ => 2
+            };
 
     private static string ReadString(JsonElement value, string propertyName)
         => value.ValueKind == JsonValueKind.Object

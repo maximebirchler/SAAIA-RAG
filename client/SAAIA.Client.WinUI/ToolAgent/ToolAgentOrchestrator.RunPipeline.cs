@@ -1061,175 +1061,175 @@ public sealed partial class ToolAgentOrchestrator
                 }
                 else
                 {
-                var repairSupport = PlanningAnswerSupportAnalysis.Empty;
-                var repairAccepted = false;
-                var repairAcceptedByVisibleCitations = false;
-                var repairAcceptedByCandidateSupport = false;
-                var repairAnswerForTrace = string.Empty;
-                if (ShouldAllowSourceBackedWriterRepairForCurrentTurn(effectiveUserMessage))
-                {
-                    var repairSw = Stopwatch.StartNew();
-                    EmitRagTrace(
-                        "writer.structured_support_repair.start",
-                        ("intent", plan.Intent),
-                        ("items", structuredSupport.ItemCount),
-                        ("supported", structuredSupport.SupportedItemCount),
-                        ("unsupported", structuredSupport.UnsupportedItemCount),
-                        ("candidates", structuredSupport.CandidateCount),
-                        ("sources", structuredSupport.Sources.Count));
-                    var repairAnswer = await TryRepairSourceBackedSynthesisAnswerWithWriterAsync(
-                            chatHistory,
-                            effectiveUserMessage,
-                            plan,
-                            toolResults,
-                            ct)
-                        .ConfigureAwait(false);
-                    repairAnswer = RemoveTrailingModelEmittedSourceList(repairAnswer ?? string.Empty);
-                    repairAnswerForTrace = repairAnswer ?? string.Empty;
-                    repairAcceptedByVisibleCitations = TryGetVisibleSourceCitedStructuredPlanningSources(
-                        repairAnswer,
-                        toolResults,
-                        effectiveUserMessage,
-                        out var repairVisibleCitedSources,
-                        plan.Language);
-                    if (!repairAcceptedByVisibleCitations)
+                    var repairSupport = PlanningAnswerSupportAnalysis.Empty;
+                    var repairAccepted = false;
+                    var repairAcceptedByVisibleCitations = false;
+                    var repairAcceptedByCandidateSupport = false;
+                    var repairAnswerForTrace = string.Empty;
+                    if (ShouldAllowSourceBackedWriterRepairForCurrentTurn(effectiveUserMessage))
                     {
-                        repairSupport = AnalyzeSourceBackedPlanningAnswerSupport(
-                            repairAnswer,
-                            toolResults,
-                            effectiveUserMessage,
-                            plan.Language);
-                    }
-                    repairAcceptedByCandidateSupport = !string.IsNullOrWhiteSpace(repairAnswer)
-                        && !LooksLikeWriterControlLeak(repairAnswer)
-                        && !LooksLikePoorPlanningFallbackAnswer(repairAnswer, effectiveUserMessage)
-                        && repairSupport.Sources.Count > 0
-                        && !ShouldRejectUnsupportedPlanningAnswerForFinal(repairSupport, effectiveUserMessage);
-                    repairAccepted = repairAcceptedByVisibleCitations || repairAcceptedByCandidateSupport;
-                    EmitRagTrace(
-                        "writer.structured_support_repair.end",
-                        ("intent", plan.Intent),
-                        ("accepted", repairAccepted),
-                        ("accepted_by_visible_citations", repairAcceptedByVisibleCitations),
-                        ("answer_chars", repairAnswer?.Length ?? 0),
-                        ("items", repairSupport.ItemCount),
-                        ("supported", repairSupport.SupportedItemCount),
-                        ("unsupported", repairSupport.UnsupportedItemCount),
-                        ("candidates", repairSupport.CandidateCount),
-                        ("sources", repairAcceptedByVisibleCitations ? repairVisibleCitedSources.Count : repairSupport.Sources.Count),
-                        ("ms", repairSw.ElapsedMilliseconds));
-                    if (!repairAccepted
-                        && ShouldRetryStructuredPlanningRepairAfterSourceGuardFailure(repairAnswer, effectiveUserMessage))
-                    {
-                        var retryFeedback = BuildStructuredPlanningRepairFeedback(
-                            repairAnswer,
-                            toolResults,
-                            effectiveUserMessage,
-                            plan.Language);
-                        var retrySw = Stopwatch.StartNew();
+                        var repairSw = Stopwatch.StartNew();
                         EmitRagTrace(
-                            "writer.structured_support_repair.retry.start",
+                            "writer.structured_support_repair.start",
                             ("intent", plan.Intent),
-                            ("answer_chars", repairAnswer?.Length ?? 0),
-                            ("feedback_chars", retryFeedback.Length));
-                        var retryAnswer = await TryRepairSourceBackedSynthesisAnswerWithWriterAsync(
+                            ("items", structuredSupport.ItemCount),
+                            ("supported", structuredSupport.SupportedItemCount),
+                            ("unsupported", structuredSupport.UnsupportedItemCount),
+                            ("candidates", structuredSupport.CandidateCount),
+                            ("sources", structuredSupport.Sources.Count));
+                        var repairAnswer = await TryRepairSourceBackedSynthesisAnswerWithWriterAsync(
                                 chatHistory,
                                 effectiveUserMessage,
                                 plan,
                                 toolResults,
-                                ct,
-                                retryFeedback)
+                                ct)
                             .ConfigureAwait(false);
-                        retryAnswer = RemoveTrailingModelEmittedSourceList(retryAnswer ?? string.Empty);
-                        var retryAcceptedByVisibleCitations = TryGetVisibleSourceCitedStructuredPlanningSources(
-                            retryAnswer,
+                        repairAnswer = RemoveTrailingModelEmittedSourceList(repairAnswer ?? string.Empty);
+                        repairAnswerForTrace = repairAnswer ?? string.Empty;
+                        repairAcceptedByVisibleCitations = TryGetVisibleSourceCitedStructuredPlanningSources(
+                            repairAnswer,
                             toolResults,
                             effectiveUserMessage,
-                            out var retryVisibleCitedSources,
+                            out var repairVisibleCitedSources,
                             plan.Language);
-                        var retrySupport = PlanningAnswerSupportAnalysis.Empty;
-                        if (!retryAcceptedByVisibleCitations)
+                        if (!repairAcceptedByVisibleCitations)
                         {
-                            retrySupport = AnalyzeSourceBackedPlanningAnswerSupport(
-                                retryAnswer,
+                            repairSupport = AnalyzeSourceBackedPlanningAnswerSupport(
+                                repairAnswer,
                                 toolResults,
                                 effectiveUserMessage,
                                 plan.Language);
                         }
-                        var retryAcceptedByCandidateSupport = !string.IsNullOrWhiteSpace(retryAnswer)
-                            && !LooksLikeWriterControlLeak(retryAnswer)
-                            && !LooksLikePoorPlanningFallbackAnswer(retryAnswer, effectiveUserMessage)
-                            && retrySupport.Sources.Count > 0
-                            && !ShouldRejectUnsupportedPlanningAnswerForFinal(retrySupport, effectiveUserMessage);
-                        var retryAccepted = retryAcceptedByVisibleCitations || retryAcceptedByCandidateSupport;
-                        retrySw.Stop();
+                        repairAcceptedByCandidateSupport = !string.IsNullOrWhiteSpace(repairAnswer)
+                            && !LooksLikeWriterControlLeak(repairAnswer)
+                            && !LooksLikePoorPlanningFallbackAnswer(repairAnswer, effectiveUserMessage)
+                            && repairSupport.Sources.Count > 0
+                            && !ShouldRejectUnsupportedPlanningAnswerForFinal(repairSupport, effectiveUserMessage);
+                        repairAccepted = repairAcceptedByVisibleCitations || repairAcceptedByCandidateSupport;
                         EmitRagTrace(
-                            "writer.structured_support_repair.retry.end",
+                            "writer.structured_support_repair.end",
                             ("intent", plan.Intent),
-                            ("accepted", retryAccepted),
-                            ("accepted_by_visible_citations", retryAcceptedByVisibleCitations),
-                            ("answer_chars", retryAnswer?.Length ?? 0),
-                            ("items", retrySupport.ItemCount),
-                            ("supported", retrySupport.SupportedItemCount),
-                            ("unsupported", retrySupport.UnsupportedItemCount),
-                            ("candidates", retrySupport.CandidateCount),
-                            ("sources", retryAcceptedByVisibleCitations ? retryVisibleCitedSources.Count : retrySupport.Sources.Count),
-                            ("ms", retrySw.ElapsedMilliseconds));
-                        if (retryAccepted)
+                            ("accepted", repairAccepted),
+                            ("accepted_by_visible_citations", repairAcceptedByVisibleCitations),
+                            ("answer_chars", repairAnswer?.Length ?? 0),
+                            ("items", repairSupport.ItemCount),
+                            ("supported", repairSupport.SupportedItemCount),
+                            ("unsupported", repairSupport.UnsupportedItemCount),
+                            ("candidates", repairSupport.CandidateCount),
+                            ("sources", repairAcceptedByVisibleCitations ? repairVisibleCitedSources.Count : repairSupport.Sources.Count),
+                            ("ms", repairSw.ElapsedMilliseconds));
+                        if (!repairAccepted
+                            && ShouldRetryStructuredPlanningRepairAfterSourceGuardFailure(repairAnswer, effectiveUserMessage))
                         {
-                            repairAnswer = retryAnswer ?? string.Empty;
-                            repairAnswerForTrace = repairAnswer;
-                            repairSupport = retrySupport;
-                            repairAcceptedByVisibleCitations = retryAcceptedByVisibleCitations;
-                            repairAcceptedByCandidateSupport = retryAcceptedByCandidateSupport;
-                            repairAccepted = true;
-                            repairVisibleCitedSources = retryVisibleCitedSources;
+                            var retryFeedback = BuildStructuredPlanningRepairFeedback(
+                                repairAnswer,
+                                toolResults,
+                                effectiveUserMessage,
+                                plan.Language);
+                            var retrySw = Stopwatch.StartNew();
+                            EmitRagTrace(
+                                "writer.structured_support_repair.retry.start",
+                                ("intent", plan.Intent),
+                                ("answer_chars", repairAnswer?.Length ?? 0),
+                                ("feedback_chars", retryFeedback.Length));
+                            var retryAnswer = await TryRepairSourceBackedSynthesisAnswerWithWriterAsync(
+                                    chatHistory,
+                                    effectiveUserMessage,
+                                    plan,
+                                    toolResults,
+                                    ct,
+                                    retryFeedback)
+                                .ConfigureAwait(false);
+                            retryAnswer = RemoveTrailingModelEmittedSourceList(retryAnswer ?? string.Empty);
+                            var retryAcceptedByVisibleCitations = TryGetVisibleSourceCitedStructuredPlanningSources(
+                                retryAnswer,
+                                toolResults,
+                                effectiveUserMessage,
+                                out var retryVisibleCitedSources,
+                                plan.Language);
+                            var retrySupport = PlanningAnswerSupportAnalysis.Empty;
+                            if (!retryAcceptedByVisibleCitations)
+                            {
+                                retrySupport = AnalyzeSourceBackedPlanningAnswerSupport(
+                                    retryAnswer,
+                                    toolResults,
+                                    effectiveUserMessage,
+                                    plan.Language);
+                            }
+                            var retryAcceptedByCandidateSupport = !string.IsNullOrWhiteSpace(retryAnswer)
+                                && !LooksLikeWriterControlLeak(retryAnswer)
+                                && !LooksLikePoorPlanningFallbackAnswer(retryAnswer, effectiveUserMessage)
+                                && retrySupport.Sources.Count > 0
+                                && !ShouldRejectUnsupportedPlanningAnswerForFinal(retrySupport, effectiveUserMessage);
+                            var retryAccepted = retryAcceptedByVisibleCitations || retryAcceptedByCandidateSupport;
+                            retrySw.Stop();
+                            EmitRagTrace(
+                                "writer.structured_support_repair.retry.end",
+                                ("intent", plan.Intent),
+                                ("accepted", retryAccepted),
+                                ("accepted_by_visible_citations", retryAcceptedByVisibleCitations),
+                                ("answer_chars", retryAnswer?.Length ?? 0),
+                                ("items", retrySupport.ItemCount),
+                                ("supported", retrySupport.SupportedItemCount),
+                                ("unsupported", retrySupport.UnsupportedItemCount),
+                                ("candidates", retrySupport.CandidateCount),
+                                ("sources", retryAcceptedByVisibleCitations ? retryVisibleCitedSources.Count : retrySupport.Sources.Count),
+                                ("ms", retrySw.ElapsedMilliseconds));
+                            if (retryAccepted)
+                            {
+                                repairAnswer = retryAnswer ?? string.Empty;
+                                repairAnswerForTrace = repairAnswer;
+                                repairSupport = retrySupport;
+                                repairAcceptedByVisibleCitations = retryAcceptedByVisibleCitations;
+                                repairAcceptedByCandidateSupport = retryAcceptedByCandidateSupport;
+                                repairAccepted = true;
+                                repairVisibleCitedSources = retryVisibleCitedSources;
+                            }
+                        }
+
+                        if (repairAccepted)
+                        {
+                            answer = repairAnswer ?? string.Empty;
+                            sources = repairAcceptedByVisibleCitations
+                                ? repairVisibleCitedSources
+                                : repairSupport.Sources.ToList();
+                            _lastAnswerSource = repairAcceptedByVisibleCitations
+                                ? $"router+tools_structured_planning_visible_cited_writer_repair:{plan.Intent}"
+                                : $"router+tools_structured_planning_supported_writer_repair:{plan.Intent}";
                         }
                     }
 
-                    if (repairAccepted)
+                    if (!repairAccepted)
                     {
-                        answer = repairAnswer ?? string.Empty;
-                        sources = repairAcceptedByVisibleCitations
-                            ? repairVisibleCitedSources
-                            : repairSupport.Sources.ToList();
-                        _lastAnswerSource = repairAcceptedByVisibleCitations
-                            ? $"router+tools_structured_planning_visible_cited_writer_repair:{plan.Intent}"
-                            : $"router+tools_structured_planning_supported_writer_repair:{plan.Intent}";
+                        var searchAlreadyExpanded = HasExpandedSourceBackedSearchEvidence(toolResults);
+                        EmitRagTrace(
+                            "writer.structured_support_repair.post_rebuild.skipped",
+                            ("reason", "canonical_writer_repair_no_deterministic_post_rebuild"),
+                            ("intent", plan.Intent),
+                            ("items", repairSupport.ItemCount),
+                            ("supported", repairSupport.SupportedItemCount),
+                            ("candidates", Math.Max(structuredSupport.CandidateCount, repairSupport.CandidateCount)));
+                        EmitPlanningInsufficientFallbackTrace(
+                            "router-structured-guard",
+                            plan.Intent,
+                            "writer_repair_rejected_without_deterministic_rebuild",
+                            Math.Max(structuredSupport.CandidateCount, repairSupport.CandidateCount),
+                            searchAlreadyExpanded);
+                        answer = BuildBroadEvidenceStillInsufficientAnswer(
+                            plan.Language,
+                            effectiveUserMessage,
+                            effectiveUserMessage,
+                            Math.Max(structuredSupport.CandidateCount, repairSupport.CandidateCount),
+                            searchAlreadyExpanded: searchAlreadyExpanded);
+                        sources = new List<ToolMemory.SourceRef>();
+                        _lastAnswerSource = $"router+tools_structured_planning_rejected_unsupported_without_post_rebuild:{plan.Intent}";
+                        LogSourceBackedPlanningTrace(
+                            "structured-planning-rejected-unsupported-without-post-rebuild",
+                            toolResults,
+                            effectiveUserMessage,
+                            plan.Language);
                     }
                 }
-
-                if (!repairAccepted)
-                {
-                    var searchAlreadyExpanded = HasExpandedSourceBackedSearchEvidence(toolResults);
-                    EmitRagTrace(
-                        "writer.structured_support_repair.post_rebuild.skipped",
-                        ("reason", "canonical_writer_repair_no_deterministic_post_rebuild"),
-                        ("intent", plan.Intent),
-                        ("items", repairSupport.ItemCount),
-                        ("supported", repairSupport.SupportedItemCount),
-                        ("candidates", Math.Max(structuredSupport.CandidateCount, repairSupport.CandidateCount)));
-                    EmitPlanningInsufficientFallbackTrace(
-                        "router-structured-guard",
-                        plan.Intent,
-                        "writer_repair_rejected_without_deterministic_rebuild",
-                        Math.Max(structuredSupport.CandidateCount, repairSupport.CandidateCount),
-                        searchAlreadyExpanded);
-                    answer = BuildBroadEvidenceStillInsufficientAnswer(
-                        plan.Language,
-                        effectiveUserMessage,
-                        effectiveUserMessage,
-                        Math.Max(structuredSupport.CandidateCount, repairSupport.CandidateCount),
-                        searchAlreadyExpanded: searchAlreadyExpanded);
-                    sources = new List<ToolMemory.SourceRef>();
-                    _lastAnswerSource = $"router+tools_structured_planning_rejected_unsupported_without_post_rebuild:{plan.Intent}";
-                    LogSourceBackedPlanningTrace(
-                        "structured-planning-rejected-unsupported-without-post-rebuild",
-                        toolResults,
-                        effectiveUserMessage,
-                        plan.Language);
-                }
-            }
             }
         }
 

@@ -315,7 +315,7 @@ public sealed partial class ToolAgentOrchestrator
                 + $"|activeAnchors={FormatPlanningTraceValue(string.Join(",", queryAnchorTerms))}"
                 + $"|suppressedGenericAnchors={FormatPlanningTraceValue(string.Join(",", suppressedAnchorTerms))}"
                 + $"|ms={optionStopwatch!.ElapsedMilliseconds}");
-            }
+        }
 
         if (requiresNamedEntityEvidence)
         {

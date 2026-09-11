@@ -162,9 +162,15 @@ public sealed partial class ToolAgentOrchestrator
 
     private static string DescribeGroundedAnswerUnits(GroundedAnswerUnits units)
         => "\n\nOUTPUT_UNITS already established by the model from CURRENT_REQUEST: "
-           + JsonSerializer.Serialize(new { units.RequestAnchor, answerUnitType = units.UnitType,
-               requestedParts = units.RequestedParts, answerUnitMode = units.Mode,
-               selectionPolicy = units.SelectionPolicy, count = units.Count })
+           + JsonSerializer.Serialize(new
+           {
+               units.RequestAnchor,
+               answerUnitType = units.UnitType,
+               requestedParts = units.RequestedParts,
+               answerUnitMode = units.Mode,
+               selectionPolicy = units.SelectionPolicy,
+               count = units.Count
+           })
            + ". Preserve these four route fields exactly. Choose the retrieval arguments without reinterpreting the output units.";
 
     private static bool ValidateGroundedAnswerUnits(GroundedAnswerUnits? units, RouterPlan plan, ref string failureReason)

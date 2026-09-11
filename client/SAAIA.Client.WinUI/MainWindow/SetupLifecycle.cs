@@ -369,7 +369,7 @@ public sealed partial class MainWindow
             }
 
             // Avoid re-running heavy bootstrap every startup when provisioning didn't change.
-            
+
             // If required assets are missing, we MUST run bootstrap automatically (no manual "repair" gate).
             var exeMissing = string.IsNullOrWhiteSpace(_appSettings.LlamaExePath) || !File.Exists(_appSettings.LlamaExePath);
             var modelMissing = string.IsNullOrWhiteSpace(_appSettings.ModelPath) || !File.Exists(_appSettings.ModelPath);
@@ -378,9 +378,9 @@ public sealed partial class MainWindow
             {
                 ClientLog.Info($"LLM missing assets (exeMissing={exeMissing}, modelMissing={modelMissing}). Forcing bootstrap.");
             }
-if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.ProvisioningHash) &&
-                string.Equals(_appSettings.ProvisioningHash, _appSettings.LlmAutoInstallAttemptedHash, StringComparison.OrdinalIgnoreCase) &&
-                !(hasNvidiaGpuForUpgrade && isCpuRuntimeNow))
+            if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.ProvisioningHash) &&
+                            string.Equals(_appSettings.ProvisioningHash, _appSettings.LlmAutoInstallAttemptedHash, StringComparison.OrdinalIgnoreCase) &&
+                            !(hasNvidiaGpuForUpgrade && isCpuRuntimeNow))
             {
                 Status(LocalRuntimeText("Assistant local : réparation requise dans les paramètres.", "Local assistant: repair required in settings.", "Asistente local: reparación necesaria en la configuración.", "Assistente local: reparação necessária nas definições.", "Lokaler Assistent: Reparatur in den Einstellungen erforderlich.", "Assistente locale: riparazione richiesta nelle impostazioni.", UiLang));
                 return;
@@ -450,111 +450,111 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
                 "Verfügbare Beschleuniger werden erkannt…",
                 "Rilevamento degli acceleratori disponibili…",
                 UiLang));
-            var gpus = qualificationPreflight.Hardware.Gpus;
-            var provisioning = await LocalLlmRuntimeProvisioningService.ProvisionApplicableAsync(
-                _appSettings,
-                gpus,
-                prog,
-                ct: cts.Token);
-            if (!provisioning.Succeeded)
-            {
-                ClientLog.Warn(
-                    "[AdaptiveQualification] Runtime provisioning failed: "
-                    + string.Join(", ", provisioning.Reasons));
-                SetStartupStatus(LocalRuntimeText(
-                    "Aucun moteur local compatible n'a pu être préparé.",
-                    "No compatible local engine could be prepared.",
-                    "No se pudo preparar ningún motor local compatible.",
-                    "Não foi possível preparar um motor local compatível.",
-                    "Es konnte keine kompatible lokale Engine vorbereitet werden.",
-                    "Non è stato possibile preparare un motore locale compatibile.",
-                    UiLang));
-                await Task.Delay(1200);
-                return;
-            }
-
-            var qualificationProgress = new Progress<LocalLlmAdaptiveQualificationProgress>(item =>
-                SetStartupStatus(item.Stage switch
+                var gpus = qualificationPreflight.Hardware.Gpus;
+                var provisioning = await LocalLlmRuntimeProvisioningService.ProvisionApplicableAsync(
+                    _appSettings,
+                    gpus,
+                    prog,
+                    ct: cts.Token);
+                if (!provisioning.Succeeded)
                 {
-                    "hardware_probe" => LocalRuntimeText(
-                        "Analyse du matériel et des moteurs…",
-                        "Analyzing hardware and engines…",
-                        "Analizando hardware y motores…",
-                        "A analisar hardware e motores…",
-                        "Hardware und Engines werden analysiert…",
-                        "Analisi di hardware e motori…",
-                        UiLang),
-                    "candidate_factory" => LocalRuntimeText(
-                        "Préparation des profils à mesurer…",
-                        "Preparing profiles to measure…",
-                        "Preparando perfiles para medir…",
-                        "A preparar perfis para medição…",
-                        "Messprofile werden vorbereitet…",
-                        "Preparazione dei profili da misurare…",
-                        UiLang),
-                    "screening" => LocalRuntimeText(
-                        "Vérification de la mémoire et des accélérateurs…",
-                        "Checking memory and accelerators…",
-                        "Comprobando memoria y aceleradores…",
-                        "A verificar memória e aceleradores…",
-                        "Speicher und Beschleuniger werden geprüft…",
-                        "Verifica di memoria e acceleratori…",
-                        UiLang),
-                    "refinement" => LocalRuntimeText(
-                        "Mesure des charges RAG et rédaction…",
-                        "Measuring RAG and writing workloads…",
-                        "Midiendo cargas RAG y de redacción…",
-                        "A medir cargas RAG e de redação…",
-                        "RAG- und Schreiblasten werden gemessen…",
-                        "Misurazione dei carichi RAG e di scrittura…",
-                        UiLang),
-                    "final_validation" => LocalRuntimeText(
-                        "Validation de la qualité du petit modèle…",
-                        "Validating small-model quality…",
-                        "Validando la calidad del modelo pequeño…",
-                        "A validar a qualidade do modelo pequeno…",
-                        "Qualität des kleinen Modells wird validiert…",
-                        "Validazione della qualità del modello piccolo…",
-                        UiLang),
-                    "promotion" => LocalRuntimeText(
-                        "Activation du meilleur profil mesuré…",
-                        "Activating the best measured profile…",
-                        "Activando el mejor perfil medido…",
-                        "A ativar o melhor perfil medido…",
-                        "Bestes gemessenes Profil wird aktiviert…",
-                        "Attivazione del miglior profilo misurato…",
-                        UiLang),
-                    _ => LocalRuntimeText(
-                        "Qualification du moteur local…",
-                        "Qualifying the local engine…",
-                        "Calificando el motor local…",
-                        "A qualificar o motor local…",
-                        "Lokale Engine wird qualifiziert…",
-                        "Qualificazione del motore locale…",
-                        UiLang)
-                }));
-            var qualification = await LocalLlmAdaptiveQualificationService.QualifyIfRequiredAsync(
-                _appSettings,
-                LocalLlmAdaptiveQualificationOptions.CreateInitial(Environment.ProcessorCount),
-                force: true,
-                progress: qualificationProgress,
-                ct: cts.Token);
-            if (!qualification.Succeeded)
-            {
-                ClientLog.Warn(
-                    "[AdaptiveQualification] Initial qualification failed: "
-                    + string.Join(", ", qualification.Reasons));
-                SetStartupStatus(LocalRuntimeText(
-                    "Le moteur local n'a pas satisfait les contrôles de performance et de qualité.",
-                    "The local engine did not pass the performance and quality checks.",
-                    "El motor local no superó los controles de rendimiento y calidad.",
-                    "O motor local não passou nos controlos de desempenho e qualidade.",
-                    "Die lokale Engine hat die Leistungs- und Qualitätsprüfungen nicht bestanden.",
-                    "Il motore locale non ha superato i controlli di prestazioni e qualità.",
-                    UiLang));
-                await Task.Delay(1600);
-                return;
-            }
+                    ClientLog.Warn(
+                        "[AdaptiveQualification] Runtime provisioning failed: "
+                        + string.Join(", ", provisioning.Reasons));
+                    SetStartupStatus(LocalRuntimeText(
+                        "Aucun moteur local compatible n'a pu être préparé.",
+                        "No compatible local engine could be prepared.",
+                        "No se pudo preparar ningún motor local compatible.",
+                        "Não foi possível preparar um motor local compatível.",
+                        "Es konnte keine kompatible lokale Engine vorbereitet werden.",
+                        "Non è stato possibile preparare un motore locale compatibile.",
+                        UiLang));
+                    await Task.Delay(1200);
+                    return;
+                }
+
+                var qualificationProgress = new Progress<LocalLlmAdaptiveQualificationProgress>(item =>
+                    SetStartupStatus(item.Stage switch
+                    {
+                        "hardware_probe" => LocalRuntimeText(
+                            "Analyse du matériel et des moteurs…",
+                            "Analyzing hardware and engines…",
+                            "Analizando hardware y motores…",
+                            "A analisar hardware e motores…",
+                            "Hardware und Engines werden analysiert…",
+                            "Analisi di hardware e motori…",
+                            UiLang),
+                        "candidate_factory" => LocalRuntimeText(
+                            "Préparation des profils à mesurer…",
+                            "Preparing profiles to measure…",
+                            "Preparando perfiles para medir…",
+                            "A preparar perfis para medição…",
+                            "Messprofile werden vorbereitet…",
+                            "Preparazione dei profili da misurare…",
+                            UiLang),
+                        "screening" => LocalRuntimeText(
+                            "Vérification de la mémoire et des accélérateurs…",
+                            "Checking memory and accelerators…",
+                            "Comprobando memoria y aceleradores…",
+                            "A verificar memória e aceleradores…",
+                            "Speicher und Beschleuniger werden geprüft…",
+                            "Verifica di memoria e acceleratori…",
+                            UiLang),
+                        "refinement" => LocalRuntimeText(
+                            "Mesure des charges RAG et rédaction…",
+                            "Measuring RAG and writing workloads…",
+                            "Midiendo cargas RAG y de redacción…",
+                            "A medir cargas RAG e de redação…",
+                            "RAG- und Schreiblasten werden gemessen…",
+                            "Misurazione dei carichi RAG e di scrittura…",
+                            UiLang),
+                        "final_validation" => LocalRuntimeText(
+                            "Validation de la qualité du petit modèle…",
+                            "Validating small-model quality…",
+                            "Validando la calidad del modelo pequeño…",
+                            "A validar a qualidade do modelo pequeno…",
+                            "Qualität des kleinen Modells wird validiert…",
+                            "Validazione della qualità del modello piccolo…",
+                            UiLang),
+                        "promotion" => LocalRuntimeText(
+                            "Activation du meilleur profil mesuré…",
+                            "Activating the best measured profile…",
+                            "Activando el mejor perfil medido…",
+                            "A ativar o melhor perfil medido…",
+                            "Bestes gemessenes Profil wird aktiviert…",
+                            "Attivazione del miglior profilo misurato…",
+                            UiLang),
+                        _ => LocalRuntimeText(
+                            "Qualification du moteur local…",
+                            "Qualifying the local engine…",
+                            "Calificando el motor local…",
+                            "A qualificar o motor local…",
+                            "Lokale Engine wird qualifiziert…",
+                            "Qualificazione del motore locale…",
+                            UiLang)
+                    }));
+                var qualification = await LocalLlmAdaptiveQualificationService.QualifyIfRequiredAsync(
+                    _appSettings,
+                    LocalLlmAdaptiveQualificationOptions.CreateInitial(Environment.ProcessorCount),
+                    force: true,
+                    progress: qualificationProgress,
+                    ct: cts.Token);
+                if (!qualification.Succeeded)
+                {
+                    ClientLog.Warn(
+                        "[AdaptiveQualification] Initial qualification failed: "
+                        + string.Join(", ", qualification.Reasons));
+                    SetStartupStatus(LocalRuntimeText(
+                        "Le moteur local n'a pas satisfait les contrôles de performance et de qualité.",
+                        "The local engine did not pass the performance and quality checks.",
+                        "El motor local no superó los controles de rendimiento y calidad.",
+                        "O motor local não passou nos controlos de desempenho e qualidade.",
+                        "Die lokale Engine hat die Leistungs- und Qualitätsprüfungen nicht bestanden.",
+                        "Il motore locale non ha superato i controlli di prestazioni e qualità.",
+                        UiLang));
+                    await Task.Delay(1600);
+                    return;
+                }
             }
             else
             {
@@ -838,7 +838,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
                 "pt" => $"O servidor não respondeu dentro do tempo limite{host}.",
                 "de" => $"Der Server hat innerhalb des Timeouts nicht geantwortet{host}.",
                 "it" => $"Il server non ha risposto entro il timeout{host}.",
-                _    => $"Le serveur n'a pas répondu dans les temps{host}."
+                _ => $"Le serveur n'a pas répondu dans les temps{host}."
             };
         }
 
@@ -852,7 +852,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
                 "pt" => $"Ligação recusada pelo servidor{host}.",
                 "de" => $"Verbindung vom Server abgelehnt{host}.",
                 "it" => $"Connessione rifiutata dal server{host}.",
-                _    => $"Connexion refusée par le serveur{host}."
+                _ => $"Connexion refusée par le serveur{host}."
             };
         }
 
@@ -866,7 +866,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
                 "pt" => $"Não foi possível resolver o nome do host{host}.",
                 "de" => $"Hostname konnte nicht aufgelöst werden{host}.",
                 "it" => $"Impossibile risolvere il nome host{host}.",
-                _    => $"Nom d'hôte introuvable{host}."
+                _ => $"Nom d'hôte introuvable{host}."
             };
         }
 
@@ -880,7 +880,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
                 "pt" => $"Rede inacessível — verifica a tua VPN/Wifi{host}.",
                 "de" => $"Netzwerk nicht erreichbar — VPN/Wifi prüfen{host}.",
                 "it" => $"Rete non raggiungibile — controlla la tua VPN/Wifi{host}.",
-                _    => $"Réseau injoignable — vérifie ton VPN/Wifi{host}."
+                _ => $"Réseau injoignable — vérifie ton VPN/Wifi{host}."
             };
         }
 
@@ -894,7 +894,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
                 "pt" => $"Problema TLS/certificado{host}: {raw}",
                 "de" => $"TLS-/Zertifikatsproblem{host}: {raw}",
                 "it" => $"Problema TLS/certificato{host}: {raw}",
-                _    => $"Problème TLS/certificat{host} : {raw}"
+                _ => $"Problème TLS/certificat{host} : {raw}"
             };
         }
 
@@ -902,7 +902,7 @@ if (!missingAssets && !force && !string.IsNullOrWhiteSpace(_appSettings.Provisio
         return string.IsNullOrEmpty(host) ? raw : $"{raw}{host}";
     }
 
-private async Task RefreshSessionsAsync(string? preferSessionId, CancellationToken ct)
+    private async Task RefreshSessionsAsync(string? preferSessionId, CancellationToken ct)
     {
         var list = await _api.ListSessionsAsync(ct, limit: 200, offset: 0);
 

@@ -53,22 +53,22 @@ internal static class GgufMetadataReader
     private const uint GgufMagicLE = 0x46554747u;
 
     // Safety caps — we never need to scan more than a handful of KV pairs
-    private const long   MaxScanBytes = 2 * 1024 * 1024; // 2 MB
-    private const ulong  MaxKvPairs   = 512;
+    private const long MaxScanBytes = 2 * 1024 * 1024; // 2 MB
+    private const ulong MaxKvPairs = 512;
 
     // GGUF value type constants (gguf_type_t)
-    private const uint TUint8   = 0;
-    private const uint TInt8    = 1;
-    private const uint TUint16  = 2;
-    private const uint TInt16   = 3;
-    private const uint TUint32  = 4;
-    private const uint TInt32   = 5;
+    private const uint TUint8 = 0;
+    private const uint TInt8 = 1;
+    private const uint TUint16 = 2;
+    private const uint TInt16 = 3;
+    private const uint TUint32 = 4;
+    private const uint TInt32 = 5;
     private const uint TFloat32 = 6;
-    private const uint TBool    = 7;
-    private const uint TString  = 8;
-    private const uint TArray   = 9;
-    private const uint TUint64  = 10;
-    private const uint TInt64   = 11;
+    private const uint TBool = 7;
+    private const uint TString = 8;
+    private const uint TArray = 9;
+    private const uint TUint64 = 10;
+    private const uint TInt64 = 11;
     private const uint TFloat64 = 12;
 
     /// <summary>
@@ -106,8 +106,8 @@ internal static class GgufMetadataReader
                 nKv = br.ReadUInt64();
             }
 
-            uint? blockCount   = null;
-            uint? headCountKv  = null;
+            uint? blockCount = null;
+            uint? headCountKv = null;
             var startPos = fs.Position;
 
             // --- KV pairs ---
@@ -126,8 +126,8 @@ internal static class GgufMetadataReader
                     continue;
                 }
 
-                var keyBytes  = br.ReadBytes((int)keyLen);
-                var key       = Encoding.UTF8.GetString(keyBytes);
+                var keyBytes = br.ReadBytes((int)keyLen);
+                var key = Encoding.UTF8.GetString(keyBytes);
                 var valueType = br.ReadUInt32();
 
                 if (IsGgufKey(key, "llm.block_count", ".block_count") && valueType == TUint32)
@@ -180,19 +180,19 @@ internal static class GgufMetadataReader
                 break;
 
             case TString:
-            {
-                var len = br.ReadUInt64();
-                br.BaseStream.Seek((long)len, SeekOrigin.Current);
-                break;
-            }
+                {
+                    var len = br.ReadUInt64();
+                    br.BaseStream.Seek((long)len, SeekOrigin.Current);
+                    break;
+                }
 
             case TArray:
-            {
-                var itemType = br.ReadUInt32();
-                var count    = br.ReadUInt64();
-                SkipArrayItems(br, itemType, count);
-                break;
-            }
+                {
+                    var itemType = br.ReadUInt32();
+                    var count = br.ReadUInt64();
+                    SkipArrayItems(br, itemType, count);
+                    break;
+                }
 
             default:
                 // Unknown type — propagate so TryRead returns null
@@ -206,7 +206,7 @@ internal static class GgufMetadataReader
         int fixedSize = itemType switch
         {
             TUint8 or TInt8 or TBool => 1,
-            TUint16 or TInt16        => 2,
+            TUint16 or TInt16 => 2,
             TUint32 or TInt32 or TFloat32 => 4,
             TUint64 or TInt64 or TFloat64 => 8,
             _ => 0
@@ -531,8 +531,8 @@ internal static class GpuDetector
 
         var vramMiB = nvidia.VramMiB;
         var threads = ThreadsFromVram(vramMiB);
-        var batch   = BatchFromVram(vramMiB);
-        var ngl     = NglFromGgufOrVram(ggufPath, vramMiB, nvidia.Name);
+        var batch = BatchFromVram(vramMiB);
+        var ngl = NglFromGgufOrVram(ggufPath, vramMiB, nvidia.Name);
         return (threads, batch, ngl);
     }
 
@@ -543,15 +543,15 @@ internal static class GpuDetector
     /// </summary>
     public static (int threads, int batch, int ngl) ComputeAutoTuning(GpuInfo? gpu, string? ggufPath = null)
     {
-        var vramMiB  = gpu?.DedicatedVramMiB ?? 0;
-        var hasGpu   = gpu is not null && !gpu.IsIntegrated && vramMiB > 0;
+        var vramMiB = gpu?.DedicatedVramMiB ?? 0;
+        var hasGpu = gpu is not null && !gpu.IsIntegrated && vramMiB > 0;
 
         if (!hasGpu)
             return (Math.Clamp(Environment.ProcessorCount - 2, 4, 10), 128, 0);
 
         var threads = ThreadsFromVram(vramMiB);
-        var batch   = BatchFromVram(vramMiB);
-        var ngl     = NglFromGgufOrVram(ggufPath, vramMiB, gpu!.Name);
+        var batch = BatchFromVram(vramMiB);
+        var ngl = NglFromGgufOrVram(ggufPath, vramMiB, gpu!.Name);
         return (threads, batch, ngl);
     }
 
@@ -582,9 +582,9 @@ internal static class GpuDetector
     /// <summary>VRAM-tier fallback for ngl (used when GGUF is not yet available).</summary>
     private static int FallbackNglFromVram(int vramMiB)
     {
-        if (vramMiB <= 0)     return 0;
-        if (vramMiB <= 5120)  return 24;
-        if (vramMiB <= 7168)  return 32;
+        if (vramMiB <= 0) return 0;
+        if (vramMiB <= 5120) return 24;
+        if (vramMiB <= 7168) return 32;
         if (vramMiB <= 10240) return 48;
         if (vramMiB <= 14336) return 72;
         return 99;
@@ -596,8 +596,8 @@ internal static class GpuDetector
     /// </summary>
     private static int BatchFromVram(int vramMiB)
     {
-        if (vramMiB <= 0)     return 128;  // CPU-only — no LLM-009 constraint
-        if (vramMiB > 14336)  return 1024; // High-VRAM cards — match bench Profile B/C
+        if (vramMiB <= 0) return 128;  // CPU-only — no LLM-009 constraint
+        if (vramMiB > 14336) return 1024; // High-VRAM cards — match bench Profile B/C
         return 512;                        // All other GPU tiers (LLM-009 minimum)
     }
 
@@ -605,8 +605,8 @@ internal static class GpuDetector
     private static int ThreadsFromVram(int vramMiB)
     {
         var cpu = Environment.ProcessorCount;
-        if (vramMiB <= 5120)  return Math.Clamp(cpu - 2, 4, 8);
-        if (vramMiB <= 7168)  return Math.Clamp(cpu - 3, 4, 8);
+        if (vramMiB <= 5120) return Math.Clamp(cpu - 2, 4, 8);
+        if (vramMiB <= 7168) return Math.Clamp(cpu - 3, 4, 8);
         if (vramMiB <= 10240) return Math.Clamp(cpu - 3, 4, 10);
         return Math.Clamp(cpu - 4, 4, 10);
     }

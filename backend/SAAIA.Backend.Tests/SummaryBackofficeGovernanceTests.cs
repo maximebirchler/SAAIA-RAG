@@ -4871,7 +4871,9 @@ VALUES (
 """,
             new
             {
-                tenant = tenantId, docId, revisionId,
+                tenant = tenantId,
+                docId,
+                revisionId,
                 profileId = DocumentFoundationRepo.BuildStableDocumentProfileId(revisionId, "llm_backoffice_v1"),
                 schemaVersion = DocumentFoundationRepo.ContentCardEvidenceSchemaVersion
             });

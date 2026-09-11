@@ -468,7 +468,7 @@ public sealed partial class ApiClient
             trackingMetaJson = trackingMeta is null ? null : JsonSerializer.Serialize(trackingMeta, JsonOpts)
         }, JsonOpts);
 
-        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(snapshot, HttpMethod.Patch, $"/chat/messages/{messageId}" , body), ct);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(snapshot, HttpMethod.Patch, $"/chat/messages/{messageId}", body), ct);
         resp.EnsureSuccessStatusCode();
 
         var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);

@@ -186,7 +186,7 @@ internal static class SourceBackedLlmCumulativeBudgetContext
             + $" remaining_ms={snapshot.RemainingMilliseconds}"
             + $" admission_reason={admission.Reason}"
             + $" call_class={callClass}"
-            + $" terminal={admission.Terminal}]" );
+            + $" terminal={admission.Terminal}]");
     }
 
     private sealed class BudgetScope(BudgetState? previous) : IDisposable

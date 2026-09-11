@@ -28,12 +28,24 @@ public sealed class FastReviewActionBudgetTests
         // Real completion bytes and costs, synthetic source identities. This
         // qualifies transport and admission, not the truth of the captured answer.
         var results = new ToolResults();
-        results.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = JsonSerializer.SerializeToElement(new
+        results.Items.Add(new ToolResults.Item
         {
-            hits = Enumerable.Range(1, 2).Select(i => new { docId = "atlas", docPath = "Lab/Atlas.pdf",
-                revisionId = "rev-atlas", sourceHash = new string('a', 64), chunkId = "chunk-" + i,
-                pageStart = 1, pageEnd = 1, excerpt = "Le module Atlas décrit la procédure " + i + "." }).ToArray()
-        }) });
+            ToolName = "rag.search",
+            Result = JsonSerializer.SerializeToElement(new
+            {
+                hits = Enumerable.Range(1, 2).Select(i => new
+                {
+                    docId = "atlas",
+                    docPath = "Lab/Atlas.pdf",
+                    revisionId = "rev-atlas",
+                    sourceHash = new string('a', 64),
+                    chunkId = "chunk-" + i,
+                    pageStart = 1,
+                    pageEnd = 1,
+                    excerpt = "Le module Atlas décrit la procédure " + i + "."
+                }).ToArray()
+            })
+        });
         var intake = new SourceBackedIntake("Donne une procédure documentée.", "rag.answer", [], [], false, "fr");
         var built = EvidenceBundleBuilder.FromToolResults(results, intake.UserQuestion);
         Assert.Equal(2, built.Items.Count);

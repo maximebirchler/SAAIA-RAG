@@ -17,16 +17,20 @@ public sealed class SingleUnitCitationContractTests
         bool selectTwoUnits, string answer, bool expectedValid)
     {
         var results = new ToolResults();
-        results.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = JsonSerializer.SerializeToElement(new
+        results.Items.Add(new ToolResults.Item
         {
-            hits = new[]
+            ToolName = "rag.search",
+            Result = JsonSerializer.SerializeToElement(new
+            {
+                hits = new[]
             {
                 new { docId = "atlas", docPath = "Lab/Atlas.pdf", revisionId = "rev-atlas", sourceHash = new string('a', 64),
                     chunkId = "atlas-chunk", pageStart = 1, pageEnd = 1, excerpt = "Le module Atlas est portable. Son indicateur clignote deux fois." },
                 new { docId = "boreal", docPath = "Lab/Boreal.pdf", revisionId = "rev-boreal", sourceHash = new string('b', 64),
                     chunkId = "boreal-chunk", pageStart = 2, pageEnd = 2, excerpt = "Le module Boreal clignote trois fois." }
             }
-        }) });
+            })
+        });
         var intake = new SourceBackedIntake(selectTwoUnits ? "Présente deux modules." : "Présente un module.", "rag.answer", [], [], false, "fr");
         var bundle = EvidenceBundleBuilder.FromToolResults(results, intake.UserQuestion);
         Assert.Equal(2, bundle.Items.Count);

@@ -150,14 +150,14 @@ public sealed class RagChatAgent
         {
             if (LocalizedStrings.TryDetectLanguagePreferenceChange(userText, out var requestedLanguage))
             {
-            if (!string.IsNullOrWhiteSpace(_mem.LastUserMessage)
-                && string.Equals(_mem.LastRouterIntent, "rag_search_fallback", StringComparison.OrdinalIgnoreCase))
-            {
-                _mem.LastLanguage = requestedLanguage;
-                UserPrefsStore.SaveLanguage(requestedLanguage);
-                var replayCategory = string.IsNullOrWhiteSpace(_mem.LastSearchOnlyCategory) ? category : _mem.LastSearchOnlyCategory;
-                onPhase?.Invoke(DeterministicAgentText.PhaseRag(requestedLanguage));
-                onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(requestedLanguage));
+                if (!string.IsNullOrWhiteSpace(_mem.LastUserMessage)
+                    && string.Equals(_mem.LastRouterIntent, "rag_search_fallback", StringComparison.OrdinalIgnoreCase))
+                {
+                    _mem.LastLanguage = requestedLanguage;
+                    UserPrefsStore.SaveLanguage(requestedLanguage);
+                    var replayCategory = string.IsNullOrWhiteSpace(_mem.LastSearchOnlyCategory) ? category : _mem.LastSearchOnlyCategory;
+                    onPhase?.Invoke(DeterministicAgentText.PhaseRag(requestedLanguage));
+                    onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(requestedLanguage));
                     var (replayedAnswer, replayedPayload) = await RunSearchOnlyFallbackAsync(_mem.LastUserMessage, replayCategory, ct, requestedLanguage).ConfigureAwait(false);
                     await SimulateStreamingAsync(replayedAnswer, onDelta, ct).ConfigureAwait(false);
                     onProgress?.Invoke(string.Empty);

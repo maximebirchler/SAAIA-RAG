@@ -24,62 +24,62 @@ public sealed partial class ToolAgentOrchestrator
         CancellationToken ct)
     {
         var structuredSourceBackedPlanningFinalResolved = false;
-            if (ShouldGateStructuredSourceBackedPlanningCoverage(finalPlanningCoverageQuery))
+        if (ShouldGateStructuredSourceBackedPlanningCoverage(finalPlanningCoverageQuery))
+        {
+            var finalStructuredGateSw = Stopwatch.StartNew();
+            var targetItemCount = ResolveSourceBackedPlanningTargetItemCount(finalPlanningCoverageQuery);
+            EmitRagTrace(
+                "writer.final_structured_gate.start",
+                ("target_items", targetItemCount),
+                ("answer_chars", finalAnswer?.Length ?? 0),
+                ("tool_items", sourceToolResults.Items.Count),
+                ("position", "pre_general_post_guards"));
+            var writerPlanningSupport = PlanningAnswerSupportAnalysis.Empty;
+            if (TryGetVisibleSourceCitedStructuredPlanningSources(
+                finalAnswer,
+                sourceToolResults,
+                finalPlanningCoverageQuery,
+                out var visibleCitedFinalSources,
+                plan.Language))
             {
-                var finalStructuredGateSw = Stopwatch.StartNew();
-                var targetItemCount = ResolveSourceBackedPlanningTargetItemCount(finalPlanningCoverageQuery);
+                sources = visibleCitedFinalSources;
+                _lastAnswerSource = $"structured_planning_visible_cited_writer:{plan.Intent}";
                 EmitRagTrace(
-                    "writer.final_structured_gate.start",
+                    "writer.final_structured_gate.visible_citations.accepted",
                     ("target_items", targetItemCount),
-                    ("answer_chars", finalAnswer?.Length ?? 0),
-                    ("tool_items", sourceToolResults.Items.Count),
+                    ("sources", visibleCitedFinalSources.Count),
                     ("position", "pre_general_post_guards"));
-                var writerPlanningSupport = PlanningAnswerSupportAnalysis.Empty;
-                if (TryGetVisibleSourceCitedStructuredPlanningSources(
+            }
+            else
+            {
+                var writerFinalSupportSw = Stopwatch.StartNew();
+                EmitRagTrace(
+                    "writer.final_structured_gate.writer_support.start",
+                    ("answer_chars", finalAnswer?.Length ?? 0),
+                    ("position", "pre_general_post_guards"));
+                writerPlanningSupport = AnalyzeSourceBackedPlanningAnswerSupport(
                     finalAnswer,
                     sourceToolResults,
                     finalPlanningCoverageQuery,
-                    out var visibleCitedFinalSources,
-                    plan.Language))
+                    plan.Language);
+                writerFinalSupportSw.Stop();
+                EmitRagTrace(
+                    "writer.final_structured_gate.writer_support.end",
+                    ("items", writerPlanningSupport.ItemCount),
+                    ("supported", writerPlanningSupport.SupportedItemCount),
+                    ("unsupported", writerPlanningSupport.UnsupportedItemCount),
+                    ("candidates", writerPlanningSupport.CandidateCount),
+                    ("sources", writerPlanningSupport.Sources.Count),
+                    ("accepted", writerPlanningSupport.Sources.Count > 0 && !ShouldRejectUnsupportedPlanningAnswerForFinal(writerPlanningSupport, finalPlanningCoverageQuery)),
+                    ("ms", writerFinalSupportSw.ElapsedMilliseconds));
+                if (writerPlanningSupport.Sources.Count > 0
+                    && !ShouldRejectUnsupportedPlanningAnswerForFinal(writerPlanningSupport, finalPlanningCoverageQuery))
                 {
-                    sources = visibleCitedFinalSources;
-                    _lastAnswerSource = $"structured_planning_visible_cited_writer:{plan.Intent}";
-                    EmitRagTrace(
-                        "writer.final_structured_gate.visible_citations.accepted",
-                        ("target_items", targetItemCount),
-                        ("sources", visibleCitedFinalSources.Count),
-                        ("position", "pre_general_post_guards"));
+                    sources = writerPlanningSupport.Sources.ToList();
+                    _lastAnswerSource = $"structured_planning_supported_writer:{plan.Intent}";
                 }
                 else
                 {
-                    var writerFinalSupportSw = Stopwatch.StartNew();
-                    EmitRagTrace(
-                        "writer.final_structured_gate.writer_support.start",
-                        ("answer_chars", finalAnswer?.Length ?? 0),
-                        ("position", "pre_general_post_guards"));
-                    writerPlanningSupport = AnalyzeSourceBackedPlanningAnswerSupport(
-                        finalAnswer,
-                        sourceToolResults,
-                        finalPlanningCoverageQuery,
-                        plan.Language);
-                    writerFinalSupportSw.Stop();
-                    EmitRagTrace(
-                        "writer.final_structured_gate.writer_support.end",
-                        ("items", writerPlanningSupport.ItemCount),
-                        ("supported", writerPlanningSupport.SupportedItemCount),
-                        ("unsupported", writerPlanningSupport.UnsupportedItemCount),
-                        ("candidates", writerPlanningSupport.CandidateCount),
-                        ("sources", writerPlanningSupport.Sources.Count),
-                        ("accepted", writerPlanningSupport.Sources.Count > 0 && !ShouldRejectUnsupportedPlanningAnswerForFinal(writerPlanningSupport, finalPlanningCoverageQuery)),
-                        ("ms", writerFinalSupportSw.ElapsedMilliseconds));
-                    if (writerPlanningSupport.Sources.Count > 0
-                        && !ShouldRejectUnsupportedPlanningAnswerForFinal(writerPlanningSupport, finalPlanningCoverageQuery))
-                    {
-                        sources = writerPlanningSupport.Sources.ToList();
-                        _lastAnswerSource = $"structured_planning_supported_writer:{plan.Intent}";
-                    }
-                    else
-                    {
                     var repairedFinalGate = false;
                     var preferWriterRepairOverDeterministicRebuild = ShouldGateStructuredSourceBackedPlanningCoverage(finalPlanningCoverageQuery);
                     if (preferWriterRepairOverDeterministicRebuild
@@ -237,40 +237,40 @@ public sealed partial class ToolAgentOrchestrator
 
                     if (!repairedFinalGate)
                     {
-                    EmitRagTrace(
-                        "writer.final_structured_gate.deterministic.skipped",
-                        ("reason", "canonical_structured_planning_no_deterministic_rebuild"),
-                        ("candidates", writerPlanningSupport.CandidateCount),
-                        ("position", "pre_general_post_guards"));
-                    ClientLog.Info(
-                            "ToolAgent structured planning final gate skipped deterministic rebuild on the canonical path: " +
-                        $"target={targetItemCount} writerItems={writerPlanningSupport.ItemCount} " +
-                        $"writerSupported={writerPlanningSupport.SupportedItemCount} " +
-                        $"unsupported={writerPlanningSupport.UnsupportedItemCount} " +
-                        $"candidates={writerPlanningSupport.CandidateCount} " +
-                        $"source={_lastAnswerSource}");
-                    finalAnswer = BuildBroadEvidenceStillInsufficientAnswer(
-                        plan.Language,
-                        finalPlanningCoverageQuery,
-                        finalPlanningCoverageQuery,
-                        writerPlanningSupport.CandidateCount,
-                        searchAlreadyExpanded: HasExpandedSourceBackedSearchEvidence(sourceToolResults));
-                    sources = new List<ToolMemory.SourceRef>();
-                    _lastAnswerSource = $"structured_planning_insufficient_without_deterministic_rebuild:{plan.Intent}";
-                    }
+                        EmitRagTrace(
+                            "writer.final_structured_gate.deterministic.skipped",
+                            ("reason", "canonical_structured_planning_no_deterministic_rebuild"),
+                            ("candidates", writerPlanningSupport.CandidateCount),
+                            ("position", "pre_general_post_guards"));
+                        ClientLog.Info(
+                                "ToolAgent structured planning final gate skipped deterministic rebuild on the canonical path: " +
+                            $"target={targetItemCount} writerItems={writerPlanningSupport.ItemCount} " +
+                            $"writerSupported={writerPlanningSupport.SupportedItemCount} " +
+                            $"unsupported={writerPlanningSupport.UnsupportedItemCount} " +
+                            $"candidates={writerPlanningSupport.CandidateCount} " +
+                            $"source={_lastAnswerSource}");
+                        finalAnswer = BuildBroadEvidenceStillInsufficientAnswer(
+                            plan.Language,
+                            finalPlanningCoverageQuery,
+                            finalPlanningCoverageQuery,
+                            writerPlanningSupport.CandidateCount,
+                            searchAlreadyExpanded: HasExpandedSourceBackedSearchEvidence(sourceToolResults));
+                        sources = new List<ToolMemory.SourceRef>();
+                        _lastAnswerSource = $"structured_planning_insufficient_without_deterministic_rebuild:{plan.Intent}";
                     }
                 }
-
-                finalAnswer = RemoveTrailingModelEmittedSourceList(finalAnswer ?? string.Empty);
-                structuredSourceBackedPlanningFinalResolved = true;
-                EmitRagTrace(
-                    "writer.final_structured_gate.end",
-                    ("answer_source", _lastAnswerSource),
-                    ("answer_chars", finalAnswer?.Length ?? 0),
-                    ("sources", sources?.Count ?? 0),
-                    ("position", "pre_general_post_guards"),
-                    ("ms", finalStructuredGateSw.ElapsedMilliseconds));
             }
+
+            finalAnswer = RemoveTrailingModelEmittedSourceList(finalAnswer ?? string.Empty);
+            structuredSourceBackedPlanningFinalResolved = true;
+            EmitRagTrace(
+                "writer.final_structured_gate.end",
+                ("answer_source", _lastAnswerSource),
+                ("answer_chars", finalAnswer?.Length ?? 0),
+                ("sources", sources?.Count ?? 0),
+                ("position", "pre_general_post_guards"),
+                ("ms", finalStructuredGateSw.ElapsedMilliseconds));
+        }
 
 
         return new AnswerPostWriterStructuredGateResult(

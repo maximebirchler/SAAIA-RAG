@@ -25,8 +25,12 @@ public sealed class ThreeFormatQwenNativeTokenInputsTests
             // Only the measurement schedule uses this classification; no oracle enters a model request.
             if (inputs.ScoringCases[state.CasePosition].GetProperty("expectedDecision").GetString() != "answer") continue;
             answerCases++;
-            var representative = JsonSerializer.Serialize(new { presentation = "paragraph", claims = state.Evidence.Select(e =>
-                new { text = string.Concat(e.Excerpt.EnumerateRunes().Take(500).Select(r => r.ToString())), evidenceIds = new[] { e.Id } }).ToArray() });
+            var representative = JsonSerializer.Serialize(new
+            {
+                presentation = "paragraph",
+                claims = state.Evidence.Select(e =>
+                new { text = string.Concat(e.Excerpt.EnumerateRunes().Take(500).Select(r => r.ToString())), evidenceIds = new[] { e.Id } }).ToArray()
+            });
             var minimal = JsonSerializer.Serialize(new { presentation = "paragraph", claims = new[] { new { text = ".", evidenceIds = new[] { state.Evidence[0].Id } } } });
             AddRole(state, "reviewer", "representative", representative);
             AddRole(state, "reviewer", "minimal", minimal);
@@ -47,10 +51,15 @@ public sealed class ThreeFormatQwenNativeTokenInputsTests
         {
             var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new
             {
-                version = "a658-pc-native-inputs-v1", ContractHash, CasesHash, OrderHash,
+                version = "a658-pc-native-inputs-v1",
+                ContractHash,
+                CasesHash,
+                OrderHash,
                 representativeDraftOrigin = "mechanical_frozen_excerpts_not_semantic_answer",
                 reviewerMaximumProjection = "max(representativeTokens,minimalTokens+512)+32; same conservative replay envelope as A648",
-                controllerInputLimit = 3392, reviewerInputLimit = 3648, context = 4096,
+                controllerInputLimit = 3392,
+                reviewerInputLimit = 3648,
+                context = 4096,
                 rows
             }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
             using var stream = new FileStream(output, FileMode.CreateNew, FileAccess.Write, FileShare.None);
@@ -71,9 +80,20 @@ public sealed class ThreeFormatQwenNativeTokenInputsTests
             void Add(Request request)
             {
                 requests.Add(request);
-                rows.Add(new { sequence = rows.Count + 1, state.CasePosition, state.CaseId, form,
-                    request.Variant, request.Role, request.Stage, request.SelectedAction,
-                    request.SnapshotSha256, request.SchemaSha256, request.Body });
+                rows.Add(new
+                {
+                    sequence = rows.Count + 1,
+                    state.CasePosition,
+                    state.CaseId,
+                    form,
+                    request.Variant,
+                    request.Role,
+                    request.Stage,
+                    request.SelectedAction,
+                    request.SnapshotSha256,
+                    request.SchemaSha256,
+                    request.Body
+                });
             }
         }
     }

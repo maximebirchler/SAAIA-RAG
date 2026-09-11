@@ -25,13 +25,17 @@ public sealed class DedicatedWriterTerminalBudgetTests
             MaximumObservationExcerptCharacters: 360, MaximumOutputTokens: 900,
             MaximumActionTokens: 256, MaximumWorkingEvidenceItems: 12, StructuredFlatWriterEnabled: false));
         var results = new ToolResults();
-        results.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = JsonSerializer.SerializeToElement(new
+        results.Items.Add(new ToolResults.Item
         {
-            hits = new[] { new { docId = "observed-document", docPath = "Lab/Indicator.pdf",
+            ToolName = "rag.search",
+            Result = JsonSerializer.SerializeToElement(new
+            {
+                hits = new[] { new { docId = "observed-document", docPath = "Lab/Indicator.pdf",
                 revisionId = "observed-revision", sourceHash = new string('a', 64),
                 chunkId = "observed-chunk", pageStart = 4, pageEnd = 4,
                 excerpt = "The status light blinks twice after initialization." } }
-        }) });
+            })
+        });
         var intake = new SourceBackedIntake("What does the status light do?", "rag.answer", [], [], false, "en");
         var bundle = EvidenceBundleBuilder.FromToolResults(results, intake.UserQuestion);
         var id = Assert.Single(bundle.Items).EvidenceId;

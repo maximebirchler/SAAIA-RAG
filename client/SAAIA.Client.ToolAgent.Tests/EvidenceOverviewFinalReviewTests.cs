@@ -153,8 +153,13 @@ public sealed class EvidenceOverviewFinalReviewTests
     {
         var args = JsonSerializer.SerializeToElement(new
         {
-            docRef = "ATLAS", strategy = "evidence_overview", language = "fr", responseLanguage = "fr",
-            requestedPointCount = 2, sampleCount = 2, userRequest = Question
+            docRef = "ATLAS",
+            strategy = "evidence_overview",
+            language = "fr",
+            responseLanguage = "fr",
+            requestedPointCount = 2,
+            sampleCount = 2,
+            userRequest = Question
         });
         var method = typeof(ToolAgentOrchestrator).GetMethod("ExecRagSummarizeLiveAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
         return (Task<JsonElement>)method.Invoke(sut, [args, CancellationToken.None])!;
@@ -169,8 +174,14 @@ public sealed class EvidenceOverviewFinalReviewTests
         var memory = new ToolMemory { LastLanguage = "fr" };
         memory.PdfMap["ATLAS"] = new ToolMemory.DocumentItem
         {
-            DocId = DocId, DocName = "Atlas.pdf", DocPath = "Knowledge/Atlas.pdf", SourceHash = Hash,
-            DocLanguage = "fr", ProfileLanguage = "fr", Pages = 2, PdfRef = "ATLAS"
+            DocId = DocId,
+            DocName = "Atlas.pdf",
+            DocPath = "Knowledge/Atlas.pdf",
+            SourceHash = Hash,
+            DocLanguage = "fr",
+            ProfileLanguage = "fr",
+            Pages = 2,
+            PdfRef = "ATLAS"
         };
         return new ToolAgentOrchestrator(api, llm, memory, new AppSettings { ActiveMode = "strict" });
     }
@@ -179,8 +190,17 @@ public sealed class EvidenceOverviewFinalReviewTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            var document = new { docId = DocId, docName = "Atlas.pdf", docPath = "Knowledge/Atlas.pdf", sourceHash = Hash,
-                revisionId = RevisionId, docLanguage = "fr", profileLanguage = "fr", pageCount = 2 };
+            var document = new
+            {
+                docId = DocId,
+                docName = "Atlas.pdf",
+                docPath = "Knowledge/Atlas.pdf",
+                sourceHash = Hash,
+                revisionId = RevisionId,
+                docLanguage = "fr",
+                profileLanguage = "fr",
+                pageCount = 2
+            };
             object payload;
             if (request.RequestUri!.AbsolutePath == "/sources/resolve")
                 payload = new { source = document };
@@ -191,9 +211,13 @@ public sealed class EvidenceOverviewFinalReviewTests
                 var text = page == 1
                     ? "La pression du module Atlas est de 73 unités fictives. Ce paramètre décrit le réglage documenté du module."
                     : "La durée documentée du cycle du module Atlas est de 12 minutes. Ce paramètre concerne le cycle complet.";
-                payload = new { document, items = new[] { new { docId = DocId, docName = "Atlas.pdf", docPath = "Knowledge/Atlas.pdf",
+                payload = new
+                {
+                    document,
+                    items = new[] { new { docId = DocId, docName = "Atlas.pdf", docPath = "Knowledge/Atlas.pdf",
                     revisionId = RevisionId, sourceHash = Hash, chunkId = "atlas-chunk-" + page, chunkIndex = page,
-                    pageStart = page, pageEnd = page, text, fullText = text, contentRole = "content", tokenCount = 70 } } };
+                    pageStart = page, pageEnd = page, text, fullText = text, contentRole = "content", tokenCount = 70 } }
+                };
             }
             else throw new InvalidOperationException("Unexpected fixture endpoint: " + request.RequestUri.AbsolutePath);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)

@@ -27,8 +27,10 @@ public static partial class ThreeFormatQwenContractHarness
     };
     private static readonly Dictionary<string, string> DocumentTools = new(StringComparer.Ordinal)
     {
-        ["search"] = "rag_search", ["navigation"] = "documents_navigation",
-        ["content_cards"] = "documents_content_cards", ["context"] = "documents_context"
+        ["search"] = "rag_search",
+        ["navigation"] = "documents_navigation",
+        ["content_cards"] = "documents_content_cards",
+        ["context"] = "documents_context"
     };
 
     public sealed record Evidence(string Id, string DocId, string RevisionId, string SourceHash,
@@ -82,13 +84,30 @@ public static partial class ThreeFormatQwenContractHarness
         // This is a diagnostic fixture, not a claim about real PDF hashes/pages.
         var json = Serialize(new
         {
-            version = "a657_fixture_v1", identityOrigin = "frozen_fixture_excerpt_order_not_verified_real_pdf",
-            question = Text(fixture, "question"), language = Text(fixture, "language"), focus = Text(fixture, "questionFocus"),
+            version = "a657_fixture_v1",
+            identityOrigin = "frozen_fixture_excerpt_order_not_verified_real_pdf",
+            question = Text(fixture, "question"),
+            language = Text(fixture, "language"),
+            focus = Text(fixture, "questionFocus"),
             provisionalSemanticPlan = new { authority = "non_authoritative", text = Text(fixture, "semanticPlan") },
-            document = new { docId, revisionId = revision, docName = name, docPath = file }, evidence,
-            rejectedEvidence = Array.Empty<object>(), actions = Array.Empty<object>(), executedRoutes = Array.Empty<object>(),
-            budgets = new { contextTokens = 4096, controllerInput = 3392, controllerOutput = 512, reviewerInput = 3648,
-                reviewerOutput = 256, reserve = 64, headroom = 128, modelCallsRemaining = 4, toolCallsRemaining = 4, millisecondsRemaining = 180000 }
+            document = new { docId, revisionId = revision, docName = name, docPath = file },
+            evidence,
+            rejectedEvidence = Array.Empty<object>(),
+            actions = Array.Empty<object>(),
+            executedRoutes = Array.Empty<object>(),
+            budgets = new
+            {
+                contextTokens = 4096,
+                controllerInput = 3392,
+                controllerOutput = 512,
+                reviewerInput = 3648,
+                reviewerOutput = 256,
+                reserve = 64,
+                headroom = 128,
+                modelCallsRemaining = 4,
+                toolCallsRemaining = 4,
+                millisecondsRemaining = 180000
+            }
         });
         return new(fixture.GetProperty("casePosition").GetInt32(), Text(fixture, "id"), json, Hash(json), evidence, new HashSet<string>(StringComparer.Ordinal));
     }
@@ -135,15 +154,21 @@ public static partial class ThreeFormatQwenContractHarness
         var body = new JsonObject
         {
             ["messages"] = JsonSerializer.SerializeToNode(new[] { new { role = "system", content = instruction }, new { role = "user", content } }),
-            ["temperature"] = 0, ["max_tokens"] = role == "controller" ? 512 : 256, ["stream"] = false
+            ["temperature"] = 0,
+            ["max_tokens"] = role == "controller" ? 512 : 256,
+            ["stream"] = false
         };
         string schemaJson;
         if (stage == "grammar")
         {
             var schema = inputs.Contracts.GetProperty("grammarSchemas").GetProperty(role);
             schemaJson = Serialize(schema);
-            body["response_format"] = new JsonObject { ["type"] = "json_schema", ["json_schema"] = new JsonObject
-                { ["name"] = "a656_" + role, ["strict"] = true, ["schema"] = JsonNode.Parse(schemaJson) } };
+            body["response_format"] = new JsonObject
+            {
+                ["type"] = "json_schema",
+                ["json_schema"] = new JsonObject
+                { ["name"] = "a656_" + role, ["strict"] = true, ["schema"] = JsonNode.Parse(schemaJson) }
+            };
         }
         else
         {

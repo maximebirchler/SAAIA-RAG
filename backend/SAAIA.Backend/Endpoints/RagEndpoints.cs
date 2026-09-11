@@ -14998,7 +14998,7 @@ LIMIT @top_k;
         return signals.Length == 0 ? null : signals;
     }
 
-private const string LexicalContentFallbackSql = """
+    private const string LexicalContentFallbackSql = """
 WITH lexical_terms AS (
     SELECT DISTINCT LOWER(term) AS term
     FROM unnest(@lexical_terms::text[]) AS term
@@ -20102,7 +20102,7 @@ GROUP BY d.doc_id;
                 continue;
             }
 
-        // CDC v3.1 §11.3: max 2 chunks per section
+            // CDC v3.1 §11.3: max 2 chunks per section
             var sectionKey = BuildSectionKey(match);
             if (countsAgainstChunkQuota && sectionKey != null)
             {
@@ -21693,11 +21693,11 @@ LIMIT @top_k;
         var rows = await conn.QueryAsync<LinkedMatchRow>(new CommandDefinition(sql, new
         {
             tenant_id = tenantId,
-                dense_anchor_chunk_ids = denseAnchorIds,
-                linked_anchor_chunk_ids = linkedAnchorIds,
-                sparse_anchor_chunk_ids = sparseAnchorIds,
-                route_anchor_chunk_ids = routeAnchorIds,
-                exact_anchor_entry_ids = exactAnchorIds,
+            dense_anchor_chunk_ids = denseAnchorIds,
+            linked_anchor_chunk_ids = linkedAnchorIds,
+            sparse_anchor_chunk_ids = sparseAnchorIds,
+            route_anchor_chunk_ids = routeAnchorIds,
+            exact_anchor_entry_ids = exactAnchorIds,
             category,
             category_path = normalizedCategoryPath,
             doc_id = normalizedDocId,
@@ -32027,7 +32027,7 @@ LIMIT @top_k;
                 || StandardReferencePhraseMatchesText(normalizedPhrase, match.DocPath)
                 || StandardReferencePhraseMatchesText(normalizedPhrase, match.HeadingPath)
                 || StandardReferencePhraseMatchesText(normalizedPhrase, match.SectionTitle));
-            });
+        });
     }
 
     internal static void PruneUnrequestedStandardReferenceSelections(string query, List<RagMatch> selected)
@@ -36703,23 +36703,23 @@ public sealed record RagSearchRequest(
     string? Mode = null
 );
 
-    public sealed record RagSearchTimings(
-        long TotalMs,
-        long TeiMs,
-        long RerankMs,
-        long SparseMs,
-        long QdrantMs,
-        long ExactMs = 0,
-        long QuotedTitleMs = 0,
-        long LocalTitleTokenMs = 0,
-        long TitleAnchorRouteMs = 0,
-        long SparsePhaseMs = 0,
-        long DenseMs = 0,
-        long ProfileMs = 0,
-        long LinkedMs = 0,
-        long FusionMs = 0,
-        long RerankPhaseMs = 0,
-        long SelectionMs = 0);
+public sealed record RagSearchTimings(
+    long TotalMs,
+    long TeiMs,
+    long RerankMs,
+    long SparseMs,
+    long QdrantMs,
+    long ExactMs = 0,
+    long QuotedTitleMs = 0,
+    long LocalTitleTokenMs = 0,
+    long TitleAnchorRouteMs = 0,
+    long SparsePhaseMs = 0,
+    long DenseMs = 0,
+    long ProfileMs = 0,
+    long LinkedMs = 0,
+    long FusionMs = 0,
+    long RerankPhaseMs = 0,
+    long SelectionMs = 0);
 
 public sealed record RagSearchResponse(
     string RequestId,

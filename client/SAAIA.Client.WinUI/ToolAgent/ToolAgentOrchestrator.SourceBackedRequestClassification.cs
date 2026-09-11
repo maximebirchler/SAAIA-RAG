@@ -357,7 +357,7 @@ public sealed partial class ToolAgentOrchestrator
             "¿Cuál es la referencia exacta de la norma y qué alcance del proyecto debe verificarse? Con ambos datos podré buscar los requisitos aplicables sin sustituir el marcador «xxx».",
             "Qual é a referência exata da norma e que âmbito do projeto deve ser verificado? Com ambas as informações, poderei procurar os requisitos aplicáveis sem substituir o marcador «xxx».",
             "Wie lautet die genaue Normreferenz und welcher Projektumfang soll geprüft werden? Mit beiden Angaben kann ich die geltenden Anforderungen suchen, ohne den Platzhalter 'xxx' zu ersetzen.",
-            "Qual è il riferimento esatto della norma e quale ambito del progetto deve essere verificato? Con entrambe le informazioni potrò cercare i requisiti applicabili senza sostituire il segnaposto «xxx»." );
+            "Qual è il riferimento esatto della norma e quale ambito del progetto deve essere verificato? Con entrambe le informazioni potrò cercare i requisiti applicabili senza sostituire il segnaposto «xxx».");
 
     private static bool LooksLikeVagueVerificationScopeQuestion(string? query)
     {

@@ -25,7 +25,7 @@ public static partial class DocumentsEndpoints
         app.MapGet("/documents/catalog", CatalogAsync);
         app.MapGet("/documents/catalog/{docId:guid}", CatalogGetAsync);
 
-    // Inventory helpers (CDC v3.1)
+        // Inventory helpers (CDC v3.1)
         app.MapGet("/documents/count", CountAsync);
         app.MapGet("/documents/categories", CategoriesAsync);
         app.MapGet("/documents/tree", TreeAsync);
@@ -376,7 +376,7 @@ LIMIT @lim OFFSET @off;";
 
             var rows = (await conn.QueryAsync<TopCategoryDto>(new CommandDefinition(sql, new { tenant = tenantId, lim, off }, cancellationToken: ct))).ToList();
             var total = await conn.ExecuteScalarAsync<int>(new CommandDefinition(totalSql, new { tenant = tenantId }, cancellationToken: ct));
-        var aliasesByPath = await DocumentsCategoryScopeResolver.LoadTopCategoryAliasesAsync(conn, tenantId, rows.Select(x => x.Path).ToList(), ct);
+            var aliasesByPath = await DocumentsCategoryScopeResolver.LoadTopCategoryAliasesAsync(conn, tenantId, rows.Select(x => x.Path).ToList(), ct);
 
             var items = rows.Select(x => new
             {
@@ -1999,7 +1999,7 @@ LIMIT 1;";
             }
             else
             {
-        var aliasesByPath = await DocumentsCategoryScopeResolver.LoadTopCategoryAliasesAsync(conn, tenantId, new[] { row.Path }, ct);
+                var aliasesByPath = await DocumentsCategoryScopeResolver.LoadTopCategoryAliasesAsync(conn, tenantId, new[] { row.Path }, ct);
                 value = new List<object>
                 {
                     new
@@ -2037,7 +2037,7 @@ LIMIT @lim OFFSET @off;";
 
             var rows = (await conn.QueryAsync<SnapshotCategoryRow>(new CommandDefinition(sql, new { tenant = tenantId, lim = requestedPageSize, off = offset }, cancellationToken: ct))).ToList();
             total = await conn.ExecuteScalarAsync<int>(new CommandDefinition(totalSql, new { tenant = tenantId }, cancellationToken: ct));
-        var aliasesByPath = await DocumentsCategoryScopeResolver.LoadTopCategoryAliasesAsync(conn, tenantId, rows.Select(x => x.Path).ToList(), ct);
+            var aliasesByPath = await DocumentsCategoryScopeResolver.LoadTopCategoryAliasesAsync(conn, tenantId, rows.Select(x => x.Path).ToList(), ct);
 
             value = rows.Select(x => (object)new
             {

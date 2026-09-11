@@ -326,9 +326,21 @@ public sealed class GroundedAnswerUnitContractTests
                 ? new[] { "submit_source_backed_route", "request_missing_user_input" }
                 : new[] { "submit_source_backed_route" }, tools.Select(tool => tool.Name));
             var drift = DriftFirstCount && NativeCalls == 1;
-            var args = JsonSerializer.SerializeToElement(new { tool = "search", intent = "answer", query = "procédure observée",
-                answerUnitType = "procedure", answerUnitMode = "named_item", selectionPolicy = drift ? "explicit_set" : "single_item", useFocusedDocument = false,
-                questionFocus = "content", namedReferenceKind = "none", document = (string?)null, pool = 5, count = drift ? 3 : 1 });
+            var args = JsonSerializer.SerializeToElement(new
+            {
+                tool = "search",
+                intent = "answer",
+                query = "procédure observée",
+                answerUnitType = "procedure",
+                answerUnitMode = "named_item",
+                selectionPolicy = drift ? "explicit_set" : "single_item",
+                useFocusedDocument = false,
+                questionFocus = "content",
+                namedReferenceKind = "none",
+                document = (string?)null,
+                pool = 5,
+                count = drift ? 3 : 1
+            });
             return Task.FromResult(new SourceBackedAgentCompletion("", [new SourceBackedAgentToolCall("route", "submit_source_backed_route", args)], "tool_calls"));
         }
         public Task<string> CompleteAsync(IReadOnlyList<(string role, string content)> messages, bool forceJson, CancellationToken ct) => throw new NotSupportedException();

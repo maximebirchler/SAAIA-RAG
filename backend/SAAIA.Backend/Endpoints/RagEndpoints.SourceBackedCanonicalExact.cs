@@ -74,9 +74,13 @@ LIMIT @topK;
         await using var conn = await ds.OpenConnectionAsync(ct);
         var rows = await conn.QueryAsync<SparseMatchRow>(new CommandDefinition(sql, new
         {
-            tenant = tenantId, terms, category,
+            tenant = tenantId,
+            terms,
+            category,
             categoryPath = NormalizeRagCategoryPathForSql(categoryPath),
-            docId = normalizedDocId, docPath = normalizedDocPath, topK
+            docId = normalizedDocId,
+            docPath = normalizedDocPath,
+            topK
         }, cancellationToken: ct));
         // Every result is a literal exact match. Source type and query intent
         // do not introduce semantic bonuses; the existing RRF combines channels.

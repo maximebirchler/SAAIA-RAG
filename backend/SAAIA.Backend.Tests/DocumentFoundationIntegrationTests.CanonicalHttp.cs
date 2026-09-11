@@ -47,10 +47,20 @@ public sealed partial class DocumentFoundationIntegrationTests
                 INSERT INTO api_keys(api_key_id, tenant_id, key_prefix, key_hash, label, is_admin)
                 VALUES(@id, @tenant, @prefix, @hash, 'isolated-http-contract', FALSE);
                 """;
-            await conn.ExecuteAsync(insertKey, new { id = firstKeyId, tenant = firstTenant,
-                prefix = ApiKeyAuth.Prefix(firstKey), hash = ApiKeyAuth.Sha256Bytes(firstKey, "") });
-            await conn.ExecuteAsync(insertKey, new { id = Guid.NewGuid(), tenant = secondTenant,
-                prefix = ApiKeyAuth.Prefix(secondKey), hash = ApiKeyAuth.Sha256Bytes(secondKey, "") });
+            await conn.ExecuteAsync(insertKey, new
+            {
+                id = firstKeyId,
+                tenant = firstTenant,
+                prefix = ApiKeyAuth.Prefix(firstKey),
+                hash = ApiKeyAuth.Sha256Bytes(firstKey, "")
+            });
+            await conn.ExecuteAsync(insertKey, new
+            {
+                id = Guid.NewGuid(),
+                tenant = secondTenant,
+                prefix = ApiKeyAuth.Prefix(secondKey),
+                hash = ApiKeyAuth.Sha256Bytes(secondKey, "")
+            });
         }
 
         var ownedRoot = Directory.CreateTempSubdirectory("saaia-http-contract-");
@@ -93,7 +103,7 @@ public sealed partial class DocumentFoundationIntegrationTests
                 var addresses = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>();
                 var address = Assert.Single(addresses!.Addresses);
                 using var client = new HttpClient(new HttpClientHandler { UseProxy = false })
-                    { BaseAddress = new Uri(address), Timeout = TimeSpan.FromSeconds(20) };
+                { BaseAddress = new Uri(address), Timeout = TimeSpan.FromSeconds(20) };
                 var request = new RagSearchRequestDto("verification", TopK: 20, SourceBackedCanonical: true);
                 var observations = new List<object>();
                 async Task<JsonElement> SearchAsync(string? key, RagSearchRequestDto search, HttpStatusCode expected)
@@ -151,10 +161,18 @@ public sealed partial class DocumentFoundationIntegrationTests
                     Assert.False(File.Exists(artifact));
                     File.WriteAllText(artifact, JsonSerializer.Serialize(new
                     {
-                        schemaVersion = 1, syntheticCorpus = true, postgresVerified = true,
-                        transport = "loopback-kestrel", realApiKeyMiddleware = true,
-                        backgroundWorkersEnabled = false, externalRetrieversStubbed = true,
-                        firstTenant, secondTenant, firstDoc, secondDoc, observations
+                        schemaVersion = 1,
+                        syntheticCorpus = true,
+                        postgresVerified = true,
+                        transport = "loopback-kestrel",
+                        realApiKeyMiddleware = true,
+                        backgroundWorkersEnabled = false,
+                        externalRetrieversStubbed = true,
+                        firstTenant,
+                        secondTenant,
+                        firstDoc,
+                        secondDoc,
+                        observations
                     }, new JsonSerializerOptions { WriteIndented = true }));
                 }
             }

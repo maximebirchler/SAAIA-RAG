@@ -27,7 +27,7 @@ if (builder.Environment.IsDevelopment())
 if (builder.Environment.IsProduction())
 {
     var require = true;
-    var requireStr = builder.Configuration["Rag:RequireQdrantAuthInProd"]; 
+    var requireStr = builder.Configuration["Rag:RequireQdrantAuthInProd"];
     if (!string.IsNullOrWhiteSpace(requireStr) && bool.TryParse(requireStr, out var requireParsed))
         require = requireParsed;
     if (require)

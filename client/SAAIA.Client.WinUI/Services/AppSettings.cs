@@ -52,9 +52,9 @@ internal sealed class AppSettings
     private const string KLastSessionId = "chat.lastSessionId";
 
     // Fine-grained LLM tuning (CDC v3.1 LLM-010 / LLM-011)
-    private const string KUbatchSize   = "llm.ubatchSize";
+    private const string KUbatchSize = "llm.ubatchSize";
     private const string KThreadsBatch = "llm.threadsBatch";
-    private const string KFlashAttn    = "llm.flashAttn"; // "auto"|"on"|"off"
+    private const string KFlashAttn = "llm.flashAttn"; // "auto"|"on"|"off"
     private const string KQualifiedProfile = "llm.qualifiedProfile";
 
     public string BackendUrl { get; set; } = ClientDefaults.BackendBaseUrl;
@@ -261,9 +261,9 @@ internal sealed class AppSettings
             s.ExtraArgs = (ls.Values[KExtraArgs] as string) ?? s.ExtraArgs;
             s.StartupTimeoutSeconds = (ls.Values[KStartupTimeoutSec] as int?) ?? s.StartupTimeoutSeconds;
 
-            s.UbatchSize   = (ls.Values[KUbatchSize]   as int?) ?? s.UbatchSize;
+            s.UbatchSize = (ls.Values[KUbatchSize] as int?) ?? s.UbatchSize;
             s.ThreadsBatch = (ls.Values[KThreadsBatch] as int?) ?? s.ThreadsBatch;
-            s.FlashAttn    = ParseFlashAttn(ls.Values[KFlashAttn] as string);
+            s.FlashAttn = ParseFlashAttn(ls.Values[KFlashAttn] as string);
             s.QualifiedProfile = ParseQualifiedProfile(ls.Values[KQualifiedProfile] as string);
             s.QualifiedProfile = NormalizeQualifiedProfileForCurrentReference(s.QualifiedProfile);
 
@@ -420,7 +420,7 @@ internal sealed class AppSettings
             ls.Values[KExtraArgs] = ExtraArgs ?? "";
             ls.Values[KStartupTimeoutSec] = StartupTimeoutSeconds;
 
-            ls.Values[KUbatchSize]   = UbatchSize;
+            ls.Values[KUbatchSize] = UbatchSize;
             ls.Values[KThreadsBatch] = ThreadsBatch;
             if (FlashAttn is null) ls.Values.Remove(KFlashAttn);
             else ls.Values[KFlashAttn] = FlashAttn.Value ? "on" : "off";
@@ -497,9 +497,9 @@ internal sealed class AppSettings
     /// </summary>
     private static bool? ParseFlashAttn(string? val) => val switch
     {
-        "on"  => true,
+        "on" => true,
         "off" => false,
-        _     => null   // absent or "auto"
+        _ => null   // absent or "auto"
     };
 
     private static QualifiedProfile? ParseQualifiedProfile(string? json)

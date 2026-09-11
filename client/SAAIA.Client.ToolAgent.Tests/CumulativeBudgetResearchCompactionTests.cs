@@ -89,20 +89,32 @@ public sealed class CumulativeBudgetResearchCompactionTests
             JsonSerializer.SerializeToElement(new { query = "", inventoryMode = "representative", limit = 40 }), "llm_router")],
         InitialSemanticMission = new SourceBackedInitialSemanticMission(JsonSerializer.SerializeToElement(new
         {
-            planKind = "multi_item", deliverable = "both recorded measurements and their validity conditions",
-            structuredLayout = false, rowCount = 1, columnCount = 1, atomicEvidenceCount = 3,
-            atomicEvidenceType = "documented facts", atomicEvidenceMode = "content_claim",
-            selectionPolicy = "explicit_set", initialCapability = "documents_content_cards",
-            rowHeader = "", rowLabels = Array.Empty<string>(), columns = Array.Empty<string>()
+            planKind = "multi_item",
+            deliverable = "both recorded measurements and their validity conditions",
+            structuredLayout = false,
+            rowCount = 1,
+            columnCount = 1,
+            atomicEvidenceCount = 3,
+            atomicEvidenceType = "documented facts",
+            atomicEvidenceMode = "content_claim",
+            selectionPolicy = "explicit_set",
+            initialCapability = "documents_content_cards",
+            rowHeader = "",
+            rowLabels = Array.Empty<string>(),
+            columns = Array.Empty<string>()
         }), "llm_router")
     };
 
     private static ToolResults LoadCards()
     {
         var result = new ToolResults();
-        result.Items.Add(new ToolResults.Item { ToolName = "documents.content_cards", Result =
+        result.Items.Add(new ToolResults.Item
+        {
+            ToolName = "documents.content_cards",
+            Result =
             JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
-                "Fixtures", "CanonicalContentCardLocatorContract.json"))) });
+                "Fixtures", "CanonicalContentCardLocatorContract.json")))
+        });
         return result;
     }
 

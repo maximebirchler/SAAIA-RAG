@@ -456,24 +456,24 @@ Keep each query under 90 characters.
         switch (item.ValueKind)
         {
             case JsonValueKind.String:
-            {
-                var query = CollapseWhitespace(item.GetString() ?? string.Empty);
-                if (query.Length is >= 3 and <= 120)
-                    AddDistinctQuery(queries, query);
-                break;
-            }
+                {
+                    var query = CollapseWhitespace(item.GetString() ?? string.Empty);
+                    if (query.Length is >= 3 and <= 120)
+                        AddDistinctQuery(queries, query);
+                    break;
+                }
             case JsonValueKind.Object:
-            {
-                foreach (var property in item.EnumerateObject())
-                    AddDocumentContentSearchQueryVariant(queries, property.Value);
-                break;
-            }
+                {
+                    foreach (var property in item.EnumerateObject())
+                        AddDocumentContentSearchQueryVariant(queries, property.Value);
+                    break;
+                }
             case JsonValueKind.Array:
-            {
-                foreach (var nested in item.EnumerateArray())
-                    AddDocumentContentSearchQueryVariant(queries, nested);
-                break;
-            }
+                {
+                    foreach (var nested in item.EnumerateArray())
+                        AddDocumentContentSearchQueryVariant(queries, nested);
+                    break;
+                }
         }
     }
 

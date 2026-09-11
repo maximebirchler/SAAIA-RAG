@@ -400,7 +400,7 @@ public sealed partial class ToolAgentOrchestrator
                     .Select(static title => new ToolMemory.SourceContentCardRef
                     {
                         Title = title.Trim()
-                })
+                    })
                     .ToList()
             });
 

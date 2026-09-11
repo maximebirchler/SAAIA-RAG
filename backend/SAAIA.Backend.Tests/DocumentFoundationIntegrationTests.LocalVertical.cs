@@ -83,17 +83,28 @@ public sealed partial class DocumentFoundationIntegrationTests
         }
         await File.WriteAllTextAsync(Path.Combine(export, "published-pdf.json"), JsonSerializer.Serialize(new
         {
-            docId, revisionId, docPath, sourceHash = Convert.ToHexString(hash).ToLowerInvariant(),
-            syntheticCorpus = true, extraction.Source,
-            cards = publishedCards, anchors = publishedAnchors,
-            chunks = chunks.Select(chunk => new { chunkId = DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 1, chunk.ChunkIndex),
-                chunk.PageStart, chunk.PageEnd, chunk.Text }),
+            docId,
+            revisionId,
+            docPath,
+            sourceHash = Convert.ToHexString(hash).ToLowerInvariant(),
+            syntheticCorpus = true,
+            extraction.Source,
+            cards = publishedCards,
+            anchors = publishedAnchors,
+            chunks = chunks.Select(chunk => new
+            {
+                chunkId = DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 1, chunk.ChunkIndex),
+                chunk.PageStart,
+                chunk.PageEnd,
+                chunk.Text
+            }),
             pages = extraction.Pages.Select(page => new { page.PageNumber, page.Text })
         }, new JsonSerializerOptions { WriteIndented = true }));
 
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
-            EnvironmentName = Environments.Development, ContentRootPath = serverRoot
+            EnvironmentName = Environments.Development,
+            ContentRootPath = serverRoot
         });
         builder.Configuration.Sources.Clear();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
@@ -127,7 +138,7 @@ public sealed partial class DocumentFoundationIntegrationTests
             var address = Assert.Single(app.Services.GetRequiredService<IServer>()
                 .Features.Get<IServerAddressesFeature>()!.Addresses);
             using (var preflight = new HttpClient(new HttpClientHandler { UseProxy = false })
-                   { BaseAddress = new Uri(address), Timeout = TimeSpan.FromSeconds(30) })
+            { BaseAddress = new Uri(address), Timeout = TimeSpan.FromSeconds(30) })
             {
                 preflight.DefaultRequestHeaders.Add("X-Api-Key", key);
                 using var catalogResponse = await preflight.GetAsync("/catalog/documents?pageSize=100&orderby=name_asc&q=Calibration-record.pdf");
@@ -141,7 +152,8 @@ public sealed partial class DocumentFoundationIntegrationTests
                 Assert.Equal(2, searchBody.GetProperty("items").GetArrayLength());
                 await File.WriteAllTextAsync(Path.Combine(export, "documentary-preflight.json"), JsonSerializer.Serialize(new
                 {
-                    catalog = JsonSerializer.Deserialize<JsonElement>(catalogBody), search = searchBody,
+                    catalog = JsonSerializer.Deserialize<JsonElement>(catalogBody),
+                    search = searchBody,
                     qwenHasNotYetBeenCalled = true
                 }, new JsonSerializerOptions { WriteIndented = true }));
             }
@@ -149,8 +161,11 @@ public sealed partial class DocumentFoundationIntegrationTests
             Directory.CreateDirectory(clientOutput);
             var start = new ProcessStartInfo("dotnet")
             {
-                WorkingDirectory = repo, UseShellExecute = false, CreateNoWindow = true,
-                RedirectStandardOutput = true, RedirectStandardError = true
+                WorkingDirectory = repo,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
             };
             foreach (var argument in new[] { "test", "client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj",
                 "-c", "Debug", "-p:Platform=x64", "--no-build", "--no-restore", "--nologo",
@@ -182,9 +197,14 @@ public sealed partial class DocumentFoundationIntegrationTests
             }
             await File.WriteAllTextAsync(Path.Combine(export, "host-observation.json"), JsonSerializer.Serialize(new
             {
-                address, childPid = client.Id, clientExitCode = client.ExitCode,
-                realHttp = true, realQwen = true, vectorServicesAvailable = false,
-                programStartupTested = false, winUiWindowTested = false
+                address,
+                childPid = client.Id,
+                clientExitCode = client.ExitCode,
+                realHttp = true,
+                realQwen = true,
+                vectorServicesAvailable = false,
+                programStartupTested = false,
+                winUiWindowTested = false
             }, new JsonSerializerOptions { WriteIndented = true }));
             Assert.Equal(0, client.ExitCode);
             Assert.True(File.Exists(Path.Combine(clientOutput, "observations.json")));

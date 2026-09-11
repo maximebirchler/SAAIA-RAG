@@ -10,10 +10,12 @@ public sealed class SourceBackedCanonicalRetrievalTests
     public void Canonical_sparse_channel_keeps_lexical_provenance_and_rrf_scores()
     {
         var lexical = Match(0.4, "Knowledge/guide.pdf", 1, "shared-chunk")
-            with { EmbeddingBasis = "source_backed_sparse_fts_v1" };
+            with
+        { EmbeddingBasis = "source_backed_sparse_fts_v1" };
         var dense = lexical with { EmbeddingBasis = "contextual_text_v1", Score = 0.9 };
         var other = Match(0.8, "Knowledge/other.pdf", 2, "other-chunk")
-            with { EmbeddingBasis = "contextual_text_v1" };
+            with
+        { EmbeddingBasis = "contextual_text_v1" };
         var legacyLexical = lexical with { EmbeddingBasis = "sparse_bm25_v1" };
         var expected = RagEndpoints.FuseWithRrf([], [legacyLexical], [dense, other]);
         var actual = RagEndpoints.FuseWithRrf([], [lexical], [dense, other]);

@@ -328,10 +328,10 @@ public sealed partial class SourceBackedAgentV2Tests
                     topK = 4
                 }))
             with
-            {
-                UserQuestion =
+        {
+            UserQuestion =
                     "For the AX-17 model, what nominal flow rate is documented?",
-                InitialSemanticMission = new SourceBackedInitialSemanticMission(
+            InitialSemanticMission = new SourceBackedInitialSemanticMission(
                     JsonSerializer.SerializeToElement(new
                     {
                         planKind = "single_item",
@@ -347,7 +347,7 @@ public sealed partial class SourceBackedAgentV2Tests
                         namedReferenceKind = kind
                     }),
                     "llm_router")
-            };
+        };
 
     private static string? ReadIntakeNamedReferenceKind(SourceBackedIntake intake)
     {

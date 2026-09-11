@@ -138,8 +138,8 @@ public sealed partial class SourceBackedAgentV2Runner
             ISet<int> conflictIndexes)
         {
             foreach (var group in groups.Where(static group => group.Count() > 1))
-            foreach (var assignment in group)
-                conflictIndexes.Add(assignment.CellIndex);
+                foreach (var assignment in group)
+                    conflictIndexes.Add(assignment.CellIndex);
         }
 
         AddDuplicateConflicts(

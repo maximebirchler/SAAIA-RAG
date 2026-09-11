@@ -2,7 +2,7 @@
 
 public sealed partial class MainWindow
 {
-// =========================
+    // =========================
     // Local LLM (llama.cpp) - M6.1
     // =========================
 

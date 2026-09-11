@@ -482,108 +482,108 @@ USER_MESSAGE:
                     }
                     else
                     {
-                    var previousRoute = nativeCompletion.ToolCalls.Count == 1
-                        ? nativeCompletion.ToolCalls[0].Arguments.GetRawText()
-                        : JsonSerializer.Serialize(
-                            nativeCompletion.ToolCalls.Select(static call => new
-                            {
-                                name = call.Name,
-                                args = call.Arguments
-                            }));
-                    var releaseGridFastPath = useSpecializedGridRoute
-                        && string.Equals(
-                            nativeFailureReason,
-                            "native_source_route_axes_not_grounded",
-                            StringComparison.Ordinal);
-                    var releaseInvalidDocumentOverview =
-                        useSpecializedDocumentOverviewRoute;
-                    var releaseInvalidClarification =
-                        nativeCompletion.ToolCalls.Count == 1
-                        && (string.Equals(
-                                nativeCompletion.ToolCalls[0].Name,
-                                RequestUserClarificationToolName,
-                                StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(
-                                nativeCompletion.ToolCalls[0].Name,
-                                RequestMissingUserInputToolName,
-                                StringComparison.OrdinalIgnoreCase))
-                        && (string.Equals(
+                        var previousRoute = nativeCompletion.ToolCalls.Count == 1
+                            ? nativeCompletion.ToolCalls[0].Arguments.GetRawText()
+                            : JsonSerializer.Serialize(
+                                nativeCompletion.ToolCalls.Select(static call => new
+                                {
+                                    name = call.Name,
+                                    args = call.Arguments
+                                }));
+                        var releaseGridFastPath = useSpecializedGridRoute
+                            && string.Equals(
                                 nativeFailureReason,
-                                "native_clarification_route_contract_invalid",
-                                StringComparison.Ordinal)
-                            || string.Equals(
-                                nativeFailureReason,
-                                ExplicitDocumentIdentityAlreadySuppliedFailure,
-                                StringComparison.Ordinal));
-                    var releaseRouteFamily = releaseGridFastPath
-                                             || releaseInvalidClarification
-                                             || releaseInvalidDocumentOverview;
-                    var repairUser = nativeRouterUser
-                                     + Environment.NewLine
-                                     + Environment.NewLine
-                                     + "REPAIR_REQUIRED: "
-                                     + nativeFailureReason
-                                     + Environment.NewLine
-                                     + (releaseInvalidDocumentOverview
-                                         ? "The specialized document-overview contract was mechanically invalid. Fall back to the general non-grid source-backed route, preserving the exact document and every requested facet. Call exactly one available route function."
-                                         : releaseGridFastPath
-                                         ? "The proposed grid axes were not grounded in USER_MESSAGE. Re-evaluate the route family; do not invent axes. Call exactly one available route function."
-                                         : releaseInvalidClarification
-                                             ? "The clarification is incompatible with the grounded request contract. Re-evaluate the route family among the remaining functions; do not ask another clarification. Call exactly one available route function."
-                                         : "The previous route was mechanically invalid. Preserve every correct axis, explicit user requirement and semantic decision, but repair only the invalid transport fields. Omit document unless the exact filename occurs in USER_MESSAGE. Call exactly one available route function.")
-                                     + Environment.NewLine
-                                     + "PREVIOUS_INVALID_ROUTE: "
-                                     + TruncateForPrompt(previousRoute, 1200);
-                    var repairSystem = releaseInvalidDocumentOverview
-                        ? BuildNativeRouterSpecializedSystemPrompt(
-                            SubmitSourceBackedRouteToolName,
-                            detectedMessageLanguage,
-                            disallowMetaSetLanguage)
-                        : releaseRouteFamily
-                        ? BuildNativeRouterSystemPrompt(
-                            detectedMessageLanguage,
-                            disallowMetaSetLanguage)
-                        : nativeRouterSystem;
-                    if (releaseInvalidDocumentOverview || releaseRouteFamily)
-                        repairSystem += nativeRouterRuntimePolicy;
-                    var repairMessages = new[]
-                    {
+                                "native_source_route_axes_not_grounded",
+                                StringComparison.Ordinal);
+                        var releaseInvalidDocumentOverview =
+                            useSpecializedDocumentOverviewRoute;
+                        var releaseInvalidClarification =
+                            nativeCompletion.ToolCalls.Count == 1
+                            && (string.Equals(
+                                    nativeCompletion.ToolCalls[0].Name,
+                                    RequestUserClarificationToolName,
+                                    StringComparison.OrdinalIgnoreCase)
+                                || string.Equals(
+                                    nativeCompletion.ToolCalls[0].Name,
+                                    RequestMissingUserInputToolName,
+                                    StringComparison.OrdinalIgnoreCase))
+                            && (string.Equals(
+                                    nativeFailureReason,
+                                    "native_clarification_route_contract_invalid",
+                                    StringComparison.Ordinal)
+                                || string.Equals(
+                                    nativeFailureReason,
+                                    ExplicitDocumentIdentityAlreadySuppliedFailure,
+                                    StringComparison.Ordinal));
+                        var releaseRouteFamily = releaseGridFastPath
+                                                 || releaseInvalidClarification
+                                                 || releaseInvalidDocumentOverview;
+                        var repairUser = nativeRouterUser
+                                         + Environment.NewLine
+                                         + Environment.NewLine
+                                         + "REPAIR_REQUIRED: "
+                                         + nativeFailureReason
+                                         + Environment.NewLine
+                                         + (releaseInvalidDocumentOverview
+                                             ? "The specialized document-overview contract was mechanically invalid. Fall back to the general non-grid source-backed route, preserving the exact document and every requested facet. Call exactly one available route function."
+                                             : releaseGridFastPath
+                                             ? "The proposed grid axes were not grounded in USER_MESSAGE. Re-evaluate the route family; do not invent axes. Call exactly one available route function."
+                                             : releaseInvalidClarification
+                                                 ? "The clarification is incompatible with the grounded request contract. Re-evaluate the route family among the remaining functions; do not ask another clarification. Call exactly one available route function."
+                                             : "The previous route was mechanically invalid. Preserve every correct axis, explicit user requirement and semantic decision, but repair only the invalid transport fields. Omit document unless the exact filename occurs in USER_MESSAGE. Call exactly one available route function.")
+                                         + Environment.NewLine
+                                         + "PREVIOUS_INVALID_ROUTE: "
+                                         + TruncateForPrompt(previousRoute, 1200);
+                        var repairSystem = releaseInvalidDocumentOverview
+                            ? BuildNativeRouterSpecializedSystemPrompt(
+                                SubmitSourceBackedRouteToolName,
+                                detectedMessageLanguage,
+                                disallowMetaSetLanguage)
+                            : releaseRouteFamily
+                            ? BuildNativeRouterSystemPrompt(
+                                detectedMessageLanguage,
+                                disallowMetaSetLanguage)
+                            : nativeRouterSystem;
+                        if (releaseInvalidDocumentOverview || releaseRouteFamily)
+                            repairSystem += nativeRouterRuntimePolicy;
+                        var repairMessages = new[]
+                        {
                         SourceBackedAgentMessage.System(repairSystem),
                         SourceBackedAgentMessage.User(repairUser)
                     };
-                    var repairTools = releaseInvalidDocumentOverview
-                        ? BuildNativeRouterRepairTools(
-                            allNativeRouterTools,
-                            ResolveNativeRouterRepairRouteToolName(
-                                selectedRouteToolName,
+                        var repairTools = releaseInvalidDocumentOverview
+                            ? BuildNativeRouterRepairTools(
+                                allNativeRouterTools,
+                                ResolveNativeRouterRepairRouteToolName(
+                                    selectedRouteToolName,
+                                    nativeCompletion.ToolCalls.Count == 1
+                                        ? nativeCompletion.ToolCalls[0].Name
+                                        : string.Empty))
+                            : releaseInvalidClarification
+                            ? BuildNativeRouterAlternativesAfterInvalidClarification(
+                                allNativeRouterTools)
+                            : releaseGridFastPath
+                                ? allNativeRouterTools
+                                : BuildNativeRouterRepairTools(
+                                nativeRouterTools,
                                 nativeCompletion.ToolCalls.Count == 1
                                     ? nativeCompletion.ToolCalls[0].Name
-                                    : string.Empty))
-                        : releaseInvalidClarification
-                        ? BuildNativeRouterAlternativesAfterInvalidClarification(
-                            allNativeRouterTools)
-                        : releaseGridFastPath
-                            ? allNativeRouterTools
-                            : BuildNativeRouterRepairTools(
-                            nativeRouterTools,
-                            nativeCompletion.ToolCalls.Count == 1
-                                ? nativeCompletion.ToolCalls[0].Name
-                                : string.Empty);
-                    var repairOutputTokens = Math.Max(
-                        nativeRouterMaximumOutputTokens,
-                        nativeRouterOutputTokens);
-                    nativeRouterTimeoutCts.CancelAfter(
-                        ResolveNativeRouterTimeoutMs(
-                            nativeRouterInputTokens,
-                            repairOutputTokens));
-                    nativeCompletion = await nativeRouterLlm.CompleteAsync(
-                            repairMessages,
-                            repairTools,
-                            maxTokens: repairOutputTokens,
-                            nativeRouterTimeoutCts.Token,
-                            temperatureOverride: 0,
-                            requireToolCall: true)
-                        .ConfigureAwait(false);
+                                    : string.Empty);
+                        var repairOutputTokens = Math.Max(
+                            nativeRouterMaximumOutputTokens,
+                            nativeRouterOutputTokens);
+                        nativeRouterTimeoutCts.CancelAfter(
+                            ResolveNativeRouterTimeoutMs(
+                                nativeRouterInputTokens,
+                                repairOutputTokens));
+                        nativeCompletion = await nativeRouterLlm.CompleteAsync(
+                                repairMessages,
+                                repairTools,
+                                maxTokens: repairOutputTokens,
+                                nativeRouterTimeoutCts.Token,
+                                temperatureOverride: 0,
+                                requireToolCall: true)
+                            .ConfigureAwait(false);
                     }
                     nativeRouteAccepted = TryBuildNativeRouterPlan(
                         nativeCompletion,

@@ -89,8 +89,11 @@ public static partial class ThreeFormatQwenContractHarness
             var response = new Dictionary<string, object?>
             {
                 [action == "search" ? "hits" : "items"] = rawItems,
-                ["offset"] = offset, ["nextOffset"] = next, ["total"] = candidates.Length,
-                ["fixtureOrigin"] = "frozen_excerpt_order", ["citable"] = action != "navigation"
+                ["offset"] = offset,
+                ["nextOffset"] = next,
+                ["total"] = candidates.Length,
+                ["fixtureOrigin"] = "frozen_excerpt_order",
+                ["citable"] = action != "navigation"
             };
             if (action == "search" && arguments.TryGetProperty("queries", out var queryArray)) response["queries"] = queryArray;
             if (action == "context" && arguments.TryGetProperty("chunkId", out var anchorChunk)) response["requestedAnchorChunkId"] = anchorChunk.GetString();
@@ -139,9 +142,15 @@ public static partial class ThreeFormatQwenContractHarness
         {
             var item = new Dictionary<string, object?>
             {
-                ["docId"] = e.DocId, ["revisionId"] = e.RevisionId, ["sourceHash"] = e.SourceHash,
-                ["docName"] = e.DocName, ["docPath"] = e.DocPath, ["pageStart"] = e.PageStart,
-                ["pageEnd"] = e.PageEnd, ["chunkId"] = e.ChunkId, ["locator"] = e.Locator,
+                ["docId"] = e.DocId,
+                ["revisionId"] = e.RevisionId,
+                ["sourceHash"] = e.SourceHash,
+                ["docName"] = e.DocName,
+                ["docPath"] = e.DocPath,
+                ["pageStart"] = e.PageStart,
+                ["pageEnd"] = e.PageEnd,
+                ["chunkId"] = e.ChunkId,
+                ["locator"] = e.Locator,
                 ["citable"] = action != "navigation"
             };
             if (action == "navigation")
@@ -169,7 +178,8 @@ public static partial class ThreeFormatQwenContractHarness
         {
             JsonValueKind.Object => element.EnumerateObject().OrderBy(p => p.Name, StringComparer.Ordinal).ToDictionary(p => p.Name, p => ProjectCanonical(p.Value)),
             JsonValueKind.Array => element.EnumerateArray().Select(ProjectCanonical).ToArray(),
-            JsonValueKind.Number => element.GetDecimal(), _ => element.Clone()
+            JsonValueKind.Number => element.GetDecimal(),
+            _ => element.Clone()
         };
         return Serialize(ProjectCanonical(value)!);
     }

@@ -174,7 +174,12 @@ public sealed class NativeMissingUserInputContractTests
             UnitCalls++;
             return Task.FromResult(new SourceBackedAgentCompletion(JsonSerializer.Serialize(new
             {
-                requestAnchor = Question, requestedParts = new[] { Question }, unitType = "comparaison", outputKind = "facts", quantityKind = "one", count = 1
+                requestAnchor = Question,
+                requestedParts = new[] { Question },
+                unitType = "comparaison",
+                outputKind = "facts",
+                quantityKind = "one",
+                count = 1
             }), [], "stop"));
         }
         public Task<SourceBackedAgentCompletion> CompleteAsync(IReadOnlyList<SourceBackedAgentMessage> messages,

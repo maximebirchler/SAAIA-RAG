@@ -380,9 +380,9 @@ public sealed partial class SourceBackedAgentV2Runner
                     100));
             if (item.PageStart is not null)
             {
-            context.Append(" page ")
-                    .Append(item.PageStart.Value.ToString(
-                        CultureInfo.InvariantCulture));
+                context.Append(" page ")
+                        .Append(item.PageStart.Value.ToString(
+                            CultureInfo.InvariantCulture));
             }
             context.AppendLine();
         }

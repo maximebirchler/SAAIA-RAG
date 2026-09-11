@@ -28,7 +28,8 @@ public sealed partial class SourceBackedAgentV2Runner
             .ToDictionary(static property => property.Name, static property => property.Value.Clone());
         properties["docId"] = JsonSerializer.SerializeToElement(new
         {
-            type = "string", @enum = new[] { identity.DocId }
+            type = "string",
+            @enum = new[] { identity.DocId }
         });
         return tools.Append(context with
         {
@@ -37,7 +38,10 @@ public sealed partial class SourceBackedAgentV2Runner
                 + "Choose pages or an offset if useful; omit them to read from the beginning. Returned text is the evidence to assess.",
             Parameters = JsonSerializer.SerializeToElement(new
             {
-                type = "object", properties, required = new[] { "docId" }, additionalProperties = false
+                type = "object",
+                properties,
+                required = new[] { "docId" },
+                additionalProperties = false
             })
         }).ToArray();
     }

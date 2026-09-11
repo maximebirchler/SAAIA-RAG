@@ -527,13 +527,13 @@ public sealed partial class ToolAgentOrchestrator
         var payload = new
         {
             requestedRef = rawRef!.Trim(),
-                source = new
-                {
-                    docId = source.DocId,
-                    docPath = source.DocPath,
-                    docName = source.DocName,
-                    pageStart = source.PageStart,
-                    pageEnd = source.PageEnd,
+            source = new
+            {
+                docId = source.DocId,
+                docPath = source.DocPath,
+                docName = source.DocName,
+                pageStart = source.PageStart,
+                pageEnd = source.PageEnd,
                 label = source.Label,
                 sourceHash = source.SourceHash,
                 docLanguage = source.DocLanguage,

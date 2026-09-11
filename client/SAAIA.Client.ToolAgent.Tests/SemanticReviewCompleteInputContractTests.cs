@@ -32,21 +32,29 @@ public sealed class SemanticReviewCompleteInputContractTests
         var intake = new SourceBackedIntake(component == "question" ? longValue : "Présente le module Atlas.",
             "rag.answer", component == "constraints" ? new[] { longValue } : Array.Empty<string>(), [], false, "fr");
         var results = new ToolResults();
-        results.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = JsonSerializer.SerializeToElement(new
+        results.Items.Add(new ToolResults.Item
         {
-            hits = new[] { new { docId = "atlas", docPath = "Lab/Atlas.pdf", revisionId = "rev-atlas",
+            ToolName = "rag.search",
+            Result = JsonSerializer.SerializeToElement(new
+            {
+                hits = new[] { new { docId = "atlas", docPath = "Lab/Atlas.pdf", revisionId = "rev-atlas",
                 sourceHash = new string('a', 64), chunkId = "atlas-chunk", pageStart = 1, pageEnd = 1,
                 excerpt = "Le module Atlas est portable." } }
-        }) });
+            })
+        });
         var bundle = EvidenceBundleBuilder.FromToolResults(results, intake.UserQuestion);
         if (component == "citations")
         {
             var item = Assert.Single(bundle.Items);
-            bundle = bundle with { Items = Enumerable.Range(1, 43).Select(i => item with
+            bundle = bundle with
             {
-                EvidenceId = "E" + i, ChunkId = "atlas-chunk-" + i,
-                Excerpt = i == 43 ? tail : "Passage documentaire " + i
-            }).ToArray() };
+                Items = Enumerable.Range(1, 43).Select(i => item with
+                {
+                    EvidenceId = "E" + i,
+                    ChunkId = "atlas-chunk-" + i,
+                    Excerpt = i == 43 ? tail : "Passage documentaire " + i
+                }).ToArray()
+            };
         }
         var answer = component == "draft" ? longValue + " [E1]"
             : "Le module Atlas est documenté " + string.Concat(bundle.Items.Select(item => "[" + item.EvidenceId + "]"));

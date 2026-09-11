@@ -126,11 +126,18 @@ public sealed partial class DocumentFoundationIntegrationTests
                 File.Copy(pdfPath, Path.Combine(export, "Calibration-record.pdf"), overwrite: false);
                 File.WriteAllText(artifact, JsonSerializer.Serialize(new
                 {
-                    schemaVersion = 1, syntheticCorpus = true, postgresVerified = true,
+                    schemaVersion = 1,
+                    syntheticCorpus = true,
+                    postgresVerified = true,
                     sourceTest = nameof(Canonical_search_preserves_real_pdf_hash_pages_and_extracted_text_for_client_citations),
-                    pdfFile = "Calibration-record.pdf", sourceHash = Convert.ToHexString(hash).ToLowerInvariant(),
-                    docId, revisionId, docPath, extraction.Source,
-                    pages = extraction.Pages.Select(page => new { page.PageNumber, page.Text }), response
+                    pdfFile = "Calibration-record.pdf",
+                    sourceHash = Convert.ToHexString(hash).ToLowerInvariant(),
+                    docId,
+                    revisionId,
+                    docPath,
+                    extraction.Source,
+                    pages = extraction.Pages.Select(page => new { page.PageNumber, page.Text }),
+                    response
                 }, new JsonSerializerOptions { WriteIndented = true }));
             }
         }
@@ -205,9 +212,13 @@ public sealed partial class DocumentFoundationIntegrationTests
             Assert.False(File.Exists(artifact));
             File.WriteAllText(artifact, JsonSerializer.Serialize(new
             {
-                schemaVersion = 1, syntheticCorpus = true, postgresVerified = true,
+                schemaVersion = 1,
+                syntheticCorpus = true,
+                postgresVerified = true,
                 sourceTest = nameof(Canonical_response_reports_revision_change_instead_of_publishing_stale_chunks_with_new_identity),
-                reindexDuringRerank = true, interrupted, stable
+                reindexDuringRerank = true,
+                interrupted,
+                stable
             }, new JsonSerializerOptions { WriteIndented = true }));
         }
     }
@@ -325,7 +336,9 @@ public sealed partial class DocumentFoundationIntegrationTests
             Assert.False(File.Exists(artifact));
             File.WriteAllText(artifact, JsonSerializer.Serialize(new
             {
-                schemaVersion = 1, syntheticCorpus = true, postgresVerified = true,
+                schemaVersion = 1,
+                syntheticCorpus = true,
+                postgresVerified = true,
                 sourceTest = nameof(Canonical_context_exposes_revision_change_after_search_without_relabeling_the_old_anchor),
                 cases = new[]
                 {
@@ -471,7 +484,13 @@ WHERE c.tenant_id=@tenant;
                 responses = contractResponses,
                 currentSources = currentSources.Values.Select(source => new
                 {
-                    source.ChunkId, source.RevisionId, source.DocId, source.Text, source.Hash, source.PageStart, source.PageEnd
+                    source.ChunkId,
+                    source.RevisionId,
+                    source.DocId,
+                    source.Text,
+                    source.Hash,
+                    source.PageStart,
+                    source.PageEnd
                 })
             }, new JsonSerializerOptions { WriteIndented = true }));
         }
@@ -2093,7 +2112,7 @@ WHERE c.tenant_id=@tenant;
         Assert.Equal(2, profileCount);
         var currentRevision = await conn.QuerySingleAsync<Guid>(
             "SELECT revision_id FROM document_revisions WHERE tenant_id=@tenant AND doc_id=@docId AND indexed_version=2;",
-            new { tenant=tenantId, docId });
+            new { tenant = tenantId, docId });
         var currentCards = cardRows.Where(row => row.revision_id == currentRevision).ToArray();
         Assert.Contains(currentCards, row => string.Equals(row.title, "New active heading", StringComparison.Ordinal));
         Assert.DoesNotContain(currentCards, row => row.title.Contains("OLD", StringComparison.OrdinalIgnoreCase));
@@ -2606,7 +2625,7 @@ WHERE c.tenant_id=@tenant;
         await using var projectionConn = await ds.OpenConnectionAsync();
         var projection = await projectionConn.QuerySingleAsync<string>(
             "SELECT search_text FROM document_profile_search_entries WHERE tenant_id=@tenant AND doc_id=@docId;",
-            new { tenant=tenantId, docId });
+            new { tenant = tenantId, docId });
         Assert.DoesNotContain(summaryOnlyNeedle, projection, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -9656,7 +9675,8 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
             {
                 if (Interlocked.CompareExchange(ref _reindexCount, 1, 0) == 0)
                     await reindex();
-            })) { BaseAddress = new Uri("http://stub.test/") };
+            }))
+            { BaseAddress = new Uri("http://stub.test/") };
     }
 
     private sealed class ReindexOnRerankHandler(Func<Task> reindex) : DelegatingHandler(new StubHttpMessageHandler())

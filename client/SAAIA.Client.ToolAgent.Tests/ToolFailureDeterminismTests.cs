@@ -16,7 +16,7 @@ public sealed class ToolFailureDeterminismTests
 
         var plan = new RouterPlan { Intent = "admin.catalog.health", Language = "fr" };
         var results = new ToolResults();
-        using var doc = JsonDocument.Parse("{" + "\"error\":\"admin_required\"}" );
+        using var doc = JsonDocument.Parse("{" + "\"error\":\"admin_required\"}");
         results.Items.Add(new ToolResults.Item { ToolName = "admin.catalog.health", Result = doc.RootElement.Clone() });
 
         var answer = method!.Invoke(null, new object[] { plan, results, "fr" }) as string;
@@ -33,7 +33,7 @@ public sealed class ToolFailureDeterminismTests
 
         var plan = new RouterPlan { Intent = "inventory.list", Language = "fr" };
         var results = new ToolResults();
-        using var doc = JsonDocument.Parse("{" + "\"error\":\"tool_failed\"}" );
+        using var doc = JsonDocument.Parse("{" + "\"error\":\"tool_failed\"}");
         results.Items.Add(new ToolResults.Item { ToolName = "documents.search", Result = doc.RootElement.Clone() });
 
         var answer = method!.Invoke(null, new object[] { plan, results, "fr" }) as string;
@@ -49,7 +49,7 @@ public sealed class ToolFailureDeterminismTests
 
         var plan = new RouterPlan { Intent = "rag.answer", Language = "fr" };
         var results = new ToolResults();
-        using var doc = JsonDocument.Parse("{" + "\"error\":\"rag_search_busy\",\"busy\":true}" );
+        using var doc = JsonDocument.Parse("{" + "\"error\":\"rag_search_busy\",\"busy\":true}");
         results.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = doc.RootElement.Clone() });
 
         var answer = method!.Invoke(null, new object[] { plan, results, "fr" }) as string;

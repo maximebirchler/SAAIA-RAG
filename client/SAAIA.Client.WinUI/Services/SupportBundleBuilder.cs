@@ -133,7 +133,7 @@ internal static class SupportBundleBuilder
             catch { /* ignore */ }
 
 
-// 6) Logs (last 40)
+            // 6) Logs (last 40)
             var logsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "logs");
             if (Directory.Exists(logsDir))
             {
@@ -350,24 +350,24 @@ internal static class SupportBundleBuilder
         switch (el.ValueKind)
         {
             case JsonValueKind.Object:
-            {
-                var dict = new Dictionary<string, object?>();
-                foreach (var p in el.EnumerateObject())
                 {
-                    if (keysToRedact.Contains(p.Name))
-                        dict[p.Name] = "***REDACTED***";
-                    else
-                        dict[p.Name] = RedactElement(p.Value, keysToRedact);
+                    var dict = new Dictionary<string, object?>();
+                    foreach (var p in el.EnumerateObject())
+                    {
+                        if (keysToRedact.Contains(p.Name))
+                            dict[p.Name] = "***REDACTED***";
+                        else
+                            dict[p.Name] = RedactElement(p.Value, keysToRedact);
+                    }
+                    return dict;
                 }
-                return dict;
-            }
             case JsonValueKind.Array:
-            {
-                var list = new List<object?>();
-                foreach (var v in el.EnumerateArray())
-                    list.Add(RedactElement(v, keysToRedact));
-                return list;
-            }
+                {
+                    var list = new List<object?>();
+                    foreach (var v in el.EnumerateArray())
+                        list.Add(RedactElement(v, keysToRedact));
+                    return list;
+                }
             case JsonValueKind.String: return el.GetString();
             case JsonValueKind.Number:
                 if (el.TryGetInt64(out var l)) return l;

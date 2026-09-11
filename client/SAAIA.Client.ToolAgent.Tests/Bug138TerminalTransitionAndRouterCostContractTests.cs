@@ -36,8 +36,10 @@ public sealed class Bug138TerminalTransitionAndRouterCostContractTests
                 completionTokens: 80),
             Completion(Call("terminal-review", "submit_semantic_review", new
             {
-                decision = "accept", reasons = new[] { "E1 décrit la coupure de dix secondes." },
-                rejectedEvidenceIds = Array.Empty<string>(), preferredAlternativeEvidenceIds = Array.Empty<string>()
+                decision = "accept",
+                reasons = new[] { "E1 décrit la coupure de dix secondes." },
+                rejectedEvidenceIds = Array.Empty<string>(),
+                preferredAlternativeEvidenceIds = Array.Empty<string>()
             }), 100, 30));
         var executor = new RecordingToolExecutor(TwoProcedureSearchResults());
         var runner = new SourceBackedAgentV2Runner(
@@ -111,7 +113,9 @@ public sealed class Bug138TerminalTransitionAndRouterCostContractTests
             Completion("La procédure Atlas coupe l'alimentation pendant dix secondes [E1].", 200, 80),
             Completion(Call("terminal-review", "submit_semantic_review", new
             {
-                decision = "accept", reasons = new[] { "La procédure et sa durée sont explicites dans la preuve sélectionnée." }, rejectedEvidenceIds = Array.Empty<string>(),
+                decision = "accept",
+                reasons = new[] { "La procédure et sa durée sont explicites dans la preuve sélectionnée." },
+                rejectedEvidenceIds = Array.Empty<string>(),
                 preferredAlternativeEvidenceIds = Array.Empty<string>()
             }), 100, 30));
         var executor = new RecordingToolExecutor(TwoProcedureSearchResults())
@@ -151,8 +155,10 @@ public sealed class Bug138TerminalTransitionAndRouterCostContractTests
             Completion("La procédure Atlas coupe l'alimentation pendant dix secondes [E1].", 200, 80),
             Completion(Call("terminal-review", "submit_semantic_review", new
             {
-                decision = "accept", reasons = new[] { "La procédure est explicite dans E1." },
-                rejectedEvidenceIds = Array.Empty<string>(), preferredAlternativeEvidenceIds = Array.Empty<string>()
+                decision = "accept",
+                reasons = new[] { "La procédure est explicite dans E1." },
+                rejectedEvidenceIds = Array.Empty<string>(),
+                preferredAlternativeEvidenceIds = Array.Empty<string>()
             }), 100, 30))
         {
             InputTokenOverrides = new Dictionary<string, int>

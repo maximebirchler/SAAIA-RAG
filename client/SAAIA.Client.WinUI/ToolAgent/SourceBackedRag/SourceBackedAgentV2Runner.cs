@@ -441,7 +441,8 @@ public sealed partial class SourceBackedAgentV2Runner
                     TraceStructuredRendererCompletion(renderedLayout, activeSemanticSelectionIds, completion, traces, traceId, ref traceSequence, turn);
                 }
                 else
-                { AddWriterTrace(
+                {
+                    AddWriterTrace(
                         traces,
                         traceId,
                         ref traceSequence,

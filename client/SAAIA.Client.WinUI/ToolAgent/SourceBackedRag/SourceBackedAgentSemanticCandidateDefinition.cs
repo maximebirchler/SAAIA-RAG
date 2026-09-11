@@ -296,43 +296,43 @@ public sealed partial class SourceBackedAgentV2Runner
 
     private static JsonElement BuildSemanticCandidateDefinitionSchema()
         => JsonSerializer.SerializeToElement(new
+        {
+            type = "object",
+            properties = new
             {
-                type = "object",
-                properties = new
+                hypotheticalSinglePositionValue = new
                 {
-                    hypotheticalSinglePositionValue = new
-                    {
-                        type = "string",
-                        description =
+                    type = "string",
+                    description =
                             "Titre exact hypothetique d'UNE fiche ou section source pouvant remplir UNE seule position et etre prouve par un EvidenceId; aucune combinaison de composants; jamais livrable entier, periode, role ou axe; brouillon ephemere.",
-                        minLength = 2,
-                        maxLength = 160
-                    },
-                    candidateObjectType = new
-                    {
-                        type = "string",
-                        description =
-                            "Genre editorial ou catalogue concret de l'objet source hypothetique dont une instance precise a sa propre fiche ou section; jamais classe d'usage, place, role ou occurrence demandee.",
-                        minLength = 2,
-                        maxLength = 160
-                    },
-                    candidateEligibilityRule = new
-                    {
-                        type = "string",
-                        description =
-                            "Regle pour reconnaitre une instance source autonome du type cible sans utiliser les libelles d'axes comme exemples.",
-                        minLength = 8,
-                        maxLength = 320
-                    }
+                    minLength = 2,
+                    maxLength = 160
                 },
-                required = new[]
+                candidateObjectType = new
+                {
+                    type = "string",
+                    description =
+                            "Genre editorial ou catalogue concret de l'objet source hypothetique dont une instance precise a sa propre fiche ou section; jamais classe d'usage, place, role ou occurrence demandee.",
+                    minLength = 2,
+                    maxLength = 160
+                },
+                candidateEligibilityRule = new
+                {
+                    type = "string",
+                    description =
+                            "Regle pour reconnaitre une instance source autonome du type cible sans utiliser les libelles d'axes comme exemples.",
+                    minLength = 8,
+                    maxLength = 320
+                }
+            },
+            required = new[]
                 {
                     "hypotheticalSinglePositionValue",
                     "candidateObjectType",
                     "candidateEligibilityRule"
                 },
-                additionalProperties = false
-            }, ClientJson.CamelCase);
+            additionalProperties = false
+        }, ClientJson.CamelCase);
 
     private static bool TryReadSemanticCandidateDefinition(
         SourceBackedAgentCompletion completion,
@@ -357,20 +357,20 @@ public sealed partial class SourceBackedAgentV2Runner
 
         using (structuredDocument)
         {
-        hypotheticalSinglePositionValue = NormalizeSemanticPlanLine(
-            GetString(arguments, "hypotheticalSinglePositionValue") ?? string.Empty);
-        candidateObjectType = NormalizeSemanticPlanLine(
-            GetString(arguments, "candidateObjectType") ?? string.Empty);
-        candidateEligibilityRule = NormalizeSemanticPlanLine(
-            GetString(arguments, "candidateEligibilityRule") ?? string.Empty);
-        if (hypotheticalSinglePositionValue.Length is < 2 or > 160
-            || candidateObjectType.Length is < 2 or > 160
-            || candidateEligibilityRule.Length is < 8 or > 320)
-        {
-            failureReason = "candidate_definition_values_invalid";
-            return false;
-        }
-        return true;
+            hypotheticalSinglePositionValue = NormalizeSemanticPlanLine(
+                GetString(arguments, "hypotheticalSinglePositionValue") ?? string.Empty);
+            candidateObjectType = NormalizeSemanticPlanLine(
+                GetString(arguments, "candidateObjectType") ?? string.Empty);
+            candidateEligibilityRule = NormalizeSemanticPlanLine(
+                GetString(arguments, "candidateEligibilityRule") ?? string.Empty);
+            if (hypotheticalSinglePositionValue.Length is < 2 or > 160
+                || candidateObjectType.Length is < 2 or > 160
+                || candidateEligibilityRule.Length is < 8 or > 320)
+            {
+                failureReason = "candidate_definition_values_invalid";
+                return false;
+            }
+            return true;
         }
     }
 

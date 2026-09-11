@@ -15,57 +15,57 @@ namespace SAAIA.Client.WinUI.Services;
 public sealed partial class ApiClient
 {
     public async Task<DocumentsCatalogResponse> DocumentsCatalogAsync(string? category, string? q, int limit, int offset, CancellationToken ct)
-{
-    var lim = Math.Clamp(limit, 1, 2000);
-    var off = Math.Max(0, offset);
+    {
+        var lim = Math.Clamp(limit, 1, 2000);
+        var off = Math.Max(0, offset);
 
-    var qs = new List<string>
+        var qs = new List<string>
     {
         $"limit={lim}",
         $"offset={off}"
     };
 
-    if (!string.IsNullOrWhiteSpace(category))
-        qs.Add($"category={Uri.EscapeDataString(category.Trim())}");
+        if (!string.IsNullOrWhiteSpace(category))
+            qs.Add($"category={Uri.EscapeDataString(category.Trim())}");
 
-    if (!string.IsNullOrWhiteSpace(q))
-        qs.Add($"q={Uri.EscapeDataString(q.Trim())}");
+        if (!string.IsNullOrWhiteSpace(q))
+            qs.Add($"q={Uri.EscapeDataString(q.Trim())}");
 
-    // Preferred contract: unified GET /documents for user-safe catalog access.
-    // Older backends may still expose the user-safe alias only on /documents/catalog.
-    var pathPrimary = "/documents?" + string.Join("&", qs);
-    using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathPrimary), ct).ConfigureAwait(false);
+        // Preferred contract: unified GET /documents for user-safe catalog access.
+        // Older backends may still expose the user-safe alias only on /documents/catalog.
+        var pathPrimary = "/documents?" + string.Join("&", qs);
+        using var resp = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathPrimary), ct).ConfigureAwait(false);
 
-    if (resp.StatusCode is not (HttpStatusCode.NotFound or HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden))
-    {
-        if (!resp.IsSuccessStatusCode)
+        if (resp.StatusCode is not (HttpStatusCode.NotFound or HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden))
         {
-            var bodyErr = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            throw new HttpRequestException(
-                $"Documents unified list failed: {(int)resp.StatusCode} {resp.ReasonPhrase}. Body: {bodyErr}",
-                null,
-                resp.StatusCode);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var bodyErr = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                throw new HttpRequestException(
+                    $"Documents unified list failed: {(int)resp.StatusCode} {resp.ReasonPhrase}. Body: {bodyErr}",
+                    null,
+                    resp.StatusCode);
+            }
+
+            var jsonOk = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            return JsonSerializer.Deserialize<DocumentsCatalogResponse>(jsonOk, JsonOpts)
+                   ?? throw new Exception(T("api.error.invalid_documents_catalog_response"));
         }
 
-        var jsonOk = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-        return JsonSerializer.Deserialize<DocumentsCatalogResponse>(jsonOk, JsonOpts)
+        // Fallback alias for older backends.
+        var pathFallback = "/documents/catalog?" + string.Join("&", qs);
+        using var resp2 = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathFallback), ct).ConfigureAwait(false);
+
+        if (!resp2.IsSuccessStatusCode)
+        {
+            var bodyErr = await resp2.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            throw new HttpRequestException($"Documents catalog fallback failed: {(int)resp2.StatusCode} {resp2.ReasonPhrase}. Body: {bodyErr}", null, resp2.StatusCode);
+        }
+
+        var json = await resp2.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<DocumentsCatalogResponse>(json, JsonOpts)
                ?? throw new Exception(T("api.error.invalid_documents_catalog_response"));
     }
-
-    // Fallback alias for older backends.
-    var pathFallback = "/documents/catalog?" + string.Join("&", qs);
-    using var resp2 = await SendWithRateLimitRetryAsync(() => NewRequest(HttpMethod.Get, pathFallback), ct).ConfigureAwait(false);
-
-    if (!resp2.IsSuccessStatusCode)
-    {
-        var bodyErr = await resp2.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-        throw new HttpRequestException($"Documents catalog fallback failed: {(int)resp2.StatusCode} {resp2.ReasonPhrase}. Body: {bodyErr}", null, resp2.StatusCode);
-    }
-
-    var json = await resp2.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-    return JsonSerializer.Deserialize<DocumentsCatalogResponse>(json, JsonOpts)
-           ?? throw new Exception(T("api.error.invalid_documents_catalog_response"));
-}
 
 
 
@@ -155,7 +155,7 @@ public sealed partial class ApiClient
     public Task<JsonElement> DocumentsListAsync(string? categoryPath, string? categoryRef, string? q, int limit, int offset, CancellationToken ct)
         => DocumentsListAsync(categoryPath, categoryRef, q, changedSince: null, limit, offset, ct);
 
-public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? categoryRef, string? q, DateTimeOffset? changedSince, int limit, int offset, CancellationToken ct)
+    public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? categoryRef, string? q, DateTimeOffset? changedSince, int limit, int offset, CancellationToken ct)
     {
         var lim = Math.Clamp(limit, 1, 2000);
         var off = Math.Max(0, offset);

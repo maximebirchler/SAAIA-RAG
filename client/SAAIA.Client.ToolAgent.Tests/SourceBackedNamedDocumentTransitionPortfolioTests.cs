@@ -183,9 +183,9 @@ public sealed partial class SourceBackedAgentV2Tests
                 SourceBackedDocumentResolutionStatus.Ambiguous,
                 complete: true,
                 candidates) with
-            {
-                ExactMatchCount = 25
-            };
+        {
+            ExactMatchCount = 25
+        };
         var llm = new ScriptedAgentLlm(Completion(Call(
             "transition",
             "request_named_document_candidate_selection",

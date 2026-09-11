@@ -36,7 +36,9 @@ public sealed class CanonicalToolExecutionContractTests
         var sut = new ToolAgentOrchestrator(api, llm: null!, mem: new ToolMemory());
         var args = JsonSerializer.SerializeToElement(new
         {
-            query, queries, topK = 20,
+            query,
+            queries,
+            topK = 20,
             docId = source.GetProperty("docId").GetString(),
             sourceBackedCanonical = true,
             disableAutomaticCategoryScoping = true

@@ -145,11 +145,11 @@ public sealed partial class ToolAgentOrchestrator
                 ["schemaVersion"] = _mem.SchemaVersion,
                 ["m1Lite"] = new Dictionary<string, object?>
                 {
-                ["hasCatalogSnapshot"] = _mem.CatalogSnapshotCache is not null,
-                ["catalogCategoriesCount"] = _mem.CatalogSnapshotCache?.Categories?.Count ?? 0,
-                ["hasCapabilitiesSnapshot"] = _mem.CapabilitiesCache is not null,
-                ["isAdmin"] = _mem.CapabilitiesCache?.IsAdmin,
-                ["knownDocumentsCount"] = _mem.WorkspaceKnownDocuments?.Count ?? 0
+                    ["hasCatalogSnapshot"] = _mem.CatalogSnapshotCache is not null,
+                    ["catalogCategoriesCount"] = _mem.CatalogSnapshotCache?.Categories?.Count ?? 0,
+                    ["hasCapabilitiesSnapshot"] = _mem.CapabilitiesCache is not null,
+                    ["isAdmin"] = _mem.CapabilitiesCache?.IsAdmin,
+                    ["knownDocumentsCount"] = _mem.WorkspaceKnownDocuments?.Count ?? 0
                 },
                 ["m3"] = new Dictionary<string, object?>
                 {

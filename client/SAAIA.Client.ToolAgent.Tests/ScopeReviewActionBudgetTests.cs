@@ -28,13 +28,24 @@ public sealed class ScopeReviewActionBudgetTests
         // Candidate identities are synthetic; the completion/cost comes from a
         // native capture. This tests transport/admission, not recipe semantics.
         var results = new ToolResults();
-        results.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = JsonSerializer.SerializeToElement(new
+        results.Items.Add(new ToolResults.Item
         {
-            hits = Enumerable.Range(1, 3).Select(i => new { docId = "doc-" + i,
-                docPath = "Lab/Procedure-" + i + ".pdf", revisionId = "rev-" + i,
-                sourceHash = new string('a', 64), chunkId = "chunk-" + i,
-                pageStart = 1, pageEnd = 1, excerpt = "La procédure Atlas explique le mode de démarrage " + i + "." }).ToArray()
-        }) });
+            ToolName = "rag.search",
+            Result = JsonSerializer.SerializeToElement(new
+            {
+                hits = Enumerable.Range(1, 3).Select(i => new
+                {
+                    docId = "doc-" + i,
+                    docPath = "Lab/Procedure-" + i + ".pdf",
+                    revisionId = "rev-" + i,
+                    sourceHash = new string('a', 64),
+                    chunkId = "chunk-" + i,
+                    pageStart = 1,
+                    pageEnd = 1,
+                    excerpt = "La procédure Atlas explique le mode de démarrage " + i + "."
+                }).ToArray()
+            })
+        });
         var bundle = EvidenceBundleBuilder.FromToolResults(results, "Donne un exemple de procédure.");
         Assert.Equal(3, bundle.Items.Count);
         var candidateType = typeof(SourceBackedAgentV2Runner).GetNestedType("FastEvidenceCandidate", BindingFlags.NonPublic)!;

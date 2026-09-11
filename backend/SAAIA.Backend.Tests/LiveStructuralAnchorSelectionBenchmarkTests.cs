@@ -442,15 +442,15 @@ structural anchor options.
                 {
                     status = "A_FAIRE",
                     expected = prepared.Select(item => new
-                        {
-                            item.Window.Index,
-                            applicable = item.Anchors.Count > 0,
-                            expectedText = item.Anchors.FirstOrDefault(anchor =>
-                                string.Equals(
-                                    anchor.Kind,
-                                    "heading_path_level_0",
-                                    StringComparison.Ordinal))?.Text
-                        })
+                    {
+                        item.Window.Index,
+                        applicable = item.Anchors.Count > 0,
+                        expectedText = item.Anchors.FirstOrDefault(anchor =>
+                            string.Equals(
+                                anchor.Kind,
+                                "heading_path_level_0",
+                                StringComparison.Ordinal))?.Text
+                    })
                         .ToArray(),
                     instruction =
                         "Exiger 7/7 racines et fenêtre 7 non applicable avant permutations."

@@ -49,7 +49,10 @@ public static partial class ThreeFormatQwenContractHarness
                 active = ["presentation", "claims"];
                 payload = Project(value, active);
                 break;
-            case "search": case "navigation": case "content_cards": case "context":
+            case "search":
+            case "navigation":
+            case "content_cards":
+            case "context":
                 active = ["documentTool", "documentArguments"];
                 Require(Text(value, "documentTool") == DocumentTools[action], "grammar_action_tool_mismatch");
                 payload = value.GetProperty("documentArguments").Clone();
@@ -92,8 +95,10 @@ public static partial class ThreeFormatQwenContractHarness
         => JsonSerializer.SerializeToElement(names.ToDictionary(n => n, n => value.GetProperty(n)));
     private static bool IsNeutral(JsonElement value) => value.ValueKind switch
     {
-        JsonValueKind.String => value.GetString() == "", JsonValueKind.Array => value.GetArrayLength() == 0,
-        JsonValueKind.Object => !value.EnumerateObject().Any(), _ => false
+        JsonValueKind.String => value.GetString() == "",
+        JsonValueKind.Array => value.GetArrayLength() == 0,
+        JsonValueKind.Object => !value.EnumerateObject().Any(),
+        _ => false
     };
 
     private static (string Name, JsonElement Arguments) NativeCall(string json)
@@ -145,10 +150,13 @@ public static partial class ThreeFormatQwenContractHarness
         if (schema.TryGetProperty("type", out var type))
             Require(type.GetString() switch
             {
-                "object" => value.ValueKind == JsonValueKind.Object, "array" => value.ValueKind == JsonValueKind.Array,
-                "string" => value.ValueKind == JsonValueKind.String, "number" => value.ValueKind == JsonValueKind.Number,
+                "object" => value.ValueKind == JsonValueKind.Object,
+                "array" => value.ValueKind == JsonValueKind.Array,
+                "string" => value.ValueKind == JsonValueKind.String,
+                "number" => value.ValueKind == JsonValueKind.Number,
                 "integer" => value.ValueKind == JsonValueKind.Number && value.TryGetDecimal(out var n) && n == decimal.Truncate(n),
-                "boolean" => value.ValueKind is JsonValueKind.True or JsonValueKind.False, _ => false
+                "boolean" => value.ValueKind is JsonValueKind.True or JsonValueKind.False,
+                _ => false
             }, "schema_type");
         if (schema.TryGetProperty("enum", out var enums)) Require(enums.EnumerateArray().Any(e => SameJson(e, value)), "schema_enum");
         if (value.ValueKind == JsonValueKind.Object)
@@ -218,9 +226,11 @@ public static partial class ThreeFormatQwenContractHarness
             {
                 var observed = p.Name switch
                 {
-                    "docId" => state.Evidence.Select(e => e.DocId), "docPath" => state.Evidence.Select(e => e.DocPath),
+                    "docId" => state.Evidence.Select(e => e.DocId),
+                    "docPath" => state.Evidence.Select(e => e.DocPath),
                     "docRef" => state.Evidence.SelectMany(e => new[] { e.DocId, e.DocPath, e.DocName }),
-                    "chunkId" => state.Evidence.Select(e => e.ChunkId), _ => Enumerable.Empty<string>()
+                    "chunkId" => state.Evidence.Select(e => e.ChunkId),
+                    _ => Enumerable.Empty<string>()
                 };
                 Require(observed.Contains(p.Value.GetString(), StringComparer.Ordinal), "unobserved_identity:" + p.Name);
             }

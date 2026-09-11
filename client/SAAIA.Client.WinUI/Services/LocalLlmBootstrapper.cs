@@ -415,7 +415,7 @@ internal sealed class LocalLlmBootstrapper
             {
                 s.ModelId = picked.File;
                 s.ModelPath = desiredPath;
-                ClientLog.Info($"AutoModel: selected '{picked.File}' (source={picked.SourceRef}, vramMiB={(gpu?.DedicatedVramMiB ?? 0)}, integrated={(gpu?.IsIntegrated ?? true)})." );
+                ClientLog.Info($"AutoModel: selected '{picked.File}' (source={picked.SourceRef}, vramMiB={(gpu?.DedicatedVramMiB ?? 0)}, integrated={(gpu?.IsIntegrated ?? true)}).");
             }
         }
         catch

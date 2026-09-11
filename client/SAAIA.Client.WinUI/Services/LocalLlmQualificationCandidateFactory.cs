@@ -150,14 +150,16 @@ internal static class LocalLlmQualificationCandidateFactory
             "cpu-minimal",
             probe,
             BuildProfile(modelId, probe.RuntimeId, "cpu-minimal", 2048, 256, 128, balancedThreads, 0, false)
-                with { DeviceIds = new[] { "none" } });
+                with
+            { DeviceIds = new[] { "none" } });
         Add(
             candidates,
             limit,
             "cpu-balanced",
             probe,
             BuildProfile(modelId, probe.RuntimeId, "cpu-balanced", 4096, 512, 128, throughputThreads, 0, false)
-                with { DeviceIds = new[] { "none" } });
+                with
+            { DeviceIds = new[] { "none" } });
         Add(
             candidates,
             limit,
@@ -165,11 +167,11 @@ internal static class LocalLlmQualificationCandidateFactory
             probe,
             BuildProfile(modelId, probe.RuntimeId, "cpu-long-context-q8-kv", 8192, 512, 128, throughputThreads, 0, false)
                 with
-                {
-                    DeviceIds = new[] { "none" },
-                    CacheTypeK = "q8_0",
-                    CacheTypeV = "q8_0"
-                });
+            {
+                DeviceIds = new[] { "none" },
+                CacheTypeK = "q8_0",
+                CacheTypeV = "q8_0"
+            });
     }
 
     private static void AddSingleAcceleratorCandidates(
@@ -189,7 +191,8 @@ internal static class LocalLlmQualificationCandidateFactory
             "accelerator-minimal",
             probe,
             BuildProfile(modelId, probe.RuntimeId, "accelerator-minimal-" + deviceRef, 2048, 256, 128, threads, Math.Max(1, blockCount / 4), false)
-                with { DeviceIds = new[] { deviceRef } },
+                with
+            { DeviceIds = new[] { deviceRef } },
             deviceRef);
         Add(
             candidates,
@@ -197,7 +200,8 @@ internal static class LocalLlmQualificationCandidateFactory
             "accelerator-partial-offload",
             probe,
             BuildProfile(modelId, probe.RuntimeId, "accelerator-partial-offload-" + deviceRef, 3072, 512, 128, threads, Math.Max(1, blockCount / 2), false)
-                with { DeviceIds = new[] { deviceRef } },
+                with
+            { DeviceIds = new[] { deviceRef } },
             deviceRef);
         Add(
             candidates,
@@ -205,7 +209,8 @@ internal static class LocalLlmQualificationCandidateFactory
             "accelerator-full-offload",
             probe,
             BuildProfile(modelId, probe.RuntimeId, "accelerator-full-offload-" + deviceRef, 4096, 1024, 256, threads, blockCount, true)
-                with { DeviceIds = new[] { deviceRef } },
+                with
+            { DeviceIds = new[] { deviceRef } },
             deviceRef);
         Add(
             candidates,
@@ -222,7 +227,8 @@ internal static class LocalLlmQualificationCandidateFactory
                     threads,
                     Math.Min(256, blockCount + 1),
                     true)
-                with { DeviceIds = new[] { deviceRef } },
+                with
+            { DeviceIds = new[] { deviceRef } },
             deviceRef);
         Add(
             candidates,
@@ -240,11 +246,11 @@ internal static class LocalLlmQualificationCandidateFactory
                     Math.Max(1, blockCount / 2),
                     true)
                 with
-                {
-                    DeviceIds = new[] { deviceRef },
-                    CacheTypeK = "q8_0",
-                    CacheTypeV = "q8_0"
-                },
+            {
+                DeviceIds = new[] { deviceRef },
+                CacheTypeK = "q8_0",
+                CacheTypeV = "q8_0"
+            },
             deviceRef);
         Add(
             candidates,
@@ -262,11 +268,11 @@ internal static class LocalLlmQualificationCandidateFactory
                     Math.Min(256, blockCount + 1),
                     true)
                 with
-                {
-                    DeviceIds = new[] { deviceRef },
-                    CacheTypeK = "q8_0",
-                    CacheTypeV = "q8_0"
-                },
+            {
+                DeviceIds = new[] { deviceRef },
+                CacheTypeK = "q8_0",
+                CacheTypeV = "q8_0"
+            },
             deviceRef);
         Add(
             candidates,
@@ -284,12 +290,12 @@ internal static class LocalLlmQualificationCandidateFactory
                     Math.Min(256, blockCount + 1),
                     true)
                 with
-                {
-                    DeviceIds = new[] { deviceRef },
-                    CacheTypeK = "q4_0",
-                    CacheTypeV = "q4_0",
-                    Parallel = 2
-                },
+            {
+                DeviceIds = new[] { deviceRef },
+                CacheTypeK = "q4_0",
+                CacheTypeV = "q4_0",
+                Parallel = 2
+            },
             deviceRef);
     }
 
@@ -333,14 +339,14 @@ internal static class LocalLlmQualificationCandidateFactory
                             Math.Min(256, blockCount + 1),
                             true)
                         with
-                        {
-                            DeviceIds = deviceIds,
-                            SplitMode = splitMode,
-                            TensorSplit = splitCandidate.Weights,
-                            MainGpu = splitCandidate.MainGpu,
-                            CacheTypeK = "q8_0",
-                            CacheTypeV = "q8_0"
-                        },
+                    {
+                        DeviceIds = deviceIds,
+                        SplitMode = splitMode,
+                        TensorSplit = splitCandidate.Weights,
+                        MainGpu = splitCandidate.MainGpu,
+                        CacheTypeK = "q8_0",
+                        CacheTypeV = "q8_0"
+                    },
                     deviceIds);
                 var longContextCandidateKind =
                     $"multi-accelerator-long-context-{splitMode}-{splitCandidate.Name}";
@@ -360,14 +366,14 @@ internal static class LocalLlmQualificationCandidateFactory
                             Math.Min(256, blockCount + 1),
                             true)
                         with
-                        {
-                            DeviceIds = deviceIds,
-                            SplitMode = splitMode,
-                            TensorSplit = splitCandidate.Weights,
-                            MainGpu = splitCandidate.MainGpu,
-                            CacheTypeK = "q8_0",
-                            CacheTypeV = "q8_0"
-                        },
+                    {
+                        DeviceIds = deviceIds,
+                        SplitMode = splitMode,
+                        TensorSplit = splitCandidate.Weights,
+                        MainGpu = splitCandidate.MainGpu,
+                        CacheTypeK = "q8_0",
+                        CacheTypeV = "q8_0"
+                    },
                     deviceIds);
             }
         }

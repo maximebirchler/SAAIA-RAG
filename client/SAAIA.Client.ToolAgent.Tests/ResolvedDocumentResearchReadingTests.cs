@@ -41,11 +41,19 @@ public sealed class ResolvedDocumentResearchReadingTests
                 JsonSerializer.SerializeToElement(new { query = "recorded values", docId = DocId, topK = 10 }), "llm_router")],
             InitialSemanticMission = new(JsonSerializer.SerializeToElement(new
             {
-                planKind = "multi_item", deliverable = "recorded values and their conditions",
-                structuredLayout = false, rowCount = 1, columnCount = 1, atomicEvidenceCount = 3,
-                atomicEvidenceType = "documented facts", atomicEvidenceMode = "content_claim",
-                selectionPolicy = "explicit_set", initialCapability = "rag_search",
-                rowHeader = "", rowLabels = Array.Empty<string>(), columns = Array.Empty<string>()
+                planKind = "multi_item",
+                deliverable = "recorded values and their conditions",
+                structuredLayout = false,
+                rowCount = 1,
+                columnCount = 1,
+                atomicEvidenceCount = 3,
+                atomicEvidenceType = "documented facts",
+                atomicEvidenceMode = "content_claim",
+                selectionPolicy = "explicit_set",
+                initialCapability = "rag_search",
+                rowHeader = "",
+                rowLabels = Array.Empty<string>(),
+                columns = Array.Empty<string>()
             }), "llm_router")
         };
         if (!offered)
@@ -97,9 +105,13 @@ public sealed class ResolvedDocumentResearchReadingTests
             Calls.Add((toolName, arguments.Clone()));
             var results = new ToolResults();
             if (Calls.Count == 1)
-                results.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result =
+                results.Items.Add(new ToolResults.Item
+                {
+                    ToolName = "rag.search",
+                    Result =
                     ToolAgentOrchestrator.NormalizeRagHitsForTests(File.ReadAllText(Path.Combine(
-                        AppContext.BaseDirectory, "Fixtures", "CanonicalDegradedSearchContract.json")), sourceBackedCanonical: true) });
+                        AppContext.BaseDirectory, "Fixtures", "CanonicalDegradedSearchContract.json")), sourceBackedCanonical: true)
+                });
             return Task.FromResult(results);
         }
     }
