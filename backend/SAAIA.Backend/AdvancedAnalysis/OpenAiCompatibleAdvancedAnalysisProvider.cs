@@ -35,7 +35,7 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
         _httpClientFactory = httpClientFactory;
         _options = options;
         _apiKey = string.IsNullOrWhiteSpace(apiKey) ? null : apiKey.Trim();
-        if (IsOpenAiDev)
+        if (IsExternalProvider)
         {
             _budget = new AdvancedAnalysisExternalBudgetGuard(
                 options,

@@ -560,6 +560,13 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         options.LlmLocation = "external-service";
         options.LlmBaseUrl = "https://runpod.example/v1";
         options.LlmModel = "open-model-candidate";
+        options.ExternalBudgetAuthorizedUsd = 5m;
+        options.ExternalBudgetSoftLimitUsd = 4m;
+        options.ExternalBudgetHardLimitUsd = 4.80m;
+        options.ExternalMaximumCostPerJobUsd = 0.50m;
+        options.ExternalInputUsdPerMillionTokens = 10m;
+        options.ExternalCachedInputUsdPerMillionTokens = 10m;
+        options.ExternalOutputUsdPerMillionTokens = 10m;
         var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
             factory,
             options,
@@ -576,6 +583,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             provider.Location);
         Assert.Equal("open-model-candidate", result.ModelId);
         Assert.Equal(2, result.ProviderCallCount);
+        Assert.Equal(0.003m, result.EstimatedCostUsd);
         Assert.All(factory.Requests, request =>
         {
             Assert.Equal(new Uri(
@@ -594,6 +602,17 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             StringComparison.Ordinal);
         Assert.DoesNotContain("menus.pdf", factory.Requests[1].Body,
             StringComparison.Ordinal);
+        var ledgerEntries = File.ReadAllLines(
+            options.ExternalUsageLedgerPath);
+        Assert.Equal(2, ledgerEntries.Length);
+        Assert.All(ledgerEntries, line =>
+        {
+            using var entry = JsonDocument.Parse(line);
+            Assert.Equal("runpod-bench", entry.RootElement
+                .GetProperty("provider").GetString());
+            Assert.Equal("open-model-candidate", entry.RootElement
+                .GetProperty("modelId").GetString());
+        });
     }
 
     [Fact]

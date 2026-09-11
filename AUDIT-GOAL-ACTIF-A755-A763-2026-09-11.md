@@ -150,22 +150,58 @@ Le journal local enregistre 50 appels Terra, dont 44 réussis et 6 rejets, pour
 216 886 tokens d'entrée, 37 979 tokens de sortie et 0,8412062 USD. Il enregistre
 48 appels Luna réussis, 175 176 tokens d'entrée, 19 768 tokens de sortie et
 0,05709756 USD. Le total journalisé est 0,89830376 USD. L'interface OpenAI
-affiche 0,92 USD consommé et un solde de 24,09 USD ; le faible écart correspond
+affiche 0,92 USD consommé et un solde actualisé de 24,08 USD ; le faible écart correspond
 aux appels ou arrondis hors journal applicatif.
 
 Les garde-fous SAAIA restent : 25 USD autorisés, alerte à 20 USD, arrêt local à
 24 USD, 0,50 USD maximum par job et quatre appels maximum par job. Ils protègent
 le budget demandé et sont indépendants des limites de débit OpenAI.
 
-Le compte OpenAI affiche encore `Free tier` alors que l'achat de 25 USD dépasse
-le seuil de 5 USD annoncé pour Tier 1. Les modèles Terra et Luna restent limités
-à 50 requêtes par jour. Cette limite fournisseur ne peut pas être supprimée dans
-l'interface. Le bouton de changement de palier propose seulement un nouvel achat
-de crédits ; aucun achat supplémentaire n'a été effectué.
+Le compte OpenAI affiche encore `Free tier` alors que la facture API créée le
+11 septembre 2026 à 16:06 est payée et correspond à 25 USD de crédits,
+27,03 USD taxe comprise. Cet achat dépasse le seuil de
+5 USD annoncé par la page Limits pour le Tier 1 automatique. Les modèles Terra
+et Luna restent pourtant limités à 50 requêtes par jour. Cette limite
+fournisseur ne peut pas être supprimée dans l'interface. Le bouton de changement
+de palier propose seulement un nouvel achat de crédits ; aucun achat
+supplémentaire n'a été effectué.
+
+Quatre rejets Terra `advanced_llm_http_429` sont horodatés entre 17:05 et 18:15.
+Un dossier sans secret est prêt sous
+`artifacts/reprise-pc-20260908/a763-provider-comparison/openai-account-tier-support-20260911`.
+Il contient les preuves minimales et un message anglais prêt à transmettre au
+support. Le message n'a pas été envoyé.
+
+## Préparation RunPod sans dépense
+
+Le premier candidat reproductible est le Public Endpoint RunPod
+`Qwen/Qwen3-32B-AWQ`, exposé à
+`https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1`. RunPod documente une fenêtre
+de 32 768 tokens et un prix uniforme de 10 USD par million de tokens :
+
+- https://docs.runpod.io/public-endpoints/models/qwen3-32b
+- https://docs.runpod.io/public-endpoints/ai-coding-tools
+
+Sur les 39 jobs externes multi-appels déjà terminés, la médiane observée est de
+10 190 tokens et le percentile 90 de 11 713 tokens. Au tarif RunPod annoncé,
+douze jobs coûteraient environ 1,22 USD à la médiane et 1,41 USD au percentile
+90. Une enveloppe autorisée de 3 USD couvre donc les variations et une éventuelle
+réparation de protocole sans ouvrir un budget large. RunPod demande au moins
+5 USD de crédits pour utiliser ces endpoints, mais SAAIA peut conserver une
+autorisation locale de 3 USD et un arrêt dur calculé à 2,88 USD.
+
+Le garde-budget persistant s'applique désormais à tout fournisseur externe, et
+pas seulement à OpenAI. Le profil RunPod utilise son propre registre, ses propres
+tarifs et refuse de démarrer sans budget explicitement autorisé. Le lanceur
+commun est `tools/test-advanced-product-path-provider.ps1`. Les façades
+`tools/test-advanced-product-path-openai.ps1` et
+`tools/test-advanced-product-path-runpod.ps1` préservent une invocation simple
+et isolent les valeurs par fournisseur. Aucun compte, crédit, endpoint privé,
+secret ou appel payant RunPod n'a été créé à ce stade.
 
 ## Vérifications de l'état courant
 
-- tests ciblés fournisseur, worker et validations : 44/44 ;
+- tests ciblés fournisseur, worker et validations : 55/55 ;
 - résolution live des documents FD CEN, IEC et NIST dans le vrai catalogue :
   1/1 ;
 - suite Debug complète : 4 388 réussis, deux sondes live explicitement ignorées,
@@ -182,8 +218,9 @@ de crédits ; aucun achat supplémentaire n'a été effectué.
 1. Rejouer la banque avancée complète trois fois sur l'état gelé avec Terra,
    après application du Tier 1 ou réinitialisation du quota journalier.
 2. Confirmer live la réparation bornée d'une réponse de protocole mal formée.
-3. Qualifier un modèle open source via RunPod avec le même contrat, après choix
-   concret d'un endpoint, d'un budget et d'un secret RunPod.
+3. Qualifier `Qwen/Qwen3-32B-AWQ` via le Public Endpoint RunPod avec le même
+   contrat. Le candidat, l'URL, les tarifs et le lanceur sont prêts ; il manque
+   l'autorisation de dépense RunPod, au moins 5 USD de crédits et une clé RunPod.
 4. Exécuter le même protocole sur le serveur final du client lorsque son matériel
    et son modèle seront disponibles.
 5. Fermer puis relancer le vrai WinUI pendant un job long, vérifier la reprise du
@@ -191,9 +228,9 @@ de crédits ; aucun achat supplémentaire n'a été effectué.
 6. Ouvrir un nouveau holdout aveugle après le gel définitif du code.
 
 Le palier RunPod, l'hébergement client et le holdout aveugle dépendent de moyens
-externes encore absents. Ils ne justifient pas de modifier deux fois
-l'architecture : le contrat unique permet de changer d'endpoint sans changer la
-logique documentaire.
+externes encore absents. Le contrat unique permet de changer d'endpoint sans
+changer la logique documentaire, et le garde-budget externe suit désormais ce
+contrat pour chaque fournisseur facturé.
 
 ## Prochaine séquence
 

@@ -13474,3 +13474,28 @@ critères, qualifier le même contrat sur RunPod après fourniture d'un endpoint
 d'un budget, exécuter la reprise dans le vrai WinUI, puis ouvrir un holdout
 aveugle après gel définitif. Audit détaillé :
 `AUDIT-GOAL-ACTIF-A755-A763-2026-09-11.md`.
+
+## A763 — garde-budget multi-provider et préflight RunPod — 2026-09-11
+
+L'interface OpenAI confirme une anomalie de palier : la facture de 25 USD de
+crédits API est payée, le solde est actif et des appels sont facturés, mais
+l'organisation reste au `Free tier` à 50 RPD alors que le seuil Tier 1 affiché
+est de 5 USD d'achats cumulés. Le bouton `Upgrade tier` ouvre uniquement un
+nouvel achat. Un dossier de support sans secret et un message prêt à transmettre
+sont conservés dans les artefacts locaux ; aucun nouvel achat et aucun message
+externe n'ont été effectués.
+
+La préparation RunPod est maintenant concrète. Le premier candidat est le Public
+Endpoint `Qwen/Qwen3-32B-AWQ`, fenêtre 32 768 tokens, contrat OpenAI-compatible et
+tarif officiel de 10 USD par million de tokens. Les 39 jobs multi-appels déjà
+mesurés donnent une projection de 1,22 USD pour douze jobs au volume médian et
+1,41 USD au percentile 90. Une autorisation locale de 3 USD avec arrêt à
+2,88 USD est suffisante même si l'achat minimal de crédits RunPod est de 5 USD.
+
+Le garde-budget persistant couvre désormais tous les fournisseurs externes. Il
+utilise un registre et des tarifs propres au provider et le lanceur RunPod refuse
+toute exécution sans budget explicite. Les lanceurs OpenAI et RunPod appellent le
+même parcours produit générique. Validation : 55/55 tests ciblés, 4 388 tests
+Debug réussis, deux sondes live ignorées, build Release sans avertissement ni
+erreur, scripts PowerShell valides et rejet du RunPod sans budget vérifié. Aucun
+appel RunPod payant n'a été exécuté.

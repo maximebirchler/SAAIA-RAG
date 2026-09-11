@@ -10,6 +10,14 @@ param(
     [string]$Quantization = "",
     [string]$ModelSha256 = "",
     [decimal]$HourlyCostUsd = 0,
+    [decimal]$AuthorizedBudgetUsd = 0,
+    [decimal]$SoftLimitUsd = 0,
+    [decimal]$HardLimitUsd = 0,
+    [decimal]$MaximumCostPerJobUsd = 0,
+    [int]$MaximumCallsPerJob = 4,
+    [decimal]$InputUsdPerMillionTokens = 0,
+    [decimal]$CachedInputUsdPerMillionTokens = 0,
+    [decimal]$OutputUsdPerMillionTokens = 0,
     [string]$Configuration = "Debug",
     [string]$ArtifactDirectory = ""
 )
@@ -38,6 +46,55 @@ if ([string]::IsNullOrWhiteSpace($ModelId)) {
     if ($Provider -eq "OpenAI") { $ModelId = "gpt-5.6-terra" }
     else { throw "ModelId is required for RunPod." }
 }
+if ($Provider -eq "OpenAI") {
+    if ($AuthorizedBudgetUsd -le 0) { $AuthorizedBudgetUsd = 25 }
+    if ($InputUsdPerMillionTokens -le 0 -or
+        $CachedInputUsdPerMillionTokens -le 0 -or
+        $OutputUsdPerMillionTokens -le 0) {
+        switch ($ModelId) {
+            "gpt-5.6-terra" {
+                $InputUsdPerMillionTokens = 2
+                $CachedInputUsdPerMillionTokens = 0.20
+                $OutputUsdPerMillionTokens = 12
+            }
+            "gpt-5.6-luna" {
+                $InputUsdPerMillionTokens = 0.20
+                $CachedInputUsdPerMillionTokens = 0.02
+                $OutputUsdPerMillionTokens = 1.20
+            }
+            default {
+                throw "Explicit token pricing is required for OpenAI model '$ModelId'."
+            }
+        }
+    }
+}
+else {
+    if ($AuthorizedBudgetUsd -le 0) {
+        throw "AuthorizedBudgetUsd is required for RunPod; no RunPod spend is assumed."
+    }
+    if ($InputUsdPerMillionTokens -le 0 -or
+        $CachedInputUsdPerMillionTokens -le 0 -or
+        $OutputUsdPerMillionTokens -le 0) {
+        throw "Explicit input, cached-input and output token pricing is required for RunPod."
+    }
+}
+if ($SoftLimitUsd -le 0) {
+    $SoftLimitUsd = [decimal]::Round($AuthorizedBudgetUsd * 0.80, 2)
+}
+if ($HardLimitUsd -le 0) {
+    $HardLimitUsd = [decimal]::Round($AuthorizedBudgetUsd * 0.96, 2)
+}
+if ($MaximumCostPerJobUsd -le 0) {
+    $MaximumCostPerJobUsd = [decimal]::Min(0.50, $HardLimitUsd)
+}
+if ($MaximumCallsPerJob -le 0 -or
+    $SoftLimitUsd -le 0 -or
+    $HardLimitUsd -le 0 -or
+    $SoftLimitUsd -gt $HardLimitUsd -or
+    $HardLimitUsd -gt $AuthorizedBudgetUsd -or
+    $MaximumCostPerJobUsd -gt $HardLimitUsd) {
+    throw "The external provider budget envelope is invalid."
+}
 if (-not [Uri]::IsWellFormedUriString($BaseUrl, [UriKind]::Absolute)) {
     throw "BaseUrl must be an absolute URI."
 }
@@ -51,10 +108,17 @@ if (Test-Path -LiteralPath $ArtifactDirectory) {
     throw "Artifact directory already exists: $ArtifactDirectory"
 }
 New-Item -ItemType Directory -Path $ArtifactDirectory | Out-Null
-$ledgerPath = if ([string]::IsNullOrWhiteSpace($env:SAAIA_OPENAI_USAGE_LEDGER_PATH)) {
+$ledgerPath = if (-not [string]::IsNullOrWhiteSpace(
+        $env:SAAIA_ADVANCED_PROVIDER_LEDGER_PATH)) {
+    [System.IO.Path]::GetFullPath($env:SAAIA_ADVANCED_PROVIDER_LEDGER_PATH)
+} elseif ($Provider -eq "OpenAI" -and
+          -not [string]::IsNullOrWhiteSpace($env:SAAIA_OPENAI_USAGE_LEDGER_PATH)) {
+    [System.IO.Path]::GetFullPath($env:SAAIA_OPENAI_USAGE_LEDGER_PATH)
+} elseif ($Provider -eq "OpenAI") {
     Join-Path $env:LOCALAPPDATA "SAAIA\llm-dev\openai-terra-usage.jsonl"
 } else {
-    [System.IO.Path]::GetFullPath($env:SAAIA_OPENAI_USAGE_LEDGER_PATH)
+    $ledgerSlug = ($providerMode + "-" + $ModelId) -replace '[^a-zA-Z0-9._-]', '-'
+    Join-Path $env:LOCALAPPDATA "SAAIA\llm-dev\$ledgerSlug-usage.jsonl"
 }
 
 if (-not (Test-Path -LiteralPath $storePath)) {
@@ -80,7 +144,15 @@ $tracked = @(
     "SAAIA_ADVANCED_LLM_MODEL",
     "SAAIA_ADVANCED_LLM_API_KEY",
     "SAAIA_ADVANCED_PROVIDER_ARTIFACT_DIR",
-    "SAAIA_ADVANCED_PROVIDER_LEDGER_PATH"
+    "SAAIA_ADVANCED_PROVIDER_LEDGER_PATH",
+    "SAAIA_ADVANCED_EXTERNAL_BUDGET_AUTHORIZED_USD",
+    "SAAIA_ADVANCED_EXTERNAL_BUDGET_SOFT_LIMIT_USD",
+    "SAAIA_ADVANCED_EXTERNAL_BUDGET_HARD_LIMIT_USD",
+    "SAAIA_ADVANCED_EXTERNAL_MAXIMUM_COST_PER_JOB_USD",
+    "SAAIA_ADVANCED_EXTERNAL_MAXIMUM_CALLS_PER_JOB",
+    "SAAIA_ADVANCED_EXTERNAL_INPUT_USD_PER_MILLION_TOKENS",
+    "SAAIA_ADVANCED_EXTERNAL_CACHED_INPUT_USD_PER_MILLION_TOKENS",
+    "SAAIA_ADVANCED_EXTERNAL_OUTPUT_USD_PER_MILLION_TOKENS"
 )
 $previous = @{}
 foreach ($name in $tracked) {
@@ -102,9 +174,15 @@ try {
         hourlyCostUsd = $HourlyCostUsd
         syntheticEvidenceOnly = $true
         maximumProviderCalls = 2
-        openAiAuthorizedBudgetUsd = $(if ($Provider -eq "OpenAI") { 25 } else { $null })
-        openAiHardStopUsd = $(if ($Provider -eq "OpenAI") { 24 } else { $null })
-        usageLedgerPath = $(if ($Provider -eq "OpenAI") { $ledgerPath } else { $null })
+        authorizedBudgetUsd = $AuthorizedBudgetUsd
+        softLimitUsd = $SoftLimitUsd
+        hardStopUsd = $HardLimitUsd
+        maximumCostPerJobUsd = $MaximumCostPerJobUsd
+        maximumCallsPerJob = $MaximumCallsPerJob
+        inputUsdPerMillionTokens = $InputUsdPerMillionTokens
+        cachedInputUsdPerMillionTokens = $CachedInputUsdPerMillionTokens
+        outputUsdPerMillionTokens = $OutputUsdPerMillionTokens
+        usageLedgerPath = $ledgerPath
         productStatus = "TESTE_NON_APPROUVE"
     } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $ArtifactDirectory "preflight-seal.json") -Encoding utf8
 
@@ -115,6 +193,22 @@ try {
     $env:SAAIA_ADVANCED_LLM_API_KEY = $secret
     $env:SAAIA_ADVANCED_PROVIDER_ARTIFACT_DIR = $ArtifactDirectory
     $env:SAAIA_ADVANCED_PROVIDER_LEDGER_PATH = $ledgerPath
+    $env:SAAIA_ADVANCED_EXTERNAL_BUDGET_AUTHORIZED_USD =
+        $AuthorizedBudgetUsd.ToString([Globalization.CultureInfo]::InvariantCulture)
+    $env:SAAIA_ADVANCED_EXTERNAL_BUDGET_SOFT_LIMIT_USD =
+        $SoftLimitUsd.ToString([Globalization.CultureInfo]::InvariantCulture)
+    $env:SAAIA_ADVANCED_EXTERNAL_BUDGET_HARD_LIMIT_USD =
+        $HardLimitUsd.ToString([Globalization.CultureInfo]::InvariantCulture)
+    $env:SAAIA_ADVANCED_EXTERNAL_MAXIMUM_COST_PER_JOB_USD =
+        $MaximumCostPerJobUsd.ToString([Globalization.CultureInfo]::InvariantCulture)
+    $env:SAAIA_ADVANCED_EXTERNAL_MAXIMUM_CALLS_PER_JOB =
+        $MaximumCallsPerJob.ToString([Globalization.CultureInfo]::InvariantCulture)
+    $env:SAAIA_ADVANCED_EXTERNAL_INPUT_USD_PER_MILLION_TOKENS =
+        $InputUsdPerMillionTokens.ToString([Globalization.CultureInfo]::InvariantCulture)
+    $env:SAAIA_ADVANCED_EXTERNAL_CACHED_INPUT_USD_PER_MILLION_TOKENS =
+        $CachedInputUsdPerMillionTokens.ToString([Globalization.CultureInfo]::InvariantCulture)
+    $env:SAAIA_ADVANCED_EXTERNAL_OUTPUT_USD_PER_MILLION_TOKENS =
+        $OutputUsdPerMillionTokens.ToString([Globalization.CultureInfo]::InvariantCulture)
 
     $testOutput = & dotnet test $project `
         -c $Configuration `

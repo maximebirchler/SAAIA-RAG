@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json;
 using SAAIA.Backend.AdvancedAnalysis;
 using SAAIA.Contracts;
@@ -44,14 +45,22 @@ public sealed class LiveAdvancedAnalysisProviderTests(ITestOutputHelper output)
             WriterMaxTokens = 4_096,
             MaximumPlanQueries = 8,
             MaximumEvidencePromptCharacters = 120_000,
-            ExternalBudgetAuthorizedUsd = 25m,
-            ExternalBudgetSoftLimitUsd = 20m,
-            ExternalBudgetHardLimitUsd = 24m,
-            ExternalMaximumCostPerJobUsd = 0.50m,
-            ExternalMaximumCallsPerJob = 4,
-            ExternalInputUsdPerMillionTokens = 2m,
-            ExternalCachedInputUsdPerMillionTokens = 0.2m,
-            ExternalOutputUsdPerMillionTokens = 12m,
+            ExternalBudgetAuthorizedUsd = RequireDecimal(
+                "SAAIA_ADVANCED_EXTERNAL_BUDGET_AUTHORIZED_USD"),
+            ExternalBudgetSoftLimitUsd = RequireDecimal(
+                "SAAIA_ADVANCED_EXTERNAL_BUDGET_SOFT_LIMIT_USD"),
+            ExternalBudgetHardLimitUsd = RequireDecimal(
+                "SAAIA_ADVANCED_EXTERNAL_BUDGET_HARD_LIMIT_USD"),
+            ExternalMaximumCostPerJobUsd = RequireDecimal(
+                "SAAIA_ADVANCED_EXTERNAL_MAXIMUM_COST_PER_JOB_USD"),
+            ExternalMaximumCallsPerJob = RequireInt(
+                "SAAIA_ADVANCED_EXTERNAL_MAXIMUM_CALLS_PER_JOB"),
+            ExternalInputUsdPerMillionTokens = RequireDecimal(
+                "SAAIA_ADVANCED_EXTERNAL_INPUT_USD_PER_MILLION_TOKENS"),
+            ExternalCachedInputUsdPerMillionTokens = RequireDecimal(
+                "SAAIA_ADVANCED_EXTERNAL_CACHED_INPUT_USD_PER_MILLION_TOKENS"),
+            ExternalOutputUsdPerMillionTokens = RequireDecimal(
+                "SAAIA_ADVANCED_EXTERNAL_OUTPUT_USD_PER_MILLION_TOKENS"),
             ExternalUsageLedgerPath = Require(
                 "SAAIA_ADVANCED_PROVIDER_LEDGER_PATH")
         };
@@ -201,6 +210,18 @@ public sealed class LiveAdvancedAnalysisProviderTests(ITestOutputHelper output)
             throw new InvalidOperationException(name + " is required.");
         return value.Trim();
     }
+
+    private static decimal RequireDecimal(string name)
+        => decimal.Parse(
+            Require(name),
+            NumberStyles.Number,
+            CultureInfo.InvariantCulture);
+
+    private static int RequireInt(string name)
+        => int.Parse(
+            Require(name),
+            NumberStyles.Integer,
+            CultureInfo.InvariantCulture);
 
     private sealed class SyntheticEvidenceGateway(
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> sourceEvidence)

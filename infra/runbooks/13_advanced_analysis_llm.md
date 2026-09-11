@@ -67,22 +67,65 @@ Sonde synthétique sans corpus privé :
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-advanced-server-provider.ps1 -Provider OpenAI
 ```
 
-Parcours produit du cas gelé :
+Parcours produit du cas gelé avec backend temporaire, retrieval réel et petit
+modèle local :
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-advanced-analysis-agent-bank.ps1 `
-  -ExpectedAdvancedProvider openai-dev `
-  -ExpectedAdvancedModel gpt-5.6-terra `
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-advanced-product-path-openai.ps1 `
+  -ServerEnvPath <chemin-vers-.env.server-linux> `
+  -OpenAiModel gpt-5.6-terra `
   -Ids A755-ADV-01-meal-grid-5x4 `
   -Repetitions 1
 ```
 
 ## Benchmark RunPod
 
-Configurer l'URL, le modèle et le secret du pod, puis employer les mêmes tools,
-banque, corpus et critères sémantiques que Terra. La sonde synthétique utilise
-`-Provider RunPod`. Le parcours produit attend
-`-ExpectedAdvancedProvider runpod-bench`.
+Le premier candidat est le Public Endpoint `Qwen/Qwen3-32B-AWQ` :
+
+```text
+Base URL : https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1
+Modèle   : Qwen/Qwen3-32B-AWQ
+Contexte : 32768 tokens
+Tarif    : 10 USD par million de tokens, entrée et sortie confondues
+```
+
+Importer la clé RunPod depuis le presse-papiers dans DPAPI :
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\import-llm-secret-from-clipboard.ps1 -Provider RunPod
+```
+
+Le budget RunPod n'est jamais déduit de l'autorisation OpenAI. Il doit être
+fourni explicitement et possède son propre registre persistant. Une enveloppe de
+3 USD, alerte calculée à 2,40 USD et arrêt à 2,88 USD couvre la banque 4 cas × 3
+répétitions d'après les volumes déjà observés. RunPod peut demander un achat
+minimal de crédits supérieur à cette enveloppe ; le garde SAAIA reste à 3 USD.
+
+Sonde synthétique sans corpus privé :
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-advanced-server-provider.ps1 `
+  -Provider RunPod `
+  -BaseUrl https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1 `
+  -ModelId Qwen/Qwen3-32B-AWQ `
+  -AuthorizedBudgetUsd 3 `
+  -InputUsdPerMillionTokens 10 `
+  -CachedInputUsdPerMillionTokens 10 `
+  -OutputUsdPerMillionTokens 10
+```
+
+Parcours produit complet :
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-advanced-product-path-runpod.ps1 `
+  -ServerEnvPath <chemin-vers-.env.server-linux> `
+  -AuthorizedBudgetUsd 3 `
+  -Repetitions 3
+```
+
+Le lanceur RunPod utilise les mêmes tools, la même banque, le même corpus et les
+mêmes critères sémantiques que Terra. Il refuse de démarrer si le budget ou les
+tarifs ne sont pas définis.
 
 Consigner l'image serveur, le hash du modèle, la quantification, le GPU, la
 fenêtre de contexte et tous les paramètres runtime. Arrêter le pod à la fin de

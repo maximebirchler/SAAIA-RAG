@@ -14,7 +14,7 @@ internal sealed record AdvancedAnalysisBudgetCharge(
     string UsageSource);
 
 /// <summary>
-/// Local, persistent stop for the temporary token-priced OpenAI baseline.
+/// Local, persistent stop for any token-priced external LLM provider.
 /// The ledger deliberately contains no prompt, evidence, endpoint or secret.
 /// </summary>
 internal sealed class AdvancedAnalysisExternalBudgetGuard
