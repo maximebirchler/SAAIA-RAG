@@ -24,9 +24,23 @@ namespace SAAIA.Backend.Tests;
 
 public sealed class LiveCanonicalVerticalBackendProbeTests
 {
-    [Fact]
+    [LocalVerticalProbeFact]
     public Task Real_pdf_backend_hosts_live_client_agent()
         => DocumentFoundationIntegrationTests.RunLocalVerticalProbeAsync();
+}
+
+public sealed class LocalVerticalProbeFactAttribute : FactAttribute
+{
+    public LocalVerticalProbeFactAttribute()
+    {
+        if (!string.Equals(
+                Environment.GetEnvironmentVariable("SAAIA_RUN_LOCAL_VERTICAL_PROBE"),
+                "1",
+                StringComparison.Ordinal))
+        {
+            Skip = "Set SAAIA_RUN_LOCAL_VERTICAL_PROBE=1 and provide the probe environment to run this live vertical.";
+        }
+    }
 }
 
 public sealed partial class DocumentFoundationIntegrationTests
