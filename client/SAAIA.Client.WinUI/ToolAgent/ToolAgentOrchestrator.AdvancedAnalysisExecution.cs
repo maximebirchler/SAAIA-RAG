@@ -214,7 +214,9 @@ public sealed partial class ToolAgentOrchestrator
             return new AdvancedAnalysisClientExecutionResult(
                 Handled: true,
                 Outcome: "server_rejected",
-                FinalAnswer: DeterministicAgentText.AdvancedAnalysisFailed(handoff.Language),
+                FinalAnswer: DeterministicAgentText.AdvancedAnalysisFailed(
+                    handoff.Language,
+                    exception.ErrorCode),
                 SourcesPayload: job is null
                     ? null
                     : BuildAdvancedAnalysisSourcesPayload(
@@ -304,7 +306,9 @@ public sealed partial class ToolAgentOrchestrator
             return new AdvancedAnalysisClientExecutionResult(
                 Handled: true,
                 Outcome: "server_rejected",
-                FinalAnswer: DeterministicAgentText.AdvancedAnalysisFailed(language),
+                FinalAnswer: DeterministicAgentText.AdvancedAnalysisFailed(
+                    language,
+                    exception.ErrorCode),
                 SourcesPayload: null,
                 Job: null);
         }
@@ -467,7 +471,9 @@ public sealed partial class ToolAgentOrchestrator
             return new AdvancedAnalysisClientExecutionResult(
                 Handled: true,
                 Outcome: "failed",
-                FinalAnswer: DeterministicAgentText.AdvancedAnalysisFailed(language),
+                FinalAnswer: DeterministicAgentText.AdvancedAnalysisFailed(
+                    language,
+                    job.LastErrorCode),
                 SourcesPayload: BuildAdvancedAnalysisSourcesPayload(job, [], "failed"),
                 Job: job);
         }

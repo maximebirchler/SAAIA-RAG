@@ -120,14 +120,30 @@ internal static class DeterministicAgentText
             "Die Aufgabe für die erweiterte Analyse ist auf dem Server gespeichert und noch nicht abgeschlossen. Kennung und letzter Zustand wurden mit dieser Nachricht gespeichert, damit die Verfolgung fortgesetzt werden kann.",
             "L'attività di analisi avanzata è salvata sul server e non è ancora terminata. L'identificativo e l'ultimo stato sono stati conservati con questo messaggio per consentire la ripresa del monitoraggio.");
 
-    public static string AdvancedAnalysisFailed(string? language)
-        => Pick(language,
+    public static string AdvancedAnalysisFailed(
+        string? language,
+        string? errorCode = null)
+    {
+        if (!string.IsNullOrWhiteSpace(errorCode)
+            && errorCode.EndsWith("_http_429", StringComparison.OrdinalIgnoreCase))
+        {
+            return Pick(language,
+                "Le service d'analyse avancée a temporairement atteint sa limite de requêtes. Aucune réponse ni source non validée n'est affichée. Réessayez après la réinitialisation du quota ou utilisez un autre fournisseur autorisé.",
+                "The advanced analysis service has temporarily reached its request limit. No unvalidated answer or source is displayed. Try again after the quota resets or use another authorized provider.",
+                "El servicio de análisis avanzado ha alcanzado temporalmente su límite de solicitudes. No se muestra ninguna respuesta ni fuente sin validar. Vuelve a intentarlo cuando se restablezca la cuota o utiliza otro proveedor autorizado.",
+                "O serviço de análise avançada atingiu temporariamente o limite de pedidos. Não é apresentada qualquer resposta ou fonte não validada. Tente novamente após a reposição da quota ou utilize outro fornecedor autorizado.",
+                "Der Dienst für die erweiterte Analyse hat vorübergehend sein Anfragelimit erreicht. Es werden keine ungeprüften Antworten oder Quellen angezeigt. Versuchen Sie es nach der Zurücksetzung des Kontingents erneut oder verwenden Sie einen anderen autorisierten Anbieter.",
+                "Il servizio di analisi avanzata ha temporaneamente raggiunto il limite di richieste. Non vengono mostrate risposte o fonti non convalidate. Riprova dopo il ripristino della quota oppure usa un altro fornitore autorizzato.");
+        }
+
+        return Pick(language,
             "L'analyse avancée n'a pas pu terminer cette demande. Aucun résultat de fournisseur ni aucune source non validée ne sont affichés.",
             "Advanced analysis could not complete this request. No provider result or unvalidated source is displayed.",
             "El análisis avanzado no pudo completar esta solicitud. No se muestra ningún resultado del proveedor ni ninguna fuente sin validar.",
             "A análise avançada não conseguiu concluir este pedido. Não é apresentado qualquer resultado do fornecedor nem qualquer fonte não validada.",
             "Die erweiterte Analyse konnte diese Anfrage nicht abschließen. Es werden weder ein Anbieterergebnis noch ungeprüfte Quellen angezeigt.",
             "L'analisi avanzata non ha potuto completare questa richiesta. Non vengono mostrati risultati del fornitore né fonti non convalidate.");
+    }
 
     public static string AdvancedAnalysisCanceled(string? language)
         => Pick(language,

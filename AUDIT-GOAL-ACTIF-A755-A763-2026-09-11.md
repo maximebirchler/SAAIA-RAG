@@ -279,3 +279,20 @@ Une sonde minimale exécutée après ce rejeu reçoit HTTP 429 avec
 `rate_limit_exceeded`. Le plafond fournisseur est donc maintenant épuisé. Le
 budget SAAIA demeure disponible et son arrêt dur à 24 USD est conservé pour
 respecter l'autorisation de dépense de 25 USD.
+
+## Explication produit des limites fournisseur
+
+L'incident réel a montré que WinUI conservait bien le code
+`advanced_llm_http_429` dans l'état durable, mais affichait le même message
+générique que pour toute panne avancée. Le client distingue maintenant les codes
+HTTP 429 sans dépendre d'OpenAI : il explique dans les six langues supportées que
+le service avancé a temporairement atteint sa limite de requêtes et propose de
+réessayer après le reset ou avec un autre fournisseur autorisé. Le payload du
+fournisseur reste masqué et aucune source non validée n'est rendue.
+
+La preuve dédiée injecte un job échoué avec une réponse non fiable et le code
+429. Elle vérifie le texte explicite, l'absence du contenu non fiable, zéro carte
+source et la conservation du code technique dans les métadonnées. La classe de
+transport avancé passe 21/21, la suite client complète 2 234/2 234 avec une sonde
+live opt-in ignorée, la solution complète 4 389/4 389 avec deux sondes live
+ignorées, et le build Release se termine sans avertissement ni erreur.

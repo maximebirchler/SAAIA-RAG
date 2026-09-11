@@ -13531,3 +13531,18 @@ pour terminer la banque gelée trois fois. RunPod reste prêt mais aucun crédit
 appel n'est engagé sans autorisation de dépense propre. Le serveur client, le
 vrai redémarrage WinUI et le nouveau holdout aveugle restent nécessaires avant
 l'approbation. Produit `TESTE_NON_APPROUVE`, Goal actif.
+
+## A763 — limite fournisseur rendue explicite dans WinUI — 2026-09-11
+
+Le code 429 du fournisseur était déjà conservé dans le job durable, mais le texte
+utilisateur restait générique. WinUI reconnaît désormais tout échec avancé
+`*_http_429`, explique que la limite de requêtes est temporairement atteinte et
+propose le reset du quota ou un autre fournisseur autorisé. Le comportement est
+général à OpenAI, RunPod et au futur serveur client. Le contenu rejeté reste
+invisible et aucune carte source non validée n'est créée.
+
+Validation après ce changement : transport avancé 21/21, client complet
+2 234 réussis avec une sonde live ignorée, solution complète 4 389 réussis avec
+deux sondes live ignorées, build Release zéro avertissement/zéro erreur. Aucun
+appel externe et aucune dépense n'ont été nécessaires. Le statut produit reste
+`TESTE_NON_APPROUVE` jusqu'aux preuves live déjà listées.

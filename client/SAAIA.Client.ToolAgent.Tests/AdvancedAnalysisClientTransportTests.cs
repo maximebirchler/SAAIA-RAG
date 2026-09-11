@@ -283,6 +283,32 @@ public sealed class AdvancedAnalysisClientTransportTests
     }
 
     [Fact]
+    public async Task Workflow_explains_provider_rate_limit_without_publishing_untrusted_data()
+    {
+        var handler = new SequenceHandler((_, _, _) => Task.FromResult(Json(
+            HttpStatusCode.OK,
+            Job(
+                "failed",
+                2,
+                new { answerText = "untrusted provider payload" },
+                lastErrorCode: "advanced_llm_http_429"))));
+
+        var result = await ExecuteAsync(handler);
+
+        Assert.True(result.Handled);
+        Assert.Equal("failed", result.Outcome);
+        Assert.Contains("request limit", result.FinalAnswer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("quota resets", result.FinalAnswer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("untrusted provider payload", result.FinalAnswer, StringComparison.OrdinalIgnoreCase);
+        var payload = JsonSerializer.Serialize(result.SourcesPayload, ClientJson.CamelCase);
+        Assert.Empty(SourceCardParser.Parse(payload));
+        using var json = JsonDocument.Parse(payload);
+        Assert.Equal(
+            "advanced_llm_http_429",
+            json.RootElement.GetProperty("advancedAnalysis").GetProperty("lastErrorCode").GetString());
+    }
+
+    [Fact]
     public async Task Non_entitlement_server_rejection_is_safe_and_does_not_publish_body()
     {
         var handler = new SequenceHandler((_, _, _) => Task.FromResult(Json(
@@ -614,7 +640,8 @@ public sealed class AdvancedAnalysisClientTransportTests
         string status,
         int revision,
         object? result = null,
-        Guid? handoffId = null)
+        Guid? handoffId = null,
+        string? lastErrorCode = null)
         => new
         {
             jobId = JobId,
@@ -633,7 +660,9 @@ public sealed class AdvancedAnalysisClientTransportTests
                 : null,
             providerKey = status == "succeeded" ? "fake-internal" : null,
             result,
-            lastErrorCode = status == "failed" ? "provider_failed" : null
+            lastErrorCode = status == "failed"
+                ? lastErrorCode ?? "provider_failed"
+                : null
         };
 
     private static object ValidResult(
