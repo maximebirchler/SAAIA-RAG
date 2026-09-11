@@ -146,6 +146,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                 """));
         var options = CreateOptions();
         options.Provider = "openai-dev";
+        options.LlmLocation = "external-service";
         options.LlmBaseUrl = "https://api.openai.com/v1";
         options.LlmModel = "gpt-5.6-terra";
         options.ReasoningEffort = "low";
@@ -190,6 +191,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         using var factory = new QueuedHttpClientFactory();
         var options = CreateOptions();
         options.Provider = "runpod-bench";
+        options.LlmLocation = "external-service";
         options.LlmBaseUrl = "http://runpod.example/v1";
         var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
             factory,
@@ -212,6 +214,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         using var factory = new QueuedHttpClientFactory();
         var options = CreateOptions();
         options.Provider = "openai-dev";
+        options.LlmLocation = "external-service";
         options.LlmBaseUrl = "https://api.openai.com/v1";
         options.LlmModel = "gpt-5.6-terra";
         var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
@@ -226,6 +229,58 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                 CancellationToken.None));
 
         Assert.Equal("advanced_external_llm_api_key_missing", error.ErrorCode);
+        Assert.Empty(factory.Requests);
+    }
+
+    [Fact]
+    public async Task External_profile_cannot_be_mislabeled_as_internal()
+    {
+        using var factory = new QueuedHttpClientFactory();
+        var options = CreateOptions();
+        options.Provider = "openai-dev";
+        options.LlmLocation = "internal";
+        options.LlmBaseUrl = "https://api.openai.com/v1";
+        options.LlmModel = "gpt-5.6-terra";
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            "openai-secret");
+
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(
+            () => provider.ExecuteAsync(
+                BuildRequest(),
+                new RecordingToolGateway(),
+                CancellationToken.None));
+
+        Assert.Equal(
+            "advanced_llm_profile_location_mismatch",
+            error.ErrorCode);
+        Assert.Empty(factory.Requests);
+    }
+
+    [Fact]
+    public async Task Internal_profile_cannot_be_mislabeled_as_external()
+    {
+        using var factory = new QueuedHttpClientFactory();
+        var options = CreateOptions();
+        options.Provider = "customer-server";
+        options.LlmLocation = "external-service";
+        options.LlmBaseUrl = "https://llm.customer.example/v1";
+        options.LlmModel = "qualified-model.gguf";
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            "internal-secret");
+
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(
+            () => provider.ExecuteAsync(
+                BuildRequest(),
+                new RecordingToolGateway(),
+                CancellationToken.None));
+
+        Assert.Equal(
+            "advanced_llm_profile_location_mismatch",
+            error.ErrorCode);
         Assert.Empty(factory.Requests);
     }
 
@@ -286,6 +341,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         {
             Provider = "customer-server",
             ProviderKey = "",
+            LlmLocation = "internal",
             LlmBaseUrl = "http://advanced-llm:8080",
             LlmModel = "qualified-model.gguf",
             LlmTimeoutSeconds = 30,

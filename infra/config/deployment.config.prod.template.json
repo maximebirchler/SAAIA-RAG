@@ -68,6 +68,7 @@
   "AdvancedAnalysis": {
     "Provider": "__ADVANCED_ANALYSIS_PROVIDER__",
     "ProviderKey": "",
+    "LlmLocation": "__ADVANCED_LLM_LOCATION__",
     "LlmBaseUrl": "__ADVANCED_LLM_BASE_URL__",
     "LlmModel": "__ADVANCED_LLM_MODEL__",
     "LlmApiKeyRef": "ENV:SAAIA_ADVANCED_LLM_API_KEY",

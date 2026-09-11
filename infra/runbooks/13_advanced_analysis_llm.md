@@ -8,21 +8,26 @@ frontière locale qui décide de créer le handoff avancé.
 
 ## Profils
 
-Définir `SAAIA_ADVANCED_LLM_PROVIDER` à l'une des valeurs suivantes :
+Définir `SAAIA_ADVANCED_ANALYSIS_PROVIDER` à l'une des valeurs suivantes :
 
 - `disabled` : worker LLM désactivé ;
 - `openai-dev` : GPT-5.6 Terra, baseline temporaire ;
 - `runpod-bench` : endpoint OpenAI-compatible RunPod ;
 - `customer-server` : endpoint OpenAI-compatible sur le réseau du client.
 
-Les profils externes exigent une URL HTTPS. Le profil client peut utiliser une
-URL HTTP privée selon la politique réseau du déploiement.
+La configuration signée contient aussi `LlmLocation`. L'installateur la génère
+à partir de `SAAIA_ADVANCED_LLM_LOCATION` : `external-service` pour OpenAI et
+RunPod, `internal` pour le serveur du client. Les profils externes exigent une
+URL HTTPS. Le profil client peut utiliser une URL HTTP privée selon la politique
+réseau du déploiement. Une incohérence entre profil et localisation est rejetée
+avant tout appel HTTP.
 
 ## Variables prises en charge dans le lot actuel
 
 ```text
 SAAIA_ADVANCED_ANALYSIS_ENABLED
-SAAIA_ADVANCED_LLM_PROVIDER
+SAAIA_ADVANCED_ANALYSIS_PROVIDER
+SAAIA_ADVANCED_LLM_LOCATION
 SAAIA_ADVANCED_LLM_BASE_URL
 SAAIA_ADVANCED_LLM_MODEL
 SAAIA_ADVANCED_LLM_API_KEY
@@ -45,12 +50,11 @@ Valeurs de référence :
 
 ```text
 SAAIA_ADVANCED_ANALYSIS_ENABLED=true
-SAAIA_ADVANCED_LLM_PROVIDER=openai-dev
-SAAIA_ADVANCED_LLM_PROVIDER_KEY=openai-dev
+SAAIA_ADVANCED_ANALYSIS_PROVIDER=openai-dev
+SAAIA_ADVANCED_LLM_LOCATION=external-service
 SAAIA_ADVANCED_LLM_BASE_URL=https://api.openai.com/v1
 SAAIA_ADVANCED_LLM_MODEL=gpt-5.6-terra
-SAAIA_ADVANCED_LLM_API_KEY_REF=env:SAAIA_ADVANCED_LLM_API_KEY
-SAAIA_ADVANCED_LLM_REASONING_EFFORT=low
+SAAIA_ADVANCED_LLM_API_KEY=<secret injecté hors Git>
 ```
 
 La configuration générée active explicitement l'autorisation de contenu et de

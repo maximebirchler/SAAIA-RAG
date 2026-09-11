@@ -13373,3 +13373,55 @@ tiers sera présentée avec coût et données concernées avant exécution.
 round62 2059/7/2066 ; correctifs A747–A753 validés ciblés mais non requalifiés
 globalement ; banque runtime V5 11/60 conforme et 14/60 sans source après A753 ;
 produit `TESTE_NON_APPROUVE` ; aucun commit, staging ou déploiement.
+
+## A755–A763 — frontière locale qualifiée et architecture avancée prête pour la validation réelle — 2026-09-11
+
+La reprise documentaire est complète dans le registre : 43/43 documents et
+15 847 677/15 847 677 caractères effectivement couverts. A755 qualifie la
+frontière locale sur la RTX 4060, Qwen3-4B Instruct Q5_K_M et llama.cpp CUDA
+b10098. La banque adversariale connue donne 42/42 résultats acceptés sur trois
+répétitions, quatorze routes stables et toutes les portes de latence respectées.
+La preuve n'est pas un holdout aveugle ; l'ancien holdout contaminé reste exclu.
+
+Les lots A756 à A762 rendent exécutable le terminal
+`advanced_analysis_required` : handoff typé, job PostgreSQL idempotent soumis à
+la licence, worker durable, tools SAAIA partagés, revalidation des preuves,
+trace bornée, transport client, cartes source strictes et reprise du même job
+après redémarrage WinUI. La reprise A762 est confirmée par 4/4 tests ciblés et
+reste à observer sur un vrai processus WinUI pendant un vrai job long.
+
+Les commits `b30096ac` et `9101e5f5` ajoutent le contrat fournisseur et raccordent
+le parcours produit au grand modèle backend. Les profils `openai-dev`,
+`runpod-bench` et `customer-server` utilisent le même provider, le même cycle
+planner/tools/writer, le même EvidenceBundle, le même validateur et les mêmes
+métriques. Le budget Terra persiste avec 25 USD autorisés, une alerte à 20 USD,
+un arrêt à 24 USD, 0,50 USD et quatre appels maximum par job.
+
+Le durcissement suivant sépare dans la configuration signée `Provider` et
+`LlmLocation`. OpenAI et RunPod sont `external-service`; le serveur client est
+`internal`. Les autorisations de transmission dépendent de cette localisation
+et toute incohérence est rejetée avant HTTP. Cette décision aligne le lot sur la
+vision future où la licence encode les capacités, l'installation choisit une
+topologie autorisée et le profil technique fournit URL, secret, modèle et
+dimensionnement. Les assistants d'installation et le format commercial final
+restent hors du lot actuel.
+
+Validation mécanique courante : fournisseur 11/11, suite solution 4 359/4 359
+avec deux sondes live opt-in ignorées, build 0 avertissement/0 erreur, syntaxes
+PowerShell et Bash valides, 36/36 placeholders de production couverts et JSON
+rendu valide. Les trois profils produisent chacun une configuration signée
+cohérente et le cas incohérent est rejeté. Aucun appel externe, aucune dépense
+et aucune transmission de corpus n'ont eu lieu.
+
+A763 est donc **PRÊT AU NIVEAU PROTOCOLE ET ARCHITECTURE, NON EXÉCUTÉ AVEC UN
+FOURNISSEUR RÉEL**. Il manque la sonde Terra, le planning 5 × 4 via le parcours
+produit, trois réussites live consécutives sur état gelé, la banque avancée, la
+comparaison RunPod, le modèle final sur serveur client, le test WinUI réel et le
+nouveau holdout aveugle. OpenAI affiche actuellement zéro crédit ; l'achat des
+25 USD autorisés et la création de la clé restreinte attendent la confirmation
+immédiate exigée par l'outil. Le produit reste `TESTE_NON_APPROUVE` et le Goal
+reste actif.
+
+Audit consolidé : `AUDIT-GOAL-ACTIF-A755-A763-2026-09-11.md`. Prochaine action
+après confirmation : achat et clé, sonde synthétique sans donnée privée, puis un
+seul essai produit du planning avant toute répétition payante.

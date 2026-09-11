@@ -100,6 +100,8 @@ stockage des secrets du produit final.
   fournisseur ;
 - les profils `openai-dev`, `runpod-bench` et `customer-server` sont
   remplaçables sans changer le client ;
+- la configuration signée déclare séparément `Provider` et `LlmLocation`, et
+  le backend rejette une combinaison incohérente avant toute sortie réseau ;
 - l'entitlement `AdvancedAnalysisEnabled` actuel reste un premier verrou et ne
   préjuge pas du futur schéma complet de capacités ;
 - les futures migrations de licence devront être versionnées et compatibles

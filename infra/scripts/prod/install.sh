@@ -49,6 +49,20 @@ if [[ "${SAAIA_ADVANCED_ANALYSIS_ENABLED:-false}" =~ ^(1|true|yes|on)$ ]]; then
   ADVANCED_ANALYSIS_ENABLED="true"
 fi
 ADVANCED_ANALYSIS_PROVIDER="${SAAIA_ADVANCED_ANALYSIS_PROVIDER:-disabled}"
+if [[ "$ADVANCED_ANALYSIS_PROVIDER" == "openai-dev" || "$ADVANCED_ANALYSIS_PROVIDER" == "openaidev" || "$ADVANCED_ANALYSIS_PROVIDER" == "runpod-bench" || "$ADVANCED_ANALYSIS_PROVIDER" == "runpodbench" ]]; then
+  ADVANCED_LLM_LOCATION="${SAAIA_ADVANCED_LLM_LOCATION:-external-service}"
+else
+  ADVANCED_LLM_LOCATION="${SAAIA_ADVANCED_LLM_LOCATION:-internal}"
+fi
+case "${ADVANCED_LLM_LOCATION,,}" in
+  external|cloud) ADVANCED_LLM_LOCATION="external-service" ;;
+  on-prem|onprem) ADVANCED_LLM_LOCATION="internal" ;;
+  *) ADVANCED_LLM_LOCATION="${ADVANCED_LLM_LOCATION,,}" ;;
+esac
+if [[ "$ADVANCED_LLM_LOCATION" != "internal" && "$ADVANCED_LLM_LOCATION" != "external-service" ]]; then
+  echo "SAAIA_ADVANCED_LLM_LOCATION must be internal or external-service." >&2
+  exit 2
+fi
 if [[ "$ADVANCED_ANALYSIS_PROVIDER" == "openai-dev" || "$ADVANCED_ANALYSIS_PROVIDER" == "openaidev" ]]; then
   ADVANCED_LLM_BASE_URL="${SAAIA_ADVANCED_LLM_BASE_URL:-https://api.openai.com/v1}"
   ADVANCED_LLM_MODEL="${SAAIA_ADVANCED_LLM_MODEL:-gpt-5.6-terra}"
@@ -61,11 +75,16 @@ if [[ "$ADVANCED_ANALYSIS_ENABLED" == "true" ]]; then
     echo "SAAIA_ADVANCED_ANALYSIS_PROVIDER must be openai-dev, runpod-bench or customer-server when advanced analysis is enabled." >&2
     exit 2
   fi
+  if { [[ "$ADVANCED_ANALYSIS_PROVIDER" == "openai-dev" || "$ADVANCED_ANALYSIS_PROVIDER" == "openaidev" || "$ADVANCED_ANALYSIS_PROVIDER" == "runpod-bench" || "$ADVANCED_ANALYSIS_PROVIDER" == "runpodbench" ]] && [[ "$ADVANCED_LLM_LOCATION" != "external-service" ]]; } \
+    || { [[ "$ADVANCED_ANALYSIS_PROVIDER" == "customer-server" || "$ADVANCED_ANALYSIS_PROVIDER" == "customerserver" ]] && [[ "$ADVANCED_LLM_LOCATION" != "internal" ]]; }; then
+    echo "SAAIA_ADVANCED_LLM_LOCATION does not match SAAIA_ADVANCED_ANALYSIS_PROVIDER." >&2
+    exit 2
+  fi
   : "${ADVANCED_LLM_MODEL:?SAAIA_ADVANCED_LLM_MODEL is required when advanced analysis is enabled}"
   : "${SAAIA_ADVANCED_LLM_API_KEY:?SAAIA_ADVANCED_LLM_API_KEY is required when advanced analysis is enabled}"
 fi
 ADVANCED_EXTERNAL_ALLOWED="false"
-if [[ "$ADVANCED_ANALYSIS_ENABLED" == "true" && ( "$ADVANCED_ANALYSIS_PROVIDER" == "openai-dev" || "$ADVANCED_ANALYSIS_PROVIDER" == "openaidev" || "$ADVANCED_ANALYSIS_PROVIDER" == "runpod-bench" || "$ADVANCED_ANALYSIS_PROVIDER" == "runpodbench" ) ]]; then
+if [[ "$ADVANCED_ANALYSIS_ENABLED" == "true" && "$ADVANCED_LLM_LOCATION" == "external-service" ]]; then
   ADVANCED_EXTERNAL_ALLOWED="true"
 fi
 
@@ -203,6 +222,7 @@ sed \
   -e "s/__LICENSE_SEATS__/${LICENSE_SEATS}/g" \
   -e "s/__ADVANCED_ANALYSIS_ENABLED__/${ADVANCED_ANALYSIS_ENABLED}/g" \
   -e "s#__ADVANCED_ANALYSIS_PROVIDER__#${ADVANCED_ANALYSIS_PROVIDER}#g" \
+  -e "s#__ADVANCED_LLM_LOCATION__#${ADVANCED_LLM_LOCATION}#g" \
   -e "s#__ADVANCED_LLM_BASE_URL__#${ADVANCED_LLM_BASE_URL}#g" \
   -e "s#__ADVANCED_LLM_MODEL__#${ADVANCED_LLM_MODEL}#g" \
   -e "s/__ADVANCED_EXTERNAL_ALLOWED__/${ADVANCED_EXTERNAL_ALLOWED}/g" \

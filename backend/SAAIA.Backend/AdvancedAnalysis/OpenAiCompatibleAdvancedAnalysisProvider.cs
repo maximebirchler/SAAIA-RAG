@@ -56,14 +56,17 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
         }
     }
 
-    public AdvancedAnalysisProviderLocation Location => IsExternalProvider
-        ? AdvancedAnalysisProviderLocation.ExternalService
-        : AdvancedAnalysisProviderLocation.Internal;
+    public AdvancedAnalysisProviderLocation Location =>
+        NormalizeLocation(_options.LlmLocation) switch
+        {
+            "external-service" => AdvancedAnalysisProviderLocation.ExternalService,
+            _ => AdvancedAnalysisProviderLocation.Internal
+        };
 
     private bool IsOpenAiDev => NormalizeProvider(_options.Provider) == "openai-dev";
 
-    private bool IsExternalProvider => NormalizeProvider(_options.Provider)
-        is "openai-dev" or "runpod-bench";
+    private bool IsExternalProvider =>
+        Location == AdvancedAnalysisProviderLocation.ExternalService;
 
     public async Task<AdvancedAnalysisProviderResult> ExecuteAsync(
         AdvancedAnalysisProviderRequest request,
@@ -135,6 +138,20 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
 
     private void ValidateConfiguration()
     {
+        var provider = NormalizeProvider(_options.Provider);
+        var location = NormalizeLocation(_options.LlmLocation);
+        if (location is not ("internal" or "external-service"))
+        {
+            throw new AdvancedAnalysisProviderException(
+                "advanced_llm_location_invalid");
+        }
+        if (((provider is "openai-dev" or "runpod-bench")
+                && location != "external-service")
+            || (provider == "customer-server" && location != "internal"))
+        {
+            throw new AdvancedAnalysisProviderException(
+                "advanced_llm_profile_location_mismatch");
+        }
         if (!Uri.TryCreate(_options.LlmBaseUrl, UriKind.Absolute, out var uri)
             || uri.Scheme is not ("http" or "https"))
         {
@@ -651,5 +668,13 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
             "runpodbench" or "runpod-bench" => "runpod-bench",
             "customerserver" or "customer-server" => "customer-server",
             _ => (provider ?? string.Empty).Trim().ToLowerInvariant()
+        };
+
+    private static string NormalizeLocation(string? location)
+        => (location ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "internal" or "on-prem" or "onprem" => "internal",
+            "external" or "external-service" or "cloud" => "external-service",
+            _ => (location ?? string.Empty).Trim().ToLowerInvariant()
         };
 }

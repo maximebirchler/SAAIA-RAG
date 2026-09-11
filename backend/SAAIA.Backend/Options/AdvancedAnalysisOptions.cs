@@ -6,6 +6,8 @@ sealed class AdvancedAnalysisOptions
 
     public string ProviderKey { get; set; } = string.Empty;
 
+    public string LlmLocation { get; set; } = "internal";
+
     public string LlmBaseUrl { get; set; } = string.Empty;
 
     public string LlmModel { get; set; } = string.Empty;

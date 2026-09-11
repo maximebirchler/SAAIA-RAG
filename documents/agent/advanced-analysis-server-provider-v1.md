@@ -62,7 +62,11 @@ sans claim et les résultats hors contrat. Une erreur de fournisseur reste une
 erreur typée du job ; aucun basculement silencieux vers un autre fournisseur
 n'est effectué.
 
-Les profils externes exigent HTTPS et les deux autorisations signées
+Le champ signé `LlmLocation` sépare explicitement la topologie du nom du profil.
+Il vaut `external-service` pour OpenAI et RunPod, et `internal` pour le serveur
+du client. Le backend rejette les valeurs inconnues et les combinaisons
+profil/localisation incohérentes avant tout appel HTTP. Les profils externes
+exigent HTTPS et les deux autorisations signées
 `AllowExternalProviderContent` et `AllowExternalProviderMetadata`. Le profil
 `customer-server` est déclaré interne et conserve ces autorisations à `false`.
 La configuration de production générée rend donc l'envoi externe explicite et

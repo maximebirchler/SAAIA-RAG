@@ -67,6 +67,7 @@
   "AdvancedAnalysis": {
     "Provider": "disabled",
     "ProviderKey": "",
+    "LlmLocation": "internal",
     "LlmBaseUrl": "",
     "LlmModel": "",
     "LlmApiKeyRef": "ENV:SAAIA_ADVANCED_LLM_API_KEY",

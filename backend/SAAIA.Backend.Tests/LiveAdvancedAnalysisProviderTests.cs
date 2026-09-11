@@ -32,6 +32,9 @@ public sealed class LiveAdvancedAnalysisProviderTests(ITestOutputHelper output)
         var options = new AdvancedAnalysisOptions
         {
             Provider = providerMode,
+            LlmLocation = providerMode is "openai-dev" or "runpod-bench"
+                ? "external-service"
+                : "internal",
             LlmBaseUrl = baseUrl,
             LlmModel = model,
             LlmApiKeyRef = "ENV:SAAIA_ADVANCED_LLM_API_KEY",

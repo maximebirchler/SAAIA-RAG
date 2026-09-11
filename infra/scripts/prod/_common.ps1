@@ -265,6 +265,12 @@ function New-SignedConfig {
     $advancedAnalysisProvider = ([string]$env['SAAIA_ADVANCED_ANALYSIS_PROVIDER']).Trim()
   }
   $advancedProviderNormalized = $advancedAnalysisProvider.ToLowerInvariant()
+  $advancedLlmLocation = if ($advancedProviderNormalized -in @('openai-dev','openaidev','runpod-bench','runpodbench')) { 'external-service' } else { 'internal' }
+  if ($env.ContainsKey('SAAIA_ADVANCED_LLM_LOCATION') -and -not [string]::IsNullOrWhiteSpace($env['SAAIA_ADVANCED_LLM_LOCATION'])) {
+    $advancedLlmLocation = ([string]$env['SAAIA_ADVANCED_LLM_LOCATION']).Trim().ToLowerInvariant()
+  }
+  if ($advancedLlmLocation -in @('external','cloud')) { $advancedLlmLocation = 'external-service' }
+  if ($advancedLlmLocation -in @('on-prem','onprem')) { $advancedLlmLocation = 'internal' }
   $advancedLlmBaseUrl = if ($advancedProviderNormalized -in @('openai-dev','openaidev')) { 'https://api.openai.com/v1' } else { 'http://advanced-llm:8080' }
   if ($env.ContainsKey('SAAIA_ADVANCED_LLM_BASE_URL') -and -not [string]::IsNullOrWhiteSpace($env['SAAIA_ADVANCED_LLM_BASE_URL'])) {
     $advancedLlmBaseUrl = ([string]$env['SAAIA_ADVANCED_LLM_BASE_URL']).Trim().TrimEnd('/')
@@ -273,9 +279,17 @@ function New-SignedConfig {
   if ($env.ContainsKey('SAAIA_ADVANCED_LLM_MODEL') -and -not [string]::IsNullOrWhiteSpace($env['SAAIA_ADVANCED_LLM_MODEL'])) {
     $advancedLlmModel = ([string]$env['SAAIA_ADVANCED_LLM_MODEL']).Trim()
   }
+  if ($advancedLlmLocation -notin @('internal','external-service')) {
+    throw "SAAIA_ADVANCED_LLM_LOCATION must be internal or external-service."
+  }
   if ($advancedAnalysisEnabledBool) {
     if ($advancedProviderNormalized -notin @('openai-dev','openaidev','runpod-bench','runpodbench','customer-server','customerserver')) {
       throw "SAAIA_ADVANCED_ANALYSIS_PROVIDER must be openai-dev, runpod-bench or customer-server when advanced analysis is enabled."
+    }
+    $externalProfile = $advancedProviderNormalized -in @('openai-dev','openaidev','runpod-bench','runpodbench')
+    $internalProfile = $advancedProviderNormalized -in @('customer-server','customerserver')
+    if (($externalProfile -and $advancedLlmLocation -ne 'external-service') -or ($internalProfile -and $advancedLlmLocation -ne 'internal')) {
+      throw "SAAIA_ADVANCED_LLM_LOCATION does not match SAAIA_ADVANCED_ANALYSIS_PROVIDER."
     }
     if ([string]::IsNullOrWhiteSpace($advancedLlmModel)) {
       throw "SAAIA_ADVANCED_LLM_MODEL is required when advanced analysis is enabled."
@@ -284,7 +298,7 @@ function New-SignedConfig {
       throw "SAAIA_ADVANCED_LLM_API_KEY is required when advanced analysis is enabled."
     }
   }
-  $advancedExternalAllowed = if ($advancedAnalysisEnabledBool -and $advancedProviderNormalized -in @('openai-dev','openaidev','runpod-bench','runpodbench')) { 'true' } else { 'false' }
+  $advancedExternalAllowed = if ($advancedAnalysisEnabledBool -and $advancedLlmLocation -eq 'external-service') { 'true' } else { 'false' }
 
   $bootKey = ''
   if ($env.ContainsKey('SAAIA_BOOTSTRAP_API_KEY')) { $bootKey = $env['SAAIA_BOOTSTRAP_API_KEY'] }
@@ -359,6 +373,7 @@ function New-SignedConfig {
   $content = $content.Replace('__LICENSE_SEATS__', $licenseSeats.ToString([Globalization.CultureInfo]::InvariantCulture))
   $content = $content.Replace('__ADVANCED_ANALYSIS_ENABLED__', $advancedAnalysisEnabled)
   $content = $content.Replace('__ADVANCED_ANALYSIS_PROVIDER__', (Escape-JsonString $advancedAnalysisProvider))
+  $content = $content.Replace('__ADVANCED_LLM_LOCATION__', (Escape-JsonString $advancedLlmLocation))
   $content = $content.Replace('__ADVANCED_LLM_BASE_URL__', (Escape-JsonString $advancedLlmBaseUrl))
   $content = $content.Replace('__ADVANCED_LLM_MODEL__', (Escape-JsonString $advancedLlmModel))
   $content = $content.Replace('__ADVANCED_EXTERNAL_ALLOWED__', $advancedExternalAllowed)
