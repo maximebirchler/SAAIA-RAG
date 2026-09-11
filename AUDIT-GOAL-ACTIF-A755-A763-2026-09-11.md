@@ -334,7 +334,7 @@ comparaison contient deux claims et les deux documents exigés. Le quatrième ca
 sept points NIST, a obtenu son plan et ses recherches puis a échoué sur
 `advanced_llm_http_429` avant la rédaction. La dépense de cette tentative est de
 0,09515 USD, dont 0,004714 USD pour le plan NIST sans réponse finale. Le registre
-local atteint 1,03689176 USD.
+local atteignait 1,03689176 USD après cette première tentative.
 
 Cette exécution invalide la répétition et ne compte pas comme un passage de la
 banque. L'évaluateur mécanique scelle trois cas valides et le rejet NIST. Elle
@@ -349,10 +349,12 @@ les répétitions. Le préflight enregistre ce délai, le commit Git exact et si
 fichiers suivis étaient modifiés. Le commit `4bd38c98` porte cette correction et
 permet de distinguer une campagne réellement gelée d'un simple répertoire
 d'artefacts. Une seconde tentative a été lancée sur ce commit avec 60 secondes
-de délai. Les deux premiers cas ont reçu 429 sans coût malgré ce délai ; la
+de délai. Le planificateur du premier cas a réussi pour 0,003202 USD, puis son
+rédacteur a reçu 429 ; le planificateur du second cas a ensuite reçu 429. La
 campagne a été interrompue pour ne pas consommer les rares créneaux qui se
 libèrent. Son assessment est `REJECT_MECHANICAL` et une note d'interruption
-explicite complète les fichiers de shutdown.
+explicite complète les fichiers de shutdown. Le registre local atteint ainsi
+1,04009376 USD sur 111 lignes, succès et échecs compris.
 
 L'interruption a mis en évidence une seconde faiblesse de preuve : un Ctrl-C
 exécutait bien les blocs `finally`, arrêtait le backend et Qwen, mais laissait
@@ -366,3 +368,10 @@ Le délai est conservé comme paramètre reproductible pour les limites RPM ; il
 prétend pas supprimer un plafond RPD. La preuve encore requise reste une banque
 complète 3/3 sur un quota réellement disponible ou après activation du Tier 1.
 Le produit reste `TESTE_NON_APPROUVE`.
+
+Après le commit de preuve `4b04aa94`, les trois projets de tests ont été rejoués
+séparément en Release afin de conserver un TRX par projet : 10 tests contrats,
+2 145 tests backend et 2 234 tests client/agent ont réussi, soit 4 389 réussites
+et aucun échec. Les deux tests live canoniques restent explicitement ignorés. La
+porte locale est `PASS_MECHANICAL`; elle ne remplace pas la banque Terra 3/3 ni
+sa revue sémantique.
