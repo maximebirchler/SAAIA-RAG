@@ -118,31 +118,41 @@ function Stop-OwnedProcess {
 
 function Wait-ForClientResume {
     param(
-        [Parameter(Mandatory = $true)][string]$LogPath,
+        [Parameter(Mandatory = $true)][string]$ClientLogPath,
+        [Parameter(Mandatory = $true)][string]$BackendLogPath,
         [Parameter(Mandatory = $true)][Guid]$JobId,
+        [Parameter(Mandatory = $true)][Guid]$MessageId,
         [Parameter(Mandatory = $true)][System.Diagnostics.Process]$Process,
-        [ValidateRange(1, 10000)][int]$MinimumResumeCount,
+        [ValidateRange(1, 10000)][int]$MinimumGetCount,
+        [ValidateRange(1, 10000)][int]$MinimumPatchCount,
         [ValidateRange(1, 10000)][int]$MinimumStartCount,
         [ValidateRange(5, 120)][int]$TimeoutSeconds
     )
 
-    $jobPattern = [regex]::Escape("jobId=$($JobId.ToString('D'))") +
-        '.*outcome=job_resumed'
+    $jobPattern = [regex]::Escape(
+        "Request completed: GET /advanced-analysis/jobs/$($JobId.ToString('D')) 200")
+    $messagePattern = [regex]::Escape(
+        "Request completed: PATCH /chat/messages/$($MessageId.ToString('D')) 200")
     $deadline = [DateTimeOffset]::UtcNow.AddSeconds($TimeoutSeconds)
     do {
         if ($Process.HasExited) {
             throw "The WinUI client exited before resuming the queued job (exit code $($Process.ExitCode))."
         }
-        if (Test-Path -LiteralPath $LogPath -PathType Leaf) {
-            $text = Get-Content -LiteralPath $LogPath -Raw
-            $resumeCount = [regex]::Matches($text, $jobPattern).Count
+        if ((Test-Path -LiteralPath $ClientLogPath -PathType Leaf) -and
+            (Test-Path -LiteralPath $BackendLogPath -PathType Leaf)) {
+            $clientText = Get-Content -LiteralPath $ClientLogPath -Raw
+            $backendText = Get-Content -LiteralPath $BackendLogPath -Raw
+            $getCount = [regex]::Matches($backendText, $jobPattern).Count
+            $patchCount = [regex]::Matches($backendText, $messagePattern).Count
             $startCount = [regex]::Matches(
-                $text,
+                $clientText,
                 [regex]::Escape('=== App starting ===')).Count
-            if ($resumeCount -ge $MinimumResumeCount -and
+            if ($getCount -ge $MinimumGetCount -and
+                $patchCount -ge $MinimumPatchCount -and
                 $startCount -ge $MinimumStartCount) {
                 return [ordered]@{
-                    resumeCount = $resumeCount
+                    jobGetCount = $getCount
+                    messagePatchCount = $patchCount
                     startCount = $startCount
                     observedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
                 }
@@ -268,7 +278,9 @@ $secondClientClosedGracefully = $false
 $sessionId = [Guid]::Empty
 $jobId = [Guid]::Empty
 $handoffId = [Guid]::Empty
+$messageId = [Guid]::Empty
 $userId = ''
+$clientLogSecretRedacted = $false
 $failure = $null
 $completed = $false
 $baseUrl = "http://127.0.0.1:$BackendPort"
@@ -527,6 +539,7 @@ try {
     if ([string]::IsNullOrWhiteSpace([string]$message.messageId)) {
         throw "The durable assistant message was not created."
     }
+    $messageId = [Guid]$message.messageId
 
     $provisioningHash = $null
     $provisioningCandidates = @(
@@ -614,10 +627,13 @@ try {
         -ExecutablePath $clientExecutable `
         -WorkingDirectory $clientProjectRoot
     $firstObservation = Wait-ForClientResume `
-        -LogPath $clientLogPath `
+        -ClientLogPath $clientLogPath `
+        -BackendLogPath $backendStdout `
         -JobId $jobId `
+        -MessageId $messageId `
         -Process $firstClientProcess `
-        -MinimumResumeCount 1 `
+        -MinimumGetCount 1 `
+        -MinimumPatchCount 1 `
         -MinimumStartCount 1 `
         -TimeoutSeconds $ClientObservationTimeoutSeconds
     $firstClientClosedGracefully = Stop-OwnedProcess `
@@ -631,15 +647,19 @@ try {
         throw "Closing the first WinUI process changed or canceled the durable server job."
     }
 
-    $resumeCountBeforeSecondStart = [int]$firstObservation.resumeCount
+    $getCountBeforeSecondStart = [int]$firstObservation.jobGetCount
+    $patchCountBeforeSecondStart = [int]$firstObservation.messagePatchCount
     $secondClientProcess = Start-TestClient `
         -ExecutablePath $clientExecutable `
         -WorkingDirectory $clientProjectRoot
     $secondObservation = Wait-ForClientResume `
-        -LogPath $clientLogPath `
+        -ClientLogPath $clientLogPath `
+        -BackendLogPath $backendStdout `
         -JobId $jobId `
+        -MessageId $messageId `
         -Process $secondClientProcess `
-        -MinimumResumeCount ($resumeCountBeforeSecondStart + 1) `
+        -MinimumGetCount ($getCountBeforeSecondStart + 1) `
+        -MinimumPatchCount ($patchCountBeforeSecondStart + 1) `
         -MinimumStartCount 2 `
         -TimeoutSeconds $ClientObservationTimeoutSeconds
     $secondClientClosedGracefully = Stop-OwnedProcess `
@@ -667,7 +687,7 @@ try {
         jobId = $jobId
         handoffId = $handoffId
         sessionId = $sessionId
-        messageId = $message.messageId
+        messageId = $messageId
         firstLaunch = $firstObservation
         firstWindowClosedGracefully = $firstClientClosedGracefully
         jobAfterFirstClose = [ordered]@{
@@ -726,6 +746,21 @@ finally {
     }
 
     Stop-OwnedProcess -Process $backendProcess | Out-Null
+
+    if (Test-Path -LiteralPath $clientLogPath -PathType Leaf) {
+        $diagnosticLog = Get-Content -LiteralPath $clientLogPath -Raw
+        if (-not [string]::IsNullOrWhiteSpace($serverApiKey) -and
+            $diagnosticLog.Contains($serverApiKey, [StringComparison]::Ordinal)) {
+            $diagnosticLog = $diagnosticLog.Replace(
+                $serverApiKey,
+                '[REDACTED_SERVER_API_KEY]',
+                [StringComparison]::Ordinal)
+            $clientLogSecretRedacted = $true
+        }
+        Set-Content -LiteralPath (
+            Join-Path $ArtifactDirectory 'client-lifecycle-diagnostic.log') `
+            -Value $diagnosticLog -Encoding utf8
+    }
 
     foreach ($name in $trackedEnvironment) {
         [Environment]::SetEnvironmentVariable(
@@ -787,6 +822,7 @@ finally {
         winUiProcessesAfterRun = @(
             Get-Process -Name 'SAAIA.Client.WinUI' -ErrorAction SilentlyContinue).Count
         secretPersistedInArtifact = $false
+        clientLogSecretRedacted = $clientLogSecretRedacted
         productStatus = 'TESTE_NON_APPROUVE'
     } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (
         Join-Path $ArtifactDirectory 'resource-shutdown.json') -Encoding utf8
