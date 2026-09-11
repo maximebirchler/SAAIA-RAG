@@ -300,6 +300,10 @@ LIMIT 1;";
             throw new BadHttpRequestException("userId is required (body or query)");
 
         var hasContent = TryReadOptionalString(req, "content", out var contentRaw);
+        string? sourcesRaw = null;
+        var hasSources = TryReadOptionalJsonString(req, "sourcesJson", out sourcesRaw);
+        if (!hasSources)
+            hasSources = TryReadOptionalJsonString(req, "sources", out sourcesRaw);
         var hasStatusNote = TryReadOptionalString(req, "statusNote", out var statusNoteRaw);
         var hasProgressText = TryReadOptionalString(req, "progressText", out var progressTextRaw);
         string? trackingMetaRaw = null;
@@ -307,10 +311,11 @@ LIMIT 1;";
         if (!hasTrackingMeta)
             hasTrackingMeta = TryReadOptionalJsonString(req, "trackingMeta", out trackingMetaRaw);
 
-        if (!hasContent && !hasStatusNote && !hasProgressText && !hasTrackingMeta)
+        if (!hasContent && !hasSources && !hasStatusNote && !hasProgressText && !hasTrackingMeta)
             throw new BadHttpRequestException("at least one patch field is required");
 
         var content = hasContent ? NormalizeContent(contentRaw) : null;
+        var sourcesJson = hasSources ? NormalizeJsonText(sourcesRaw, log) : null;
         var statusNote = hasStatusNote ? NormalizeSmall(statusNoteRaw, 200) : null;
         var progressText = hasProgressText ? NormalizeSmall(progressTextRaw, 240) : null;
         var trackingMetaJson = hasTrackingMeta ? NormalizeJsonText(trackingMetaRaw, log) : null;
@@ -320,6 +325,7 @@ LIMIT 1;";
         const string sql = @"
 UPDATE chat_messages m
 SET content = CASE WHEN @has_content THEN @content ELSE m.content END,
+    sources_json = CASE WHEN @has_sources THEN CASE WHEN @sources_json IS NULL THEN NULL ELSE @sources_json::jsonb END ELSE m.sources_json END,
     status_note = CASE WHEN @has_status_note THEN @status_note ELSE m.status_note END,
     progress_text = CASE WHEN @has_progress_text THEN @progress_text ELSE m.progress_text END,
     tracking_meta_json = CASE WHEN @has_tracking_meta THEN CASE WHEN @tracking_meta_json IS NULL THEN NULL ELSE @tracking_meta_json::jsonb END ELSE m.tracking_meta_json END
@@ -337,6 +343,8 @@ WHERE m.tenant_id=@tenant
             user_id = effectiveUserId,
             has_content = hasContent,
             content,
+            has_sources = hasSources,
+            sources_json = sourcesJson,
             has_status_note = hasStatusNote,
             status_note = statusNote,
             has_progress_text = hasProgressText,
@@ -374,7 +382,7 @@ LIMIT 1;";
             actorIsAdmin,
             action: "chat.message.patch",
             target: messageId.ToString(),
-            payload: new { userId = effectiveUserId, hasContent, hasStatusNote, hasProgressText, hasTrackingMeta },
+            payload: new { userId = effectiveUserId, hasContent, hasSources, hasStatusNote, hasProgressText, hasTrackingMeta },
             ip: ctx.Connection.RemoteIpAddress?.ToString(),
             ct: ct);
 

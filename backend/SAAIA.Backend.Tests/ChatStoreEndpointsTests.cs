@@ -152,6 +152,14 @@ ORDER BY ts ASC;
             """
 {
   "userId": "user-beta",
+  "sourcesJson": {
+    "intent": "advanced_analysis.answer",
+    "advancedAnalysis": {
+      "schemaVersion": "saaia.advanced-analysis-client-state.v1",
+      "status": "running",
+      "revision": 2
+    }
+  },
   "statusNote": "Completed",
   "progressText": "Done",
   "trackingMeta": {
@@ -181,7 +189,15 @@ ORDER BY ts ASC;
         Assert.Equal(created.MessageId, patched.MessageId);
         Assert.Equal(created.Content, patched.Content);
         using var patchedSources = JsonDocument.Parse(patched.SourcesJson!);
-        Assert.Equal("rag", Assert.Single(patchedSources.RootElement.GetProperty("sources").EnumerateArray()).GetString());
+        Assert.Equal(
+            "advanced_analysis.answer",
+            patchedSources.RootElement.GetProperty("intent").GetString());
+        Assert.Equal(
+            "running",
+            patchedSources.RootElement
+                .GetProperty("advancedAnalysis")
+                .GetProperty("status")
+                .GetString());
 
         var listCtx = BuildUserContext(tenantId, actorApiKeyId);
         var listResult = await InvokeEndpointAsync("ListMessagesCdcAsync", listCtx, ds, session.SessionId, userId, 20);

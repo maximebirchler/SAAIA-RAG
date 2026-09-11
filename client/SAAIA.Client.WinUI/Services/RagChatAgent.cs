@@ -99,7 +99,9 @@ public sealed class RagChatAgent
         CancellationToken ct,
         Action<string>? onPhase = null,
         Action<string>? onProgress = null,
-        string? sessionId = null)
+        string? sessionId = null,
+        Func<AdvancedAnalysisJobDto, string, string?, object?, CancellationToken, Task>?
+            onAdvancedAnalysisSnapshot = null)
     {
         userText ??= string.Empty;
         ClientLog.Info(
@@ -242,7 +244,17 @@ public sealed class RagChatAgent
                         advancedSessionId,
                         advancedHandoff,
                         ct,
-                        onProgress)
+                        onProgress,
+                        onAdvancedAnalysisSnapshot is null
+                            ? null
+                            : (snapshot, token) => snapshot.Job is null
+                                ? Task.CompletedTask
+                                : onAdvancedAnalysisSnapshot(
+                                    snapshot.Job,
+                                    snapshot.Outcome,
+                                    snapshot.FinalAnswer,
+                                    snapshot.SourcesPayload,
+                                    token))
                     .ConfigureAwait(false);
                 if (advanced.Handled)
                 {

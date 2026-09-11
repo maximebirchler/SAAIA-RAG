@@ -69,4 +69,8 @@ public sealed partial class MainWindow
 
     private readonly Dictionary<string, ActiveDirectCommandTrackerState> _activeDirectCommandTrackers = new(StringComparer.OrdinalIgnoreCase);
 
+    private readonly object _advancedAnalysisTrackerGate = new();
+    private readonly Dictionary<Guid, CancellationTokenSource> _advancedAnalysisTrackers = new();
+    private readonly SemaphoreSlim _advancedAnalysisPersistenceGate = new(1, 1);
+
 }

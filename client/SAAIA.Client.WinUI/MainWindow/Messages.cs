@@ -597,7 +597,20 @@ public sealed partial class MainWindow
                     });
                 },
                 ct: _cts.Token,
-                sessionId: _sessionId);
+                sessionId: _sessionId,
+                onAdvancedAnalysisSnapshot: async (job, outcome, answer, sources, token) =>
+                {
+                    System.Threading.Interlocked.Exchange(ref finalAnswerCommitted, 1);
+                    await PersistAdvancedAnalysisSnapshotAsync(
+                            _sessionId!,
+                            assistantMsg,
+                            job,
+                            outcome,
+                            answer,
+                            sources,
+                            token)
+                        .ConfigureAwait(false);
+                });
             Services.ClientLog.Info(
                 "Chat send agent result: " +
                 $"cancelled={_cts.Token.IsCancellationRequested}|" +
@@ -646,7 +659,12 @@ public sealed partial class MainWindow
             SourcesCards.Items = SourceCardParser.Parse(pretty);
             SourcesBox.Text = pretty;
 
-            await _api.AddMessageAsync(_sessionId!, "assistant", assistantMsg.Content, sourcesObj, CancellationToken.None, assistantMsg.StatusNote);
+            await PersistAssistantMessageWithSourcesAsync(
+                _sessionId!,
+                assistantMsg,
+                sourcesObj,
+                CancellationToken.None);
+            StartAdvancedAnalysisTrackersForCurrentSession();
 
             try
             {
@@ -678,13 +696,11 @@ public sealed partial class MainWindow
             {
                 if (!string.IsNullOrWhiteSpace(_sessionId) && assistantMsg is not null)
                 {
-                    await _api.AddMessageAsync(
+                    await PersistAssistantMessageWithSourcesAsync(
                         _sessionId!,
-                        "assistant",
-                        assistantMsg.Content ?? "",
+                        assistantMsg,
                         assistantMsg.SourcesJson,
-                        CancellationToken.None,
-                        assistantMsg.StatusNote);
+                        CancellationToken.None);
 
                     try { await RefreshSessionsAsync(preferSessionId: _sessionId, CancellationToken.None); } catch { }
                 }

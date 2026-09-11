@@ -479,6 +479,50 @@ public sealed partial class ApiClient
         return ParseChatMessage(doc.RootElement);
     }
 
+    public async Task<ChatMessageItem?> PatchMessageWithSourcesAsync(
+        string messageId,
+        string? content,
+        object? sources,
+        string? statusNote,
+        string? progressText,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(messageId))
+            throw new ArgumentException(T("api.error.message_id_required"), nameof(messageId));
+
+        var snapshot = GetConfigSnapshot();
+        string? sourcesJson = null;
+        if (sources is string text)
+            sourcesJson = string.IsNullOrWhiteSpace(text) ? null : text;
+        else if (sources is not null)
+            sourcesJson = JsonSerializer.Serialize(sources, JsonOpts);
+
+        var body = JsonSerializer.Serialize(new
+        {
+            userId = RequireUserId(snapshot),
+            content,
+            sourcesJson,
+            statusNote,
+            progressText
+        }, JsonOpts);
+
+        using var resp = await SendWithRateLimitRetryAsync(
+            () => NewRequest(
+                snapshot,
+                HttpMethod.Patch,
+                $"/chat/messages/{messageId}",
+                body),
+            ct);
+        resp.EnsureSuccessStatusCode();
+
+        var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        using var doc = JsonDocument.Parse(json);
+        return ParseChatMessage(doc.RootElement);
+    }
+
     public async Task<JsonElement> ChatMessageTrackingAsync(string messageId, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(messageId))

@@ -128,6 +128,7 @@ public sealed partial class MainWindow
             _agent?.RehydrateConversationState(_messages);
             await RehydrateTrackedJobsForCurrentSessionAsync(refreshBeforeLoop: false);
             RebindDirectCommandTrackersForCurrentSession();
+            StartAdvancedAnalysisTrackersForCurrentSession();
 
             // reset
             SourcesCards.Items = new List<SourceCard>();

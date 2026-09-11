@@ -56,5 +56,6 @@ public sealed record ChatMessagePatchRequestDto(
     string? Content = null,
     string? StatusNote = null,
     string? ProgressText = null,
-    string? TrackingMetaJson = null
+    string? TrackingMetaJson = null,
+    string? SourcesJson = null
 );

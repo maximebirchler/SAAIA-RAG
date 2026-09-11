@@ -42,14 +42,16 @@ public sealed partial class ToolAgentOrchestrator
             Guid sessionId,
             AdvancedAnalysisHandoffEnvelope handoff,
             CancellationToken cancellationToken,
-            Action<string>? onProgress = null)
+            Action<string>? onProgress = null,
+            Func<AdvancedAnalysisClientExecutionResult, CancellationToken, Task>? onSnapshot = null)
         => ExecuteAdvancedAnalysisHandoffCoreAsync(
             sessionId,
             handoff,
             new AdvancedAnalysisClientPollingOptions(),
             static (delay, token) => Task.Delay(delay, token),
             cancellationToken,
-            onProgress);
+            onProgress,
+            onSnapshot);
 
     internal Task<AdvancedAnalysisClientExecutionResult>
         ExecuteAdvancedAnalysisHandoffForTestsAsync(
@@ -57,14 +59,61 @@ public sealed partial class ToolAgentOrchestrator
             AdvancedAnalysisHandoffEnvelope handoff,
             AdvancedAnalysisClientPollingOptions options,
             Func<TimeSpan, CancellationToken, Task> delayAsync,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            Func<AdvancedAnalysisClientExecutionResult, CancellationToken, Task>? onSnapshot = null)
         => ExecuteAdvancedAnalysisHandoffCoreAsync(
             sessionId,
             handoff,
             options,
             delayAsync,
             cancellationToken,
-            onProgress: null);
+            onProgress: null,
+            onSnapshot);
+
+    internal Task<AdvancedAnalysisClientExecutionResult>
+        ResumeAdvancedAnalysisJobAsync(
+            Guid sessionId,
+            Guid handoffId,
+            Guid jobId,
+            int minimumRevision,
+            string language,
+            CancellationToken cancellationToken,
+            Action<string>? onProgress = null,
+            Func<AdvancedAnalysisClientExecutionResult, CancellationToken, Task>? onSnapshot = null)
+        => ResumeAdvancedAnalysisJobCoreAsync(
+            sessionId,
+            handoffId,
+            jobId,
+            minimumRevision,
+            language,
+            new AdvancedAnalysisClientPollingOptions(),
+            static (delay, token) => Task.Delay(delay, token),
+            cancellationToken,
+            onProgress,
+            onSnapshot);
+
+    internal Task<AdvancedAnalysisClientExecutionResult>
+        ResumeAdvancedAnalysisJobForTestsAsync(
+            Guid sessionId,
+            Guid handoffId,
+            Guid jobId,
+            int minimumRevision,
+            string language,
+            AdvancedAnalysisClientPollingOptions options,
+            Func<TimeSpan, CancellationToken, Task> delayAsync,
+            CancellationToken cancellationToken,
+            Func<AdvancedAnalysisClientExecutionResult, CancellationToken, Task>? onSnapshot = null)
+        => ResumeAdvancedAnalysisJobCoreAsync(
+            sessionId,
+            handoffId,
+            jobId,
+            minimumRevision,
+            language,
+            options,
+            delayAsync,
+            cancellationToken,
+            onProgress: null,
+            onSnapshot);
 
     private async Task<AdvancedAnalysisClientExecutionResult>
         ExecuteAdvancedAnalysisHandoffCoreAsync(
@@ -73,7 +122,8 @@ public sealed partial class ToolAgentOrchestrator
             AdvancedAnalysisClientPollingOptions options,
             Func<TimeSpan, CancellationToken, Task> delayAsync,
             CancellationToken cancellationToken,
-            Action<string>? onProgress)
+            Action<string>? onProgress,
+            Func<AdvancedAnalysisClientExecutionResult, CancellationToken, Task>? onSnapshot)
     {
         ArgumentNullException.ThrowIfNull(handoff);
         ArgumentNullException.ThrowIfNull(options);
@@ -114,75 +164,27 @@ public sealed partial class ToolAgentOrchestrator
                 minimumRevision: 1);
             if (identityError is not null)
                 return InvalidAdvancedAnalysisResult(handoff.Language, job, identityError);
+            var createdSnapshot = SnapshotAdvancedAnalysisResult(
+                handoff.Language,
+                job,
+                "job_created");
+            await EmitAdvancedAnalysisSnapshotAsync(
+                    createdSnapshot,
+                    onSnapshot,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (IsAdvancedAnalysisTerminal(job.Status))
+                return createdSnapshot;
 
-            var consecutiveTransportFailures = 0;
-            var maximumPolls = Math.Clamp(options.MaximumPolls, 0, 100_000);
-            for (var poll = 0; !IsAdvancedAnalysisTerminal(job.Status); poll++)
-            {
-                if (poll >= maximumPolls)
-                {
-                    return PendingAdvancedAnalysisResult(
-                        handoff.Language,
-                        job,
-                        "poll_limit_reached");
-                }
-
-                onProgress?.Invoke(
-                    string.Equals(job.Status, "running", StringComparison.Ordinal)
-                        ? DeterministicAgentText.ProgressAdvancedAnalysisRunning(handoff.Language)
-                        : DeterministicAgentText.ProgressAdvancedAnalysisQueued(handoff.Language));
-                await delayAsync(
-                        ClampAdvancedAnalysisDelay(options.PollDelay, options.MaximumRetryDelay),
-                        cancellationToken)
-                    .ConfigureAwait(false);
-
-                AdvancedAnalysisJobDto next;
-                try
-                {
-                    next = await _api
-                        .GetAdvancedAnalysisJobAsync(job.JobId, cancellationToken)
-                        .ConfigureAwait(false);
-                    consecutiveTransportFailures = 0;
-                }
-                catch (Exception exception) when (
-                    IsTransientAdvancedAnalysisException(exception)
-                    && !cancellationToken.IsCancellationRequested)
-                {
-                    consecutiveTransportFailures++;
-                    if (consecutiveTransportFailures
-                        > Math.Clamp(
-                            options.MaximumConsecutiveTransportFailures,
-                            0,
-                            1_000))
-                    {
-                        return PendingAdvancedAnalysisResult(
-                            handoff.Language,
-                            job,
-                            "transport_retry_limit_reached");
-                    }
-
-                    await delayAsync(
-                            ResolveAdvancedAnalysisRetryDelay(
-                                exception,
-                                consecutiveTransportFailures,
-                                options),
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    continue;
-                }
-
-                identityError = ValidateAdvancedAnalysisJobSnapshot(
-                    next,
-                    job.JobId,
-                    handoff.HandoffId,
-                    sessionId,
-                    job.Revision);
-                if (identityError is not null)
-                    return InvalidAdvancedAnalysisResult(handoff.Language, job, identityError);
-                job = next;
-            }
-
-            return CompleteAdvancedAnalysisResult(handoff.Language, job);
+            return await PollAdvancedAnalysisJobAsync(
+                    job,
+                    handoff.Language,
+                    options,
+                    delayAsync,
+                    cancellationToken,
+                    onProgress,
+                    onSnapshot)
+                .ConfigureAwait(false);
         }
         catch (AdvancedAnalysisApiException exception) when (
             exception.StatusCode == HttpStatusCode.Forbidden
@@ -233,6 +235,176 @@ public sealed partial class ToolAgentOrchestrator
             onProgress?.Invoke(string.Empty);
         }
     }
+
+    private async Task<AdvancedAnalysisClientExecutionResult>
+        ResumeAdvancedAnalysisJobCoreAsync(
+            Guid sessionId,
+            Guid handoffId,
+            Guid jobId,
+            int minimumRevision,
+            string language,
+            AdvancedAnalysisClientPollingOptions options,
+            Func<TimeSpan, CancellationToken, Task> delayAsync,
+            CancellationToken cancellationToken,
+            Action<string>? onProgress,
+            Func<AdvancedAnalysisClientExecutionResult, CancellationToken, Task>? onSnapshot)
+    {
+        if (sessionId == Guid.Empty || handoffId == Guid.Empty || jobId == Guid.Empty)
+            return InvalidAdvancedAnalysisResult(language, null, "invalid_request_identity");
+
+        try
+        {
+            var job = await _api
+                .GetAdvancedAnalysisJobAsync(jobId, cancellationToken)
+                .ConfigureAwait(false);
+            var identityError = ValidateAdvancedAnalysisJobSnapshot(
+                job,
+                jobId,
+                handoffId,
+                sessionId,
+                Math.Max(1, minimumRevision));
+            if (identityError is not null)
+                return InvalidAdvancedAnalysisResult(language, job, identityError);
+
+            var snapshot = SnapshotAdvancedAnalysisResult(language, job, "job_resumed");
+            await EmitAdvancedAnalysisSnapshotAsync(snapshot, onSnapshot, cancellationToken)
+                .ConfigureAwait(false);
+            if (IsAdvancedAnalysisTerminal(job.Status))
+                return snapshot;
+
+            return await PollAdvancedAnalysisJobAsync(
+                    job,
+                    language,
+                    options,
+                    delayAsync,
+                    cancellationToken,
+                    onProgress,
+                    onSnapshot)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Stopping a local restart tracker must leave the durable server job running.
+            throw;
+        }
+        catch (Exception exception) when (IsTransientAdvancedAnalysisException(exception))
+        {
+            return new AdvancedAnalysisClientExecutionResult(
+                Handled: false,
+                Outcome: "transport_unavailable",
+                FinalAnswer: null,
+                SourcesPayload: null,
+                Job: null);
+        }
+        catch (AdvancedAnalysisApiException exception)
+        {
+            ClientLog.Warn(
+                "Advanced analysis resume rejected by the server: " +
+                $"code={exception.ErrorCode}|status={(int?)exception.StatusCode ?? 0}");
+            return new AdvancedAnalysisClientExecutionResult(
+                Handled: true,
+                Outcome: "server_rejected",
+                FinalAnswer: DeterministicAgentText.AdvancedAnalysisFailed(language),
+                SourcesPayload: null,
+                Job: null);
+        }
+        finally
+        {
+            onProgress?.Invoke(string.Empty);
+        }
+    }
+
+    private async Task<AdvancedAnalysisClientExecutionResult> PollAdvancedAnalysisJobAsync(
+        AdvancedAnalysisJobDto job,
+        string language,
+        AdvancedAnalysisClientPollingOptions options,
+        Func<TimeSpan, CancellationToken, Task> delayAsync,
+        CancellationToken cancellationToken,
+        Action<string>? onProgress,
+        Func<AdvancedAnalysisClientExecutionResult, CancellationToken, Task>? onSnapshot)
+    {
+        var consecutiveTransportFailures = 0;
+        var maximumPolls = Math.Clamp(options.MaximumPolls, 0, 100_000);
+        for (var poll = 0; !IsAdvancedAnalysisTerminal(job.Status); poll++)
+        {
+            if (poll >= maximumPolls)
+                return PendingAdvancedAnalysisResult(language, job, "poll_limit_reached");
+
+            onProgress?.Invoke(
+                string.Equals(job.Status, "running", StringComparison.Ordinal)
+                    ? DeterministicAgentText.ProgressAdvancedAnalysisRunning(language)
+                    : DeterministicAgentText.ProgressAdvancedAnalysisQueued(language));
+            await delayAsync(
+                    ClampAdvancedAnalysisDelay(options.PollDelay, options.MaximumRetryDelay),
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            AdvancedAnalysisJobDto next;
+            try
+            {
+                next = await _api
+                    .GetAdvancedAnalysisJobAsync(job.JobId, cancellationToken)
+                    .ConfigureAwait(false);
+                consecutiveTransportFailures = 0;
+            }
+            catch (Exception exception) when (
+                IsTransientAdvancedAnalysisException(exception)
+                && !cancellationToken.IsCancellationRequested)
+            {
+                consecutiveTransportFailures++;
+                if (consecutiveTransportFailures
+                    > Math.Clamp(options.MaximumConsecutiveTransportFailures, 0, 1_000))
+                {
+                    return PendingAdvancedAnalysisResult(
+                        language,
+                        job,
+                        "transport_retry_limit_reached");
+                }
+
+                await delayAsync(
+                        ResolveAdvancedAnalysisRetryDelay(
+                            exception,
+                            consecutiveTransportFailures,
+                            options),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                continue;
+            }
+
+            var identityError = ValidateAdvancedAnalysisJobSnapshot(
+                next,
+                job.JobId,
+                job.HandoffId,
+                job.SessionId,
+                job.Revision);
+            if (identityError is not null)
+                return InvalidAdvancedAnalysisResult(language, job, identityError);
+            job = next;
+            var snapshot = SnapshotAdvancedAnalysisResult(language, job, "job_polled");
+            await EmitAdvancedAnalysisSnapshotAsync(snapshot, onSnapshot, cancellationToken)
+                .ConfigureAwait(false);
+            if (IsAdvancedAnalysisTerminal(job.Status))
+                return snapshot;
+        }
+
+        return CompleteAdvancedAnalysisResult(language, job);
+    }
+
+    private AdvancedAnalysisClientExecutionResult SnapshotAdvancedAnalysisResult(
+        string language,
+        AdvancedAnalysisJobDto job,
+        string pendingReason)
+        => IsAdvancedAnalysisTerminal(job.Status)
+            ? CompleteAdvancedAnalysisResult(language, job)
+            : PendingAdvancedAnalysisResult(language, job, pendingReason);
+
+    private static Task EmitAdvancedAnalysisSnapshotAsync(
+        AdvancedAnalysisClientExecutionResult snapshot,
+        Func<AdvancedAnalysisClientExecutionResult, CancellationToken, Task>? onSnapshot,
+        CancellationToken cancellationToken)
+        => onSnapshot is null
+            ? Task.CompletedTask
+            : onSnapshot(snapshot, cancellationToken);
 
     private async Task<AdvancedAnalysisJobDto?>
         CreateAdvancedAnalysisJobWithRetryAsync(

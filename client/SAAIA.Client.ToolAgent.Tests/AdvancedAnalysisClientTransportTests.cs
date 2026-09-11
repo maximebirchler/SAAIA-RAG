@@ -289,6 +289,219 @@ public sealed class AdvancedAnalysisClientTransportTests
         Assert.Equal(1, cancellationCalls);
     }
 
+    [Fact]
+    public async Task Workflow_persists_created_snapshot_before_the_first_poll_delay()
+    {
+        var snapshots = new List<string>();
+        var handler = new SequenceHandler((request, call, _) => Task.FromResult(
+            call == 1
+                ? Json(HttpStatusCode.Accepted, Job("queued", 1))
+                : Json(HttpStatusCode.OK, Job("succeeded", 2, ValidResult()))));
+        var orchestrator = new ToolAgentOrchestrator(
+            CreateApiClient(handler),
+            llm: null!,
+            mem: new ToolMemory());
+
+        var result = await orchestrator.ExecuteAdvancedAnalysisHandoffForTestsAsync(
+            SessionId,
+            Handoff(),
+            new AdvancedAnalysisClientPollingOptions { MaximumPolls = 2 },
+            (_, _) =>
+            {
+                Assert.Equal("queued", Assert.Single(snapshots));
+                return Task.CompletedTask;
+            },
+            CancellationToken.None,
+            (snapshot, _) =>
+            {
+                snapshots.Add(snapshot.Job!.Status);
+                return Task.CompletedTask;
+            });
+
+        Assert.Equal("succeeded", result.Outcome);
+        Assert.Equal(["queued", "succeeded"], snapshots);
+    }
+
+    [Fact]
+    public async Task Restart_resume_polls_existing_job_without_creating_or_canceling_it()
+    {
+        var methods = new List<(HttpMethod Method, string Path)>();
+        var snapshots = new List<string>();
+        var handler = new SequenceHandler((request, call, _) =>
+        {
+            methods.Add((request.Method, request.RequestUri!.AbsolutePath));
+            return Task.FromResult(call == 1
+                ? Json(HttpStatusCode.OK, Job("running", 4))
+                : Json(HttpStatusCode.OK, Job("succeeded", 5, ValidResult())));
+        });
+        var orchestrator = new ToolAgentOrchestrator(
+            CreateApiClient(handler),
+            llm: null!,
+            mem: new ToolMemory());
+
+        var result = await orchestrator.ResumeAdvancedAnalysisJobForTestsAsync(
+            SessionId,
+            HandoffId,
+            JobId,
+            minimumRevision: 3,
+            language: "en",
+            new AdvancedAnalysisClientPollingOptions { MaximumPolls = 2 },
+            static (_, _) => Task.CompletedTask,
+            CancellationToken.None,
+            (snapshot, _) =>
+            {
+                snapshots.Add(snapshot.Job!.Status);
+                return Task.CompletedTask;
+            });
+
+        Assert.Equal("succeeded", result.Outcome);
+        Assert.Equal(["running", "succeeded"], snapshots);
+        Assert.All(methods, item => Assert.Equal(HttpMethod.Get, item.Method));
+        Assert.All(methods, item => Assert.Equal(
+            $"/advanced-analysis/jobs/{JobId:D}",
+            item.Path));
+    }
+
+    [Fact]
+    public async Task Restart_tracker_cancellation_does_not_cancel_the_server_job()
+    {
+        var cancelCalls = 0;
+        var handler = new SequenceHandler((request, _, _) =>
+        {
+            if (request.RequestUri!.AbsolutePath.EndsWith("/cancel", StringComparison.Ordinal))
+                cancelCalls++;
+            return Task.FromResult(Json(HttpStatusCode.OK, Job("running", 4)));
+        });
+        using var cancellation = new CancellationTokenSource();
+        var orchestrator = new ToolAgentOrchestrator(
+            CreateApiClient(handler),
+            llm: null!,
+            mem: new ToolMemory());
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            orchestrator.ResumeAdvancedAnalysisJobForTestsAsync(
+                SessionId,
+                HandoffId,
+                JobId,
+                minimumRevision: 3,
+                language: "en",
+                new AdvancedAnalysisClientPollingOptions { MaximumPolls = 2 },
+                (_, _) =>
+                {
+                    cancellation.Cancel();
+                    return Task.FromCanceled(cancellation.Token);
+                },
+                cancellation.Token));
+
+        Assert.Equal(0, cancelCalls);
+    }
+
+    [Fact]
+    public async Task Restart_resume_keeps_a_transient_server_failure_retryable()
+    {
+        var handler = new SequenceHandler((_, _, _) => Task.FromResult(Json(
+            HttpStatusCode.ServiceUnavailable,
+            new { error = "temporarily_unavailable" })));
+        var orchestrator = new ToolAgentOrchestrator(
+            CreateApiClient(handler),
+            llm: null!,
+            mem: new ToolMemory());
+
+        var result = await orchestrator.ResumeAdvancedAnalysisJobForTestsAsync(
+            SessionId,
+            HandoffId,
+            JobId,
+            minimumRevision: 3,
+            language: "en",
+            new AdvancedAnalysisClientPollingOptions { MaximumPolls = 2 },
+            static (_, _) => Task.CompletedTask,
+            CancellationToken.None);
+
+        Assert.False(result.Handled);
+        Assert.Equal("transport_unavailable", result.Outcome);
+    }
+
+    [Fact]
+    public void Persisted_state_parser_accepts_only_the_expected_session_and_contract()
+    {
+        var json = JsonSerializer.Serialize(new
+        {
+            intent = "advanced_analysis.answer",
+            advancedAnalysis = new
+            {
+                schemaVersion = "saaia.advanced-analysis-client-state.v1",
+                jobId = JobId,
+                handoffId = HandoffId,
+                sessionId = SessionId,
+                status = "running",
+                revision = 7
+            }
+        });
+
+        Assert.True(AdvancedAnalysisPersistedStateParser.TryParse(
+            json,
+            SessionId,
+            out var state));
+        Assert.NotNull(state);
+        Assert.Equal(JobId, state!.JobId);
+        Assert.Equal(7, state.Revision);
+        Assert.False(state.IsTerminal);
+        Assert.False(AdvancedAnalysisPersistedStateParser.TryParse(
+            json,
+            Guid.NewGuid(),
+            out _));
+        Assert.False(AdvancedAnalysisPersistedStateParser.TryParse(
+            "{\"advancedAnalysis\":{\"schemaVersion\":\"wrong\"}}",
+            SessionId,
+            out _));
+    }
+
+    [Fact]
+    public async Task Chat_patch_transport_sends_sources_for_the_existing_message()
+    {
+        RequestSnapshot? seen = null;
+        var messageId = Guid.Parse("66666666-6666-6666-6666-666666666666");
+        var handler = new SequenceHandler(async (request, _, _) =>
+        {
+            seen = await SnapshotAsync(request);
+            return Json(HttpStatusCode.OK, new
+            {
+                messageId,
+                role = "assistant",
+                content = "Analysis is still running.",
+                sourcesJson = JsonSerializer.Serialize(new
+                {
+                    advancedAnalysis = new { jobId = JobId, status = "running" }
+                }),
+                createdAt = "2026-09-11T03:00:00Z"
+            });
+        });
+        var api = CreateApiClient(handler);
+
+        var patched = await api.PatchMessageWithSourcesAsync(
+            messageId.ToString("D"),
+            "Analysis is still running.",
+            new
+            {
+                advancedAnalysis = new { jobId = JobId, status = "running" }
+            },
+            statusNote: null,
+            progressText: "Running",
+            ct: CancellationToken.None);
+
+        Assert.NotNull(patched);
+        Assert.NotNull(seen);
+        Assert.Equal(HttpMethod.Patch, seen!.Method);
+        Assert.Equal($"/chat/messages/{messageId:D}", seen.PathAndQuery);
+        using var body = JsonDocument.Parse(seen.Body!);
+        var sourcesJson = body.RootElement.GetProperty("sourcesJson").GetString();
+        Assert.NotNull(sourcesJson);
+        using var sources = JsonDocument.Parse(sourcesJson!);
+        Assert.Equal(
+            JobId,
+            sources.RootElement.GetProperty("advancedAnalysis").GetProperty("jobId").GetGuid());
+    }
+
     private static Task<AdvancedAnalysisClientExecutionResult> ExecuteAsync(
         HttpMessageHandler handler,
         AdvancedAnalysisClientPollingOptions? options = null)
