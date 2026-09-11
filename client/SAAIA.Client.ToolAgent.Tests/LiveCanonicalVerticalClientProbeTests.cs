@@ -12,7 +12,7 @@ namespace SAAIA.Client.ToolAgent.Tests;
 [Collection("RuntimeRootSerial")]
 public sealed class LiveCanonicalVerticalClientProbeTests
 {
-    [Fact]
+    [LocalVerticalProbeFact]
     public async Task Collect_real_agent_responses_and_exact_source_cards()
     {
         Assert.Equal("1", Environment.GetEnvironmentVariable("SAAIA_RUN_LOCAL_VERTICAL_PROBE"));
@@ -222,6 +222,20 @@ public sealed class LiveCanonicalVerticalClientProbeTests
                 }), CancellationToken.None);
                 throw;
             }
+        }
+    }
+}
+
+public sealed class LocalVerticalProbeFactAttribute : FactAttribute
+{
+    public LocalVerticalProbeFactAttribute()
+    {
+        if (!string.Equals(
+                Environment.GetEnvironmentVariable("SAAIA_RUN_LOCAL_VERTICAL_PROBE"),
+                "1",
+                StringComparison.Ordinal))
+        {
+            Skip = "Set SAAIA_RUN_LOCAL_VERTICAL_PROBE=1 and provide the probe environment to run this live vertical.";
         }
     }
 }
