@@ -8,6 +8,8 @@ param(
     [string]$Ids = "A755-ADV-01-meal-grid-5x4",
     [ValidateRange(1, 3)]
     [int]$Repetitions = 1,
+    [ValidateRange(0, 300)]
+    [int]$DelayBetweenCasesSeconds = 0,
     [ValidateSet("gpt-5.6-terra", "gpt-5.6-luna")]
     [string]$OpenAiModel = "gpt-5.6-terra",
     [string]$LocalLlmExePath = "",
@@ -28,6 +30,7 @@ $runner = Join-Path $PSScriptRoot "test-advanced-product-path-provider.ps1"
     -BackendPort $BackendPort `
     -Ids $Ids `
     -Repetitions $Repetitions `
+    -DelayBetweenCasesSeconds $DelayBetweenCasesSeconds `
     -ModelId $OpenAiModel `
     -LocalLlmExePath $LocalLlmExePath `
     -LocalModelPath $LocalModelPath `

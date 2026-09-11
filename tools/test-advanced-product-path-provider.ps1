@@ -11,6 +11,8 @@ param(
     [string]$Ids = "A755-ADV-01-meal-grid-5x4",
     [ValidateRange(1, 3)]
     [int]$Repetitions = 1,
+    [ValidateRange(0, 300)]
+    [int]$DelayBetweenCasesSeconds = 0,
     [Alias("BaseUrl")]
     [string]$ProviderBaseUrl = "",
     [string]$ModelId = "",
@@ -109,6 +111,12 @@ function Stop-OwnedProcess {
 }
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
+$repositoryCommit = (& git -C $repositoryRoot rev-parse HEAD 2>$null).Trim()
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($repositoryCommit)) {
+    throw "Unable to resolve the repository commit for the campaign seal."
+}
+$repositoryTrackedDirty = @(
+    & git -C $repositoryRoot status --porcelain --untracked-files=no 2>$null).Count -gt 0
 $backendProject = Join-Path $repositoryRoot "backend\SAAIA.Backend\SAAIA.Backend.csproj"
 $backendContentRoot = Join-Path $repositoryRoot "backend\SAAIA.Backend"
 $localConfigPath = Join-Path $backendContentRoot "appsettings.Local.json"
@@ -421,6 +429,8 @@ try {
         schemaVersion = "saaia-advanced-product-path-preflight-v1"
         startedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
         topology = "local-qwen-router-to-current-local-backend-to-$($Provider.ToLowerInvariant())"
+        repositoryCommit = $repositoryCommit
+        repositoryTrackedDirty = $repositoryTrackedDirty
         referenceBackendHost = ([Uri]$ReferenceBackendUrl).Host
         temporaryBackendUrl = $baseUrl
         remoteDatabaseHost = "saaia-server"
@@ -436,6 +446,7 @@ try {
         localModelSha256 = (Get-FileHash -LiteralPath $LocalModelPath -Algorithm SHA256).Hash
         selectedIds = @($Ids -split '[,;]' | ForEach-Object Trim | Where-Object { $_ })
         repetitions = $Repetitions
+        delayBetweenCasesSeconds = $DelayBetweenCasesSeconds
         authorizedBudgetUsd = $AuthorizedBudgetUsd
         softLimitUsd = $SoftLimitUsd
         hardStopUsd = $HardLimitUsd
@@ -484,6 +495,7 @@ try {
         -LocalModelPath $LocalModelPath `
         -Ids $Ids `
         -Repetitions $Repetitions `
+        -DelayBetweenCasesSeconds $DelayBetweenCasesSeconds `
         -Configuration $Configuration `
         -Platform $Platform `
         -ArtifactDirectory $bankArtifactDirectory

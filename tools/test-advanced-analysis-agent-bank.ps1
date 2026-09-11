@@ -13,6 +13,8 @@ param(
     [string]$Ids = "",
     [ValidateRange(1, 3)]
     [int]$Repetitions = 1,
+    [ValidateRange(0, 300)]
+    [int]$DelayBetweenCasesSeconds = 0,
     [string]$Configuration = "Debug",
     [string]$Platform = "x64",
     [string]$ArtifactDirectory = ""
@@ -22,6 +24,12 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
+$repositoryCommit = (& git -C $repositoryRoot rev-parse HEAD 2>$null).Trim()
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($repositoryCommit)) {
+    throw "Unable to resolve the repository commit for the campaign seal."
+}
+$repositoryTrackedDirty = @(
+    & git -C $repositoryRoot status --porcelain --untracked-files=no 2>$null).Count -gt 0
 $project = Join-Path $repositoryRoot "client\SAAIA.Client.ToolAgent.Tests\SAAIA.Client.ToolAgent.Tests.csproj"
 $providerConfig = Join-Path $repositoryRoot "config\llm-providers.dev.json"
 if ([string]::IsNullOrWhiteSpace($BankPath)) {
@@ -64,6 +72,7 @@ $trackedEnvironment = @(
     "SAAIA_AGENT_VALIDATION_IDS",
     "SAAIA_AGENT_VALIDATION_OUTPUT_DIR",
     "SAAIA_AGENT_VALIDATION_TIMEOUT_SECONDS",
+    "SAAIA_AGENT_VALIDATION_DELAY_BETWEEN_CASES_SECONDS",
     "SAAIA_AGENT_VALIDATION_MAX_OUTPUT_TOKENS",
     "SAAIA_SOURCE_BACKED_AGENT_V2_MAX_OUTPUT_TOKENS"
 )
@@ -88,6 +97,7 @@ try {
     $env:SAAIA_AGENT_VALIDATION_BANK_PATH = $BankPath
     $env:SAAIA_AGENT_VALIDATION_IDS = $selectedIds -join ","
     $env:SAAIA_AGENT_VALIDATION_TIMEOUT_SECONDS = "1800"
+    $env:SAAIA_AGENT_VALIDATION_DELAY_BETWEEN_CASES_SECONDS = [string]$DelayBetweenCasesSeconds
     $env:SAAIA_AGENT_VALIDATION_MAX_OUTPUT_TOKENS = "900"
     $env:SAAIA_SOURCE_BACKED_AGENT_V2_MAX_OUTPUT_TOKENS = "900"
 
@@ -104,10 +114,13 @@ try {
         expectedAdvancedProvider = $ExpectedAdvancedProvider
         expectedAdvancedModel = $ExpectedAdvancedModel
         topology = "local-router-to-durable-server-job-to-configured-large-llm"
+        repositoryCommit = $repositoryCommit
+        repositoryTrackedDirty = $repositoryTrackedDirty
         bankPath = $BankPath
         bankSha256 = (Get-FileHash -LiteralPath $BankPath -Algorithm SHA256).Hash
         selectedIds = $selectedIds
         repetitions = $Repetitions
+        delayBetweenCasesSeconds = $DelayBetweenCasesSeconds
         productStatus = "TESTE_NON_APPROUVE"
         semanticApproval = "PENDING"
     } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $ArtifactDirectory "preflight-seal.json") -Encoding utf8
@@ -156,6 +169,9 @@ try {
             totalAdvancedInputTokens = ($rows | Measure-Object -Property advancedInputTokens -Sum).Sum
             totalAdvancedOutputTokens = ($rows | Measure-Object -Property advancedOutputTokens -Sum).Sum
             totalAdvancedEstimatedCostUsd = ($rows | Measure-Object -Property advancedEstimatedCostUsd -Sum).Sum
+        }
+        if ($repetition -lt $Repetitions -and $DelayBetweenCasesSeconds -gt 0) {
+            Start-Sleep -Seconds $DelayBetweenCasesSeconds
         }
     }
 }

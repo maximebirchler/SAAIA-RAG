@@ -327,6 +327,10 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         var selectedCases = SelectCases(bank.ValidationCases).ToArray();
         if (selectedCases.Length == 0)
             throw new InvalidOperationException("No validation case matched the requested filters.");
+        var delayBetweenCasesSeconds = Math.Clamp(
+            ReadIntEnv("SAAIA_AGENT_VALIDATION_DELAY_BETWEEN_CASES_SECONDS", 0),
+            0,
+            300);
 
         var rows = new List<object>();
         var records = new List<object>();
@@ -481,6 +485,12 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
             });
 
             await WriteOutputsAsync(jsonPath, jsonlPath, tsvPath, bank, selectedCases.Length, rows, records);
+            if (index < selectedCases.Length - 1 && delayBetweenCasesSeconds > 0)
+            {
+                output.WriteLine(
+                    $"Waiting {delayBetweenCasesSeconds}s before the next case to respect the configured provider rate limit.");
+                await Task.Delay(TimeSpan.FromSeconds(delayBetweenCasesSeconds));
+            }
         }
 
         output.WriteLine("Agent validation written:");
