@@ -27,7 +27,10 @@ internal static class CanonicalProfileInputProjector
                 ExtractionTextStatus: chunk.ExtractionTextStatus,
                 ExtractionTextSparse: chunk.ExtractionTextSparse,
                 ExtractionOcrCandidate: chunk.ExtractionOcrCandidate,
-                ExtractionQualitySignals: chunk.ExtractionQualitySignals))
+                ExtractionQualitySignals: chunk.ExtractionQualitySignals,
+                SectionTitle: chunk.SectionTitle,
+                HeadingPath: chunk.HeadingPath,
+                HeadingLevel: chunk.HeadingLevel))
             .ToArray();
     }
 }

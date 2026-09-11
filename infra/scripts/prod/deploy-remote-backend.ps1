@@ -391,10 +391,12 @@ if ($useRemoteSourceBuild) {
     }
 
     if ($WithDependencies) {
-      & ssh $Server "$composeCommand up -d --no-build --wait --wait-timeout 300 backend postgres qdrant tei docling"
+      & ssh $Server "$composeCommand up -d --no-build --wait --wait-timeout 300 backend postgres qdrant tei tei-rerank docling"
       if ($LASTEXITCODE -ne 0) { throw "Remote dependency deploy failed ($LASTEXITCODE)." }
     }
     else {
+      & ssh $Server "$composeCommand up -d --no-build --no-deps --wait --wait-timeout 300 tei-rerank"
+      if ($LASTEXITCODE -ne 0) { throw "Remote reranker deploy failed ($LASTEXITCODE)." }
       & ssh $Server "$composeCommand up -d --no-build --no-deps --wait --wait-timeout 300 docling"
       if ($LASTEXITCODE -ne 0) { throw "Remote Docling deploy failed ($LASTEXITCODE)." }
       & ssh $Server "$composeCommand up -d --no-build --no-deps backend"
@@ -455,11 +457,14 @@ else {
 Write-Host "== Remote deploy ==" -ForegroundColor Cyan
 
 if ($WithDependencies) {
-  $upArgs = @('--context', $ContextName, 'compose', '-f', $composePath, '--env-file', $envPath, 'up', '-d', '--no-build', '--wait', '--wait-timeout', '300', 'backend', 'postgres', 'qdrant', 'tei', 'docling')
+  $upArgs = @('--context', $ContextName, 'compose', '-f', $composePath, '--env-file', $envPath, 'up', '-d', '--no-build', '--wait', '--wait-timeout', '300', 'backend', 'postgres', 'qdrant', 'tei', 'tei-rerank', 'docling')
   & docker @upArgs
   if ($LASTEXITCODE -ne 0) { throw "Remote dependency deploy failed ($LASTEXITCODE)" }
 }
 else {
+  $rerankerArgs = @('--context', $ContextName, 'compose', '-f', $composePath, '--env-file', $envPath, 'up', '-d', '--no-build', '--no-deps', '--wait', '--wait-timeout', '300', 'tei-rerank')
+  & docker @rerankerArgs
+  if ($LASTEXITCODE -ne 0) { throw "Remote reranker deploy failed ($LASTEXITCODE)" }
   $doclingArgs = @('--context', $ContextName, 'compose', '-f', $composePath, '--env-file', $envPath, 'up', '-d', '--no-build', '--no-deps', '--wait', '--wait-timeout', '300', 'docling')
   & docker @doclingArgs
   if ($LASTEXITCODE -ne 0) { throw "Remote Docling deploy failed ($LASTEXITCODE)" }

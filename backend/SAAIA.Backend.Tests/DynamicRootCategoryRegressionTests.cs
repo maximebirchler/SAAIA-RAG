@@ -473,7 +473,7 @@ VALUES(
 
     private sealed class QueuedJobState
     {
-        public string Category { get; set; } = "";
+        public string? Category { get; set; }
         public string Action { get; set; } = "";
         public string Status { get; set; } = "";
     }

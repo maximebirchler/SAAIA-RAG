@@ -80,6 +80,7 @@ public static class WebApplicationExtensions
 
         RagEndpoints.Map(app);
         ChatStoreEndpoints.Map(app);
+        AdvancedAnalysisEndpoints.Map(app);
 
         return app;
     }

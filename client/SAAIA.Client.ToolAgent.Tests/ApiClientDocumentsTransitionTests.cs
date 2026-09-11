@@ -275,6 +275,165 @@ public sealed class ApiClientDocumentsTransitionTests
     }
 
     [Fact]
+    public async Task ToolAgent_source_backed_canonical_multi_search_preserves_llm_queries_and_scope_verbatim()
+    {
+        var capturedBodies = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            capturedBodies.Add(req.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"items":[]}""", Encoding.UTF8, "application/json")
+            };
+        });
+
+        var sut = new ToolAgentOrchestrator(
+            CreateApiClient(handler),
+            llm: null!,
+            mem: new ToolMemory());
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "queries": ["Quel dessert fran\u00E7ais choisir pour un repas chic ?"],
+              "topK": 3,
+              "categoryPath": "Cuisine",
+              "mode": "broad",
+              "researchMode": "source_exploration",
+              "includeResearchSurfaces": true,
+              "sourceBackedCanonical": true,
+              "disableAutomaticCategoryScoping": true
+            }
+            """);
+
+        var result = await InvokePrivateToolAsync(
+            sut,
+            "ExecRagMultiSearchAsync",
+            args.RootElement);
+
+        var queries = result.GetProperty("meta").GetProperty("queries")
+            .EnumerateArray()
+            .Select(static item => item.GetString() ?? string.Empty)
+            .ToArray();
+        Assert.Equal(["Quel dessert fran\u00E7ais choisir pour un repas chic ?"], queries);
+        var capturedBody = Assert.Single(capturedBodies);
+        using var body = JsonDocument.Parse(capturedBody);
+        Assert.Equal(
+            "Quel dessert fran\u00E7ais choisir pour un repas chic ?",
+            body.RootElement.GetProperty("query").GetString());
+        Assert.Equal("Cuisine", body.RootElement.GetProperty("categoryPath").GetString());
+        Assert.True(body.RootElement.GetProperty("sourceBackedCanonical").GetBoolean());
+    }
+
+    [Fact]
+    public async Task ToolAgent_source_backed_canonical_multi_search_uses_only_canonical_dedup_and_rrf()
+    {
+        var capturedQueries = new List<string>();
+        var handler = new StubHttpHandler(req =>
+        {
+            var bodyText = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            using var body = JsonDocument.Parse(bodyText);
+            var query = body.RootElement.GetProperty("query").GetString() ?? string.Empty;
+            capturedQueries.Add(query);
+            var response = query == "alpha exact"
+                ? """
+                  {
+                    "items": [
+                      { "score": 0.91, "docPath": "Docs/a.pdf", "pageStart": 1, "pageEnd": 1, "chunkId": "unique-a" },
+                      { "score": 0.82, "docPath": "Docs/shared.pdf", "pageStart": 2, "pageEnd": 2, "chunkId": "shared" }
+                    ]
+                  }
+                  """
+                : """
+                  {
+                    "items": [
+                      { "score": 0.79, "docPath": "Docs/shared.pdf", "pageStart": 2, "pageEnd": 2, "chunkId": "shared" },
+                      { "score": 0.95, "docPath": "Docs/b.pdf", "pageStart": 3, "pageEnd": 3, "chunkId": "unique-b" }
+                    ]
+                  }
+                  """;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(response, Encoding.UTF8, "application/json")
+            };
+        });
+
+        var sut = new ToolAgentOrchestrator(
+            CreateApiClient(handler),
+            llm: null!,
+            mem: new ToolMemory());
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "queries": ["alpha exact", "beta exact"],
+              "topK": 3,
+              "categoryPath": "Knowledge",
+              "sourceBackedCanonical": true
+            }
+            """);
+
+        var result = await InvokePrivateToolAsync(
+            sut,
+            "ExecRagMultiSearchAsync",
+            args.RootElement);
+
+        Assert.Equal(["alpha exact", "beta exact"], capturedQueries);
+        var hits = result.GetProperty("hits").EnumerateArray().ToArray();
+        Assert.Equal(3, hits.Length);
+        Assert.Equal("shared", hits[0].GetProperty("chunkId").GetString());
+        Assert.Equal(
+            2,
+            hits[0].GetProperty("retrievalQueryContributions").GetArrayLength());
+        Assert.Equal("rrf", result.GetProperty("meta").GetProperty("fusion").GetString());
+        Assert.True(result.GetProperty("meta").GetProperty("sourceBackedCanonical").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, result.GetProperty("guidance").ValueKind);
+    }
+
+    [Fact]
+    public async Task ToolAgent_source_backed_canonical_search_preserves_llm_query_and_scope_verbatim()
+    {
+        string? capturedBody = null;
+        var handler = new StubHttpHandler(req =>
+        {
+            capturedBody = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"items":[]}""", Encoding.UTF8, "application/json")
+            };
+        });
+
+        var sut = new ToolAgentOrchestrator(
+            CreateApiClient(handler),
+            llm: null!,
+            mem: new ToolMemory());
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "query": "Recette d'été ?",
+              "topK": 4,
+              "categoryPath": "Cuisine",
+              "mode": "broad",
+              "researchMode": "source_exploration",
+              "includeResearchSurfaces": true,
+              "sourceBackedCanonical": true,
+              "disableAutomaticCategoryScoping": true
+            }
+            """);
+
+        _ = await InvokePrivateToolAsync(
+            sut,
+            "ExecRagSearchAsync",
+            args.RootElement);
+
+        Assert.NotNull(capturedBody);
+        using var body = JsonDocument.Parse(capturedBody!);
+        Assert.Equal(
+            "Recette d'été ?",
+            body.RootElement.GetProperty("query").GetString());
+        Assert.Equal("Cuisine", body.RootElement.GetProperty("categoryPath").GetString());
+        Assert.True(body.RootElement.GetProperty("sourceBackedCanonical").GetBoolean());
+    }
+
+    [Fact]
     public async Task ToolAgent_rag_multi_search_limits_client_side_fanout_parallelism()
     {
         var active = 0;
@@ -318,9 +477,54 @@ public sealed class ApiClientDocumentsTransitionTests
     }
 
     [Fact]
+    public void ToolAgent_source_exploration_query_timeout_covers_observed_backend_latency()
+    {
+        var timeout = ToolAgentOrchestrator.ResolveRagSourceExplorationQueryTimeoutForTests();
+
+        Assert.InRange(timeout, TimeSpan.FromSeconds(45), TimeSpan.FromSeconds(90));
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_search_times_out_slow_source_exploration_query()
+    {
+        using var timeoutOverride = ToolAgentOrchestrator.OverrideRagSourceExplorationQueryTimeoutForTests(TimeSpan.FromMilliseconds(50));
+        var handler = new AsyncStubHttpHandler(async (_, ct) =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(10), ct);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"items":[]}""", Encoding.UTF8, "application/json")
+            };
+        });
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "query": "slow focused query",
+              "topK": 4,
+              "mode": "broad",
+              "researchMode": "source_exploration",
+              "includeResearchSurfaces": true
+            }
+            """);
+
+        var result = await InvokePrivateToolAsync(sut, "ExecRagSearchAsync", args.RootElement);
+
+        Assert.Empty(result.GetProperty("hits").EnumerateArray());
+        Assert.Equal("rag_search_query_timeout", result.GetProperty("error").GetString());
+        Assert.Equal(50, result.GetProperty("meta").GetProperty("timeoutMs").GetInt32());
+        Assert.Contains(
+            "rag_search_query_timeout",
+            result.GetProperty("meta").GetProperty("degradedRetrievers")
+                .EnumerateArray()
+                .Select(static item => item.GetString() ?? string.Empty));
+    }
+
+    [Fact]
     public async Task ToolAgent_rag_multi_search_times_out_slow_source_exploration_query_and_continues()
     {
-        using var timeoutOverride = ToolAgentOrchestrator.OverrideRagMultiSearchSourceExplorationQueryTimeoutForTests(TimeSpan.FromMilliseconds(50));
+        using var timeoutOverride = ToolAgentOrchestrator.OverrideRagSourceExplorationQueryTimeoutForTests(TimeSpan.FromMilliseconds(50));
         var calls = new List<string>();
         var handler = new AsyncStubHttpHandler(async (req, ct) =>
         {
@@ -369,7 +573,6 @@ public sealed class ApiClientDocumentsTransitionTests
 
         var result = await InvokePrivateToolAsync(sut, "ExecRagMultiSearchAsync", args.RootElement);
 
-        Assert.Contains("slow", calls);
         Assert.Contains("fast", calls);
         Assert.Single(result.GetProperty("hits").EnumerateArray());
         Assert.Equal(50, result.GetProperty("meta").GetProperty("perQueryTimeoutMs").GetInt32());
@@ -517,6 +720,58 @@ public sealed class ApiClientDocumentsTransitionTests
         Assert.Equal("Cuisine/PDF", meta.GetProperty("requestedCategory").GetString());
         Assert.Equal("Cuisine/PDF", meta.GetProperty("rejectedCategoryScope").GetString());
         Assert.Equal("source_exploration_scope_not_supported_by_query", meta.GetProperty("rejectedCategoryScopeReason").GetString());
+    }
+
+    [Fact]
+    public async Task ToolAgent_rag_search_rejects_query_supported_unresolved_source_exploration_category_scope()
+    {
+        string? capturedBody = null;
+        var handler = new StubHttpHandler(req =>
+        {
+            capturedBody = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "items": [
+                        {
+                          "score": 0.8,
+                          "docPath": "Knowledge/source.pdf",
+                          "docName": "source.pdf",
+                          "pageStart": 2,
+                          "pageEnd": 2,
+                          "chunkId": "source-1",
+                          "text": "A useful source candidate."
+                        }
+                      ]
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: new ToolMemory());
+        using var args = JsonDocument.Parse(
+            """
+            {
+              "query": "plan de repas semaine",
+              "topK": 4,
+              "categoryPath": "planning, cuisine, repas",
+              "mode": "balanced",
+              "researchMode": "source_exploration",
+              "includeResearchSurfaces": true
+            }
+            """);
+
+        _ = await InvokePrivateToolAsync(sut, "ExecRagSearchAsync", args.RootElement);
+
+        Assert.NotNull(capturedBody);
+        using var body = JsonDocument.Parse(capturedBody!);
+        Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("category").ValueKind);
+        Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("categoryPath").ValueKind);
+        Assert.Equal(JsonValueKind.Null, body.RootElement.GetProperty("categoryRef").ValueKind);
     }
 
     [Fact]
@@ -1344,51 +1599,7 @@ public sealed class ApiClientDocumentsTransitionTests
     }
 
     [Fact]
-    public void Source_backed_deterministic_exploration_reuses_current_turn_inferred_scope_generically()
-    {
-        var reused = ToolAgentOrchestrator.ResolveSourceBackedExplorationPassCategoryScopeForTests(
-            resolvedPassCategoryScope: null,
-            currentCategoryScope: null,
-            currentTurnInferredCategoryScope: "Domain/Useful",
-            passOrigin: "deterministic_seed",
-            passHasDocumentScope: false);
-
-        Assert.Equal("Domain/Useful", reused.CategoryScope);
-        Assert.True(reused.ReusedFromCurrentTurnInference);
-
-        var llmBroadPass = ToolAgentOrchestrator.ResolveSourceBackedExplorationPassCategoryScopeForTests(
-            resolvedPassCategoryScope: null,
-            currentCategoryScope: null,
-            currentTurnInferredCategoryScope: "Domain/Useful",
-            passOrigin: "llm_planner",
-            passHasDocumentScope: false);
-
-        Assert.Null(llmBroadPass.CategoryScope);
-        Assert.False(llmBroadPass.ReusedFromCurrentTurnInference);
-
-        var explicitScope = ToolAgentOrchestrator.ResolveSourceBackedExplorationPassCategoryScopeForTests(
-            resolvedPassCategoryScope: "Domain/Explicit",
-            currentCategoryScope: null,
-            currentTurnInferredCategoryScope: "Domain/Useful",
-            passOrigin: "deterministic_seed",
-            passHasDocumentScope: false);
-
-        Assert.Equal("Domain/Explicit", explicitScope.CategoryScope);
-        Assert.False(explicitScope.ReusedFromCurrentTurnInference);
-
-        var documentScopedPass = ToolAgentOrchestrator.ResolveSourceBackedExplorationPassCategoryScopeForTests(
-            resolvedPassCategoryScope: null,
-            currentCategoryScope: null,
-            currentTurnInferredCategoryScope: "Domain/Useful",
-            passOrigin: "deterministic_seed",
-            passHasDocumentScope: true);
-
-        Assert.Null(documentScopedPass.CategoryScope);
-        Assert.False(documentScopedPass.ReusedFromCurrentTurnInference);
-    }
-
-    [Fact]
-    public async Task ToolAgent_rag_multi_search_preserves_query_supported_source_exploration_category_scope()
+    public async Task ToolAgent_rag_multi_search_preserves_resolved_query_supported_source_exploration_category_scope()
     {
         var capturedBodies = new List<string>();
         var handler = new StubHttpHandler(req =>
@@ -1418,7 +1629,24 @@ public sealed class ApiClientDocumentsTransitionTests
             };
         });
 
-        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem: new ToolMemory());
+        var mem = new ToolMemory
+        {
+            CatalogSnapshotCache = new ToolMemory.RuntimeCatalogSnapshot
+            {
+                LoadedAtUtc = DateTimeOffset.UtcNow,
+                Categories = new()
+                {
+                    new ToolMemory.CategorySnapshot
+                    {
+                        CategoryPath = "Juridique",
+                        DisplayName = "Juridique",
+                        TotalDocuments = 5,
+                        Ordinal = 1
+                    }
+                }
+            }
+        };
+        var sut = new ToolAgentOrchestrator(CreateApiClient(handler), llm: null!, mem);
         using var args = JsonDocument.Parse(
             """
             {
@@ -2069,12 +2297,14 @@ public sealed class ApiClientDocumentsTransitionTests
             "broad",
             CancellationToken.None,
             researchMode: "source_exploration",
-            includeResearchSurfaces: true);
+            includeResearchSurfaces: true,
+            sourceBackedCanonical: true);
 
         using var body = JsonDocument.Parse(capturedBody!);
         Assert.Equal("broad", body.RootElement.GetProperty("mode").GetString());
         Assert.Equal("source_exploration", body.RootElement.GetProperty("researchMode").GetString());
         Assert.True(body.RootElement.GetProperty("includeResearchSurfaces").GetBoolean());
+        Assert.True(body.RootElement.GetProperty("sourceBackedCanonical").GetBoolean());
     }
 
     [Fact]

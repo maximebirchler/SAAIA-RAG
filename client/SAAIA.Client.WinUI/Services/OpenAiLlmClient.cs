@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -22,6 +24,8 @@ public sealed class OpenAiLlmClient
     };
 
     private readonly HttpClient _http;
+    private int _nativeInputTokenCountingAvailability;
+    private int _nativeRuntimeContextTokens;
 
     public event Action? RuntimeActivityStarted;
     public event Action? RuntimeActivityFinished;
@@ -60,6 +64,7 @@ public sealed class OpenAiLlmClient
     {
         _baseUrl = baseUrl.Trim().TrimEnd('/');
         _model = model.Trim();
+        Volatile.Write(ref _nativeRuntimeContextTokens, 0);
     }
 
     private async Task EnsureRuntimeReadyAsync(CancellationToken ct)
@@ -78,14 +83,14 @@ public sealed class OpenAiLlmClient
         int maxTokens,
         CancellationToken ct,
         bool forceJson = false)
-        => await ChatOnceCoreAsync(
+        => (await ChatOnceCoreAsync(
                 messages,
                 temperature,
                 maxTokens,
                 ct,
                 forceJson,
                 structuredOutput: null)
-            .ConfigureAwait(false);
+            .ConfigureAwait(false)).Content;
 
     public async Task<string> ChatOnceStructuredAsync(
         IReadOnlyList<(string role, string content)> messages,
@@ -93,6 +98,25 @@ public sealed class OpenAiLlmClient
         int maxTokens,
         LlmStructuredOutputContract contract,
         CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(contract);
+        return (await ChatOnceCoreAsync(
+                messages,
+                temperature,
+                maxTokens,
+                ct,
+                forceJson: true,
+                contract)
+            .ConfigureAwait(false)).Content;
+    }
+
+    public async Task<SourceBackedAgentCompletion>
+        ChatOnceStructuredCompletionAsync(
+            IReadOnlyList<(string role, string content)> messages,
+            double temperature,
+            int maxTokens,
+            LlmStructuredOutputContract contract,
+            CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(contract);
         return await ChatOnceCoreAsync(
@@ -116,35 +140,26 @@ public sealed class OpenAiLlmClient
         ArgumentNullException.ThrowIfNull(messages);
         ArgumentNullException.ThrowIfNull(tools);
         await EnsureRuntimeReadyAsync(ct).ConfigureAwait(false);
+        var callId = "native-" + Guid.NewGuid().ToString("N")[..10];
+        var traceId = SourceBackedTelemetryContext.TraceId ?? "unscoped";
+        var callKind = ResolveNativeCallKind(messages, tools);
+        var stopwatch = Stopwatch.StartNew();
+        ClientLog.Info(
+            "[LLM_NATIVE event=request.start" +
+            $" trace_id={traceId} call_id={callId} call_kind={callKind}" +
+            $" messages={messages.Count} prompt_chars={CountMessageCharacters(messages)}" +
+            $" tools={tools.Count} tool_names={FormatToolNames(tools)}" +
+            $" require_tool={requireToolCall} max_output_tokens={maxTokens}]");
         RuntimeActivityStarted?.Invoke();
         try
         {
-            var payload = new Dictionary<string, object?>
-            {
-                ["model"] = _model,
-                ["max_tokens"] = maxTokens,
-                ["stream"] = false,
-                ["messages"] = messages.Select(ToNativeToolMessagePayload).ToArray()
-            };
-            if (tools.Count > 0)
-            {
-                payload["tools"] = tools.Select(static tool => new Dictionary<string, object?>
-                {
-                    ["type"] = "function",
-                    ["function"] = new Dictionary<string, object?>
-                    {
-                        ["name"] = tool.Name,
-                        ["description"] = tool.Description,
-                        ["parameters"] = tool.Parameters
-                    }
-                }).ToArray();
-                payload["tool_choice"] = requireToolCall ? "required" : "auto";
-                payload["parallel_tool_calls"] = !requireToolCall;
-            }
+            var payload = BuildNativeToolPayload(messages, tools, requireToolCall);
+            payload["max_tokens"] = maxTokens;
+            payload["stream"] = false;
             LlmSamplingConfiguration.ResolveFromEnvironment().Apply(
                 payload,
                 temperature,
-                structuredOutput: false);
+                structuredOutput: requireToolCall);
 
             using var req = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/chat/completions");
             req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -153,12 +168,350 @@ public sealed class OpenAiLlmClient
             using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
             await EnsureSuccessAsync(resp, ct).ConfigureAwait(false);
             var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            return ParseNativeToolCompletion(json);
+            var completion = ParseNativeToolCompletion(json, requireToolCall);
+            ClientLog.Info(
+                "[LLM_NATIVE event=request.end" +
+                $" trace_id={traceId} call_id={callId} call_kind={callKind}" +
+                $" finish_reason={completion.FinishReason}" +
+                $" tool_calls={completion.ToolCalls.Count}" +
+                $" prompt_tokens={completion.PromptTokens?.ToString() ?? "unknown"}" +
+                $" completion_tokens={completion.CompletionTokens?.ToString() ?? "unknown"}" +
+                $" cache_tokens={completion.ServerCacheTokens?.ToString() ?? "unknown"}" +
+                $" prompt_evaluated_tokens={completion.ServerPromptTokensEvaluated?.ToString() ?? "unknown"}" +
+                $" prompt_ms={FormatTiming(completion.ServerPromptMilliseconds)}" +
+                $" predicted_tokens={completion.ServerPredictedTokens?.ToString() ?? "unknown"}" +
+                $" predicted_ms={FormatTiming(completion.ServerPredictedMilliseconds)}" +
+                $" output_chars={completion.Content?.Length ?? 0}" +
+                $" elapsed_ms={stopwatch.ElapsedMilliseconds}]");
+            return completion;
+        }
+        catch (OperationCanceledException)
+        {
+            ClientLog.Warn(
+                "[LLM_NATIVE event=request.cancelled" +
+                $" trace_id={traceId} call_id={callId} call_kind={callKind}" +
+                $" elapsed_ms={stopwatch.ElapsedMilliseconds}]");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            ClientLog.Warn(
+                "[LLM_NATIVE event=request.error" +
+                $" trace_id={traceId} call_id={callId} call_kind={callKind}" +
+                $" error_type={ex.GetType().Name}" +
+                $" elapsed_ms={stopwatch.ElapsedMilliseconds}]");
+            throw;
         }
         finally
         {
             RuntimeActivityFinished?.Invoke();
         }
+    }
+
+    public async Task<int?> CountNativeInputTokensAsync(
+        IReadOnlyList<SourceBackedAgentMessage> messages,
+        IReadOnlyList<SourceBackedAgentToolDefinition> tools,
+        CancellationToken ct,
+        bool requireToolCall = false)
+    {
+        ArgumentNullException.ThrowIfNull(messages);
+        ArgumentNullException.ThrowIfNull(tools);
+        if (Volatile.Read(ref _nativeInputTokenCountingAvailability) < 0)
+            return null;
+
+        await EnsureRuntimeReadyAsync(ct).ConfigureAwait(false);
+        var callId = "tokens-" + Guid.NewGuid().ToString("N")[..10];
+        var traceId = SourceBackedTelemetryContext.TraceId ?? "unscoped";
+        var callKind = ResolveNativeCallKind(messages, tools);
+        var stopwatch = Stopwatch.StartNew();
+        ClientLog.Info(
+            "[LLM_NATIVE event=input_tokens.start" +
+            $" trace_id={traceId} call_id={callId} call_kind={callKind}" +
+            $" messages={messages.Count} prompt_chars={CountMessageCharacters(messages)}" +
+            $" tools={tools.Count} tool_names={FormatToolNames(tools)}]");
+
+        try
+        {
+            var payload = BuildNativeToolPayload(messages, tools, requireToolCall);
+            using var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                $"{_baseUrl}/chat/completions/input_tokens");
+            request.Headers.Accept.Add(
+                new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Content = new StringContent(
+                JsonSerializer.Serialize(payload, JsonOpts),
+                Encoding.UTF8,
+                "application/json");
+
+            using var response = await _http.SendAsync(request, ct)
+                .ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode is HttpStatusCode.NotFound
+                    or HttpStatusCode.MethodNotAllowed
+                    or HttpStatusCode.NotImplemented)
+                {
+                    Volatile.Write(
+                        ref _nativeInputTokenCountingAvailability,
+                        -1);
+                }
+                ClientLog.Warn(
+                    "[LLM_NATIVE event=input_tokens.unavailable" +
+                    $" trace_id={traceId} call_id={callId} call_kind={callKind}" +
+                    $" status={(int)response.StatusCode}" +
+                    $" elapsed_ms={stopwatch.ElapsedMilliseconds}]");
+                return null;
+            }
+
+            var json = await response.Content.ReadAsStringAsync(ct)
+                .ConfigureAwait(false);
+            using var document = JsonDocument.Parse(json);
+            int? count = document.RootElement.TryGetProperty(
+                       "input_tokens",
+                       out var inputTokens)
+                   && inputTokens.TryGetInt32(out var parsedCount)
+                   && parsedCount >= 0
+                ? parsedCount
+                : null;
+            if (count is not null)
+            {
+                Volatile.Write(
+                    ref _nativeInputTokenCountingAvailability,
+                    1);
+            }
+            ClientLog.Info(
+                "[LLM_NATIVE event=input_tokens.end" +
+                $" trace_id={traceId} call_id={callId} call_kind={callKind}" +
+                $" input_tokens={count?.ToString() ?? "unknown"}" +
+                $" elapsed_ms={stopwatch.ElapsedMilliseconds}]");
+            return count;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            ClientLog.Warn(
+                "[LLM_NATIVE event=input_tokens.error" +
+                $" trace_id={traceId} call_id={callId} call_kind={callKind}" +
+                $" error_type={ex.GetType().Name}" +
+                $" elapsed_ms={stopwatch.ElapsedMilliseconds}]");
+            return null;
+        }
+    }
+
+    public async Task<int?> GetNativeRuntimeContextTokensAsync(
+        CancellationToken ct)
+    {
+        var cached = Volatile.Read(ref _nativeRuntimeContextTokens);
+        if (cached != 0)
+            return cached > 0 ? cached : null;
+
+        await EnsureRuntimeReadyAsync(ct).ConfigureAwait(false);
+        var stopwatch = Stopwatch.StartNew();
+        var traceId = SourceBackedTelemetryContext.TraceId ?? "unscoped";
+        ClientLog.Info(
+            "[LLM_NATIVE event=runtime_context.start" +
+            $" trace_id={traceId}]");
+        try
+        {
+            using var request = new HttpRequestMessage(
+                HttpMethod.Get,
+                $"{_baseUrl}/models");
+            request.Headers.Accept.Add(
+                new MediaTypeWithQualityHeaderValue("application/json"));
+            using var response = await _http.SendAsync(request, ct)
+                .ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                ClientLog.Warn(
+                    "[LLM_NATIVE event=runtime_context.unavailable" +
+                    $" trace_id={traceId} status={(int)response.StatusCode}" +
+                    $" elapsed_ms={stopwatch.ElapsedMilliseconds}]");
+                return null;
+            }
+
+            var json = await response.Content.ReadAsStringAsync(ct)
+                .ConfigureAwait(false);
+            using var document = JsonDocument.Parse(json);
+            var contextTokens = ReadRuntimeContextTokens(
+                document.RootElement,
+                _model);
+            if (contextTokens is > 0)
+                Volatile.Write(ref _nativeRuntimeContextTokens, contextTokens.Value);
+            else
+                Volatile.Write(ref _nativeRuntimeContextTokens, -1);
+            ClientLog.Info(
+                "[LLM_NATIVE event=runtime_context.end" +
+                $" trace_id={traceId}" +
+                $" context_tokens={contextTokens?.ToString() ?? "unknown"}" +
+                $" elapsed_ms={stopwatch.ElapsedMilliseconds}]");
+            return contextTokens;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            ClientLog.Warn(
+                "[LLM_NATIVE event=runtime_context.error" +
+                $" trace_id={traceId} error_type={ex.GetType().Name}" +
+                $" elapsed_ms={stopwatch.ElapsedMilliseconds}]");
+            return null;
+        }
+    }
+
+    private static int? ReadRuntimeContextTokens(
+        JsonElement root,
+        string configuredModel)
+    {
+        if (!root.TryGetProperty("data", out var data)
+            || data.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        JsonElement? fallback = null;
+        foreach (var item in data.EnumerateArray())
+        {
+            fallback ??= item;
+            if (item.TryGetProperty("id", out var id)
+                && id.ValueKind == JsonValueKind.String
+                && ModelIdentifiersMatch(id.GetString(), configuredModel))
+            {
+                return ReadContextTokensFromModel(item);
+            }
+        }
+
+        return fallback is { } first
+            ? ReadContextTokensFromModel(first)
+            : null;
+    }
+
+    private static int? ReadContextTokensFromModel(JsonElement model)
+    {
+        if (TryReadPositiveInt(model, "n_ctx", out var direct))
+            return direct;
+        if (!model.TryGetProperty("meta", out var meta)
+            || meta.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        if (TryReadPositiveInt(meta, "n_ctx", out var active))
+            return active;
+        return TryReadPositiveInt(meta, "n_ctx_train", out var trained)
+            ? trained
+            : null;
+    }
+
+    private static bool TryReadPositiveInt(
+        JsonElement parent,
+        string propertyName,
+        out int value)
+    {
+        value = 0;
+        if (!parent.TryGetProperty(propertyName, out var property))
+            return false;
+        if (property.ValueKind == JsonValueKind.Number
+            && property.TryGetInt32(out value)
+            && value > 0)
+        {
+            return true;
+        }
+        return property.ValueKind == JsonValueKind.String
+               && int.TryParse(property.GetString(), out value)
+               && value > 0;
+    }
+
+    private static bool ModelIdentifiersMatch(
+        string? runtimeModel,
+        string configuredModel)
+    {
+        if (string.IsNullOrWhiteSpace(runtimeModel)
+            || string.IsNullOrWhiteSpace(configuredModel))
+        {
+            return false;
+        }
+
+        var runtimeName = Path.GetFileName(runtimeModel.Trim());
+        var configuredName = Path.GetFileName(configuredModel.Trim());
+        return string.Equals(
+            runtimeName,
+            configuredName,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int CountMessageCharacters(
+        IReadOnlyList<SourceBackedAgentMessage> messages)
+        => messages.Sum(static message => message.Content?.Length ?? 0);
+
+    private static string FormatToolNames(
+        IReadOnlyList<SourceBackedAgentToolDefinition> tools)
+        => tools.Count == 0
+            ? "none"
+            : string.Join(",", tools.Select(static tool => tool.Name));
+
+    private static string ResolveNativeCallKind(
+        IReadOnlyList<SourceBackedAgentMessage> messages,
+        IReadOnlyList<SourceBackedAgentToolDefinition> tools)
+    {
+        if (tools.Count == 1
+            && tools[0].Name.StartsWith(
+                "submit_",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return tools[0].Name;
+        }
+        if (tools.Count > 0)
+            return "agent_tool_decision";
+
+        var system = messages.FirstOrDefault(static message =>
+            string.Equals(
+                message.Role,
+                "system",
+                StringComparison.OrdinalIgnoreCase))?.Content;
+        return system?.Contains(
+                   "redacteur final",
+                   StringComparison.OrdinalIgnoreCase) == true
+            ? "dedicated_writer"
+            : "completion_without_tools";
+    }
+
+    private Dictionary<string, object?> BuildNativeToolPayload(
+        IReadOnlyList<SourceBackedAgentMessage> messages,
+        IReadOnlyList<SourceBackedAgentToolDefinition> tools,
+        bool requireToolCall)
+    {
+        var payload = new Dictionary<string, object?>
+        {
+            ["model"] = _model,
+            ["messages"] = messages.Select(ToNativeToolMessagePayload).ToArray()
+        };
+        if (tools.Count == 0)
+            return payload;
+
+        payload["tools"] = tools.Select(static tool => new Dictionary<string, object?>
+        {
+            ["type"] = "function",
+            ["function"] = new Dictionary<string, object?>
+            {
+                ["name"] = tool.Name,
+                ["description"] = tool.Description,
+                ["parameters"] = tool.Parameters
+            }
+        }).ToArray();
+        // llama-server currently accepts the OpenAI-compatible string form
+        // here, but ignores the named-function object form. A required call
+        // with exactly one exposed tool is mechanically equivalent to naming
+        // that tool and remains portable across both runtimes.
+        payload["tool_choice"] = requireToolCall
+            ? "required"
+            : "auto";
+        payload["parallel_tool_calls"] = !requireToolCall;
+        return payload;
     }
 
     private static Dictionary<string, object?> ToNativeToolMessagePayload(SourceBackedAgentMessage message)
@@ -199,7 +552,9 @@ public sealed class OpenAiLlmClient
         return payload;
     }
 
-    private static SourceBackedAgentCompletion ParseNativeToolCompletion(string json)
+    private static SourceBackedAgentCompletion ParseNativeToolCompletion(
+        string json,
+        bool recoverRequiredEmbeddedToolCall)
     {
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
@@ -263,6 +618,12 @@ public sealed class OpenAiLlmClient
                     argumentError));
             }
         }
+        if (calls.Count == 0
+            && recoverRequiredEmbeddedToolCall
+            && TryParseEmbeddedRequiredToolCall(content, out var recoveredCall))
+        {
+            calls.Add(recoveredCall);
+        }
 
         var finishReason = choice.TryGetProperty("finish_reason", out var finish)
                            && finish.ValueKind == JsonValueKind.String
@@ -290,10 +651,102 @@ public sealed class OpenAiLlmClient
             calls,
             finishReason,
             promptTokens,
-            completionTokens);
+            completionTokens,
+            ReadTimingInt(root, "cache_n"),
+            ReadTimingInt(root, "prompt_n"),
+            ReadTimingDouble(root, "prompt_ms"),
+            ReadTimingInt(root, "predicted_n"),
+            ReadTimingDouble(root, "predicted_ms"));
     }
 
-    private async Task<string> ChatOnceCoreAsync(
+    private static bool TryParseEmbeddedRequiredToolCall(
+        string content,
+        out SourceBackedAgentToolCall toolCall)
+    {
+        toolCall = default!;
+        const string openingTag = "<tool_call>";
+        const string closingTag = "</tool_call>";
+        var start = content.IndexOf(openingTag, StringComparison.OrdinalIgnoreCase);
+        if (start < 0)
+            return false;
+
+        start += openingTag.Length;
+        var end = content.IndexOf(
+            closingTag,
+            start,
+            StringComparison.OrdinalIgnoreCase);
+        if (end <= start
+            || content.IndexOf(
+                openingTag,
+                end + closingTag.Length,
+                StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            using var envelopeDocument = JsonDocument.Parse(
+                content[start..end].Trim());
+            var envelope = envelopeDocument.RootElement;
+            if (envelope.ValueKind != JsonValueKind.Object)
+                return false;
+
+            var function = envelope.TryGetProperty("function", out var nestedFunction)
+                           && nestedFunction.ValueKind == JsonValueKind.Object
+                ? nestedFunction
+                : envelope;
+            if (!function.TryGetProperty("name", out var nameElement)
+                || nameElement.ValueKind != JsonValueKind.String
+                || string.IsNullOrWhiteSpace(nameElement.GetString())
+                || !function.TryGetProperty("arguments", out var argumentsElement))
+            {
+                return false;
+            }
+
+            var argumentError = default(string);
+            JsonElement arguments;
+            try
+            {
+                if (argumentsElement.ValueKind == JsonValueKind.String)
+                {
+                    using var argumentsDocument = JsonDocument.Parse(
+                        argumentsElement.GetString() ?? "{}");
+                    arguments = argumentsDocument.RootElement.Clone();
+                }
+                else
+                {
+                    arguments = argumentsElement.Clone();
+                }
+
+                if (arguments.ValueKind != JsonValueKind.Object)
+                {
+                    argumentError = "tool_arguments_must_be_an_object";
+                    arguments = JsonSerializer.SerializeToElement(
+                        new Dictionary<string, object?>());
+                }
+            }
+            catch (JsonException ex)
+            {
+                argumentError = "invalid_tool_arguments_json: " + ex.Message;
+                arguments = JsonSerializer.SerializeToElement(
+                    new Dictionary<string, object?>());
+            }
+
+            toolCall = new SourceBackedAgentToolCall(
+                "embedded-required-tool-call-1",
+                nameElement.GetString()!.Trim(),
+                arguments,
+                argumentError);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private async Task<SourceBackedAgentCompletion> ChatOnceCoreAsync(
         IReadOnlyList<(string role, string content)> messages,
         double temperature,
         int maxTokens,
@@ -303,9 +756,26 @@ public sealed class OpenAiLlmClient
     {
         await EnsureRuntimeReadyAsync(ct).ConfigureAwait(false);
         messages = OpenAiChatMessageNormalizer.MergeSystemMessages(messages);
+        var callId = "chat-" + Guid.NewGuid().ToString("N")[..10];
+        var traceId = SourceBackedTelemetryContext.TraceId ?? "unscoped";
+        var callKind = ResolveChatCallKind(
+            messages,
+            forceJson,
+            structuredOutput);
+        var stopwatch = Stopwatch.StartNew();
+        var attempts = 0;
+        ClientLog.Info(
+            "[LLM_NATIVE event=request.start" +
+            $" trace_id={traceId} call_id={callId} call_kind={callKind}" +
+            $" messages={messages.Count}" +
+            $" prompt_chars={CountChatMessageCharacters(messages)}" +
+            $" tools=0 force_json={forceJson}" +
+            $" structured_contract={structuredOutput?.Name ?? "none"}" +
+            $" max_output_tokens={maxTokens}]");
         RuntimeActivityStarted?.Invoke();
         try
         {
+            attempts++;
             var resp = await SendChatRequestAsync(
                     messages,
                     temperature,
@@ -321,6 +791,7 @@ public sealed class OpenAiLlmClient
                 ClientLog.Warn(
                     $"OpenAI-compatible endpoint rejected response_format=json_schema ({(int)resp.StatusCode}); retrying with llama.cpp json_object+schema.");
                 resp.Dispose();
+                attempts++;
                 resp = await SendChatRequestAsync(
                         messages,
                         temperature,
@@ -338,6 +809,7 @@ public sealed class OpenAiLlmClient
                 ClientLog.Warn(
                     $"OpenAI-compatible endpoint rejected legacy schema response format ({(int)resp.StatusCode}); retrying with unconstrained json_object.");
                 resp.Dispose();
+                attempts++;
                 resp = await SendChatRequestAsync(
                         messages,
                         temperature,
@@ -355,6 +827,7 @@ public sealed class OpenAiLlmClient
                 ClientLog.Warn(
                     $"OpenAI-compatible endpoint rejected response_format=json_object ({(int)resp.StatusCode}); retrying with prompt-only JSON enforcement.");
                 resp.Dispose();
+                attempts++;
                 resp = await SendChatRequestAsync(
                         messages,
                         temperature,
@@ -379,14 +852,172 @@ public sealed class OpenAiLlmClient
                     .GetProperty("content")
                     .GetString();
 
-                return content ?? "";
+                var choice = doc.RootElement.GetProperty("choices")[0];
+                var finishReason = choice.TryGetProperty(
+                        "finish_reason",
+                        out var finish)
+                    && finish.ValueKind == JsonValueKind.String
+                        ? finish.GetString() ?? "unknown"
+                        : "unknown";
+                var promptTokens = ReadUsageTokenCount(
+                    doc.RootElement,
+                    "prompt_tokens");
+                var completionTokens = ReadUsageTokenCount(
+                    doc.RootElement,
+                    "completion_tokens");
+                var cacheTokens = ReadTimingInt(doc.RootElement, "cache_n");
+                var promptEvaluatedTokens = ReadTimingInt(
+                    doc.RootElement,
+                    "prompt_n");
+                var promptMilliseconds = ReadTimingDouble(
+                    doc.RootElement,
+                    "prompt_ms");
+                var predictedTokens = ReadTimingInt(
+                    doc.RootElement,
+                    "predicted_n");
+                var predictedMilliseconds = ReadTimingDouble(
+                    doc.RootElement,
+                    "predicted_ms");
+                ClientLog.Info(
+                    "[LLM_NATIVE event=request.end" +
+                    $" trace_id={traceId} call_id={callId} call_kind={callKind}" +
+                    $" finish_reason={finishReason}" +
+                    $" attempts={attempts}" +
+                    $" prompt_tokens={promptTokens?.ToString() ?? "unknown"}" +
+                    $" completion_tokens={completionTokens?.ToString() ?? "unknown"}" +
+                    $" cache_tokens={cacheTokens?.ToString() ?? "unknown"}" +
+                    $" prompt_evaluated_tokens={promptEvaluatedTokens?.ToString() ?? "unknown"}" +
+                    $" prompt_ms={FormatTiming(promptMilliseconds)}" +
+                    $" predicted_tokens={predictedTokens?.ToString() ?? "unknown"}" +
+                    $" predicted_ms={FormatTiming(predictedMilliseconds)}" +
+                    $" output_chars={content?.Length ?? 0}" +
+                    $" elapsed_ms={stopwatch.ElapsedMilliseconds}]");
+                return new SourceBackedAgentCompletion(
+                    content ?? string.Empty,
+                    Array.Empty<SourceBackedAgentToolCall>(),
+                    finishReason,
+                    promptTokens,
+                    completionTokens,
+                    cacheTokens,
+                    promptEvaluatedTokens,
+                    promptMilliseconds,
+                    predictedTokens,
+                    predictedMilliseconds);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            ClientLog.Warn(
+                "[LLM_NATIVE event=request.cancelled" +
+                $" trace_id={traceId} call_id={callId} call_kind={callKind}" +
+                $" attempts={attempts}" +
+                $" elapsed_ms={stopwatch.ElapsedMilliseconds}]");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            ClientLog.Warn(
+                "[LLM_NATIVE event=request.error" +
+                $" trace_id={traceId} call_id={callId} call_kind={callKind}" +
+                $" attempts={attempts}" +
+                $" error_type={ex.GetType().Name}" +
+                $" elapsed_ms={stopwatch.ElapsedMilliseconds}]");
+            throw;
         }
         finally
         {
             RuntimeActivityFinished?.Invoke();
         }
     }
+
+    private static int CountChatMessageCharacters(
+        IReadOnlyList<(string role, string content)> messages)
+        => messages.Sum(static message => message.content?.Length ?? 0);
+
+    private static string ResolveChatCallKind(
+        IReadOnlyList<(string role, string content)> messages,
+        bool forceJson,
+        LlmStructuredOutputContract? structuredOutput)
+    {
+        if (structuredOutput is not null)
+            return "structured_" + structuredOutput.Name;
+
+        var system = messages.FirstOrDefault(static message =>
+            string.Equals(
+                message.role,
+                "system",
+                StringComparison.OrdinalIgnoreCase)).content;
+        if (system?.Contains(
+                "routeur",
+                StringComparison.OrdinalIgnoreCase) == true
+            || system?.Contains(
+                "router",
+                StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return "router";
+        }
+        if (system?.Contains(
+                "redacteur",
+                StringComparison.OrdinalIgnoreCase) == true
+            || system?.Contains(
+                "writer",
+                StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return "writer";
+        }
+
+        return forceJson ? "json_completion" : "chat_completion";
+    }
+
+    private static int? ReadUsageTokenCount(
+        JsonElement root,
+        string propertyName)
+    {
+        if (!root.TryGetProperty("usage", out var usage)
+            || usage.ValueKind != JsonValueKind.Object
+            || !usage.TryGetProperty(propertyName, out var value)
+            || !value.TryGetInt32(out var count)
+            || count < 0)
+        {
+            return null;
+        }
+
+        return count;
+    }
+
+    private static int? ReadTimingInt(JsonElement root, string propertyName)
+    {
+        if (!root.TryGetProperty("timings", out var timings)
+            || timings.ValueKind != JsonValueKind.Object
+            || !timings.TryGetProperty(propertyName, out var value)
+            || !value.TryGetInt32(out var parsed)
+            || parsed < 0)
+        {
+            return null;
+        }
+
+        return parsed;
+    }
+
+    private static double? ReadTimingDouble(
+        JsonElement root,
+        string propertyName)
+    {
+        if (!root.TryGetProperty("timings", out var timings)
+            || timings.ValueKind != JsonValueKind.Object
+            || !timings.TryGetProperty(propertyName, out var value)
+            || !value.TryGetDouble(out var parsed)
+            || parsed < 0)
+        {
+            return null;
+        }
+
+        return parsed;
+    }
+
+    private static string FormatTiming(double? milliseconds)
+        => milliseconds?.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)
+           ?? "unknown";
 
     private async Task<HttpResponseMessage> SendChatRequestAsync(
         IReadOnlyList<(string role, string content)> messages,
@@ -446,6 +1077,28 @@ public sealed class OpenAiLlmClient
     {
         await EnsureRuntimeReadyAsync(ct).ConfigureAwait(false);
         messages = OpenAiChatMessageNormalizer.MergeSystemMessages(messages);
+        var callId = "stream-" + Guid.NewGuid().ToString("N")[..10];
+        var traceId = SourceBackedTelemetryContext.TraceId ?? "unscoped";
+        var callKind = "stream_" + ResolveChatCallKind(
+            messages,
+            forceJson: false,
+            structuredOutput: null);
+        var stopwatch = Stopwatch.StartNew();
+        var outputCharacters = 0;
+        var responseMode = "unknown";
+        var completed = false;
+        void EmitDelta(string delta)
+        {
+            outputCharacters += delta.Length;
+            onDelta(delta);
+        }
+        ClientLog.Info(
+            "[LLM_NATIVE event=request.start" +
+            $" trace_id={traceId} call_id={callId} call_kind={callKind}" +
+            $" messages={messages.Count}" +
+            $" prompt_chars={CountChatMessageCharacters(messages)}" +
+            $" tools=0 force_json=false stream=true" +
+            $" max_output_tokens={maxTokens}]");
         RuntimeActivityStarted?.Invoke();
         try
         {
@@ -475,13 +1128,16 @@ public sealed class OpenAiLlmClient
             // Spec requires progressive UX anyway => simulate streaming client-side.
             if (!mediaType.Contains("event-stream", StringComparison.OrdinalIgnoreCase))
             {
+                responseMode = "json_simulated_stream";
                 var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
                 var full = TryExtractChatContent(json);
                 if (!string.IsNullOrEmpty(full))
-                    await SimulateStreamingAsync(full, onDelta, ct).ConfigureAwait(false);
+                    await SimulateStreamingAsync(full, EmitDelta, ct).ConfigureAwait(false);
+                completed = true;
                 return;
             }
 
+            responseMode = "sse";
             await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
             using var reader = new StreamReader(stream);
 
@@ -518,14 +1174,14 @@ public sealed class OpenAiLlmClient
                             var diff = chunk.Substring(emittedSoFar.Length);
                             if (diff.Length > 0)
                             {
-                                onDelta(diff);
+                                EmitDelta(diff);
                                 emittedSoFar += diff;
                             }
                         }
                         else
                         {
                             // Sinon, on considère que c'est un vrai delta
-                            onDelta(chunk);
+                            EmitDelta(chunk);
                             emittedSoFar += chunk;
                         }
                     }
@@ -545,16 +1201,53 @@ public sealed class OpenAiLlmClient
                     var remaining = await reader.ReadToEndAsync().WaitAsync(ct);
                     var full = TryExtractChatContent(remaining);
                     if (!string.IsNullOrEmpty(full))
-                        await SimulateStreamingAsync(full, onDelta, ct).ConfigureAwait(false);
+                    {
+                        responseMode = "sse_json_fallback";
+                        await SimulateStreamingAsync(full, EmitDelta, ct)
+                            .ConfigureAwait(false);
+                    }
                 }
                 catch (Exception ex)
                 {
                     ClientLog.Warn($"OpenAI-compatible SSE fallback ignored: {ex.Message}");
                 }
             }
+            completed = true;
+        }
+        catch (OperationCanceledException)
+        {
+            ClientLog.Warn(
+                "[LLM_NATIVE event=request.cancelled" +
+                $" trace_id={traceId} call_id={callId} call_kind={callKind}" +
+                $" response_mode={responseMode}" +
+                $" output_chars={outputCharacters}" +
+                $" elapsed_ms={stopwatch.ElapsedMilliseconds}]");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            ClientLog.Warn(
+                "[LLM_NATIVE event=request.error" +
+                $" trace_id={traceId} call_id={callId} call_kind={callKind}" +
+                $" response_mode={responseMode}" +
+                $" output_chars={outputCharacters}" +
+                $" error_type={ex.GetType().Name}" +
+                $" elapsed_ms={stopwatch.ElapsedMilliseconds}]");
+            throw;
         }
         finally
         {
+            if (completed)
+            {
+                ClientLog.Info(
+                    "[LLM_NATIVE event=request.end" +
+                    $" trace_id={traceId} call_id={callId} call_kind={callKind}" +
+                    $" finish_reason=stream_completed" +
+                    $" response_mode={responseMode}" +
+                    $" prompt_tokens=unknown completion_tokens=unknown" +
+                    $" output_chars={outputCharacters}" +
+                    $" elapsed_ms={stopwatch.ElapsedMilliseconds}]");
+            }
             RuntimeActivityFinished?.Invoke();
         }
     }

@@ -32,6 +32,11 @@ internal sealed record QualifiedProfile(
     public string CacheTypeK { get; init; } = "f16";
     public string CacheTypeV { get; init; } = "f16";
     public int Parallel { get; init; } = 1;
+
+    public int ResolvePerSlotContextSize()
+        => Math.Max(
+            1,
+            CtxSize / Math.Clamp(Parallel, 1, 16));
 }
 
 internal enum GovernanceArtifactReadStatus

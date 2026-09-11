@@ -186,8 +186,9 @@ internal static class LocalLlmQualificationBenchmarkRunner
         };
 
         Add(startInfo, "-m", Path.GetFullPath(modelPath));
-        Add(startInfo, "-p", Math.Clamp(scenario.PromptTokens, 1, profile.CtxSize).ToString(CultureInfo.InvariantCulture));
-        Add(startInfo, "-n", Math.Clamp(scenario.GenerationTokens, 1, profile.CtxSize).ToString(CultureInfo.InvariantCulture));
+        var perSlotContextSize = profile.ResolvePerSlotContextSize();
+        Add(startInfo, "-p", Math.Clamp(scenario.PromptTokens, 1, perSlotContextSize).ToString(CultureInfo.InvariantCulture));
+        Add(startInfo, "-n", Math.Clamp(scenario.GenerationTokens, 1, perSlotContextSize).ToString(CultureInfo.InvariantCulture));
         Add(startInfo, "-r", Math.Clamp(repetitions, 1, 10).ToString(CultureInfo.InvariantCulture));
         Add(startInfo, "-b", Math.Max(1, profile.BatchSize).ToString(CultureInfo.InvariantCulture));
         Add(startInfo, "-ub", Math.Max(1, profile.UbatchSize).ToString(CultureInfo.InvariantCulture));

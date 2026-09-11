@@ -16,7 +16,7 @@ using SAAIA.Backend.Models;
 
 namespace SAAIA.Backend.Endpoints;
 
-public static class RagEndpoints
+public static partial class RagEndpoints
 {
     internal const double NavigationRouteMinimumConfidence = 0.699;
     internal const double FuzzyTitleSimilarityMinimum = 0.68;
@@ -322,16 +322,29 @@ ORDER BY display_order, name;
             ct);
         var extractionQualityTask = LoadRagExtractionQualityAsync(ds, tenantId, resp.Matches, ct);
         var documentLanguagesTask = LoadRagDocumentLanguagesAsync(ds, tenantId, resp.Matches, ct);
-        var documentSourceHashesTask = LoadRagDocumentSourceHashesAsync(ds, tenantId, resp.Matches, ct);
+        var documentSourceIdentitiesTask = req.SourceBackedCanonical == true
+            ? LoadRagCanonicalDocumentSourceIdentitiesAsync(ds, tenantId, resp.Matches, ct)
+            : LoadRagDocumentSourceIdentitiesAsync(ds, tenantId, resp.Matches, ct);
 
-        await Task.WhenAll(categoryRefsTask, hypQuestionsTask, extractionQualityTask, documentLanguagesTask, documentSourceHashesTask);
+        await Task.WhenAll(categoryRefsTask, hypQuestionsTask, extractionQualityTask, documentLanguagesTask, documentSourceIdentitiesTask);
         var categoryRefsByTopLevelPath = await categoryRefsTask;
         var hypQuestionsMatchedByDocPath = await hypQuestionsTask;
         var extractionQualityByMatch = await extractionQualityTask;
         var documentLanguagesByDocId = await documentLanguagesTask;
-        var documentSourceHashesByDocId = await documentSourceHashesTask;
+        var documentSourceIdentitiesByDocId = await documentSourceIdentitiesTask;
+        if (req.SourceBackedCanonical == true)
+            resp = RetainCurrentCanonicalSourceIdentities(resp, documentSourceIdentitiesByDocId);
         var effectiveExtractionQualityByMatch = BuildEffectiveExtractionQualityByMatch(resp.Matches, extractionQualityByMatch);
-        var qualityAdjustedMatches = BuildQualityAdjustedMatchesPreservingRank(resp.Matches, effectiveExtractionQualityByMatch);
+        var qualityAdjustedMatches = req.SourceBackedCanonical == true
+            ? resp.Matches
+                .Select(match => new RagQualityAdjustedMatch(
+                    match,
+                    ResolveExtractionQuality(match, effectiveExtractionQualityByMatch),
+                    match.Score))
+                .ToList()
+            : BuildQualityAdjustedMatchesPreservingRank(
+                resp.Matches,
+                effectiveExtractionQualityByMatch);
 
         return new RagSearchResponseDto(
             RequestId: resp.RequestId,
@@ -382,7 +395,10 @@ ORDER BY display_order, name;
                     var categoryPath = BuildDocumentCategoryPath(m.DocPath);
                     var category = ResolveMatchCategory(m, resp.Category);
                     var languageInfo = ResolveDocumentLanguageInfo(m, documentLanguagesByDocId);
-                    var sourceHash = ResolveDocumentSourceHash(m, documentSourceHashesByDocId);
+                    var sourceIdentity = ResolveDocumentSourceIdentity(
+                        m,
+                        documentSourceIdentitiesByDocId);
+                    var sourceHash = sourceIdentity?.SourceHash;
                     return new RagItemDto(
                         Score: item.AdjustedScore,
                         DocId: m.DocId,
@@ -401,6 +417,7 @@ ORDER BY display_order, name;
                         Provenance: ResolveProvenance(m),
                         ExactMatchHit: string.Equals(m.EmbeddingBasis, "exact_match_v1", StringComparison.Ordinal),
                         SourceHash: sourceHash,
+                        RevisionId: sourceIdentity?.RevisionId,
                         EmbeddingBasis: m.EmbeddingBasis,
                         ChunkType: m.ChunkType,
                         SectionTitle: m.SectionTitle,
@@ -418,16 +435,24 @@ ORDER BY display_order, name;
                         ContextualSnippet: req.IncludeContextualSnippet == true ? m.EmbedText : null,
                         HypQuestionsMatched: ResolveHypQuestionsMatched(m.DocPath, hypQuestionsMatchedByDocPath),
                         ExtractionQuality: item.ExtractionQuality,
-                        MatchedContentCards: BuildMatchedContentCardDtos(m),
-                        SelectionHints: BuildSelectionHints(m, item.ExtractionQuality),
-                        ProfileSignals: BuildProfileSignalsDto(m.ProfileSignals)
+                        MatchedContentCards: req.SourceBackedCanonical == true
+                            ? null
+                            : BuildMatchedContentCardDtos(m),
+                        SelectionHints: req.SourceBackedCanonical == true
+                            ? null
+                            : BuildSelectionHints(m, item.ExtractionQuality),
+                        ProfileSignals: req.SourceBackedCanonical == true
+                            ? null
+                            : BuildProfileSignalsDto(m.ProfileSignals)
                     );
                 })
                 .ToList(),
-            Guidance: BuildAnswerGuidance(
-                resp.Query,
-                qualityAdjustedMatches.Select(static item => item.Match).ToList(),
-                effectiveExtractionQualityByMatch),
+            Guidance: req.SourceBackedCanonical == true
+                ? null
+                : BuildAnswerGuidance(
+                    resp.Query,
+                    qualityAdjustedMatches.Select(static item => item.Match).ToList(),
+                    effectiveExtractionQualityByMatch),
             Diagnostics: resp.Diagnostics
         );
     }
@@ -512,7 +537,8 @@ page_rows AS (
     CASE
       WHEN COALESCE(pi.metadata ->> 'imageCount', '') ~ '^[0-9]{1,9}$' THEN (pi.metadata ->> 'imageCount')::int
       ELSE 0
-    END AS image_count
+    END AS image_count,
+    LOWER(COALESCE(pi.metadata -> 'extractionQuality' ->> 'manualReviewRecommended', ''))='true' AS published_manual_review
   FROM scoped_docs sd
   LEFT JOIN document_revisions rev
     ON rev.tenant_id=sd.tenant_id
@@ -563,7 +589,8 @@ page_quality AS (
     COUNT(*) FILTER (
       WHERE page_number IS NOT NULL
         AND (
-          ((word_count <= 0 OR char_count <= 0) AND chunk_count <= 0)
+          published_manual_review
+          OR ((word_count <= 0 OR char_count <= 0) AND chunk_count <= 0)
           OR (word_count > 0 AND char_count > 0 AND (word_count < 12 OR char_count < 80) AND chunk_count <= 0)
           OR (unit_count <= 0 AND chunk_count <= 0 AND (word_count >= 30 OR char_count >= 200))
         )
@@ -571,7 +598,8 @@ page_quality AS (
     COUNT(*) FILTER (
       WHERE page_number IS NOT NULL
         AND (
-          (image_count > 0 AND (word_count <= 0 OR char_count <= 0))
+          published_manual_review
+          OR (image_count > 0 AND (word_count <= 0 OR char_count <= 0))
           OR (image_count > 0 AND unit_count <= 0 AND chunk_count <= 0 AND word_count > 0 AND char_count > 0 AND (word_count < 12 OR char_count < 80))
           OR (unit_count <= 0 AND chunk_count <= 0 AND (word_count >= 30 OR char_count >= 200))
         )
@@ -1024,7 +1052,7 @@ WHERE d.tenant_id=@tenant
         return new RagDocumentLanguageInfo("und", null);
     }
 
-    internal static async Task<IReadOnlyDictionary<string, string>> LoadRagDocumentSourceHashesAsync(
+    internal static async Task<IReadOnlyDictionary<string, RagDocumentSourceIdentity>> LoadRagDocumentSourceIdentitiesAsync(
         NpgsqlDataSource ds,
         Guid tenantId,
         IReadOnlyList<RagMatch> matches,
@@ -1043,31 +1071,43 @@ WHERE d.tenant_id=@tenant
             .ToArray();
 
         if (docIds.Length == 0 && docPaths.Length == 0)
-            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            return new Dictionary<string, RagDocumentSourceIdentity>(StringComparer.OrdinalIgnoreCase);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
         const string sql = """
 SELECT
   d.doc_id::text AS "DocId",
   d.doc_path     AS "DocPath",
-  saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version) AS "SourceHash"
+  r.revision_id::text AS "RevisionId",
+  encode(r.source_hash, 'hex') AS "SourceHash"
 FROM documents d
+JOIN document_revisions r
+  ON r.tenant_id = d.tenant_id
+ AND r.doc_id = d.doc_id
+ AND r.indexed_version = d.indexed_version
 WHERE d.tenant_id=@tenant
+  AND d.status = 'indexed'
+  AND d.indexed_version > 0
   AND (d.doc_id = ANY(@docIds) OR d.doc_path = ANY(@docPaths));
 """;
 
-        var rows = await conn.QueryAsync<RagDocumentSourceHashRow>(new CommandDefinition(
+        var rows = await conn.QueryAsync<RagDocumentSourceIdentityRow>(new CommandDefinition(
             sql,
             new { tenant = tenantId, docIds, docPaths },
             cancellationToken: ct));
 
-        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var row in rows.Where(static row => !string.IsNullOrWhiteSpace(row.SourceHash)))
+        var result = new Dictionary<string, RagDocumentSourceIdentity>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in rows.Where(static row =>
+                     !string.IsNullOrWhiteSpace(row.RevisionId)
+                     && !string.IsNullOrWhiteSpace(row.SourceHash)))
         {
+            var identity = new RagDocumentSourceIdentity(
+                row.RevisionId!,
+                row.SourceHash!);
             void Add(string? key)
             {
                 if (!string.IsNullOrWhiteSpace(key) && !result.ContainsKey(key))
-                    result[key] = row.SourceHash!;
+                    result[key] = identity;
             }
 
             Add(row.DocId);
@@ -1556,6 +1596,37 @@ WHERE d.tenant_id=@tenant
         return result;
     }
 
+    internal static async Task<IReadOnlyDictionary<string, string>> LoadRagDocumentSourceHashesAsync(
+        NpgsqlDataSource ds,
+        Guid tenantId,
+        IReadOnlyList<RagMatch> matches,
+        CancellationToken ct)
+        => (await LoadRagDocumentSourceIdentitiesAsync(ds, tenantId, matches, ct))
+            .ToDictionary(
+                static pair => pair.Key,
+                static pair => pair.Value.SourceHash,
+                StringComparer.OrdinalIgnoreCase);
+
+    internal static RagDocumentSourceIdentity? ResolveDocumentSourceIdentity(
+        RagMatch match,
+        IReadOnlyDictionary<string, RagDocumentSourceIdentity> sourceIdentities)
+    {
+        var chunkKey = BuildCanonicalChunkIdentityKey(match.DocId, match.DocPath, match.ChunkId);
+        if (chunkKey is not null && sourceIdentities.TryGetValue(chunkKey, out var byChunk))
+            return byChunk;
+        if (Guid.TryParse(match.DocId, out var docId)
+            && sourceIdentities.TryGetValue(docId.ToString(), out var byDashedId))
+            return byDashedId;
+        if (Guid.TryParse(match.DocId, out docId)
+            && sourceIdentities.TryGetValue(docId.ToString("N"), out var byCompactId))
+            return byCompactId;
+        var pathKey = NormalizeDocumentSourceHashPathKey(match.DocPath);
+        if (!string.IsNullOrWhiteSpace(pathKey)
+            && sourceIdentities.TryGetValue(pathKey, out var byPath))
+            return byPath;
+        return null;
+    }
+
     private static bool HasRagRetrievalChunkQualityValue(RagItemRetrievalChunkQualityDto summary)
         => summary.TotalChunkCount.HasValue
            || summary.SearchableChunkCount.HasValue
@@ -1803,6 +1874,16 @@ ORDER BY d.doc_path;
         if (string.IsNullOrWhiteSpace(req.Query))
             throw new BadHttpRequestException("query is required");
 
+        if (req.SourceBackedCanonical == true)
+        {
+            return await SearchSourceBackedCanonicalCoreAsync(
+                ctx,
+                ds,
+                rag,
+                httpFactory,
+                req).ConfigureAwait(false);
+        }
+
         const string catalogOverviewFallbackQuery = "Which documents are available in this category?";
 
         var repairedQuery = RepairLikelyMojibakeText(req.Query);
@@ -2037,7 +2118,7 @@ ORDER BY d.doc_path;
         var (exactMatches, exactMs) = await MeasurePhaseAsync(
             phaseName: "retrieval_exact_match",
             retriever: "exact_match",
-            action: () => SearchExactMatchesAsync(ds, tenantId, req.Query, category, req.DocId, req.DocPath, ResolveExactMatchCandidateLimit(topK), ct, categoryPath),
+            action: () => SearchSourceBackedCanonicalExactMatchesAsync(ds, tenantId, req.Query, category, req.DocId, req.DocPath, ResolveExactMatchCandidateLimit(topK), ct, categoryPath),
             getReturnedCount: static matches => matches.Count);
         long titleAnchorRoutePhaseMs = 0;
         var (quotedTitleMatches, quotedTitleMs) = await MeasurePhaseAsync(
@@ -2447,6 +2528,33 @@ ORDER BY d.doc_path;
                 ? sparseMatches
                 : sparseMatches.Concat(explicitDocumentScopedMatches).ToList();
             effectiveSparseMatches = PreferRequestedPageWindowMatches(effectiveSparseMatches, requestedPageStart, requestedPageEnd);
+            var profileTitleOnlySparseMatches = !canSearchDocumentProfiles
+                ? effectiveSparseMatches
+                    .Where(match => ShouldRecoverDocumentProfileForProfileTitleOnlySparseMatch(req.Query, match))
+                    .ToList()
+                : [];
+            if (profileTitleOnlySparseMatches.Count > 0)
+            {
+                var (recoveredProfileMatches, recoveredProfileMs) = await SearchDocumentProfilesMeasuredAsync();
+                measuredProfilePhaseMs += recoveredProfileMs;
+                recoveredProfileMatches = recoveredProfileMatches
+                    .Where(profile => profileTitleOnlySparseMatches.Any(sparse => IsSameDocument(profile, sparse)))
+                    .ToList();
+
+                if (recoveredProfileMatches.Count > 0)
+                {
+                    profileMatches = recoveredProfileMatches;
+                    effectiveSparseMatches = effectiveSparseMatches
+                        .Where(match => !ShouldRecoverDocumentProfileForProfileTitleOnlySparseMatch(req.Query, match)
+                            || !recoveredProfileMatches.Any(profile => IsSameDocument(profile, match)))
+                        .ToList();
+                    diagnostics?.CapturePhase(
+                        "profile_title_only_recovery",
+                        "document_profile",
+                        recoveredProfileMs,
+                        recoveredProfileMatches);
+                }
+            }
             var effectiveDenseMatches = PreferRequestedPageWindowMatches(denseMatches, requestedPageStart, requestedPageEnd);
             var combinedTitleAnchorRouteMatches = quotedTitleAnchorMatches.Count == 0
                 ? titleAnchorRouteMatches
@@ -2495,7 +2603,8 @@ ORDER BY d.doc_path;
                         fusedMatches,
                         ct,
                         rerankMsRef: value => rerankMs = value,
-                        teiGovernor: teiGovernor),
+                        teiGovernor: teiGovernor,
+                        degradedRetrieverRef: MarkRetrieverDegraded),
                     getReturnedCount: static attempt => attempt.Matches.Count);
                 rerankPhaseMs += measuredRerankPhaseMs;
                 diagnostics?.CapturePhase("rerank_input", "tei_rerank", null, preRerankMatches);
@@ -5746,7 +5855,7 @@ ORDER BY d.doc_path;
             or "dossier" or "dossiers" or "personne" or "personnes" or "people" or "usuarios" or "utilisateurs"
             or "plan" or "planning" or "programme" or "schedule" or "agenda" or "rotation"
             or "semaine" or "weekly" or "semana" or "settimanale" or "woche"
-            or "menu" or "menus" or "complet" or "complete"
+            or "complet" or "complete"
             or "mode" or "modes" or "utilisant" or "using" or "concus" or "concu" or "designed"
             or "rends" or "robuste" or "pretendre" or "officiel" or "official"
             or "propose" or "proposer" or "recommend" or "recommande" or "conseille" or "choisir" or "choice"
@@ -6119,8 +6228,6 @@ ORDER BY d.doc_path;
                " versoes ",
                " versioni ",
                " versionen ",
-               " menu ",
-               " menus ",
                " selection ",
                " selectionne ",
                " selectionner ",
@@ -6240,8 +6347,6 @@ ORDER BY d.doc_path;
             " versionen ",
             " select ",
             " selected ",
-            " menu ",
-            " menus ",
             " adapte ",
             " adapter ",
             " adaptes ",
@@ -7564,6 +7669,16 @@ ORDER BY d.doc_path;
         => hasDocScope
             ? topK
             : Math.Clamp(topK * 4, Math.Max(topK, 32), 128);
+
+    internal static int ResolveTitleAnchorNavigationCatalogLimit(int topK)
+    {
+        if (topK <= 0)
+            return 0;
+
+        // Internal recovery windows can be larger than this catalog-route cap.
+        // Saturate explicitly instead of using topK as Math.Clamp's lower bound.
+        return topK >= 16 ? 48 : topK * 3;
+    }
 
     internal static int ResolveLocalTitleTokenSqlCandidateLimit(
         int routeLimit,
@@ -9089,6 +9204,13 @@ ORDER BY d.doc_path;
         if (LooksLikeShortAudienceConstrainedGenericFragment(query))
             return false;
 
+        var normalized = $" {FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query))} ";
+        if ((ContainsTechnicalEvidenceLookupIntent(normalized) && !HasReferenceLikeQueryToken(query))
+            || ContainsCustomerReplyLanguage(normalized))
+        {
+            return false;
+        }
+
         var tokens = ExtractTitlePruneTokens(query);
         if (tokens.Length is < 2 or > 6)
             return false;
@@ -9097,7 +9219,6 @@ ORDER BY d.doc_path;
         if (ExtractQuotedLookupPhrases(query).Count == 0 && ContainsExactTitleActionMarker(query))
             return false;
 
-        var normalized = $" {FoldDiacritics(ExactMatchEntryExtractor.NormalizeForLookup(query))} ";
         if (IsRecommendationSelectionQuery(normalized))
             return false;
         if (ContainsEnumerativeLookupIntent(normalized)
@@ -10350,11 +10471,30 @@ ORDER BY d.doc_path;
         });
     }
 
-    private static bool SelectionsCoverExplicitFileLookupGroups(string query, IReadOnlyList<RagMatch> selected)
+    internal static bool SelectionsCoverExplicitFileLookupGroups(string query, IReadOnlyList<RagMatch> selected)
     {
         var groups = ExtractExplicitFileLookupPhraseGroups(query);
         return groups.Count > 0
-               && groups.All(group => selected.Any(match => DocumentMatchesHint(group, match)));
+               && groups.All(group => selected.Any(match => ExplicitFileLookupGroupMatchesSelection(group, match)));
+    }
+
+    private static bool ExplicitFileLookupGroupMatchesSelection(
+        IReadOnlyList<string> group,
+        RagMatch match)
+    {
+        if (DocumentMatchesHint(group, match))
+            return true;
+
+        var explicitlyNamesFile = group.Any(phrase => phrase
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Any(IsFileExtensionToken));
+        if (explicitlyNamesFile)
+            return false;
+
+        var signalText = GetLexicalSignalText(match);
+        return group
+            .Where(LooksLikeStandardReferenceTitleLookupPhrase)
+            .Any(phrase => StandardReferencePhraseMatchesText(phrase, signalText));
     }
 
     private static IReadOnlyList<string> ExpandDocumentHintTokensFromCandidateDocs(
@@ -11857,7 +11997,8 @@ LIMIT @candidate_limit;
             var firstTokenIndex = leadingText.IndexOf(titleTokens[0], StringComparison.Ordinal);
             if (firstTokenIndex is < 0 or > 80)
                 continue;
-            if (!HasLeadTitleCue(leadingText, normalizedPhrase, firstTokenIndex))
+            if (!HasLeadTitleCue(leadingText, normalizedPhrase, firstTokenIndex)
+                && !HasUppercaseLeadTitleTokenCoverage(text, titleTokens))
                 continue;
 
             if (ContainsOrderedTitleTokenSubstringsInNormalizedText(leadingText, titleTokens, maxGapChars: 32)
@@ -11895,13 +12036,83 @@ LIMIT @candidate_limit;
         var paddedBefore = $" {before} ";
         return ContainsAny(
             paddedBefore,
-            " menu ",
             " entry ",
             " item ",
             " fiche ",
             " titre ",
             " title ",
             " > ");
+    }
+
+    private static bool HasUppercaseLeadTitleTokenCoverage(
+        string? rawText,
+        IReadOnlyList<string> titleTokens)
+    {
+        if (string.IsNullOrWhiteSpace(rawText) || titleTokens.Count < 2)
+            return false;
+
+        var normalizedTitleTokens = titleTokens
+            .Select(NormalizeForLexicalSignal)
+            .Where(static token => !string.IsNullOrWhiteSpace(token))
+            .Select(static token => token.Replace(" ", string.Empty))
+            .Take(8)
+            .ToArray();
+        if (normalizedTitleTokens.Length < 2)
+            return false;
+
+        var leadingRawText = rawText.Length <= 220 ? rawText : rawText[..220];
+        var rawTokens = Regex.Matches(
+            leadingRawText,
+            @"[\p{L}\p{N}]+",
+            RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
+        var matchedTitleTokenCount = 0;
+
+        foreach (Match rawTokenMatch in rawTokens)
+        {
+            var rawToken = rawTokenMatch.Value;
+            var letterCount = rawToken.Count(char.IsLetter);
+            var uppercaseLetterCount = rawToken.Count(char.IsUpper);
+            if (letterCount < 3 || uppercaseLetterCount < Math.Max(2, letterCount - 1))
+                continue;
+
+            var remaining = NormalizeForLexicalSignal(rawToken).Replace(" ", string.Empty);
+            var candidateMatchedCount = 0;
+            while (matchedTitleTokenCount + candidateMatchedCount < normalizedTitleTokens.Length)
+            {
+                var expectedToken = normalizedTitleTokens[matchedTitleTokenCount + candidateMatchedCount];
+                if (!remaining.StartsWith(expectedToken, StringComparison.Ordinal))
+                    break;
+
+                remaining = remaining[expectedToken.Length..];
+                candidateMatchedCount++;
+                if (remaining.Length == 0 || remaining.All(char.IsDigit))
+                    break;
+
+                var joinedConnector = TitleConnectorTokens
+                    .Where(static connector => connector.Length <= 4)
+                    .OrderByDescending(static connector => connector.Length)
+                    .FirstOrDefault(connector => remaining.StartsWith(connector, StringComparison.Ordinal));
+                if (string.IsNullOrWhiteSpace(joinedConnector))
+                    continue;
+
+                remaining = remaining[joinedConnector.Length..];
+                if (remaining.Length == 0 || remaining.All(char.IsDigit))
+                    break;
+            }
+
+            if (candidateMatchedCount == 0
+                || (remaining.Length > 0 && !remaining.All(char.IsDigit)))
+            {
+                continue;
+            }
+
+            matchedTitleTokenCount += candidateMatchedCount;
+            if (matchedTitleTokenCount == normalizedTitleTokens.Length)
+                return true;
+        }
+
+        return false;
     }
 
     internal static bool HasQuotedTitlePlacementEvidence(IReadOnlyList<string> quotedPhrases, RagMatch match)
@@ -12597,7 +12808,7 @@ LIMIT @candidate_limit;
                 || !string.IsNullOrWhiteSpace(normalizedCategoryPath)
                 || normalizedDocId.HasValue
                 || !string.IsNullOrWhiteSpace(normalizedDocPath));
-        var navigationCatalogLimit = Math.Clamp(topK * 3, topK, 48);
+        var navigationCatalogLimit = ResolveTitleAnchorNavigationCatalogLimit(topK);
 
         await using var conn = await ds.OpenConnectionAsync(ct);
         const string sql = """
@@ -12643,7 +12854,16 @@ anchor_routes AS (
         d.file_mtime,
         d.revision_id,
         a.title AS route_title,
-        'title_anchor_route'::text AS route_source,
+        CASE
+            WHEN a.source_kind IN ('section', 'content_card')
+             AND COALESCE(phrase_match.exact_phrase_hit, 0) = 1
+             AND a.retrieval_chunk_id IS NULL
+             AND a.page_start IS NOT NULL
+             AND target.page_start <= COALESCE(a.page_end, a.page_start)
+             AND target.page_end >= a.page_start
+                THEN 'title_anchor_exact_page_route'
+            ELSE 'title_anchor_route'
+        END::text AS route_source,
         target.retrieval_chunk_id AS route_chunk_id,
         LEAST(
             1.02,
@@ -12693,13 +12913,15 @@ anchor_routes AS (
         WHERE token = ANY(a.title_tokens)
     ) token_match
     CROSS JOIN LATERAL (
-        SELECT MAX(CASE
-            WHEN title_search.normalized_title = qp.phrase THEN 0.34
-            WHEN title_search.normalized_title LIKE '%' || qp.phrase || '%' THEN 0.24
-            WHEN qp.phrase LIKE '%' || title_search.normalized_title || '%' THEN 0.20
-            WHEN similarity(title_search.normalized_title, qp.phrase) >= @fuzzy_title_similarity_min THEN 0.26
-            ELSE 0.0
-        END) AS phrase_score
+        SELECT
+            MAX(CASE
+                WHEN title_search.normalized_title = qp.phrase THEN 0.34
+                WHEN title_search.normalized_title LIKE '%' || qp.phrase || '%' THEN 0.24
+                WHEN qp.phrase LIKE '%' || title_search.normalized_title || '%' THEN 0.20
+                WHEN similarity(title_search.normalized_title, qp.phrase) >= @fuzzy_title_similarity_min THEN 0.26
+                ELSE 0.0
+            END) AS phrase_score,
+            MAX(CASE WHEN title_search.normalized_title = qp.phrase THEN 1 ELSE 0 END)::int AS exact_phrase_hit
         FROM query_phrases qp
         WHERE title_search.normalized_title = qp.phrase
            OR title_search.normalized_title LIKE '%' || qp.phrase || '%'
@@ -12707,7 +12929,7 @@ anchor_routes AS (
            OR similarity(title_search.normalized_title, qp.phrase) >= @fuzzy_title_similarity_min
     ) phrase_match
     JOIN LATERAL (
-        SELECT rc.retrieval_chunk_id
+        SELECT rc.retrieval_chunk_id, rc.page_start, rc.page_end
         FROM retrieval_chunks rc
         CROSS JOIN LATERAL (
             SELECT
@@ -13176,7 +13398,7 @@ ranked_routes AS (
             PARTITION BY routes.route_chunk_id
             ORDER BY
                 routes.route_rank DESC,
-                CASE routes.route_source WHEN 'title_anchor_route' THEN 0 ELSE 1 END,
+                CASE WHEN routes.route_source IN ('title_anchor_route', 'title_anchor_exact_page_route') THEN 0 ELSE 1 END,
                 routes.route_title ASC
         ) AS route_rn
     FROM routes
@@ -13354,6 +13576,32 @@ LIMIT @candidate_limit;
                 .Where(static match => !IsNavigationRouteMatch(match) || NavigationRouteHasTargetTitleEvidence(match))
                 .Where(static match => !IsTitleAnchorRouteMatch(match) || TitleAnchorRouteHasTargetTitleEvidence(match))
                 .ToList();
+
+            var exactPageAnchorsByDoc = matches
+                .Where(IsExactPageTitleAnchorRouteMatch)
+                .GroupBy(static match => match.DocId ?? string.Empty, StringComparer.Ordinal)
+                .ToDictionary(
+                    static group => group.Key,
+                    static group => group.ToArray(),
+                    StringComparer.Ordinal);
+            if (exactPageAnchorsByDoc.Count > 0)
+            {
+                matches.RemoveAll(match =>
+                {
+                    if (!IsTitleAnchorRouteMatch(match)
+                        || IsExactPageTitleAnchorRouteMatch(match)
+                        || !exactPageAnchorsByDoc.TryGetValue(match.DocId ?? string.Empty, out var exactPageAnchors))
+                    {
+                        return false;
+                    }
+
+                    return !exactPageAnchors.Any(exactPageAnchor => PageRangesOverlap(
+                        match.PageStart,
+                        match.PageEnd,
+                        exactPageAnchor.PageStart,
+                        exactPageAnchor.PageEnd));
+                });
+            }
 
             return await AttachDocumentProfileContentCardsAsync(ds, tenantId, matches, tokenSource, ct);
         }
@@ -13665,7 +13913,8 @@ LIMIT @candidate_limit;
         Action<int> qdrantStatusRef,
         string? categoryPath = null,
         Action<string, string?>? degradedRetrieverRef = null,
-        TeiWorkloadGovernor? teiGovernor = null)
+        TeiWorkloadGovernor? teiGovernor = null,
+        bool attachContentCards = true)
     {
         var tei = httpFactory.CreateClient("tei");
         tei.BaseAddress = new Uri(rag.EmbeddingsBaseUrl);
@@ -13774,6 +14023,18 @@ LIMIT @candidate_limit;
                 .ToList();
             var filtered = await FilterMatchesAgainstActiveDocumentVersionsAsync(ds, tenantId, embeddingCompatibleMatches, ct, categoryPath);
             var ranked = RerankDenseMatches(filtered);
+            if (!attachContentCards)
+            {
+                return ranked
+                    .Take(candidates)
+                    .Select(static match => match with
+                    {
+                        MatchedContentCards = null,
+                        ProfileSignals = null
+                    })
+                    .ToList();
+            }
+
             var contentCardAttachmentLimit = ResolveDenseContentCardAttachmentLimit(candidates);
             if (ranked.Count == 0 || contentCardAttachmentLimit <= 0)
                 return ranked.Take(candidates).ToList();
@@ -13845,7 +14106,8 @@ LIMIT @candidate_limit;
         IReadOnlyList<RagMatch> candidates,
         CancellationToken ct,
         Action<long> rerankMsRef,
-        TeiWorkloadGovernor? teiGovernor = null)
+        TeiWorkloadGovernor? teiGovernor = null,
+        Action<string, string?>? degradedRetrieverRef = null)
     {
         if (!rag.EnableRerank || candidates.Count <= 1)
         {
@@ -13874,8 +14136,13 @@ LIMIT @candidate_limit;
             var reranked = await TeiClient.RerankAsync(tei, rag.RerankModel, query, texts, ct);
             return new RerankAttempt(ApplyRerankScores(candidates, reranked, rerankSlice.Count), Applied: true);
         }
-        catch
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            degradedRetrieverRef?.Invoke("tei_rerank", FormatRetrieverError(ex));
             return new RerankAttempt(candidates.ToList(), Applied: false);
         }
         finally
@@ -17381,6 +17648,9 @@ FROM scoped_revisions;
         if (tokens.Length == 0)
             return true;
 
+        if (LooksLikeSubjectlessInstructionFragmentTitle(normalized))
+            return true;
+
         var first = tokens[0];
         if (tokens.Length >= 4
             && ContainsAny(
@@ -17418,6 +17688,50 @@ FROM scoped_revisions;
         }
 
         return false;
+    }
+
+    private static bool LooksLikeSubjectlessInstructionFragmentTitle(string normalizedTitle)
+    {
+        var value = CollapseWhitespace(normalizedTitle);
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var leadMatch = Regex.Match(
+            value,
+            @"^(?<lead>\p{L}{4,24})(?:\s+(?<rest>.+))?$",
+            RegexOptions.CultureInvariant);
+        if (!leadMatch.Success || string.IsNullOrWhiteSpace(leadMatch.Groups["rest"].Value))
+            return false;
+
+        var lead = leadMatch.Groups["lead"].Value;
+        var rest = CollapseWhitespace(leadMatch.Groups["rest"].Value);
+        var looksImperative = Regex.IsMatch(lead, @"ez$", RegexOptions.CultureInvariant);
+        var looksInfinitive = Regex.IsMatch(lead, @"(?:er|ir|re)$", RegexOptions.CultureInvariant);
+        if (!looksImperative && !looksInfinitive)
+            return false;
+
+        var startsWithDirectObject = Regex.IsMatch(
+            rest,
+            @"^(?:l|le|la|les|un|une|des|du|de\s+la|d|the|a|an|some)\b",
+            RegexOptions.CultureInvariant);
+        var startsWithPreposition = Regex.IsMatch(
+            rest,
+            @"^(?:a|au|aux|avec|dans|en|sur|sous|pour|to|into|with|in|on|over|under)\b",
+            RegexOptions.CultureInvariant);
+        if (!startsWithDirectObject && !startsWithPreposition)
+            return false;
+
+        var normalizedRest = NormalizeForLexicalSignal(rest);
+        if (string.IsNullOrWhiteSpace(normalizedRest))
+            return false;
+
+        var restTokens = normalizedRest
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(static token => token.Length >= 2)
+            .Take(5)
+            .ToArray();
+
+        return restTokens.Length is >= 1 and <= 4;
     }
 
     private static bool LooksLikeGenericContentSectionCardTitle(string title)
@@ -17854,7 +18168,12 @@ FROM scoped_revisions;
 
     private static IReadOnlyList<RagItemContentCardDto>? BuildMatchedContentCardDtos(RagMatch match)
     {
-        var cards = match.MatchedContentCards;
+        // Some retrieval branches join profile cards before final fusion while
+        // others return a direct content chunk afterwards. Apply the same
+        // mechanical same-chunk projection at the response boundary so every
+        // returned content hit exposes equivalent title/text/page provenance.
+        var cards = match.MatchedContentCards
+                    ?? BuildChunkSectionTitleFallbackMatchedContentCards(match);
         if (cards is null || cards.Count == 0)
             return null;
 
@@ -18308,7 +18627,6 @@ FROM scoped_revisions;
             " elenco ",
             " elenca ",
             " trova ");
-
     private static bool ContainsCorpusExistenceIntent(string normalized)
         => ContainsAny(normalized,
             " est ce qu il y a ",
@@ -18385,7 +18703,10 @@ FROM scoped_revisions;
         foreach (var quotedPhrase in ExtractQuotedLookupPhrases(query))
             AddFocusedLookupPhrase(phrases, quotedPhrase, query, allowImplicitDocumentHintTrim: false);
 
-        var surface = FoldDiacritics(query).ToLowerInvariant();
+        // Keep casing until the target has been extracted. A terminal upper-case
+        // token can be a document identifier (for example "Mode A"), whereas
+        // the same lower-case token is often only an incomplete article.
+        var surface = FoldDiacritics(query);
         surface = Regex.Replace(surface, @"[\u2010-\u2015_\-]+", " ", RegexOptions.CultureInvariant);
         surface = Regex.Replace(surface, @"['\u2019]", " ", RegexOptions.CultureInvariant);
         surface = Regex.Replace(surface, @"\s+", " ", RegexOptions.CultureInvariant).Trim();
@@ -18752,7 +19073,8 @@ FROM scoped_revisions;
         }
 
         var phrase = string.Join(' ', tokens);
-        if (IsFocusedLookupMetaInstructionPhrase(phrase))
+        if (IsFocusedLookupMetaInstructionPhrase(phrase)
+            && !HasExplicitShortIdentifierSuffix(candidate, tokens))
             return null;
 
         return phrase.Length is >= 4 and <= 80 ? phrase : null;
@@ -18856,8 +19178,9 @@ FROM scoped_revisions;
         if (string.IsNullOrWhiteSpace(phrase))
             return false;
 
-        var normalized = $" {NormalizeQuery(FoldDiacritics(phrase).ToLowerInvariant())} ";
-        return ContainsAny(
+        var normalizedCore = NormalizeQuery(FoldDiacritics(phrase).ToLowerInvariant());
+        var normalized = $" {normalizedCore} ";
+        if (ContainsAny(
             normalized,
             " sans inventer ",
             " sans invention ",
@@ -18883,8 +19206,26 @@ FROM scoped_revisions;
             " come adattarlo ",
             " wie anpassen ",
             " wie man es anpasst ",
-            " anpassung ");
+            " anpassung "))
+        {
+            return true;
+        }
+
+        var tokens = normalizedCore.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (tokens.Length == 0)
+            return false;
+        if (tokens[^1] is "un" or "une" or "des" or "du" or "de" or "the" or "a" or "an" or "some")
+            return true;
+
+        return tokens.All(static token => FocusedLookupMetaOnlyTokens.Contains(token));
     }
+
+    private static readonly HashSet<string> FocusedLookupMetaOnlyTokens = new(StringComparer.Ordinal)
+    {
+        "a", "aller", "an", "aussi", "ca", "ce", "cela", "comment", "de", "demander", "des", "du",
+        "ecrire", "elle", "elles", "expliquer", "faut", "grand", "grande", "grands", "grandes", "il", "ils",
+        "lire", "lui", "leur", "pour", "resumer", "simplement", "some", "the", "un", "une"
+    };
 
     private static bool IsFocusedLookupLeadingEdgeToken(string token)
         => TitleConnectorTokens.Contains(token)
@@ -18929,6 +19270,32 @@ FROM scoped_revisions;
            && !LexicalStopwords.Contains(tokens[^1])
            && !SpecificAnchorStopwords.Contains(tokens[^1])
            && !PrimaryAnchorStopwords.Contains(tokens[^1]);
+
+    private static bool HasExplicitShortIdentifierSuffix(
+        string candidate,
+        IReadOnlyList<string> normalizedTokens)
+    {
+        if (normalizedTokens.Count is < 3 or > 8
+            || normalizedTokens.Take(normalizedTokens.Count - 1).Count(IsFocusedLookupSignalToken) < 2)
+        {
+            return false;
+        }
+
+        var rawTokens = Regex.Matches(
+                candidate,
+                @"[\p{L}\p{Nd}]+",
+                RegexOptions.CultureInvariant,
+                TimeSpan.FromMilliseconds(100))
+            .Select(static match => match.Value)
+            .ToArray();
+        if (rawTokens.Length == 0)
+            return false;
+
+        var suffix = rawTokens[^1];
+        return suffix.Length is >= 1 and <= 3
+            && suffix.Any(char.IsLetterOrDigit)
+            && suffix.All(static value => !char.IsLetter(value) || char.IsUpper(value));
+    }
 
     private const string FocusedLookupArticlePattern =
         @"(?:(?:de\s+la|de\s+l|les|des|the|some|une|un|du|le|la|l|an|a|das|der|die|den|dem|ein|eine|einen|einem|einer)\b|l['\u2019])\s+";
@@ -19312,11 +19679,67 @@ GROUP BY d.doc_id;
                     return match with { MatchedContentCards = cards };
 
                 var routeTitleCards = BuildRouteTitleFallbackMatchedContentCards(match);
-                return routeTitleCards is null
+                if (routeTitleCards is not null)
+                    return match with { MatchedContentCards = routeTitleCards };
+
+                var chunkSectionTitleCards = BuildChunkSectionTitleFallbackMatchedContentCards(match);
+                return chunkSectionTitleCards is null
                     ? match
-                    : match with { MatchedContentCards = routeTitleCards };
+                    : match with { MatchedContentCards = chunkSectionTitleCards };
             })
             .ToList();
+    }
+
+    internal static IReadOnlyList<RagMatchedContentCard>? BuildChunkSectionTitleFallbackMatchedContentCards(
+        RagMatch match)
+    {
+        if (IsDocumentProfileMatch(match)
+            || LooksLikeNavigationalChunk(match)
+            || match.PageStart is not > 0
+            || string.IsNullOrWhiteSpace(match.SectionTitle)
+            || string.IsNullOrWhiteSpace(match.Text))
+        {
+            return null;
+        }
+
+        var title = CollapseWhitespace(match.SectionTitle);
+        if (!LooksLikeConcreteMatchedContentCardTitle(title))
+            return null;
+
+        var sourceText = CollapseWhitespace(match.Text);
+        if (sourceText.Length < 40)
+            return null;
+        if (sourceText.Length > 1600)
+            sourceText = sourceText[..1600].TrimEnd() + "...";
+
+        // This is a mechanical same-chunk projection only. It makes an already
+        // extracted title, source span, document and page available to the
+        // downstream LLM; it does not approve the title as a usable answer item.
+        var sourceCardId = IdUtil.DeterministicGuid(
+            string.Join(
+                '|',
+                "retrieval-chunk-content-card-v1",
+                match.DocId,
+                match.DocPath,
+                match.PageStart,
+                match.PageEnd,
+                title));
+        var evidence = JsonSerializer.SerializeToElement(new
+        {
+            schemaVersion = "content_card_evidence_v1",
+            sourceText
+        });
+        return
+        [
+            new RagMatchedContentCard(
+                Title: title,
+                ContentCardId: sourceCardId.ToString(),
+                PageStart: match.PageStart,
+                PageEnd: match.PageEnd,
+                Kind: "chunk_section_title",
+                Signals: ["chunk_section_title", "same_chunk_source_text"],
+                Evidence: evidence)
+        ];
     }
 
     internal static IReadOnlyList<RagMatchedContentCard>? BuildRouteTitleFallbackMatchedContentCards(RagMatch match)
@@ -24213,6 +24636,13 @@ LIMIT @top_k;
         if (string.Equals(ResolveRetriever(match), "standard_reference_document_name", StringComparison.Ordinal))
             return false;
 
+        var routeTitle = ExtractMatchedRouteOrProfileTitle(match.EmbedText);
+        if (!string.IsNullOrWhiteSpace(routeTitle)
+            && LooksLikeProceduralFragmentContentCardTitle(routeTitle))
+        {
+            return true;
+        }
+
         if (IsDirectTitleTokenRouteMatch(match)
             && !DirectTitleTokenRouteHasStrongLeadEvidence(match))
         {
@@ -25902,6 +26332,8 @@ LIMIT @top_k;
     {
         if (selected.Count == 0 || !ShouldConstrainPreciseTitleLookup(query))
             return;
+        if (ContainsSimpleDocumentSelectionQuestion(NormalizeQueryForGuidance(query)))
+            return;
         if (ShouldUseCatalogDocumentOverviewFallback(query))
             return;
 
@@ -27242,6 +27674,7 @@ LIMIT @top_k;
         [
             "Matched profile title:",
             "Matched quoted title:",
+            "Matched title_anchor_exact_page_route:",
             "Matched title_anchor_route:",
             "Matched linked_anchor_title:",
             "Matched navigation_route:",
@@ -27866,9 +28299,41 @@ LIMIT @top_k;
             return MatchedQuotedTitleHasTargetTitleEvidence(match);
 
         return match.EmbedText.StartsWith("Matched profile title:", StringComparison.Ordinal)
+            || match.EmbedText.StartsWith("Matched title_anchor_exact_page_route:", StringComparison.Ordinal)
             || match.EmbedText.StartsWith("Matched title_anchor_route:", StringComparison.Ordinal)
             || match.EmbedText.StartsWith("Matched linked_anchor_title:", StringComparison.Ordinal)
             || match.EmbedText.StartsWith("Matched fuzzy_title_lead:", StringComparison.Ordinal);
+    }
+
+    internal static bool ShouldRecoverDocumentProfileForProfileTitleOnlySparseMatch(
+        string query,
+        RagMatch match)
+    {
+        if (!string.Equals(ResolveRetriever(match), "sparse_bm25", StringComparison.Ordinal)
+            || string.IsNullOrWhiteSpace(match.EmbedText)
+            || !match.EmbedText.StartsWith("Matched profile title:", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var queryTokens = ExtractLexicalQueryTokens(query);
+        if (queryTokens.Count < 2)
+            return false;
+
+        var normalizedQuery = NormalizeForLexicalSignal(query);
+        var matchedTitles = ExtractMatchedRouteOrProfileTitle(match.EmbedText)?
+            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(NormalizeForLexicalSignal)
+            .Where(static title => !string.IsNullOrWhiteSpace(title))
+            .ToArray() ?? [];
+        if (string.IsNullOrWhiteSpace(normalizedQuery)
+            || !matchedTitles.Contains(normalizedQuery, StringComparer.Ordinal))
+        {
+            return false;
+        }
+
+        var normalizedDirectEvidence = NormalizeForLexicalSignal(GetDirectChunkSignalText(match));
+        return !normalizedDirectEvidence.Contains(normalizedQuery, StringComparison.Ordinal);
     }
 
     internal static bool MatchedQuotedTitleHasTargetTitleEvidence(RagMatch match)
@@ -27920,6 +28385,9 @@ LIMIT @top_k;
     internal static bool TitleAnchorRouteHasTargetTitleEvidence(RagMatch match)
     {
         if (!IsTitleAnchorRouteMatch(match))
+            return true;
+
+        if (IsExactPageTitleAnchorRouteMatch(match))
             return true;
 
         return RouteHasTargetTitleEvidence(match);
@@ -28005,7 +28473,8 @@ LIMIT @top_k;
             var leadWindow = normalizedText.Length <= 140 ? normalizedText : normalizedText[..140];
             var leadWindowTitleTokenPosition = leadWindow.IndexOf(titleTokens[0], StringComparison.Ordinal);
             return leadWindowTitleTokenPosition >= 0
-                && HasLeadTitleCue(leadWindow, normalizedRouteTitle, leadWindowTitleTokenPosition)
+                && (HasLeadTitleCue(leadWindow, normalizedRouteTitle, leadWindowTitleTokenPosition)
+                    || HasUppercaseLeadTitleTokenCoverage(match.Text, titleTokens))
                 && ContainsTitleLikeLexicalSequence(leadWindow, titleTokens)
                 && LooksLikeStructuredAnswerChunk(match);
         }
@@ -28228,7 +28697,11 @@ LIMIT @top_k;
     private static bool IsTitleAnchorRouteMatch(RagMatch match)
         => string.Equals(ResolveRetriever(match), "title_anchor_route", StringComparison.Ordinal)
            || string.Equals(match.EmbeddingBasis, "title_anchor_route_v1", StringComparison.Ordinal)
+           || (match.EmbedText?.StartsWith("Matched title_anchor_exact_page_route:", StringComparison.Ordinal) ?? false)
            || (match.EmbedText?.StartsWith("Matched title_anchor_route:", StringComparison.Ordinal) ?? false);
+
+    private static bool IsExactPageTitleAnchorRouteMatch(RagMatch match)
+        => match.EmbedText?.StartsWith("Matched title_anchor_exact_page_route:", StringComparison.Ordinal) ?? false;
 
     private static bool IsExplicitDocumentTitleRouteMatch(RagMatch match)
         => string.Equals(ResolveRetriever(match), "explicit_document_title_route", StringComparison.Ordinal)
@@ -31429,7 +31902,7 @@ LIMIT @top_k;
                 " this source ",
                 " this version "))
         {
-            return true;
+            return !HasSpecificUnscopedDocumentTopicAnchor(normalized);
         }
 
         var statusTerms = ExtractDocumentStatusOperandLookupTerms(query);
@@ -31441,6 +31914,56 @@ LIMIT @top_k;
             return false;
 
         return statusTerms.All(static term => term is "ac" or "a1");
+    }
+
+    private static bool HasSpecificUnscopedDocumentTopicAnchor(string normalizedQuery)
+    {
+        if (string.IsNullOrWhiteSpace(normalizedQuery))
+            return false;
+
+        var meaningfulTokens = normalizedQuery
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(static token => token.Length >= 5)
+            .Where(static token => token is not "document"
+                and not "documents"
+                and not "fichier"
+                and not "fichiers"
+                and not "source"
+                and not "sources"
+                and not "version"
+                and not "versions"
+                and not "ancienne"
+                and not "ancien"
+                and not "absente"
+                and not "absent"
+                and not "dossier"
+                and not "comparer"
+                and not "compare"
+                and not "comparison"
+                and not "comparaison"
+                and not "quelles"
+                and not "quelle"
+                and not "quels"
+                and not "client"
+                and not "comprendre"
+                and not "comment"
+                and not "quelque"
+                and not "chose"
+                and not "dessus"
+                and not "autour"
+                and not "citees"
+                and not "citer"
+                and not "which"
+                and not "what"
+                and not "where"
+                and not "about"
+                and not "understand"
+                and not "missing")
+            .Distinct(StringComparer.Ordinal)
+            .Take(2)
+            .Count();
+
+        return meaningfulTokens >= 2;
     }
 
     private static bool HasSpecificUnscopedStatusTopicAnchor(string normalizedQuery)
@@ -34010,7 +34533,11 @@ LIMIT @top_k;
 
         var isStrongReferenceHit =
             string.Equals(top.ChunkType, "exact_match_entry", StringComparison.Ordinal)
-            || string.Equals(top.ChunkType, "document_metadata_ref", StringComparison.Ordinal);
+            || string.Equals(top.ChunkType, "document_metadata_ref", StringComparison.Ordinal)
+            || (top.ChunkIndex is >= 0
+                && Guid.TryParse(top.ChunkId, out _)
+                && !string.IsNullOrWhiteSpace(top.Text)
+                && !IsDocumentProfileMatch(top));
 
         if (!isStrongReferenceHit || top.Score < 0.97)
             return false;
@@ -34099,6 +34626,7 @@ LIMIT @top_k;
 
         if (ShouldPreferComparativeDocumentDiversity(query)
             || ContainsDocumentOverviewIntent(query)
+            || ContainsSimpleDocumentSelectionQuestion(normalized)
             || ContainsExplicitBroadScopedSynthesisIntent(normalized)
             || (ContainsSituationalBroadSelectionIntent(normalized) && focusedPhrases.Length == 0)
             || ContainsGuidanceOrAdviceSelectionIntent(normalized)
@@ -34326,6 +34854,7 @@ LIMIT @top_k;
         {
             "exact_match_v1" => "exact_match",
             "sparse_bm25_v1" => "sparse_bm25",
+            "source_backed_sparse_fts_v1" => "sparse_bm25",
             "short_technical_phrase_v1" => "sparse_bm25",
             "document_profile_v1" => "document_profile",
             "linked_context_v1" => "linked_context",
@@ -34379,7 +34908,11 @@ LIMIT @top_k;
     }
 
     private static int GetRetrieverPriority(RagMatch match)
-        => ResolveRetriever(match) switch
+    {
+        if (IsWeakResolvedRouteTarget(match))
+            return 1;
+
+        return ResolveRetriever(match) switch
         {
             "exact_match" => 5,
             "explicit_document_title_route" => 5,
@@ -34395,6 +34928,7 @@ LIMIT @top_k;
             "dense_qdrant" => 2,
             _ => 1
         };
+    }
 
     private static readonly HashSet<string> LexicalStopwords = new(StringComparer.Ordinal)
     {
@@ -34551,16 +35085,6 @@ LIMIT @top_k;
         var matchedContext = BuildMatchedRetrievalContext(matches);
         var matchedDocHints = matchedContext.DocHints;
 
-        if (matches.Count == 0)
-        {
-            return new RagAnswerGuidanceDto(
-                Behavior: "answer_with_caveat",
-                Reason: "no_relevant_source_found",
-                ResponseShape: "no_source_match",
-                QualificationNote: BuildNoRelevantSourceNote(guidanceLanguage),
-                MatchedDocHints: matchedDocHints);
-        }
-
         if (ContainsPlaceholderStandard(normalized))
         {
             return new RagAnswerGuidanceDto(
@@ -34568,6 +35092,16 @@ LIMIT @top_k;
                 Reason: "missing_standard_identifier",
                 ResponseShape: "clarify",
                 ClarifyingQuestion: BuildClarifyingQuestion(normalized, matchedContext, "missing_standard_identifier", guidanceLanguage),
+                MatchedDocHints: matchedDocHints);
+        }
+
+        if (matches.Count == 0)
+        {
+            return new RagAnswerGuidanceDto(
+                Behavior: "answer_with_caveat",
+                Reason: "no_relevant_source_found",
+                ResponseShape: "no_source_match",
+                QualificationNote: BuildNoRelevantSourceNote(guidanceLanguage),
                 MatchedDocHints: matchedDocHints);
         }
 
@@ -36144,10 +36678,15 @@ public sealed class RagDocumentLanguageRow
     public string? RunDocumentLanguage { get; set; }
 }
 
-public sealed class RagDocumentSourceHashRow
+public sealed record RagDocumentSourceIdentity(
+    string RevisionId,
+    string SourceHash);
+
+public sealed class RagDocumentSourceIdentityRow
 {
     public string DocId { get; set; } = "";
     public string DocPath { get; set; } = "";
+    public string? RevisionId { get; set; }
     public string? SourceHash { get; set; }
 }
 

@@ -125,6 +125,7 @@ public sealed partial class MainWindow
             var msgs = await _api.ListMessagesAsync(_sessionId!, ct);
             await PreRefreshTrackedMessagesAsync(msgs, _sessionId, ct);
             foreach (var m in msgs) _messages.Add(m);
+            _agent?.RehydrateConversationState(_messages);
             await RehydrateTrackedJobsForCurrentSessionAsync(refreshBeforeLoop: false);
             RebindDirectCommandTrackersForCurrentSession();
 

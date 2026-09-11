@@ -59,6 +59,7 @@ public sealed class ToolContractParityTests
     [Theory]
     [InlineData("documents.categories")]
     [InlineData("documents.navigation")]
+    [InlineData("documents.content_cards")]
     [InlineData("documents.context")]
     [InlineData("support.bundle")]
     [InlineData("diagnostic.performance")]

@@ -90,8 +90,10 @@ LEFT JOIN LATERAL (
         )
       )
       OR (
-        d.status='error'
+        d.status IN ('error', 'indexed')
+        AND COALESCE(d.auto_ingest_paused, false)
         AND pr.status='failed'
+        AND pr.ingestion_version=d.ingestion_version
         AND pr.indexed_version_after=COALESCE(d.indexed_version, 0)
         AND (
           LOWER(COALESCE(NULLIF(pr.payload ->> 'documentIndexable', ''), ''))='false'

@@ -66,7 +66,15 @@ public sealed partial class SourcesCardsControl : UserControl
             return;
 
         var page = s.PageStart ?? s.PageEnd;
-        var result = await DocumentLauncher.TryOpenAsync(s.DocPath, page);
+        var result = await DocumentLauncher.TryOpenAsync(
+            s.DocPath,
+            page,
+            s.SourceHash,
+            s.RevisionId,
+            s.ChunkId,
+            s.AnchorId,
+            s.ContentCardId,
+            requireExactSourceHash: true);
         if (result.Success)
             return;
 
@@ -182,6 +190,8 @@ public sealed partial class SourcesCardsControl : UserControl
     internal static string GetMetadataLabel(SourceCard source, string? uiLanguage = null)
     {
         var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(source.EvidenceId))
+            parts.Add($"[{source.EvidenceId.Trim()}]");
         var docLanguage = LocalizedStrings.LocalizedSourceLanguageName(source.DocLanguage, uiLanguage);
         var profileLanguage = LocalizedStrings.LocalizedSourceLanguageName(source.ProfileLanguage, uiLanguage);
         var normalizedDocLanguage = LocalizedStrings.NormalizeSourceLanguageIdentifier(source.DocLanguage);

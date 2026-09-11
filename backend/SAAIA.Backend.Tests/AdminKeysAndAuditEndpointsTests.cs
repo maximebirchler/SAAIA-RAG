@@ -69,13 +69,13 @@ WHERE tenant_id=@tenant AND api_key_id=@id;
         using var listedJson = await ExecuteAnonymousAsync(listResult, listCtx);
         var listed = Assert.Single(listedJson.RootElement.EnumerateArray());
 
-        Assert.Equal(created.ApiKeyId, listed.GetProperty("apiKeyId").GetGuid());
-        Assert.Equal("Ops Admin", listed.GetProperty("label").GetString());
-        Assert.True(listed.GetProperty("isAdmin").GetBoolean());
-        Assert.Equal(ApiKeyAuth.Prefix(created.ApiKey), listed.GetProperty("keyPrefix").GetString());
-        Assert.True(listed.TryGetProperty("createdAt", out _));
-        Assert.True(listed.TryGetProperty("revokedAt", out _));
-        Assert.True(listed.TryGetProperty("lastUsedAt", out _));
+        Assert.Equal(created.ApiKeyId, listed.GetProperty("ApiKeyId").GetGuid());
+        Assert.Equal("Ops Admin", listed.GetProperty("Label").GetString());
+        Assert.True(listed.GetProperty("IsAdmin").GetBoolean());
+        Assert.Equal(ApiKeyAuth.Prefix(created.ApiKey), listed.GetProperty("KeyPrefix").GetString());
+        Assert.True(listed.TryGetProperty("CreatedAt", out _));
+        Assert.True(listed.TryGetProperty("RevokedAt", out _));
+        Assert.True(listed.TryGetProperty("LastUsedAt", out _));
 
         var auditListCtx = BuildAdminContext(tenantId, actorApiKeyId);
         var auditListResult = await InvokeEndpointAsync(
@@ -98,18 +98,18 @@ WHERE tenant_id=@tenant AND api_key_id=@id;
         Assert.Equal(0, auditListJson.RootElement.GetProperty("offset").GetInt32());
 
         var auditItem = Assert.Single(auditListJson.RootElement.GetProperty("items").EnumerateArray());
-        var auditId = auditItem.GetProperty("AuditId").GetGuid();
-        Assert.Equal("admin.key.create", auditItem.GetProperty("Action").GetString());
-        Assert.Equal(created.ApiKeyId.ToString(), auditItem.GetProperty("Target").GetString());
-        Assert.Equal(actorApiKeyId, auditItem.GetProperty("ActorApiKeyId").GetGuid());
-        Assert.True(auditItem.GetProperty("ActorIsAdmin").GetBoolean());
+        var auditId = auditItem.GetProperty("auditId").GetGuid();
+        Assert.Equal("admin.key.create", auditItem.GetProperty("action").GetString());
+        Assert.Equal(created.ApiKeyId.ToString(), auditItem.GetProperty("target").GetString());
+        Assert.Equal(actorApiKeyId, auditItem.GetProperty("actorApiKeyId").GetGuid());
+        Assert.True(auditItem.GetProperty("actorIsAdmin").GetBoolean());
 
         var auditGetCtx = BuildAdminContext(tenantId, actorApiKeyId);
         var auditGetResult = await InvokeEndpointAsync(typeof(AdminAuditEndpoints), "GetAsync", auditGetCtx, ds, auditId);
         using var auditGetJson = await ExecuteAnonymousAsync(auditGetResult, auditGetCtx);
-        Assert.Equal(auditId, auditGetJson.RootElement.GetProperty("AuditId").GetGuid());
-        Assert.Equal("admin.key.create", auditGetJson.RootElement.GetProperty("Action").GetString());
-        Assert.Contains("Ops Admin", auditGetJson.RootElement.GetProperty("PayloadJson").GetString(), StringComparison.Ordinal);
+        Assert.Equal(auditId, auditGetJson.RootElement.GetProperty("auditId").GetGuid());
+        Assert.Equal("admin.key.create", auditGetJson.RootElement.GetProperty("action").GetString());
+        Assert.Contains("Ops Admin", auditGetJson.RootElement.GetProperty("payloadJson").GetString(), StringComparison.Ordinal);
     }
 
     [Fact]

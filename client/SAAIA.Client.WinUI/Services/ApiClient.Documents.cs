@@ -438,7 +438,8 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
         int? pageStart = null,
         int? pageEnd = null,
         string? researchMode = null,
-        bool? includeResearchSurfaces = null)
+        bool? includeResearchSurfaces = null,
+        bool? sourceBackedCanonical = null)
     {
         var m = NormalizeRagSearchApiMode(mode);
         var categoryScope = BuildRagCategoryScope(category);
@@ -461,6 +462,7 @@ public async Task<JsonElement> DocumentsListAsync(string? categoryPath, string? 
             mode = m,
             researchMode = NormalizeRagSearchResearchMode(researchMode),
             includeResearchSurfaces,
+            sourceBackedCanonical,
             includeContextualSnippet = true
         }, JsonOpts);
 

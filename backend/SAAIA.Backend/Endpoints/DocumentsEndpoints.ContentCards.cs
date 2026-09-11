@@ -15,6 +15,7 @@ public static partial class DocumentsEndpoints
         Guid? docId,
         string? docPath,
         string? q,
+        string? inventoryMode,
         int? limit,
         int? offset)
     {
@@ -25,6 +26,17 @@ public static partial class DocumentsEndpoints
         categoryRef = DocumentsCategoryScopeResolver.NormalizeCategoryRefOrNull(categoryRef);
         docPath = DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(docPath);
         q = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
+        inventoryMode = string.IsNullOrWhiteSpace(inventoryMode)
+            ? "ordered"
+            : inventoryMode.Trim().ToLowerInvariant();
+        if (inventoryMode is not ("ordered" or "representative"))
+        {
+            return Results.BadRequest(new
+            {
+                error = "invalid_inventory_mode",
+                allowedValues = new[] { "ordered", "representative" }
+            });
+        }
         var lim = Math.Clamp(limit ?? 60, 1, 120);
         var off = Math.Max(offset ?? 0, 0);
 
@@ -50,13 +62,14 @@ WITH scoped_docs AS (
     d.file_size,
     d.file_mtime,
     revision.revision_id,
+    revision.source_hash AS revision_source_hash,
     CASE
       WHEN d.doc_path LIKE '%/%' THEN regexp_replace(d.doc_path, '/[^/]+$', '')
       ELSE ''
     END AS category_path
   FROM documents d
   JOIN LATERAL (
-    SELECT r.revision_id
+    SELECT r.revision_id, r.source_hash
     FROM document_revisions r
     WHERE r.tenant_id = d.tenant_id
       AND r.doc_id = d.doc_id
@@ -82,18 +95,16 @@ card_candidates AS (
     d.category_path AS "CategoryPath",
     d.page_count AS "PageCount",
     d.revision_id AS "RevisionId",
-    saaia_document_summary_source_hash(
-      d.content_hash,
-      d.doc_path,
-      d.file_size,
-      d.file_mtime,
-      d.indexed_version) AS "SourceHash",
+    encode(d.revision_source_hash, 'hex') AS "SourceHash",
     c.content_card_id AS "ContentCardId",
     c.profile_version AS "ProfileVersion",
     c.card_index AS "CardIndex",
     c.title AS "Title",
     c.kind AS "Kind",
     c.signals AS "Signals",
+    card_structure.heading_path AS "HeadingPath",
+    card_structure.section_level AS "SectionLevel",
+    card_structure.source_chunk_index AS "SourceChunkIndex",
     COALESCE(c.page_start, evidence_pages.page_start) AS "PageStart",
     COALESCE(c.page_end, evidence_pages.page_end, c.page_start, evidence_pages.page_start) AS "PageEnd",
     CASE WHEN c.metadata ? 'evidence' THEN (c.metadata->'evidence')::text ELSE NULL END AS "EvidenceJson",
@@ -154,6 +165,34 @@ card_candidates AS (
         ELSE '[]'::jsonb
       END) AS fact(item)
   ) evidence_pages ON true
+  LEFT JOIN LATERAL (
+    SELECT
+      MAX(fact.item->>'value') FILTER (
+        WHERE fact.item->>'kind' = 'canonical_structure'
+          AND fact.item->>'label' = 'heading_path') AS heading_path,
+      MAX(
+        CASE
+          WHEN fact.item->>'kind' = 'canonical_structure'
+           AND fact.item->>'label' = 'section_level'
+           AND COALESCE(fact.item->>'value', '') ~ '^[0-9]+$'
+            THEN (fact.item->>'value')::int
+          ELSE NULL
+        END) AS section_level,
+      MAX(
+        CASE
+          WHEN fact.item->>'kind' = 'canonical_source'
+           AND fact.item->>'label' = 'retrieval_chunk_index'
+           AND COALESCE(fact.item->>'value', '') ~ '^[0-9]+$'
+            THEN (fact.item->>'value')::int
+          ELSE NULL
+        END) AS source_chunk_index
+    FROM jsonb_array_elements(
+      CASE
+        WHEN jsonb_typeof(c.metadata #> '{evidence,facts}') = 'array'
+          THEN c.metadata #> '{evidence,facts}'
+        ELSE '[]'::jsonb
+      END) AS fact(item)
+  ) card_structure ON true
   WHERE NULLIF(BTRIM(c.title), '') IS NOT NULL
     AND saaia_is_safe_profile_content_card(
       c.kind,
@@ -175,15 +214,91 @@ distinct_cards AS (
   WHERE duplicate_rank = 1
     AND COALESCE("PageStart", "PageEnd", 0) > 0
 ),
-ranked AS (
-  SELECT *, COUNT(*) OVER() AS "Total"
+document_positioned AS (
+  SELECT
+    *,
+    COUNT(*) OVER() AS "Total",
+    COUNT(*) OVER (PARTITION BY "DocId") AS "DocumentTotal",
+    ROW_NUMBER() OVER (
+      PARTITION BY "DocId"
+      ORDER BY
+        "QueryScore" DESC,
+        "HasGroundedEvidence" DESC,
+        "PageStart" ASC,
+        "CardIndex" ASC,
+        "Title" ASC
+    ) AS "DocumentRank"
   FROM distinct_cards
+),
+position_stratified AS (
+  SELECT
+    *,
+    LEAST(
+      16,
+      FLOOR(
+        (("DocumentRank" - 1)::double precision * 16)
+        / GREATEST("DocumentTotal", 1))::int + 1
+    ) AS "PositionStratum"
+  FROM document_positioned
+),
+representative_ranked AS (
+  SELECT
+    *,
+    ROW_NUMBER() OVER (
+      PARTITION BY "DocId", "PositionStratum"
+      ORDER BY
+        "PageStart" ASC,
+        "CardIndex" ASC,
+        "Title" ASC
+    ) AS "PositionStratumRank"
+  FROM position_stratified
 )
 SELECT *
-FROM ranked
+FROM representative_ranked
 ORDER BY
-  CASE WHEN @q IS NULL THEN 0 ELSE 1 END DESC,
-  "QueryScore" DESC,
+  CASE
+    WHEN @q IS NULL AND @inventoryMode = 'representative'
+      THEN "PositionStratumRank"
+    ELSE NULL
+  END ASC,
+  CASE
+    WHEN @q IS NULL AND @inventoryMode = 'representative'
+      THEN CASE "PositionStratum"
+        WHEN 9 THEN 1
+        WHEN 5 THEN 2
+        WHEN 13 THEN 3
+        WHEN 3 THEN 4
+        WHEN 7 THEN 5
+        WHEN 11 THEN 6
+        WHEN 15 THEN 7
+        WHEN 2 THEN 8
+        WHEN 4 THEN 9
+        WHEN 6 THEN 10
+        WHEN 8 THEN 11
+        WHEN 10 THEN 12
+        WHEN 12 THEN 13
+        WHEN 14 THEN 14
+        WHEN 16 THEN 15
+        ELSE 16
+      END
+    ELSE NULL
+  END ASC,
+  CASE
+    WHEN @q IS NULL AND @inventoryMode = 'representative'
+      THEN "DocPath"
+    ELSE NULL
+  END ASC,
+  CASE
+    WHEN @q IS NULL AND @inventoryMode = 'ordered'
+      THEN "DocumentRank"
+    ELSE NULL
+  END ASC,
+  CASE
+    WHEN @q IS NULL AND @inventoryMode = 'ordered'
+      THEN "DocPath"
+    ELSE NULL
+  END ASC,
+  CASE WHEN @q IS NOT NULL THEN "QueryScore" ELSE NULL END DESC,
   "HasGroundedEvidence" DESC,
   "DocPath" ASC,
   "PageStart" ASC,
@@ -201,6 +316,7 @@ LIMIT @lim OFFSET @off;
                     docId,
                     docPath,
                     q,
+                    inventoryMode,
                     lim,
                     off
                 },
@@ -211,9 +327,11 @@ LIMIT @lim OFFSET @off;
         return Results.Ok(new
         {
             citable = true,
-            usage = "Each item is a source-backed named content card. Cite its document and page. Select only items whose title and evidence fit the user's request.",
+            usage = "Each item is a mechanically source-backed candidate, not a semantically preclassified answer item. Use kind, headingPath and evidence to decide suitability; cite only candidates whose source meaning fits the request.",
+            querySemantics = "q is a lexical filter over the title and source-backed evidence text. Omit q for inventory browsing. inventoryMode=ordered preserves source order while balancing documents; inventoryMode=representative samples stable relative positions across every document without semantic preclassification.",
             scopePath = categoryPath,
             query = q,
+            inventoryMode = q is null ? inventoryMode : "relevance",
             total,
             limit = lim,
             offset = off,
@@ -234,6 +352,9 @@ LIMIT @lim OFFSET @off;
                 title = row.Title,
                 kind = row.Kind,
                 signals = row.Signals,
+                headingPath = row.HeadingPath,
+                sectionLevel = row.SectionLevel,
+                sourceChunkIndex = row.SourceChunkIndex,
                 pageStart = row.PageStart,
                 pageEnd = row.PageEnd,
                 evidence = ParseOptionalJsonElement(row.EvidenceJson),
@@ -259,11 +380,15 @@ LIMIT @lim OFFSET @off;
         public string Title { get; set; } = "";
         public string Kind { get; set; } = "";
         public string[] Signals { get; set; } = [];
+        public string? HeadingPath { get; set; }
+        public int? SectionLevel { get; set; }
+        public int? SourceChunkIndex { get; set; }
         public int? PageStart { get; set; }
         public int? PageEnd { get; set; }
         public string? EvidenceJson { get; set; }
         public bool HasGroundedEvidence { get; set; }
         public double QueryScore { get; set; }
         public int Total { get; set; }
+        public long DocumentRank { get; set; }
     }
 }

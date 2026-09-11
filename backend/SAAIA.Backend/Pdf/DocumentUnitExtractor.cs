@@ -1566,4 +1566,7 @@ internal sealed record ExtractedDocumentUnit(
     string? ExtractionTextStatus = null,
     bool ExtractionTextSparse = false,
     bool ExtractionOcrCandidate = false,
-    IReadOnlyList<string>? ExtractionQualitySignals = null);
+    IReadOnlyList<string>? ExtractionQualitySignals = null,
+    string? SectionTitle = null,
+    string? HeadingPath = null,
+    int? HeadingLevel = null);

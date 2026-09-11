@@ -306,6 +306,77 @@ public sealed class OpenAiCompatLlmClientTests
     }
 
     [Fact]
+    public async Task CompleteAsync_bounds_document_overview_writer_output_to_the_verified_candidate_shape()
+    {
+        var handler = new CaptureHandler("""{"choices":[{"message":{"content":"1. Point [E1]"}}]}""");
+        using var http = new HttpClient(handler);
+        var client = new OpenAiCompatLlmClient(
+            http,
+            "http://localhost:1234",
+            "local-model");
+
+        await client.CompleteAsync(new[]
+        {
+            ("system", "Rédige uniquement les candidats étayés."),
+            ("user", "SAAIA_DOCUMENT_OVERVIEW_WRITER\nCANONICAL_EVIDENCE:\n[E1] text=preuve")
+        }, forceJson: false, CancellationToken.None);
+
+        using var payload = JsonDocument.Parse(handler.LastBody ?? "{}");
+        var root = payload.RootElement;
+        Assert.Equal(320, root.GetProperty("max_tokens").GetInt32());
+        Assert.Equal(0.1d, root.GetProperty("temperature").GetDouble(), 3);
+        Assert.Equal(0.9d, root.GetProperty("top_p").GetDouble(), 3);
+        Assert.Equal(0d, root.GetProperty("frequency_penalty").GetDouble());
+        Assert.Equal(0d, root.GetProperty("presence_penalty").GetDouble());
+    }
+
+    [Fact]
+    public async Task CompleteAsync_bounds_document_overview_selector_to_ids_only()
+    {
+        var handler = new CaptureHandler(
+            """{"choices":[{"message":{"content":"E1,E2,E3"}}]}""");
+        using var http = new HttpClient(handler);
+        var client = new OpenAiCompatLlmClient(
+            http,
+            "http://localhost:1234",
+            "local-model");
+
+        await client.CompleteAsync(new[]
+        {
+            ("system", "Return only evidence IDs."),
+            ("user", "SAAIA_DOCUMENT_OVERVIEW_SELECTOR\nEVIDENCE:\nE1 text=one")
+        }, forceJson: false, CancellationToken.None);
+
+        using var payload = JsonDocument.Parse(handler.LastBody ?? "{}");
+        Assert.Equal(
+            64,
+            payload.RootElement.GetProperty("max_tokens").GetInt32());
+    }
+
+    [Fact]
+    public async Task CompleteAsync_bounds_document_overview_candidate_repair()
+    {
+        var handler = new CaptureHandler(
+            """{"choices":[{"message":{"content":"Point corrigé [E1]"}}]}""");
+        using var http = new HttpClient(handler);
+        var client = new OpenAiCompatLlmClient(
+            http,
+            "http://localhost:1234",
+            "local-model");
+
+        await client.CompleteAsync(new[]
+        {
+            ("system", "Repair one candidate."),
+            ("user", "SAAIA_DOCUMENT_OVERVIEW_CANDIDATE_REPAIR\nevidence_id=E1")
+        }, forceJson: false, CancellationToken.None);
+
+        using var payload = JsonDocument.Parse(handler.LastBody ?? "{}");
+        Assert.Equal(
+            96,
+            payload.RootElement.GetProperty("max_tokens").GetInt32());
+    }
+
+    [Fact]
     public async Task CompleteAsync_preserves_source_backed_budget_when_json_format_falls_back()
     {
         var handler = new SequencedCaptureHandler(

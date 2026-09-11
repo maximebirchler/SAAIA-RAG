@@ -1141,43 +1141,43 @@ WHERE tenant_id=@tenant
 
         var sql = """
 SELECT
-  job_id AS "JobId",
-  job_type AS "JobType",
-  status AS "Status",
-  doc_id AS "DocId",
-  payload ->> 'docPath' AS "DocPath",
-  level AS "Level",
-  payload ->> 'source' AS "EnqueueSource",
-  COALESCE(payload ->> 'executionMode', 'client_admin') AS "ExecutionMode",
-  payload ->> 'runtimeCapabilityKey' AS "RuntimeCapabilityKey",
-  payload ->> 'runtimeCapabilityStatus' AS "RuntimeCapabilityStatus",
+  admin_jobs.job_id AS "JobId",
+  admin_jobs.job_type AS "JobType",
+  admin_jobs.status AS "Status",
+  admin_jobs.doc_id AS "DocId",
+  admin_jobs.payload ->> 'docPath' AS "DocPath",
+  admin_jobs.level AS "Level",
+  admin_jobs.payload ->> 'source' AS "EnqueueSource",
+  COALESCE(admin_jobs.payload ->> 'executionMode', 'client_admin') AS "ExecutionMode",
+  admin_jobs.payload ->> 'runtimeCapabilityKey' AS "RuntimeCapabilityKey",
+  admin_jobs.payload ->> 'runtimeCapabilityStatus' AS "RuntimeCapabilityStatus",
   CASE
-    WHEN jsonb_typeof(payload->'runtimeCapabilitySelected')='boolean'
-      THEN (payload->>'runtimeCapabilitySelected')::boolean
+    WHEN jsonb_typeof(admin_jobs.payload->'runtimeCapabilitySelected')='boolean'
+      THEN (admin_jobs.payload->>'runtimeCapabilitySelected')::boolean
     ELSE NULL::boolean
   END AS "RuntimeCapabilitySelected",
   CASE
-    WHEN jsonb_typeof(payload->'campaignId')='string'
-         AND (payload->>'campaignId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-      THEN (payload->>'campaignId')::uuid
+    WHEN jsonb_typeof(admin_jobs.payload->'campaignId')='string'
+         AND (admin_jobs.payload->>'campaignId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      THEN (admin_jobs.payload->>'campaignId')::uuid
     ELSE NULL::uuid
   END AS "CampaignId",
   CASE
-    WHEN jsonb_typeof(payload->'force')='boolean' THEN (payload->>'force')::boolean
+    WHEN jsonb_typeof(admin_jobs.payload->'force')='boolean' THEN (admin_jobs.payload->>'force')::boolean
     ELSE NULL::boolean
   END AS "Force",
   CASE
-    WHEN jsonb_typeof(result->'stored')='boolean' THEN (result->>'stored')::boolean
+    WHEN jsonb_typeof(admin_jobs.result->'stored')='boolean' THEN (admin_jobs.result->>'stored')::boolean
     ELSE NULL::boolean
   END AS "ResultStored",
-  result ->> 'sourceHash' AS "ResultSourceHash",
+  admin_jobs.result ->> 'sourceHash' AS "ResultSourceHash",
   CASE
-    WHEN jsonb_typeof(result->'summaryLength')='number'
-         AND (result->>'summaryLength') ~ '^-?[0-9]{1,9}$'
-      THEN (result->>'summaryLength')::int
+    WHEN jsonb_typeof(admin_jobs.result->'summaryLength')='number'
+         AND (admin_jobs.result->>'summaryLength') ~ '^-?[0-9]{1,9}$'
+      THEN (admin_jobs.result->>'summaryLength')::int
     ELSE NULL::int
   END AS "ResultSummaryLength",
-  result ->> 'completedBy' AS "ResultCompletedBy",
+  admin_jobs.result ->> 'completedBy' AS "ResultCompletedBy",
   CASE
     WHEN s.doc_id IS NOT NULL THEN true
     ELSE false
@@ -1190,12 +1190,12 @@ SELECT
     WHEN s.source_hash <> saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version) THEN 'stale'
     ELSE 'fresh'
   END AS "StoredSummaryFreshness",
-  payload AS "Payload",
-  result AS "Result",
-  last_error AS "LastError",
-  created_at AS "CreatedAt",
-  started_at AS "StartedAt",
-  finished_at AS "FinishedAt"
+  admin_jobs.payload AS "Payload",
+  admin_jobs.result AS "Result",
+  admin_jobs.last_error AS "LastError",
+  admin_jobs.created_at AS "CreatedAt",
+  admin_jobs.started_at AS "StartedAt",
+  admin_jobs.finished_at AS "FinishedAt"
 FROM admin_jobs
 LEFT JOIN documents d
   ON d.tenant_id = admin_jobs.tenant_id
@@ -1204,7 +1204,7 @@ LEFT JOIN document_summaries s
   ON s.tenant_id = admin_jobs.tenant_id
  AND s.doc_id = admin_jobs.doc_id
  AND s.level = admin_jobs.level
-WHERE tenant_id=@tenant AND job_id=@jobId
+WHERE admin_jobs.tenant_id=@tenant AND admin_jobs.job_id=@jobId
 LIMIT 1;
 """;
 

@@ -406,8 +406,10 @@ SET status='failed',
     payload=jsonb_set(
         jsonb_set(
             COALESCE(payload, '{}'::jsonb),
-            '{quality,retrieval}',
-            CAST(@retrieval_quality AS jsonb),
+            '{quality}',
+            (CASE WHEN jsonb_typeof(payload->'quality')='object'
+                  THEN payload->'quality' ELSE '{}'::jsonb END)
+              || jsonb_build_object('retrieval', CAST(@retrieval_quality AS jsonb)),
             true),
         '{progress}',
         jsonb_build_object(

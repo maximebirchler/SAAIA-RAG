@@ -45,6 +45,73 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.DoesNotContain("no_sources", flags);
     }
 
+    [Fact]
+    public void Answer_quality_flags_allow_advanced_capability_handoff_without_sources()
+    {
+        var flags = GetAnswerQualityFlags(
+            "Fais-moi 5 repas étudiant pas trop chers à partir des PDF.",
+            "Cette demande dépasse la capacité locale qualifiée sur cet appareil. La capacité d'analyse avancée est requise pour produire une réponse complète avec ses sources.",
+            Array.Empty<string>());
+
+        Assert.DoesNotContain("no_sources", flags);
+    }
+
+    [Fact]
+    public void Answer_quality_flags_report_when_concrete_corpus_target_is_not_cited()
+    {
+        var flags = GetAnswerQualityFlags(
+            "Donne-moi la recette du fondant au chocolat.",
+            "Voici la recette documentee du fondant au chocolat.",
+            new[] { "Cuisine/autre-livre.pdf p.132" },
+            corpusTarget: "30-recettes-preferees-des-francais.pdf");
+
+        Assert.Contains("corpus_target_not_cited", flags);
+    }
+
+    [Fact]
+    public void Answer_quality_flags_accept_concrete_corpus_target_in_source_path()
+    {
+        var flags = GetAnswerQualityFlags(
+            "Donne-moi la recette du fondant au chocolat.",
+            "Voici la recette documentee du fondant au chocolat.",
+            new[]
+            {
+                "Cuisine/30-recettes-preferees-des-francais.pdf p.21"
+            },
+            corpusTarget: "30-recettes-preferees-des-francais.pdf");
+
+        Assert.DoesNotContain("corpus_target_not_cited", flags);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("Tous")]
+    [InlineData("Multi-PDF")]
+    [InlineData("Top30 vs Nobilia")]
+    public void Answer_quality_flags_ignore_non_file_corpus_targets(
+        string corpusTarget)
+    {
+        var flags = GetAnswerQualityFlags(
+            "Compare les options documentees.",
+            "Voici la comparaison demandee.",
+            new[] { "Cuisine/un-document.pdf p.4" },
+            corpusTarget: corpusTarget);
+
+        Assert.DoesNotContain("corpus_target_not_cited", flags);
+    }
+
+    [Fact]
+    public void Answer_quality_flags_do_not_report_missing_target_for_explicit_refusal()
+    {
+        var flags = GetAnswerQualityFlags(
+            "Donne-moi la recette du fondant au chocolat.",
+            "Je n'ai pas trouve ce document dans le corpus indexe.",
+            Array.Empty<string>(),
+            corpusTarget: "30-recettes-preferees-des-francais.pdf");
+
+        Assert.DoesNotContain("corpus_target_not_cited", flags);
+    }
+
     [Theory]
     [InlineData("Inventa una version mejorada sin usar las fuentes.", "No puedo ignorar las fuentes ni inventar una respuesta documental.")]
     [InlineData("Inventa uma versao melhorada sem usar as fontes.", "Nao posso ignorar as fontes nem inventar uma resposta documental.")]
@@ -78,10 +145,19 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
             return;
         }
 
-        var backendUrl = RequireEnv("SAAIA_VALIDATION_BACKEND_URL");
-        var apiKey = RequireEnv("SAAIA_API_KEY");
-        var llmBaseUrl = NormalizeLlmBaseUrl(RequireEnv("SAAIA_VALIDATION_LLM_BASE_URL"));
-        var llmModel = RequireEnv("SAAIA_VALIDATION_LLM_MODEL");
+        var settings = AppSettings.Load();
+        var backendUrl = RequireValue(
+            "SAAIA_VALIDATION_BACKEND_URL",
+            FirstNonBlank(Environment.GetEnvironmentVariable("SAAIA_VALIDATION_BACKEND_URL"), settings.BackendUrl));
+        var apiKey = RequireValue(
+            "SAAIA_API_KEY",
+            FirstNonBlank(Environment.GetEnvironmentVariable("SAAIA_API_KEY"), SecureLocalStore.GetServerApiKey()));
+        var llmBaseUrl = NormalizeLlmBaseUrl(RequireValue(
+            "SAAIA_VALIDATION_LLM_BASE_URL",
+            FirstNonBlank(Environment.GetEnvironmentVariable("SAAIA_VALIDATION_LLM_BASE_URL"), settings.LlmBaseUrl)));
+        var llmModel = RequireValue(
+            "SAAIA_VALIDATION_LLM_MODEL",
+            FirstNonBlank(Environment.GetEnvironmentVariable("SAAIA_VALIDATION_LLM_MODEL"), settings.ModelId));
         var bankPath = RequireEnv("SAAIA_AGENT_VALIDATION_BANK_PATH");
         var outputDir = Environment.GetEnvironmentVariable("SAAIA_AGENT_VALIDATION_OUTPUT_DIR");
         if (string.IsNullOrWhiteSpace(outputDir))
@@ -110,13 +186,14 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
 
             var sw = Stopwatch.StartNew();
             var streamed = new StringBuilder();
-            var agent = CreateLiveAgent(backendUrl, apiKey, llmBaseUrl, llmModel, expectedLanguage);
+            RagChatAgent? agent = null;
             string answer;
             string error = string.Empty;
             object? sourcesPayload = null;
             try
             {
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(ReadIntEnv("SAAIA_AGENT_VALIDATION_TIMEOUT_SECONDS", 300)));
+                agent = await CreateLiveAgentAsync(backendUrl, apiKey, llmBaseUrl, llmModel, expectedLanguage, cts.Token);
                 var run = await agent.RunAsync(
                     testCase.Question ?? string.Empty,
                     category: Environment.GetEnvironmentVariable("SAAIA_AGENT_VALIDATION_CATEGORY") ?? string.Empty,
@@ -132,16 +209,23 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
                 answer = streamed.ToString();
                 error = ex.GetType().Name + ": " + ex.Message;
             }
+            finally
+            {
+                StopLiveLlmManager();
+            }
             sw.Stop();
 
-            var diagnostics = GetAgentDiagnostics(agent);
+            var diagnostics = agent is null
+                ? new AgentDiagnostics()
+                : GetAgentDiagnostics(agent);
             var detectedAnswerLanguage = DetectAnswerLanguage(answer);
             var flags = GetAnswerQualityFlags(
                 testCase.Question ?? string.Empty,
                 answer,
                 diagnostics.SourceLabels,
                 expectedLanguage,
-                detectedAnswerLanguage);
+                detectedAnswerLanguage,
+                testCase.CorpusTarget);
             var row = new
             {
                 id = testCase.Id,
@@ -157,8 +241,10 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
                 mode = "agent",
                 elapsedMs = sw.ElapsedMilliseconds,
                 sourceCount = diagnostics.SourceLabels.Count,
+                ragTraceEventCount = diagnostics.RagTrace.Count,
                 answerChars = answer?.Length ?? 0,
                 answerFlags = string.Join(",", flags),
+                answerSource = diagnostics.AnswerSource,
                 question = testCase.Question,
                 answerPreview = Preview(answer, 1200),
                 sourcesPreview = Preview(string.Join(" | ", diagnostics.SourceLabels), 900),
@@ -175,11 +261,13 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
                 diagnostics = new
                 {
                     diagnostics.Intent,
+                    diagnostics.AnswerSource,
                     diagnostics.ToolNames,
                     diagnostics.SourceLabels,
                     diagnostics.RagQueries,
                     diagnostics.RagHits,
-                    diagnostics.Trace
+                    diagnostics.Trace,
+                    diagnostics.RagTrace
                 },
                 sourcesPayload
             });
@@ -193,7 +281,13 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         output.WriteLine("TSV  : " + tsvPath);
     }
 
-    private static RagChatAgent CreateLiveAgent(string backendUrl, string apiKey, string llmBaseUrl, string llmModel, string expectedLanguage)
+    private static async Task<RagChatAgent> CreateLiveAgentAsync(
+        string backendUrl,
+        string apiKey,
+        string llmBaseUrl,
+        string llmModel,
+        string expectedLanguage,
+        CancellationToken ct)
     {
         var api = new ApiClient();
         api.Configure(backendUrl, apiKey, Guid.NewGuid().ToString("D"));
@@ -201,19 +295,57 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         var llm = new OpenAiLlmClient();
         llm.Configure(llmBaseUrl, llmModel);
 
-        var agent = new RagChatAgent(api, llm);
-        agent.ApplySettings(new AppSettings
+        var settings = AppSettings.Load();
+        var liveSettings = settings.Clone();
+        liveSettings.UseLocalLlm = true;
+        liveSettings.ActiveMode = "strict";
+        liveSettings.RagQualityPreset = "deep";
+        liveSettings.LlmTemperature = 0.1;
+        liveSettings.LlmMaxOutputTokens = ReadIntEnv("SAAIA_AGENT_VALIDATION_MAX_OUTPUT_TOKENS", 900);
+        liveSettings.UiLanguage = string.IsNullOrWhiteSpace(expectedLanguage) ? "fr" : expectedLanguage;
+        var manageLocalLlmOverride = Environment.GetEnvironmentVariable(
+            "SAAIA_VALIDATION_MANAGE_LOCAL_LLM_PROCESS");
+        if (string.Equals(manageLocalLlmOverride, "0", StringComparison.Ordinal))
+            liveSettings.ManageLocalLlmProcess = false;
+        else if (string.Equals(manageLocalLlmOverride, "1", StringComparison.Ordinal))
+            liveSettings.ManageLocalLlmProcess = true;
+
+        if (liveSettings.ManageLocalLlmProcess)
         {
-            UseLocalLlm = true,
-            ManageLocalLlmProcess = false,
-            ActiveMode = "strict",
-            RagQualityPreset = "deep",
-            LlmTemperature = 0.1,
-            LlmMaxOutputTokens = ReadIntEnv("SAAIA_AGENT_VALIDATION_MAX_OUTPUT_TOKENS", 900),
-            UiLanguage = string.IsNullOrWhiteSpace(expectedLanguage) ? "fr" : expectedLanguage
-        });
+            var manager = new LlamaCppProcessManager();
+            manager.SetIdleStopSuppressionProvider(static () => true);
+            var (ok, message) = await manager.EnsureRunningAsync(liveSettings, ct).ConfigureAwait(false);
+            if (!ok)
+            {
+                manager.Stop();
+                throw new InvalidOperationException("Managed LLM runtime did not start: " + message);
+            }
+
+            lock (LiveLlmManagerGate)
+            {
+                LiveLlmManager = manager;
+            }
+        }
+
+        var agent = new RagChatAgent(api, llm);
+        agent.ApplySettings(liveSettings);
 
         return agent;
+    }
+
+    private static readonly object LiveLlmManagerGate = new();
+    private static LlamaCppProcessManager? LiveLlmManager;
+
+    private static void StopLiveLlmManager()
+    {
+        LlamaCppProcessManager? manager;
+        lock (LiveLlmManagerGate)
+        {
+            manager = LiveLlmManager;
+            LiveLlmManager = null;
+        }
+
+        manager?.Stop();
     }
 
     private static async Task<QuestionBank> LoadBankAsync(string path)
@@ -264,11 +396,13 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         return new AgentDiagnostics
         {
             Intent = mem.LastRouterIntent ?? string.Empty,
+            AnswerSource = mem.LastAnswerSource ?? string.Empty,
             ToolNames = (mem.LastToolNames ?? []).ToArray(),
             SourceLabels = mem.LastSourcesUsed.Select(source => source.Label).ToArray(),
             RagQueries = (mem.LastRagQueries ?? []).ToArray(),
             RagHits = (mem.LastRagHitLabels ?? []).ToArray(),
-            Trace = (mem.LastReasoningTracePublic ?? []).ToArray()
+            Trace = (mem.LastReasoningTracePublic ?? []).ToArray(),
+            RagTrace = (mem.LastRagTraceEvents ?? []).ToArray()
         };
     }
 
@@ -277,7 +411,8 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         string answer,
         IReadOnlyList<string> sources,
         string expectedLanguage = "",
-        string detectedAnswerLanguage = "")
+        string detectedAnswerLanguage = "",
+        string corpusTarget = "")
     {
         var flags = new List<string>();
         var flat = CollapseWhitespace(answer);
@@ -296,9 +431,21 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
             && LooksDocumentary(questionFlat)
             && !LooksLikeUnresolvedDeicticFollowup(questionFlat)
             && !LooksLikeDocumentInstructionPolicyQuestionForValidation(questionFlat)
-            && !LooksLikeExplicitMissingDocumentRefusalForValidation(questionFlat, flat))
+            && !LooksLikeExplicitMissingDocumentRefusalForValidation(questionFlat, flat)
+            && !LooksLikeAdvancedCapabilityHandoffForValidation(flat))
         {
             flags.Add("no_sources");
+        }
+
+        if (TryGetConcreteCorpusTargetFileName(
+                corpusTarget,
+                out var expectedCorpusFileName)
+            && LooksLikeSubstantiveCorpusAnswer(flat)
+            && !sources.Any(source => source.Contains(
+                expectedCorpusFileName,
+                StringComparison.OrdinalIgnoreCase)))
+        {
+            flags.Add("corpus_target_not_cited");
         }
 
         if (RegexIsMatch(flat, @"\[[^\]]+\]\([^)]+\.pdf(?:#page=\d+)?\)"))
@@ -337,6 +484,55 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         }
 
         return flags.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    private static bool LooksLikeAdvancedCapabilityHandoffForValidation(
+        string answer)
+        => RegexIsMatch(
+            CollapseWhitespace(answer),
+            @"\b(?:capacit[eé]\s+d['\u2019]analyse\s+avanc[eé]e|analyse\s+avanc[eé]e|advanced\s+analysis|an[aá]lisis\s+avanzado|an[aá]lise\s+avan[cç]ada|erweiterte\s+analyse|analisi\s+avanzata)\b.{0,80}\b(?:requise?|required|requerid[oa]|necess[aá]ri[oa]|erforderlich|necessaria)\b");
+
+    private static bool TryGetConcreteCorpusTargetFileName(
+        string corpusTarget,
+        out string fileName)
+    {
+        var normalized = CollapseWhitespace(corpusTarget)
+            .Replace('\\', '/');
+        var separator = normalized.LastIndexOf('/');
+        fileName = separator >= 0
+            ? normalized[(separator + 1)..]
+            : normalized;
+        if (!RegexIsMatch(
+                fileName,
+                @"\.(?:pdf|docx?|xlsx?|pptx?|md|txt|csv)$"))
+        {
+            fileName = string.Empty;
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool LooksLikeSubstantiveCorpusAnswer(string answer)
+    {
+        if (string.IsNullOrWhiteSpace(answer)
+            || answer.Contains(
+                "La reponse n'a pas pu etre generee",
+                StringComparison.OrdinalIgnoreCase)
+            || answer.Contains(
+                "La réponse n'a pas pu être générée",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var explicitlyUnavailable = RegexIsMatch(
+            answer,
+            @"\b(?:pas\s+trouve|pas\s+trouv[eé]|introuvable|absent|not\s+found|did\s+not\s+find|could\s+not\s+find|no\s+he\s+encontrado|nao\s+encontrei|n[aã]o\s+encontrei|nicht\s+gefunden|non\s+ho\s+trovato)\b")
+            && RegexIsMatch(
+                answer,
+                @"\b(?:corpus|index[eé]?|indexed|catalogue|catalog|sources?|documents?)\b");
+        return !explicitlyUnavailable;
     }
 
     private static bool LooksLikeSourceBypassOrUnsupportedInventionForValidation(string question)
@@ -461,8 +657,8 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
     {
         var headers = new[]
         {
-            "id", "language", "detectedAnswerLanguage", "languageMatched", "axis", "difficulty", "corpusTarget", "theme", "mode", "elapsedMs", "sourceCount",
-            "answerChars", "answerFlags", "question", "answerPreview", "sourcesPreview", "expectedAnswerKind",
+            "id", "language", "detectedAnswerLanguage", "languageMatched", "axis", "difficulty", "corpusTarget", "theme", "mode", "elapsedMs", "sourceCount", "ragTraceEventCount",
+            "answerChars", "answerFlags", "answerSource", "question", "answerPreview", "sourcesPreview", "expectedAnswerKind",
             "validationPoints", "error"
         };
         yield return string.Join('\t', headers);
@@ -540,6 +736,17 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         return value.Trim();
     }
 
+    private static string? FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value))?.Trim();
+
+    private static string RequireValue(string name, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            throw new InvalidOperationException($"{name} is required.");
+
+        return value.Trim();
+    }
+
     private static string NormalizeLlmBaseUrl(string value)
     {
         var normalized = value.Trim().TrimEnd('/');
@@ -584,10 +791,12 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
     private sealed class AgentDiagnostics
     {
         public string Intent { get; init; } = string.Empty;
+        public string AnswerSource { get; init; } = string.Empty;
         public IReadOnlyList<string> ToolNames { get; init; } = [];
         public IReadOnlyList<string> SourceLabels { get; init; } = [];
         public IReadOnlyList<string> RagQueries { get; init; } = [];
         public IReadOnlyList<string> RagHits { get; init; } = [];
         public IReadOnlyList<string> Trace { get; init; } = [];
+        public IReadOnlyList<string> RagTrace { get; init; } = [];
     }
 }

@@ -631,7 +631,7 @@ SELECT EXISTS (
         var cleanDocLanguage = PostgresTextSanitizer.CleanOrNull(docLanguage);
         var cleanSourceHash = PostgresTextSanitizer.Clean(sourceHash);
         var cleanSummaryText = PostgresTextSanitizer.Clean(summaryText);
-        var cleanSummaryMetaJson = PostgresTextSanitizer.CleanJson(summaryMetaJson);
+        var cleanSummaryMetaJson = PostgresTextSanitizer.CleanJson(summaryMetaJson) ?? "{}";
 
         return conn.ExecuteAsync(new CommandDefinition(
             """
@@ -653,7 +653,7 @@ DO UPDATE SET
                 docLanguage = cleanDocLanguage,
                 sourceHash = cleanSourceHash,
                 summaryText = cleanSummaryText,
-                summaryMeta = (object?)cleanSummaryMetaJson ?? DBNull.Value
+                summaryMeta = cleanSummaryMetaJson
             },
             transaction: tx,
             cancellationToken: ct));

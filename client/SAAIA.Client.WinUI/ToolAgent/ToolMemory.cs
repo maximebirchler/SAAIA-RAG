@@ -1,4 +1,5 @@
 using System.Text.Json;
+using SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag;
 
 namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
@@ -10,7 +11,7 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent;
 /// session working memory,
 /// execution / observability memory.
 /// </summary>
-public sealed class ToolMemory
+public sealed partial class ToolMemory
 {
     private const int DefaultListLimit = 80;
 
@@ -94,6 +95,12 @@ public sealed class ToolMemory
         set => Session.ResearchWorkingNotes = value ?? new();
     }
 
+    public List<SourceBackedConversationTurnMemory> SourceBackedConversationTurns
+    {
+        get => Session.SourceBackedConversationTurns;
+        set => Session.SourceBackedConversationTurns = value ?? new();
+    }
+
     public DocumentItem? LastFocusedDocument
     {
         get => Session.LastFocusedDocument;
@@ -152,6 +159,12 @@ public sealed class ToolMemory
     {
         get => Execution.LastRouterIntent;
         set => Execution.LastRouterIntent = value;
+    }
+
+    public string? LastAnswerSource
+    {
+        get => Execution.LastAnswerSource;
+        set => Execution.LastAnswerSource = value;
     }
 
     public List<string> LastToolNames
@@ -324,6 +337,8 @@ public sealed class ToolMemory
 
         public List<ResearchWorkingNote> ResearchWorkingNotes { get; set; } = new();
 
+        public List<SourceBackedConversationTurnMemory> SourceBackedConversationTurns { get; set; } = new();
+
         public DocumentItem? LastFocusedDocument { get; set; }
 
         public string? LastUserMessage { get; set; }
@@ -358,6 +373,8 @@ public sealed class ToolMemory
         public string? LastAnswerLanguage { get; set; }
 
         public string? LastRouterIntent { get; set; }
+
+        public string? LastAnswerSource { get; set; }
 
         public List<string> LastToolNames { get; set; } = new();
 
@@ -464,6 +481,7 @@ public sealed class ToolMemory
 
     public sealed class SourceRef
     {
+        public string? EvidenceId { get; set; }
         public string? DocId { get; set; }
         public string DocPath { get; set; } = "";
         public string? DocName { get; set; }
@@ -471,12 +489,15 @@ public sealed class ToolMemory
         public int PageEnd { get; set; } = 1;
         public string Label { get; set; } = "";
         public string? SourceHash { get; set; }
+        public string? RevisionId { get; set; }
         public string? DocLanguage { get; set; }
         public string? ProfileLanguage { get; set; }
         public string? Category { get; set; }
         public string? CategoryRef { get; set; }
         public string? CategoryPath { get; set; }
         public string? ChunkId { get; set; }
+        public string? AnchorId { get; set; }
+        public string? ContentCardId { get; set; }
         public string? SectionTitle { get; set; }
         public string? HeadingPath { get; set; }
         public string? PrevChunkId { get; set; }
@@ -703,6 +724,10 @@ public sealed class ToolMemory
         public string OriginalUserMessage { get; set; } = "";
         public string? Hint { get; set; }
         public string? Language { get; set; }
+        public string? Question { get; set; }
+        public List<string> Options { get; set; } = new();
+        public string? ExecutionImpact { get; set; }
+        public string? ResumeRoute { get; set; }
         public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
     }
 
@@ -967,6 +992,7 @@ public sealed class ToolMemory
         Session.LastListEndOfList = false;
         Session.LastSourcesUsed = new();
         Session.ResearchWorkingNotes = new();
+        Session.SourceBackedConversationTurns = new();
         Session.LastFocusedDocument = null;
         Session.LastUserMessage = null;
         Session.LastAssistantAnswer = null;
@@ -984,6 +1010,7 @@ public sealed class ToolMemory
         Execution.LastUserDetectedLanguage = null;
         Execution.LastAnswerLanguage = null;
         Execution.LastRouterIntent = null;
+        Execution.LastAnswerSource = null;
         Execution.LastToolNames = new();
         Execution.LastRagQueries = new();
         Execution.LastRagHitLabels = new();

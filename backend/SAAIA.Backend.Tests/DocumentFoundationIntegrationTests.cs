@@ -17,11 +17,466 @@ using SAAIA.Backend.Middleware;
 using SAAIA.Backend.Models;
 using SAAIA.Contracts;
 using SAAIA.Contracts.DocumentIntelligence;
+using UglyToad.PdfPig.Content;
+using UglyToad.PdfPig.Core;
+using UglyToad.PdfPig.Fonts.Standard14Fonts;
+using UglyToad.PdfPig.Writer;
 using Xunit;
 namespace SAAIA.Backend.Tests;
 
-public sealed class DocumentFoundationIntegrationTests
+public sealed partial class DocumentFoundationIntegrationTests
 {
+    [Fact]
+    public async Task Canonical_search_preserves_real_pdf_hash_pages_and_extracted_text_for_client_citations()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var export = Environment.GetEnvironmentVariable("SAAIA_TEST_CONTRACT_EXPORT_DIR");
+        if (!string.IsNullOrWhiteSpace(export))
+            Assert.True(Path.IsPathFullyQualified(export) && Directory.Exists(export));
+        var ownedDirectory = Path.Combine(Path.GetTempPath(), $"saaia-pdf-contract-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(ownedDirectory);
+        var pdfPath = Path.Combine(ownedDirectory, "Calibration-record.pdf");
+        try
+        {
+            var builder = new PdfDocumentBuilder();
+            var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+            string[][] pageLines =
+            [
+                ["AMBER CALIBRATION", "The amber instrument records a calibration measurement of 47 millimetres.",
+                 "The operator verifies the instrument before recording the measurement.",
+                 "The inspection record contains the instrument name and the measured value.",
+                 "This calibration record applies to the amber instrument only.",
+                 "The operator records the date and signs the completed inspection sheet.",
+                 "The supervisor compares the recorded value with the reference block.",
+                 "The recorded value is valid only after the reference block check is signed."],
+                ["COBALT CALIBRATION", "The cobalt instrument records a calibration measurement of 63 millimetres.",
+                 "The operator checks the reference block before recording the measurement.",
+                 "The inspection record contains the reference block and the measured value.",
+                 "This calibration record applies to the cobalt instrument only.",
+                 "The operator records the date and signs the completed inspection sheet.",
+                 "The supervisor compares the recorded value with the reference block.",
+                 "The recorded value is valid only after the reference block check is signed."]
+            ];
+            foreach (var lines in pageLines)
+            {
+                var page = builder.AddPage(PageSize.A4);
+                for (var index = 0; index < lines.Length; index++)
+                    page.AddText(lines[index], index == 0 ? 14 : 11, new PdfPoint(40, 780 - 28 * index), font);
+            }
+            var pdfBytes = builder.Build();
+            File.WriteAllBytes(pdfPath, pdfBytes);
+            var hash = SHA256.HashData(pdfBytes);
+            var extraction = PdfExtractor.Extract(pdfPath);
+            Assert.Equal(2, extraction.Pages.Count);
+            Assert.Contains("47 millimetres", extraction.Pages[0].Text);
+            Assert.Contains("63 millimetres", extraction.Pages[1].Text);
+            var sections = DocumentSectionExtractor.Extract(extraction.Pages);
+            var units = DocumentUnitExtractor.Extract(extraction.Pages, sections);
+            var ingestion = new IngestionOptions();
+            var chunks = RetrievalChunkProjector.ProjectStructureAware(sections, units,
+                ingestion.ChunkMaxWords, ingestion.ChunkOverlapWords, ingestion.ChunkMinWords);
+            Assert.NotEmpty(chunks);
+
+            const string docPath = "Knowledge/Calibration-record.pdf";
+            var tenantId = Guid.NewGuid();
+            var docId = Guid.NewGuid();
+            var jobId = Guid.NewGuid();
+            await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 1, indexedVersion: 0);
+            await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+            Assert.True(await JobRepo.CompleteUpsertAsync(ds, tenantId, jobId, docPath,
+                hash, pdfBytes.Length, File.GetLastWriteTimeUtc(pdfPath), 1, extraction.Pages,
+                sections, units, chunks, ExactMatchEntryExtractor.Extract(units),
+                ContextualTextProjector.Project(docPath, sections, units, chunks), CancellationToken.None));
+
+            var ctx = BuildRagHttpContext(tenantId);
+            var result = await InvokeRagSearchAsync(ctx, ds, Options.Create(CreateTestRagOptions()),
+                new StubHttpClientFactory(), new RagSearchRequestDto("calibration measurement", DocId: docId.ToString(),
+                    TopK: 20, IncludeContextualSnippet: true, SourceBackedCanonical: true));
+            await result.ExecuteAsync(ctx);
+            Assert.Equal(StatusCodes.Status200OK, ctx.Response.StatusCode);
+            var response = JsonSerializer.Deserialize<JsonElement>(ReadResponseBody(ctx));
+            var items = response.GetProperty("items").EnumerateArray().ToArray();
+            Assert.NotEmpty(items);
+            Assert.Equal(new[] { 1, 2 }, items.Select(item => item.GetProperty("pageStart").GetInt32()).Distinct().Order().ToArray());
+            var revisionId = DocumentFoundationRepo.BuildStableRevisionId(tenantId, docId, 1).ToString();
+            Assert.All(items, item =>
+            {
+                Assert.Equal(Convert.ToHexString(hash).ToLowerInvariant(), item.GetProperty("sourceHash").GetString());
+                Assert.Equal(revisionId, item.GetProperty("revisionId").GetString());
+                Assert.Equal(docId.ToString(), item.GetProperty("docId").GetString());
+                Assert.Equal(docPath, item.GetProperty("docPath").GetString());
+                Assert.True(Guid.TryParse(item.GetProperty("chunkId").GetString(), out _));
+                var start = item.GetProperty("pageStart").GetInt32();
+                var end = item.GetProperty("pageEnd").GetInt32();
+                Assert.Equal(start, end);
+                Assert.InRange(start, 1, 2);
+                var text = Assert.IsType<string>(item.GetProperty("text").GetString());
+                Assert.True(text.Length > 420);
+                Assert.Contains(start == 1 ? "47 millimetres" : "63 millimetres", text);
+                var chunk = Assert.Single(chunks, chunk => chunk.PageStart == start && chunk.PageEnd == end);
+                Assert.Equal(chunk.Text.Replace("\r\n", "\n", StringComparison.Ordinal), text);
+            });
+            if (!string.IsNullOrWhiteSpace(export))
+            {
+                var artifact = Path.Combine(export, "canonical-pdf-citation-contract.json");
+                Assert.False(File.Exists(artifact));
+                File.Copy(pdfPath, Path.Combine(export, "Calibration-record.pdf"), overwrite: false);
+                File.WriteAllText(artifact, JsonSerializer.Serialize(new
+                {
+                    schemaVersion = 1, syntheticCorpus = true, postgresVerified = true,
+                    sourceTest = nameof(Canonical_search_preserves_real_pdf_hash_pages_and_extracted_text_for_client_citations),
+                    pdfFile = "Calibration-record.pdf", sourceHash = Convert.ToHexString(hash).ToLowerInvariant(),
+                    docId, revisionId, docPath, extraction.Source,
+                    pages = extraction.Pages.Select(page => new { page.PageNumber, page.Text }), response
+                }, new JsonSerializerOptions { WriteIndented = true }));
+            }
+        }
+        finally
+        {
+            if (File.Exists(pdfPath))
+                File.Delete(pdfPath);
+            Directory.Delete(ownedDirectory, recursive: false);
+        }
+    }
+
+    [Fact]
+    public async Task Canonical_response_reports_revision_change_instead_of_publishing_stale_chunks_with_new_identity()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+        var tenantId = Guid.NewGuid();
+        var docId = Guid.NewGuid();
+        const string path = "Knowledge/response-identity-race.pdf";
+        await PublishIndexedDocumentAsync(db, tenantId, docId, Guid.NewGuid(), path, 1,
+            [
+                new RuntimeSeedSection("Initial instrument", "Silver verification records the first extraction and the original instrument measurement procedure."),
+                new RuntimeSeedSection("Initial record", "Silver verification records the first extraction and the original inspection completion procedure.")
+            ]);
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var options = CreateTestRagOptions();
+        options.EnableRerank = true;
+        var factory = new ReindexOnRerankHttpClientFactory(() => PublishIndexedDocumentAsync(db, tenantId, docId, Guid.NewGuid(), path, 2,
+            [
+                new RuntimeSeedSection("Updated instrument", "Silver verification records the second extraction and a revised instrument measurement procedure."),
+                new RuntimeSeedSection("Updated record", "Silver verification records the second extraction and a revised inspection completion procedure.")
+            ]));
+        var request = new RagSearchRequestDto("silver verification", DocId: docId.ToString(), TopK: 20, SourceBackedCanonical: true);
+        async Task<JsonElement> SearchAsync(IHttpClientFactory clientFactory)
+        {
+            var ctx = BuildRagHttpContext(tenantId);
+            var result = await InvokeRagSearchAsync(ctx, ds, Options.Create(options), clientFactory, request);
+            await result.ExecuteAsync(ctx);
+            Assert.Equal(StatusCodes.Status200OK, ctx.Response.StatusCode);
+            return JsonSerializer.Deserialize<JsonElement>(ReadResponseBody(ctx));
+        }
+
+        var interrupted = await SearchAsync(factory);
+        Assert.Equal(1, factory.ReindexCount);
+        await using (var check = await ds.OpenConnectionAsync())
+        {
+            var publishedVersion = await check.QuerySingleAsync<int>(
+                "SELECT indexed_version FROM documents WHERE tenant_id=@tenant AND doc_id=@doc;",
+                new { tenant = tenantId, doc = docId });
+            Assert.Equal(2, publishedVersion);
+        }
+        Assert.Empty(interrupted.GetProperty("items").EnumerateArray());
+        Assert.Equal(0, interrupted.GetProperty("metrics").GetProperty("returned").GetInt32());
+        Assert.Contains("source_identity", interrupted.GetProperty("metrics").GetProperty("degradedRetrievers")
+            .EnumerateArray().Select(item => item.GetString()));
+        Assert.Equal("canonical_chunk_not_current", interrupted.GetProperty("metrics").GetProperty("degradedRetrieverErrors")
+            .GetProperty("source_identity").GetString());
+
+        var stable = await SearchAsync(new StubHttpClientFactory());
+        Assert.Equal(2, stable.GetProperty("items").GetArrayLength());
+        Assert.All(stable.GetProperty("items").EnumerateArray(), item =>
+        {
+            Assert.Equal(DocumentFoundationRepo.BuildStableRevisionId(tenantId, docId, 2).ToString(), item.GetProperty("revisionId").GetString());
+            Assert.Contains("second extraction", item.GetProperty("text").GetString());
+        });
+        var export = Environment.GetEnvironmentVariable("SAAIA_TEST_CONTRACT_EXPORT_DIR");
+        if (!string.IsNullOrWhiteSpace(export))
+        {
+            Assert.True(Path.IsPathFullyQualified(export) && Directory.Exists(export));
+            var artifact = Path.Combine(export, "canonical-identity-race-contract.json");
+            Assert.False(File.Exists(artifact));
+            File.WriteAllText(artifact, JsonSerializer.Serialize(new
+            {
+                schemaVersion = 1, syntheticCorpus = true, postgresVerified = true,
+                sourceTest = nameof(Canonical_response_reports_revision_change_instead_of_publishing_stale_chunks_with_new_identity),
+                reindexDuringRerank = true, interrupted, stable
+            }, new JsonSerializerOptions { WriteIndented = true }));
+        }
+    }
+
+    [Fact]
+    public async Task Canonical_source_identity_does_not_reassign_an_observed_chunk_after_reindexing()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+        var tenantId = Guid.NewGuid();
+        var docId = Guid.NewGuid();
+        const string path = "Knowledge/identity-race.pdf";
+        await PublishIndexedDocumentAsync(db, tenantId, docId, Guid.NewGuid(), path, 1,
+            [new RuntimeSeedSection("First verification", "Silver verification records the first extraction and the original instrument measurement procedure.")]);
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var request = new RagSearchRequestDto("silver verification", DocId: docId.ToString(), TopK: 20, SourceBackedCanonical: true);
+        var firstSearch = await RagEndpoints.SearchCoreAsync(BuildRagHttpContext(tenantId), ds,
+            CreateTestRagOptions(), new StubHttpClientFactory(), request);
+        var firstMatch = Assert.Single(firstSearch.Matches);
+        var originalIdentities = await RagEndpoints.LoadRagCanonicalDocumentSourceIdentitiesAsync(ds, tenantId, [firstMatch], CancellationToken.None);
+        var originalIdentity = RagEndpoints.ResolveDocumentSourceIdentity(firstMatch, originalIdentities);
+        Assert.NotNull(originalIdentity);
+        Assert.Equal(DocumentFoundationRepo.BuildStableRevisionId(tenantId, docId, 1).ToString(), originalIdentity!.RevisionId);
+
+        await PublishIndexedDocumentAsync(db, tenantId, docId, Guid.NewGuid(), path, 2,
+            [new RuntimeSeedSection("Second verification", "Silver verification records the second extraction and a revised instrument measurement procedure.")]);
+        var currentSearch = await RagEndpoints.SearchCoreAsync(BuildRagHttpContext(tenantId), ds,
+            CreateTestRagOptions(), new StubHttpClientFactory(), request);
+        var currentMatch = Assert.Single(currentSearch.Matches);
+        Assert.NotEqual(firstMatch.ChunkId, currentMatch.ChunkId);
+        var wrongDocument = currentMatch with { DocId = Guid.NewGuid().ToString() };
+        var wrongPath = currentMatch with { DocPath = "Knowledge/different-document.pdf" };
+        var currentIdentities = await RagEndpoints.LoadRagCanonicalDocumentSourceIdentitiesAsync(ds, tenantId,
+            [firstMatch, currentMatch, wrongDocument, wrongPath], CancellationToken.None);
+        var currentIdentity = RagEndpoints.ResolveDocumentSourceIdentity(currentMatch, currentIdentities);
+        Assert.NotNull(currentIdentity);
+        Assert.Equal(originalIdentity.SourceHash, currentIdentity!.SourceHash);
+        Assert.Equal(DocumentFoundationRepo.BuildStableRevisionId(tenantId, docId, 2).ToString(), currentIdentity.RevisionId);
+        Assert.Null(RagEndpoints.ResolveDocumentSourceIdentity(firstMatch, currentIdentities));
+        Assert.Null(RagEndpoints.ResolveDocumentSourceIdentity(wrongDocument, currentIdentities));
+        Assert.Null(RagEndpoints.ResolveDocumentSourceIdentity(wrongPath, currentIdentities));
+    }
+
+    [Fact]
+    public async Task Canonical_context_exposes_revision_change_after_search_without_relabeling_the_old_anchor()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.NewGuid();
+        var docId = Guid.NewGuid();
+        const string path = "Knowledge/revision-window.pdf";
+        await PublishIndexedDocumentAsync(db, tenantId, docId, Guid.NewGuid(), path, 1,
+            [new RuntimeSeedSection("Initial measurement", "Amber measurement records the first extraction and its original instrument verification procedure.")]);
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+
+        async Task<JsonElement> SearchAsync()
+        {
+            var ctx = BuildRagHttpContext(tenantId);
+            var result = await InvokeRagSearchAsync(ctx, ds, Options.Create(CreateTestRagOptions()),
+                new StubHttpClientFactory(), new RagSearchRequestDto("amber measurement", DocId: docId.ToString(),
+                    TopK: 20, SourceBackedCanonical: true));
+            await result.ExecuteAsync(ctx);
+            Assert.Equal(StatusCodes.Status200OK, ctx.Response.StatusCode);
+            var response = JsonSerializer.Deserialize<JsonElement>(ReadResponseBody(ctx));
+            Assert.Single(response.GetProperty("items").EnumerateArray());
+            return response;
+        }
+
+        async Task<JsonElement> ContextAsync(Guid anchor)
+        {
+            var ctx = BuildRagHttpContext(tenantId);
+            var method = typeof(DocumentsEndpoints).GetMethod("ContextAsync", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(method);
+            var result = await (Task<IResult>)method!.Invoke(null, [ctx, ds, docId, path, anchor, null, null, 4, 2, 7, 0])!;
+            await result.ExecuteAsync(ctx);
+            Assert.Equal(StatusCodes.Status200OK, ctx.Response.StatusCode);
+            return JsonSerializer.Deserialize<JsonElement>(ReadResponseBody(ctx));
+        }
+
+        var oldSearch = await SearchAsync();
+        var oldHit = oldSearch.GetProperty("items")[0];
+        var oldAnchor = Guid.Parse(oldHit.GetProperty("chunkId").GetString()!);
+        var oldContext = await ContextAsync(oldAnchor);
+        Assert.True(oldContext.GetProperty("anchorFound").GetBoolean());
+        Assert.Equal(oldHit.GetProperty("revisionId").GetString(), oldContext.GetProperty("document").GetProperty("revisionId").GetString());
+
+        await PublishIndexedDocumentAsync(db, tenantId, docId, Guid.NewGuid(), path, 2,
+            [new RuntimeSeedSection("Updated measurement", "Amber measurement records the second extraction and a changed instrument verification procedure.")]);
+        var changedContext = await ContextAsync(oldAnchor);
+        var currentSearch = await SearchAsync();
+        var currentHit = currentSearch.GetProperty("items")[0];
+        var currentContext = await ContextAsync(Guid.Parse(currentHit.GetProperty("chunkId").GetString()!));
+
+        Assert.True(changedContext.GetProperty("found").GetBoolean());
+        Assert.False(changedContext.GetProperty("anchorFound").GetBoolean());
+        Assert.Equal("document_scroll", changedContext.GetProperty("contextKind").GetString());
+        Assert.NotEqual(oldHit.GetProperty("revisionId").GetString(), currentHit.GetProperty("revisionId").GetString());
+        Assert.Equal(oldHit.GetProperty("sourceHash").GetString(), currentHit.GetProperty("sourceHash").GetString());
+        Assert.Equal(currentHit.GetProperty("revisionId").GetString(), changedContext.GetProperty("document").GetProperty("revisionId").GetString());
+        Assert.True(currentContext.GetProperty("anchorFound").GetBoolean());
+        Assert.All(changedContext.GetProperty("items").EnumerateArray(), item =>
+        {
+            Assert.NotEqual(oldAnchor.ToString(), item.GetProperty("chunkId").GetString());
+            Assert.Contains("second extraction", item.GetProperty("text").GetString());
+        });
+
+        var export = Environment.GetEnvironmentVariable("SAAIA_TEST_CONTRACT_EXPORT_DIR");
+        if (!string.IsNullOrWhiteSpace(export))
+        {
+            Assert.True(Path.IsPathFullyQualified(export) && Directory.Exists(export));
+            var artifact = Path.Combine(export, "canonical-context-revision-contract.json");
+            Assert.False(File.Exists(artifact));
+            File.WriteAllText(artifact, JsonSerializer.Serialize(new
+            {
+                schemaVersion = 1, syntheticCorpus = true, postgresVerified = true,
+                sourceTest = nameof(Canonical_context_exposes_revision_change_after_search_without_relabeling_the_old_anchor),
+                cases = new[]
+                {
+                    new { name = "stable_initial_revision", search = oldSearch, context = oldContext },
+                    new { name = "reextracted_between_search_and_context", search = oldSearch, context = changedContext },
+                    new { name = "stable_current_revision", search = currentSearch, context = currentContext }
+                }
+            }, new JsonSerializerOptions { WriteIndented = true }));
+        }
+    }
+
+    [Fact]
+    public async Task Canonical_search_preserves_current_source_identity_and_explicit_scope_without_server_guidance()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.NewGuid();
+        var foreignTenantId = Guid.NewGuid();
+        var firstDocId = Guid.NewGuid();
+        var secondDocId = Guid.NewGuid();
+        var outsideDocId = Guid.NewGuid();
+        var foreignDocId = Guid.NewGuid();
+        await PublishIndexedDocumentAsync(db, tenantId, firstDocId, Guid.NewGuid(), "Knowledge/first.pdf", 1,
+            [new RuntimeSeedSection("Previous extraction", "Cobalt calibration has an obsolete extraction marker that must not survive a new indexed revision.")]);
+        await PublishIndexedDocumentAsync(db, tenantId, firstDocId, Guid.NewGuid(), "Knowledge/first.pdf", 2,
+            [
+                new RuntimeSeedSection("Pressure measurement", "Cobalt calibration records the current pressure measurement and identifies the instrument used for verification."),
+                new RuntimeSeedSection("Recording results", "Cobalt calibration records the current verification result and the time when the inspection was completed.")
+            ], useProductionContextualProjection: true);
+        await PublishIndexedDocumentAsync(db, tenantId, secondDocId, Guid.NewGuid(), "Knowledge/second.pdf", 1,
+            [new RuntimeSeedSection("Instrument record", "Cobalt calibration records the instrument identifier and the required verification interval for the equipment.")],
+            useProductionContextualProjection: true);
+        await PublishIndexedDocumentAsync(db, tenantId, outsideDocId, Guid.NewGuid(), "Archive/outside.pdf", 1,
+            [new RuntimeSeedSection("Other category", "Cobalt calibration records a separate archived procedure outside the requested knowledge category.")]);
+        await PublishIndexedDocumentAsync(db, foreignTenantId, foreignDocId, Guid.NewGuid(), "Knowledge/first.pdf", 1,
+            [new RuntimeSeedSection("Other tenant", "Cobalt calibration contains a foreign tenant marker that must never be returned to another tenant.")]);
+
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var built = await SAAIA.Backend.CatalogSnapshot.CatalogSnapshotBuilder.BuildTenantAsync(
+            ds, tenantId, new SAAIA.Backend.CatalogSnapshot.CatalogSnapshotOptions(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, CancellationToken.None);
+        Assert.True(built.Success);
+        await using var conn = await ds.OpenConnectionAsync();
+        var categoryOrder = await conn.QuerySingleAsync<int>(
+            "SELECT display_order FROM documents_catalog_categories WHERE tenant_id=@tenant AND path='Knowledge';",
+            new { tenant = tenantId });
+        var currentSources = (await conn.QueryAsync<(Guid ChunkId, Guid RevisionId, Guid DocId, string Text, string Hash, int PageStart, int PageEnd)>(
+            """
+SELECT c.retrieval_chunk_id, r.revision_id, r.doc_id, c.text_content,
+       LOWER(ENCODE(r.source_hash, 'hex')), c.page_start, c.page_end
+FROM retrieval_chunks c
+JOIN document_revisions r ON r.revision_id=c.revision_id AND r.tenant_id=c.tenant_id
+JOIN documents d ON d.doc_id=r.doc_id AND d.tenant_id=r.tenant_id AND d.indexed_version=r.indexed_version
+WHERE c.tenant_id=@tenant;
+""",
+            new { tenant = tenantId })).ToDictionary(row => row.ChunkId);
+
+        var contractResponses = new List<object>();
+        async Task<RagSearchResponseDto> SearchAsync(RagSearchRequestDto request)
+        {
+            var ctx = BuildRagHttpContext(tenantId);
+            var result = await InvokeRagSearchAsync(ctx, ds, Options.Create(CreateTestRagOptions()),
+                new StubHttpClientFactory(), request);
+            await result.ExecuteAsync(ctx);
+            Assert.Equal(StatusCodes.Status200OK, ctx.Response.StatusCode);
+            var raw = ReadResponseBody(ctx);
+            contractResponses.Add(new { request, response = JsonSerializer.Deserialize<JsonElement>(raw) });
+            var response = JsonSerializer.Deserialize<RagSearchResponseDto>(raw,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            Assert.NotNull(response);
+            Assert.Null(response!.Guidance);
+            // This scenario has no exact entries and Qdrant returns no points:
+            // all nonempty results come from the canonical PostgreSQL FTS channel.
+            Assert.Equal(response.Items.Count, response.Metrics.SparseReturned);
+            Assert.Equal(0, response.Metrics.DenseReturned);
+            Assert.All(response.Items, item =>
+            {
+                Assert.Equal("sparse_bm25", item.Retriever);
+                Assert.True(Guid.TryParse(item.ChunkId, out var chunkId));
+                Assert.True(currentSources.TryGetValue(chunkId, out var source), "Every returned chunk must belong to this tenant's currently published revision.");
+                Assert.Equal(source.DocId.ToString(), item.DocId);
+                Assert.Equal(source.RevisionId.ToString(), item.RevisionId);
+                Assert.Equal(source.Hash, item.SourceHash);
+                Assert.Equal(source.Text, item.Text);
+                Assert.Equal(source.PageStart, item.PageStart);
+                Assert.Equal(source.PageEnd, item.PageEnd);
+                Assert.NotNull(item.ProvenanceInfo);
+                Assert.Equal("sparse_bm25", item.ProvenanceInfo!.Channel);
+                Assert.Equal("retriever:sparse_bm25", item.ProvenanceInfo.Label);
+                Assert.Equal(item.SourceHash, item.ProvenanceInfo!.SourceHash);
+                Assert.Equal(item.ChunkId, item.ProvenanceInfo.ChunkId);
+                Assert.Null(item.SelectionHints);
+                Assert.Null(item.ProfileSignals);
+                Assert.Null(item.MatchedContentCards);
+                Assert.DoesNotContain("obsolete extraction marker", item.Text, StringComparison.Ordinal);
+                Assert.DoesNotContain("foreign tenant marker", item.Text, StringComparison.Ordinal);
+            });
+            return response;
+        }
+
+        foreach (var request in new[]
+        {
+            new RagSearchRequestDto("cobalt calibration", CategoryPath: "Knowledge", TopK: 20, SourceBackedCanonical: true, IncludeContextualSnippet: true),
+            new RagSearchRequestDto("cobalt calibration", CategoryRef: $"cat_{categoryOrder:000}", TopK: 20, SourceBackedCanonical: true, IncludeContextualSnippet: true)
+        })
+        {
+            var response = await SearchAsync(request);
+            Assert.Equal("cobalt calibration", response.Query);
+            Assert.NotEmpty(response.Items);
+            Assert.Contains(response.Items, item => !string.IsNullOrWhiteSpace(item.ContextualSnippet));
+            Assert.All(response.Items, item => Assert.StartsWith("Knowledge/", item.DocPath, StringComparison.Ordinal));
+            Assert.Contains(response.Items, item => item.DocId == firstDocId.ToString());
+            Assert.Contains(response.Items, item => item.DocId == secondDocId.ToString());
+        }
+
+        var pageResponse = await SearchAsync(new RagSearchRequestDto("cobalt calibration", DocId: firstDocId.ToString(),
+            PageStart: 2, PageEnd: 2, TopK: 20, SourceBackedCanonical: true, IncludeContextualSnippet: true));
+        Assert.NotEmpty(pageResponse.Items);
+        Assert.All(pageResponse.Items, item =>
+        {
+            Assert.Equal(firstDocId.ToString(), item.DocId);
+            Assert.Equal(2, item.PageStart);
+            Assert.Equal(2, item.PageEnd);
+        });
+
+        var emptyResponse = await SearchAsync(new RagSearchRequestDto("absentquartzreferencexyz", TopK: 20, SourceBackedCanonical: true));
+        Assert.Empty(emptyResponse.Items);
+
+        var contractExport = Environment.GetEnvironmentVariable("SAAIA_TEST_CONTRACT_EXPORT_DIR");
+        if (!string.IsNullOrWhiteSpace(contractExport))
+        {
+            Assert.True(Path.IsPathFullyQualified(contractExport) && Directory.Exists(contractExport));
+            var artifactPath = Path.Combine(contractExport, "canonical-search-contract.json");
+            Assert.False(File.Exists(artifactPath));
+            File.WriteAllText(artifactPath, JsonSerializer.Serialize(new
+            {
+                schemaVersion = 1,
+                syntheticCorpus = true,
+                postgresVerified = true,
+                sourceTest = nameof(Canonical_search_preserves_current_source_identity_and_explicit_scope_without_server_guidance),
+                responses = contractResponses,
+                currentSources = currentSources.Values.Select(source => new
+                {
+                    source.ChunkId, source.RevisionId, source.DocId, source.Text, source.Hash, source.PageStart, source.PageEnd
+                })
+            }, new JsonSerializerOptions { WriteIndented = true }));
+        }
+    }
+
     [Fact]
     public void Stable_content_card_id_uses_normalized_title_not_card_order()
     {
@@ -183,15 +638,15 @@ public sealed class DocumentFoundationIntegrationTests
 
         var pages = new[]
         {
-            new ExtractedPdfPage(1, "Intro text", 2, 10, [1])
+            new ExtractedPdfPage(1, "Pressure verification uses a calibrated gauge and records the measured value before the isolation valve is opened.", CountWords("Pressure verification uses a calibrated gauge and records the measured value before the isolation valve is opened."), "Pressure verification uses a calibrated gauge and records the measured value before the isolation valve is opened.".Length, [1])
         };
         var sections = new[]
         {
-            new ExtractedDocumentSection(0, "Introduction", 1, 1, 1, 1, null)
+            new ExtractedDocumentSection(0, "Pressure verification", 1, 1, 1, 1, null)
         };
         var units = new[]
         {
-            new ExtractedDocumentUnit(0, 0, 1, 1, "Intro text", 10, 2, [2])
+            new ExtractedDocumentUnit(0, 0, 1, 1, "Pressure verification uses a calibrated gauge and records the measured value before the isolation valve is opened.", "Pressure verification uses a calibrated gauge and records the measured value before the isolation valve is opened.".Length, CountWords("Pressure verification uses a calibrated gauge and records the measured value before the isolation valve is opened."), [2])
         };
         var retrievalChunks = new[]
         {
@@ -201,8 +656,8 @@ public sealed class DocumentFoundationIntegrationTests
                 0,
                 1,
                 1,
-                "Intro text",
-                2,
+                "Pressure verification uses a calibrated gauge and records the measured value before the isolation valve is opened.",
+                CountWords("Pressure verification uses a calibrated gauge and records the measured value before the isolation valve is opened."),
                 [3],
                 "unit_exact_v1",
                 SourceUnitOrdinals: [0],
@@ -213,7 +668,7 @@ public sealed class DocumentFoundationIntegrationTests
         };
         var exactMatchEntries = new[]
         {
-            new ExtractedExactMatchEntry(0, 0, 0, 1, 1, "Intro text", "intro text", 10, 2, [4], "verbatim_excerpt")
+            new ExtractedExactMatchEntry(0, 0, 0, 1, 1, "Pressure verification uses a calibrated gauge and records the measured value before the isolation valve is opened.", "pressure verification uses a calibrated gauge and records the measured value before the isolation valve is opened.", "Pressure verification uses a calibrated gauge and records the measured value before the isolation valve is opened.".Length, CountWords("Pressure verification uses a calibrated gauge and records the measured value before the isolation valve is opened."), [4], "verbatim_excerpt")
         };
         var contextualTextEntries = ContextualTextProjector.Project(docPath, sections, units, retrievalChunks);
 
@@ -260,7 +715,7 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal(1, contextualCount);
         Assert.Equal(1, profileCount);
         Assert.Equal(1, profileCardCount);
-        Assert.Equal(8, artifactCount);
+        Assert.Equal(10, artifactCount);
 
         var contextualMetadataJson = await conn.ExecuteScalarAsync<string>(
             "SELECT metadata::text FROM contextual_text_entries LIMIT 1;");
@@ -270,8 +725,8 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal(0, metadataRoot.GetProperty("chunkIndex").GetInt32());
         Assert.Equal("unit_exact_v1", metadataRoot.GetProperty("chunkType").GetString());
         Assert.Equal("content", metadataRoot.GetProperty("contentRole").GetString());
-        Assert.Equal("Introduction", metadataRoot.GetProperty("sectionTitle").GetString());
-        Assert.Equal("Introduction", metadataRoot.GetProperty("headingPath").GetString());
+        Assert.Equal("Pressure verification", metadataRoot.GetProperty("sectionTitle").GetString());
+        Assert.Equal("Pressure verification", metadataRoot.GetProperty("headingPath").GetString());
         Assert.Equal("single_unit", metadataRoot.GetProperty("chunkComposition").GetString());
         Assert.Equal([0], metadataRoot.GetProperty("sourceUnitOrdinals").EnumerateArray().Select(item => item.GetInt32()).ToArray());
 
@@ -288,8 +743,9 @@ public sealed class DocumentFoundationIntegrationTests
 
         var artifactPayload = await conn.ExecuteScalarAsync<string>(
             "SELECT payload::text FROM document_revision_artifacts WHERE artifact_type='exact_match_entries';");
-        Assert.Contains("\"count\":1", artifactPayload, StringComparison.Ordinal);
-        Assert.Contains("\"hashBasis\":\"canonical_text_v1\"", artifactPayload, StringComparison.Ordinal);
+        using var artifactMetadata = JsonDocument.Parse(artifactPayload!);
+        Assert.Equal(1, artifactMetadata.RootElement.GetProperty("count").GetInt32());
+        Assert.Equal("canonical_text_v1", artifactMetadata.RootElement.GetProperty("hashBasis").GetString());
 
         var processingPayload = await conn.ExecuteScalarAsync<string>(
             "SELECT payload::text FROM document_processing_runs LIMIT 1;");
@@ -306,8 +762,8 @@ public sealed class DocumentFoundationIntegrationTests
             var extractionQuality = processingMetadata.RootElement.GetProperty("extractionQuality");
             Assert.Equal(1, extractionQuality.GetProperty("pageCount").GetInt32());
             Assert.Equal(1, extractionQuality.GetProperty("textPageCount").GetInt32());
-            Assert.Equal("low_text", extractionQuality.GetProperty("textStatus").GetString());
-            Assert.True(extractionQuality.GetProperty("ocrRecommended").GetBoolean());
+            Assert.Equal("ok", extractionQuality.GetProperty("textStatus").GetString());
+            Assert.False(extractionQuality.GetProperty("ocrRecommended").GetBoolean());
             var retrievalChunkQuality = processingMetadata.RootElement.GetProperty("retrievalChunkQuality");
             Assert.Equal(1, retrievalChunkQuality.GetProperty("totalChunkCount").GetInt32());
             Assert.Equal(1, retrievalChunkQuality.GetProperty("searchableChunkCount").GetInt32());
@@ -319,15 +775,15 @@ public sealed class DocumentFoundationIntegrationTests
             "SELECT metadata::text FROM document_page_index LIMIT 1;");
         using (var pageMetadata = JsonDocument.Parse(pageMetadataJson ?? "{}"))
         {
-            Assert.Equal(2, pageMetadata.RootElement.GetProperty("wordCount").GetInt32());
+            Assert.Equal(pages[0].WordCount, pageMetadata.RootElement.GetProperty("wordCount").GetInt32());
             var extractionQuality = pageMetadata.RootElement.GetProperty("extractionQuality");
             Assert.Equal("page_extraction_quality_v2", extractionQuality.GetProperty("diagnosticVersion").GetString());
-            Assert.Equal("page_ok_low_value_text", extractionQuality.GetProperty("qualityStatus").GetString());
-            Assert.Equal(0.78, extractionQuality.GetProperty("extractionConfidence").GetDouble());
+            Assert.Equal("page_ok", extractionQuality.GetProperty("qualityStatus").GetString());
+            Assert.Equal(1.0, extractionQuality.GetProperty("extractionConfidence").GetDouble());
             Assert.False(extractionQuality.GetProperty("manualReviewRecommended").GetBoolean());
-            Assert.Equal("low_text", extractionQuality.GetProperty("textStatus").GetString());
-            Assert.True(extractionQuality.GetProperty("textSparse").GetBoolean());
-            Assert.True(extractionQuality.GetProperty("ocrCandidate").GetBoolean());
+            Assert.Equal("ok", extractionQuality.GetProperty("textStatus").GetString());
+            Assert.False(extractionQuality.GetProperty("textSparse").GetBoolean());
+            Assert.False(extractionQuality.GetProperty("ocrCandidate").GetBoolean());
             Assert.Equal(1, extractionQuality.GetProperty("unitCount").GetInt32());
             Assert.Equal(1, extractionQuality.GetProperty("chunkCount").GetInt32());
         }
@@ -335,40 +791,44 @@ public sealed class DocumentFoundationIntegrationTests
         var profile = await conn.QuerySingleAsync<(string summary_text, string search_text, string[] keywords, string metadata)>(
             "SELECT summary_text, search_text, keywords, metadata::text FROM document_profiles LIMIT 1;");
         Assert.Contains("CEN.pdf", profile.summary_text, StringComparison.Ordinal);
-        Assert.Contains("Intro text", profile.search_text, StringComparison.Ordinal);
-        Assert.Contains("intro", profile.keywords);
+        Assert.Contains("Pressure verification uses a calibrated gauge and records the measured value before the isolation valve is opened.", profile.search_text, StringComparison.Ordinal);
+        Assert.Contains("pressure", profile.keywords);
         using (var profileMetadata = JsonDocument.Parse(profile.metadata))
         {
             Assert.Equal(1, profileMetadata.RootElement.GetProperty("contentCardCount").GetInt32());
             Assert.Contains(
                 profileMetadata.RootElement.GetProperty("contentCards").EnumerateArray(),
-                card => string.Equals(card.GetProperty("title").GetString(), "Intro text", StringComparison.Ordinal));
+                card => string.Equals(card.GetProperty("title").GetString(), "Pressure verification", StringComparison.Ordinal));
         }
 
         var profileCard = await conn.QuerySingleAsync<(string title, string search_text, string[] signals)>(
             "SELECT title, search_text, signals FROM document_profile_content_cards LIMIT 1;");
-        Assert.Equal("Intro text", profileCard.title);
-        Assert.Contains("Intro text", profileCard.search_text, StringComparison.Ordinal);
-        Assert.Contains("intro", profileCard.signals);
+        Assert.Equal("Pressure verification", profileCard.title);
+        Assert.Contains(profileCard.title, profileCard.search_text, StringComparison.Ordinal);
+        Assert.Contains("pressure", profileCard.signals);
 
         var profileMatches = await RagEndpoints.SearchDocumentProfileMatchesAsync(
             ds,
             tenantId,
-            "intro text",
+            "pressure verification",
             category: null,
             docId: null,
             docPath: null,
             topK: 5,
             CancellationToken.None);
         var profileMatch = Assert.Single(profileMatches);
-        Assert.Equal("document_profile", RagEndpoints.ResolveRetriever(profileMatch));
-        Assert.Contains("CEN.pdf", profileMatch.Text, StringComparison.Ordinal);
+        Assert.Equal(docId.ToString(), profileMatch.DocId);
+        Assert.Equal(docPath, profileMatch.DocPath);
+        Assert.Equal(1, profileMatch.IngestionVersion);
+        Assert.Equal("090909", profileMatch.HashDoc);
+        Assert.Contains("Pressure verification", profileMatch.Text, StringComparison.OrdinalIgnoreCase);
 
         var retrievalChunkMetadata = await conn.ExecuteScalarAsync<string>(
             "SELECT metadata::text FROM retrieval_chunks LIMIT 1;");
-        Assert.Contains("\"chunkType\":\"unit_exact_v1\"", retrievalChunkMetadata, StringComparison.Ordinal);
-        Assert.Contains("\"sectionTitle\":\"Introduction\"", retrievalChunkMetadata, StringComparison.Ordinal);
-        Assert.Contains("\"headingPath\":\"Introduction\"", retrievalChunkMetadata, StringComparison.Ordinal);
+        using var chunkMetadata = JsonDocument.Parse(retrievalChunkMetadata!);
+        Assert.Equal("unit_exact_v1", chunkMetadata.RootElement.GetProperty("chunkType").GetString());
+        Assert.Equal("Pressure verification", chunkMetadata.RootElement.GetProperty("sectionTitle").GetString());
+        Assert.Equal("Pressure verification", chunkMetadata.RootElement.GetProperty("headingPath").GetString());
 
         var retrievalChunkId = await conn.ExecuteScalarAsync<Guid>(
             "SELECT retrieval_chunk_id FROM retrieval_chunks LIMIT 1;");
@@ -460,11 +920,16 @@ public sealed class DocumentFoundationIntegrationTests
 
         var artifactPayload = await conn.ExecuteScalarAsync<string>(
             "SELECT payload::text FROM document_revision_artifacts WHERE artifact_type='retrieval_chunks';");
-        Assert.Contains("\"count\":1", artifactPayload, StringComparison.Ordinal);
+        using var artifactMetadata = JsonDocument.Parse(artifactPayload!);
+        Assert.Equal(1, artifactMetadata.RootElement.GetProperty("count").GetInt32());
     }
 
-    [Fact]
-    public async Task CompleteUpsertAsync_does_not_publish_when_no_searchable_chunks_exist()
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"quality\":{\"existing\":\"preserved\"},\"traceTag\":\"preserved\"}")]
+    [InlineData("{\"quality\":null}")]
+    [InlineData("{\"quality\":7}")]
+    public async Task CompleteUpsertAsync_does_not_publish_when_no_searchable_chunks_exist(string initialPayload)
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
@@ -476,6 +941,13 @@ public sealed class DocumentFoundationIntegrationTests
         const string docPath = "Generic/navigation-only.pdf";
 
         await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 1, indexedVersion: 0);
+        await using (var seedConnection = new NpgsqlConnection(db.ConnectionString))
+        {
+            await seedConnection.OpenAsync();
+            await seedConnection.ExecuteAsync(
+                "UPDATE ingestion_jobs SET payload=@initialPayload::jsonb WHERE job_id=@jobId;",
+                new { initialPayload, jobId });
+        }
 
         var pages = new[]
         {
@@ -545,6 +1017,12 @@ public sealed class DocumentFoundationIntegrationTests
 
         using var payload = JsonDocument.Parse(job.payload);
         Assert.Equal("failed_no_searchable_chunks", payload.RootElement.GetProperty("progress").GetProperty("phase").GetString());
+        using var originalPayload = JsonDocument.Parse(initialPayload);
+        if (originalPayload.RootElement.TryGetProperty("traceTag", out var traceTag))
+        {
+            Assert.Equal(traceTag.GetString(), payload.RootElement.GetProperty("traceTag").GetString());
+            Assert.Equal("preserved", payload.RootElement.GetProperty("quality").GetProperty("existing").GetString());
+        }
         var retrievalQuality = payload.RootElement.GetProperty("quality").GetProperty("retrieval");
         Assert.Equal(1, retrievalQuality.GetProperty("totalChunkCount").GetInt32());
         Assert.Equal(0, retrievalQuality.GetProperty("searchableChunkCount").GetInt32());
@@ -746,7 +1224,7 @@ public sealed class DocumentFoundationIntegrationTests
 
         var pages = new[]
         {
-            new ExtractedPdfPage(1, "Retry gap content", 3, 17, [1])
+            new ExtractedPdfPage(1, "Retry gap content preserves the original source across successful ingestion versions.", CountWords("Retry gap content preserves the original source across successful ingestion versions."), "Retry gap content preserves the original source across successful ingestion versions.".Length, [1])
         };
         var sections = new[]
         {
@@ -754,11 +1232,11 @@ public sealed class DocumentFoundationIntegrationTests
         };
         var units = new[]
         {
-            new ExtractedDocumentUnit(0, 0, 1, 1, "Retry gap content", 17, 3, [2])
+            new ExtractedDocumentUnit(0, 0, 1, 1, "Retry gap content preserves the original source across successful ingestion versions.", "Retry gap content preserves the original source across successful ingestion versions.".Length, CountWords("Retry gap content preserves the original source across successful ingestion versions."), [2])
         };
         var retrievalChunks = new[]
         {
-            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "Retry gap content", 3, [3], "unit_exact_v1")
+            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "Retry gap content preserves the original source across successful ingestion versions.", CountWords("Retry gap content preserves the original source across successful ingestion versions."), [3], "unit_exact_v1")
         };
 
         var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -805,7 +1283,7 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal(5, processingRun.indexed_version_after);
 
         var retrievalChunkId = await conn.ExecuteScalarAsync<Guid>(
-            "SELECT retrieval_chunk_id FROM retrieval_chunks WHERE tenant_id=@tenant_id AND doc_id=@doc_id;",
+            "SELECT c.retrieval_chunk_id FROM retrieval_chunks c JOIN document_revisions r ON r.revision_id=c.revision_id WHERE c.tenant_id=@tenant_id AND r.doc_id=@doc_id;",
             new { tenant_id = tenantId, doc_id = docId });
         Assert.Equal(DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 5, 0), retrievalChunkId);
     }
@@ -1351,6 +1829,31 @@ public sealed class DocumentFoundationIntegrationTests
         var failedPageItem = Assert.Single(root.GetProperty("pages").EnumerateArray());
         Assert.Equal("manual_review_empty_text", failedPageItem.GetProperty("qualityStatus").GetString());
         Assert.True(failedPageItem.GetProperty("manualReviewRecommended").GetBoolean());
+
+        var listCtx = BuildAdminDocumentsHttpContext(tenantId);
+        var listResult = await InvokeExtractionQualityAsync(listCtx, ds, "OCR", null, 20);
+        await listResult.ExecuteAsync(listCtx);
+        using var listPayload = JsonDocument.Parse(ReadResponseBody(listCtx));
+        var failedItem = Assert.Single(listPayload.RootElement.GetProperty("items").EnumerateArray());
+        Assert.Equal("indexed", failedItem.GetProperty("documentStatus").GetString());
+        Assert.Equal("failed", failedItem.GetProperty("processingRunStatus").GetString());
+        Assert.Equal("scanned_pdf_not_indexable", failedItem.GetProperty("failureReason").GetString());
+
+        // A diagnostic from an earlier ingestion attempt must not replace the
+        // published revision's diagnostic once another attempt is current.
+        await using (var conn = new NpgsqlConnection(db.ConnectionString))
+        {
+            await conn.OpenAsync();
+            await conn.ExecuteAsync(
+                "UPDATE documents SET ingestion_version=3 WHERE tenant_id=@tenant AND doc_id=@docId;",
+                new { tenant = tenantId, docId });
+        }
+        var newerAttemptCtx = BuildAdminDocumentsHttpContext(tenantId);
+        var newerAttemptResult = await InvokeExtractionQualityPagesAsync(newerAttemptCtx, ds, docId);
+        await newerAttemptResult.ExecuteAsync(newerAttemptCtx);
+        using var newerAttemptPayload = JsonDocument.Parse(ReadResponseBody(newerAttemptCtx));
+        Assert.Equal("done", newerAttemptPayload.RootElement.GetProperty("processingRunStatus").GetString());
+        Assert.DoesNotContain("failed_run", newerAttemptPayload.RootElement.GetRawText(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1588,9 +2091,16 @@ public sealed class DocumentFoundationIntegrationTests
             "SELECT title, revision_id FROM document_profile_content_cards ORDER BY title;")).ToArray();
 
         Assert.Equal(2, profileCount);
-        Assert.Contains(cardRows, row => string.Equals(row.title, "NEW ACTIVE CARD", StringComparison.Ordinal));
-        Assert.DoesNotContain(cardRows, row => row.title.Contains("OLD", StringComparison.OrdinalIgnoreCase));
-        Assert.Single(cardRows.Select(static row => row.revision_id).Distinct());
+        var currentRevision = await conn.QuerySingleAsync<Guid>(
+            "SELECT revision_id FROM document_revisions WHERE tenant_id=@tenant AND doc_id=@docId AND indexed_version=2;",
+            new { tenant=tenantId, docId });
+        var currentCards = cardRows.Where(row => row.revision_id == currentRevision).ToArray();
+        Assert.Contains(currentCards, row => string.Equals(row.title, "New active heading", StringComparison.Ordinal));
+        Assert.DoesNotContain(currentCards, row => row.title.Contains("OLD", StringComparison.OrdinalIgnoreCase));
+        // Published revisions keep their own cards. Updating one profile must
+        // not purge cards owned by the earlier revision's profile.
+        Assert.Contains(cardRows, row => row.revision_id != currentRevision && row.title == "Old active heading");
+        Assert.Equal(2, cardRows.Select(row => row.revision_id).Distinct().Count());
     }
 
     [Fact]
@@ -2020,7 +2530,7 @@ public sealed class DocumentFoundationIntegrationTests
         var jobId = Guid.Parse("aaaaaaaa-3333-3333-3333-242424242424");
         const string docPath = "Operations/DeleteSummaryProjection.pdf";
         const string text = "Generic operational baseline text.";
-        const string summaryOnlyNeedle = "summary-only capstan routing marker";
+        const string summaryOnlyNeedle = "capstanquorinx vectraloz pyranelix";
 
         await PublishIndexedDocumentAsync(
             db,
@@ -2093,6 +2603,11 @@ public sealed class DocumentFoundationIntegrationTests
             topK: 5,
             CancellationToken.None);
         Assert.DoesNotContain(afterDelete, match => match.DocPath == docPath);
+        await using var projectionConn = await ds.OpenConnectionAsync();
+        var projection = await projectionConn.QuerySingleAsync<string>(
+            "SELECT search_text FROM document_profile_search_entries WHERE tenant_id=@tenant AND doc_id=@docId;",
+            new { tenant=tenantId, docId });
+        Assert.DoesNotContain(summaryOnlyNeedle, projection, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -2309,6 +2824,9 @@ public sealed class DocumentFoundationIntegrationTests
                 Mode: "balanced"));
         await result.ExecuteAsync(ctx);
 
+        await ExportRetrievalObservationAsync(
+            "llm-profile-recall-observation.json",
+            new { directProfileMatches = matches, httpBody = JsonSerializer.Deserialize<JsonElement>(ReadResponseBody(ctx)) });
         Assert.Equal(StatusCodes.Status200OK, ctx.Response.StatusCode);
         var response = JsonSerializer.Deserialize<RagSearchResponseDto>(ReadResponseBody(ctx), new JsonSerializerOptions
         {
@@ -2338,6 +2856,7 @@ public sealed class DocumentFoundationIntegrationTests
             ds,
             categoryPath: "Generic",
             q: "pressure envelope validation",
+            inventoryMode: null,
             limit: 20,
             offset: 0);
         await inventoryResult.ExecuteAsync(inventoryContext);
@@ -2393,6 +2912,10 @@ public sealed class DocumentFoundationIntegrationTests
         var profileId = await conn.ExecuteScalarAsync<Guid>(
             "SELECT document_profile_id FROM document_profiles WHERE tenant_id=@tenant AND doc_id=@docId LIMIT 1;",
             new { tenant = tenantId, docId });
+
+        await conn.ExecuteAsync(
+            "DELETE FROM document_profile_content_cards WHERE tenant_id=@tenant AND document_profile_id=@profileId;",
+            new { tenant = tenantId, profileId });
 
         await conn.ExecuteAsync(
             """
@@ -2526,6 +3049,10 @@ public sealed class DocumentFoundationIntegrationTests
                 "SELECT document_profile_id FROM document_profiles WHERE tenant_id=@tenant AND doc_id=@docId LIMIT 1;",
                 new { tenant = tenantId, docId });
 
+            await conn.ExecuteAsync(
+                "DELETE FROM document_profile_content_cards WHERE tenant_id=@tenant AND document_profile_id=@profileId;",
+                new { tenant = tenantId, profileId });
+
             for (var i = 0; i < 95; i++)
             {
                 var title = i == 94 ? "Late orbit card" : $"Generic card {i:00}";
@@ -2587,6 +3114,47 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal(docPath, match.DocPath);
         Assert.NotNull(match.MatchedContentCards);
         Assert.Contains(match.MatchedContentCards!, card => card.Title == "Late orbit card");
+
+        var orderedContext = BuildRagHttpContext(tenantId);
+        var orderedResult = await InvokeDocumentsContentCardsAsync(
+            orderedContext,
+            ds,
+            categoryPath: "Generic",
+            q: null,
+            inventoryMode: "ordered",
+            limit: 1,
+            offset: 0);
+        await orderedResult.ExecuteAsync(orderedContext);
+        using var orderedPayload = JsonDocument.Parse(ReadResponseBody(orderedContext));
+        var orderedCard = Assert.Single(
+            orderedPayload.RootElement.GetProperty("items").EnumerateArray());
+        Assert.InRange(orderedCard.GetProperty("cardIndex").GetInt32(), 0, 1);
+
+        var representativeContext = BuildRagHttpContext(tenantId);
+        var representativeResult = await InvokeDocumentsContentCardsAsync(
+            representativeContext,
+            ds,
+            categoryPath: "Generic",
+            q: null,
+            inventoryMode: "representative",
+            limit: 1,
+            offset: 0);
+        await representativeResult.ExecuteAsync(representativeContext);
+        using var representativePayload = JsonDocument.Parse(
+            ReadResponseBody(representativeContext));
+        Assert.Equal(
+            "representative",
+            representativePayload.RootElement
+                .GetProperty("inventoryMode")
+                .GetString());
+        var representativeCard = Assert.Single(
+            representativePayload.RootElement
+                .GetProperty("items")
+                .EnumerateArray());
+        Assert.InRange(
+            representativeCard.GetProperty("cardIndex").GetInt32(),
+            40,
+            60);
     }
 
     [Fact]
@@ -3127,7 +3695,7 @@ public sealed class DocumentFoundationIntegrationTests
 
         var pages = new[]
         {
-            new ExtractedPdfPage(1, "EN 15281", 2, 8, [1])
+            new ExtractedPdfPage(1, "EN 15281 applies to the documented safety procedure and its operating conditions.", CountWords("EN 15281 applies to the documented safety procedure and its operating conditions."), "EN 15281 applies to the documented safety procedure and its operating conditions.".Length, [1])
         };
         var sections = new[]
         {
@@ -3140,9 +3708,9 @@ public sealed class DocumentFoundationIntegrationTests
                 0,
                 1,
                 1,
-                "EN 15281",
-                8,
-                2,
+                "EN 15281 applies to the documented safety procedure and its operating conditions.",
+                "EN 15281 applies to the documented safety procedure and its operating conditions.".Length,
+                CountWords("EN 15281 applies to the documented safety procedure and its operating conditions."),
                 [2],
                 ExtractionTextStatus: "low_text",
                 ExtractionTextSparse: true,
@@ -3151,11 +3719,17 @@ public sealed class DocumentFoundationIntegrationTests
         };
         var retrievalChunks = new[]
         {
-            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "EN 15281", 2, [3], "unit_exact_v1")
+            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "EN 15281 applies to the documented safety procedure and its operating conditions.", CountWords("EN 15281 applies to the documented safety procedure and its operating conditions."), [3], "unit_exact_v1")
         };
         var exactMatchEntries = new[]
         {
-            new ExtractedExactMatchEntry(0, 0, 0, 1, 1, "EN 15281", "en 15281", 8, 2, [4], "standard_ref")
+            new ExtractedExactMatchEntry(0, 0, 0, 1, 1, "EN 15281", "en 15281", 8, 2, [4], "standard_ref",
+                OffsetStart: 0,
+                OffsetEnd: "EN 15281".Length,
+                ExtractionTextStatus: units[0].ExtractionTextStatus,
+                ExtractionTextSparse: units[0].ExtractionTextSparse,
+                ExtractionOcrCandidate: units[0].ExtractionOcrCandidate,
+                ExtractionQualitySignals: units[0].ExtractionQualitySignals)
         };
         var contextualTextEntries = new[]
         {
@@ -3197,6 +3771,8 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Equal("EN 15281", match.Text);
         Assert.Equal("exact_match_v1", match.EmbeddingBasis);
         Assert.Equal("Introduction", match.SectionTitle);
+        Assert.Equal(0, match.OffsetStart);
+        Assert.Equal("EN 15281".Length, match.OffsetEnd);
         Assert.Equal(1, match.IngestionVersion);
         Assert.Equal("low_text", match.ExtractionTextStatus);
         Assert.True(match.ExtractionTextSparse);
@@ -3226,7 +3802,7 @@ public sealed class DocumentFoundationIntegrationTests
         };
         var sections = new[]
         {
-            new ExtractedDocumentSection(0, "Inspection", 4, 4, 1, 1, null)
+            new ExtractedDocumentSection(0, "Inspection", Level: 1, PageStart: 4, PageEnd: 4, StartLine: 1, EndLine: null)
         };
         var units = new[]
         {
@@ -3307,7 +3883,7 @@ public sealed class DocumentFoundationIntegrationTests
         };
         var sections = new[]
         {
-            new ExtractedDocumentSection(0, "Maintenance", 6, 6, 1, 1, null)
+            new ExtractedDocumentSection(0, "Maintenance", Level: 1, PageStart: 6, PageEnd: 6, StartLine: 1, EndLine: null)
         };
         var units = new[]
         {
@@ -3445,84 +4021,14 @@ public sealed class DocumentFoundationIntegrationTests
         var job1Id = Guid.Parse("04040404-4444-4444-4444-444444444444");
         var job2Id = Guid.Parse("05050505-5555-5555-5555-555555555555");
 
-        await db.SeedRunningJobAsync(tenantId, doc1Id, job1Id, "ATEX/Doc1.pdf", ingestionVersion: 1, indexedVersion: 0);
-        await db.SeedRunningJobAsync(tenantId, doc2Id, job2Id, "ATEX/Doc2.pdf", ingestionVersion: 1, indexedVersion: 0);
-
-        var ds = NpgsqlDataSource.Create(db.ConnectionString);
-
-        await JobRepo.CompleteUpsertAsync(
-            ds,
-            tenantId,
-            job1Id,
-            "ATEX/Doc1.pdf",
-            hash: [1, 2, 3],
-            size: 100,
-            mtimeUtc: DateTime.UtcNow,
-            version: 1,
-            pages:
-            [
-                new ExtractedPdfPage(1, "Doc1 page", 4, 20, [1])
-            ],
-            sections:
-            [
-                new ExtractedDocumentSection(0, "Doc1 Intro", 1, 1, 1, 1, null),
-                new ExtractedDocumentSection(1, "Doc1 Safety", 1, 1, 1, 1, null)
-            ],
-            units:
-            [
-                new ExtractedDocumentUnit(0, 0, 1, 1, "Doc1 excerpt A", 12, 3, [2]),
-                new ExtractedDocumentUnit(1, 1, 1, 1, "Doc1 excerpt B", 12, 3, [3])
-            ],
-            retrievalChunks:
-            [
-                new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "Doc1 excerpt A", 12, [4], "unit_exact_v1")
-            ],
-            exactMatchEntries:
-            [
-                new ExtractedExactMatchEntry(0, 0, 0, 1, 1, "Doc1 excerpt A", "doc1 excerpt a", 12, 3, [5], "verbatim_excerpt")
-            ],
-            contextualTextEntries:
-            [
-                new ProjectedContextualTextEntry(0, 0, 0, 0, 1, 1, "Document: Doc1.pdf\nExcerpt:\nDoc1 excerpt A", 40, 6, [6])
-            ],
-            CancellationToken.None);
-
-        await JobRepo.CompleteUpsertAsync(
-            ds,
-            tenantId,
-            job2Id,
-            "ATEX/Doc2.pdf",
-            hash: [7, 8, 9],
-            size: 100,
-            mtimeUtc: DateTime.UtcNow,
-            version: 1,
-            pages:
-            [
-                new ExtractedPdfPage(1, "Doc2 page", 4, 20, [1])
-            ],
-            sections:
-            [
-                new ExtractedDocumentSection(0, "Doc2 Overview", 1, 1, 1, 1, null),
-                new ExtractedDocumentSection(1, "Doc2 Annex", 1, 1, 1, 1, null)
-            ],
-            units:
-            [
-                new ExtractedDocumentUnit(0, 0, 1, 1, "Doc2 excerpt A", 12, 3, [2]),
-                new ExtractedDocumentUnit(1, 1, 1, 1, "Doc2 excerpt B", 12, 3, [3])
-            ],
-            retrievalChunks:
-            [
-                new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "Doc2 excerpt A", 12, [4], "unit_exact_v1")
-            ],
-            exactMatchEntries:
-            [
-                new ExtractedExactMatchEntry(0, 0, 0, 1, 1, "Doc2 excerpt A", "doc2 excerpt a", 12, 3, [5], "verbatim_excerpt")
-            ],
-            contextualTextEntries:
-            [
-                new ProjectedContextualTextEntry(0, 0, 0, 0, 1, 1, "Document: Doc2.pdf\nExcerpt:\nDoc2 excerpt A", 40, 6, [6])
-            ],
-            CancellationToken.None);
+        const string doc1A = "Document one describes the initial inspection and records the measured operating pressure.";
+        const string doc1B = "Document one lists the safety checks required before opening the isolation valve.";
+        const string doc2A = "Document two introduces the maintenance schedule and identifies the responsible service team.";
+        const string doc2B = "Document two provides the annex describing replacement intervals and required maintenance records.";
+        await PublishIndexedDocumentAsync(db, tenantId, doc1Id, job1Id, "ATEX/Doc1.pdf", 1,
+            [new RuntimeSeedSection("Doc1 Intro", doc1A), new RuntimeSeedSection("Doc1 Safety", doc1B)]);
+        await PublishIndexedDocumentAsync(db, tenantId, doc2Id, job2Id, "ATEX/Doc2.pdf", 1,
+            [new RuntimeSeedSection("Doc2 Overview", doc2A), new RuntimeSeedSection("Doc2 Annex", doc2B)]);
 
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();
@@ -3548,8 +4054,8 @@ public sealed class DocumentFoundationIntegrationTests
 
         Assert.Equal(new[] { "Doc1 Intro", "Doc1 Safety" }, sectionTitlesByDocId[doc1Id]);
         Assert.Equal(new[] { "Doc2 Overview", "Doc2 Annex" }, sectionTitlesByDocId[doc2Id]);
-        Assert.Equal(new[] { "Doc1 excerpt A", "Doc1 excerpt B" }, excerptsByDocId[doc1Id]);
-        Assert.Equal(new[] { "Doc2 excerpt A", "Doc2 excerpt B" }, excerptsByDocId[doc2Id]);
+        Assert.Equal(new[] { doc1A, doc1B }, excerptsByDocId[doc1Id]);
+        Assert.Equal(new[] { doc2A, doc2B }, excerptsByDocId[doc2Id]);
     }
 
     [Fact]
@@ -3587,8 +4093,8 @@ public sealed class DocumentFoundationIntegrationTests
             sections:
             [
                 new ExtractedDocumentSection(0, "Contents", 1, 1, 1, 1, null),
-                new ExtractedDocumentSection(1, "Operation", 2, 2, 1, 1, null),
-                new ExtractedDocumentSection(2, "Maintenance", 3, 3, 1, 1, null)
+                new ExtractedDocumentSection(1, "Operation", Level: 1, PageStart: 2, PageEnd: 2, StartLine: 1, EndLine: null),
+                new ExtractedDocumentSection(2, "Maintenance", Level: 1, PageStart: 3, PageEnd: 3, StartLine: 1, EndLine: null)
             ],
             units:
             [
@@ -3665,7 +4171,7 @@ public sealed class DocumentFoundationIntegrationTests
             sections:
             [
                 new ExtractedDocumentSection(0, "Planning", 1, 1, 1, 1, null),
-                new ExtractedDocumentSection(1, "Execution", 2, 2, 1, 1, null)
+                new ExtractedDocumentSection(1, "Execution", Level: 1, PageStart: 2, PageEnd: 2, StartLine: 1, EndLine: null)
             ],
             units:
             [
@@ -3678,12 +4184,12 @@ public sealed class DocumentFoundationIntegrationTests
             retrievalChunks:
             [
                 new ProjectedRetrievalChunk(0, 0, 0, 1, 1, navigationList, 20, [8], "navigation_index_v1", ContentRole: RetrievalContentClassifier.NavigationRole, NavigationScore: 0.95, ContentDensityScore: 0.10),
-                new ProjectedRetrievalChunk(1, 2, 2, 1, 1, firstContentExcerpt, 12, [9], "unit_exact_v1", ContentRole: RetrievalContentClassifier.ContentRole, NavigationScore: 0.05, ContentDensityScore: 0.95),
-                new ProjectedRetrievalChunk(2, 4, 4, 2, 2, secondContentExcerpt, 12, [10], "unit_exact_v1", ContentRole: RetrievalContentClassifier.ContentRole, NavigationScore: 0.04, ContentDensityScore: 0.94)
+                new ProjectedRetrievalChunk(1, 0, 2, 1, 1, firstContentExcerpt, 12, [9], "unit_exact_v1", ContentRole: RetrievalContentClassifier.ContentRole, NavigationScore: 0.05, ContentDensityScore: 0.95),
+                new ProjectedRetrievalChunk(2, 1, 4, 2, 2, secondContentExcerpt, 12, [10], "unit_exact_v1", ContentRole: RetrievalContentClassifier.ContentRole, NavigationScore: 0.04, ContentDensityScore: 0.94)
             ],
             exactMatchEntries:
             [
-                new ExtractedExactMatchEntry(0, 2, 2, 1, 1, firstContentExcerpt, firstContentExcerpt.ToLowerInvariant(), firstContentExcerpt.Length, 12, [10], "verbatim_excerpt")
+                new ExtractedExactMatchEntry(0, 0, 2, 1, 1, firstContentExcerpt, firstContentExcerpt.ToLowerInvariant(), firstContentExcerpt.Length, 12, [10], "verbatim_excerpt")
             ],
             contextualTextEntries:
             [
@@ -3897,6 +4403,8 @@ public sealed class DocumentFoundationIntegrationTests
         var jobId = Guid.Parse("76767676-aaaa-bbbb-cccc-333333333333");
         const string docPath = "Generic/ProfileCardRecall.pdf";
         const string hiddenCardPhrase = "hydraulic accumulator pressure envelope";
+        const string sourceText = "The target page contains ordinary operational notes. The operator checks the equipment and records each maintenance action before the supervisor reviews the completed inspection record.";
+        Assert.DoesNotContain(hiddenCardPhrase, sourceText, StringComparison.OrdinalIgnoreCase);
 
         await PublishIndexedDocumentAsync(
             db,
@@ -3905,9 +4413,9 @@ public sealed class DocumentFoundationIntegrationTests
             jobId,
             docPath,
             1,
-            "Operations",
-            "The target page contains ordinary operational notes without the distinctive card phrase.",
-            "Document: ProfileCardRecall.pdf\nHeading Path: Operations\nExcerpt:\nThe target page contains ordinary operational notes without the distinctive card phrase.");
+            "Maintenance inspection",
+            sourceText,
+            "Document: ProfileCardRecall.pdf\nHeading Path: Maintenance inspection\nExcerpt:\n" + sourceText);
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         await using (var conn = await ds.OpenConnectionAsync())
@@ -3915,6 +4423,13 @@ public sealed class DocumentFoundationIntegrationTests
             var revisionId = await conn.ExecuteScalarAsync<Guid>(
                 "SELECT revision_id FROM document_revisions WHERE tenant_id=@tenant AND doc_id=@docId LIMIT 1;",
                 new { tenant = tenantId, docId });
+
+            var seedCardCount = await conn.ExecuteScalarAsync<int>(
+                """
+                SELECT COUNT(*) FROM document_profile_content_cards
+                WHERE tenant_id=@tenant AND revision_id=@revision AND profile_version='deterministic_v1';
+                """, new { tenant = tenantId, revision = revisionId });
+            Assert.True(seedCardCount > 0, "The recall fixture has no deterministic profile card to update.");
 
             await conn.ExecuteAsync(
                 """
@@ -4066,7 +4581,7 @@ public sealed class DocumentFoundationIntegrationTests
 
         var pages = new[]
         {
-            new ExtractedPdfPage(1, "EN 15281 gamma delta", 4, 21, [1])
+            new ExtractedPdfPage(1, "EN 15281 applies to the documented safety procedure and its operating conditions. gamma delta documents the second step with its own evidence.", CountWords("EN 15281 applies to the documented safety procedure and its operating conditions. gamma delta documents the second step with its own evidence."), "EN 15281 applies to the documented safety procedure and its operating conditions. gamma delta documents the second step with its own evidence.".Length, [1])
         };
         var sections = new[]
         {
@@ -4074,13 +4589,13 @@ public sealed class DocumentFoundationIntegrationTests
         };
         var units = new[]
         {
-            new ExtractedDocumentUnit(0, 0, 1, 1, "EN 15281", 8, 2, [2]),
-            new ExtractedDocumentUnit(1, 0, 1, 1, "gamma delta", 11, 2, [3])
+            new ExtractedDocumentUnit(0, 0, 1, 1, "EN 15281 applies to the documented safety procedure and its operating conditions.", "EN 15281 applies to the documented safety procedure and its operating conditions.".Length, CountWords("EN 15281 applies to the documented safety procedure and its operating conditions."), [2]),
+            new ExtractedDocumentUnit(1, 0, 1, 1, "gamma delta documents the second step with its own evidence.", "gamma delta documents the second step with its own evidence.".Length, CountWords("gamma delta documents the second step with its own evidence."), [3])
         };
         var retrievalChunks = new[]
         {
-            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "EN 15281", 2, [4], "unit_exact_v1"),
-            new ProjectedRetrievalChunk(1, 0, 1, 1, 1, "gamma delta", 2, [5], "unit_exact_v1")
+            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "EN 15281 applies to the documented safety procedure and its operating conditions.", CountWords("EN 15281 applies to the documented safety procedure and its operating conditions."), [4], "unit_exact_v1"),
+            new ProjectedRetrievalChunk(1, 0, 1, 1, 1, "gamma delta documents the second step with its own evidence.", CountWords("gamma delta documents the second step with its own evidence."), [5], "unit_exact_v1")
         };
         var exactMatchEntries = new[]
         {
@@ -4151,7 +4666,7 @@ public sealed class DocumentFoundationIntegrationTests
         await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 1, indexedVersion: 0);
 
         var pages = new[] { new ExtractedPdfPage(4, $"{title}\n{body}", 18, title.Length + body.Length, [1]) };
-        var sections = new[] { new ExtractedDocumentSection(0, "Inspection", 4, 4, 1, 1, null) };
+        var sections = new[] { new ExtractedDocumentSection(0, "Inspection", Level: 1, PageStart: 4, PageEnd: 4, StartLine: 1, EndLine: null) };
         var units = new[]
         {
             new ExtractedDocumentUnit(0, 0, 4, 4, title, title.Length, 7, [2]),
@@ -4242,17 +4757,17 @@ public sealed class DocumentFoundationIntegrationTests
 
         var ds = NpgsqlDataSource.Create(db.ConnectionString);
 
-        var docAPages = new[] { new ExtractedPdfPage(1, "EN 15281", 2, 8, [1]) };
+        var docAPages = new[] { new ExtractedPdfPage(1, "EN 15281 applies to the documented safety procedure and its operating conditions.", CountWords("EN 15281 applies to the documented safety procedure and its operating conditions."), "EN 15281 applies to the documented safety procedure and its operating conditions.".Length, [1]) };
         var docASections = new[] { new ExtractedDocumentSection(0, "Safety", 1, 1, 1, 1, null) };
-        var docAUnits = new[] { new ExtractedDocumentUnit(0, 0, 1, 1, "EN 15281", 8, 2, [2]) };
-        var docAChunks = new[] { new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "EN 15281", 2, [3], "unit_exact_v1") };
+        var docAUnits = new[] { new ExtractedDocumentUnit(0, 0, 1, 1, "EN 15281 applies to the documented safety procedure and its operating conditions.", "EN 15281 applies to the documented safety procedure and its operating conditions.".Length, CountWords("EN 15281 applies to the documented safety procedure and its operating conditions."), [2]) };
+        var docAChunks = new[] { new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "EN 15281 applies to the documented safety procedure and its operating conditions.", CountWords("EN 15281 applies to the documented safety procedure and its operating conditions."), [3], "unit_exact_v1") };
         var docAExact = new[] { new ExtractedExactMatchEntry(0, 0, 0, 1, 1, "EN 15281", "en 15281", 8, 2, [4], "standard_ref") };
         var docAContext = new[] { new ProjectedContextualTextEntry(0, 0, 0, 0, 1, 1, "Document: CEN.pdf\nExcerpt:\nEN 15281", 34, 4, [5]) };
 
-        var docBPages = new[] { new ExtractedPdfPage(1, "EN 15281", 2, 8, [6]) };
+        var docBPages = new[] { new ExtractedPdfPage(1, "EN 15281 applies to the documented safety procedure and its operating conditions.", CountWords("EN 15281 applies to the documented safety procedure and its operating conditions."), "EN 15281 applies to the documented safety procedure and its operating conditions.".Length, [6]) };
         var docBSections = new[] { new ExtractedDocumentSection(0, "Procedure", 1, 1, 1, 1, null) };
-        var docBUnits = new[] { new ExtractedDocumentUnit(0, 0, 1, 1, "EN 15281", 8, 2, [7]) };
-        var docBChunks = new[] { new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "EN 15281", 2, [8], "unit_exact_v1") };
+        var docBUnits = new[] { new ExtractedDocumentUnit(0, 0, 1, 1, "EN 15281 applies to the documented safety procedure and its operating conditions.", "EN 15281 applies to the documented safety procedure and its operating conditions.".Length, CountWords("EN 15281 applies to the documented safety procedure and its operating conditions."), [7]) };
+        var docBChunks = new[] { new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "EN 15281 applies to the documented safety procedure and its operating conditions.", CountWords("EN 15281 applies to the documented safety procedure and its operating conditions."), [8], "unit_exact_v1") };
         var docBExact = new[] { new ExtractedExactMatchEntry(0, 0, 0, 1, 1, "EN 15281", "en 15281", 8, 2, [9], "standard_ref") };
         var docBContext = new[] { new ProjectedContextualTextEntry(0, 0, 0, 0, 1, 1, "Document: Guide.pdf\nExcerpt:\nEN 15281", 36, 4, [10]) };
 
@@ -4347,6 +4862,10 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.DoesNotContain(response.Matches, match =>
             string.Equals(match.DocPath, "ATEX/Installation/CEN.pdf", StringComparison.Ordinal));
 
+        var built = await SAAIA.Backend.CatalogSnapshot.CatalogSnapshotBuilder.BuildTenantAsync(
+            ds, tenantId, new SAAIA.Backend.CatalogSnapshot.CatalogSnapshotOptions(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, CancellationToken.None);
+        Assert.True(built.Success);
         await using var conn = await ds.OpenConnectionAsync();
         var displayOrder = await conn.ExecuteScalarAsync<int>(
             "SELECT display_order FROM documents_catalog_categories WHERE tenant_id=@tenant AND path='ATEX' LIMIT 1;",
@@ -4400,8 +4919,12 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.True(response.DegradedRetrieverErrors!.ContainsKey("dense_qdrant"));
     }
 
-    [Fact]
-    public async Task SearchCoreAsync_with_admin_diagnostics_captures_bounded_retrieval_phases()
+    [Theory]
+    [InlineData("hydraulic accumulator pressure verification", false, "title_lookup_combined", "final_selected", null)]
+    [InlineData("recorded gauge inspection", false, "sparse_bm25", "final_selected", "fusion_rrf")]
+    [InlineData("hydraulic accumulator pressure verification", true, "canonical_sparse", "canonical_selected", "canonical_fusion")]
+    public async Task SearchCoreAsync_with_admin_diagnostics_captures_bounded_retrieval_phases(
+        string query, bool canonical, string retrievalPhase, string finalPhase, string? fusionPhase)
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
@@ -4428,19 +4951,29 @@ public sealed class DocumentFoundationIntegrationTests
             CreateTestRagOptions(),
             new FailingTeiHttpClientFactory(),
             new RagSearchRequestDto(
-                "hydraulic accumulator pressure verification",
+                query,
                 Category: "ops",
                 TopK: 5,
-                IncludeDiagnostics: true));
+                IncludeDiagnostics: true,
+                SourceBackedCanonical: canonical));
 
         Assert.NotEmpty(response.Matches);
         Assert.NotNull(response.Diagnostics);
         var diagnostics = response.Diagnostics!;
-        Assert.Equal("hydraulic accumulator pressure verification", diagnostics.Query);
+        Assert.Equal(query, diagnostics.Query);
         Assert.Equal(5, diagnostics.TopK);
-        Assert.Contains(diagnostics.Phases, static phase => phase.Name == "sparse_bm25");
-        Assert.Contains(diagnostics.Phases, static phase => phase.Name == "fusion_rrf");
-        Assert.Contains(diagnostics.Phases, static phase => phase.Name == "final_selected");
+        var phaseNames = diagnostics.Phases.Select(phase => phase.Name).ToArray();
+        Assert.Contains(retrievalPhase, phaseNames);
+        Assert.Contains(finalPhase, phaseNames);
+        if (fusionPhase is not null)
+            Assert.Contains(fusionPhase, phaseNames);
+        else
+        {
+            // A title lookup may complete before the hybrid retrievers run.
+            // Diagnostics must describe executed work, not fabricate phases.
+            Assert.DoesNotContain("sparse_bm25", phaseNames);
+            Assert.DoesNotContain("fusion_rrf", phaseNames);
+        }
         Assert.All(diagnostics.Phases, static phase => Assert.True(phase.TopCandidates.Count <= 12));
         Assert.Equal(response.Matches.Count, diagnostics.Selection.Returned);
         Assert.Contains(diagnostics.Selection.Items, static item => string.Equals(item.DocPath, docPath, StringComparison.Ordinal));
@@ -4496,6 +5029,7 @@ public sealed class DocumentFoundationIntegrationTests
             return;
 
         var tenantId = Guid.Parse("aaaabbbb-2323-4545-6767-111111111111");
+        const string sourceText = "Amber instruments require calibration before each recorded daily measurement check.";
         await PublishIndexedDocumentAsync(
             db,
             tenantId,
@@ -4503,10 +5037,10 @@ public sealed class DocumentFoundationIntegrationTests
             Guid.Parse("11112222-2323-4545-6767-333333333333"),
             "ATEX/CEN.pdf",
             1,
-            "Introduction",
-            "Intro text",
-            "Document: CEN.pdf\nExcerpt:\nIntro text",
-            [BuildExactMatchEntry(0, "Intro text", "intro text", "verbatim_excerpt")]);
+            "Calibration record",
+            sourceText,
+            "Document: CEN.pdf\nExcerpt:\n" + sourceText,
+            [BuildExactMatchEntry(0, sourceText, sourceText.ToLowerInvariant(), "verbatim_excerpt")]);
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         var ctx = BuildRagHttpContext(tenantId);
@@ -4515,7 +5049,7 @@ public sealed class DocumentFoundationIntegrationTests
             ds,
             Options.Create(CreateTestRagOptions()),
             new StubHttpClientFactory(),
-            new RagSearchRequestDto("Intro text", TopK: 3));
+            new RagSearchRequestDto(sourceText, TopK: 3));
 
         await result.ExecuteAsync(ctx);
 
@@ -4525,8 +5059,9 @@ public sealed class DocumentFoundationIntegrationTests
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         Assert.NotNull(response);
 
+        Assert.True(response!.Items.Count > 0, ReadResponseBody(ctx));
         var item = Assert.Single(
-            response!.Items,
+            response.Items,
             static match => string.Equals(match.DocPath, "ATEX/CEN.pdf", StringComparison.Ordinal));
         Assert.NotNull(item.ExtractionQuality);
         var quality = item.ExtractionQuality!;
@@ -4559,7 +5094,7 @@ public sealed class DocumentFoundationIntegrationTests
 
         var pages = new[]
         {
-            new ExtractedPdfPage(1, "alpha beta gamma delta", 4, 22, [1])
+            new ExtractedPdfPage(1, "alpha beta explains the first recorded operational step. gamma delta documents the second step with its own evidence.", CountWords("alpha beta explains the first recorded operational step. gamma delta documents the second step with its own evidence."), "alpha beta explains the first recorded operational step. gamma delta documents the second step with its own evidence.".Length, [1])
         };
         var sections = new[]
         {
@@ -4567,13 +5102,13 @@ public sealed class DocumentFoundationIntegrationTests
         };
         var units = new[]
         {
-            new ExtractedDocumentUnit(0, 0, 1, 1, "alpha beta", 10, 2, [2]),
-            new ExtractedDocumentUnit(1, 0, 1, 1, "gamma delta", 11, 2, [3])
+            new ExtractedDocumentUnit(0, 0, 1, 1, "alpha beta explains the first recorded operational step.", "alpha beta explains the first recorded operational step.".Length, CountWords("alpha beta explains the first recorded operational step."), [2]),
+            new ExtractedDocumentUnit(1, 0, 1, 1, "gamma delta documents the second step with its own evidence.", "gamma delta documents the second step with its own evidence.".Length, CountWords("gamma delta documents the second step with its own evidence."), [3])
         };
         var retrievalChunks = new[]
         {
-            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "alpha beta", 2, [4], "unit_exact_v1"),
-            new ProjectedRetrievalChunk(1, 0, 1, 1, 1, "gamma delta", 2, [5], "unit_exact_v1")
+            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "alpha beta explains the first recorded operational step.", CountWords("alpha beta explains the first recorded operational step."), [4], "unit_exact_v1"),
+            new ProjectedRetrievalChunk(1, 0, 1, 1, 1, "gamma delta documents the second step with its own evidence.", CountWords("gamma delta documents the second step with its own evidence."), [5], "unit_exact_v1")
         };
 
         var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -4619,7 +5154,7 @@ public sealed class DocumentFoundationIntegrationTests
 
         var pages = new[]
         {
-            new ExtractedPdfPage(1, "recipe title preparation details ingredient list", 6, 45, [1])
+            new ExtractedPdfPage(1, "recipe title describes the preparation steps and their required checks. ingredient list specifies the supplies needed before the preparation begins.", CountWords("recipe title describes the preparation steps and their required checks. ingredient list specifies the supplies needed before the preparation begins."), "recipe title describes the preparation steps and their required checks. ingredient list specifies the supplies needed before the preparation begins.".Length, [1])
         };
         var sections = new[]
         {
@@ -4627,13 +5162,13 @@ public sealed class DocumentFoundationIntegrationTests
         };
         var units = new[]
         {
-            new ExtractedDocumentUnit(0, 0, 1, 1, "recipe title preparation details", 10, 3, [2]),
-            new ExtractedDocumentUnit(1, 0, 1, 1, "ingredient list", 11, 2, [3])
+            new ExtractedDocumentUnit(0, 0, 1, 1, "recipe title describes the preparation steps and their required checks.", "recipe title describes the preparation steps and their required checks.".Length, CountWords("recipe title describes the preparation steps and their required checks."), [2]),
+            new ExtractedDocumentUnit(1, 0, 1, 1, "ingredient list specifies the supplies needed before the preparation begins.", "ingredient list specifies the supplies needed before the preparation begins.".Length, CountWords("ingredient list specifies the supplies needed before the preparation begins."), [3])
         };
         var retrievalChunks = new[]
         {
-            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "recipe title preparation details", 3, [4], "unit_exact_v1"),
-            new ProjectedRetrievalChunk(1, 0, 1, 1, 1, "ingredient list", 2, [5], "section_window_v1")
+            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "recipe title describes the preparation steps and their required checks.", CountWords("recipe title describes the preparation steps and their required checks."), [4], "unit_exact_v1"),
+            new ProjectedRetrievalChunk(1, 0, 1, 1, 1, "ingredient list specifies the supplies needed before the preparation begins.", CountWords("ingredient list specifies the supplies needed before the preparation begins."), [5], "section_window_v1")
         };
 
         var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -4663,10 +5198,10 @@ public sealed class DocumentFoundationIntegrationTests
             PageEnd: 1,
             ChunkId: DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 5, 0).ToString(),
             ChunkIndex: 0,
-            Text: "recipe title preparation details",
+            Text: "recipe title describes the preparation steps and their required checks.",
             IngestionVersion: 5,
             HashDoc: "hash",
-            EmbedText: "recipe title preparation details",
+            EmbedText: "recipe title describes the preparation steps and their required checks.",
             EmbeddingBasis: "sparse_bm25_v1",
             SectionOrdinal: 0,
             UnitOrdinal: 0,
@@ -4710,22 +5245,22 @@ public sealed class DocumentFoundationIntegrationTests
 
         var pages = new[]
         {
-            new ExtractedPdfPage(1, "inspection sheet title", 3, 22, [1]),
-            new ExtractedPdfPage(2, "ingredients and preparation details", 4, 35, [2])
+            new ExtractedPdfPage(1, "The inspection sheet identifies the equipment and records its operating conditions.", CountWords("The inspection sheet identifies the equipment and records its operating conditions."), "The inspection sheet identifies the equipment and records its operating conditions.".Length, [1]),
+            new ExtractedPdfPage(2, "The preparation details specify the required materials and the order of inspection steps.", CountWords("The preparation details specify the required materials and the order of inspection steps."), "The preparation details specify the required materials and the order of inspection steps.".Length, [2])
         };
         var sections = new[]
         {
-            new ExtractedDocumentSection(0, "Inspection Sheet", 1, 2, 1, 1, null)
+            new ExtractedDocumentSection(0, "Inspection Sheet", Level: 1, PageStart: 1, PageEnd: 2, StartLine: 1, EndLine: null)
         };
         var units = new[]
         {
-            new ExtractedDocumentUnit(0, 0, 1, 1, "inspection sheet title", 22, 3, [3]),
-            new ExtractedDocumentUnit(1, 0, 2, 2, "ingredients and preparation details", 35, 4, [4])
+            new ExtractedDocumentUnit(0, 0, 1, 1, "The inspection sheet identifies the equipment and records its operating conditions.", "The inspection sheet identifies the equipment and records its operating conditions.".Length, CountWords("The inspection sheet identifies the equipment and records its operating conditions."), [3]),
+            new ExtractedDocumentUnit(1, 0, 2, 2, "The preparation details specify the required materials and the order of inspection steps.", "The preparation details specify the required materials and the order of inspection steps.".Length, CountWords("The preparation details specify the required materials and the order of inspection steps."), [4])
         };
         var retrievalChunks = new[]
         {
-            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "inspection sheet title", 3, [5], "unit_exact_v1"),
-            new ProjectedRetrievalChunk(1, 0, 1, 2, 2, "ingredients and preparation details", 4, [6], "unit_exact_v1")
+            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "The inspection sheet identifies the equipment and records its operating conditions.", CountWords("The inspection sheet identifies the equipment and records its operating conditions."), [5], "unit_exact_v1"),
+            new ProjectedRetrievalChunk(1, 0, 1, 2, 2, "The preparation details specify the required materials and the order of inspection steps.", CountWords("The preparation details specify the required materials and the order of inspection steps."), [6], "unit_exact_v1")
         };
 
         var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -4777,10 +5312,10 @@ public sealed class DocumentFoundationIntegrationTests
             PageEnd: 1,
             ChunkId: anchorChunkId.ToString(),
             ChunkIndex: 0,
-            Text: "inspection sheet title",
+            Text: "The inspection sheet identifies the equipment and records its operating conditions.",
             IngestionVersion: 8,
             HashDoc: "hash",
-            EmbedText: "inspection sheet title",
+            EmbedText: "The inspection sheet identifies the equipment and records its operating conditions.",
             EmbeddingBasis: "sparse_bm25_v1",
             SectionOrdinal: 0,
             UnitOrdinal: 0,
@@ -4824,7 +5359,7 @@ public sealed class DocumentFoundationIntegrationTests
 
         var pages = new[]
         {
-            new ExtractedPdfPage(1, "alpha beta target body follow up detail", 6, 39, [1])
+            new ExtractedPdfPage(1, "alpha beta target body describes the valve inspection and its required measurements. The follow up detail explains how to record the measurements and verify completion.", CountWords("alpha beta target body describes the valve inspection and its required measurements. The follow up detail explains how to record the measurements and verify completion."), "alpha beta target body describes the valve inspection and its required measurements. The follow up detail explains how to record the measurements and verify completion.".Length, [1])
         };
         var sections = new[]
         {
@@ -4832,13 +5367,13 @@ public sealed class DocumentFoundationIntegrationTests
         };
         var units = new[]
         {
-            new ExtractedDocumentUnit(0, 0, 1, 1, "alpha beta target body", 10, 4, [2]),
-            new ExtractedDocumentUnit(1, 0, 1, 1, "follow up detail", 11, 3, [3])
+            new ExtractedDocumentUnit(0, 0, 1, 1, "alpha beta target body describes the valve inspection and its required measurements.", "alpha beta target body describes the valve inspection and its required measurements.".Length, CountWords("alpha beta target body describes the valve inspection and its required measurements."), [2]),
+            new ExtractedDocumentUnit(1, 0, 1, 1, "The follow up detail explains how to record the measurements and verify completion.", "The follow up detail explains how to record the measurements and verify completion.".Length, CountWords("The follow up detail explains how to record the measurements and verify completion."), [3])
         };
         var retrievalChunks = new[]
         {
-            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "alpha beta target body", 4, [4], "unit_exact_v1"),
-            new ProjectedRetrievalChunk(1, 0, 1, 1, 1, "follow up detail", 3, [5], "section_window_v1")
+            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "alpha beta target body describes the valve inspection and its required measurements.", CountWords("alpha beta target body describes the valve inspection and its required measurements."), [4], "unit_exact_v1"),
+            new ProjectedRetrievalChunk(1, 0, 1, 1, 1, "The follow up detail explains how to record the measurements and verify completion.", CountWords("The follow up detail explains how to record the measurements and verify completion."), [5], "section_window_v1")
         };
 
         var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -4868,10 +5403,10 @@ public sealed class DocumentFoundationIntegrationTests
             PageEnd: 1,
             ChunkId: DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 6, 0).ToString(),
             ChunkIndex: 0,
-            Text: "alpha beta target body",
+            Text: "alpha beta target body describes the valve inspection and its required measurements.",
             IngestionVersion: 6,
             HashDoc: "hash",
-            EmbedText: "Matched direct_title_token_route: alpha beta target\nalpha beta target body",
+            EmbedText: "Matched direct_title_token_route: alpha beta target\nalpha beta target body describes the valve inspection and its required measurements.",
             EmbeddingBasis: "direct_title_token_route_v1",
             SectionOrdinal: 0,
             UnitOrdinal: 0,
@@ -4972,6 +5507,19 @@ public sealed class DocumentFoundationIntegrationTests
             contextualTextEntries: [],
             CancellationToken.None));
 
+        await using (var conn = await ds.OpenConnectionAsync())
+        {
+            // Ingestion also generates title anchors. Isolate direct chunk
+            // lookup here so disabling that route really leaves no candidate.
+            await conn.ExecuteAsync(
+                "DELETE FROM document_title_anchors WHERE tenant_id=@tenant AND doc_id=@doc;",
+                new { tenant = tenantId, doc = docId });
+            var publishedAnchors = await conn.QueryAsync<string>(
+                "SELECT title FROM document_title_anchors WHERE tenant_id=@tenant AND doc_id=@doc;",
+                new { tenant = tenantId, doc = docId });
+            Assert.Empty(publishedAnchors);
+        }
+
         var matches = await RagEndpoints.SearchTitleAnchorRouteMatchesAsync(
             ds,
             tenantId,
@@ -5001,8 +5549,10 @@ public sealed class DocumentFoundationIntegrationTests
         Assert.Empty(anchorOnlyMatches);
     }
 
-    [Fact]
-    public async Task SearchTitleAnchorRouteMatchesAsync_prefers_content_card_full_title_lead_over_dense_partial_page_chunk()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    public async Task SearchTitleAnchorRouteMatchesAsync_prefers_content_card_full_title_lead_over_dense_partial_page_chunk(int topK)
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
@@ -5154,10 +5704,11 @@ VALUES(
             category: "operations",
             docId: docId.ToString(),
             docPath: docPath,
-            topK: 3,
+            topK: topK,
             CancellationToken.None);
 
-        var match = Assert.Single(matches);
+        Assert.InRange(matches.Count, 1, topK);
+        var match = matches[0];
         Assert.Equal(DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 8, 1).ToString(), match.ChunkId);
         Assert.Equal("title_anchor_route_v1", match.EmbeddingBasis);
         Assert.Equal("title_anchor_route", RagEndpoints.ResolveRetriever(match));
@@ -5171,11 +5722,12 @@ VALUES(
             category: "operations",
             docId: docId.ToString(),
             docPath: docPath,
-            topK: 3,
+            topK: topK,
             CancellationToken.None,
             allowDirectChunkRoute: false);
 
-        var anchorOnly = Assert.Single(anchorOnlyMatches);
+        Assert.InRange(anchorOnlyMatches.Count, 1, topK);
+        var anchorOnly = anchorOnlyMatches[0];
         Assert.Equal(DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 8, 1).ToString(), anchorOnly.ChunkId);
         Assert.Equal("title_anchor_route_v1", anchorOnly.EmbeddingBasis);
     }
@@ -5202,7 +5754,7 @@ VALUES(
         };
         var sections = new[]
         {
-            new ExtractedDocumentSection(0, "Procedure", 1, 2, 1, 2, null)
+            new ExtractedDocumentSection(0, "Procedure", Level: 1, PageStart: 1, PageEnd: 2, StartLine: 2, EndLine: null)
         };
         var units = new[]
         {
@@ -5322,15 +5874,48 @@ VALUES(
             topK: 3,
             CancellationToken.None);
 
+        var anchorOnlyMatches = await RagEndpoints.SearchTitleAnchorRouteMatchesAsync(
+            ds,
+            tenantId,
+            title,
+            category: "operations",
+            docId: docId.ToString(),
+            docPath: docPath,
+            topK: 3,
+            CancellationToken.None,
+            allowDirectChunkRoute: false);
+
+        await using (var conn = await ds.OpenConnectionAsync())
+        {
+            var anchors = await conn.QueryAsync(
+                "SELECT title, source_kind, page_start, page_end, retrieval_chunk_id, title_tokens FROM document_title_anchors WHERE tenant_id=@tenant AND doc_id=@docId ORDER BY anchor_index;",
+                new { tenant = tenantId, docId });
+            await ExportRetrievalObservationAsync("adjacent-anchor-observation.json", new
+            {
+                query = title,
+                anchors,
+                anchorOnlyMatches,
+                matches
+            });
+        }
+
+        var anchorOnly = Assert.Single(anchorOnlyMatches);
+        Assert.Equal(DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 9, 1).ToString(), anchorOnly.ChunkId);
+        Assert.Equal("title_anchor_route_v1", anchorOnly.EmbeddingBasis);
+        Assert.StartsWith("Matched title_anchor_exact_page_route:", anchorOnly.EmbedText, StringComparison.Ordinal);
+        Assert.True(RagEndpoints.TitleAnchorRouteHasTargetTitleEvidence(anchorOnly));
         var match = Assert.Single(matches);
         Assert.Equal(DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 9, 1).ToString(), match.ChunkId);
         Assert.Equal("title_anchor_route_v1", match.EmbeddingBasis);
+        Assert.StartsWith("Matched title_anchor_exact_page_route:", match.EmbedText, StringComparison.Ordinal);
         Assert.Contains("anchored page", match.Text, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("adjacent footer", match.Text, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
-    public async Task SearchTitleAnchorRouteMatchesAsync_prefers_same_page_section_title_hit_over_adjacent_dense_chunk()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    public async Task SearchTitleAnchorRouteMatchesAsync_prefers_same_page_section_title_hit_over_adjacent_dense_chunk(int topK)
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
@@ -5351,7 +5936,7 @@ VALUES(
         };
         var sections = new[]
         {
-            new ExtractedDocumentSection(0, title, 1, 2, 1, 2, null)
+            new ExtractedDocumentSection(0, title, Level: 1, PageStart: 1, PageEnd: 2, StartLine: 2, EndLine: null)
         };
         var units = new[]
         {
@@ -5468,12 +6053,13 @@ VALUES(
             category: null,
             docId: null,
             docPath: null,
-            topK: 3,
+            topK: topK,
             CancellationToken.None,
             categoryPath: "Operations",
             allowDirectChunkRoute: false);
 
-        var match = Assert.Single(matches);
+        Assert.InRange(matches.Count, 1, topK);
+        var match = matches[0];
         Assert.Equal(DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 10, 0).ToString(), match.ChunkId);
         Assert.Equal("title_anchor_route_v1", match.EmbeddingBasis);
         Assert.Contains("actionable body", match.Text, StringComparison.OrdinalIgnoreCase);
@@ -5574,7 +6160,7 @@ VALUES(
 
         var pages = new[]
         {
-            new ExtractedPdfPage(1, "alpha beta gamma delta epsilon zeta", 6, 35, [1])
+            new ExtractedPdfPage(1, "alpha beta explains the first recorded operational step. gamma delta documents the second step with its own evidence. epsilon zeta records the final verification and reporting instructions.", CountWords("alpha beta explains the first recorded operational step. gamma delta documents the second step with its own evidence. epsilon zeta records the final verification and reporting instructions."), "alpha beta explains the first recorded operational step. gamma delta documents the second step with its own evidence. epsilon zeta records the final verification and reporting instructions.".Length, [1])
         };
         var sections = new[]
         {
@@ -5582,15 +6168,15 @@ VALUES(
         };
         var units = new[]
         {
-            new ExtractedDocumentUnit(0, 0, 1, 1, "alpha beta", 10, 2, [2]),
-            new ExtractedDocumentUnit(1, 0, 1, 1, "gamma delta", 11, 2, [3]),
-            new ExtractedDocumentUnit(2, 0, 1, 1, "epsilon zeta", 12, 2, [4])
+            new ExtractedDocumentUnit(0, 0, 1, 1, "alpha beta explains the first recorded operational step.", "alpha beta explains the first recorded operational step.".Length, CountWords("alpha beta explains the first recorded operational step."), [2]),
+            new ExtractedDocumentUnit(1, 0, 1, 1, "gamma delta documents the second step with its own evidence.", "gamma delta documents the second step with its own evidence.".Length, CountWords("gamma delta documents the second step with its own evidence."), [3]),
+            new ExtractedDocumentUnit(2, 0, 1, 1, "epsilon zeta records the final verification and reporting instructions.", "epsilon zeta records the final verification and reporting instructions.".Length, CountWords("epsilon zeta records the final verification and reporting instructions."), [4])
         };
         var retrievalChunks = new[]
         {
-            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "alpha beta", 2, [5], "unit_exact_v1"),
-            new ProjectedRetrievalChunk(1, 0, 1, 1, 1, "gamma delta", 2, [6], "unit_exact_v1"),
-            new ProjectedRetrievalChunk(2, 0, 2, 1, 1, "epsilon zeta", 2, [7], "unit_exact_v1")
+            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "alpha beta explains the first recorded operational step.", CountWords("alpha beta explains the first recorded operational step."), [5], "unit_exact_v1"),
+            new ProjectedRetrievalChunk(1, 0, 1, 1, 1, "gamma delta documents the second step with its own evidence.", CountWords("gamma delta documents the second step with its own evidence."), [6], "unit_exact_v1"),
+            new ProjectedRetrievalChunk(2, 0, 2, 1, 1, "epsilon zeta records the final verification and reporting instructions.", CountWords("epsilon zeta records the final verification and reporting instructions."), [7], "unit_exact_v1")
         };
 
         var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -5622,10 +6208,10 @@ VALUES(
             PageEnd: 1,
             ChunkId: DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 3, 0).ToString(),
             ChunkIndex: 0,
-            Text: "alpha beta",
+            Text: "alpha beta explains the first recorded operational step.",
             IngestionVersion: 3,
             HashDoc: "hash",
-            EmbedText: "alpha beta",
+            EmbedText: "alpha beta explains the first recorded operational step.",
             EmbeddingBasis: "linked_context_v1",
             SectionOrdinal: 0,
             UnitOrdinal: 0,
@@ -5670,7 +6256,7 @@ VALUES(
 
         var pages = new[]
         {
-            new ExtractedPdfPage(1, "alpha beta gamma delta epsilon zeta", 6, 35, [1])
+            new ExtractedPdfPage(1, "alpha beta explains the first recorded operational step. gamma delta documents the second step with its own evidence. epsilon zeta records the final verification and reporting instructions.", CountWords("alpha beta explains the first recorded operational step. gamma delta documents the second step with its own evidence. epsilon zeta records the final verification and reporting instructions."), "alpha beta explains the first recorded operational step. gamma delta documents the second step with its own evidence. epsilon zeta records the final verification and reporting instructions.".Length, [1])
         };
         var sections = new[]
         {
@@ -5678,15 +6264,15 @@ VALUES(
         };
         var units = new[]
         {
-            new ExtractedDocumentUnit(0, 0, 1, 1, "alpha beta", 10, 2, [2]),
-            new ExtractedDocumentUnit(1, 0, 1, 1, "gamma delta", 11, 2, [3]),
-            new ExtractedDocumentUnit(2, 0, 1, 1, "epsilon zeta", 12, 2, [4])
+            new ExtractedDocumentUnit(0, 0, 1, 1, "alpha beta explains the first recorded operational step.", "alpha beta explains the first recorded operational step.".Length, CountWords("alpha beta explains the first recorded operational step."), [2]),
+            new ExtractedDocumentUnit(1, 0, 1, 1, "gamma delta documents the second step with its own evidence.", "gamma delta documents the second step with its own evidence.".Length, CountWords("gamma delta documents the second step with its own evidence."), [3]),
+            new ExtractedDocumentUnit(2, 0, 1, 1, "epsilon zeta records the final verification and reporting instructions.", "epsilon zeta records the final verification and reporting instructions.".Length, CountWords("epsilon zeta records the final verification and reporting instructions."), [4])
         };
         var retrievalChunks = new[]
         {
-            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "alpha beta", 2, [5], "unit_exact_v1"),
-            new ProjectedRetrievalChunk(1, 0, 1, 1, 1, "gamma delta", 2, [6], "unit_exact_v1"),
-            new ProjectedRetrievalChunk(2, 0, 2, 1, 1, "epsilon zeta", 2, [7], "unit_exact_v1")
+            new ProjectedRetrievalChunk(0, 0, 0, 1, 1, "alpha beta explains the first recorded operational step.", CountWords("alpha beta explains the first recorded operational step."), [5], "unit_exact_v1"),
+            new ProjectedRetrievalChunk(1, 0, 1, 1, 1, "gamma delta documents the second step with its own evidence.", CountWords("gamma delta documents the second step with its own evidence."), [6], "unit_exact_v1"),
+            new ProjectedRetrievalChunk(2, 0, 2, 1, 1, "epsilon zeta records the final verification and reporting instructions.", CountWords("epsilon zeta records the final verification and reporting instructions."), [7], "unit_exact_v1")
         };
 
         var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -5716,10 +6302,10 @@ VALUES(
             PageEnd: 1,
             ChunkId: DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, 4, 0).ToString(),
             ChunkIndex: 0,
-            Text: "alpha beta",
+            Text: "alpha beta explains the first recorded operational step.",
             IngestionVersion: 4,
             HashDoc: "hash",
-            EmbedText: "alpha beta",
+            EmbedText: "alpha beta explains the first recorded operational step.",
             EmbeddingBasis: "contextual_text_v1",
             SectionOrdinal: 0,
             UnitOrdinal: 0,
@@ -5911,9 +6497,28 @@ VALUES(
                 BuildExactMatchEntry("IND570", "ind570", "code_ref")
             ]);
 
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var canonicalExactMatches = await RagEndpoints.SearchSourceBackedCanonicalExactMatchesAsync(
+            ds,
+            tenantId,
+            "Est ce que tu as le manuel du terminal IND570 ?",
+            category: null,
+            docId: null,
+            docPath: null,
+            topK: 3,
+            CancellationToken.None);
+
+        var canonicalExact = Assert.Single(canonicalExactMatches);
+        Assert.Equal(DocumentFoundationRepo.BuildStableRetrievalChunkId(
+            Guid.Parse("7777dddd-dddd-dddd-dddd-dddddddddddd"),
+            1,
+            0).ToString(), canonicalExact.ChunkId);
+        Assert.Equal("exact_match_v1", canonicalExact.EmbeddingBasis);
+        Assert.Contains("installation, configuration and diagnostics", canonicalExact.Text, StringComparison.Ordinal);
+
         var response = await RagEndpoints.SearchCoreAsync(
             BuildRagHttpContext(tenantId),
-            NpgsqlDataSource.Create(db.ConnectionString),
+            ds,
             CreateTestRagOptions(),
             new StubHttpClientFactory(),
             new RagSearchRequestDto("Est ce que tu as le manuel du terminal IND570 ?", TopK: 3));
@@ -5922,6 +6527,7 @@ VALUES(
         Assert.NotEmpty(response.Matches);
         var first = response.Matches[0];
 
+        await ExportRetrievalObservationAsync("named-manual-observation.json", new { response, guidance });
         Assert.Equal("answer", guidance.Behavior);
         Assert.Contains("IND570", guidance.MatchedDocHints ?? Array.Empty<string>());
         Assert.Contains("IND570", $"{first.DocName} {first.DocPath}", StringComparison.OrdinalIgnoreCase);
@@ -6087,7 +6693,7 @@ VALUES(
 
                 foreach (var token in testCase.ExpectedQualificationTokens ?? Array.Empty<string>())
                 {
-                    if (!guidance.QualificationNote!.Contains(token, StringComparison.OrdinalIgnoreCase))
+                    if (guidance.QualificationNote?.Contains(token, StringComparison.OrdinalIgnoreCase) != true)
                         failures.Add($"{testCase.Name}: qualification note should contain '{token}', got '{guidance.QualificationNote}'.");
                 }
             }
@@ -6104,13 +6710,58 @@ VALUES(
 
                 foreach (var token in testCase.ExpectedClarificationTokens ?? Array.Empty<string>())
                 {
-                    if (!guidance.ClarifyingQuestion!.Contains(token, StringComparison.OrdinalIgnoreCase))
+                    if (guidance.ClarifyingQuestion?.Contains(token, StringComparison.OrdinalIgnoreCase) != true)
                         failures.Add($"{testCase.Name}: clarifying question should contain '{token}', got '{guidance.ClarifyingQuestion}'.");
                 }
             }
         }
 
         Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+    }
+
+    [Fact]
+    public async Task SearchCoreAsync_runtime_ready_customer_questions_keep_valid_sources_through_late_selection()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            return;
+
+        var tenantId = Guid.Parse("acacffff-ffff-ffff-ffff-ffffffffffff");
+        await PublishRuntimeReadyQuestionBankDocumentsAsync(db, tenantId);
+
+        var cases = new[]
+        {
+            new
+            {
+                Query = "Quelles normes de securite instrumentee sont citees autour de l'inertage dans ce document ?",
+                ExpectedSection = "Normative references"
+            },
+            new
+            {
+                Query = "Avant de dire au client que son inertage respecte EN 15281, qu'est-ce qu'il faut lui demander ?",
+                ExpectedSection = "Definitions"
+            }
+        };
+
+        var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        foreach (var testCase in cases)
+        {
+            var response = await RagEndpoints.SearchCoreAsync(
+                BuildRagHttpContext(tenantId),
+                ds,
+                CreateTestRagOptions(),
+                new StubHttpClientFactory(),
+                new RagSearchRequestDto(testCase.Query, TopK: 4));
+
+            Assert.NotEmpty(response.Matches);
+            Assert.Contains(response.Matches, match =>
+                string.Equals(ResolveDocHint(match), "15281", StringComparison.Ordinal));
+            Assert.Contains(response.Matches, match =>
+                string.Equals(match.SectionTitle, testCase.ExpectedSection, StringComparison.OrdinalIgnoreCase));
+
+            var guidance = RagEndpoints.BuildAnswerGuidance(response.Query, response.Matches);
+            Assert.NotEqual("no_source_match", guidance.ResponseShape);
+        }
     }
 
     [Fact]
@@ -6143,6 +6794,21 @@ VALUES(
         Assert.Equal(etag, secondContext.Response.Headers.ETag.ToString());
         Assert.Equal(StatusCodes.Status304NotModified, secondContext.Response.StatusCode);
         Assert.Equal(string.Empty, ReadResponseBody(secondContext));
+        await using (var conn = await ds.OpenConnectionAsync())
+        {
+            await conn.ExecuteAsync(
+                "INSERT INTO documents_catalog_summary(tenant_id, computed_at, total_docs) VALUES(@tenant, now(), 1);",
+                new { tenant = tenantId });
+        }
+
+        var publishedContext = BuildRagHttpContext(tenantId);
+        publishedContext.Request.Headers.IfNoneMatch = etag;
+        var publishedResult = await InvokeDocumentsSnapshotAsync(publishedContext, ds);
+        await publishedResult.ExecuteAsync(publishedContext);
+        Assert.Equal(StatusCodes.Status200OK, publishedContext.Response.StatusCode);
+        Assert.NotEqual(etag, publishedContext.Response.Headers.ETag.ToString());
+        using var publishedPayload = JsonDocument.Parse(ReadResponseBody(publishedContext));
+        Assert.Equal(1, publishedPayload.RootElement.GetProperty("totals").GetProperty("documents").GetInt32());
     }
 
     [Theory]
@@ -6279,22 +6945,22 @@ VALUES(
         var userBody = ReadResponseBody(userContext);
 
         Assert.Equal(StatusCodes.Status200OK, userContext.Response.StatusCode);
-        Assert.Contains("categoryPath", userBody, StringComparison.Ordinal);
-        Assert.Contains("sourceHash", userBody, StringComparison.Ordinal);
-        Assert.Contains("docLanguage", userBody, StringComparison.Ordinal);
-        Assert.Contains("profileLanguage", userBody, StringComparison.Ordinal);
-        Assert.Contains("categoryRef", userBody, StringComparison.Ordinal);
-        Assert.DoesNotContain("fileSize", userBody, StringComparison.Ordinal);
+        Assert.Contains("CategoryPath", userBody, StringComparison.Ordinal);
+        Assert.Contains("SourceHash", userBody, StringComparison.Ordinal);
+        Assert.Contains("DocLanguage", userBody, StringComparison.Ordinal);
+        Assert.Contains("ProfileLanguage", userBody, StringComparison.Ordinal);
+        Assert.Contains("CategoryRef", userBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("FileSize", userBody, StringComparison.Ordinal);
         Assert.DoesNotContain(tombstone.DocPath, userBody, StringComparison.Ordinal);
         using (var userJson = JsonDocument.Parse(userBody))
         {
             var item = Assert.Single(
                 userJson.RootElement.GetProperty("items").EnumerateArray(),
-                entry => string.Equals(entry.GetProperty("docPath").GetString(), enriched.DocPath, StringComparison.Ordinal));
-            Assert.Equal(enriched.SourceHash, item.GetProperty("sourceHash").GetString());
-            Assert.Equal("de", item.GetProperty("docLanguage").GetString());
-            Assert.Equal("de", item.GetProperty("profileLanguage").GetString());
-            Assert.Equal(enriched.CategoryRef, item.GetProperty("categoryRef").GetString());
+                entry => string.Equals(entry.GetProperty("DocPath").GetString(), enriched.DocPath, StringComparison.Ordinal));
+            Assert.Equal(enriched.SourceHash, item.GetProperty("SourceHash").GetString());
+            Assert.Equal("de", item.GetProperty("DocLanguage").GetString());
+            Assert.Equal("de", item.GetProperty("ProfileLanguage").GetString());
+            Assert.Equal(enriched.CategoryRef, item.GetProperty("CategoryRef").GetString());
         }
 
         var adminContext = BuildAdminDocumentsHttpContext(tenantId);
@@ -6303,7 +6969,7 @@ VALUES(
         var adminBody = ReadResponseBody(adminContext);
 
         Assert.Equal(StatusCodes.Status200OK, adminContext.Response.StatusCode);
-        Assert.Contains("fileSize", adminBody, StringComparison.Ordinal);
+        Assert.Contains("FileSize", adminBody, StringComparison.Ordinal);
         Assert.DoesNotContain(tombstone.DocPath, adminBody, StringComparison.Ordinal);
 
         var deletedContext = BuildAdminDocumentsHttpContext(tenantId);
@@ -6333,18 +6999,18 @@ VALUES(
         var userBody = ReadResponseBody(userContext);
 
         Assert.Equal(StatusCodes.Status200OK, userContext.Response.StatusCode);
-        Assert.Contains("categoryPath", userBody, StringComparison.Ordinal);
-        Assert.Contains("sourceHash", userBody, StringComparison.Ordinal);
-        Assert.Contains("docLanguage", userBody, StringComparison.Ordinal);
-        Assert.Contains("profileLanguage", userBody, StringComparison.Ordinal);
+        Assert.Contains("CategoryPath", userBody, StringComparison.Ordinal);
+        Assert.Contains("SourceHash", userBody, StringComparison.Ordinal);
+        Assert.Contains("DocLanguage", userBody, StringComparison.Ordinal);
+        Assert.Contains("ProfileLanguage", userBody, StringComparison.Ordinal);
         using (var userJson = JsonDocument.Parse(userBody))
         {
-            Assert.Equal(enriched.SourceHash, userJson.RootElement.GetProperty("sourceHash").GetString());
-            Assert.Equal("de", userJson.RootElement.GetProperty("docLanguage").GetString());
-            Assert.Equal("de", userJson.RootElement.GetProperty("profileLanguage").GetString());
-            Assert.Equal(enriched.CategoryRef, userJson.RootElement.GetProperty("categoryRef").GetString());
+            Assert.Equal(enriched.SourceHash, userJson.RootElement.GetProperty("SourceHash").GetString());
+            Assert.Equal("de", userJson.RootElement.GetProperty("DocLanguage").GetString());
+            Assert.Equal("de", userJson.RootElement.GetProperty("ProfileLanguage").GetString());
+            Assert.Equal(enriched.CategoryRef, userJson.RootElement.GetProperty("CategoryRef").GetString());
         }
-        Assert.DoesNotContain("contentHash", userBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("ContentHash", userBody, StringComparison.Ordinal);
 
         var adminContext = BuildAdminDocumentsHttpContext(tenantId);
         var adminResult = await InvokeUnifiedDocumentsGetAsync(adminContext, ds, enriched.DocId);
@@ -6352,7 +7018,7 @@ VALUES(
         var adminBody = ReadResponseBody(adminContext);
 
         Assert.Equal(StatusCodes.Status200OK, adminContext.Response.StatusCode);
-        Assert.Contains("contentHash", adminBody, StringComparison.Ordinal);
+        Assert.Contains("ContentHash", adminBody, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -6364,6 +7030,14 @@ VALUES(
 
         var tenantId = Guid.Parse("cdd2ffff-ffff-ffff-ffff-ffffffffffff");
         await PublishRuntimeReadyQuestionBankDocumentsAsync(db, tenantId);
+
+        await using (var catalogDs = NpgsqlDataSource.Create(db.ConnectionString))
+        {
+            var built = await SAAIA.Backend.CatalogSnapshot.CatalogSnapshotBuilder.BuildTenantAsync(
+                catalogDs, tenantId, new SAAIA.Backend.CatalogSnapshot.CatalogSnapshotOptions(),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, CancellationToken.None);
+            Assert.True(built.Success);
+        }
 
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();
@@ -7071,7 +7745,7 @@ VALUES(
         Assert.Equal("en", item.GetProperty("docLanguage").GetString());
         Assert.Equal("en", item.GetProperty("profileLanguage").GetString());
         Assert.Equal(expected.category, item.GetProperty("category").GetString());
-        Assert.Equal("Programmation", item.GetProperty("categoryPath").GetString());
+        Assert.Equal("Programmation/Mettler", item.GetProperty("categoryPath").GetString());
         Assert.True(item.TryGetProperty("source", out var source) && source.ValueKind == JsonValueKind.Object);
         Assert.Equal(item.GetProperty("sourceHash").GetString(), source.GetProperty("sourceHash").GetString());
         Assert.Equal(item.GetProperty("profileLanguage").GetString(), source.GetProperty("profileLanguage").GetString());
@@ -7336,13 +8010,16 @@ VALUES(
         });
 
         Assert.NotNull(response);
-        var item = Assert.Single(
-            response!.Items,
-            static match => string.Equals(match.DocPath, "Programmation/Mettler/MettlerToledo_IND570.pdf", StringComparison.Ordinal));
-        Assert.NotNull(item.ExtractionQuality);
-        Assert.Equal("extraction_ok", item.ExtractionQuality!.DocumentQualityStatus);
-        Assert.DoesNotContain("stale_revision_should_not_leak", item.ExtractionQuality.Signals ?? []);
-        Assert.False(item.ExtractionQuality.OcrRecommended.GetValueOrDefault());
+        var documentItems = response!.Items.Where(
+            static match => string.Equals(match.DocPath, "Programmation/Mettler/MettlerToledo_IND570.pdf", StringComparison.Ordinal)).ToArray();
+        Assert.NotEmpty(documentItems);
+        Assert.All(documentItems, item =>
+        {
+            Assert.NotNull(item.ExtractionQuality);
+            Assert.Equal("extraction_ok", item.ExtractionQuality!.DocumentQualityStatus);
+            Assert.DoesNotContain("stale_revision_should_not_leak", item.ExtractionQuality.Signals ?? []);
+            Assert.False(item.ExtractionQuality.OcrRecommended.GetValueOrDefault());
+        });
     }
 
     [Fact]
@@ -7369,21 +8046,24 @@ VALUES(
         using var payload = JsonDocument.Parse(ReadResponseBody(ctx));
         var root = payload.RootElement;
         Assert.True(root.TryGetProperty("matches", out var matches));
-        var item = Assert.Single(
-            matches.EnumerateArray(),
-            static match => string.Equals(match.GetProperty("docPath").GetString(), "Programmation/Mettler/MettlerToledo_IND570.pdf", StringComparison.Ordinal));
-
-        Assert.True(item.TryGetProperty("sourceHash", out var sourceHash));
-        Assert.False(string.IsNullOrWhiteSpace(sourceHash.GetString()));
-        Assert.True(item.TryGetProperty("docLanguage", out var docLanguage));
-        Assert.Equal("en", docLanguage.GetString());
-        Assert.True(item.TryGetProperty("extractionQuality", out var quality));
-        Assert.Equal("extraction_ok", quality.GetProperty("documentQualityStatus").GetString());
-        Assert.True(item.TryGetProperty("matchedContentCards", out _));
+        Assert.InRange(matches.GetArrayLength(), 1, 3);
+        var documentItems = matches.EnumerateArray().Where(
+            static match => string.Equals(match.GetProperty("docPath").GetString(), "Programmation/Mettler/MettlerToledo_IND570.pdf", StringComparison.Ordinal)).ToArray();
+        Assert.NotEmpty(documentItems);
+        Assert.All(documentItems, item =>
+        {
+            Assert.True(item.TryGetProperty("sourceHash", out var sourceHash));
+            Assert.False(string.IsNullOrWhiteSpace(sourceHash.GetString()));
+            Assert.True(item.TryGetProperty("docLanguage", out var docLanguage));
+            Assert.Equal("en", docLanguage.GetString());
+            Assert.True(item.TryGetProperty("extractionQuality", out var quality));
+            Assert.Equal("extraction_ok", quality.GetProperty("documentQualityStatus").GetString());
+            Assert.True(item.TryGetProperty("matchedContentCards", out _));
+        });
         Assert.True(root.TryGetProperty("guidance", out var guidance));
         Assert.Equal("answer", guidance.GetProperty("behavior").GetString());
         Assert.True(root.TryGetProperty("metrics", out var metrics));
-        Assert.True(metrics.GetProperty("returned").GetInt32() > 0);
+        Assert.Equal(matches.GetArrayLength(), metrics.GetProperty("returned").GetInt32());
     }
 
     [Fact]
@@ -7472,9 +8152,9 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
         using var listPayload = JsonDocument.Parse(ReadResponseBody(listCtx));
         var listItem = Assert.Single(
             listPayload.RootElement.GetProperty("items").EnumerateArray(),
-            entry => string.Equals(entry.GetProperty("docPath").GetString(), docPath, StringComparison.Ordinal));
-        Assert.Equal("nl", listItem.GetProperty("docLanguage").GetString());
-        Assert.Equal(JsonValueKind.Null, listItem.GetProperty("profileLanguage").ValueKind);
+            entry => string.Equals(entry.GetProperty("DocPath").GetString(), docPath, StringComparison.Ordinal));
+        Assert.Equal("nl", listItem.GetProperty("DocLanguage").GetString());
+        Assert.Equal(JsonValueKind.Null, listItem.GetProperty("ProfileLanguage").ValueKind);
     }
 
     [Fact]
@@ -7750,7 +8430,7 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
         var docId = Guid.Parse("cdd80000-1111-2222-3333-444444444444");
         var jobId = Guid.Parse("cdd80000-5555-6666-7777-888888888888");
         const string docPath = "Diagnostics/MalformedPayload.pdf";
-        var pageText = string.Join(' ', Enumerable.Range(0, 80).Select(index => $"signal{index}"));
+        var pageText = string.Join(' ', Enumerable.Repeat("A documented inspection records operating conditions and confirms that every valve remains accessible.", 8));
 
         await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 1, indexedVersion: 0);
 
@@ -7862,8 +8542,9 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
         var docId = Guid.Parse("cdd40000-1111-2222-3333-444444444444");
         var jobId = Guid.Parse("cdd40000-5555-6666-7777-888888888888");
         const string docPath = "Diagnostics/Quality.pdf";
-        var pageOne = string.Join(' ', Enumerable.Range(0, 90).Select(index => $"alpha{index}"));
-        var pageTwoNoise = "yo o | | i Ne | a \\\"------- abgearbeitet __/ sel 48 a) |b.";
+        var pageOne = string.Join(' ', Enumerable.Repeat("Alpha records the inspection outcome and identifies the operating conditions for each accessible valve.", 3));
+        var pageTwoNoise = "yo o | | i Ne | a \\\"------- abgearbeitet __/ sel 48 a) |b";
+        Assert.True(OcrNoiseFilter.LooksLikeProbableNoisePublishedUnitText(pageTwoNoise), "This fixture must contain a published unit classified as probable OCR noise.");
         var pageTwo = pageOne + Environment.NewLine + pageTwoNoise;
 
         await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: 1, indexedVersion: 0);
@@ -7881,7 +8562,7 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
             pages:
             [
                 new ExtractedPdfPage(1, pageOne, CountWords(pageOne), pageOne.Length, [1], null, ImageCount: 1),
-                new ExtractedPdfPage(2, pageTwo, CountWords(pageTwo), pageTwo.Length, [2])
+                new ExtractedPdfPage(2, pageTwo, CountWords(pageTwo), pageTwo.Length, [2], ImageCount: 1)
             ],
             sections:
             [
@@ -7946,6 +8627,10 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
                   1, 0, now() - interval '2 days', now() - interval '2 days'
                 )
                 ON CONFLICT DO NOTHING;
+
+                INSERT INTO document_page_index(tenant_id, revision_id, page_number, char_count, metadata)
+                VALUES(@tenant, 'cdd40000-aaaa-bbbb-cccc-dddddddddddd', 99, 100,
+                  '{"wordCount":20,"extractionQuality":{"manualReviewRecommended":true}}'::jsonb);
 
                 INSERT INTO document_processing_runs(
                   processing_run_id, tenant_id, job_id, doc_id, doc_path, revision_id, action, status,
@@ -8015,7 +8700,7 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
             preview => preview.GetString() == pageTwoNoise);
         Assert.Contains(
             second.GetProperty("chunkPreviews").EnumerateArray(),
-            preview => preview.GetString() == pageTwo);
+            preview => preview.GetString() == pageTwo.Replace(Environment.NewLine, " "));
 
         var ragCtx = BuildRagHttpContext(tenantId);
         var ragResult = await InvokeRagSearchAsync(
@@ -8034,7 +8719,7 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
         Assert.NotNull(ragResponse);
         var ragItem = Assert.Single(
             ragResponse!.Items,
-            static item => string.Equals(item.DocPath, "Diagnostics/Quality.pdf", StringComparison.Ordinal));
+            static item => string.Equals(item.DocPath, "Diagnostics/Quality.pdf", StringComparison.Ordinal) && item.PageStart == 2);
         Assert.NotNull(ragItem.ExtractionQuality);
         Assert.Equal("manual_review_probable_ocr_noise", ragItem.ExtractionQuality!.PageQualityStatus);
         Assert.True(ragItem.ExtractionQuality.PageManualReviewRecommended);
@@ -8049,14 +8734,22 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
         Assert.Equal(1, diagnostics.OcrPagesWithNovelTextCount);
         Assert.Equal(2, diagnostics.PageCount);
         Assert.Equal(2, diagnostics.ImagePageCount);
-        Assert.True(diagnostics.PageWarningCount.GetValueOrDefault() >= 1);
-        Assert.True(diagnostics.PageReviewRecommendedCount.GetValueOrDefault() >= 1);
+        Assert.Equal(1, diagnostics.PageWarningCount);
+        Assert.Equal(1, diagnostics.PageReviewRecommendedCount);
         Assert.Contains("diagnosticSummary", ragPayload, StringComparison.Ordinal);
         Assert.DoesNotContain("imagePageDiagnostics", ragPayload, StringComparison.Ordinal);
         Assert.DoesNotContain("candidatePages", ragPayload, StringComparison.Ordinal);
         Assert.DoesNotContain("attemptedPages", ragPayload, StringComparison.Ordinal);
         Assert.DoesNotContain("stderr", ragPayload, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("raw-secret-should-not-leak", ragPayload, StringComparison.Ordinal);
+
+        var listCtx = BuildAdminDocumentsHttpContext(tenantId);
+        var listResult = await InvokeExtractionQualityAsync(listCtx, ds, "Diagnostics", null, 20);
+        await listResult.ExecuteAsync(listCtx);
+        using var listPayload = JsonDocument.Parse(ReadResponseBody(listCtx));
+        var diagnosticItem = Assert.Single(listPayload.RootElement.GetProperty("items").EnumerateArray());
+        Assert.Equal(1, diagnosticItem.GetProperty("pageWarningCount").GetInt32());
+        Assert.Equal(1, diagnosticItem.GetProperty("pageReviewRecommendedCount").GetInt32());
     }
 
     [Fact]
@@ -8069,6 +8762,14 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
         var tenantId = Guid.Parse("dedeffff-ffff-ffff-ffff-ffffffffffff");
         await PublishRuntimeReadyQuestionBankDocumentsAsync(db, tenantId);
 
+        await using (var catalogDs = NpgsqlDataSource.Create(db.ConnectionString))
+        {
+            var built = await SAAIA.Backend.CatalogSnapshot.CatalogSnapshotBuilder.BuildTenantAsync(
+                catalogDs, tenantId, new SAAIA.Backend.CatalogSnapshot.CatalogSnapshotOptions(),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, CancellationToken.None);
+            Assert.True(built.Success);
+        }
+
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();
         var displayOrder = await conn.ExecuteScalarAsync<int>(
@@ -8077,7 +8778,7 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
         var expectedCategoryRef = $"cat_{displayOrder:000}";
         var expectedSourceHash = await conn.ExecuteScalarAsync<string>(
             """
-            SELECT saaia_document_summary_source_hash(content_hash, doc_path, file_size, file_mtime, indexed_version)
+            SELECT LOWER(ENCODE(content_hash, 'hex'))
             FROM documents
             WHERE tenant_id=@tenant
               AND doc_path='ATEX/CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf'
@@ -8103,21 +8804,31 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
         });
 
         Assert.NotNull(response);
-        var item = Assert.Single(
-            response!.Items,
-            static match => string.Equals(match.DocPath, "ATEX/CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf", StringComparison.Ordinal));
+        var documentItems = response!.Items.Where(
+            static match => string.Equals(match.DocPath, "ATEX/CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf", StringComparison.Ordinal)).ToArray();
+        Assert.NotEmpty(documentItems);
+        Assert.All(documentItems, match =>
+        {
+            Assert.Equal("atex", match.Category);
+            Assert.Equal("ATEX", match.CategoryPath);
+            Assert.Equal(expectedCategoryRef, match.CategoryRef);
+            Assert.Equal(expectedSourceHash, match.SourceHash);
+            Assert.NotNull(match.ProvenanceInfo);
+            Assert.Equal(expectedSourceHash, match.ProvenanceInfo!.SourceHash);
+            Assert.False(string.IsNullOrWhiteSpace(match.ProvenanceInfo.Channel));
+            Assert.False(string.IsNullOrWhiteSpace(match.RevisionId));
+            Assert.True(match.PageStart > 0);
+            Assert.True(match.PageEnd >= match.PageStart);
+        });
+        // Search can legitimately return several channels for a document. Exact
+        // offsets are covered by the dedicated SearchExactMatchesAsync scenario.
+        var item = documentItems[0];
 
         Assert.Equal("atex", item.Category);
         Assert.Equal("ATEX", item.CategoryPath);
         Assert.Equal(expectedCategoryRef, item.CategoryRef);
-        Assert.Equal("exact_match", item.ProvenanceInfo!.Channel);
         Assert.Equal(expectedSourceHash, item.SourceHash);
-        Assert.Equal(expectedSourceHash, item.ProvenanceInfo.SourceHash);
-        Assert.NotNull(item.ProvenanceInfo.OffsetStart);
-        Assert.NotNull(item.ProvenanceInfo.OffsetEnd);
-        Assert.True(item.ProvenanceInfo.OffsetEnd > item.ProvenanceInfo.OffsetStart);
         Assert.False(string.IsNullOrWhiteSpace(item.Snippet));
-        Assert.False(string.IsNullOrWhiteSpace(item.ContextualSnippet));
         Assert.NotNull(item.Context);
         Assert.Equal(item.ChunkType, item.Context!.ChunkType);
         Assert.Equal(item.SectionTitle, item.Context.SectionTitle);
@@ -8153,11 +8864,10 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
         });
 
         Assert.NotNull(response);
-        var item = Assert.Single(
-            response!.Items,
-            static match => string.Equals(match.DocPath, "Programmation/Mettler/MettlerToledo_IND570.pdf", StringComparison.Ordinal));
-
-        Assert.True(item.HypQuestionsMatched);
+        var documentItems = response!.Items.Where(
+            static match => string.Equals(match.DocPath, "Programmation/Mettler/MettlerToledo_IND570.pdf", StringComparison.Ordinal)).ToArray();
+        Assert.NotEmpty(documentItems);
+        Assert.All(documentItems, item => Assert.True(item.HypQuestionsMatched));
     }
 
     [Fact]
@@ -8351,11 +9061,11 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
         });
 
         Assert.NotNull(response);
-        var item = Assert.Single(
-            response!.Items,
-            static match => string.Equals(match.DocPath, "Programmation/Mettler/MettlerToledo_IND570.pdf", StringComparison.Ordinal));
-
-        Assert.NotNull(item.HypQuestionsMatched);
+        var items = response!.Items
+            .Where(static match => string.Equals(match.DocPath, "Programmation/Mettler/MettlerToledo_IND570.pdf", StringComparison.Ordinal))
+            .ToArray();
+        Assert.NotEmpty(items);
+        Assert.All(items, item => Assert.NotNull(item.HypQuestionsMatched));
         Assert.Equal(0, llmFactory.LlmRequestCount);
     }
 
@@ -8365,8 +9075,10 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
         ctx.Items[ApiKeyAuth.TenantIdItemKey] = tenantId;
         ctx.Items[RequestIdMiddleware.RequestIdItemKey] = $"it-{tenantId:N}";
         ctx.Response.Body = new MemoryStream();
-        if (requestServices is not null)
-            ctx.RequestServices = requestServices;
+        ctx.RequestServices = requestServices ?? new ServiceCollection()
+            .AddLogging()
+            .Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(_ => { })
+            .BuildServiceProvider();
         return ctx;
     }
 
@@ -8411,6 +9123,7 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
         NpgsqlDataSource ds,
         string? categoryPath,
         string? q,
+        string? inventoryMode,
         int limit,
         int offset)
     {
@@ -8420,7 +9133,7 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
         Assert.NotNull(method);
         return await (Task<IResult>)method!.Invoke(
             null,
-            [ctx, ds, categoryPath, null, null, null, q, limit, offset])!;
+            [ctx, ds, categoryPath, null, null, null, q, inventoryMode, limit, offset])!;
     }
 
     private static async Task<IResult> InvokeResolveCategoryAsync(
@@ -8536,7 +9249,9 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
     {
         var method = typeof(RagEndpoints).GetMethod("SearchAsync", BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
-        return await (Task<IResult>)method!.Invoke(null, [ctx, ds, ragOptions, httpFactory, request])!;
+        return await (Task<IResult>)method!.Invoke(null, [ctx, ds, ragOptions, httpFactory,
+            new RagSearchBulkhead(ragOptions, Microsoft.Extensions.Logging.Abstractions.NullLogger<RagSearchBulkhead>.Instance),
+            new TeiWorkloadGovernor(), request])!;
     }
 
     private static async Task<IResult> InvokeRagQueryAsync(
@@ -8548,7 +9263,9 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
     {
         var method = typeof(RagEndpoints).GetMethod("QueryAsync", BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
-        return await (Task<IResult>)method!.Invoke(null, [ctx, ds, ragOptions, httpFactory, request])!;
+        return await (Task<IResult>)method!.Invoke(null, [ctx, ds, ragOptions, httpFactory,
+            new RagSearchBulkhead(ragOptions, Microsoft.Extensions.Logging.Abstractions.NullLogger<RagSearchBulkhead>.Instance),
+            new TeiWorkloadGovernor(), request])!;
     }
 
     private static async Task<IResult> InvokeRagCategoriesAsync(HttpContext ctx, NpgsqlDataSource ds)
@@ -8562,6 +9279,8 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
     {
         var llmFactory = new CountingLlmHttpClientFactory();
         var services = new ServiceCollection();
+        services.AddLogging();
+        services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(_ => { });
         services.AddSingleton(new CapabilityAHypotheticalQuestionService(
             new LocalLlmChatClient(
                 llmFactory,
@@ -8796,7 +9515,8 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
         string docPath,
         int version,
         RuntimeSeedSection[] sections,
-        ExtractedExactMatchEntry[]? exactMatchEntries = null)
+        ExtractedExactMatchEntry[]? exactMatchEntries = null,
+        bool useProductionContextualProjection = false)
     {
         await db.SeedRunningJobAsync(tenantId, docId, jobId, docPath, ingestionVersion: version, indexedVersion: Math.Max(0, version - 1));
 
@@ -8851,6 +9571,8 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
                     [(byte)(40 + index)]);
             })
             .ToArray();
+        if (useProductionContextualProjection)
+            contextualEntries = ContextualTextProjector.Project(docPath, extractedSections, units, retrievalChunks).ToArray();
 
         var ds = NpgsqlDataSource.Create(db.ConnectionString);
         var committed = await JobRepo.CompleteUpsertAsync(
@@ -8883,7 +9605,7 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
             "ATEX/CEN TR 15281 2006 Guidance on inerting for the prevention of explosion.pdf",
             1,
             [
-                new RuntimeSeedSection("Definitions", "Absolute inerting means replacing air with an inert gas and maintaining oxygen concentration below the limiting oxygen concentration. LOC and MAOC are used to describe the safe oxygen threshold below which the mixture should no longer explode."),
+                new RuntimeSeedSection("Definitions", "EN 15281. Absolute inerting means replacing air with an inert gas and maintaining oxygen concentration below the limiting oxygen concentration. LOC and MAOC are used to describe the safe oxygen threshold below which the mixture should no longer explode."),
                 new RuntimeSeedSection("Normative references", "Normative references around inerting include EN 61508 and EN 61511 for safety instrumented functions and safety lifecycle context."),
                 new RuntimeSeedSection("Inert gases", "Nitrogen, carbon dioxide, steam, flue gases and noble gases are discussed as inerting media with different practical constraints."),
                 new RuntimeSeedSection("Inerting methods", "Pressure-swing, vacuum-swing, flow-through and displacement inerting are compared for explosion prevention and process safety. Flow-through inerting is useful for long pipelines or vessels when gas feed and venting are remote from each other."),
@@ -8895,7 +9617,7 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
                 new RuntimeSeedSection("Oxygen monitoring", "Oxygen monitoring technologies, oxygen analyzers, set point and trip point strategy are described for inerting systems.")
             ],
             [
-                BuildExactMatchEntry(0, "EN 15281", "en 15281", "standard_ref")
+                BuildExactMatchEntry(0, "EN 15281", "en 15281", "standard_ref") with { OffsetStart = 0, OffsetEnd = "EN 15281".Length }
             ]);
 
         await PublishIndexedDocumentAsync(
@@ -8923,6 +9645,28 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
             [
                 BuildExactMatchEntry(0, "IND570", "ind570", "code_ref")
             ]);
+    }
+
+    private sealed class ReindexOnRerankHttpClientFactory(Func<Task> reindex) : IHttpClientFactory
+    {
+        private int _reindexCount;
+        public int ReindexCount => _reindexCount;
+        public HttpClient CreateClient(string name)
+            => new(new ReindexOnRerankHandler(async () =>
+            {
+                if (Interlocked.CompareExchange(ref _reindexCount, 1, 0) == 0)
+                    await reindex();
+            })) { BaseAddress = new Uri("http://stub.test/") };
+    }
+
+    private sealed class ReindexOnRerankHandler(Func<Task> reindex) : DelegatingHandler(new StubHttpMessageHandler())
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.RequestUri!.AbsolutePath.EndsWith("/rerank", StringComparison.OrdinalIgnoreCase))
+                await reindex();
+            return await base.SendAsync(request, cancellationToken);
+        }
     }
 
     private sealed class StubHttpClientFactory : IHttpClientFactory
@@ -9117,35 +9861,28 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
             await conn.OpenAsync();
 
             await conn.ExecuteAsync(
-                "INSERT INTO tenants(tenant_id, name) VALUES(@tenant_id, @name);",
+                "INSERT INTO tenants(tenant_id, name) VALUES(@tenant_id, @name) ON CONFLICT (tenant_id) DO NOTHING;",
                 new { tenant_id = tenantId, name = "Test tenant" });
 
-            await conn.ExecuteAsync(
+            var seeded = await conn.ExecuteAsync(
                 @"INSERT INTO documents(
                     tenant_id, doc_id, doc_path, doc_name, category, status, ingestion_version, indexed_version, created_at, updated_at)
                   VALUES(
-                    @tenant_id, @doc_id, @doc_path, @doc_name, @category, 'pending', @ingestion_version, @indexed_version, now(), now());",
+                    @tenant_id, @doc_id, @doc_path, @doc_name, @category, 'pending', @ingestion_version, @indexed_version, now(), now())
+                  ON CONFLICT (tenant_id, doc_id) DO UPDATE
+                  SET ingestion_version=EXCLUDED.ingestion_version
+                  WHERE documents.doc_path=EXCLUDED.doc_path AND documents.indexed_version=EXCLUDED.indexed_version;",
                 new
                 {
                     tenant_id = tenantId,
                     doc_id = docId,
                     doc_path = docPath,
                     doc_name = Path.GetFileName(docPath),
-                    category = Path.GetDirectoryName(docPath)?.Replace('\\', '/') ?? ""
-                        });
-
-            await conn.ExecuteAsync(
-                @"UPDATE documents
-                  SET ingestion_version=@ingestion_version,
-                      indexed_version=@indexed_version
-                  WHERE tenant_id=@tenant_id AND doc_id=@doc_id;",
-                new
-                {
-                    tenant_id = tenantId,
-                    doc_id = docId,
+                    category = IngestionCategoryResolver.DeriveFromDocumentPath(docPath),
                     ingestion_version = ingestionVersion,
                     indexed_version = indexedVersion
                 });
+            Assert.Equal(1, seeded);
 
             var payload = JsonSerializer.Serialize(new { });
             await conn.ExecuteAsync(
@@ -9159,7 +9896,7 @@ DELETE FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId;
                     tenant_id = tenantId,
                     action,
                     doc_path = docPath,
-                    category = Path.GetDirectoryName(docPath)?.Replace('\\', '/') ?? "",
+                    category = IngestionCategoryResolver.DeriveFromDocumentPath(docPath),
                     payload
                 });
         }

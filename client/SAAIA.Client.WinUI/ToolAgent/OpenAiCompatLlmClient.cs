@@ -16,6 +16,9 @@ public sealed class OpenAiCompatLlmClient : ILlmClient
     private const int StructuredAnswerMaxTokens = 1800;
     private const int BroadSourceBackedAnswerMaxTokens = 4096;
     private const int SummaryAnswerMaxTokens = 1400;
+    private const int DocumentOverviewAnswerMaxTokens = 320;
+    private const int DocumentOverviewSelectionMaxTokens = 64;
+    private const int DocumentOverviewCandidateRepairMaxTokens = 96;
 
     public bool SupportsStructuredOutput => true;
 
@@ -235,7 +238,24 @@ public sealed class OpenAiCompatLlmClient : ILlmClient
                 ["content"] = m.content
             }).ToArray()
         };
-        sampling.Apply(dict, requestedTemperature: 0.2d, structuredOutput: deterministicSampling);
+        if (LooksLikeDocumentOverviewPrompt(messages))
+        {
+            // This compact semantic contract was qualified live with a low,
+            // non-zero temperature and no novelty penalties. Frequency or
+            // presence penalties made the small model replace neutral source
+            // modality with unsupported obligation wording.
+            dict["temperature"] = 0.1d;
+            dict["top_p"] = 0.9d;
+            dict["frequency_penalty"] = 0d;
+            dict["presence_penalty"] = 0d;
+        }
+        else
+        {
+            sampling.Apply(
+                dict,
+                requestedTemperature: 0.2d,
+                structuredOutput: deterministicSampling);
+        }
 
         if (structuredOutput is not null)
         {
@@ -311,6 +331,17 @@ public sealed class OpenAiCompatLlmClient : ILlmClient
         if (LooksLikeBroadSourceBackedWriterPrompt(joined))
             return BroadSourceBackedAnswerMaxTokens;
 
+        if (LooksLikeDocumentOverviewPrompt(messages))
+        {
+            return DocumentOverviewAnswerMaxTokens;
+        }
+
+        if (LooksLikeDocumentOverviewCandidateRepairPrompt(messages))
+            return DocumentOverviewCandidateRepairMaxTokens;
+
+        if (LooksLikeDocumentOverviewSelectionPrompt(messages))
+            return DocumentOverviewSelectionMaxTokens;
+
         if (LooksLikeStructuredWriterPrompt(joined))
             return StructuredAnswerMaxTokens;
 
@@ -319,6 +350,24 @@ public sealed class OpenAiCompatLlmClient : ILlmClient
 
         return DefaultAnswerMaxTokens;
     }
+
+    private static bool LooksLikeDocumentOverviewPrompt(
+        IReadOnlyList<(string role, string content)> messages)
+        => messages.Any(message => (message.content ?? string.Empty).Contains(
+            "SAAIA_DOCUMENT_OVERVIEW_WRITER",
+            StringComparison.OrdinalIgnoreCase));
+
+    private static bool LooksLikeDocumentOverviewSelectionPrompt(
+        IReadOnlyList<(string role, string content)> messages)
+        => messages.Any(message => (message.content ?? string.Empty).Contains(
+            "SAAIA_DOCUMENT_OVERVIEW_SELECTOR",
+            StringComparison.OrdinalIgnoreCase));
+
+    private static bool LooksLikeDocumentOverviewCandidateRepairPrompt(
+        IReadOnlyList<(string role, string content)> messages)
+        => messages.Any(message => (message.content ?? string.Empty).Contains(
+            "SAAIA_DOCUMENT_OVERVIEW_CANDIDATE_REPAIR",
+            StringComparison.OrdinalIgnoreCase));
 
     private static bool LooksLikeBroadSourceBackedWriterPrompt(string prompt)
         => prompt.Contains("PRIVATE_SOURCE_WRITING_BRIEF", StringComparison.OrdinalIgnoreCase)

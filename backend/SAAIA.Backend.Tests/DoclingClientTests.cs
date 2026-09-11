@@ -376,6 +376,7 @@ public sealed class DoclingClientTests
         Assert.True(ready);
         Assert.Equal("ready", details["canonical_provenance_status"]);
         Assert.Equal("model-commit", details["embeddings_model_revision"]);
+        Assert.Equal("head-source-hash", details["code_revision"]);
     }
 
     private static DoclingConvertResponse BuildResponse()

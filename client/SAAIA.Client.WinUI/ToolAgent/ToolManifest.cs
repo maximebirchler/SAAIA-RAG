@@ -43,7 +43,8 @@ public static class ToolManifest
         new("documents.count", "user", "Count indexed documents globally or with filters.", Schema(("categoryPath", "string|null"), ("categoryRef", "string|null"), ("q", "string|null"))),
         new("documents.categories", "user", "List categories from the catalog snapshot. Top-level categories are returned in stable display order and may include explicit multilingual aliases. Use this to choose a corpus scope before content retrieval when the user implies a category/subset.", Schema(("path", "string|null"), ("categoryRef", "string|null"), ("limit", "int|null"), ("offset", "int|null"))),
         new("documents.tree", "user", "Get the multi-level category tree for catalog structure exploration. Use it as a navigation map for broad requests, not as final evidence for factual answers.", Schema(("path", "string|null"), ("categoryRef", "string|null"), ("depth", "int|null"), ("format", "json|markdown"), ("limit", "int|null"), ("offset", "int|null"))),
-        new("documents.navigation", "user", "Get document title anchors and table-of-contents/navigation entries for a category or document. Use these entries only as a search map to plan follow-up rag.search/rag.multi_search calls; never use them as final factual evidence.", Schema(("path", "string|null"), ("categoryPath", "string|null"), ("categoryRef", "string|null"), ("docRef", "string|null"), ("docPath", "string|null"), ("q", "string|null"), ("limit", "int|null"), ("offset", "int|null"))),
+        new("documents.navigation", "user", "Get document title anchors and table-of-contents/navigation entries for a category or document. Use these entries only as a search map to plan follow-up rag.search/rag.multi_search calls; never use them as final factual evidence.", Schema(("path", "string|null"), ("categoryPath", "string|null"), ("categoryRef", "string|null"), ("docRef", "string|null"), ("docPath", "string|null"), ("q", "string|null"), ("kind", "navigation_entry|title_anchor|null"), ("limit", "int|null"), ("offset", "int|null"))),
+        new("documents.content_cards", "user", "Enumerate paginated named content cards already grounded in indexed documents, with stable document/page evidence. Useful when a broad request needs many distinct source items; the LLM remains responsible for choosing relevant cards. An optional q filters source content. Without q, inventoryMode=ordered preserves source order while inventoryMode=representative exposes stable positions across the documents.", Schema(("categoryPath", "string|null"), ("categoryRef", "string|null"), ("docRef", "string|null"), ("docId", "string|null"), ("docPath", "string|null"), ("q", "string|null"), ("inventoryMode", "ordered|representative|null"), ("limit", "int|null"), ("offset", "int|null"))),
         new("documents.context", "user", "Read indexed chunk text around a document, page range or RAG chunk. Use it to inspect surrounding source evidence after rag.search/rag.multi_search or navigation anchors; continue with nextOffset when more context is needed.", Schema(("docRef", "string|null"), ("docId", "string|null"), ("docPath", "string|null"), ("chunkId", "string|null"), ("pageStart", "int|null"), ("pageEnd", "int|null"), ("before", "int|null"), ("after", "int|null"), ("limit", "int|null"), ("offset", "int|null"))),
         new("documents.stats", "user", "Get inventory statistics for the indexed catalog.", Schema(("path", "string|null"), ("categoryRef", "string|null"))),
         new("documents.empty_count", "admin", "Count empty folders on the server filesystem for admin/health diagnostics.", Schema(("path", "string|null"))),
@@ -53,7 +54,7 @@ public static class ToolManifest
         new("sources.resolve", "user", "Resolve an explicit source or document reference. Use only when the user explicitly asks for a source, link, opening action or document/source reference.", Schema(("ref", "string|null"), ("pdfRef", "string|null"))),
         new("rag.search", "user", "RAG retrieval for factual or technical questions. Returns snippets plus document/page references, source quality, headings, selection hints, profile signals and content-card evidence when available. Use docId/docPath and pageStart/pageEnd only after a document/page anchor has been resolved by listing, search or navigation. For broad research/exploration, set researchMode=source_exploration and includeResearchSurfaces=true to ask the backend for profile/card/navigation surfaces as orientation aids before final evidence.", Schema(("query", "string"), ("topK", "int|null"), ("categoryPath", "string|null"), ("categoryRef", "string|null"), ("category", "string|null"), ("docId", "string|null"), ("docPath", "string|null"), ("pageStart", "int|null"), ("pageEnd", "int|null"), ("maxPerDoc", "int|null"), ("maxPerPage", "int|null"), ("filters", "object|null"), ("mode", "auto|strict|standard|focused|balanced|broad|null"), ("researchMode", "source_exploration|evidence_exploration|research|exploration|null"), ("includeResearchSurfaces", "bool|null"))),
         new("rag.multi_search", "user", "Multi-query retrieval with dedup/diversity for synthesis across several documents. Use complementary queries for broad requests, follow-up exploration and source diversity. Use docId/docPath and pageStart/pageEnd only after a document/page anchor has been resolved by listing, search or navigation. For broad research/exploration, set researchMode=source_exploration and includeResearchSurfaces=true to ask the backend for profile/card/navigation surfaces as orientation aids before final evidence.", Schema(("queries", "string[]"), ("topK", "int|null"), ("categoryPath", "string|null"), ("categoryRef", "string|null"), ("category", "string|null"), ("docId", "string|null"), ("docPath", "string|null"), ("pageStart", "int|null"), ("pageEnd", "int|null"), ("maxPerDoc", "int|null"), ("maxPerPage", "int|null"), ("filters", "object|null"), ("diversity", "double|null"), ("mode", "auto|strict|standard|focused|balanced|broad|null"), ("researchMode", "source_exploration|evidence_exploration|research|exploration|null"), ("includeResearchSurfaces", "bool|null"))),
-        new("rag.summarize_live", "user", "Live non-stored summary for a single document.", Schema(("docRef", "string"), ("level", "short|medium|long"), ("strategy", "about|summary|store"), ("language", "auto|fr|en|es|pt|de|it"), ("responseLanguage", "auto|fr|en|es|pt|de|it|null"), ("docLanguage", "string|null"), ("maxWords", "int|null"), ("maxChunks", "int|null"), ("maxBatches", "int|null"), ("maxCharsPerBatch", "int|null"))),
+        new("rag.summarize_live", "user", "Live source-backed overview or non-stored summary for a single named document. evidence_overview samples representative canonical chunks across the document, lets the LLM synthesize them, and returns verified source identities.", Schema(("docRef", "string"), ("level", "short|medium|long"), ("strategy", "about|summary|store|evidence_overview"), ("language", "auto|fr|en|es|pt|de|it"), ("responseLanguage", "auto|fr|en|es|pt|de|it|null"), ("docLanguage", "string|null"), ("maxWords", "int|null"), ("maxChunks", "int|null"), ("maxBatches", "int|null"), ("maxCharsPerBatch", "int|null"), ("userRequest", "string|null"), ("overviewFacets", "string[]|null"), ("requestedPointCount", "int|null"), ("sampleCount", "int|null"))),
         new("summary.get", "user", "Read a stored admin summary for a document.", Schema(("docRef", "string"), ("level", "medium"))),
         new("summary.exists", "user", "Check whether a stored admin summary exists and is fresh.", Schema(("docRef", "string"), ("level", "medium"))),
         new("summary.search", "user", "Search inside stored summaries.", Schema(("q", "string"), ("limit", "int"), ("offset", "int"))),
@@ -99,6 +100,32 @@ public static class ToolManifest
     public static string BuildRouterConversationManifestJson()
         => BuildRouterManifestJson(_conversationDefinitions, "v3.1");
 
+    public static string BuildSourceBackedPlannerManifestJson()
+    {
+        var allowedNames = new HashSet<string>(
+            new[] { "rag.search", "rag.multi_search", "documents.navigation", "documents.content_cards", "documents.context" },
+            StringComparer.OrdinalIgnoreCase);
+        var manifest = new
+        {
+            v = "v3.1-source-backed",
+            tools = _conversationDefinitions
+                .Where(tool => allowedNames.Contains(tool.Name))
+                .Select(tool => new
+                {
+                    name = tool.Name,
+                    description = BuildSourceBackedPlannerToolDescription(tool.Name),
+                    args = BuildSourceBackedPlannerArgs(tool.Name)
+                })
+                .ToArray()
+        };
+
+        return JsonSerializer.Serialize(manifest, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = false
+        });
+    }
+
     private static string BuildManifestJson(IEnumerable<ToolDefinition> definitions, string version)
     {
         var manifest = new
@@ -139,6 +166,33 @@ public static class ToolManifest
         });
     }
 
+    private static string BuildSourceBackedPlannerToolDescription(string toolName)
+        => toolName switch
+        {
+            "rag.search" => "One compact source-bearing query; optional exact corpus or document/page scope.",
+            "rag.multi_search" => "Several complementary source-bearing query variants with deduplication.",
+            "documents.navigation" => "Titles and TOC anchors for orientation; not final proof.",
+            "documents.content_cards" => "Citable named-item inventory; q may be omitted for scoped browsing.",
+            "documents.context" => "Read an exact known document, page or chunk anchor.",
+            _ => string.Empty
+        };
+
+    private static string[] BuildSourceBackedPlannerArgs(string toolName)
+        => toolName switch
+        {
+            "rag.search" =>
+                new[] { "query", "categoryPath", "docId", "docPath", "pageStart", "pageEnd", "limit", "offset" },
+            "rag.multi_search" =>
+                new[] { "queries", "categoryPath", "docId", "docPath", "pageStart", "pageEnd", "limit", "offset" },
+            "documents.navigation" =>
+                new[] { "q", "categoryPath", "docRef", "docPath", "limit", "offset" },
+            "documents.content_cards" =>
+                new[] { "q", "categoryPath", "docRef", "docId", "docPath", "inventoryMode", "limit", "offset" },
+            "documents.context" =>
+                new[] { "docRef", "docId", "docPath", "chunkId", "pageStart", "pageEnd", "limit", "offset" },
+            _ => Array.Empty<string>()
+        };
+
     private static string BuildRouterToolDescription(ToolDefinition tool)
         => tool.Name switch
         {
@@ -149,6 +203,7 @@ public static class ToolManifest
             "documents.categories" => "List catalog categories for corpus scoping.",
             "documents.tree" => "Get category tree as a navigation map, not final evidence.",
             "documents.navigation" => "Get headings/table-of-contents anchors as search pointers, not final evidence.",
+            "documents.content_cards" => "Enumerate citable named content items with stable document/page anchors.",
             "documents.context" => "Read indexed page/chunk context around a doc, page or RAG hit.",
             "documents.stats" => "Get catalog statistics.",
             "sources.resolve" => "Resolve an explicit source/document/link/opening reference.",

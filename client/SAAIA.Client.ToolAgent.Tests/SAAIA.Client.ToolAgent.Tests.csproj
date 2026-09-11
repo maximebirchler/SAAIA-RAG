@@ -22,5 +22,17 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SAAIA.Client.WinUI\SAAIA.Client.WinUI.csproj" />
+    <None Update="Fixtures\CanonicalBackendEvidenceContract.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures\CanonicalContextRevisionContract.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures\CanonicalContextualPayloadContract.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures\CanonicalServerIdentityRaceContract.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures\CanonicalPdfCitationContract.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures\Calibration-record.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures\CanonicalContentCardLocatorContract.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures\CanonicalDegradedSearchContract.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures\TruncatedScopeReviewCompletionContract.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures\CompletedScopeReviewCompletionContract.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures\CompletedFastReviewCompletionContract.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures\TruncatedFastReviewCompletionContract.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

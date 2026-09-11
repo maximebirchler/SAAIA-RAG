@@ -21,6 +21,8 @@ param(
     [string]$CacheTypeK = "f16",
     [ValidateSet("f16", "q8_0", "q4_0")]
     [string]$CacheTypeV = "f16",
+    [ValidateRange(1, 16)]
+    [int]$Parallel = 1,
     [string]$Device = "CUDA0",
     [switch]$Jinja,
     [int]$ReadyTimeoutSeconds = 60
@@ -59,7 +61,7 @@ foreach ($pair in @(
     @("--flash-attn", $FlashAttention),
     @("--split-mode", "none"),
     @("--device", $Device),
-    @("--parallel", "1"),
+    @("--parallel", [string]$Parallel),
     @("--cache-type-k", $CacheTypeK),
     @("--cache-type-v", $CacheTypeV),
     @("--metrics", ""),
@@ -99,6 +101,7 @@ Set-Content -LiteralPath $pidPath -Value $process.Id -Encoding ascii
     flashAttention = $FlashAttention
     cacheTypeK = $CacheTypeK
     cacheTypeV = $CacheTypeV
+    parallel = $Parallel
     device = $Device
     jinja = [bool]$Jinja
 } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $profilePath -Encoding UTF8

@@ -227,6 +227,10 @@ public static class ReadyEndpoints
 
         details["canonical_artifacts_enabled"] =
             ingestion.CanonicalArtifactsEnabled;
+        details["code_revision"] =
+            string.IsNullOrWhiteSpace(codeRevision)
+                ? null
+                : codeRevision.Trim();
         if (!ingestion.CanonicalArtifactsEnabled)
         {
             details["canonical_provenance_status"] = "disabled";

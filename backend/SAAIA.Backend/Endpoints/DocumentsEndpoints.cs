@@ -519,6 +519,7 @@ WHERE tenant_id=@tenant AND status='indexed';";
         Guid? docId,
         string? docPath,
         string? q,
+        string? kind,
         int? limit,
         int? offset)
     {
@@ -529,6 +530,18 @@ WHERE tenant_id=@tenant AND status='indexed';";
         categoryRef = DocumentsCategoryScopeResolver.NormalizeCategoryRefOrNull(categoryRef);
         docPath = DocumentsCategoryScopeResolver.NormalizeCategoryPathOrNull(docPath);
         q = string.IsNullOrWhiteSpace(q) ? null : q.Trim();
+        kind = string.IsNullOrWhiteSpace(kind)
+            || string.Equals(kind.Trim(), "all", StringComparison.OrdinalIgnoreCase)
+                ? null
+                : kind.Trim().ToLowerInvariant();
+        if (kind is not (null or "navigation_entry" or "title_anchor"))
+        {
+            return Results.BadRequest(new
+            {
+                error = "invalid_navigation_kind",
+                allowedKinds = new[] { "navigation_entry", "title_anchor" }
+            });
+        }
         var normalizedQ = NormalizeNavigationLookupQuery(q);
         var queryTokens = q is null
             ? Array.Empty<string>()
@@ -549,7 +562,8 @@ WITH scoped_docs AS (
         d.category,
         d.page_count,
         d.indexed_version,
-        r.revision_id
+        r.revision_id,
+        encode(r.source_hash, 'hex') AS source_hash
     FROM documents d
     JOIN document_revisions r
       ON r.tenant_id = d.tenant_id
@@ -565,6 +579,8 @@ WITH scoped_docs AS (
 navigation_rows AS (
     SELECT
         d.doc_id AS ""DocId"",
+        d.revision_id AS ""RevisionId"",
+        d.source_hash AS ""SourceHash"",
         d.doc_path AS ""DocPath"",
         d.doc_name AS ""DocName"",
         d.category AS ""Category"",
@@ -578,6 +594,9 @@ navigation_rows AS (
         ne.target_page_end AS ""TargetPageEnd"",
         ne.resolution_method AS ""ResolutionMethod"",
         ne.confidence AS ""Confidence"",
+        ne.navigation_entry_id AS ""NavigationEntryId"",
+        ne.target_chunk_id AS ""TargetChunkId"",
+        ne.target_anchor_id AS ""TargetAnchorId"",
         ne.target_chunk_id IS NOT NULL AS ""HasTargetChunk"",
         ne.target_anchor_id IS NOT NULL AS ""HasTargetAnchor"",
         NULL::text AS ""SourceKind"",
@@ -600,10 +619,13 @@ navigation_rows AS (
         WHERE token = ANY(ne.label_tokens)
     ) nav_token_match
     WHERE NULLIF(BTRIM(ne.label), '') IS NOT NULL
+      AND (@kind IS NULL OR @kind = 'navigation_entry')
 ),
 anchor_rows AS (
     SELECT
         d.doc_id AS ""DocId"",
+        d.revision_id AS ""RevisionId"",
+        d.source_hash AS ""SourceHash"",
         d.doc_path AS ""DocPath"",
         d.doc_name AS ""DocName"",
         d.category AS ""Category"",
@@ -617,6 +639,9 @@ anchor_rows AS (
         a.page_end AS ""TargetPageEnd"",
         CASE WHEN a.retrieval_chunk_id IS NULL THEN 'title_page' ELSE 'title_chunk' END AS ""ResolutionMethod"",
         a.confidence AS ""Confidence"",
+        NULL::uuid AS ""NavigationEntryId"",
+        a.retrieval_chunk_id AS ""TargetChunkId"",
+        a.title_anchor_id AS ""TargetAnchorId"",
         a.retrieval_chunk_id IS NOT NULL AS ""HasTargetChunk"",
         TRUE AS ""HasTargetAnchor"",
         a.source_kind AS ""SourceKind"",
@@ -639,6 +664,7 @@ anchor_rows AS (
         WHERE token = ANY(a.title_tokens)
     ) anchor_token_match
     WHERE NULLIF(BTRIM(a.title), '') IS NOT NULL
+      AND (@kind IS NULL OR @kind = 'title_anchor')
 ),
 all_rows AS (
     SELECT * FROM navigation_rows
@@ -664,7 +690,7 @@ LIMIT @lim OFFSET @off;";
 
         var rows = (await conn.QueryAsync<NavigationRow>(new CommandDefinition(
                 sql,
-                new { tenant = tenantId, path, docId, docPath, q, normalizedQ, queryTokens, requiredTokenMatches, lim, off },
+                new { tenant = tenantId, path, docId, docPath, q, kind, normalizedQ, queryTokens, requiredTokenMatches, lim, off },
                 cancellationToken: ct)))
             .ToList();
         var total = rows.Count == 0 ? 0 : rows[0].Total;
@@ -672,15 +698,18 @@ LIMIT @lim OFFSET @off;";
         return Results.Ok(new
         {
             navigationOnly = true,
-            usage = "Use these entries as a search map only. Retrieve target pages with rag.search or rag.multi_search before answering factual questions.",
+            usage = "Use these entries as a search map only. Resolve a returned targetChunkId with documents.context, or retrieve its target pages with rag.search/rag.multi_search, before answering factual questions.",
             scopePath = path,
             query = q,
+            kind,
             total,
             limit = lim,
             offset = off,
             items = rows.Select(row => new
             {
                 docId = row.DocId,
+                revisionId = row.RevisionId,
+                sourceHash = row.SourceHash,
                 docPath = row.DocPath,
                 docName = row.DocName,
                 category = row.Category,
@@ -694,6 +723,9 @@ LIMIT @lim OFFSET @off;";
                 targetPageEnd = row.TargetPageEnd,
                 resolutionMethod = row.ResolutionMethod,
                 confidence = row.Confidence,
+                navigationEntryId = row.NavigationEntryId,
+                targetChunkId = row.TargetChunkId,
+                targetAnchorId = row.TargetAnchorId,
                 hasTargetChunk = row.HasTargetChunk,
                 hasTargetAnchor = row.HasTargetAnchor,
                 sourceKind = row.SourceKind
@@ -747,7 +779,8 @@ SELECT
   d.doc_name AS ""DocName"",
   d.category AS ""Category"",
   d.page_count AS ""PageCount"",
-  r.revision_id AS ""RevisionId""
+  r.revision_id AS ""RevisionId"",
+  encode(r.source_hash, 'hex') AS ""SourceHash""
 FROM documents d
 JOIN document_revisions r
   ON r.tenant_id = d.tenant_id
@@ -882,7 +915,9 @@ LIMIT @lim OFFSET @off;";
                 docPath = document.DocPath,
                 docName = document.DocName,
                 category = document.Category,
-                pageCount = document.PageCount
+                pageCount = document.PageCount,
+                revisionId = document.RevisionId,
+                sourceHash = document.SourceHash
             },
             scope = new
             {
@@ -1256,6 +1291,8 @@ WITH scoped_docs AS (
     d.tenant_id,
     d.doc_path,
     d.indexed_version,
+    d.ingestion_version,
+    d.auto_ingest_paused,
     d.content_hash,
     d.file_size,
     d.file_mtime,
@@ -1291,8 +1328,10 @@ latest_runs AS (
           )
         )
         OR (
-          sd.document_status='error'
+          sd.document_status IN ('error', 'indexed')
+          AND COALESCE(sd.auto_ingest_paused, false)
           AND pr.status='failed'
+          AND pr.ingestion_version=sd.ingestion_version
           AND pr.indexed_version_after=COALESCE(sd.indexed_version, 0)
           AND (
             LOWER(COALESCE(NULLIF(pr.payload ->> 'documentIndexable', ''), ''))='false'
@@ -1327,7 +1366,7 @@ enrichment_state AS (
     SELECT
       p.document_profile_id,
       CASE
-        WHEN COALESCE(p.metadata ->> 'contentCardEvidenceSchemaVersion', '') ~ '^[0-9]{1,9}$'
+        WHEN COALESCE(p.metadata ->> 'contentCardEvidenceSchemaVersion', '') ~ '^[0-9]{{1,9}}$'
           THEN (p.metadata ->> 'contentCardEvidenceSchemaVersion')::int
         ELSE 0
       END AS content_card_evidence_schema_version
@@ -1363,13 +1402,14 @@ page_rows AS (
     pi.page_number,
     COALESCE(pi.char_count, 0)::int AS char_count,
     CASE
-      WHEN COALESCE(pi.metadata ->> 'wordCount', '') ~ '^[0-9]{1,9}$' THEN (pi.metadata ->> 'wordCount')::int
+      WHEN COALESCE(pi.metadata ->> 'wordCount', '') ~ '^[0-9]{{1,9}}$' THEN (pi.metadata ->> 'wordCount')::int
       ELSE 0
     END AS word_count,
     CASE
-      WHEN COALESCE(pi.metadata ->> 'imageCount', '') ~ '^[0-9]{1,9}$' THEN (pi.metadata ->> 'imageCount')::int
+      WHEN COALESCE(pi.metadata ->> 'imageCount', '') ~ '^[0-9]{{1,9}}$' THEN (pi.metadata ->> 'imageCount')::int
       ELSE 0
-    END AS image_count
+    END AS image_count,
+    LOWER(COALESCE(pi.metadata -> 'extractionQuality' ->> 'manualReviewRecommended', ''))='true' AS published_manual_review
   FROM scoped_docs sd
   LEFT JOIN document_page_index pi
     ON pi.tenant_id=sd.tenant_id
@@ -1416,7 +1456,8 @@ page_quality AS (
     COUNT(*) FILTER (
       WHERE page_number IS NOT NULL
         AND (
-          ((word_count <= 0 OR char_count <= 0) AND chunk_count <= 0)
+          published_manual_review
+          OR ((word_count <= 0 OR char_count <= 0) AND chunk_count <= 0)
           OR (word_count > 0 AND char_count > 0 AND (word_count < 12 OR char_count < 80) AND chunk_count <= 0)
           OR (unit_count <= 0 AND chunk_count <= 0 AND (word_count >= 30 OR char_count >= 200))
         )
@@ -1424,7 +1465,8 @@ page_quality AS (
     COUNT(*) FILTER (
       WHERE page_number IS NOT NULL
         AND (
-          (image_count > 0 AND (word_count <= 0 OR char_count <= 0))
+          published_manual_review
+          OR (image_count > 0 AND (word_count <= 0 OR char_count <= 0))
           OR (image_count > 0 AND unit_count <= 0 AND chunk_count <= 0 AND word_count > 0 AND char_count > 0 AND (word_count < 12 OR char_count < 80))
           OR (unit_count <= 0 AND chunk_count <= 0 AND (word_count >= 30 OR char_count >= 200))
         )
@@ -1462,7 +1504,7 @@ doc_quality_base AS (
     END AS ""OcrApplied"",
     lr.payload ->> 'ocrLanguages' AS ""OcrLanguages"",
     CASE
-      WHEN COALESCE(lr.payload ->> 'ocrDurationMs', '') ~ '^[0-9]{1,18}$'
+      WHEN COALESCE(lr.payload ->> 'ocrDurationMs', '') ~ '^[0-9]{{1,18}}$'
         THEN (lr.payload ->> 'ocrDurationMs')::bigint
       ELSE NULL
     END AS ""OcrDurationMs"",
@@ -1479,25 +1521,25 @@ doc_quality_base AS (
       ELSE NULL
     END AS ""RunOcrRecommended"",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,pageCount}}', '') ~ '^[0-9]{1,9}$'
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,pageCount}}', '') ~ '^[0-9]{{1,9}}$'
         THEN (lr.payload #>> '{{extractionQuality,pageCount}}')::int ELSE NULL END,
       pq.page_count,
       0
     ) AS ""PageCount"",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,textPageCount}}', '') ~ '^[0-9]{1,9}$'
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,textPageCount}}', '') ~ '^[0-9]{{1,9}}$'
         THEN (lr.payload #>> '{{extractionQuality,textPageCount}}')::int ELSE NULL END,
       pq.text_page_count,
       0
     ) AS ""TextPageCount"",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,emptyPageCount}}', '') ~ '^[0-9]{1,9}$'
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,emptyPageCount}}', '') ~ '^[0-9]{{1,9}}$'
         THEN (lr.payload #>> '{{extractionQuality,emptyPageCount}}')::int ELSE NULL END,
       pq.empty_page_count,
       0
     ) AS ""EmptyPageCount"",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,sparsePageCount}}', '') ~ '^[0-9]{1,9}$'
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,sparsePageCount}}', '') ~ '^[0-9]{{1,9}}$'
         THEN (lr.payload #>> '{{extractionQuality,sparsePageCount}}')::int ELSE NULL END,
       pq.sparse_page_count,
       0
@@ -1506,13 +1548,13 @@ doc_quality_base AS (
     COALESCE(pq.page_warning_count, 0) AS ""PageWarningCount"",
     COALESCE(pq.page_review_recommended_count, 0) AS ""PageReviewRecommendedCount"",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,totalWordCount}}', '') ~ '^[0-9]{1,9}$'
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,totalWordCount}}', '') ~ '^[0-9]{{1,9}}$'
         THEN (lr.payload #>> '{{extractionQuality,totalWordCount}}')::int ELSE NULL END,
       pq.total_word_count,
       0
     ) AS ""TotalWordCount"",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,totalCharCount}}', '') ~ '^[0-9]{1,9}$'
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,totalCharCount}}', '') ~ '^[0-9]{{1,9}}$'
         THEN (lr.payload #>> '{{extractionQuality,totalCharCount}}')::int ELSE NULL END,
       pq.total_char_count,
       0
@@ -1542,13 +1584,13 @@ doc_quality_base AS (
       ELSE false
     END AS ""RetrievalManualReviewRecommended"",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,averageWordsPerPage}}', '') ~ '^[0-9]{1,9}([.][0-9]{1,6})?$'
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,averageWordsPerPage}}', '') ~ '^[0-9]{{1,9}}([.][0-9]{{1,6}})?$'
         THEN (lr.payload #>> '{{extractionQuality,averageWordsPerPage}}')::double precision ELSE NULL END,
       ROUND((COALESCE(pq.total_word_count, 0)::numeric / GREATEST(COALESCE(pq.page_count, 0), 1)), 2)::double precision,
       0
     ) AS ""AverageWordsPerPage"",
     COALESCE(
-      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,textPageRatio}}', '') ~ '^(0([.][0-9]{1,6})?|1([.]0{1,6})?)$'
+      CASE WHEN COALESCE(lr.payload #>> '{{extractionQuality,textPageRatio}}', '') ~ '^(0([.][0-9]{{1,6}})?|1([.]0{{1,6}})?)$'
         THEN (lr.payload #>> '{{extractionQuality,textPageRatio}}')::double precision ELSE NULL END,
       ROUND((COALESCE(pq.text_page_count, 0)::numeric / GREATEST(COALESCE(pq.page_count, 0), 1)), 4)::double precision,
       0
@@ -1852,7 +1894,9 @@ ORDER BY display_order ASC, name ASC;";
         var categoryRows = (await conn.QueryAsync<SnapshotCategoryRow>(new CommandDefinition(categoriesSql, new { tenant = tenantId }, cancellationToken: ct))).ToList();
         var aliasesByPath = await DocumentsCategoryScopeResolver.LoadTopCategoryAliasesAsync(conn, tenantId, categoryRows.Select(x => x.Path).ToList(), ct);
 
-        var computedAt = summary?.ComputedAt ?? (categoryRows.Count > 0 ? categoryRows.Max(x => x.UpdatedAt) : DateTimeOffset.UtcNow);
+        // An absent snapshot is stable until rows are published. Request time
+        // must not invalidate its ETag on every read.
+        var computedAt = summary?.ComputedAt ?? (categoryRows.Count > 0 ? categoryRows.Max(x => x.UpdatedAt) : DateTimeOffset.UnixEpoch);
         var snapshotId = BuildSnapshotId(computedAt, summary?.TotalDocs ?? categoryRows.Sum(x => x.DocCount));
         var etag = BuildSnapshotEtag(computedAt, summary?.TotalDocs ?? categoryRows.Sum(x => x.DocCount), categoryRows.Count);
         ctx.Response.Headers.ETag = etag;
@@ -2386,6 +2430,8 @@ WHERE d.tenant_id=@tenant
     private sealed class NavigationRow
     {
         public Guid DocId { get; set; }
+        public Guid RevisionId { get; set; }
+        public string? SourceHash { get; set; }
         public string DocPath { get; set; } = "";
         public string DocName { get; set; } = "";
         public string? Category { get; set; }
@@ -2399,6 +2445,9 @@ WHERE d.tenant_id=@tenant
         public int? TargetPageEnd { get; set; }
         public string? ResolutionMethod { get; set; }
         public double Confidence { get; set; }
+        public Guid? NavigationEntryId { get; set; }
+        public Guid? TargetChunkId { get; set; }
+        public Guid? TargetAnchorId { get; set; }
         public bool HasTargetChunk { get; set; }
         public bool HasTargetAnchor { get; set; }
         public string? SourceKind { get; set; }
@@ -2415,6 +2464,7 @@ WHERE d.tenant_id=@tenant
         public string? Category { get; set; }
         public int? PageCount { get; set; }
         public Guid RevisionId { get; set; }
+        public string? SourceHash { get; set; }
     }
 
     private sealed class DocumentContextChunkRow

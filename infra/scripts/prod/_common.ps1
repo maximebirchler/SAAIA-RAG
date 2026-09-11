@@ -212,6 +212,29 @@ function New-SignedConfig {
     return $default
   }
 
+  function Read-EnvInt(
+    [string]$name,
+    [int]$default,
+    [int]$minimum,
+    [int]$maximum
+  ) {
+    if (-not $env.ContainsKey($name) -or [string]::IsNullOrWhiteSpace([string]$env[$name])) {
+      return $default
+    }
+
+    $parsed = 0
+    $parsedOk = [int]::TryParse(
+        [string]$env[$name],
+        [Globalization.NumberStyles]::Integer,
+        [Globalization.CultureInfo]::InvariantCulture,
+        [ref]$parsed)
+    if ((-not $parsedOk) -or ($parsed -lt $minimum) -or ($parsed -gt $maximum)) {
+      throw "$name must be an integer between $minimum and $maximum."
+    }
+
+    return $parsed
+  }
+
   $qdrantKeyPresent = ($env.ContainsKey('QDRANT_API_KEY') -and -not [string]::IsNullOrWhiteSpace($env['QDRANT_API_KEY']))
   $requireQdrantAuthBool = $null
   if ($env.ContainsKey('REQUIRE_QDRANT_AUTH_IN_PROD')) {
@@ -248,6 +271,17 @@ function New-SignedConfig {
   $teiModelRevision = 'd128750597153bb5987e10b1c3493a34e5a4502a'
   if ($env.ContainsKey('TEI_MODEL_REVISION') -and -not [string]::IsNullOrWhiteSpace($env['TEI_MODEL_REVISION'])) { $teiModelRevision = $env['TEI_MODEL_REVISION'] }
 
+  $rerankEnabledBool = $true
+  if ($env.ContainsKey('SAAIA_RERANK_ENABLED')) {
+    $rerankEnabledBool = Parse-Bool $env['SAAIA_RERANK_ENABLED'] $true
+  }
+  if ($rerankEnabledBool) { $rerankEnabled = 'true' } else { $rerankEnabled = 'false' }
+
+  $rerankModel = 'Alibaba-NLP/gte-multilingual-reranker-base'
+  if ($env.ContainsKey('SAAIA_RERANK_MODEL_ID') -and -not [string]::IsNullOrWhiteSpace($env['SAAIA_RERANK_MODEL_ID'])) {
+    $rerankModel = $env['SAAIA_RERANK_MODEL_ID']
+  }
+
   $licenseSeats = 1
   if ($env.ContainsKey('SAAIA_LICENSE_SEATS') -and -not [string]::IsNullOrWhiteSpace($env['SAAIA_LICENSE_SEATS'])) {
     $parsedSeats = 0
@@ -255,6 +289,27 @@ function New-SignedConfig {
       throw "SAAIA_LICENSE_SEATS must be a positive integer."
     }
     $licenseSeats = $parsedSeats
+  }
+
+  $operationalInts = [ordered]@{
+    '__RAG_SEARCH_MAX_CONCURRENCY__' = Read-EnvInt 'SAAIA_RAG_SEARCH_MAX_CONCURRENCY' 4 1 64
+    '__RAG_SEARCH_QUEUE_LIMIT__' = Read-EnvInt 'SAAIA_RAG_SEARCH_QUEUE_LIMIT' 16 0 4096
+    '__RAG_SEARCH_QUEUE_WAIT_TIMEOUT_SECONDS__' = Read-EnvInt 'SAAIA_RAG_SEARCH_QUEUE_WAIT_TIMEOUT_SECONDS' 25 1 3600
+    '__RAG_SEARCH_RETRY_AFTER_SECONDS__' = Read-EnvInt 'SAAIA_RAG_SEARCH_RETRY_AFTER_SECONDS' 3 1 3600
+    '__RERANK_MAX_CANDIDATES__' = Read-EnvInt 'SAAIA_RERANK_MAX_CANDIDATES' 12 2 128
+    '__INGESTION_CHUNK_MAX_WORDS__' = Read-EnvInt 'SAAIA_INGESTION_CHUNK_MAX_WORDS' 220 25 5000
+    '__INGESTION_CHUNK_OVERLAP_WORDS__' = Read-EnvInt 'SAAIA_INGESTION_CHUNK_OVERLAP_WORDS' 0 0 5000
+    '__INGESTION_CHUNK_MIN_WORDS__' = Read-EnvInt 'SAAIA_INGESTION_CHUNK_MIN_WORDS' 25 1 5000
+    '__INGESTION_EMBEDDINGS_BATCH_SIZE__' = Read-EnvInt 'SAAIA_INGESTION_EMBEDDINGS_BATCH_SIZE' 16 1 256
+    '__INGESTION_WORKER_CONCURRENCY__' = Read-EnvInt 'SAAIA_INGESTION_WORKER_CONCURRENCY' 2 1 32
+    '__INGESTION_TEI_MAX_CONCURRENCY__' = Read-EnvInt 'SAAIA_INGESTION_TEI_MAX_CONCURRENCY' 1 1 16
+    '__INGESTION_QDRANT_MAX_CONCURRENCY__' = Read-EnvInt 'SAAIA_INGESTION_QDRANT_MAX_CONCURRENCY' 4 1 32
+    '__INGESTION_TEI_INTERACTIVE_QUIET_PERIOD_MS__' = Read-EnvInt 'SAAIA_INGESTION_TEI_INTERACTIVE_QUIET_PERIOD_MS' 1500 0 600000
+    '__INGESTION_HEAVY_COMPUTE_MAX_CONCURRENCY__' = Read-EnvInt 'SAAIA_INGESTION_HEAVY_COMPUTE_MAX_CONCURRENCY' 1 1 16
+    '__INGESTION_BULKHEAD_ACQUIRE_TIMEOUT_SECONDS__' = Read-EnvInt 'SAAIA_INGESTION_BULKHEAD_ACQUIRE_TIMEOUT_SECONDS' 30 1 86400
+    '__INGESTION_OCR_BULKHEAD_ACQUIRE_TIMEOUT_SECONDS__' = Read-EnvInt 'SAAIA_INGESTION_OCR_BULKHEAD_ACQUIRE_TIMEOUT_SECONDS' 1800 1 86400
+    '__INGESTION_OCR_BULKHEAD_QUEUE_WAIT_TIMEOUT_SECONDS__' = Read-EnvInt 'SAAIA_OCR_BULKHEAD_QUEUE_WAIT_TIMEOUT_SECONDS' 21600 1 86400
+    '__INGESTION_HEAVY_COMPUTE_QUEUE_WAIT_TIMEOUT_SECONDS__' = Read-EnvInt 'SAAIA_INGESTION_HEAVY_COMPUTE_QUEUE_WAIT_TIMEOUT_SECONDS' 21600 1 86400
   }
 
   $content = Get-Content $templatePath -Raw
@@ -266,8 +321,16 @@ function New-SignedConfig {
   $content = $content.Replace('__POSTGRES_USER__', (Escape-JsonString $pgUser))
   $content = $content.Replace('__TEI_MODEL_ID__', (Escape-JsonString $teiModel))
   $content = $content.Replace('__TEI_MODEL_REVISION__', (Escape-JsonString $teiModelRevision))
+  $content = $content.Replace('__RERANK_ENABLED__', $rerankEnabled)
+  $content = $content.Replace('__RERANK_MODEL_ID__', (Escape-JsonString $rerankModel))
   $content = $content.Replace('__REQUIRE_QDRANT_AUTH__', $requireQdrantAuth)
   $content = $content.Replace('__LICENSE_SEATS__', $licenseSeats.ToString([Globalization.CultureInfo]::InvariantCulture))
+  foreach ($replacement in $operationalInts.GetEnumerator()) {
+    $content = $content.Replace(
+      [string]$replacement.Key,
+      ([int]$replacement.Value).ToString(
+        [Globalization.CultureInfo]::InvariantCulture))
+  }
 
   $content | Out-File -FilePath $outCfg -Encoding utf8
 

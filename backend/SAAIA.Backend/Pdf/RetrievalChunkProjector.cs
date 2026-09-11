@@ -1857,7 +1857,8 @@ internal sealed record ProjectedRetrievalChunk(
     IReadOnlyList<string>? CanonicalTableCellIds = null,
     IReadOnlyList<string>? CanonicalContextBlockIds = null,
     string? SectionTitle = null,
-    string? HeadingPath = null);
+    string? HeadingPath = null,
+    int? HeadingLevel = null);
 
 internal sealed record RetrievalChunkExtractionQuality(
     string? TextStatus,

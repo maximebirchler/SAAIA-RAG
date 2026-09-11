@@ -75,6 +75,87 @@ internal static class DeterministicAgentText
     public static string ProgressCorrectPreviousInterpretation(string? language)
         => Pick(language, "Je corrige mon interprétation précédente…", "I am correcting my previous interpretation…", "Estoy corrigiendo mi interpretación anterior…", "Estou corrigindo minha interpretação anterior…", "Ich korrigiere meine vorherige Interpretation…", "Sto correggendo la mia interpretazione precedente…");
 
+    public static string AdvancedAnalysisRequired(int answerUnitCount, string? language)
+        => Pick(language,
+            $"Cette demande nécessite une synthèse complexe d'au moins {answerUnitCount} éléments. Elle dépasse la capacité locale qualifiée sur cet appareil. La capacité d'analyse avancée est requise pour produire une réponse complète avec ses sources.",
+            $"This request requires a complex synthesis of at least {answerUnitCount} items. It exceeds the local capability qualified on this device. Advanced analysis is required to produce a complete answer with its sources.",
+            $"Esta solicitud requiere una síntesis compleja de al menos {answerUnitCount} elementos. Supera la capacidad local validada en este dispositivo. Se requiere el análisis avanzado para producir una respuesta completa con sus fuentes.",
+            $"Este pedido requer uma síntese complexa de pelo menos {answerUnitCount} elementos. Ultrapassa a capacidade local validada neste dispositivo. É necessária a análise avançada para produzir uma resposta completa com as respetivas fontes.",
+            $"Diese Anfrage erfordert eine komplexe Synthese von mindestens {answerUnitCount} Elementen. Sie überschreitet die auf diesem Gerät qualifizierte lokale Kapazität. Für eine vollständige Antwort mit Quellen ist die erweiterte Analyse erforderlich.",
+            $"Questa richiesta richiede una sintesi complessa di almeno {answerUnitCount} elementi. Supera la capacità locale qualificata su questo dispositivo. Per produrre una risposta completa con le relative fonti è necessaria l'analisi avanzata.");
+
+    public static string AdvancedAnalysisRequiredAfterLocalBudget(string? language)
+        => Pick(language,
+            "La capacité locale a atteint sa limite de calcul avant de pouvoir terminer et vérifier cette réponse. L'analyse avancée est requise pour poursuivre la demande avec la chaîne de sources.",
+            "The local capability reached its compute limit before it could complete and verify this answer. Advanced analysis is required to continue the request with the source-backed workflow.",
+            "La capacidad local alcanzó su límite de cálculo antes de poder completar y verificar esta respuesta. Se requiere el análisis avanzado para continuar la solicitud con el flujo respaldado por fuentes.",
+            "A capacidade local atingiu o limite de cálculo antes de conseguir concluir e verificar esta resposta. É necessária a análise avançada para continuar o pedido com o fluxo apoiado em fontes.",
+            "Die lokale Kapazität hat ihr Rechenlimit erreicht, bevor diese Antwort abgeschlossen und geprüft werden konnte. Für die Fortsetzung mit dem quellenbasierten Ablauf ist die erweiterte Analyse erforderlich.",
+            "La capacità locale ha raggiunto il limite di calcolo prima di poter completare e verificare questa risposta. Per continuare la richiesta con il flusso basato sulle fonti è necessaria l'analisi avanzata.");
+
+    public static string ProgressAdvancedAnalysisQueued(string? language)
+        => Pick(language,
+            "La tâche d'analyse avancée est enregistrée et attend son exécution…",
+            "The advanced analysis task is queued and waiting to run…",
+            "La tarea de análisis avanzado está en cola y espera su ejecución…",
+            "A tarefa de análise avançada está em fila e aguarda execução…",
+            "Die Aufgabe für die erweiterte Analyse wartet auf ihre Ausführung…",
+            "L'attività di analisi avanzata è in coda e attende l'esecuzione…");
+
+    public static string ProgressAdvancedAnalysisRunning(string? language)
+        => Pick(language,
+            "L'analyse avancée poursuit les recherches et vérifie les sources…",
+            "Advanced analysis is searching and verifying the sources…",
+            "El análisis avanzado está buscando y verificando las fuentes…",
+            "A análise avançada está a pesquisar e a verificar as fontes…",
+            "Die erweiterte Analyse durchsucht und prüft die Quellen…",
+            "L'analisi avanzata sta cercando e verificando le fonti…");
+
+    public static string AdvancedAnalysisPending(string? language)
+        => Pick(language,
+            "La tâche d'analyse avancée est enregistrée sur le serveur et n'est pas encore terminée. Son identifiant et son dernier état ont été conservés avec ce message pour permettre la reprise du suivi.",
+            "The advanced analysis task is stored on the server and has not finished yet. Its identifier and latest state were saved with this message so tracking can resume.",
+            "La tarea de análisis avanzado está guardada en el servidor y aún no ha terminado. Su identificador y último estado se guardaron con este mensaje para poder reanudar el seguimiento.",
+            "A tarefa de análise avançada está guardada no servidor e ainda não terminou. O identificador e o último estado foram guardados com esta mensagem para permitir retomar o acompanhamento.",
+            "Die Aufgabe für die erweiterte Analyse ist auf dem Server gespeichert und noch nicht abgeschlossen. Kennung und letzter Zustand wurden mit dieser Nachricht gespeichert, damit die Verfolgung fortgesetzt werden kann.",
+            "L'attività di analisi avanzata è salvata sul server e non è ancora terminata. L'identificativo e l'ultimo stato sono stati conservati con questo messaggio per consentire la ripresa del monitoraggio.");
+
+    public static string AdvancedAnalysisFailed(string? language)
+        => Pick(language,
+            "L'analyse avancée n'a pas pu terminer cette demande. Aucun résultat de fournisseur ni aucune source non validée ne sont affichés.",
+            "Advanced analysis could not complete this request. No provider result or unvalidated source is displayed.",
+            "El análisis avanzado no pudo completar esta solicitud. No se muestra ningún resultado del proveedor ni ninguna fuente sin validar.",
+            "A análise avançada não conseguiu concluir este pedido. Não é apresentado qualquer resultado do fornecedor nem qualquer fonte não validada.",
+            "Die erweiterte Analyse konnte diese Anfrage nicht abschließen. Es werden weder ein Anbieterergebnis noch ungeprüfte Quellen angezeigt.",
+            "L'analisi avanzata non ha potuto completare questa richiesta. Non vengono mostrati risultati del fornitore né fonti non convalidate.");
+
+    public static string AdvancedAnalysisCanceled(string? language)
+        => Pick(language,
+            "La tâche d'analyse avancée a été annulée.",
+            "The advanced analysis task was canceled.",
+            "La tarea de análisis avanzado fue cancelada.",
+            "A tarefa de análise avançada foi cancelada.",
+            "Die Aufgabe für die erweiterte Analyse wurde abgebrochen.",
+            "L'attività di analisi avanzata è stata annullata.");
+
+    public static string AdvancedAnalysisInvalidResult(string? language)
+        => Pick(language,
+            "Le résultat de l'analyse avancée n'a pas satisfait les contrôles d'identité, de citations ou de format. Il a été bloqué et aucune réponse non validée n'est affichée.",
+            "The advanced analysis result failed the identity, citation, or format checks. It was blocked and no unvalidated answer is displayed.",
+            "El resultado del análisis avanzado no superó los controles de identidad, citas o formato. Se bloqueó y no se muestra ninguna respuesta sin validar.",
+            "O resultado da análise avançada não passou os controlos de identidade, citações ou formato. Foi bloqueado e não é apresentada qualquer resposta não validada.",
+            "Das Ergebnis der erweiterten Analyse bestand die Identitäts-, Zitations- oder Formatprüfungen nicht. Es wurde blockiert und es wird keine ungeprüfte Antwort angezeigt.",
+            "Il risultato dell'analisi avanzata non ha superato i controlli di identità, citazioni o formato. È stato bloccato e non viene mostrata alcuna risposta non convalidata.");
+
+    public static string AdvancedSourceLocalizationRequired(string? language)
+        => Pick(language,
+            "Cette demande exige de localiser et de vérifier un passage exact dans les documents. Elle dépasse la capacité locale qualifiée sur cet appareil. La capacité d'analyse avancée est requise pour fournir une page ou un extrait vérifiable avec sa source.",
+            "This request requires locating and verifying an exact passage in the documents. It exceeds the local capability qualified on this device. Advanced analysis is required to provide a verifiable page or excerpt with its source.",
+            "Esta solicitud exige localizar y verificar un pasaje exacto en los documentos. Supera la capacidad local validada en este dispositivo. Se requiere el análisis avanzado para proporcionar una página o un extracto verificable con su fuente.",
+            "Este pedido exige localizar e verificar uma passagem exata nos documentos. Ultrapassa a capacidade local validada neste dispositivo. É necessária a análise avançada para fornecer uma página ou um excerto verificável com a respetiva fonte.",
+            "Diese Anfrage erfordert das Auffinden und Prüfen einer genauen Passage in den Dokumenten. Sie überschreitet die auf diesem Gerät qualifizierte lokale Kapazität. Für eine überprüfbare Seite oder Textstelle mit Quelle ist die erweiterte Analyse erforderlich.",
+            "Questa richiesta richiede di individuare e verificare un passaggio esatto nei documenti. Supera la capacità locale qualificata su questo dispositivo. È necessaria l'analisi avanzata per fornire una pagina o un estratto verificabile con la relativa fonte.");
+
     public static string ProgressDraftFinalAnswer(string? language)
         => Pick(language, "Je rédige la réponse finale…", "I am drafting the final answer…", "Estoy redactando la respuesta final…", "Estou redigindo a resposta final…", "Ich formuliere die endgültige Antwort…", "Sto redigendo la risposta finale…");
 

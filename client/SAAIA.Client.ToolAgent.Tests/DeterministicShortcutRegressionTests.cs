@@ -10,6 +10,28 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class DeterministicShortcutRegressionTests
 {
+    [Theory]
+    [InlineData("Le projet respecte-t-il la norme xxx ?")]
+    [InlineData("J'ai un client qui me demande si le projet respecte la norme xxx sur l'inertage. Tu peux m'aider ?")]
+    [InlineData("Does this project comply with standard xxx?")]
+    public void Placeholder_standard_requests_are_identified_before_document_retrieval(string query)
+    {
+        Assert.True(ToolAgentOrchestrator.LooksLikeMissingStandardIdentifierQuestionForTests(query));
+
+        var clarification = ToolAgentOrchestrator.BuildMissingStandardIdentifierClarificationForTests("fr");
+        Assert.Contains("référence exacte", clarification, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("périmètre du projet", clarification, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("xxx", clarification, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("Le projet respecte-t-il EN 15281 ?")]
+    [InlineData("Compare ISO 12944-2 et EN 1090-1.")]
+    public void Concrete_standard_requests_are_not_treated_as_placeholder_input(string query)
+    {
+        Assert.False(ToolAgentOrchestrator.LooksLikeMissingStandardIdentifierQuestionForTests(query));
+    }
+
     [Fact]
     public void Stats_fallback_uses_requested_french_language()
     {

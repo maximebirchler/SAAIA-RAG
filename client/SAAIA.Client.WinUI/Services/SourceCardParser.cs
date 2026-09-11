@@ -130,6 +130,10 @@ public static class SourceCardParser
 
     private static string BuildSourceCardVisiblePageMergeKey(SourceCard source)
     {
+        var evidenceId = NormalizeSourceIdentity(source.EvidenceId);
+        if (!string.IsNullOrWhiteSpace(evidenceId))
+            return "evidence:" + evidenceId;
+
         var hasKnownPage = source.PageStart is > 0;
         var pageStart = hasKnownPage ? source.PageStart!.Value : 0;
         var pageEnd = hasKnownPage ? Math.Max(pageStart, source.PageEnd ?? pageStart) : 0;
@@ -188,6 +192,7 @@ public static class SourceCardParser
 
         return new SourceCard
         {
+            EvidenceId = PickString(sources, static s => s.EvidenceId),
             DocId = PickString(sources, static s => s.DocId),
             DocPath = PickString(sources, static s => s.DocPath) ?? primary.DocPath,
             DocName = PickString(sources, static s => s.DocName) ?? primary.DocName,
@@ -196,12 +201,15 @@ public static class SourceCardParser
             Snippet = PickString(sources, static s => s.Snippet) ?? primary.Snippet,
             Score = PickDouble(sources, static s => s.Score),
             SourceHash = PickString(sources, static s => s.SourceHash),
+            RevisionId = PickString(sources, static s => s.RevisionId),
             DocLanguage = PickString(sources, static s => s.DocLanguage),
             ProfileLanguage = PickString(sources, static s => s.ProfileLanguage),
             Category = PickString(sources, static s => s.Category),
             CategoryRef = PickString(sources, static s => s.CategoryRef),
             CategoryPath = PickString(sources, static s => s.CategoryPath),
             ChunkId = PickString(sources, static s => s.ChunkId),
+            AnchorId = PickString(sources, static s => s.AnchorId),
+            ContentCardId = PickString(sources, static s => s.ContentCardId),
             SectionTitle = PickString(sources, static s => s.SectionTitle),
             HeadingPath = PickString(sources, static s => s.HeadingPath),
             PrevChunkId = PickString(sources, static s => s.PrevChunkId),
@@ -256,7 +264,9 @@ public static class SourceCardParser
     private static int SourceCardRichnessScore(SourceCard source)
     {
         var score = 0;
+        score += HasValue(source.EvidenceId) * 12;
         score += HasValue(source.SourceHash) * 10;
+        score += HasValue(source.RevisionId) * 10;
         score += HasValue(source.DocLanguage) * 4;
         score += HasValue(source.ProfileLanguage) * 4;
         score += HasValue(source.Category) * 2;
@@ -596,6 +606,11 @@ public static class SourceCardParser
 
         result.Add(new SourceCard
         {
+            EvidenceId = GetStringAny(
+                el,
+                "evidenceId",
+                "evidence_id",
+                "EvidenceId"),
             DocId = GetStringAny(el, "docId", "doc_id", "DocId"),
             DocPath = docPath,
             DocName = docName,
@@ -604,6 +619,11 @@ public static class SourceCardParser
             Snippet = snippet,
             Score = score,
             SourceHash = GetStringAny(el, "sourceHash", "source_hash", "SourceHash"),
+            RevisionId = GetStringAny(
+                el,
+                "revisionId",
+                "revision_id",
+                "RevisionId"),
             DocLanguage = GetStringAny(
                 el,
                 "docLanguage", "doc_language", "DocLanguage",
@@ -614,6 +634,12 @@ public static class SourceCardParser
             CategoryRef = GetStringAny(el, "categoryRef", "category_ref", "CategoryRef"),
             CategoryPath = GetStringAny(el, "categoryPath", "category_path", "CategoryPath"),
             ChunkId = GetStringAny(el, "chunkId", "chunk_id", "ChunkId"),
+            AnchorId = GetStringAny(el, "anchorId", "anchor_id", "AnchorId"),
+            ContentCardId = GetStringAny(
+                el,
+                "contentCardId",
+                "content_card_id",
+                "ContentCardId"),
             SectionTitle = GetStringFromContextHintsOrRoot(
                 el,
                 contentSignals,

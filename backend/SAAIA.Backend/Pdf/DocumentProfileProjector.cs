@@ -16,9 +16,6 @@ internal static partial class DocumentProfileProjector
     private const int MaxPageContentCardCandidates = 8;
     private const int MaxExactLeadContentCardCandidates = 4;
     private const int MaxEvidenceDerivedContentCardPageSpan = 8;
-    private const string CanonicalSectionHeadingSignal =
-        "canonical_section_heading";
-
     public static ProjectedDocumentProfile Project(
         string docPath,
         IReadOnlyList<ExtractedPdfPage> pages,
@@ -55,7 +52,7 @@ internal static partial class DocumentProfileProjector
             preferStructuredSources);
         return BuildProfile(
             profileVersion: preferStructuredSources
-                ? "deterministic_canonical_v3"
+                ? "deterministic_canonical_v5"
                 : "deterministic_v1",
             language,
             summaryText: summary,
@@ -510,6 +507,7 @@ internal static partial class DocumentProfileProjector
         {
             return BuildCanonicalSectionContentCards(
                 sections,
+                units,
                 exactMatchEntries,
                 keywords);
         }
@@ -706,65 +704,6 @@ internal static partial class DocumentProfileProjector
         }
 
         return NormalizeContentCards(OrderContentCardsForBalancedCoverage(candidates));
-    }
-
-    private static IReadOnlyList<DocumentProfileContentCard>
-        BuildCanonicalSectionContentCards(
-            IReadOnlyList<ExtractedDocumentSection> sections,
-            IReadOnlyList<ExtractedExactMatchEntry> exactMatchEntries,
-            IReadOnlyList<string> keywords)
-    {
-        var candidates = new List<DocumentProfileContentCardCandidate>();
-        foreach (var section in sections
-                     .OrderBy(static section => section.Ordinal)
-                     .Take(MaxContentCards))
-        {
-            var title = NormalizeCanonicalSectionHeading(section.Title);
-            if (!IsMechanicallyUsableCanonicalSectionHeading(
-                    title,
-                    section.PageStart,
-                    section.PageEnd))
-            {
-                continue;
-            }
-
-            candidates.Add(new(
-                new(
-                    title,
-                    section.PageStart,
-                    section.PageEnd,
-                    "section",
-                    [CanonicalSectionHeadingSignal],
-                    Evidence: null,
-                    ContentCardId: null),
-                Score: 100));
-        }
-
-        foreach (var entry in exactMatchEntries
-                     .Where(static entry =>
-                         entry.Kind is "standard_ref" or "code_ref")
-                     .OrderBy(static entry => entry.EntryIndex))
-        {
-            var title = CleanTitleCandidate(entry.Text);
-            if (!LooksLikeTechnicalIdentifier(title)
-                || !IsPlausibleTechnicalContentCardIdentifier(title))
-            {
-                continue;
-            }
-
-            AddContentCardCandidate(
-                candidates,
-                title,
-                entry.PageStart,
-                entry.PageEnd,
-                entry.Kind,
-                entry.Text,
-                keywords,
-                score: 88);
-        }
-
-        return NormalizeContentCards(
-            OrderContentCardsForBalancedCoverage(candidates));
     }
 
     private static string BuildSectionContentCardContext(
@@ -2891,7 +2830,10 @@ internal static partial class DocumentProfileProjector
         {
             if (isCanonicalSectionHeading)
             {
-                if (!string.Equals(kind, "section", StringComparison.Ordinal)
+                if (!string.Equals(
+                        kind,
+                        CanonicalSectionAnchorKind,
+                        StringComparison.Ordinal)
                     || !IsMechanicallyUsableCanonicalSectionHeading(
                         title,
                         pageStart,
@@ -3031,7 +2973,13 @@ internal static partial class DocumentProfileProjector
             : CollapseWhitespace(kind).ToLowerInvariant();
 
     private static bool IsDeterministicContentCardKind(string kind)
-        => kind is "section" or "exact_lead" or "page_embedded_title" or "unit_lead" or "standard_ref" or "code_ref";
+        => kind is "section"
+            or CanonicalSectionAnchorKind
+            or "exact_lead"
+            or "page_embedded_title"
+            or "unit_lead"
+            or "standard_ref"
+            or "code_ref";
 
     private static bool HasGroundedContentCardEvidence(DocumentProfileCardEvidence? evidence)
     {

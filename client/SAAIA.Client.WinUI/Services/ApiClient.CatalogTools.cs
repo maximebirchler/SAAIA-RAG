@@ -187,6 +187,7 @@ public sealed partial class ApiClient
         string? docId,
         string? docPath,
         string? q,
+        string? kind,
         int limit,
         int offset,
         CancellationToken ct)
@@ -209,10 +210,51 @@ public sealed partial class ApiClient
             qs.Add($"docPath={Uri.EscapeDataString(docPath.Trim().Replace('\\', '/').Trim('/'))}");
         if (!string.IsNullOrWhiteSpace(q))
             qs.Add($"q={Uri.EscapeDataString(q.Trim())}");
+        if (!string.IsNullOrWhiteSpace(kind))
+            qs.Add($"kind={Uri.EscapeDataString(kind.Trim())}");
 
         return await SendJsonAsync(
                 HttpMethod.Get,
                 "/documents/navigation?" + string.Join("&", qs),
+                null,
+                admin: false,
+                ct)
+            .ConfigureAwait(false);
+    }
+
+    public async Task<JsonElement> DocumentsContentCardsAsync(
+        string? categoryPath,
+        string? categoryRef,
+        string? docId,
+        string? docPath,
+        string? q,
+        string? inventoryMode,
+        int limit,
+        int offset,
+        CancellationToken ct)
+    {
+        var qs = new List<string>
+        {
+            $"limit={Math.Clamp(limit, 1, 120)}",
+            $"offset={Math.Max(offset, 0)}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(categoryPath))
+            qs.Add($"categoryPath={Uri.EscapeDataString(categoryPath.Trim().Replace('\\', '/').Trim('/'))}");
+        if (!string.IsNullOrWhiteSpace(categoryRef))
+            qs.Add($"categoryRef={Uri.EscapeDataString(categoryRef.Trim())}");
+        if (!string.IsNullOrWhiteSpace(docId))
+            qs.Add($"docId={Uri.EscapeDataString(docId.Trim())}");
+        if (!string.IsNullOrWhiteSpace(docPath))
+            qs.Add($"docPath={Uri.EscapeDataString(docPath.Trim().Replace('\\', '/').Trim('/'))}");
+        if (!string.IsNullOrWhiteSpace(q))
+            qs.Add($"q={Uri.EscapeDataString(q.Trim())}");
+        if (!string.IsNullOrWhiteSpace(inventoryMode))
+            qs.Add($"inventoryMode={Uri.EscapeDataString(inventoryMode.Trim())}");
+
+        return await SendJsonAsync(
+                HttpMethod.Get,
+                "/documents/content-cards?" + string.Join("&", qs),
                 null,
                 admin: false,
                 ct)

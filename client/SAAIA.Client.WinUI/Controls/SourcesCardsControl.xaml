@@ -9,7 +9,8 @@
     <StackPanel Spacing="8">
         <TextBlock x:Name="SourcesHeaderText" Text="Sources" FontWeight="SemiBold" Opacity="0.85"/>
 
-        <ItemsControl x:Name="ItemsHost">
+        <ItemsControl x:Name="ItemsHost"
+                      AutomationProperties.AutomationId="SourcesCardsItems">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <Border CornerRadius="8"

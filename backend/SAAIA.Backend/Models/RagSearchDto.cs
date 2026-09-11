@@ -34,7 +34,8 @@ public sealed record RagSearchRequestDto(
     int? PageStart = null,
     int? PageEnd = null,
     string? ResearchMode = null,
-    bool? IncludeResearchSurfaces = null
+    bool? IncludeResearchSurfaces = null,
+    bool? SourceBackedCanonical = null
 );
 
 /// <summary>
@@ -198,6 +199,7 @@ public sealed record RagItemDto(
     string? Provenance = null,
     bool? ExactMatchHit = null,
     string? SourceHash = null,
+    string? RevisionId = null,
     string? EmbeddingBasis = null,
     string? ChunkType = null,
     string? SectionTitle = null,

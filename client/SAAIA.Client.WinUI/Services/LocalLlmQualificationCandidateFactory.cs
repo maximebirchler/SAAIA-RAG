@@ -268,6 +268,29 @@ internal static class LocalLlmQualificationCandidateFactory
                     CacheTypeV = "q8_0"
                 },
             deviceRef);
+        Add(
+            candidates,
+            limit,
+            "accelerator-dual-slot-long-context-q4-kv",
+            probe,
+            BuildProfile(
+                    modelId,
+                    probe.RuntimeId,
+                    "accelerator-dual-slot-long-context-q4-kv-" + deviceRef,
+                    16384,
+                    512,
+                    128,
+                    threads,
+                    Math.Min(256, blockCount + 1),
+                    true)
+                with
+                {
+                    DeviceIds = new[] { deviceRef },
+                    CacheTypeK = "q4_0",
+                    CacheTypeV = "q4_0",
+                    Parallel = 2
+                },
+            deviceRef);
     }
 
     private static void AddMultiAcceleratorCandidates(

@@ -18,7 +18,7 @@ namespace SAAIA.Client.WinUI.Services;
 /// NOTE: opening a source is a *client-only* operation (no backend download), so we must resolve
 /// to a local host path.
 /// </summary>
-internal static class DocumentPathResolver
+internal static partial class DocumentPathResolver
 {
     private const string EnvDocumentsRoot = "SAAIA_DOCUMENTS_ROOT"; // optional override
     private const string EnvInstallRoot = "SAAIA_INSTALL_ROOT";     // canonical install root
@@ -53,7 +53,7 @@ internal static class DocumentPathResolver
     /// <summary>
     /// Resolve a docPath (relative or absolute-ish) to an existing absolute path.
     /// </summary>
-    public static string? Resolve(string? docPath)
+    public static string? Resolve(string? docPath, string? sourceHash = null)
     {
         if (string.IsNullOrWhiteSpace(docPath))
             return null;
@@ -65,7 +65,11 @@ internal static class DocumentPathResolver
         {
             var absoluteCandidate = raw.Replace('/', Path.DirectorySeparatorChar);
             if (Path.IsPathRooted(absoluteCandidate) && File.Exists(absoluteCandidate))
-                return Path.GetFullPath(absoluteCandidate);
+            {
+                var fullPath = Path.GetFullPath(absoluteCandidate);
+                if (MatchesSourceHashOrUnspecified(fullPath, sourceHash))
+                    return fullPath;
+            }
         }
         catch
         {
@@ -80,12 +84,32 @@ internal static class DocumentPathResolver
 
         foreach (var root in EnumerateCandidateDocumentRoots())
         {
-            var resolved = TryResolveUnderRoot(root, rel);
+            var resolved = TryResolveExactUnderRoot(root, rel);
             if (!string.IsNullOrWhiteSpace(resolved))
-                return resolved;
+            {
+                if (MatchesSourceHashOrUnspecified(resolved, sourceHash))
+                    return resolved;
+            }
         }
 
-        return null;
+        return TryResolveMovedSourceAlias(
+            rel,
+            sourceHash,
+            EnumerateCandidateDocumentRoots());
+    }
+
+    /// <summary>
+    /// Resolve only when the caller supplies the SHA-256 of the exact indexed
+    /// revision and the local file matches it byte-for-byte.
+    /// </summary>
+    public static string? ResolveExactRevision(
+        string? docPath,
+        string? sourceHash)
+    {
+        var normalizedHash = NormalizeSha256(sourceHash);
+        return normalizedHash is null
+            ? null
+            : Resolve(docPath, normalizedHash);
     }
 
     /// <summary>
@@ -340,7 +364,7 @@ internal static class DocumentPathResolver
         }
     }
 
-    private static string? TryResolveUnderRoot(string root, string rel)
+    private static string? TryResolveExactUnderRoot(string root, string rel)
     {
         try
         {
@@ -359,13 +383,6 @@ internal static class DocumentPathResolver
                 if (IsUnder(rootFull, candidate2) && File.Exists(candidate2))
                     return candidate2;
 
-                // best-effort search (exact filename)
-                if (Directory.Exists(rootFull))
-                {
-                    var found = Directory.EnumerateFiles(rootFull, fileName, SearchOption.AllDirectories).FirstOrDefault();
-                    if (!string.IsNullOrWhiteSpace(found) && IsUnder(rootFull, found) && File.Exists(found))
-                        return found;
-                }
             }
         }
         catch

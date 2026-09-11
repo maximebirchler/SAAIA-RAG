@@ -9,6 +9,103 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class ClarificationMemoryRegressionTests
 {
     [Fact]
+    public void Llm_router_clarification_renders_exact_message_and_options()
+    {
+        var plan = new RouterPlan
+        {
+            NeedClarification = true,
+            Clarification = new RouterPlan.ClarificationDecisionPlan
+            {
+                Message = "J'ai compris que vous souhaitez un planning. Quelle approche preferez-vous ?",
+                Options = new()
+                {
+                    "Composer chaque creneau avec une recette sourcee",
+                    "Chercher un planning deja constitue"
+                }
+            }
+        };
+
+        var rendered =
+            ToolAgentOrchestrator.RenderRouterClarificationForTests(plan);
+
+        Assert.StartsWith(plan.Clarification.Message, rendered, StringComparison.Ordinal);
+        Assert.Contains("- Composer chaque creneau", rendered, StringComparison.Ordinal);
+        Assert.Contains("- Chercher un planning", rendered, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Llm_router_pending_clarification_gives_the_next_router_full_resolution_context()
+    {
+        var mem = new ToolMemory
+        {
+            PendingClarification = new ToolMemory.PendingClarificationState
+            {
+                Kind = "llm_router",
+                OriginalUserMessage =
+                    "J'ai besoin d'un planning de repas pour la semaine.",
+                Question =
+                    "Souhaitez-vous une composition recette par recette ou un planning deja constitue ?",
+                Options = new()
+                {
+                    "Composer chaque creneau",
+                    "Chercher un planning constitue"
+                },
+                ExecutionImpact =
+                    "La reponse determine la strategie de recherche.",
+                ResumeRoute = "source_backed_grid",
+                Language = "fr"
+            }
+        };
+
+        var prepared = ToolAgentOrchestrator.PreparePendingClarificationForTests(
+            mem,
+            Array.Empty<(string role, string content)>(),
+            "Compose chaque creneau avec une recette differente.");
+
+        Assert.True(prepared.Consumed);
+        Assert.Contains("PREVIOUS_USER_REQUEST", prepared.EffectiveUserMessage);
+        Assert.Contains("CLARIFICATION_ASKED", prepared.EffectiveUserMessage);
+        Assert.Contains("OPTIONS_OFFERED", prepared.EffectiveUserMessage);
+        Assert.Contains("CURRENT_USER_TURN", prepared.EffectiveUserMessage);
+        Assert.Contains("EXPECTED_RESUME_ROUTE", prepared.EffectiveUserMessage);
+        Assert.Contains("source_backed_grid", prepared.EffectiveUserMessage);
+        Assert.Contains(
+            "Decide whether CURRENT_USER_TURN answers",
+            prepared.EffectiveUserMessage);
+        Assert.Null(mem.PendingClarification);
+    }
+
+    [Fact]
+    public void Corpus_probe_clarification_preserves_question_options_and_user_reply()
+    {
+        var mem = new ToolMemory
+        {
+            PendingClarification = new ToolMemory.PendingClarificationState
+            {
+                Kind = "rag_probe",
+                OriginalUserMessage = "Prepare un planning a partir du corpus.",
+                Question = "Faut-il composer le planning ou utiliser celui deja trouve ?",
+                Options = new() { "Composer", "Utiliser l'existant" },
+                ExecutionImpact = "La strategie de recherche change.",
+                ResumeRoute = "source_backed",
+                Language = "fr"
+            }
+        };
+
+        var prepared = ToolAgentOrchestrator.PreparePendingClarificationForTests(
+            mem,
+            Array.Empty<(string role, string content)>(),
+            "Compose-le avec des elements differents.");
+
+        Assert.True(prepared.Consumed);
+        Assert.Contains("CLARIFICATION_ASKED", prepared.EffectiveUserMessage);
+        Assert.Contains("OPTIONS_OFFERED", prepared.EffectiveUserMessage);
+        Assert.Contains("Compose-le", prepared.EffectiveUserMessage);
+        Assert.Contains("source_backed", prepared.EffectiveUserMessage);
+        Assert.Null(mem.PendingClarification);
+    }
+
+    [Fact]
     public void Generic_pending_clarification_consumes_short_topic_answer()
     {
         var mem = new ToolMemory();

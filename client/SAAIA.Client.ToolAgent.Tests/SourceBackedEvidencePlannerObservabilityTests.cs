@@ -72,7 +72,7 @@ public sealed class SourceBackedEvidencePlannerObservabilityTests
     }
 
     [Fact]
-    public void Llm_exploration_planner_rejects_structured_axis_only_queries()
+    public void Llm_exploration_planner_preserves_axis_only_queries_as_slot_discovery()
     {
         const string rawJson = """
             {
@@ -101,7 +101,13 @@ public sealed class SourceBackedEvidencePlannerObservabilityTests
             "J'ai besoin que tu me fasses un plan de repas pour la semaine du lundi au vendredi, avec petit-dejeuner, diner, souper et gouter / collation chaque jour.",
             "fr");
 
-        Assert.Empty(queries);
+        Assert.NotEmpty(queries);
+        Assert.Contains(queries, query => query.Contains("petit", StringComparison.OrdinalIgnoreCase)
+                                        && query.Contains("dejeuner", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => query.Contains("diner", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => query.Contains("souper", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => query.Contains("gouter", StringComparison.OrdinalIgnoreCase)
+                                        || query.Contains("collation", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -283,34 +289,6 @@ public sealed class SourceBackedEvidencePlannerObservabilityTests
     }
 
     [Fact]
-    public void Llm_exploration_catalog_category_scope_is_trusted_after_resolution()
-    {
-        Assert.True(ToolAgentOrchestrator.ShouldTrustSourceBackedExplorationPassCategoryScopeForTests(
-            passOrigin: "llm_planner",
-            passHasDocumentScope: false,
-            resolvedPassCategoryScope: "Cuisine",
-            passCategoryScope: "Cuisine",
-            categoryScopeTrustedByCurrentEvidence: false,
-            passCategoryScopeReusedFromInference: false));
-
-        Assert.False(ToolAgentOrchestrator.ShouldTrustSourceBackedExplorationPassCategoryScopeForTests(
-            passOrigin: "deterministic_seed",
-            passHasDocumentScope: false,
-            resolvedPassCategoryScope: "Cuisine",
-            passCategoryScope: "Cuisine",
-            categoryScopeTrustedByCurrentEvidence: false,
-            passCategoryScopeReusedFromInference: false));
-
-        Assert.False(ToolAgentOrchestrator.ShouldTrustSourceBackedExplorationPassCategoryScopeForTests(
-            passOrigin: "llm_planner",
-            passHasDocumentScope: true,
-            resolvedPassCategoryScope: "Cuisine",
-            passCategoryScope: "Cuisine",
-            categoryScopeTrustedByCurrentEvidence: false,
-            passCategoryScopeReusedFromInference: false));
-    }
-
-    [Fact]
     public void Llm_planner_category_decision_is_applied_only_to_unscoped_catalog_passes()
     {
         const string rawJson = """
@@ -350,7 +328,7 @@ public sealed class SourceBackedEvidencePlannerObservabilityTests
     }
 
     [Fact]
-    public void Llm_planner_preserves_valid_category_scope_when_structured_axis_queries_are_filtered()
+    public void Llm_planner_preserves_valid_category_scope_when_structured_axis_queries_are_relaxed()
     {
         const string query = "J'ai besoin d'un plan de maintenance du lundi au vendredi avec controles matin, midi et soir.";
         const string rawJson = """
@@ -376,10 +354,10 @@ public sealed class SourceBackedEvidencePlannerObservabilityTests
             "fr",
             "Operations");
 
-        Assert.True(result.AddedScopeOnlyPass);
-        Assert.Equal(0, result.UpdatedPassCount);
-        Assert.Equal(0, result.QueryCount);
-        Assert.Equal(new[] { "llm_category_scope" }, result.Labels);
+        Assert.False(result.AddedScopeOnlyPass);
+        Assert.Equal(1, result.UpdatedPassCount);
+        Assert.True(result.QueryCount > 0);
+        Assert.Equal(new[] { "axis_only_planning_queries" }, result.Labels);
         Assert.Equal(new[] { "Operations" }, result.Categories);
     }
 
@@ -552,7 +530,7 @@ public sealed class SourceBackedEvidencePlannerObservabilityTests
     }
 
     [Fact]
-    public void Llm_exploration_planner_rejects_day_fanout_when_it_misses_requested_slot_coverage()
+    public void Llm_exploration_planner_preserves_day_fanout_as_slot_discovery()
     {
         const string rawJson = """
             {
@@ -581,11 +559,15 @@ public sealed class SourceBackedEvidencePlannerObservabilityTests
             "J'ai besoin que tu me fasses un plan de repas pour la semaine du lundi au vendredi, avec petit-dejeuner, diner, souper et gouter / collation chaque jour.",
             "fr");
 
-        Assert.Empty(queries);
+        Assert.NotEmpty(queries);
+        Assert.Contains(queries, query => query.Contains("diner", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => query.Contains("souper", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => query.Contains("gouter", StringComparison.OrdinalIgnoreCase)
+                                        || query.Contains("collation", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
-    public void Llm_exploration_planner_rejects_repetitive_single_slot_known_term_loop()
+    public void Llm_exploration_planner_backfills_repetitive_single_slot_known_term_loop()
     {
         const string rawJson = """
             {
@@ -613,11 +595,17 @@ public sealed class SourceBackedEvidencePlannerObservabilityTests
             "J'ai besoin que tu me fasses un plan de repas pour la semaine du lundi au vendredi, avec petit-dejeuner, diner, souper et gouter / collation chaque jour.",
             "fr");
 
-        Assert.Empty(queries);
+        Assert.NotEmpty(queries);
+        Assert.Contains(queries, query => query.Contains("petit", StringComparison.OrdinalIgnoreCase)
+                                        && query.Contains("dejeuner", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => query.Contains("diner", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => query.Contains("souper", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => query.Contains("gouter", StringComparison.OrdinalIgnoreCase)
+                                        || query.Contains("collation", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
-    public void Llm_exploration_planner_rejects_repetitive_generic_detail_variants_without_slot_coverage()
+    public void Llm_exploration_planner_backfills_repetitive_generic_detail_variants_without_slot_coverage()
     {
         const string rawJson = """
             {
@@ -645,7 +633,13 @@ public sealed class SourceBackedEvidencePlannerObservabilityTests
             "J'ai besoin que tu me fasses un plan de repas pour la semaine du lundi au vendredi, avec petit-dejeuner, diner, souper et gouter / collation chaque jour.",
             "fr");
 
-        Assert.Empty(queries);
+        Assert.NotEmpty(queries);
+        Assert.Contains(queries, query => query.Contains("petit", StringComparison.OrdinalIgnoreCase)
+                                        && query.Contains("dejeuner", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => query.Contains("diner", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => query.Contains("souper", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => query.Contains("gouter", StringComparison.OrdinalIgnoreCase)
+                                        || query.Contains("collation", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -684,14 +678,13 @@ public sealed class SourceBackedEvidencePlannerObservabilityTests
                                         || (query.Contains("petit", StringComparison.OrdinalIgnoreCase)
                                             && query.Contains("dejeuner", StringComparison.OrdinalIgnoreCase)));
         Assert.Contains("repas recettes", queries);
-        Assert.DoesNotContain("repas menus", queries);
         Assert.DoesNotContain("repas idees", queries);
         Assert.DoesNotContain("repas suggestions", queries);
         Assert.DoesNotContain("repas exemples", queries);
     }
 
     [Fact]
-    public void Llm_exploration_planner_rejects_decorative_examples_even_with_multiple_slots()
+    public void Llm_exploration_planner_removes_decorative_examples_but_preserves_slot_discovery()
     {
         const string rawJson = """
             {
@@ -720,7 +713,12 @@ public sealed class SourceBackedEvidencePlannerObservabilityTests
             "J'ai besoin que tu me fasses un plan de repas pour la semaine du lundi au vendredi, avec petit-dejeuner, diner, souper et gouter / collation chaque jour.",
             "fr");
 
-        Assert.Empty(queries);
+        Assert.NotEmpty(queries);
+        Assert.DoesNotContain(queries, query => query.Contains("exemples", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => query.Contains("diner", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => query.Contains("souper", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(queries, query => query.Contains("gouter", StringComparison.OrdinalIgnoreCase)
+                                        || query.Contains("collation", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -885,6 +883,9 @@ public sealed class SourceBackedEvidencePlannerObservabilityTests
         Assert.Contains("documents.context", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("scrolling a document", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("REQUEST_SHAPE", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("STRUCTURE_HINTS as maps", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("table-of-contents", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("page anchors", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("minimumCandidates", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("only allowed scope values", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("broad category can fit", prompt, StringComparison.OrdinalIgnoreCase);

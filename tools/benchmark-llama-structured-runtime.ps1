@@ -248,11 +248,11 @@ foreach ($pair in @(
 }
 if ($DeviceIds.Count -gt 0 -and -not ($DeviceIds.Count -eq 1 -and $DeviceIds[0] -eq "none")) {
     $arguments.Add("--device")
-    $arguments.Add(($DeviceIds -join "/"))
+    $arguments.Add(($DeviceIds -join ","))
 }
 if ($TensorSplit.Count -gt 0) {
     $arguments.Add("--tensor-split")
-    $arguments.Add(($TensorSplit -join "/"))
+    $arguments.Add(($TensorSplit -join ","))
 }
 
 $process = $null

@@ -89,7 +89,7 @@ public sealed class DocumentProfileProjectorTests
             exactMatchEntries: [],
             preferStructuredSources: true);
 
-        Assert.Equal("deterministic_canonical_v3", profile.ProfileVersion);
+        Assert.Equal("deterministic_canonical_v5", profile.ProfileVersion);
         Assert.Contains(
             profile.ContentCards,
             static card => string.Equals(
@@ -100,11 +100,21 @@ public sealed class DocumentProfileProjectorTests
             profile.ContentCards,
             static card =>
             {
-                Assert.Equal("section", card.Kind);
+                Assert.Equal("canonical_section_anchor", card.Kind);
                 Assert.Contains(
                     "canonical_section_heading",
                     card.Signals);
-                Assert.Null(card.Evidence);
+                Assert.NotNull(card.Evidence);
+                Assert.Contains(
+                    card.Evidence!.Facts ?? [],
+                    fact => string.Equals(
+                                fact.Kind,
+                                "canonical_heading",
+                                StringComparison.Ordinal)
+                            && string.Equals(
+                                fact.SourceText,
+                                card.Title,
+                                StringComparison.Ordinal));
             });
         Assert.DoesNotContain(
             profile.ContentCards,
@@ -197,22 +207,290 @@ public sealed class DocumentProfileProjectorTests
             exactMatchEntries: [],
             preferStructuredSources: true);
 
-        Assert.Equal(3, profile.ContentCards.Count);
+        var card = Assert.Single(profile.ContentCards);
+        Assert.Equal("Préparation", card.Title);
         Assert.Contains(
-            profile.ContentCards,
-            static card => card.Title == "Bœuf bourguignon");
+            "canonical_section_heading",
+            card.Signals);
         Assert.Contains(
+            "canonical_section_context",
+            card.Signals);
+        Assert.Contains(
+            card.Evidence!.Facts ?? [],
+            static fact =>
+                fact.Kind == "canonical_structure"
+                && fact.Label == "heading_path"
+                && fact.Value
+                    == "Bœuf bourguignon > Préparation");
+    }
+
+    [Fact]
+    public void Project_structured_mode_preserves_heading_hierarchy_and_exact_local_context()
+    {
+        const string localContext =
+            "Verify the isolation valve, record the measured pressure, and retain the signed inspection record.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                4,
+                localContext,
+                14,
+                localContext.Length,
+                [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(
+                0,
+                "Plant operations",
+                1,
+                3,
+                8,
+                null,
+                null),
+            new ExtractedDocumentSection(
+                1,
+                "Isolation validation",
+                2,
+                4,
+                5,
+                null,
+                null),
+            new ExtractedDocumentSection(
+                2,
+                "Inspection record",
+                3,
+                4,
+                4,
+                null,
+                null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                7,
+                2,
+                4,
+                4,
+                localContext,
+                localContext.Length,
+                14,
+                [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/Plant.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: [],
+            preferStructuredSources: true);
+
+        var card = Assert.Single(
             profile.ContentCards,
-            static card => card.Title == "Pour 4 personnes");
-        Assert.Single(
+            static item => string.Equals(
+                item.Title,
+                "Inspection record",
+                StringComparison.Ordinal));
+        Assert.Equal("canonical_section_anchor", card.Kind);
+        Assert.Equal(4, card.PageStart);
+        Assert.Equal(4, card.PageEnd);
+        Assert.Contains(
+            "canonical_section_context",
+            card.Signals);
+        Assert.NotNull(card.Evidence);
+        Assert.Contains(
+            card.Evidence!.Facts ?? [],
+            static fact =>
+                string.Equals(
+                    fact.Kind,
+                    "canonical_structure",
+                    StringComparison.Ordinal)
+                && string.Equals(
+                    fact.Label,
+                    "heading_path",
+                    StringComparison.Ordinal)
+                && string.Equals(
+                    fact.Value,
+                    "Plant operations > Isolation validation > Inspection record",
+                    StringComparison.Ordinal));
+        Assert.Contains(
+            card.Evidence.Facts ?? [],
+            static fact =>
+                string.Equals(
+                    fact.Kind,
+                    "canonical_source",
+                    StringComparison.Ordinal)
+                && string.Equals(
+                    fact.Label,
+                    "retrieval_chunk_index",
+                    StringComparison.Ordinal)
+                && string.Equals(
+                    fact.Value,
+                    "7",
+                    StringComparison.Ordinal));
+        Assert.Contains(
+            card.Evidence.Facts ?? [],
+            static fact =>
+                string.Equals(
+                    fact.Kind,
+                    "canonical_section_context",
+                    StringComparison.Ordinal)
+                && string.Equals(
+                    fact.SourceText,
+                    localContext,
+                    StringComparison.Ordinal)
+                && fact.PageStart == 4
+                && fact.PageEnd == 4);
+    }
+
+    [Fact]
+    public void Project_structured_mode_prefers_the_chunk_local_heading_path_over_false_visual_parentage()
+    {
+        const string localContext =
+            "Dessert Alpha combines fruit, dairy and a documented preparation.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                12,
+                localContext,
+                9,
+                localContext.Length,
+                [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(
+                0,
+                "Earlier major heading",
+                1,
+                2,
+                20,
+                null,
+                null),
+            new ExtractedDocumentSection(
+                1,
+                "Earlier sibling heading",
+                3,
+                8,
+                20,
+                null,
+                null),
+            new ExtractedDocumentSection(
+                2,
+                "Dessert Alpha",
+                6,
+                12,
+                12,
+                null,
+                null)
+        };
+        var units = CanonicalProfileInputProjector.Project(
+        [
+            new ProjectedRetrievalChunk(
+                41,
+                2,
+                null,
+                12,
+                12,
+                localContext,
+                9,
+                [2],
+                DoclingCanonicalRetrievalProjector.ContentChunkType,
+                SectionTitle: "Dessert Alpha",
+                HeadingPath: "Dessert Alpha",
+                HeadingLevel: 1)
+        ]);
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/Fixture.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: [],
+            preferStructuredSources: true);
+
+        var card = Assert.Single(profile.ContentCards);
+        Assert.Contains(
+            card.Evidence!.Facts ?? [],
+            static fact =>
+                fact.Kind == "canonical_structure"
+                && fact.Label == "heading_path"
+                && fact.Value == "Dessert Alpha");
+        Assert.Contains(
+            card.Evidence.Facts ?? [],
+            static fact =>
+                fact.Kind == "canonical_structure"
+                && fact.Label == "section_level"
+                && fact.Value == "1");
+    }
+
+    [Fact]
+    public void Project_structured_mode_does_not_expose_heading_only_cards()
+    {
+        const string localContext =
+            "Tighten the terminal screws and record the measured torque.";
+        var pages = new[]
+        {
+            new ExtractedPdfPage(
+                2,
+                localContext,
+                9,
+                localContext.Length,
+                [1])
+        };
+        var sections = new[]
+        {
+            new ExtractedDocumentSection(
+                0,
+                "Unrelated heading without content",
+                1,
+                1,
+                1,
+                null,
+                null),
+            new ExtractedDocumentSection(
+                1,
+                "Terminal tightening",
+                1,
+                2,
+                2,
+                null,
+                null)
+        };
+        var units = new[]
+        {
+            new ExtractedDocumentUnit(
+                0,
+                1,
+                2,
+                2,
+                localContext,
+                localContext.Length,
+                9,
+                [2])
+        };
+
+        var profile = DocumentProfileProjector.Project(
+            "Generic/Installation.pdf",
+            pages,
+            sections,
+            units,
+            exactMatchEntries: [],
+            preferStructuredSources: true);
+
+        var card = Assert.Single(profile.ContentCards);
+        Assert.Equal("Terminal tightening", card.Title);
+        Assert.DoesNotContain(
             profile.ContentCards,
-            static card => card.Title == "Préparation");
-        Assert.All(
-            profile.ContentCards,
-            static card =>
-                Assert.Contains(
-                    "canonical_section_heading",
-                    card.Signals));
+            static item => item.Title
+                == "Unrelated heading without content");
+        Assert.Contains(
+            card.Evidence!.Facts ?? [],
+            static fact =>
+                fact.Kind == "canonical_section_context"
+                && fact.Label == "section_excerpt"
+                && fact.SourceText == localContext);
     }
 
     [Fact]

@@ -88,6 +88,10 @@ public sealed partial class MainWindow
     {
         if (!_isGenerating) return;
 
+        Services.ClientLog.Info(
+            "Chat cancel generation requested: " +
+            $"session={_sessionId ?? ""}|" +
+            $"tokenAlreadyCancelled={_cts?.IsCancellationRequested == true}");
         _isCancellingGeneration = true;
         UpdateSendCancelButtonVisualState();
         Status(LocalRuntimeText("Annulation...", "Cancelling...", "Cancelando...", "A cancelar...", "Abbrechen...", "Annullamento...", UiLang));
@@ -592,7 +596,8 @@ public sealed partial class MainWindow
                             ScrollToBottom(force: true);
                     });
                 },
-                ct: _cts.Token);
+                ct: _cts.Token,
+                sessionId: _sessionId);
             Services.ClientLog.Info(
                 "Chat send agent result: " +
                 $"cancelled={_cts.Token.IsCancellationRequested}|" +
@@ -658,6 +663,11 @@ public sealed partial class MainWindow
         }
         catch (OperationCanceledException)
         {
+            Services.ClientLog.Info(
+                "Chat send cancelled: " +
+                $"session={_sessionId ?? ""}|" +
+                $"tokenCancelled={_cts?.IsCancellationRequested == true}|" +
+                $"assistantChars={assistantMsg?.Content?.Length ?? 0}");
             SetTyping(false);
             UpdateJumpButton();
             if (assistantMsg is not null)

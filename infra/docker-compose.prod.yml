@@ -49,6 +49,34 @@ services:
       # Persist model cache under install root (or repo root by default)
       - "${SAAIA_INSTALL_ROOT:-..}/cache/tei:/data"
 
+  tei-rerank:
+    image: ${TEI_RERANK_IMAGE:-ghcr.io/huggingface/text-embeddings-inference:cpu-1.9@sha256:ad950d30878eceb72aaf32024d26fa2b1d04a75304fa0b4776b49aa1941fea07}
+    restart: unless-stopped
+    cpus: ${SAAIA_RERANK_CPUS:-6.0}
+    mem_limit: ${SAAIA_RERANK_MEMORY_LIMIT:-8g}
+    command:
+      [
+        "--model-id",
+        "${SAAIA_RERANK_MODEL_ID:-Alibaba-NLP/gte-multilingual-reranker-base}",
+        "--revision",
+        "${SAAIA_RERANK_MODEL_REVISION:-52ac27fc088c42ad6b4371003e4c0b00d6c11282}",
+        "--json-output",
+        "--auto-truncate"
+      ]
+    expose:
+      - "80"
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      RAYON_NUM_THREADS: ${SAAIA_RERANK_THREADS:-6}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+    volumes:
+      - "${SAAIA_INSTALL_ROOT:-..}/cache/tei:/data"
+
   docling:
     build:
       context: ..
@@ -109,6 +137,10 @@ services:
       Rag__EmbeddingsModelRevision: ${TEI_MODEL_REVISION:-d128750597153bb5987e10b1c3493a34e5a4502a}
       Rag__EmbeddingsRuntimeRevision: ${TEI_RUNTIME_REVISION:-sha256:66db77d7856c9319bbfaf2c5b80a6d0e0ac9ff128ade09eaca1d9c20213617a4}
       Rag__QdrantRuntimeRevision: ${QDRANT_RUNTIME_REVISION:-sha256:6a34a799bed69c7c25c4e87ab04092005e4579062a9bf0e82a75d0b21f030006}
+      Rag__EnableRerank: ${SAAIA_RERANK_ENABLED:-true}
+      Rag__RerankBaseUrl: http://tei-rerank
+      Rag__RerankModel: ${SAAIA_RERANK_MODEL_ID:-Alibaba-NLP/gte-multilingual-reranker-base}
+      Rag__RerankMaxCandidates: ${SAAIA_RERANK_MAX_CANDIDATES:-12}
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       SAAIA_LICENSE_SEATS: ${SAAIA_LICENSE_SEATS:-1}
       BACKOFFICE_LLM_ENABLED: ${BACKOFFICE_LLM_ENABLED:-false}
@@ -218,6 +250,8 @@ services:
         condition: service_started
       tei:
         condition: service_started
+      tei-rerank:
+        condition: service_healthy
       docling:
         condition: service_healthy
     volumes:

@@ -5,6 +5,7 @@ namespace SAAIA.Client.WinUI.Models;
 
 public sealed class SourceCard
 {
+    public string? EvidenceId { get; set; }
     public string? DocId { get; set; }
     public string DocPath { get; set; } = "";
     public string DocName { get; set; } = "";
@@ -13,12 +14,15 @@ public sealed class SourceCard
     public string Snippet { get; set; } = "";
     public double? Score { get; set; }
     public string? SourceHash { get; set; }
+    public string? RevisionId { get; set; }
     public string? DocLanguage { get; set; }
     public string? ProfileLanguage { get; set; }
     public string? Category { get; set; }
     public string? CategoryRef { get; set; }
     public string? CategoryPath { get; set; }
     public string? ChunkId { get; set; }
+    public string? AnchorId { get; set; }
+    public string? ContentCardId { get; set; }
     public string? SectionTitle { get; set; }
     public string? HeadingPath { get; set; }
     public string? PrevChunkId { get; set; }

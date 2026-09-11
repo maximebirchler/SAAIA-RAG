@@ -143,6 +143,10 @@
 
                             <controls:LinkifiedTextBlock Text="{x:Bind Content, Mode=OneWay}" TextForeground="{ThemeResource AppTextPrimaryBrush}" TextFontSize="14"/>
 
+                            <controls:SourcesCardsControl Items="{x:Bind ParsedSources, Mode=OneWay}"
+                                                         MaxWidth="860"
+                                                         HorizontalAlignment="Stretch"/>
+
                             <!-- Streaming row: ONE label only. Priority StatusNote >
                                  ProgressText > "Génération en cours…". Three TextBlocks
                                  alternate via mutually-exclusive boolean bindings. -->

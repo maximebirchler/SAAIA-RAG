@@ -67,10 +67,60 @@ public sealed partial class ToolAgentOrchestrator
             docPath = resolved.DocPath;
         }
 
+        if (!string.IsNullOrWhiteSpace(docId)
+            || !string.IsNullOrWhiteSpace(docPath))
+        {
+            path = null;
+            categoryRef = null;
+        }
+
         var q = GetStringArg(args, "q");
+        var kind = GetStringArg(args, "kind");
         var limit = GetIntArg(args, "limit") ?? 120;
         var offset = GetIntArg(args, "offset") ?? 0;
-        return await _api.DocumentsNavigationAsync(path, categoryRef, docId, docPath, q, limit, offset, ct).ConfigureAwait(false);
+        return await _api.DocumentsNavigationAsync(path, categoryRef, docId, docPath, q, kind, limit, offset, ct).ConfigureAwait(false);
+    }
+
+    private async Task<JsonElement> ExecDocumentsContentCardsAsync(JsonElement args, CancellationToken ct)
+    {
+        var (categoryPath, categoryRef) = await ResolveCategoryScopeArgsAsync(args, ct).ConfigureAwait(false);
+        var docRef = GetPreferredDocRef(args);
+        string? docId = GetStringArg(args, "docId");
+        string? docPath = GetStringArg(args, "docPath");
+        if (!string.IsNullOrWhiteSpace(docRef)
+            && string.IsNullOrWhiteSpace(docId)
+            && string.IsNullOrWhiteSpace(docPath))
+        {
+            var resolved = await ResolveDocRefAsync(docRef, ct).ConfigureAwait(false);
+            if (resolved is null)
+                return JsonDocument.Parse("{\"found\":false,\"citable\":true,\"error\":\"doc_not_found\"}").RootElement.Clone();
+
+            docId = resolved.DocId;
+            docPath = resolved.DocPath;
+        }
+
+        if (!string.IsNullOrWhiteSpace(docId)
+            || !string.IsNullOrWhiteSpace(docPath))
+        {
+            categoryPath = null;
+            categoryRef = null;
+        }
+
+        var q = GetStringArg(args, "q");
+        var inventoryMode = GetStringArg(args, "inventoryMode");
+        var limit = GetIntArg(args, "limit") ?? 60;
+        var offset = GetIntArg(args, "offset") ?? 0;
+        return await _api.DocumentsContentCardsAsync(
+                categoryPath,
+                categoryRef,
+                docId,
+                docPath,
+                q,
+                inventoryMode,
+                limit,
+                offset,
+                ct)
+            .ConfigureAwait(false);
     }
 
     private async Task<JsonElement> ExecDocumentsContextAsync(JsonElement args, CancellationToken ct)
@@ -96,7 +146,7 @@ public sealed partial class ToolAgentOrchestrator
         var limit = GetIntArg(args, "limit") ?? 12;
         var offset = GetIntArg(args, "offset") ?? 0;
 
-        return await _api.DocumentsContextAsync(
+        var context = await _api.DocumentsContextAsync(
                 docId,
                 docPath,
                 chunkId,
@@ -108,6 +158,22 @@ public sealed partial class ToolAgentOrchestrator
                 offset,
                 ct)
             .ConfigureAwait(false);
+        if (context.ValueKind != JsonValueKind.Object
+            || string.IsNullOrWhiteSpace(chunkId))
+        {
+            return context;
+        }
+
+        var properties = context
+            .EnumerateObject()
+            .ToDictionary(
+                static property => property.Name,
+                static property => (object?)property.Value.Clone(),
+                StringComparer.OrdinalIgnoreCase);
+        properties["requestedAnchorChunkId"] = chunkId;
+        return JsonSerializer.SerializeToElement(
+            properties,
+            ClientJson.CamelCase);
     }
 
     private async Task<JsonElement> ExecDocumentsStatsAsync(JsonElement args, CancellationToken ct)

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http.Json;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using SAAIA.Backend.AdvancedAnalysis;
 using SAAIA.Backend.Auth;
 using SAAIA.Backend.Bootstrap;
 using SAAIA.Backend.CatalogSnapshot;
@@ -47,6 +48,7 @@ public static class ServiceCollectionExtensions
         services.Configure<CatalogSnapshotOptions>(config.GetSection("CatalogSnapshot"));
         services.Configure<RuntimeGovernanceOptions>(config.GetSection("RuntimeGovernance"));
         services.Configure<LicenseOptions>(config.GetSection("License"));
+        services.Configure<AdvancedAnalysisOptions>(config.GetSection("AdvancedAnalysis"));
 
         // ---------- OpenTelemetry ----------
         services.AddSaaiaOpenTelemetry(config, env);
@@ -108,7 +110,8 @@ public static class ServiceCollectionExtensions
 
                 // Roadmap v2.7 : limiter uniquement RAG + chat-store.
                 var isRagOrChat = path.StartsWith("/rag", StringComparison.OrdinalIgnoreCase)
-                               || path.StartsWith("/chat", StringComparison.OrdinalIgnoreCase);
+                               || path.StartsWith("/chat", StringComparison.OrdinalIgnoreCase)
+                               || path.StartsWith("/advanced-analysis", StringComparison.OrdinalIgnoreCase);
                 if (!isRagOrChat)
                     return RateLimitPartition.GetNoLimiter("unlimited");
 
@@ -214,6 +217,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<RuntimeRetrievalKpiService>();
         services.AddSingleton<RuntimeCapabilityAKpiService>();
         services.AddSingleton<RuntimeCapabilityBKpiService>();
+        services.AddSingleton<AdvancedAnalysisJobStore>();
+        services.AddSingleton<AdvancedAnalysisEvidenceResolver>();
+        services.AddSingleton<IAdvancedAnalysisToolGatewayFactory, AdvancedAnalysisToolGatewayFactory>();
+        services.AddSingleton<IAdvancedAnalysisProvider, DisabledAdvancedAnalysisProvider>();
 
         // ---------- Worker ----------
         services.AddHostedService<IngestionWorker>();
@@ -221,6 +228,7 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<CapabilityBBackofficeWorker>();
         services.AddHostedService<FileWatcherService>();
         services.AddHostedService<CatalogSnapshotService>();
+        services.AddHostedService<AdvancedAnalysisWorker>();
 
         return services;
     }

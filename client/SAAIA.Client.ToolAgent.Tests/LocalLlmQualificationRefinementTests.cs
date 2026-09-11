@@ -60,6 +60,60 @@ public sealed class LocalLlmQualificationRefinementTests
     }
 
     [Fact]
+    public void BuildCandidateQueue_validates_context_per_parallel_slot()
+    {
+        var dualSlotValid = Candidate(
+            "dual-valid",
+            "accelerator-dual-slot-long-context-q4-kv",
+            context: 16384,
+            ngl: 37,
+            cache: "q4_0") with
+        {
+            Profile = Candidate(
+                "dual-valid-profile",
+                "accelerator-dual-slot-long-context-q4-kv",
+                context: 16384,
+                ngl: 37,
+                cache: "q4_0").Profile with
+            {
+                ProfileId = "dual-valid",
+                Parallel = 2
+            }
+        };
+        var dualSlotTooSmall = Candidate(
+            "dual-too-small",
+            "accelerator-dual-slot-long-context-q4-kv",
+            context: 8192,
+            ngl: 37,
+            cache: "q4_0") with
+        {
+            Profile = Candidate(
+                "dual-too-small-profile",
+                "accelerator-dual-slot-long-context-q4-kv",
+                context: 8192,
+                ngl: 37,
+                cache: "q4_0").Profile with
+            {
+                ProfileId = "dual-too-small",
+                Parallel = 2
+            }
+        };
+
+        var queue = LocalLlmQualificationRefinement.BuildCandidateQueue(
+            new[] { dualSlotTooSmall, dualSlotValid },
+            LocalLlmQualificationRefinement.CreateDefaultWorkload(),
+            logicalProcessorCount: 8,
+            maxAttempts: 8);
+
+        Assert.Contains(queue, static candidate =>
+            candidate.Profile.Parallel == 2
+            && candidate.Profile.CtxSize == 16384);
+        Assert.DoesNotContain(queue, static candidate =>
+            candidate.Profile.Parallel == 2
+            && candidate.Profile.CtxSize == 8192);
+    }
+
+    [Fact]
     public async Task RunAsync_refines_only_top_screened_topologies_and_ranks_complete_measurements()
     {
         var cudaAll = Candidate("cuda-all", "accelerator-all-model-layers", 4096, 37, "CUDA0");

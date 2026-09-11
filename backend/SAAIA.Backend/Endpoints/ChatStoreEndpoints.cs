@@ -363,7 +363,7 @@ INNER JOIN chat_sessions s ON m.tenant_id=s.tenant_id AND m.session_id=s.session
 WHERE m.tenant_id=@tenant AND m.message_id=@mid AND s.user_id=@user_id
 LIMIT 1;";
 
-        var row = await conn.QueryFirstOrDefaultAsync<ChatMessageDto>(new CommandDefinition(readSql, new { tenant = tenantId, mid = messageId, user_id = effectiveUserId }, cancellationToken: ct));
+        var row = await conn.QueryFirstOrDefaultAsync<StoredChatMessage>(new CommandDefinition(readSql, new { tenant = tenantId, mid = messageId, user_id = effectiveUserId }, cancellationToken: ct));
         if (row is null)
             return Results.NotFound(new { error = "message not found" });
 
@@ -378,8 +378,28 @@ LIMIT 1;";
             ip: ctx.Connection.RemoteIpAddress?.ToString(),
             ct: ct);
 
-        return Results.Ok(row);
+        return Results.Ok(new ChatMessageDto(
+            row.MessageId,
+            row.Role,
+            row.Content,
+            row.SourcesJson,
+            new DateTimeOffset(DateTime.SpecifyKind(row.CreatedAt, DateTimeKind.Utc)),
+            row.StatusNote,
+            row.ProgressText,
+            row.TrackingMetaJson));
     }
+
+    // Npgsql reads timestamptz as UTC DateTime; keep the database projection
+    // separate from the public DTO constructor and its DateTimeOffset timestamp.
+    private sealed record StoredChatMessage(
+        Guid MessageId,
+        string Role,
+        string Content,
+        string? SourcesJson,
+        string? StatusNote,
+        string? ProgressText,
+        string? TrackingMetaJson,
+        DateTime CreatedAt);
 
     public sealed record CreateSessionRequest(string? Title = null, string? ClientUser = null);
     public sealed record CreateSessionResponse(Guid SessionId, string? Title, string? ClientUser, DateTimeOffset CreatedAtUtc);

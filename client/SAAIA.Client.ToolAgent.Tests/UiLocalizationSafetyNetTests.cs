@@ -1672,9 +1672,20 @@ public sealed class UiLocalizationSafetyNetTests
         var repoRoot = FindRepoRoot();
         var toolAgentDir = Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "ToolAgent");
         var backendRagEndpoint = Path.Combine(repoRoot, "backend", "SAAIA.Backend", "Endpoints", "RagEndpoints.cs");
+        var deterministicRuntimeFiles = Directory
+            .EnumerateFiles(toolAgentDir, "*.cs", SearchOption.AllDirectories)
+            .Where(file =>
+            {
+                var relativePath = Path.GetRelativePath(toolAgentDir, file);
+                return !relativePath.StartsWith($"OLD{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)
+                       && !Path.GetFileName(file).Contains("Prompt", StringComparison.OrdinalIgnoreCase);
+            });
+
+        // The ADR deliberately assigns semantic type judgement to the LLM. Its prompts may therefore
+        // use cross-domain examples, while deterministic routing/retrieval code must remain corpus-neutral.
         var source = string.Join(
             "\n",
-            Directory.EnumerateFiles(toolAgentDir, "*.cs", SearchOption.AllDirectories)
+            deterministicRuntimeFiles
                 .Concat([backendRagEndpoint])
                 .Select(File.ReadAllText));
 
@@ -1734,12 +1745,21 @@ public sealed class UiLocalizationSafetyNetTests
     public void Visible_source_page_labels_use_localized_prefix_helpers()
     {
         var repoRoot = FindRepoRoot();
+        var toolAgentDir = Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "ToolAgent");
         var files = Directory
-            .EnumerateFiles(Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "ToolAgent"), "*.cs", SearchOption.AllDirectories)
+            .EnumerateFiles(toolAgentDir, "*.cs", SearchOption.AllDirectories)
+            .Where(file =>
+            {
+                var relativePath = Path.GetRelativePath(toolAgentDir, file);
+                return !relativePath.StartsWith($"OLD{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)
+                       && !Path.GetFileName(file).Contains("Prompt", StringComparison.OrdinalIgnoreCase);
+            })
             .Concat([
                 Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "Services", "RagChatAgent.cs")
             ]);
 
+        // LLM prompt payloads and machine-readable traces intentionally use a stable invariant page token.
+        // Only strings that can be rendered to the user must flow through localized prefix helpers.
         foreach (var file in files)
         {
             var source = File.ReadAllText(file);

@@ -45,7 +45,7 @@ internal sealed record LocalLlmQualificationFinalValidationOptions(
 {
     public static LocalLlmQualificationFinalValidationOptions Default => new(
         OverallFinalistCount: 2,
-        MaxFinalists: 3,
+        MaxFinalists: 4,
         RoundCount: 3,
         RoundTimeout: TimeSpan.FromMinutes(5));
 }
@@ -87,6 +87,42 @@ internal static class LocalLlmQualificationFinalValidation
             .Select(candidate => topologyByCandidate.GetValueOrDefault(candidate.CandidateId))
             .Where(static topology => !string.IsNullOrWhiteSpace(topology))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var selectedExecutionShapes = selected
+            .Select(candidate => BuildExecutionShape(
+                topologyByCandidate.GetValueOrDefault(
+                    candidate.CandidateId),
+                candidate.Profile))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // A multi-slot profile changes prompt-cache persistence even when its
+        // raw token throughput and device topology match a single-slot
+        // profile. Keep one measured execution-shape alternative in the final
+        // live rounds instead of deciding from llama-bench alone.
+        foreach (var score in eligible)
+        {
+            if (selected.Count >= finalistLimit)
+                break;
+            if (selected.Any(candidate => string.Equals(
+                    candidate.CandidateId,
+                    score.Candidate.CandidateId,
+                    StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            var topology = topologyByCandidate.GetValueOrDefault(
+                score.Candidate.CandidateId);
+            var executionShape = BuildExecutionShape(
+                topology,
+                score.Candidate.Profile);
+            if (selectedExecutionShapes.Contains(executionShape))
+                continue;
+
+            selected.Add(score.Candidate);
+            selectedExecutionShapes.Add(executionShape);
+            if (!string.IsNullOrWhiteSpace(topology))
+                selectedTopologies.Add(topology);
+        }
 
         foreach (var score in eligible)
         {
@@ -106,6 +142,9 @@ internal static class LocalLlmQualificationFinalValidation
 
             selected.Add(score.Candidate);
             selectedTopologies.Add(topology);
+            selectedExecutionShapes.Add(BuildExecutionShape(
+                topology,
+                score.Candidate.Profile));
         }
 
         foreach (var score in eligible)
@@ -125,6 +164,15 @@ internal static class LocalLlmQualificationFinalValidation
 
         return selected;
     }
+
+    private static string BuildExecutionShape(
+        string? topology,
+        QualifiedProfile profile)
+        => (topology ?? string.Empty)
+           + "|parallel="
+           + Math.Clamp(profile.Parallel, 1, 16)
+           + "|ctx-per-slot="
+           + profile.ResolvePerSlotContextSize();
 
     internal static IReadOnlyList<(int RoundIndex, int CandidateIndex, int SequenceIndex)> BuildSchedule(
         int finalistCount,

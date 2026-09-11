@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using SAAIA.Client.WinUI.Services;
 
 namespace SAAIA.Client.WinUI.Models;
 
@@ -55,8 +57,18 @@ public sealed class ChatMessageItem : INotifyPropertyChanged
     public string? SourcesJson
     {
         get => _sourcesJson;
-        set { if (_sourcesJson != value) { _sourcesJson = value; OnPropertyChanged(); } }
+        set
+        {
+            if (_sourcesJson != value)
+            {
+                _sourcesJson = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ParsedSources));
+            }
+        }
     }
+
+    public IList<SourceCard> ParsedSources => SourceCardParser.Parse(_sourcesJson);
 
     public DateTime CreatedAt
     {

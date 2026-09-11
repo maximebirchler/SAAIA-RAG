@@ -251,6 +251,123 @@ Continue the previous source-backed request by running a broader retrieval explo
     }
 
     [Fact]
+    public void Document_content_search_filters_lexically_unrelated_copyright_hits_before_rendering_sources()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Documents techniques/PTFE.pdf",
+                    docName = "PTFE.pdf",
+                    pageStart = 1,
+                    excerpt = "California Proposition 65 regulatory data sheet. 100 ppm by weight.",
+                    sectionTitle = "China RoHS",
+                    headingPath = "China RoHS",
+                    retrievalQuery = "concentration limite en oxygene",
+                    matchedContentCards = new[] { new { title = "All rights reserved" } },
+                    score = 1.02
+                },
+                new
+                {
+                    docPath = "Normes/Inerting.pdf",
+                    docName = "Inerting.pdf",
+                    pageStart = 17,
+                    excerpt = "The limiting oxygen concentration determines whether an explosion can occur.",
+                    sectionTitle = "Limiting oxygen concentration",
+                    headingPath = "Limiting oxygen concentration",
+                    retrievalQuery = "concentration limite en oxygene",
+                    matchedContentCards = new[] { new { title = "Limiting oxygen concentration" } },
+                    score = 0.91
+                }
+            }
+        });
+
+        var filtered = ToolAgentOrchestrator.FilterDocumentContentSearchResultForTests(
+            payload,
+            "concentration limite en oxygene");
+        using var doc = JsonDocument.Parse(filtered);
+        var hits = doc.RootElement.GetProperty("hits").EnumerateArray().ToArray();
+
+        Assert.Single(hits);
+        Assert.Equal("Inerting.pdf", hits[0].GetProperty("docName").GetString());
+    }
+
+    [Fact]
+    public void Document_content_search_answer_suppresses_copyright_only_hits()
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            hits = new[]
+            {
+                new
+                {
+                    docPath = "Documents techniques/PTFE.pdf",
+                    docName = "PTFE.pdf",
+                    pageStart = 1,
+                    excerpt = "California Proposition 65 regulatory data sheet. 100 ppm by weight.",
+                    sectionTitle = "China RoHS",
+                    retrievalQuery = "concentration limite en oxygene",
+                    matchedContentCards = new[] { new { title = "All rights reserved" } },
+                    score = 1.02
+                }
+            }
+        });
+        using var doc = JsonDocument.Parse(payload);
+        var toolResults = new ToolResults();
+        toolResults.Items.Add(new ToolResults.Item { ToolName = "rag.search", Result = doc.RootElement.Clone() });
+
+        var answer = ToolAgentOrchestrator.BuildDocumentContentSearchAnswerForTests(
+            toolResults,
+            "concentration limite en oxygene",
+            "fr");
+
+        Assert.Contains("aucun contenu indexé", answer, StringComparison.Ordinal);
+        Assert.DoesNotContain("PTFE.pdf", answer, StringComparison.Ordinal);
+        Assert.DoesNotContain("All rights reserved", answer, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Document_content_search_rejects_natural_language_as_an_invented_category_scope()
+    {
+        var scope = ToolAgentOrchestrator.ResolveKnownDocumentContentSearchCategoryScopeForTests(
+            "Montre-moi où dans le document ils parlent de la concentration limite en oxygène.",
+            "Normes",
+            "Documents techniques");
+
+        Assert.Null(scope);
+    }
+
+    [Fact]
+    public void Document_content_search_preserves_an_explicit_known_category_scope()
+    {
+        var scope = ToolAgentOrchestrator.ResolveKnownDocumentContentSearchCategoryScopeForTests(
+            "Cherche les documents qui parlent de VACUUM dans le dossier Normes.",
+            "Normes",
+            "Documents techniques");
+
+        Assert.Equal("Normes", scope);
+    }
+
+    [Theory]
+    [InlineData("Montre-moi où dans le document ils parlent de la concentration limite en oxygène.")]
+    [InlineData("Localise le passage exact sur la concentration limite en oxygène.")]
+    [InlineData("Show me where in the document the oxygen limit is discussed.")]
+    public void Exact_passage_localization_is_outside_the_local_search_envelope(string request)
+    {
+        Assert.True(ToolAgentOrchestrator.LooksLikeExactDocumentPassageLocalizationRequestForTests(request));
+    }
+
+    [Theory]
+    [InlineData("Quels documents parlent de la concentration limite en oxygène ?")]
+    [InlineData("Cherche les documents qui mentionnent VACUUM.")]
+    public void Generic_document_content_search_is_not_exact_passage_localization(string request)
+    {
+        Assert.False(ToolAgentOrchestrator.LooksLikeExactDocumentPassageLocalizationRequestForTests(request));
+    }
+
+    [Fact]
     public void Document_content_search_expands_sparse_reason_requests()
     {
         var singleDocPayload = JsonSerializer.Serialize(new

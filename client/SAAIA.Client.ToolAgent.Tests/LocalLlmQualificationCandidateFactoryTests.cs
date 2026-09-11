@@ -32,7 +32,7 @@ public sealed class LocalLlmQualificationCandidateFactoryTests
             logicalProcessorCount: 8,
             blockCountOverride: 40);
 
-        Assert.Equal(37, candidates.Count);
+        Assert.Equal(40, candidates.Count);
         Assert.Equal(candidates.Count, candidates.Select(static candidate => candidate.CandidateId).Distinct().Count());
         Assert.Equal(3, candidates.Count(static candidate => candidate.Profile.Runtime == "llama.cpp-cpu"));
         Assert.All(
@@ -57,6 +57,15 @@ public sealed class LocalLlmQualificationCandidateFactoryTests
             && candidate.Profile.Ngl == 20
             && candidate.Profile.CacheTypeK == "q8_0"
             && candidate.Profile.CacheTypeV == "q8_0");
+        Assert.Contains(candidates, candidate =>
+            candidate.CandidateKind
+                == "accelerator-dual-slot-long-context-q4-kv"
+            && candidate.Profile.DeviceIds.SequenceEqual(new[] { "CUDA0" })
+            && candidate.Profile.CtxSize == 16384
+            && candidate.Profile.ResolvePerSlotContextSize() == 8192
+            && candidate.Profile.Parallel == 2
+            && candidate.Profile.CacheTypeK == "q4_0"
+            && candidate.Profile.CacheTypeV == "q4_0");
         Assert.Contains(candidates, candidate =>
             candidate.CandidateKind == "multi-accelerator-layer-capacity"
             && candidate.Profile.DeviceIds.SequenceEqual(new[] { "Vulkan0", "Vulkan1" })

@@ -9,12 +9,17 @@ using System.Threading.Tasks;
 using SAAIA.Client.WinUI.Localization;
 using SAAIA.Client.WinUI.Models;
 using SAAIA.Client.WinUI.Services.ToolAgent;
+using SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag;
 using SAAIA.Contracts;
 
 namespace SAAIA.Client.WinUI.Services;
 
 public sealed class RagChatAgent
 {
+    private const int DocumentOverviewAnswerMaxTokens = 320;
+    private const int DocumentOverviewSelectionMaxTokens = 64;
+    private const int DocumentOverviewCandidateRepairMaxTokens = 96;
+
     private readonly ApiClient _api;
     private readonly OpenAiLlmClient _llm;
     private readonly UserPrefsStore.UserPrefs _initialPrefs;
@@ -50,6 +55,18 @@ public sealed class RagChatAgent
         _activeMode = "auto";
     }
 
+    internal void RehydrateConversationState(
+        IReadOnlyList<ChatMessageItem>? conversation)
+    {
+        _mem.RehydrateConversationState(
+            (conversation ?? Array.Empty<ChatMessageItem>())
+            .Where(static message => message is not null)
+            .Select(static message => new ToolMemory.ConversationMemoryMessage(
+                message.Role,
+                message.Content,
+                message.SourcesJson)));
+    }
+
     internal void ApplySettings(AppSettings s)
     {
         _effectiveSettings = s.Clone();
@@ -81,7 +98,8 @@ public sealed class RagChatAgent
         Action<string> onDelta,
         CancellationToken ct,
         Action<string>? onPhase = null,
-        Action<string>? onProgress = null)
+        Action<string>? onProgress = null,
+        string? sessionId = null)
     {
         userText ??= string.Empty;
         ClientLog.Info(
@@ -93,6 +111,8 @@ public sealed class RagChatAgent
             $"category={category}|" +
             $"tail={conversationTail?.Count ?? 0}|" +
             $"chars={userText.Length}");
+
+        RehydrateConversationState(conversationTail);
 
         if (LocalizedStrings.TryDetectStylePreferenceChange(userText, out var requestedStyle))
         {
@@ -202,6 +222,8 @@ public sealed class RagChatAgent
             $"mode={orchSettings.ActiveMode}|" +
             $"uiLang={orchSettings.UiLanguage}|" +
             $"ctx={orchSettings.QualifiedProfile?.CtxSize ?? 0}|" +
+            $"ctxPerSlot={orchSettings.QualifiedProfile?.ResolvePerSlotContextSize() ?? 0}|" +
+            $"parallel={orchSettings.QualifiedProfile?.Parallel ?? 1}|" +
             $"maxTokens={orchSettings.LlmMaxOutputTokens}");
         var result = await orch.RunAsync(
             history,
@@ -210,6 +232,31 @@ public sealed class RagChatAgent
             onPhase,
             onDelta,
             onProgress).ConfigureAwait(false);
+
+        if (orch.LastAdvancedAnalysisHandoff is { } advancedHandoff)
+        {
+            if (Guid.TryParse(sessionId, out var advancedSessionId)
+                && advancedSessionId != Guid.Empty)
+            {
+                var advanced = await orch.ExecuteAdvancedAnalysisHandoffAsync(
+                        advancedSessionId,
+                        advancedHandoff,
+                        ct,
+                        onProgress)
+                    .ConfigureAwait(false);
+                if (advanced.Handled)
+                {
+                    result = (
+                        advanced.FinalAnswer ?? result.finalAnswer,
+                        advanced.SourcesPayload);
+                }
+            }
+            else
+            {
+                ClientLog.Warn(
+                    "Advanced analysis handoff retained locally because the current chat session id is unavailable.");
+            }
+        }
 
         _activeMode = AppSettings.NormalizeActiveMode(orchSettings.ActiveMode);
         _mem.LastMode = _activeMode;
@@ -452,7 +499,7 @@ public sealed class RagChatAgent
 
         if (Regex.IsMatch(
             text,
-            @"\b(?:plan|planning|programme|menu|menus|semaine|weekly|week|semana|woche|settimana|liste|list|lista|lister|ideas?|idees?|idées|options?|suggest|suggestions?|propose|proposer|propostas?|vorschlag|vorschlaege|vorschläge|consigli|recommend|recommand|recommande|recommander|plusieurs|several|varie|varied|varié|varies|compare|comparison|comparer|choisir|selection|sélection)\b",
+            @"\b(?:plan|planning|programme|semaine|weekly|week|semana|woche|settimana|liste|list|lista|lister|ideas?|idees?|idées|options?|suggest|suggestions?|propose|proposer|propostas?|vorschlag|vorschlaege|vorschläge|consigli|recommend|recommand|recommande|recommander|plusieurs|several|varie|varied|varié|varies|compare|comparison|comparer|choisir|selection|sélection)\b",
             RegexOptions.CultureInvariant | RegexOptions.IgnoreCase))
         {
             return true;
@@ -801,16 +848,76 @@ public sealed class RagChatAgent
     internal static int ResolveLlmAdapterMaxTokensForTests(int configuredMaxTokens, bool forceJson, string prompt)
         => ResolveLlmAdapterMaxTokens(configuredMaxTokens, forceJson, prompt);
 
+    internal static bool ShouldUseLlmAdapterJsonResponseFormatForTests(string prompt)
+        => ShouldUseLlmAdapterJsonResponseFormat(prompt);
+
     private static int ResolveLlmAdapterMaxTokens(int configuredMaxTokens, bool forceJson, string prompt)
     {
         var normalizedConfigured = Math.Clamp(configuredMaxTokens, 128, 4096);
+        if (!forceJson && LooksLikeDocumentOverviewCandidateRepairPrompt(prompt))
+            return Math.Min(
+                normalizedConfigured,
+                DocumentOverviewCandidateRepairMaxTokens);
+        if (!forceJson && LooksLikeDocumentOverviewSelectionPrompt(prompt))
+            return Math.Min(normalizedConfigured, DocumentOverviewSelectionMaxTokens);
+        if (!forceJson && LooksLikeDocumentOverviewWriterPrompt(prompt))
+            return Math.Min(normalizedConfigured, DocumentOverviewAnswerMaxTokens);
+
         if (forceJson)
-            return Math.Clamp(Math.Max(normalizedConfigured, 1600), 1600, 3200);
+        {
+            var sourceBackedBudget = SourceBackedLlmOutputBudget.TryResolveJsonMaxTokens(prompt, normalizedConfigured);
+            if (sourceBackedBudget is not null)
+                return sourceBackedBudget.Value;
+
+            return Math.Clamp(normalizedConfigured, 512, 1600);
+        }
 
         return LooksLikeBroadDocumentaryWriterPrompt(prompt)
-            ? Math.Clamp(Math.Max(normalizedConfigured, 3600), 128, 4096)
+            ? Math.Clamp(normalizedConfigured, 512, 4096)
             : normalizedConfigured;
     }
+
+    private static bool LooksLikeDocumentOverviewWriterPrompt(string? prompt)
+        => (prompt ?? string.Empty).Contains(
+            "SAAIA_DOCUMENT_OVERVIEW_WRITER",
+            StringComparison.OrdinalIgnoreCase);
+
+    private static bool LooksLikeDocumentOverviewSelectionPrompt(string? prompt)
+        => (prompt ?? string.Empty).Contains(
+            "SAAIA_DOCUMENT_OVERVIEW_SELECTOR",
+            StringComparison.OrdinalIgnoreCase);
+
+    private static bool LooksLikeDocumentOverviewCandidateRepairPrompt(
+        string? prompt)
+        => (prompt ?? string.Empty).Contains(
+            "SAAIA_DOCUMENT_OVERVIEW_CANDIDATE_REPAIR",
+            StringComparison.OrdinalIgnoreCase);
+
+    private static bool ShouldUseLlmAdapterJsonResponseFormat(string prompt)
+        => prompt.Contains(
+            "SAAIA_SOURCE_BACKED_STEP=EvidenceStatusReview",
+            StringComparison.OrdinalIgnoreCase)
+           || prompt.Contains(
+               "SAAIA_SOURCE_BACKED_STEP=StructuredValueTypeFit",
+               StringComparison.OrdinalIgnoreCase)
+           || prompt.Contains(
+               "SAAIA_SOURCE_BACKED_STEP=EvidenceJudgeFinalSelectionAtomicRepair",
+               StringComparison.OrdinalIgnoreCase)
+           || prompt.Contains(
+               "SAAIA_SOURCE_BACKED_STEP=StructuredThinCellAtomicRepair",
+               StringComparison.OrdinalIgnoreCase)
+           || prompt.Contains(
+               "SAAIA_SOURCE_BACKED_STEP=PlannerAcceptedQueryYieldReview",
+               StringComparison.OrdinalIgnoreCase)
+           || prompt.Contains(
+               "SAAIA_SOURCE_BACKED_STEP=PlannerAcceptedQuerySourceDomainBrief",
+               StringComparison.OrdinalIgnoreCase)
+           || prompt.Contains(
+               "SAAIA_SOURCE_BACKED_STEP=PlannerAcceptedScopeAudit",
+               StringComparison.OrdinalIgnoreCase)
+           || prompt.Contains(
+               "SAAIA_SOURCE_BACKED_STEP=PlannerAcceptedScopeCoherenceReview",
+               StringComparison.OrdinalIgnoreCase);
 
     private static bool LooksLikeBroadDocumentaryWriterPrompt(string prompt)
         => prompt.Contains("PRIVATE_SOURCE_WRITING_BRIEF", StringComparison.OrdinalIgnoreCase)
@@ -834,7 +941,12 @@ public sealed class RagChatAgent
         }
     }
 
-    private sealed class LlmAdapter : ILlmClient
+    private sealed class LlmAdapter :
+        ILlmClient,
+        ISourceBackedAgentLlmClient,
+        ISourceBackedAgentStructuredLlmClient,
+        ISourceBackedAgentInputTokenCounter,
+        ISourceBackedAgentRuntimeContextProvider
     {
         private readonly OpenAiLlmClient _llm;
         private readonly double _temperature;
@@ -847,13 +959,45 @@ public sealed class RagChatAgent
             _maxTokens = Math.Clamp(maxTokens, 128, 4096);
         }
 
+        public bool SupportsStructuredOutput => true;
+
         public async Task<string> CompleteAsync(IReadOnlyList<(string role, string content)> messages, bool forceJson, CancellationToken ct)
         {
             var list = messages?.ToList() ?? new List<(string role, string content)>();
             if (forceJson)
                 list.Insert(0, ("system", "Return ONLY valid JSON. No markdown. No extra text."));
 
-            return await _llm.ChatOnceAsync(list, _temperature, ResolveMaxTokens(list, forceJson), ct).ConfigureAwait(false);
+            var joinedPrompt = string.Join('\n', list.Select(static message => message.content ?? string.Empty));
+            var useJsonResponseFormat = forceJson && ShouldUseLlmAdapterJsonResponseFormat(joinedPrompt);
+            var maxTokens = ResolveMaxTokens(list, forceJson);
+            var modelVisibleMessages = SourceBackedLlmPromptSanitizer.RemoveControlMetadata(list);
+
+            return await _llm.ChatOnceAsync(
+                    modelVisibleMessages,
+                    _temperature,
+                    maxTokens,
+                    ct,
+                    useJsonResponseFormat)
+                .ConfigureAwait(false);
+        }
+
+        public async Task<string> CompleteStructuredAsync(
+            IReadOnlyList<(string role, string content)> messages,
+            LlmStructuredOutputContract contract,
+            CancellationToken ct)
+        {
+            var list = messages?.ToList() ?? new List<(string role, string content)>();
+            list.Insert(0, ("system", "Return ONLY JSON matching the supplied schema. No markdown or extra text."));
+
+            var maxTokens = ResolveMaxTokens(list, forceJson: true);
+            var modelVisibleMessages = SourceBackedLlmPromptSanitizer.RemoveControlMetadata(list);
+            return await _llm.ChatOnceStructuredAsync(
+                    modelVisibleMessages,
+                    _temperature,
+                    maxTokens,
+                    contract,
+                    ct)
+                .ConfigureAwait(false);
         }
 
         public async Task StreamAsync(IReadOnlyList<(string role, string content)> messages, bool forceJson, Action<string> onDelta, CancellationToken ct)
@@ -866,8 +1010,96 @@ public sealed class RagChatAgent
                 return;
             }
 
-            await _llm.ChatStreamAsync(list, _temperature, ResolveMaxTokens(list, forceJson), onDelta, ct).ConfigureAwait(false);
+            var maxTokens = ResolveMaxTokens(list, forceJson);
+            var modelVisibleMessages = SourceBackedLlmPromptSanitizer.RemoveControlMetadata(list);
+            await _llm.ChatStreamAsync(modelVisibleMessages, _temperature, maxTokens, onDelta, ct).ConfigureAwait(false);
         }
+
+        public async Task<SourceBackedAgentCompletion> CompleteAsync(
+            IReadOnlyList<SourceBackedAgentMessage> messages,
+            IReadOnlyList<SourceBackedAgentToolDefinition> tools,
+            int maxTokens,
+            CancellationToken ct,
+            double? temperatureOverride = null,
+            bool requireToolCall = false)
+        {
+            var effectiveMaxTokens = Math.Clamp(maxTokens, 64, 4096);
+            return await SourceBackedLlmCumulativeBudgetContext.ExecuteAsync(
+                    SourceBackedLlmCumulativeBudgetContext
+                        .ResolveNativeCallClass(tools),
+                    SourceBackedLlmCumulativeBudgetContext
+                        .IsTerminalNativeCall(tools),
+                    messages,
+                    tools,
+                    effectiveMaxTokens,
+                    token => _llm.CountNativeInputTokensAsync(
+                        messages,
+                        tools,
+                        token,
+                        requireToolCall),
+                    token => _llm.ChatOnceNativeAsync(
+                        messages,
+                        tools,
+                        temperatureOverride ?? _temperature,
+                        effectiveMaxTokens,
+                        token,
+                        requireToolCall),
+                    ct)
+                .ConfigureAwait(false);
+        }
+
+        async Task<SourceBackedAgentCompletion>
+            ISourceBackedAgentStructuredLlmClient.CompleteStructuredAsync(
+                IReadOnlyList<SourceBackedAgentMessage> messages,
+                LlmStructuredOutputContract contract,
+                int maxTokens,
+                CancellationToken ct,
+                double? temperatureOverride)
+        {
+            var modelVisibleMessages = SourceBackedLlmPromptSanitizer
+                .RemoveControlMetadata(messages.Select(static message =>
+                    (message.Role, message.Content ?? string.Empty)).ToArray());
+            var nativeMessages = modelVisibleMessages
+                .Select(static message => new SourceBackedAgentMessage(
+                    message.role,
+                    message.content))
+                .ToArray();
+            var noTools = Array.Empty<SourceBackedAgentToolDefinition>();
+            var effectiveMaxTokens = Math.Clamp(maxTokens, 64, 4096);
+            return await SourceBackedLlmCumulativeBudgetContext.ExecuteAsync(
+                    contract.Name,
+                    SourceBackedLlmCumulativeBudgetContext
+                        .IsTerminalStructuredCall(contract.Name),
+                    nativeMessages,
+                    noTools,
+                    effectiveMaxTokens,
+                    token => _llm.CountNativeInputTokensAsync(
+                        nativeMessages,
+                        noTools,
+                        token),
+                    token => _llm.ChatOnceStructuredCompletionAsync(
+                        modelVisibleMessages,
+                        temperatureOverride ?? _temperature,
+                        effectiveMaxTokens,
+                        contract,
+                        token),
+                    ct)
+                .ConfigureAwait(false);
+        }
+
+        public Task<int?> CountInputTokensAsync(
+            IReadOnlyList<SourceBackedAgentMessage> messages,
+            IReadOnlyList<SourceBackedAgentToolDefinition> tools,
+            CancellationToken ct,
+            bool requireToolCall = false)
+            => _llm.CountNativeInputTokensAsync(
+                messages,
+                tools,
+                ct,
+                requireToolCall);
+
+        public Task<int?> GetRuntimeContextTokensAsync(CancellationToken ct)
+            => _llm.GetNativeRuntimeContextTokensAsync(ct);
 
         private int ResolveMaxTokens(IReadOnlyList<(string role, string content)> messages, bool forceJson)
         {

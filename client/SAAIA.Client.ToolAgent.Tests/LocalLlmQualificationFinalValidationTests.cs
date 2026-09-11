@@ -33,6 +33,63 @@ public sealed class LocalLlmQualificationFinalValidationTests
     }
 
     [Fact]
+    public void SelectFinalists_keeps_a_measured_multi_slot_execution_shape()
+    {
+        var singleFast = Candidate(
+            "cuda-single-fast",
+            "llama.cpp-cuda",
+            "CUDA0",
+            threads: 4);
+        var singleSecond = Candidate(
+            "cuda-single-second",
+            "llama.cpp-cuda",
+            "CUDA0",
+            threads: 6);
+        var dualSlot = Candidate(
+            "cuda-dual",
+            "llama.cpp-cuda",
+            "CUDA0",
+            threads: 4) with
+        {
+            Profile = Candidate(
+                "cuda-dual-profile",
+                "llama.cpp-cuda",
+                "CUDA0",
+                threads: 4).Profile with
+            {
+                ProfileId = "cuda-dual",
+                CtxSize = 16384,
+                Parallel = 2,
+                CacheTypeK = "q4_0",
+                CacheTypeV = "q4_0"
+            }
+        };
+        var vulkan = Candidate(
+            "vulkan",
+            "llama.cpp-vulkan",
+            "Vulkan1",
+            threads: 6);
+        var refinement = Refinement(
+            new[]
+            {
+                ("topology-cuda", singleFast, 10d),
+                ("topology-cuda", singleSecond, 11d),
+                ("topology-cuda", dualSlot, 12d),
+                ("topology-vulkan", vulkan, 13d)
+            });
+
+        var finalists = LocalLlmQualificationFinalValidation.SelectFinalists(
+            refinement,
+            overallFinalistCount: 2,
+            maxFinalists: 4);
+
+        Assert.Contains(finalists, static candidate =>
+            candidate.Profile.Parallel == 2);
+        Assert.Contains(finalists, static candidate =>
+            candidate.Profile.Runtime == "llama.cpp-vulkan");
+    }
+
+    [Fact]
     public void BuildSchedule_rotates_first_position_between_rounds()
     {
         var schedule = LocalLlmQualificationFinalValidation.BuildSchedule(

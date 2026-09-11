@@ -172,7 +172,9 @@ internal static class LocalLlmQualificationRefinement
             candidate,
             modelPath,
             dedicatedDeviceMarginMiB,
-            Math.Min(candidate.Profile.CtxSize, requiredContextSize),
+            ResolveRequiredTotalContextSize(
+                candidate.Profile,
+                requiredContextSize),
             ct: token);
         benchmarkRunner ??= (candidate, scenario, token) =>
             LocalLlmQualificationBenchmarkRunner.RunAsync(
@@ -276,7 +278,19 @@ internal static class LocalLlmQualificationRefinement
         => workload.All(scenario =>
             scenario.PromptTokens > 0
             && scenario.GenerationTokens > 0
-            && checked(scenario.PromptTokens + scenario.GenerationTokens) <= profile.CtxSize);
+            && checked(scenario.PromptTokens + scenario.GenerationTokens)
+               <= profile.ResolvePerSlotContextSize());
+
+    private static int ResolveRequiredTotalContextSize(
+        QualifiedProfile profile,
+        int requiredPerSlotContextSize)
+    {
+        var requested = (long)Math.Max(1, requiredPerSlotContextSize)
+                        * Math.Clamp(profile.Parallel, 1, 16);
+        return (int)Math.Min(
+            Math.Max(1, profile.CtxSize),
+            Math.Min(int.MaxValue, requested));
+    }
 
     private static LocalLlmRuntimeCapabilityProbeResult? FindRuntimeProbe(
         LocalLlmQualificationCandidate candidate,

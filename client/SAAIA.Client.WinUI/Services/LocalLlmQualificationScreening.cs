@@ -58,7 +58,15 @@ internal static class LocalLlmQualificationScreening
             candidate,
             modelPath,
             dedicatedDeviceMarginMiB,
-            Math.Min(2048, Math.Max(1, candidate.Profile.CtxSize)),
+            Math.Min(
+                Math.Max(1, candidate.Profile.CtxSize),
+                (int)Math.Min(
+                    int.MaxValue,
+                    2048L
+                    * Math.Clamp(
+                        candidate.Profile.Parallel,
+                        1,
+                        16))),
             ct: token);
         benchmarkRunner ??= (candidate, token) => LocalLlmQualificationBenchmarkRunner.RunAsync(
             candidate,

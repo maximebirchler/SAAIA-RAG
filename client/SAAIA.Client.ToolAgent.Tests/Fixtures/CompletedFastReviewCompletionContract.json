@@ -1,0 +1,36 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"action\": \"answer\",\n  \"evidenceId\": \"E1\",\n  \"anchorId\": \"E11\",\n  \"text\": \"Mélangez 125 g de beurre, 160 g de biscuits Bastogne, 600 g de fromage frais, 130 g de sucre, 2 blancs d’œufs et 5 cl de jus de citron. Préchauffez le four à 180°C, mettez au four 35 min. Servez avec des framboises.\"\n}"
+      }
+    }
+  ],
+  "created": 1788905542,
+  "model": "C:\\Users\\maxim\\AppData\\Local\\SAAIA\\Models\\Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+  "system_fingerprint": "b10098-0278d8362",
+  "object": "chat.completion",
+  "usage": {
+    "completion_tokens": 126,
+    "prompt_tokens": 1208,
+    "total_tokens": 1334,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    }
+  },
+  "id": "chatcmpl-8Wom6WSyIuTur3GXJmeIGKQWYec9ilFI",
+  "timings": {
+    "cache_n": 0,
+    "prompt_n": 1208,
+    "prompt_ms": 358.515,
+    "prompt_per_token_ms": 0.296783940397351,
+    "prompt_per_second": 3369.4545555973946,
+    "predicted_n": 126,
+    "predicted_ms": 1802.051,
+    "predicted_per_token_ms": 14.301992063492063,
+    "predicted_per_second": 69.92032966880517
+  }
+}

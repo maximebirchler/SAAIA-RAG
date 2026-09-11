@@ -1,0 +1,122 @@
+using SAAIA.Contracts;
+
+namespace SAAIA.Backend.AdvancedAnalysis;
+
+internal static class AdvancedAnalysisResultValidator
+{
+    private const int MaximumAnswerCharacters = 200_000;
+    private const int MaximumClaims = 512;
+    private const int MaximumClaimCharacters = 8_000;
+    private const int MaximumClaimEvidence = 64;
+    private static readonly HashSet<string> AllowedOutcomes = new(
+        ["answered", "insufficient_documentation", "clarification_required"],
+        StringComparer.Ordinal);
+
+    public static AdvancedAnalysisResultValidation ValidateAndBuild(
+        string providerKey,
+        AdvancedAnalysisProviderResult? providerResult,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
+        long elapsedMilliseconds,
+        DateTimeOffset completedAtUtc)
+    {
+        if (string.IsNullOrWhiteSpace(providerKey)
+            || providerKey.Length > 100
+            || providerResult is null)
+        {
+            return AdvancedAnalysisResultValidation.Invalid(
+                "provider_result_required");
+        }
+
+        var outcome = providerResult.Outcome?.Trim() ?? string.Empty;
+        var answer = providerResult.AnswerText?.Trim() ?? string.Empty;
+        if (!AllowedOutcomes.Contains(outcome))
+            return AdvancedAnalysisResultValidation.Invalid("provider_outcome_invalid");
+        if (answer.Length is 0 or > MaximumAnswerCharacters)
+            return AdvancedAnalysisResultValidation.Invalid("provider_answer_invalid");
+        if (providerResult.Claims is null
+            || providerResult.Claims.Count > MaximumClaims)
+        {
+            return AdvancedAnalysisResultValidation.Invalid(
+                "provider_claim_limit_exceeded");
+        }
+
+        var evidenceById = new Dictionary<string, AdvancedAnalysisResolvedEvidence>(
+            StringComparer.Ordinal);
+        foreach (var item in evidence)
+        {
+            if (string.IsNullOrWhiteSpace(item.Reference.EvidenceId)
+                || !evidenceById.TryAdd(item.Reference.EvidenceId, item))
+            {
+                return AdvancedAnalysisResultValidation.Invalid(
+                    "revalidated_evidence_identity_invalid");
+            }
+        }
+
+        if (outcome == "answered"
+            && (evidenceById.Count == 0 || providerResult.Claims.Count == 0))
+        {
+            return AdvancedAnalysisResultValidation.Invalid(
+                "answered_result_requires_evidence");
+        }
+
+        var claimIds = new HashSet<string>(StringComparer.Ordinal);
+        var claims = new List<AdvancedAnalysisResultClaim>(
+            providerResult.Claims.Count);
+        foreach (var claim in providerResult.Claims)
+        {
+            var claimId = claim?.ClaimId?.Trim() ?? string.Empty;
+            var text = claim?.Text?.Trim() ?? string.Empty;
+            if (claimId.Length is 0 or > 100 || !claimIds.Add(claimId))
+                return AdvancedAnalysisResultValidation.Invalid("claim_id_invalid");
+            if (text.Length is 0 or > MaximumClaimCharacters)
+                return AdvancedAnalysisResultValidation.Invalid("claim_text_invalid");
+            if (claim!.EvidenceIds is null
+                || claim.EvidenceIds.Count is 0 or > MaximumClaimEvidence)
+            {
+                return AdvancedAnalysisResultValidation.Invalid(
+                    "claim_evidence_required");
+            }
+
+            var cited = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var rawEvidenceId in claim.EvidenceIds)
+            {
+                var evidenceId = rawEvidenceId?.Trim() ?? string.Empty;
+                if (!evidenceById.ContainsKey(evidenceId))
+                    return AdvancedAnalysisResultValidation.Invalid("citation_unknown");
+                if (!cited.Add(evidenceId))
+                    return AdvancedAnalysisResultValidation.Invalid("citation_duplicate");
+            }
+
+            claims.Add(new AdvancedAnalysisResultClaim
+            {
+                ClaimId = claimId,
+                Text = text,
+                EvidenceIds = cited.ToList()
+            });
+        }
+
+        return AdvancedAnalysisResultValidation.Valid(new AdvancedAnalysisResultEnvelope
+        {
+            Outcome = outcome,
+            AnswerText = answer,
+            ProviderKey = providerKey,
+            CompletedAtUtc = completedAtUtc,
+            ElapsedMilliseconds = Math.Max(0, elapsedMilliseconds),
+            Evidence = evidence.Select(static item => item.Reference).ToList(),
+            Claims = claims
+        });
+    }
+}
+
+internal sealed record AdvancedAnalysisResultValidation(
+    bool IsValid,
+    string? ErrorCode,
+    AdvancedAnalysisResultEnvelope? Result)
+{
+    public static AdvancedAnalysisResultValidation Valid(
+        AdvancedAnalysisResultEnvelope result)
+        => new(true, null, result);
+
+    public static AdvancedAnalysisResultValidation Invalid(string errorCode)
+        => new(false, errorCode, null);
+}

@@ -175,7 +175,13 @@ ORDER BY ts ASC;
         var patched = await ExecuteResultAsync<ChatMessageDto>(patchResult, patchCtx);
         Assert.Equal("Completed", patched.StatusNote);
         Assert.Equal("Done", patched.ProgressText);
-        Assert.Contains("\"isTerminal\":true", patched.TrackingMetaJson, StringComparison.Ordinal);
+        using var trackingMetadata = JsonDocument.Parse(patched.TrackingMetaJson!);
+        Assert.True(trackingMetadata.RootElement.GetProperty("isTerminal").GetBoolean());
+        Assert.Equal(TimeSpan.Zero, patched.CreatedAt.Offset);
+        Assert.Equal(created.MessageId, patched.MessageId);
+        Assert.Equal(created.Content, patched.Content);
+        using var patchedSources = JsonDocument.Parse(patched.SourcesJson!);
+        Assert.Equal("rag", Assert.Single(patchedSources.RootElement.GetProperty("sources").EnumerateArray()).GetString());
 
         var listCtx = BuildUserContext(tenantId, actorApiKeyId);
         var listResult = await InvokeEndpointAsync("ListMessagesCdcAsync", listCtx, ds, session.SessionId, userId, 20);
@@ -300,16 +306,16 @@ VALUES(
         var trackingResult = await InvokeEndpointAsync("GetMessageTrackingAsync", trackingCtx, ds, messageId, userId);
         using var trackingJson = await ExecuteAnonymousAsync(trackingResult, trackingCtx);
 
-        Assert.Equal(jobId, trackingJson.RootElement.GetProperty("JobId").GetGuid());
-        Assert.Equal("ingestion", trackingJson.RootElement.GetProperty("Type").GetString());
-        Assert.Equal("upsert", trackingJson.RootElement.GetProperty("JobType").GetString());
-        Assert.Equal("running", trackingJson.RootElement.GetProperty("Status").GetString());
-        Assert.Equal("embedding", trackingJson.RootElement.GetProperty("ProgressPhase").GetString());
-        Assert.Equal(2, trackingJson.RootElement.GetProperty("ProgressCurrent").GetInt32());
-        Assert.Equal(5, trackingJson.RootElement.GetProperty("ProgressTotal").GetInt32());
-        Assert.Equal(40, trackingJson.RootElement.GetProperty("ProgressPercent").GetInt32());
-        Assert.Equal("ATEX/tracked.pdf", trackingJson.RootElement.GetProperty("DocPath").GetString());
-        Assert.False(trackingJson.RootElement.GetProperty("IsTerminal").GetBoolean());
+        Assert.Equal(jobId, trackingJson.RootElement.GetProperty("jobId").GetGuid());
+        Assert.Equal("ingestion", trackingJson.RootElement.GetProperty("type").GetString());
+        Assert.Equal("upsert", trackingJson.RootElement.GetProperty("jobType").GetString());
+        Assert.Equal("running", trackingJson.RootElement.GetProperty("status").GetString());
+        Assert.Equal("embedding", trackingJson.RootElement.GetProperty("progressPhase").GetString());
+        Assert.Equal(2, trackingJson.RootElement.GetProperty("progressCurrent").GetInt32());
+        Assert.Equal(5, trackingJson.RootElement.GetProperty("progressTotal").GetInt32());
+        Assert.Equal(40, trackingJson.RootElement.GetProperty("progressPercent").GetInt32());
+        Assert.Equal("ATEX/tracked.pdf", trackingJson.RootElement.GetProperty("docPath").GetString());
+        Assert.False(trackingJson.RootElement.GetProperty("isTerminal").GetBoolean());
     }
 
     [Fact]
@@ -383,16 +389,16 @@ VALUES(
         var trackingResult = await InvokeEndpointAsync("GetMessageTrackingAsync", trackingCtx, ds, messageId, userId);
         using var trackingJson = await ExecuteAnonymousAsync(trackingResult, trackingCtx);
 
-        Assert.Equal(jobId, trackingJson.RootElement.GetProperty("JobId").GetGuid());
-        Assert.Equal("summary", trackingJson.RootElement.GetProperty("Type").GetString());
-        Assert.Equal("summary", trackingJson.RootElement.GetProperty("JobType").GetString());
-        Assert.Equal("done", trackingJson.RootElement.GetProperty("Status").GetString());
-        Assert.Equal("ATEX/fallback.pdf", trackingJson.RootElement.GetProperty("DocPath").GetString());
-        Assert.Equal("finalize", trackingJson.RootElement.GetProperty("ProgressPhase").GetString());
-        Assert.Equal(5, trackingJson.RootElement.GetProperty("ProgressCurrent").GetInt32());
-        Assert.Equal(5, trackingJson.RootElement.GetProperty("ProgressTotal").GetInt32());
-        Assert.Equal(100, trackingJson.RootElement.GetProperty("ProgressPercent").GetInt32());
-        Assert.True(trackingJson.RootElement.GetProperty("IsTerminal").GetBoolean());
+        Assert.Equal(jobId, trackingJson.RootElement.GetProperty("jobId").GetGuid());
+        Assert.Equal("summary", trackingJson.RootElement.GetProperty("type").GetString());
+        Assert.Equal("summary", trackingJson.RootElement.GetProperty("jobType").GetString());
+        Assert.Equal("done", trackingJson.RootElement.GetProperty("status").GetString());
+        Assert.Equal("ATEX/fallback.pdf", trackingJson.RootElement.GetProperty("docPath").GetString());
+        Assert.Equal("finalize", trackingJson.RootElement.GetProperty("progressPhase").GetString());
+        Assert.Equal(5, trackingJson.RootElement.GetProperty("progressCurrent").GetInt32());
+        Assert.Equal(5, trackingJson.RootElement.GetProperty("progressTotal").GetInt32());
+        Assert.Equal(100, trackingJson.RootElement.GetProperty("progressPercent").GetInt32());
+        Assert.True(trackingJson.RootElement.GetProperty("isTerminal").GetBoolean());
     }
 
     private static object CreateLogTagLogger()
@@ -400,7 +406,7 @@ VALUES(
         var logTagType = typeof(ChatStoreEndpoints).GetNestedType("LogTag", BindingFlags.NonPublic);
         Assert.NotNull(logTagType);
         var loggerType = typeof(NullLogger<>).MakeGenericType(logTagType!);
-        var instance = loggerType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+        var instance = loggerType.GetField("Instance", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
         Assert.NotNull(instance);
         return instance!;
     }

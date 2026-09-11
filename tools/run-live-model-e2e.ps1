@@ -22,12 +22,14 @@ param(
     [Nullable[double]]$PresencePenalty,
     [ValidateSet("deterministic", "native")]
     [string]$StructuredSampling = "deterministic",
-    [ValidateSet("legacy-compensated", "canonical-direct")]
-    [string]$OrchestrationProfile = "legacy-compensated",
-    [switch]$SourceBackedAgentV2,
     [switch]$DisableSemanticCandidateAudit,
-    [int]$SemanticCandidateAuditBatchSize = 24,
-    [int]$SemanticCandidateAuditTokens = 320,
+    [switch]$DisableEvidenceSelectionHandoff,
+    [ValidateRange(8, 80)]
+    [int]$MaximumWorkingEvidenceItems = 80,
+    [ValidateRange(8, 80)]
+    [int]$MaximumSemanticCandidatesPerAuditTurn = 40,
+    [ValidateRange(1, 4)]
+    [int]$MaximumSemanticCandidateAuditConcurrency = 2,
     [switch]$SkipBuild,
     [string]$Platform = "x64",
     [string]$Configuration = "Debug"
@@ -43,30 +45,132 @@ if (-not (Test-Path -LiteralPath $project -PathType Leaf)) {
 }
 New-Item -ItemType Directory -Path $results -Force | Out-Null
 
+function Get-ProjectBuildEvidence {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectPath
+    )
+
+    $projectDirectory = Split-Path -Parent $ProjectPath
+    $assemblyName = [IO.Path]::GetFileNameWithoutExtension($ProjectPath) + ".dll"
+    $assemblyRoot = Join-Path $projectDirectory (
+        "bin\{0}\{1}" -f $Platform, $Configuration)
+    if (-not (Test-Path -LiteralPath $assemblyRoot -PathType Container)) {
+        throw "Build output directory not found: $assemblyRoot"
+    }
+
+    $assembly = Get-ChildItem -LiteralPath $assemblyRoot -Recurse -File `
+            -Filter $assemblyName |
+        Where-Object {
+            $_.FullName -notmatch '[\\/]ref(int)?[\\/]'
+        } |
+        Sort-Object LastWriteTimeUtc -Descending |
+        Select-Object -First 1
+    if ($null -eq $assembly) {
+        throw "Build assembly not found below ${assemblyRoot}: $assemblyName"
+    }
+
+    $newestSource = Get-ChildItem -LiteralPath $projectDirectory -Recurse -File `
+            -Filter "*.cs" |
+        Where-Object {
+            $_.FullName -notmatch '[\\/](bin|obj)[\\/]'
+        } |
+        Sort-Object LastWriteTimeUtc -Descending |
+        Select-Object -First 1
+    if ($null -ne $newestSource `
+        -and $newestSource.LastWriteTimeUtc -gt $assembly.LastWriteTimeUtc.AddSeconds(1)) {
+        throw (
+            "SkipBuild refused: source '{0}' ({1:O}) is newer than assembly '{2}' ({3:O})." `
+                -f $newestSource.FullName,
+                $newestSource.LastWriteTimeUtc,
+                $assembly.FullName,
+                $assembly.LastWriteTimeUtc)
+    }
+
+    return [pscustomobject]@{
+        projectPath = $ProjectPath
+        assemblyPath = $assembly.FullName
+        assemblyDirectory = $assembly.DirectoryName
+        assemblyLastWriteUtc = $assembly.LastWriteTimeUtc.ToString("O")
+        assemblySha256 = (Get-FileHash -LiteralPath $assembly.FullName `
+            -Algorithm SHA256).Hash
+        newestSourcePath = if ($null -eq $newestSource) {
+            $null
+        } else {
+            $newestSource.FullName
+        }
+        newestSourceLastWriteUtc = if ($null -eq $newestSource) {
+            $null
+        } else {
+            $newestSource.LastWriteTimeUtc.ToString("O")
+        }
+    }
+}
+
+$buildEvidence = $null
+if ($SkipBuild) {
+    $testBuildEvidence = Get-ProjectBuildEvidence -ProjectPath $project
+    [xml]$testProjectXml = Get-Content -LiteralPath $project -Raw
+    $clientProjectReference = @(
+        $testProjectXml.SelectNodes("//*[local-name()='ProjectReference']")) |
+        Where-Object {
+            [string]$_.Include -match 'SAAIA\.Client\.WinUI\.csproj$'
+        } |
+        Select-Object -First 1
+    if ($null -eq $clientProjectReference) {
+        throw "SkipBuild validation could not find the WinUI project reference."
+    }
+
+    $clientProject = [IO.Path]::GetFullPath((Join-Path `
+        (Split-Path -Parent $project) `
+        ([string]$clientProjectReference.Include)))
+    $clientBuildEvidence = Get-ProjectBuildEvidence -ProjectPath $clientProject
+    $copiedClientAssembly = Join-Path `
+        $testBuildEvidence.assemblyDirectory `
+        ([IO.Path]::GetFileName($clientBuildEvidence.assemblyPath))
+    if (-not (Test-Path -LiteralPath $copiedClientAssembly -PathType Leaf)) {
+        throw "SkipBuild validation found no copied WinUI assembly: $copiedClientAssembly"
+    }
+
+    $copiedClientSha256 = (Get-FileHash -LiteralPath $copiedClientAssembly `
+        -Algorithm SHA256).Hash
+    if ($copiedClientSha256 -ne $clientBuildEvidence.assemblySha256) {
+        throw (
+            "SkipBuild refused: copied WinUI assembly hash {0} differs from built assembly hash {1}." `
+                -f $copiedClientSha256,
+                $clientBuildEvidence.assemblySha256)
+    }
+
+    $buildEvidence = [ordered]@{
+        verified = $true
+        testAssembly = $testBuildEvidence
+        clientAssembly = $clientBuildEvidence
+        copiedClientAssemblyPath = $copiedClientAssembly
+        copiedClientAssemblySha256 = $copiedClientSha256
+    }
+}
+
 $env:SAAIA_LIVE_VALIDATION = "1"
 $env:SAAIA_VALIDATION_MANAGE_LOCAL_LLM_PROCESS = "0"
 $env:SAAIA_VALIDATION_LLM_BASE_URL = $LlmBaseUrl.TrimEnd("/")
 $env:SAAIA_VALIDATION_LLM_MODEL = $LlmModel
 $env:SAAIA_LIVE_FINAL_TIMEOUT_MINUTES = $TimeoutMinutes.ToString(
     [Globalization.CultureInfo]::InvariantCulture)
-$env:SAAIA_SOURCE_BACKED_ORCHESTRATION_PROFILE = $OrchestrationProfile
-if ($SourceBackedAgentV2) {
-    $env:SAAIA_SOURCE_BACKED_AGENT_V2 = "1"
-    $env:SAAIA_SOURCE_BACKED_AGENT_V2_CANDIDATE_AUDIT = if ($DisableSemanticCandidateAudit) {
-        "0"
-    } else {
-        "1"
-    }
-    $env:SAAIA_SOURCE_BACKED_AGENT_V2_CANDIDATE_AUDIT_BATCH_SIZE =
-        $SemanticCandidateAuditBatchSize.ToString([Globalization.CultureInfo]::InvariantCulture)
-    $env:SAAIA_SOURCE_BACKED_AGENT_V2_CANDIDATE_AUDIT_TOKENS =
-        $SemanticCandidateAuditTokens.ToString([Globalization.CultureInfo]::InvariantCulture)
+$env:SAAIA_SOURCE_BACKED_AGENT_V2_CANDIDATE_AUDIT = if ($DisableSemanticCandidateAudit) {
+    "0"
 } else {
-    Remove-Item Env:SAAIA_SOURCE_BACKED_AGENT_V2 -ErrorAction SilentlyContinue
-    Remove-Item Env:SAAIA_SOURCE_BACKED_AGENT_V2_CANDIDATE_AUDIT -ErrorAction SilentlyContinue
-    Remove-Item Env:SAAIA_SOURCE_BACKED_AGENT_V2_CANDIDATE_AUDIT_BATCH_SIZE -ErrorAction SilentlyContinue
-    Remove-Item Env:SAAIA_SOURCE_BACKED_AGENT_V2_CANDIDATE_AUDIT_TOKENS -ErrorAction SilentlyContinue
+    "1"
 }
+$env:SAAIA_SOURCE_BACKED_AGENT_V2_MAX_WORKING_EVIDENCE =
+    $MaximumWorkingEvidenceItems.ToString([Globalization.CultureInfo]::InvariantCulture)
+$env:SAAIA_SOURCE_BACKED_AGENT_V2_CANDIDATES_PER_AUDIT_TURN =
+    $MaximumSemanticCandidatesPerAuditTurn.ToString(
+        [Globalization.CultureInfo]::InvariantCulture)
+$env:SAAIA_SOURCE_BACKED_AGENT_V2_CANDIDATE_AUDIT_CONCURRENCY =
+    $MaximumSemanticCandidateAuditConcurrency.ToString(
+        [Globalization.CultureInfo]::InvariantCulture)
+$env:SAAIA_SOURCE_BACKED_AGENT_V2_REQUIRE_EVIDENCE_SELECTION =
+    if ($DisableEvidenceSelectionHandoff) { "0" } else { "1" }
 $samplingEnvironment = [ordered]@{
     SAAIA_LLM_TEMPERATURE = $Temperature
     SAAIA_LLM_TOP_P = $TopP
@@ -98,15 +202,18 @@ $samplingArtifact = Join-Path $results "sampling-profile.json"
     frequencyPenalty = $FrequencyPenalty
     presencePenalty = $PresencePenalty
     structuredSampling = $StructuredSampling
-    orchestrationProfile = $OrchestrationProfile
-    sourceBackedAgentV2 = [bool]$SourceBackedAgentV2
-    semanticCandidateAudit = [bool](
-        $SourceBackedAgentV2 -and -not $DisableSemanticCandidateAudit)
-    semanticCandidateAuditBatchSize = $SemanticCandidateAuditBatchSize
-    semanticCandidateAuditTokens = $SemanticCandidateAuditTokens
+    sourceBackedAgentV2 = $true
+    sourceBackedAgentV2Activation = "canonical_mandatory"
+    semanticCandidateAudit = [bool](-not $DisableSemanticCandidateAudit)
+    semanticCandidateAuditMode = "adaptive_batched_semantic_decision"
+    maximumWorkingEvidenceItems = $MaximumWorkingEvidenceItems
+    maximumSemanticCandidatesPerAuditTurn = $MaximumSemanticCandidatesPerAuditTurn
+    maximumSemanticCandidateAuditConcurrency = $MaximumSemanticCandidateAuditConcurrency
+    evidenceSelectionHandoff = [bool](-not $DisableEvidenceSelectionHandoff)
     skipBuild = [bool]$SkipBuild
     platform = $Platform
     configuration = $Configuration
+    buildEvidence = $buildEvidence
 } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $samplingArtifact -Encoding UTF8
 
 $safeModelName = (($LlmModel -replace "[^A-Za-z0-9._-]", "-").Trim("-"))
@@ -119,6 +226,7 @@ $testArguments = @(
     $project
     "-p:Platform=$Platform"
     "-p:Configuration=$Configuration"
+    "-p:UseSharedCompilation=false"
 )
 if ($SkipBuild) {
     $testArguments += "--no-build"
@@ -137,6 +245,24 @@ $testArguments += @(
 
 & dotnet @testArguments
 
-if ($LASTEXITCODE -ne 0) {
-    throw "Live model end-to-end test failed with exit code $LASTEXITCODE."
+$testExitCode = $LASTEXITCODE
+if ($testExitCode -ne 0) {
+    throw "Live model end-to-end test failed with exit code $testExitCode."
+}
+
+$trxPath = Join-Path $results "$safeModelName-live.trx"
+if (-not (Test-Path -LiteralPath $trxPath -PathType Leaf)) {
+    throw "Live model end-to-end test produced no TRX artifact: $trxPath"
+}
+
+[xml]$trx = Get-Content -LiteralPath $trxPath -Raw
+$counters = $trx.TestRun.ResultSummary.Counters
+$executedTests = 0
+if ($null -ne $counters -and $null -ne $counters.executed) {
+    [void][int]::TryParse(
+        [string]$counters.executed,
+        [ref]$executedTests)
+}
+if ($executedTests -le 0) {
+    throw "Live model end-to-end filter executed zero tests: $TestFilter"
 }

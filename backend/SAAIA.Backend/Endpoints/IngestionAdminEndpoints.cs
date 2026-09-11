@@ -65,9 +65,7 @@ public static class IngestionAdminEndpoints
 
         await using var conn = await ds.OpenConnectionAsync(ct);
 
-        int enqueued = 0;
-        int eligible = 0;
-
+        var candidates = new List<AdminScanCandidate>(files.Length);
         foreach (var abs in files)
         {
             string rel;
@@ -94,13 +92,47 @@ public static class IngestionAdminEndpoints
                 continue;
 
             var docCategory = IngestionCategoryResolver.Derive(rel, ingest);
+            candidates.Add(new AdminScanCandidate(abs, rel, docCategory, fi));
+        }
 
-            if (filterCategory is not null && docCategory != filterCategory)
+        var duplicates = await IngestionDuplicateFilePlanner
+            .FindDuplicatesByContentAsync(
+                candidates.Select(static candidate =>
+                    new IngestionDuplicateFileCandidate(
+                        candidate.RelativePath,
+                        candidate.AbsolutePath,
+                        candidate.File.Length,
+                        candidate.File.LastWriteTimeUtc)),
+                ct)
+            .ConfigureAwait(false);
+
+        int enqueued = 0;
+        int eligible = 0;
+        int suppressedDuplicateContent = 0;
+        foreach (var candidate in candidates)
+        {
+            if (filterCategory is not null && candidate.Category != filterCategory)
                 continue;
 
             eligible++;
+            if (duplicates.TryGetValue(candidate.RelativePath, out var duplicate))
+            {
+                suppressedDuplicateContent++;
+                log.LogInformation(
+                    "IngestionAdmin: duplicate PDF content suppressed for {DocPath}; canonical={CanonicalDocPath}",
+                    candidate.RelativePath,
+                    duplicate.CanonicalPath);
+                continue;
+            }
 
-            await IngestionEnqueue.EnqueueUpsertAsync(conn, tenantId, rel, docCategory, fi, ct, enqueueSource: "admin");
+            await IngestionEnqueue.EnqueueUpsertAsync(
+                conn,
+                tenantId,
+                candidate.RelativePath,
+                candidate.Category,
+                candidate.File,
+                ct,
+                enqueueSource: "admin");
             enqueued++;
         }
 
@@ -111,12 +143,34 @@ public static class IngestionAdminEndpoints
             actorIsAdmin,
             action: "ingestion.scan",
             target: "ingestion.scan",
-            payload: new { scanned = files.Length, eligible, enqueued, max = maxEff, category = filterCategory },
+            payload: new
+            {
+                scanned = files.Length,
+                eligible,
+                enqueued,
+                suppressedDuplicateContent,
+                max = maxEff,
+                category = filterCategory
+            },
             ip: ctx.Connection.RemoteIpAddress?.ToString(),
             ct: ct);
 
-        return Results.Ok(new { scanned = files.Length, eligible, enqueued, max = maxEff, category = filterCategory });
+        return Results.Ok(new
+        {
+            scanned = files.Length,
+            eligible,
+            enqueued,
+            suppressedDuplicateContent,
+            max = maxEff,
+            category = filterCategory
+        });
     }
+
+    private sealed record AdminScanCandidate(
+        string AbsolutePath,
+        string RelativePath,
+        string Category,
+        FileInfo File);
 
     private static async Task<IResult> ListJobsAsync(
         HttpContext ctx,

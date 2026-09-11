@@ -117,7 +117,18 @@ public sealed partial class ToolAgentOrchestrator
             sb.Append(' ');
             sb.Append(safeKey);
             sb.Append('=');
-            sb.Append(FormatRagTraceFieldValue(value));
+            var maximumStringCharacters =
+                safeKey.Equals(
+                    "source_fields",
+                    StringComparison.OrdinalIgnoreCase)
+                || safeKey.Equals(
+                    "route_arguments",
+                    StringComparison.OrdinalIgnoreCase)
+                    ? 1200
+                    : DefaultRagTraceValueChars;
+            sb.Append(FormatRagTraceFieldValue(
+                value,
+                maximumStringCharacters));
         }
 
         sb.Append(']');
@@ -136,7 +147,9 @@ public sealed partial class ToolAgentOrchestrator
         return string.IsNullOrWhiteSpace(normalized) ? fallback : normalized;
     }
 
-    private static string FormatRagTraceFieldValue(object? value)
+    private static string FormatRagTraceFieldValue(
+        object? value,
+        int maximumStringCharacters)
     {
         if (value is null)
             return "null";
@@ -150,14 +163,18 @@ public sealed partial class ToolAgentOrchestrator
             float f => f.ToString("0.###", CultureInfo.InvariantCulture),
             decimal m => m.ToString(CultureInfo.InvariantCulture),
             TimeSpan ts => Math.Round(ts.TotalMilliseconds).ToString(CultureInfo.InvariantCulture),
-            string s => JsonSerializer.Serialize(FormatRagTraceValue(s, DefaultRagTraceValueChars)),
+            string s => JsonSerializer.Serialize(FormatRagTraceValue(
+                s,
+                maximumStringCharacters)),
             IEnumerable<string> strings => JsonSerializer.Serialize(strings
                 .Where(static item => !string.IsNullOrWhiteSpace(item))
                 .Select(static item => FormatRagTraceValue(item, 120))
                 .Take(16)
                 .ToArray()),
             IEnumerable enumerable => JsonSerializer.Serialize(FormatRagTraceEnumerable(enumerable)),
-            _ => JsonSerializer.Serialize(FormatRagTraceValue(value.ToString(), DefaultRagTraceValueChars))
+            _ => JsonSerializer.Serialize(FormatRagTraceValue(
+                value.ToString(),
+                maximumStringCharacters))
         };
     }
 
@@ -190,6 +207,8 @@ public sealed partial class ToolAgentOrchestrator
         var explorationTraces = _mem.Execution.LastRagEvidenceExploration ?? new List<ToolMemory.RagEvidenceExplorationTrace>();
         EmitRagTrace(
             "research.inventory.start",
+            ("trace_path", "rag.research.inventory"),
+            ("trace_step", "start"),
             ("query", query),
             ("kind", analysis.Kind),
             ("reason", analysis.Reason),
@@ -207,6 +226,8 @@ public sealed partial class ToolAgentOrchestrator
             analysis);
         EmitRagTrace(
             "research.inventory.snapshot",
+            ("trace_path", "rag.research.inventory"),
+            ("trace_step", "snapshot"),
             ("candidate_count", snapshot.CandidateCount),
             ("candidate_titles", snapshot.CandidateTitles),
             ("distinct_candidate_pages", snapshot.DistinctCandidatePageCount),
@@ -217,6 +238,8 @@ public sealed partial class ToolAgentOrchestrator
 
         EmitRagTrace(
             "research.inventory",
+            ("trace_path", "rag.research.inventory"),
+            ("trace_step", "end"),
             ("query", query),
             ("kind", analysis.Kind),
             ("reason", analysis.Reason),
@@ -255,33 +278,41 @@ public sealed partial class ToolAgentOrchestrator
         SourceBackedEvidenceSufficiency analysis)
     {
         var candidateSw = Stopwatch.StartNew();
-        List<SourceBackedOptionCandidate> candidates;
+        var normalizedQuery = query ?? string.Empty;
+        List<RagHitSummary> sourcePages;
         try
         {
             var diagnosticCandidateLimit = Math.Clamp(Math.Max(analysis.MinimumCandidateCount, 24), 12, 48);
-            candidates = SelectSourceBackedPlanningCandidates(
-                    toolResults,
-                    query,
-                    diagnosticCandidateLimit,
-                    NormalizeLanguageCode(language),
-                    requireStrictStructuredEvidence: ShouldGateStructuredSourceBackedPlanningCoverage(query))
+            var strictStructuredPlanning = ShouldGateStructuredSourceBackedPlanningCoverage(normalizedQuery);
+            sourcePages = EnumerateRagHitSummaries(toolResults)
+                .Where(ShouldExposeHitForSourceBackedEvidenceDiscovery)
+                .Where(static hit => !LooksLikePageReferenceOnlyHit(hit))
+                .Where(hit => !LooksLikeLowSignalAppFeatureHit(hit, normalizedQuery))
+                .Where(hit => !strictStructuredPlanning
+                    || ShouldExposeHitForStrictSourceBackedPlanningInventory(hit, normalizedQuery))
+                .OrderByDescending(static hit => BackendSelectionHintsPreferUsableEvidence(hit) ? 1 : 0)
+                .ThenByDescending(static hit => ComputeSourceBackedEvidenceRichnessScore(hit))
+                .ThenByDescending(static hit => hit.Score)
+                .GroupBy(BuildRagHitVisiblePageMergeKey, StringComparer.OrdinalIgnoreCase)
+                .Select(static group => group.First())
+                .Take(diagnosticCandidateLimit)
                 .ToList();
         }
         catch
         {
-            candidates = new List<SourceBackedOptionCandidate>();
+            sourcePages = new List<RagHitSummary>();
         }
 
         var candidateMs = candidateSw.ElapsedMilliseconds;
-        var titles = candidates
-            .Select(static candidate => candidate.Title)
+        var titles = sourcePages
+            .Select(hit => BuildSourceBackedResearchInventoryHitTitle(hit, normalizedQuery))
             .Where(static title => !string.IsNullOrWhiteSpace(title))
             .Select(title => TruncateForPrompt(title, 120))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(12)
             .ToArray();
-        var distinctCandidatePageCount = candidates
-            .Select(static candidate => BuildRagHitVisiblePageMergeKey(candidate.Hit))
+        var distinctCandidatePageCount = sourcePages
+            .Select(BuildRagHitVisiblePageMergeKey)
             .Where(static key => !string.IsNullOrWhiteSpace(key))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Count();
@@ -290,20 +321,25 @@ public sealed partial class ToolAgentOrchestrator
         var preview = new List<string>();
         try
         {
-            foreach (var candidate in candidates.Take(8))
+            foreach (var hit in sourcePages.Take(8))
             {
-                AddSourceBackedCandidateLeadLine(preview, "item", candidate.Title, candidate.Hit, language);
+                var title = BuildSourceBackedResearchInventoryHitTitle(hit, normalizedQuery);
+                AddSourceBackedCandidateLeadLine(preview, "source_page", title, hit, language);
             }
 
             if (preview.Count == 0)
             {
                 foreach (var hit in EnumerateRagHitSummaries(toolResults)
                     .Where(ShouldExposeHitForSourceBackedEvidenceDiscovery)
+                    .Where(static hit => !LooksLikePageReferenceOnlyHit(hit))
+                    .Where(hit => !LooksLikeLowSignalAppFeatureHit(hit, normalizedQuery))
+                    .Where(hit => !ShouldGateStructuredSourceBackedPlanningCoverage(normalizedQuery)
+                        || ShouldExposeHitForStrictSourceBackedPlanningInventory(hit, normalizedQuery))
                     .OrderByDescending(static hit => ComputeSourceBackedEvidenceRichnessScore(hit))
                     .ThenByDescending(static hit => hit.Score)
                     .Take(8))
                 {
-                    var title = ExtractReadablePartialPlanningLeadTitle(hit, query);
+                    var title = ExtractReadablePartialPlanningLeadTitle(hit, normalizedQuery);
                     if (string.IsNullOrWhiteSpace(title))
                         title = CollapseWhitespace(hit.SectionTitle ?? hit.HeadingPath ?? string.Empty);
                     if (string.IsNullOrWhiteSpace(title))
@@ -324,10 +360,35 @@ public sealed partial class ToolAgentOrchestrator
                 .Select(line => TruncateForPrompt(line, 220))
                 .Take(8)
                 .ToArray(),
-            candidates.Count,
+            sourcePages.Count,
             distinctCandidatePageCount,
             candidateMs,
             previewSw.ElapsedMilliseconds);
+    }
+
+    private static string BuildSourceBackedResearchInventoryHitTitle(RagHitSummary hit, string query)
+    {
+        if (ShouldGateStructuredSourceBackedPlanningCoverage(query))
+            return BuildSourceBackedPlanningRuntimeTraceTitle(hit, query);
+
+        var title = ExtractReadablePartialPlanningLeadTitle(hit, query);
+        if (!string.IsNullOrWhiteSpace(title))
+            return title;
+
+        title = CollapseWhitespace(hit.SectionTitle ?? hit.HeadingPath ?? string.Empty);
+        if (!string.IsNullOrWhiteSpace(title))
+            return title;
+
+        title = hit.MatchedContentCards?
+            .Select(static card => CollapseWhitespace(card.Title))
+            .FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(title))
+            return title;
+
+        title = FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(hit), maxLength: 100);
+        return string.IsNullOrWhiteSpace(title)
+            ? "source-backed context"
+            : title;
     }
 
     private void RememberSourceBackedEvidenceExplorationPass(

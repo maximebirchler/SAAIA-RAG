@@ -4,12 +4,242 @@ using System.Linq;
 using System.Text.Json;
 using SAAIA.Client.WinUI.Localization;
 using SAAIA.Client.WinUI.Services.ToolAgent;
+using SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag;
 using Xunit;
 
 namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class ToolRouterPlanNormalizationTests
 {
+    [Fact]
+    public void Minimal_unstructured_router_json_uses_safe_model_defaults()
+    {
+        const string json = """
+            {
+              "toolCalls": [
+                {
+                  "name": "rag.search",
+                  "args": {
+                    "query": "dessert chocolat facile",
+                    "topK": 8,
+                    "category": "Cuisine",
+                    "mode": "balanced"
+                  }
+                }
+              ],
+              "sourceBackedMission": {
+                "deliverable": "un dessert au chocolat facile",
+                "atomicEvidenceType": "dessert complet et utilisable",
+                "initialCapability": "rag_search"
+              }
+            }
+            """;
+
+        var plan = JsonSerializer.Deserialize<RouterPlan>(
+            json,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+        Assert.NotNull(plan);
+        Assert.Equal("auto", plan!.Mode);
+        Assert.Equal("chat.general", plan.Intent);
+        var call = Assert.Single(plan.ToolCalls);
+        Assert.Equal("Cuisine", call.Args.GetProperty("category").GetString());
+        Assert.NotNull(plan.SourceBackedMission);
+        Assert.False(plan.SourceBackedMission!.StructuredLayout);
+        Assert.Equal(1, plan.SourceBackedMission.RowCount);
+        Assert.Equal(1, plan.SourceBackedMission.ColumnCount);
+        Assert.Equal(1, plan.SourceBackedMission.AtomicEvidenceCount);
+        Assert.Empty(plan.SourceBackedMission.RowLabels);
+        Assert.Empty(plan.SourceBackedMission.Columns);
+    }
+
+    [Fact]
+    public void Canonical_agent_preserves_the_llm_source_backed_router_decision()
+    {
+        var plan = new RouterPlan
+        {
+            Origin = RouterPlanOrigin.Llm,
+            Intent = "rag.answer",
+            SourceBackedMission = new RouterPlan.SourceBackedMissionPlan
+            {
+                Deliverable = "une option sourcee",
+                AtomicEvidenceCount = 1,
+                AtomicEvidenceType = "option complete"
+            },
+            ToolCalls = new List<RouterPlan.ToolCall>
+            {
+                new()
+                {
+                    Name = "rag.search",
+                    Args = JsonSerializer.SerializeToElement(new
+                    {
+                        query = "option documentee",
+                        category = "Knowledge"
+                    })
+                }
+            }
+        };
+
+        Assert.True(
+            ToolAgentOrchestrator
+                .ShouldPreserveCanonicalSourceBackedRouterDecisionForTests(
+                    plan,
+                    sourceBackedAgentAvailable: true));
+        Assert.False(
+            ToolAgentOrchestrator
+                .ShouldPreserveCanonicalSourceBackedRouterDecisionForTests(
+                    plan,
+                    sourceBackedAgentAvailable: false));
+
+        plan.ToolCalls =
+        [
+            new RouterPlan.ToolCall
+            {
+                Name = "documents.navigation",
+                Args = JsonSerializer.SerializeToElement(new
+                {
+                    docRef = "Technical/FIT.pdf",
+                    docPath = "Technical/FIT.pdf",
+                    q = "FIT.pdf"
+                })
+            }
+        ];
+        Assert.True(
+            ToolAgentOrchestrator
+                .ShouldPreserveCanonicalSourceBackedRouterDecisionForTests(
+                    plan,
+                    sourceBackedAgentAvailable: true));
+
+        plan.ToolCalls.Clear();
+        Assert.True(
+            ToolAgentOrchestrator
+                .ShouldPreserveCanonicalSourceBackedRouterDecisionForTests(
+                    plan,
+                    sourceBackedAgentAvailable: true));
+        Assert.True(
+            ToolAgentOrchestrator
+                .ShouldUseSourceBackedRagPipelineForTests(plan));
+
+        plan.Origin = RouterPlanOrigin.LocalFallback;
+        Assert.False(
+            ToolAgentOrchestrator
+                .ShouldPreserveCanonicalSourceBackedRouterDecisionForTests(
+                    plan,
+                    sourceBackedAgentAvailable: true));
+        Assert.False(
+            ToolAgentOrchestrator
+                .ShouldUseSourceBackedRagPipelineForTests(plan));
+    }
+
+    [Fact]
+    public void Router_search_arguments_are_projected_without_semantic_expansion()
+    {
+        var arguments = JsonSerializer.SerializeToElement(new
+        {
+            queries = new[] { "dessert chocolat facile" },
+            topK = 5,
+            category = "Cuisine",
+            mode = "focused",
+            docId = (string?)null,
+            pageStart = (int?)null,
+            researchMode = "source_exploration",
+            includeResearchSurfaces = true
+        });
+
+        var normalized =
+            SourceBackedAgentToolCatalog.NormalizeRouterArguments(
+                "rag.multi_search",
+                arguments);
+
+        Assert.Equal(
+            "dessert chocolat facile",
+            normalized.GetProperty("queries")[0].GetString());
+        Assert.Equal(5, normalized.GetProperty("topK").GetInt32());
+        Assert.Equal(
+            "Cuisine",
+            normalized.GetProperty("categoryPath").GetString());
+        Assert.Equal("focused", normalized.GetProperty("mode").GetString());
+        Assert.False(normalized.TryGetProperty("category", out _));
+        Assert.False(normalized.TryGetProperty("docId", out _));
+        Assert.False(normalized.TryGetProperty("pageStart", out _));
+        Assert.False(normalized.TryGetProperty("researchMode", out _));
+        Assert.False(
+            normalized.TryGetProperty("includeResearchSurfaces", out _));
+    }
+
+    [Theory]
+    [InlineData("documents.context")]
+    [InlineData("documents.navigation")]
+    public void Router_document_action_preserves_semantic_query_as_internal_hint(
+        string toolName)
+    {
+        const string semanticQuery = "six fonctions principales du CSF 2.0";
+        var plan = new RouterPlan
+        {
+            Origin = RouterPlanOrigin.Llm,
+            ToolCalls =
+            [
+                new RouterPlan.ToolCall
+                {
+                    Name = toolName,
+                    Args = JsonSerializer.SerializeToElement(new
+                    {
+                        query = semanticQuery,
+                        docRef = "NIST_CSF_2_0.pdf",
+                        limit = 5
+                    })
+                }
+            ]
+        };
+
+        var action = Assert.Single(
+            ToolAgentOrchestrator
+                .BuildSourceBackedRouterInitialActionsForTests(plan));
+
+        Assert.Equal(semanticQuery, action.QueryHint);
+        Assert.False(action.Arguments.TryGetProperty("query", out _));
+    }
+
+    [Theory]
+    [InlineData("context", "documents_context")]
+    [InlineData("navigate", "documents_navigation")]
+    public void Native_named_document_route_carries_its_semantic_query_to_the_scoped_initial_action(
+        string routeTool,
+        string expectedExternalTool)
+    {
+        const string request =
+            "Dans NIST Cybersecurity Framework 2.0.pdf, quelles sont les six fonctions principales du CSF 2.0 ?";
+        const string semanticQuery = "six fonctions principales du CSF 2.0";
+        var result = ToolAgentOrchestrator.TryBuildNativeRouterPlanForTests(
+            new ToolMemory(),
+            request,
+            "submit_source_backed_route",
+            JsonSerializer.Serialize(new
+            {
+                tool = routeTool,
+                intent = "answer",
+                query = semanticQuery,
+                answerUnitType = "fonction principale",
+                answerUnitMode = "content_claim",
+                selectionPolicy = "explicit_set",
+                useFocusedDocument = false,
+                questionFocus = "content",
+                namedReferenceKind = "document",
+                document = "NIST Cybersecurity Framework 2.0.pdf",
+                pool = 10,
+                count = 6
+            }));
+
+        Assert.True(result.Accepted, result.FailureReason);
+        var action = Assert.Single(
+            ToolAgentOrchestrator.BuildSourceBackedRouterInitialActionsForTests(
+                result.Plan));
+
+        Assert.Equal(expectedExternalTool, action.ToolName);
+        Assert.Equal(semanticQuery, action.QueryHint);
+        Assert.False(action.Arguments.TryGetProperty("query", out _));
+    }
+
     [Theory]
     [InlineData("set_mode", "meta.set_mode")]
     [InlineData("documents.search", "inventory.find")]
@@ -348,6 +578,39 @@ public sealed class ToolRouterPlanNormalizationTests
         Assert.Equal("rag.multi_search", call.Name);
         Assert.True(call.Args.GetProperty("topK").GetInt32() >= 8);
         Assert.True(call.Args.GetProperty("queries").GetArrayLength() > 1);
+    }
+
+    [Fact]
+    public void Documentary_defaults_do_not_inject_retrieval_into_an_llm_source_mission()
+    {
+        var plan = new RouterPlan
+        {
+            Intent = "rag.answer",
+            Language = "fr",
+            Mode = "strict",
+            Origin = RouterPlanOrigin.Llm,
+            SourceBackedMission = new RouterPlan.SourceBackedMissionPlan
+            {
+                PlanKind = "structured_layout",
+                Deliverable = "un planning source",
+                StructuredLayout = true,
+                RowCount = 5,
+                ColumnCount = 4,
+                AtomicEvidenceCount = 20,
+                AtomicEvidenceType = "une instance complete par cellule"
+            }
+        };
+
+        ToolAgentOrchestrator.ApplyDocumentaryRagDefaultsForTests(
+            plan,
+            "Je veux un planning source du lundi au vendredi.");
+
+        Assert.Equal("rag.answer", plan.Intent);
+        Assert.Empty(plan.ToolCalls);
+        Assert.Equal(
+            "structured_layout",
+            Assert.IsType<RouterPlan.SourceBackedMissionPlan>(
+                plan.SourceBackedMission).PlanKind);
     }
 
     [Fact]
@@ -1017,7 +1280,9 @@ public sealed class ToolRouterPlanNormalizationTests
         Assert.DoesNotContain(firstBudgetedExplorationQueries, query => string.Equals(query, "index", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(
             firstBudgetedExplorationQueries,
-            query => ContainsNormalizedToken(query, "options") || ContainsNormalizedToken(query, "candidats"));
+            query => ContainsNormalizedToken(query, "options")
+                     || ContainsNormalizedToken(query, "propositions")
+                     || ContainsNormalizedToken(query, "preparations"));
 
         static bool ContainsNormalizedToken(string query, string token)
             => ToolAgentOrchestrator.NormalizeRagQueryForTests(query)
@@ -1130,6 +1395,68 @@ public sealed class ToolRouterPlanNormalizationTests
     }
 
     [Fact]
+    public void Explicit_document_file_reference_excludes_the_request_wrapper()
+    {
+        const string query =
+            "Retrouve exactement la fiche FIT-PTFE_TF_1620-EN.pdf et donne uniquement les informations sourcées par ce PDF.";
+
+        Assert.Equal(
+            "FIT-PTFE_TF_1620-EN.pdf",
+            ToolAgentOrchestrator.TryExtractPdfFileNameRequestedTitleForTests(query));
+        Assert.Equal(
+            ["FIT-PTFE_TF_1620-EN.pdf"],
+            ToolAgentOrchestrator.ExtractExplicitDocumentFileReferenceQueriesForTests(query));
+    }
+
+    [Theory]
+    [InlineData(
+        "Find the file Annual Report 2024.pdf and summarize it.",
+        "Annual Report 2024.pdf")]
+    [InlineData(
+        "Ouvre le fichier Rapport annuel 2024.pdf et résume-le.",
+        "Rapport annuel 2024.pdf")]
+    [InlineData(
+        "Öffne die Datei Jahresbericht 2024.pdf und fasse sie zusammen.",
+        "Jahresbericht 2024.pdf")]
+    [InlineData(
+        "Abre el archivo Informe anual 2024.pdf y resúmelo.",
+        "Informe anual 2024.pdf")]
+    [InlineData(
+        "Abra o ficheiro Relatório anual 2024.pdf e resuma-o.",
+        "Relatório anual 2024.pdf")]
+    [InlineData(
+        "Apri il documento Rapporto annuale 2024.pdf e riassumilo.",
+        "Rapporto annuale 2024.pdf")]
+    public void Explicit_document_file_reference_removes_generic_multilingual_wrappers(
+        string query,
+        string expected)
+    {
+        Assert.Equal(
+            expected,
+            ToolAgentOrchestrator.TryExtractPdfFileNameRequestedTitleForTests(query));
+        Assert.Equal(
+            [expected],
+            ToolAgentOrchestrator.ExtractExplicitDocumentFileReferenceQueriesForTests(query));
+    }
+
+    [Theory]
+    [InlineData("Open Questions.pdf", "Open Questions.pdf")]
+    [InlineData(
+        "Open C:\\Docs\\Annual Report 2024.pdf and summarize it.",
+        "Annual Report 2024.pdf")]
+    [InlineData(
+        "Read \"Annual Report 2024.pdf\" and summarize it.",
+        "Annual Report 2024.pdf")]
+    public void Explicit_document_file_reference_preserves_standalone_path_and_quoted_names(
+        string query,
+        string expected)
+    {
+        Assert.Equal(
+            expected,
+            ToolAgentOrchestrator.TryExtractPdfFileNameRequestedTitleForTests(query));
+    }
+
+    [Fact]
     public void Comparative_documentary_requests_count_separate_explicit_files()
     {
         const string query = "Compare NFPA 79 2024 Electrical Standard for Industrial Machinery.pdf et UL 508A 2018 Industrial Control Panels - Scan.pdf sur machine industrielle vs panneaux industriels.";
@@ -1236,43 +1563,40 @@ public sealed class ToolRouterPlanNormalizationTests
     }
 
     [Fact]
-    public void Ranking_documentary_request_overrides_premature_router_clarification()
-    {
-        var plan = new RouterPlan
-        {
-            Intent = "chat.general",
-            Language = "fr",
-            NeedClarification = true,
-            ClarificationQuestions = new() { "Tu veux comparer comment ?" }
-        };
-
-        ToolAgentOrchestrator.ApplySourceBackedClarificationOverrideForTests(
-            plan,
-            "Quel dessert est le plus technique ?");
-
-        Assert.False(plan.NeedClarification);
-        Assert.Empty(plan.ClarificationQuestions);
-        Assert.Equal("rag.answer", plan.Intent);
-    }
-
-    [Fact]
-    public void Exact_item_card_request_overrides_premature_router_clarification()
+    public void Documentary_defaults_preserve_an_llm_owned_clarification()
     {
         var plan = new RouterPlan
         {
             Intent = "clarification",
             Language = "fr",
+            Origin = RouterPlanOrigin.Llm,
             NeedClarification = true,
-            ClarificationQuestions = new() { "Quel document ?" }
+            ClarificationQuestions = new()
+            {
+                "Souhaitez-vous composer le planning recette par recette ou rechercher un planning deja constitue ?"
+            },
+            Clarification = new RouterPlan.ClarificationDecisionPlan
+            {
+                Message = "J'ai compris que vous souhaitez un planning de repas. Quelle strategie dois-je suivre ?",
+                Options = new()
+                {
+                    "Composer chaque creneau avec des recettes de la base",
+                    "Chercher un planning hebdomadaire deja constitue"
+                },
+                ExecutionImpact = "La reponse determine la strategie de recherche.",
+                ResumeRoute = "source_backed_grid",
+                AmbiguityKind = "route"
+            }
         };
 
-        ToolAgentOrchestrator.ApplySourceBackedClarificationOverrideForTests(
+        ToolAgentOrchestrator.ApplyDocumentaryRagDefaultsForTests(
             plan,
-            "Tu peux me faire une fiche claire pour \u00ab Churros sauce chocolat \u00bb : ingr\u00e9dients, \u00e9tapes, temps et source ?");
+            "J'ai besoin d'un planning de repas pour la semaine.");
 
-        Assert.False(plan.NeedClarification);
-        Assert.Empty(plan.ClarificationQuestions);
-        Assert.Equal("rag.answer", plan.Intent);
+        Assert.True(plan.NeedClarification);
+        Assert.Equal("clarification", plan.Intent);
+        Assert.Empty(plan.ToolCalls);
+        Assert.NotNull(plan.Clarification);
     }
 
     [Theory]
@@ -1288,46 +1612,6 @@ public sealed class ToolRouterPlanNormalizationTests
         };
 
         Assert.False(ToolAgentOrchestrator.ShouldRunDocumentaryProbeForTests(query, plan));
-    }
-
-    [Fact]
-    public void Source_backed_action_request_overrides_premature_router_clarification()
-    {
-        var plan = new RouterPlan
-        {
-            Intent = "chat.general",
-            Language = "fr",
-            NeedClarification = true,
-            ClarificationQuestions = new() { "Quel type de recette cherchez-vous ?" }
-        };
-
-        ToolAgentOrchestrator.ApplySourceBackedClarificationOverrideForTests(
-            plan,
-            "Tu peux me faire une idee de batch cooking avec cuisson parallele ?");
-
-        Assert.False(plan.NeedClarification);
-        Assert.Empty(plan.ClarificationQuestions);
-        Assert.Equal("rag.answer", plan.Intent);
-    }
-
-    [Fact]
-    public void Broad_documentary_information_request_overrides_premature_router_clarification()
-    {
-        var plan = new RouterPlan
-        {
-            Intent = "chat.general",
-            Language = "fr",
-            NeedClarification = true,
-            ClarificationQuestions = new() { "Quel document voulez-vous utiliser ?" }
-        };
-
-        ToolAgentOrchestrator.ApplySourceBackedClarificationOverrideForTests(
-            plan,
-            "Je veux des informations sur l'inertage.");
-
-        Assert.False(plan.NeedClarification);
-        Assert.Empty(plan.ClarificationQuestions);
-        Assert.Equal("rag.answer", plan.Intent);
     }
 
     [Fact]

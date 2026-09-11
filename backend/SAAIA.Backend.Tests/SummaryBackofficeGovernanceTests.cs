@@ -793,7 +793,7 @@ VALUES(
   @docId,
   'medium',
   'fr',
-  md5(@docPath || '||'),
+  (SELECT saaia_document_summary_source_hash(content_hash, doc_path, file_size, file_mtime, indexed_version) FROM documents WHERE tenant_id=@tenant AND doc_id=@docId),
   'Too short.',
   '{"qualityScore":0.20,"strategy":"llm","runtimeCapabilityStatus":"selected"}'::jsonb,
   now(),
@@ -801,6 +801,7 @@ VALUES(
 );
 """,
                     new { tenant = tenantId, docId, newerDistractorDocId, docPath });
+                await SeedCurrentLlmProfileAsync(conn, tenantId, docId);
             }
 
             await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -1045,24 +1046,24 @@ VALUES(
             var missingPayload = await ExecuteResultAsync<JsonElement>(missingResult, missingCtx);
             var missingItem = Assert.Single(
                 missingPayload.GetProperty("items").EnumerateArray(),
-                item => item.GetProperty("DocId").GetGuid() == docId);
+                item => item.GetProperty("docId").GetGuid() == docId);
 
-            Assert.Equal("missing", missingItem.GetProperty("SummaryState").GetString());
+            Assert.Equal("missing", missingItem.GetProperty("summaryState").GetString());
             Assert.True(missingItem.GetProperty("hasActiveSummaryJob").GetBoolean());
-            Assert.Equal("summary.generate", missingItem.GetProperty("ActiveSummaryJobType").GetString());
-            Assert.Equal("queued", missingItem.GetProperty("ActiveSummaryJobStatus").GetString());
-            Assert.Equal("server_backoffice", missingItem.GetProperty("ActiveSummaryJobExecutionMode").GetString());
-            Assert.Equal("capability_b.backoffice_generation", missingItem.GetProperty("ActiveSummaryJobRuntimeCapabilityKey").GetString());
-            Assert.Equal("selected", missingItem.GetProperty("ActiveSummaryJobRuntimeCapabilityStatus").GetString());
-            Assert.Equal("capability_b", missingItem.GetProperty("ActiveSummaryJobEnqueueSource").GetString());
-            Assert.Equal(enqueuePayload.CampaignId, missingItem.GetProperty("ActiveSummaryJobCampaignId").GetGuid());
-            Assert.False(missingItem.GetProperty("CapabilityBReadyToEnqueue").GetBoolean());
-            Assert.Equal("review_active_summary_job", missingItem.GetProperty("CapabilityBRecommendedAction").GetString());
-            Assert.True(missingItem.GetProperty("CapabilityBPolicyBlocked").GetBoolean());
-            Assert.Equal("active_summary_job_exists", missingItem.GetProperty("CapabilityBPolicyBlockReason").GetString());
-            Assert.Equal("queued", missingItem.GetProperty("CapabilityBLastJobStatus").GetString());
-            Assert.Contains("summary_missing", GetStringArray(missingItem.GetProperty("CapabilityBReasons")));
-            Assert.Contains("summary_job_active", GetStringArray(missingItem.GetProperty("CapabilityBReasons")));
+            Assert.Equal("summary.generate", missingItem.GetProperty("activeSummaryJobType").GetString());
+            Assert.Equal("queued", missingItem.GetProperty("activeSummaryJobStatus").GetString());
+            Assert.Equal("server_backoffice", missingItem.GetProperty("activeSummaryJobExecutionMode").GetString());
+            Assert.Equal("capability_b.backoffice_generation", missingItem.GetProperty("activeSummaryJobRuntimeCapabilityKey").GetString());
+            Assert.Equal("selected", missingItem.GetProperty("activeSummaryJobRuntimeCapabilityStatus").GetString());
+            Assert.Equal("capability_b", missingItem.GetProperty("activeSummaryJobEnqueueSource").GetString());
+            Assert.Equal(enqueuePayload.CampaignId, missingItem.GetProperty("activeSummaryJobCampaignId").GetGuid());
+            Assert.False(missingItem.GetProperty("capabilityBReadyToEnqueue").GetBoolean());
+            Assert.Equal("review_active_summary_job", missingItem.GetProperty("capabilityBRecommendedAction").GetString());
+            Assert.True(missingItem.GetProperty("capabilityBPolicyBlocked").GetBoolean());
+            Assert.Equal("active_summary_job_exists", missingItem.GetProperty("capabilityBPolicyBlockReason").GetString());
+            Assert.Equal("queued", missingItem.GetProperty("capabilityBLastJobStatus").GetString());
+            Assert.Contains("summary_missing", GetStringArray(missingItem.GetProperty("capabilityBReasons")));
+            Assert.Contains("summary_job_active", GetStringArray(missingItem.GetProperty("capabilityBReasons")));
 
             var catalogCtx = BuildAdminContext(backofficeEnabled: true);
             var catalogResult = await SummaryEndpoints.CatalogSummariesAsync(
@@ -1076,16 +1077,16 @@ VALUES(
             var catalogPayload = await ExecuteResultAsync<JsonElement>(catalogResult, catalogCtx);
             var catalogItem = Assert.Single(
                 catalogPayload.GetProperty("value").EnumerateArray(),
-                item => item.GetProperty("DocId").GetGuid() == docId);
+                item => item.GetProperty("docId").GetGuid() == docId);
 
-            Assert.Equal("missing", catalogItem.GetProperty("SummaryState").GetString());
+            Assert.Equal("missing", catalogItem.GetProperty("summaryState").GetString());
             Assert.True(catalogItem.GetProperty("hasActiveSummaryJob").GetBoolean());
-            Assert.Equal("server_backoffice", catalogItem.GetProperty("ActiveSummaryJobExecutionMode").GetString());
-            Assert.Equal("capability_b.backoffice_generation", catalogItem.GetProperty("ActiveSummaryJobRuntimeCapabilityKey").GetString());
-            Assert.Equal(enqueuePayload.CampaignId, catalogItem.GetProperty("ActiveSummaryJobCampaignId").GetGuid());
-            Assert.False(catalogItem.GetProperty("CapabilityBReadyToEnqueue").GetBoolean());
-            Assert.True(catalogItem.GetProperty("CapabilityBPolicyBlocked").GetBoolean());
-            Assert.Equal("active_summary_job_exists", catalogItem.GetProperty("CapabilityBPolicyBlockReason").GetString());
+            Assert.Equal("server_backoffice", catalogItem.GetProperty("activeSummaryJobExecutionMode").GetString());
+            Assert.Equal("capability_b.backoffice_generation", catalogItem.GetProperty("activeSummaryJobRuntimeCapabilityKey").GetString());
+            Assert.Equal(enqueuePayload.CampaignId, catalogItem.GetProperty("activeSummaryJobCampaignId").GetGuid());
+            Assert.False(catalogItem.GetProperty("capabilityBReadyToEnqueue").GetBoolean());
+            Assert.True(catalogItem.GetProperty("capabilityBPolicyBlocked").GetBoolean());
+            Assert.Equal("active_summary_job_exists", catalogItem.GetProperty("capabilityBPolicyBlockReason").GetString());
         }
         finally
         {
@@ -1168,18 +1169,18 @@ VALUES(
             var missingPayload = await ExecuteResultAsync<JsonElement>(missingResult, missingCtx);
             var missingItem = Assert.Single(
                 missingPayload.GetProperty("items").EnumerateArray(),
-                item => item.GetProperty("DocId").GetGuid() == docId);
+                item => item.GetProperty("docId").GetGuid() == docId);
 
-            Assert.Equal("missing", missingItem.GetProperty("SummaryState").GetString());
+            Assert.Equal("missing", missingItem.GetProperty("summaryState").GetString());
             Assert.False(missingItem.GetProperty("hasActiveSummaryJob").GetBoolean());
-            Assert.False(missingItem.GetProperty("CapabilityBReadyToEnqueue").GetBoolean());
-            Assert.True(missingItem.GetProperty("CapabilityBPolicyBlocked").GetBoolean());
-            Assert.Equal("recent_summary_job_failure", missingItem.GetProperty("CapabilityBPolicyBlockReason").GetString());
-            Assert.Equal("inspect_recent_summary_failure", missingItem.GetProperty("CapabilityBRecommendedAction").GetString());
-            Assert.Equal("failed", missingItem.GetProperty("CapabilityBLastJobStatus").GetString());
-            Assert.Equal("model timeout", missingItem.GetProperty("CapabilityBLastJobError").GetString());
-            Assert.Contains("summary_missing", GetStringArray(missingItem.GetProperty("CapabilityBReasons")));
-            Assert.Contains("recent_summary_failure", GetStringArray(missingItem.GetProperty("CapabilityBReasons")));
+            Assert.False(missingItem.GetProperty("capabilityBReadyToEnqueue").GetBoolean());
+            Assert.True(missingItem.GetProperty("capabilityBPolicyBlocked").GetBoolean());
+            Assert.Equal("recent_summary_job_failure", missingItem.GetProperty("capabilityBPolicyBlockReason").GetString());
+            Assert.Equal("inspect_recent_summary_failure", missingItem.GetProperty("capabilityBRecommendedAction").GetString());
+            Assert.Equal("failed", missingItem.GetProperty("capabilityBLastJobStatus").GetString());
+            Assert.Equal("model timeout", missingItem.GetProperty("capabilityBLastJobError").GetString());
+            Assert.Contains("summary_missing", GetStringArray(missingItem.GetProperty("capabilityBReasons")));
+            Assert.Contains("recent_summary_failure", GetStringArray(missingItem.GetProperty("capabilityBReasons")));
 
             var catalogCtx = BuildAdminContext(backofficeEnabled: true);
             var catalogResult = await SummaryEndpoints.CatalogSummariesAsync(
@@ -1193,14 +1194,14 @@ VALUES(
             var catalogPayload = await ExecuteResultAsync<JsonElement>(catalogResult, catalogCtx);
             var catalogItem = Assert.Single(
                 catalogPayload.GetProperty("value").EnumerateArray(),
-                item => item.GetProperty("DocId").GetGuid() == docId);
+                item => item.GetProperty("docId").GetGuid() == docId);
 
-            Assert.False(catalogItem.GetProperty("CapabilityBReadyToEnqueue").GetBoolean());
-            Assert.True(catalogItem.GetProperty("CapabilityBPolicyBlocked").GetBoolean());
-            Assert.Equal("recent_summary_job_failure", catalogItem.GetProperty("CapabilityBPolicyBlockReason").GetString());
-            Assert.Equal("inspect_recent_summary_failure", catalogItem.GetProperty("CapabilityBRecommendedAction").GetString());
-            Assert.Equal("failed", catalogItem.GetProperty("CapabilityBLastJobStatus").GetString());
-            Assert.Equal("model timeout", catalogItem.GetProperty("CapabilityBLastJobError").GetString());
+            Assert.False(catalogItem.GetProperty("capabilityBReadyToEnqueue").GetBoolean());
+            Assert.True(catalogItem.GetProperty("capabilityBPolicyBlocked").GetBoolean());
+            Assert.Equal("recent_summary_job_failure", catalogItem.GetProperty("capabilityBPolicyBlockReason").GetString());
+            Assert.Equal("inspect_recent_summary_failure", catalogItem.GetProperty("capabilityBRecommendedAction").GetString());
+            Assert.Equal("failed", catalogItem.GetProperty("capabilityBLastJobStatus").GetString());
+            Assert.Equal("model timeout", catalogItem.GetProperty("capabilityBLastJobError").GetString());
         }
         finally
         {
@@ -1391,7 +1392,14 @@ LIMIT 1;
                     new { tenant = tenantId, docId });
 
                 Assert.Equal("de", stored.DocLanguage);
-                Assert.Contains("\"docLanguageSource\":\"request\"", stored.Result, StringComparison.Ordinal);
+                using var storedResult = JsonDocument.Parse(stored.Result);
+                Assert.Equal("request", storedResult.RootElement.GetProperty("docLanguageSource").GetString());
+                var storedMetadata = await conn.ExecuteScalarAsync<string>(
+                    "SELECT summary_meta::text FROM document_summaries WHERE tenant_id=@tenant AND doc_id=@docId AND level='medium';",
+                    new { tenant = tenantId, docId });
+                using var metadata = JsonDocument.Parse(storedMetadata!);
+                Assert.Equal(JsonValueKind.Object, metadata.RootElement.ValueKind);
+                Assert.Empty(metadata.RootElement.EnumerateObject());
             }
 
             var detailCtx = BuildAdminContext(backofficeEnabled: true);
@@ -2727,6 +2735,18 @@ VALUES(
   'This document defines the operational perimeter and the required safety controls for classified areas.',
   98, 18, '{}'::jsonb, now()
 );
+
+INSERT INTO document_profiles(
+  document_profile_id, tenant_id, revision_id, doc_id, profile_version,
+  language, summary_text, keywords, search_text, token_count, checksum, metadata
+)
+VALUES(
+  gen_random_uuid(), @tenant, @revisionId, @docId, 'deterministic_v1',
+  'en', 'Baseline profile for b-worker-llm-summary.pdf.',
+  ARRAY['baseline-keyword']::text[],
+  'Operational perimeter and required safety controls for classified areas.',
+  10, decode(repeat('01', 32), 'hex'), '{}'::jsonb
+);
 """,
                     new
                     {
@@ -2877,6 +2897,7 @@ VALUES(
             "{}",
             CancellationToken.None);
 
+        await SeedCurrentLlmProfileAsync(conn, tenantId, docId);
         var freshCandidates = await RuntimeCapabilityBBackofficeStore.LoadCandidatesAsync(
             conn,
             tenantId,
@@ -3020,7 +3041,7 @@ VALUES(
   'LLM profile stored for profile repair test.',
   7,
   decode(repeat('d3', 32), 'hex'),
-  '{}'::jsonb
+  jsonb_build_object('contentCardEvidenceSchemaVersion', @evidenceSchemaVersion)
 );
 """,
             new
@@ -3028,7 +3049,8 @@ VALUES(
                 profileId = DocumentFoundationRepo.BuildStableDocumentProfileId(revisionId, "llm_backoffice_v1"),
                 tenant = tenantId,
                 revisionId,
-                docId
+                docId,
+                evidenceSchemaVersion = DocumentFoundationRepo.ContentCardEvidenceSchemaVersion
             });
 
         var repairedCandidates = await RuntimeCapabilityBBackofficeStore.LoadCandidatesAsync(
@@ -3114,17 +3136,17 @@ VALUES(
         var missingPayload = await ExecuteResultAsync<JsonElement>(missingResult, missingCtx);
         var missingItem = Assert.Single(
             missingPayload.GetProperty("items").EnumerateArray(),
-            item => item.GetProperty("DocId").GetGuid() == docId);
+            item => item.GetProperty("docId").GetGuid() == docId);
 
         Assert.Equal(1, missingPayload.GetProperty("total").GetInt32());
         Assert.Equal(0, missingPayload.GetProperty("missingStored").GetInt32());
         Assert.Equal(0, missingPayload.GetProperty("staleStored").GetInt32());
         Assert.Equal(1, missingPayload.GetProperty("profileMissing").GetInt32());
-        Assert.Equal("fresh", missingItem.GetProperty("SummaryState").GetString());
-        Assert.Equal("missing", missingItem.GetProperty("CapabilityBProfileState").GetString());
-        Assert.False(missingItem.GetProperty("CapabilityBHasBackofficeProfile").GetBoolean());
-        Assert.True(missingItem.GetProperty("CapabilityBReadyToEnqueue").GetBoolean());
-        Assert.Contains("profile_missing", GetStringArray(missingItem.GetProperty("CapabilityBReasons")));
+        Assert.Equal("fresh", missingItem.GetProperty("summaryState").GetString());
+        Assert.Equal("missing", missingItem.GetProperty("capabilityBProfileState").GetString());
+        Assert.False(missingItem.GetProperty("capabilityBHasBackofficeProfile").GetBoolean());
+        Assert.True(missingItem.GetProperty("capabilityBReadyToEnqueue").GetBoolean());
+        Assert.Contains("profile_missing", GetStringArray(missingItem.GetProperty("capabilityBReasons")));
 
         var catalogCtx = BuildAdminContext(backofficeEnabled: true);
         var catalogResult = await SummaryEndpoints.CatalogSummariesAsync(
@@ -3138,18 +3160,18 @@ VALUES(
         var catalogPayload = await ExecuteResultAsync<JsonElement>(catalogResult, catalogCtx);
         var catalogItem = Assert.Single(
             catalogPayload.GetProperty("value").EnumerateArray(),
-            item => item.GetProperty("DocId").GetGuid() == docId);
+            item => item.GetProperty("docId").GetGuid() == docId);
 
         var catalogTotals = catalogPayload.GetProperty("totals");
         Assert.Equal(1, catalogTotals.GetProperty("total").GetInt32());
         Assert.Equal(0, catalogTotals.GetProperty("missingStored").GetInt32());
         Assert.Equal(0, catalogTotals.GetProperty("staleStored").GetInt32());
         Assert.Equal(1, catalogTotals.GetProperty("profileMissing").GetInt32());
-        Assert.Equal("fresh", catalogItem.GetProperty("SummaryState").GetString());
-        Assert.Equal("missing", catalogItem.GetProperty("CapabilityBProfileState").GetString());
-        Assert.False(catalogItem.GetProperty("CapabilityBHasBackofficeProfile").GetBoolean());
-        Assert.True(catalogItem.GetProperty("CapabilityBReadyToEnqueue").GetBoolean());
-        Assert.Contains("profile_missing", GetStringArray(catalogItem.GetProperty("CapabilityBReasons")));
+        Assert.Equal("fresh", catalogItem.GetProperty("summaryState").GetString());
+        Assert.Equal("missing", catalogItem.GetProperty("capabilityBProfileState").GetString());
+        Assert.False(catalogItem.GetProperty("capabilityBHasBackofficeProfile").GetBoolean());
+        Assert.True(catalogItem.GetProperty("capabilityBReadyToEnqueue").GetBoolean());
+        Assert.Contains("profile_missing", GetStringArray(catalogItem.GetProperty("capabilityBReasons")));
 
         await conn.ExecuteAsync(
             """
@@ -3169,7 +3191,7 @@ VALUES(
   'LLM profile stored for surface profile test.',
   7,
   decode(repeat('d5', 32), 'hex'),
-  '{}'::jsonb
+  jsonb_build_object('contentCardEvidenceSchemaVersion', @evidenceSchemaVersion)
 );
 """,
             new
@@ -3177,7 +3199,8 @@ VALUES(
                 profileId = DocumentFoundationRepo.BuildStableDocumentProfileId(revisionId, "llm_backoffice_v1"),
                 tenant = tenantId,
                 revisionId,
-                docId
+                docId,
+                evidenceSchemaVersion = DocumentFoundationRepo.ContentCardEvidenceSchemaVersion
             });
 
         var repairedCtx = BuildAdminContext(backofficeEnabled: true);
@@ -3567,8 +3590,9 @@ WHERE tenant_id=@tenant
 """,
                     new { tenant = tenantId, jobId = jobId.Value });
                 Assert.Equal("canceled", job.Status);
-                Assert.Contains("\"reason\":\"stale_source\"", job.Result, StringComparison.Ordinal);
-                Assert.Contains("\"error\":\"source_hash_mismatch\"", job.Result, StringComparison.Ordinal);
+                using var jobResult = JsonDocument.Parse(job.Result);
+                Assert.Equal("stale_source", jobResult.RootElement.GetProperty("reason").GetString());
+                Assert.Equal("source_hash_mismatch", jobResult.RootElement.GetProperty("error").GetString());
             }
 
             var eventsCtx = BuildAdminContext(backofficeEnabled: true);
@@ -4106,13 +4130,14 @@ LIMIT 1;
                 Assert.Contains("llmbackoffice", stored.SummaryMeta, StringComparison.Ordinal);
                 Assert.Contains("signalone", stored.SummaryMeta, StringComparison.Ordinal);
                 Assert.DoesNotContain("\\u0000", stored.JobResult, StringComparison.OrdinalIgnoreCase);
-                Assert.Contains("\"fallbackUsed\":true", stored.JobResult, StringComparison.Ordinal);
-                Assert.Contains("\"fallbackReason\":\"llm_timeout\"", stored.JobResult, StringComparison.Ordinal);
-                Assert.Contains("\"llmError\":\"llm_timeout\"", stored.JobResult, StringComparison.Ordinal);
-                Assert.Contains("\"llmFailureKind\":\"llm_timeout\"", stored.JobResult, StringComparison.Ordinal);
-                Assert.Contains("\"llmFailureCategory\":\"timeout\"", stored.JobResult, StringComparison.Ordinal);
-                Assert.Contains("\"llmDurationMs\":123", stored.JobResult, StringComparison.Ordinal);
-                Assert.Contains("\"llmBytesRead\":0", stored.JobResult, StringComparison.Ordinal);
+                using var jobResult = JsonDocument.Parse(stored.JobResult);
+                Assert.True(jobResult.RootElement.GetProperty("fallbackUsed").GetBoolean());
+                Assert.Equal("llm_timeout", jobResult.RootElement.GetProperty("fallbackReason").GetString());
+                Assert.Equal("llm_timeout", jobResult.RootElement.GetProperty("llmError").GetString());
+                Assert.Equal("llm_timeout", jobResult.RootElement.GetProperty("llmFailureKind").GetString());
+                Assert.Equal("timeout", jobResult.RootElement.GetProperty("llmFailureCategory").GetString());
+                Assert.Equal(123, jobResult.RootElement.GetProperty("llmDurationMs").GetInt32());
+                Assert.Equal(0, jobResult.RootElement.GetProperty("llmBytesRead").GetInt32());
                 Assert.Contains("backofficemodel", stored.JobResult, StringComparison.Ordinal);
             }
         }
@@ -4818,6 +4843,40 @@ LIMIT 1;
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 
+    private static async Task SeedCurrentLlmProfileAsync(NpgsqlConnection conn, Guid tenantId, Guid docId)
+    {
+        var revisionId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            """
+INSERT INTO document_revisions(
+  revision_id, tenant_id, doc_id, doc_path, source_hash, source_size,
+  source_mtime, ingestion_version, indexed_version, published_at
+)
+SELECT @revisionId, tenant_id, doc_id, doc_path,
+       COALESCE(content_hash, decode(repeat('a1', 32), 'hex')), file_size,
+       file_mtime, ingestion_version, indexed_version, now()
+FROM documents WHERE tenant_id=@tenant AND doc_id=@docId;
+
+INSERT INTO document_profiles(
+  document_profile_id, tenant_id, revision_id, doc_id, profile_version,
+  language, summary_text, search_text, token_count, checksum, metadata
+)
+VALUES (
+  @profileId, @tenant, @revisionId, @docId, 'llm_backoffice_v1',
+  'en', 'Current profile for summary freshness isolation.',
+  'Current profile for summary freshness isolation.', 7,
+  decode(repeat('a2', 32), 'hex'),
+  jsonb_build_object('contentCardEvidenceSchemaVersion', @schemaVersion)
+);
+""",
+            new
+            {
+                tenant = tenantId, docId, revisionId,
+                profileId = DocumentFoundationRepo.BuildStableDocumentProfileId(revisionId, "llm_backoffice_v1"),
+                schemaVersion = DocumentFoundationRepo.ContentCardEvidenceSchemaVersion
+            });
+    }
+
     private sealed class PostgresIntegrationDb : IAsyncDisposable
     {
         private readonly string _adminConnectionString;
@@ -4856,6 +4915,14 @@ LIMIT 1;
             var db = new PostgresIntegrationDb(adminConnectionString, databaseName, dbBuilder.ConnectionString);
             var migrationsDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "SAAIA.Backend", "Db", "Migrations"));
             await DbMigrator.ApplyMigrationsAsync(db.ConnectionString, migrationsDir, CancellationToken.None);
+            // Match the default tenant used by BuildAdminContext and these scenario fixtures.
+            await using (var conn = new NpgsqlConnection(db.ConnectionString))
+            {
+                await conn.OpenAsync();
+                await conn.ExecuteAsync(
+                    "INSERT INTO tenants(tenant_id, name) VALUES(@tenant, 'Test tenant');",
+                    new { tenant = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa") });
+            }
             return db;
         }
 

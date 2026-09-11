@@ -18,7 +18,15 @@ internal static class DocumentLauncher
         string? ErrorTitle,
         string? ErrorMessage);
 
-    public static async Task<OpenDocumentResult> TryOpenAsync(string? docPath, int? page = null)
+    public static async Task<OpenDocumentResult> TryOpenAsync(
+        string? docPath,
+        int? page = null,
+        string? sourceHash = null,
+        string? revisionId = null,
+        string? chunkId = null,
+        string? anchorId = null,
+        string? contentCardId = null,
+        bool requireExactSourceHash = false)
     {
         if (string.IsNullOrWhiteSpace(docPath))
         {
@@ -35,17 +43,36 @@ internal static class DocumentLauncher
                     "La fonte non contiene un percorso file utilizzabile."));
         }
 
-        var resolved = await Task.Run(() => DocumentPathResolver.Resolve(docPath));
+        ClientLog.Info(
+            "DocumentLauncher.Open request"
+            + $"; revision={revisionId ?? "(none)"}"
+            + $"; chunk={chunkId ?? "(none)"}"
+            + $"; anchor={anchorId ?? "(none)"}"
+            + $"; contentCard={contentCardId ?? "(none)"}"
+            + $"; exactHashRequired={requireExactSourceHash}");
+        var resolved = await Task.Run(() => requireExactSourceHash
+            ? DocumentPathResolver.ResolveExactRevision(docPath, sourceHash)
+            : DocumentPathResolver.Resolve(docPath, sourceHash));
         if (string.IsNullOrWhiteSpace(resolved))
         {
             var documentsRoot = await Task.Run(DocumentPathResolver.GetDocumentsRoot);
+            var identityDetails = requireExactSourceHash
+                ? DT(
+                    $"\nRévision indexée : {revisionId ?? "inconnue"}\nLe fichier local doit correspondre exactement à son SHA-256.",
+                    $"\nIndexed revision: {revisionId ?? "unknown"}\nThe local file must exactly match its SHA-256.",
+                    $"\nRevisión indexada: {revisionId ?? "desconocida"}\nEl archivo local debe coincidir exactamente con su SHA-256.",
+                    $"\nRevisão indexada: {revisionId ?? "desconhecida"}\nO ficheiro local deve corresponder exatamente ao seu SHA-256.",
+                    $"\nIndexierte Revision: {revisionId ?? "unbekannt"}\nDie lokale Datei muss exakt ihrem SHA-256 entsprechen.",
+                    $"\nRevisione indicizzata: {revisionId ?? "sconosciuta"}\nIl file locale deve corrispondere esattamente al suo SHA-256.")
+                : string.Empty;
             var details = DT(
                 $"Chemin reçu du serveur : {docPath}\nDossier documents configuré sur ce poste : {documentsRoot}",
                 $"Path received from the server: {docPath}\nDocuments folder configured on this computer: {documentsRoot}",
                 $"Ruta recibida del servidor: {docPath}\nCarpeta de documentos configurada en este equipo: {documentsRoot}",
                 $"Caminho recebido do servidor: {docPath}\nPasta de documentos configurada neste posto: {documentsRoot}",
                 $"Vom Server erhaltener Pfad: {docPath}\nAuf diesem Gerät konfigurierter Dokumentenordner: {documentsRoot}",
-                $"Percorso ricevuto dal server: {docPath}\nCartella documenti configurata su questo computer: {documentsRoot}");
+                $"Percorso ricevuto dal server: {docPath}\nCartella documenti configurata su questo computer: {documentsRoot}")
+                + identityDetails;
             return new OpenDocumentResult(
                 Success: false,
                 ResolvedPath: null,

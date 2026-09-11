@@ -155,7 +155,6 @@ public sealed class AdminRuntimeEndpointsTests
             Assert.Contains("warmup-profiles.json", artifacts);
             Assert.Contains("capability-state.json", artifacts);
             Assert.Contains("warmup-results.json", artifacts);
-            Assert.Contains("warmup_results.json", artifacts);
             Assert.Contains("runtime-events.json", artifacts);
             Assert.Contains("diagnostics.json", artifacts);
             Assert.Contains("operational-summary.json", artifacts);
@@ -178,6 +177,9 @@ public sealed class AdminRuntimeEndpointsTests
             Assert.DoesNotContain("warmup-results.json", contractMissingArtifacts);
 
             using var zip = ZipFile.OpenRead(bundlePath!);
+            using var warmupStream = Assert.Single(zip.Entries, entry => entry.FullName == "warmup-results.json").Open();
+            using var warmupJson = await JsonDocument.ParseAsync(warmupStream);
+            Assert.Equal("warmup_results.json", warmupJson.RootElement.GetProperty("Artifact").GetString());
             Assert.Contains(zip.Entries, entry => entry.FullName == "runtime-catalog.json");
             Assert.Contains(zip.Entries, entry => entry.FullName == "model-catalog.json");
             Assert.Contains(zip.Entries, entry => entry.FullName == "capability-state.json");
@@ -501,7 +503,7 @@ public sealed class AdminRuntimeEndpointsTests
         Assert.True(checks[0].TryGetProperty("performanceBudgets", out _));
         Assert.True(checks[0].GetProperty("qdrant").TryGetProperty("measurements", out var qdrantMeasurements));
         Assert.Equal("not_applicable_for_retrieval_runtime", qdrantMeasurements.GetProperty("applicability").GetProperty("ttftMs").GetString());
-        Assert.True(details.TryGetProperty("measurementSemantics", out _));
+        Assert.True(checks[0].TryGetProperty("measurementSemantics", out _));
 
         await using var conn = new NpgsqlConnection(db.ConnectionString);
         await conn.OpenAsync();
@@ -649,8 +651,9 @@ public sealed class AdminRuntimeEndpointsTests
 
         var selectionEvent = Assert.Single(payload.Items, item => item.EventType == "selection_updated");
         Assert.NotNull(selectionEvent.Details);
-        Assert.Equal(false, selectionEvent.Details!["desiredEnabled"]);
-        Assert.Equal(true, selectionEvent.Details["previousSelected"]);
+        var selectionDetails = JsonSerializer.SerializeToElement(selectionEvent.Details);
+        Assert.False(selectionDetails.GetProperty("desiredEnabled").GetBoolean());
+        Assert.True(selectionDetails.GetProperty("previousSelected").GetBoolean());
 
         var artifactCtx = BuildAdminContext();
         var artifactResult = await AdminRuntimeEndpoints.EventsArtifactAsync(
@@ -689,7 +692,7 @@ public sealed class AdminRuntimeEndpointsTests
             Options.Create(new RuntimeGovernanceOptions()),
             Options.Create(CreateRagOptions()),
             "capability_a.corpus_enrichment",
-            new AdminRuntimeCapabilitySelectionRequestDto(Authorized: true));
+            new AdminRuntimeCapabilitySelectionRequestDto(DesiredEnabled: true, Authorized: true));
         var rejectionPayload = await ExecuteResultAsync<JsonElement>(rejectedSelectionResult, rejectedSelectionCtx);
         Assert.Equal("capability_a.corpus_enrichment", rejectionPayload.GetProperty("capabilityKey").GetString());
 
@@ -725,7 +728,7 @@ public sealed class AdminRuntimeEndpointsTests
         var rejected = Assert.Single(rejectedEvents.Items, item => item.EventType == "selection_rejected");
         Assert.Equal("capability must be qualified before it can be authorized", rejected.Reason);
         Assert.NotNull(rejected.Details);
-        Assert.Equal(true, rejected.Details!["requestedAuthorized"]);
+        Assert.True(JsonSerializer.SerializeToElement(rejected.Details).GetProperty("requestedAuthorized").GetBoolean());
     }
 
     [Fact]
@@ -763,8 +766,8 @@ public sealed class AdminRuntimeEndpointsTests
         Assert.Equal("server-capability-a", state.RuntimeKey);
         Assert.Equal(3, state.PassCount);
         Assert.NotNull(state.Details);
-        Assert.Equal("corpus_enrichment_admin", state.Details!["mode"]);
         var details = JsonSerializer.SerializeToElement(state.Details);
+        Assert.Equal("corpus_enrichment_admin", details.GetProperty("mode").GetString());
         Assert.True(details.GetProperty("hardGatesPassed").GetBoolean());
         Assert.True(details.GetProperty("runtimeGatesPassed").GetBoolean());
         Assert.Equal(3, details.GetProperty("passesRequired").GetInt32());
@@ -1556,9 +1559,10 @@ VALUES(
             Assert.NotNull(postEnqueueCapabilityB.OperationalSummary);
             Assert.Equal(3, postEnqueueCapabilityB.OperationalSummary!.CandidateCount);
             Assert.Equal(0, postEnqueueCapabilityB.OperationalSummary.ReadyToEnqueueCount);
-            Assert.Equal(2, postEnqueueCapabilityB.OperationalSummary.BlockedByActiveJobCount);
             Assert.Equal(0, postEnqueueCapabilityB.OperationalSummary.BlockedByCooldownCount);
-            Assert.Equal(3, postEnqueueCapabilityB.OperationalSummary.ActiveCapabilityJobCount);
+            // The pre-existing job has source=test_seed: it blocks its document
+            // but is not a job generated by capability B.
+            Assert.Equal(2, postEnqueueCapabilityB.OperationalSummary.ActiveCapabilityJobCount);
             Assert.Equal(3, postEnqueueCapabilityB.OperationalSummary.BlockedByActiveJobCount);
             Assert.True(postEnqueueCapabilityB.OperationalSummary.TotalCampaignCount >= 2);
             Assert.True(postEnqueueCapabilityB.OperationalSummary.ActiveCampaignCount >= 1);
@@ -1566,7 +1570,7 @@ VALUES(
             Assert.NotNull(postEnqueueDiagnostics.Summary.Operational);
             Assert.Equal(3, postEnqueueDiagnostics.Summary.Operational!.CapabilityBBacklogCount);
             Assert.Equal(0, postEnqueueDiagnostics.Summary.Operational.CapabilityBReadyToEnqueueCount);
-            Assert.Equal(3, postEnqueueDiagnostics.Summary.Operational.CapabilityBActiveJobCount);
+            Assert.Equal(2, postEnqueueDiagnostics.Summary.Operational.CapabilityBActiveJobCount);
             Assert.Equal(0, postEnqueueDiagnostics.Summary.Operational.CapabilityBLatestCampaignProgressPercent);
 
             var operationalCtx = BuildAdminContext();
@@ -1579,11 +1583,11 @@ VALUES(
             var operational = await ExecuteResultAsync<AdminRuntimeOperationalSummaryResponseDto>(operationalResult, operationalCtx);
             Assert.Equal(3, operational.Summary.CapabilityBBacklogCount);
             Assert.Equal(0, operational.Summary.CapabilityBReadyToEnqueueCount);
-            Assert.Equal(3, operational.Summary.CapabilityBActiveJobCount);
+            Assert.Equal(2, operational.Summary.CapabilityBActiveJobCount);
             Assert.Equal(0, operational.Summary.CapabilityBLatestCampaignProgressPercent);
             var operationalB = Assert.Single(operational.Items, item => item.Key == "capability_b.backoffice_generation");
             Assert.Equal("selected", operationalB.Status);
-            Assert.Equal(3, operationalB.Summary.ActiveCapabilityJobCount);
+            Assert.Equal(2, operationalB.Summary.ActiveCapabilityJobCount);
             Assert.Contains(operationalB.Recommendations, item => item.Contains("review capability B candidates", StringComparison.OrdinalIgnoreCase));
 
             await using (var conn = new NpgsqlConnection(db.ConnectionString))
@@ -2645,8 +2649,8 @@ VALUES
     "fallbackUsed":false,
     "qualityScore":0.42
   }'::jsonb,
-  now() - interval ''2 minutes'',
-  now() - interval ''2 minutes''
+  now() - interval '2 minutes',
+  now() - interval '2 minutes'
 ),
 (
   @tenant,
@@ -2663,8 +2667,8 @@ VALUES
     "fallbackReason":"llm_empty_response",
     "qualityScore":0.31
   }'::jsonb,
-  now() - interval ''1 minutes'',
-  now() - interval ''1 minutes''
+  now() - interval '1 minutes',
+  now() - interval '1 minutes'
 );
 """,
                 new { tenant = tenantId, docA, docB });
@@ -3838,6 +3842,14 @@ VALUES
             var db = new PostgresIntegrationDb(adminConnectionString, databaseName, dbBuilder.ConnectionString);
             var migrationsDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "SAAIA.Backend", "Db", "Migrations"));
             await DbMigrator.ApplyMigrationsAsync(db.ConnectionString, migrationsDir, CancellationToken.None);
+            // Match the default tenant used by BuildAdminContext and these scenario fixtures.
+            await using (var conn = new NpgsqlConnection(db.ConnectionString))
+            {
+                await conn.OpenAsync();
+                await conn.ExecuteAsync(
+                    "INSERT INTO tenants(tenant_id, name) VALUES(@tenant, 'Test tenant');",
+                    new { tenant = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa") });
+            }
             return db;
         }
 

@@ -368,6 +368,22 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Theory]
+    [InlineData("Tu peux m'expliquer simplement ce que le document appelle l'inertage absolu ?", "inertage")]
+    [InlineData("Pour resumer a un client, quels sont les grands composants d'un systeme d'inertage selon le guide ?", "composants")]
+    [InlineData("Avant de dire au client que son inertage respecte EN 15281, qu'est-ce qu'il faut lui demander ?", "15281")]
+    [InlineData("Si je l'explique simplement a un client, l'idee c'est bien de remplacer l'air par un gaz neutre ?", "remplacer")]
+    [InlineData("Pour expliquer le fonctionnement a un client, comment tu distingues le seuil de regulation et le seuil de coupure ?", "seuil")]
+    [InlineData("Le guide explique aussi comment aller lire ou ecrire dans la memoire partagee du terminal depuis le PLC ?", "memoire")]
+    public void ResolvePrimaryRetrievalQuery_does_not_replace_runtime_subject_with_request_scaffold(
+        string query,
+        string expectedSubject)
+    {
+        var retrievalQuery = RagEndpoints.ResolvePrimaryRetrievalQuery(query, category: null);
+
+        Assert.Contains(expectedSubject, retrievalQuery, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
     [InlineData("Compare les deux quiches lorraines du corpus : differences ingredients, methode et style.", "quiches lorraines")]
     [InlineData("Compare les deux quiches lorraines du corpus : diff\u00e9rences d\u2019ingr\u00e9dients, m\u00e9thode et style.", "quiches lorraines")]
     [InlineData("Il y a plusieurs cremes brulees ? Compare-les si oui.", "cremes brulees")]
@@ -1538,6 +1554,18 @@ public sealed class RetrievalRuntimeSwitchTests
             docPath: null));
     }
 
+    [Theory]
+    [InlineData("Quelles normes de securite instrumentee sont citees autour de l'inertage dans ce document ?")]
+    [InlineData("Le client veut comprendre comment on surveille l'oxygene dans ce document ?")]
+    public void ShouldSuppressUnscopedAmbiguousDocumentReferenceSources_preserves_substantive_document_questions(
+        string query)
+    {
+        Assert.False(RagEndpoints.ShouldSuppressUnscopedAmbiguousDocumentReferenceSources(
+            query,
+            docId: null,
+            docPath: null));
+    }
+
     [Fact]
     public void SelectionsCoverStandardReferencePhrases_detects_missing_slash_part()
     {
@@ -1934,6 +1962,25 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void SelectionsCoverExplicitFileLookupGroups_accepts_extensionless_standard_reference_in_content_only()
+    {
+        var selected = new List<RagMatch>
+        {
+            TestMatch(
+                text: "EN 15281. Absolute inerting means replacing air with an inert gas.",
+                embedText: "EN 15281. Absolute inerting means replacing air with an inert gas.",
+                docPath: "ATEX/CEN TR 15281 2006 Guidance on inerting.pdf")
+        };
+
+        Assert.True(RagEndpoints.SelectionsCoverExplicitFileLookupGroups(
+            "Avant de dire que l'inertage respecte EN 15281, que faut-il demander ?",
+            selected));
+        Assert.False(RagEndpoints.SelectionsCoverExplicitFileLookupGroups(
+            "Dans EN 15281.pdf, que faut-il demander ?",
+            selected));
+    }
+
+    [Fact]
     public void ExtractStandardReferenceTitleLookupPhrases_accepts_ul_references()
     {
         var phrases = RagEndpoints.ExtractStandardReferenceTitleLookupPhrases(
@@ -2244,6 +2291,30 @@ public sealed class RetrievalRuntimeSwitchTests
     }
 
     [Fact]
+    public void Profile_title_only_sparse_match_recovers_profile_only_when_page_does_not_carry_exact_title()
+    {
+        var profileOnly = TestMatch(
+            text: "Ordinary operational page text without the distinctive enrichment phrase.",
+            embedText: "Matched profile title: Pressure envelope validation\nOrdinary operational page text without the distinctive enrichment phrase.");
+        var sourceBackedPage = TestMatch(
+            text: "Pressure envelope validation is performed before the isolation valve is opened.",
+            embedText: "Matched profile title: Pressure envelope validation\nPressure envelope validation is performed before the isolation valve is opened.");
+        var differentTitle = TestMatch(
+            text: "Ordinary operational page text.",
+            embedText: "Matched profile title: Maintenance governance\nOrdinary operational page text.");
+
+        Assert.True(RagEndpoints.ShouldRecoverDocumentProfileForProfileTitleOnlySparseMatch(
+            "pressure envelope validation",
+            profileOnly));
+        Assert.False(RagEndpoints.ShouldRecoverDocumentProfileForProfileTitleOnlySparseMatch(
+            "pressure envelope validation",
+            sourceBackedPage));
+        Assert.False(RagEndpoints.ShouldRecoverDocumentProfileForProfileTitleOnlySparseMatch(
+            "pressure envelope validation",
+            differentTitle));
+    }
+
+    [Fact]
     public void ComputeQuotedLookupCandidateScore_prefers_full_ocr_title_over_partial_ingredient_overlap()
     {
         var phrases = RagEndpoints.ExtractTitleLookupPhrases(
@@ -2294,6 +2365,20 @@ public sealed class RetrievalRuntimeSwitchTests
     public void ResolveLocalTitleTokenCandidateLimit_overfetches_global_title_lookups(int topK, bool hasDocScope, int expected)
     {
         Assert.Equal(expected, RagEndpoints.ResolveLocalTitleTokenCandidateLimit(topK, hasDocScope));
+    }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(1, 3)]
+    [InlineData(5, 15)]
+    [InlineData(16, 48)]
+    [InlineData(20, 48)]
+    [InlineData(80, 48)]
+    public void ResolveTitleAnchorNavigationCatalogLimit_caps_large_internal_recovery_windows(
+        int topK,
+        int expected)
+    {
+        Assert.Equal(expected, RagEndpoints.ResolveTitleAnchorNavigationCatalogLimit(topK));
     }
 
     [Theory]
@@ -3142,6 +3227,59 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.Equal(90, card.PageStart);
         Assert.Equal("title_anchor_route", card.Kind);
         Assert.Contains("route_title", card.Signals ?? []);
+    }
+
+    [Fact]
+    public void BuildChunkSectionTitleFallbackMatchedContentCards_exposes_same_chunk_title_and_proof()
+    {
+        var content = TestMatch(
+            text: "Donnez un air de fête à cette recette classique des petits-déjeuners et des goûters en y ajoutant un trait de crème fraîche.",
+            docPath: "Cuisine/chefbot.pdf",
+            page: 118,
+            chunkId: "milk-shake-content",
+            embeddingBasis: "contextual_text_v3",
+            score: 0.84) with
+        {
+            SectionTitle = "MILK-SHAKE CHOCOLAT ET CRÈME FRAÎCHE",
+            ContentRole = RetrievalContentClassifier.ContentRole,
+            ContentDensityScore = 1.0
+        };
+
+        var cards = RagEndpoints.BuildChunkSectionTitleFallbackMatchedContentCards(content);
+
+        Assert.NotNull(cards);
+        var card = Assert.Single(cards);
+        Assert.Equal("MILK-SHAKE CHOCOLAT ET CRÈME FRAÎCHE", card.Title);
+        Assert.Equal(118, card.PageStart);
+        Assert.Equal("chunk_section_title", card.Kind);
+        Assert.Contains("same_chunk_source_text", card.Signals ?? []);
+        Assert.NotNull(card.Evidence);
+        Assert.Contains(
+            "petits-déjeuners",
+            card.Evidence!.Value.GetProperty("sourceText").GetString(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildChunkSectionTitleFallbackMatchedContentCards_rejects_navigation_or_generic_heading()
+    {
+        var navigation = TestMatch(
+            text: "Table des matières présentant les chapitres du document et leurs pages.",
+            page: 2) with
+        {
+            SectionTitle = "TABLE DES MATIÈRES",
+            ContentRole = RetrievalContentClassifier.NavigationRole
+        };
+        var generic = TestMatch(
+            text: "Ajouter les ingrédients, mélanger, puis cuire pendant vingt minutes.",
+            page: 3) with
+        {
+            SectionTitle = "PRÉPARATION",
+            ContentRole = RetrievalContentClassifier.ContentRole
+        };
+
+        Assert.Null(RagEndpoints.BuildChunkSectionTitleFallbackMatchedContentCards(navigation));
+        Assert.Null(RagEndpoints.BuildChunkSectionTitleFallbackMatchedContentCards(generic));
     }
 
     [Fact]
@@ -4887,6 +5025,33 @@ public sealed class RetrievalRuntimeSwitchTests
         Assert.Equal("doc-a", fused[0].DocId);
         Assert.Equal("exact_match_v1", fused[0].EmbeddingBasis);
         Assert.True(fused[0].Score > fused[1].Score);
+    }
+
+    [Fact]
+    public void FuseWithRrf_prefers_dense_representative_over_weak_instruction_title_route_for_same_chunk()
+    {
+        const string text = "VERIFIEZ LES RACCORDS. Materials: gasket, wrench and pressure gauge. Procedure: isolate the line, inspect every fitting, replace damaged seals, pressure test the assembly and record the result.";
+        var titleRoute = TestMatch(
+            text: text,
+            embedText: "Matched title_anchor_route: Verifiez les raccords\n" + text,
+            docPath: "Technique/Maintenance.pdf",
+            page: 4,
+            chunkId: "same-chunk",
+            embeddingBasis: "title_anchor_route_v1",
+            score: 0.92,
+            contentRole: RetrievalContentClassifier.ContentRole,
+            contentDensityScore: 0.95);
+        var dense = titleRoute with
+        {
+            EmbedText = "excerpt:\n" + text,
+            EmbeddingBasis = "contextual_text_v3",
+            Score = 0.80
+        };
+
+        var fused = RagEndpoints.FuseWithRrf([titleRoute], [], [dense]);
+
+        Assert.Single(fused);
+        Assert.Equal("contextual_text_v3", fused[0].EmbeddingBasis);
     }
 
     [Fact]
@@ -7064,6 +7229,15 @@ ALPHA BETA MODULE
         Assert.False(RagEndpoints.ShouldConstrainPreciseTitleLookup("Quel dessert français choisir pour un repas chic ?"));
     }
 
+    [Theory]
+    [InlineData("Quelles normes de securite instrumentee sont citees autour de l'inertage dans ce document ?")]
+    [InlineData("J'ai un client qui me demande si le projet respecte la norme xxx sur l'inertage. Tu peux m'aider ?")]
+    [InlineData("Avant de dire au client que son inertage respecte EN 15281, qu'est-ce qu'il faut lui demander ?")]
+    public void ShouldConstrainPreciseTitleLookup_keeps_runtime_content_questions_open(string query)
+    {
+        Assert.False(RagEndpoints.ShouldConstrainPreciseTitleLookup(query));
+    }
+
     [Fact]
     public void PrunePreciseTitleTailSelections_removes_low_confidence_tail_after_strong_title_answer()
     {
@@ -7735,6 +7909,38 @@ ALPHA BETA MODULE
     }
 
     [Fact]
+    public void ShouldShortCircuitAfterExact_accepts_single_source_backed_canonical_chunk()
+    {
+        var exact = new RagMatch(
+            Score: 1.0,
+            DocId: "doc-1",
+            DocPath: "Programmation/Mettler/MettlerToledo_IND570.pdf",
+            DocName: "MettlerToledo_IND570.pdf",
+            PageStart: 1,
+            PageEnd: 1,
+            ChunkId: "10bc55ca-b9d8-2138-fe34-069939a1bee5",
+            ChunkIndex: 0,
+            Text: "The IND570 terminal manual includes installation, configuration and diagnostics.",
+            IngestionVersion: 1,
+            HashDoc: "hash",
+            EmbedText: "The IND570 terminal manual includes installation, configuration and diagnostics.",
+            EmbeddingBasis: "exact_match_v1",
+            SectionOrdinal: null,
+            UnitOrdinal: null,
+            SectionTitle: "Manual",
+            HeadingPath: "Manual",
+            ChunkType: "unit_exact_v1",
+            PrevChunkId: null,
+            NextChunkId: null,
+            SameSectionChunkId: null,
+            ContentRole: "content");
+
+        Assert.True(RagEndpoints.ShouldShortCircuitAfterExact(
+            "Est ce que tu as le manuel du terminal IND570 ?",
+            [exact]));
+    }
+
+    [Fact]
     public void ShouldShortCircuitAfterExact_keeps_companion_relation_queries_open()
     {
         var exact = new RagMatch(
@@ -7982,6 +8188,11 @@ ALPHA BETA MODULE
             "Une procedure enfant.",
             skipChunkRetrieversForDocumentOverview: false,
             useScopedProfileFallback: false));
+
+        Assert.False(RagEndpoints.ShouldProbeUnquotedTitleAnchorRoute(
+            "Quel document faut il citer au client pour parler d inerting et d integration plc ?",
+            skipChunkRetrieversForDocumentOverview: false,
+            useScopedProfileFallback: false));
     }
 
     [Fact]
@@ -8080,6 +8291,23 @@ ALPHA BETA MODULE
         Assert.False(RagEndpoints.ShouldShortCircuitAfterTitleAnchorRoute(
             "Bouillon de volaille source",
             [ingredientMention]));
+    }
+
+    [Fact]
+    public void IsWeakResolvedRouteTarget_rejects_subjectless_instruction_fragment_title_even_when_body_has_content()
+    {
+        var instructionTitle = TestMatch(
+            text: "VERIFIEZ LES RACCORDS. Materials: gasket, wrench and pressure gauge. Procedure: isolate the line, inspect every fitting, replace damaged seals, pressure test the assembly and record the result.",
+            embedText: "Matched title_anchor_route: Verifiez les raccords\nVERIFIEZ LES RACCORDS. Materials and procedure.",
+            docPath: "Technique/Maintenance.pdf",
+            chunkId: "instruction-title",
+            embeddingBasis: "title_anchor_route_v1",
+            chunkType: "section_window_v1",
+            score: 0.93,
+            contentRole: RetrievalContentClassifier.ContentRole,
+            contentDensityScore: 0.95);
+
+        Assert.True(RagEndpoints.IsWeakResolvedRouteTarget(instructionTitle));
     }
 
     [Fact]
@@ -8724,6 +8952,28 @@ ALPHA BETA MODULE
     }
 
     [Fact]
+    public void PruneUnmatchedPreciseTitleSelections_keeps_cross_document_source_selection_candidates()
+    {
+        var selected = new List<RagMatch>
+        {
+            TestMatch(
+                text: "Inerting guidance covers oxygen monitoring and explosion prevention.",
+                docPath: "ATEX/EN-15281.pdf",
+                chunkId: "inerting"),
+            TestMatch(
+                text: "IND570 manual explains PLC integration and PROFINET.",
+                docPath: "Controls/IND570.pdf",
+                chunkId: "plc")
+        };
+
+        RagEndpoints.PruneUnmatchedPreciseTitleSelections(
+            "Quel document faut il citer au client pour parler d inerting et d integration plc ?",
+            selected);
+
+        Assert.Equal(2, selected.Count);
+    }
+
+    [Fact]
     public void PruneUnmatchedPreciseTitleSelections_keeps_primary_title_match_and_drops_unanchored_tail()
     {
         var selected = new List<RagMatch>
@@ -8836,6 +9086,20 @@ ALPHA BETA MODULE
         Assert.DoesNotContain("recette", guidance.QualificationNote, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("ingredient", guidance.QualificationNote, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("cuisine", guidance.QualificationNote, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildAnswerGuidance_asks_for_placeholder_standard_even_when_retrieval_is_empty()
+    {
+        var guidance = RagEndpoints.BuildAnswerGuidance(
+            "Le projet respecte-t-il la norme xxx ?",
+            Array.Empty<RagMatch>());
+
+        Assert.Equal("ask_clarification", guidance.Behavior);
+        Assert.Equal("missing_standard_identifier", guidance.Reason);
+        Assert.Equal("clarify", guidance.ResponseShape);
+        Assert.False(string.IsNullOrWhiteSpace(guidance.ClarifyingQuestion));
+        Assert.Empty(guidance.MatchedDocHints ?? []);
     }
 
     [Theory]
@@ -10612,6 +10876,26 @@ ALPHA BETA MODULE
         RagEndpoints.PrioritizeFinalSelections(query, selected);
 
         Assert.Equal("mexican-navigation", selected[0].ChunkId);
+    }
+
+    [Fact]
+    public void TitleAnchorRouteHasTargetTitleEvidence_accepts_only_exact_same_page_provenance_without_repeated_title()
+    {
+        var ordinaryAnchor = TestMatch(
+            text: "Operating body and actionable steps without the heading repeated.",
+            embedText: "Matched title_anchor_route: Alpha Beta Control Matrix\nOperating body and actionable steps without the heading repeated.",
+            page: 2,
+            chunkId: "ordinary-anchor",
+            embeddingBasis: "title_anchor_route_v1");
+        var exactPageAnchor = ordinaryAnchor with
+        {
+            ChunkId = "exact-page-anchor",
+            EmbedText = "Matched title_anchor_exact_page_route: Alpha Beta Control Matrix\nOperating body and actionable steps without the heading repeated."
+        };
+
+        Assert.False(RagEndpoints.TitleAnchorRouteHasTargetTitleEvidence(ordinaryAnchor));
+        Assert.True(RagEndpoints.TitleAnchorRouteHasTargetTitleEvidence(exactPageAnchor));
+        Assert.True(RagEndpoints.HasProfileTitleHint(exactPageAnchor));
     }
 
     [Fact]

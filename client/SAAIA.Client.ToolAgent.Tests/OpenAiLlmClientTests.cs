@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using SAAIA.Client.WinUI.Services;
 using SAAIA.Client.WinUI.Services.ToolAgent;
+using SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag;
 using Xunit;
 
 namespace SAAIA.Client.ToolAgent.Tests;
@@ -110,6 +111,182 @@ public sealed class OpenAiLlmClientTests
 
         Assert.Equal("ok", answer);
         Assert.True(ensureCalled);
+    }
+
+    [Fact]
+    public async Task CountNativeInputTokensAsync_uses_the_runtime_chat_template_with_tools()
+    {
+        string? requestBody = null;
+        var handler = new InputTokenCountHandler(
+            request => requestBody = request.Content!
+                .ReadAsStringAsync()
+                .GetAwaiter()
+                .GetResult());
+        var sut = new OpenAiLlmClient(new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://localhost:1234")
+        });
+        sut.Configure("http://localhost:1234/v1", "qwen3");
+        var tool = new SourceBackedAgentToolDefinition(
+            "rag_search",
+            "Search indexed evidence.",
+            JsonSerializer.SerializeToElement(new
+            {
+                type = "object",
+                properties = new
+                {
+                    query = new { type = "string" }
+                }
+            }));
+
+        var count = await sut.CountNativeInputTokensAsync(
+            new[]
+            {
+                SourceBackedAgentMessage.System("System contract."),
+                SourceBackedAgentMessage.User("Find the source.")
+            },
+            new[] { tool },
+            CancellationToken.None,
+            requireToolCall: true);
+
+        Assert.Equal(321, count);
+        using var payload = JsonDocument.Parse(requestBody ?? "{}");
+        Assert.Equal("qwen3", payload.RootElement.GetProperty("model").GetString());
+        Assert.Equal(2, payload.RootElement.GetProperty("messages").GetArrayLength());
+        Assert.Single(payload.RootElement.GetProperty("tools").EnumerateArray());
+        Assert.Equal(
+            "required",
+            payload.RootElement.GetProperty("tool_choice").GetString());
+        Assert.False(payload.RootElement.GetProperty("parallel_tool_calls").GetBoolean());
+        Assert.False(payload.RootElement.TryGetProperty("max_tokens", out _));
+    }
+
+    [Fact]
+    public async Task ChatOnceNativeAsync_recovers_one_well_formed_embedded_call_when_a_tool_is_required()
+    {
+        var body = JsonSerializer.Serialize(new
+        {
+            choices = new[]
+            {
+                new
+                {
+                    message = new
+                    {
+                        content =
+                            "<tool_call>{\"name\":\"submit_selection\",\"arguments\":{\"evidenceIds\":[\"E1\",\"E2\"]}}</tool_call>texte parasite"
+                    },
+                    finish_reason = "length"
+                }
+            }
+        });
+        var handler = new StubHttpHandler(body, HttpMethod.Post);
+        var sut = new OpenAiLlmClient(new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://localhost:1234")
+        });
+        sut.Configure("http://localhost:1234/v1", "qwen3");
+        var tool = new SourceBackedAgentToolDefinition(
+            "submit_selection",
+            "Submit evidence.",
+            JsonSerializer.SerializeToElement(new
+            {
+                type = "object",
+                properties = new
+                {
+                    evidenceIds = new
+                    {
+                        type = "array",
+                        items = new { type = "string" }
+                    }
+                }
+            }));
+
+        var completion = await sut.ChatOnceNativeAsync(
+            new[] { SourceBackedAgentMessage.User("Select.") },
+            new[] { tool },
+            temperature: 0,
+            maxTokens: 96,
+            CancellationToken.None,
+            requireToolCall: true);
+
+        var call = Assert.Single(completion.ToolCalls);
+        Assert.Equal("submit_selection", call.Name);
+        Assert.Equal(
+            new[] { "E1", "E2" },
+            call.Arguments.GetProperty("evidenceIds")
+                .EnumerateArray()
+                .Select(static item => item.GetString())
+                .ToArray());
+    }
+
+    [Fact]
+    public async Task ChatOnceNativeAsync_does_not_promote_embedded_text_when_a_tool_is_optional()
+    {
+        var body = JsonSerializer.Serialize(new
+        {
+            choices = new[]
+            {
+                new
+                {
+                    message = new
+                    {
+                        content =
+                            "<tool_call>{\"name\":\"submit_selection\",\"arguments\":{}}</tool_call>"
+                    },
+                    finish_reason = "stop"
+                }
+            }
+        });
+        var handler = new StubHttpHandler(body, HttpMethod.Post);
+        var sut = new OpenAiLlmClient(new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://localhost:1234")
+        });
+        sut.Configure("http://localhost:1234/v1", "qwen3");
+        var tool = new SourceBackedAgentToolDefinition(
+            "submit_selection",
+            "Submit evidence.",
+            JsonSerializer.SerializeToElement(new { type = "object" }));
+
+        var completion = await sut.ChatOnceNativeAsync(
+            new[] { SourceBackedAgentMessage.User("Maybe select.") },
+            new[] { tool },
+            temperature: 0,
+            maxTokens: 96,
+            CancellationToken.None,
+            requireToolCall: false);
+
+        Assert.Empty(completion.ToolCalls);
+    }
+
+    [Fact]
+    public async Task GetNativeRuntimeContextTokensAsync_reads_llama_cpp_active_context()
+    {
+        var handler = new StubHttpHandler(
+            """
+            {
+              "data": [{
+                "id": "C:\\Models\\Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+                "meta": {
+                  "n_ctx": 8192,
+                  "n_ctx_train": 262144
+                }
+              }]
+            }
+            """,
+            HttpMethod.Get);
+        var sut = new OpenAiLlmClient(new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://localhost:1234")
+        });
+        sut.Configure(
+            "http://localhost:1234/v1",
+            "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf");
+
+        var contextTokens = await sut.GetNativeRuntimeContextTokensAsync(
+            CancellationToken.None);
+
+        Assert.Equal(8192, contextTokens);
     }
 
     [Fact]
@@ -261,6 +438,66 @@ public sealed class OpenAiLlmClientTests
     }
 
     [Fact]
+    public async Task ChatOnceStructuredCompletionAsync_preserves_usage_and_server_timings()
+    {
+        var handler = new StubHttpHandler(
+            """
+            {
+              "choices": [
+                {
+                  "message": { "content": "{\"status\":\"ok\"}" },
+                  "finish_reason": "stop"
+                }
+              ],
+              "usage": { "prompt_tokens": 397, "completion_tokens": 131 },
+              "timings": {
+                "cache_n": 23,
+                "prompt_n": 374,
+                "prompt_ms": 2917.86,
+                "predicted_n": 131,
+                "predicted_ms": 15279.95
+              }
+            }
+            """,
+            HttpMethod.Post);
+        var sut = new OpenAiLlmClient(new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://localhost:1234")
+        });
+        sut.Configure("http://localhost:1234/v1", "model");
+        var contract = LlmStructuredOutputContract.Parse(
+            "status_contract",
+            """{"type":"object","properties":{"status":{"type":"string","enum":["ok"]}},"required":["status"],"additionalProperties":false}""");
+
+        var method = typeof(OpenAiLlmClient).GetMethods()
+            .SingleOrDefault(static candidate =>
+                candidate.Name == "ChatOnceStructuredCompletionAsync");
+        Assert.NotNull(method);
+        var completionTask = Assert.IsType<Task<SourceBackedAgentCompletion>>(
+            method!.Invoke(
+                sut,
+                new object[]
+                {
+                    new[] { ("user", "Return status.") },
+                    0.1,
+                    64,
+                    contract,
+                    CancellationToken.None
+                }));
+        var completion = await completionTask;
+
+        Assert.Equal("{\"status\":\"ok\"}", completion.Content);
+        Assert.Equal("stop", completion.FinishReason);
+        Assert.Equal(397, completion.PromptTokens);
+        Assert.Equal(131, completion.CompletionTokens);
+        Assert.Equal(23, completion.ServerCacheTokens);
+        Assert.Equal(374, completion.ServerPromptTokensEvaluated);
+        Assert.Equal(2917.86, completion.ServerPromptMilliseconds);
+        Assert.Equal(131, completion.ServerPredictedTokens);
+        Assert.Equal(15279.95, completion.ServerPredictedMilliseconds);
+    }
+
+    [Fact]
     public async Task ChatOnceStructuredAsync_honors_explicit_native_sampling_profile()
     {
         var names = new[]
@@ -385,6 +622,32 @@ weekly plan with several slots
         Assert.Equal(1600, normalBudget);
         Assert.Equal(1600, jsonBudget);
         Assert.Equal(512, lowConfiguredJsonBudget);
+    }
+
+    [Fact]
+    public void LlmAdapter_bounds_document_overview_writer_on_the_real_agent_path()
+    {
+        var overviewBudget = RagChatAgent.ResolveLlmAdapterMaxTokensForTests(
+            configuredMaxTokens: 1600,
+            forceJson: false,
+            prompt: "SAAIA_DOCUMENT_OVERVIEW_WRITER\nCANONICAL_EVIDENCE:");
+        var alreadyLowerBudget = RagChatAgent.ResolveLlmAdapterMaxTokensForTests(
+            configuredMaxTokens: 180,
+            forceJson: false,
+            prompt: "SAAIA_DOCUMENT_OVERVIEW_WRITER");
+        var selectorBudget = RagChatAgent.ResolveLlmAdapterMaxTokensForTests(
+            configuredMaxTokens: 1600,
+            forceJson: false,
+            prompt: "SAAIA_DOCUMENT_OVERVIEW_SELECTOR");
+        var repairBudget = RagChatAgent.ResolveLlmAdapterMaxTokensForTests(
+            configuredMaxTokens: 1600,
+            forceJson: false,
+            prompt: "SAAIA_DOCUMENT_OVERVIEW_CANDIDATE_REPAIR");
+
+        Assert.Equal(320, overviewBudget);
+        Assert.Equal(180, alreadyLowerBudget);
+        Assert.Equal(64, selectorBudget);
+        Assert.Equal(96, repairBudget);
     }
 
     [Fact]
@@ -711,6 +974,28 @@ weekly plan with several slots
             {
                 Content = new StringContent(
                     "{\"choices\":[{\"message\":{\"content\":\"{\\\"status\\\":\\\"fallback\\\"}\"}}]}",
+                    Encoding.UTF8,
+                    "application/json")
+            });
+        }
+    }
+
+    private sealed class InputTokenCountHandler(
+        Action<HttpRequestMessage> assertRequest) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Assert.Equal(HttpMethod.Post, request.Method);
+            Assert.EndsWith(
+                "/chat/completions/input_tokens",
+                request.RequestUri!.AbsoluteUri);
+            assertRequest(request);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """{"object":"response.input_tokens","input_tokens":321}""",
                     Encoding.UTF8,
                     "application/json")
             });

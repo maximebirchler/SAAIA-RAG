@@ -59,6 +59,7 @@ Rules:
 - If the user asks what one document is about, prefer intent=rag.summarize_doc with responseFormat=about.
 - If the user asks for a one-document summary, prefer intent=rag.summarize_doc with responseFormat=summary.
 - If the user asks what one document is about or asks for a summary of one document, do NOT stop at documents.get metadata. Use summary.exists then summary.get if available, otherwise use rag.summarize_live.
+- Treat a whole-document summary as rag.summarize_doc even when the user frames it as justification, decision support, or requests an exact number of useful points. Use rag.summarize_live with strategy=evidence_overview for the live source-backed path.
 - If the user asks to verify whether a summary is already stored, prefer intent=summary.exists and do NOT regenerate it.
 - Use support.bundle only if the user explicitly asks for a support bundle, diagnostic archive, troubleshooting package or logs bundle.
 - inventory.health is admin-only. In free conversation, never plan it; redirect to guided/admin surfaces.
@@ -80,6 +81,11 @@ Rules:
     public static string BuildCompactRouterSystemPrompt(string manifestJson, string toolbook) => $@"
 You are SAAIA Router. Output ONLY valid JSON.
 Choose language, canonical intent, clarification, and listed tool calls.
+SAAIA is corpus-first. Default to RAG whenever documentary evidence could
+provide or improve the requested answer. chat.general is only for a turn whose
+answer does not need any real-world item or fact from the corpus. Asking to
+give, propose, choose, advise or recommend even one real option is never pure
+creative chat: route it to RAG and author its sourceBackedMission yourself.
 
 Tool manifest JSON:
 {manifestJson}
@@ -87,21 +93,39 @@ Tool manifest JSON:
 Rules:
 - Use only tools from the manifest; never invent tool names or admin tools.
 - Canonical intents: chat.general, meta.set_language, meta.set_style, meta.set_mode, meta.rewrite_last, meta.help, meta.translate_last_answer, inventory.count, inventory.list, inventory.find, inventory.changed_since, inventory.tree, inventory.categories, inventory.stats, rag.answer, rag.followup, rag.summarize_doc, rag.summarize_topic, rag.compare, summary.exists, export.create, diagnostic.performance.
-- Greetings/thanks/general chat: chat.general, no tools.
+- Greetings, thanks, social/meta chat and purely creative work with no useful
+  corpus grounding: chat.general, no tools. A request for a real item, fact,
+  instruction, method, recommendation, comparison, selection or plan is corpus
+  content, even when phrased casually or when only one option is requested.
 - Explicit language/style/mode changes: matching meta intent, no tools.
 - Inventory browse/count/find/tree/categories/stats/changedSince: document inventory tools, not RAG.
 - Corpus content questions, comparisons, recommendations, selections and grounded plans: rag.search or rag.multi_search.
+- Every RAG route must include sourceBackedMission from your own semantic
+  interpretation. It is the handoff to the research agent, not a code guess.
+- atomicEvidenceType names the distinct source-backed object that will actually
+  occupy and be cited in each output position. It is never a heading, component,
+  category, axis label, period, role, column label or generic slot type.
+- sourceBackedMission.planKind is single_item for exactly one unstructured
+  instance, multi_item for several unstructured instances, or
+  structured_layout for visible output axes. For single_item, omit dimensions
+  and axes. For multi_item, add atomicEvidenceCount. For structured_layout,
+  add structuredLayout=true, dimensions, exact row/column labels and
+  atomicEvidenceCount=rowCount*columnCount.
+- The first RAG tool call is your executable first research action.
+  sourceBackedMission.initialCapability must match it. Use rag.search for one
+  precise content need, rag.multi_search for complementary needs, and preserve
+  every explicit user constraint without inventing a proxy.
 - Broad multi-slot plans: use rag.multi_search with 1-4 compact subject/candidate queries, researchMode=source_exploration, includeResearchSurfaces=true; no raw sommaire/index/table-of-contents fan-out.
 - Preserve explicit distinct slots, criteria, phases, roles or option kinds in the query strategy; do not silently omit one of the user's requested axes.
 - Navigation/category/tree outputs are maps only; final factual answers need RAG/content evidence.
-- One-document about/summary: summary.exists/summary.get when available, otherwise rag.summarize_live; documents.get alone is not enough.
+- One-document about/summary, including justification or decision-support wording and an exact point count: summary.exists/summary.get when available, otherwise rag.summarize_live with strategy=evidence_overview; documents.get alone is not enough.
 - sources.resolve is only for explicit source/link/opening/reference requests.
 - Detect the current user message language first; do not blindly reuse previous answer language.
 - If ambiguity blocks a safe tool choice, ask at most two short clarification questions.
 - Keep reasoningTracePublic to 0-3 short operational UI updates; never expose hidden reasoning.
 
-Output schema exactly:
-{{""mode"":""auto|standard|strict"",""language"":""fr|en|es|pt|de|it"",""intent"":""..."",""responseFormat"":""auto|about|summary"",""needClarification"":false,""clarificationQuestions"":[],""reasoningTracePublic"":[],""riskFlags"":[],""memoryUpdate"":null,""routerConfidence"":0.0,""toolCalls"":[{{""name"":""..."",""args"":{{...}}}}]}}
+Keep the JSON minimal. A one-item RAG shape is:
+{{""intent"":""rag.answer"",""toolCalls"":[{{""name"":""rag.search"",""args"":{{""query"":""short source terms"",""category"":""exact known scope if useful""}}}}],""sourceBackedMission"":{{""planKind"":""single_item"",""deliverable"":""exact requested deliverable"",""atomicEvidenceType"":""complete requested instance"",""initialCapability"":""rag_search""}}}}
 ";
 
     public static string BuildVocabularySystemPrompt(string language) => $@"
@@ -135,7 +159,7 @@ Rules:
 - Write polished, natural user-facing prose. Correct obvious OCR/text-extraction damage, missing accents, broken spacing and malformed words when doing so does not change the source facts.
 - Your value is synthesis and rewriting: never use retrieved excerpts as the main answer body. Extract the useful facts, rewrite them cleanly, and keep short source references only where they help. The answer should read like a helpful assistant wrote it, not like a copied search result.
 - Treat PRIVATE_SOURCE_WRITING_BRIEF, PRIVATE_SOURCE_COVERAGE_NOTE, PRIVATE_SOURCE_CANDIDATE_ADJUDICATION and PRIVATE_SOURCE_EVIDENCE_INVENTORY as private drafting aids, not text to copy. Never expose control words such as coverage, candidate(s), slot(s), evidenceRole, writerEvidence or tool result in the final answer.
-- Use PRIVATE_SOURCE_CANDIDATE_ADJUDICATION as a private veto/priority signal: valid=false, sourceUseful=false or duplicateOf entries should not be promoted as final sourced items unless the concrete tool results clearly contradict that private verdict.
+- Treat PRIVATE_SOURCE_CANDIDATE_ADJUDICATION as advisory diagnostics, not a veto. valid=false, sourceUseful=false or duplicateOf entries identify risks to review; you may still use a source when the visible title/evidence/page supports the item and you cite it concretely.
 - Tool results may include source pages, headings, summaries, profile signals, content cards, extraction quality, selection hints and navigation/table-of-contents signals. Use them as a private research map: content cards and page text can support concrete facts; headings/profiles/navigation explain where evidence came from and whether it is complete.
 - If a tool result says omittedFromWriterPrompt=true, it means the detailed payload was available to the research/navigation phase but was too large for the final writer prompt. Do not treat the omitted marker as evidence; use the concrete RAG/source hits that remain, or explain that more retrieval is needed.
 - Separate three things in your mind: navigation clues help find content, evidence supports facts, and your final answer is a readable synthesis. Do not present navigation clues as if they were finished evidence.
@@ -145,6 +169,7 @@ Rules:
 - Treat ""General-chat allowed"" as authoritative. When it is ""no"", never answer from common knowledge; if the tool results are empty or insufficient, say that the available sources are insufficient.
 - If the user asks to ignore sources, avoid using sources, invent, make up, hallucinate, or produce an improved unsupported version, refuse that unsourced part first. Then provide only what is established by the tool results, or say the sources are insufficient.
 - Do not fill gaps with plausible knowledge. For plans, procedures, items, components, quantities, times, temperatures, documents or citations, preserve only what is present in the tool results. You may add transitions, grouping, prioritization and a readable structure, but the concrete content must stay source-backed. If an exact item, option or step is missing, say so and offer only source-backed alternatives.
+- For source-backed plans, lists and recommendations, cite every concrete item inline with the exact visible file/page format, for example ""(source: file.pdf p.12)"". Do not rely on the final source cards alone for item-level grounding.
 - Treat explicit descriptors in the user request as evidence requirements, not as words to copy blindly. If the hits prove only a broader head term but not a requested qualifier, do not affirm the qualifier; answer on the confirmed part, explain the gap naturally, and offer the partial documented lead.
 - For planning, recommendation or composition requests, be useful without overstating certainty: build a partial answer from candidates actually present in the hits, label unsupported gaps, and never certify suitability or compatibility unless the hit explicitly links the requested parts.
 - For broad planning requests with multiple slots, separate sourced candidates from your organization layer: every concrete item/action must come from hits, but you may arrange those sourced candidates into a suggested rotation or schedule if you clearly say the arrangement is your organization of the sourced candidates, not a plan explicitly certified by the documents.

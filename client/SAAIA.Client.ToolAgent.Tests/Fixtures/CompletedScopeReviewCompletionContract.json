@@ -1,0 +1,36 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"decision\": \"accept\",\n  \"candidateMatches\": {\n    \"E1\": \"match\",\n    \"E2\": \"nonmatch\",\n    \"E3\": \"nonmatch\"\n  },\n  \"selectedEvidenceId\": \"E1\",\n  \"question\": \"\",\n  \"reason\": \"La DEMANDE demande un dessert simple à faire. Le candidat E1 décrit un dessert (gâteau au fromage frais) avec des ingrédients simples et une préparation claire, ce qui satisfait la demande. Les autres candidats ne proposent pas de dessert simple ou sont liés à des préparations complexes (truffes, jus de citron, etc.).\"\n}"
+      }
+    }
+  ],
+  "created": 1788900945,
+  "model": "C:\\Users\\maxim\\AppData\\Local\\SAAIA\\Models\\Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+  "system_fingerprint": "b10098-0278d8362",
+  "object": "chat.completion",
+  "usage": {
+    "completion_tokens": 147,
+    "prompt_tokens": 971,
+    "total_tokens": 1118,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    }
+  },
+  "id": "chatcmpl-OE4Qkn0R94Hi0Rvp8fFuy0lghWLAyRRk",
+  "timings": {
+    "cache_n": 0,
+    "prompt_n": 971,
+    "prompt_ms": 289.158,
+    "prompt_per_token_ms": 0.29779402677651906,
+    "prompt_per_second": 3358.0257160445153,
+    "predicted_n": 147,
+    "predicted_ms": 2082.723,
+    "predicted_per_token_ms": 14.168183673469388,
+    "predicted_per_second": 70.58067731522627
+  }
+}

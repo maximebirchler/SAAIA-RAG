@@ -152,13 +152,16 @@ public sealed class RagLiveSummaryMultilingualBackendTests
             BindingFlags.Static | BindingFlags.NonPublic);
         Assert.NotNull(method);
 
+        var ragOptions = Options.Create(new RagOptions { DefaultTopK = 5, MaxTopK = 20 });
         var task = method!.Invoke(
             null,
             [
                 ctx,
                 ds,
-                Options.Create(new RagOptions { DefaultTopK = 5, MaxTopK = 20 }),
+                ragOptions,
                 new ThrowingHttpClientFactory(),
+                new RagSearchBulkhead(ragOptions, Microsoft.Extensions.Logging.Abstractions.NullLogger<RagSearchBulkhead>.Instance),
+                new TeiWorkloadGovernor(),
                 request
             ]) as Task<IResult>;
         Assert.NotNull(task);

@@ -660,7 +660,8 @@ internal static class DoclingCanonicalRetrievalProjector
             SectionTitle: sectionHeading?.Text,
             HeadingPath: string.IsNullOrWhiteSpace(headingPath)
                 ? null
-                : headingPath);
+                : headingPath,
+            HeadingLevel: sectionHeading?.HeadingLevel);
     }
 
     private static void MergeSmallAdjacentChunks(

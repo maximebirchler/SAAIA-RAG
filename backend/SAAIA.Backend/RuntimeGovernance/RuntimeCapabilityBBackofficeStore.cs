@@ -94,7 +94,7 @@ internal static class RuntimeCapabilityBBackofficeStore
         bool includeFresh,
         CancellationToken ct)
         => (await conn.QueryAsync<CapabilityBBackofficeCandidateRow>(new CommandDefinition(
-            $"""
+            $$"""
 SELECT
   d.doc_id AS "DocId",
   d.doc_path AS "DocPath",
@@ -177,7 +177,7 @@ WHERE (@tenant IS NULL OR d.tenant_id = @tenant)
       0) < @contentCardEvidenceSchemaVersion
   )
 ORDER BY d.updated_at DESC
-{(limit.HasValue ? "LIMIT @limit;" : ";")}
+{{(limit.HasValue ? "LIMIT @limit;" : ";")}}
 """,
             new
             {
