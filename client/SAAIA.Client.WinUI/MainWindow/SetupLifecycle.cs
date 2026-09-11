@@ -308,6 +308,8 @@ public sealed partial class MainWindow
         {
             _appSettings = AppSettings.Load();
             if (!_appSettings.UseLocalLlm) return;
+            if (LlmProviderConfiguration.Load().Mode != LlmProviderMode.Local)
+                return;
 
             var probe = await LlmEndpointProbe.GetModelsStatusAsync(
                 _appSettings.LlmBaseUrl,
@@ -727,31 +729,47 @@ public sealed partial class MainWindow
 
             _api.Configure(backendUrl, ApiKeyBox.Password, _userId);
 
-            // Configure LLM (even if disabled; agent will handle degraded mode)
-            var llmBaseUrl = _appSettings.LlmBaseUrl;
-            var llmModelId = string.IsNullOrWhiteSpace(_appSettings.ModelId) ? ClientDefaults.LlmModel : _appSettings.ModelId;
+            // Select exactly one provider/model for the run. The default config
+            // is Local; external DEV/BENCH modes require an explicit policy and
+            // a credential supplied through the environment or the DPAPI store.
+            var providerConfiguration = LlmProviderConfiguration.Load();
+            _llmProvider = LlmProviderFactory.Create(
+                _llm,
+                _appSettings,
+                providerConfiguration);
 
-            // If modelId is invalid, auto-fallback to the first /v1/models (safe, prevents breaking).
-            try
+            // The historical local convenience fallback remains local-only.
+            // Benchmarks must never silently switch provider or model.
+            if (_llmProvider.Descriptor.Mode == LlmProviderMode.Local)
             {
-                _llm.Configure(llmBaseUrl, llmModelId);
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
-                var models = await _llm.ListModelsAsync(cts.Token);
-                if (models.Count > 0 && !models.Any(m => string.Equals(m, llmModelId, StringComparison.OrdinalIgnoreCase)))
+                var llmModelId = _llmProvider.Descriptor.ModelId;
+                try
                 {
-                    _appSettings.ModelId = models[0];
-                    _appSettings.Save();
-                    llmModelId = models[0];
-                    _llm.Configure(llmBaseUrl, llmModelId);
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(4));
+                    var models = await _llmProvider.ListModelsAsync(cts.Token);
+                    if (models.Count > 0
+                        && !models.Any(m => string.Equals(m, llmModelId, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        _appSettings.ModelId = models[0];
+                        _appSettings.Save();
+                        _llmProvider = LlmProviderFactory.CreateLocal(_llm, _appSettings);
+                    }
+                }
+                catch
+                {
+                    // Local runtime may still be starting; keep its configured model.
+                    _llmProvider = LlmProviderFactory.CreateLocal(_llm, _appSettings);
                 }
             }
-            catch
-            {
-                // LLM might be down; keep config and continue (degraded mode supported).
-                _llm.Configure(llmBaseUrl, llmModelId);
-            }
 
-            _agent = new RagChatAgent(_api, _llm);
+            ClientLog.Info(
+                "LLM provider selected: " +
+                $"mode={_llmProvider.Descriptor.Mode}|" +
+                $"provider={_llmProvider.Descriptor.Provider}|" +
+                $"runtime={_llmProvider.Descriptor.Runtime}|" +
+                $"model={_llmProvider.Descriptor.ModelId}|" +
+                $"external={_llmProvider.Descriptor.IsExternal}.");
+            _agent = new RagChatAgent(_api, _llmProvider);
             _agent.ApplySettings(_appSettings);
 
             SaveSettings();
@@ -788,7 +806,11 @@ public sealed partial class MainWindow
 
     private void StartLocalLlmWarmupAfterBackendConnect()
     {
-        if (_appSettings is null || !_appSettings.ManageLocalLlmProcess || !_appSettings.UseLocalLlm || !_appSettings.EagerLoad)
+        if (_appSettings is null
+            || _llmProvider?.Descriptor.Mode != LlmProviderMode.Local
+            || !_appSettings.ManageLocalLlmProcess
+            || !_appSettings.UseLocalLlm
+            || !_appSettings.EagerLoad)
             return;
 
         _ = StartLocalLlmWarmupAfterBackendConnectAsync();

@@ -187,6 +187,10 @@ public sealed partial class ToolAgentOrchestrator
             decision.AnswerUnitCount);
     }
 
+    internal static bool EnforcesLocalCapabilityBoundaryForTests(
+        LlmProviderMode? providerMode)
+        => ShouldEnforceLocalCapabilityBoundary(providerMode);
+
     internal static bool HasCompleteExplicitStructuredGridAxesForTests(
         string userMessage,
         string language = "fr")

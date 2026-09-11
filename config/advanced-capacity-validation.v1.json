@@ -1,0 +1,49 @@
+{
+  "version": "a755-advanced-capacity-v1",
+  "validationCases": [
+    {
+      "id": "A755-ADV-01-meal-grid-5x4",
+      "axis": "multi_source_structured_grid_5x4",
+      "difficulty": "T6",
+      "corpusTarget": "",
+      "theme": "cuisine",
+      "language": "fr",
+      "question": "J'ai besoin d'un planning de repas pour la semaine du lundi au vendredi incluant petit-déjeuner, déjeuner, collation et souper. Fais un format clair et professionnel, avec uniquement des sources utiles, non dupliquées inutilement. N'invente rien.",
+      "expectedAnswerKind": "source_backed_structured_grid_or_exact_insufficiency",
+      "validationPoints": "Cinq lignes lundi à vendredi et quatre colonnes petit-déjeuner, déjeuner, collation et souper. | Vingt propositions concrètes, adaptées, distinctes et rattachées à des preuves si le corpus le permet. | Aucune clarification sur des préférences optionnelles. | Aucune invention. | Si vingt cellules ne peuvent pas être prouvées, expliquer exactement les cellules ou types de preuves manquants."
+    },
+    {
+      "id": "A755-ADV-02-five-student-meals-fr",
+      "axis": "multi_source_five_item_synthesis",
+      "difficulty": "T5",
+      "corpusTarget": "",
+      "theme": "cuisine",
+      "language": "fr",
+      "question": "À partir des documents, propose exactement cinq idées de repas simples pour un étudiant, chacune avec sa source.",
+      "expectedAnswerKind": "source_backed_enumeration_or_exact_insufficiency",
+      "validationPoints": "Exactement cinq repas concrets et distincts. | Une preuve canonique par repas. | Aucun ingrédient, prix, temps ou avantage inventé. | Une insuffisance doit nommer précisément ce qui manque."
+    },
+    {
+      "id": "A755-ADV-03-explicit-document-comparison",
+      "axis": "explicit_multi_document_comparison",
+      "difficulty": "T6",
+      "corpusTarget": "",
+      "theme": "engineering",
+      "language": "fr",
+      "question": "Mets en parallèle ce que FD CEN TR 15281 2023 dit de l'inertage et ce que IEC 60079-14 exige pour le gaz de protection.",
+      "expectedAnswerKind": "source_backed_comparison_or_exact_insufficiency",
+      "validationPoints": "Identifier séparément les deux documents. | Chaque affirmation substantielle doit être reliée à la bonne preuve. | Exposer les points comparables sans fusionner les prescriptions. | Ne pas substituer un autre document."
+    },
+    {
+      "id": "A755-ADV-04-nist-seven-points",
+      "axis": "named_document_seven_item_synthesis",
+      "difficulty": "T5",
+      "corpusTarget": "NIST_CSF_2_0.pdf",
+      "theme": "cybersecurity",
+      "language": "fr",
+      "question": "Extrais de NIST_CSF_2_0.pdf exactement sept points distincts à retenir, avec une citation pour chacun.",
+      "expectedAnswerKind": "source_backed_enumeration_or_exact_insufficiency",
+      "validationPoints": "Exactement sept points distincts réellement présents dans NIST_CSF_2_0.pdf. | Conserver le sens du document. | Une citation ou preuve traçable par point. | Aucun autre document substitué."
+    }
+  ]
+}

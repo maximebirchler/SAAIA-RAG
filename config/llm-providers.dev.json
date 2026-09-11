@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "1.0",
+  "mode": "Local",
+  "externalPolicy": "ProductionLocal",
+  "openAi": {
+    "baseUrl": "https://api.openai.com/v1",
+    "modelId": "gpt-5.6-terra",
+    "apiKeyEnvironmentVariable": "SAAIA_OPENAI_API_KEY",
+    "reasoningEffort": "low",
+    "requestTimeoutSeconds": 120,
+    "pricingUsdPerMillionTokens": {
+      "input": 2.0,
+      "cachedInput": 0.2,
+      "cacheWrite": 2.5,
+      "output": 12.0
+    },
+    "budget": {
+      "authorizedUsd": 25.0,
+      "softLimitUsd": 20.0,
+      "hardLimitUsd": 24.0,
+      "maximumCostPerTurnUsd": 0.50,
+      "maximumCallsPerTurn": 32
+    }
+  },
+  "runPod": {
+    "baseUrl": "",
+    "modelId": "",
+    "apiKeyEnvironmentVariable": "SAAIA_RUNPOD_API_KEY",
+    "runtime": "llama.cpp",
+    "runtimeProfile": "",
+    "runtimeParameters": {
+      "modelPath": "",
+      "quantization": "",
+      "contextSize": 0,
+      "batchSize": 0,
+      "ubatchSize": 0,
+      "threads": 0,
+      "threadsBatch": 0,
+      "gpuLayers": 0,
+      "flashAttention": null
+    },
+    "requestTimeoutSeconds": 300
+  }
+}

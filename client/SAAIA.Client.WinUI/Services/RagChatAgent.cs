@@ -21,7 +21,7 @@ public sealed class RagChatAgent
     private const int DocumentOverviewCandidateRepairMaxTokens = 96;
 
     private readonly ApiClient _api;
-    private readonly OpenAiLlmClient _llm;
+    private readonly ILlmProvider _llm;
     private readonly UserPrefsStore.UserPrefs _initialPrefs;
 
     private bool _llmEnabled = true;
@@ -33,7 +33,7 @@ public sealed class RagChatAgent
 
     private readonly ToolMemory _mem = new();
 
-    public RagChatAgent(ApiClient api, OpenAiLlmClient llm)
+    public RagChatAgent(ApiClient api, ILlmProvider llm)
     {
         _api = api;
         _llm = llm;
@@ -53,6 +53,22 @@ public sealed class RagChatAgent
     {
         _mem.ResetConversationState();
         _activeMode = "auto";
+    }
+
+    public RagChatAgent(ApiClient api, OpenAiLlmClient llm)
+        : this(
+            api,
+            new LocalLlmProvider(
+                llm,
+                new LlmProviderDescriptor(
+                    LlmProviderMode.Local,
+                    "local",
+                    "llama.cpp",
+                    "local",
+                    RuntimeProfile: null,
+                    IsExternal: false,
+                    IsDevelopmentOnly: false)))
+    {
     }
 
     internal void RehydrateConversationState(
@@ -82,6 +98,7 @@ public sealed class RagChatAgent
 
         var mt = NormalizeAnswerMaxTokens(s.LlmMaxOutputTokens);
         _maxTokens = Math.Clamp(mt, 128, 4096);
+        _llm.ConfigureGeneration(_temperature, _maxTokens);
 
         _ragQualityPreset = string.IsNullOrWhiteSpace(s.RagQualityPreset)
             ? "balanced"
@@ -104,6 +121,7 @@ public sealed class RagChatAgent
             onAdvancedAnalysisSnapshot = null)
     {
         userText ??= string.Empty;
+        using var llmTurnScope = _llmEnabled ? _llm.BeginTurn() : null;
         ClientLog.Info(
             "RagChatAgent turn start: " +
             $"llm={_llmEnabled}|" +
@@ -214,10 +232,9 @@ public sealed class RagChatAgent
                 $"Default retrieval category hint: {category}. Use it only if it matches the user's intent."));
         }
 
-        var llm = new LlmAdapter(_llm, _temperature, _maxTokens);
         var orchSettings = _effectiveSettings.Clone();
         orchSettings.ActiveMode = _activeMode;
-        var orch = new ToolAgentOrchestrator(_api, llm, _mem, orchSettings);
+        var orch = new ToolAgentOrchestrator(_api, _llm, _mem, orchSettings);
         ClientLog.Info(
             "RagChatAgent orchestrator start: " +
             $"history={history.Count}|" +
@@ -286,10 +303,10 @@ public sealed class RagChatAgent
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var llm = new LlmAdapter(_llm, _temperature, _maxTokens);
+        using var llmTurnScope = _llm.BeginTurn();
         var orchSettings = _effectiveSettings.Clone();
         orchSettings.ActiveMode = _activeMode;
-        var orch = new ToolAgentOrchestrator(_api, llm, _mem, orchSettings);
+        var orch = new ToolAgentOrchestrator(_api, _llm, _mem, orchSettings);
         var result = await orch.ExecuteDirectCommandAsync(request, ct).ConfigureAwait(false);
         _activeMode = AppSettings.NormalizeActiveMode(orchSettings.ActiveMode);
         _mem.LastMode = _activeMode;
@@ -953,170 +970,4 @@ public sealed class RagChatAgent
         }
     }
 
-    private sealed class LlmAdapter :
-        ILlmClient,
-        ISourceBackedAgentLlmClient,
-        ISourceBackedAgentStructuredLlmClient,
-        ISourceBackedAgentInputTokenCounter,
-        ISourceBackedAgentRuntimeContextProvider
-    {
-        private readonly OpenAiLlmClient _llm;
-        private readonly double _temperature;
-        private readonly int _maxTokens;
-
-        public LlmAdapter(OpenAiLlmClient llm, double temperature, int maxTokens)
-        {
-            _llm = llm;
-            _temperature = Math.Clamp(temperature, 0, 1);
-            _maxTokens = Math.Clamp(maxTokens, 128, 4096);
-        }
-
-        public bool SupportsStructuredOutput => true;
-
-        public async Task<string> CompleteAsync(IReadOnlyList<(string role, string content)> messages, bool forceJson, CancellationToken ct)
-        {
-            var list = messages?.ToList() ?? new List<(string role, string content)>();
-            if (forceJson)
-                list.Insert(0, ("system", "Return ONLY valid JSON. No markdown. No extra text."));
-
-            var joinedPrompt = string.Join('\n', list.Select(static message => message.content ?? string.Empty));
-            var useJsonResponseFormat = forceJson && ShouldUseLlmAdapterJsonResponseFormat(joinedPrompt);
-            var maxTokens = ResolveMaxTokens(list, forceJson);
-            var modelVisibleMessages = SourceBackedLlmPromptSanitizer.RemoveControlMetadata(list);
-
-            return await _llm.ChatOnceAsync(
-                    modelVisibleMessages,
-                    _temperature,
-                    maxTokens,
-                    ct,
-                    useJsonResponseFormat)
-                .ConfigureAwait(false);
-        }
-
-        public async Task<string> CompleteStructuredAsync(
-            IReadOnlyList<(string role, string content)> messages,
-            LlmStructuredOutputContract contract,
-            CancellationToken ct)
-        {
-            var list = messages?.ToList() ?? new List<(string role, string content)>();
-            list.Insert(0, ("system", "Return ONLY JSON matching the supplied schema. No markdown or extra text."));
-
-            var maxTokens = ResolveMaxTokens(list, forceJson: true);
-            var modelVisibleMessages = SourceBackedLlmPromptSanitizer.RemoveControlMetadata(list);
-            return await _llm.ChatOnceStructuredAsync(
-                    modelVisibleMessages,
-                    _temperature,
-                    maxTokens,
-                    contract,
-                    ct)
-                .ConfigureAwait(false);
-        }
-
-        public async Task StreamAsync(IReadOnlyList<(string role, string content)> messages, bool forceJson, Action<string> onDelta, CancellationToken ct)
-        {
-            var list = messages?.ToList() ?? new List<(string role, string content)>();
-            if (forceJson)
-            {
-                var full = await CompleteAsync(list, forceJson: true, ct).ConfigureAwait(false);
-                await SimulateStreamingAsync(full, onDelta, ct).ConfigureAwait(false);
-                return;
-            }
-
-            var maxTokens = ResolveMaxTokens(list, forceJson);
-            var modelVisibleMessages = SourceBackedLlmPromptSanitizer.RemoveControlMetadata(list);
-            await _llm.ChatStreamAsync(modelVisibleMessages, _temperature, maxTokens, onDelta, ct).ConfigureAwait(false);
-        }
-
-        public async Task<SourceBackedAgentCompletion> CompleteAsync(
-            IReadOnlyList<SourceBackedAgentMessage> messages,
-            IReadOnlyList<SourceBackedAgentToolDefinition> tools,
-            int maxTokens,
-            CancellationToken ct,
-            double? temperatureOverride = null,
-            bool requireToolCall = false)
-        {
-            var effectiveMaxTokens = Math.Clamp(maxTokens, 64, 4096);
-            return await SourceBackedLlmCumulativeBudgetContext.ExecuteAsync(
-                    SourceBackedLlmCumulativeBudgetContext
-                        .ResolveNativeCallClass(tools),
-                    SourceBackedLlmCumulativeBudgetContext
-                        .IsTerminalNativeCall(tools),
-                    messages,
-                    tools,
-                    effectiveMaxTokens,
-                    token => _llm.CountNativeInputTokensAsync(
-                        messages,
-                        tools,
-                        token,
-                        requireToolCall),
-                    token => _llm.ChatOnceNativeAsync(
-                        messages,
-                        tools,
-                        temperatureOverride ?? _temperature,
-                        effectiveMaxTokens,
-                        token,
-                        requireToolCall),
-                    ct)
-                .ConfigureAwait(false);
-        }
-
-        async Task<SourceBackedAgentCompletion>
-            ISourceBackedAgentStructuredLlmClient.CompleteStructuredAsync(
-                IReadOnlyList<SourceBackedAgentMessage> messages,
-                LlmStructuredOutputContract contract,
-                int maxTokens,
-                CancellationToken ct,
-                double? temperatureOverride)
-        {
-            var modelVisibleMessages = SourceBackedLlmPromptSanitizer
-                .RemoveControlMetadata(messages.Select(static message =>
-                    (message.Role, message.Content ?? string.Empty)).ToArray());
-            var nativeMessages = modelVisibleMessages
-                .Select(static message => new SourceBackedAgentMessage(
-                    message.role,
-                    message.content))
-                .ToArray();
-            var noTools = Array.Empty<SourceBackedAgentToolDefinition>();
-            var effectiveMaxTokens = Math.Clamp(maxTokens, 64, 4096);
-            return await SourceBackedLlmCumulativeBudgetContext.ExecuteAsync(
-                    contract.Name,
-                    SourceBackedLlmCumulativeBudgetContext
-                        .IsTerminalStructuredCall(contract.Name),
-                    nativeMessages,
-                    noTools,
-                    effectiveMaxTokens,
-                    token => _llm.CountNativeInputTokensAsync(
-                        nativeMessages,
-                        noTools,
-                        token),
-                    token => _llm.ChatOnceStructuredCompletionAsync(
-                        modelVisibleMessages,
-                        temperatureOverride ?? _temperature,
-                        effectiveMaxTokens,
-                        contract,
-                        token),
-                    ct)
-                .ConfigureAwait(false);
-        }
-
-        public Task<int?> CountInputTokensAsync(
-            IReadOnlyList<SourceBackedAgentMessage> messages,
-            IReadOnlyList<SourceBackedAgentToolDefinition> tools,
-            CancellationToken ct,
-            bool requireToolCall = false)
-            => _llm.CountNativeInputTokensAsync(
-                messages,
-                tools,
-                ct,
-                requireToolCall);
-
-        public Task<int?> GetRuntimeContextTokensAsync(CancellationToken ct)
-            => _llm.GetNativeRuntimeContextTokensAsync(ct);
-
-        private int ResolveMaxTokens(IReadOnlyList<(string role, string content)> messages, bool forceJson)
-        {
-            var joined = string.Join('\n', messages.Select(static m => m.content ?? string.Empty));
-            return ResolveLlmAdapterMaxTokens(_maxTokens, forceJson, joined);
-        }
-    }
 }

@@ -4,6 +4,7 @@ public sealed partial class MainWindow
 {
     private readonly ApiClient _api = new();
     private readonly OpenAiLlmClient _llm = new();
+    private ILlmProvider? _llmProvider;
     private AppSettings _appSettings = AppSettings.Load();
     private readonly LlamaCppProcessManager _llmProc = new();
     private readonly DownloadManager _downloads = new();

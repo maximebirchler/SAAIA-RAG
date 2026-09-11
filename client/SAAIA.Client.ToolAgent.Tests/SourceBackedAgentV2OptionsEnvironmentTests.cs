@@ -31,4 +31,40 @@ public sealed class SourceBackedAgentV2OptionsEnvironmentTests
             Environment.SetEnvironmentVariable(Variable, previous);
         }
     }
+
+    [Fact]
+    public void Advanced_provider_defaults_expand_context_and_cumulative_budget()
+    {
+        var variables = new[]
+        {
+            "SAAIA_SOURCE_BACKED_AGENT_V2_CONTEXT_TOKENS",
+            "SAAIA_SOURCE_BACKED_AGENT_V2_MAX_CUMULATIVE_LLM_TOKENS",
+            "SAAIA_SOURCE_BACKED_AGENT_V2_MAX_CUMULATIVE_LLM_ELAPSED_MS",
+            "SAAIA_SOURCE_BACKED_AGENT_V2_TERMINAL_RESERVE_TOKENS",
+            "SAAIA_SOURCE_BACKED_AGENT_V2_TERMINAL_RESERVE_MS"
+        };
+        var previous = variables.ToDictionary(
+            static variable => variable,
+            Environment.GetEnvironmentVariable);
+        try
+        {
+            foreach (var variable in variables)
+                Environment.SetEnvironmentVariable(variable, null);
+
+            var options = SourceBackedAgentV2Options.ResolveFromEnvironment(
+                providerContextTokens: 1_050_000,
+                advancedCapacity: true);
+
+            Assert.Equal(262_144, options.MaximumContextTokens);
+            Assert.Equal(48_000, options.MaximumCumulativeLlmTokens);
+            Assert.Equal(600_000, options.MaximumCumulativeLlmElapsedMilliseconds);
+            Assert.Equal(8_000, options.CumulativeLlmTerminalReserveTokens);
+            Assert.Equal(120_000, options.CumulativeLlmTerminalReserveMilliseconds);
+        }
+        finally
+        {
+            foreach (var variable in variables)
+                Environment.SetEnvironmentVariable(variable, previous[variable]);
+        }
+    }
 }

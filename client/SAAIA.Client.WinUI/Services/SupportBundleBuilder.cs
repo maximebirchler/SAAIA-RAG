@@ -134,7 +134,7 @@ internal static class SupportBundleBuilder
 
 
             // 6) Logs (last 40)
-            var logsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "logs");
+            var logsDir = Path.Combine(GetLocalAppDataRoot(localAppDataRoot), "SAAIA", "logs");
             if (Directory.Exists(logsDir))
             {
                 var outLogs = Path.Combine(staging, "logs");
@@ -203,6 +203,7 @@ internal static class SupportBundleBuilder
             }
 
             // 9) Create zip
+            RedactExternalLlmSecrets(staging);
             if (File.Exists(zipPath)) File.Delete(zipPath);
             ZipFile.CreateFromDirectory(staging, zipPath, CompressionLevel.Fastest, includeBaseDirectory: false);
 
@@ -211,6 +212,35 @@ internal static class SupportBundleBuilder
         finally
         {
             try { Directory.Delete(staging, recursive: true); } catch { }
+        }
+    }
+
+    private static void RedactExternalLlmSecrets(string stagingDirectory)
+    {
+        var secrets = new[]
+            {
+                Environment.GetEnvironmentVariable(LlmProviderConfiguration.OpenAiKeyEnvironmentVariable),
+                Environment.GetEnvironmentVariable(LlmProviderConfiguration.RunPodKeyEnvironmentVariable)
+            }
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => value!.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (secrets.Length == 0)
+            return;
+
+        var textExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".json", ".jsonl", ".log", ".txt", ".yaml", ".yml"
+        };
+        foreach (var path in Directory.EnumerateFiles(stagingDirectory, "*", SearchOption.AllDirectories))
+        {
+            if (!textExtensions.Contains(Path.GetExtension(path)))
+                continue;
+            var content = File.ReadAllText(path);
+            foreach (var secret in secrets)
+                content = content.Replace(secret, "[REDACTED]", StringComparison.Ordinal);
+            File.WriteAllText(path, content, Encoding.UTF8);
         }
     }
 

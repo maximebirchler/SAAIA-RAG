@@ -183,4 +183,56 @@ public sealed class SupportBundleMemoryDiagnosticsTests
                 Directory.Delete(tempLocalAppData, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task Support_bundle_redacts_external_llm_secrets_from_copied_logs()
+    {
+        const string openAiSecret = "openai-support-bundle-secret";
+        const string runPodSecret = "runpod-support-bundle-secret";
+        var previousOpenAi = Environment.GetEnvironmentVariable("SAAIA_OPENAI_API_KEY");
+        var previousRunPod = Environment.GetEnvironmentVariable("SAAIA_RUNPOD_API_KEY");
+        var tempLocalAppData = Path.Combine(
+            Path.GetTempPath(),
+            "saaia-support-localappdata-" + Guid.NewGuid().ToString("N"));
+        var logsDirectory = Path.Combine(tempLocalAppData, "SAAIA", "logs");
+        Directory.CreateDirectory(logsDirectory);
+        await File.WriteAllTextAsync(
+            Path.Combine(logsDirectory, "client-test.log"),
+            $"OpenAI={openAiSecret}; RunPod={runPodSecret}");
+        Environment.SetEnvironmentVariable("SAAIA_OPENAI_API_KEY", openAiSecret);
+        Environment.SetEnvironmentVariable("SAAIA_RUNPOD_API_KEY", runPodSecret);
+
+        var settings = new AppSettings
+        {
+            BackendUrl = "http://127.0.0.1:9",
+            Host = "127.0.0.1",
+            Port = 9
+        };
+        string? zipPath = null;
+        try
+        {
+            zipPath = await SupportBundleBuilder.BuildAsync(
+                settings,
+                null,
+                null,
+                tempLocalAppData);
+            using var archive = ZipFile.OpenRead(zipPath);
+            var logEntry = archive.GetEntry("logs/client-test.log");
+            Assert.NotNull(logEntry);
+            using var reader = new StreamReader(logEntry!.Open());
+            var content = await reader.ReadToEndAsync();
+            Assert.DoesNotContain(openAiSecret, content, StringComparison.Ordinal);
+            Assert.DoesNotContain(runPodSecret, content, StringComparison.Ordinal);
+            Assert.Contains("[REDACTED]", content, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("SAAIA_OPENAI_API_KEY", previousOpenAi);
+            Environment.SetEnvironmentVariable("SAAIA_RUNPOD_API_KEY", previousRunPod);
+            if (!string.IsNullOrWhiteSpace(zipPath) && File.Exists(zipPath))
+                File.Delete(zipPath);
+            if (Directory.Exists(tempLocalAppData))
+                Directory.Delete(tempLocalAppData, recursive: true);
+        }
+    }
 }

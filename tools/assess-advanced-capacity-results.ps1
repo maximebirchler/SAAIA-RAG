@@ -1,0 +1,148 @@
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true)]
+    [string]$ArtifactDirectory,
+
+    [string]$ExpectedProviderMode = "OpenAiDev",
+    [string]$ExpectedModel = "gpt-5.6-terra"
+)
+
+$ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
+
+$ArtifactDirectory = [System.IO.Path]::GetFullPath($ArtifactDirectory)
+$jsonlFiles = @(Get-ChildItem -LiteralPath $ArtifactDirectory -Recurse -Filter "*.jsonl" | Sort-Object FullName)
+if ($jsonlFiles.Count -eq 0) {
+    throw "No agent-bank JSONL result was found in $ArtifactDirectory."
+}
+
+function Test-ContainsAll([string]$Text, [string[]]$Values) {
+    foreach ($value in $Values) {
+        if ($Text -notmatch [regex]::Escape($value)) { return $false }
+    }
+    return $true
+}
+
+function Get-CitationStats([string]$Answer) {
+    $matches = @([regex]::Matches($Answer, '\[E\d+\]', 'IgnoreCase'))
+    return [ordered]@{
+        occurrences = $matches.Count
+        distinct = @($matches | ForEach-Object Value | Sort-Object -Unique).Count
+    }
+}
+
+function Get-MealGridStats([string]$Answer) {
+    $rows = @($Answer -split "`r?`n" | Where-Object { $_ -match '^\s*\|' })
+    $dataRows = @($rows | Where-Object {
+        $_ -match '(?i)\b(lundi|mardi|mercredi|jeudi|vendredi)\b'
+    })
+    $cells = @()
+    foreach ($row in $dataRows) {
+        $parts = @($row.Trim().Trim('|') -split '\|' | ForEach-Object Trim)
+        if ($parts.Count -ge 5) { $cells += $parts[1..4] }
+    }
+    $normalizedCells = @($cells | ForEach-Object {
+        ([regex]::Replace($_, '\[E\d+\]', '', 'IgnoreCase')).Trim().ToLowerInvariant()
+    } | Where-Object { $_ })
+    return [ordered]@{
+        markdownRows = $dataRows.Count
+        mealCells = $cells.Count
+        distinctMealCells = @($normalizedCells | Sort-Object -Unique).Count
+    }
+}
+
+$assessments = @()
+$repetition = 0
+foreach ($file in $jsonlFiles) {
+    $repetition++
+    foreach ($line in Get-Content -LiteralPath $file.FullName) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $record = $line | ConvertFrom-Json
+        $row = $record.row
+        $answer = [string]$record.answer
+        $citations = Get-CitationStats $answer
+        $looksLikeExactInsufficiency = $answer -match '(?i)\b(insuffisant|insuffisante|manqu(?:e|ent)|pas trouvé|cannot|missing)\b' -and
+            $answer -notmatch '(?i)capacit[eé].*avanc[eé]e|advanced analysis'
+        $checks = [ordered]@{
+            noHarnessError = [string]::IsNullOrWhiteSpace([string]$row.error)
+            expectedProviderMode = [string]$row.providerMode -eq $ExpectedProviderMode
+            expectedModel = [string]$row.providerModel -eq $ExpectedModel
+            providerWasCalled = [int]$row.providerCallCount -gt 0
+            costWasMeasured = [decimal]$row.estimatedCostUsd -gt 0
+            noLocalAdvancedHandoff = [string]$row.answerSource -notmatch 'capability_boundary:advanced_analysis_required'
+            nonEmptyAnswer = -not [string]::IsNullOrWhiteSpace($answer)
+            evidenceOrExactInsufficiency = [int]$row.sourceCount -gt 0 -or $looksLikeExactInsufficiency
+        }
+        $details = [ordered]@{ citations = $citations }
+
+        switch ([string]$row.id) {
+            "A755-ADV-01-meal-grid-5x4" {
+                $grid = Get-MealGridStats $answer
+                $details.mealGrid = $grid
+                $checks.fiveDaysNamed = Test-ContainsAll $answer @("lundi", "mardi", "mercredi", "jeudi", "vendredi")
+                $checks.fourMealMomentsNamed = Test-ContainsAll $answer @("petit-déjeuner", "déjeuner", "collation", "souper")
+                if (-not $looksLikeExactInsufficiency) {
+                    $checks.fiveMarkdownDataRows = $grid.markdownRows -eq 5
+                    $checks.twentyMealCells = $grid.mealCells -eq 20
+                    $checks.twentyDistinctMealCells = $grid.distinctMealCells -eq 20
+                    $checks.twentyCitations = $citations.occurrences -ge 20
+                }
+            }
+            "A755-ADV-02-five-student-meals-fr" {
+                if (-not $looksLikeExactInsufficiency) {
+                    $checks.fiveCitedItems = $citations.occurrences -ge 5
+                    $checks.fiveDistinctEvidenceReferences = $citations.distinct -ge 5
+                }
+            }
+            "A755-ADV-03-explicit-document-comparison" {
+                if (-not $looksLikeExactInsufficiency) {
+                    $checks.twoDocumentsNamed = Test-ContainsAll $answer @("15281", "60079-14")
+                    $checks.twoSourceLabels = @($record.diagnostics.SourceLabels | Sort-Object -Unique).Count -ge 2
+                }
+            }
+            "A755-ADV-04-nist-seven-points" {
+                if (-not $looksLikeExactInsufficiency) {
+                    $checks.nistSourceOnly = @($record.diagnostics.SourceLabels | Where-Object { $_ -notmatch 'NIST_CSF_2_0\.pdf' }).Count -eq 0
+                    $checks.sevenCitations = $citations.occurrences -ge 7
+                }
+            }
+        }
+
+        $failedChecks = @($checks.GetEnumerator() | Where-Object { -not [bool]$_.Value } | ForEach-Object Key)
+        $assessments += [ordered]@{
+            repetition = $repetition
+            id = [string]$row.id
+            mechanicalVerdict = if ($failedChecks.Count -eq 0) { "PASS_REQUIRES_SEMANTIC_REVIEW" } else { "FAIL_MECHANICAL" }
+            failedChecks = $failedChecks
+            checks = $checks
+            details = $details
+            answerSource = [string]$row.answerSource
+            sourceLabels = @($record.diagnostics.SourceLabels)
+            callCount = [int]$row.providerCallCount
+            estimatedCostUsd = [decimal]$row.estimatedCostUsd
+            elapsedMs = [long]$row.elapsedMs
+        }
+    }
+}
+
+$failed = @($assessments | Where-Object mechanicalVerdict -eq "FAIL_MECHANICAL")
+$result = [ordered]@{
+    schemaVersion = "saaia-advanced-capacity-mechanical-assessment-v1"
+    assessedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
+    artifactDirectory = $ArtifactDirectory
+    resultFiles = @($jsonlFiles | ForEach-Object FullName)
+    verdict = if ($failed.Count -eq 0) { "PASS_MECHANICAL_REQUIRES_SEMANTIC_REVIEW" } else { "REJECT_MECHANICAL" }
+    productStatus = "TESTE_NON_APPROUVE"
+    rows = $assessments.Count
+    failures = $failed.Count
+    warning = "This assessor checks structure and provenance signals only. It cannot approve factual support or semantic quality."
+    cases = $assessments
+}
+$assessmentPath = Join-Path $ArtifactDirectory "mechanical-assessment.v1.json"
+$result | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $assessmentPath -Encoding utf8
+Write-Output "Assessment: $assessmentPath"
+Write-Output "Verdict: $($result.verdict)"
+if ($failed.Count -gt 0) {
+    $failed | ForEach-Object { Write-Output ("FAIL " + $_.id + ": " + ($_.failedChecks -join ", ")) }
+    exit 2
+}

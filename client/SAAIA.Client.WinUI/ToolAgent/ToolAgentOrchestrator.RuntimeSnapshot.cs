@@ -23,10 +23,41 @@ public sealed partial class ToolAgentOrchestrator
     private Dictionary<string, object?> BuildAgentRuntimeSnapshot()
     {
         var memorySummary = BuildAgentMemorySummary();
+        var provider = _llm as ILlmProvider;
+        var budget = (provider as OpenAiCompatibleLlmProviderBase)?.BudgetSnapshot;
 
         return new Dictionary<string, object?>
         {
             ["supported"] = true,
+            ["llmProvider"] = provider is null
+                ? new Dictionary<string, object?> { ["available"] = false }
+                : new Dictionary<string, object?>
+                {
+                    ["available"] = true,
+                    ["mode"] = provider.Descriptor.Mode.ToString(),
+                    ["provider"] = provider.Descriptor.Provider,
+                    ["runtime"] = provider.Descriptor.Runtime,
+                    ["modelId"] = provider.Descriptor.ModelId,
+                    ["runtimeProfile"] = provider.Descriptor.RuntimeProfile,
+                    ["runtimeParameters"] = provider.Descriptor.RuntimeParameters,
+                    ["contextWindowTokens"] = provider.Descriptor.ContextWindowTokens,
+                    ["external"] = provider.Descriptor.IsExternal,
+                    ["developmentOnly"] = provider.Descriptor.IsDevelopmentOnly,
+                    ["budget"] = budget is null
+                        ? null
+                        : new Dictionary<string, object?>
+                        {
+                            ["authorizedUsd"] = budget.AuthorizedBudgetUsd,
+                            ["softLimitUsd"] = budget.SoftLimitUsd,
+                            ["hardLimitUsd"] = budget.HardLimitUsd,
+                            ["recordedCostUsd"] = budget.RecordedCostUsd,
+                            ["reservedCostUsd"] = budget.ReservedCostUsd,
+                            ["remainingBeforeHardLimitUsd"] = budget.RemainingBeforeHardLimitUsd,
+                            ["softLimitReached"] = budget.SoftLimitReached,
+                            ["currentTurnCalls"] = budget.CurrentTurnCalls,
+                            ["currentTurnCostUsd"] = budget.CurrentTurnCostUsd
+                        }
+                },
             ["routerMs"] = _lastRouterMs,
             ["toolsMs"] = _lastToolsMs,
             ["writerMs"] = _lastWriterMs,

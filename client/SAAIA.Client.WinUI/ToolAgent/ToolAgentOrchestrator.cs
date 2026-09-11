@@ -92,4 +92,13 @@ public sealed partial class ToolAgentOrchestrator
         _settings = settings;
     }
 
+    private LlmProviderDescriptor? ActiveProviderDescriptor
+        => (_llm as ILlmProvider)?.Descriptor;
+
+    private bool EnforcesLocalCapabilityBoundary
+        => ShouldEnforceLocalCapabilityBoundary(ActiveProviderDescriptor?.Mode);
+
+    private static bool ShouldEnforceLocalCapabilityBoundary(LlmProviderMode? providerMode)
+        => providerMode is null or LlmProviderMode.Local;
+
 }

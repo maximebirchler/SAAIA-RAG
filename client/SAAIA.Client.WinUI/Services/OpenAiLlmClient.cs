@@ -16,6 +16,48 @@ using SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag;
 
 namespace SAAIA.Client.WinUI.Services;
 
+internal enum OpenAiCompatibleDialect
+{
+    LlamaCpp,
+    OpenAi
+}
+
+internal sealed class OpenAiCompatibleEndpointOptions
+{
+    internal OpenAiCompatibleEndpointOptions(
+        string baseUrl,
+        string modelId,
+        string provider,
+        string? apiKey,
+        OpenAiCompatibleDialect dialect,
+        string? reasoningEffort,
+        bool ensureLocalRuntime)
+    {
+        BaseUrl = baseUrl;
+        ModelId = modelId;
+        Provider = provider;
+        ApiKey = apiKey;
+        Dialect = dialect;
+        ReasoningEffort = reasoningEffort;
+        EnsureLocalRuntime = ensureLocalRuntime;
+    }
+
+    internal string BaseUrl { get; }
+    internal string ModelId { get; }
+    internal string Provider { get; }
+    internal string? ApiKey { get; }
+    internal OpenAiCompatibleDialect Dialect { get; }
+    internal string? ReasoningEffort { get; }
+    internal bool EnsureLocalRuntime { get; }
+
+    public override string ToString()
+        => $"{Provider}:{ModelId}@{BaseUrl} (credential redacted)";
+}
+
+public sealed record LlmStreamResult(
+    LlmTokenUsage Usage,
+    long? TimeToFirstTokenMilliseconds);
+
 public sealed class OpenAiLlmClient
 {
     private static readonly HttpClient SharedHttpClient = new()
@@ -26,6 +68,11 @@ public sealed class OpenAiLlmClient
     private readonly HttpClient _http;
     private int _nativeInputTokenCountingAvailability;
     private int _nativeRuntimeContextTokens;
+    private string? _apiKey;
+    private string _provider = "local";
+    private OpenAiCompatibleDialect _dialect = OpenAiCompatibleDialect.LlamaCpp;
+    private string? _reasoningEffort;
+    private bool _ensureLocalRuntime = true;
 
     public event Action? RuntimeActivityStarted;
     public event Action? RuntimeActivityFinished;
@@ -48,7 +95,7 @@ public sealed class OpenAiLlmClient
     }
 
 
-    private static async Task EnsureSuccessAsync(HttpResponseMessage resp, CancellationToken ct)
+    private async Task EnsureSuccessAsync(HttpResponseMessage resp, CancellationToken ct)
     {
         if (resp.IsSuccessStatusCode) return;
 
@@ -56,19 +103,53 @@ public sealed class OpenAiLlmClient
         try { body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false); }
         catch (Exception ex) { ClientLog.Warn($"OpenAI-compatible error body unreadable: {ex.Message}"); }
 
+        body = RedactCredential(body);
         var msg = $"LLM request failed: {(int)resp.StatusCode} {resp.ReasonPhrase}. Body: {body}";
         throw new HttpRequestException(msg, null, resp.StatusCode);
     }
 
+    private string RedactCredential(string? value)
+    {
+        var result = value ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(_apiKey))
+            result = result.Replace(_apiKey, "[REDACTED]", StringComparison.Ordinal);
+        return result;
+    }
+
     public void Configure(string baseUrl, string model)
     {
-        _baseUrl = baseUrl.Trim().TrimEnd('/');
-        _model = model.Trim();
+        ConfigureEndpoint(new OpenAiCompatibleEndpointOptions(
+            baseUrl,
+            model,
+            "local",
+            apiKey: null,
+            OpenAiCompatibleDialect.LlamaCpp,
+            reasoningEffort: null,
+            ensureLocalRuntime: true));
+    }
+
+    internal void ConfigureEndpoint(OpenAiCompatibleEndpointOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        _baseUrl = options.BaseUrl.Trim().TrimEnd('/');
+        _model = options.ModelId.Trim();
+        _provider = options.Provider.Trim();
+        _apiKey = string.IsNullOrWhiteSpace(options.ApiKey)
+            ? null
+            : options.ApiKey.Trim();
+        _dialect = options.Dialect;
+        _reasoningEffort = string.IsNullOrWhiteSpace(options.ReasoningEffort)
+            ? null
+            : options.ReasoningEffort.Trim().ToLowerInvariant();
+        _ensureLocalRuntime = options.EnsureLocalRuntime;
         Volatile.Write(ref _nativeRuntimeContextTokens, 0);
+        Volatile.Write(ref _nativeInputTokenCountingAvailability, 0);
     }
 
     private async Task EnsureRuntimeReadyAsync(CancellationToken ct)
     {
+        if (!_ensureLocalRuntime)
+            return;
         var handlers = RuntimeEnsureReady;
         if (handlers is null)
             return;
@@ -91,6 +172,20 @@ public sealed class OpenAiLlmClient
                 forceJson,
                 structuredOutput: null)
             .ConfigureAwait(false)).Content;
+
+    internal Task<SourceBackedAgentCompletion> ChatOnceCompletionAsync(
+        IReadOnlyList<(string role, string content)> messages,
+        double temperature,
+        int maxTokens,
+        CancellationToken ct,
+        bool forceJson = false)
+        => ChatOnceCoreAsync(
+            messages,
+            temperature,
+            maxTokens,
+            ct,
+            forceJson,
+            structuredOutput: null);
 
     public async Task<string> ChatOnceStructuredAsync(
         IReadOnlyList<(string role, string content)> messages,
@@ -154,15 +249,13 @@ public sealed class OpenAiLlmClient
         try
         {
             var payload = BuildNativeToolPayload(messages, tools, requireToolCall);
-            payload["max_tokens"] = maxTokens;
+            payload[ResolveMaximumTokensPropertyName()] = maxTokens;
             payload["stream"] = false;
-            LlmSamplingConfiguration.ResolveFromEnvironment().Apply(
-                payload,
-                temperature,
-                structuredOutput: requireToolCall);
+            ApplyGenerationParameters(payload, temperature, requireToolCall);
 
             using var req = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/chat/completions");
             req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            ApplyAuthentication(req);
             req.Content = new StringContent(JsonSerializer.Serialize(payload, JsonOpts), Encoding.UTF8, "application/json");
 
             using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
@@ -238,6 +331,7 @@ public sealed class OpenAiLlmClient
                 $"{_baseUrl}/chat/completions/input_tokens");
             request.Headers.Accept.Add(
                 new MediaTypeWithQualityHeaderValue("application/json"));
+            ApplyAuthentication(request);
             request.Content = new StringContent(
                 JsonSerializer.Serialize(payload, JsonOpts),
                 Encoding.UTF8,
@@ -321,6 +415,7 @@ public sealed class OpenAiLlmClient
                 $"{_baseUrl}/models");
             request.Headers.Accept.Add(
                 new MediaTypeWithQualityHeaderValue("application/json"));
+            ApplyAuthentication(request);
             using var response = await _http.SendAsync(request, ct)
                 .ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -629,34 +724,22 @@ public sealed class OpenAiLlmClient
                            && finish.ValueKind == JsonValueKind.String
             ? finish.GetString() ?? string.Empty
             : string.Empty;
-        int? promptTokens = null;
-        int? completionTokens = null;
-        if (root.TryGetProperty("usage", out var usage) && usage.ValueKind == JsonValueKind.Object)
-        {
-            if (usage.TryGetProperty("prompt_tokens", out var prompt)
-                && prompt.TryGetInt32(out var promptValue))
-            {
-                promptTokens = promptValue;
-            }
-
-            if (usage.TryGetProperty("completion_tokens", out var completion)
-                && completion.TryGetInt32(out var completionValue))
-            {
-                completionTokens = completionValue;
-            }
-        }
+        var usage = ReadUsage(root);
 
         return new SourceBackedAgentCompletion(
             content,
             calls,
             finishReason,
-            promptTokens,
-            completionTokens,
+            usage.InputTokens,
+            usage.OutputTokens,
             ReadTimingInt(root, "cache_n"),
             ReadTimingInt(root, "prompt_n"),
             ReadTimingDouble(root, "prompt_ms"),
             ReadTimingInt(root, "predicted_n"),
-            ReadTimingDouble(root, "predicted_ms"));
+            ReadTimingDouble(root, "predicted_ms"),
+            CachedInputTokens: usage.CachedInputTokens,
+            CacheWriteTokens: usage.CacheWriteTokens,
+            ReasoningTokens: usage.ReasoningTokens);
     }
 
     private static bool TryParseEmbeddedRequiredToolCall(
@@ -785,7 +868,8 @@ public sealed class OpenAiLlmClient
                     useLegacyLlamaStructuredFormat: false,
                     ct)
                 .ConfigureAwait(false);
-            if (structuredOutput is not null
+            if (_dialect == OpenAiCompatibleDialect.LlamaCpp
+                && structuredOutput is not null
                 && ((int)resp.StatusCode == 400 || (int)resp.StatusCode == 422))
             {
                 ClientLog.Warn(
@@ -803,7 +887,8 @@ public sealed class OpenAiLlmClient
                     .ConfigureAwait(false);
             }
 
-            if (structuredOutput is not null
+            if (_dialect == OpenAiCompatibleDialect.LlamaCpp
+                && structuredOutput is not null
                 && ((int)resp.StatusCode == 400 || (int)resp.StatusCode == 422))
             {
                 ClientLog.Warn(
@@ -820,7 +905,8 @@ public sealed class OpenAiLlmClient
                         ct)
                     .ConfigureAwait(false);
             }
-            else if (structuredOutput is null
+            else if (_dialect == OpenAiCompatibleDialect.LlamaCpp
+                     && structuredOutput is null
                      && forceJson
                 && ((int)resp.StatusCode == 400 || (int)resp.StatusCode == 422))
             {
@@ -865,6 +951,7 @@ public sealed class OpenAiLlmClient
                 var completionTokens = ReadUsageTokenCount(
                     doc.RootElement,
                     "completion_tokens");
+                var usage = ReadUsage(doc.RootElement);
                 var cacheTokens = ReadTimingInt(doc.RootElement, "cache_n");
                 var promptEvaluatedTokens = ReadTimingInt(
                     doc.RootElement,
@@ -902,7 +989,11 @@ public sealed class OpenAiLlmClient
                     promptEvaluatedTokens,
                     promptMilliseconds,
                     predictedTokens,
-                    predictedMilliseconds);
+                    predictedMilliseconds,
+                    CachedInputTokens: usage.CachedInputTokens,
+                    CacheWriteTokens: usage.CacheWriteTokens,
+                    ReasoningTokens: usage.ReasoningTokens,
+                    RetryCount: Math.Max(0, attempts - 1));
             }
         }
         catch (OperationCanceledException)
@@ -985,6 +1076,38 @@ public sealed class OpenAiLlmClient
         return count;
     }
 
+    private static LlmTokenUsage ReadUsage(JsonElement root)
+    {
+        var input = ReadUsageTokenCount(root, "prompt_tokens");
+        var output = ReadUsageTokenCount(root, "completion_tokens");
+        int? cached = null;
+        int? cacheWrite = null;
+        int? reasoning = null;
+        if (root.TryGetProperty("usage", out var usage)
+            && usage.ValueKind == JsonValueKind.Object)
+        {
+            if (usage.TryGetProperty("prompt_tokens_details", out var inputDetails)
+                && inputDetails.ValueKind == JsonValueKind.Object)
+            {
+                cached = ReadOptionalNonNegativeInt(inputDetails, "cached_tokens");
+                cacheWrite = ReadOptionalNonNegativeInt(inputDetails, "cache_write_tokens");
+            }
+            if (usage.TryGetProperty("completion_tokens_details", out var outputDetails)
+                && outputDetails.ValueKind == JsonValueKind.Object)
+            {
+                reasoning = ReadOptionalNonNegativeInt(outputDetails, "reasoning_tokens");
+            }
+        }
+        return new LlmTokenUsage(input, output, cached, cacheWrite, reasoning);
+    }
+
+    private static int? ReadOptionalNonNegativeInt(JsonElement parent, string propertyName)
+        => parent.TryGetProperty(propertyName, out var value)
+           && value.TryGetInt32(out var parsed)
+           && parsed >= 0
+            ? parsed
+            : null;
+
     private static int? ReadTimingInt(JsonElement root, string propertyName)
     {
         if (!root.TryGetProperty("timings", out var timings)
@@ -1031,15 +1154,15 @@ public sealed class OpenAiLlmClient
         var payload = new Dictionary<string, object?>
         {
             ["model"] = _model,
-            ["max_tokens"] = maxTokens,
+            [ResolveMaximumTokensPropertyName()] = maxTokens,
             ["stream"] = false,
-            ["stop"] = new[] { "\nUSER_MESSAGE:", "\nTOOL_RESULTS", "\nDRAFT_ANSWER:", "\nCHAT_TAIL:" },
             ["messages"] = messages.Select(m => new { role = m.role, content = m.content }).ToArray()
         };
-        LlmSamplingConfiguration.ResolveFromEnvironment().Apply(
-            payload,
-            temperature,
-            structuredOutput is not null);
+        if (_dialect == OpenAiCompatibleDialect.LlamaCpp)
+        {
+            payload["stop"] = new[] { "\nUSER_MESSAGE:", "\nTOOL_RESULTS", "\nDRAFT_ANSWER:", "\nCHAT_TAIL:" };
+        }
+        ApplyGenerationParameters(payload, temperature, structuredOutput is not null);
         if (structuredOutput is not null)
         {
             payload["response_format"] = useLegacyLlamaStructuredFormat
@@ -1064,11 +1187,12 @@ public sealed class OpenAiLlmClient
 
         using var req = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/chat/completions");
         req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        ApplyAuthentication(req);
         req.Content = new StringContent(JsonSerializer.Serialize(payload, JsonOpts), Encoding.UTF8, "application/json");
         return await _http.SendAsync(req, ct).ConfigureAwait(false);
     }
 
-    public async Task ChatStreamAsync(
+    public async Task<LlmStreamResult> ChatStreamAsync(
         IReadOnlyList<(string role, string content)> messages,
         double temperature,
         int maxTokens,
@@ -1087,8 +1211,11 @@ public sealed class OpenAiLlmClient
         var outputCharacters = 0;
         var responseMode = "unknown";
         var completed = false;
+        var usage = new LlmTokenUsage(null, null);
+        long? timeToFirstTokenMilliseconds = null;
         void EmitDelta(string delta)
         {
+            timeToFirstTokenMilliseconds ??= stopwatch.ElapsedMilliseconds;
             outputCharacters += delta.Length;
             onDelta(delta);
         }
@@ -1105,18 +1232,26 @@ public sealed class OpenAiLlmClient
             var payload = new Dictionary<string, object?>
             {
                 ["model"] = _model,
-                ["max_tokens"] = maxTokens,
+                [ResolveMaximumTokensPropertyName()] = maxTokens,
                 ["stream"] = true,
-                ["stop"] = new[] { "\nUSER_MESSAGE:", "\nTOOL_RESULTS", "\nDRAFT_ANSWER:", "\nCHAT_TAIL:" },
                 ["messages"] = messages.Select(m => new { role = m.role, content = m.content }).ToArray()
             };
-            LlmSamplingConfiguration.ResolveFromEnvironment().Apply(
-                payload,
-                temperature,
-                structuredOutput: false);
+            if (_dialect == OpenAiCompatibleDialect.LlamaCpp)
+            {
+                payload["stop"] = new[] { "\nUSER_MESSAGE:", "\nTOOL_RESULTS", "\nDRAFT_ANSWER:", "\nCHAT_TAIL:" };
+            }
+            else
+            {
+                payload["stream_options"] = new Dictionary<string, object?>
+                {
+                    ["include_usage"] = true
+                };
+            }
+            ApplyGenerationParameters(payload, temperature, structuredOutput: false);
 
             using var req = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/chat/completions");
             req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
+            ApplyAuthentication(req);
             req.Content = new StringContent(JsonSerializer.Serialize(payload, JsonOpts), Encoding.UTF8, "application/json");
 
             using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
@@ -1130,11 +1265,13 @@ public sealed class OpenAiLlmClient
             {
                 responseMode = "json_simulated_stream";
                 var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                using (var jsonDocument = JsonDocument.Parse(json))
+                    usage = ReadUsage(jsonDocument.RootElement);
                 var full = TryExtractChatContent(json);
                 if (!string.IsNullOrEmpty(full))
                     await SimulateStreamingAsync(full, EmitDelta, ct).ConfigureAwait(false);
                 completed = true;
-                return;
+                return new LlmStreamResult(usage, timeToFirstTokenMilliseconds);
             }
 
             responseMode = "sse";
@@ -1144,6 +1281,7 @@ public sealed class OpenAiLlmClient
             // Robuste: certains serveurs streament du "delta", d'autres du "contenu cumulatif"
             var emittedSoFar = "";
             var sawData = false;
+            var sawDone = false;
 
             while (!ct.IsCancellationRequested)
             {
@@ -1155,14 +1293,31 @@ public sealed class OpenAiLlmClient
 
                 sawData = true;
                 var data = line.Substring("data:".Length).Trim();
-                if (data == "[DONE]") break;
+                if (data == "[DONE]")
+                {
+                    sawDone = true;
+                    break;
+                }
 
                 try
                 {
                     using var doc = JsonDocument.Parse(data);
                     var root = doc.RootElement;
-
-                    var delta = root.GetProperty("choices")[0].GetProperty("delta");
+                    var chunkUsage = ReadUsage(root);
+                    if (chunkUsage.InputTokens is not null || chunkUsage.OutputTokens is not null)
+                        usage = chunkUsage;
+                    if (!root.TryGetProperty("choices", out var choices)
+                        || choices.ValueKind != JsonValueKind.Array
+                        || choices.GetArrayLength() == 0)
+                    {
+                        continue;
+                    }
+                    var choice = choices[0];
+                    if (!choice.TryGetProperty("delta", out var delta)
+                        || delta.ValueKind != JsonValueKind.Object)
+                    {
+                        continue;
+                    }
                     if (delta.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String)
                     {
                         var chunk = c.GetString() ?? "";
@@ -1192,6 +1347,9 @@ public sealed class OpenAiLlmClient
                 }
             }
 
+            if (_dialect == OpenAiCompatibleDialect.OpenAi && !sawDone)
+                throw new IOException("The OpenAI stream ended before its [DONE] marker.");
+
             // Safety net: if server claimed SSE but never sent data lines, fall back to JSON parsing and simulate.
             if (!sawData || string.IsNullOrEmpty(emittedSoFar))
             {
@@ -1213,6 +1371,7 @@ public sealed class OpenAiLlmClient
                 }
             }
             completed = true;
+            return new LlmStreamResult(usage, timeToFirstTokenMilliseconds);
         }
         catch (OperationCanceledException)
         {
@@ -1244,12 +1403,41 @@ public sealed class OpenAiLlmClient
                     $" trace_id={traceId} call_id={callId} call_kind={callKind}" +
                     $" finish_reason=stream_completed" +
                     $" response_mode={responseMode}" +
-                    $" prompt_tokens=unknown completion_tokens=unknown" +
+                    $" prompt_tokens={usage.InputTokens?.ToString() ?? "unknown"}" +
+                    $" completion_tokens={usage.OutputTokens?.ToString() ?? "unknown"}" +
                     $" output_chars={outputCharacters}" +
                     $" elapsed_ms={stopwatch.ElapsedMilliseconds}]");
             }
             RuntimeActivityFinished?.Invoke();
         }
+    }
+
+    private string ResolveMaximumTokensPropertyName()
+        => _dialect == OpenAiCompatibleDialect.OpenAi
+            ? "max_completion_tokens"
+            : "max_tokens";
+
+    private void ApplyGenerationParameters(
+        Dictionary<string, object?> payload,
+        double temperature,
+        bool structuredOutput)
+    {
+        if (_dialect == OpenAiCompatibleDialect.OpenAi)
+        {
+            if (!string.IsNullOrWhiteSpace(_reasoningEffort))
+                payload["reasoning_effort"] = _reasoningEffort;
+            return;
+        }
+        LlmSamplingConfiguration.ResolveFromEnvironment().Apply(
+            payload,
+            temperature,
+            structuredOutput);
+    }
+
+    private void ApplyAuthentication(HttpRequestMessage request)
+    {
+        if (!string.IsNullOrWhiteSpace(_apiKey))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
     }
 
     private static string TryExtractChatContent(string json)
@@ -1310,6 +1498,7 @@ public sealed class OpenAiLlmClient
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, $"{_baseUrl}/models");
         req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        ApplyAuthentication(req);
 
         using var resp = await _http.SendAsync(req, ct);
         await EnsureSuccessAsync(resp, ct).ConfigureAwait(false);

@@ -201,6 +201,21 @@ public sealed class LocalCapabilityBoundaryTests
     }
 
     [Theory]
+    [InlineData(null, true)]
+    [InlineData(LlmProviderMode.Local, true)]
+    [InlineData(LlmProviderMode.OpenAiDev, false)]
+    [InlineData(LlmProviderMode.RunPodBench, false)]
+    public void Boundary_handoff_is_enforced_only_for_the_local_capacity(
+        LlmProviderMode? providerMode,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            ToolAgentOrchestrator
+                .EnforcesLocalCapabilityBoundaryForTests(providerMode));
+    }
+
+    [Theory]
     [InlineData(
         "J'ai besoin d'un planning du lundi au vendredi incluant petit-déjeuner, déjeuner, collation et souper.",
         true)]

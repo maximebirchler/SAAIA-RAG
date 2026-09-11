@@ -187,9 +187,10 @@ public sealed class Bug137CumulativeLlmBudgetContractTests
     }
 
     [Fact]
-    public void Bug137_AdapterCountsNativeAndStructuredCompletionsThroughSameContext()
+    public void Bug137_ProviderCountsNativeAndStructuredCompletionsThroughSameContext()
     {
-        var source = ReadProductSource("Services", "RagChatAgent.cs");
+        var source = ReadProductSource(
+            "ToolAgent", "OpenAiCompatibleLlmProvider.cs");
 
         Assert.Contains(
             "SourceBackedLlmCumulativeBudgetContext.ExecuteAsync",

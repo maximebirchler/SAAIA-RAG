@@ -177,6 +177,25 @@ public sealed partial class ToolAgentOrchestrator
         }
         catch (SourceBackedLlmBudgetExceededException ex)
         {
+            if (!EnforcesLocalCapabilityBoundary)
+            {
+                EmitRagTrace(
+                    "source_backed_pipeline.advanced_provider_budget_exhausted",
+                    ("intent", pipelineIntent),
+                    ("entry", entryPoint),
+                    ("provider_mode", ActiveProviderDescriptor?.Mode.ToString() ?? "unknown"),
+                    ("reason", ex.Reason));
+                return await CompleteFailedSourceBackedPipelineAsync(
+                    displayUserMessage,
+                    pipelineIntent,
+                    entryPoint,
+                    routerPlan.Language,
+                    swTotalPipeline,
+                    ex,
+                    ct,
+                    onDelta,
+                    onProgress).ConfigureAwait(false);
+            }
             return await CompleteAdvancedSourceBackedBudgetHandoffAsync(
                 displayUserMessage,
                 effectiveUserMessage,

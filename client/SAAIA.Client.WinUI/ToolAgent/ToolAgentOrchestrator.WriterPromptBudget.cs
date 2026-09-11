@@ -363,8 +363,14 @@ PRIVATE_SOURCE_REFERENCE_INDEX:
             EvidenceInventoryChars: (int)Math.Round(2200 * sectionScale));
     }
 
-    private static int ResolveActiveLlmContextTokens(AppSettings? settings)
+    private int ResolveActiveLlmContextTokens(AppSettings? settings)
     {
+        if ((_llm as ILlmProvider)?.Descriptor.ContextWindowTokens is >= WriterPromptMinimumContextTokens
+            and <= int.MaxValue)
+        {
+            return (_llm as ILlmProvider)!.Descriptor.ContextWindowTokens!.Value;
+        }
+
         if (settings?.QualifiedProfile is { } profile)
         {
             var perSlotContext = profile.ResolvePerSlotContextSize();

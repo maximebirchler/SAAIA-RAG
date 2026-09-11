@@ -42,8 +42,13 @@ public sealed partial class ToolAgentOrchestrator
         BeginRagTraceTurn(userMessage, chatHistory);
         using var telemetryScope = SourceBackedTelemetryContext.Push(
             EnsureRagTraceId());
+        var activeProvider = ActiveProviderDescriptor;
+        var advancedProviderActive = activeProvider?.Mode is
+            LlmProviderMode.OpenAiDev or LlmProviderMode.RunPodBench;
         var cumulativeLlmOptions = SourceBackedAgentV2Options
-            .ResolveFromEnvironment();
+            .ResolveFromEnvironment(
+                activeProvider?.ContextWindowTokens,
+                advancedProviderActive);
         var cumulativeLlmStopwatch = Stopwatch.StartNew();
         using var cumulativeLlmBudgetScope =
             _llm is ISourceBackedAgentLlmClient
@@ -427,14 +432,18 @@ public sealed partial class ToolAgentOrchestrator
         EmitRagTrace(
             "capability_boundary.decision",
             ("decision", capabilityBoundary.RequiresAdvancedAnalysis
-                ? "advanced_analysis_required"
+                ? EnforcesLocalCapabilityBoundary
+                    ? "advanced_analysis_required"
+                    : "advanced_provider_execution"
                 : "local_eligible"),
             ("reason", capabilityBoundary.ReasonCode),
             ("plan_kind", capabilityBoundary.PlanKind),
             ("answer_units", capabilityBoundary.AnswerUnitCount),
+            ("provider_mode", ActiveProviderDescriptor?.Mode.ToString() ?? "legacy_local"),
             ("structured_threshold", AdvancedStructuredAnswerUnitThreshold),
             ("multi_item_threshold", AdvancedMultiItemAnswerUnitThreshold));
-        if (capabilityBoundary.RequiresAdvancedAnalysis)
+        if (capabilityBoundary.RequiresAdvancedAnalysis
+            && EnforcesLocalCapabilityBoundary)
         {
             var boundaryAnswer = DeterministicAgentText.AdvancedAnalysisRequired(
                 capabilityBoundary.AnswerUnitCount,

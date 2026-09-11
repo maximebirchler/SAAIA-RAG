@@ -39,8 +39,19 @@ public sealed record SourceBackedAgentV2Options(
     int CumulativeLlmTerminalReserveTokens = 4_800,
     int CumulativeLlmTerminalReserveMilliseconds = 60_000)
 {
-    public static SourceBackedAgentV2Options ResolveFromEnvironment()
-        => new(
+    public static SourceBackedAgentV2Options ResolveFromEnvironment(
+        int? providerContextTokens = null,
+        bool advancedCapacity = false)
+    {
+        var defaultContextTokens = advancedCapacity && providerContextTokens is > 0
+            ? Math.Clamp(providerContextTokens.Value, 2_048, 262_144)
+            : 4_096;
+        var defaultCumulativeTokens = advancedCapacity ? 48_000 : 12_000;
+        var defaultCumulativeMilliseconds = advancedCapacity ? 600_000 : 240_000;
+        var defaultTerminalReserveTokens = advancedCapacity ? 8_000 : 4_800;
+        var defaultTerminalReserveMilliseconds = advancedCapacity ? 120_000 : 60_000;
+
+        return new(
             MaximumTurns: ReadInt("SAAIA_SOURCE_BACKED_AGENT_V2_MAX_TURNS", 10, 2, 20),
             MaximumToolCalls: ReadInt("SAAIA_SOURCE_BACKED_AGENT_V2_MAX_TOOL_CALLS", 24, 1, 64),
             MaximumObservationItems: ReadInt("SAAIA_SOURCE_BACKED_AGENT_V2_MAX_OBSERVATION_ITEMS", 10, 1, 24),
@@ -80,7 +91,7 @@ public sealed record SourceBackedAgentV2Options(
                 defaultValue: true),
             MaximumContextTokens: ReadInt(
                 "SAAIA_SOURCE_BACKED_AGENT_V2_CONTEXT_TOKENS",
-                4096,
+                defaultContextTokens,
                 2048,
                 262144),
             SemanticColumnRoleReviewEnabled: ReadBool(
@@ -142,9 +153,25 @@ public sealed record SourceBackedAgentV2Options(
                 defaultValue: false),
             MaximumCumulativeLlmTokens: ReadInt(
                 "SAAIA_SOURCE_BACKED_AGENT_V2_MAX_CUMULATIVE_LLM_TOKENS",
-                12_000,
+                defaultCumulativeTokens,
                 8_000,
-                48_000));
+                48_000),
+            MaximumCumulativeLlmElapsedMilliseconds: ReadInt(
+                "SAAIA_SOURCE_BACKED_AGENT_V2_MAX_CUMULATIVE_LLM_ELAPSED_MS",
+                defaultCumulativeMilliseconds,
+                60_000,
+                1_800_000),
+            CumulativeLlmTerminalReserveTokens: ReadInt(
+                "SAAIA_SOURCE_BACKED_AGENT_V2_TERMINAL_RESERVE_TOKENS",
+                defaultTerminalReserveTokens,
+                512,
+                16_000),
+            CumulativeLlmTerminalReserveMilliseconds: ReadInt(
+                "SAAIA_SOURCE_BACKED_AGENT_V2_TERMINAL_RESERVE_MS",
+                defaultTerminalReserveMilliseconds,
+                5_000,
+                300_000));
+    }
 
     private static bool ReadBool(string name, bool defaultValue)
     {

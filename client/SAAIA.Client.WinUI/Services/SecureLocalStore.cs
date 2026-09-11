@@ -24,6 +24,8 @@ public static class SecureLocalStore
     private const string UserIdKey = "userId";
     private const string LegacyServerApiKeyPlainKey = "apiKey";
     private const string ServerApiKeyProtectedKey = "serverApiKeyProtected";
+    private const string OpenAiApiKeyProtectedKey = "openAiApiKeyProtected";
+    private const string RunPodApiKeyProtectedKey = "runPodApiKeyProtected";
 
     private static readonly object _lock = new();
 
@@ -35,7 +37,12 @@ public static class SecureLocalStore
 
     private static string StorePath => Path.Combine(StoreDir, "secure.json");
 
-    private sealed record FileDto(string? UserId, string? ServerApiKeyProtected, string? LegacyApiKeyPlain);
+    private sealed record FileDto(
+        string? UserId = null,
+        string? ServerApiKeyProtected = null,
+        string? LegacyApiKeyPlain = null,
+        string? OpenAiApiKeyProtected = null,
+        string? RunPodApiKeyProtected = null);
 
     public static string GetOrCreateUserId()
     {
@@ -156,6 +163,122 @@ public static class SecureLocalStore
         }
     }
 
+    /// <summary>
+    /// Returns the OpenAI development key protected for the current Windows user.
+    /// Environment-variable overrides remain the provider factory's first choice.
+    /// </summary>
+    public static string? GetOpenAiApiKey()
+        => GetProtectedSecret(
+            OpenAiApiKeyProtectedKey,
+            static dto => dto.OpenAiApiKeyProtected,
+            static (dto, value) => dto with { OpenAiApiKeyProtected = value });
+
+    public static void SetOpenAiApiKey(string? apiKey)
+        => SetProtectedSecret(
+            OpenAiApiKeyProtectedKey,
+            apiKey,
+            static (dto, value) => dto with { OpenAiApiKeyProtected = value });
+
+    /// <summary>
+    /// Returns the RunPod benchmark key protected for the current Windows user.
+    /// </summary>
+    public static string? GetRunPodApiKey()
+        => GetProtectedSecret(
+            RunPodApiKeyProtectedKey,
+            static dto => dto.RunPodApiKeyProtected,
+            static (dto, value) => dto with { RunPodApiKeyProtected = value });
+
+    public static void SetRunPodApiKey(string? apiKey)
+        => SetProtectedSecret(
+            RunPodApiKeyProtectedKey,
+            apiKey,
+            static (dto, value) => dto with { RunPodApiKeyProtected = value });
+
+    private static string? GetProtectedSecret(
+        string localSettingsKey,
+        Func<FileDto, string?> selectProtectedValue,
+        Func<FileDto, string?, FileDto> updateProtectedValue)
+    {
+        try
+        {
+            var localSettings = ApplicationData.Current.LocalSettings;
+            var fromLocalSettings = UnprotectFromLocalSettings(localSettings, localSettingsKey);
+            if (!string.IsNullOrWhiteSpace(fromLocalSettings))
+                return fromLocalSettings;
+
+            var fromFileStore = GetProtectedSecretFromFileStore(
+                selectProtectedValue,
+                updateProtectedValue);
+            if (!string.IsNullOrWhiteSpace(fromFileStore))
+            {
+                ProtectToLocalSettings(localSettings, localSettingsKey, fromFileStore);
+                return fromFileStore;
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            ClientLog.Warn($"SecureLocalStore: LocalSettings unavailable, using file store. ({ex.GetType().Name}: {ex.Message})");
+        }
+
+        return GetProtectedSecretFromFileStore(selectProtectedValue, updateProtectedValue);
+    }
+
+    private static void SetProtectedSecret(
+        string localSettingsKey,
+        string? plainValue,
+        Func<FileDto, string?, FileDto> updateProtectedValue)
+    {
+        try
+        {
+            var localSettings = ApplicationData.Current.LocalSettings;
+            ProtectToLocalSettings(localSettings, localSettingsKey, plainValue);
+            SetProtectedSecretInFileStore(plainValue, updateProtectedValue);
+            return;
+        }
+        catch (Exception ex)
+        {
+            ClientLog.Warn($"SecureLocalStore: LocalSettings unavailable, using file store. ({ex.GetType().Name}: {ex.Message})");
+        }
+
+        SetProtectedSecretInFileStore(plainValue, updateProtectedValue);
+    }
+
+    private static string? GetProtectedSecretFromFileStore(
+        Func<FileDto, string?> selectProtectedValue,
+        Func<FileDto, string?, FileDto> updateProtectedValue)
+    {
+        lock (_lock)
+        {
+            var dto = LoadFileDto();
+            var protectedValue = selectProtectedValue(dto);
+            try
+            {
+                return UnprotectString(protectedValue);
+            }
+            catch
+            {
+                SaveFileDto(updateProtectedValue(dto, null));
+                return null;
+            }
+        }
+    }
+
+    private static void SetProtectedSecretInFileStore(
+        string? plainValue,
+        Func<FileDto, string?, FileDto> updateProtectedValue)
+    {
+        lock (_lock)
+        {
+            var dto = LoadFileDto();
+            var protectedValue = string.IsNullOrWhiteSpace(plainValue)
+                ? null
+                : ProtectString(plainValue.Trim());
+            SaveFileDto(updateProtectedValue(dto, protectedValue));
+        }
+    }
+
     private static string? GetServerApiKeyFromFileStore()
     {
         lock (_lock)
@@ -234,15 +357,15 @@ public static class SecureLocalStore
         try
         {
             if (!File.Exists(StorePath))
-                return new FileDto(null, null, null);
+                return new FileDto();
 
             var json = File.ReadAllText(StorePath);
-            return JsonSerializer.Deserialize<FileDto>(json) ?? new FileDto(null, null, null);
+            return JsonSerializer.Deserialize<FileDto>(json) ?? new FileDto();
         }
         catch (Exception ex)
         {
             ClientLog.Exception("SecureLocalStore.Load(file)", ex);
-            return new FileDto(null, null, null);
+            return new FileDto();
         }
     }
 

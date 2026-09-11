@@ -75,6 +75,10 @@
     <ProjectReference Include="..\..\contracts\SAAIA.Contracts\SAAIA.Contracts.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\..\config\llm-providers.dev.json" Link="config\llm-providers.dev.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!--
     UserSettingsDialog source of truth:
     - The compiled dialog implementation is Controls\UserSettingsDialog.cs.

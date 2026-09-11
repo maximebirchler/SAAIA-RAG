@@ -1,11 +1,20 @@
-# SAAIA - RAG On-Prem (serveur sans LLM, LLM obligatoire côté client)
+# SAAIA - RAG On-Prem
 
 SAAIA est un assistant IA RAG 100% on-prem pour environnements industriels/entreprise.
 
 - **Serveur (Linux recommandé)** : ingestion + indexation (TEI + Qdrant) + retrieval sourcé + chat-store + sécurité + observabilité.
-- **Client (Windows WinUI)** : expérience chat "type ChatGPT" + **LLM local embarqué** (OpenAI-compatible / llama.cpp server) + téléchargement modèle.
+- **Client (Windows WinUI)** : expérience chat "type ChatGPT" + **petit LLM local embarqué** (OpenAI-compatible / llama.cpp server) + téléchargement modèle.
 
-> Décision produit : **aucun LLM côté serveur**. Le serveur ne fait **pas** de génération.
+> État actuel : le backend SAAIA ne génère pas le texte final. L'amendement A755
+> prévoit une capacité avancée optionnelle sur un serveur LLM on-prem chez le
+> client ; elle reste à qualifier et n'est pas activée dans la production actuelle.
+
+Le développement dispose aussi de deux modes externes explicitement bornés :
+`OpenAiDev` pour la baseline GPT-5.6 Terra et `RunPodBench` pour qualifier un
+llama-server distant. Ils sont désactivés par défaut et servent à préparer la
+cible avancée finale : un grand modèle hébergé sur l'infrastructure on-prem du
+client, sans dépendance OpenAI ou RunPod. Voir
+[`documents/agent/llm-provider-architecture-v1.md`](documents/agent/llm-provider-architecture-v1.md).
 
 ---
 
@@ -102,4 +111,3 @@ Runbooks : `infra/runbooks/`.
 
 - Licence entreprise (expiration + max seats) validée localement par le serveur (sans cloud).
 - Clés "seat" par poste : activées au 1er usage (binding device) ; réutilisables après release admin.
-

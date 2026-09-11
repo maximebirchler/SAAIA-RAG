@@ -54,7 +54,11 @@ public sealed record SourceBackedAgentCompletion(
     int? ServerPredictedTokens = null,
     double? ServerPredictedMilliseconds = null,
     string? ProtocolError = null,
-    string? ProtocolRawOutput = null);
+    string? ProtocolRawOutput = null,
+    int? CachedInputTokens = null,
+    int? CacheWriteTokens = null,
+    int? ReasoningTokens = null,
+    int RetryCount = 0);
 
 public interface ISourceBackedAgentLlmClient
 {

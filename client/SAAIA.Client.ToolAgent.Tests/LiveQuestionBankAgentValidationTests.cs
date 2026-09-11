@@ -187,13 +187,24 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
             var sw = Stopwatch.StartNew();
             var streamed = new StringBuilder();
             RagChatAgent? agent = null;
+            ILlmProvider? provider = null;
+            var providerMetrics = new List<LlmCallMetrics>();
             string answer;
             string error = string.Empty;
             object? sourcesPayload = null;
             try
             {
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(ReadIntEnv("SAAIA_AGENT_VALIDATION_TIMEOUT_SECONDS", 300)));
-                agent = await CreateLiveAgentAsync(backendUrl, apiKey, llmBaseUrl, llmModel, expectedLanguage, cts.Token);
+                var live = await CreateLiveAgentAsync(
+                    backendUrl,
+                    apiKey,
+                    llmBaseUrl,
+                    llmModel,
+                    expectedLanguage,
+                    cts.Token);
+                agent = live.Agent;
+                provider = live.Provider;
+                provider.CallCompleted += providerMetrics.Add;
                 var run = await agent.RunAsync(
                     testCase.Question ?? string.Empty,
                     category: Environment.GetEnvironmentVariable("SAAIA_AGENT_VALIDATION_CATEGORY") ?? string.Empty,
@@ -239,6 +250,13 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
                 corpusTarget = testCase.CorpusTarget,
                 theme = testCase.Theme,
                 mode = "agent",
+                provider = provider?.Descriptor.Provider ?? "unavailable",
+                providerMode = provider?.Descriptor.Mode.ToString() ?? "unavailable",
+                providerModel = provider?.Descriptor.ModelId ?? "unavailable",
+                providerCallCount = providerMetrics.Count,
+                estimatedCostUsd = providerMetrics
+                    .Where(static metric => metric.EstimatedCostUsd.HasValue)
+                    .Sum(static metric => metric.EstimatedCostUsd!.Value),
                 elapsedMs = sw.ElapsedMilliseconds,
                 sourceCount = diagnostics.SourceLabels.Count,
                 ragTraceEventCount = diagnostics.RagTrace.Count,
@@ -269,6 +287,8 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
                     diagnostics.Trace,
                     diagnostics.RagTrace
                 },
+                provider = provider?.Descriptor,
+                llmMetrics = providerMetrics,
                 sourcesPayload
             });
 
@@ -281,7 +301,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         output.WriteLine("TSV  : " + tsvPath);
     }
 
-    private static async Task<RagChatAgent> CreateLiveAgentAsync(
+    private static async Task<LiveAgentContext> CreateLiveAgentAsync(
         string backendUrl,
         string apiKey,
         string llmBaseUrl,
@@ -292,9 +312,6 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         var api = new ApiClient();
         api.Configure(backendUrl, apiKey, Guid.NewGuid().ToString("D"));
 
-        var llm = new OpenAiLlmClient();
-        llm.Configure(llmBaseUrl, llmModel);
-
         var settings = AppSettings.Load();
         var liveSettings = settings.Clone();
         liveSettings.UseLocalLlm = true;
@@ -303,12 +320,25 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         liveSettings.LlmTemperature = 0.1;
         liveSettings.LlmMaxOutputTokens = ReadIntEnv("SAAIA_AGENT_VALIDATION_MAX_OUTPUT_TOKENS", 900);
         liveSettings.UiLanguage = string.IsNullOrWhiteSpace(expectedLanguage) ? "fr" : expectedLanguage;
+        var providerConfiguration = LlmProviderConfiguration.Load();
         var manageLocalLlmOverride = Environment.GetEnvironmentVariable(
             "SAAIA_VALIDATION_MANAGE_LOCAL_LLM_PROCESS");
         if (string.Equals(manageLocalLlmOverride, "0", StringComparison.Ordinal))
             liveSettings.ManageLocalLlmProcess = false;
         else if (string.Equals(manageLocalLlmOverride, "1", StringComparison.Ordinal))
             liveSettings.ManageLocalLlmProcess = true;
+        if (providerConfiguration.Mode != LlmProviderMode.Local)
+            liveSettings.ManageLocalLlmProcess = false;
+
+        if (providerConfiguration.Mode == LlmProviderMode.Local)
+        {
+            var localEndpoint = new Uri(llmBaseUrl, UriKind.Absolute);
+            liveSettings.Host = localEndpoint.Host;
+            liveSettings.Port = localEndpoint.IsDefaultPort
+                ? localEndpoint.Scheme == Uri.UriSchemeHttps ? 443 : 80
+                : localEndpoint.Port;
+            liveSettings.ModelId = llmModel;
+        }
 
         if (liveSettings.ManageLocalLlmProcess)
         {
@@ -327,11 +357,20 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
             }
         }
 
-        var agent = new RagChatAgent(api, llm);
+        var llm = new OpenAiLlmClient();
+        var provider = LlmProviderFactory.Create(
+            llm,
+            liveSettings,
+            providerConfiguration);
+        var agent = new RagChatAgent(api, provider);
         agent.ApplySettings(liveSettings);
 
-        return agent;
+        return new LiveAgentContext(agent, provider);
     }
+
+    private sealed record LiveAgentContext(
+        RagChatAgent Agent,
+        ILlmProvider Provider);
 
     private static readonly object LiveLlmManagerGate = new();
     private static LlamaCppProcessManager? LiveLlmManager;

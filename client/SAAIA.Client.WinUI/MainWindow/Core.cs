@@ -7,7 +7,9 @@ public sealed partial class MainWindow
         InitializeComponent();
         _llm.RuntimeEnsureReady += async ct =>
         {
-            if (!_appSettings.UseLocalLlm || !_appSettings.ManageLocalLlmProcess)
+            if (_llmProvider?.Descriptor.Mode != LlmProviderMode.Local
+                || !_appSettings.UseLocalLlm
+                || !_appSettings.ManageLocalLlmProcess)
                 return;
 
             var (ok, message) = await _llmProc.EnsureRunningAsync(_appSettings, ct).ConfigureAwait(false);
