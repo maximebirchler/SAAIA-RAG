@@ -296,3 +296,22 @@ source et la conservation du code technique dans les métadonnées. La classe de
 transport avancé passe 21/21, la suite client complète 2 234/2 234 avec une sonde
 live opt-in ignorée, la solution complète 4 389/4 389 avec deux sondes live
 ignorées, et le build Release se termine sans avertissement ni erreur.
+
+## Évaluateur de banque aligné sur le parcours produit
+
+Le préflight de la prochaine banque a détecté que
+`tools/assess-advanced-capacity-results.ps1` lisait encore les métriques de
+l'ancien appel LLM direct. Dans le parcours courant, le petit modèle local reste
+visible dans `providerMode`, tandis que le fournisseur réellement évalué se
+trouve dans `advancedProviderKey`, `advancedProviderModel`,
+`advancedProviderCallCount` et `advancedEstimatedCostUsd`. L'évaluateur aurait
+donc produit un faux rejet de fournisseur, modèle et coût.
+
+Il sélectionne maintenant les métriques avancées lorsqu'elles existent et garde
+la compatibilité avec les anciens artefacts directs. Les références de réponse
+acceptent les EvidenceIds historiques `[E…]` et les ClaimIds du contrat courant
+`[C…]`. Exécuté sur le dernier planning Terra, il observe `openai-dev`,
+`gpt-5.6-terra`, deux appels, vingt références et vingt repas distincts. Verdict :
+`PASS_MECHANICAL_REQUIRES_SEMANTIC_REVIEW`, une ligne, zéro échec. Le garde-fou
+rappelle explicitement que cette réussite mécanique ne remplace pas l'inspection
+sémantique ni les trois répétitions.

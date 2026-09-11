@@ -13546,3 +13546,18 @@ Validation après ce changement : transport avancé 21/21, client complet
 deux sondes live ignorées, build Release zéro avertissement/zéro erreur. Aucun
 appel externe et aucune dépense n'ont été nécessaires. Le statut produit reste
 `TESTE_NON_APPROUVE` jusqu'aux preuves live déjà listées.
+
+## A763 — évaluateur de banque compatible avec la télémétrie avancée — 2026-09-11
+
+Le lecteur mécanique de la banque attendait encore les métriques de l'ancien
+appel direct et seulement les références `[E…]`. Le parcours produit conserve le
+petit modèle dans les champs principaux et expose le grand modèle dans les champs
+`advanced*`, avec des ClaimIds `[C…]`. L'évaluateur sélectionne maintenant la
+télémétrie avancée lorsqu'elle existe, tout en gardant la lecture directe
+historique, et compte les deux contrats de référence.
+
+Rejeu hors coût sur l'artefact Terra courant : fournisseur `openai-dev`, modèle
+`gpt-5.6-terra`, deux appels, vingt références, vingt cellules distinctes, zéro
+contrôle échoué et verdict `PASS_MECHANICAL_REQUIRES_SEMANTIC_REVIEW`. Ce verdict
+ne promeut ni la qualité factuelle ni le produit ; il évite seulement un faux
+rejet lors de la future banque trois fois.

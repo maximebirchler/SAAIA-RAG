@@ -24,7 +24,7 @@ function Test-ContainsAll([string]$Text, [string[]]$Values) {
 }
 
 function Get-CitationStats([string]$Answer) {
-    $matches = @([regex]::Matches($Answer, '\[E\d+\]', 'IgnoreCase'))
+    $matches = @([regex]::Matches($Answer, '\[(?:E|C)\d+\]', 'IgnoreCase'))
     return [ordered]@{
         occurrences = $matches.Count
         distinct = @($matches | ForEach-Object Value | Sort-Object -Unique).Count
@@ -42,12 +42,24 @@ function Get-MealGridStats([string]$Answer) {
         if ($parts.Count -ge 5) { $cells += $parts[1..4] }
     }
     $normalizedCells = @($cells | ForEach-Object {
-        ([regex]::Replace($_, '\[E\d+\]', '', 'IgnoreCase')).Trim().ToLowerInvariant()
+        ([regex]::Replace($_, '\[(?:E|C)\d+\]', '', 'IgnoreCase')).Trim().ToLowerInvariant()
     } | Where-Object { $_ })
     return [ordered]@{
         markdownRows = $dataRows.Count
         mealCells = $cells.Count
         distinctMealCells = @($normalizedCells | Sort-Object -Unique).Count
+    }
+}
+
+function Get-ExpectedProviderKey([string]$Mode) {
+    switch ($Mode.Trim().ToLowerInvariant()) {
+        "openaidev" { return "openai-dev" }
+        "openai-dev" { return "openai-dev" }
+        "runpod" { return "runpod-bench" }
+        "runpod-bench" { return "runpod-bench" }
+        "customerserver" { return "customer-server" }
+        "customer-server" { return "customer-server" }
+        default { return $Mode.Trim() }
     }
 }
 
@@ -61,14 +73,40 @@ foreach ($file in $jsonlFiles) {
         $row = $record.row
         $answer = [string]$record.answer
         $citations = Get-CitationStats $answer
+        $usesAdvancedTelemetry = $null -ne $row.PSObject.Properties["advancedProviderKey"] -and
+            -not [string]::IsNullOrWhiteSpace([string]$row.advancedProviderKey)
+        $expectedProviderKey = Get-ExpectedProviderKey $ExpectedProviderMode
+        $observedProvider = if ($usesAdvancedTelemetry) {
+            [string]$row.advancedProviderKey
+        } else {
+            [string]$row.providerMode
+        }
+        $observedModel = if ($usesAdvancedTelemetry) {
+            [string]$row.advancedProviderModel
+        } else {
+            [string]$row.providerModel
+        }
+        $observedCallCount = if ($usesAdvancedTelemetry) {
+            [int]$row.advancedProviderCallCount
+        } else {
+            [int]$row.providerCallCount
+        }
+        $observedCostUsd = if ($usesAdvancedTelemetry) {
+            [decimal]$row.advancedEstimatedCostUsd
+        } else {
+            [decimal]$row.estimatedCostUsd
+        }
         $looksLikeExactInsufficiency = $answer -match '(?i)\b(insuffisant|insuffisante|manqu(?:e|ent)|pas trouvé|cannot|missing)\b' -and
             $answer -notmatch '(?i)capacit[eé].*avanc[eé]e|advanced analysis'
         $checks = [ordered]@{
             noHarnessError = [string]::IsNullOrWhiteSpace([string]$row.error)
-            expectedProviderMode = [string]$row.providerMode -eq $ExpectedProviderMode
-            expectedModel = [string]$row.providerModel -eq $ExpectedModel
-            providerWasCalled = [int]$row.providerCallCount -gt 0
-            costWasMeasured = [decimal]$row.estimatedCostUsd -gt 0
+            expectedProviderMode = $observedProvider -eq $expectedProviderKey -or
+                $observedProvider -eq $ExpectedProviderMode
+            expectedModel = $observedModel -eq $ExpectedModel
+            providerWasCalled = $observedCallCount -gt 0
+            costWasMeasured = $observedCostUsd -gt 0
+            advancedTerminalSucceeded = -not $usesAdvancedTelemetry -or
+                [string]$row.advancedStatus -eq "succeeded"
             noLocalAdvancedHandoff = [string]$row.answerSource -notmatch 'capability_boundary:advanced_analysis_required'
             nonEmptyAnswer = -not [string]::IsNullOrWhiteSpace($answer)
             evidenceOrExactInsufficiency = [int]$row.sourceCount -gt 0 -or $looksLikeExactInsufficiency
@@ -118,8 +156,11 @@ foreach ($file in $jsonlFiles) {
             details = $details
             answerSource = [string]$row.answerSource
             sourceLabels = @($record.diagnostics.SourceLabels)
-            callCount = [int]$row.providerCallCount
-            estimatedCostUsd = [decimal]$row.estimatedCostUsd
+            telemetrySource = if ($usesAdvancedTelemetry) { "advanced" } else { "direct" }
+            observedProvider = $observedProvider
+            observedModel = $observedModel
+            callCount = $observedCallCount
+            estimatedCostUsd = $observedCostUsd
             elapsedMs = [long]$row.elapsedMs
         }
     }
