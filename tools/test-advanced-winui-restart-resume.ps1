@@ -51,6 +51,18 @@ function Require-EnvValue {
     return [string]$Values[$Name]
 }
 
+function Get-OptionalPropertyValue {
+    param(
+        [AllowNull()][object]$InputObject,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    if ($null -eq $InputObject) { return $null }
+    $property = $InputObject.PSObject.Properties[$Name]
+    if ($null -eq $property) { return $null }
+    return $property.Value
+}
+
 function Wait-BackendReady {
     param(
         [Parameter(Mandatory = $true)][string]$BaseUrl,
@@ -587,12 +599,12 @@ try {
         UserId = $userId
         ServerApiKeyProtected = $protectedServerApiKey
         LegacyApiKeyPlain = $null
-        OpenAiApiKeyProtected = if ($null -ne $existingSecure) {
-            $existingSecure.OpenAiApiKeyProtected
-        } else { $null }
-        RunPodApiKeyProtected = if ($null -ne $existingSecure) {
-            $existingSecure.RunPodApiKeyProtected
-        } else { $null }
+        OpenAiApiKeyProtected = Get-OptionalPropertyValue `
+            -InputObject $existingSecure `
+            -Name 'OpenAiApiKeyProtected'
+        RunPodApiKeyProtected = Get-OptionalPropertyValue `
+            -InputObject $existingSecure `
+            -Name 'RunPodApiKeyProtected'
     }
     $testSecure | ConvertTo-Json -Depth 4 |
         Set-Content -LiteralPath $clientSecurePath -Encoding utf8
