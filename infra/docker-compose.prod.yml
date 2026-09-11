@@ -243,6 +243,7 @@ services:
       RuntimeGovernance__CapabilityBAutoEnqueueTenantLimit: ${SAAIA_CAPABILITY_B_AUTO_ENQUEUE_TENANT_LIMIT:-8}
       RuntimeGovernance__CapabilityBDocumentProfileSectionTitleLimit: ${SAAIA_CAPABILITY_B_PROFILE_SECTION_TITLE_LIMIT:-12}
       RuntimeGovernance__CapabilityBDocumentProfileExcerptLimit: ${SAAIA_CAPABILITY_B_PROFILE_EXCERPT_LIMIT:-10}
+      SAAIA_ADVANCED_LLM_API_KEY: ${SAAIA_ADVANCED_LLM_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

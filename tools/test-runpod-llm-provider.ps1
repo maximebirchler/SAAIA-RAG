@@ -14,10 +14,6 @@ $ErrorActionPreference = "Stop"
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $project = Join-Path $repositoryRoot "client\SAAIA.Client.ToolAgent.Tests\SAAIA.Client.ToolAgent.Tests.csproj"
 
-if ([string]::IsNullOrWhiteSpace($env:SAAIA_RUNPOD_API_KEY)) {
-    throw "SAAIA_RUNPOD_API_KEY is required. The token must stay outside Git and command arguments."
-}
-
 if ([string]::IsNullOrWhiteSpace($ArtifactDirectory)) {
     $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
     $ArtifactDirectory = Join-Path $repositoryRoot "artifacts\runpod-provider-smoke-$stamp"

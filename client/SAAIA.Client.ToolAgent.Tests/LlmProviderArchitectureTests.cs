@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using SAAIA.Client.WinUI.Services;
 using SAAIA.Client.WinUI.Services.ToolAgent;
+using SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag;
 using Xunit;
 
 namespace SAAIA.Client.ToolAgent.Tests;
@@ -325,6 +326,171 @@ public sealed class LlmProviderArchitectureTests
         finally
         {
             Environment.SetEnvironmentVariable(LlmProviderConfiguration.RunPodKeyEnvironmentVariable, previous);
+        }
+    }
+
+    [Fact]
+    public async Task One_provider_instance_executes_structured_router_native_tool_and_streaming_writer()
+    {
+        const string secret = "single-provider-contract-secret";
+        var previous = Environment.GetEnvironmentVariable(
+            LlmProviderConfiguration.RunPodKeyEnvironmentVariable);
+        var requests = new List<JsonElement>();
+        try
+        {
+            Environment.SetEnvironmentVariable(
+                LlmProviderConfiguration.RunPodKeyEnvironmentVariable,
+                secret);
+            var handler = new DelegateHandler(async request =>
+            {
+                using var requestJson = JsonDocument.Parse(
+                    await request.Content!.ReadAsStringAsync());
+                requests.Add(requestJson.RootElement.Clone());
+                return requests.Count switch
+                {
+                    1 => JsonResponse(
+                        """
+                        {
+                          "choices": [{
+                            "message": {"content": "{\"intent\":\"rag.answer\",\"language\":\"fr\"}"},
+                            "finish_reason": "stop"
+                          }],
+                          "usage": {"prompt_tokens": 80, "completion_tokens": 12}
+                        }
+                        """),
+                    2 => JsonResponse(
+                        """
+                        {
+                          "choices": [{
+                            "message": {
+                              "content": null,
+                              "tool_calls": [{
+                                "id": "call_search",
+                                "type": "function",
+                                "function": {
+                                  "name": "rag_search",
+                                  "arguments": "{\"query\":\"definition PTS\"}"
+                                }
+                              }]
+                            },
+                            "finish_reason": "tool_calls"
+                          }],
+                          "usage": {"prompt_tokens": 110, "completion_tokens": 18}
+                        }
+                        """),
+                    3 => new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(
+                            "data: {\"choices\":[{\"delta\":{\"content\":\"Réponse \"}}]}\n\n"
+                            + "data: {\"choices\":[{\"delta\":{\"content\":\"sourcée.\"}}]}\n\n"
+                            + "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":150,\"completion_tokens\":20}}\n\n"
+                            + "data: [DONE]\n\n",
+                            Encoding.UTF8,
+                            "text/event-stream")
+                    },
+                    _ => throw new InvalidOperationException(
+                        "The same-provider contract must issue exactly three calls.")
+                };
+            });
+            var provider = LlmProviderFactory.Create(
+                new OpenAiLlmClient(new HttpClient(handler)),
+                new AppSettings(),
+                CreateConfiguration(
+                    LlmProviderMode.RunPodBench,
+                    LlmExternalExecutionPolicy.BenchmarkExternalAllowed));
+            provider.ConfigureGeneration(0.1, 512);
+            var metrics = new List<LlmCallMetrics>();
+            provider.CallCompleted += metrics.Add;
+            var contract = LlmStructuredOutputContract.Parse(
+                "saaia_mock_router_v1",
+                """
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "intent": { "type": "string" },
+                    "language": { "type": "string" }
+                  },
+                  "required": ["intent", "language"]
+                }
+                """);
+            var searchTool = new SourceBackedAgentToolDefinition(
+                "rag_search",
+                "Search the SAAIA evidence store.",
+                JsonSerializer.SerializeToElement(new
+                {
+                    type = "object",
+                    additionalProperties = false,
+                    properties = new
+                    {
+                        query = new { type = "string" }
+                    },
+                    required = new[] { "query" }
+                }));
+            var writer = new StringBuilder();
+
+            using (provider.BeginTurn("single-provider-mock"))
+            {
+                var routerJson = await provider.CompleteStructuredAsync(
+                    new[]
+                    {
+                        (role: "system", content: "Router SAAIA."),
+                        (role: "user", content: "Qu'est-ce qu'une PTS ?")
+                    },
+                    contract,
+                    CancellationToken.None);
+                using var router = JsonDocument.Parse(routerJson);
+                Assert.Equal(
+                    "rag.answer",
+                    router.RootElement.GetProperty("intent").GetString());
+
+                var toolDecision = await provider.CompleteAsync(
+                    new[]
+                    {
+                        SourceBackedAgentMessage.System("Choose one retrieval tool."),
+                        SourceBackedAgentMessage.User("Qu'est-ce qu'une PTS ?")
+                    },
+                    new[] { searchTool },
+                    maxTokens: 128,
+                    CancellationToken.None,
+                    requireToolCall: true);
+                var toolCall = Assert.Single(toolDecision.ToolCalls);
+                Assert.Equal("rag_search", toolCall.Name);
+                Assert.Equal(
+                    "definition PTS",
+                    toolCall.Arguments.GetProperty("query").GetString());
+
+                await provider.StreamAsync(
+                    new[]
+                    {
+                        (role: "system", content: "Writer SAAIA."),
+                        (role: "tool", content: "PTS: procédure de travail sécurisée."),
+                        (role: "user", content: "Rédige la réponse sourcée.")
+                    },
+                    forceJson: false,
+                    chunk => writer.Append(chunk),
+                    CancellationToken.None);
+            }
+
+            Assert.Equal("Réponse sourcée.", writer.ToString());
+            Assert.Equal(3, requests.Count);
+            Assert.Equal(3, metrics.Count);
+            Assert.All(metrics, metric =>
+            {
+                Assert.True(metric.Success);
+                Assert.Equal(LlmProviderMode.RunPodBench, metric.Mode);
+                Assert.Equal("runpod", metric.Provider);
+                Assert.Equal("qwen-test", metric.ModelId);
+            });
+            Assert.True(requests[0].TryGetProperty("response_format", out _));
+            Assert.Equal("required", requests[1].GetProperty("tool_choice").GetString());
+            Assert.True(requests[2].GetProperty("stream").GetBoolean());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(
+                LlmProviderConfiguration.RunPodKeyEnvironmentVariable,
+                previous);
         }
     }
 

@@ -8,6 +8,12 @@ de développement pour isoler la qualité maximale du pipeline Router → Tools/
 SAAIA → Writer/Critic. Il ne constitue ni la cible de production, ni une vérité
 factuelle : le corpus et les preuves canoniques restent l'oracle.
 
+Le test d'acceptation produit démarre toujours le client avec le petit modèle
+local. Le terminal `advanced_analysis_required` crée un job durable sur le
+backend, et c'est ce backend qui appelle Terra. Le mode client `OpenAiDev`
+direct reste une sonde de protocole et de qualité comparative ; il ne remplace
+pas cette preuve du routage local -> serveur.
+
 ## État de départ
 
 - aucun coût Terra n'est encore inscrit dans le journal local ;
@@ -24,11 +30,13 @@ Le budget autorisé est 25 USD. Le coupe-circuit local refuse les nouvelles
 réservations à 24 USD, alerte à 20 USD, limite un tour à 0,50 USD et à 32 appels.
 Le journal global n'est pas recréé entre les campagnes.
 
-1. Exécuter la sonde provider Terra de trois appels : JSON Schema, tool call
-   natif, streaming avec usage.
+1. Exécuter la sonde directe Terra de trois appels : JSON Schema, tool call
+   natif, streaming avec usage. Cette étape qualifie uniquement le protocole.
 2. Vérifier l'identité `openai / gpt-5.6-terra`, les trois métriques, le coût et
    l'absence de secret dans l'artefact.
-3. Exécuter une seule fois `A755-ADV-01-meal-grid-5x4`.
+3. Exécuter la sonde synthétique du fournisseur backend, puis une seule fois
+   `A755-ADV-01-meal-grid-5x4` par le parcours client Local -> job serveur ->
+   Terra.
 4. Examiner Router, requêtes, EvidenceBundle, sélection, Writer, citations,
    latence, tokens et coût. Corriger seulement une cause générale prouvée.
 5. Une fois le code gelé, répéter le planning trois fois consécutives.

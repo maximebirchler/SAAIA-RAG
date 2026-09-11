@@ -170,6 +170,8 @@ public static class ServiceCollectionExtensions
             }
         });
         services.AddHttpClient("tei", c => c.Timeout = TimeSpan.FromMinutes(5));
+        services.AddHttpClient("advanced-analysis-llm", c =>
+            c.Timeout = Timeout.InfiniteTimeSpan);
         services.AddHttpClient("docling", (sp, c) =>
         {
             var options = sp.GetRequiredService<IOptions<DocumentIntelligenceOptions>>().Value;
@@ -220,7 +222,35 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<AdvancedAnalysisJobStore>();
         services.AddSingleton<AdvancedAnalysisEvidenceResolver>();
         services.AddSingleton<IAdvancedAnalysisToolGatewayFactory, AdvancedAnalysisToolGatewayFactory>();
-        services.AddSingleton<IAdvancedAnalysisProvider, DisabledAdvancedAnalysisProvider>();
+        services.AddSingleton<IAdvancedAnalysisProvider>(sp =>
+        {
+            var options = sp
+                .GetRequiredService<IOptions<AdvancedAnalysisOptions>>()
+                .Value;
+            var provider = (options.Provider ?? string.Empty)
+                .Trim()
+                .ToLowerInvariant();
+            if (provider is "" or "disabled")
+                return new DisabledAdvancedAnalysisProvider();
+            if (provider is not ("openai-dev" or "openaidev" or
+                "runpod-bench" or "runpodbench" or
+                "customer-server" or "customerserver"))
+            {
+                throw new InvalidOperationException(
+                    "AdvancedAnalysis:Provider must be disabled, openai-dev, runpod-bench or customer-server.");
+            }
+
+            var hostEnvironment = sp.GetRequiredService<IHostEnvironment>();
+            var apiKey = SecretRefResolver.Resolve(
+                explicitValue: null,
+                options.LlmApiKeyRef,
+                hostEnvironment.ContentRootPath,
+                out _);
+            return new OpenAiCompatibleAdvancedAnalysisProvider(
+                sp.GetRequiredService<IHttpClientFactory>(),
+                options,
+                apiKey);
+        });
 
         // ---------- Worker ----------
         services.AddHostedService<IngestionWorker>();

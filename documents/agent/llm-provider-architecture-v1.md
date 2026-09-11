@@ -64,6 +64,33 @@ modifiés par ce lot.
 
 ## B. Architecture retenue
 
+Deux niveaux de fournisseur partagent le protocole OpenAI-compatible mais ont
+des responsabilités différentes. `ILlmProvider` est le runtime direct du
+client ; il permet de qualifier le modèle local et d'effectuer des sondes DEV
+ou BENCH. Le parcours produit validé conserve ce runtime en `Local` et utilise
+`IAdvancedAnalysisProvider` dans le backend quand la frontière A755 demande une
+capacité avancée.
+
+```text
+Parcours produit
+  Client : petit modèle Local -> frontière A755
+  Serveur : job AdvancedAnalysis -> fournisseur du grand modèle
+            openai-dev -> runpod-bench -> customer-server
+
+Sondes isolées
+  Client : OpenAiDev ou RunPodBench directement
+```
+
+Les sondes directes vérifient les dialectes HTTP, les structured outputs, les
+tools et le streaming. Elles ne prouvent pas le routage local -> serveur, la
+durabilité du job, la revalidation des preuves ou le retour des sources. Ces
+preuves sont acquises avec le harnais `test-advanced-analysis-agent-bank.ps1`.
+
+La conception détaillée du fournisseur serveur se trouve dans
+`advanced-analysis-server-provider-v1.md`. La séparation future entre droits de
+licence, topologie d'installation et profil technique est définie dans
+`llm-license-installation-vision.md` sans étendre le périmètre de ce lot.
+
 ```text
 RagChatAgent / ToolAgentOrchestrator
                  │

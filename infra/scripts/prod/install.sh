@@ -44,6 +44,31 @@ if ! [[ "$LICENSE_SEATS" =~ ^[1-9][0-9]*$ ]]; then
   exit 2
 fi
 
+ADVANCED_ANALYSIS_ENABLED="false"
+if [[ "${SAAIA_ADVANCED_ANALYSIS_ENABLED:-false}" =~ ^(1|true|yes|on)$ ]]; then
+  ADVANCED_ANALYSIS_ENABLED="true"
+fi
+ADVANCED_ANALYSIS_PROVIDER="${SAAIA_ADVANCED_ANALYSIS_PROVIDER:-disabled}"
+if [[ "$ADVANCED_ANALYSIS_PROVIDER" == "openai-dev" || "$ADVANCED_ANALYSIS_PROVIDER" == "openaidev" ]]; then
+  ADVANCED_LLM_BASE_URL="${SAAIA_ADVANCED_LLM_BASE_URL:-https://api.openai.com/v1}"
+  ADVANCED_LLM_MODEL="${SAAIA_ADVANCED_LLM_MODEL:-gpt-5.6-terra}"
+else
+  ADVANCED_LLM_BASE_URL="${SAAIA_ADVANCED_LLM_BASE_URL:-http://advanced-llm:8080}"
+  ADVANCED_LLM_MODEL="${SAAIA_ADVANCED_LLM_MODEL:-}"
+fi
+if [[ "$ADVANCED_ANALYSIS_ENABLED" == "true" ]]; then
+  if [[ "$ADVANCED_ANALYSIS_PROVIDER" != "openai-dev" && "$ADVANCED_ANALYSIS_PROVIDER" != "openaidev" && "$ADVANCED_ANALYSIS_PROVIDER" != "runpod-bench" && "$ADVANCED_ANALYSIS_PROVIDER" != "runpodbench" && "$ADVANCED_ANALYSIS_PROVIDER" != "customer-server" && "$ADVANCED_ANALYSIS_PROVIDER" != "customerserver" ]]; then
+    echo "SAAIA_ADVANCED_ANALYSIS_PROVIDER must be openai-dev, runpod-bench or customer-server when advanced analysis is enabled." >&2
+    exit 2
+  fi
+  : "${ADVANCED_LLM_MODEL:?SAAIA_ADVANCED_LLM_MODEL is required when advanced analysis is enabled}"
+  : "${SAAIA_ADVANCED_LLM_API_KEY:?SAAIA_ADVANCED_LLM_API_KEY is required when advanced analysis is enabled}"
+fi
+ADVANCED_EXTERNAL_ALLOWED="false"
+if [[ "$ADVANCED_ANALYSIS_ENABLED" == "true" && ( "$ADVANCED_ANALYSIS_PROVIDER" == "openai-dev" || "$ADVANCED_ANALYSIS_PROVIDER" == "openaidev" || "$ADVANCED_ANALYSIS_PROVIDER" == "runpod-bench" || "$ADVANCED_ANALYSIS_PROVIDER" == "runpodbench" ) ]]; then
+  ADVANCED_EXTERNAL_ALLOWED="true"
+fi
+
 read_env_int() {
   local name="$1"
   local default="$2"
@@ -176,6 +201,11 @@ sed \
   -e "s/__INGESTION_HEAVY_COMPUTE_QUEUE_WAIT_TIMEOUT_SECONDS__/${INGESTION_HEAVY_COMPUTE_QUEUE_WAIT_TIMEOUT_SECONDS}/g" \
   -e "s/__REQUIRE_QDRANT_AUTH__/${REQ_QDRANT}/g" \
   -e "s/__LICENSE_SEATS__/${LICENSE_SEATS}/g" \
+  -e "s/__ADVANCED_ANALYSIS_ENABLED__/${ADVANCED_ANALYSIS_ENABLED}/g" \
+  -e "s#__ADVANCED_ANALYSIS_PROVIDER__#${ADVANCED_ANALYSIS_PROVIDER}#g" \
+  -e "s#__ADVANCED_LLM_BASE_URL__#${ADVANCED_LLM_BASE_URL}#g" \
+  -e "s#__ADVANCED_LLM_MODEL__#${ADVANCED_LLM_MODEL}#g" \
+  -e "s/__ADVANCED_EXTERNAL_ALLOWED__/${ADVANCED_EXTERNAL_ALLOWED}/g" \
   "$TEMPLATE" > "$CFG"
 
 if grep -Eq '__[A-Z0-9_]+__' "$CFG"; then

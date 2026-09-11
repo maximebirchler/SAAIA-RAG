@@ -235,6 +235,18 @@ public sealed class AdvancedAnalysisResultEnvelope
 
     public string ProviderKey { get; init; } = string.Empty;
 
+    public string ProviderModel { get; init; } = string.Empty;
+
+    public int ProviderCallCount { get; init; }
+
+    public int? InputTokens { get; init; }
+
+    public int? OutputTokens { get; init; }
+
+    public int? CachedInputTokens { get; init; }
+
+    public decimal? EstimatedCostUsd { get; init; }
+
     public DateTimeOffset CompletedAtUtc { get; init; }
 
     public long ElapsedMilliseconds { get; init; }

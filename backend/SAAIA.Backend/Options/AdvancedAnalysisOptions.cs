@@ -2,6 +2,47 @@ namespace SAAIA.Backend;
 
 sealed class AdvancedAnalysisOptions
 {
+    public string Provider { get; set; } = "disabled";
+
+    public string ProviderKey { get; set; } = string.Empty;
+
+    public string LlmBaseUrl { get; set; } = string.Empty;
+
+    public string LlmModel { get; set; } = string.Empty;
+
+    public string? LlmApiKeyRef { get; set; }
+
+    public string ReasoningEffort { get; set; } = "low";
+
+    public int LlmTimeoutSeconds { get; set; } = 600;
+
+    public int PlannerMaxTokens { get; set; } = 1_200;
+
+    public int WriterMaxTokens { get; set; } = 4_096;
+
+    public int MaximumPlanQueries { get; set; } = 8;
+
+    public int MaximumEvidencePromptCharacters { get; set; } = 240_000;
+
+    public decimal ExternalBudgetAuthorizedUsd { get; set; } = 25m;
+
+    public decimal ExternalBudgetSoftLimitUsd { get; set; } = 20m;
+
+    public decimal ExternalBudgetHardLimitUsd { get; set; } = 24m;
+
+    public decimal ExternalMaximumCostPerJobUsd { get; set; } = 0.50m;
+
+    public int ExternalMaximumCallsPerJob { get; set; } = 4;
+
+    public decimal ExternalInputUsdPerMillionTokens { get; set; } = 2m;
+
+    public decimal ExternalCachedInputUsdPerMillionTokens { get; set; } = 0.20m;
+
+    public decimal ExternalOutputUsdPerMillionTokens { get; set; } = 12m;
+
+    public string ExternalUsageLedgerPath { get; set; } =
+        "data/advanced-analysis/openai-terra-usage.jsonl";
+
     public int RetentionDays { get; set; } = 30;
 
     public int MaximumQueuedJobsPerUser { get; set; } = 20;

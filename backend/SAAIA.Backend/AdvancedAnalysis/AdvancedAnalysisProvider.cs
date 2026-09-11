@@ -27,6 +27,18 @@ internal sealed class AdvancedAnalysisProviderResult
     public string AnswerText { get; init; } = string.Empty;
 
     public List<AdvancedAnalysisResultClaim> Claims { get; init; } = new();
+
+    public string ModelId { get; init; } = string.Empty;
+
+    public int ProviderCallCount { get; init; }
+
+    public int? InputTokens { get; init; }
+
+    public int? OutputTokens { get; init; }
+
+    public int? CachedInputTokens { get; init; }
+
+    public decimal? EstimatedCostUsd { get; init; }
 }
 
 internal interface IAdvancedAnalysisProvider

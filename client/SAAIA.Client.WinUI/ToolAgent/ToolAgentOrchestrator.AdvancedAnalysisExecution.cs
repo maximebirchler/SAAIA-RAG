@@ -504,7 +504,8 @@ public sealed partial class ToolAgentOrchestrator
             SourcesPayload: BuildAdvancedAnalysisSourcesPayload(
                 job,
                 sources,
-                validation.Result.Outcome),
+                validation.Result.Outcome,
+                validation.Result),
             Job: job);
     }
 
@@ -607,6 +608,19 @@ public sealed partial class ToolAgentOrchestrator
         {
             return AdvancedAnalysisClientResultValidation.Invalid("advanced_result_provider_invalid");
         }
+        if (result.ProviderModel.Length > 256
+            || result.ProviderCallCount is < 0 or > 1_024
+            || !IsValidAdvancedUsage(result.InputTokens)
+            || !IsValidAdvancedUsage(result.OutputTokens)
+            || !IsValidAdvancedUsage(result.CachedInputTokens)
+            || (result.CachedInputTokens.HasValue
+                && result.InputTokens.HasValue
+                && result.CachedInputTokens > result.InputTokens)
+            || result.EstimatedCostUsd is < 0 or > 1_000_000m)
+        {
+            return AdvancedAnalysisClientResultValidation.Invalid(
+                "advanced_result_metrics_invalid");
+        }
         if (result.CompletedAtUtc == default
             || result.ElapsedMilliseconds < 0
             || result.Evidence is null
@@ -692,6 +706,9 @@ public sealed partial class ToolAgentOrchestrator
         return AdvancedAnalysisClientResultValidation.Valid(result);
     }
 
+    private static bool IsValidAdvancedUsage(int? value)
+        => value is null or >= 0;
+
     private static ToolMemory.SourceRef MapAdvancedAnalysisSource(
         AdvancedAnalysisResultEvidence evidence,
         string language)
@@ -721,7 +738,8 @@ public sealed partial class ToolAgentOrchestrator
     private static object BuildAdvancedAnalysisSourcesPayload(
         AdvancedAnalysisJobDto job,
         List<ToolMemory.SourceRef> sources,
-        string resultOutcome)
+        string resultOutcome,
+        AdvancedAnalysisResultEnvelope? result = null)
         => new
         {
             intent = "advanced_analysis.answer",
@@ -739,6 +757,12 @@ public sealed partial class ToolAgentOrchestrator
                 updatedAtUtc = job.UpdatedAtUtc,
                 expiresAtUtc = job.ExpiresAtUtc,
                 providerKey = job.ProviderKey,
+                providerModel = result?.ProviderModel,
+                providerCallCount = result?.ProviderCallCount,
+                inputTokens = result?.InputTokens,
+                outputTokens = result?.OutputTokens,
+                cachedInputTokens = result?.CachedInputTokens,
+                estimatedCostUsd = result?.EstimatedCostUsd,
                 resultOutcome,
                 lastErrorCode = job.LastErrorCode
             }

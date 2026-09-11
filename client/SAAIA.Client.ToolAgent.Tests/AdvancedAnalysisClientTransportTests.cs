@@ -185,6 +185,56 @@ public sealed class AdvancedAnalysisClientTransportTests
     }
 
     [Fact]
+    public async Task Workflow_rejects_incoherent_advanced_provider_metrics()
+    {
+        var invalidResult = new
+        {
+            schemaVersion = AdvancedAnalysisResultEnvelope.CurrentSchemaVersion,
+            outcome = "answered",
+            answerText = "Advanced answer with canonical citations.",
+            providerKey = "fake-internal",
+            providerModel = "qualified-model",
+            providerCallCount = 2,
+            inputTokens = 10,
+            cachedInputTokens = 11,
+            completedAtUtc = "2026-09-11T03:00:01Z",
+            elapsedMilliseconds = 1000,
+            evidence = new[]
+            {
+                new
+                {
+                    evidenceId = "E1",
+                    docId = "11111111-1111-1111-1111-111111111111",
+                    revisionId = "22222222-2222-2222-2222-222222222222",
+                    fileName = "procedure-a.pdf",
+                    docPath = "Quality/procedure-a.pdf",
+                    sourceHash = "abcdef0123456789",
+                    pageStart = 2,
+                    pageEnd = 2,
+                    chunkId = "chunk-1"
+                }
+            },
+            claims = new[]
+            {
+                new
+                {
+                    claimId = "C1",
+                    text = "Claim one.",
+                    evidenceIds = new[] { "E1" }
+                }
+            }
+        };
+        var handler = new SequenceHandler((_, _, _) => Task.FromResult(Json(
+            HttpStatusCode.OK,
+            Job("succeeded", 2, invalidResult))));
+
+        var result = await ExecuteAsync(handler);
+
+        Assert.True(result.Handled);
+        Assert.Equal("invalid_result", result.Outcome);
+    }
+
+    [Fact]
     public async Task Workflow_preserves_local_terminal_when_license_is_not_entitled()
     {
         var handler = new SequenceHandler((_, _, _) => Task.FromResult(Json(

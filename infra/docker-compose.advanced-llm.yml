@@ -1,0 +1,42 @@
+name: saaia-advanced-llm
+
+services:
+  advanced-llm:
+    image: ${SAAIA_ADVANCED_LLM_IMAGE:?Set SAAIA_ADVANCED_LLM_IMAGE to an immutable llama.cpp server image}
+    container_name: saaia-advanced-llm
+    gpus: all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - "${SAAIA_ADVANCED_MODEL_DIR:?Set SAAIA_ADVANCED_MODEL_DIR}:/models:ro"
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      LLAMA_ARG_MODEL: /models/${SAAIA_ADVANCED_MODEL_FILE:?Set SAAIA_ADVANCED_MODEL_FILE}
+      LLAMA_ARG_MODEL_ALIAS: ${SAAIA_ADVANCED_LLM_MODEL:?Set SAAIA_ADVANCED_LLM_MODEL}
+      LLAMA_ARG_CTX_SIZE: ${SAAIA_ADVANCED_LLM_CTX_SIZE:-65536}
+      LLAMA_ARG_N_PARALLEL: ${SAAIA_ADVANCED_LLM_N_PARALLEL:-1}
+      LLAMA_ARG_BATCH: ${SAAIA_ADVANCED_LLM_BATCH_SIZE:-2048}
+      LLAMA_ARG_UBATCH: ${SAAIA_ADVANCED_LLM_UBATCH_SIZE:-512}
+      LLAMA_ARG_N_GPU_LAYERS: ${SAAIA_ADVANCED_LLM_GPU_LAYERS:-all}
+      LLAMA_ARG_FLASH_ATTN: ${SAAIA_ADVANCED_LLM_FLASH_ATTN:-true}
+      LLAMA_ARG_JINJA: "true"
+      LLAMA_ARG_REASONING: off
+      LLAMA_ARG_API_KEY: ${SAAIA_ADVANCED_LLM_API_KEY:?Set SAAIA_ADVANCED_LLM_API_KEY}
+      LLAMA_ARG_HOST: 0.0.0.0
+      LLAMA_ARG_PORT: 8080
+    ports:
+      - "127.0.0.1:${SAAIA_ADVANCED_LLM_HOST_PORT:-1235}:8080"
+    restart: unless-stopped
+    networks:
+      - backend
+
+networks:
+  backend:
+    name: ${SAAIA_LLM_DOCKER_NETWORK:-infra_default}
+    external: true

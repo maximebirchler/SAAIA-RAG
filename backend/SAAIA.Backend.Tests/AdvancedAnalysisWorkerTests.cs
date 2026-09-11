@@ -60,6 +60,38 @@ public sealed class AdvancedAnalysisWorkerTests
     }
 
     [Fact]
+    public void Result_validator_rejects_incoherent_provider_metrics()
+    {
+        var evidence = BuildResolvedEvidence("evidence-1");
+        var validation = AdvancedAnalysisResultValidator.ValidateAndBuild(
+            "fake-internal",
+            new AdvancedAnalysisProviderResult
+            {
+                Outcome = "answered",
+                AnswerText = "The inspection is required.",
+                ModelId = "qualified-model",
+                ProviderCallCount = 2,
+                InputTokens = 10,
+                CachedInputTokens = 11,
+                Claims =
+                [
+                    new AdvancedAnalysisResultClaim
+                    {
+                        ClaimId = "claim-1",
+                        Text = "The inspection is required.",
+                        EvidenceIds = ["evidence-1"]
+                    }
+                ]
+            },
+            [evidence],
+            10,
+            DateTimeOffset.UtcNow);
+
+        Assert.False(validation.IsValid);
+        Assert.Equal("provider_metrics_invalid", validation.ErrorCode);
+    }
+
+    [Fact]
     public async Task Worker_revalidates_tenant_evidence_and_persists_cited_result()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();

@@ -210,7 +210,8 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
                     category: Environment.GetEnvironmentVariable("SAAIA_AGENT_VALIDATION_CATEGORY") ?? string.Empty,
                     conversationTail: Array.Empty<ChatMessageItem>(),
                     onDelta: delta => streamed.Append(delta),
-                    ct: cts.Token);
+                    ct: cts.Token,
+                    sessionId: live.SessionId);
 
                 answer = string.IsNullOrWhiteSpace(run.finalAnswer) ? streamed.ToString() : run.finalAnswer;
                 sourcesPayload = run.sourcesPayload;
@@ -229,6 +230,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
             var diagnostics = agent is null
                 ? new AgentDiagnostics()
                 : GetAgentDiagnostics(agent);
+            var advancedTelemetry = ReadAdvancedTelemetry(sourcesPayload);
             var detectedAnswerLanguage = DetectAnswerLanguage(answer);
             var flags = GetAnswerQualityFlags(
                 testCase.Question ?? string.Empty,
@@ -257,6 +259,13 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
                 estimatedCostUsd = providerMetrics
                     .Where(static metric => metric.EstimatedCostUsd.HasValue)
                     .Sum(static metric => metric.EstimatedCostUsd!.Value),
+                advancedStatus = advancedTelemetry.Status,
+                advancedProviderKey = advancedTelemetry.ProviderKey,
+                advancedProviderModel = advancedTelemetry.ProviderModel,
+                advancedProviderCallCount = advancedTelemetry.ProviderCallCount,
+                advancedInputTokens = advancedTelemetry.InputTokens,
+                advancedOutputTokens = advancedTelemetry.OutputTokens,
+                advancedEstimatedCostUsd = advancedTelemetry.EstimatedCostUsd,
                 elapsedMs = sw.ElapsedMilliseconds,
                 sourceCount = diagnostics.SourceLabels.Count,
                 ragTraceEventCount = diagnostics.RagTrace.Count,
@@ -365,12 +374,32 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         var agent = new RagChatAgent(api, provider);
         agent.ApplySettings(liveSettings);
 
-        return new LiveAgentContext(agent, provider);
+        string? sessionId = null;
+        if (string.Equals(
+                Environment.GetEnvironmentVariable(
+                    "SAAIA_AGENT_VALIDATION_ADVANCED_SERVER"),
+                "1",
+                StringComparison.Ordinal))
+        {
+            if (provider.Descriptor.Mode != LlmProviderMode.Local)
+            {
+                throw new InvalidOperationException(
+                    "The advanced-server validation must begin with the qualified Local provider.");
+            }
+            var session = await api.CreateSessionAsync(
+                "A755 advanced validation " + DateTime.UtcNow.ToString("O"),
+                "automated-validation",
+                ct);
+            sessionId = session.SessionId;
+        }
+
+        return new LiveAgentContext(agent, provider, sessionId);
     }
 
     private sealed record LiveAgentContext(
         RagChatAgent Agent,
-        ILlmProvider Provider);
+        ILlmProvider Provider,
+        string? SessionId);
 
     private static readonly object LiveLlmManagerGate = new();
     private static LlamaCppProcessManager? LiveLlmManager;
@@ -697,7 +726,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         var headers = new[]
         {
             "id", "language", "detectedAnswerLanguage", "languageMatched", "axis", "difficulty", "corpusTarget", "theme", "mode", "elapsedMs", "sourceCount", "ragTraceEventCount",
-            "answerChars", "answerFlags", "answerSource", "question", "answerPreview", "sourcesPreview", "expectedAnswerKind",
+            "answerChars", "answerFlags", "answerSource", "advancedStatus", "advancedProviderKey", "advancedProviderModel", "advancedProviderCallCount", "advancedInputTokens", "advancedOutputTokens", "advancedEstimatedCostUsd", "question", "answerPreview", "sourcesPreview", "expectedAnswerKind",
             "validationPoints", "error"
         };
         yield return string.Join('\t', headers);
@@ -716,6 +745,57 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
 
     private static int GetPropertyInt(object item, string property)
         => int.TryParse(GetPropertyString(item, property), out var value) ? value : 0;
+
+    private sealed record AdvancedTelemetry(
+        string Status,
+        string ProviderKey,
+        string ProviderModel,
+        int? ProviderCallCount,
+        int? InputTokens,
+        int? OutputTokens,
+        decimal? EstimatedCostUsd);
+
+    private static AdvancedTelemetry ReadAdvancedTelemetry(object? sourcesPayload)
+    {
+        if (sourcesPayload is null)
+            return new("", "", "", null, null, null, null);
+        try
+        {
+            var root = JsonSerializer.SerializeToElement(sourcesPayload);
+            if (!root.TryGetProperty("advancedAnalysis", out var advanced)
+                || advanced.ValueKind != JsonValueKind.Object)
+            {
+                return new("", "", "", null, null, null, null);
+            }
+            return new AdvancedTelemetry(
+                ReadString(advanced, "status"),
+                ReadString(advanced, "providerKey"),
+                ReadString(advanced, "providerModel"),
+                ReadInt(advanced, "providerCallCount"),
+                ReadInt(advanced, "inputTokens"),
+                ReadInt(advanced, "outputTokens"),
+                advanced.TryGetProperty("estimatedCostUsd", out var cost)
+                && cost.TryGetDecimal(out var parsedCost)
+                    ? parsedCost
+                    : null);
+        }
+        catch (JsonException)
+        {
+            return new("invalid", "", "", null, null, null, null);
+        }
+    }
+
+    private static string ReadString(JsonElement element, string property)
+        => element.TryGetProperty(property, out var value)
+           && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
+            : string.Empty;
+
+    private static int? ReadInt(JsonElement element, string property)
+        => element.TryGetProperty(property, out var value)
+           && value.TryGetInt32(out var parsed)
+            ? parsed
+            : null;
 
     private static int ReadIntEnv(string name, int fallback)
         => int.TryParse(Environment.GetEnvironmentVariable(name), out var value) ? value : fallback;

@@ -39,6 +39,20 @@ internal static class AdvancedAnalysisResultValidator
             return AdvancedAnalysisResultValidation.Invalid(
                 "provider_claim_limit_exceeded");
         }
+        var providerModel = providerResult.ModelId?.Trim() ?? string.Empty;
+        if (providerModel.Length > 256
+            || providerResult.ProviderCallCount is < 0 or > 1_024
+            || !IsValidUsage(providerResult.InputTokens)
+            || !IsValidUsage(providerResult.OutputTokens)
+            || !IsValidUsage(providerResult.CachedInputTokens)
+            || (providerResult.CachedInputTokens.HasValue
+                && providerResult.InputTokens.HasValue
+                && providerResult.CachedInputTokens > providerResult.InputTokens)
+            || providerResult.EstimatedCostUsd is < 0 or > 1_000_000m)
+        {
+            return AdvancedAnalysisResultValidation.Invalid(
+                "provider_metrics_invalid");
+        }
 
         var evidenceById = new Dictionary<string, AdvancedAnalysisResolvedEvidence>(
             StringComparer.Ordinal);
@@ -100,12 +114,21 @@ internal static class AdvancedAnalysisResultValidator
             Outcome = outcome,
             AnswerText = answer,
             ProviderKey = providerKey,
+            ProviderModel = providerModel,
+            ProviderCallCount = providerResult.ProviderCallCount,
+            InputTokens = providerResult.InputTokens,
+            OutputTokens = providerResult.OutputTokens,
+            CachedInputTokens = providerResult.CachedInputTokens,
+            EstimatedCostUsd = providerResult.EstimatedCostUsd,
             CompletedAtUtc = completedAtUtc,
             ElapsedMilliseconds = Math.Max(0, elapsedMilliseconds),
             Evidence = evidence.Select(static item => item.Reference).ToList(),
             Claims = claims
         });
     }
+
+    private static bool IsValidUsage(int? value)
+        => value is null or >= 0;
 }
 
 internal sealed record AdvancedAnalysisResultValidation(

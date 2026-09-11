@@ -9,9 +9,6 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-if ([string]::IsNullOrWhiteSpace($env:SAAIA_RUNPOD_API_KEY)) {
-    throw "SAAIA_RUNPOD_API_KEY is required. The token must stay outside Git and command arguments."
-}
 
 $env:SAAIA_LLM_PROVIDER_MODE = "RunPodBench"
 $env:SAAIA_LLM_EXTERNAL_POLICY = "BenchmarkExternalAllowed"
