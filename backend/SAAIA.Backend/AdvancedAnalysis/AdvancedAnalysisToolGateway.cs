@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Dapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -19,7 +20,8 @@ internal sealed record AdvancedAnalysisSearchRequest(
     int? PageStart = null,
     int? PageEnd = null,
     int? MaxPerDocument = null,
-    int? MaxPerPage = null);
+    int? MaxPerPage = null,
+    string? DocumentHint = null);
 
 internal sealed record AdvancedAnalysisSearchObservation(
     string Query,
@@ -200,6 +202,7 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
         await _serialGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         var callNumber = 0;
         Stopwatch? stopwatch = null;
+        var requestForTrace = request;
         try
         {
             callNumber = checked(_toolCallCount + 1);
@@ -224,6 +227,25 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
             context.Items[ApiKeyAuth.TenantIdItemKey] = _tenantId;
             context.Items[RequestIdMiddleware.RequestIdItemKey] =
                 context.TraceIdentifier;
+            var effectiveDocPath = request.DocPath;
+            if (string.IsNullOrWhiteSpace(effectiveDocPath)
+                && !string.IsNullOrWhiteSpace(request.DocumentHint))
+            {
+                var candidates = await ResolveDocumentScopeCandidatesAsync(
+                        _dataSource,
+                        _tenantId,
+                        request.DocumentHint,
+                        NullIfBlank(request.Category),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                effectiveDocPath = SelectStrongDocumentScope(
+                    request.DocumentHint,
+                    candidates);
+            }
+            requestForTrace = request with
+            {
+                DocPath = NormalizePath(effectiveDocPath)
+            };
             stopwatch = Stopwatch.StartNew();
             var response = await RagEndpoints.SearchCoreAsync(
                 context,
@@ -241,7 +263,7 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
                     Mode: "broad",
                     Diversity: null,
                     DocId: NullIfBlank(request.DocId),
-                    DocPath: NormalizePath(request.DocPath),
+                    DocPath: NormalizePath(effectiveDocPath),
                     IncludeContextualSnippet: false,
                     CategoryPath: null,
                     CategoryRef: null,
@@ -311,7 +333,7 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
             var degraded = response.DegradedRetrievers ?? [];
             await PersistEventAsync(
                 "succeeded",
-                request,
+                requestForTrace,
                 observationEvidence,
                 degraded,
                 stopwatch.ElapsedMilliseconds,
@@ -334,7 +356,7 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
                     : "retrieval_tool_failed";
                 await PersistEventAsync(
                     "failed",
-                    request,
+                    requestForTrace,
                     [],
                     [],
                     stopwatch?.ElapsedMilliseconds ?? 0,
@@ -348,6 +370,94 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
             _serialGate.Release();
         }
     }
+
+    internal static string? SelectStrongDocumentScope(
+        string documentHint,
+        IReadOnlyList<string> candidates)
+    {
+        var hint = CompactDocumentIdentity(documentHint);
+        if (hint.Length < 6)
+            return null;
+        var strong = candidates
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Where(path =>
+            {
+                var fileName = Path.GetFileName(path.Replace('\\', '/'));
+                var candidate = CompactDocumentIdentity(fileName);
+                return candidate.Contains(hint, StringComparison.Ordinal)
+                       || hint.Contains(candidate, StringComparison.Ordinal);
+            })
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return strong.Length == 1 ? strong[0] : null;
+    }
+
+    internal static async Task<IReadOnlyList<string>>
+        ResolveDocumentScopeCandidatesAsync(
+            NpgsqlDataSource dataSource,
+            Guid tenantId,
+            string documentHint,
+            string? category,
+            CancellationToken cancellationToken)
+    {
+        var compactHint = CompactDocumentIdentity(documentHint);
+        if (compactHint.Length < 6)
+            return [];
+        await using var connection = await dataSource
+            .OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        const string sql = """
+            WITH candidates AS (
+              SELECT
+                doc_path,
+                doc_name,
+                updated_at,
+                lower(regexp_replace(doc_name, '[^[:alnum:]]+', '', 'g'))
+                  AS compact_name
+              FROM documents
+              WHERE tenant_id=@tenant
+                AND status='indexed'
+                AND indexed_version > 0
+                AND (@category IS NULL OR lower(category)=@category)
+            )
+            SELECT doc_path
+            FROM candidates
+            WHERE compact_name LIKE ('%' || @compact_hint || '%')
+               OR @compact_hint LIKE ('%' || compact_name || '%')
+            ORDER BY
+              CASE
+                WHEN compact_name=@compact_hint THEN 0
+                WHEN compact_name LIKE (@compact_hint || '%') THEN 1
+                ELSE 2
+              END,
+              char_length(doc_name),
+              updated_at DESC
+            LIMIT 3;
+            """;
+        var paths = await connection.QueryAsync<string>(new CommandDefinition(
+            sql,
+            new
+            {
+                tenant = tenantId,
+                category = string.IsNullOrWhiteSpace(category)
+                    ? null
+                    : category.Trim().ToLowerInvariant(),
+                compact_hint = compactHint
+            },
+            cancellationToken: cancellationToken));
+        return paths
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static string CompactDocumentIdentity(string value)
+        => System.Text.RegularExpressions.Regex.Replace(
+                value ?? string.Empty,
+                @"[^\p{L}\p{N}]",
+                string.Empty,
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant)
+            .ToLowerInvariant();
 
     private async Task PersistEventAsync(
         string status,
@@ -392,7 +502,8 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
             throw new AdvancedAnalysisToolException("search_top_k_invalid");
         if (HasOversizedScope(request.Category)
             || HasOversizedScope(request.DocId)
-            || HasOversizedScope(request.DocPath))
+            || HasOversizedScope(request.DocPath)
+            || HasOversizedScope(request.DocumentHint))
         {
             throw new AdvancedAnalysisToolException("search_scope_invalid");
         }

@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using SAAIA.Contracts;
 
 namespace SAAIA.Backend.AdvancedAnalysis;
@@ -75,6 +76,13 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
     {
         ValidateConfiguration();
         var completions = new List<CompletionResult>(2);
+        var evidenceGroups = new List<
+            IReadOnlyList<AdvancedAnalysisResolvedEvidence>>();
+        var retrievalQueriesByEvidenceId = new Dictionary<
+            string,
+            HashSet<string>>(StringComparer.Ordinal);
+        if (request.Evidence.Count > 0)
+            evidenceGroups.Add(request.Evidence);
         try
         {
             var planner = await CompleteJsonAsync(
@@ -86,7 +94,9 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                     cancellationToken)
                 .ConfigureAwait(false);
             completions.Add(planner);
-            var plannedQueries = ParsePlan(planner.Content, request);
+            var plannedQueries = AddRequiredDocumentQueries(
+                request,
+                ParsePlan(planner.Content, request));
             var previouslyExecuted = request.Handoff.ResearchState.ExecutedQueries
                 .Concat(request.PreviousToolEvents.Select(static item =>
                     item.Request.Query))
@@ -98,21 +108,48 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
             {
                 if (!previouslyExecuted.Add(planned.Query))
                     continue;
-                await tools.SearchAsync(planned, cancellationToken)
+                var observation = await tools.SearchAsync(
+                        planned,
+                        cancellationToken)
                     .ConfigureAwait(false);
+                if (observation.Evidence.Count > 0)
+                {
+                    evidenceGroups.Add(OrderEvidenceForQuery(
+                        planned.Query,
+                        planned.DocumentHint,
+                        observation.Evidence));
+                    foreach (var item in observation.Evidence)
+                    {
+                        var evidenceId = item.Reference.EvidenceId?.Trim();
+                        if (string.IsNullOrWhiteSpace(evidenceId))
+                            continue;
+                        if (!retrievalQueriesByEvidenceId.TryGetValue(
+                                evidenceId,
+                                out var retrievalQueries))
+                        {
+                            retrievalQueries = new HashSet<string>(
+                                StringComparer.OrdinalIgnoreCase);
+                            retrievalQueriesByEvidenceId.Add(
+                                evidenceId,
+                                retrievalQueries);
+                        }
+                        retrievalQueries.Add(planned.Query);
+                    }
+                }
             }
 
-            var evidence = tools.Evidence
-                .Where(static item =>
-                    !string.IsNullOrWhiteSpace(item.Reference.EvidenceId))
-                .ToArray();
-            if (evidence.Length == 0)
+            var evidence = FilterEvidenceToRequestedDocumentSet(
+                request,
+                OrderEvidenceForPrompt(
+                    tools.Evidence,
+                    evidenceGroups));
+            if (evidence.Count == 0)
             {
                 return WithMetrics(
                     new AdvancedAnalysisProviderResult
                     {
                         Outcome = "insufficient_documentation",
-                        AnswerText = BuildNoEvidenceAnswer(request.Handoff.Language)
+                        AnswerText = BuildNoEvidenceAnswer(request)
                     },
                     completions);
             }
@@ -121,13 +158,39 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                     request.JobId,
                     "writer",
                     BuildWriterSystemPrompt(request),
-                    BuildWriterUserPrompt(request, evidence),
+                    BuildWriterUserPrompt(
+                        request,
+                        evidence,
+                        retrievalQueriesByEvidenceId),
                     Math.Clamp(_options.WriterMaxTokens, 512, 16_384),
                     cancellationToken)
                 .ConfigureAwait(false);
             completions.Add(writer);
+            AdvancedAnalysisProviderResult parsed;
+            try
+            {
+                parsed = ParseResult(writer.Content, evidence, request);
+            }
+            catch (AdvancedAnalysisProviderException ex) when (
+                ex.ErrorCode is "advanced_writer_claim_markers_invalid"
+                    or "advanced_writer_protocol_invalid")
+            {
+                var repair = await CompleteJsonAsync(
+                        request.JobId,
+                        "writer-repair",
+                        BuildWriterRepairSystemPrompt(),
+                        BuildWriterRepairUserPrompt(
+                            request,
+                            writer.Content,
+                            evidence),
+                        Math.Clamp(_options.WriterMaxTokens, 512, 16_384),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                completions.Add(repair);
+                parsed = ParseResult(repair.Content, evidence, request);
+            }
             return WithMetrics(
-                ParseResult(writer.Content, evidence),
+                parsed,
                 completions);
         }
         finally
@@ -205,6 +268,7 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
             payload["temperature"] = 0;
         }
         AdvancedAnalysisExternalBudgetGuard.Reservation? reservation = null;
+        string? rejectedErrorCode = null;
         if (_budget is not null)
         {
             reservation = _budget.Reserve(
@@ -216,54 +280,79 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
 
         try
         {
-            using var message = new HttpRequestMessage(
-                HttpMethod.Post,
-                ResolveChatCompletionsUri())
-            {
-                Content = new StringContent(
-                    JsonSerializer.Serialize(payload, JsonOptions),
-                    Encoding.UTF8,
-                    "application/json")
-            };
-            if (_apiKey is not null)
-            {
-                message.Headers.Authorization =
-                    new AuthenticationHeaderValue("Bearer", _apiKey);
-            }
-
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(
                 Math.Clamp(_options.LlmTimeoutSeconds, 5, 3_600)));
-            HttpResponseMessage response;
-            try
+            var maximumHttpAttempts = Math.Clamp(
+                _options.LlmMaximumHttpAttempts,
+                1,
+                5);
+            HttpResponseMessage? response = null;
+            for (var attempt = 1; attempt <= maximumHttpAttempts; attempt++)
             {
-                response = await _httpClientFactory
-                    .CreateClient(HttpClientName)
-                    .SendAsync(
-                        message,
-                        HttpCompletionOption.ResponseHeadersRead,
-                        timeout.Token)
+                using var message = new HttpRequestMessage(
+                    HttpMethod.Post,
+                    ResolveChatCompletionsUri())
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(payload, JsonOptions),
+                        Encoding.UTF8,
+                        "application/json")
+                };
+                if (_apiKey is not null)
+                {
+                    message.Headers.Authorization =
+                        new AuthenticationHeaderValue("Bearer", _apiKey);
+                }
+                try
+                {
+                    response = await _httpClientFactory
+                        .CreateClient(HttpClientName)
+                        .SendAsync(
+                            message,
+                            HttpCompletionOption.ResponseHeadersRead,
+                            timeout.Token)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (
+                    !cancellationToken.IsCancellationRequested)
+                {
+                    throw new AdvancedAnalysisProviderException(
+                        "advanced_llm_timeout");
+                }
+                catch (HttpRequestException)
+                {
+                    throw new AdvancedAnalysisProviderException(
+                        "advanced_llm_transport_error");
+                }
+
+                if ((int)response.StatusCode != 429
+                    || attempt >= maximumHttpAttempts
+                    || !TryResolveRateLimitRetryDelay(
+                        response,
+                        attempt,
+                        out var retryDelay))
+                {
+                    break;
+                }
+                response.Dispose();
+                response = null;
+                await Task.Delay(retryDelay, timeout.Token)
                     .ConfigureAwait(false);
             }
-            catch (OperationCanceledException) when (
-                !cancellationToken.IsCancellationRequested)
-            {
-                throw new AdvancedAnalysisProviderException(
-                    "advanced_llm_timeout");
-            }
-            catch (HttpRequestException)
-            {
+
+            if (response is null)
                 throw new AdvancedAnalysisProviderException(
                     "advanced_llm_transport_error");
-            }
-
             using (response)
             {
                 if (!response.IsSuccessStatusCode)
                 {
+                    rejectedErrorCode =
+                        $"advanced_llm_http_{(int)response.StatusCode}";
                     throw new AdvancedAnalysisProviderException(
-                        $"advanced_llm_http_{(int)response.StatusCode}");
+                        rejectedErrorCode);
                 }
 
                 try
@@ -275,6 +364,7 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                             body,
                             cancellationToken: timeout.Token)
                         .ConfigureAwait(false);
+                    var usage = ReadUsage(document.RootElement);
                     if (!document.RootElement.TryGetProperty(
                             "choices",
                             out var choices)
@@ -285,10 +375,17 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                         || content.ValueKind != JsonValueKind.String
                         || string.IsNullOrWhiteSpace(content.GetString()))
                     {
+                        if (reservation is not null)
+                        {
+                            _budget!.Fail(
+                                reservation,
+                                "advanced_llm_content_missing",
+                                usage);
+                            reservation = null;
+                        }
                         throw new AdvancedAnalysisProviderException(
                             "advanced_llm_content_missing");
                     }
-                    var usage = ReadUsage(document.RootElement);
                     AdvancedAnalysisBudgetCharge? charge = null;
                     if (reservation is not null)
                     {
@@ -317,10 +414,45 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
         {
             if (reservation is not null)
             {
-                _budget!.Fail(reservation, "advanced_llm_call_failed");
+                if (rejectedErrorCode is not null)
+                    _budget!.Reject(reservation, rejectedErrorCode);
+                else
+                    _budget!.Fail(reservation, "advanced_llm_call_failed");
             }
             throw;
         }
+    }
+
+    private bool TryResolveRateLimitRetryDelay(
+        HttpResponseMessage response,
+        int attempt,
+        out TimeSpan delay)
+    {
+        var maximumMilliseconds = Math.Clamp(
+            _options.LlmMaximumRetryDelayMilliseconds,
+            100,
+            300_000);
+        var retryAfter = response.Headers.RetryAfter;
+        var serverDelayMilliseconds = retryAfter?.Delta?.TotalMilliseconds
+            ?? (retryAfter?.Date - DateTimeOffset.UtcNow)?.TotalMilliseconds;
+        if (serverDelayMilliseconds is > 0
+            && serverDelayMilliseconds > maximumMilliseconds)
+        {
+            delay = default;
+            return false;
+        }
+
+        var milliseconds = serverDelayMilliseconds
+            ?? Math.Clamp(
+                _options.LlmRetryBaseDelayMilliseconds,
+                100,
+                maximumMilliseconds)
+            * Math.Pow(2, Math.Max(0, attempt - 1));
+        delay = TimeSpan.FromMilliseconds(Math.Clamp(
+            milliseconds,
+            100,
+            maximumMilliseconds));
+        return true;
     }
 
     private Uri ResolveChatCompletionsUri()
@@ -345,12 +477,10 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                 throw new JsonException();
             }
 
-            var maximumQueries = Math.Clamp(
-                _options.MaximumPlanQueries,
-                1,
-                32);
+            var maximumQueries = ResolveMaximumPlanQueries(request);
             var result = new List<AdvancedAnalysisSearchRequest>();
             var dedupe = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var allowedCategories = BuildAllowedPlannerCategories(request);
             foreach (var item in queries.EnumerateArray())
             {
                 if (result.Count >= maximumQueries
@@ -358,7 +488,8 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                 {
                     break;
                 }
-                var query = ReadString(item, "query");
+                var query = NormalizeCorpusSearchQuery(
+                    ReadString(item, "query"));
                 if (string.IsNullOrWhiteSpace(query)
                     || query.Length > 8_000
                     || !dedupe.Add(query))
@@ -366,6 +497,11 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                     continue;
                 }
                 var category = ReadString(item, "category");
+                if (string.IsNullOrWhiteSpace(category)
+                    || !allowedCategories.Contains(category))
+                {
+                    category = string.Empty;
+                }
                 var topK = item.TryGetProperty("topK", out var topKValue)
                            && topKValue.TryGetInt32(out var parsedTopK)
                     ? Math.Clamp(parsedTopK, 1, 60)
@@ -373,7 +509,13 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                 result.Add(new AdvancedAnalysisSearchRequest(
                     query,
                     string.IsNullOrWhiteSpace(category) ? null : category,
-                    topK));
+                    topK,
+                    MaxPerDocument: request.Handoff.Load.StructuredLayout
+                        ? 8
+                        : null,
+                    MaxPerPage: request.Handoff.Load.StructuredLayout
+                        ? 2
+                        : null));
             }
 
             if (result.Count == 0)
@@ -395,9 +537,428 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
         }
     }
 
+    private static HashSet<string> BuildAllowedPlannerCategories(
+        AdvancedAnalysisProviderRequest request)
+    {
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var rawPath in request.Handoff.Load.CandidateScopePaths)
+        {
+            var normalized = (rawPath ?? string.Empty)
+                .Trim()
+                .Replace('\\', '/')
+                .Trim('/');
+            if (normalized.Length == 0)
+                continue;
+            var separator = normalized.IndexOf('/');
+            var firstSegment = separator < 0
+                ? normalized
+                : normalized[..separator];
+            if (firstSegment.Length > 0
+                && !firstSegment.Contains('.', StringComparison.Ordinal))
+            {
+                allowed.Add(firstSegment);
+            }
+        }
+        return allowed;
+    }
+
+    private static IReadOnlyList<AdvancedAnalysisResolvedEvidence>
+        OrderEvidenceForPrompt(
+            IReadOnlyList<AdvancedAnalysisResolvedEvidence> allEvidence,
+            IReadOnlyList<IReadOnlyList<AdvancedAnalysisResolvedEvidence>> groups)
+    {
+        var ordered = new List<AdvancedAnalysisResolvedEvidence>(
+            allEvidence.Count);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var maximumGroupSize = groups.Count == 0
+            ? 0
+            : groups.Max(static group => group.Count);
+        for (var index = 0; index < maximumGroupSize; index++)
+        {
+            foreach (var group in groups)
+            {
+                if (index >= group.Count)
+                    continue;
+                var item = group[index];
+                var evidenceId = item.Reference.EvidenceId?.Trim();
+                if (!string.IsNullOrWhiteSpace(evidenceId)
+                    && seen.Add(evidenceId))
+                {
+                    ordered.Add(item);
+                }
+            }
+        }
+        foreach (var item in allEvidence)
+        {
+            var evidenceId = item.Reference.EvidenceId?.Trim();
+            if (!string.IsNullOrWhiteSpace(evidenceId)
+                && seen.Add(evidenceId))
+            {
+                ordered.Add(item);
+            }
+        }
+        return ordered;
+    }
+
+    internal static IReadOnlyList<AdvancedAnalysisResolvedEvidence>
+        OrderEvidenceForQuery(
+            string query,
+            string? documentHint,
+            IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence)
+    {
+        var queryTokens = ExtractEvidenceRankingTokens(query, documentHint);
+        if (queryTokens.Count == 0 || evidence.Count < 2)
+            return evidence;
+        return evidence
+            .Select((item, index) => new
+            {
+                Item = item,
+                Index = index,
+                Score = ScoreEvidenceText(item.Content, queryTokens)
+            })
+            .OrderByDescending(static item => item.Score)
+            .ThenBy(static item => item.Index)
+            .Select(static item => item.Item)
+            .ToArray();
+    }
+
+    private static IReadOnlyList<string> ExtractEvidenceRankingTokens(
+        string query,
+        string? documentHint)
+    {
+        var documentTokens = Regex.Matches(
+                documentHint ?? string.Empty,
+                @"[\p{L}\p{N}]+")
+            .Select(static match => match.Value.ToLowerInvariant())
+            .ToHashSet(StringComparer.Ordinal);
+        return Regex.Matches(query ?? string.Empty, @"[\p{L}\p{N}]+")
+            .Select(static match => match.Value.ToLowerInvariant())
+            .Where(static token => token.Length >= 3)
+            .Where(static token => !EvidenceRankingStopwords.Contains(token))
+            .Where(token => !documentTokens.Contains(token))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static int ScoreEvidenceText(
+        string content,
+        IReadOnlyList<string> queryTokens)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+            return 0;
+        var tokens = Regex.Matches(
+                content.ToLowerInvariant(),
+                @"[\p{L}\p{N}]+")
+            .Select(static match => match.Value)
+            .ToArray();
+        if (tokens.Length == 0)
+            return 0;
+        var frequencies = tokens
+            .GroupBy(static token => token, StringComparer.Ordinal)
+            .ToDictionary(
+                static group => group.Key,
+                static group => group.Count(),
+                StringComparer.Ordinal);
+        var matched = 0;
+        var repeated = 0;
+        foreach (var token in queryTokens)
+        {
+            if (!frequencies.TryGetValue(token, out var count))
+                continue;
+            matched++;
+            repeated += Math.Min(count, 3);
+        }
+        return checked(matched * 100 + repeated * 10);
+    }
+
+    private static readonly HashSet<string> EvidenceRankingStopwords = new(
+        [
+            "avec", "dans", "pour", "sans", "sous", "entre", "depuis",
+            "cela", "cette", "celui", "celle", "ceux", "elles", "leurs",
+            "quel", "quelle", "quels", "quelles", "dont", "quoi", "être",
+            "avoir", "faire", "dire", "exige", "exiger", "compare",
+            "comparaison", "document", "norme", "standard", "from", "with",
+            "into", "that", "this", "these", "those", "what", "which",
+            "where", "when", "have", "does", "must", "documented"
+        ],
+        StringComparer.Ordinal);
+
+    private static IReadOnlyList<AdvancedAnalysisResolvedEvidence>
+        FilterEvidenceToRequestedDocumentSet(
+            AdvancedAnalysisProviderRequest request,
+            IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence)
+    {
+        var load = request.Handoff.Load;
+        var isExplicitDocumentSet = load.BoundedNamedDocumentExtraction
+                                    || !string.IsNullOrWhiteSpace(
+                                        load.RequestedDocumentName)
+                                    || (load.SelectionPolicy.Contains(
+                                            "explicit",
+                                            StringComparison.OrdinalIgnoreCase)
+                                        && (load.AtomicEvidenceType.Contains(
+                                                "compar",
+                                                StringComparison.OrdinalIgnoreCase)
+                                            || load.PlanKind.Contains(
+                                                "compar",
+                                                StringComparison.OrdinalIgnoreCase)));
+        if (!isExplicitDocumentSet)
+            return evidence;
+
+        var requestedDocuments = GetRequestedDocumentIdentifiers(request)
+            .Select(NormalizeDocumentIdentifier)
+            .ToArray();
+        if (requestedDocuments.Length == 0)
+            return evidence;
+
+        return evidence.Where(item =>
+        {
+            var fileName = NormalizeDocumentIdentifier(
+                item.Reference.FileName
+                ?? item.Reference.DocPath
+                ?? string.Empty);
+            return requestedDocuments.Any(requested =>
+                fileName.Contains(requested, StringComparison.Ordinal)
+                || requested.Contains(fileName, StringComparison.Ordinal));
+        }).ToArray();
+    }
+
+    private IReadOnlyList<AdvancedAnalysisSearchRequest>
+        AddRequiredDocumentQueries(
+            AdvancedAnalysisProviderRequest request,
+            IReadOnlyList<AdvancedAnalysisSearchRequest> plannedQueries)
+    {
+        var load = request.Handoff.Load;
+        var documentScoped = load.BoundedNamedDocumentExtraction
+                             || !string.IsNullOrWhiteSpace(
+                                 load.RequestedDocumentName)
+                             || load.SelectionPolicy.Contains(
+                                 "explicit",
+                                 StringComparison.OrdinalIgnoreCase);
+        if (!documentScoped)
+            return plannedQueries;
+
+        var documents = GetRequestedDocumentIdentifiers(request);
+        if (documents.Count == 0)
+            return plannedQueries;
+
+        var maximumQueries = ResolveMaximumPlanQueries(request);
+        var result = new List<AdvancedAnalysisSearchRequest>(maximumQueries);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var document in documents)
+        {
+            var context = BuildDocumentQueryContext(
+                request.Handoff.RequestText,
+                document,
+                documents);
+            var query = NormalizeCorpusSearchQuery(
+                string.Join(' ', document, context));
+            if (query.Length == 0 || !seen.Add(query))
+                continue;
+            result.Add(new AdvancedAnalysisSearchRequest(
+                query,
+                Category: null,
+                TopK: Math.Clamp(
+                    Math.Max(20, load.AtomicEvidenceCount * 4),
+                    1,
+                    60),
+                DocumentHint: document));
+            if (result.Count >= maximumQueries)
+                return result;
+        }
+        foreach (var planned in plannedQueries)
+        {
+            var documentHint = ResolvePlannedDocumentHint(
+                planned.Query,
+                documents);
+            var scopedPlanned = documentHint is null
+                ? planned
+                : planned with { DocumentHint = documentHint };
+            if (!seen.Add(scopedPlanned.Query))
+                continue;
+            result.Add(scopedPlanned);
+            if (result.Count >= maximumQueries)
+                break;
+        }
+        return result;
+    }
+
+    private static string? ResolvePlannedDocumentHint(
+        string query,
+        IReadOnlyList<string> documents)
+    {
+        if (documents.Count == 1)
+            return documents[0];
+
+        var normalizedQuery = NormalizeDocumentIdentifier(query);
+        var matches = documents
+            .Where(document => PlannedQueryIdentifiesDocument(
+                normalizedQuery,
+                query,
+                document))
+            .ToArray();
+        return matches.Length == 1 ? matches[0] : null;
+    }
+
+    private static bool PlannedQueryIdentifiesDocument(
+        string normalizedQuery,
+        string rawQuery,
+        string document)
+    {
+        var normalizedDocument = NormalizeDocumentIdentifier(document);
+        if (normalizedDocument.Length >= 6
+            && normalizedQuery.Contains(
+                normalizedDocument,
+                StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var queryTokens = Regex.Matches(rawQuery ?? string.Empty, @"[\p{L}\p{N}]+")
+            .Select(static match => match.Value.ToLowerInvariant())
+            .ToHashSet(StringComparer.Ordinal);
+        var identifierTokens = Regex.Matches(
+                document ?? string.Empty,
+                @"[\p{L}\p{N}]+")
+            .Select(static match => match.Value.ToLowerInvariant())
+            .Where(static token => token.Length >= 2)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (identifierTokens.Length < 2)
+            return false;
+        var matched = identifierTokens.Count(queryTokens.Contains);
+        return matched >= Math.Min(3, identifierTokens.Length);
+    }
+
+    private static string BuildDocumentQueryContext(
+        string requestText,
+        string document,
+        IReadOnlyList<string> allDocuments)
+    {
+        var source = requestText ?? string.Empty;
+        var start = source.IndexOf(document, StringComparison.OrdinalIgnoreCase);
+        var segment = source;
+        if (start >= 0)
+        {
+            var end = source.Length;
+            foreach (var other in allDocuments)
+            {
+                if (string.Equals(
+                        other,
+                        document,
+                        StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var candidate = source.IndexOf(
+                    other,
+                    start + document.Length,
+                    StringComparison.OrdinalIgnoreCase);
+                if (candidate >= 0 && candidate < end)
+                    end = candidate;
+            }
+            segment = source[start..end];
+        }
+        foreach (var candidate in allDocuments)
+        {
+            segment = Regex.Replace(
+                segment,
+                Regex.Escape(candidate),
+                " ",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        }
+        return NormalizeCorpusSearchQuery(segment);
+    }
+
+    private static IReadOnlyList<string> GetRequestedDocumentIdentifiers(
+        AdvancedAnalysisProviderRequest request)
+    {
+        var candidates = (string.IsNullOrWhiteSpace(
+                request.Handoff.Load.RequestedDocumentName)
+                ? Array.Empty<string>()
+                : [request.Handoff.Load.RequestedDocumentName])
+            .Concat(ExtractDocumentIdentifiers(request.Handoff.RequestText));
+        var documents = new List<string>();
+        foreach (var raw in candidates)
+        {
+            var value = raw.Trim();
+            var normalized = NormalizeDocumentIdentifier(value);
+            if (normalized.Length < 6)
+                continue;
+            if (documents.Any(existing =>
+            {
+                var existingNormalized = NormalizeDocumentIdentifier(existing);
+                return normalized == existingNormalized
+                       || normalized.EndsWith(
+                           existingNormalized,
+                           StringComparison.Ordinal)
+                       || existingNormalized.EndsWith(
+                           normalized,
+                           StringComparison.Ordinal);
+            }))
+            {
+                continue;
+            }
+            documents.Add(value);
+        }
+        return documents;
+    }
+
+    private static IEnumerable<string> ExtractDocumentIdentifiers(string text)
+    {
+        const string formalIdentifierPattern =
+            @"\b(?:[A-Z]{2,8}[\s/]+){1,4}\d{2,6}(?:[-:/.]\d{1,6})*(?:\s+(?:19|20)\d{2})?\b";
+        const string fileReferencePattern =
+            @"(?:^|[\s""'(])(?<file>[\p{L}\p{N}_()+&.,'’\-]+(?:\s+[\p{L}\p{N}_()+&.,'’\-]+){0,12}\.(?:pdf|docx?|xlsx?|pptx?|md|txt|csv))(?=$|[\s""'),;])";
+        var source = text ?? string.Empty;
+        return Regex.Matches(
+                source,
+                formalIdentifierPattern,
+                RegexOptions.CultureInvariant)
+            .Select(static match => match.Value.Trim())
+            .Concat(Regex.Matches(
+                    source,
+                    fileReferencePattern,
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+                .Select(static match => match.Groups["file"].Value.Trim()));
+    }
+
+    private static string NormalizeDocumentIdentifier(string value)
+        => Regex.Replace(
+            value ?? string.Empty,
+            @"[^\p{L}\p{N}]",
+            string.Empty,
+            RegexOptions.CultureInvariant).ToLowerInvariant();
+
+    private int ResolveMaximumPlanQueries(
+        AdvancedAnalysisProviderRequest request)
+    {
+        var configured = Math.Clamp(_options.MaximumPlanQueries, 1, 32);
+        var load = request.Handoff.Load;
+        if (GetRequestedDocumentIdentifiers(request).Count >= 2)
+            return Math.Min(configured, 4);
+        if (load.BoundedNamedDocumentExtraction)
+            return Math.Min(configured, 2);
+        if (load.StructuredLayout && load.ColumnCount > 0)
+            return Math.Min(configured, Math.Clamp(load.ColumnCount, 2, 6));
+        if (load.PlanKind.Contains("comparison", StringComparison.OrdinalIgnoreCase))
+            return Math.Min(configured, 4);
+        return Math.Min(configured, 6);
+    }
+
+    private static string NormalizeCorpusSearchQuery(string raw)
+    {
+        var query = Regex.Replace(
+            raw ?? string.Empty,
+            @"(?i)\bsite:\S+",
+            " ");
+        query = Regex.Replace(query, @"(?i)\bhttps?://\S+", " ");
+        query = Regex.Replace(query, @"(?i)\bwww\.\S+", " ");
+        query = Regex.Replace(query, @"\s+", " ").Trim();
+        return query.Trim(' ', ',', ';', ':', '-', '|');
+    }
+
     private static AdvancedAnalysisProviderResult ParseResult(
         string raw,
-        IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence)
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
+        AdvancedAnalysisProviderRequest request)
     {
         try
         {
@@ -447,7 +1008,8 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                     if (evidenceIds.Count == 0
                         || evidenceIds.Any(id => !knownEvidence.Contains(id)))
                     {
-                        throw new JsonException();
+                        throw new AdvancedAnalysisProviderException(
+                            "advanced_writer_evidence_id_invalid");
                     }
                     claims.Add(new AdvancedAnalysisResultClaim
                     {
@@ -459,6 +1021,31 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
             }
             if (outcome == "answered" && claims.Count == 0)
                 throw new JsonException();
+            if (outcome == "answered"
+                && request.Handoff.Load.AnswerUnitCount > 0
+                && claims.Count != request.Handoff.Load.AnswerUnitCount)
+            {
+                throw new AdvancedAnalysisProviderException(
+                    "advanced_writer_claim_count_invalid");
+            }
+            if (outcome == "answered"
+                && claims
+                    .Select(static claim => NormalizeClaimText(claim.Text))
+                    .GroupBy(static text => text, StringComparer.Ordinal)
+                    .Any(static group => group.Count() > 1))
+            {
+                throw new AdvancedAnalysisProviderException(
+                    "advanced_writer_duplicate_claims");
+            }
+            if (outcome == "answered"
+                && claims.Any(claim => Regex.Matches(
+                        answerText,
+                        Regex.Escape($"[{claim.ClaimId}]"),
+                        RegexOptions.CultureInvariant).Count != 1))
+            {
+                throw new AdvancedAnalysisProviderException(
+                    "advanced_writer_claim_markers_invalid");
+            }
 
             return new AdvancedAnalysisProviderResult
             {
@@ -473,6 +1060,15 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                 "advanced_writer_protocol_invalid");
         }
     }
+
+    private static string NormalizeClaimText(string value)
+        => Regex.Replace(
+                value ?? string.Empty,
+                @"[^\p{L}\p{N}]+",
+                " ",
+                RegexOptions.CultureInvariant)
+            .Trim()
+            .ToLowerInvariant();
 
     private AdvancedAnalysisProviderResult WithMetrics(
         AdvancedAnalysisProviderResult result,
@@ -534,10 +1130,25 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
     private static string BuildPlannerSystemPrompt()
         => """
            You are the research planner for SAAIA advanced analysis. Return one
-           JSON object and no prose. Plan focused corpus searches; never answer
-           the user. Prefer complementary queries that can cover every requested
-           output unit. For a repeated grid, plan searches for each semantic
-           column or item family rather than repeating the same broad query.
+           JSON object and no prose. Every query is executed only inside the
+           private SAAIA document corpus; internet and web search are unavailable.
+           Never use site:, a URL, a domain name or outside-source wording. Never
+           answer the user. Prefer complementary corpus queries that can cover
+           every requested output unit. For a repeated grid, plan searches for
+           concrete candidates in each semantic column or item family. Search
+           for the content that will fill the cells, not instructions or blank
+           templates for producing the requested deliverable. Omit row labels,
+           weekdays and schedule/planning terms when they do not describe the
+           needed content itself. Use compact retrieval phrases with useful
+           synonyms. Do not add health, diet, price, speed or other constraints
+           that the user did not request. For a list of named candidates, search
+           for names, headings, indexes or examples; do not append generic words
+           such as ingredients or preparation because they rank fragments whose
+           item name may be outside the chunk. Keep category empty unless the input contains an exact
+           candidate scope category; never invent or infer a category name.
+           When the user explicitly names documents, emit at least one focused
+           query per document. Retain that document's complete identifier in the
+           query and add only the subject terms needed to answer the request.
            Shape: {"queries":[{"query":"...","category":"... or empty","topK":20}]}.
            """;
 
@@ -554,10 +1165,7 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray(),
             revalidatedEvidenceCount = request.Evidence.Count,
-            maximumQueries = Math.Clamp(
-                _options.MaximumPlanQueries,
-                1,
-                32)
+            maximumQueries = ResolveMaximumPlanQueries(request)
         }, JsonOptions);
 
     private string BuildWriterSystemPrompt(
@@ -570,34 +1178,81 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
            "evidenceIds":["E1"]}]}. Every factual answer unit must have a claim
            backed by one or more supplied evidenceIds. Do not invent a value,
            title, procedure or source. Keep the user's requested language and
-           format. If the evidence cannot support all mandatory units and partial
-           answers are not allowed, choose insufficient_documentation.
+           format. In answerText, append [claimId] directly to the factual unit
+           it supports and use every claimId exactly once. For a synthesis or
+           grid, you may arrange documented candidates
+           into the requested cells; that arrangement is synthesis, not a new
+           factual claim. A source index or heading can support the existence and
+           spelling of a named item, but no absent details about that item. Distinct
+           cells may cite the same evidence when it documents several distinct
+           candidates. When the request requires distinct units, every claim must
+           describe a distinct concrete unit; do not repeat generic guidance to
+           fill a grid. If the evidence cannot support all mandatory units and
+           partial answers are not allowed, choose insufficient_documentation and
+           identify the exact rows, columns or item types that remain unsupported.
            """
            + "\nRequested output shape: "
            + JsonSerializer.Serialize(
                BuildPromptLoad(request.Handoff.Load),
                JsonOptions);
 
+    private static string BuildWriterRepairSystemPrompt()
+        => """
+           Repair one SAAIA Writer JSON object and return only the repaired JSON.
+           Preserve the original answer facts, outcome and evidence mappings.
+           Do not add a fact or evidence id. For an answered outcome, append each
+           [claimId] directly to its factual unit in answerText and use every
+           claimId exactly once. If the original object is malformed or truncated,
+           recover only information that is explicitly present. Keep the same JSON
+           schema.
+           """;
+
+    private string BuildWriterRepairUserPrompt(
+        AdvancedAnalysisProviderRequest request,
+        string originalWriterJson,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence)
+        => JsonSerializer.Serialize(new
+        {
+            language = request.Handoff.Language,
+            load = BuildPromptLoad(request.Handoff.Load),
+            allowedEvidenceIds = evidence
+                .Select(static item => item.Reference.EvidenceId)
+                .Where(static id => !string.IsNullOrWhiteSpace(id))
+                .ToArray(),
+            originalWriterJson
+        }, JsonOptions);
+
     private string BuildWriterUserPrompt(
         AdvancedAnalysisProviderRequest request,
-        IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence)
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
+        IReadOnlyDictionary<string, HashSet<string>> retrievalQueriesByEvidenceId)
     {
         var remaining = Math.Clamp(
             _options.MaximumEvidencePromptCharacters,
-            16_000,
+            8_000,
             1_000_000);
+        const int maximumCharactersPerPromptEvidence = 700;
         var promptEvidence = new List<object>();
         foreach (var item in evidence)
         {
             if (remaining <= 0)
                 break;
             var content = item.Content ?? string.Empty;
+            if (content.Length > maximumCharactersPerPromptEvidence)
+                content = content[..maximumCharactersPerPromptEvidence];
             if (content.Length > remaining)
                 content = content[..remaining];
             remaining -= content.Length;
+            var evidenceId = item.Reference.EvidenceId;
             promptEvidence.Add(new
             {
-                item.Reference.EvidenceId,
+                evidenceId,
+                retrievedFor = evidenceId is not null
+                               && retrievalQueriesByEvidenceId.TryGetValue(
+                                   evidenceId,
+                                   out var queries)
+                    ? queries.Order(StringComparer.OrdinalIgnoreCase).ToArray()
+                    : [],
                 content
             });
         }
@@ -634,13 +1289,27 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
             load.Columns
         };
 
-    private static string BuildNoEvidenceAnswer(string language)
-        => language.Trim().ToLowerInvariant() switch
+    private static string BuildNoEvidenceAnswer(
+        AdvancedAnalysisProviderRequest request)
+    {
+        var requestedDocument = request.Handoff.Load.RequestedDocumentName
+            ?.Trim();
+        if (!string.IsNullOrWhiteSpace(requestedDocument))
+        {
+            return request.Handoff.Language.Trim().ToLowerInvariant() switch
+            {
+                "en" => $"The available documentation contains no revalidated evidence from \"{requestedDocument}\" that can answer this request.",
+                "de" => $"Die verfügbare Dokumentation enthält keine erneut validierten Belege aus \"{requestedDocument}\", die diese Anfrage beantworten können.",
+                _ => $"La documentation disponible ne contient pas de preuve revalidée exploitable dans « {requestedDocument} » pour répondre à cette demande."
+            };
+        }
+        return request.Handoff.Language.Trim().ToLowerInvariant() switch
         {
             "en" => "The available documentation does not contain enough revalidated evidence to answer this request.",
             "de" => "Die verfügbare Dokumentation enthält nicht genügend erneut validierte Belege für diese Anfrage.",
             _ => "La documentation disponible ne contient pas assez de preuves revalidées pour répondre à cette demande."
         };
+    }
 
     private static string ReadString(JsonElement element, string property)
         => element.ValueKind == JsonValueKind.Object

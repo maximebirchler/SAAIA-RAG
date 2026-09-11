@@ -74,6 +74,7 @@ internal static class AdvancedAnalysisResultValidator
         }
 
         var claimIds = new HashSet<string>(StringComparer.Ordinal);
+        var citedEvidenceIds = new HashSet<string>(StringComparer.Ordinal);
         var claims = new List<AdvancedAnalysisResultClaim>(
             providerResult.Claims.Count);
         foreach (var claim in providerResult.Claims)
@@ -99,6 +100,7 @@ internal static class AdvancedAnalysisResultValidator
                     return AdvancedAnalysisResultValidation.Invalid("citation_unknown");
                 if (!cited.Add(evidenceId))
                     return AdvancedAnalysisResultValidation.Invalid("citation_duplicate");
+                citedEvidenceIds.Add(evidenceId);
             }
 
             claims.Add(new AdvancedAnalysisResultClaim
@@ -122,7 +124,11 @@ internal static class AdvancedAnalysisResultValidator
             EstimatedCostUsd = providerResult.EstimatedCostUsd,
             CompletedAtUtc = completedAtUtc,
             ElapsedMilliseconds = Math.Max(0, elapsedMilliseconds),
-            Evidence = evidence.Select(static item => item.Reference).ToList(),
+            Evidence = evidence
+                .Where(item => citedEvidenceIds.Contains(
+                    item.Reference.EvidenceId ?? string.Empty))
+                .Select(static item => item.Reference)
+                .ToList(),
             Claims = claims
         });
     }

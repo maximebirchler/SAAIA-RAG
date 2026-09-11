@@ -18,13 +18,19 @@ sealed class AdvancedAnalysisOptions
 
     public int LlmTimeoutSeconds { get; set; } = 600;
 
-    public int PlannerMaxTokens { get; set; } = 1_200;
+    public int LlmMaximumHttpAttempts { get; set; } = 3;
 
-    public int WriterMaxTokens { get; set; } = 4_096;
+    public int LlmRetryBaseDelayMilliseconds { get; set; } = 15_000;
+
+    public int LlmMaximumRetryDelayMilliseconds { get; set; } = 60_000;
+
+    public int PlannerMaxTokens { get; set; } = 512;
+
+    public int WriterMaxTokens { get; set; } = 2_400;
 
     public int MaximumPlanQueries { get; set; } = 8;
 
-    public int MaximumEvidencePromptCharacters { get; set; } = 240_000;
+    public int MaximumEvidencePromptCharacters { get; set; } = 14_000;
 
     public decimal ExternalBudgetAuthorizedUsd { get; set; } = 25m;
 

@@ -92,6 +92,37 @@ public sealed class AdvancedAnalysisWorkerTests
     }
 
     [Fact]
+    public void Result_validator_projects_only_evidence_cited_by_the_answer()
+    {
+        var cited = BuildResolvedEvidence("evidence-cited");
+        var unused = BuildResolvedEvidence("evidence-unused");
+
+        var validation = AdvancedAnalysisResultValidator.ValidateAndBuild(
+            "fake-internal",
+            new AdvancedAnalysisProviderResult
+            {
+                Outcome = "answered",
+                AnswerText = "The documented answer.",
+                Claims =
+                [
+                    new AdvancedAnalysisResultClaim
+                    {
+                        ClaimId = "claim-1",
+                        Text = "The documented answer.",
+                        EvidenceIds = ["evidence-cited"]
+                    }
+                ]
+            },
+            [cited, unused],
+            10,
+            DateTimeOffset.UtcNow);
+
+        Assert.True(validation.IsValid);
+        Assert.Equal("evidence-cited", Assert.Single(
+            validation.Result!.Evidence).EvidenceId);
+    }
+
+    [Fact]
     public async Task Worker_revalidates_tenant_evidence_and_persists_cited_result()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();

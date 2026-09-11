@@ -61,6 +61,12 @@ sealed partial class IngestionWorker : BackgroundService
     {
         using var scope0 = _sp.CreateScope();
         var opt = scope0.ServiceProvider.GetRequiredService<IOptions<IngestionOptions>>().Value;
+        if (!opt.WorkerEnabled)
+        {
+            _log.LogInformation("Ingestion worker is disabled");
+            return;
+        }
+
         var workerInstanceId = CreateWorkerInstanceId();
         var workerConcurrency = Math.Clamp(opt.WorkerConcurrency, 1, 16);
         var emptyDelayMs = IngestionOptions.ResolveWorkerEmptyDelayMs(

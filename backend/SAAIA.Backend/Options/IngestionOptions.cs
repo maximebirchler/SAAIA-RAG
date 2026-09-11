@@ -27,6 +27,7 @@ sealed class IngestionOptions
     public bool CanonicalArtifactsEnabled { get; set; } = false;
 
     // Worker
+    public bool WorkerEnabled { get; set; } = true;
     public int WorkerConcurrency { get; set; } = 2;
     public int WorkerEmptyDelayMs { get; set; } = DefaultWorkerEmptyDelayMs;
     public int StaleRunningMinutes { get; set; } = 15;

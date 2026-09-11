@@ -138,6 +138,25 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
             success: false,
             errorCode);
 
+    internal void Fail(
+        Reservation reservation,
+        string errorCode,
+        AdvancedAnalysisLlmUsage usage)
+        => Close(
+            reservation,
+            usage,
+            "provider_usage",
+            success: false,
+            errorCode);
+
+    internal void Reject(Reservation reservation, string errorCode)
+        => Close(
+            reservation,
+            new AdvancedAnalysisLlmUsage(0, 0, 0),
+            "provider_http_rejected",
+            success: false,
+            errorCode);
+
     internal void EndJob(Guid jobId)
     {
         lock (_gate)

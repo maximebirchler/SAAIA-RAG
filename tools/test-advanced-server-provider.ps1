@@ -17,6 +17,10 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
+if (-not ("System.Security.Cryptography.ProtectedData" -as [type])) {
+    Add-Type -AssemblyName System.Security
+}
+
 $repositoryRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 $project = Join-Path $repositoryRoot "backend\SAAIA.Backend.Tests\SAAIA.Backend.Tests.csproj"
 $storePath = Join-Path $env:LOCALAPPDATA "SAAIA\client\secure.json"

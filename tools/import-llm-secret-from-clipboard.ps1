@@ -14,6 +14,10 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
+if (-not ("System.Security.Cryptography.ProtectedData" -as [type])) {
+    Add-Type -AssemblyName System.Security
+}
+
 if ([string]::IsNullOrWhiteSpace($StorePath)) {
     $StorePath = Join-Path $env:LOCALAPPDATA "SAAIA\client\secure.json"
 }
@@ -49,9 +53,9 @@ try {
 
     $store = [ordered]@{}
     if (Test-Path -LiteralPath $StorePath) {
-        $parsed = Get-Content -LiteralPath $StorePath -Raw | ConvertFrom-Json -AsHashtable
-        foreach ($entry in $parsed.GetEnumerator()) {
-            $store[$entry.Key] = $entry.Value
+        $parsed = Get-Content -LiteralPath $StorePath -Raw | ConvertFrom-Json
+        foreach ($entry in $parsed.PSObject.Properties) {
+            $store[$entry.Name] = $entry.Value
         }
     }
     $store[$propertyName] = $protectedBase64
@@ -76,6 +80,9 @@ finally {
     [Array]::Clear($plainBytes, 0, $plainBytes.Length)
     $secret = $null
     if ($fromClipboard -and -not $KeepClipboard) {
-        Set-Clipboard -Value ""
+        # Windows PowerShell 5.1 rejects an empty string. A single whitespace
+        # character removes the secret while remaining compatible with both
+        # Windows PowerShell and PowerShell 7.
+        Set-Clipboard -Value " "
     }
 }

@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Npgsql;
 using SAAIA.Backend.AdvancedAnalysis;
 using SAAIA.Contracts;
 using Xunit;
@@ -12,6 +13,82 @@ namespace SAAIA.Backend.Tests;
 public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
     [Fact]
+    public void Evidence_ranking_prioritizes_content_matching_the_focused_query()
+    {
+        var generic = BuildEvidence(
+            "E-GENERIC",
+            "IEC 60079-14 présente des exigences générales et son domaine d'application.");
+        var focused = BuildEvidence(
+            "E-FOCUSED",
+            "Si la pression ou le débit du gaz de protection baisse, une alarme est requise.");
+
+        var ordered = OpenAiCompatibleAdvancedAnalysisProvider
+            .OrderEvidenceForQuery(
+                "IEC 60079-14 gaz de protection pression débit alarme",
+                "IEC 60079-14",
+                [generic, focused]);
+
+        Assert.Equal("E-FOCUSED", ordered[0].Reference.EvidenceId);
+    }
+
+    [Fact]
+    public void Document_scope_selector_requires_one_strong_identity_match()
+    {
+        Assert.Equal(
+            "Certifications/PDF/NIST_CSF_2_0.pdf",
+            AdvancedAnalysisToolGateway.SelectStrongDocumentScope(
+                "NIST_CSF_2_0.pdf",
+                [
+                    "Certifications/PDF/NIST_CSF_2_0.pdf",
+                    "Certifications/PDF/NIST_SP_800_37r2_RMF.pdf"
+                ]));
+        Assert.Null(AdvancedAnalysisToolGateway.SelectStrongDocumentScope(
+            "IEC 60079-14",
+            [
+                "Normes/IEC 60079-14 2013.pdf",
+                "Archives/IEC 60079-14 2017.pdf"
+            ]));
+    }
+
+    [Fact]
+    public async Task Live_document_hints_resolve_to_one_strong_catalog_scope_when_enabled()
+    {
+        if (!string.Equals(
+                Environment.GetEnvironmentVariable(
+                    "SAAIA_LIVE_ADVANCED_DOCUMENT_SCOPE"),
+                "1",
+                StringComparison.Ordinal))
+            return;
+        var connectionString = Environment.GetEnvironmentVariable(
+            "SAAIA_LIVE_ADVANCED_POSTGRES_CONNECTION_STRING");
+        var tenantText = Environment.GetEnvironmentVariable(
+            "SAAIA_LIVE_ADVANCED_TENANT_ID");
+        Assert.False(string.IsNullOrWhiteSpace(connectionString));
+        Assert.True(Guid.TryParse(tenantText, out var tenantId));
+        await using var dataSource = NpgsqlDataSource.Create(connectionString!);
+        foreach (var hint in new[]
+                 {
+                     "FD CEN TR 15281 2023",
+                     "IEC 60079-14",
+                     "NIST_CSF_2_0.pdf"
+                 })
+        {
+            var candidates = await AdvancedAnalysisToolGateway
+                .ResolveDocumentScopeCandidatesAsync(
+                dataSource,
+                tenantId,
+                hint,
+                category: null,
+                CancellationToken.None);
+            Assert.True(
+                AdvancedAnalysisToolGateway.SelectStrongDocumentScope(
+                    hint,
+                    candidates) is not null,
+                $"No unambiguous scope for '{hint}'. Candidates: {string.Join(" | ", candidates)}");
+        }
+    }
+
+    [Fact]
     public async Task Planner_search_and_writer_share_one_internal_provider_contract()
     {
         using var factory = new QueuedHttpClientFactory(
@@ -19,7 +96,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                 {"queries":[{"query":"repas documentés petit-déjeuner","category":"Menus","topK":24}]}
                 """),
             Completion("""
-                {"outcome":"answered","answerText":"Lundi : porridge documenté.","claims":[{"claimId":"C1","text":"Le porridge est documenté.","evidenceIds":["E1"]}]}
+                {"outcome":"answered","answerText":"Lundi : porridge documenté [C1].","claims":[{"claimId":"C1","text":"Le porridge est documenté.","evidenceIds":["E1"]}]}
                 """));
         var provider = CreateProvider(factory, apiKey: "server-secret");
         var evidence = BuildEvidence("E1", "Porridge aux pommes et cannelle.");
@@ -41,7 +118,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal("E1", Assert.Single(result.Claims).EvidenceIds.Single());
         var search = Assert.Single(gateway.Searches);
         Assert.Equal("repas documentés petit-déjeuner", search.Query);
-        Assert.Equal("Menus", search.Category);
+        Assert.Null(search.Category);
         Assert.Equal(24, search.TopK);
         Assert.Equal(2, factory.Requests.Count);
         Assert.All(factory.Requests, request =>
@@ -63,6 +140,191 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             StringComparison.Ordinal);
         Assert.DoesNotContain("server-secret", factory.Requests[0].Body,
             StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Planner_web_filters_and_untrusted_categories_are_removed_before_corpus_search()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"queries":[{"query":"site:recettes.example recettes petit-déjeuner faciles","category":"Petit-déjeuner","topK":20}]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"Réponse sourcée [C1].","claims":[{"claimId":"C1","text":"Preuve.","evidenceIds":["E1"]}]}
+                """));
+        var provider = CreateProvider(factory);
+        var gateway = new RecordingToolGateway(
+            BuildEvidence("E1", "Petit-déjeuner documenté."));
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        var search = Assert.Single(gateway.Searches);
+        Assert.Equal("recettes petit-déjeuner faciles", search.Query);
+        Assert.Null(search.Category);
+    }
+
+    [Fact]
+    public async Task Structured_grid_limits_planner_queries_to_semantic_columns()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"queries":[
+                  {"query":"petits déjeuners","topK":20},
+                  {"query":"déjeuners","topK":20},
+                  {"query":"collations","topK":20},
+                  {"query":"soupers","topK":20},
+                  {"query":"menus hebdomadaires","topK":20},
+                  {"query":"recettes faciles","topK":20}]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"Réponse sourcée [C1].","claims":[{"claimId":"C1","text":"Preuve.","evidenceIds":["E1"]}]}
+                """));
+        var provider = CreateProvider(factory);
+        var gateway = new RecordingToolGateway(
+            BuildEvidence("E1", "Préparation documentée."));
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(4, gateway.Searches.Count);
+        Assert.DoesNotContain(gateway.Searches,
+            search => search.Query == "menus hebdomadaires");
+    }
+
+    [Fact]
+    public async Task Explicit_document_comparison_excludes_neighboring_standards()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"queries":[{"query":"FD CEN TR 15281 2023 inertage oxygène","topK":20},{"query":"IEC 60079-14 2013 gaz de protection pression débit alarme","topK":20}]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"CEN [C1] et IEC [C2].","claims":[{"claimId":"C1","text":"CEN.","evidenceIds":["E-FD"]},{"claimId":"C2","text":"IEC.","evidenceIds":["E-IEC"]}]}
+                """));
+        var provider = CreateProvider(factory);
+        var gateway = new RecordingToolGateway(
+            BuildEvidence(
+                "E-WRONG",
+                "WRONG EN 1127 CONTENT",
+                "EN 1127-1 2019.pdf"),
+            BuildEvidence(
+                "E-FD",
+                "CORRECT FD CONTENT",
+                "FD CEN TR 15281 2023.pdf"),
+            BuildEvidence(
+                "E-IEC",
+                "CORRECT IEC CONTENT",
+                "IEC 60079-14 2013.pdf"));
+
+        var result = await provider.ExecuteAsync(
+            BuildComparisonRequest(),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(
+            ["E-FD", "E-IEC"],
+            result.Claims
+                .SelectMany(static claim => claim.EvidenceIds)
+                .OrderBy(static id => id));
+        Assert.Contains("CORRECT FD CONTENT", factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.Contains("CORRECT IEC CONTENT", factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("WRONG EN 1127 CONTENT", factory.Requests[1].Body,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Explicit_document_comparison_adds_one_required_query_per_document()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"queries":[{"query":"FD CEN TR 15281 2023 inertage oxygène","topK":20},{"query":"IEC 60079-14 2013 gaz de protection pression débit alarme","topK":20}]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"CEN [C1] et IEC [C2].","claims":[{"claimId":"C1","text":"CEN.","evidenceIds":["E-FD"]},{"claimId":"C2","text":"IEC.","evidenceIds":["E-IEC"]}]}
+                """));
+        var provider = CreateProvider(factory);
+        var gateway = new DocumentAwareToolGateway(
+            BuildEvidence(
+                "E-FD",
+                "Contenu FD.",
+                "FD CEN TR 15281 2023.pdf"),
+            BuildEvidence(
+                "E-IEC",
+                "Contenu IEC.",
+                "IEC 60079-14 2013.pdf"));
+
+        var result = await provider.ExecuteAsync(
+            BuildComparisonRequest(),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Contains(gateway.Searches,
+            search => search.Query.Contains("15281", StringComparison.Ordinal));
+        Assert.Contains(gateway.Searches,
+            search => search.Query.Contains("60079", StringComparison.Ordinal));
+        Assert.Contains(gateway.Searches,
+            search => search.DocumentHint?.Contains(
+                "15281",
+                StringComparison.Ordinal) == true);
+        Assert.Contains(gateway.Searches,
+            search => search.DocumentHint?.Contains(
+                "60079",
+                StringComparison.Ordinal) == true);
+        Assert.Contains(gateway.Searches,
+            search => search.Query.Contains("alarme", StringComparison.Ordinal)
+                      && search.DocumentHint?.Contains(
+                          "60079",
+                          StringComparison.Ordinal) == true);
+        Assert.Equal(2, result.ProviderCallCount);
+        Assert.Equal(2, factory.Requests.Count);
+        Assert.Equal(
+            ["E-FD", "E-IEC"],
+            result.Claims.SelectMany(static claim => claim.EvidenceIds)
+                .OrderBy(static id => id));
+    }
+
+    [Fact]
+    public async Task Named_document_extraction_excludes_other_documents()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"CSF fonctions profils tiers","topK":20}]}"""),
+            Completion("""
+                {"outcome":"answered","answerText":"Point NIST [C1].","claims":[{"claimId":"C1","text":"Point NIST.","evidenceIds":["E-CSF"]}]}
+                """));
+        var provider = CreateProvider(factory);
+        var gateway = new RecordingToolGateway(
+            BuildEvidence(
+                "E-CSF",
+                "CSF 2.0 CONTENT",
+                "NIST_CSF_2_0.pdf"),
+            BuildEvidence(
+                "E-OTHER",
+                "OTHER NIST CONTENT",
+                "NIST_SP_800_37r2_RMF.pdf"));
+
+        var result = await provider.ExecuteAsync(
+            BuildNamedDocumentRequest(),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal("E-CSF", Assert.Single(result.Claims).EvidenceIds.Single());
+        Assert.Contains("CSF 2.0 CONTENT", factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("OTHER NIST CONTENT", factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.Equal(2, result.ProviderCallCount);
     }
 
     [Fact]
@@ -94,7 +356,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         using var factory = new QueuedHttpClientFactory(
             Completion("""{"queries":[]}"""),
             Completion("""
-                {"outcome":"answered","answerText":"Réponse forgée.","claims":[{"claimId":"C1","text":"Faux.","evidenceIds":["FORGED"]}]}
+                {"outcome":"answered","answerText":"Réponse forgée [C1].","claims":[{"claimId":"C1","text":"Faux.","evidenceIds":["FORGED"]}]}
                 """));
         var provider = CreateProvider(factory);
         var gateway = new RecordingToolGateway(
@@ -106,7 +368,105 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                 gateway,
                 CancellationToken.None));
 
-        Assert.Equal("advanced_writer_protocol_invalid", error.ErrorCode);
+        Assert.Equal("advanced_writer_evidence_id_invalid", error.ErrorCode);
+        Assert.Equal(2, factory.Requests.Count);
+    }
+
+    [Fact]
+    public async Task Writer_must_return_the_requested_number_of_answer_units()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"queries":[{"query":"FD CEN TR 15281 2023 inertage oxygène","topK":20},{"query":"IEC 60079-14 2013 gaz de protection pression débit alarme","topK":20}]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"Une seule unité [C1].","claims":[{"claimId":"C1","text":"Une seule unité.","evidenceIds":["E-FD"]}]}
+                """));
+        var provider = CreateProvider(factory);
+        var gateway = new RecordingToolGateway(
+            BuildEvidence("E-FD", "Preuve CEN.", "FD CEN TR 15281 2023.pdf"),
+            BuildEvidence("E-IEC", "Preuve IEC.", "IEC 60079-14 2013.pdf"));
+
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(
+            () => provider.ExecuteAsync(
+                BuildComparisonRequest(),
+                gateway,
+                CancellationToken.None));
+
+        Assert.Equal("advanced_writer_claim_count_invalid", error.ErrorCode);
+    }
+
+    [Fact]
+    public async Task Writer_cannot_repeat_one_claim_to_fill_distinct_units()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"queries":[{"query":"FD CEN TR 15281 2023 inertage oxygène","topK":20},{"query":"IEC 60079-14 2013 gaz de protection pression débit alarme","topK":20}]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"Même fait [C1]. Même fait [C2].","claims":[{"claimId":"C1","text":"Même fait.","evidenceIds":["E-FD"]},{"claimId":"C2","text":"Même fait.","evidenceIds":["E-IEC"]}]}
+                """));
+        var provider = CreateProvider(factory);
+        var gateway = new RecordingToolGateway(
+            BuildEvidence("E-FD", "Preuve CEN.", "FD CEN TR 15281 2023.pdf"),
+            BuildEvidence("E-IEC", "Preuve IEC.", "IEC 60079-14 2013.pdf"));
+
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(
+            () => provider.ExecuteAsync(
+                BuildComparisonRequest(),
+                gateway,
+                CancellationToken.None));
+
+        Assert.Equal("advanced_writer_duplicate_claims", error.ErrorCode);
+    }
+
+    [Fact]
+    public async Task Writer_answer_repairs_missing_claim_markers_once()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[]}"""),
+            Completion("""
+                {"outcome":"answered","answerText":"Réponse sans marqueur.","claims":[{"claimId":"C1","text":"Preuve.","evidenceIds":["E1"]}]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"Réponse réparée [C1].","claims":[{"claimId":"C1","text":"Preuve.","evidenceIds":["E1"]}]}
+                """));
+        var provider = CreateProvider(factory);
+
+        var result = await provider.ExecuteAsync(
+                BuildRequest(),
+                new RecordingToolGateway(
+                    BuildEvidence("E1", "Preuve réelle.")),
+                CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Contains("[C1]", result.AnswerText, StringComparison.Ordinal);
+        Assert.Equal(3, result.ProviderCallCount);
+        Assert.Equal(3, factory.Requests.Count);
+    }
+
+    [Fact]
+    public async Task Writer_repairs_one_malformed_protocol_response()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[]}"""),
+            Completion("""{"outcome":"answered","answerText":"Réponse incomplète"""),
+            Completion("""
+                {"outcome":"answered","answerText":"Réponse réparée [C1].","claims":[{"claimId":"C1","text":"Preuve.","evidenceIds":["E1"]}]}
+                """));
+        var provider = CreateProvider(factory);
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(),
+            new RecordingToolGateway(BuildEvidence("E1", "Preuve réelle.")),
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal("Réponse réparée [C1].", result.AnswerText);
+        Assert.Equal(3, result.ProviderCallCount);
+        Assert.Equal(3, factory.Requests.Count);
+        Assert.Contains("malformed", factory.Requests[2].Body,
+            StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -142,7 +502,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         using var factory = new QueuedHttpClientFactory(
             Completion("""{"queries":[{"query":"repas","topK":20}]}"""),
             Completion("""
-                {"outcome":"answered","answerText":"Réponse sourcée.","claims":[{"claimId":"C1","text":"Preuve.","evidenceIds":["E1"]}]}
+                {"outcome":"answered","answerText":"Réponse sourcée [C1].","claims":[{"claimId":"C1","text":"Preuve.","evidenceIds":["E1"]}]}
                 """));
         var options = CreateOptions();
         options.Provider = "openai-dev";
@@ -183,6 +543,120 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             StringComparison.Ordinal);
         Assert.Contains("Preuve externe minimale", factory.Requests[1].Body,
             StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RunPod_bench_uses_the_same_contract_with_openai_compatible_dialect()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"queries":[{"query":"preuve qualifiée","topK":20}]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"Réponse sourcée [C1].","claims":[{"claimId":"C1","text":"Preuve.","evidenceIds":["E1"]}]}
+                """));
+        var options = CreateOptions();
+        options.Provider = "runpod-bench";
+        options.LlmLocation = "external-service";
+        options.LlmBaseUrl = "https://runpod.example/v1";
+        options.LlmModel = "open-model-candidate";
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            "runpod-secret");
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(),
+            new RecordingToolGateway(
+                BuildEvidence("E1", "Preuve externe minimale.")),
+            CancellationToken.None);
+
+        Assert.Equal("runpod-bench", provider.ProviderKey);
+        Assert.Equal(AdvancedAnalysisProviderLocation.ExternalService,
+            provider.Location);
+        Assert.Equal("open-model-candidate", result.ModelId);
+        Assert.Equal(2, result.ProviderCallCount);
+        Assert.All(factory.Requests, request =>
+        {
+            Assert.Equal(new Uri(
+                "https://runpod.example/v1/chat/completions"), request.Uri);
+            Assert.Equal("runpod-secret", request.Authorization?.Parameter);
+            using var body = JsonDocument.Parse(request.Body);
+            Assert.Equal("open-model-candidate", body.RootElement
+                .GetProperty("model").GetString());
+            Assert.True(body.RootElement.TryGetProperty("max_tokens", out _));
+            Assert.False(body.RootElement.TryGetProperty(
+                "max_completion_tokens", out _));
+            Assert.False(body.RootElement.TryGetProperty(
+                "reasoning_effort", out _));
+        });
+        Assert.DoesNotContain("Nutrition/menus.pdf", factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("menus.pdf", factory.Requests[1].Body,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task OpenAi_dev_retries_rate_limit_within_the_same_logical_call()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            RateLimited(),
+            Completion("""{"queries":[{"query":"repas","topK":20}]}"""),
+            Completion("""
+                {"outcome":"answered","answerText":"Réponse sourcée [C1].","claims":[{"claimId":"C1","text":"Preuve.","evidenceIds":["E1"]}]}
+                """));
+        var options = CreateOptions();
+        options.Provider = "openai-dev";
+        options.LlmLocation = "external-service";
+        options.LlmBaseUrl = "https://api.openai.com/v1";
+        options.LlmModel = "gpt-5.6-terra";
+        options.LlmMaximumHttpAttempts = 2;
+        options.LlmMaximumRetryDelayMilliseconds = 100;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            "openai-secret");
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(),
+            new RecordingToolGateway(
+                BuildEvidence("E1", "Preuve externe minimale.")),
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(2, result.ProviderCallCount);
+        Assert.Equal(3, factory.Requests.Count);
+    }
+
+    [Fact]
+    public async Task OpenAi_dev_does_not_retry_a_rate_limit_beyond_job_delay_cap()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            RateLimited(TimeSpan.FromMinutes(30)));
+        var options = CreateOptions();
+        options.Provider = "openai-dev";
+        options.LlmLocation = "external-service";
+        options.LlmBaseUrl = "https://api.openai.com/v1";
+        options.LlmModel = "gpt-5.6-terra";
+        options.LlmMaximumHttpAttempts = 3;
+        options.LlmMaximumRetryDelayMilliseconds = 60_000;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            "openai-secret");
+
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(
+            () => provider.ExecuteAsync(
+                BuildRequest(),
+                new RecordingToolGateway(),
+                CancellationToken.None));
+
+        Assert.Equal("advanced_llm_http_429", error.ErrorCode);
+        Assert.Single(factory.Requests);
+        using var ledgerEntry = JsonDocument.Parse(
+            Assert.Single(File.ReadAllLines(options.ExternalUsageLedgerPath)));
+        Assert.Equal(0m, ledgerEntry.RootElement
+            .GetProperty("costUsd").GetDecimal());
     }
 
     [Fact]
@@ -340,6 +814,58 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             error.ErrorCode);
     }
 
+    [Fact]
+    public void OpenAi_budget_records_rejected_http_calls_without_reserved_cost()
+    {
+        var options = CreateOptions();
+        var jobId = Guid.NewGuid();
+        var guard = new AdvancedAnalysisExternalBudgetGuard(
+            options,
+            "openai-dev",
+            "gpt-5.6-terra");
+        var reservation = guard.Reserve(jobId, "writer", 28_000, 1_800);
+
+        guard.Reject(reservation, "advanced_llm_http_429");
+        guard.EndJob(jobId);
+
+        using var entry = JsonDocument.Parse(
+            Assert.Single(File.ReadAllLines(options.ExternalUsageLedgerPath)));
+        Assert.Equal(0m, entry.RootElement.GetProperty("costUsd").GetDecimal());
+        Assert.Equal("provider_http_rejected", entry.RootElement
+            .GetProperty("usageSource").GetString());
+        Assert.False(entry.RootElement.GetProperty("success").GetBoolean());
+        Assert.Equal("advanced_llm_http_429", entry.RootElement
+            .GetProperty("errorCode").GetString());
+    }
+
+    [Fact]
+    public void OpenAi_budget_uses_provider_usage_for_a_billed_invalid_response()
+    {
+        var options = CreateOptions();
+        var jobId = Guid.NewGuid();
+        var guard = new AdvancedAnalysisExternalBudgetGuard(
+            options,
+            "openai-dev",
+            "gpt-5.6-terra");
+        var reservation = guard.Reserve(jobId, "writer", 28_000, 3_200);
+
+        guard.Fail(
+            reservation,
+            "advanced_llm_content_missing",
+            new AdvancedAnalysisLlmUsage(6_636, 1_800, 0));
+        guard.EndJob(jobId);
+
+        using var entry = JsonDocument.Parse(
+            Assert.Single(File.ReadAllLines(options.ExternalUsageLedgerPath)));
+        Assert.Equal(0.034872m,
+            entry.RootElement.GetProperty("costUsd").GetDecimal());
+        Assert.Equal("provider_usage", entry.RootElement
+            .GetProperty("usageSource").GetString());
+        Assert.False(entry.RootElement.GetProperty("success").GetBoolean());
+        Assert.Equal("advanced_llm_content_missing", entry.RootElement
+            .GetProperty("errorCode").GetString());
+    }
+
     private static OpenAiCompatibleAdvancedAnalysisProvider CreateProvider(
         IHttpClientFactory factory,
         string? apiKey = null)
@@ -384,8 +910,8 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                 {
                     PlanKind = "bounded_grid",
                     Deliverable = "meal_plan",
-                    AnswerUnitCount = 20,
-                    AtomicEvidenceCount = 20,
+                    AnswerUnitCount = 1,
+                    AtomicEvidenceCount = 1,
                     RowCount = 5,
                     ColumnCount = 4,
                     StructuredLayout = true,
@@ -404,17 +930,87 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             [],
             []);
 
+    private static AdvancedAnalysisProviderRequest BuildComparisonRequest()
+        => new(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "test-user",
+            new AdvancedAnalysisHandoffEnvelope
+            {
+                HandoffId = Guid.NewGuid(),
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                RequestText = "Compare FD CEN/TR 15281:2023 avec IEC 60079-14:2013.",
+                Language = "fr",
+                OriginIntent = "structured_answer",
+                ReasonCode = "advanced_capacity_required",
+                TransferStage = "pre_retrieval",
+                Load = new AdvancedAnalysisLoadDescriptor
+                {
+                    PlanKind = "comparison",
+                    Deliverable = "comparaison des deux normes demandées",
+                    AnswerUnitCount = 2,
+                    AtomicEvidenceCount = 2,
+                    AtomicEvidenceType = "comparative facts",
+                    AtomicEvidenceMode = "one_per_document",
+                    SelectionPolicy = "explicit_set",
+                    RequestedDocumentName = "FD CEN TR 15281 2023"
+                },
+                ResearchState = new AdvancedAnalysisResearchState
+                {
+                    EvidenceRevalidationRequired = true,
+                    MemoryIsEvidence = false
+                }
+            },
+            [],
+            []);
+
+    private static AdvancedAnalysisProviderRequest BuildNamedDocumentRequest()
+        => new(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "test-user",
+            new AdvancedAnalysisHandoffEnvelope
+            {
+                HandoffId = Guid.NewGuid(),
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                RequestText = "Extrais un point de NIST_CSF_2_0.pdf.",
+                Language = "fr",
+                OriginIntent = "structured_answer",
+                ReasonCode = "advanced_capacity_required",
+                TransferStage = "pre_retrieval",
+                Load = new AdvancedAnalysisLoadDescriptor
+                {
+                    PlanKind = "multi_item",
+                    Deliverable = "point documenté",
+                    AnswerUnitCount = 1,
+                    AtomicEvidenceCount = 1,
+                    AtomicEvidenceType = "content_claim",
+                    AtomicEvidenceMode = "one_per_item",
+                    SelectionPolicy = "explicit_set",
+                    RequestedDocumentName = "NIST_CSF_2_0.pdf",
+                    BoundedNamedDocumentExtraction = true
+                },
+                ResearchState = new AdvancedAnalysisResearchState
+                {
+                    EvidenceRevalidationRequired = true,
+                    MemoryIsEvidence = false
+                }
+            },
+            [],
+            []);
+
     private static AdvancedAnalysisResolvedEvidence BuildEvidence(
         string evidenceId,
-        string content)
+        string content,
+        string fileName = "menus.pdf")
         => new(
             new AdvancedAnalysisResultEvidence
             {
                 EvidenceId = evidenceId,
                 DocId = Guid.NewGuid().ToString("D"),
                 RevisionId = Guid.NewGuid().ToString("D"),
-                FileName = "menus.pdf",
-                DocPath = "Nutrition/menus.pdf",
+                FileName = fileName,
+                DocPath = "Documents/" + fileName,
                 SourceHash = "sha256:test",
                 PageStart = 1,
                 PageEnd = 1,
@@ -440,13 +1036,23 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             })
         };
 
+    private static HttpResponseMessage RateLimited(
+        TimeSpan? retryAfter = null)
+    {
+        var response = new HttpResponseMessage(
+            HttpStatusCode.TooManyRequests);
+        response.Headers.RetryAfter = new RetryConditionHeaderValue(
+            retryAfter ?? TimeSpan.FromMilliseconds(1));
+        return response;
+    }
+
     private sealed class RecordingToolGateway : IAdvancedAnalysisToolGateway
     {
-        private readonly AdvancedAnalysisResolvedEvidence? _searchEvidence;
+        private readonly IReadOnlyList<AdvancedAnalysisResolvedEvidence> _searchEvidence;
         private readonly List<AdvancedAnalysisResolvedEvidence> _evidence = new();
 
         public RecordingToolGateway(
-            AdvancedAnalysisResolvedEvidence? searchEvidence = null)
+            params AdvancedAnalysisResolvedEvidence[] searchEvidence)
         {
             _searchEvidence = searchEvidence;
         }
@@ -460,15 +1066,55 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             Searches.Add(request);
-            if (_searchEvidence is not null
-                && _evidence.All(item => item.Reference.EvidenceId
-                    != _searchEvidence.Reference.EvidenceId))
+            foreach (var evidence in _searchEvidence)
             {
-                _evidence.Add(_searchEvidence);
+                if (_evidence.All(item => item.Reference.EvidenceId
+                        != evidence.Reference.EvidenceId))
+                {
+                    _evidence.Add(evidence);
+                }
             }
             return Task.FromResult(new AdvancedAnalysisSearchObservation(
                 request.Query,
-                _searchEvidence is null ? [] : [_searchEvidence],
+                _searchEvidence,
+                [],
+                1,
+                Searches.Count));
+        }
+    }
+
+    private sealed class DocumentAwareToolGateway(
+        AdvancedAnalysisResolvedEvidence fdEvidence,
+        AdvancedAnalysisResolvedEvidence iecEvidence) :
+        IAdvancedAnalysisToolGateway
+    {
+        private readonly List<AdvancedAnalysisResolvedEvidence> _evidence = [];
+
+        public IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence =>
+            _evidence;
+
+        public List<AdvancedAnalysisSearchRequest> Searches { get; } = [];
+
+        public Task<AdvancedAnalysisSearchObservation> SearchAsync(
+            AdvancedAnalysisSearchRequest request,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Searches.Add(request);
+            var found = new List<AdvancedAnalysisResolvedEvidence>();
+            if (request.Query.Contains("15281", StringComparison.Ordinal))
+                found.Add(fdEvidence);
+            if (request.Query.Contains("60079", StringComparison.Ordinal))
+                found.Add(iecEvidence);
+            foreach (var item in found)
+            {
+                if (_evidence.All(existing => existing.Reference.EvidenceId
+                        != item.Reference.EvidenceId))
+                    _evidence.Add(item);
+            }
+            return Task.FromResult(new AdvancedAnalysisSearchObservation(
+                request.Query,
+                found,
                 [],
                 1,
                 Searches.Count));
