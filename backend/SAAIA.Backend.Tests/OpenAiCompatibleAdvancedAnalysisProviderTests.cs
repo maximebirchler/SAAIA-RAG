@@ -1741,6 +1741,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             Completion("""
                 {"outcome":"answered","answerText":"Réponse [C1].","claims":[{"claimId":"C1","text":"Réponse.","evidenceIds":["E1"]}]}
                 """),
+            Completion("""{"outcome":"answered","answerText":"still truncated"""),
             Completion("""{"outcome":"answered","answerText":"truncated"""));
         var options = CreateOptions();
         options.SemanticCriticEnabled = true;
@@ -1756,7 +1757,42 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                 CancellationToken.None));
 
         Assert.Equal("advanced_critic_protocol_invalid", error.ErrorCode);
-        Assert.Equal(3, factory.Requests.Count);
+        Assert.Equal(4, factory.Requests.Count);
+    }
+
+    [Fact]
+    public async Task Semantic_critic_repairs_one_invalid_result_within_budget()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[]}"""),
+            Completion("""
+                {"outcome":"answered","answerText":"Réponse [C1].","claims":[{"claimId":"C1","text":"Réponse.","evidenceIds":["E1"]}]}
+                """),
+            Completion("""{"outcome":"answered","answerText":"truncated"""),
+            Completion("""
+                {"outcome":"answered","answerText":"Réponse réparée [C1].","claims":[{"claimId":"C1","text":"Réponse réparée.","evidenceIds":["E1"]}]}
+                """));
+        var options = CreateOptions();
+        options.SemanticCriticEnabled = true;
+        options.ExternalMaximumCallsPerJob = 4;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(),
+            new RecordingToolGateway(BuildEvidence("E1", "Réponse réparée.")),
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal("Réponse réparée [C1].", result.AnswerText);
+        Assert.Equal(4, result.ProviderCallCount);
+        Assert.Equal(4, factory.Requests.Count);
+        Assert.Contains("invalidCriticJson", factory.Requests[3].Body,
+            StringComparison.Ordinal);
+        Assert.Contains("validWriterCandidate", factory.Requests[3].Body,
+            StringComparison.Ordinal);
     }
 
     [Fact]

@@ -133,6 +133,18 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
     }
 
     [Fact]
+    public void Language_detector_ignores_english_source_quotes_in_a_french_answer()
+    {
+        const string answer = """
+            1. Le cadre aide les organisations à gérer les risques. Citation : « the framework helps organizations manage risk and governance ». [C1]
+            2. Il existe quatre niveaux décrits dans le document. Citation : « there are four tiers for cybersecurity practices ». [C2]
+            3. La fonction de détection trouve les attaques possibles. Citation : « possible attacks and compromises are found and analyzed ». [C3]
+            """;
+
+        Assert.Equal("fr", DetectAnswerLanguage(answer));
+    }
+
+    [Fact]
     public void Advanced_semantic_flags_require_each_configured_source()
     {
         var testCase = new ValidationCase
@@ -1200,6 +1212,11 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
             answer ?? string.Empty,
             @"(?im)^\s*(?:sources?|quellen|fuentes?|fontes?|fonte|fonti)\s*:",
             System.Text.RegularExpressions.RegexOptions.CultureInvariant)[0];
+        body = System.Text.RegularExpressions.Regex.Replace(
+            body,
+            "«[^»]*»|“[^”]*”|\"[^\"]*\"",
+            " ",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
         var text = CollapseWhitespace(body).ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(text))
             return string.Empty;

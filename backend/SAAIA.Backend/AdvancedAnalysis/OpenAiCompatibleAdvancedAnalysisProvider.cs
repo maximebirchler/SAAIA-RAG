@@ -284,6 +284,41 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 {
                     parsed = ParseResult(critic.Content, evidence, request);
                 }
+                catch (AdvancedAnalysisProviderException) when (
+                    completions.Count < Math.Clamp(
+                        _options.ExternalMaximumCallsPerJob,
+                        1,
+                        1_024))
+                {
+                    var criticRepair = await CompleteJsonAsync(
+                            request.JobId,
+                            "critic-repair",
+                            BuildCriticRepairSystemPrompt(),
+                            BuildCriticRepairUserPrompt(
+                                request,
+                                parsed,
+                                critic.Content,
+                                promptEvidence),
+                            Math.Clamp(
+                                _options.CriticMaxTokens,
+                                512,
+                                16_384),
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    completions.Add(criticRepair);
+                    try
+                    {
+                        parsed = ParseResult(
+                            criticRepair.Content,
+                            evidence,
+                            request);
+                    }
+                    catch (AdvancedAnalysisProviderException)
+                    {
+                        throw new AdvancedAnalysisProviderException(
+                            "advanced_critic_protocol_invalid");
+                    }
+                }
                 catch (AdvancedAnalysisProviderException)
                 {
                     throw new AdvancedAnalysisProviderException(

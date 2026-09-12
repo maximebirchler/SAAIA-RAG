@@ -406,6 +406,23 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            Keep the requested language and format.
            """;
 
+    private static string BuildCriticRepairSystemPrompt()
+        => """
+           Repair one invalid SAAIA Critic JSON object and return only the
+           repaired final JSON. Use exactly the Writer schema supplied to the
+           Critic. The prior Writer candidate was protocol-valid, but remains an
+           untrusted proposal; preserve it only where the supplied evidence
+           supports it. Correct malformed JSON, invalid claim markers, unknown
+           evidence IDs, missing structured selectedItem values, wrong claim
+           counts and duplicate selected items. For a complete structured answer,
+           use exactly the supplied row-major claimCoordinates and place each
+           [claimId] exactly once. Copy concrete candidateTitle values exactly.
+           If the evidence cannot support the required result, return the smallest
+           precise insufficiency. Never invent a fact, title, evidence ID or
+           source, and never expose internal evidence or source identifiers in
+           user-visible text. Keep the requested language and format.
+           """;
+
     private string BuildWriterRepairUserPrompt(
         AdvancedAnalysisProviderRequest request,
         string originalWriterJson,
@@ -505,6 +522,35 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     evidenceIds = claim.EvidenceIds
                 }).ToArray()
             },
+            evidence
+        }, JsonOptions);
+
+    private string BuildCriticRepairUserPrompt(
+        AdvancedAnalysisProviderRequest request,
+        AdvancedAnalysisProviderResult validWriterCandidate,
+        string invalidCriticJson,
+        IReadOnlyList<PromptEvidenceItem> evidence)
+        => JsonSerializer.Serialize(new
+        {
+            request = request.Handoff.RequestText,
+            language = request.Handoff.Language,
+            allowsPartialAnswer = false,
+            load = BuildPromptLoad(request.Handoff.Load),
+            claimCoordinates = BuildStructuredClaimCoordinates(
+                request.Handoff.Load),
+            validWriterCandidate = new
+            {
+                outcome = validWriterCandidate.Outcome,
+                answerText = validWriterCandidate.AnswerText,
+                claims = validWriterCandidate.Claims.Select(static claim => new
+                {
+                    claimId = claim.ClaimId,
+                    selectedItem = claim.SelectedItem,
+                    text = claim.Text,
+                    evidenceIds = claim.EvidenceIds
+                }).ToArray()
+            },
+            invalidCriticJson,
             evidence
         }, JsonOptions);
 
