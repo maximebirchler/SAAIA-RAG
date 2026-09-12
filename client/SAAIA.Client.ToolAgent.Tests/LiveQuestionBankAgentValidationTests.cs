@@ -165,6 +165,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
     [Theory]
     [InlineData("Les sources ne permettent pas de documenter les cinq cellules Collation.")]
     [InlineData("Le planning complet ne peut donc pas être établi sans invention.")]
+    [InlineData("Je ne peux pas produire les cinq unités demandées sans invention.")]
     public void Advanced_semantic_flags_accept_specific_insufficiency_wording(
         string answer)
     {
@@ -1097,7 +1098,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
                      StringComparison.OrdinalIgnoreCase)
                  && !RegexIsMatch(
                      answer ?? string.Empty,
-                     @"\b(?:manqu|insuffis|absent|impossible|pas\s+assez|non\s+(?:document|[eé]tay)|ne\s+(?:contient|contiennent|documentent|permet(?:tent)?|peut|peuvent)\s+(?:donc\s+)?pas|sans\s+fournir|not\s+enough|missing|insufficient)"))
+                     @"\b(?:manqu|insuffis|absent|impossible|pas\s+assez|non\s+(?:document|[eé]tay)|ne\s+(?:contient|contiennent|dispose|disposent|documentent|fournit|fournissent|permet(?:tent)?|peux|peut|peuvent)\s+(?:donc\s+)?pas|sans\s+fournir|not\s+enough|missing|insufficient)"))
         {
             flags.Add("advanced_insufficiency_not_specific");
         }
