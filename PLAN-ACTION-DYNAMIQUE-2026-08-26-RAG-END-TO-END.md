@@ -14077,3 +14077,23 @@ Assessment :
 SHA-256 `96D2B0E23CE58BE39776955A378A03DB5599C9E2DEE89568DFC4033FEC5C3DF6`.
 Aucun appel fournisseur, aucune transmission externe et aucun coût nouveau.
 Produit `TESTE_NON_APPROUVE`.
+
+## A763 — dette PostgreSQL historique reclassifiée — 2026-09-12
+
+Les cinq échecs PostgreSQL révélés par l'audit d'authentification sont maintenant
+séparés causalement. Trois fixtures ont été corrigées et passent 3/3. Les deux
+oracles restants ont été diagnostiqués en sortie agrégée : ils prescrivent la
+sémantique du retriever legacy et des formulations déterministes, en conflit avec
+le contrat LLM-first du Goal et avec les chemins produit source-backed.
+
+Ils restent présents mais explicitement ignorés comme historique. La suite
+PostgreSQL finale sur `5c1dcc944c48ede98bfc1b1560ea920a093e49f9` compte
+2 146 réussites, zéro échec et deux historiques ignorés. Cette opération ferme
+la dette de test mécanique ; elle ne transforme pas les anciennes attentes en
+preuve produit et ne remplace pas la campagne live canonique, l'inspection WinUI
+ou le holdout final.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-postgres-test-hygiene-20260912/assessment.v1.json`.
+SHA-256 `EF308499BE7F4135DE3C1E21919CCBACFB9C8920D3A3DD960B71F2E69843A114`.
+Produit `TESTE_NON_APPROUVE`.

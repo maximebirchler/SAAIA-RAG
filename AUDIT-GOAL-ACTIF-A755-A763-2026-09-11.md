@@ -1079,3 +1079,38 @@ Assessment :
 `artifacts/reprise-pc-20260908/a763-advanced-http-auth-20260912/assessment.v1.json`,
 SHA-256 `96D2B0E23CE58BE39776955A378A03DB5599C9E2DEE89568DFC4033FEC5C3DF6`.
 Aucun appel externe ni coût nouveau. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — suite PostgreSQL assainie sans réintroduire de sémantique métier — 2026-09-12
+
+La passe PostgreSQL globale exécutée après le correctif d'authentification avait
+rendu visibles cinq échecs anciens et reproductibles. Trois relevaient de
+fixtures devenues non hermétiques : le support bundle supposait que trois
+artefacts optionnels de `LocalAppData` étaient absents, le test de qualité
+supposait une seule surface par document, et la fixture multilingue ne créait
+plus la chaîne canonique `document_unit -> retrieval_chunk -> exact_match_entry`
+requise par la recherche actuelle.
+
+Le commit `e906df96` corrige uniquement ces hypothèses de test. Les trois cas
+passent 3/3 sur PostgreSQL réel. La suite globale descend alors à deux échecs,
+les deux banques historiques qui prescrivent le classement du retriever legacy,
+les formes de réponse de `BuildAnswerGuidance` et des mots exacts comme
+`equipements`, `zone dangereuse` ou `fonction de securite`.
+
+Un run de diagnostic agrégé a conservé toutes ces divergences. Elles ne sont pas
+transformées en règles de production : le Goal confie la pertinence, la forme et
+la rédaction au LLM, tandis que les chemins produit local source-backed et la
+capacité avancée appellent le retriever canonique sans `BuildAnswerGuidance`.
+Le commit `5c1dcc94` garde les deux tests dans le source comme historique mais les
+marque explicitement ignorés avec cette raison.
+
+La suite finale sur le SHA exact `5c1dcc944c48ede98bfc1b1560ea920a093e49f9`
+compte 2 146 réussites, zéro échec et deux historiques ignorés sur 2 148. Le
+cluster jetable est arrêté, le secret temporaire supprimé, l'environnement
+restauré et le port 55432 libre. Assessment :
+`artifacts/reprise-pc-20260908/a763-postgres-test-hygiene-20260912/assessment.v1.json`.
+SHA-256 `EF308499BE7F4135DE3C1E21919CCBACFB9C8920D3A3DD960B71F2E69843A114`.
+Aucun appel LLM externe, aucune transmission de corpus et aucun coût nouveau.
+Cette réussite mécanique n'approuve ni la qualité sémantique, ni les erreurs de
+source visibles dans l'ancien chemin direct : elles devront être jugées sur la
+chaîne produit planner + retrieval canonique + LLM + WinUI. Produit
+`TESTE_NON_APPROUVE`.
