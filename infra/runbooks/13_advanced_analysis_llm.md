@@ -77,6 +77,17 @@ d'installation pourra les exposer sous contrôle de la licence ; ce lot ne crée
 pas de variables d'environnement qui ne seraient pas encore lues par les
 scripts.
 
+`AdvancedAnalysis.SemanticCriticEnabled` active une troisième étape après le
+Writer pour les réponses avancées qui exigent une fidélité sémantique forte.
+Le Critic reçoit la proposition du Writer et le même paquet de preuves, puis
+rend le même contrat final. Sa sortie est validée mécaniquement et une sortie
+invalide fait échouer le job sans publier la proposition non contrôlée.
+`CriticMaxTokens` borne sa sortie. L'appel porte le rôle télémétrique `critic`,
+compte dans `ExternalMaximumCallsPerJob` et dans le budget fournisseur. La
+valeur quatre permet le chemin maximal Planner, Writer, réparation Writer et
+Critic. Les templates de capacité avancée l'activent; la configuration de base
+avec provider désactivé le laisse à `false`.
+
 ## Rétention des transferts avancés
 
 Chaque job reçoit une échéance calculée à sa création à partir de
@@ -137,6 +148,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-advanced-produc
   -OpenAiModel gpt-5.6-terra `
   -ObservedOrganizationTier Tier1 `
   -TierObservedAtUtc $tierObservedAtUtc `
+  -EnableSemanticCritic `
   -Ids A755-ADV-01-meal-grid-5x4 `
   -Repetitions 1
 ```
@@ -252,6 +264,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-advanced-server
   -InputUsdPerMillionTokens <tarif-entree> `
   -CachedInputUsdPerMillionTokens <tarif-entree-cachee> `
   -OutputUsdPerMillionTokens <tarif-sortie> `
+  -EnableSemanticCritic `
   -RuntimeProfile <profil-reproductible> `
   -Gpu <gpu-observe> `
   -Quantization <quantification> `

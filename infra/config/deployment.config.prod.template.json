@@ -79,6 +79,8 @@
     "LlmMaximumRetryDelayMilliseconds": 60000,
     "PlannerMaxTokens": 512,
     "WriterMaxTokens": 2400,
+    "SemanticCriticEnabled": true,
+    "CriticMaxTokens": 2400,
     "MaximumPlanQueries": 8,
     "MaximumEvidencePromptCharacters": 14000,
     "ExternalBudgetAuthorizedUsd": 25.0,

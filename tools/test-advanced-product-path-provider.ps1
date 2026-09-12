@@ -27,6 +27,9 @@ param(
     [decimal]$HardLimitUsd = 0,
     [decimal]$MaximumCostPerJobUsd = 0,
     [int]$MaximumCallsPerJob = 4,
+    [switch]$EnableSemanticCritic,
+    [ValidateRange(512, 16384)]
+    [int]$CriticMaxTokens = 2400,
     [decimal]$InputUsdPerMillionTokens = 0,
     [decimal]$CachedInputUsdPerMillionTokens = 0,
     [decimal]$OutputUsdPerMillionTokens = 0,
@@ -395,6 +398,8 @@ try {
             LlmMaximumRetryDelayMilliseconds = 60000
             PlannerMaxTokens = 512
             WriterMaxTokens = 2400
+            SemanticCriticEnabled = [bool]$EnableSemanticCritic
+            CriticMaxTokens = $CriticMaxTokens
             MaximumPlanQueries = 8
             MaximumEvidencePromptCharacters = 14000
             ExternalBudgetAuthorizedUsd = $AuthorizedBudgetUsd
@@ -491,6 +496,8 @@ try {
         hardStopUsd = $HardLimitUsd
         maximumCostPerJobUsd = $MaximumCostPerJobUsd
         maximumCallsPerJob = $MaximumCallsPerJob
+        semanticCriticEnabled = [bool]$EnableSemanticCritic
+        criticMaxTokens = $CriticMaxTokens
         inputUsdPerMillionTokens = $InputUsdPerMillionTokens
         cachedInputUsdPerMillionTokens = $CachedInputUsdPerMillionTokens
         outputUsdPerMillionTokens = $OutputUsdPerMillionTokens

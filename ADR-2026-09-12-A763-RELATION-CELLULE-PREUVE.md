@@ -1,7 +1,7 @@
 # A763 — La relation de cellule fait partie du fait à prouver
 
 Date de décision : 2026-09-12
-Statut : `SAFE_INSUFFICIENCY_VALIDATED_2X_REQUIRES_COMPLETE_TERRA_RERUN`
+Statut : `PROMPT_ONLY_REJECTED_CRITIC_COMPARISON_REQUIRED`
 
 ## Problème observé
 
@@ -164,3 +164,26 @@ relation doit donc s'appliquer aussi aux exemples partiels utilisés dans une
 explication d'insuffisance. Un exemple générique ou lié à un rôle voisin ne peut
 être placé sous le rôle demandé sans preuve explicite de cette relation. Cette
 précision reste générique dans le contrat produit.
+
+Le probe `A763-TERRA-INSUFFICIENCY-RELATION-MEAL-GRID-3X`, exécuté sur le
+commit propre `ecf3355d`, a terminé les trois répétitions et six appels pour
+29 159 tokens d'entrée, 2 537 tokens de sortie et 0,088762 USD. Il ne rencontre
+aucun 429, conserve le sceau du corpus et libère les ressources temporaires.
+La relation ciblée est corrigée : les exemples de déjeuner sont cette fois
+rattachés à une preuve qui nomme explicitement le déjeuner.
+
+La revue canonique accepte toutefois seulement deux réponses sur trois. La
+répétition rejetée affirme que les cinq déjeuners, collations et soupers sont
+non étayés alors que ses propres preuves contiennent déjà une composition de
+déjeuner, une composition de collation et des options de souper. Le renforcement
+de prompt déplace donc le défaut mais ne produit pas les trois passages
+consécutifs requis. Continuer à empiler des consignes dans le Writer n'est plus
+retenu comme stratégie suffisante.
+
+La comparaison suivante active un Critic sémantique borné et configurable après
+le Writer. Il reçoit le même paquet de preuves, audite aussi les affirmations
+négatives contre l'ensemble des preuves fournies, et rend le même contrat final.
+Sa sortie invalide provoque un échec fermé; elle ne permet jamais de publier la
+proposition Writer non contrôlée. L'appel est tracé et soumis aux mêmes plafonds
+de coût et d'appels. Cette étape est indépendante du fournisseur et reste
+désactivable par configuration.

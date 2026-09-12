@@ -115,6 +115,11 @@ $freshTierObservation = $null -ne $tierObservation -and
     $tierObservationAgeMinutes -le $maximumTierAgeMinutes
 
 $caseIds = @($profile.bank.caseIds | ForEach-Object { Require-Text $_ "bank.caseIds item" })
+$semanticCriticEnabled = $null -ne $profile.provider.PSObject.Properties["semanticCriticEnabled"] -and
+    [bool]$profile.provider.semanticCriticEnabled
+$criticMaxTokens = if ($null -ne $profile.provider.PSObject.Properties["criticMaxTokens"]) {
+    [int]$profile.provider.criticMaxTokens
+} else { 2400 }
 $campaignKind = if ($null -eq $profile.PSObject.Properties["campaignKind"]) {
     "final-acceptance"
 } else {
@@ -149,6 +154,14 @@ if ($BackendPort -ne [int]$profile.execution.backendPort) {
 }
 if (-not $minimumTierSatisfied) { $blockingReasons += "paid_tier_not_observed" }
 if (-not $freshTierObservation) { $blockingReasons += "paid_tier_observation_missing_or_stale" }
+if ($semanticCriticEnabled -and
+    ($criticMaxTokens -lt 512 -or $criticMaxTokens -gt 16384)) {
+    $blockingReasons += "semantic_critic_token_limit_invalid"
+}
+if ($semanticCriticEnabled -and
+    [int]$profile.budget.maximumCallsPerJob -lt 4) {
+    $blockingReasons += "semantic_critic_requires_four_call_envelope"
+}
 if (($campaignKind -eq "final-acceptance" -and $caseIds.Count -ne 4) -or
     ($campaignKind -eq "targeted-causal" -and
         ($caseIds.Count -lt 1 -or $caseIds.Count -gt 4)) -or
@@ -197,6 +210,8 @@ $preflight = [ordered]@{
     tierTimestampHasExplicitOffset = $tierTimestampHasExplicitOffset
     maximumTierObservationAgeMinutes = $maximumTierAgeMinutes
     paidTierGateSatisfied = $minimumTierSatisfied -and $freshTierObservation
+    semanticCriticEnabled = $semanticCriticEnabled
+    criticMaxTokens = $criticMaxTokens
     selectedIds = $caseIds
     repetitions = [int]$profile.bank.repetitions
     referenceBackendUrl = [string]$profile.execution.referenceBackendUrl
@@ -256,6 +271,8 @@ try {
         -HardLimitUsd ([decimal]$profile.budget.hardStopUsd) `
         -MaximumCostPerJobUsd ([decimal]$profile.budget.maximumCostPerJobUsd) `
         -MaximumCallsPerJob ([int]$profile.budget.maximumCallsPerJob) `
+        -EnableSemanticCritic:$semanticCriticEnabled `
+        -CriticMaxTokens $criticMaxTokens `
         -LocalLlmExePath $LocalLlmExePath `
         -LocalModelPath $LocalModelPath `
         -Configuration ([string]$profile.execution.configuration) `

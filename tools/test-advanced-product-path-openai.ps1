@@ -26,6 +26,9 @@ param(
     [decimal]$MaximumCostPerJobUsd = 0.50,
     [ValidateRange(1, 32)]
     [int]$MaximumCallsPerJob = 4,
+    [switch]$EnableSemanticCritic,
+    [ValidateRange(512, 16384)]
+    [int]$CriticMaxTokens = 2400,
     [string]$LocalLlmExePath = "",
     [string]$LocalModelPath = "",
     [string]$Configuration = "Debug",
@@ -55,6 +58,8 @@ $runner = Join-Path $PSScriptRoot "test-advanced-product-path-provider.ps1"
     -HardLimitUsd $HardLimitUsd `
     -MaximumCostPerJobUsd $MaximumCostPerJobUsd `
     -MaximumCallsPerJob $MaximumCallsPerJob `
+    -EnableSemanticCritic:$EnableSemanticCritic `
+    -CriticMaxTokens $CriticMaxTokens `
     -LocalLlmExePath $LocalLlmExePath `
     -LocalModelPath $LocalModelPath `
     -Configuration $Configuration `

@@ -28,6 +28,10 @@ sealed class AdvancedAnalysisOptions
 
     public int WriterMaxTokens { get; set; } = 2_400;
 
+    public bool SemanticCriticEnabled { get; set; }
+
+    public int CriticMaxTokens { get; set; } = 2_400;
+
     public int MaximumPlanQueries { get; set; } = 8;
 
     public int MaximumEvidencePromptCharacters { get; set; } = 14_000;

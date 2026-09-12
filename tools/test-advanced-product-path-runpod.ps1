@@ -25,6 +25,9 @@ param(
     [decimal]$HardLimitUsd = 0,
     [decimal]$MaximumCostPerJobUsd = 0,
     [int]$MaximumCallsPerJob = 4,
+    [switch]$EnableSemanticCritic,
+    [ValidateRange(512, 16384)]
+    [int]$CriticMaxTokens = 2400,
     [Parameter(Mandatory = $true)]
     [decimal]$InputUsdPerMillionTokens,
     [Parameter(Mandatory = $true)]
@@ -67,6 +70,8 @@ $runner = Join-Path $PSScriptRoot "test-advanced-product-path-provider.ps1"
     -HardLimitUsd $HardLimitUsd `
     -MaximumCostPerJobUsd $MaximumCostPerJobUsd `
     -MaximumCallsPerJob $MaximumCallsPerJob `
+    -EnableSemanticCritic:$EnableSemanticCritic `
+    -CriticMaxTokens $CriticMaxTokens `
     -InputUsdPerMillionTokens $InputUsdPerMillionTokens `
     -CachedInputUsdPerMillionTokens $CachedInputUsdPerMillionTokens `
     -OutputUsdPerMillionTokens $OutputUsdPerMillionTokens `

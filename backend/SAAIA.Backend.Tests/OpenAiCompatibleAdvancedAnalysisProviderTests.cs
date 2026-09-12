@@ -591,6 +591,82 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Semantic_critic_replaces_a_supported_unit_erasing_insufficiency()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[]}"""),
+            Completion("""
+                {"outcome":"insufficient_documentation","answerText":"Les cinq unités sont non étayées [C1].","claims":[{"claimId":"C1","text":"Les cinq unités sont non étayées.","evidenceIds":["E1"]}]}
+                """),
+            Completion("""
+                {"outcome":"insufficient_documentation","answerText":"Une unité est étayée; il en manque quatre [C1].","claims":[{"claimId":"C1","text":"La preuve étaye une unité et quatre unités supplémentaires restent nécessaires.","evidenceIds":["E1"]}]}
+                """));
+        var options = CreateOptions();
+        options.SemanticCriticEnabled = true;
+        options.CriticMaxTokens = 1_200;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(),
+            new RecordingToolGateway(BuildEvidence(
+                "E1",
+                "Une unité explicitement documentée.")),
+            CancellationToken.None);
+
+        Assert.Equal("insufficient_documentation", result.Outcome);
+        Assert.Contains("il en manque quatre", result.AnswerText,
+            StringComparison.Ordinal);
+        Assert.Equal(3, result.ProviderCallCount);
+        Assert.Equal(3, factory.Requests.Count);
+        Assert.Contains("Treat the candidate as an untrusted proposal",
+            factory.Requests[2].Body,
+            StringComparison.Ordinal);
+        using var criticRequest = JsonDocument.Parse(factory.Requests[2].Body);
+        var criticUserPrompt = criticRequest.RootElement
+            .GetProperty("messages")[1]
+            .GetProperty("content")
+            .GetString()!;
+        using var criticPayload = JsonDocument.Parse(criticUserPrompt);
+        Assert.Contains("Les cinq unités sont non étayées",
+            criticPayload.RootElement.GetProperty("candidate")
+                .GetProperty("answerText").GetString(),
+            StringComparison.Ordinal);
+        Assert.Contains("Une unité explicitement documentée",
+            criticPayload.RootElement.GetProperty("evidence")[0]
+                .GetProperty("content").GetString(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Semantic_critic_fails_closed_on_an_invalid_result()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[]}"""),
+            Completion("""
+                {"outcome":"answered","answerText":"Réponse [C1].","claims":[{"claimId":"C1","text":"Réponse.","evidenceIds":["E1"]}]}
+                """),
+            Completion("""{"outcome":"answered","answerText":"truncated"""));
+        var options = CreateOptions();
+        options.SemanticCriticEnabled = true;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(
+            () => provider.ExecuteAsync(
+                BuildRequest(),
+                new RecordingToolGateway(BuildEvidence("E1", "Réponse.")),
+                CancellationToken.None));
+
+        Assert.Equal("advanced_critic_protocol_invalid", error.ErrorCode);
+        Assert.Equal(3, factory.Requests.Count);
+    }
+
+    [Fact]
     public async Task Writer_repairs_an_internal_source_key_before_publication()
     {
         using var factory = new QueuedHttpClientFactory(

@@ -78,7 +78,7 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
         CancellationToken cancellationToken)
     {
         ValidateConfiguration();
-        var completions = new List<CompletionResult>(2);
+        var completions = new List<CompletionResult>(4);
         var evidenceGroups = new List<
             IReadOnlyList<AdvancedAnalysisResolvedEvidence>>();
         var retrievalQueriesByEvidenceId = new Dictionary<
@@ -157,14 +157,15 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                     completions);
             }
 
+            var promptEvidence = BuildPromptEvidence(
+                request,
+                evidence,
+                retrievalQueriesByEvidenceId);
             var writer = await CompleteJsonAsync(
                     request.JobId,
                     "writer",
                     BuildWriterSystemPrompt(request),
-                    BuildWriterUserPrompt(
-                        request,
-                        evidence,
-                        retrievalQueriesByEvidenceId),
+                    BuildWriterUserPrompt(request, promptEvidence),
                     Math.Clamp(_options.WriterMaxTokens, 512, 16_384),
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -191,6 +192,27 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                     .ConfigureAwait(false);
                 completions.Add(repair);
                 parsed = ParseResult(repair.Content, evidence, request);
+            }
+            if (_options.SemanticCriticEnabled)
+            {
+                var critic = await CompleteJsonAsync(
+                        request.JobId,
+                        "critic",
+                        BuildCriticSystemPrompt(),
+                        BuildCriticUserPrompt(request, parsed, promptEvidence),
+                        Math.Clamp(_options.CriticMaxTokens, 512, 16_384),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                completions.Add(critic);
+                try
+                {
+                    parsed = ParseResult(critic.Content, evidence, request);
+                }
+                catch (AdvancedAnalysisProviderException)
+                {
+                    throw new AdvancedAnalysisProviderException(
+                        "advanced_critic_protocol_invalid");
+                }
             }
             return WithMetrics(
                 parsed,
@@ -1411,6 +1433,35 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
            schema.
            """;
 
+    private static string BuildCriticSystemPrompt()
+        => """
+           You are the SAAIA advanced-analysis Critic. Independently audit the
+           proposed Writer result against the user request and every supplied
+           evidence item. Return one final JSON object and no commentary, using
+           exactly the Writer schema: {"outcome":"answered|insufficient_documentation|clarification_required",
+           "answerText":"...","claims":[{"claimId":"C1","text":"...",
+           "evidenceIds":["E1"]}]}. Treat the candidate as an untrusted proposal.
+           If it is fully supported, reproduce it. Otherwise, correct or remove
+           every unsupported factual unit before returning the final object. Never
+           preserve a factual contradiction merely to keep the candidate wording.
+           Every factual unit must be backed by its declared evidenceIds and every
+           [claimId] must appear exactly once in answerText.
+
+           Audit positive statements, negative statements, counts, qualifiers,
+           semantic roles and relationships. A neutral presentation coordinate
+           does not require evidence, but a role, category, compatibility or
+           intended use does. A generic or neighboring role is not interchangeable
+           with a requested role. This relation rule also applies to partial
+           examples inside an insufficiency explanation. For an incomplete required
+           deliverable, use insufficient_documentation, preserve supported examples,
+           and state the smallest decisive remaining deficit. Scope absence claims
+           to the supplied evidence unless that evidence explicitly proves an
+           exhaustive corpus statement. Compare deficit and absence claims against
+           the whole supplied evidence set, not only the evidenceIds already chosen
+           by the candidate. Do not add facts, preferences or evidence identifiers.
+           Keep the requested language and format.
+           """;
+
     private string BuildWriterRepairUserPrompt(
         AdvancedAnalysisProviderRequest request,
         string originalWriterJson,
@@ -1426,7 +1477,49 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
             originalWriterJson
         }, JsonOptions);
 
+    private sealed record PromptEvidenceItem(
+        string? EvidenceId,
+        string SourceKey,
+        IReadOnlyList<string> RetrievedFor,
+        string Content);
+
     private string BuildWriterUserPrompt(
+        AdvancedAnalysisProviderRequest request,
+        IReadOnlyList<PromptEvidenceItem> evidence)
+        => JsonSerializer.Serialize(new
+        {
+            request = request.Handoff.RequestText,
+            language = request.Handoff.Language,
+            allowsPartialAnswer = false,
+            load = BuildPromptLoad(request.Handoff.Load),
+            evidence
+        }, JsonOptions);
+
+    private string BuildCriticUserPrompt(
+        AdvancedAnalysisProviderRequest request,
+        AdvancedAnalysisProviderResult candidate,
+        IReadOnlyList<PromptEvidenceItem> evidence)
+        => JsonSerializer.Serialize(new
+        {
+            request = request.Handoff.RequestText,
+            language = request.Handoff.Language,
+            allowsPartialAnswer = false,
+            load = BuildPromptLoad(request.Handoff.Load),
+            candidate = new
+            {
+                outcome = candidate.Outcome,
+                answerText = candidate.AnswerText,
+                claims = candidate.Claims.Select(static claim => new
+                {
+                    claimId = claim.ClaimId,
+                    text = claim.Text,
+                    evidenceIds = claim.EvidenceIds
+                }).ToArray()
+            },
+            evidence
+        }, JsonOptions);
+
+    private IReadOnlyList<PromptEvidenceItem> BuildPromptEvidence(
         AdvancedAnalysisProviderRequest request,
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
         IReadOnlyDictionary<string, HashSet<string>> retrievalQueriesByEvidenceId)
@@ -1436,7 +1529,7 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
             8_000,
             1_000_000);
         const int maximumCharactersPerPromptEvidence = 700;
-        var promptEvidence = new List<object>();
+        var promptEvidence = new List<PromptEvidenceItem>();
         var sourceKeys = new Dictionary<string, string>(StringComparer.Ordinal);
         var prioritizedEvidence = PrioritizeCollectionEvidenceForPrompt(
             request.Handoff.Load,
@@ -1461,27 +1554,18 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                 sourceKey = $"internal-source-{sourceKeys.Count + 1}";
                 sourceKeys.Add(sourceIdentity, sourceKey);
             }
-            promptEvidence.Add(new
-            {
+            promptEvidence.Add(new PromptEvidenceItem(
                 evidenceId,
                 sourceKey,
-                retrievedFor = evidenceId is not null
-                               && retrievalQueriesByEvidenceId.TryGetValue(
-                                   evidenceId,
-                                   out var queries)
+                evidenceId is not null
+                && retrievalQueriesByEvidenceId.TryGetValue(
+                    evidenceId,
+                    out var queries)
                     ? queries.Order(StringComparer.OrdinalIgnoreCase).ToArray()
                     : [],
-                content
-            });
+                content));
         }
-        return JsonSerializer.Serialize(new
-        {
-            request = request.Handoff.RequestText,
-            language = request.Handoff.Language,
-            allowsPartialAnswer = false,
-            load = BuildPromptLoad(request.Handoff.Load),
-            evidence = promptEvidence
-        }, JsonOptions);
+        return promptEvidence;
     }
 
     internal static IReadOnlyList<AdvancedAnalysisResolvedEvidence>
