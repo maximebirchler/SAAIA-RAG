@@ -159,6 +159,64 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Writer_receives_opaque_keys_for_same_source_evidence_composition()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[]}"""),
+            Completion("""
+                {"outcome":"answered","answerText":"Repas documenté [C1].","claims":[{"claimId":"C1","text":"Repas documenté.","evidenceIds":["E-SCOPE","E-ITEM"]}]}
+                """));
+        var provider = CreateProvider(factory);
+        var docId = Guid.NewGuid().ToString("D");
+        var revisionId = Guid.NewGuid().ToString("D");
+        var gateway = new RecordingToolGateway(
+            BuildEvidence(
+                "E-SCOPE",
+                "Toutes les recettes de ce livre sont simples pour étudiants.",
+                "etudiants.pdf",
+                docId,
+                revisionId),
+            BuildEvidence(
+                "E-ITEM",
+                "Index : quesadillas à la mozzarella.",
+                "etudiants.pdf",
+                docId,
+                revisionId),
+            BuildEvidence(
+                "E-OTHER",
+                "Recette provenant d'un autre document.",
+                "autre.pdf"));
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        using var requestBody = JsonDocument.Parse(factory.Requests[1].Body);
+        var writerUserJson = requestBody.RootElement
+            .GetProperty("messages")[1]
+            .GetProperty("content")
+            .GetString();
+        using var writerUser = JsonDocument.Parse(writerUserJson!);
+        var promptEvidence = writerUser.RootElement
+            .GetProperty("evidence")
+            .EnumerateArray()
+            .ToDictionary(
+                item => item.GetProperty("evidenceId").GetString()!,
+                item => item.GetProperty("sourceKey").GetString()!);
+        Assert.Equal(promptEvidence["E-SCOPE"], promptEvidence["E-ITEM"]);
+        Assert.NotEqual(promptEvidence["E-SCOPE"], promptEvidence["E-OTHER"]);
+        Assert.DoesNotContain(docId, factory.Requests[1].Body,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(revisionId, factory.Requests[1].Body,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Never carry a scope statement across different",
+            factory.Requests[1].Body,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Planner_web_filters_and_untrusted_categories_are_removed_before_corpus_search()
     {
         using var factory = new QueuedHttpClientFactory(
@@ -1221,13 +1279,15 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     private static AdvancedAnalysisResolvedEvidence BuildEvidence(
         string evidenceId,
         string content,
-        string fileName = "menus.pdf")
+        string fileName = "menus.pdf",
+        string? docId = null,
+        string? revisionId = null)
         => new(
             new AdvancedAnalysisResultEvidence
             {
                 EvidenceId = evidenceId,
-                DocId = Guid.NewGuid().ToString("D"),
-                RevisionId = Guid.NewGuid().ToString("D"),
+                DocId = docId ?? Guid.NewGuid().ToString("D"),
+                RevisionId = revisionId ?? Guid.NewGuid().ToString("D"),
                 FileName = fileName,
                 DocPath = "Documents/" + fileName,
                 SourceHash = "sha256:test",

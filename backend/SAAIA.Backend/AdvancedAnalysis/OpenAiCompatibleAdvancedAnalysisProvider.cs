@@ -1346,7 +1346,13 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
            state it in the claim and cite evidence that supports it. Every mandatory
            qualifier in the request must remain explicit and supported; never
            silently drop qualifiers such as audience, simplicity, compatibility or
-           intended use. A source index or heading can support the existence and
+           intended use. Each evidence item includes an opaque sourceKey. Equal
+           sourceKeys mean that the items come from the same canonical document
+           revision. A document-level scope statement may support a qualifier for
+           a named item listed elsewhere in that same source only when its wording
+           clearly applies to the document's item collection; cite both evidence
+           items in that claim. Never carry a scope statement across different
+           sourceKeys. A source index or heading can support the existence and
            spelling of a named item, and a heading can support a semantic category
            only when it explicitly names that category. It cannot support an
            unstated relationship or absent details about that item. Distinct
@@ -1399,6 +1405,7 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
             1_000_000);
         const int maximumCharactersPerPromptEvidence = 700;
         var promptEvidence = new List<object>();
+        var sourceKeys = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var item in evidence)
         {
             if (remaining <= 0)
@@ -1410,9 +1417,22 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                 content = content[..remaining];
             remaining -= content.Length;
             var evidenceId = item.Reference.EvidenceId;
+            var sourceIdentity = string.Join(
+                "|",
+                item.Reference.DocId ?? string.Empty,
+                item.Reference.RevisionId ?? string.Empty,
+                item.Reference.SourceHash ?? string.Empty);
+            if (sourceIdentity == "||")
+                sourceIdentity = "evidence:" + (evidenceId ?? sourceKeys.Count.ToString());
+            if (!sourceKeys.TryGetValue(sourceIdentity, out var sourceKey))
+            {
+                sourceKey = $"S{sourceKeys.Count + 1}";
+                sourceKeys.Add(sourceIdentity, sourceKey);
+            }
             promptEvidence.Add(new
             {
                 evidenceId,
+                sourceKey,
                 retrievedFor = evidenceId is not null
                                && retrievalQueriesByEvidenceId.TryGetValue(
                                    evidenceId,
