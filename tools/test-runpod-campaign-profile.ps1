@@ -4,6 +4,9 @@ param(
     [string]$ArtifactDirectory = "",
     [switch]$Execute,
     [switch]$ExternalContentAuthorized,
+    [ValidateSet("Probe", "MealGrid", "FullBank")]
+    [string]$Stage = "Probe",
+    [switch]$FullBankAuthorized,
     [string]$ServerEnvPath = "",
     [string]$ReferenceBackendUrl = "http://saaia-server:5122",
     [ValidateRange(1024, 65535)]
@@ -135,6 +138,28 @@ if ($repetitions -lt 1 -or $repetitions -gt 3 -or
     $delayBetweenCasesSeconds -lt 0 -or $delayBetweenCasesSeconds -gt 300) {
     throw "The campaign execution envelope is invalid."
 }
+$mealGridCaseId = "A755-ADV-01-meal-grid-5x4"
+if ($mealGridCaseId -notin $caseIds) {
+    throw "The campaign profile must contain the staged meal-grid case."
+}
+$stageCaseIds = @(switch ($Stage) {
+    "Probe" { @() }
+    "MealGrid" { @($mealGridCaseId) }
+    "FullBank" { @($caseIds) }
+})
+$stageRepetitions = switch ($Stage) {
+    "Probe" { 0 }
+    "MealGrid" { 1 }
+    "FullBank" { $repetitions }
+}
+$stageExpectedJobs = switch ($Stage) {
+    "Probe" { 1 }
+    default { $stageCaseIds.Count * $stageRepetitions }
+}
+$stageMaximumProviderCalls = switch ($Stage) {
+    "Probe" { 2 }
+    default { $stageExpectedJobs * $maximumCallsPerJob }
+}
 if (-not [bool]$profile.dataPolicy.externalContentTransmission -or
     -not [bool]$profile.dataPolicy.externalMetadataTransmission -or
     -not [bool]$profile.dataPolicy.requiresExplicitAuthorization) {
@@ -191,6 +216,13 @@ $preflightPath = Join-Path $ArtifactDirectory "preflight-seal.json"
     expectedJobs = $caseIds.Count * $repetitions
     maximumProviderCallsByEnvelope = $caseIds.Count * $repetitions * $maximumCallsPerJob
     delayBetweenCasesSeconds = $delayBetweenCasesSeconds
+    requestedStage = $Stage
+    stageUsesSyntheticEvidenceOnly = $Stage -eq "Probe"
+    stageCaseIds = $stageCaseIds
+    stageRepetitions = $stageRepetitions
+    stageExpectedJobs = $stageExpectedJobs
+    stageMaximumProviderCallsByEnvelope = $stageMaximumProviderCalls
+    fullBankAuthorized = [bool]$FullBankAuthorized
     profilePath = [System.IO.Path]::GetRelativePath($repositoryRoot, $ProfilePath)
     profileSha256 = $profileSha256
     repositoryCommit = $repositoryCommit
@@ -213,29 +245,17 @@ if (-not $Execute) {
 if (-not $ExternalContentAuthorized) {
     throw "Execute requires -ExternalContentAuthorized because prompts and selected evidence leave SAAIA."
 }
-if ([string]::IsNullOrWhiteSpace($ServerEnvPath)) {
-    throw "Execute requires ServerEnvPath."
+if ($Stage -eq "FullBank" -and -not $FullBankAuthorized) {
+    throw "FullBank execution requires -FullBankAuthorized after review of the staged meal-grid result."
+}
+if ($Stage -ne "Probe" -and [string]::IsNullOrWhiteSpace($ServerEnvPath)) {
+    throw "$Stage execution requires ServerEnvPath."
 }
 
-$runArtifactDirectory = Join-Path $ArtifactDirectory "product-path"
-$runner = Join-Path $PSScriptRoot "test-advanced-product-path-runpod.ps1"
-$runnerArguments = @{
-    ServerEnvPath = $ServerEnvPath
-    AuthorizedBudgetUsd = $authorizedBudget
-    ReferenceBackendUrl = $ReferenceBackendUrl
-    BackendPort = $BackendPort
-    Ids = ($caseIds -join ',')
-    Repetitions = $repetitions
-    DelayBetweenCasesSeconds = $delayBetweenCasesSeconds
+$runArtifactDirectory = Join-Path $ArtifactDirectory $Stage.ToLowerInvariant()
+$sharedRunnerArguments = @{
     BaseUrl = $baseUrl
     ModelId = $modelId
-    SoftLimitUsd = $softLimit
-    HardLimitUsd = $hardLimit
-    MaximumCostPerJobUsd = $maximumCostPerJob
-    MaximumCallsPerJob = $maximumCallsPerJob
-    InputUsdPerMillionTokens = $inputPrice
-    CachedInputUsdPerMillionTokens = $cachedInputPrice
-    OutputUsdPerMillionTokens = $outputPrice
     ProviderRuntime = $providerRuntime
     RuntimeProfile = $runtimeProfile
     Gpu = [string]$profile.gpu
@@ -243,20 +263,52 @@ $runnerArguments = @{
     ModelSha256 = [string]$profile.modelSha256
     ContextSize = $contextSize
     HourlyCostUsd = $hourlyCostUsd
+    AuthorizedBudgetUsd = $authorizedBudget
+    SoftLimitUsd = $softLimit
+    HardLimitUsd = $hardLimit
+    MaximumCostPerJobUsd = $maximumCostPerJob
+    MaximumCallsPerJob = $maximumCallsPerJob
+    InputUsdPerMillionTokens = $inputPrice
+    CachedInputUsdPerMillionTokens = $cachedInputPrice
+    OutputUsdPerMillionTokens = $outputPrice
     Configuration = $Configuration
-    Platform = $Platform
     ArtifactDirectory = $runArtifactDirectory
 }
-if (-not [string]::IsNullOrWhiteSpace($LocalLlmExePath)) {
-    $runnerArguments.LocalLlmExePath = $LocalLlmExePath
+
+if ($Stage -eq "Probe") {
+    $runner = Join-Path $PSScriptRoot "test-advanced-server-provider.ps1"
+    $runnerArguments = @{
+        Provider = "RunPod"
+    }
+    foreach ($entry in $sharedRunnerArguments.GetEnumerator()) {
+        $runnerArguments[$entry.Key] = $entry.Value
+    }
 }
-if (-not [string]::IsNullOrWhiteSpace($LocalModelPath)) {
-    $runnerArguments.LocalModelPath = $LocalModelPath
+else {
+    $runner = Join-Path $PSScriptRoot "test-advanced-product-path-runpod.ps1"
+    $runnerArguments = @{
+        ServerEnvPath = $ServerEnvPath
+        ReferenceBackendUrl = $ReferenceBackendUrl
+        BackendPort = $BackendPort
+        Ids = ($stageCaseIds -join ',')
+        Repetitions = $stageRepetitions
+        DelayBetweenCasesSeconds = $delayBetweenCasesSeconds
+        Platform = $Platform
+    }
+    foreach ($entry in $sharedRunnerArguments.GetEnumerator()) {
+        $runnerArguments[$entry.Key] = $entry.Value
+    }
+    if (-not [string]::IsNullOrWhiteSpace($LocalLlmExePath)) {
+        $runnerArguments.LocalLlmExePath = $LocalLlmExePath
+    }
+    if (-not [string]::IsNullOrWhiteSpace($LocalModelPath)) {
+        $runnerArguments.LocalModelPath = $LocalModelPath
+    }
 }
 
 & $runner @runnerArguments
 if ($LASTEXITCODE -ne 0) {
-    throw "Profile-driven RunPod campaign failed with exit code $LASTEXITCODE."
+    throw "Profile-driven RunPod $Stage stage failed with exit code $LASTEXITCODE."
 }
 
-Write-Output "Profile-driven RunPod campaign completed. Artifact: $ArtifactDirectory"
+Write-Output "Profile-driven RunPod $Stage stage completed. Artifact: $ArtifactDirectory"

@@ -10,6 +10,7 @@ param(
     [string]$Gpu = "",
     [string]$Quantization = "",
     [string]$ModelSha256 = "",
+    [int]$ContextSize = 0,
     [decimal]$HourlyCostUsd = 0,
     [decimal]$AuthorizedBudgetUsd = 0,
     [decimal]$SoftLimitUsd = 0,
@@ -176,6 +177,7 @@ try {
         gpu = $Gpu
         quantization = $Quantization
         modelSha256 = $ModelSha256
+        contextSize = $ContextSize
         hourlyCostUsd = $HourlyCostUsd
         syntheticEvidenceOnly = $true
         maximumProviderCalls = 2
