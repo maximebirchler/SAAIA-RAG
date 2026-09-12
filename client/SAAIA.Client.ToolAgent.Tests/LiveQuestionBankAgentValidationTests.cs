@@ -164,6 +164,9 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
 
     [Theory]
     [InlineData("Les sources ne permettent pas de documenter les cinq cellules Collation.")]
+    [InlineData("Les extraits fournis ne permettent toutefois pas d'établir une prescription précise.")]
+    [InlineData("Les extraits disponibles ne suffisent cependant pas à établir ce point.")]
+    [InlineData("Aucune disposition technique exploitable n'est présente dans les extraits.")]
     [InlineData("Les extraits fournis ne donnent pas de prescription technique permettant de répondre.")]
     [InlineData("Le planning complet ne peut donc pas être établi sans invention.")]
     [InlineData("Je ne peux pas produire les cinq unités demandées sans invention.")]
@@ -191,6 +194,34 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
             ["menus.pdf p.1"]);
 
         Assert.DoesNotContain("advanced_insufficiency_not_specific", flags);
+    }
+
+    [Theory]
+    [InlineData("Voir les documents cités.")]
+    [InlineData("La réponse reste à confirmer.")]
+    public void Advanced_semantic_flags_reject_vague_insufficiency_wording(
+        string answer)
+    {
+        var telemetry = new AdvancedTelemetry(
+            "succeeded",
+            "openai-dev",
+            "gpt-5.6-luna",
+            "",
+            "insufficient_documentation",
+            1,
+            1,
+            2,
+            100,
+            50,
+            0.001m);
+
+        var flags = GetAdvancedSemanticFlags(
+            new ValidationCase(),
+            answer,
+            telemetry,
+            ["menus.pdf p.1"]);
+
+        Assert.Contains("advanced_insufficiency_not_specific", flags);
     }
 
     [Fact]
@@ -1098,13 +1129,30 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
                      telemetry.ResultOutcome,
                      "insufficient_documentation",
                      StringComparison.OrdinalIgnoreCase)
-                 && !RegexIsMatch(
-                     answer ?? string.Empty,
-                     @"\b(?:manqu\p{L}*|insuffis\p{L}*|absent\p{L}*|impossible|pas\s+assez|pas\s+suffisamment|non\s+(?:document|[eé]tay)\p{L}*|ne\s+(?:contient|contiennent|dispose|disposent|documentent|donne(?:nt)?|fournit|fournissent|permet(?:tent)?|peux|peut|peuvent)\s+(?:donc\s+)?pas|sans\s+fournir|not\s+enough|cannot|missing|insufficient)"))
+                 && !LooksLikeSpecificInsufficiency(answer))
         {
             flags.Add("advanced_insufficiency_not_specific");
         }
         return flags;
+    }
+
+    private static bool LooksLikeSpecificInsufficiency(string? answer)
+    {
+        var normalized = CollapseWhitespace(answer);
+        if (RegexIsMatch(
+                normalized,
+                @"\b(?:manqu\p{L}*|insuffis\p{L}*|absent\p{L}*|impossible|pas\s+assez|pas\s+suffisamment|non\s+(?:document|[eé]tay)\p{L}*|ne\s+(?:contient|contiennent|dispose|disposent|documentent|donne(?:nt)?|fournit|fournissent|permet(?:tent)?|peux|peut|peuvent)\s+(?:(?:donc|toutefois|cependant|n[ée]anmoins)\s+)?pas|sans\s+fournir|not\s+enough|cannot|missing|insufficient)"))
+        {
+            return true;
+        }
+
+        const string EvidenceSubject = @"(?:sources?|extraits?|documents?|documentation|preuves?|[eé]l[eé]ments?|corpus)";
+        return RegexIsMatch(
+                   normalized,
+                   $@"\b{EvidenceSubject}\b[^.!?]{{0,180}}(?:\bne\b|n['\u2019])[^.!?]{{0,100}}\b(?:pas|aucun(?:e|s|es)?|insuffis\p{{L}}*|manqu\p{{L}}*|absent\p{{L}}*)\b")
+            || RegexIsMatch(
+                normalized,
+                $@"\baucun(?:e|s|es)?\s+(?:disposition|prescription|information|preuve|[eé]l[eé]ment|contenu)\p{{L}}*\b[^.!?]{{0,160}}\b{EvidenceSubject}\b");
     }
 
     private static string NormalizeSourceTerms(string value)
