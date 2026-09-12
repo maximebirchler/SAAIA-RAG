@@ -13705,3 +13705,22 @@ Terra reste pourtant limité à 3 RPM et 50 RPD. `Upgrade tier` propose un nouve
 achat et la limite de dépense de 100 USD est indépendante du RPD. Aucun nouvel
 achat n'a été effectué. La banque Terra 3/3 attend donc la correction du palier
 ou la réponse du support, tandis que les validations sans dépense continuent.
+
+## A755 — frontière locale rejouée après intégration A763 — 2026-09-12
+
+La banque adversariale locale connue de quatorze cas a été exécutée trois fois
+sur le SHA `5516cc1a` avec le Qwen3-4B Q5_K_M et le runtime CUDA qualifiés sur
+ce PC. Les trois harnesses passent : 42/42 lignes, zéro erreur, zéro appel
+externe, aucun changement serveur, environnement restauré et port 1234 libre.
+
+La revue sémantique accepte 14/14 cas et 42/42 lignes : trois réponses locales
+sourcées, deux handoffs après budget, six handoffs avant retrieval, deux
+clarifications et une insuffisance documentaire exacte. Aucun fait non soutenu,
+aucune substitution de source et aucune source sur les terminaux sans réponse
+documentaire. Toutes les médianes respectent les seuils préinscrits, de 4 ms
+pour P14 à 22 152 ms pour P02. Assessment SHA-256 :
+`F9830737A07B33FA85EEAD87B23AF0254C7E57EEFF6B69F32FEE7861C29C38A8`.
+
+Cette exécution prouve la non-régression de la frontière sur une banque déjà
+vue. Elle ne transforme pas ce lot en holdout aveugle et ne valide pas la
+qualité Terra ou le produit complet, qui reste `TESTE_NON_APPROUVE`.

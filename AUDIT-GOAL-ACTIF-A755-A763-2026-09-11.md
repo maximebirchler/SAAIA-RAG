@@ -435,6 +435,28 @@ pour supprimer 50 RPD : la promotion automatique attendue n'a pas été appliqu�
 par OpenAI. La campagne Terra 3/3 reste suspendue pour préserver les crédits et
 la causalité jusqu'à activation du Tier 1 ou réponse du support.
 
+## A755 — non-régression locale après l'architecture avancée — 2026-09-12
+
+La banque adversariale déjà vue de quatorze cas a été rejouée trois fois sur le
+SHA `5516cc1a`, avec le Qwen3-4B Q5_K_M et le runtime CUDA qualifiés sur ce PC.
+Le backend distant est resté limité au retrieval en lecture seule. Les trois
+harnesses terminent avec 42/42 lignes, zéro erreur, zéro appel externe, aucune
+mutation serveur et le port 1234 libéré.
+
+La revue séparée accepte les quatorze cas et les quarante-deux lignes. VACUUM
+reste exact et sourcé 3/3 en français et en anglais. Les six fonctions NIST
+restent dans l'ordre et sans surplus descriptif 3/3. Les deux limites de budget,
+les six transferts précoces, les deux clarifications et l'insuffisance du fichier
+absent conservent leurs terminaux attendus, sans source publiée à tort. Les
+quatorze médianes passent leurs seuils préinscrits; la plus lente est P02 à
+22 152 ms et le transfert pré-retrieval le plus lent est P11 à 4 941 ms.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a755-client-model-capability-boundary/e-lane-a755-frontier-regression-5516cc1-20260912-01/semantic-assessment.v1.json`,
+SHA-256 `F9830737A07B33FA85EEAD87B23AF0254C7E57EEFF6B69F32FEE7861C29C38A8`.
+Cette preuve confirme une non-régression sur une banque connue; elle ne remplace
+pas le nouveau holdout aveugle exigé pour l'acceptation finale.
+
 ## A763 — revue sémantique partielle et relation cellule/preuve — 2026-09-12
 
 Les quatre jobs de la campagne partielle ont été relus en transaction
