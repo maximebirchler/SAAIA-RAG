@@ -206,6 +206,14 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             factory.Requests[1].Body,
             StringComparison.Ordinal);
         Assert.Contains(
+            "never label every neutral coordinate or every requested unit",
+            factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "minimum remaining deficit for the decisive role or relation",
+            factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.Contains(
             "common alternate terminology",
             factory.Requests[0].Body,
             StringComparison.Ordinal);

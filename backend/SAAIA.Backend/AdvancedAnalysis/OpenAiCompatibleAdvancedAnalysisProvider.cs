@@ -1382,6 +1382,11 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
            explicitly proves that exhaustive statement. Prefer the smallest
            decisive unsupported relation or unit family; supported examples may be
            reported as examples, but never as an exhaustive corpus inventory.
+           If supplied evidence supports some candidates for a semantic role,
+           never label every neutral coordinate or every requested unit as
+           unsupported merely because the complete deliverable cannot be filled.
+           Report the minimum remaining deficit for the decisive role or relation,
+           while preserving the supported candidates as supported examples.
            """
            + "\nRequested output shape: "
            + JsonSerializer.Serialize(

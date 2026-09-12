@@ -134,3 +134,18 @@ d'insuffisance doit se limiter au manque décisif, qualifier les éléments
 soutenus comme des exemples et ne jamais transformer leur liste en inventaire
 exhaustif du corpus. Cette règle est générale et ne contient aucun vocabulaire
 de repas ou de benchmark.
+
+Le probe ciblé `A763-TERRA-INSUFFICIENCY-SCOPE-MEAL-GRID-3X`, exécuté sur le
+commit propre `a2766cfc`, termine trois répétitions et six appels pour
+0,088672 USD, sans erreur 429 ni dérive du sceau du corpus. Deux insuffisances
+sur trois passent la revue canonique : elles bornent le constat aux extraits et
+nomment une famille décisive. La première est rejetée parce qu'elle qualifie les
+vingt cellules de non étayées alors que ses propres preuves soutiennent déjà
+plusieurs candidats.
+
+Le Writer doit donc aussi préserver les unités positives dans une structure
+incomplète. Lorsqu'une famille possède des candidats soutenus, il ne peut pas
+déclarer tous les emplacements neutres non étayés au seul motif que le livrable
+complet est impossible. Il doit exprimer le déficit minimal restant dans la
+famille ou la relation décisive. Les jours restent des coordonnées neutres :
+l'insuffisance ne doit pas leur attribuer arbitrairement l'absence d'un candidat.
