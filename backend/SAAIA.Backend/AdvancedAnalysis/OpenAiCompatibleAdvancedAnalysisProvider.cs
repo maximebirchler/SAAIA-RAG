@@ -1291,7 +1291,10 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
            templates for producing the requested deliverable. Omit row labels,
            weekdays and schedule/planning terms when they do not describe the
            needed content itself. Use compact retrieval phrases with useful
-           synonyms. Do not add health, diet, price, speed or other constraints
+           synonyms. When a semantic column has common alternate terminology,
+           use complementary queries for those variants within the query limit;
+           do not rely on the user's single label to cover the corpus vocabulary.
+           Do not add health, diet, price, speed or other constraints
            that the user did not request. For a list of named candidates, search
            for names, headings, indexes or examples; do not append generic words
            such as ingredients or preparation because they rank fragments whose
@@ -1331,12 +1334,19 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
            title, procedure or source. Keep the user's requested language and
            format. In answerText, append [claimId] directly to the factual unit
            it supports and use every claimId exactly once. For a synthesis or
-           grid, the relationship created by placing an item in a requested row,
-           column, role or category is part of that factual unit. State that
-           relationship in the claim text and cite evidence that supports it. Do
-           not treat placement as ungrounded synthesis. A source index or heading
-           can support the existence and spelling of a named item, but it cannot
-           support an unstated relationship or absent details about that item. Distinct
+           grid, distinguish neutral presentation coordinates from semantic
+           relationships. Neutral coordinates such as weekdays, sequence numbers
+           or arbitrary ordering may organize supported candidates without a source
+           prescribing that coordinate, unless the user explicitly asks for the
+           source's schedule or ordering. A semantic column, role, category or
+           constraint such as breakfast suitability is part of the factual unit:
+           state it in the claim and cite evidence that supports it. Every mandatory
+           qualifier in the request must remain explicit and supported; never
+           silently drop qualifiers such as audience, simplicity, compatibility or
+           intended use. A source index or heading can support the existence and
+           spelling of a named item, and a heading can support a semantic category
+           only when it explicitly names that category. It cannot support an
+           unstated relationship or absent details about that item. Distinct
            cells may cite the same evidence when it documents several distinct
            candidates. When the request requires distinct units, every claim must
            describe a distinct concrete unit; do not repeat generic guidance to
