@@ -59,6 +59,18 @@ configuration évite de supposer une remise de cache que RunPod ne publie pas.
 | 300 000 tokens | 3,00 USD |
 | 384 000 tokens, soit 48 appels de 7k entrée + 1k sortie | 3,84 USD |
 
+Un proxy calculé sur les trois jobs réussis les plus récents de chacun des
+quatre cas avancés existants donne une base plus concrète : douze jobs, vingt-quatre
+appels, 90 590 tokens d'entrée et 12 820 tokens de sortie. Revalorisés au tarif
+RunPod plat, ces 103 410 tokens coûteraient **1,0341 USD**. Le job le plus long
+du lot représente 12 461 tokens, soit 0,12461 USD. Ces exécutions Terra et Luna
+ne prédisent pas la longueur des sorties Qwen et n'incluent pas nécessairement
+un appel de réparation ; elles justifient une marge, pas une garantie de coût.
+Le calcul scellé est conservé dans
+`artifacts/reprise-pc-20260908/a763-runpod-cost-proxy-20260912/assessment.v1.json`
+(SHA-256
+`2880CE27D14A3926EE7333660B96C2BAB9B06C9A1ABD58A8C459BB29AF50E6AB`).
+
 Pour les quatre cas répétés trois fois, l'autorisation proposée est limitée à
 **5 USD** : alerte à 4 USD, arrêt local à 4,80 USD, maximum 0,40 USD par job et
 quatre appels par job. Le plafond par job couvre Planner, Writer et au plus une

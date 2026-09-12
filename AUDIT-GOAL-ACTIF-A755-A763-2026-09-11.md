@@ -769,6 +769,23 @@ a pour SHA-256
 Aucun appel externe n'a été exécuté et les ports 1234, 5123 et 18081 sont libres.
 Produit `TESTE_NON_APPROUVE`.
 
+## A763 — coût RunPod recalculé sur douze jobs existants — 2026-09-12
+
+Le proxy de coût sélectionne les trois jobs réussis les plus récents pour
+chacun des quatre cas avancés dans les artefacts Terra/Luna, déduplique les
+résultats par date et cas, puis applique le tarif RunPod public de 10 USD par
+million de tokens. Les douze jobs totalisent vingt-quatre appels, 90 590 tokens
+d'entrée et 12 820 de sortie. Le coût contrefactuel est 1,0341 USD ; le job le
+plus volumineux représente 0,12461 USD.
+
+Cette mesure ne vaut ni exécution RunPod ni prédiction exacte : Qwen peut
+produire davantage de tokens et déclencher la réparation bornée. Elle confirme
+cependant que l'enveloppe proposée de 5 USD conserve une marge importante par
+rapport au volume réellement observé sur le même pipeline. Assessment :
+`artifacts/reprise-pc-20260908/a763-runpod-cost-proxy-20260912/assessment.v1.json`,
+SHA-256 `2880CE27D14A3926EE7333660B96C2BAB9B06C9A1ABD58A8C459BB29AF50E6AB`.
+Aucun appel externe et aucun coût nouveau. Produit `TESTE_NON_APPROUVE`.
+
 ## A763 — identité runtime RunPod rendue obligatoire — 2026-09-12
 
 Le commit `8a3bcd0` retire la dernière attribution implicite de `llama.cpp` aux

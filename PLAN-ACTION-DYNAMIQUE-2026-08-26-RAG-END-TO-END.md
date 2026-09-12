@@ -13841,3 +13841,17 @@ analyses PowerShell passent, sans appel externe. Assessment :
 `artifacts/reprise-pc-20260908/a763-explicit-runpod-runtime-8a3bcd0-20260912/assessment.v1.json`,
 SHA-256 `D26C9629982F978509E360104F2CC99D194434DB03CDAB03A8AC0786E31EF74A`.
 Produit `TESTE_NON_APPROUVE`.
+
+## A763 — proxy de coût RunPod sur le pipeline observé — 2026-09-12
+
+Trois jobs réussis récents par cas avancé ont été sélectionnés dans les preuves
+Terra/Luna existantes. Les douze jobs et vingt-quatre appels totalisent 103 410
+tokens. Au tarif public RunPod de 10 USD par million, le coût contrefactuel est
+1,0341 USD ; le maximum observé par job est 0,12461 USD. L'enveloppe proposée de
+5 USD conserve donc une marge pour des sorties Qwen plus longues et un appel de
+réparation, sans promettre le coût d'une campagne encore non exécutée.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-runpod-cost-proxy-20260912/assessment.v1.json`,
+SHA-256 `2880CE27D14A3926EE7333660B96C2BAB9B06C9A1ABD58A8C459BB29AF50E6AB`.
+Aucun appel externe et aucun coût nouveau. Produit `TESTE_NON_APPROUVE`.
