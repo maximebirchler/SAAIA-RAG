@@ -49,6 +49,34 @@ function Require-Decimal {
     return $number
 }
 
+function Get-CompatibleRelativePath {
+    param(
+        [Parameter(Mandatory = $true)][string]$BasePath,
+        [Parameter(Mandatory = $true)][string]$TargetPath
+    )
+
+    $normalizedBase = [System.IO.Path]::GetFullPath($BasePath)
+    $normalizedTarget = [System.IO.Path]::GetFullPath($TargetPath)
+    $directorySeparators = [char[]]@(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar)
+    $baseUri = [Uri]($normalizedBase.TrimEnd($directorySeparators) +
+        [System.IO.Path]::DirectorySeparatorChar)
+    $targetUri = [Uri]$normalizedTarget
+
+    if (-not [string]::Equals(
+            $baseUri.Scheme,
+            $targetUri.Scheme,
+            [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $normalizedTarget
+    }
+
+    $relativeUri = $baseUri.MakeRelativeUri($targetUri)
+    return [Uri]::UnescapeDataString($relativeUri.ToString()).Replace(
+        [System.IO.Path]::AltDirectorySeparatorChar,
+        [System.IO.Path]::DirectorySeparatorChar)
+}
+
 $repositoryRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 if ([string]::IsNullOrWhiteSpace($ProfilePath)) {
     $ProfilePath = Join-Path $repositoryRoot "config\runpod-benchmark.a763.json"
@@ -229,7 +257,7 @@ $preflightPath = Join-Path $ArtifactDirectory "preflight-seal.json"
     stageMaximumCallsPerJob = $stageMaximumCallsPerJob
     stageMaximumProviderCallsByEnvelope = $stageMaximumProviderCalls
     fullBankAuthorized = [bool]$FullBankAuthorized
-    profilePath = [System.IO.Path]::GetRelativePath($repositoryRoot, $ProfilePath)
+    profilePath = Get-CompatibleRelativePath $repositoryRoot $ProfilePath
     profileSha256 = $profileSha256
     repositoryCommit = $repositoryCommit
     repositoryTrackedDirty = $repositoryTrackedDirty
