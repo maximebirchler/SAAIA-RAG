@@ -19,6 +19,13 @@
     "freeTierCallsBlocked": true,
     "runPodAuthorized": false
   },
+  "localRouter": {
+    "modelId": "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+    "runtimeSha256": "9555847A0403737C4A1B5BEAB050BD697AEC477B6675871A1F8D4737A25C1650",
+    "modelSha256": "66713CE35A58A82FE87642D4EC13425BF9B9A46800FFF5C49A665EF5701439DC",
+    "providerConfigPath": "config/llm-providers.dev.json",
+    "providerConfigSha256": "036D6C68D1780DC78E3FB594C27FF82CE86861F9BECD94E268AEADE6163D1E1D"
+  },
   "bank": {
     "path": "config/advanced-capacity-validation.v1.json",
     "sha256": "8B2A5029E0A74D78FF7F26A8F1AACE2D005E84E729E9241AB94FE1BC5AEFFA3E",
@@ -64,7 +71,7 @@
       "The exact four registered cases each produce three independent successful rows on the same clean commit.",
       "All 12 rows pass the mechanical assessor and all 12 answers receive a source-by-source semantic review.",
       "Provider and model telemetry are exactly openai-dev and gpt-5.6-terra; costs and token counts are present.",
-      "No prompt, case, retrieval, corpus, acceptance criterion or runtime parameter changes after the first answer is observed.",
+      "No prompt, case, retrieval, corpus, acceptance criterion, local-router binary/model/configuration or runtime parameter changes after the first answer is observed.",
       "Any unsupported substantive claim, wrong source relation, unvalidated provider payload, budget stop or protocol drift rejects the campaign."
     ],
     "cases": {
@@ -92,6 +99,7 @@
     "Do not execute while the organization dashboard still shows Free tier.",
     "Do not execute without a paid-tier observation less than 15 minutes old.",
     "Stop before the first model call if the branch, clean-tree rule or bank hash differs.",
+    "Stop before the first model call if the local llama.cpp runtime, Qwen GGUF or provider configuration hash differs.",
     "Let retryable 429 responses use the durable scheduled retry path, bounded to three job attempts and ten minutes per scheduled delay in this campaign.",
     "Stop at the persistent lifetime, per-job or per-job-call budget guard.",
     "Do not start RunPod or transmit the private evidence bundle."

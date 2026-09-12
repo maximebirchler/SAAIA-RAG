@@ -119,6 +119,8 @@ try {
         repositoryTrackedDirty = $repositoryTrackedDirty
         bankPath = $BankPath
         bankSha256 = (Get-FileHash -LiteralPath $BankPath -Algorithm SHA256).Hash
+        providerConfigPath = $providerConfig
+        providerConfigSha256 = (Get-FileHash -LiteralPath $providerConfig -Algorithm SHA256).Hash
         selectedIds = $selectedIds
         repetitions = $Repetitions
         delayBetweenCasesSeconds = $DelayBetweenCasesSeconds

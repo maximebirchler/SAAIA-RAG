@@ -49,6 +49,41 @@ if (-not (Test-Path -LiteralPath $bankPath -PathType Leaf)) {
 }
 $observedBankHash = (Get-FileHash -LiteralPath $bankPath -Algorithm SHA256).Hash
 $expectedBankHash = (Require-Text $profile.bank.sha256 "bank.sha256").ToUpperInvariant()
+$providerConfigRelativePath = Require-Text `
+    $profile.localRouter.providerConfigPath `
+    "localRouter.providerConfigPath"
+$providerConfigPath = [System.IO.Path]::GetFullPath(
+    (Join-Path $repositoryRoot $providerConfigRelativePath))
+$providerConfigHash = if (Test-Path -LiteralPath $providerConfigPath -PathType Leaf) {
+    (Get-FileHash -LiteralPath $providerConfigPath -Algorithm SHA256).Hash
+} else { $null }
+
+if ([string]::IsNullOrWhiteSpace($LocalLlmExePath)) {
+    $runtimeRoot = Join-Path $env:LOCALAPPDATA "SAAIA\llm\runtime"
+    $runtime = Get-ChildItem `
+        -LiteralPath $runtimeRoot `
+        -Filter "llama-server.exe" `
+        -File `
+        -Recurse `
+        -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTimeUtc -Descending |
+        Select-Object -First 1
+    if ($null -ne $runtime) { $LocalLlmExePath = $runtime.FullName }
+}
+if ([string]::IsNullOrWhiteSpace($LocalModelPath)) {
+    $LocalModelPath = Join-Path $env:LOCALAPPDATA `
+        "SAAIA\Models\Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf"
+}
+$localRuntimeHash = if (-not [string]::IsNullOrWhiteSpace($LocalLlmExePath) -and
+    (Test-Path -LiteralPath $LocalLlmExePath -PathType Leaf)) {
+    $LocalLlmExePath = [System.IO.Path]::GetFullPath($LocalLlmExePath)
+    (Get-FileHash -LiteralPath $LocalLlmExePath -Algorithm SHA256).Hash
+} else { $null }
+$localModelHash = if (-not [string]::IsNullOrWhiteSpace($LocalModelPath) -and
+    (Test-Path -LiteralPath $LocalModelPath -PathType Leaf)) {
+    $LocalModelPath = [System.IO.Path]::GetFullPath($LocalModelPath)
+    (Get-FileHash -LiteralPath $LocalModelPath -Algorithm SHA256).Hash
+} else { $null }
 
 $head = (& git -C $repositoryRoot rev-parse HEAD 2>$null).Trim()
 $branch = (& git -C $repositoryRoot rev-parse --abbrev-ref HEAD 2>$null).Trim()
@@ -85,6 +120,28 @@ if ($branch -ne [string]$profile.repository.expectedBranch) { $blockingReasons +
 if ($trackedDirty) { $blockingReasons += "tracked_worktree_dirty" }
 if (-not $containsMinimumCommit) { $blockingReasons += "semantic_fix_commit_missing" }
 if ($observedBankHash -ne $expectedBankHash) { $blockingReasons += "question_bank_hash_mismatch" }
+if ([string]::IsNullOrWhiteSpace($providerConfigHash)) {
+    $blockingReasons += "provider_configuration_missing"
+} elseif ($providerConfigHash -ne [string]$profile.localRouter.providerConfigSha256) {
+    $blockingReasons += "provider_configuration_hash_mismatch"
+}
+if ([string]::IsNullOrWhiteSpace($localRuntimeHash)) {
+    $blockingReasons += "local_llm_runtime_missing"
+} elseif ($localRuntimeHash -ne [string]$profile.localRouter.runtimeSha256) {
+    $blockingReasons += "local_llm_runtime_hash_mismatch"
+}
+if ([string]::IsNullOrWhiteSpace($localModelHash)) {
+    $blockingReasons += "local_model_missing"
+} elseif ($localModelHash -ne [string]$profile.localRouter.modelSha256) {
+    $blockingReasons += "local_model_hash_mismatch"
+}
+if (-not [string]::IsNullOrWhiteSpace($ReferenceBackendUrl) -and
+    $ReferenceBackendUrl.TrimEnd('/') -ne ([string]$profile.execution.referenceBackendUrl).TrimEnd('/')) {
+    $blockingReasons += "reference_backend_profile_mismatch"
+}
+if ($BackendPort -ne [int]$profile.execution.backendPort) {
+    $blockingReasons += "backend_port_profile_mismatch"
+}
 if (-not $minimumTierSatisfied) { $blockingReasons += "paid_tier_not_observed" }
 if (-not $freshTierObservation) { $blockingReasons += "paid_tier_observation_missing_or_stale" }
 if ($caseIds.Count -ne 4 -or @($caseIds | Sort-Object -Unique).Count -ne 4) {
@@ -115,6 +172,15 @@ $preflight = [ordered]@{
     bankPath = $bankPath
     bankSha256 = $observedBankHash
     bankHashMatches = $observedBankHash -eq $expectedBankHash
+    providerConfigPath = $providerConfigPath
+    providerConfigSha256 = $providerConfigHash
+    providerConfigHashMatches = $providerConfigHash -eq [string]$profile.localRouter.providerConfigSha256
+    localLlmRuntimePath = $LocalLlmExePath
+    localLlmRuntimeSha256 = $localRuntimeHash
+    localLlmRuntimeHashMatches = $localRuntimeHash -eq [string]$profile.localRouter.runtimeSha256
+    localModelPath = $LocalModelPath
+    localModelSha256 = $localModelHash
+    localModelHashMatches = $localModelHash -eq [string]$profile.localRouter.modelSha256
     observedOrganizationTier = $ObservedOrganizationTier
     tierObservedAtUtc = if ($null -eq $tierObservation) { $null } else { $tierObservation.ToString("o") }
     tierObservationAgeMinutes = $tierObservationAgeMinutes
@@ -123,6 +189,8 @@ $preflight = [ordered]@{
     paidTierGateSatisfied = $minimumTierSatisfied -and $freshTierObservation
     selectedIds = $caseIds
     repetitions = [int]$profile.bank.repetitions
+    referenceBackendUrl = [string]$profile.execution.referenceBackendUrl
+    backendPort = [int]$profile.execution.backendPort
     delayBetweenCasesSeconds = [int]$profile.execution.delayBetweenCasesSeconds
     maximumJobAttempts = [int]$profile.execution.maximumJobAttempts
     maximumJobRetryDelayMilliseconds = [int]$profile.execution.maximumJobRetryDelayMilliseconds
