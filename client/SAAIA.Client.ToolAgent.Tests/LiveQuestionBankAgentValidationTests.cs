@@ -92,6 +92,20 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
     }
 
     [Fact]
+    public void Language_detector_recognizes_a_french_sourced_meal_enumeration()
+    {
+        const string answer = """
+            1. Boulettes et croquettes — source : « LE PORC HACHÉ — IDÉES DE REPAS ». [C1]
+            2. Pain de viande — source : « LE PORC HACHÉ — IDÉES DE REPAS ». [C2]
+            3. Macaroni et lasagne — source : « LE PORC HACHÉ — IDÉES DE REPAS ». [C3]
+            4. Pâté chinois — source : « LE PORC HACHÉ — IDÉES DE REPAS ». [C4]
+            5. Chili et tacos — source : « LE PORC HACHÉ — IDÉES DE REPAS ». [C5]
+            """;
+
+        Assert.Equal("fr", DetectAnswerLanguage(answer));
+    }
+
+    [Fact]
     public void Language_detector_recognizes_a_short_english_technical_answer()
     {
         const string answer =
@@ -1115,7 +1129,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
 
         var signals = new Dictionary<string, string[]>
         {
-            ["fr"] = ["je", "vous", "avec", "pour", "dans", "une", "des", "les", "est", "sont", "aucun", "aucune", "voici", "peut", "doit", "faut", "jour", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "petit-dejeuner", "dejeuner", "collation", "souper", "recette", "recettes", "selon", "jambon", "equilibre"],
+            ["fr"] = ["je", "vous", "avec", "pour", "dans", "une", "des", "les", "et", "est", "sont", "aucun", "aucune", "voici", "peut", "doit", "faut", "jour", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "petit-dejeuner", "dejeuner", "collation", "souper", "recette", "recettes", "selon", "jambon", "equilibre"],
             ["en"] = ["i", "you", "with", "for", "from", "the", "and", "is", "are", "no", "none", "here", "can", "should", "must", "recovers", "disk", "space", "occupied", "updated", "deleted", "rows", "storage", "dead", "tuples"],
             ["es"] = ["yo", "usted", "con", "para", "desde", "una", "los", "las", "esta", "son", "ningun", "ninguna", "puede", "debe"],
             ["pt"] = ["eu", "voce", "com", "para", "desde", "uma", "os", "as", "esta", "sao", "nao", "posso", "fontes", "disponiveis", "sustentam", "opcoes", "quantidades", "tempos", "nenhum", "nenhuma", "pode", "deve"],
