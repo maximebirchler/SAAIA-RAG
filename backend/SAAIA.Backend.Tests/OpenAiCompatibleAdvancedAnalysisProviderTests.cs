@@ -520,6 +520,33 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Writer_repairs_an_internal_source_key_before_publication()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[]}"""),
+            Completion("""
+                {"outcome":"answered","answerText":"Repas — source internal-source-1 [C1].","claims":[{"claimId":"C1","text":"Repas issu de internal-source-1.","evidenceIds":["E1"]}]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"Repas documenté [C1].","claims":[{"claimId":"C1","text":"Repas documenté.","evidenceIds":["E1"]}]}
+                """));
+        var provider = CreateProvider(factory);
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(),
+            new RecordingToolGateway(BuildEvidence("E1", "Repas documenté.")),
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.DoesNotContain("internal-source-", result.AnswerText,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(3, result.ProviderCallCount);
+        Assert.Contains("Remove any internal sourceKey label",
+            factory.Requests[2].Body,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Writer_repairs_one_malformed_protocol_response()
     {
         using var factory = new QueuedHttpClientFactory(

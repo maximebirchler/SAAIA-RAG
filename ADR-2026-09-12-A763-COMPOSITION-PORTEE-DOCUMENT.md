@@ -1,7 +1,7 @@
 # A763 — Composer une preuve de portée et une preuve d'item
 
 Date : 2026-09-12  
-Statut : correction locale validée, validation Terra ciblée requise
+Statut : correction partielle ; probe Terra ciblé rejeté
 
 ## Incident observé après le passage en Tier 1
 
@@ -73,5 +73,27 @@ valide pas la fonction de planning complet.
   absents du payload Writer capturé ;
 - aucun appel externe n'a été nécessaire pour ces tests.
 
-La prochaine preuve causale est une campagne Terra ciblée et préenregistrée sur
-le cas des cinq repas étudiants, avant toute nouvelle campagne complète.
+## Probe Terra ciblé
+
+La campagne préenregistrée `A763-TERRA-SOURCE-SCOPE-STUDENT-3X`, exécutée sur
+le commit propre `239ab92b`, a terminé trois répétitions sans erreur de quota ni
+d'infrastructure. Le sceau du corpus est identique avant et après. Six appels
+Terra ont coûté 0,079726 USD.
+
+Le résultat ciblé est rejeté : deux répétitions donnent l'insuffisance sûre à
+quatre repas et une seule donne cinq items. Cette dernière emploie une recette
+d'un autre document sans démontrer le qualificatif étudiant et reproduit la clé
+interne `S4` dans le texte utilisateur. Le verdict mécanique générique reste
+`PASS_MECHANICAL_REQUIRES_SEMANTIC_REVIEW`, mais les critères préenregistrés du
+probe ne passent pas.
+
+Le protocole utilise maintenant le préfixe reconnaissable
+`internal-source-N`, interdit explicitement dans les textes publiés. Une sortie
+qui le reproduit est rejetée puis soumise à l'unique réparation bornée, laquelle
+doit le retirer sans inventer un nom de source.
+
+La prochaine étape causale consiste à vérifier l'ordre exact des preuves
+transmises au Writer. Les chunks canoniques du livre étudiant contiennent un
+index et plusieurs recettes nommées ; le problème restant est de garantir que
+la preuve de portée et suffisamment de preuves d'items du même document entrent
+ensemble dans le budget de contexte.

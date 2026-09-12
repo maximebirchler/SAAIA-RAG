@@ -71,6 +71,7 @@ if ($DiagnosticMode) {
     }
 } elseif (($null -ne $manifest.PSObject.Properties["approvalEligible"] -and
         -not [bool]$manifest.approvalEligible) -or
+    [string]$manifest.reviewMode -ne "ACCEPTANCE" -or
     [string]$manifest.semanticVerdict -ne "PENDING_HUMAN_REVIEW") {
     throw "The review manifest is not eligible for an acceptance decision."
 }

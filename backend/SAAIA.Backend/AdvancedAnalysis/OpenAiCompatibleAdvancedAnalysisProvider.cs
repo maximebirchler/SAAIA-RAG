@@ -1200,6 +1200,13 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                 throw new AdvancedAnalysisProviderException(
                     "advanced_writer_claim_markers_invalid");
             }
+            if (ContainsInternalSourceKey(answerText)
+                || claims.Any(static claim =>
+                    ContainsInternalSourceKey(claim.Text)))
+            {
+                throw new AdvancedAnalysisProviderException(
+                    "advanced_writer_protocol_invalid");
+            }
 
             return new AdvancedAnalysisProviderResult
             {
@@ -1223,6 +1230,12 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                 RegexOptions.CultureInvariant)
             .Trim()
             .ToLowerInvariant();
+
+    private static bool ContainsInternalSourceKey(string value)
+        => Regex.IsMatch(
+            value ?? string.Empty,
+            @"\binternal-source-\d+\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private AdvancedAnalysisProviderResult WithMetrics(
         AdvancedAnalysisProviderResult result,
@@ -1346,8 +1359,9 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
            state it in the claim and cite evidence that supports it. Every mandatory
            qualifier in the request must remain explicit and supported; never
            silently drop qualifiers such as audience, simplicity, compatibility or
-           intended use. Each evidence item includes an opaque sourceKey. Equal
-           sourceKeys mean that the items come from the same canonical document
+           intended use. Each evidence item includes an opaque sourceKey. It is
+           internal reasoning metadata and must never appear in answerText or a
+           claim. Equal sourceKeys mean that the items come from the same canonical document
            revision. A document-level scope statement may support a qualifier for
            a named item listed elsewhere in that same source only when its wording
            clearly applies to the document's item collection; cite both evidence
@@ -1372,7 +1386,9 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
         => """
            Repair one SAAIA Writer JSON object and return only the repaired JSON.
            Preserve the original answer facts, outcome and evidence mappings.
-           Do not add a fact or evidence id. For an answered outcome, append each
+           Remove any internal sourceKey label from answerText and claim text;
+           do not replace it with an invented source name. Do not add a fact or
+           evidence id. For an answered outcome, append each
            [claimId] directly to its factual unit in answerText and use every
            claimId exactly once. If the original object is malformed or truncated,
            recover only information that is explicitly present. Keep the same JSON
@@ -1426,7 +1442,7 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                 sourceIdentity = "evidence:" + (evidenceId ?? sourceKeys.Count.ToString());
             if (!sourceKeys.TryGetValue(sourceIdentity, out var sourceKey))
             {
-                sourceKey = $"S{sourceKeys.Count + 1}";
+                sourceKey = $"internal-source-{sourceKeys.Count + 1}";
                 sourceKeys.Add(sourceIdentity, sourceKey);
             }
             promptEvidence.Add(new

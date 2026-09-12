@@ -183,6 +183,10 @@ pwsh -NoProfile -File .\tools\prepare-advanced-semantic-review.ps1 `
   -DiagnosticMode
 ```
 
+Une campagne ciblée achevée avec `campaignKind=targeted-causal` doit elle aussi
+être ouverte avec `-DiagnosticMode` : son résultat peut valider une correction
+causale, mais jamais l'acceptation du produit.
+
 Le manifeste porte alors `reviewMode=DIAGNOSTIC_ONLY`,
 `approvalEligible=false` et `PENDING_DIAGNOSTIC_REVIEW`. Le finaliseur
 d'approbation le refuse par défaut. Ce mode sert uniquement à comparer les

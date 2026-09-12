@@ -62,11 +62,20 @@ if (-not (Test-Path -LiteralPath $profilePreflightPath -PathType Leaf)) {
 }
 $profilePreflight = Get-Content -LiteralPath $profilePreflightPath -Raw | ConvertFrom-Json
 $campaignExecutionState = [string]$profilePreflight.executionState
-$approvalEligible = $campaignExecutionState -eq "COMPLETED"
-$diagnosticEligible = $DiagnosticMode -and
-    $campaignExecutionState -eq "FAILED_OR_INTERRUPTED_EXTERNAL_CALLS_POSSIBLE"
+$campaignKind = if ($null -eq $profilePreflight.PSObject.Properties["campaignKind"]) {
+    "final-acceptance"
+} else {
+    [string]$profilePreflight.campaignKind
+}
+$approvalEligible = -not $DiagnosticMode -and
+    $campaignExecutionState -eq "COMPLETED" -and
+    $campaignKind -eq "final-acceptance"
+$diagnosticEligible = $DiagnosticMode -and (
+    $campaignExecutionState -eq "FAILED_OR_INTERRUPTED_EXTERNAL_CALLS_POSSIBLE" -or
+    ($campaignExecutionState -eq "COMPLETED" -and
+        $campaignKind -eq "targeted-causal"))
 if (-not $approvalEligible -and -not $diagnosticEligible) {
-    throw "Campaign profile is not marked COMPLETED. Use -DiagnosticMode only to inspect successful rows from a failed or interrupted campaign."
+    throw "Campaign profile is not eligible for this review mode. Completed targeted campaigns and successful rows from failed campaigns require -DiagnosticMode."
 }
 $repositoryCommit = (& git -C $repositoryRoot rev-parse HEAD 2>$null).Trim()
 $trackedDirty = @(& git -C $repositoryRoot status --porcelain --untracked-files=no 2>$null).Count -gt 0
@@ -266,6 +275,7 @@ $manifest = [ordered]@{
     repositoryCommit = $repositoryCommit
     campaignRepositoryCommit = $campaignRepositoryCommit
     campaignExecutionState = $campaignExecutionState
+    campaignKind = $campaignKind
     reviewMode = $(if ($approvalEligible) { "ACCEPTANCE" } else { "DIAGNOSTIC_ONLY" })
     approvalEligible = $approvalEligible
     campaignPreflightSha256 = (Get-FileHash -LiteralPath $profilePreflightPath -Algorithm SHA256).Hash
