@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)][string]$ReviewArtifactDirectory
+    [Parameter(Mandatory = $true)][string]$ReviewArtifactDirectory,
+    [switch]$DiagnosticMode
 )
 
 $ErrorActionPreference = "Stop"
@@ -41,7 +42,12 @@ $reviewPath = Require-ReviewFile $ReviewArtifactDirectory "semantic-review.priva
 $mapPath = Require-ReviewFile $ReviewArtifactDirectory "campaign-map.private.json"
 $jobIdsPath = Require-ReviewFile $ReviewArtifactDirectory "job-ids.private.json"
 $decisionPath = Require-ReviewFile $ReviewArtifactDirectory "semantic-decisions.private.json"
-$assessmentPath = Join-Path $ReviewArtifactDirectory "semantic-assessment.public.json"
+$assessmentName = if ($DiagnosticMode) {
+    "semantic-diagnostic.public.json"
+} else {
+    "semantic-assessment.public.json"
+}
+$assessmentPath = Join-Path $ReviewArtifactDirectory $assessmentName
 if (Test-Path -LiteralPath $assessmentPath) {
     throw "A semantic assessment already exists. Preserve it and use a new review artifact directory."
 }
@@ -50,9 +56,17 @@ $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 if ([string]$manifest.schemaVersion -ne "saaia-advanced-semantic-review-public-manifest-v1") {
     throw "Unsupported semantic review manifest schema."
 }
-if (($null -ne $manifest.PSObject.Properties["approvalEligible"] -and
+if ([bool]$manifest.privateArtifactsMayLeaveWorkspace) {
+    throw "Private semantic review artifacts may not leave the workspace."
+}
+if ($DiagnosticMode) {
+    if ([bool]$manifest.approvalEligible -or
+        [string]$manifest.reviewMode -ne "DIAGNOSTIC_ONLY" -or
+        [string]$manifest.semanticVerdict -ne "PENDING_DIAGNOSTIC_REVIEW") {
+        throw "The review manifest is not eligible for a diagnostic decision."
+    }
+} elseif (($null -ne $manifest.PSObject.Properties["approvalEligible"] -and
         -not [bool]$manifest.approvalEligible) -or
-    [bool]$manifest.privateArtifactsMayLeaveWorkspace -or
     [string]$manifest.semanticVerdict -ne "PENDING_HUMAN_REVIEW") {
     throw "The review manifest is not eligible for an acceptance decision."
 }
@@ -149,9 +163,19 @@ $caseSummary = @($normalized | Group-Object caseId | Sort-Object Name | ForEach-
     }
 })
 $assessment = [ordered]@{
-    schemaVersion = "saaia-advanced-semantic-assessment-public-v1"
+    schemaVersion = if ($DiagnosticMode) {
+        "saaia-advanced-semantic-diagnostic-public-v1"
+    } else {
+        "saaia-advanced-semantic-assessment-public-v1"
+    }
     assessedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
     repositoryCommit = $repositoryCommit
+    campaignRepositoryCommit = $(if ($DiagnosticMode) {
+        [string]$manifest.campaignRepositoryCommit
+    } else { $null })
+    campaignExecutionState = $(if ($DiagnosticMode) {
+        [string]$manifest.campaignExecutionState
+    } else { $null })
     reviewManifestSha256 = (Get-FileSha256 $manifestPath)
     privateEvidenceBundleSha256 = (Get-FileSha256 $bundlePath)
     privateReviewSha256 = (Get-FileSha256 $reviewPath)
@@ -160,11 +184,18 @@ $assessment = [ordered]@{
     passedRows = @($normalized | Where-Object verdict -eq "PASS_SEMANTIC").Count
     rejectedRows = $rejected.Count
     unresolvedEvidence = $unresolvedEvidence
-    verdict = if ($accepted) {
+    verdict = if ($DiagnosticMode) {
+        if ($accepted) {
+            "DIAGNOSTIC_ROWS_ALL_PASS"
+        } else {
+            "DIAGNOSTIC_ROWS_REJECTED"
+        }
+    } elseif ($accepted) {
         "ACCEPT_SEMANTIC_ALL_REGISTERED_REPETITIONS"
     } else {
         "REJECT_SEMANTIC"
     }
+    approvalEligible = -not [bool]$DiagnosticMode
     privateArtifactsMayLeaveWorkspace = $false
     productStatus = "TESTE_NON_APPROUVE"
     cases = $caseSummary

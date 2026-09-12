@@ -139,6 +139,15 @@ Add-TestResult "diagnostic campaign cannot be finalized as acceptance" `
     ($diagnosticRejected -and -not (Test-Path -LiteralPath (Join-Path $diagnostic "semantic-assessment.public.json"))) `
     "rejected=$diagnosticRejected"
 
+& $finalizer -ReviewArtifactDirectory $diagnostic -DiagnosticMode | Out-Null
+$diagnosticAssessment = Get-Content -LiteralPath `
+    (Join-Path $diagnostic "semantic-diagnostic.public.json") -Raw | ConvertFrom-Json
+Add-TestResult "diagnostic rows produce a non-approving public verdict" `
+    ($diagnosticAssessment.verdict -eq "DIAGNOSTIC_ROWS_ALL_PASS" -and
+     -not [bool]$diagnosticAssessment.approvalEligible -and
+     $diagnosticAssessment.productStatus -eq "TESTE_NON_APPROUVE") `
+    ([string]$diagnosticAssessment.verdict)
+
 $results | Format-Table -AutoSize | Out-String | Write-Output
 $failed = @($results | Where-Object { -not $_.passed })
 Write-Output "Passed: $($results.Count - $failed.Count)/$($results.Count)"

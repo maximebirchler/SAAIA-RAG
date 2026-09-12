@@ -185,8 +185,21 @@ pwsh -NoProfile -File .\tools\prepare-advanced-semantic-review.ps1 `
 
 Le manifeste porte alors `reviewMode=DIAGNOSTIC_ONLY`,
 `approvalEligible=false` et `PENDING_DIAGNOSTIC_REVIEW`. Le finaliseur
-d'approbation le refuse. Ce mode sert uniquement à comparer les sorties aux
-preuves canoniques sans perdre l'incident et sans relancer un cas observé.
+d'approbation le refuse par défaut. Ce mode sert uniquement à comparer les
+sorties aux preuves canoniques sans perdre l'incident et sans relancer un cas
+observé. Après avoir rempli les décisions privées, produire son agrégat public
+non approbateur avec :
+
+```powershell
+pwsh -NoProfile -File .\tools\finalize-advanced-semantic-review.ps1 `
+  -ReviewArtifactDirectory <repertoire-du-paquet-diagnostique> `
+  -DiagnosticMode
+```
+
+Le fichier `semantic-diagnostic.public.json` conserve les totaux et les rejets
+observés, mais garde `approvalEligible=false` et le produit
+`TESTE_NON_APPROUVE`. Il ne peut donc pas être confondu avec une campagne
+d'acceptation complète.
 
 Pour chaque entrée de `semantic-decisions.private.json`, comparer la réponse au
 texte canonique dans `semantic-review.private.md`, remplacer `PENDING_REVIEW`
