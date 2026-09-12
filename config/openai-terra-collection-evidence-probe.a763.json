@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "saaia-openai-terra-final-campaign-v1",
+  "campaignId": "A763-TERRA-COLLECTION-EVIDENCE-STUDENT-3X",
+  "campaignKind": "targeted-causal",
+  "status": "PREREGISTERED",
+  "createdAtUtc": "2026-09-12T08:47:16.4590291+00:00",
+  "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
+  "repository": {
+    "expectedBranch": "SAAIA_V3.1",
+    "preregisteredAgainstCommit": "14f59aca",
+    "minimumSemanticFixCommit": "14f59aca",
+    "executionRule": "Run from one exact clean descendant. Do not change the question, collection-evidence prioritization, internal source-key rule, corpus, acceptance criteria or provider settings after observing the first answer."
+  },
+  "provider": {
+    "mode": "OpenAI",
+    "model": "gpt-5.6-terra",
+    "endpoint": "https://api.openai.com/v1",
+    "minimumOrganizationTier": "Tier1",
+    "freshTierObservationMaximumAgeMinutes": 15,
+    "freeTierCallsBlocked": true,
+    "runPodAuthorized": false
+  },
+  "localRouter": {
+    "modelId": "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+    "runtimeSha256": "9555847A0403737C4A1B5BEAB050BD697AEC477B6675871A1F8D4737A25C1650",
+    "modelSha256": "66713CE35A58A82FE87642D4EC13425BF9B9A46800FFF5C49A665EF5701439DC",
+    "providerConfigPath": "config/llm-providers.dev.json",
+    "providerConfigSha256": "036D6C68D1780DC78E3FB594C27FF82CE86861F9BECD94E268AEADE6163D1E1D"
+  },
+  "bank": {
+    "path": "config/advanced-capacity-validation.v1.json",
+    "sha256": "8B2A5029E0A74D78FF7F26A8F1AACE2D005E84E729E9241AB94FE1BC5AEFFA3E",
+    "caseIds": [
+      "A755-ADV-02-five-student-meals-fr"
+    ],
+    "repetitions": 3,
+    "expectedRows": 3
+  },
+  "execution": {
+    "runner": "tools/test-advanced-product-path-openai.ps1",
+    "configuration": "Release",
+    "delayBetweenCasesSeconds": 5,
+    "maximumJobAttempts": 3,
+    "maximumJobRetryDelayMilliseconds": 600000,
+    "serverEnvironmentPath": "C:/Users/maxim/NextCloud/Maxime/Ecommerce/SAAIA/infra/.env.server-linux",
+    "referenceBackendUrl": "http://saaia-server:5122",
+    "backendPort": 5123,
+    "artifactRoot": "artifacts/reprise-pc-20260908/a763-provider-comparison",
+    "artifactDirectoryRule": "Create a fresh directory containing the exact execution commit and timestamp; never overwrite an earlier campaign."
+  },
+  "budget": {
+    "authorizedLifetimeUsd": 25.0,
+    "softLimitUsd": 20.0,
+    "hardStopUsd": 24.0,
+    "maximumCostPerJobUsd": 0.15,
+    "maximumCallsPerJob": 4,
+    "maximumJobs": 3,
+    "maximumCampaignCostImpliedByPerJobCapsUsd": 0.45,
+    "expectedNormalProviderCalls": 6,
+    "maximumProviderCallsByEnvelope": 12,
+    "pricingUsdPerMillionTokens": {
+      "input": 2.0,
+      "cachedInput": 0.2,
+      "output": 12.0
+    }
+  },
+  "acceptance": {
+    "global": [
+      "The registered student-meal case produces three independent successful rows on one clean commit.",
+      "Each row answers with exactly five distinct meals and five claims.",
+      "The writer combines collection-scope and item evidence only inside one opaque source group, and cites both pieces when the item evidence alone lacks a mandatory qualifier.",
+      "No internal source key appears in answerText or claim text.",
+      "Every meal has evidence supporting its name, simplicity and student suitability; no qualifier is dropped and no unsupported property is added.",
+      "All three rows pass the mechanical assessor and later canonical semantic review.",
+      "Any unsupported claim, imprecise insufficiency, protocol drift, budget stop or corpus-seal mismatch rejects this targeted campaign."
+    ],
+    "productPromotionRule": "This targeted causal campaign can validate collection-evidence ordering and private source grouping only. It cannot approve the product or replace the complete 3 by 4 campaign, planning gate, blind holdout or customer-server gate."
+  },
+  "stopRules": [
+    "Do not execute without a paid-tier observation less than 15 minutes old.",
+    "Stop before the first model call if the branch, clean-tree rule, bank hash, local runtime, model or provider configuration differs.",
+    "Stop before the first model call if the reference corpus cannot be sealed or has active ingestion; reject if the postflight seal differs.",
+    "Stop at the persistent lifetime, per-job or per-job-call budget guard.",
+    "Do not start RunPod or transmit private review artifacts."
+  ]
+}
