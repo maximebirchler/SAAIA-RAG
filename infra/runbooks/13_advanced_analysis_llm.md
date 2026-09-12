@@ -22,6 +22,37 @@ URL HTTPS. Le profil client peut utiliser une URL HTTP privée selon la politiqu
 réseau du déploiement. Une incohérence entre profil et localisation est rejetée
 avant tout appel HTTP.
 
+## Séparation licence, topologie et secret
+
+Ces axes restent indépendants afin que le futur assistant d'installation puisse
+composer une offre sans modifier le Router, les tools ou le contrat de résultat :
+
+- `License.AdvancedAnalysisEnabled` est le droit signé. Il ferme la création de
+  job, le provider et le worker ;
+- `AdvancedAnalysis.Provider` choisit un seul profil actif pour les jobs ;
+- `AdvancedAnalysis.LlmLocation` décrit si les preuves restent sur
+  l'infrastructure interne ou sortent vers un service externe ;
+- `AdvancedAnalysis.LlmApiKeyRef` référence un secret d'exploitation. La clé ne
+  constitue jamais un droit de licence et ne figure jamais dans la
+  configuration signée.
+
+Le profil local du client et la capacité avancée backend peuvent donc coexister :
+le petit modèle traite les demandes dans sa frontière, puis le handoff durable
+utilise le provider avancé licencié. Les modes directs `OpenAiDev` et
+`RunPodBench` du client restent des harnais de développement et de benchmark ;
+un installateur client destiné à un client ne doit ni les sélectionner ni y
+injecter une clé. Le chemin produit avancé passe par le backend et son droit
+signé.
+
+Le lot actuel ne propose pas encore une licence « serveur uniquement ». Lorsque
+ce produit sera décidé, il faudra ajouter un mode de routage client explicitement
+licencié qui crée les handoffs sans dépendre du petit modèle. Il ne faut pas
+simuler cette offre en activant un provider externe directement dans le client.
+Le profil `external-service` reste assez générique pour un futur endpoint
+OpenAI-compatible hébergé ailleurs, mais tout nouveau fournisseur devra recevoir
+un profil explicite et les mêmes gardes de confidentialité, TLS, budget et
+télémétrie.
+
 ## Variables prises en charge dans le lot actuel
 
 ```text
@@ -33,10 +64,12 @@ SAAIA_ADVANCED_LLM_MODEL
 SAAIA_ADVANCED_LLM_API_KEY
 ```
 
-Le secret est injecté dans le conteneur backend et référencé par
-`ENV:SAAIA_ADVANCED_LLM_API_KEY` dans la configuration signée. Il ne doit pas
-être écrit dans le JSON versionné, un argument de commande, un artefact de test
-ou Git.
+Pour un profil externe, le secret est obligatoire, injecté dans le conteneur
+backend et référencé par `ENV:SAAIA_ADVANCED_LLM_API_KEY` dans la configuration
+signée. Il ne doit pas être écrit dans le JSON versionné, un argument de
+commande, un artefact de test ou Git. Pour `customer-server`, ce secret est
+optionnel : lorsqu'il est absent, le backend n'envoie aucun en-tête
+`Authorization` au point d'accès privé.
 
 Les limites de tokens, de coût, de délai et de recherche possèdent pour
 l'instant des valeurs sûres dans le template signé. Le futur assistant

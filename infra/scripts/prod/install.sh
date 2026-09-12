@@ -81,7 +81,9 @@ if [[ "$ADVANCED_ANALYSIS_ENABLED" == "true" ]]; then
     exit 2
   fi
   : "${ADVANCED_LLM_MODEL:?SAAIA_ADVANCED_LLM_MODEL is required when advanced analysis is enabled}"
-  : "${SAAIA_ADVANCED_LLM_API_KEY:?SAAIA_ADVANCED_LLM_API_KEY is required when advanced analysis is enabled}"
+  if [[ "$ADVANCED_LLM_LOCATION" == "external-service" ]]; then
+    : "${SAAIA_ADVANCED_LLM_API_KEY:?SAAIA_ADVANCED_LLM_API_KEY is required for an external advanced-analysis provider}"
+  fi
 fi
 ADVANCED_EXTERNAL_ALLOWED="false"
 if [[ "$ADVANCED_ANALYSIS_ENABLED" == "true" && "$ADVANCED_LLM_LOCATION" == "external-service" ]]; then

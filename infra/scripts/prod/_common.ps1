@@ -294,8 +294,10 @@ function New-SignedConfig {
     if ([string]::IsNullOrWhiteSpace($advancedLlmModel)) {
       throw "SAAIA_ADVANCED_LLM_MODEL is required when advanced analysis is enabled."
     }
-    if (-not $env.ContainsKey('SAAIA_ADVANCED_LLM_API_KEY') -or [string]::IsNullOrWhiteSpace($env['SAAIA_ADVANCED_LLM_API_KEY'])) {
-      throw "SAAIA_ADVANCED_LLM_API_KEY is required when advanced analysis is enabled."
+    if ($externalProfile -and
+        (-not $env.ContainsKey('SAAIA_ADVANCED_LLM_API_KEY') -or
+         [string]::IsNullOrWhiteSpace($env['SAAIA_ADVANCED_LLM_API_KEY']))) {
+      throw "SAAIA_ADVANCED_LLM_API_KEY is required for an external advanced-analysis provider."
     }
   }
   $advancedExternalAllowed = if ($advancedAnalysisEnabledBool -and $advancedLlmLocation -eq 'external-service') { 'true' } else { 'false' }

@@ -746,6 +746,32 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Internal_customer_server_does_not_require_or_send_an_api_key()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"queries":[]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"Porridge documenté [C1].","claims":[{"claimId":"C1","text":"Le porridge est documenté.","evidenceIds":["E1"]}]}
+                """));
+        var provider = CreateProvider(factory, apiKey: null);
+        var gateway = new RecordingToolGateway(BuildEvidence(
+            "E1",
+            "Porridge aux pommes et cannelle."));
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(2, factory.Requests.Count);
+        Assert.All(factory.Requests, request =>
+            Assert.Null(request.Authorization));
+    }
+
+    [Fact]
     public async Task OpenAi_dev_does_not_retry_a_rate_limit_beyond_job_delay_cap()
     {
         using var factory = new QueuedHttpClientFactory(
