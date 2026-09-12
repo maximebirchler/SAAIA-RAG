@@ -83,6 +83,14 @@ try {
             -Answer "Je ne peux pas produire le planning complet sans invention : les cinq cases de souper ne disposent pas de cinq propositions étayées. [C1]" `
             -ExpectedVerdict "PASS_MECHANICAL_REQUIRES_SEMANTIC_REVIEW"
         Invoke-AssessorFixture `
+            -Name "passive-source-bound-insufficiency" `
+            -Answer "Une cinquième idée distincte n’est pas fournie par les extraits. [C1]" `
+            -ExpectedVerdict "PASS_MECHANICAL_REQUIRES_SEMANTIC_REVIEW"
+        Invoke-AssessorFixture `
+            -Name "vague-passive-insufficiency" `
+            -Answer "Une cinquième idée distincte n’est pas fournie. [C1]" `
+            -ExpectedVerdict "REJECT_MECHANICAL"
+        Invoke-AssessorFixture `
             -Name "incomplete-answer" `
             -Answer "Voici une proposition partielle pour lundi : soupe. [C1]" `
             -ExpectedVerdict "REJECT_MECHANICAL"

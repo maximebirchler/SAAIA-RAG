@@ -168,6 +168,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
     [InlineData("Les extraits disponibles ne suffisent cependant pas à établir ce point.")]
     [InlineData("Aucune disposition technique exploitable n'est présente dans les extraits.")]
     [InlineData("Les extraits fournis ne donnent pas de prescription technique permettant de répondre.")]
+    [InlineData("Une cinquième idée distincte n’est pas fournie par les extraits.")]
     [InlineData("Le planning complet ne peut donc pas être établi sans invention.")]
     [InlineData("Je ne peux pas produire les cinq unités demandées sans invention.")]
     [InlineData("Documentation insuffisante pour produire le planning complet.")]
@@ -199,6 +200,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
     [Theory]
     [InlineData("Voir les documents cités.")]
     [InlineData("La réponse reste à confirmer.")]
+    [InlineData("Une cinquième idée distincte n’est pas fournie.")]
     public void Advanced_semantic_flags_reject_vague_insufficiency_wording(
         string answer)
     {
@@ -1152,7 +1154,10 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
                    $@"\b{EvidenceSubject}\b[^.!?]{{0,180}}(?:\bne\b|n['\u2019])[^.!?]{{0,100}}\b(?:pas|aucun(?:e|s|es)?|insuffis\p{{L}}*|manqu\p{{L}}*|absent\p{{L}}*)\b")
             || RegexIsMatch(
                 normalized,
-                $@"\baucun(?:e|s|es)?\s+(?:disposition|prescription|information|preuve|[eé]l[eé]ment|contenu)\p{{L}}*\b[^.!?]{{0,160}}\b{EvidenceSubject}\b");
+                $@"\baucun(?:e|s|es)?\s+(?:disposition|prescription|information|preuve|[eé]l[eé]ment|contenu)\p{{L}}*\b[^.!?]{{0,160}}\b{EvidenceSubject}\b")
+            || RegexIsMatch(
+                normalized,
+                $@"(?:\bne\b|n['\u2019])[^.!?]{{0,100}}\b(?:pas|aucun(?:e|s|es)?|insuffis\p{{L}}*|manqu\p{{L}}*|absent\p{{L}}*)\b[^.!?]{{0,160}}\b(?:par|dans|selon)\s+(?:(?:le|la|les|un|une|des|du|de\s+la)\s+)?{EvidenceSubject}\b");
     }
 
     private static string NormalizeSourceTerms(string value)

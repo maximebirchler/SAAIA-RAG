@@ -52,7 +52,15 @@ function Get-MealGridStats([string]$Answer) {
 }
 
 function Test-LooksLikeExactInsufficiency([string]$Answer) {
-    return $Answer -match '(?i)\b(?:manqu\p{L}*|insuffis\p{L}*|absent\p{L}*|impossible|pas\s+assez|pas\s+suffisamment|non\s+(?:document|[eé]tay)\p{L}*|ne\s+(?:contient|contiennent|dispose|disposent|documentent|fournit|fournissent|permet(?:tent)?|peux|peut|peuvent)\s+(?:donc\s+)?pas|sans\s+fournir|not\s+enough|cannot|missing|insufficient)\b' -and
+    $directInsufficiency = $Answer -match '(?i)\b(?:manqu\p{L}*|insuffis\p{L}*|absent\p{L}*|impossible|pas\s+assez|pas\s+suffisamment|non\s+(?:document|[eé]tay)\p{L}*|ne\s+(?:contient|contiennent|dispose|disposent|documentent|fournit|fournissent|permet(?:tent)?|peux|peut|peuvent)\s+(?:donc\s+)?pas|sans\s+fournir|not\s+enough|cannot|missing|insufficient)\b'
+    $evidenceSubject = '(?:sources?|extraits?|documents?|documentation|preuves?|[eé]l[eé]ments?|corpus)'
+    $sourceBoundPassiveInsufficiency = $Answer -match (
+        '(?i)(?:\bne\b|n[''\u2019])[^.!?]{0,100}\b' +
+        '(?:pas|aucun(?:e|s|es)?|insuffis\p{L}*|manqu\p{L}*|absent\p{L}*)\b' +
+        '[^.!?]{0,160}\b(?:par|dans|selon)\s+' +
+        '(?:(?:le|la|les|un|une|des|du|de\s+la)\s+)?' +
+        $evidenceSubject + '\b')
+    return ($directInsufficiency -or $sourceBoundPassiveInsufficiency) -and
         $Answer -notmatch '(?i)capacit[eé].*avanc[eé]e|advanced analysis'
 }
 
