@@ -88,6 +88,7 @@ public sealed partial class MainWindow
             if (job.Status is "succeeded" or "failed" or "canceled")
             {
                 message.IsStreaming = false;
+                message.StatusNote = null;
                 message.ProgressText = null;
             }
 

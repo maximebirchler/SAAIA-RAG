@@ -173,6 +173,26 @@ function Find-OpenButtons {
     return @($matches)
 }
 
+function Find-StaleTerminalStatusLabels {
+    param([Parameter(Mandatory = $true)][System.Windows.Automation.AutomationElement]$Window)
+
+    $textCondition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+        [System.Windows.Automation.ControlType]::Text)
+    $texts = $Window.FindAll(
+        [System.Windows.Automation.TreeScope]::Descendants,
+        $textCondition)
+    $matches = @()
+    foreach ($text in $texts) {
+        if ([string]$text.Current.Name -in @(
+                'En attente', 'Queued', 'En espera', 'Em espera',
+                'Wartend', 'In coda')) {
+            $matches += $text
+        }
+    }
+    return @($matches)
+}
+
 function Save-WindowScreenshot {
     param(
         [Parameter(Mandatory = $true)][System.Windows.Automation.AutomationElement]$Window,
@@ -222,10 +242,14 @@ function Wait-ForTerminalSourceUi {
                 $window = Get-WindowElement -Process $Process
                 if ($null -ne $window) {
                     $buttons = @(Find-OpenButtons -Window $window)
-                    if ($buttons.Count -ge $ExpectedSourceCount) {
+                    $staleStatusLabels = @(
+                        Find-StaleTerminalStatusLabels -Window $window)
+                    if ($buttons.Count -ge $ExpectedSourceCount -and
+                        $staleStatusLabels.Count -eq 0) {
                         return [ordered]@{
                             window = $window
                             openButtons = $buttons
+                            staleTerminalStatusLabelCount = 0
                             observedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
                         }
                     }
@@ -651,6 +675,23 @@ try {
         -Process $clientProcess -ExpectedSourceCount $evidence.Count -TimeoutSeconds $ClientObservationTimeoutSeconds
     $window = $observation.window
     $openButtons = @($observation.openButtons)
+    $persistedMessages = @(Invoke-RestMethod -Method Get `
+        -Uri "$baseUrl/chat/sessions/$($sessionId.ToString('D'))/messages?userId=$([Uri]::EscapeDataString($userId))&limit=50" `
+        -Headers $headers)
+    $persistedMessage = $persistedMessages | Where-Object {
+        [string]$_.messageId -eq $messageId.ToString('D')
+    } | Select-Object -First 1
+    if ($null -eq $persistedMessage) {
+        throw 'The terminal assistant message was not persisted.'
+    }
+    $persistedStatusNote = Get-OptionalPropertyValue `
+        -InputObject $persistedMessage -Name 'statusNote'
+    $persistedProgressText = Get-OptionalPropertyValue `
+        -InputObject $persistedMessage -Name 'progressText'
+    if (-not [string]::IsNullOrWhiteSpace([string]$persistedStatusNote) -or
+        -not [string]::IsNullOrWhiteSpace([string]$persistedProgressText)) {
+        throw 'The terminal assistant message retained a pending status or progress label.'
+    }
     Save-WindowScreenshot -Window $window -Path (Join-Path $ArtifactDirectory 'terminal-source-cards.png')
 
     $firstEvidence = $evidence[0]
@@ -675,6 +716,8 @@ try {
         providerKey=$providerKey;providerModel=$providerModel
         sourceCount=$evidence.Count;visibleOpenButtonCount=$openButtons.Count
         terminalSourcesObservedAtUtc=$observation.observedAtUtc
+        staleTerminalStatusLabelCount=$observation.staleTerminalStatusLabelCount
+        persistedTerminalStatusCleared=$true
         exactSourceOpenedAtUtc=$sourceOpenedAtUtc
         openedEvidence=[ordered]@{
             evidenceId=[string]$firstEvidence.evidenceId;docId=[string]$firstEvidence.docId
