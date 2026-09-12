@@ -14026,3 +14026,28 @@ l'absence de lecture de secret ou d'appel externe. Assessment :
 `artifacts/reprise-pc-20260908/a763-windows-powershell-preflight-ec954ff6-20260912/assessment.v1.json`,
 SHA-256 `843EF528C3C13D0B346518CBFF908E667F1957751D5C9B6E7E4C0F667DE00681`.
 Produit `TESTE_NON_APPROUVE`.
+
+## A763 — exposition réseau des services de données corrigée — 2026-09-12
+
+`SAAIA_BIND_ADDR=0.0.0.0` devait permettre au client de joindre le backend, mais
+le Compose appliquait aussi cette valeur à PostgreSQL, Qdrant, TEI et au
+collecteur OTLP optionnel. Les environnements opérationnels fournis utilisent
+précisément cette valeur. Le commit `53df2aa7` réserve maintenant cette variable
+au backend et ajoute deux liaisons indépendantes, toutes deux à loopback par
+défaut : `SAAIA_INTERNAL_BIND_ADDR` pour les trois services de données et
+`SAAIA_OBSERVABILITY_BIND_ADDR` pour OTLP.
+
+Le test statique dédié vérifie douze invariants avec la commande publiée sous
+Windows PowerShell 5.1. Il garantit qu'une ouverture LAN du backend n'est plus
+héritée par les ports de données et que le diagnostic du grand modèle reste sur
+`127.0.0.1`. La documentation distingue aussi le chiffrement de transport
+imposé aux fournisseurs externes, le TLS ou tunnel requis pour le backend, et le
+chiffrement au repos encore fourni par l'infrastructure hôte. Les sauvegardes
+actuelles restent en clair et doivent être écrites sur une destination chiffrée.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-production-network-isolation-53df2aa-20260912/assessment.v1.json`,
+SHA-256 `8BD1A2C93C0A60C163A45C09F5B2DE8C7170C52936A584206B1AD48E1C4B598F`.
+Le déploiement serveur et les propriétés réelles du volume ne sont pas encore
+inspectables avec l'accès actuel. Aucun serveur, secret ou fournisseur externe
+n'a été touché. Produit `TESTE_NON_APPROUVE`.

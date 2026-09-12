@@ -1018,3 +1018,32 @@ MealGrid 4 et FullBank 48. Les trois indiquent le chemin relatif attendu,
 `artifacts/reprise-pc-20260908/a763-windows-powershell-preflight-ec954ff6-20260912/assessment.v1.json`,
 SHA-256 `843EF528C3C13D0B346518CBFF908E667F1957751D5C9B6E7E4C0F667DE00681`.
 Produit `TESTE_NON_APPROUVE`.
+
+## A763 — ports de données isolés de l'exposition du backend — 2026-09-12
+
+L'audit du chiffrement et des frontières réseau a trouvé que le Compose de
+production réutilisait `SAAIA_BIND_ADDR` pour le backend, PostgreSQL, Qdrant et
+TEI. Les deux fichiers d'environnement opérationnels observés définissent cette
+valeur à `0.0.0.0`. Selon le pare-feu et la version réellement déployée, ouvrir
+le backend pouvait donc ouvrir simultanément les ports des services de données.
+
+Le commit `53df2aa7` sépare les adresses. `SAAIA_BIND_ADDR` ne contrôle plus que
+le backend ; PostgreSQL, Qdrant et TEI utilisent
+`SAAIA_INTERNAL_BIND_ADDR`, dont la valeur par défaut est `127.0.0.1`. Le
+collecteur OTLP optionnel utilise également une adresse séparée et locale. Le
+port diagnostic du grand modèle reste lié explicitement à loopback. Les fichiers
+d'environnement existants n'ont besoin d'aucune nouvelle valeur pour obtenir ce
+comportement sûr au prochain déploiement.
+
+Douze invariants passent sous Windows PowerShell 5.1.26100.9444. La documentation
+rend maintenant obligatoires un reverse proxy TLS ou un tunnel chiffré pour le
+backend exposé, ainsi qu'un volume chiffré pour les données et sauvegardes. Elle
+signale honnêtement que `backup.ps1` produit des artefacts en clair et qu'aucun
+chiffrement applicatif au repos n'est implémenté. Assessment :
+`artifacts/reprise-pc-20260908/a763-production-network-isolation-53df2aa-20260912/assessment.v1.json`,
+SHA-256 `8BD1A2C93C0A60C163A45C09F5B2DE8C7170C52936A584206B1AD48E1C4B598F`.
+
+Docker est absent de ce PC et l'accès SSH sûr au serveur n'est pas disponible :
+le Compose réel, le TLS ou tunnel et le chiffrement du volume serveur restent à
+valider avant approbation. Aucun serveur n'a été modifié, aucun appel LLM n'a été
+effectué et aucun coût nouveau n'a été engagé. Produit `TESTE_NON_APPROUVE`.
