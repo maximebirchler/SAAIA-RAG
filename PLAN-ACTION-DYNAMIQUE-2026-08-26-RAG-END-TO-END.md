@@ -13856,6 +13856,21 @@ Assessment :
 SHA-256 `2880CE27D14A3926EE7333660B96C2BAB9B06C9A1ABD58A8C459BB29AF50E6AB`.
 Aucun appel externe et aucun coût nouveau. Produit `TESTE_NON_APPROUVE`.
 
+## A755/A763 — protocole du holdout final figé sans créer la banque — 2026-09-12
+
+`documents/agent/blind-holdout-protocol-a763-v1.md` préinscrit les conditions du
+holdout final tout en le gardant inexistant. Le commit doit d'abord passer les
+banques locale et avancée, le planning 5 x 4, l'inspection WinUI et le choix du
+fournisseur final. Une tâche indépendante produira ensuite 24 cas nouveaux ; la
+session de développement ne verra avant verdict qu'un manifeste avec hashes,
+agrégats, identités et budgets.
+
+L'exécution est unique, sans patch ni relance individuelle. Le verdict agrégé
+est écrit et hashé avant dévoilement, puis la banque est consommée. Une dérive
+du commit rend la campagne inconcluante avant démarrage ; une réponse sémantique
+fausse reste un échec. Aucun cas, oracle ou payload caché n'a été créé ou ouvert
+pendant cette préparation. Produit `TESTE_NON_APPROUVE`.
+
 ## A763 — profil de campagne RunPod figé et contrôlé — 2026-09-12
 
 Le commit `0ddaac68` remplace l'invocation RunPod entièrement manuelle par un

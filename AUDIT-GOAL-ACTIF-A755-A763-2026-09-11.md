@@ -828,3 +828,21 @@ a pour SHA-256
 `D26C9629982F978509E360104F2CC99D194434DB03CDAB03A8AC0786E31EF74A`.
 Aucun appel externe n'a été exécuté et les ports temporaires sont libres.
 Produit `TESTE_NON_APPROUVE`.
+
+## A755/A763 — méthode du nouveau holdout aveugle préinscrite — 2026-09-12
+
+Le document `documents/agent/blind-holdout-protocol-a763-v1.md` fixe désormais
+la porte d'ouverture, la séparation des rôles, la couverture minimale, le
+manifeste public sans question, l'exécution unique et les critères de rejet.
+Il exige un constructeur-évaluateur indépendant, 24 cas nouveaux couvrant les
+terminaux local, clarification, insuffisance, avancé et la frontière proche,
+ainsi que les six langues du client. Zéro fait non soutenu, citation forgée ou
+relation claim/preuve fausse est toléré pour l'approbation.
+
+Le protocole interdit de créer la banque avant validation des campagnes connues,
+inspection WinUI, choix du fournisseur final et gel du commit. Après création,
+toute correction sémantique invalide le payload sans l'ouvrir. Seuls les hashes,
+comptes agrégés, identités runtime et budgets sont visibles avant le verdict ;
+les détails ne sont dévoilés qu'après scellement du verdict et la banque devient
+alors consommée. Aucun nouveau cas, oracle ou payload caché n'a été produit ou
+consulté pendant ce jalon. Produit `TESTE_NON_APPROUVE`.
