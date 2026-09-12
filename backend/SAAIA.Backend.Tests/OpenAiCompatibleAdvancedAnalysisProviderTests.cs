@@ -495,7 +495,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(4, result.ProviderCallCount);
         Assert.Equal(4, factory.Requests.Count);
         Assert.Contains(
-            "second-pass SAAIA synthesis completer",
+            "final SAAIA synthesis completer",
             factory.Requests[3].Body,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -507,8 +507,76 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             factory.Requests[3].Body,
             StringComparison.Ordinal);
         Assert.Contains(
-            "firstWriterCandidate",
+            "priorCandidate",
             factory.Requests[3].Body,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Critic_insufficiency_gets_final_synthesis_recovery_when_evidence_is_ample()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"selectionMode":"distinct_named_items","queries":[{"query":"recettes","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"decision":"search_more","queries":[{"query":"recettes matin","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"decision":"search_more","queries":[{"query":"recettes collation","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"outcome":"insufficient_documentation","answerText":"Les sources ne prescrivent pas les cases.","claims":[]}
+                """),
+            Completion("""
+                {"outcome":"insufficient_documentation","answerText":"Le tableau reste incomplet.","claims":[]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"Planning proposé : recette 1 [C1], recette 2 [C2], recette 3 [C3], recette 4 [C4].","claims":[{"claimId":"C1","selectedItem":"Recette 1","text":"La recette 1 est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"Recette 2","text":"La recette 2 est documentée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"Recette 3","text":"La recette 3 est documentée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"Recette 4","text":"La recette 4 est documentée.","evidenceIds":["E4"]}]}
+                """));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        options.SemanticCriticEnabled = true;
+        options.ExternalMaximumCallsPerJob = 6;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+        var gateway = new RecordingToolGateway(
+            Enumerable.Range(1, 20)
+                .Select(index => BuildEvidence(
+                    $"E{index}",
+                    $"Recette documentée {index}.",
+                    exactTitle: $"Recette {index}"))
+                .ToArray());
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(
+                answerUnitCount: 4,
+                atomicEvidenceMode: "named_item",
+                selectionPolicy: "distinct_structured_layout"),
+            gateway,
+            CancellationToken.None);
+
+        Assert.True(
+            string.Equals(result.Outcome, "answered", StringComparison.Ordinal),
+            $"Unexpected recovery outcome: {result.Outcome}; {result.AnswerText}");
+        Assert.Equal(6, result.ProviderCallCount);
+        Assert.Equal(6, factory.Requests.Count);
+        Assert.Equal(
+            ["recettes", "recettes matin", "recettes collation"],
+            gateway.Searches.Select(static item => item.Query).ToArray());
+        Assert.Contains(
+            "final SAAIA synthesis completer",
+            factory.Requests[5].Body,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Le tableau reste incomplet",
+            factory.Requests[5].Body,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "priorCandidate",
+            factory.Requests[5].Body,
             StringComparison.Ordinal);
     }
 
@@ -648,7 +716,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(4, result.ProviderCallCount);
         Assert.Equal("R3", result.Claims[2].SelectedItem);
         Assert.Contains(
-            "second-pass SAAIA synthesis completer",
+            "final SAAIA synthesis completer",
             factory.Requests[3].Body,
             StringComparison.Ordinal);
     }

@@ -129,7 +129,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     _options.ExternalMaximumCallsPerJob,
                     1,
                     1_024);
-                var reservedFinalCalls = runSemanticCritic ? 2 : 1;
+                var reserveSynthesisRecovery = runSemanticCritic
+                    && request.Handoff.Load.StructuredLayout;
+                var reservedFinalCalls = runSemanticCritic
+                    ? reserveSynthesisRecovery ? 3 : 2
+                    : 1;
                 var reviewRound = 0;
                 while (completions.Count < maximumCalls - reservedFinalCalls)
                 {
@@ -251,36 +255,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     1,
                     1_024))
             {
-                try
-                {
-                    var recovery = await CompleteJsonAsync(
-                            request.JobId,
-                            "synthesis-recovery",
-                            BuildSynthesisRecoverySystemPrompt(),
-                            BuildSynthesisRecoveryUserPrompt(
-                                request,
-                                parsed,
-                                promptEvidence),
-                            Math.Clamp(_options.WriterMaxTokens, 512, 16_384),
+                (parsed, synthesisRecoveryErrorCode) =
+                    await AttemptSynthesisRecoveryAsync(
+                            request,
+                            parsed,
+                            evidence,
+                            promptEvidence,
+                            completions,
                             cancellationToken)
                         .ConfigureAwait(false);
-                    completions.Add(recovery);
-                    parsed = ParseResult(recovery.Content, evidence, request);
-                    parsed = CanonicalizeDistinctSelectedItems(
-                        request,
-                        parsed,
-                        promptEvidence);
-                    parsed = RebindDistinctSelectedItemsToSupportingEvidence(
-                        request,
-                        parsed,
-                        promptEvidence);
-                }
-                catch (AdvancedAnalysisProviderException ex)
-                {
-                    synthesisRecoveryErrorCode = ex.ErrorCode;
-                    // Final structural enforcement below converts any unresolved
-                    // distinct-selection defect to a safe terminal insufficiency.
-                }
             }
             if (runSemanticCritic
                 && completions.Count < Math.Clamp(
@@ -315,6 +298,26 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     parsed,
                     promptEvidence);
             }
+            if (runSemanticCritic
+                && ShouldAttemptSynthesisRecovery(
+                    request,
+                    parsed,
+                    promptEvidence)
+                && completions.Count < Math.Clamp(
+                    _options.ExternalMaximumCallsPerJob,
+                    1,
+                    1_024))
+            {
+                (parsed, synthesisRecoveryErrorCode) =
+                    await AttemptSynthesisRecoveryAsync(
+                            request,
+                            parsed,
+                            evidence,
+                            promptEvidence,
+                            completions,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+            }
             parsed = EnforceDistinctStructuredSelection(
                 request,
                 parsed,
@@ -328,6 +331,48 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         finally
         {
             _budget?.EndJob(request.JobId);
+        }
+    }
+
+    private async Task<(AdvancedAnalysisProviderResult Result, string? ErrorCode)>
+        AttemptSynthesisRecoveryAsync(
+            AdvancedAnalysisProviderRequest request,
+            AdvancedAnalysisProviderResult candidate,
+            IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
+            IReadOnlyList<PromptEvidenceItem> promptEvidence,
+            ICollection<CompletionResult> completions,
+            CancellationToken cancellationToken)
+    {
+        try
+        {
+            var recovery = await CompleteJsonAsync(
+                    request.JobId,
+                    "synthesis-recovery",
+                    BuildSynthesisRecoverySystemPrompt(),
+                    BuildSynthesisRecoveryUserPrompt(
+                        request,
+                        candidate,
+                        promptEvidence),
+                    Math.Clamp(_options.WriterMaxTokens, 512, 16_384),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            completions.Add(recovery);
+            var recovered = ParseResult(recovery.Content, evidence, request);
+            recovered = CanonicalizeDistinctSelectedItems(
+                request,
+                recovered,
+                promptEvidence);
+            recovered = RebindDistinctSelectedItemsToSupportingEvidence(
+                request,
+                recovered,
+                promptEvidence);
+            return (recovered, null);
+        }
+        catch (AdvancedAnalysisProviderException ex)
+        {
+            // Final structural enforcement converts an unresolved recovery defect
+            // to a safe terminal insufficiency.
+            return (candidate, ex.ErrorCode);
         }
     }
 

@@ -293,7 +293,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
     private static string BuildSynthesisRecoverySystemPrompt()
         => """
-           You are the second-pass SAAIA synthesis completer. The first Writer
+           You are the final SAAIA synthesis completer. A prior Writer or Critic
            returned insufficient_documentation and may have confused missing
            documentary evidence with a placement that the user asked SAAIA to
            create. Re-evaluate the whole supplied evidence set independently.
@@ -466,7 +466,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             load = BuildPromptLoad(request.Handoff.Load),
             claimCoordinates = BuildStructuredClaimCoordinates(
                 request.Handoff.Load),
-            firstWriterCandidate = new
+            priorCandidate = new
             {
                 outcome = candidate.Outcome,
                 answerText = candidate.AnswerText,
