@@ -13724,3 +13724,57 @@ pour P14 à 22 152 ms pour P02. Assessment SHA-256 :
 Cette exécution prouve la non-régression de la frontière sur une banque déjà
 vue. Elle ne transforme pas ce lot en holdout aveugle et ne valide pas la
 qualité Terra ou le produit complet, qui reste `TESTE_NON_APPROUVE`.
+
+## A763 — audit de clôture mécanique multi-provider — 2026-09-12
+
+L'audit ligne par ligne de la mission distingue désormais deux parcours qui
+partagent le même RAG. Les probes DEV/BENCH injectent `ILlmProvider` dans le
+client afin de comparer Local, OpenAI et RunPod. Le parcours produit garde le
+petit modèle local puis crée un job backend durable confié à
+`IAdvancedAnalysisProvider`. Cette séparation est documentée dans
+`documents/agent/llm-provider-architecture-v1.md` et
+`documents/agent/advanced-analysis-server-provider-v1.md` ; elle évite de
+confondre une sonde directe avec la preuve du handoff, des citations et de la
+reprise durable.
+
+Le commit `4744d813` normalise les timeouts et ruptures réseau survenant aussi
+pendant la lecture du corps HTTP avancé. L'annulation demandée par l'utilisateur
+reste distincte. Les 33 tests provider couvrent le timeout après en-têtes, la
+rupture pendant le corps et l'annulation appelant. La suite backend complète
+compte alors 2 150 réussites, zéro échec et une probe live ignorée.
+
+Le commit `09207d68` ajoute une ligne de télémétrie par appel externe : identités
+requête/trace/job, durée, tentatives et retries, tokens, coût et erreur typée.
+Le registre exclut prompt, EvidenceBundle, endpoint et secret. Un scénario
+429 -> retry -> succès vérifie les compteurs et les identifiants sans appel
+externe. Le TTFT avancé reste nul tant que le Writer produit un JSON atomique
+validé avant publication.
+
+Le commit `76140189` rend les erreurs `advanced_llm_timeout` et
+`advanced_llm_transport_error` actionnables dans les six langues du client. Un
+échec ne publie ni payload fournisseur non validé ni carte source. Sur ce SHA,
+la validation Release totalise 4 397 réussites, zéro échec et deux probes live
+ignorées. L'assessment est conservé sous
+`artifacts/reprise-pc-20260908/a763-client-provider-failure-ux-7614018-20260912`.
+
+Le commit `107fffe4` retire les valeurs RunPod implicites du lanceur produit.
+Une campagne doit fournir endpoint, modèle, budget et tarifs ; son preflight
+peut sceller runtime, profil, GPU, quantification, hash du modèle, contexte et
+coût horaire. Les scripts passent l'analyseur PowerShell et aucun appel ou achat
+RunPod n'a été effectué.
+
+Enfin, `690d7d14` supprime le dernier constructeur public de `RagChatAgent` qui
+acceptait directement `OpenAiLlmClient` avec une identité Local/llama.cpp
+implicite. L'unique constructeur public exige `ILlmProvider`; les probes live
+passent par la factory avec endpoint, modèle et profil explicites. Un test par
+réflexion verrouille cette frontière. Sur le SHA exact, les 20 scénarios
+d'architecture et les 2 238 tests client passent, zéro échec, une probe live
+ignorée. Assessment :
+`artifacts/reprise-pc-20260908/a763-explicit-client-provider-690d7d1-20260912/assessment.v1.json`,
+SHA-256 `47A293EBABE2BA90374014EEFE86EA8770B1408B93550A797FB61CADF47F9ADA`.
+
+Ces fermetures sont mécaniques et sans dépense. Les portes sémantiques restent
+la banque Terra trois fois sur le descendant de `b20fcc2`, les trois plannings
+acceptés avec relation cellule/preuve, l'inspection terminale WinUI et des
+cartes sources, puis un nouveau holdout aveugle. RunPod attend une autorisation
+de dépense et un candidat concret. Le produit reste `TESTE_NON_APPROUVE`.
