@@ -78,30 +78,37 @@ réparation, tout en arrêtant une dérive avant qu'elle affecte le reste de la
 banque. La dépense réelle devra être rapprochée du registre SAAIA et du tableau
 RunPod après chaque jalon.
 
-Invocation préparée, à ne lancer qu'après autorisation explicite et import de la
-clé dans le coffre SAAIA. Le runtime est obligatoire afin qu'un endpoint public
-ne soit jamais étiqueté implicitement `llama.cpp` :
+Ces paramètres sont figés dans
+`config/runpod-benchmark.a763.json`. Le profil a pour SHA-256
+`C1925F2BF6885A10B4A36469CB1AF3E787935143A81BED305A5B74FAF0E22DF6`.
+Le préflight suivant relit et valide le profil, produit un sceau, mais ne lit
+aucune clé et n'exécute aucun appel externe :
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-advanced-product-path-runpod.ps1 `
-  -ServerEnvPath <server-env-path> `
-  -AuthorizedBudgetUsd 5 `
-  -SoftLimitUsd 4 `
-  -HardLimitUsd 4.80 `
-  -MaximumCostPerJobUsd 0.40 `
-  -MaximumCallsPerJob 4 `
-  -Repetitions 3 `
-  -DelayBetweenCasesSeconds 2 `
-  -BaseUrl "https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1" `
-  -ModelId "Qwen/Qwen3-32B-AWQ" `
-  -InputUsdPerMillionTokens 10 `
-  -CachedInputUsdPerMillionTokens 10 `
-  -OutputUsdPerMillionTokens 10 `
-  -ProviderRuntime "runpod-public-openai" `
-  -RuntimeProfile "qwen3-32b-awq-public-20260720" `
-  -Quantization "AWQ 4-bit" `
-  -ContextSize 32768
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File .\tools\test-runpod-campaign-profile.ps1
 ```
+
+Après autorisation explicite et import de la clé dans le coffre SAAIA, la même
+configuration se lance uniquement avec les deux options d'exécution et de
+sortie de contenu. Le runtime obligatoire du profil empêche qu'un endpoint
+public soit étiqueté implicitement `llama.cpp` :
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File .\tools\test-runpod-campaign-profile.ps1 `
+  -Execute `
+  -ExternalContentAuthorized `
+  -ServerEnvPath <server-env-path>
+```
+
+Le commit `0ddaac68` contient le profil et ce lanceur. Le préflight exécuté sur
+ce SHA valide douze jobs attendus, au plus quarante-huit appels selon l'enveloppe
+par job, les plafonds 5/4/4,80/0,40 USD, l'URL HTTPS, le modèle et le runtime.
+Une tentative `-Execute` sans `-ExternalContentAuthorized` est arrêtée avant
+lecture d'un secret et avant réseau. Assessment :
+`artifacts/reprise-pc-20260908/a763-runpod-profile-0ddaac6-20260912/assessment.v1.json`,
+SHA-256 `7F075B02C5A034FC05711738592EEE55AE2EEBE90B98571CD8C55E9CC0A0D095`.
 
 ## Limite de preuve du candidat R1
 
@@ -151,14 +158,15 @@ Après autorisation de dépense, la campagne R1 suivra cet ordre :
 
 1. créer ou utiliser un compte RunPod crédité et importer une clé limitée dans
    le coffre local SAAIA ;
-2. exécuter une sonde OpenAI compatible minimale, vérifier l'authentification,
+2. relancer le profil scellé avec `-Execute -ExternalContentAuthorized` ;
+3. exécuter une sonde OpenAI compatible minimale, vérifier l'authentification,
    le ModelId demandé, le JSON structuré, l'usage et le coût ;
-3. lancer une seule fois le planning 5 x 4 par le parcours produit complet ;
-4. relire chaque cellule et chaque preuve avant d'autoriser la suite ;
-5. si ce résultat est acceptable, exécuter les quatre cas trois fois sur le
+4. lancer une seule fois le planning 5 x 4 par le parcours produit complet ;
+5. relire chaque cellule et chaque preuve avant d'autoriser la suite ;
+6. si ce résultat est acceptable, exécuter les quatre cas trois fois sur le
    même commit, la même banque, le même profil et le même corpus ;
-6. produire l'assessment mécanique, puis une revue sémantique séparée ;
-7. vérifier le registre de coût, l'arrêt des processus SAAIA temporaires et
+7. produire l'assessment mécanique, puis une revue sémantique séparée ;
+8. vérifier le registre de coût, l'arrêt des processus SAAIA temporaires et
    l'absence de ressource RunPod privée résiduelle.
 
 Les critères sont ceux de Terra : douze jobs terminaux attendus, trois

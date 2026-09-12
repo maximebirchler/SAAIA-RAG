@@ -13855,3 +13855,20 @@ Assessment :
 `artifacts/reprise-pc-20260908/a763-runpod-cost-proxy-20260912/assessment.v1.json`,
 SHA-256 `2880CE27D14A3926EE7333660B96C2BAB9B06C9A1ABD58A8C459BB29AF50E6AB`.
 Aucun appel externe et aucun coût nouveau. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — profil de campagne RunPod figé et contrôlé — 2026-09-12
+
+Le commit `0ddaac68` remplace l'invocation RunPod entièrement manuelle par un
+profil versionné et un lanceur à deux modes. Le mode par défaut valide l'URL
+HTTPS, le modèle, l'identité runtime, les prix, l'enveloppe de coût et la banque,
+puis produit un sceau sans lire de clé ni appeler le service. Le mode payant
+exige en plus `-Execute -ExternalContentAuthorized` et le fichier environnement
+serveur avant de déléguer au parcours produit existant.
+
+Le préflight sur le SHA exact scelle douze jobs, au plus quarante-huit appels,
+5 USD autorisés, un arrêt local à 4,80 USD et 0,40 USD par job. Le garde a refusé
+une demande d'exécution sans autorisation de sortie avant secret et réseau.
+Assessment :
+`artifacts/reprise-pc-20260908/a763-runpod-profile-0ddaac6-20260912/assessment.v1.json`,
+SHA-256 `7F075B02C5A034FC05711738592EEE55AE2EEBE90B98571CD8C55E9CC0A0D095`.
+Aucun appel externe et aucun coût nouveau. Produit `TESTE_NON_APPROUVE`.

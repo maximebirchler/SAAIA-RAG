@@ -769,6 +769,29 @@ a pour SHA-256
 Aucun appel externe n'a été exécuté et les ports 1234, 5123 et 18081 sont libres.
 Produit `TESTE_NON_APPROUVE`.
 
+## A763 — profil RunPod exécutable figé et préflight sans réseau — 2026-09-12
+
+Le commit `0ddaac68` transforme les paramètres proposés en un profil versionné
+`config/runpod-benchmark.a763.json` et ajoute
+`tools/test-runpod-campaign-profile.ps1`. Le profil scelle l'endpoint public
+Qwen3 32B AWQ, le ModelId, le runtime, le profil, la quantification, le contexte,
+les trois prix à 10 USD/M, les quatre cas, trois répétitions et les plafonds
+5/4/4,80/0,40 USD. Son SHA-256 est
+`C1925F2BF6885A10B4A36469CB1AF3E787935143A81BED305A5B74FAF0E22DF6`.
+
+Le lanceur sépare deux actions. Sans option, il valide et scelle uniquement la
+configuration : aucun secret n'est lu et aucun appel externe n'est exécuté.
+L'exécution payante exige simultanément `-Execute`,
+`-ExternalContentAuthorized` et le fichier d'environnement serveur. Une
+tentative sans autorisation de contenu a été refusée avant secret et réseau.
+L'analyseur PowerShell rapporte zéro erreur ; les douze jobs attendus et le
+maximum théorique de quarante-huit appels sont consignés. Assessment :
+`artifacts/reprise-pc-20260908/a763-runpod-profile-0ddaac6-20260912/assessment.v1.json`,
+SHA-256 `7F075B02C5A034FC05711738592EEE55AE2EEBE90B98571CD8C55E9CC0A0D095`.
+Les ports 1234, 5123 et 18081 sont libres. Ce préflight prouve la cohérence de
+la campagne, pas la qualité de Qwen ni la disponibilité RunPod. Aucun compte,
+crédit, clé ou appel RunPod n'a été créé. Produit `TESTE_NON_APPROUVE`.
+
 ## A763 — coût RunPod recalculé sur douze jobs existants — 2026-09-12
 
 Le proxy de coût sélectionne les trois jobs réussis les plus récents pour
