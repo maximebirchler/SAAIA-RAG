@@ -611,10 +611,10 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         using var factory = new QueuedHttpClientFactory(
             Completion("""
                 {"queries":[{"query":"preuve qualifiée","topK":20}]}
-                """),
+                """, model: "Qwen/Qwen3-32B-AWQ"),
             Completion("""
                 {"outcome":"answered","answerText":"Réponse sourcée [C1].","claims":[{"claimId":"C1","text":"Preuve.","evidenceIds":["E1"]}]}
-                """));
+                """, model: "Qwen/Qwen3-32B-AWQ"));
         var options = CreateOptions();
         options.Provider = "runpod-bench";
         options.LlmLocation = "external-service";
@@ -672,6 +672,8 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                 .GetProperty("provider").GetString());
             Assert.Equal("open-model-candidate", entry.RootElement
                 .GetProperty("modelId").GetString());
+            Assert.Equal("Qwen/Qwen3-32B-AWQ", entry.RootElement
+                .GetProperty("observedModelId").GetString());
         });
     }
 
@@ -1177,11 +1179,14 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             },
             content);
 
-    private static HttpResponseMessage Completion(string content)
+    private static HttpResponseMessage Completion(
+        string content,
+        string? model = null)
         => new(HttpStatusCode.OK)
         {
             Content = JsonContent.Create(new
             {
+                model,
                 choices = new[]
                 {
                     new { message = new { role = "assistant", content } }

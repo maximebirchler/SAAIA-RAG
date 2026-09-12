@@ -113,7 +113,8 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
         Reservation reservation,
         AdvancedAnalysisLlmUsage usage,
         long elapsedMilliseconds = 0,
-        int httpAttemptCount = 1)
+        int httpAttemptCount = 1,
+        string? observedModelId = null)
     {
         var hasProviderUsage = usage.InputTokens is >= 0
                                && usage.OutputTokens is >= 0;
@@ -130,7 +131,8 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
             success: true,
             errorCode: null,
             elapsedMilliseconds,
-            httpAttemptCount);
+            httpAttemptCount,
+            observedModelId);
     }
 
     internal void Fail(
@@ -197,7 +199,8 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
         bool success,
         string? errorCode,
         long elapsedMilliseconds,
-        int httpAttemptCount)
+        int httpAttemptCount,
+        string? observedModelId = null)
     {
         lock (_gate)
         {
@@ -224,6 +227,7 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
                 jobId = reservation.JobId,
                 provider = _providerKey,
                 modelId = _modelId,
+                observedModelId = NormalizeObservedModelId(observedModelId),
                 role = reservation.Role,
                 inputTokens = usage.InputTokens,
                 outputTokens = usage.OutputTokens,
@@ -241,6 +245,14 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
             });
             return new AdvancedAnalysisBudgetCharge(usage, cost, usageSource);
         }
+    }
+
+    private static string? NormalizeObservedModelId(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        var normalized = value.Trim();
+        return normalized.Length <= 256 ? normalized : null;
     }
 
     internal static decimal CalculateCost(

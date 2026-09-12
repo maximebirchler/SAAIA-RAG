@@ -380,6 +380,8 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                             cancellationToken: timeout.Token)
                         .ConfigureAwait(false);
                     var usage = ReadUsage(document.RootElement);
+                    var observedModelId = ReadObservedModelId(
+                        document.RootElement);
                     if (!document.RootElement.TryGetProperty(
                             "choices",
                             out var choices)
@@ -412,7 +414,8 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                                 reservation,
                                 usage,
                                 stopwatch.ElapsedMilliseconds,
-                                httpAttemptCount);
+                                httpAttemptCount,
+                                observedModelId);
                         }
                         finally
                         {
@@ -502,6 +505,19 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
             }
             throw;
         }
+    }
+
+    private static string? ReadObservedModelId(JsonElement root)
+    {
+        if (!root.TryGetProperty("model", out var value)
+            || value.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+        var model = value.GetString()?.Trim();
+        return string.IsNullOrWhiteSpace(model) || model.Length > 256
+            ? null
+            : model;
     }
 
     private bool TryResolveRateLimitRetryDelay(
