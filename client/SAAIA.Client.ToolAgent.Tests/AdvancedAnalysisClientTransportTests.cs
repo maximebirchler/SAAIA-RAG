@@ -308,6 +308,40 @@ public sealed class AdvancedAnalysisClientTransportTests
             json.RootElement.GetProperty("advancedAnalysis").GetProperty("lastErrorCode").GetString());
     }
 
+    [Theory]
+    [InlineData("advanced_llm_timeout", "did not respond within the allowed time")]
+    [InlineData("advanced_llm_transport_error", "currently unreachable")]
+    public async Task Workflow_explains_actionable_provider_failures_without_publishing_untrusted_data(
+        string errorCode,
+        string expectedMessage)
+    {
+        var handler = new SequenceHandler((_, _, _) => Task.FromResult(Json(
+            HttpStatusCode.OK,
+            Job(
+                "failed",
+                2,
+                new { answerText = "untrusted provider payload" },
+                lastErrorCode: errorCode))));
+
+        var result = await ExecuteAsync(handler);
+
+        Assert.True(result.Handled);
+        Assert.Equal("failed", result.Outcome);
+        Assert.Contains(expectedMessage, result.FinalAnswer,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("untrusted provider payload", result.FinalAnswer,
+            StringComparison.OrdinalIgnoreCase);
+        var payload = JsonSerializer.Serialize(
+            result.SourcesPayload,
+            ClientJson.CamelCase);
+        Assert.Empty(SourceCardParser.Parse(payload));
+        using var json = JsonDocument.Parse(payload);
+        Assert.Equal(
+            errorCode,
+            json.RootElement.GetProperty("advancedAnalysis")
+                .GetProperty("lastErrorCode").GetString());
+    }
+
     [Fact]
     public async Task Workflow_explains_provider_change_without_mixing_models()
     {

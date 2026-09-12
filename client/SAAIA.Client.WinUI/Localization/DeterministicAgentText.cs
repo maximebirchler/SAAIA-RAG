@@ -150,6 +150,34 @@ internal static class DeterministicAgentText
                 "Il servizio di analisi avanzata ha temporaneamente raggiunto il limite di richieste. Non vengono mostrate risposte o fonti non convalidate. Riprova dopo il ripristino della quota oppure usa un altro fornitore autorizzato.");
         }
 
+        if (string.Equals(
+                errorCode,
+                "advanced_llm_timeout",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return Pick(language,
+                "Le service d'analyse avancée n'a pas répondu dans le délai prévu. Aucune réponse ni source non validée n'est affichée. Vous pouvez relancer la demande lorsque le service est disponible.",
+                "The advanced analysis service did not respond within the allowed time. No unvalidated answer or source is displayed. You can retry when the service is available.",
+                "El servicio de análisis avanzado no respondió dentro del tiempo previsto. No se muestra ninguna respuesta ni fuente sin validar. Puedes volver a intentarlo cuando el servicio esté disponible.",
+                "O serviço de análise avançada não respondeu dentro do tempo previsto. Não é apresentada qualquer resposta ou fonte não validada. Pode tentar novamente quando o serviço estiver disponível.",
+                "Der Dienst für die erweiterte Analyse hat nicht innerhalb der vorgesehenen Zeit geantwortet. Es werden keine ungeprüften Antworten oder Quellen angezeigt. Sie können die Anfrage erneut starten, sobald der Dienst verfügbar ist.",
+                "Il servizio di analisi avanzata non ha risposto entro il tempo previsto. Non vengono mostrate risposte o fonti non convalidate. Puoi riprovare quando il servizio è disponibile.");
+        }
+
+        if (string.Equals(
+                errorCode,
+                "advanced_llm_transport_error",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return Pick(language,
+                "Le service d'analyse avancée est actuellement injoignable. Aucune réponse ni source non validée n'est affichée. Vérifiez sa disponibilité avant de relancer la demande.",
+                "The advanced analysis service is currently unreachable. No unvalidated answer or source is displayed. Check that it is available before retrying.",
+                "El servicio de análisis avanzado no está disponible actualmente. No se muestra ninguna respuesta ni fuente sin validar. Comprueba su disponibilidad antes de volver a intentarlo.",
+                "O serviço de análise avançada está atualmente inacessível. Não é apresentada qualquer resposta ou fonte não validada. Verifique a disponibilidade antes de tentar novamente.",
+                "Der Dienst für die erweiterte Analyse ist derzeit nicht erreichbar. Es werden keine ungeprüften Antworten oder Quellen angezeigt. Prüfen Sie seine Verfügbarkeit, bevor Sie es erneut versuchen.",
+                "Il servizio di analisi avanzata non è attualmente raggiungibile. Non vengono mostrate risposte o fonti non convalidate. Verificane la disponibilità prima di riprovare.");
+        }
+
         return Pick(language,
             "L'analyse avancée n'a pas pu terminer cette demande. Aucun résultat de fournisseur ni aucune source non validée ne sont affichés.",
             "Advanced analysis could not complete this request. No provider result or unvalidated source is displayed.",
