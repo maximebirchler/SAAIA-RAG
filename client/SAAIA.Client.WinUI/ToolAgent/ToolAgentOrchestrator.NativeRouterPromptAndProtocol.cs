@@ -1236,6 +1236,32 @@ public sealed partial class ToolAgentOrchestrator
                     ? "single_item"
                     : "explicit_set";
         }
+        var declaresNamedStructuredEntry = string.Equals(
+                compactKind,
+                "grid",
+                StringComparison.Ordinal)
+            && System.Text.RegularExpressions.Regex.IsMatch(
+                atomicEvidenceType,
+                @"(?:^|[_\s-])(?:entry|item|option|instance)(?:$|[_\s-])",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+                | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        if (declaresNamedStructuredEntry
+            && string.Equals(
+                atomicEvidenceMode,
+                "content_claim",
+                StringComparison.Ordinal))
+        {
+            EmitRagTrace(
+                "router.native.mechanical_adjustment",
+                ("adjustment", "named_grid_entry_contract_canonicalized"),
+                ("atomic_evidence_type", atomicEvidenceType),
+                ("provided_mode", atomicEvidenceMode),
+                ("derived_mode", "named_item"),
+                ("provided_selection", selectionPolicy),
+                ("derived_selection", "distinct_structured_layout"));
+            atomicEvidenceMode = "named_item";
+            selectionPolicy = "distinct_structured_layout";
+        }
         var boundedExtractionFromNamedDocument =
             string.Equals(compactKind, "many", StringComparison.Ordinal)
             && string.Equals(

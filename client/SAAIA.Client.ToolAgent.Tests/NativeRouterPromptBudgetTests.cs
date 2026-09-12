@@ -1219,6 +1219,61 @@ public sealed class NativeRouterPromptBudgetTests
     }
 
     [Fact]
+    public void Native_router_canonicalizes_a_named_grid_entry_contract()
+    {
+        var result = ToolAgentOrchestrator.TryBuildNativeRouterPlanForTests(
+            NativeRouterCatalogWithCompactReferences(),
+            "Construis un planning documenté du lundi au vendredi avec Matin, Midi, Collation et Soir.",
+            "submit_source_backed_grid_route",
+            """
+            {
+              "sourceItemType": "meal_plan_entry",
+              "sourceItemMode": "content_claim",
+              "selectionPolicy": "structured_layout",
+              "scope": "cat_001",
+              "count": 20,
+              "rowHeader": "Jour",
+              "rows": ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"],
+              "columns": ["Matin", "Midi", "Collation", "Soir"]
+            }
+            """);
+
+        Assert.True(result.Accepted, result.FailureReason);
+        var mission = Assert.IsType<RouterPlan.SourceBackedMissionPlan>(
+            result.Plan.SourceBackedMission);
+        Assert.Equal("meal_plan_entry", mission.AtomicEvidenceType);
+        Assert.Equal("named_item", mission.AtomicEvidenceMode);
+        Assert.Equal("distinct_structured_layout", mission.SelectionPolicy);
+    }
+
+    [Fact]
+    public void Native_router_preserves_an_explicitly_repeatable_named_grid()
+    {
+        var result = ToolAgentOrchestrator.TryBuildNativeRouterPlanForTests(
+            NativeRouterCatalogWithCompactReferences(),
+            "Construis un planning documenté du lundi au vendredi avec Matin, Midi, Collation et Soir ; les repas peuvent se répéter.",
+            "submit_source_backed_grid_route",
+            """
+            {
+              "sourceItemType": "meal_plan_entry",
+              "sourceItemMode": "named_item",
+              "selectionPolicy": "structured_layout",
+              "scope": "cat_001",
+              "count": 20,
+              "rowHeader": "Jour",
+              "rows": ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi"],
+              "columns": ["Matin", "Midi", "Collation", "Soir"]
+            }
+            """);
+
+        Assert.True(result.Accepted, result.FailureReason);
+        var mission = Assert.IsType<RouterPlan.SourceBackedMissionPlan>(
+            result.Plan.SourceBackedMission);
+        Assert.Equal("named_item", mission.AtomicEvidenceMode);
+        Assert.Equal("structured_layout", mission.SelectionPolicy);
+    }
+
+    [Fact]
     public void Native_router_grid_plan_preserves_its_first_observation_but_drops_an_unpublished_scope()
     {
         var result = ToolAgentOrchestrator.TryBuildNativeRouterPlanForTests(

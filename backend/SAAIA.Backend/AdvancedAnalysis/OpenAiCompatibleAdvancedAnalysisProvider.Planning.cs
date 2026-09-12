@@ -309,7 +309,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                    StringComparison.OrdinalIgnoreCase)
                || load.AtomicEvidenceMode.Contains(
                    "one_per",
-                   StringComparison.OrdinalIgnoreCase));
+                   StringComparison.OrdinalIgnoreCase)
+               || (load.AtomicEvidenceMode.Contains(
+                       "content_claim",
+                       StringComparison.OrdinalIgnoreCase)
+                   && Regex.IsMatch(
+                       load.AtomicEvidenceType ?? string.Empty,
+                       @"(?:^|[_\s-])(?:entry|item|option|instance)(?:$|[_\s-])",
+                       RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)));
 
     private static string ResolveSelectionMode(
         AdvancedAnalysisLoadDescriptor load)

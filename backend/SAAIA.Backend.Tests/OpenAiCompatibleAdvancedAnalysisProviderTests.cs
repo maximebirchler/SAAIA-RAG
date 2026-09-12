@@ -709,6 +709,91 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Named_grid_entry_contract_cannot_be_weakened_to_content_claims()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"selectionMode":"content_claims","queries":[{"query":"recettes","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"decision":"ready","queries":[]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"R1 [C1], R2 [C2], R3 [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"La recette est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"La recette est documentée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"R3","text":"La recette est documentée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"La recette est documentée.","evidenceIds":["E4"]}]}
+                """));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+        var gateway = new RecordingToolGateway(
+            Enumerable.Range(1, 20)
+                .Select(index => BuildEvidence(
+                    $"E{index}",
+                    $"R{index} est une recette documentée."))
+                .ToArray());
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(
+                answerUnitCount: 4,
+                atomicEvidenceMode: "content_claim",
+                selectionPolicy: "structured_layout",
+                atomicEvidenceType: "meal_plan_entry"),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal("distinct_named_items", result.SelectionMode);
+        Assert.Equal(3, result.ProviderCallCount);
+        Assert.Equal(
+            4,
+            result.Claims.Select(static claim => claim.SelectedItem)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count());
+    }
+
+    [Fact]
+    public async Task Explicitly_repeatable_named_grid_entry_contract_is_preserved()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"selectionMode":"repeatable_named_items","queries":[{"query":"recettes","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"decision":"ready","queries":[]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"R1 [C1], R2 [C2], R3 [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"R1 est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"R2 est documentée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"R3","text":"R3 est documentée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"R4 est documentée.","evidenceIds":["E4"]}]}
+                """));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+        var gateway = new RecordingToolGateway(
+            Enumerable.Range(1, 20)
+                .Select(index => BuildEvidence(
+                    $"E{index}",
+                    $"R{index} est une recette documentée."))
+                .ToArray());
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(
+                answerUnitCount: 4,
+                atomicEvidenceMode: "named_item",
+                selectionPolicy: "structured_layout",
+                atomicEvidenceType: "meal_plan_entry"),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal("repeatable_named_items", result.SelectionMode);
+        Assert.Equal(3, result.ProviderCallCount);
+    }
+
+    [Fact]
     public async Task Structured_selected_item_must_match_its_declared_evidence()
     {
         using var factory = new QueuedHttpClientFactory(
@@ -2443,7 +2528,8 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     private static AdvancedAnalysisProviderRequest BuildRequest(
         int answerUnitCount = 1,
         string atomicEvidenceMode = "one_per_cell",
-        string selectionPolicy = "distinct")
+        string selectionPolicy = "distinct",
+        string atomicEvidenceType = "documented_preparation")
         => new(
             Guid.NewGuid(),
             Guid.NewGuid(),
@@ -2466,7 +2552,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                     RowCount = 5,
                     ColumnCount = 4,
                     StructuredLayout = true,
-                    AtomicEvidenceType = "documented_preparation",
+                    AtomicEvidenceType = atomicEvidenceType,
                     AtomicEvidenceMode = atomicEvidenceMode,
                     SelectionPolicy = selectionPolicy,
                     RowLabels = ["lundi", "mardi", "mercredi", "jeudi", "vendredi"],
