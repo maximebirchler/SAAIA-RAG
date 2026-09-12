@@ -25,6 +25,58 @@ public sealed class UiLocalizationSafetyNetTests
         Assert.Equal(expectedButton, SourcesCardsControl.GetOpenButtonText(language));
     }
 
+    [Fact]
+    public void Standard_user_source_cards_hide_internal_provenance_identifiers()
+    {
+        var source = new SourceCard
+        {
+            EvidenceId = "advanced-evidence-d5836a75ff22e65dbf142148db661e69",
+            SourceHash = "e5fa7a7c141363a6508f645aa5b9c184e940e01f1ed3c85c626f92d4bdd06483",
+            ContentRole = "content",
+            Score = 0.876
+        };
+
+        var standardMetadata = SourcesCardsControl.GetVisibleMetadataLabel(
+            source,
+            showAdvancedMetadata: false,
+            uiLanguage: "fr");
+        var advancedMetadata = SourcesCardsControl.GetVisibleMetadataLabel(
+            source,
+            showAdvancedMetadata: true,
+            uiLanguage: "fr");
+
+        Assert.Empty(standardMetadata);
+        Assert.DoesNotContain("advanced-evidence", standardMetadata, StringComparison.Ordinal);
+        Assert.DoesNotContain("e5fa7a7c", standardMetadata, StringComparison.Ordinal);
+        Assert.Contains("advanced-evidence", advancedMetadata, StringComparison.Ordinal);
+        Assert.Contains("e5fa7a7c", advancedMetadata, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("fr", "OCR recommandé", "revue recommandée")]
+    [InlineData("en", "OCR recommended", "review recommended")]
+    public void Standard_user_source_cards_keep_actionable_quality_warnings(
+        string language,
+        string expectedOcr,
+        string expectedReview)
+    {
+        var metadata = SourcesCardsControl.GetVisibleMetadataLabel(
+            new SourceCard
+            {
+                EvidenceId = "internal-evidence-id",
+                SourceHash = "abcdef1234567890",
+                OcrRecommended = true,
+                ManualReviewRecommended = true
+            },
+            showAdvancedMetadata: false,
+            uiLanguage: language);
+
+        Assert.Contains(expectedOcr, metadata, StringComparison.Ordinal);
+        Assert.Contains(expectedReview, metadata, StringComparison.Ordinal);
+        Assert.DoesNotContain("internal-evidence-id", metadata, StringComparison.Ordinal);
+        Assert.DoesNotContain("abcdef1234", metadata, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("fr", "p. 2-4", "score 0.876", "langue document allemand", "langue profil anglais", "qualité texte faible, revue requise 86%", "OCR recommandé", "revue recommandée", "rév. abcdef1234", "cartes Controle source")]
     [InlineData("en", "p. 2-4", "score 0.876", "document language German", "profile language English", "quality low text, review required 86%", "OCR recommended", "review recommended", "rev abcdef1234", "cards Controle source")]
@@ -1837,7 +1889,7 @@ public sealed class UiLocalizationSafetyNetTests
         var file = Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "Controls", "SourcesCardsControl.xaml.cs");
         var source = File.ReadAllText(file);
 
-        Assert.Contains("_uiLanguage = ClientUiText.NormalizeLanguage(uiLanguage ?? AppSettings.Load().UiLanguage)", source);
+        Assert.Contains("_uiLanguage = ClientUiText.NormalizeLanguage(uiLanguage ?? settings.UiLanguage)", source);
         Assert.Contains("GetOpenButtonText(_uiLanguage)", source);
         Assert.Contains("ClientUiText.Get(\"dialog.close\", _uiLanguage)", source);
     }

@@ -18,6 +18,7 @@ namespace SAAIA.Client.WinUI.Controls;
 public sealed partial class SourcesCardsControl : UserControl
 {
     private string _uiLanguage = ClientUiText.NormalizeLanguage(AppSettings.Load().UiLanguage);
+    private bool _showAdvancedMetadata = AppSettings.Load().ShowAdvancedUi;
 
     public SourcesCardsControl()
     {
@@ -28,7 +29,9 @@ public sealed partial class SourcesCardsControl : UserControl
 
     public void ApplyUiLanguage(string? uiLanguage = null)
     {
-        _uiLanguage = ClientUiText.NormalizeLanguage(uiLanguage ?? AppSettings.Load().UiLanguage);
+        var settings = AppSettings.Load();
+        _uiLanguage = ClientUiText.NormalizeLanguage(uiLanguage ?? settings.UiLanguage);
+        _showAdvancedMetadata = settings.ShowAdvancedUi;
         SourcesHeaderText.Text = GetSourcesHeaderText(_uiLanguage);
         ApplyCardLanguage(Items);
         RefreshItemsSource();
@@ -125,8 +128,13 @@ public sealed partial class SourcesCardsControl : UserControl
         foreach (var item in items)
         {
             item.PagesLabel = GetPagesLabel(item, _uiLanguage);
-            item.ScoreLabel = GetScoreLabel(item, _uiLanguage);
-            item.MetadataLabel = GetMetadataLabel(item, _uiLanguage);
+            item.ScoreLabel = _showAdvancedMetadata
+                ? GetScoreLabel(item, _uiLanguage)
+                : string.Empty;
+            item.MetadataLabel = GetVisibleMetadataLabel(
+                item,
+                _showAdvancedMetadata,
+                _uiLanguage);
         }
     }
 
@@ -185,6 +193,67 @@ public sealed partial class SourcesCardsControl : UserControl
 
         var label = ST("score", "score", "score", "score", "Score", "score", uiLanguage);
         return $"{label} {source.Score.Value.ToString("0.###", CultureInfo.InvariantCulture)}";
+    }
+
+    internal static string GetVisibleMetadataLabel(
+        SourceCard source,
+        bool showAdvancedMetadata,
+        string? uiLanguage = null)
+    {
+        if (showAdvancedMetadata)
+            return GetMetadataLabel(source, uiLanguage);
+
+        var parts = new List<string>();
+        var docLanguage = LocalizedStrings.LocalizedSourceLanguageName(
+            source.DocLanguage,
+            uiLanguage);
+        var profileLanguage = LocalizedStrings.LocalizedSourceLanguageName(
+            source.ProfileLanguage,
+            uiLanguage);
+        var normalizedDocLanguage = LocalizedStrings.NormalizeSourceLanguageIdentifier(
+            source.DocLanguage);
+        var normalizedProfileLanguage = LocalizedStrings.NormalizeSourceLanguageIdentifier(
+            source.ProfileLanguage);
+        if (!string.IsNullOrWhiteSpace(docLanguage)
+            && !string.IsNullOrWhiteSpace(profileLanguage)
+            && !string.Equals(
+                normalizedDocLanguage,
+                normalizedProfileLanguage,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            parts.Add($"{SourceCardLabel("document_language", uiLanguage)} {Shorten(docLanguage, 24)}");
+            parts.Add($"{SourceCardLabel("profile_language", uiLanguage)} {Shorten(profileLanguage, 24)}");
+        }
+
+        if (source.OcrRecommended)
+            parts.Add(SourceCardLabel("ocr_recommended", uiLanguage));
+        if (source.ManualReviewRecommended
+            || source.DocumentManualReviewRecommended
+            || source.PageManualReviewRecommended)
+        {
+            parts.Add(SourceCardLabel("review_recommended", uiLanguage));
+        }
+
+        var headingPath = FirstNonBlank(source.HeadingPath);
+        var sectionTitle = FirstNonBlank(source.SectionTitle);
+        if (!string.IsNullOrWhiteSpace(headingPath)
+            && !string.Equals(
+                headingPath,
+                sectionTitle,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            parts.Add($"{SourceCardLabel("heading", uiLanguage)} {Shorten(headingPath!, 72)}");
+        }
+        if (!string.IsNullOrWhiteSpace(sectionTitle))
+            parts.Add($"{SourceCardLabel("section", uiLanguage)} {Shorten(sectionTitle!, 56)}");
+
+        var category = FirstNonBlank(source.CategoryPath, source.CategoryRef, source.Category);
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            parts.Add($"{SourceCardLabel("category", uiLanguage)} {Shorten(category!, 72)}");
+        }
+
+        return string.Join(" | ", parts);
     }
 
     internal static string GetMetadataLabel(SourceCard source, string? uiLanguage = null)
