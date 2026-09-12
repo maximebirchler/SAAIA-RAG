@@ -1,6 +1,6 @@
 # A763 — La relation de cellule fait partie du fait à prouver
 
-Date de décision : 2026-09-12  
+Date de décision : 2026-09-12
 Statut : `ACCEPT_GENERIC_STRUCTURED_RELATION_GROUNDING_REQUIRES_TERRA_RERUN`
 
 ## Problème observé
