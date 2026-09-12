@@ -62,7 +62,11 @@ if ([bool]$manifest.privateArtifactsMayLeaveWorkspace) {
 if ($DiagnosticMode) {
     if ([bool]$manifest.approvalEligible -or
         [string]$manifest.reviewMode -ne "DIAGNOSTIC_ONLY" -or
-        [string]$manifest.semanticVerdict -ne "PENDING_DIAGNOSTIC_REVIEW") {
+        [string]$manifest.semanticVerdict -ne "PENDING_DIAGNOSTIC_REVIEW" -or
+        [string]::IsNullOrWhiteSpace(
+            [string]$manifest.campaignRepositoryCommit) -or
+        [string]::IsNullOrWhiteSpace(
+            [string]$manifest.campaignExecutionState)) {
         throw "The review manifest is not eligible for a diagnostic decision."
     }
 } elseif (($null -ne $manifest.PSObject.Properties["approvalEligible"] -and

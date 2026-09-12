@@ -81,6 +81,10 @@ function New-ReviewFixture {
         privateArtifactsMayLeaveWorkspace = $false
         approvalEligible = -not [bool]$DiagnosticManifest
         reviewMode = if ($DiagnosticManifest) { "DIAGNOSTIC_ONLY" } else { "ACCEPTANCE" }
+        campaignRepositoryCommit = if ($DiagnosticManifest) { $commit } else { $null }
+        campaignExecutionState = if ($DiagnosticManifest) {
+            "FAILED_OR_INTERRUPTED_EXTERNAL_CALLS_POSSIBLE"
+        } else { $null }
         semanticVerdict = if ($DiagnosticManifest) {
             "PENDING_DIAGNOSTIC_REVIEW"
         } else {
