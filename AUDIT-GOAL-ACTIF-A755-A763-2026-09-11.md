@@ -846,3 +846,20 @@ comptes agrégés, identités runtime et budgets sont visibles avant le verdict 
 les détails ne sont dévoilés qu'après scellement du verdict et la banque devient
 alors consommée. Aucun nouveau cas, oracle ou payload caché n'a été produit ou
 consulté pendant ce jalon. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — URL finale RunPod vérifiée avant réseau — 2026-09-12
+
+Le commit `e88973d2` complète le sceau du profil avec l'URL exacte construite
+pour le chat :
+`https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1/chat/completions`. Le préflight
+valide le schéma HTTPS et l'identité d'hôte. Le test backend ciblé du provider
+OpenAI-compatible confirme en parallèle l'ajout de `/chat/completions` à une
+base configurée et passe 1/1.
+
+L'analyseur PowerShell rapporte zéro erreur, aucun secret n'est lu, aucun appel
+externe n'est exécuté et les ports 1234, 5123 et 18081 restent libres.
+Assessment :
+`artifacts/reprise-pc-20260908/a763-runpod-final-url-e88973d-20260912/assessment.v1.json`,
+SHA-256 `43B8CA39A2D7E0AA7293BA7EB2F771FF52E7A8506F253250DB667C5245EB730E`.
+Cette preuve ferme le risque de composition d'URL ; la disponibilité du service
+et la qualité de Qwen restent non testées. Produit `TESTE_NON_APPROUVE`.

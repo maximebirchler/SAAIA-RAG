@@ -110,6 +110,15 @@ lecture d'un secret et avant réseau. Assessment :
 `artifacts/reprise-pc-20260908/a763-runpod-profile-0ddaac6-20260912/assessment.v1.json`,
 SHA-256 `7F075B02C5A034FC05711738592EEE55AE2EEBE90B98571CD8C55E9CC0A0D095`.
 
+Le commit `e88973d2` fait aussi calculer et sceller par le préflight l'URL HTTP
+finale après application du dialecte du provider :
+`https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1/chat/completions`. Le test
+backend ciblé confirme séparément que le provider ajoute
+`/chat/completions` à la base configurée. Le préflight et ce test passent sans
+lire de clé ni contacter RunPod. Assessment :
+`artifacts/reprise-pc-20260908/a763-runpod-final-url-e88973d-20260912/assessment.v1.json`,
+SHA-256 `43B8CA39A2D7E0AA7293BA7EB2F771FF52E7A8506F253250DB667C5245EB730E`.
+
 ## Limite de preuve du candidat R1
 
 L'endpoint public suffit pour savoir si un Qwen open source plus grand peut

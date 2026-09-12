@@ -13887,3 +13887,15 @@ Assessment :
 `artifacts/reprise-pc-20260908/a763-runpod-profile-0ddaac6-20260912/assessment.v1.json`,
 SHA-256 `7F075B02C5A034FC05711738592EEE55AE2EEBE90B98571CD8C55E9CC0A0D095`.
 Aucun appel externe et aucun coût nouveau. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — composition de l'URL RunPod scellée — 2026-09-12
+
+Le commit `e88973d2` ajoute au préflight l'URL finale du chat construite depuis
+le profil :
+`https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1/chat/completions`. Un test
+backend ciblé confirme la même règle de composition dans le provider partagé.
+Le préflight, l'analyse PowerShell et le test 1/1 passent sur le SHA exact, sans
+secret et sans réseau. Assessment :
+`artifacts/reprise-pc-20260908/a763-runpod-final-url-e88973d-20260912/assessment.v1.json`,
+SHA-256 `43B8CA39A2D7E0AA7293BA7EB2F771FF52E7A8506F253250DB667C5245EB730E`.
+Produit `TESTE_NON_APPROUVE`.
