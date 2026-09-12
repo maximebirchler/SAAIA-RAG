@@ -65,8 +65,10 @@ if ($trackedDirty -or $repositoryCommit -ne [string]$manifest.repositoryCommit) 
     throw "Semantic decisions must be finalized from the exact clean campaign commit."
 }
 
-$campaignMap = @(Get-Content -LiteralPath $mapPath -Raw | ConvertFrom-Json)
-$expectedJobIds = @(Get-Content -LiteralPath $jobIdsPath -Raw | ConvertFrom-Json)
+$campaignMapDocument = Get-Content -LiteralPath $mapPath -Raw | ConvertFrom-Json
+$jobIdsDocument = Get-Content -LiteralPath $jobIdsPath -Raw | ConvertFrom-Json
+$campaignMap = @($campaignMapDocument)
+$expectedJobIds = @($jobIdsDocument)
 $decisionDocument = Get-Content -LiteralPath $decisionPath -Raw | ConvertFrom-Json
 if ([string]$decisionDocument.schemaVersion -ne "saaia-advanced-semantic-decisions-v1") {
     throw "Unsupported semantic decision schema."
