@@ -72,6 +72,49 @@ exigent HTTPS et les deux autorisations signées
 La configuration de production générée rend donc l'envoi externe explicite et
 auditable.
 
+## Authentification, tenant et accès au corpus
+
+Toutes les routes `/advanced-analysis/jobs` passent par
+`ApiKeyAuthMiddleware`. La clé n'est jamais utilisée pour choisir un tenant
+fourni par le client : son hash résout un `tenant_id` côté PostgreSQL, et le
+tenant doit encore être actif. Une clé absente, invalide, révoquée ou rattachée
+à un tenant désactivé reçoit une réponse 401. Les lectures et annulations
+filtrent ensuite par `tenant_id + user_id + job_id`; une tentative avec la clé
+d'un autre tenant reçoit 404 et ne révèle pas l'identité du job.
+
+Le `user_id` reste actuellement un espace de noms déclaré par le client sous
+une clé de tenant. Il ne constitue pas une identité utilisateur authentifiée :
+deux personnes qui partageraient la même clé de tenant ne sont pas séparées par
+un jeton individuel. Un déploiement avec utilisateurs mutuellement non fiables
+devra lier la clé ou un futur jeton OIDC/JWT à un sujet utilisateur et dériver
+le `user_id` côté serveur. Cette évolution relève du futur parcours
+d'installation et d'identité ; l'isolation de tenant exigée pour la capacité
+avancée est appliquée aujourd'hui.
+
+Le grand modèle ne reçoit aucun accès réseau direct au corpus. Le worker porte
+le tenant du job jusqu'au resolver et au tool gateway ; toutes leurs requêtes
+PostgreSQL et RAG incluent ce tenant. Une référence provenant d'un autre tenant
+est rejetée avant tout appel fournisseur. Les traces durables contiennent la
+requête de recherche et les identités canoniques des preuves, mais aucun texte
+d'extrait. Le texte n'est rechargé qu'après revalidation dans le tenant courant.
+
+## Journaux et données observables
+
+Les journaux applicatifs avancés consignent les identifiants de job, tenant et
+utilisateur, les états et des codes d'erreur normalisés. Ils ne consignent ni
+le prompt, ni le texte du handoff, ni les extraits de preuve, ni une clé. Les
+événements d'audit de création et d'annulation enregistrent l'acteur, le job et
+les identifiants de contexte utiles, sans contenu documentaire. Le registre de
+coût externe reste séparé et ne contient que les identifiants techniques, le
+fournisseur, le modèle, les tokens, la durée, le nombre de tentatives, le coût
+et l'erreur normalisée.
+
+Les traces d'outils persistées sont soumises à la même expiration que le job et
+sont supprimées en cascade. La collecte, l'accès et la durée de conservation
+des journaux de l'hôte restent une responsabilité de déploiement : ils doivent
+rester sur un stockage protégé et ne pas recevoir un niveau de log qui capture
+les corps HTTP ou les paramètres secrets.
+
 ## Chiffrement et frontières réseau
 
 Les profils externes sont limités à HTTPS par le provider avant toute requête.
@@ -179,6 +222,13 @@ publier le payload fournisseur ni de carte source. Le harnais produit démarre
 le client avec le petit modèle local, crée une vraie session backend et vérifie
 le fournisseur, le modèle, les appels, les tokens et le coût renvoyés par le job
 avancé.
+
+Le pipeline HTTP Kestrel est aussi testé sur PostgreSQL réel. Les onze tests
+d'endpoint avancé incluent désormais une création authentifiée, les refus de
+clé absente et invalide, les lectures et annulations inter-tenant refusées, le
+cloisonnement par utilisateur, la révocation de clé et la désactivation du
+tenant. Cette preuve traverse le vrai middleware d'authentification au lieu
+d'injecter artificiellement le tenant dans le contexte du test.
 
 Le profil final `customer-server` a été rejoué sur le SHA `b43c1a8f` contre une
 fixture HTTP locale OpenAI-compatible. La séquence live loopback comporte un

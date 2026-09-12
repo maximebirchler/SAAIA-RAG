@@ -29,13 +29,16 @@ public static class ApiKeyAuth
         var prefix = Prefix(apiKey);
 
         const string sql = @"
-SELECT api_key_id AS ""ApiKeyId"",
-       tenant_id  AS ""TenantId"",
-       is_admin   AS ""IsAdmin""
-FROM api_keys
-WHERE revoked_at IS NULL
-  AND key_prefix = @prefix
-  AND key_hash = @hash
+SELECT k.api_key_id AS ""ApiKeyId"",
+       k.tenant_id  AS ""TenantId"",
+       k.is_admin   AS ""IsAdmin""
+FROM api_keys k
+JOIN tenants t
+  ON t.tenant_id=k.tenant_id
+ AND t.is_active=true
+WHERE k.revoked_at IS NULL
+  AND k.key_prefix = @prefix
+  AND k.key_hash = @hash
 LIMIT 1;";
 
         await using var conn = await ds.OpenConnectionAsync(ct);
