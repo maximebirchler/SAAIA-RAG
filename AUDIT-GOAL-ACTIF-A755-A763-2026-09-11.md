@@ -1,6 +1,6 @@
 # Audit du Goal actif — frontière locale et capacité avancée A755–A763
 
-Date : 11 septembre 2026
+Date : 11–12 septembre 2026
 
 Branche : `SAAIA_V3.1`
 
@@ -565,3 +565,77 @@ la capacité sémantique d'une fixture déterministe et ne remplace pas la banqu
 Terra 3/3. L'artefact reproductible est
 `artifacts/reprise-pc-20260908/a763-local-protocol-repair-d0a844d5-20260912`.
 Le produit reste `TESTE_NON_APPROUVE`.
+
+## Audit de clôture contre la mission LLM — 2026-09-12
+
+La mission initiale demandait un fournisseur interchangeable directement dans
+le client. La clarification produit ultérieure demande en plus un parcours
+hybride : le petit modèle reste sur le poste, puis transfère les cas complexes
+à un grand modèle piloté par le backend. Le code conserve donc deux frontières
+qui ne se concurrencent pas :
+
+```text
+Sonde DEV/BENCH directe
+  Agent Windows -> ILlmProvider -> Local | OpenAiDev | RunPodBench
+
+Parcours produit hybride
+  Agent Windows Local -> handoff -> job backend
+                      -> IAdvancedAnalysisProvider
+                      -> openai-dev | runpod-bench | customer-server
+```
+
+`ILlmProvider` permet de comparer Router, tools et Writer sans réécrire l'agent.
+`IAdvancedAnalysisProvider` porte la durabilité, l'isolation tenant, la
+revalidation des preuves et la cible serveur client. PostgreSQL, Qdrant,
+l'ingestion et le retrieval restent dans SAAIA. Cette séparation matérialise la
+vision actuelle sans déplacer le RAG chez OpenAI, RunPod ou le serveur LLM.
+
+| Exigence | Verdict | Preuve ou limite restante |
+|---|---|---|
+| Fournisseur client commun Local/OpenAI/RunPod | Validé mécaniquement | `ILlmProvider`, factory unique, 17 scénarios d'architecture incluant Router structuré et Writer SSE |
+| Fournisseur serveur commun OpenAI/RunPod/client | Validé mécaniquement | `IAdvancedAnalysisProvider` et une implémentation OpenAI-compatible partagée |
+| Un couple fournisseur/modèle par exécution avancée | Validé causalement | Affinité SQL persistante, reprise avec identité différente fermée sans appel du remplacement |
+| Aucun fallback implicite | Validé | Échec typé du fournisseur sélectionné ; changement de configuration refusé |
+| Petit modèle sur ce PC | Validé sur banque connue | 14 cas × 3, 42/42 acceptés, seuils de latence respectés, zéro appel externe |
+| Frontière local/clarification/insuffisant/avancé | Validée sur banque connue | Terminaux attendus 3/3 ; holdout aveugle encore requis |
+| Terra réel sur le parcours produit | Validé partiellement | Handoff, Planner, tools, Writer, tokens, coût et persistance observés ; banque finale incomplète |
+| Planning 5 × 4 | Rejeté sur la dernière observation | Forme complète mais relation cellule/preuve insuffisante ; contrat corrigé dans `b20fcc2`, nouveau 3/3 requis |
+| RunPod | Prêt mécaniquement | Endpoint, modèle, profil et harnais configurables ; aucun endpoint ni budget RunPod autorisé |
+| Serveur LLM du client | Prêt architecturalement | Profil `customer-server` et compose préparés ; matériel et modèle final absents |
+| Structured output et citations | Validé mécaniquement | JSON refusé s'il est invalide, réparation unique bornée, claims et preuves revalidés |
+| Streaming direct Local/OpenAI/RunPod | Validé mécaniquement | Chunks SSE normalisés par le même contrat jusqu'à l'UI |
+| Chemin avancé durable | Validé mécaniquement | Progression et résultat atomique après validation ; reprise réelle du même job après deux lancements WinUI |
+| Streaming token par token avancé | Ouvert | La réponse avancée reste atomique pour ne pas exposer un JSON ou des citations non validés |
+| Timeout, annulation, HTTP et réseau | Validé mécaniquement | `4744d81` normalise aussi les incidents pendant la lecture du corps HTTP ; annulation appelant distincte |
+| Secrets et politique externe | Validé mécaniquement | modes externes désactivés par défaut, autorisations explicites, secretRef/DPAPI, redaction du support bundle |
+| Budget Terra 25 USD | Validé mécaniquement | journal persistant, réservation avant appel, plafonds global/job/appels, coût issu de l'usage fournisseur |
+| Licence et installateurs | Vision consignée, hors lot | droits, topologie et profil sont séparés ; assistant d'installation à implémenter après qualification |
+
+Le commit `4744d81` corrige le dernier défaut de résilience trouvé pendant cet
+audit. Avant ce commit, une annulation interne ou une rupture réseau après les
+en-têtes HTTP pouvait échapper à la normalisation du fournisseur avancé. Après
+correction, un timeout devient `advanced_llm_timeout`, une rupture devient
+`advanced_llm_transport_error`, les détails privés de transport ne remontent
+pas, et une annulation utilisateur reste une `OperationCanceledException`.
+Les 33 tests fournisseur ciblés passent. La suite backend Release rapporte
+2 150 réussites, zéro échec et une sonde live opt-in ignorée. L'assessment
+`artifacts/reprise-pc-20260908/a763-backend-resilience-20260912/assessment.v1.json`
+a pour SHA-256
+`0AA1F4C2DFA56CC4AE75AA3D227035CD69E7AC0067B34686F817BC7F91191B0B`.
+
+Les portes qui empêchent encore honnêtement l'approbation produit sont :
+
+1. promotion OpenAI Tier 1 ou réponse du support, puis banque Terra complète
+   3/3 sur `b20fcc2` ou un descendant documentaire ;
+2. revue sémantique source par source, avec trois plannings 5 × 4 acceptés ;
+3. inspection terminale dans WinUI d'une réponse avancée réussie et de chaque
+   carte source ;
+4. nouveau holdout aveugle produit sans exposer questions et oracles à la
+   session de développement ;
+5. benchmark RunPod autorisé, puis essai du modèle retenu sur un serveur client.
+
+La promotion Tier 1 est la seule porte externe qui bloque actuellement la
+campagne Terra. Le dashboard indique encore `Free tier`, 50 RPD et un solde
+prépayé disponible. Aucun réglage utilisateur ne retire ce plafond ; l'achat
+supplémentaire proposé par `Upgrade tier` n'a pas été confirmé. Le produit reste
+`TESTE_NON_APPROUVE`.

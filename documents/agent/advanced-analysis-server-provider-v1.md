@@ -1,6 +1,6 @@
 # Architecture du grand modèle serveur — capacité avancée A755
 
-Date de référence : 11 septembre 2026
+Date de référence : 12 septembre 2026
 Statut produit : **TESTE_NON_APPROUVE**
 
 ## Décision d'architecture
@@ -125,14 +125,23 @@ uniquement au diagnostic sur l'hôte.
 Les tests simulés couvrent le cycle planner -> tools -> writer, le profil
 OpenAI, le profil interne, le rejet HTTP externe, l'absence de preuve, une
 citation forgée, la non-divulgation des corps d'erreur et les coupe-circuits de
-budget. Le harnais produit démarre le client avec le petit modèle local, crée
-une vraie session backend et vérifie le fournisseur, le modèle, les appels, les
-tokens et le coût renvoyés par le job avancé.
+budget. Les erreurs pendant la lecture du corps HTTP sont normalisées comme
+timeout ou rupture de transport, tandis qu'une annulation appelant reste
+distincte. Le harnais produit démarre le client avec le petit modèle local,
+crée une vraie session backend et vérifie le fournisseur, le modèle, les appels,
+les tokens et le coût renvoyés par le job avancé.
+
+Le parcours Terra réel a produit des résultats durables. Deux cas unitaires ont
+été acceptés après revue des preuves. Le planning 5 × 4 a révélé une relation de
+cellule insuffisamment prouvée ; le contrat Writer a été durci dans `b20fcc2`.
+La campagne complète sur ce code corrigé reste bloquée par le plafond OpenAI
+Free de 50 RPD, malgré l'achat de crédits et une escalade au support.
 
 La validation finale exige encore :
 
-1. la sonde Terra réelle et le planning 5 x 4 via le parcours local -> serveur ;
-2. trois résultats sémantiquement acceptés sur état gelé puis la banque avancée ;
+1. trois résultats Terra sémantiquement acceptés du planning 5 x 4 sur
+   `b20fcc2` ou un descendant documentaire, puis la banque avancée complète ;
+2. la validation terminale WinUI du résultat avancé et de ses cartes source ;
 3. le même protocole avec un modèle open source sur RunPod ;
 4. la sélection du modèle final et son essai sur le serveur on-prem du client ;
 5. un holdout aveugle après gel du code.

@@ -5,9 +5,11 @@ SAAIA est un assistant IA RAG 100% on-prem pour environnements industriels/entre
 - **Serveur (Linux recommandé)** : ingestion + indexation (TEI + Qdrant) + retrieval sourcé + chat-store + sécurité + observabilité.
 - **Client (Windows WinUI)** : expérience chat "type ChatGPT" + **petit LLM local embarqué** (OpenAI-compatible / llama.cpp server) + téléchargement modèle.
 
-> État actuel : le backend SAAIA ne génère pas le texte final. L'amendement A755
-> prévoit une capacité avancée optionnelle sur un serveur LLM on-prem chez le
-> client ; elle reste à qualifier et n'est pas activée dans la production actuelle.
+> État actuel : le chemin standard génère la réponse avec le petit LLM local du
+> poste. L'amendement A755 ajoute une capacité avancée optionnelle : le client
+> crée un handoff explicite et le backend pilote alors un grand LLM configuré,
+> revalide les preuves et publie seulement le résultat sourcé validé. Cette
+> capacité reste `TESTE_NON_APPROUVE` et désactivée par défaut.
 
 Le développement dispose aussi de deux modes externes explicitement bornés :
 `OpenAiDev` pour la baseline GPT-5.6 Terra et `RunPodBench` pour qualifier un
@@ -68,7 +70,7 @@ $body | curl.exe -s -X POST "http://localhost:5122/rag/search" `
 ### 3) Client WinUI (dev)
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\client\scriptsun-client-x64.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\client\scripts\run-client-x64.ps1
 ```
 
 Les logs client sont dans : `%LOCALAPPDATA%\SAAIA\logs\`.
@@ -101,8 +103,9 @@ Runbooks : `infra/runbooks/`.
 
 ## Notes importantes
 
-- **Le serveur ne génère pas** de texte final (pas de chat completions côté serveur).
-- Le client orchestre : intent -> retrieval -> génération LLM local -> citations.
+- Le chemin simple reste : intent -> retrieval -> génération LLM locale -> citations.
+- Le chemin avancé, lorsqu'il est licencié et explicitement configuré, exécute
+  Planner -> tools RAG SAAIA -> Writer sur le backend avec un fournisseur unique.
 - Les catégories de documents proviennent des dossiers dans `documents/` (dynamiques).
 
 ---

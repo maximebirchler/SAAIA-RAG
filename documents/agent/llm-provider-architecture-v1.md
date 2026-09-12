@@ -1,6 +1,6 @@
 # Architecture des fournisseurs LLM — Local, OpenAI Terra et RunPod
 
-Date de référence : 11 septembre 2026
+Date de référence : 12 septembre 2026
 Statut produit : **TESTE_NON_APPROUVE**
 
 Ce document décrit la restructuration du runtime LLM de SAAIA. Elle permet
@@ -349,20 +349,36 @@ authentification, JSON Schema, normalisation SSE, usage, coût, délai, annulati
 401/429/500, réseau indisponible, flux interrompu, coupe-circuit budgétaire et
 redaction du support bundle. Le provider Local a également été exécuté contre
 le runtime Qwen gelé : structured output, tool call natif et streaming sont
-valides. La banque locale A755 a ensuite été rejouée trois fois ; ses 42
-réponses, terminaux, drapeaux et sources sont identiques à la référence locale
-qualifiée, sans coût externe et avec le port 1234 libéré en fin de campagne.
+valides. La banque locale A755 connue a ensuite été rejouée trois fois sur le
+SHA `5516cc1a` ; ses 42 réponses ont été acceptées après revue sémantique, sans
+coût externe et avec le port 1234 libéré en fin de campagne. Cette preuve reste
+une non-régression sur une banque déjà vue et ne remplace pas le holdout aveugle.
+
+Le parcours produit local -> job serveur -> Terra a été exécuté réellement. Il
+a démontré le handoff, Planner, les tools RAG, Writer, les métriques et les
+résultats durables. Deux cas réussis ont été acceptés unitairement ; le planning
+5 × 4 a révélé un défaut général d'ancrage entre cellule et preuve, corrigé dans
+`b20fcc2`. Une campagne complète 3/3 sur ce descendant reste empêchée par le
+plafond OpenAI Free de 50 requêtes par jour. Le compte financé n'a toujours pas
+été promu automatiquement au Tier 1 malgré l'achat payé ; le support est saisi.
+
+Le commit `4744d81` ferme aussi un écart de résilience du fournisseur avancé :
+un timeout ou une rupture réseau pendant la lecture du corps HTTP est maintenant
+normalisé en `advanced_llm_timeout` ou `advanced_llm_transport_error`. Une
+annulation demandée par l'appelant reste une annulation. Les 33 tests ciblés et
+les 2 150 tests backend Release passent ; une sonde live opt-in est ignorée.
 
 Restent obligatoires avant approbation :
 
-- la sonde payante Terra réelle ;
-- le parcours Terra end-to-end avec backend et WinUI réels ;
-- la validation qualitative et source par source des cas avancés ;
+- la banque Terra complète 3/3 sur `b20fcc2` ou un descendant documentaire,
+  après activation réelle du Tier 1 ;
+- la validation qualitative et source par source de chaque répétition ;
 - trois réussites consécutives du planning 5 × 4 sur état figé ;
 - un test RunPod réel et la comparaison d'un modèle open-source ;
-- l'isolation tenant, l'authentification, le chiffrement, la rétention,
-  l'idempotence et la reprise après perte de connexion pour le service avancé ;
+- la validation terminale WinUI d'une réponse avancée réussie et de ses cartes
+  source ;
 - un nouveau holdout aveugle après gel du code ;
+- l'essai du modèle final sur un serveur client réellement dimensionné ;
 - la décision de catalogue et les profils de warmup finaux.
 
 Les prix Terra sont des métadonnées modifiables. La source officielle consultée
