@@ -13637,3 +13637,25 @@ Cette preuve ne coûte rien et ne transmet rien à l'extérieur : endpoint
 réparation bornée est donc fermé indépendamment du modèle hébergé; la qualité
 Terra reste soumise à la banque 3/3 et à sa revue humaine. Artefact :
 `artifacts/reprise-pc-20260908/a763-local-protocol-repair-d0a844d5-20260912`.
+
+## A763 — le vert mécanique du planning est rejeté sémantiquement — 2026-09-12
+
+La relecture des résultats durables et des douze chunks réellement cités ferme
+deux cas sur cette exécution : cinq repas étudiant et comparaison CEN/IEC. Le
+planning 5 × 4 est en revanche rejeté. Les vingt noms sont documentés, mais leur
+placement n'est pas toujours soutenu. Le cas causal est une preuve recommandant
+les pancakes au petit-déjeuner alors que la grille les place en collation.
+
+Le prompt Writer autorisait ce défaut en déclarant que l'arrangement des
+candidats dans les cellules n'était pas un fait. Le commit `b20fcc2` pose la
+règle générique inverse : toute relation ligne/colonne/rôle/catégorie fait partie
+du claim et exige une preuve. Un titre ou un index ne peut soutenir qu'une
+relation qu'il exprime; sinon le Writer doit déclarer l'insuffisance exacte. Il
+n'y a aucune heuristique Cuisine et aucun troisième appel systématique.
+
+Les 30 tests fournisseur et les 4 389 tests Release complets passent, zéro
+échec, avec deux probes live opt-in non exécutées. Le coût de cette correction
+est nul. Le gel sémantique est déplacé à `b20fcc2`; la banque Terra 3/3 et sa
+revue humaine doivent maintenant éprouver cette règle avant toute décision sur
+un Critic additionnel. ADR :
+`ADR-2026-09-12-A763-RELATION-CELLULE-PREUVE.md`.

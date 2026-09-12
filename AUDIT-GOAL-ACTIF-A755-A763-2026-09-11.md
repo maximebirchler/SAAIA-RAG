@@ -14,12 +14,15 @@ est implémentée de bout en bout : décision locale, handoff typé, job serveur
 durable, retrieval SAAIA, fournisseur OpenAI-compatible, validation des preuves,
 reprise WinUI et affichage des sources.
 
-Les appels réels à OpenAI démontrent que Terra peut produire les livrables
-complexes visés, y compris un planning de repas de vingt cellules. Ils ont aussi
-révélé puis permis de corriger des défauts génériques de requêtage, de sélection
-des preuves, de validation sémantique et de protocole. L'état courant n'a pas
-encore trois réussites consécutives sur l'ensemble de la banque avancée après le
-dernier gel. Le produit reste donc `TESTE_NON_APPROUVE`.
+Les appels réels à OpenAI démontrent que Terra peut produire mécaniquement les
+livrables complexes visés. La dernière revue humaine accepte une fois les cinq
+repas étudiant et la comparaison CEN/IEC, mais rejette le planning de vingt
+cellules car le placement de plusieurs recettes n'est pas soutenu par les
+preuves. Les essais ont ainsi révélé puis permis de corriger des défauts
+génériques de requêtage, de sélection des preuves, de validation sémantique et
+de protocole. L'état courant n'a pas encore trois réussites consécutives sur
+l'ensemble de la banque avancée après le dernier gel. Le produit reste donc
+`TESTE_NON_APPROUVE`.
 
 ## Reprise documentaire et dépôt
 
@@ -98,6 +101,8 @@ Les essais ont conduit aux protections générales suivantes :
   preuves par rédaction ;
 - validation du nombre d'unités demandées, des doublons, des marqueurs de claims
   et des EvidenceIds autorisés ;
+- relation ligne/colonne/rôle/catégorie incluse dans le claim et soutenue par sa
+  preuve, au lieu de traiter le placement comme une synthèse non factuelle ;
 - une seule réparation bornée d'un JSON de rédacteur mal formé ou de marqueurs
   manquants ;
 - aucune réparation autorisée pour une citation vers un EvidenceId non revalidé ;
@@ -367,6 +372,46 @@ les artefacts.
 Le délai est conservé comme paramètre reproductible pour les limites RPM ; il ne
 prétend pas supprimer un plafond RPD. La preuve encore requise reste une banque
 complète 3/3 sur un quota réellement disponible ou après activation du Tier 1.
+Le produit reste `TESTE_NON_APPROUVE`.
+
+## A763 — revue sémantique partielle et relation cellule/preuve — 2026-09-12
+
+Les quatre jobs de la campagne partielle ont été relus en transaction
+PostgreSQL `REPEATABLE READ ONLY`. Le bundle contient les résultats durables et
+les douze chunks canoniques réellement référencés; son SHA-256 est
+`7037FB3B8B50D3515BEC9461D530DE141053AA9B5C9193511AF689D04799BA46`.
+Aucune donnée n'a été modifiée.
+
+Deux réponses réussies sont sémantiquement correctes sur cette exécution. Les
+cinq idées étudiant sont distinctes et soutenues par deux documents qui
+établissent leur caractère étudiant, simple, rapide ou économique. La
+comparaison CEN/IEC reprend fidèlement les deux prescriptions et conserve les
+sources séparées. Ces PASS unitaires ne satisfont pas encore le seuil 3/3.
+NIST reste un échec fonctionnel 429, avec un handoff sûr qui n'affiche aucune
+réponse ou source non validée.
+
+Le planning 5 × 4 est rejeté. Il possède bien cinq jours, quatre colonnes, vingt
+noms distincts et vingt claims, mais plusieurs citations prouvent seulement
+l'existence d'un nom dans un index. Elles ne prouvent pas son adéquation au
+créneau choisi. C15 est la preuve causale : le chunk recommande les pancakes au
+petit-déjeuner tandis que Terra les place en collation. Le contrat Writer disait
+explicitement que l'arrangement des candidats était une synthèse et non un
+nouveau fait; il autorisait donc ce trou de grounding.
+
+Le commit `b20fcc2` remplace cette règle par une contrainte générale : la
+relation créée par une ligne, une colonne, un rôle ou une catégorie fait partie
+de l'unité factuelle. Le claim doit l'énoncer et sa preuve doit la soutenir;
+sinon le Writer doit retourner l'insuffisance exacte. Aucune règle Cuisine n'est
+codée et aucun appel Critic systématique n'est ajouté avant d'avoir mesuré
+l'effet du contrat renforcé. Les 30 tests fournisseur passent.
+
+La validation Release complète sur `b20fcc2` rapporte 10 tests contrats,
+2 145 backend et 2 234 client réussis, soit 4 389 réussites et zéro échec. Les
+deux probes live opt-in ne sont pas exécutées. La porte mécanique est verte,
+mais le gel sémantique est rouvert et la prochaine banque Terra doit partir de
+`b20fcc2` ou d'un descendant documentaire. Détails :
+`ADR-2026-09-12-A763-RELATION-CELLULE-PREUVE.md` et
+`artifacts/reprise-pc-20260908/a763-partial-terra-semantic-review-20260912`.
 Le produit reste `TESTE_NON_APPROUVE`.
 
 Après le commit de preuve `4b04aa94`, les trois projets de tests ont été rejoués
