@@ -226,16 +226,15 @@ secret ou appel payant RunPod n'a été créé à ce stade.
 
 1. Rejouer la banque avancée complète trois fois sur l'état gelé avec Terra,
    après application du Tier 1 ou réinitialisation du quota journalier.
-2. Confirmer live la réparation bornée d'une réponse de protocole mal formée.
-3. Qualifier `Qwen/Qwen3-32B-AWQ` via le Public Endpoint RunPod avec le même
+2. Qualifier `Qwen/Qwen3-32B-AWQ` via le Public Endpoint RunPod avec le même
    contrat. Le candidat, l'URL, les tarifs et le lanceur sont prêts ; il manque
    l'autorisation de dépense RunPod, au moins 5 USD de crédits et une clé RunPod.
-4. Exécuter le même protocole sur le serveur final du client lorsque son matériel
+3. Exécuter le même protocole sur le serveur final du client lorsque son matériel
    et son modèle seront disponibles.
-5. Pendant une réponse avancée terminale acceptée, ouvrir les cartes source
+4. Pendant une réponse avancée terminale acceptée, ouvrir les cartes source
    exactes dans WinUI. La fermeture puis relance du vrai WinUI et la reprise du
    même job sont désormais prouvées séparément.
-6. Ouvrir un nouveau holdout aveugle après le gel définitif du code.
+5. Ouvrir un nouveau holdout aveugle après le gel définitif du code.
 
 Le palier RunPod, l'hébergement client et le holdout aveugle dépendent de moyens
 externes encore absents. Le contrat unique permet de changer d'endpoint sans
@@ -411,3 +410,30 @@ reprise. Cette validation ferme la porte arrêt/redémarrage du client. Elle ne
 valide ni la réponse sémantique, ni l'état terminal réussi, ni le clic des cartes
 source d'une réponse avancée : ces points restent attachés à la campagne Terra
 acceptée. Le produit reste `TESTE_NON_APPROUVE`.
+
+## A763 — réparation bornée prouvée sur transport HTTP réel — 2026-09-12
+
+Le commit `d0a844d5` ajoute une fixture OpenAI-compatible limitée au loopback et
+le runner `tools/test-advanced-protocol-repair-local.ps1`. La fixture renvoie
+successivement un plan valide, une réponse writer JSON volontairement tronquée,
+puis un objet réparé valide. Le provider `customer-server`, en localisation
+`internal`, emploie le même `OpenAiCompatibleAdvancedAnalysisProvider` que les
+profils OpenAI et RunPod; le test traverse donc le vrai client HTTP et le vrai
+parseur/réparateur sans appeler un modèle externe.
+
+Sur le commit propre `d0a844d5`, les traces rapportent exactement trois requêtes
+vers `127.0.0.1` : `planner`, `writer-malformed`, `writer-repair`. Le résultat
+est `answered`, avec vingt claims et vingt EvidenceIds distincts. Le verdict est
+`PASS_BOUNDED_PROTOCOL_REPAIR_LIVE_LOOPBACK`. Zéro contenu ou métadonnée n'a été
+transmis hors de la machine, aucun registre facturé n'a été écrit, les variables
+d'environnement ont été restaurées, le serveur local a été arrêté et le port
+18081 est libre. Les 30 tests Release des classes fournisseur concernées passent
+sans échec.
+
+Cette preuve ferme la lacune mécanique « réparation bornée d'un protocole
+malformé » : un seul appel de réparation suit le writer invalide et le résultat
+doit repasser toute la validation des claims et citations. Elle ne qualifie pas
+la capacité sémantique d'une fixture déterministe et ne remplace pas la banque
+Terra 3/3. L'artefact reproductible est
+`artifacts/reprise-pc-20260908/a763-local-protocol-repair-d0a844d5-20260912`.
+Le produit reste `TESTE_NON_APPROUVE`.

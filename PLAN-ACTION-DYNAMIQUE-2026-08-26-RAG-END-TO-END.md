@@ -13621,3 +13621,19 @@ terminal et des cartes source exactes sera faite sur une réponse avancée reten
 pendant la banque Terra. Les autres portes ne changent pas : banque Terra 3/3 et
 revue sémantique, qualification RunPod autorisée, serveur client, puis nouveau
 holdout aveugle après gel sémantique. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — réparation de protocole validée en loopback — 2026-09-12
+
+Le commit `d0a844d5` ajoute une fixture OpenAI-compatible locale et un runner
+qui exerce le vrai provider HTTP avec le profil `customer-server` interne. La
+séquence imposée contient un plan valide, un writer JSON tronqué, puis une seule
+réparation valide. L'exécution sur un worktree propre observe exactement trois
+appels, répond avec vingt claims liés à vingt EvidenceIds distincts et produit
+le verdict `PASS_BOUNDED_PROTOCOL_REPAIR_LIVE_LOOPBACK`.
+
+Cette preuve ne coûte rien et ne transmet rien à l'extérieur : endpoint
+`127.0.0.1`, données synthétiques, variables restaurées, fixture arrêtée et port
+18081 libéré. Les 30 tests Release ciblant le provider passent. Le mécanisme de
+réparation bornée est donc fermé indépendamment du modèle hébergé; la qualité
+Terra reste soumise à la banque 3/3 et à sa revue humaine. Artefact :
+`artifacts/reprise-pc-20260908/a763-local-protocol-repair-d0a844d5-20260912`.
