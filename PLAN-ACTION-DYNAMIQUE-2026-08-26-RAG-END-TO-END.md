@@ -14158,3 +14158,36 @@ mode de routage client licencié qui ne dépend pas du petit modèle. L'assistan
 d'installation interactif et de nouveaux profils cloud restent des travaux
 ultérieurs, conformément au périmètre décidé. Aucun coût nouveau. Produit
 `TESTE_NON_APPROUVE`.
+
+## A763 — banque Terra partielle, palier Free et correction sémantique — 2026-09-12
+
+La première répétition réelle sur `5a57f35a` a terminé les quatre cas et huit
+appels pour 0,107138 USD. Un faux rejet de langue du harnais a été corrigé et
+testé dans `ee53acbe`. La relance a terminé deux cas puis reçu deux 429 ; une
+reprise espacée d'environ 98 secondes a encore été refusée. Seulement 15
+tentatives figuraient dans la journée UTC, dont 12 réussies : la cause n'était
+pas l'épuisement des 50 RPD.
+
+Le compte dispose de 23,79 USD mais reste affiché en `Free tier`, avec Terra à
+10 000 TPM, 3 RPM et 50 RPD. Le projet ne peut pas relever ces maxima hérités.
+Le commit `08071d5e` conserve maintenant les en-têtes de limite et `Retry-After`
+sans contenu métier ni secret. La suite backend compte 2 154 réussites, zéro
+échec et trois ignorés.
+
+La revue privée des six jobs valide sur leur run CEN/IEC et NIST. Elle rejette
+les deux réponses étudiant, qui abandonnent les qualificatifs `simple` et
+`étudiant`, et juge les refus du planning sûrs mais trop stricts sur l'axe neutre
+des jours. Le commit `2ef64f59` distingue coordonnées neutres et catégories
+sémantiques, maintient tous les qualificatifs obligatoires et élargit les
+requêtes par synonymes bornés. La suite complète reste verte.
+
+Verdict :
+`REJECT_SEMANTIC_MANDATORY_QUALIFIER_GROUNDING_AND_OVERCONSTRAINED_NEUTRAL_SCHEDULE_AXIS_INCOMPLETE_3X`.
+Assessment :
+`artifacts/reprise-pc-20260908/a763-grounded-terra-semantic-review-20260912/assessment.v1.json`,
+SHA-256 `296F2449874AF75E4C9F21A89E4E9650C1C36E8E3FB2A4B52AB1AF3D587E5412`.
+
+Prochaine porte : constater le Tier 1, exécuter les quatre cas trois fois sur le
+même commit final, revoir les douze sorties contre les chunks, puis seulement
+geler la sémantique et lancer le holdout aveugle. Aucun achat supplémentaire ni
+appel RunPod n'est autorisé à ce stade. Produit `TESTE_NON_APPROUVE`.

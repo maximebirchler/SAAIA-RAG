@@ -1218,3 +1218,74 @@ Une éventuelle licence « serveur uniquement » reste explicitement hors de ce 
 elle demandera un routage client licencié capable de créer un handoff sans petit
 modèle. L'interface interactive de l'installateur et les fournisseurs cloud
 supplémentaires restent aussi différés. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — première banque Terra sur preuves réelles et diagnostic du palier — 2026-09-12
+
+Une première répétition des quatre cas complexes a été exécutée sur `5a57f35a`.
+Les quatre jobs et huit appels fournisseur ont réussi pour un coût estimé de
+0,107138 USD. Le harnais a ensuite arrêté la campagne en classant à tort une
+énumération française comme langue inconnue : son lexique ne comptait pas la
+conjonction `et` parmi les signaux français. Le commit `ee53acbe` ajoute la
+réponse réellement observée comme régression et porte les contrôles de langue à
+4/4 ainsi que la classe ciblée à 31/31.
+
+La relance sur ce commit a réussi les deux premiers jobs et quatre appels, puis
+les deux suivants ont échoué avec `advanced_llm_http_429`. Une reprise espacée
+d'environ 98 secondes a encore reçu 429 dès le premier appel et a été stoppée
+sans insister. Le registre du jour UTC comptait alors 15 tentatives, 12 succès et
+3 rejets, donc nettement moins que les 50 RPD affichées. Les lignes d'échec ne
+portaient qu'un essai HTTP : le serveur demandait un `Retry-After` supérieur au
+plafond d'attente client de 60 secondes.
+
+Le commit `08071d5e` journalise désormais, sans prompt, preuve, URL ni secret,
+l'identifiant fournisseur, les limites, restes et resets des requêtes et tokens,
+ainsi que `Retry-After` en millisecondes. Les 35 tests provider ciblés et la suite
+backend complète passent : 2 154 réussites, zéro échec et trois tests ignorés.
+Le TRX a le SHA-256
+`AFD7DA9259D976CC892B5E5F6D4555E3F1ADD40BBFBAB1F63149D0A3CC2160A0`.
+
+Le crédit OpenAI est actif, avec 23,79 USD visibles sur les 25 USD initiaux,
+mais l'organisation reste affichée en `Free tier`. Terra hérite de 10 000 TPM,
+3 RPM et 50 RPD ; le projet peut abaisser ces valeurs mais pas supprimer les
+maxima de l'organisation. Aucun achat ou changement de plafond n'a été effectué.
+Les appels restent suspendus tant que ce palier est affiché.
+
+## A763 — revue sémantique des six jobs Terra et correction des contraintes — 2026-09-12
+
+Les six jobs réussis ont été exportés avec leurs quinze chunks canoniques et
+vingt-huit événements d'outils sous transaction PostgreSQL
+`REPEATABLE READ ONLY`. Le bundle contenant les réponses et les textes reste
+privé. Son SHA-256 est
+`3FDFCEBC8744CDB11CC7E2FF6A30802A1CBE88D8602BF846AC60E701242E8D8C`.
+
+La comparaison CEN/IEC et les sept points NIST sont alignés sur leurs sources
+pour l'unique exécution disponible de chaque cas. Les deux refus du planning
+5 × 4 sont sûrs et n'inventent rien, mais ils révèlent une contrainte excessive :
+le writer exigeait que la source prescrive elle-même chaque jour de la semaine.
+Les jours constituent ici des coordonnées neutres de présentation ; les
+catégories petit-déjeuner, déjeuner, collation et dîner restent, elles,
+sémantiques et doivent être prouvées.
+
+Les deux listes de cinq repas reprennent bien cinq noms présents dans leurs
+pages, mais abandonnent sans le dire les contraintes `simple` et `pour un
+étudiant`. Elles sont donc rejetées. La recherche n'était ni vide ni dégradée ;
+le writer a préféré un index facile à énumérer sans vérifier les qualificatifs
+obligatoires.
+
+Le verdict est
+`REJECT_SEMANTIC_MANDATORY_QUALIFIER_GROUNDING_AND_OVERCONSTRAINED_NEUTRAL_SCHEDULE_AXIS_INCOMPLETE_3X`.
+Le commit `2ef64f59` corrige génériquement ces deux causes : recherches synonymes
+complémentaires dans le budget existant, distinction des coordonnées neutres et
+des rôles sémantiques, conservation explicite de chaque qualificatif obligatoire
+et exigence qu'un titre nomme réellement la catégorie qu'il est censé prouver.
+Les 35 tests ciblés et la suite backend complète passent à nouveau : 2 154
+réussites, zéro échec et trois tests ignorés. Le TRX final a le SHA-256
+`AEE312F5120977201643481FBB5F3285C6C0E48D206243993EBA0504B6BD6482`.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-grounded-terra-semantic-review-20260912/assessment.v1.json`,
+SHA-256 `296F2449874AF75E4C9F21A89E4E9650C1C36E8E3FB2A4B52AB1AF3D587E5412`.
+Les réponses précédentes prouvent les causes et la sûreté des refus, mais ne
+valident pas le prompt corrigé. La prochaine porte reste quatre cas, trois
+succès chacun sur le même commit final, puis une revue claim-preuve des douze
+sorties. Produit `TESTE_NON_APPROUVE`.
