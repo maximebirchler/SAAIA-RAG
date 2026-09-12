@@ -94,6 +94,50 @@ if (jobs.Count != requestedJobIds.Length)
 if (tenantIds.Count != 1)
     throw new InvalidOperationException("All reviewed jobs must belong to one tenant.");
 
+var toolEvents = new List<object>();
+const string eventSql = """
+SELECT job_id, event_sequence, attempt_count, tool_name, status, request::text,
+       evidence_references::text, degraded_retrievers, elapsed_milliseconds,
+       error_code, created_at
+FROM advanced_analysis_tool_events
+WHERE tenant_id=@tenant AND job_id=ANY(@ids)
+ORDER BY job_id, event_sequence;
+""";
+await using (var command = new NpgsqlCommand(eventSql, connection, transaction))
+{
+    command.Parameters.AddWithValue("tenant", tenantIds.Single());
+    command.Parameters.AddWithValue("ids", requestedJobIds);
+    await using var reader = await command.ExecuteReaderAsync();
+    while (await reader.ReadAsync())
+    {
+        using var requestDocument = JsonDocument.Parse(reader.GetString(5));
+        using var evidenceDocument = JsonDocument.Parse(reader.GetString(6));
+        var eventEvidence = evidenceDocument.RootElement.Clone();
+        if (eventEvidence.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in eventEvidence.EnumerateArray())
+            {
+                AddUuid(item, "chunkId", chunkIds);
+                AddUuid(item, "contentCardId", contentCardIds);
+            }
+        }
+        toolEvents.Add(new
+        {
+            jobId = reader.GetGuid(0),
+            sequence = reader.GetInt32(1),
+            attemptCount = reader.GetInt32(2),
+            toolName = reader.GetString(3),
+            status = reader.GetString(4),
+            request = requestDocument.RootElement.Clone(),
+            evidence = eventEvidence,
+            degradedRetrievers = reader.GetFieldValue<string[]>(7),
+            elapsedMilliseconds = reader.GetInt64(8),
+            errorCode = reader.IsDBNull(9) ? null : reader.GetString(9),
+            createdAtUtc = reader.GetFieldValue<DateTimeOffset>(10)
+        });
+    }
+}
+
 var chunks = new List<object>();
 if (chunkIds.Count > 0)
 {
@@ -147,41 +191,6 @@ ORDER BY content_card_id;
             searchText = reader.GetString(5),
             metadata = metadataDocument.RootElement.Clone(),
             checksum = reader.GetString(7)
-        });
-    }
-}
-
-var toolEvents = new List<object>();
-const string eventSql = """
-SELECT job_id, event_sequence, attempt_count, tool_name, status, request::text,
-       evidence_references::text, degraded_retrievers, elapsed_milliseconds,
-       error_code, created_at
-FROM advanced_analysis_tool_events
-WHERE tenant_id=@tenant AND job_id=ANY(@ids)
-ORDER BY job_id, event_sequence;
-""";
-await using (var command = new NpgsqlCommand(eventSql, connection, transaction))
-{
-    command.Parameters.AddWithValue("tenant", tenantIds.Single());
-    command.Parameters.AddWithValue("ids", requestedJobIds);
-    await using var reader = await command.ExecuteReaderAsync();
-    while (await reader.ReadAsync())
-    {
-        using var requestDocument = JsonDocument.Parse(reader.GetString(5));
-        using var evidenceDocument = JsonDocument.Parse(reader.GetString(6));
-        toolEvents.Add(new
-        {
-            jobId = reader.GetGuid(0),
-            sequence = reader.GetInt32(1),
-            attemptCount = reader.GetInt32(2),
-            toolName = reader.GetString(3),
-            status = reader.GetString(4),
-            request = requestDocument.RootElement.Clone(),
-            evidence = evidenceDocument.RootElement.Clone(),
-            degradedRetrievers = reader.GetFieldValue<string[]>(7),
-            elapsedMilliseconds = reader.GetInt64(8),
-            errorCode = reader.IsDBNull(9) ? null : reader.GetString(9),
-            createdAtUtc = reader.GetFieldValue<DateTimeOffset>(10)
         });
     }
 }
