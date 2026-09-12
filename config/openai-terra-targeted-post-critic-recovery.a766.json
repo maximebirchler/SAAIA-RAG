@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "saaia-openai-terra-final-campaign-v1",
+  "campaignId": "A766-TERRA-TARGETED-POST-CRITIC-RECOVERY-1X",
+  "status": "PREREGISTERED",
+  "createdAtUtc": "2026-09-12T16:33:25.2592209+00:00",
+  "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
+  "repository": {
+    "expectedBranch": "SAAIA_V3.1",
+    "preregisteredAgainstCommit": "ef805815",
+    "minimumSemanticFixCommit": "ef805815",
+    "executionRule": "Run one targeted meal-grid causal probe from an exact clean descendant of the post-Critic structured-synthesis recovery fix. The product-path preflight seal records the full execution commit. Do not change prompts, retrieval, corpus, provider settings or acceptance rules after observing the answer."
+  },
+  "provider": {
+    "mode": "OpenAI",
+    "model": "gpt-5.6-terra",
+    "endpoint": "https://api.openai.com/v1",
+    "minimumOrganizationTier": "Tier1",
+    "freshTierObservationMaximumAgeMinutes": 15,
+    "freeTierCallsBlocked": true,
+    "runPodAuthorized": false,
+    "semanticCriticEnabled": true,
+    "criticMaxTokens": 4096
+  },
+  "localRouter": {
+    "modelId": "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+    "runtimeSha256": "9555847A0403737C4A1B5BEAB050BD697AEC477B6675871A1F8D4737A25C1650",
+    "modelSha256": "66713CE35A58A82FE87642D4EC13425BF9B9A46800FFF5C49A665EF5701439DC",
+    "providerConfigPath": "config/llm-providers.dev.json",
+    "providerConfigSha256": "036D6C68D1780DC78E3FB594C27FF82CE86861F9BECD94E268AEADE6163D1E1D"
+  },
+  "bank": {
+    "path": "config/advanced-capacity-validation.v1.json",
+    "sha256": "8B2A5029E0A74D78FF7F26A8F1AACE2D005E84E729E9241AB94FE1BC5AEFFA3E",
+    "caseIds": [
+      "A755-ADV-01-meal-grid-5x4"
+    ],
+    "repetitions": 1,
+    "expectedRows": 1
+  },
+  "execution": {
+    "runner": "tools/test-advanced-product-path-openai.ps1",
+    "configuration": "Release",
+    "delayBetweenCasesSeconds": 5,
+    "maximumJobAttempts": 3,
+    "maximumJobRetryDelayMilliseconds": 600000,
+    "serverEnvironmentPath": "C:/Users/maxim/NextCloud/Maxime/Ecommerce/SAAIA/infra/.env.server-linux",
+    "referenceBackendUrl": "http://saaia-server:5122",
+    "backendPort": 5123,
+    "artifactRoot": "artifacts/reprise-pc-20260908/a766-provider-comparison",
+    "artifactDirectoryRule": "Create a fresh directory containing the exact execution commit and UTC timestamp; never overwrite an earlier campaign."
+  },
+  "budget": {
+    "authorizedLifetimeUsd": 25.0,
+    "softLimitUsd": 20.0,
+    "hardStopUsd": 24.0,
+    "maximumCostPerJobUsd": 0.3,
+    "maximumCallsPerJob": 6,
+    "maximumJobs": 1,
+    "maximumCampaignCostImpliedByPerJobCapsUsd": 0.3,
+    "expectedNormalProviderCalls": 6,
+    "maximumProviderCallsByEnvelope": 6,
+    "pricingUsdPerMillionTokens": {
+      "input": 2.0,
+      "cachedInput": 0.2,
+      "output": 12.0
+    }
+  },
+  "acceptance": {
+    "global": [
+      "The registered meal-grid case produces one mechanically successful row on the same clean commit.",
+      "The answer is a complete 5 by 4 grid with 20 distinct concrete source-backed cells; a safe insufficiency does not pass this functional causal probe.",
+      "Provider and model telemetry are exactly openai-dev and gpt-5.6-terra; costs and token counts are present.",
+      "Tool events must prove the executed initial and complementary or reformulated corpus searches requested by Terra.",
+      "If Writer or Critic confuses a SAAIA-created schedule placement with missing documentary evidence, one final bounded synthesis-recovery call may re-evaluate the full supplied evidence.",
+      "No internal advanced-evidence-* or internal-source-* identifier may appear in the user-visible result.",
+      "No prompt, case, retrieval, corpus, acceptance criterion, local-router binary/model/configuration or runtime parameter changes after the answer is observed.",
+      "Any unsupported substantive claim, wrong source relation, budget stop or protocol drift rejects the probe."
+    ],
+    "cases": {
+      "A755-ADV-01-meal-grid-5x4": [
+        "Accept functionally only a complete 5 by 4 grid with 20 distinct concrete cells and evidence supporting each semantic meal-moment placement.",
+        "Weekday labels are neutral presentation coordinates and do not require documentary support.",
+        "If the corpus cannot prove all 20 semantic placements, accept only a precise insufficiency naming the missing cells or evidence categories; this validates safe behavior but does not close the functional planning gate."
+      ]
+    },
+    "productPromotionRule": "This targeted causal probe cannot promote the product. Keep TESTE_NON_APPROUVE pending a fresh final 3x campaign, semantic review, blind holdout and authorized external-model gates."
+  },
+  "stopRules": [
+    "Do not execute while the organization dashboard still shows Free tier.",
+    "Do not execute without a paid-tier observation less than 15 minutes old.",
+    "Stop before the first model call if the branch, clean-tree rule or bank hash differs.",
+    "Stop before the first model call if the local llama.cpp runtime, Qwen GGUF or provider configuration hash differs.",
+    "Stop before the first model call if the reference corpus cannot be sealed or has queued, running or paused ingestion; reject the campaign if the postflight seal differs.",
+    "Let retryable 429 responses use the durable scheduled retry path, bounded to three job attempts and ten minutes per scheduled delay in this campaign.",
+    "Stop at the persistent lifetime, per-job or per-job-call budget guard.",
+    "Do not start RunPod or transmit the private evidence bundle."
+  ],
+  "campaignKind": "targeted-causal"
+}
