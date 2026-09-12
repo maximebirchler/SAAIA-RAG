@@ -421,6 +421,12 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             StringComparison.Ordinal);
         Assert.Contains("recettes collation", factory.Requests[1].Body,
             StringComparison.Ordinal);
+        Assert.Contains("For every bounded named-item collection",
+            factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.Contains("same-source scope evidence",
+            factory.Requests[1].Body,
+            StringComparison.Ordinal);
         Assert.Contains("encas pause recettes titres", factory.Requests[2].Body,
             StringComparison.Ordinal);
     }

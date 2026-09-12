@@ -55,6 +55,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            When the user explicitly names documents, emit at least one focused
            query per document. Retain that document's complete identifier in the
            query and add only the subject terms needed to answer the request.
+           For a bounded named-item collection with mandatory qualifiers, search
+           for both a scope statement and at least the requested number of item
+           names covered by that same source. When a result reveals a promising
+           scope-bearing collection title, use that exact title with compact terms
+           such as contents, index, headings or examples to expose more candidates.
            Shape: {"selectionMode":"distinct_named_items|repeatable_named_items|content_claims|empty for non-structured","queries":[{"query":"...","category":"... or empty","topK":20}]}.
            """;
 
@@ -90,6 +95,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            do not merely reorder the same generic words. You may be called for
            more than one review round, and each round must use the newly supplied
            observations and priorQueries.
+           For every bounded named-item collection, count only candidates whose
+           own evidence or same-source scope evidence supports every mandatory
+           qualifier in the user request. If that count is below load.answerUnitCount,
+           return search_more. When observations reveal a qualifying collection
+           but too few of its items, reformulate with its exact source or collection
+           title plus contents, index, headings or examples. Do not fill the gap
+           from another source that lacks the mandatory qualifier.
            For a user-requested proposed
            schedule, grouping or classification, count documented candidate items;
            do not demand documentary proof of the new row, column, group or slot
