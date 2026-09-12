@@ -1595,3 +1595,51 @@ mutations produit sont couvertes en parallèle par le catalogue et l'historique
 d'ingestion du tenant. Cette preuve reste mécanique et ne qualifie aucune
 réponse. Aucun appel fournisseur, aucune transmission externe et aucun coût.
 Produit `TESTE_NON_APPROUVE`.
+
+## A763 — traçabilité des jobs et paquet canonique de revue sémantique — 2026-09-12
+
+Les résultats de la banque avancée ne conservaient pas l'identifiant du job
+durable. Une revue après coup devait donc rapprocher manuellement une réponse de
+la base, avec un risque d'ambiguïté dès que plusieurs répétitions partageaient
+le même cas. Le commit `701e0d9e` ajoute `advancedJobId` aux formats JSON, JSONL
+et TSV. Le test de banque exige désormais un UUID valide sur chaque succès et
+l'assesseur mécanique refuse une campagne qui ne permet pas ce rattachement.
+
+Trente et un tests C# ciblés passent. L'assesseur accepte un résultat synthétique
+muni d'un UUID et rejette le même résultat quand l'identifiant manque, avec le
+contrôle `advancedJobIdentityRecorded`. Le TRX ciblé a pour SHA-256
+`1A70C39D0C1579AB2648426530A782932B1B11574850D0A04EEA5D40D7889916`.
+
+Le commit `d6858e5e` ajoute ensuite
+`tools/prepare-advanced-semantic-review.ps1` et l'exporteur .NET
+`SAAIA.AdvancedSemanticReviewExporter`. Le wrapper vérifie le sceau terminé, le
+commit exact et propre, le nombre de résultats et l'unicité des jobs. L'exporteur
+ouvre une transaction PostgreSQL `REPEATABLE READ`, explicitement en lecture
+seule, vérifie que les jobs ont réussi pour un tenant unique, puis rassemble les
+réponses, les claims, les chunks et cartes canoniques et les événements des
+tools. Le manifeste public ne conserve que des hashes et des compteurs ; le
+contenu du corpus et les identifiants restent dans des fichiers privés ignorés.
+
+Une preuve live en lecture seule sur six jobs Terra déjà existants a extrait six
+résultats, quinze chunks canoniques, vingt-huit événements de tools et aucune
+preuve irrésolue. Le wrapper complet passe sous PowerShell 7 et Windows
+PowerShell 5.1. Le document privé de revue est identique sur les deux moteurs et
+a pour SHA-256
+`1A844F280C6CA16B976CA960ABC2F6CFD69484315D7F843A30EB541251F473B2`.
+Un UUID inconnu est rejeté sans créer de sortie. Aucun appel OpenAI ou RunPod,
+aucune transmission externe et aucun coût n'ont été produits par ces contrôles.
+
+La régression client Release complète passe 2 241 tests, zéro échec et un test
+live volontairement ignoré. Son TRX a pour SHA-256
+`BA0A8526C149D3427925D4A719A83DA60E2085FBE0202D9A65C161CE029A2CCD`.
+Le profil final courant a pour SHA-256
+`099E1F9BBF148039CD4B27FC089067B851838B515B089CF41DCD22C5E9E75681`.
+
+Verdict mécanique : `PASS_MECHANICAL_SEMANTIC_REVIEW_PACKET_READY`. La revue
+sémantique des douze futures réponses Terra reste à exécuter après le passage
+effectif de l'organisation OpenAI en palier payé. Produit
+`TESTE_NON_APPROUVE`.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-semantic-review-wrapper-d6858e5-20260912/assessment.v1.json`,
+SHA-256 `6F2D6D9CD534104EA7100DE3665C2B6D0F99CA5B73CCE3848ACBBCEDD528C0C7`.

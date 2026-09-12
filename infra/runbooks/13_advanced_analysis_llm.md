@@ -152,6 +152,25 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -Execute
 ```
 
+Une campagne mécaniquement terminée doit ensuite être convertie en paquet de
+revue sémantique. Cette étape relit les jobs durables et les preuves canoniques
+dans une transaction PostgreSQL en lecture seule :
+
+```powershell
+pwsh -NoProfile -File .\tools\prepare-advanced-semantic-review.ps1 `
+  -CampaignArtifactDirectory <repertoire-de-la-campagne-terminee> `
+  -ServerEnvPath <chemin-vers-.env.server-linux>
+```
+
+Le script exige un sceau `COMPLETED`, le commit exact et propre de la campagne,
+le nombre de lignes attendu et un UUID de job durable distinct par réponse. Il
+produit `manifest.public.json`, qui ne contient que des hashes et des compteurs,
+ainsi que des fichiers `*.private.*` contenant les réponses et les extraits du
+corpus nécessaires à la revue manuelle. Ces fichiers privés restent dans le
+workspace : ils ne doivent être ni versionnés, ni envoyés à Telegram, ni
+transmis à un fournisseur. Le statut produit reste `TESTE_NON_APPROUVE` tant que
+les douze réponses finales n'ont pas reçu un verdict sémantique explicite.
+
 ## Benchmark RunPod
 
 Le candidat, l'endpoint et les tarifs sont choisis et revérifiés au moment du
