@@ -97,3 +97,16 @@ transmises au Writer. Les chunks canoniques du livre étudiant contiennent un
 index et plusieurs recettes nommées ; le problème restant est de garantir que
 la preuve de portée et suffisamment de preuves d'items du même document entrent
 ensemble dans le budget de contexte.
+
+L'inspection des dix-huit événements de recherche du probe confirme ce point.
+Dans chaque répétition, le livre étudiant remonte sur la plupart des six
+requêtes et expose les pages d'index 3 et 4. Les doublons de couverture des
+pages 1 et 22 passent cependant avant elles dans l'ordre plat ; le budget du
+Writer peut être consommé avant les preuves d'items.
+
+Pour une collection `multi_item`, le Writer reçoit désormais en tête les pages
+distinctes de la source qui cumule la plus grande couverture des requêtes. La
+promotion est bornée au nombre d'items demandé plus un, puis l'ordre global
+reprend sans supprimer aucune autre preuve. Elle ne s'applique ni aux grilles,
+ni aux comparaisons, ni aux extractions bornées d'un document nommé. Cette
+sélection reste générique et ne change pas le moteur de recherche canonique.

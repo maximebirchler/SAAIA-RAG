@@ -32,6 +32,53 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public void Multi_item_prompt_promotes_diverse_pages_from_the_best_supported_source()
+    {
+        var primaryDoc = Guid.NewGuid().ToString("D");
+        var primaryRevision = Guid.NewGuid().ToString("D");
+        var evidence = new[]
+        {
+            BuildEvidence("E-OTHER-1", "Other source.", "other.pdf"),
+            BuildEvidence("E-SCOPE-1", "Collection scope.", "collection.pdf",
+                primaryDoc, primaryRevision, 1),
+            BuildEvidence("E-SCOPE-2", "Repeated scope.", "collection.pdf",
+                primaryDoc, primaryRevision, 1),
+            BuildEvidence("E-OTHER-2", "Other item.", "other.pdf"),
+            BuildEvidence("E-INDEX", "Index with named items.", "collection.pdf",
+                primaryDoc, primaryRevision, 3),
+            BuildEvidence("E-ITEM", "Named item details.", "collection.pdf",
+                primaryDoc, primaryRevision, 4)
+        };
+        var retrievalQueries = new Dictionary<string, HashSet<string>>
+        {
+            ["E-OTHER-1"] = ["q1"],
+            ["E-OTHER-2"] = ["q2"],
+            ["E-SCOPE-1"] = ["q1", "q2", "q3", "q4"],
+            ["E-SCOPE-2"] = ["q1", "q2", "q3"],
+            ["E-INDEX"] = ["q1", "q2", "q3"],
+            ["E-ITEM"] = ["q1", "q2"]
+        };
+        var load = new AdvancedAnalysisLoadDescriptor
+        {
+            PlanKind = "multi_item",
+            AnswerUnitCount = 5,
+            AtomicEvidenceMode = "one_per_item"
+        };
+
+        var prioritized = OpenAiCompatibleAdvancedAnalysisProvider
+            .PrioritizeCollectionEvidenceForPrompt(
+                load,
+                evidence,
+                retrievalQueries);
+
+        Assert.Equal(
+            ["E-SCOPE-1", "E-INDEX", "E-ITEM", "E-SCOPE-2"],
+            prioritized.Take(4).Select(static item =>
+                item.Reference.EvidenceId));
+        Assert.Equal(6, prioritized.Count);
+    }
+
+    [Fact]
     public void Document_scope_selector_requires_one_strong_identity_match()
     {
         Assert.Equal(
@@ -1308,7 +1355,8 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         string content,
         string fileName = "menus.pdf",
         string? docId = null,
-        string? revisionId = null)
+        string? revisionId = null,
+        int pageStart = 1)
         => new(
             new AdvancedAnalysisResultEvidence
             {
@@ -1318,8 +1366,8 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                 FileName = fileName,
                 DocPath = "Documents/" + fileName,
                 SourceHash = "sha256:test",
-                PageStart = 1,
-                PageEnd = 1,
+                PageStart = pageStart,
+                PageEnd = pageStart,
                 ChunkId = Guid.NewGuid().ToString("D")
             },
             content);

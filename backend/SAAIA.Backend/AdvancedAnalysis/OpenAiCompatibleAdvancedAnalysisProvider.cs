@@ -1422,7 +1422,11 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
         const int maximumCharactersPerPromptEvidence = 700;
         var promptEvidence = new List<object>();
         var sourceKeys = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var item in evidence)
+        var prioritizedEvidence = PrioritizeCollectionEvidenceForPrompt(
+            request.Handoff.Load,
+            evidence,
+            retrievalQueriesByEvidenceId);
+        foreach (var item in prioritizedEvidence)
         {
             if (remaining <= 0)
                 break;
@@ -1433,13 +1437,9 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                 content = content[..remaining];
             remaining -= content.Length;
             var evidenceId = item.Reference.EvidenceId;
-            var sourceIdentity = string.Join(
-                "|",
-                item.Reference.DocId ?? string.Empty,
-                item.Reference.RevisionId ?? string.Empty,
-                item.Reference.SourceHash ?? string.Empty);
-            if (sourceIdentity == "||")
-                sourceIdentity = "evidence:" + (evidenceId ?? sourceKeys.Count.ToString());
+            var sourceIdentity = BuildCanonicalSourceIdentity(
+                item,
+                evidenceId ?? sourceKeys.Count.ToString());
             if (!sourceKeys.TryGetValue(sourceIdentity, out var sourceKey))
             {
                 sourceKey = $"internal-source-{sourceKeys.Count + 1}";
@@ -1466,6 +1466,103 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
             load = BuildPromptLoad(request.Handoff.Load),
             evidence = promptEvidence
         }, JsonOptions);
+    }
+
+    internal static IReadOnlyList<AdvancedAnalysisResolvedEvidence>
+        PrioritizeCollectionEvidenceForPrompt(
+            AdvancedAnalysisLoadDescriptor load,
+            IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
+            IReadOnlyDictionary<string, HashSet<string>> retrievalQueriesByEvidenceId)
+    {
+        if (evidence.Count < 2
+            || load.AnswerUnitCount < 2
+            || load.StructuredLayout
+            || load.BoundedNamedDocumentExtraction
+            || (!load.PlanKind.Contains("multi_item", StringComparison.OrdinalIgnoreCase)
+                && !load.AtomicEvidenceMode.Contains(
+                    "one_per_item",
+                    StringComparison.OrdinalIgnoreCase)))
+        {
+            return evidence;
+        }
+
+        var candidates = evidence
+            .Select((item, index) => new
+            {
+                Item = item,
+                Index = index,
+                SourceIdentity = BuildCanonicalSourceIdentity(
+                    item,
+                    item.Reference.EvidenceId ?? index.ToString()),
+                QueryCoverage = item.Reference.EvidenceId is not null
+                                && retrievalQueriesByEvidenceId.TryGetValue(
+                                    item.Reference.EvidenceId,
+                                    out var queries)
+                    ? queries.Count
+                    : 0,
+                PageIdentity = $"{item.Reference.PageStart}:{item.Reference.PageEnd}"
+            })
+            .ToArray();
+        var promotionLimit = Math.Clamp(load.AnswerUnitCount + 1, 2, 16);
+        var leadingSource = candidates
+            .GroupBy(static item => item.SourceIdentity, StringComparer.Ordinal)
+            .Select(group => new
+            {
+                SourceIdentity = group.Key,
+                Score = group
+                    .OrderByDescending(static item => item.QueryCoverage)
+                    .ThenBy(static item => item.Index)
+                    .Take(promotionLimit)
+                    .Sum(static item => item.QueryCoverage),
+                FirstIndex = group.Min(static item => item.Index)
+            })
+            .OrderByDescending(static group => group.Score)
+            .ThenBy(static group => group.FirstIndex)
+            .First();
+        if (leadingSource.Score <= 0)
+            return evidence;
+
+        var sourceCandidates = candidates
+            .Where(item => item.SourceIdentity == leadingSource.SourceIdentity)
+            .ToArray();
+        var promoted = sourceCandidates
+            .GroupBy(static item => item.PageIdentity, StringComparer.Ordinal)
+            .Select(static group => group
+                .OrderByDescending(static item => item.QueryCoverage)
+                .ThenBy(static item => item.Index)
+                .First())
+            .OrderByDescending(static item => item.QueryCoverage)
+            .ThenBy(static item => item.Index)
+            .Concat(sourceCandidates
+                .GroupBy(static item => item.PageIdentity, StringComparer.Ordinal)
+                .SelectMany(static group => group
+                    .OrderByDescending(static item => item.QueryCoverage)
+                    .ThenBy(static item => item.Index)
+                    .Skip(1)))
+            .Take(promotionLimit)
+            .Select(static item => item.Item)
+            .ToArray();
+        var promotedIds = promoted
+            .Select(static item => item.Reference.EvidenceId)
+            .Where(static id => !string.IsNullOrWhiteSpace(id))
+            .ToHashSet(StringComparer.Ordinal);
+        return promoted
+            .Concat(evidence.Where(item =>
+                string.IsNullOrWhiteSpace(item.Reference.EvidenceId)
+                || !promotedIds.Contains(item.Reference.EvidenceId)))
+            .ToArray();
+    }
+
+    private static string BuildCanonicalSourceIdentity(
+        AdvancedAnalysisResolvedEvidence item,
+        string fallback)
+    {
+        var identity = string.Join(
+            "|",
+            item.Reference.DocId ?? string.Empty,
+            item.Reference.RevisionId ?? string.Empty,
+            item.Reference.SourceHash ?? string.Empty);
+        return identity == "||" ? "evidence:" + fallback : identity;
     }
 
     private object BuildPromptLoad(AdvancedAnalysisLoadDescriptor load)
