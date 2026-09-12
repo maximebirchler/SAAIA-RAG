@@ -787,6 +787,91 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Structured_title_split_by_ocr_page_marker_keeps_its_source()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"selectionMode":"distinct_named_items","queries":[{"query":"collations","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"decision":"ready","queries":[]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"R1 [C1], R2 [C2], Mousse yaourt et fruits rouges [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"R1 est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"R2 est documentée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"Mousse yaourt et fruits rouges","text":"La mousse est documentée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"R4 est documentée.","evidenceIds":["E4"]}]}
+                """));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+        var gateway = new RecordingToolGateway(
+            BuildEvidence("E1", "R1 est une recette documentée."),
+            BuildEvidence("E2", "R2 est une recette documentée."),
+            BuildEvidence(
+                "E3",
+                "fiche-dessert\nMousse yaourt\nIngrédients\n200 g de fraises\n2 yaourts nature\nPage 11\net fruits rouges\nTechnique\nLaver les fruits."),
+            BuildEvidence("E4", "R4 est une recette documentée."));
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(
+                answerUnitCount: 4,
+                atomicEvidenceMode: "named_item",
+                selectionPolicy: "distinct_structured_layout"),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(3, result.ProviderCallCount);
+        Assert.Equal(
+            "Mousse yaourt et fruits rouges",
+            result.Claims[2].SelectedItem);
+        Assert.Equal(["E3"], result.Claims[2].EvidenceIds);
+    }
+
+    [Fact]
+    public async Task Structured_distant_fragments_without_page_marker_are_not_joined()
+    {
+        const string unsupportedResult = """
+            {"outcome":"answered","answerText":"R1 [C1], R2 [C2], Mousse yaourt et fruits rouges [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"R1 est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"R2 est documentée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"Mousse yaourt et fruits rouges","text":"La mousse est documentée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"R4 est documentée.","evidenceIds":["E4"]}]}
+            """;
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"selectionMode":"distinct_named_items","queries":[{"query":"collations","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"decision":"ready","queries":[]}
+                """),
+            Completion(unsupportedResult),
+            Completion(unsupportedResult));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+        var gateway = new RecordingToolGateway(
+            BuildEvidence("E1", "R1 est une recette documentée."),
+            BuildEvidence("E2", "R2 est une recette documentée."),
+            BuildEvidence(
+                "E3",
+                "Mousse yaourt\nIngrédients\n200 g de fraises\n2 yaourts nature\net fruits rouges\nTechnique\nLaver les fruits."),
+            BuildEvidence("E4", "R4 est une recette documentée."));
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(
+                answerUnitCount: 4,
+                atomicEvidenceMode: "named_item",
+                selectionPolicy: "distinct_structured_layout"),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("insufficient_documentation", result.Outcome);
+        Assert.Equal(4, result.ProviderCallCount);
+        Assert.Empty(result.Claims);
+    }
+
+    [Fact]
     public async Task Planner_can_select_an_exact_category_exposed_by_catalog_tool()
     {
         using var factory = new QueuedHttpClientFactory(

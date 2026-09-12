@@ -356,6 +356,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 true,
                 1);
         }
+        if (ContainsSelectedTitleSplitAcrossPageMarker(
+                safeSelectedItem,
+                safeContent))
+        {
+            return new ContentPhraseMatch(
+                NormalizeDisplayWhitespace(safeSelectedItem),
+                true,
+                1);
+        }
         ContentPhraseMatch? best = null;
         ContentPhraseMatch? second = null;
         for (var index = 0;
@@ -478,6 +487,61 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             token,
             @"^(?:\d+|pers|personnes?|portions?|min|minutes?|h|heures?|pages?|p)$",
             RegexOptions.CultureInvariant);
+
+    private static bool ContainsSelectedTitleSplitAcrossPageMarker(
+        string selectedItem,
+        string content)
+    {
+        var selectedTokens = Regex.Matches(
+                FoldDiacritics(selectedItem),
+                @"[\p{L}\p{N}]+",
+                RegexOptions.CultureInvariant)
+            .Cast<Match>()
+            .Select(static match => match.Value.ToLowerInvariant())
+            .ToArray();
+        if (selectedTokens.Length < 4)
+            return false;
+
+        var lines = content
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(static line => Regex.Matches(
+                    FoldDiacritics(line),
+                    @"[\p{L}\p{N}]+",
+                    RegexOptions.CultureInvariant)
+                .Cast<Match>()
+                .Select(static match => match.Value.ToLowerInvariant())
+                .ToArray())
+            .Where(static tokens => tokens.Length > 0)
+            .ToArray();
+        if (lines.Length < 3)
+            return false;
+
+        for (var markerIndex = 1; markerIndex < lines.Length - 1; markerIndex++)
+        {
+            var marker = lines[markerIndex];
+            if (marker.Length != 2
+                || marker[0] is not ("page" or "p")
+                || !marker[1].All(char.IsDigit))
+            {
+                continue;
+            }
+
+            for (var split = 2; split <= selectedTokens.Length - 2; split++)
+            {
+                var prefix = selectedTokens[..split];
+                var suffix = selectedTokens[split..];
+                var prefixStart = Math.Max(0, markerIndex - 40);
+                var prefixFound = lines[prefixStart..markerIndex]
+                    .Any(line => line.SequenceEqual(prefix));
+                var suffixEnd = Math.Min(lines.Length, markerIndex + 3);
+                var suffixFound = lines[(markerIndex + 1)..suffixEnd]
+                    .Any(line => line.SequenceEqual(suffix));
+                if (prefixFound && suffixFound)
+                    return true;
+            }
+        }
+        return false;
+    }
 
     private sealed record SelectedItemEvidenceMatch(
         string EvidenceId,
