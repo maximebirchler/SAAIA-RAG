@@ -418,14 +418,52 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                 }
             }
         }
-        catch
+        catch (OperationCanceledException) when (
+            !cancellationToken.IsCancellationRequested)
+        {
+            if (reservation is not null)
+            {
+                _budget!.Fail(reservation, "advanced_llm_timeout");
+            }
+            throw new AdvancedAnalysisProviderException(
+                "advanced_llm_timeout");
+        }
+        catch (OperationCanceledException) when (
+            cancellationToken.IsCancellationRequested)
+        {
+            if (reservation is not null)
+            {
+                _budget!.Fail(reservation, "advanced_llm_canceled");
+            }
+            throw;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException)
+        {
+            if (reservation is not null)
+            {
+                _budget!.Fail(
+                    reservation,
+                    "advanced_llm_transport_error");
+            }
+            throw new AdvancedAnalysisProviderException(
+                "advanced_llm_transport_error");
+        }
+        catch (AdvancedAnalysisProviderException ex)
         {
             if (reservation is not null)
             {
                 if (rejectedErrorCode is not null)
                     _budget!.Reject(reservation, rejectedErrorCode);
                 else
-                    _budget!.Fail(reservation, "advanced_llm_call_failed");
+                    _budget!.Fail(reservation, ex.ErrorCode);
+            }
+            throw;
+        }
+        catch
+        {
+            if (reservation is not null)
+            {
+                _budget!.Fail(reservation, "advanced_llm_call_failed");
             }
             throw;
         }

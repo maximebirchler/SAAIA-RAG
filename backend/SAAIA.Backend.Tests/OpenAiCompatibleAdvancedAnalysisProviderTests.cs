@@ -505,6 +505,58 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Response_body_timeout_is_normalized_after_headers()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            CompletionStream(new OperationCanceledException()));
+        var provider = CreateProvider(factory, apiKey: "server-secret");
+
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(
+            () => provider.ExecuteAsync(
+                BuildRequest(),
+                new RecordingToolGateway(),
+                CancellationToken.None));
+
+        Assert.Equal("advanced_llm_timeout", error.ErrorCode);
+        Assert.Single(factory.Requests);
+    }
+
+    [Fact]
+    public async Task Response_body_network_failure_is_normalized_after_headers()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            CompletionStream(new IOException("private transport detail")));
+        var provider = CreateProvider(factory, apiKey: "server-secret");
+
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(
+            () => provider.ExecuteAsync(
+                BuildRequest(),
+                new RecordingToolGateway(),
+                CancellationToken.None));
+
+        Assert.Equal("advanced_llm_transport_error", error.ErrorCode);
+        Assert.DoesNotContain("private transport detail", error.ToString(),
+            StringComparison.Ordinal);
+        Assert.Single(factory.Requests);
+    }
+
+    [Fact]
+    public async Task Caller_cancellation_is_not_reclassified_as_provider_timeout()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[]}"""));
+        var provider = CreateProvider(factory, apiKey: "server-secret");
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => provider.ExecuteAsync(
+                BuildRequest(),
+                new RecordingToolGateway(),
+                cancellation.Token));
+    }
+
+    [Fact]
     public async Task OpenAi_dev_uses_external_policy_identity_and_terra_dialect_without_corpus_metadata()
     {
         using var factory = new QueuedHttpClientFactory(
@@ -1085,6 +1137,12 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             })
         };
 
+    private static HttpResponseMessage CompletionStream(Exception exception)
+        => new(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new ThrowingReadStream(exception))
+        };
+
     private static HttpResponseMessage RateLimited(
         TimeSpan? retryAfter = null)
     {
@@ -1217,4 +1275,45 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         Uri Uri,
         AuthenticationHeaderValue? Authorization,
         string Body);
+
+    private sealed class ThrowingReadStream(Exception exception) : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => 0;
+        public override long Position
+        {
+            get => 0;
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+            => throw exception;
+
+        public override Task<int> ReadAsync(
+            byte[] buffer,
+            int offset,
+            int count,
+            CancellationToken cancellationToken)
+            => Task.FromException<int>(exception);
+
+        public override ValueTask<int> ReadAsync(
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default)
+            => ValueTask.FromException<int>(exception);
+
+        public override long Seek(long offset, SeekOrigin origin)
+            => throw new NotSupportedException();
+
+        public override void SetLength(long value)
+            => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count)
+            => throw new NotSupportedException();
+    }
 }
