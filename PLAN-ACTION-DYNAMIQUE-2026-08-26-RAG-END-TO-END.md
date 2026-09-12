@@ -14222,6 +14222,6 @@ Les validations comptent 25/25 transport client, 32/32 avec PostgreSQL réel,
 2 156 réussites backend Release et 2 240 réussites client Release, sans échec.
 Assessment :
 `artifacts/reprise-pc-20260908/a763-provider-retry-visibility-452d74c-20260912/assessment.v1.json`,
-SHA-256 `F41D0E40E3C5F8CAFC2FA35A8ECCE5797C3574F833A729221BFCAE36C48F4E02`.
+SHA-256 `AA01BAC17291A8EABDF9CC5DFD39B5ABF55DAAF366D53FDE58C00226CBFDD870`.
 Aucun appel externe ni coût. Terra 3/3 reste ouverte tant que le compte affiche
 `Free tier`. Produit `TESTE_NON_APPROUVE`.

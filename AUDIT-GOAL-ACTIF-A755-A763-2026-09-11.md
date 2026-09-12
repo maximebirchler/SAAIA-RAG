@@ -1344,5 +1344,5 @@ trois ignorés ; suite client Release 2 240 réussites, zéro échec et une sond
 live ignorée. Le cluster jetable a été arrêté, son secret supprimé et le port
 55432 libéré. Assessment :
 `artifacts/reprise-pc-20260908/a763-provider-retry-visibility-452d74c-20260912/assessment.v1.json`,
-SHA-256 `F41D0E40E3C5F8CAFC2FA35A8ECCE5797C3574F833A729221BFCAE36C48F4E02`.
+SHA-256 `AA01BAC17291A8EABDF9CC5DFD39B5ABF55DAAF366D53FDE58C00226CBFDD870`.
 Aucun appel fournisseur ni coût. Produit `TESTE_NON_APPROUVE`.
