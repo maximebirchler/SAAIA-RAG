@@ -27,6 +27,9 @@ public sealed class LiveAdvancedAnalysisProviderTests(ITestOutputHelper output)
         var providerMode = Require("SAAIA_ADVANCED_ANALYSIS_PROVIDER");
         var baseUrl = Require("SAAIA_ADVANCED_LLM_BASE_URL");
         var model = Require("SAAIA_ADVANCED_LLM_MODEL");
+        var expectedProviderCalls = ReadOptionalInt(
+            "SAAIA_ADVANCED_EXPECTED_PROVIDER_CALLS",
+            2);
         var apiKey = Require("SAAIA_ADVANCED_LLM_API_KEY");
         var artifactDirectory = Require("SAAIA_ADVANCED_PROVIDER_ARTIFACT_DIR");
         Directory.CreateDirectory(artifactDirectory);
@@ -98,6 +101,7 @@ public sealed class LiveAdvancedAnalysisProviderTests(ITestOutputHelper output)
                     provider = provider.ProviderKey,
                     providerLocation = provider.Location.ToString(),
                     model,
+                    expectedProviderCalls,
                     elapsedMilliseconds = stopwatch.ElapsedMilliseconds,
                     searches = gateway.Searches,
                     result,
@@ -109,7 +113,7 @@ public sealed class LiveAdvancedAnalysisProviderTests(ITestOutputHelper output)
 
         Assert.NotNull(result);
         Assert.Equal("answered", result.Outcome);
-        Assert.Equal(2, result.ProviderCallCount);
+        Assert.Equal(expectedProviderCalls, result.ProviderCallCount);
         Assert.False(string.IsNullOrWhiteSpace(result.AnswerText));
         Assert.Contains("lundi", result.AnswerText,
             StringComparison.OrdinalIgnoreCase);
@@ -222,6 +226,14 @@ public sealed class LiveAdvancedAnalysisProviderTests(ITestOutputHelper output)
             Require(name),
             NumberStyles.Integer,
             CultureInfo.InvariantCulture);
+
+    private static int ReadOptionalInt(string name, int fallback)
+    {
+        var value = Environment.GetEnvironmentVariable(name);
+        return string.IsNullOrWhiteSpace(value)
+            ? fallback
+            : int.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+    }
 
     private sealed class SyntheticEvidenceGateway(
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> sourceEvidence)
