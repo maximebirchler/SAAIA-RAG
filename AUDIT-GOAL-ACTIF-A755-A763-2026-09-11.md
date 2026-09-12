@@ -1468,3 +1468,28 @@ SHA-256 `A793DC9D9D53C35100B3F4667D7980BE1510D142FA114922BB73EC6D0429B832`.
 La limite OpenAI elle-même n'est pas supprimable par le code SAAIA ; tous les
 contournements accidentels connus sont maintenant fermés. Le produit reste
 `TESTE_NON_APPROUVE`.
+
+## A763 — absence de quota journalier interne confirmée — 2026-09-12
+
+Une recherche sur le backend, le client, les configurations, l'infrastructure et
+les outils ne trouve aucune notion SAAIA de RPD, de quota journalier ou de
+requêtes par jour. Les 50 RPD observées viennent exclusivement du palier de
+l'organisation OpenAI ; elles ne sont ni calculées ni imposées par le dépôt.
+
+Les limites internes restantes sont de nature différente et sont conservées :
+budget monétaire global persistant, coût et nombre d'appels par job ou par tour,
+nombre d'outils et volumes de preuve/contexte. Les deux gardes de coût relisent
+toutes les lignes `costUsd` du registre sans filtre de date : le budget de 25 USD
+ne se remet donc pas à zéro chaque jour. Les limites par job/tour empêchent une
+boucle ou une réparation mal formée de consommer l'enveloppe entière.
+
+Verdict : `NO_SAAIA_DAILY_REQUEST_QUOTA_TO_REMOVE`. Retirer ces gardes budgétaires
+contredirait l'autorisation de 25 USD et n'augmenterait pas les 50 RPD du compte.
+La réponse mise en place consiste donc à bloquer les appels tant que le compte
+reste Free, puis à reprendre durablement et avec télémétrie lorsqu'un 429 externe
+survient sous un palier payé.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-no-internal-daily-quota-2ed56f4-20260912/assessment.v1.json`,
+SHA-256 `6AF9D6697B3D3C1FADB815BAD4350FBA78BB8E0318D5BEFB1601C0FC6CC641A0`.
+Aucun appel fournisseur et aucun coût. Produit `TESTE_NON_APPROUVE`.

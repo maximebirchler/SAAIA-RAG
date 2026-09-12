@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "saaia-a763-internal-daily-quota-audit-v1",
+  "assessedAtUtc": "2026-09-12T06:29:30.6906736+00:00",
+  "repositoryCommit": "2ed56f4ca82f612cd7a23bb81ecd333e2dce2fe8",
+  "repositoryTrackedDirty": false,
+  "verdict": "NO_SAAIA_DAILY_REQUEST_QUOTA_TO_REMOVE",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "search": {
+    "roots": [
+      "backend",
+      "client",
+      "config",
+      "infra",
+      "tools"
+    ],
+    "patterns": [
+      "RPD",
+      "requests per day",
+      "requêtes par jour",
+      "quota journalier",
+      "daily request",
+      "daily quota",
+      "daily limit",
+      "50 RPD"
+    ],
+    "matchingLines": 0
+  },
+  "preservedGuards": [
+    {
+      "scope": "provider lifetime campaign",
+      "kind": "cost",
+      "reset": "none",
+      "evidence": "Both budget guards sum every costUsd ledger line without date filtering."
+    },
+    {
+      "scope": "advanced job",
+      "kind": "maximum calls and cost per job",
+      "reset": "new job",
+      "purpose": "Bound retries and malformed multi-call loops."
+    },
+    {
+      "scope": "direct client turn",
+      "kind": "maximum calls and cost per turn",
+      "reset": "new turn",
+      "purpose": "Bound agent loops."
+    },
+    {
+      "scope": "tool execution",
+      "kind": "maximum tool calls and evidence/card sizes",
+      "reset": "new agent run",
+      "purpose": "Bound latency, context and memory."
+    }
+  ],
+  "externalQuota": {
+    "ownedBy": "OpenAI organization tier",
+    "currentObservedClass": "Free tier",
+    "currentObservedTerraRpd": 50,
+    "removableBySaaiaCode": false,
+    "handledBy": [
+      "fresh paid-tier launch guard",
+      "429 telemetry",
+      "Retry-After durable requeue",
+      "visible scheduled resume"
+    ]
+  },
+  "files": [
+    {
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisExternalBudgetGuard.cs",
+      "sha256": "67E1AD799C69E8AA98688E9B035E3A5E74E6F21BBDD0E7EE99E6D69119CE8C39"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/LlmCostBudgetGuard.cs",
+      "sha256": "9E6E13399FE08B55B1A1DAD94B6437530EC9D5E5A1329BB6D65CE03445ADA172"
+    }
+  ],
+  "externalProviderCalls": 0,
+  "externalCostUsd": 0
+}
