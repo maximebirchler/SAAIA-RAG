@@ -118,6 +118,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             return request;
         }
 
+        if (RequiresDistinctStructuredSelection(load)
+            && selectionMode != "distinct_named_items")
+        {
+            // A planner may strengthen a weak local handoff, but it must not
+            // discard an already established distinct-item requirement.
+            selectionMode = "distinct_named_items";
+        }
+
         var (atomicEvidenceMode, selectionPolicy) = selectionMode switch
         {
             "distinct_named_items" => (
