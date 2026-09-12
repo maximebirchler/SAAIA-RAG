@@ -13842,6 +13842,24 @@ analyses PowerShell passent, sans appel externe. Assessment :
 SHA-256 `D26C9629982F978509E360104F2CC99D194434DB03CDAB03A8AC0786E31EF74A`.
 Produit `TESTE_NON_APPROUVE`.
 
+## A763 — vérification du plafond projet OpenAI — 2026-09-12
+
+La page authentifiée du `Default project` a été inspectée en lecture seule.
+Elle ne contient aucun plafond de dépense projet et indique que les limites par
+modèle héritent de l'organisation sauf surcharge. Pour `gpt-5.6-terra`, les
+valeurs projet sont déjà les maxima du palier courant : 10 000 TPM et 3 RPM.
+L'interface projet n'expose pas de champ RPD ; les 50 RPD restent imposés par le
+palier Free de l'organisation.
+
+Il n'existe donc aucune limite locale ou projet à enlever. Le plafond financier
+de 100 USD a été conservé parce qu'il ne change pas le quota RPD. Aucun réglage,
+achat ou appel modèle n'a été effectué. Assessment :
+`artifacts/reprise-pc-20260908/a763-openai-limit-audit-20260912/assessment.v1.json`,
+SHA-256 `B4F5E5A882818D91E6DC7DEEB8A70219923CA679B3D9B55E6CC3BEC3DCFF0332`.
+La prochaine possibilité d'exécution Terra dépend toujours de l'activation du
+Tier 1 ou d'un quota journalier suffisamment libéré. Produit
+`TESTE_NON_APPROUVE`.
+
 ## A763 — licence avancée fermée avant toute exécution — 2026-09-12
 
 Le commit `56ae3a73` étend le verrou `AdvancedAnalysisEnabled` au provider et au

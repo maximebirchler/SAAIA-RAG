@@ -810,6 +810,25 @@ rapport au volume réellement observé sur le même pipeline. Assessment :
 SHA-256 `2880CE27D14A3926EE7333660B96C2BAB9B06C9A1ABD58A8C459BB29AF50E6AB`.
 Aucun appel externe et aucun coût nouveau. Produit `TESTE_NON_APPROUVE`.
 
+## A763 — aucun plafond projet retirable derrière les 50 RPD — 2026-09-12
+
+L'audit authentifié en lecture seule de la page `Default project / Limits`
+confirme que le projet ne porte aucun plafond de dépense propre. Les limites de
+modèle sont héritées de l'organisation sauf surcharge ; Terra y affiche déjà
+10 000 TPM et 3 RPM, exactement les maxima du palier Free de l'organisation.
+L'éditeur projet ne propose aucune surcharge RPD. Le plafond de 50 RPD vient
+donc exclusivement du palier d'organisation et ne peut pas être retiré dans les
+paramètres du projet.
+
+La page organisation reste à `Free tier`, 1,08 USD consommé sur un plafond de
+100 USD, et affiche toujours 5 USD comme seuil d'achat du Tier 1. Le plafond de
+dépense de 100 USD est une barrière financière indépendante : le supprimer ne
+modifierait ni le palier ni les 50 RPD. Aucun réglage, achat ou appel modèle n'a
+été effectué. Assessment :
+`artifacts/reprise-pc-20260908/a763-openai-limit-audit-20260912/assessment.v1.json`,
+SHA-256 `B4F5E5A882818D91E6DC7DEEB8A70219923CA679B3D9B55E6CC3BEC3DCFF0332`.
+Produit `TESTE_NON_APPROUVE`.
+
 ## A763 — entitlement avancé appliqué avant provider et worker — 2026-09-12
 
 L'audit de la vision d'installation a trouvé que l'endpoint refusait les
