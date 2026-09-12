@@ -51,6 +51,11 @@ function Get-MealGridStats([string]$Answer) {
     }
 }
 
+function Test-LooksLikeExactInsufficiency([string]$Answer) {
+    return $Answer -match '(?i)\b(?:manqu\p{L}*|insuffis\p{L}*|absent\p{L}*|impossible|pas\s+assez|pas\s+suffisamment|non\s+(?:document|[eé]tay)\p{L}*|ne\s+(?:contient|contiennent|dispose|disposent|documentent|fournit|fournissent|permet(?:tent)?|peux|peut|peuvent)\s+(?:donc\s+)?pas|sans\s+fournir|not\s+enough|cannot|missing|insufficient)\b' -and
+        $Answer -notmatch '(?i)capacit[eé].*avanc[eé]e|advanced analysis'
+}
+
 function Get-ExpectedProviderKey([string]$Mode) {
     switch ($Mode.Trim().ToLowerInvariant()) {
         "openaidev" { return "openai-dev" }
@@ -103,8 +108,7 @@ foreach ($file in $jsonlFiles) {
         $advancedJobIdIsValid = [Guid]::TryParse(
             $advancedJobId,
             [ref]$parsedAdvancedJobId)
-        $looksLikeExactInsufficiency = $answer -match '(?i)\b(insuffisant|insuffisante|manqu(?:e|ent)|pas trouvé|cannot|missing)\b' -and
-            $answer -notmatch '(?i)capacit[eé].*avanc[eé]e|advanced analysis'
+        $looksLikeExactInsufficiency = Test-LooksLikeExactInsufficiency $answer
         $checks = [ordered]@{
             noHarnessError = [string]::IsNullOrWhiteSpace([string]$row.error)
             expectedProviderMode = $observedProvider -eq $expectedProviderKey -or
@@ -125,9 +129,9 @@ foreach ($file in $jsonlFiles) {
             "A755-ADV-01-meal-grid-5x4" {
                 $grid = Get-MealGridStats $answer
                 $details.mealGrid = $grid
-                $checks.fiveDaysNamed = Test-ContainsAll $answer @("lundi", "mardi", "mercredi", "jeudi", "vendredi")
-                $checks.fourMealMomentsNamed = Test-ContainsAll $answer @("petit-déjeuner", "déjeuner", "collation", "souper")
                 if (-not $looksLikeExactInsufficiency) {
+                    $checks.fiveDaysNamed = Test-ContainsAll $answer @("lundi", "mardi", "mercredi", "jeudi", "vendredi")
+                    $checks.fourMealMomentsNamed = Test-ContainsAll $answer @("petit-déjeuner", "déjeuner", "collation", "souper")
                     $checks.fiveMarkdownDataRows = $grid.markdownRows -eq 5
                     $checks.twentyMealCells = $grid.mealCells -eq 20
                     $checks.twentyDistinctMealCells = $grid.distinctMealCells -eq 20

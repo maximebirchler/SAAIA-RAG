@@ -94,3 +94,26 @@ reprend la formulation réellement observée. Cette correction ne modifie ni le
 Writer, ni les prompts, ni la réponse publiée. Le verdict public diagnostique
 reste `DIAGNOSTIC_ROWS_ALL_PASS`, huit passages et aucun rejet,
 `approvalEligible=false`.
+
+## Campagne complète après alignement du harnais
+
+La campagne `A763-TERRA-FINAL-POST-HARNESS-3X`, exécutée sur le commit propre
+`d42ac2b0`, a terminé les douze jobs prévus. Les vingt-quatre appels Terra ont
+consommé 101 700 tokens d'entrée et 11 291 tokens de sortie pour 0,338892 USD,
+sans erreur 429. Le sceau du corpus est resté identique et les processus
+temporaires ont été arrêtés.
+
+Les trois réponses de planning choisissent une insuffisance documentée. Deux
+nomment les catégories de preuve manquantes et une nomme les cellules. Le
+premier évaluateur PowerShell exigeait pourtant toujours les cinq noms de jours,
+même dans la branche d'insuffisance, et ne reconnaissait pas `je ne peux pas`.
+Il contredisait ainsi le critère préenregistré qui accepte les cellules **ou**
+les catégories de preuve manquantes.
+
+L'évaluateur partage désormais les formes génériques d'insuffisance du harnais
+client et réserve les contrôles de grille complète aux réponses qui prétendent
+fournir la grille. Trois tests synthétiques vérifient : insuffisance par
+catégorie acceptée, formulation à la première personne acceptée et réponse
+partielle non déclarée rejetée. Ils passent 3/3 sous PowerShell 7 et Windows
+PowerShell 5.1. La réévaluation des douze sorties immuables passe mécaniquement
+12/12. La revue canonique reste nécessaire avant tout verdict sémantique.
