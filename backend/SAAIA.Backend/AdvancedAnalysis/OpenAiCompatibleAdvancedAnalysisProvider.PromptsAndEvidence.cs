@@ -276,8 +276,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            Preserve the original answer facts, outcome and evidence mappings.
            Remove any internal sourceKey or evidenceId label from answerText, claim
            text and selectedItem, including internal-source-* and advanced-evidence-*;
-           do not replace it with an invented source name. Do not add a fact or
-           evidence id. For an answered outcome, append each
+           do not replace it with an invented source name. Do not invent a fact or
+           evidence id. When a structured result repeats a claim or selectedItem,
+           use the supplied evidence to replace the duplicate with a distinct,
+           semantically suitable candidate. Copy a non-empty candidateTitle
+           verbatim, or use an exact concrete name explicitly present in a
+           source_chunk. Never create a replacement from unsupported words. If
+           the evidence cannot support every required unit, return the smallest
+           precise insufficiency. For an answered outcome, append each
            [claimId] directly to its factual unit in answerText and use every
            claimId exactly once. Preserve selectedItem for every structured claim.
            If the original object is malformed or truncated,
@@ -403,16 +409,20 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private string BuildWriterRepairUserPrompt(
         AdvancedAnalysisProviderRequest request,
         string originalWriterJson,
-        IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence)
+        IReadOnlyList<PromptEvidenceItem> evidence)
         => JsonSerializer.Serialize(new
         {
+            request = request.Handoff.RequestText,
             language = request.Handoff.Language,
             load = BuildPromptLoad(request.Handoff.Load),
+            claimCoordinates = BuildStructuredClaimCoordinates(
+                request.Handoff.Load),
             allowedEvidenceIds = evidence
-                .Select(static item => item.Reference.EvidenceId)
+                .Select(static item => item.EvidenceId)
                 .Where(static id => !string.IsNullOrWhiteSpace(id))
                 .ToArray(),
-            originalWriterJson
+            originalWriterJson,
+            evidence
         }, JsonOptions);
 
     private sealed record PromptEvidenceItem(

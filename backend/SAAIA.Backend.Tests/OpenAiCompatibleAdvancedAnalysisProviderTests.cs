@@ -872,6 +872,58 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Structured_duplicate_writer_result_is_repaired_with_full_evidence_before_critic()
+    {
+        const string correctedResult = """
+            {"outcome":"answered","answerText":"R1 [C1], R2 [C2], R3 [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"R1 est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"R2 est documentée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"R3","text":"R3 est documentée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"R4 est documentée.","evidenceIds":["E4"]}]}
+            """;
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"selectionMode":"repeatable_named_items","queries":[{"query":"recettes","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"decision":"ready","queries":[]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"R1 [C1], R1 [C2], R3 [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"R1 est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R1","text":"R1 est répétée.","evidenceIds":["E1"]},{"claimId":"C3","selectedItem":"R3","text":"R3 est documentée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"R4 est documentée.","evidenceIds":["E4"]}]}
+                """),
+            Completion(correctedResult),
+            Completion(correctedResult));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        options.SemanticCriticEnabled = true;
+        options.ExternalMaximumCallsPerJob = 5;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+        var gateway = new RecordingToolGateway(
+            BuildEvidence("E1", "R1 est documentée.", exactTitle: "R1"),
+            BuildEvidence("E2", "R2 est documentée.", exactTitle: "R2"),
+            BuildEvidence("E3", "R3 est documentée.", exactTitle: "R3"),
+            BuildEvidence("E4", "R4 est documentée.", exactTitle: "R4"));
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(
+                answerUnitCount: 4,
+                atomicEvidenceMode: "named_item",
+                selectionPolicy: "structured_layout"),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(5, result.ProviderCallCount);
+        Assert.Equal(5, factory.Requests.Count);
+        Assert.Contains("candidateTitle", factory.Requests[3].Body,
+            StringComparison.Ordinal);
+        Assert.Contains("R2", factory.Requests[3].Body,
+            StringComparison.Ordinal);
+        Assert.Equal(
+            ["R1", "R2", "R3", "R4"],
+            result.Claims.Select(static claim => claim.SelectedItem));
+    }
+
+    [Fact]
     public async Task Planner_can_select_an_exact_category_exposed_by_catalog_tool()
     {
         using var factory = new QueuedHttpClientFactory(

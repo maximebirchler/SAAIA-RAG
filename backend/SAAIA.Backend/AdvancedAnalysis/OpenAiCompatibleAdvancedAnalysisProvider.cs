@@ -214,7 +214,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             }
             catch (AdvancedAnalysisProviderException ex) when (
                 ex.ErrorCode is "advanced_writer_claim_markers_invalid"
-                    or "advanced_writer_protocol_invalid")
+                    or "advanced_writer_protocol_invalid"
+                || (ex.ErrorCode == "advanced_writer_duplicate_claims"
+                    && request.Handoff.Load.StructuredLayout))
             {
                 var repair = await CompleteJsonAsync(
                         request.JobId,
@@ -223,7 +225,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                         BuildWriterRepairUserPrompt(
                             request,
                             writer.Content,
-                            evidence),
+                            promptEvidence),
                         Math.Clamp(_options.WriterMaxTokens, 512, 16_384),
                         cancellationToken)
                     .ConfigureAwait(false);
