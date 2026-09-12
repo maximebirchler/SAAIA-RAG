@@ -156,6 +156,7 @@ try {
             [string]$_.advancedStatus -ne "succeeded" -or
             [string]$_.advancedProviderKey -ne $ExpectedAdvancedProvider -or
             [string]$_.advancedProviderModel -ne $ExpectedAdvancedModel -or
+            [string]$_.advancedJobId -notmatch '^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$' -or
             [int]$_.advancedProviderCallCount -le 0 -or
             -not [string]::IsNullOrWhiteSpace([string]$_.answerFlags)
         })

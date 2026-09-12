@@ -71,6 +71,7 @@
       "The exact four registered cases each produce three independent successful rows on the same clean commit.",
       "All 12 rows pass the mechanical assessor and all 12 answers receive a source-by-source semantic review.",
       "Provider and model telemetry are exactly openai-dev and gpt-5.6-terra; costs and token counts are present.",
+      "Every successful row records the durable advanced job UUID used to export its canonical evidence for semantic review.",
       "No prompt, case, retrieval, corpus, acceptance criterion, local-router binary/model/configuration or runtime parameter changes after the first answer is observed.",
       "The opaque reference-corpus seal is identical before and after the campaign, with no queued, running or paused ingestion job and stable catalog, ingestion history and Qdrant point/vector state.",
       "Any unsupported substantive claim, wrong source relation, unvalidated provider payload, budget stop or protocol drift rejects the campaign."

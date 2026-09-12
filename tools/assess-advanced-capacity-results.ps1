@@ -96,6 +96,13 @@ foreach ($file in $jsonlFiles) {
         } else {
             [decimal]$row.estimatedCostUsd
         }
+        $advancedJobId = if ($null -ne $row.PSObject.Properties["advancedJobId"]) {
+            [string]$row.advancedJobId
+        } else { "" }
+        $parsedAdvancedJobId = [Guid]::Empty
+        $advancedJobIdIsValid = [Guid]::TryParse(
+            $advancedJobId,
+            [ref]$parsedAdvancedJobId)
         $looksLikeExactInsufficiency = $answer -match '(?i)\b(insuffisant|insuffisante|manqu(?:e|ent)|pas trouvé|cannot|missing)\b' -and
             $answer -notmatch '(?i)capacit[eé].*avanc[eé]e|advanced analysis'
         $checks = [ordered]@{
@@ -105,6 +112,7 @@ foreach ($file in $jsonlFiles) {
             expectedModel = $observedModel -eq $ExpectedModel
             providerWasCalled = $observedCallCount -gt 0
             costWasMeasured = $observedCostUsd -gt 0
+            advancedJobIdentityRecorded = -not $usesAdvancedTelemetry -or $advancedJobIdIsValid
             advancedTerminalSucceeded = -not $usesAdvancedTelemetry -or
                 [string]$row.advancedStatus -eq "succeeded"
             noLocalAdvancedHandoff = [string]$row.answerSource -notmatch 'capability_boundary:advanced_analysis_required'
@@ -155,6 +163,7 @@ foreach ($file in $jsonlFiles) {
             checks = $checks
             details = $details
             answerSource = [string]$row.answerSource
+            advancedJobId = $advancedJobId
             sourceLabels = @($record.diagnostics.SourceLabels)
             telemetrySource = if ($usesAdvancedTelemetry) { "advanced" } else { "direct" }
             observedProvider = $observedProvider

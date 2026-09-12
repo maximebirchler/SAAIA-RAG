@@ -65,6 +65,24 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
     }
 
     [Fact]
+    public void Advanced_telemetry_preserves_job_identity_for_semantic_review()
+    {
+        var jobId = Guid.NewGuid();
+        var telemetry = ReadAdvancedTelemetry(new
+        {
+            advancedAnalysis = new
+            {
+                jobId,
+                status = "succeeded",
+                providerKey = "openai-dev",
+                providerModel = "gpt-5.6-terra"
+            }
+        });
+
+        Assert.Equal(jobId.ToString("D"), telemetry.JobId);
+    }
+
+    [Fact]
     public void Language_detector_recognizes_a_french_meal_table()
     {
         var answer = """
@@ -453,6 +471,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
                     .Where(static metric => metric.EstimatedCostUsd.HasValue)
                     .Sum(static metric => metric.EstimatedCostUsd!.Value),
                 advancedStatus = advancedTelemetry.Status,
+                advancedJobId = advancedTelemetry.JobId,
                 advancedProviderKey = advancedTelemetry.ProviderKey,
                 advancedProviderModel = advancedTelemetry.ProviderModel,
                 advancedLastErrorCode = advancedTelemetry.LastErrorCode,
@@ -946,7 +965,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         var headers = new[]
         {
             "id", "language", "detectedAnswerLanguage", "languageMatched", "axis", "difficulty", "corpusTarget", "theme", "mode", "elapsedMs", "sourceCount", "ragTraceEventCount",
-            "answerChars", "answerFlags", "answerSource", "advancedStatus", "advancedProviderKey", "advancedProviderModel", "advancedLastErrorCode", "advancedProviderCallCount", "advancedResultOutcome", "advancedClaimCount", "advancedEvidenceCount", "advancedInputTokens", "advancedOutputTokens", "advancedEstimatedCostUsd", "question", "answerPreview", "sourcesPreview", "expectedAnswerKind",
+            "answerChars", "answerFlags", "answerSource", "advancedStatus", "advancedJobId", "advancedProviderKey", "advancedProviderModel", "advancedLastErrorCode", "advancedProviderCallCount", "advancedResultOutcome", "advancedClaimCount", "advancedEvidenceCount", "advancedInputTokens", "advancedOutputTokens", "advancedEstimatedCostUsd", "question", "answerPreview", "sourcesPreview", "expectedAnswerKind",
             "validationPoints", "error"
         };
         yield return string.Join('\t', headers);
@@ -977,7 +996,8 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         int? ProviderCallCount,
         int? InputTokens,
         int? OutputTokens,
-        decimal? EstimatedCostUsd);
+        decimal? EstimatedCostUsd,
+        string JobId = "");
 
     private static AdvancedTelemetry ReadAdvancedTelemetry(object? sourcesPayload)
     {
@@ -1006,7 +1026,8 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
                 && cost.ValueKind == JsonValueKind.Number
                 && cost.TryGetDecimal(out var parsedCost)
                     ? parsedCost
-                    : null);
+                    : null,
+                ReadString(advanced, "jobId"));
         }
         catch (JsonException)
         {
