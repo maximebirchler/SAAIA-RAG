@@ -1643,3 +1643,38 @@ effectif de l'organisation OpenAI en palier payé. Produit
 Assessment :
 `artifacts/reprise-pc-20260908/a763-semantic-review-wrapper-d6858e5-20260912/assessment.v1.json`,
 SHA-256 `6F2D6D9CD534104EA7100DE3665C2B6D0F99CA5B73CCE3848ACBBCEDD528C0C7`.
+
+## A763 — décisions sémantiques complètes et verdict public finalisable — 2026-09-12
+
+Le paquet canonique préparait la lecture humaine mais ne contrôlait pas encore
+la complétude de la décision : une ligne oubliée, un job mélangé à une autre
+répétition ou un verdict sans motif pouvaient rester dans un document privé sans
+qu'une machine les distingue d'une revue achevée.
+
+Les commits `ea4ce154` et `dc062340` ajoutent un modèle privé de décision et
+`tools/finalize-advanced-semantic-review.ps1`. Une décision est exigée pour
+chaque UUID durable, avec le cas et la répétition exacts, un verdict borné à
+`PASS_SEMANTIC` ou `REJECT_SEMANTIC` et un motif non vide. Le finaliseur revérifie
+les hashes du bundle et du document canonique, le commit propre exact et la
+correspondance bijective avec la carte de campagne. Il ne publie que les hashes,
+les compteurs par cas et le verdict agrégé. Les motifs, réponses, identifiants et
+preuves restent privés.
+
+Cinq scénarios passent sous PowerShell 7 et cinq sous Windows PowerShell 5.1 :
+acceptation de toutes les lignes, rejet d'une ligne, rejet dû à une preuve
+irrésolue, refus d'un motif absent et refus d'un UUID inconnu. Le premier passage
+5.1 a détecté que `ConvertFrom-Json` pouvait conserver un tableau comme un objet
+de pipeline unique ; `dc062340` normalise explicitement ces collections et le
+second passage est vert 5/5.
+
+Le wrapper complet a ensuite été rejoué en lecture seule sur six jobs Terra déjà
+existants, sous les deux moteurs PowerShell. Chaque paquet contient six décisions
+en attente rattachées à six jobs distincts, aucune preuve irrésolue et un hash de
+modèle de décision conforme. Aucun verdict réel n'a été rempli pendant ce test.
+Aucun appel fournisseur, aucune transmission externe et aucun coût.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-semantic-decision-packet-dc06234-20260912/assessment.v1.json`,
+SHA-256 `BCDEF03DE2A4CCBF9F284082BC53526DBA3ED367A2A4A2FE05F4B4356D00F120`.
+Verdict mécanique : `PASS_MECHANICAL_SEMANTIC_DECISION_FINALIZER_READY`.
+Produit `TESTE_NON_APPROUVE`.
