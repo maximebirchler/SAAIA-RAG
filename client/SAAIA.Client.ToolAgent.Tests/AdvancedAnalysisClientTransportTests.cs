@@ -149,6 +149,36 @@ public sealed class AdvancedAnalysisClientTransportTests
         Assert.Equal(3, metadata.GetProperty("revision").GetInt32());
     }
 
+    [Fact]
+    public async Task Workflow_renders_one_visible_source_for_distinct_evidence_on_the_same_page()
+    {
+        var handler = new SequenceHandler((request, _, _) =>
+        {
+            if (request.Method == HttpMethod.Post
+                && request.RequestUri!.AbsolutePath == "/advanced-analysis/jobs")
+            {
+                return Task.FromResult(Json(
+                    HttpStatusCode.OK,
+                    Job("succeeded", 1, ValidResult(samePageDuplicate: true))));
+            }
+
+            throw new InvalidOperationException("unexpected request");
+        });
+
+        var result = await ExecuteAsync(handler);
+
+        Assert.Equal("succeeded", result.Outcome);
+        var payload = JsonSerializer.Serialize(
+            result.SourcesPayload,
+            ClientJson.CamelCase);
+        Assert.Single(SourceCardParser.Parse(payload));
+        using var json = JsonDocument.Parse(payload);
+        Assert.Equal(
+            2,
+            json.RootElement.GetProperty("advancedAnalysis")
+                .GetProperty("evidenceCount").GetInt32());
+    }
+
     [Theory]
     [InlineData("identity")]
     [InlineData("revision")]
@@ -779,7 +809,8 @@ public sealed class AdvancedAnalysisClientTransportTests
     private static object ValidResult(
         bool twoSources = false,
         bool unknownCitation = false,
-        bool invalidDocumentIdentity = false)
+        bool invalidDocumentIdentity = false,
+        bool samePageDuplicate = false)
     {
         var evidence = new List<object>
         {
@@ -815,6 +846,23 @@ public sealed class AdvancedAnalysisClientTransportTests
                 contentCardId = (string?)null
             });
         }
+        if (samePageDuplicate)
+        {
+            evidence.Add(new
+            {
+                evidenceId = "E2",
+                docId = "11111111-1111-1111-1111-111111111111",
+                revisionId = "22222222-2222-2222-2222-222222222222",
+                fileName = "procedure-a.pdf",
+                docPath = "Quality/procedure-a.pdf",
+                sourceHash = "abcdef0123456789",
+                pageStart = 2,
+                pageEnd = 2,
+                chunkId = "chunk-2",
+                anchorId = (string?)null,
+                contentCardId = (string?)null
+            });
+        }
 
         return new
         {
@@ -837,7 +885,10 @@ public sealed class AdvancedAnalysisClientTransportTests
                 {
                     claimId = "C2",
                     text = "Claim two.",
-                    evidenceIds = new[] { twoSources ? "E2" : "E1" }
+                    evidenceIds = new[]
+                    {
+                        twoSources || samePageDuplicate ? "E2" : "E1"
+                    }
                 }
             }
         };

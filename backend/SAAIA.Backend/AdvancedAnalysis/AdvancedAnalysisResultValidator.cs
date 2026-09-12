@@ -80,11 +80,17 @@ internal static class AdvancedAnalysisResultValidator
         foreach (var claim in providerResult.Claims)
         {
             var claimId = claim?.ClaimId?.Trim() ?? string.Empty;
+            var selectedItem = claim?.SelectedItem?.Trim();
             var text = claim?.Text?.Trim() ?? string.Empty;
             if (claimId.Length is 0 or > 100 || !claimIds.Add(claimId))
                 return AdvancedAnalysisResultValidation.Invalid("claim_id_invalid");
             if (text.Length is 0 or > MaximumClaimCharacters)
                 return AdvancedAnalysisResultValidation.Invalid("claim_text_invalid");
+            if (selectedItem?.Length > 1_000)
+            {
+                return AdvancedAnalysisResultValidation.Invalid(
+                    "claim_selected_item_invalid");
+            }
             if (claim!.EvidenceIds is null
                 || claim.EvidenceIds.Count is 0 or > MaximumClaimEvidence)
             {
@@ -106,6 +112,7 @@ internal static class AdvancedAnalysisResultValidator
             claims.Add(new AdvancedAnalysisResultClaim
             {
                 ClaimId = claimId,
+                SelectedItem = selectedItem,
                 Text = text,
                 EvidenceIds = cited.ToList()
             });

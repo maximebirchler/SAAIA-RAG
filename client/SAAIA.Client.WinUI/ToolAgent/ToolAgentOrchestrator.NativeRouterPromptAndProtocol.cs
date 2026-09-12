@@ -203,6 +203,9 @@ public sealed partial class ToolAgentOrchestrator
                 about the named row subject; named_item for a new object selected
                 into a row-column slot.
 
+                Distinct-item grid: sourceItemMode=named_item;
+                selectionPolicy=distinct_structured_layout unless repeats allowed.
+
                 sourceItemType is the answer-bearing item class inside source
                 documents, read and cited before cell placement; never a document,
                 deliverable, axis-qualified value or guessed answer. For
@@ -212,7 +215,7 @@ public sealed partial class ToolAgentOrchestrator
                 scope is one exact CATEGORY_HINTS category when clear. Choose cards
                 to discover unknown items or navigate to inspect a named document
                 or structure. Grid intake never formulates a search query.
-                Evidence-grounded search can happen after this observation. pool is
+                Search follows this observation. pool is
                 the smallest safe budget. namedReferenceKind: subject for a
                 product/model/entity (not a document); document for an explicit
                 artifact title, filename, path or formal standard/specification/
@@ -340,8 +343,7 @@ public sealed partial class ToolAgentOrchestrator
             the DOCUMENT itself; otherwise it is content. For non-grid source work
             always provide tool, intent, query, answerUnitType, answerUnitMode,
             selectionPolicy, useFocusedDocument, questionFocus, namedReferenceKind,
-            document, pool and
-            count. Use null for document when no document is named. Omit an empty scope.
+            document, pool and count. Null document when unnamed; omit empty scope.
 
             Operational mappings: inventory.count=documents.count;
             inventory.list/changed_since=documents.list;
@@ -533,6 +535,17 @@ public sealed partial class ToolAgentOrchestrator
                             description =
                                 "Mode of a completed cell: content_claim for facts or properties about a subject already named by the row; named_item for a new object selected to fill a row-by-column slot."
                         },
+                        selectionPolicy = new
+                        {
+                            type = "string",
+                            @enum = new[]
+                            {
+                                "structured_layout",
+                                "distinct_structured_layout"
+                            },
+                            description =
+                                "Whether named items selected into cells may repeat. Use distinct_structured_layout when every cell must contain a different item; otherwise structured_layout."
+                        },
                         intent = new
                         {
                             type = "string",
@@ -596,7 +609,7 @@ public sealed partial class ToolAgentOrchestrator
                     },
                     required = new[]
                     {
-                        "tool", "pool", "sourceItemType", "sourceItemMode", "intent", "count",
+                        "tool", "pool", "sourceItemType", "sourceItemMode", "selectionPolicy", "intent", "count",
                         "rowHeader", "rows", "columns", "questionFocus",
                         "useFocusedDocument", "namedReferenceKind", "document"
                     },
@@ -1190,12 +1203,9 @@ public sealed partial class ToolAgentOrchestrator
         var atomicEvidenceMode = FirstNonBlank(
             ReadNativeRouterString(arguments, "answerUnitMode"),
             ReadNativeRouterString(arguments, "sourceItemMode"));
-        var selectionPolicy = string.Equals(
-            compactKind,
-            "grid",
-            StringComparison.Ordinal)
-            ? "structured_layout"
-            : ReadNativeRouterString(arguments, "selectionPolicy");
+        var selectionPolicy = ReadNativeRouterString(
+            arguments,
+            "selectionPolicy");
         if (atomicEvidenceType.Length == 0
             && !string.Equals(
                 compactKind,
@@ -1217,9 +1227,14 @@ public sealed partial class ToolAgentOrchestrator
         {
             // Compatibility with persisted router payloads created before the
             // explicit output-selection policy. New tool calls require it.
-            selectionPolicy = atomicEvidenceCount == 1
-                ? "single_item"
-                : "explicit_set";
+            selectionPolicy = string.Equals(
+                compactKind,
+                "grid",
+                StringComparison.Ordinal)
+                ? "structured_layout"
+                : atomicEvidenceCount == 1
+                    ? "single_item"
+                    : "explicit_set";
         }
         var boundedExtractionFromNamedDocument =
             string.Equals(compactKind, "many", StringComparison.Ordinal)
@@ -1356,7 +1371,7 @@ public sealed partial class ToolAgentOrchestrator
             || atomicEvidenceMode is not ("named_item" or "content_claim")
             || selectionPolicy is not (
                 "single_item" or "explicit_set" or "open_set"
-                or "structured_layout")
+                or "structured_layout" or "distinct_structured_layout")
             || !hasAtomicEvidenceCount
             || compactIntent is not (
                 "answer"
@@ -1382,6 +1397,9 @@ public sealed partial class ToolAgentOrchestrator
                     || atomicEvidenceCount is < 2 or > 3))
             || (selectionPolicy == "structured_layout"
                 && compactKind != "grid")
+            || (selectionPolicy == "distinct_structured_layout"
+                && (compactKind != "grid"
+                    || atomicEvidenceMode != "named_item"))
             || !hasValidLayout
             || (initialCapability.Length > 0
                 && (!hasInitialLimit

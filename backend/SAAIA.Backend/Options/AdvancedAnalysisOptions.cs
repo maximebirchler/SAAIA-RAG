@@ -26,13 +26,15 @@ sealed class AdvancedAnalysisOptions
 
     public int PlannerMaxTokens { get; set; } = 512;
 
-    public int WriterMaxTokens { get; set; } = 2_400;
+    public int WriterMaxTokens { get; set; } = 4_096;
 
-    public bool SemanticCriticEnabled { get; set; }
+    public bool SemanticCriticEnabled { get; set; } = true;
 
     public int CriticMaxTokens { get; set; } = 4_096;
 
     public int MaximumPlanQueries { get; set; } = 8;
+
+    public bool AdaptiveResearchEnabled { get; set; } = true;
 
     public int MaximumEvidencePromptCharacters { get; set; } = 14_000;
 
@@ -89,7 +91,7 @@ sealed class AdvancedAnalysisOptions
 
     public int MaximumSearchTopK { get; set; } = 60;
 
-    public int MaximumAccumulatedEvidenceItems { get; set; } = 256;
+    public int MaximumAccumulatedEvidenceItems { get; set; } = 512;
 
     public long MaximumToolElapsedMilliseconds { get; set; } = 300_000;
 }

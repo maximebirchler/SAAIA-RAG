@@ -176,6 +176,9 @@ public sealed partial class SourceBackedAgentV2Runner
                 resolvedPlanKind == "multi_item"
                 && atomicEvidenceCount is >= 2 and <= 3,
             "structured_layout" => resolvedPlanKind == "structured_layout",
+            "distinct_structured_layout" =>
+                resolvedPlanKind == "structured_layout"
+                && atomicEvidenceMode == "named_item",
             _ => false
         };
         if (!selectionPolicyValid)

@@ -530,6 +530,16 @@ public sealed partial class ToolAgentOrchestrator
 
         var sources = validation.Result.Evidence
             .Select(evidence => MapAdvancedAnalysisSource(evidence, language))
+            .GroupBy(
+                static source => string.Join(
+                    '|',
+                    source.DocId,
+                    source.RevisionId,
+                    source.PageStart,
+                    source.PageEnd,
+                    source.SourceHash),
+                StringComparer.OrdinalIgnoreCase)
+            .Select(static group => group.First())
             .ToList();
         _mem.LastSourcesUsed = sources;
         _mem.LastRouterIntent = "advanced_analysis.answer";
@@ -719,6 +729,7 @@ public sealed partial class ToolAgentOrchestrator
                 || string.IsNullOrWhiteSpace(claim.ClaimId)
                 || claim.ClaimId.Length > 100
                 || !claimIds.Add(claim.ClaimId)
+                || claim.SelectedItem?.Length > 1_000
                 || string.IsNullOrWhiteSpace(claim.Text)
                 || claim.Text.Length > 8_000
                 || claim.EvidenceIds is null

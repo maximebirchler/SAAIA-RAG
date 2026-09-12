@@ -78,10 +78,11 @@
     "LlmRetryBaseDelayMilliseconds": 15000,
     "LlmMaximumRetryDelayMilliseconds": 60000,
     "PlannerMaxTokens": 512,
-    "WriterMaxTokens": 2400,
-    "SemanticCriticEnabled": false,
+    "WriterMaxTokens": 4096,
+    "SemanticCriticEnabled": true,
     "CriticMaxTokens": 4096,
     "MaximumPlanQueries": 8,
+    "AdaptiveResearchEnabled": true,
     "MaximumEvidencePromptCharacters": 14000,
     "ExternalBudgetAuthorizedUsd": 25.0,
     "ExternalBudgetSoftLimitUsd": 20.0,
@@ -108,7 +109,7 @@
     "AllowExternalProviderMetadata": __ADVANCED_EXTERNAL_ALLOWED__,
     "MaximumToolCalls": 32,
     "MaximumSearchTopK": 60,
-    "MaximumAccumulatedEvidenceItems": 256,
+    "MaximumAccumulatedEvidenceItems": 512,
     "MaximumToolElapsedMilliseconds": 300000
   },
   "OpenTelemetry": {

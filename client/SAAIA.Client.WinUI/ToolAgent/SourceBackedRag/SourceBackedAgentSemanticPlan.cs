@@ -250,7 +250,11 @@ public sealed partial class SourceBackedAgentV2Runner
                 explicit_set pour une quantite explicite, et open_set pour un pluriel ou
                 collectif ouvert lorsque choisir un seul objet inventerait une preference.
                 open_set utilise deux ou trois preuves atomiques. Utilise
-                structured_layout pour un livrable structure.
+                distinct_structured_layout lorsqu'un objet nomme different doit occuper
+                chaque position du livrable structure, sauf si la demande autorise
+                explicitement les repetitions.
+                Utilise structured_layout lorsque les objets peuvent se repeter ou lorsque
+                les cellules sont des content_claim sur des sujets fixes par les axes.
 
                 structuredLayout vaut true lorsqu'un livrable possede des positions visibles
                 formees par un ou deux axes, y compris lorsque chaque position ne contiendra
@@ -346,7 +350,7 @@ public sealed partial class SourceBackedAgentV2Runner
                         @enum = new[]
                         {
                             "single_item", "explicit_set", "open_set",
-                            "structured_layout"
+                            "structured_layout", "distinct_structured_layout"
                         }
                     },
                     initialCapability = new

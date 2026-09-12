@@ -1199,6 +1199,8 @@ public sealed class NativeRouterPromptBudgetTests
             """
             {
               "sourceItemType": "element documente",
+              "sourceItemMode": "named_item",
+              "selectionPolicy": "distinct_structured_layout",
               "scope": "cat_001",
               "count": 5,
               "rowHeader": "Jour",
@@ -1213,6 +1215,7 @@ public sealed class NativeRouterPromptBudgetTests
         Assert.Equal(20, mission.AtomicEvidenceCount);
         Assert.Equal(5, mission.RowCount);
         Assert.Equal(4, mission.ColumnCount);
+        Assert.Equal("distinct_structured_layout", mission.SelectionPolicy);
     }
 
     [Fact]

@@ -91,7 +91,8 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                     AnchorId = NullIfBlank(row.AnchorId),
                     ContentCardId = NullIfBlank(row.ContentCardId)
                 },
-                row.Content));
+                row.Content,
+                NullIfBlank(row.ExactTitle)));
         }
 
         return AdvancedAnalysisEvidenceResolution.Valid(resolved);
@@ -152,6 +153,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                   rc.retrieval_chunk_id::text AS "ChunkId",
                   sa.anchor_id AS "AnchorId",
                   NULL::text AS "ContentCardId",
+                  NULL::text AS "ExactTitle",
                   rc.text_content AS "Content"
                 FROM retrieval_chunks rc
                 JOIN document_revisions dr
@@ -191,6 +193,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                   NULL::text AS "ChunkId",
                   NULL::text AS "AnchorId",
                   cc.content_card_id::text AS "ContentCardId",
+                  cc.title AS "ExactTitle",
                   cc.search_text AS "Content"
                 FROM document_profile_content_cards cc
                 JOIN document_revisions dr
@@ -226,6 +229,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                   rc.retrieval_chunk_id::text AS "ChunkId",
                   sa.anchor_id AS "AnchorId",
                   cc.content_card_id::text AS "ContentCardId",
+                  cc.title AS "ExactTitle",
                   COALESCE(rc.text_content, cc.search_text) AS "Content"
                 FROM document_source_anchors sa
                 JOIN document_revisions dr
@@ -275,6 +279,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                   rc.retrieval_chunk_id::text AS "ChunkId",
                   sa.anchor_id AS "AnchorId",
                   NULL::text AS "ContentCardId",
+                  NULL::text AS "ExactTitle",
                   rc.text_content AS "Content"
                 FROM document_revisions dr
                 JOIN documents d
@@ -389,6 +394,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
         public string? ChunkId { get; init; }
         public string? AnchorId { get; init; }
         public string? ContentCardId { get; init; }
+        public string? ExactTitle { get; init; }
         public string Content { get; init; } = string.Empty;
     }
 }

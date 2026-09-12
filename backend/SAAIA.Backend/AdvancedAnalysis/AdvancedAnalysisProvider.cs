@@ -10,7 +10,8 @@ internal enum AdvancedAnalysisProviderLocation
 
 internal sealed record AdvancedAnalysisResolvedEvidence(
     AdvancedAnalysisResultEvidence Reference,
-    string Content);
+    string Content,
+    string? ExactTitle = null);
 
 internal sealed record AdvancedAnalysisProviderRequest(
     Guid JobId,

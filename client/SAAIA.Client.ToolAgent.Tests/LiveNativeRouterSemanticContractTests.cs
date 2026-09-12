@@ -236,6 +236,10 @@ public sealed class LiveNativeRouterSemanticContractTests(ITestOutputHelper outp
             precisePlan.SourceBackedMission);
         Assert.Equal("structured_layout", mission.PlanKind);
         Assert.Equal(20, mission.AtomicEvidenceCount);
+        Assert.Equal("named_item", mission.AtomicEvidenceMode);
+        Assert.Equal(
+            "distinct_structured_layout",
+            mission.SelectionPolicy);
         Assert.Equal(precise, mission.Deliverable);
     }
 
@@ -715,6 +719,10 @@ public sealed class LiveNativeRouterSemanticContractTests(ITestOutputHelper outp
         Assert.Equal(5, mission.RowCount);
         Assert.Equal(4, mission.ColumnCount);
         Assert.Equal(20, mission.AtomicEvidenceCount);
+        Assert.Equal("named_item", mission.AtomicEvidenceMode);
+        Assert.Equal(
+            "distinct_structured_layout",
+            mission.SelectionPolicy);
         var initialAction = Assert.Single(plan.ToolCalls);
         Assert.Contains(
             initialAction.Name,

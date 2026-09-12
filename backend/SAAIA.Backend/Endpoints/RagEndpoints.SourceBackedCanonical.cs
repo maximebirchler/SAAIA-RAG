@@ -263,6 +263,17 @@ public static partial class RagEndpoints
             minScore,
             maxPerDoc,
             maxPerPage);
+        if (req.IncludeResearchSurfaces == true)
+        {
+            selected = await AttachDocumentProfileContentCardsAsync(
+                    ds,
+                    tenantId,
+                    selected,
+                    query,
+                    ct,
+                    perMatchLimit: 4)
+                .ConfigureAwait(false);
+        }
         selectionStopwatch.Stop();
         totalStopwatch.Stop();
         diagnostics?.CapturePhase(

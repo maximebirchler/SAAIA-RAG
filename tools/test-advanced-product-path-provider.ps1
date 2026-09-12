@@ -135,6 +135,26 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($repositoryCommit)) {
 }
 $repositoryTrackedDirty = @(
     & git -C $repositoryRoot status --porcelain --untracked-files=no 2>$null).Count -gt 0
+$repositoryTrackedDiff = (
+    & git -C $repositoryRoot diff --binary --no-ext-diff 2>$null) -join "`n"
+$repositoryTrackedDiffSha256 = [Convert]::ToHexString(
+    [System.Security.Cryptography.SHA256]::HashData(
+        [System.Text.Encoding]::UTF8.GetBytes($repositoryTrackedDiff)))
+$repositoryUntrackedFiles = @(
+    & git -C $repositoryRoot ls-files --others --exclude-standard 2>$null |
+        Sort-Object |
+        ForEach-Object {
+            $relativePath = [string]$_
+            $absolutePath = Join-Path $repositoryRoot $relativePath
+            [ordered]@{
+                path = $relativePath.Replace('\', '/')
+                sha256 = if (Test-Path -LiteralPath $absolutePath -PathType Leaf) {
+                    (Get-FileHash -LiteralPath $absolutePath -Algorithm SHA256).Hash
+                } else {
+                    $null
+                }
+            }
+        })
 $backendProject = Join-Path $repositoryRoot "backend\SAAIA.Backend\SAAIA.Backend.csproj"
 $backendContentRoot = Join-Path $repositoryRoot "backend\SAAIA.Backend"
 $localConfigPath = Join-Path $backendContentRoot "appsettings.Local.json"
@@ -397,7 +417,8 @@ try {
             LlmRetryBaseDelayMilliseconds = 15000
             LlmMaximumRetryDelayMilliseconds = 60000
             PlannerMaxTokens = 512
-            WriterMaxTokens = 2400
+            WriterMaxTokens = 4096
+            AdaptiveResearchEnabled = $true
             SemanticCriticEnabled = [bool]$EnableSemanticCritic
             CriticMaxTokens = $CriticMaxTokens
             MaximumPlanQueries = 8
@@ -426,7 +447,7 @@ try {
             AllowExternalProviderMetadata = $true
             MaximumToolCalls = 32
             MaximumSearchTopK = 60
-            MaximumAccumulatedEvidenceItems = 256
+            MaximumAccumulatedEvidenceItems = 512
             MaximumToolElapsedMilliseconds = 300000
         }
         OpenTelemetry = [ordered]@{ Enabled = $false }
@@ -458,6 +479,8 @@ try {
         topology = "local-qwen-router-to-current-local-backend-to-$($Provider.ToLowerInvariant())"
         repositoryCommit = $repositoryCommit
         repositoryTrackedDirty = $repositoryTrackedDirty
+        repositoryTrackedDiffSha256 = $repositoryTrackedDiffSha256
+        repositoryUntrackedFiles = $repositoryUntrackedFiles
         referenceBackendHost = ([Uri]$ReferenceBackendUrl).Host
         temporaryBackendUrl = $baseUrl
         remoteDatabaseHost = "saaia-server"

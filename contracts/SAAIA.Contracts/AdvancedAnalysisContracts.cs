@@ -289,6 +289,8 @@ public sealed class AdvancedAnalysisResultClaim
 {
     public string ClaimId { get; init; } = string.Empty;
 
+    public string? SelectedItem { get; init; }
+
     public string Text { get; init; } = string.Empty;
 
     public List<string> EvidenceIds { get; init; } = new();

@@ -45,6 +45,10 @@ internal interface IAdvancedAnalysisToolGateway
 {
     IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence { get; }
 
+    Task<IReadOnlyList<string>> ListCategoriesAsync(
+        CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyList<string>>([]);
+
     Task<AdvancedAnalysisSearchObservation> SearchAsync(
         AdvancedAnalysisSearchRequest request,
         CancellationToken cancellationToken);
@@ -194,6 +198,35 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
     public IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence =>
         _evidence.ToArray();
 
+    public async Task<IReadOnlyList<string>> ListCategoriesAsync(
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT DISTINCT BTRIM(category)
+            FROM documents
+            WHERE tenant_id = @tenant
+              AND status = 'indexed'
+              AND indexed_version > 0
+              AND NULLIF(BTRIM(category), '') IS NOT NULL
+            ORDER BY BTRIM(category)
+            LIMIT 256;
+            """;
+        await using var connection = await _dataSource
+            .OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var categories = await connection.QueryAsync<string>(
+            new CommandDefinition(
+                sql,
+                new { tenant = _tenantId },
+                cancellationToken: cancellationToken));
+        return categories
+            .Where(static category => !string.IsNullOrWhiteSpace(category))
+            .Select(static category => category.Trim())
+            .Where(static category => category.Length <= MaximumScopeCharacters)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
     public async Task<AdvancedAnalysisSearchObservation> SearchAsync(
         AdvancedAnalysisSearchRequest request,
         CancellationToken cancellationToken)
@@ -271,7 +304,7 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
                     PageStart: request.PageStart,
                     PageEnd: request.PageEnd,
                     ResearchMode: "advanced_analysis",
-                    IncludeResearchSurfaces: false,
+                    IncludeResearchSurfaces: true,
                     SourceBackedCanonical: true))
                 .ConfigureAwait(false);
             stopwatch.Stop();
@@ -280,18 +313,7 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
             if (_elapsedMilliseconds > _maximumElapsedMilliseconds)
                 throw new AdvancedAnalysisToolException("tool_time_limit_exceeded");
 
-            var references = response.Matches
-                .Where(static match => Guid.TryParse(match.ChunkId, out _))
-                .Select(static match => new AdvancedAnalysisEvidenceReference
-                {
-                    DocId = NullIfBlank(match.DocId),
-                    FileName = NullIfBlank(match.DocName),
-                    DocPath = NullIfBlank(match.DocPath),
-                    PageStart = match.PageStart.GetValueOrDefault(),
-                    PageEnd = match.PageEnd.GetValueOrDefault(),
-                    ChunkId = match.ChunkId
-                })
-                .ToList();
+            var references = BuildEvidenceReferences(response.Matches);
             var revalidated = await _resolver.ResolveAsync(
                 _tenantId,
                 references,
@@ -369,6 +391,53 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
         {
             _serialGate.Release();
         }
+    }
+
+    internal static IReadOnlyList<AdvancedAnalysisEvidenceReference>
+        BuildEvidenceReferences(IReadOnlyList<RagMatch> matches)
+    {
+        var references = new List<AdvancedAnalysisEvidenceReference>(
+            matches.Count * 2);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var match in matches)
+        {
+            foreach (var card in match.MatchedContentCards?.Take(4)
+                         ?? Enumerable.Empty<RagMatchedContentCard>())
+            {
+                if (string.Equals(
+                        card.Kind,
+                        "chunk_section_title",
+                        StringComparison.Ordinal)
+                    || !Guid.TryParse(card.ContentCardId, out _)
+                    || !seen.Add("content-card:" + card.ContentCardId))
+                {
+                    continue;
+                }
+                references.Add(new AdvancedAnalysisEvidenceReference
+                {
+                    DocId = NullIfBlank(match.DocId),
+                    FileName = NullIfBlank(match.DocName),
+                    DocPath = NullIfBlank(match.DocPath),
+                    ContentCardId = card.ContentCardId
+                });
+            }
+
+            if (!Guid.TryParse(match.ChunkId, out _)
+                || !seen.Add("chunk:" + match.ChunkId))
+            {
+                continue;
+            }
+            references.Add(new AdvancedAnalysisEvidenceReference
+            {
+                DocId = NullIfBlank(match.DocId),
+                FileName = NullIfBlank(match.DocName),
+                DocPath = NullIfBlank(match.DocPath),
+                PageStart = match.PageStart.GetValueOrDefault(),
+                PageEnd = match.PageEnd.GetValueOrDefault(),
+                ChunkId = match.ChunkId
+            });
+        }
+        return references;
     }
 
     internal static string? SelectStrongDocumentScope(

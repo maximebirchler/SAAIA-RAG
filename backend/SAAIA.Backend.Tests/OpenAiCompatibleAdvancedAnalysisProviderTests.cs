@@ -13,6 +13,27 @@ namespace SAAIA.Backend.Tests;
 public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
     [Fact]
+    public void Structured_prompt_budget_preserves_row_coverage_for_follow_up_queries()
+    {
+        var load = new AdvancedAnalysisLoadDescriptor
+        {
+            StructuredLayout = true,
+            RowCount = 5,
+            ColumnCount = 4,
+            AnswerUnitCount = 20
+        };
+
+        Assert.Equal(
+            16_800,
+            OpenAiCompatibleAdvancedAnalysisProvider
+                .ResolveStructuredEvidencePromptMinimumCharacters(load, 4));
+        Assert.Equal(
+            28_000,
+            OpenAiCompatibleAdvancedAnalysisProvider
+                .ResolveStructuredEvidencePromptMinimumCharacters(load, 8));
+    }
+
+    [Fact]
     public void Evidence_ranking_prioritizes_content_matching_the_focused_query()
     {
         var generic = BuildEvidence(
@@ -76,6 +97,103 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             prioritized.Take(4).Select(static item =>
                 item.Reference.EvidenceId));
         Assert.Equal(6, prioritized.Count);
+    }
+
+    [Fact]
+    public void Distinct_grid_prompt_interleaves_titles_and_source_text()
+    {
+        var evidence = new[]
+        {
+            BuildEvidence("E-CHUNK", "Index de recettes."),
+            BuildEvidence(
+                "E-TITLE-1",
+                "Poêlée au riz.",
+                exactTitle: "Poêlée au riz"),
+            BuildEvidence(
+                "E-TITLE-2",
+                "Truite rôtie.",
+                exactTitle: "Truite rôtie")
+        };
+        var retrievalQueries = new Dictionary<string, HashSet<string>>
+        {
+            ["E-CHUNK"] = ["q1", "q2", "q3"],
+            ["E-TITLE-1"] = ["q1"],
+            ["E-TITLE-2"] = ["q1", "q2"]
+        };
+        var load = new AdvancedAnalysisLoadDescriptor
+        {
+            StructuredLayout = true,
+            AnswerUnitCount = 20,
+            AtomicEvidenceMode = "named_item",
+            SelectionPolicy = "distinct_structured_layout"
+        };
+
+        var prioritized = OpenAiCompatibleAdvancedAnalysisProvider
+            .PrioritizeCollectionEvidenceForPrompt(
+                load,
+                evidence,
+                retrievalQueries);
+
+        Assert.Equal(
+            ["E-TITLE-1", "E-CHUNK", "E-TITLE-2"],
+            prioritized.Select(static item => item.Reference.EvidenceId));
+    }
+
+    [Fact]
+    public void Distinct_grid_prompt_round_robins_exact_titles_across_retrieval_queries()
+    {
+        var evidence = new[]
+        {
+            BuildEvidence("E-Q1-A", "Petit-déjeuner A.", exactTitle: "Petit-déjeuner A"),
+            BuildEvidence("E-Q1-B", "Petit-déjeuner B.", exactTitle: "Petit-déjeuner B"),
+            BuildEvidence("E-Q2-A", "Dîner A.", exactTitle: "Dîner A"),
+            BuildEvidence("E-Q2-B", "Dîner B.", exactTitle: "Dîner B"),
+            BuildEvidence("E-INDEX", "Index général.")
+        };
+        var retrievalQueries = new Dictionary<string, HashSet<string>>
+        {
+            ["E-Q1-A"] = ["petit déjeuner"],
+            ["E-Q1-B"] = ["petit déjeuner"],
+            ["E-Q2-A"] = ["dîner"],
+            ["E-Q2-B"] = ["dîner"],
+            ["E-INDEX"] = ["petit déjeuner", "dîner"]
+        };
+        var load = new AdvancedAnalysisLoadDescriptor
+        {
+            StructuredLayout = true,
+            AnswerUnitCount = 4,
+            AtomicEvidenceMode = "named_item",
+            SelectionPolicy = "distinct_structured_layout"
+        };
+
+        var prioritized = OpenAiCompatibleAdvancedAnalysisProvider
+            .PrioritizeCollectionEvidenceForPrompt(
+                load,
+                evidence,
+                retrievalQueries);
+
+        Assert.Equal(
+            ["E-Q2-A", "E-INDEX", "E-Q1-A", "E-Q2-B", "E-Q1-B"],
+            prioritized.Select(static item => item.Reference.EvidenceId));
+    }
+
+    [Fact]
+    public void Structured_query_targeting_prefers_the_most_specific_column_label()
+    {
+        var load = new AdvancedAnalysisLoadDescriptor
+        {
+            StructuredLayout = true,
+            Columns = ["Petit-déjeuner", "Déjeuner", "Collation", "Souper"]
+        };
+
+        Assert.Equal(
+            ["Petit-déjeuner", "Collation"],
+            OpenAiCompatibleAdvancedAnalysisProvider.ResolveTargetColumnsForPrompt(
+                load,
+                [
+                    "petit-déjeuner déjeuner du matin brunch recettes",
+                    "collation goûter snack recettes"
+                ]));
     }
 
     [Fact]
@@ -146,7 +264,10 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                 {"outcome":"answered","answerText":"Lundi : porridge documenté [C1].","claims":[{"claimId":"C1","text":"Le porridge est documenté.","evidenceIds":["E1"]}]}
                 """));
         var provider = CreateProvider(factory, apiKey: "server-secret");
-        var evidence = BuildEvidence("E1", "Porridge aux pommes et cannelle.");
+        var evidence = BuildEvidence(
+            "E1",
+            "Porridge aux pommes et cannelle.",
+            exactTitle: "Porridge aux pommes et cannelle");
         var gateway = new RecordingToolGateway(evidence);
 
         var result = await provider.ExecuteAsync(
@@ -186,15 +307,19 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Contains("Porridge aux pommes", factory.Requests[1].Body,
             StringComparison.Ordinal);
         Assert.Contains(
-            "distinguish neutral presentation coordinates from semantic",
+            "candidateTitle",
             factory.Requests[1].Body,
             StringComparison.Ordinal);
         Assert.Contains(
-            "Neutral coordinates such as weekdays",
+            "separate documentary facts from the synthesis",
             factory.Requests[1].Body,
             StringComparison.Ordinal);
         Assert.Contains(
-            "qualifier in the request must remain explicit",
+            "propose an ordering, grouping, classification",
+            factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "mandatory factual qualifier",
             factory.Requests[1].Body,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -214,19 +339,537 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             factory.Requests[1].Body,
             StringComparison.Ordinal);
         Assert.Contains(
-            "same relation-grounding rule applies inside an insufficiency",
+            "Do not turn an optional synthesis choice into an insufficiency",
             factory.Requests[1].Body,
             StringComparison.Ordinal);
         Assert.Contains(
-            "generic or neighboring role is not interchangeable",
+            "semantically plausible",
+            factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "broad index",
+            factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "do not contradict an explicit",
+            factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "preserve the exact source",
+            factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "words, spelling and diacritics",
             factory.Requests[1].Body,
             StringComparison.Ordinal);
         Assert.Contains(
             "common alternate terminology",
             factory.Requests[0].Body,
             StringComparison.Ordinal);
+        Assert.Contains(
+            "Do not require the sources to prescribe the new row",
+            factory.Requests[0].Body,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "the source to name the row",
+            factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "synthesisRelationshipPolicy",
+            factory.Requests[1].Body,
+            StringComparison.Ordinal);
         Assert.DoesNotContain("server-secret", factory.Requests[0].Body,
             StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Adaptive_research_review_can_request_a_reformulated_search()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"queries":[{"query":"recettes collation goûter","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"decision":"search_more","queries":[{"query":"encas pause recettes titres","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"Proposition : granola documenté [C1].","claims":[{"claimId":"C1","text":"Le granola est documenté.","evidenceIds":["E1"]}]}
+                """));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+        var gateway = new RecordingToolGateway(
+            BuildEvidence("E1", "Granola maison aux fruits secs."));
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(3, result.ProviderCallCount);
+        Assert.Equal(
+            ["recettes collation goûter", "encas pause recettes titres"],
+            gateway.Searches.Select(static item => item.Query).ToArray());
+        Assert.Equal(3, factory.Requests.Count);
+        Assert.Contains("search_corpus", factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.Contains("source_chunk", factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.Contains("recettes collation", factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.Contains("encas pause recettes titres", factory.Requests[2].Body,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Structured_synthesis_insufficiency_gets_one_bounded_recovery_pass()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"queries":[{"query":"recettes","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"decision":"ready","queries":[]}
+                """),
+            Completion("""
+                {"outcome":"insufficient_documentation","answerText":"Les sources ne prescrivent pas les cases.","claims":[]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"Planning proposé : recette 1 [C1].","claims":[{"claimId":"C1","text":"La recette 1 est documentée et placée par synthèse.","evidenceIds":["E1"]}]}
+                """));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+        var gateway = new RecordingToolGateway(
+            Enumerable.Range(1, 20)
+                .Select(index => BuildEvidence(
+                    $"E{index}",
+                    $"Recette documentée {index}."))
+                .ToArray());
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(4, result.ProviderCallCount);
+        Assert.Equal(4, factory.Requests.Count);
+        Assert.Contains(
+            "second-pass SAAIA synthesis completer",
+            factory.Requests[3].Body,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Sources do not need to prescribe",
+            factory.Requests[3].Body,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "semantically plausible",
+            factory.Requests[3].Body,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "firstWriterCandidate",
+            factory.Requests[3].Body,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Structured_duplicate_selected_item_triggers_recovery()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"queries":[{"query":"recettes","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"decision":"ready","queries":[]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"R1 [C1], R2 [C2], R1 avec salade [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"R1 est sélectionnée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"R2 est sélectionnée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"R1","text":"R1 est répétée avec un accompagnement.","evidenceIds":["E1"]},{"claimId":"C4","selectedItem":"R4","text":"R4 est sélectionnée.","evidenceIds":["E4"]}]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"R1 [C1], R2 [C2], R3 [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"R1 est sélectionnée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"R2 est sélectionnée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"R3","text":"R3 est sélectionnée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"R4 est sélectionnée.","evidenceIds":["E4"]}]}
+                """));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+        var gateway = new RecordingToolGateway(
+            Enumerable.Range(1, 20)
+                .Select(index => BuildEvidence(
+                    $"E{index}",
+                    $"R{index} est une recette documentée."))
+                .ToArray());
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(
+                answerUnitCount: 4,
+                atomicEvidenceMode: "named_item",
+                selectionPolicy: "distinct_structured_layout"),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(4, result.ProviderCallCount);
+        Assert.Equal(
+            4,
+            result.Claims.Select(static claim => claim.SelectedItem)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count());
+        Assert.Contains(
+            "extending an accompaniment",
+            factory.Requests[3].Body,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Structured_unique_selected_items_allow_repeated_generic_claim_text()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"queries":[{"query":"recettes","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"decision":"ready","queries":[]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"R1 [C1], R2 [C2], R3 [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"La recette est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"La recette est documentée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"R3","text":"La recette est documentée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"La recette est documentée.","evidenceIds":["E4"]}]}
+                """));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+        var gateway = new RecordingToolGateway(
+            Enumerable.Range(1, 20)
+                .Select(index => BuildEvidence(
+                    $"E{index}",
+                    $"R{index} est une recette documentée."))
+                .ToArray());
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(
+                answerUnitCount: 4,
+                atomicEvidenceMode: "named_item",
+                selectionPolicy: "distinct_structured_layout"),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(3, result.ProviderCallCount);
+        Assert.Equal(4, result.Claims.Count);
+        Assert.Equal(
+            4,
+            result.Claims.Select(static claim => claim.SelectedItem)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count());
+    }
+
+    [Fact]
+    public async Task Structured_selected_item_must_match_its_declared_evidence()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"queries":[{"query":"recettes","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"decision":"ready","queries":[]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"R1 [C1], R2 [C2], R trois [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"Recette documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"Recette documentée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"R trois","text":"Recette reformulée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"Recette documentée.","evidenceIds":["E4"]}]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"R1 [C1], R2 [C2], R3 [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"Recette documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"Recette documentée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"R3","text":"Recette documentée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"Recette documentée.","evidenceIds":["E4"]}]}
+                """));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+        var gateway = new RecordingToolGateway(
+            Enumerable.Range(1, 20)
+                .Select(index => BuildEvidence(
+                    $"E{index}",
+                    $"R{index} est une recette documentée."))
+                .ToArray());
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(
+                answerUnitCount: 4,
+                atomicEvidenceMode: "named_item",
+                selectionPolicy: "distinct_structured_layout"),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(4, result.ProviderCallCount);
+        Assert.Equal("R3", result.Claims[2].SelectedItem);
+        Assert.Contains(
+            "second-pass SAAIA synthesis completer",
+            factory.Requests[3].Body,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Structured_near_title_is_canonicalized_from_its_declared_card()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"queries":[{"query":"recettes","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"decision":"ready","queries":[]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"R1 [C1], R2 [C2], Poêlée de riz [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"R1 est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"R2 est documentée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"Poêlée de riz","text":"Poêlée de riz est documentée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"R4 est documentée.","evidenceIds":["E4"]}]}
+                """));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+        var gateway = new RecordingToolGateway(
+            BuildEvidence("E1", "R1 est documentée.", exactTitle: "R1"),
+            BuildEvidence("E2", "R2 est documentée.", exactTitle: "R2"),
+            BuildEvidence(
+                "E3",
+                "Poêlée au riz est documentée.",
+                exactTitle: "Poêlée au riz"),
+            BuildEvidence("E4", "R4 est documentée.", exactTitle: "R4"));
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(
+                answerUnitCount: 4,
+                atomicEvidenceMode: "named_item",
+                selectionPolicy: "distinct_structured_layout"),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(3, result.ProviderCallCount);
+        Assert.Equal("Poêlée au riz", result.Claims[2].SelectedItem);
+        Assert.Contains("Poêlée au riz [C3]", result.AnswerText,
+            StringComparison.Ordinal);
+        Assert.Contains("Poêlée au riz est documentée", result.Claims[2].Text,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Structured_selected_item_is_rebound_to_the_source_that_contains_it()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"queries":[{"query":"recettes","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"decision":"ready","queries":[]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"R1 [C1], R2 [C2], SANDWICH COMPLET ET ÉQUILIBRÉ SELON VOS ENVIES [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"R1 est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"R2 est documentée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"SANDWICH COMPLET ET ÉQUILIBRÉ SELON VOS ENVIES","text":"Le sandwich est documenté.","evidenceIds":["E9"]},{"claimId":"C4","selectedItem":"R4","text":"R4 est documentée.","evidenceIds":["E4"]}]}
+                """));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+        var gateway = new RecordingToolGateway(
+            BuildEvidence("E1", "R1 est une recette documentée."),
+            BuildEvidence("E2", "R2 est une recette documentée."),
+            BuildEvidence(
+                "E3",
+                "2,5 € 10 min SANDWICH /pers. COMPLET ET ÉQUILIBRÉ SELON VOS ENVIES. Préparation."),
+            BuildEvidence("E4", "R4 est une recette documentée."),
+            BuildEvidence("E9", "Une autre recette documentée."));
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(
+                answerUnitCount: 4,
+                atomicEvidenceMode: "named_item",
+                selectionPolicy: "distinct_structured_layout"),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(3, result.ProviderCallCount);
+        Assert.Equal(["E3"], result.Claims[2].EvidenceIds);
+    }
+
+    [Fact]
+    public async Task Structured_near_source_phrase_is_canonicalized_and_keeps_its_source()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"queries":[{"query":"recettes","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"decision":"ready","queries":[]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"R1 [C1], R2 [C2], LA CRAPE À JO [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"R1 est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"R2 est documentée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"LA CRAPE À JO","text":"LA CRAPE À JO est documentée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"R4 est documentée.","evidenceIds":["E4"]}]}
+                """));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+        var gateway = new RecordingToolGateway(
+            BuildEvidence("E1", "R1 est une recette documentée."),
+            BuildEvidence("E2", "R2 est une recette documentée."),
+            BuildEvidence(
+                "E3",
+                "PETITS DÉJEUNERS I page 67 LA CRÊPE\nÀ JO SMOOTHIE VERT I page 71"),
+            BuildEvidence("E4", "R4 est une recette documentée."));
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(
+                answerUnitCount: 4,
+                atomicEvidenceMode: "named_item",
+                selectionPolicy: "distinct_structured_layout"),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(3, result.ProviderCallCount);
+        Assert.Equal("LA CRÊPE À JO", result.Claims[2].SelectedItem);
+        Assert.Equal(["E3"], result.Claims[2].EvidenceIds);
+        Assert.Contains("LA CRÊPE À JO [C3]", result.AnswerText,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "\n",
+            result.Claims[2].SelectedItem ?? string.Empty,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Planner_can_select_an_exact_category_exposed_by_catalog_tool()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"queries":[{"query":"recettes petit-déjeuner","category":"Cuisine","topK":20}]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"Porridge documenté [C1].","claims":[{"claimId":"C1","text":"Le porridge est documenté.","evidenceIds":["E1"]}]}
+                """));
+        var provider = CreateProvider(factory);
+        var gateway = new RecordingToolGateway(
+            BuildEvidence("E1", "Porridge aux pommes."))
+        {
+            Categories = ["Cuisine", "Normes"]
+        };
+
+        await provider.ExecuteAsync(
+            BuildRequest(),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("Cuisine", Assert.Single(gateway.Searches).Category);
+        Assert.Contains("list_categories", factory.Requests[0].Body,
+            StringComparison.Ordinal);
+        Assert.Contains("availableCategories", factory.Requests[0].Body,
+            StringComparison.Ordinal);
+        Assert.Contains("Cuisine", factory.Requests[0].Body,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Advanced_search_revalidates_one_content_card_per_match_before_chunk()
+    {
+        var docId = Guid.NewGuid().ToString("D");
+        var chunkId = Guid.NewGuid().ToString("D");
+        var cardId = Guid.NewGuid().ToString("D");
+        var secondCardId = Guid.NewGuid().ToString("D");
+        var thirdCardId = Guid.NewGuid().ToString("D");
+        var fourthCardId = Guid.NewGuid().ToString("D");
+        var fifthCardId = Guid.NewGuid().ToString("D");
+        var match = new RagMatch(
+            0.9,
+            docId,
+            "Cuisine/menus.pdf",
+            "menus.pdf",
+            7,
+            7,
+            chunkId,
+            3,
+            "Petit-déjeuner documenté.",
+            1,
+            "hash",
+            "Petit-déjeuner documenté.",
+            "source_text_v1",
+            1,
+            1,
+            "Porridge aux pommes",
+            "Petit-déjeuner / Porridge aux pommes",
+            "content",
+            null,
+            null,
+            null,
+            MatchedContentCards:
+            [
+                new RagMatchedContentCard(
+                    "Porridge aux pommes",
+                    cardId,
+                    7,
+                    7,
+                    "unit_lead"),
+                new RagMatchedContentCard(
+                    "Granola aux fruits",
+                    secondCardId,
+                    7,
+                    7,
+                    "unit_lead"),
+                new RagMatchedContentCard(
+                    "Compote de pommes",
+                    thirdCardId,
+                    7,
+                    7,
+                    "unit_lead"),
+                new RagMatchedContentCard(
+                    "Muffins aux fruits",
+                    fourthCardId,
+                    7,
+                    7,
+                    "unit_lead"),
+                new RagMatchedContentCard(
+                    "Carte au-delà de la limite",
+                    fifthCardId,
+                    7,
+                    7,
+                    "unit_lead")
+            ]);
+
+        var references = AdvancedAnalysisToolGateway.BuildEvidenceReferences(
+            [match, match]);
+
+        Assert.Equal(5, references.Count);
+        Assert.Equal(cardId, references[0].ContentCardId);
+        Assert.Null(references[0].ChunkId);
+        Assert.Equal(0, references[0].PageStart);
+        Assert.Equal(0, references[0].PageEnd);
+        Assert.Equal(secondCardId, references[1].ContentCardId);
+        Assert.Null(references[1].ChunkId);
+        Assert.Equal(thirdCardId, references[2].ContentCardId);
+        Assert.Equal(fourthCardId, references[3].ContentCardId);
+        Assert.DoesNotContain(
+            references,
+            reference => string.Equals(
+                reference.ContentCardId,
+                fifthCardId,
+                StringComparison.Ordinal));
+        Assert.Equal(chunkId, references[4].ChunkId);
+        Assert.Null(references[4].ContentCardId);
     }
 
     [Fact]
@@ -313,7 +956,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
-    public async Task Structured_grid_limits_planner_queries_to_semantic_columns()
+    public async Task Structured_grid_allows_two_complementary_queries_per_column()
     {
         using var factory = new QueuedHttpClientFactory(
             Completion("""
@@ -322,8 +965,11 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                   {"query":"déjeuners","topK":20},
                   {"query":"collations","topK":20},
                   {"query":"soupers","topK":20},
-                  {"query":"menus hebdomadaires","topK":20},
-                  {"query":"recettes faciles","topK":20}]}
+                  {"query":"porridge omelette smoothie","topK":20},
+                  {"query":"salades sandwichs quiches","topK":20},
+                  {"query":"muffins biscuits fruits","topK":20},
+                  {"query":"pâtes curry poisson","topK":20},
+                  {"query":"neuvième requête hors budget","topK":20}]}
                 """),
             Completion("""
                 {"outcome":"answered","answerText":"Réponse sourcée [C1].","claims":[{"claimId":"C1","text":"Preuve.","evidenceIds":["E1"]}]}
@@ -338,9 +984,9 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             CancellationToken.None);
 
         Assert.Equal("answered", result.Outcome);
-        Assert.Equal(4, gateway.Searches.Count);
+        Assert.Equal(8, gateway.Searches.Count);
         Assert.DoesNotContain(gateway.Searches,
-            search => search.Query == "menus hebdomadaires");
+            search => search.Query == "neuvième requête hors budget");
     }
 
     [Fact]
@@ -1371,6 +2017,8 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             LlmTimeoutSeconds = 30,
             PlannerMaxTokens = 600,
             WriterMaxTokens = 2_000,
+            SemanticCriticEnabled = false,
+            AdaptiveResearchEnabled = false,
             MaximumPlanQueries = 8,
             MaximumEvidencePromptCharacters = 64_000,
             ExternalUsageLedgerPath = Path.Combine(
@@ -1378,7 +2026,10 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                 "saaia-advanced-test-" + Guid.NewGuid().ToString("N") + ".jsonl")
         };
 
-    private static AdvancedAnalysisProviderRequest BuildRequest()
+    private static AdvancedAnalysisProviderRequest BuildRequest(
+        int answerUnitCount = 1,
+        string atomicEvidenceMode = "one_per_cell",
+        string selectionPolicy = "distinct")
         => new(
             Guid.NewGuid(),
             Guid.NewGuid(),
@@ -1396,14 +2047,14 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                 {
                     PlanKind = "bounded_grid",
                     Deliverable = "meal_plan",
-                    AnswerUnitCount = 1,
+                    AnswerUnitCount = answerUnitCount,
                     AtomicEvidenceCount = 1,
                     RowCount = 5,
                     ColumnCount = 4,
                     StructuredLayout = true,
                     AtomicEvidenceType = "documented_preparation",
-                    AtomicEvidenceMode = "one_per_cell",
-                    SelectionPolicy = "distinct",
+                    AtomicEvidenceMode = atomicEvidenceMode,
+                    SelectionPolicy = selectionPolicy,
                     RowLabels = ["lundi", "mardi", "mercredi", "jeudi", "vendredi"],
                     Columns = ["petit-déjeuner", "déjeuner", "collation", "souper"]
                 },
@@ -1491,7 +2142,8 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         string fileName = "menus.pdf",
         string? docId = null,
         string? revisionId = null,
-        int pageStart = 1)
+        int pageStart = 1,
+        string? exactTitle = null)
         => new(
             new AdvancedAnalysisResultEvidence
             {
@@ -1505,7 +2157,8 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                 PageEnd = pageStart,
                 ChunkId = Guid.NewGuid().ToString("D")
             },
-            content);
+            content,
+            exactTitle);
 
     private static HttpResponseMessage Completion(
         string content,
@@ -1563,7 +2216,15 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         }
 
         public IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence => _evidence;
+        public IReadOnlyList<string> Categories { get; init; } = [];
         public List<AdvancedAnalysisSearchRequest> Searches { get; } = new();
+
+        public Task<IReadOnlyList<string>> ListCategoriesAsync(
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(Categories);
+        }
 
         public Task<AdvancedAnalysisSearchObservation> SearchAsync(
             AdvancedAnalysisSearchRequest request,
