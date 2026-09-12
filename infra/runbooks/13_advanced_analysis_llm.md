@@ -147,16 +147,32 @@ la campagne et joindre le coût réel à l'artefact.
 ## Serveur on-prem du client
 
 Renseigner le profil `customer-server` dans l'installation. Le fichier
-`infra/docker-compose.advanced-llm.yml` propose le service llama-server :
+`infra/docker-compose.advanced-llm.yml` propose le service llama-server. Il
+constitue un projet Compose séparé afin de pouvoir démarrer, arrêter ou remplacer
+le grand modèle sans recréer PostgreSQL, Qdrant ou le backend. La stack SAAIA
+principale doit être démarrée en premier : elle crée le réseau externe désigné
+par `SAAIA_LLM_DOCKER_NETWORK`, `infra_default` dans l'installation Linux
+standard.
+
+Ne pas fusionner les deux fichiers avec plusieurs options `-f`. Le fichier du
+grand modèle contient son propre `name:` ; lors d'une fusion, Docker Compose
+emploierait le dernier nom de projet et pourrait placer les services de la stack
+principale sur un autre réseau par défaut. Valider puis démarrer uniquement le
+projet avancé :
 
 ```powershell
-docker compose -f .\infra\docker-compose.prod.yml `
-  -f .\infra\docker-compose.advanced-llm.yml config
+docker network inspect infra_default
+docker compose --env-file .\infra\.env.server-linux `
+  -f .\infra\docker-compose.advanced-llm.yml config --quiet
+docker compose --env-file .\infra\.env.server-linux `
+  -f .\infra\docker-compose.advanced-llm.yml up -d
 ```
 
-Le backend doit utiliser l'adresse privée Docker du service. Après démarrage,
-contrôler `/health` et `/v1/models`, puis exécuter le même parcours produit avec
-`-ExpectedAdvancedProvider customer-server` et l'identifiant exact du modèle.
+Adapter `infra_default` si `SAAIA_LLM_DOCKER_NETWORK` porte une autre valeur.
+Le backend utilise l'adresse privée Docker `http://advanced-llm:8080`. Après
+démarrage, contrôler `/health` et `/v1/models`, puis exécuter le même parcours
+produit avec `-ExpectedAdvancedProvider customer-server` et l'identifiant exact
+du modèle.
 
 ## Contrôles de fin de campagne
 

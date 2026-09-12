@@ -1,3 +1,6 @@
+# Run this file as its own Compose project after the main SAAIA stack has
+# created SAAIA_LLM_DOCKER_NETWORK. Do not merge it with docker-compose.prod.yml:
+# its explicit project name and external network keep the LLM lifecycle separate.
 name: saaia-advanced-llm
 
 services:
