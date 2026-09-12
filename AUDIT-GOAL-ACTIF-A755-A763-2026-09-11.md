@@ -398,6 +398,13 @@ supprimées. La solution Release totalise ensuite 4 391 réussites, zéro échec
 deux sondes live opt-in non exécutées. Le vrai provider HTTP loopback repasse sur
 le SHA exact avec trois appels, vingt claims et vingt preuves.
 
+Le commit `4cbca2d5` complète cette fermeture : l'identifiant de modèle n'est
+plus tronqué pour l'affinité. Une valeur de plus de 256 caractères échoue avant
+l'appel HTTP avec `advanced_llm_model_invalid`. Les 2 147 tests backend passent,
+zéro échec et une sonde live opt-in ignorée. Le loopback exact de ce commit
+repasse avec trois appels, vingt claims, vingt preuves, zéro sortie réseau et
+les ports 1234, 5123 et 18081 libres.
+
 La cartographie finale distingue deux flux. Le chemin simple reste entièrement
 local et diffuse les chunks via `ILlmProvider.StreamAsync`. Le chemin complexe
 crée un handoff explicite puis un job backend durable ; il expose des révisions,
@@ -412,6 +419,21 @@ ADR et matrice complète :
 changent pas : banque Terra 3/3 sur `b20fcc2` ou descendant, RunPod autorisé,
 serveur client réel, inspection terminale WinUI et holdout aveugle. Produit
 `TESTE_NON_APPROUVE`.
+
+## A763 — plafond OpenAI Free persistant malgré l'achat — 2026-09-12
+
+Le tableau de bord OpenAI a été relu après actualisation. La facture du 11
+septembre est marquée `Paid` pour 27,03 USD TTC, le solde prépayé est de 23,92
+USD et les coûts enregistrés sont de 1,08 USD. La page Limits décrit le passage
+automatique au Tier 1 dès 5 USD d'achats cumulés, mais l'organisation reste au
+`Free tier`. Terra conserve donc 10 000 TPM, 3 RPM et 50 RPD.
+
+Le bouton `Upgrade tier` ouvre seulement un nouvel achat de crédits. Aucun achat
+n'a été confirmé. La limite de dépense de l'organisation est déjà à 100 USD et
+ne contrôle pas le plafond RPD. Il n'existe pas de réglage utilisateur visible
+pour supprimer 50 RPD : la promotion automatique attendue n'a pas été appliquée
+par OpenAI. La campagne Terra 3/3 reste suspendue pour préserver les crédits et
+la causalité jusqu'à activation du Tier 1 ou réponse du support.
 
 ## A763 — revue sémantique partielle et relation cellule/preuve — 2026-09-12
 

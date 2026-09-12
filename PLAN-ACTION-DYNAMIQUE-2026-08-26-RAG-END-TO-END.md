@@ -13688,3 +13688,20 @@ La prochaine porte sémantique reste la banque Terra complète 3/3 sur le prompt
 d'ancrage corrigé, dès que le palier fournisseur le permet. RunPod n'est pas
 appelé sans autorisation de dépense dédiée et le produit demeure
 `TESTE_NON_APPROUVE`.
+
+## A763 — identité de modèle exacte et plafond OpenAI — 2026-09-12
+
+Le commit `4cbca2d5` rejette avant HTTP tout identifiant de modèle dépassant 256
+caractères. Le modèle persisté pour l'affinité est donc exactement celui envoyé
+au fournisseur, sans troncature possible. Les 2 147 tests backend passent,
+zéro échec, avec une sonde live opt-in ignorée. Le loopback réel du provider
+repasse sur ce SHA : trois appels, une réparation bornée, vingt claims et vingt
+preuves, aucune sortie externe et ports temporaires libres.
+
+Le contrôle live OpenAI confirme simultanément une incohérence fournisseur :
+facture de 27,03 USD TTC marquée payée, solde 23,92 USD, mais organisation encore
+en Free tier. La page annonce un Tier 1 automatique à 5 USD d'achats cumulés;
+Terra reste pourtant limité à 3 RPM et 50 RPD. `Upgrade tier` propose un nouvel
+achat et la limite de dépense de 100 USD est indépendante du RPD. Aucun nouvel
+achat n'a été effectué. La banque Terra 3/3 attend donc la correction du palier
+ou la réponse du support, tandis que les validations sans dépense continuent.
