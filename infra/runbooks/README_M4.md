@@ -15,8 +15,9 @@ Ce dossier contient les *runbooks* (procédures) pour :
   - Linux : `/opt/...`
 
 ## Points clés (réseau)
-- Par défaut, les ports sont bind en local uniquement via `SAAIA_BIND_ADDR=127.0.0.1`.
-- Pour exposer sur LAN/WAN : `SAAIA_BIND_ADDR=0.0.0.0` (reverse-proxy/TLS recommandé).
+- Par défaut, tous les ports sont liés à `127.0.0.1`.
+- `SAAIA_BIND_ADDR=0.0.0.0` ouvre uniquement le backend et exige un reverse proxy TLS authentifié ou un tunnel chiffré administré.
+- PostgreSQL, Qdrant et TEI restent liés à `SAAIA_INTERNAL_BIND_ADDR=127.0.0.1`. Le collecteur OTLP utilise séparément `SAAIA_OBSERVABILITY_BIND_ADDR=127.0.0.1`.
 
 ## Arborescence
 - `../docker-compose.prod.yml` : compose prod (postgres + qdrant + tei + backend)

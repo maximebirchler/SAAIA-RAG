@@ -13,6 +13,10 @@ Sauvegarde :
 - fichiers `deploy/` (config signée, depuis **InstallRoot**)
 - (optionnel) `documents/`
 
+Les artefacts produits ne sont pas chiffrés par le script. `-OutDir` doit donc
+pointer vers un volume chiffré et à accès restreint. Chiffrer également tout
+support ou transfert utilisé pour sortir une sauvegarde de l'hôte.
+
 ## Restore
 - `powershell -ExecutionPolicy Bypass -File .\infra\scripts\prod\restore.ps1 -InDir .\backups\<timestamp>`
 

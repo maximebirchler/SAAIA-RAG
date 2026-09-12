@@ -6,8 +6,8 @@ services:
     volumes:
       - "./otel/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro"
     ports:
-      - "${SAAIA_BIND_ADDR:-127.0.0.1}:4317:4317"
-      - "${SAAIA_BIND_ADDR:-127.0.0.1}:4318:4318"
+      - "${SAAIA_OBSERVABILITY_BIND_ADDR:-127.0.0.1}:4317:4317"
+      - "${SAAIA_OBSERVABILITY_BIND_ADDR:-127.0.0.1}:4318:4318"
 
   # Override backend env to enable OTLP export to the collector on the compose network
   backend:

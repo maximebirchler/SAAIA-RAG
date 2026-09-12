@@ -72,6 +72,28 @@ exigent HTTPS et les deux autorisations signées
 La configuration de production générée rend donc l'envoi externe explicite et
 auditable.
 
+## Chiffrement et frontières réseau
+
+Les profils externes sont limités à HTTPS par le provider avant toute requête.
+Le profil on-prem par défaut reste sur le réseau Docker privé et le port de
+diagnostic du grand modèle est lié à `127.0.0.1`. Si le grand modèle réside sur
+un autre hôte, son URL doit passer par HTTPS ou par un tunnel chiffré administré
+par le client.
+
+Le backend authentifie toutes les routes avancées avec la clé API SAAIA. Son
+exposition hors de l'hôte exige donc un reverse proxy TLS ou un tunnel chiffré ;
+sinon la clé, le handoff et le résultat circuleraient en clair. Le Compose sépare
+désormais `SAAIA_BIND_ADDR`, réservé au backend, de
+`SAAIA_INTERNAL_BIND_ADDR`, maintenu sur loopback pour PostgreSQL, Qdrant et
+TEI.
+
+Les données persistantes ne reçoivent pas de chiffrement applicatif propre au
+module avancé. PostgreSQL, Qdrant, les documents et les sauvegardes doivent être
+placés sur un volume chiffré et protégé par l'infrastructure du client. Le script
+de sauvegarde produit actuellement des fichiers en clair ; une destination
+chiffrée constitue donc une précondition de déploiement, encore non validée sur
+le serveur cible.
+
 ## Budget OpenAI temporaire
 
 Le backend partage le journal de consommation Terra avec les sondes du client.

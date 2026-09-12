@@ -29,8 +29,9 @@ docker compose -f .\infra\docker-compose.prod.yml --env-file .\infra\.env ps
 ```
 
 Attendu :
-- Ports bind sur **127.0.0.1** par défaut (ex: `127.0.0.1:5122->5122/tcp`).
-- Pour exposer sur LAN/WAN : `SAAIA_BIND_ADDR=0.0.0.0` (reverse proxy/TLS recommandé).
+- Ports liés à **127.0.0.1** par défaut (ex: `127.0.0.1:5122->5122/tcp`).
+- Si `SAAIA_BIND_ADDR=0.0.0.0`, seul le backend est ouvert ; PostgreSQL, Qdrant et TEI restent sur `127.0.0.1`.
+- Toute exposition LAN/WAN du backend passe par un reverse proxy TLS authentifié ou un tunnel chiffré administré.
 
 ### C) Health global
 Commande :
