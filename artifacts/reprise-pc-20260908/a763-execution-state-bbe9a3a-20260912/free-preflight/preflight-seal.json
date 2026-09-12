@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "saaia-openai-terra-campaign-profile-preflight-v1",
+  "checkedAtUtc": "2026-09-12T06:20:12.4754868+00:00",
+  "executeRequested": false,
+  "profilePath": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\config\\openai-terra-final-campaign.a763.json",
+  "profileSha256": "809FCEEA9A3BC58094A3EC185EE01E2F7A3666261D4EB1E88ED392DEF25F34C6",
+  "repositoryCommit": "bbe9a3a4e58e9fe1744f17f5d0f09ee1c4ca19d9",
+  "repositoryBranch": "SAAIA_V3.1",
+  "repositoryTrackedDirty": false,
+  "minimumSemanticFixCommit": "2ef64f59",
+  "containsMinimumSemanticFixCommit": true,
+  "bankPath": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\config\\advanced-capacity-validation.v1.json",
+  "bankSha256": "8B2A5029E0A74D78FF7F26A8F1AACE2D005E84E729E9241AB94FE1BC5AEFFA3E",
+  "bankHashMatches": true,
+  "observedOrganizationTier": "Free",
+  "tierObservedAtUtc": null,
+  "tierObservationAgeMinutes": null,
+  "maximumTierObservationAgeMinutes": 15.0,
+  "paidTierGateSatisfied": false,
+  "selectedIds": [
+    "A755-ADV-01-meal-grid-5x4",
+    "A755-ADV-02-five-student-meals-fr",
+    "A755-ADV-03-explicit-document-comparison",
+    "A755-ADV-04-nist-seven-points"
+  ],
+  "repetitions": 3,
+  "delayBetweenCasesSeconds": 30,
+  "maximumJobAttempts": 3,
+  "maximumJobRetryDelayMilliseconds": 600000,
+  "maximumCostPerJobUsd": 0.15,
+  "maximumCampaignCostImpliedByPerJobCapsUsd": 1.8,
+  "blockingReasons": [
+    "paid_tier_not_observed",
+    "paid_tier_observation_missing_or_stale"
+  ],
+  "executionState": "NOT_STARTED",
+  "executionStartedAtUtc": null,
+  "executionEndedAtUtc": null,
+  "externalCallMayHaveOccurred": false,
+  "externalCallExecuted": false,
+  "productStatus": "TESTE_NON_APPROUVE"
+}

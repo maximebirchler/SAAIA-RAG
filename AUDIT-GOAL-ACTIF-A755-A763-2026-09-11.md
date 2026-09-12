@@ -1403,3 +1403,33 @@ SHA-256 `A3FF7DBC694CA1DCDC3C901B9370B39E84F1E6204D537D4C829C1DB4A1ECC2CB`.
 Aucun appel OpenAI ou RunPod, aucune transmission de preuve et aucun coût. La
 banque finale reste automatiquement bloquée jusqu'au Tier 1. Produit
 `TESTE_NON_APPROUVE`.
+
+## A763 — état d'exécution du profil Terra rendu conservateur — 2026-09-12
+
+La revue du préflight préenregistré a trouvé un défaut limité à l'audit futur :
+le sceau initial écrivait `externalCallExecuted=false` et n'était pas réécrit
+après l'exécution. Une campagne réussie aurait donc conservé une valeur vraie au
+moment du préflight mais trompeuse pour un lecteur consultant l'artefact final.
+
+Le commit `bbe9a3a4` ajoute quatre états explicites. Avant la porte d'exécution,
+le sceau reste `NOT_STARTED` avec `externalCallMayHaveOccurred=false`. Juste
+avant d'invoquer le lanceur fournisseur, il passe à
+`STARTED_EXTERNAL_CALLS_POSSIBLE`. Une interruption devient
+`FAILED_OR_INTERRUPTED_EXTERNAL_CALLS_POSSIBLE`; une réussite devient
+`COMPLETED` et seulement alors `externalCallExecuted=true`. Les heures de début
+et de fin sont également persistées. En cas d'incertitude, le sceau choisit donc
+l'interprétation conservatrice.
+
+Les quatre transitions accessibles sans réseau ont été vérifiées sous
+PowerShell 7 et Windows PowerShell 5.1. Un préflight Free tier depuis le commit
+propre reste `NOT_STARTED`. Un essai négatif franchit artificiellement la porte
+de palier puis fournit un chemin d'environnement inexistant : il échoue avant le
+réseau, mais le sceau final porte correctement
+`FAILED_OR_INTERRUPTED_EXTERNAL_CALLS_POSSIBLE`. Aucun répertoire fournisseur
+imbriqué n'est créé.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-execution-state-bbe9a3a-20260912/assessment.v1.json`,
+SHA-256 `8D5739C0386EE1B85849D7351BC72F51CAD78FA3808D7110696CAC3F2791E1FA`.
+Aucun appel fournisseur, aucune transmission et aucun coût. Le produit reste
+`TESTE_NON_APPROUVE`.

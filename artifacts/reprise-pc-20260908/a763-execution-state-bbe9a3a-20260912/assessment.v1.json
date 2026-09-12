@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "saaia-a763-terra-campaign-execution-state-assessment-v1",
+  "assessedAtUtc": "2026-09-12T08:20:49.3799922+02:00",
+  "repositoryCommit": "bbe9a3a4e58e9fe1744f17f5d0f09ee1c4ca19d9",
+  "verdict": "PASS_CONSERVATIVE_EXECUTION_STATE_ACCOUNTING",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "externalProviderCalls": 0,
+  "externalCostUsd": 0,
+  "script": {
+    "path": "tools/test-openai-terra-campaign-profile.ps1",
+    "sha256": "FF6DB8F20A0904AB02351267981318897548CCBF6364DDCFCB743C88C70EF5A4"
+  },
+  "checks": {
+    "pwsh7FreeTierPreflight": "PASS_NOT_STARTED_NO_CALL_POSSIBLE",
+    "powershell51FreeTierPreflight": "PASS_NOT_STARTED_NO_CALL_POSSIBLE",
+    "pwsh7FailureAfterExecutionGate": "PASS_FAILED_OR_INTERRUPTED_EXTERNAL_CALLS_POSSIBLE",
+    "powershell51FailureAfterExecutionGate": "PASS_FAILED_OR_INTERRUPTED_EXTERNAL_CALLS_POSSIBLE",
+    "nestedProviderArtifactCreated": false,
+    "freeTierGateUnchanged": "PASS"
+  },
+  "evidence": [
+    {
+      "path": "free-preflight/preflight-seal.json",
+      "sha256": "119ECEA7A44871DF51ADF2CE39D2DD00CFF7E2E60500EF9BD42E287D0044997D"
+    },
+    {
+      "path": "failed-before-network/preflight-seal.json",
+      "sha256": "C645BD75534D10833CBE0896D20ABE3B066C1F92D6CE8C0182AAA4798947D8F5"
+    },
+    {
+      "path": "ps51-free-preflight/preflight-seal.json",
+      "sha256": "9438D3DC649A8D6C2707EDD6D162CD54714500237EA16E2C76034B099ACD3CA5"
+    },
+    {
+      "path": "ps51-failed-before-network/preflight-seal.json",
+      "sha256": "1FD67A6AD95020CB6E7902B4B351AA56636F5C40CFC278D4A80A85D09801DDBE"
+    },
+    {
+      "path": "ps51-failed-before-network.log",
+      "sha256": "8CE1966571306BBD92248E87C9737F552C086C559468D35BD92251CD98BAF924"
+    }
+  ],
+  "note": "The post-gate failure tests used a deliberately missing local environment path. They exercised state transitions without contacting a provider."
+}
