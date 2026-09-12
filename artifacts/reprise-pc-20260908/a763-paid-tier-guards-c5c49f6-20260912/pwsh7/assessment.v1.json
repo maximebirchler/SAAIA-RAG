@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "saaia-openai-paid-tier-guard-assessment-v1",
+  "assessedAtUtc": "2026-09-12T06:27:15.2403910+00:00",
+  "checks": [
+    {
+      "name": "helper_blocks_free",
+      "pass": true,
+      "observedMessage": "OpenAI live model calls require a freshly verified paid tier (Tier1 through Tier5). Free-tier calls are blocked."
+    },
+    {
+      "name": "helper_requires_timestamp",
+      "pass": true,
+      "observedMessage": "TierObservedAtUtc is required for OpenAI live model calls."
+    },
+    {
+      "name": "helper_requires_explicit_offset",
+      "pass": true,
+      "observedMessage": "TierObservedAtUtc must include an explicit UTC or numeric offset."
+    },
+    {
+      "name": "helper_rejects_stale_observation",
+      "pass": true,
+      "observedMessage": "The OpenAI paid-tier observation is missing, stale or implausibly in the future. Verify the organization tier again."
+    },
+    {
+      "name": "helper_accepts_fresh_paid_tier",
+      "pass": true,
+      "observedMessage": null
+    },
+    {
+      "name": "entrypoint_product_path_blocks_free",
+      "pass": true,
+      "observedMessage": "OpenAI live model calls require a freshly verified paid tier (Tier1 through Tier5). Free-tier calls are blocked."
+    },
+    {
+      "name": "entrypoint_direct_agent_bank_blocks_free",
+      "pass": true,
+      "observedMessage": "OpenAI live model calls require a freshly verified paid tier (Tier1 through Tier5). Free-tier calls are blocked."
+    },
+    {
+      "name": "entrypoint_direct_provider_probe_blocks_free",
+      "pass": true,
+      "observedMessage": "OpenAI live model calls require a freshly verified paid tier (Tier1 through Tier5). Free-tier calls are blocked."
+    },
+    {
+      "name": "entrypoint_advanced_server_probe_blocks_free",
+      "pass": true,
+      "observedMessage": "OpenAI live model calls require a freshly verified paid tier (Tier1 through Tier5). Free-tier calls are blocked."
+    },
+    {
+      "name": "entrypoint_start_client_blocks_before_environment_change",
+      "pass": true,
+      "observedMessage": "OpenAI live model calls require a freshly verified paid tier (Tier1 through Tier5). Free-tier calls are blocked."
+    }
+  ],
+  "total": 10,
+  "passed": 10,
+  "failed": 0,
+  "externalProviderCalls": 0,
+  "productStatus": "TESTE_NON_APPROUVE"
+}

@@ -1433,3 +1433,38 @@ Assessment :
 SHA-256 `8D5739C0386EE1B85849D7351BC72F51CAD78FA3808D7110696CAC3F2791E1FA`.
 Aucun appel fournisseur, aucune transmission et aucun coût. Le produit reste
 `TESTE_NON_APPROUVE`.
+
+## A763 — garde de palier étendu à tous les lanceurs OpenAI live — 2026-09-12
+
+La campagne profilée bloquait déjà le Free tier, mais quatre anciens outils live
+pouvaient encore être lancés directement : banque cliente historique, sonde du
+provider client, sonde du provider serveur et démarrage du client OpenAI de
+développement. Ils respectaient leurs opt-in et budgets, sans vérifier le palier
+du compte. Le parcours produit brut vérifiait le nom du palier mais pas la
+fraîcheur de l'observation.
+
+Le commit `c5c49f67` centralise cette porte dans
+`tools/openai-paid-tier-guard.ps1`. Chaque point d'entrée OpenAI live exige
+désormais `Tier1` à `Tier5`, un horodatage avec fuseau explicite, une observation
+vieille d'au plus quinze minutes et non située artificiellement dans le futur.
+La valeur par défaut reste `Free`, donc une invocation ancienne ou incomplète
+échoue avant de créer son artefact, lire/déchiffrer la clé ou modifier
+l'environnement du client. Le préflight produit scelle aussi l'heure vérifiée.
+
+Le runbook avancé explique le contrôle en lecture seule, la capture immédiate de
+l'heure et les nouveaux paramètres. La banque A763 finale est dirigée vers le
+profil préenregistré ; les lanceurs plus bas niveau restent disponibles pour une
+sonde explicitement assumée, sous le même garde.
+
+Le test mécanique couvre dix conditions : Free tier, heure absente, fuseau
+absent, observation périmée, observation payante fraîche, puis les cinq points
+d'entrée live. Il vérifie aussi que le démarrage client ne modifie pas son mode
+provider avant le refus. Résultats sur le commit propre `c5c49f67` : 10/10 sous
+PowerShell 7 et 10/10 sous Windows PowerShell 5.1, zéro appel externe.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-paid-tier-guards-c5c49f6-20260912/assessment.v1.json`,
+SHA-256 `A793DC9D9D53C35100B3F4667D7980BE1510D142FA114922BB73EC6D0429B832`.
+La limite OpenAI elle-même n'est pas supprimable par le code SAAIA ; tous les
+contournements accidentels connus sont maintenant fermés. Le produit reste
+`TESTE_NON_APPROUVE`.

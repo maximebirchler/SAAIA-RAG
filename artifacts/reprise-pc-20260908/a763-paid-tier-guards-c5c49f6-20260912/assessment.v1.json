@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "saaia-a763-all-openai-entrypoint-guards-assessment-v1",
+  "assessedAtUtc": "2026-09-12T06:27:30.7449375+00:00",
+  "repositoryCommit": "c5c49f67279b9469ec194104e119869407048ad3",
+  "repositoryBranch": "SAAIA_V3.1",
+  "repositoryTrackedDirty": false,
+  "verdict": "PASS_ALL_LIVE_OPENAI_ENTRYPOINTS_REQUIRE_FRESH_PAID_TIER",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "externalProviderCalls": 0,
+  "externalCostUsd": 0,
+  "requirements": {
+    "acceptedTiers": [
+      "Tier1",
+      "Tier2",
+      "Tier3",
+      "Tier4",
+      "Tier5"
+    ],
+    "freeTierBlocked": true,
+    "maximumObservationAgeMinutes": 15,
+    "explicitTimestampOffsetRequired": true
+  },
+  "coverage": [
+    "advanced product path",
+    "legacy direct agent bank",
+    "direct provider probe",
+    "advanced server provider probe",
+    "direct development client startup"
+  ],
+  "testRuns": [
+    {
+      "runtime": "PowerShell 7",
+      "passed": 10,
+      "total": 10,
+      "sha256": "0F04AA63622B41F582C463E40048359D41C96E69E4EDD7EFA23B77A6BFE2732D",
+      "path": "pwsh7/assessment.v1.json"
+    },
+    {
+      "runtime": "Windows PowerShell 5.1",
+      "passed": 10,
+      "total": 10,
+      "sha256": "EF78E1A14C833D53D2D16AB47D967818EBCF2FC0C55D19AD1DD53D34EC877A0D",
+      "path": "powershell51/assessment.v1.json"
+    }
+  ],
+  "files": {
+    "guardSha256": "32A9D8425F60E8048EAC6BCEED7DFA94571D961FEDC11713D29DC68F44476B54",
+    "testSha256": "2DF4180E5CD0191BB73663DF46295340A7559872BB0628907B239542C73E8103",
+    "profileRunnerSha256": "69BDF965BEFE022E619C74103D0470A8B363D501BD7060CBBFA7D04A051F9FA7"
+  },
+  "remainingBlocker": "The OpenAI organization still needs to display Tier1 or higher during a fresh read-only check before the final Terra campaign can start."
+}
