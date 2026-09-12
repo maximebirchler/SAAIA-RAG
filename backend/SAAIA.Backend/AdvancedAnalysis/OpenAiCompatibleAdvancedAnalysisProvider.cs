@@ -132,7 +132,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 var reserveSynthesisRecovery = runSemanticCritic
                     && request.Handoff.Load.StructuredLayout;
                 var reservedFinalCalls = runSemanticCritic
-                    ? reserveSynthesisRecovery ? 3 : 2
+                    ? reserveSynthesisRecovery ? 4 : 3
                     : 1;
                 var reviewRound = 0;
                 while (completions.Count < maximumCalls - reservedFinalCalls)

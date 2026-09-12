@@ -570,7 +570,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         var options = CreateOptions();
         options.AdaptiveResearchEnabled = true;
         options.SemanticCriticEnabled = true;
-        options.ExternalMaximumCallsPerJob = 6;
+        options.ExternalMaximumCallsPerJob = 7;
         var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
             factory,
             options,
@@ -1119,7 +1119,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         var options = CreateOptions();
         options.AdaptiveResearchEnabled = true;
         options.SemanticCriticEnabled = true;
-        options.ExternalMaximumCallsPerJob = 5;
+        options.ExternalMaximumCallsPerJob = 6;
         var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
             factory,
             options,
@@ -1792,6 +1792,61 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Contains("invalidCriticJson", factory.Requests[3].Body,
             StringComparison.Ordinal);
         Assert.Contains("validWriterCandidate", factory.Requests[3].Body,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Adaptive_structured_research_reserves_a_critic_repair_call()
+    {
+        const string supportedResult = """
+            {"outcome":"answered","answerText":"R1 [C1], R2 [C2], R3 [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"R1 est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"R2 est documentée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"R3","text":"R3 est documentée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"R4 est documentée.","evidenceIds":["E4"]}]}
+            """;
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"selectionMode":"distinct_named_items","queries":[{"query":"recettes","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"decision":"search_more","queries":[{"query":"recettes matin","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"decision":"search_more","queries":[{"query":"recettes collation","category":"","topK":20}]}
+                """),
+            Completion(supportedResult),
+            Completion("""{"outcome":"answered","answerText":"truncated"""),
+            Completion(supportedResult));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        options.SemanticCriticEnabled = true;
+        options.ExternalMaximumCallsPerJob = 7;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+        var gateway = new RecordingToolGateway(
+            Enumerable.Range(1, 20)
+                .Select(index => BuildEvidence(
+                    $"E{index}",
+                    $"R{index} est une recette documentée.",
+                    exactTitle: $"R{index}"))
+                .ToArray());
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(
+                answerUnitCount: 4,
+                atomicEvidenceMode: "named_item",
+                selectionPolicy: "distinct_structured_layout"),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(6, result.ProviderCallCount);
+        Assert.Equal(6, factory.Requests.Count);
+        Assert.Equal(
+            ["recettes", "recettes matin", "recettes collation"],
+            gateway.Searches.Select(static item => item.Query).ToArray());
+        Assert.Contains("invalidCriticJson", factory.Requests[5].Body,
+            StringComparison.Ordinal);
+        Assert.Contains("validWriterCandidate", factory.Requests[5].Body,
             StringComparison.Ordinal);
     }
 
