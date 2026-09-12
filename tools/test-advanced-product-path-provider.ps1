@@ -47,6 +47,7 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot "openai-paid-tier-guard.ps1")
+. (Join-Path $PSScriptRoot "reference-corpus-seal.ps1")
 
 if (-not ("System.Security.Cryptography.ProtectedData" -as [type])) {
     Add-Type -AssemblyName System.Security
@@ -322,6 +323,9 @@ $backendProcess = $null
 $failure = $null
 $campaignCompleted = $false
 $ready = $null
+$referenceCorpusSealBefore = $null
+$referenceCorpusSealAfter = $null
+$referenceCorpusSealVerified = $false
 $bankArtifactDirectory = Join-Path $ArtifactDirectory "agent-bank"
 $backendStdout = Join-Path $ArtifactDirectory "backend.stdout.log"
 $backendStderr = Join-Path $ArtifactDirectory "backend.stderr.log"
@@ -330,19 +334,14 @@ $unsignedConfigPath = Join-Path $ArtifactDirectory "unsigned-development.config.
 $missingSignaturePath = Join-Path $ArtifactDirectory "unsigned-development.config.missing.sig"
 
 try {
-    $referenceHeaders = @{ "X-Admin-Key" = $serverApiKey }
-    $referenceJobsResponse = Invoke-WebRequest `
-        -Uri ($ReferenceBackendUrl.TrimEnd('/') + "/ingestion/jobs") `
-        -Headers $referenceHeaders `
-        -UseBasicParsing `
-        -TimeoutSec 15
-    $referenceJobs = @((($referenceJobsResponse.Content | ConvertFrom-Json).items))
-    $activeIngestionJobs = @($referenceJobs | Where-Object {
-        $_.status -in @("queued", "running")
-    })
-    if ($activeIngestionJobs.Count -gt 0) {
-        throw "Reference backend reports active ingestion jobs; refusing to start a second backend."
+    $referenceCorpusSealBefore = Get-SaaiaReferenceCorpusSeal `
+        -ReferenceBackendUrl $ReferenceBackendUrl `
+        -ServerApiKey $serverApiKey
+    if ([int]$referenceCorpusSealBefore.activeIngestionJobs -gt 0) {
+        throw "Reference corpus reports active ingestion jobs; refusing to start the campaign."
     }
+    $referenceCorpusSealBefore | ConvertTo-Json -Depth 8 |
+        Set-Content -LiteralPath (Join-Path $ArtifactDirectory "reference-corpus-before.json") -Encoding utf8
 
     $connectionString = "Host=saaia-server;Port=5432;Database=$postgresDatabase;Username=$postgresUser;Password=$postgresPassword;Pooling=true;Maximum Pool Size=20"
     $localConfig = [ordered]@{
@@ -459,7 +458,11 @@ try {
         remoteDatabaseHost = "saaia-server"
         remoteQdrantHost = "saaia-server"
         remoteEmbeddingHost = "saaia-server"
-        activeIngestionJobsBeforeStart = $activeIngestionJobs.Count
+        activeIngestionJobsBeforeStart = $referenceCorpusSealBefore.activeIngestionJobs
+        referenceCorpusCompositeSha256 = $referenceCorpusSealBefore.compositeSha256
+        referenceCatalogStateSha256 = $referenceCorpusSealBefore.catalogStateSha256
+        referenceIngestionJobsPayloadSha256 = $referenceCorpusSealBefore.ingestionJobsPayloadSha256
+        referenceQdrantStateSha256 = $referenceCorpusSealBefore.qdrantStateSha256
         configurationSignatureMode = "unsigned-development-test-override"
         ingestionWorkersEnabled = $false
         expectedAdvancedProvider = $providerMode
@@ -547,6 +550,16 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Advanced product-path mechanical assessment failed with exit code $LASTEXITCODE."
     }
+    Stop-OwnedProcess -Process $backendProcess
+    $referenceCorpusSealAfter = Get-SaaiaReferenceCorpusSeal `
+        -ReferenceBackendUrl $ReferenceBackendUrl `
+        -ServerApiKey $serverApiKey
+    $referenceCorpusSealAfter | ConvertTo-Json -Depth 8 |
+        Set-Content -LiteralPath (Join-Path $ArtifactDirectory "reference-corpus-after.json") -Encoding utf8
+    Assert-SaaiaReferenceCorpusUnchanged `
+        -Before $referenceCorpusSealBefore `
+        -After $referenceCorpusSealAfter | Out-Null
+    $referenceCorpusSealVerified = $true
     $campaignCompleted = $true
 }
 catch {
@@ -558,6 +571,26 @@ finally {
         $failure = "Campaign interrupted before completion."
     }
     Stop-OwnedProcess -Process $backendProcess
+
+    if ($null -ne $referenceCorpusSealBefore -and $null -eq $referenceCorpusSealAfter) {
+        try {
+            $referenceCorpusSealAfter = Get-SaaiaReferenceCorpusSeal `
+                -ReferenceBackendUrl $ReferenceBackendUrl `
+                -ServerApiKey $serverApiKey
+            $referenceCorpusSealAfter | ConvertTo-Json -Depth 8 |
+                Set-Content -LiteralPath (Join-Path $ArtifactDirectory "reference-corpus-after.json") -Encoding utf8
+            Assert-SaaiaReferenceCorpusUnchanged `
+                -Before $referenceCorpusSealBefore `
+                -After $referenceCorpusSealAfter | Out-Null
+            $referenceCorpusSealVerified = $true
+        }
+        catch {
+            $referenceCorpusSealVerified = $false
+            if ([string]::IsNullOrWhiteSpace($failure)) {
+                $failure = "Reference corpus postflight failed: " + $_.Exception.Message
+            }
+        }
+    }
 
     $portReleaseDeadline = [DateTimeOffset]::UtcNow.AddSeconds(15)
     while (@(Get-NetTCPConnection -State Listen -LocalPort $BackendPort -ErrorAction SilentlyContinue).Count -gt 0 -and
@@ -587,6 +620,13 @@ finally {
         failure = $failure
         environmentRestored = $true
         localConfigRestored = $true
+        referenceCorpusSealVerified = $referenceCorpusSealVerified
+        referenceCorpusBeforeSha256 = $(if ($null -ne $referenceCorpusSealBefore) {
+            $referenceCorpusSealBefore.compositeSha256
+        } else { $null })
+        referenceCorpusAfterSha256 = $(if ($null -ne $referenceCorpusSealAfter) {
+            $referenceCorpusSealAfter.compositeSha256
+        } else { $null })
         secretPersistedInArtifact = $false
         temporaryBackendStopped = $(
             $null -eq $backendProcess -or $backendProcess.HasExited)

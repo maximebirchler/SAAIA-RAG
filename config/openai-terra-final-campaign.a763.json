@@ -72,6 +72,7 @@
       "All 12 rows pass the mechanical assessor and all 12 answers receive a source-by-source semantic review.",
       "Provider and model telemetry are exactly openai-dev and gpt-5.6-terra; costs and token counts are present.",
       "No prompt, case, retrieval, corpus, acceptance criterion, local-router binary/model/configuration or runtime parameter changes after the first answer is observed.",
+      "The opaque reference-corpus seal is identical before and after the campaign, with no queued, running or paused ingestion job and stable catalog, ingestion history and Qdrant point/vector state.",
       "Any unsupported substantive claim, wrong source relation, unvalidated provider payload, budget stop or protocol drift rejects the campaign."
     ],
     "cases": {
@@ -100,6 +101,7 @@
     "Do not execute without a paid-tier observation less than 15 minutes old.",
     "Stop before the first model call if the branch, clean-tree rule or bank hash differs.",
     "Stop before the first model call if the local llama.cpp runtime, Qwen GGUF or provider configuration hash differs.",
+    "Stop before the first model call if the reference corpus cannot be sealed or has queued, running or paused ingestion; reject the campaign if the postflight seal differs.",
     "Let retryable 429 responses use the durable scheduled retry path, bounded to three job attempts and ten minutes per scheduled delay in this campaign.",
     "Stop at the persistent lifetime, per-job or per-job-call budget guard.",
     "Do not start RunPod or transmit the private evidence bundle."
