@@ -239,6 +239,19 @@ indépendante à configurer sur la plateforme.
 
 ### RunPod BENCH
 
+Le parcours produit utilise la clé protégée dans le coffre SAAIA. Après
+autorisation explicite, copier la clé créée dans RunPod puis l'importer ainsi :
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File .\tools\import-llm-secret-from-clipboard.ps1 `
+  -Provider RunPod
+```
+
+Le script chiffre la valeur avec DPAPI pour l'utilisateur Windows courant et
+efface le presse-papiers par défaut. La variable d'environnement ci-dessous
+reste réservée aux probes directes temporaires :
+
 ```powershell
 $env:SAAIA_RUNPOD_API_KEY = "<secret utilisateur>"
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\start-client-runpod-bench.ps1 `
@@ -265,9 +278,10 @@ Ces paramètres décrivent le serveur de benchmark et apparaissent dans les
 artefacts. Le démarrage effectif de llama-server sur le pod reste géré par le
 script ou le template RunPod choisi, hors de la logique métier SAAIA.
 
-Fermer le client termine le run SAAIA. Arrêter ensuite le pod depuis RunPod pour
-arrêter sa facturation. Une nouvelle console sans ces variables, ou le mode
-`Local` explicite, désactive le benchmark côté client.
+Fermer le client termine le run SAAIA. L'endpoint public au token n'alloue pas
+de pod privé à arrêter. Pour un futur endpoint privé, arrêter ensuite le worker
+ou le pod depuis RunPod afin d'arrêter sa facturation. Une nouvelle console sans
+ces variables, ou le mode `Local` explicite, désactive le benchmark côté client.
 
 ## E. Tests automatisés
 
@@ -331,22 +345,35 @@ Ils ne doivent pas être ajoutés à une CI payante.
 
 ## G. Validation manuelle RunPod
 
-1. Démarrer un pod GPU avec llama.cpp/llama-server et un modèle GGUF choisi.
-2. Consigner modèle, hash, quantification, GPU et paramètres runtime.
-3. Définir `SAAIA_RUNPOD_API_KEY`, puis exécuter :
+Le premier candidat A763 est l'endpoint public au token Qwen3 32B AWQ. Il ne
+requiert ni pod privé ni location GPU horaire. La procédure est :
+
+1. exécuter sans clé le préflight de
+   `config/runpod-benchmark.a763.json` ;
+2. après autorisation de sortie de contenu et de 5 USD maximum, créer ou ouvrir
+   le compte RunPod, copier une clé limitée et l'importer avec
+   `import-llm-secret-from-clipboard.ps1 -Provider RunPod` ;
+3. lancer uniquement la sonde synthétique, limitée réellement à deux appels :
 
    ```powershell
-   powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-runpod-llm-provider.ps1 `
-     -BaseUrl "https://<endpoint>/v1" -ModelId "<model-id>" `
-     -Runtime "<runtime-servi>" `
-     -RuntimeProfile "<profile-id>"
+   powershell -NoProfile -ExecutionPolicy Bypass `
+     -File .\tools\test-runpod-campaign-profile.ps1 `
+     -Execute -Stage Probe -ExternalContentAuthorized
    ```
 
-4. Exiger `/models`, Router structuré et Writer streamé avant une campagne.
-5. Lancer WinUI avec `start-client-runpod-bench.ps1` et rejouer exactement le
-   même corpus, les mêmes questions, prompts, tools, EvidenceBundles et critères
-   que Terra.
-6. Arrêter le pod dès la fin du run et conserver son coût réel avec l'artefact.
+4. rapprocher le modèle observé, le registre SAAIA et la consommation RunPod ;
+5. si la sonde est valide, lancer `MealGrid` une fois avec le fichier
+   d'environnement serveur, puis relire les vingt cellules et leurs preuves ;
+6. si cette revue est acceptable, lancer `FullBank` avec
+   `-FullBankAuthorized` sur le même commit et le même profil ;
+7. conserver les résultats mécaniques et sémantiques séparément, vérifier les
+   coûts et l'absence de processus SAAIA résiduel.
+
+L'endpoint public n'expose pas le GPU, le hash des poids ou la révision du
+runtime. Si sa qualité est insuffisante ou si une preuve matérielle est requise,
+un endpoint Serverless privé devient une campagne distincte. Cette seconde
+campagne doit sceller image, modèle, hash, quantification, GPU et paramètres,
+puis arrêter le worker dès la fin pour arrêter la facturation.
 
 ## H. Validé, restant et dette
 
