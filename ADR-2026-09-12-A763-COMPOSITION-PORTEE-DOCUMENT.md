@@ -1,7 +1,7 @@
 # A763 — Composer une preuve de portée et une preuve d'item
 
 Date : 2026-09-12  
-Statut : correction partielle ; probe Terra ciblé rejeté
+Statut : correction ciblée validée 3/3 ; campagne complète à rejouer
 
 ## Incident observé après le passage en Tier 1
 
@@ -66,7 +66,7 @@ valide pas la fonction de planning complet.
 
 ## Preuves locales
 
-- tests ciblés du fournisseur OpenAI-compatible : 36/36 ;
+- tests ciblés du fournisseur OpenAI-compatible : 38/38 ;
 - test de groupement : deux preuves de la même révision reçoivent la même clé ;
 - test d'isolation : une autre source reçoit une clé différente ;
 - test de confidentialité : les UUID réels du document et de la révision sont
@@ -110,3 +110,24 @@ promotion est bornée au nombre d'items demandé plus un, puis l'ordre global
 reprend sans supprimer aucune autre preuve. Elle ne s'applique ni aux grilles,
 ni aux comparaisons, ni aux extractions bornées d'un document nommé. Cette
 sélection reste générique et ne change pas le moteur de recherche canonique.
+
+## Probe de contrôle après priorisation
+
+La campagne préenregistrée `A763-TERRA-COLLECTION-EVIDENCE-STUDENT-3X`,
+exécutée sur le commit propre `97e4de3d`, a terminé ses trois répétitions sans
+erreur 429 ni incident d'infrastructure. Le sceau du corpus est resté identique
+et les processus temporaires ont été arrêtés. Six appels Terra ont coûté
+0,096538 USD.
+
+Les trois réponses contiennent exactement cinq recettes distinctes, sans clé
+interne publiée. La revue des textes canoniques accepte les trois répétitions :
+la couverture qualifie explicitement la collection de recettes simples et
+accessibles pour les étudiants, tandis que les sommaires du même ouvrage
+nomment chaque recette et sa rubrique temporelle. Aucun ingrédient, prix,
+durée précise ou avantage absent des preuves n'est ajouté.
+
+Verdict public du probe : `DIAGNOSTIC_ROWS_ALL_PASS`, trois passages et aucun
+rejet, `approvalEligible=false`, produit `TESTE_NON_APPROUVE`. Ce résultat
+valide causalement la correction sur le cas étudiant. Il ne remplace pas une
+campagne complète d'acceptation et ne ferme pas la limite fonctionnelle du
+planning 5 x 4.
