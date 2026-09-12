@@ -19,6 +19,8 @@ internal sealed class AdvancedAnalysisClientPollingOptions
     public TimeSpan RetryBaseDelay { get; init; } = TimeSpan.FromMilliseconds(500);
 
     public TimeSpan MaximumRetryDelay { get; init; } = TimeSpan.FromSeconds(8);
+
+    public TimeSpan MaximumScheduledPollDelay { get; init; } = TimeSpan.FromMinutes(1);
 }
 
 internal sealed record AdvancedAnalysisClientExecutionResult(
@@ -337,9 +339,14 @@ public sealed partial class ToolAgentOrchestrator
             onProgress?.Invoke(
                 string.Equals(job.Status, "running", StringComparison.Ordinal)
                     ? DeterministicAgentText.ProgressAdvancedAnalysisRunning(language)
+                    : string.Equals(
+                        job.LastErrorCode,
+                        "advanced_llm_http_429",
+                        StringComparison.Ordinal)
+                        ? DeterministicAgentText.ProgressAdvancedAnalysisRateLimitRetry(language)
                     : DeterministicAgentText.ProgressAdvancedAnalysisQueued(language));
             await delayAsync(
-                    ClampAdvancedAnalysisDelay(options.PollDelay, options.MaximumRetryDelay),
+                    ResolveAdvancedAnalysisPollDelay(job, options),
                     cancellationToken)
                 .ConfigureAwait(false);
 
@@ -392,6 +399,31 @@ public sealed partial class ToolAgentOrchestrator
         }
 
         return CompleteAdvancedAnalysisResult(language, job);
+    }
+
+    private static TimeSpan ResolveAdvancedAnalysisPollDelay(
+        AdvancedAnalysisJobDto job,
+        AdvancedAnalysisClientPollingOptions options)
+    {
+        var ordinaryDelay = ClampAdvancedAnalysisDelay(
+            options.PollDelay,
+            options.MaximumRetryDelay);
+        if (!string.Equals(job.Status, "queued", StringComparison.Ordinal)
+            || job.AvailableAtUtc <= DateTimeOffset.UtcNow + ordinaryDelay)
+        {
+            return ordinaryDelay;
+        }
+
+        var maximumScheduledDelay = ClampAdvancedAnalysisDelay(
+            options.MaximumScheduledPollDelay,
+            TimeSpan.FromMinutes(5));
+        var untilAvailable = job.AvailableAtUtc - DateTimeOffset.UtcNow;
+        return TimeSpan.FromMilliseconds(Math.Clamp(
+            untilAvailable.TotalMilliseconds,
+            ordinaryDelay.TotalMilliseconds,
+            Math.Max(
+                ordinaryDelay.TotalMilliseconds,
+                maximumScheduledDelay.TotalMilliseconds)));
     }
 
     private AdvancedAnalysisClientExecutionResult SnapshotAdvancedAnalysisResult(
@@ -761,6 +793,7 @@ public sealed partial class ToolAgentOrchestrator
                 attemptCount = job.AttemptCount,
                 cancelRequested = job.CancelRequested,
                 updatedAtUtc = job.UpdatedAtUtc,
+                availableAtUtc = job.AvailableAtUtc,
                 expiresAtUtc = job.ExpiresAtUtc,
                 providerKey = job.ProviderKey,
                 providerModel = result?.ProviderModel ?? job.ProviderModel,

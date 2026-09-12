@@ -145,6 +145,7 @@ public static class AdvancedAnalysisEndpoints
               revision AS "Revision", attempt_count AS "AttemptCount",
               cancel_requested_at AS "CancelRequestedAt",
               created_at AS "CreatedAt", updated_at AS "UpdatedAt",
+              available_at AS "AvailableAt",
               expires_at AS "ExpiresAt", started_at AS "StartedAt",
               finished_at AS "FinishedAt", provider_key AS "ProviderKey",
               provider_model AS "ProviderModel",
@@ -295,6 +296,7 @@ public static class AdvancedAnalysisEndpoints
               revision AS "Revision", attempt_count AS "AttemptCount",
               cancel_requested_at AS "CancelRequestedAt",
               created_at AS "CreatedAt", updated_at AS "UpdatedAt",
+              available_at AS "AvailableAt",
               expires_at AS "ExpiresAt", started_at AS "StartedAt",
               finished_at AS "FinishedAt", provider_key AS "ProviderKey",
               provider_model AS "ProviderModel",
@@ -508,6 +510,7 @@ public static class AdvancedAnalysisEndpoints
           revision AS "Revision", attempt_count AS "AttemptCount",
           cancel_requested_at AS "CancelRequestedAt",
           created_at AS "CreatedAt", updated_at AS "UpdatedAt",
+          available_at AS "AvailableAt",
           expires_at AS "ExpiresAt", started_at AS "StartedAt",
           finished_at AS "FinishedAt", provider_key AS "ProviderKey",
           provider_model AS "ProviderModel",
@@ -528,6 +531,7 @@ public static class AdvancedAnalysisEndpoints
             CancelRequested = row.CancelRequestedAt.HasValue,
             CreatedAtUtc = AsUtc(row.CreatedAt),
             UpdatedAtUtc = AsUtc(row.UpdatedAt),
+            AvailableAtUtc = AsUtc(row.AvailableAt),
             ExpiresAtUtc = AsUtc(row.ExpiresAt),
             StartedAtUtc = AsUtcNullable(row.StartedAt),
             FinishedAtUtc = AsUtcNullable(row.FinishedAt),
@@ -562,6 +566,7 @@ public static class AdvancedAnalysisEndpoints
         public DateTime? CancelRequestedAt { get; init; }
         public DateTime CreatedAt { get; init; }
         public DateTime UpdatedAt { get; init; }
+        public DateTime AvailableAt { get; init; }
         public DateTime ExpiresAt { get; init; }
         public DateTime? StartedAt { get; init; }
         public DateTime? FinishedAt { get; init; }

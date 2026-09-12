@@ -111,6 +111,15 @@ internal static class DeterministicAgentText
             "Die erweiterte Analyse durchsucht und prüft die Quellen…",
             "L'analisi avanzata sta cercando e verificando le fonti…");
 
+    public static string ProgressAdvancedAnalysisRateLimitRetry(string? language)
+        => Pick(language,
+            "La limite temporaire du fournisseur est atteinte. La tâche est conservée et reprendra automatiquement…",
+            "The provider's temporary rate limit was reached. The task is stored and will resume automatically…",
+            "Se alcanzó el límite temporal del proveedor. La tarea se conserva y se reanudará automáticamente…",
+            "O limite temporário do fornecedor foi atingido. A tarefa foi conservada e será retomada automaticamente…",
+            "Das vorübergehende Anbieterlimit wurde erreicht. Die Aufgabe bleibt gespeichert und wird automatisch fortgesetzt…",
+            "È stato raggiunto il limite temporaneo del provider. L'attività è conservata e riprenderà automaticamente…");
+
     public static string AdvancedAnalysisPending(string? language)
         => Pick(language,
             "La tâche d'analyse avancée est enregistrée sur le serveur et n'est pas encore terminée. Son identifiant et son dernier état ont été conservés avec ce message pour permettre la reprise du suivi.",

@@ -210,6 +210,8 @@ public sealed class AdvancedAnalysisJobDto
 
     public DateTimeOffset UpdatedAtUtc { get; init; }
 
+    public DateTimeOffset AvailableAtUtc { get; init; }
+
     public DateTimeOffset ExpiresAtUtc { get; init; }
 
     public DateTimeOffset? StartedAtUtc { get; init; }

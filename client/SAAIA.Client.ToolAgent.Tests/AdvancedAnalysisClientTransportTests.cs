@@ -283,6 +283,51 @@ public sealed class AdvancedAnalysisClientTransportTests
     }
 
     [Fact]
+    public async Task Workflow_spaces_polling_until_a_scheduled_provider_retry()
+    {
+        var delays = new List<TimeSpan>();
+        var futureRetry = DateTimeOffset.UtcNow.AddMinutes(5).ToString("O");
+        var handler = new SequenceHandler((_, _, _) => Task.FromResult(Json(
+            HttpStatusCode.Accepted,
+            Job(
+                "queued",
+                2,
+                availableAtUtc: futureRetry,
+                lastErrorCode: "advanced_llm_http_429"))));
+        var orchestrator = new ToolAgentOrchestrator(
+            CreateApiClient(handler),
+            llm: null!,
+            mem: new ToolMemory());
+
+        var result = await orchestrator.ExecuteAdvancedAnalysisHandoffForTestsAsync(
+            SessionId,
+            Handoff(),
+            new AdvancedAnalysisClientPollingOptions
+            {
+                MaximumPolls = 1,
+                MaximumScheduledPollDelay = TimeSpan.FromSeconds(30)
+            },
+            (delay, _) =>
+            {
+                delays.Add(delay);
+                return Task.CompletedTask;
+            },
+            CancellationToken.None);
+
+        Assert.Equal("pending", result.Outcome);
+        Assert.Equal(TimeSpan.FromSeconds(30), Assert.Single(delays));
+        var payload = JsonSerializer.Serialize(result.SourcesPayload, ClientJson.CamelCase);
+        using var json = JsonDocument.Parse(payload);
+        var state = json.RootElement.GetProperty("advancedAnalysis");
+        Assert.Equal(
+            DateTimeOffset.Parse(futureRetry),
+            state.GetProperty("availableAtUtc").GetDateTimeOffset());
+        Assert.Equal(
+            "advanced_llm_http_429",
+            state.GetProperty("lastErrorCode").GetString());
+    }
+
+    [Fact]
     public async Task Workflow_explains_provider_rate_limit_without_publishing_untrusted_data()
     {
         var handler = new SequenceHandler((_, _, _) => Task.FromResult(Json(
@@ -705,7 +750,8 @@ public sealed class AdvancedAnalysisClientTransportTests
         Guid? handoffId = null,
         string? lastErrorCode = null,
         string? providerKey = null,
-        string? providerModel = null)
+        string? providerModel = null,
+        string? availableAtUtc = null)
         => new
         {
             jobId = JobId,
@@ -717,6 +763,7 @@ public sealed class AdvancedAnalysisClientTransportTests
             cancelRequested = status == "canceled",
             createdAtUtc = "2026-09-11T03:00:00Z",
             updatedAtUtc = "2026-09-11T03:00:01Z",
+            availableAtUtc = availableAtUtc ?? "2026-09-11T03:00:01Z",
             expiresAtUtc = "2026-10-11T03:00:00Z",
             startedAtUtc = status == "queued" ? null : "2026-09-11T03:00:00Z",
             finishedAtUtc = status is "succeeded" or "failed" or "canceled"
@@ -725,9 +772,8 @@ public sealed class AdvancedAnalysisClientTransportTests
             providerKey = providerKey ?? (status == "succeeded" ? "fake-internal" : null),
             providerModel,
             result,
-            lastErrorCode = status == "failed"
-                ? lastErrorCode ?? "provider_failed"
-                : null
+            lastErrorCode = lastErrorCode
+                ?? (status == "failed" ? "provider_failed" : null)
         };
 
     private static object ValidResult(
