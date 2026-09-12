@@ -221,6 +221,24 @@ foreach ($job in @($bundle.jobs | Sort-Object jobId)) {
 $reviewPath = Join-Path $ArtifactDirectory "semantic-review.private.md"
 [IO.File]::WriteAllLines($reviewPath, $lines, [Text.UTF8Encoding]::new($false))
 
+$decisionTemplate = [ordered]@{
+    schemaVersion = "saaia-advanced-semantic-decisions-v1"
+    preparedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
+    repositoryCommit = $repositoryCommit
+    decisions = @($records | Sort-Object caseId, repetition | ForEach-Object {
+        [ordered]@{
+            jobId = $_.jobId
+            caseId = $_.caseId
+            repetition = $_.repetition
+            verdict = "PENDING_REVIEW"
+            reason = ""
+        }
+    })
+}
+$decisionPath = Join-Path $ArtifactDirectory "semantic-decisions.private.json"
+$decisionTemplate | ConvertTo-Json -Depth 8 |
+    Set-Content -LiteralPath $decisionPath -Encoding utf8
+
 $unresolvedEvidence = @([regex]::Matches(
     [IO.File]::ReadAllText($reviewPath), "PREUVE_TEXTUELLE_NON_RESOLUE")).Count
 $manifest = [ordered]@{
@@ -239,6 +257,7 @@ $manifest = [ordered]@{
     unresolvedEvidence = $unresolvedEvidence
     privateBundleSha256 = (Get-FileHash -LiteralPath $bundlePath -Algorithm SHA256).Hash
     privateReviewSha256 = (Get-FileHash -LiteralPath $reviewPath -Algorithm SHA256).Hash
+    privateDecisionTemplateSha256 = (Get-FileHash -LiteralPath $decisionPath -Algorithm SHA256).Hash
     privateArtifactsMayLeaveWorkspace = $false
     semanticVerdict = "PENDING_HUMAN_REVIEW"
     productStatus = "TESTE_NON_APPROUVE"
