@@ -188,7 +188,7 @@ crédits.
 
 ## Préparation RunPod sans dépense
 
-Le premier candidat reproductible est le Public Endpoint RunPod
+Une étude provisoire a utilisé comme hypothèse le Public Endpoint RunPod
 `Qwen/Qwen3-32B-AWQ`, exposé à
 `https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1`. RunPod documente une fenêtre
 de 32 768 tokens et un prix uniforme de 10 USD par million de tokens :
@@ -199,19 +199,20 @@ de 32 768 tokens et un prix uniforme de 10 USD par million de tokens :
 Sur les 39 jobs externes multi-appels déjà terminés, la médiane observée est de
 10 190 tokens et le percentile 90 de 11 713 tokens. Au tarif RunPod annoncé,
 douze jobs coûteraient environ 1,22 USD à la médiane et 1,41 USD au percentile
-90. Une enveloppe autorisée de 3 USD couvre donc les variations et une éventuelle
-réparation de protocole sans ouvrir un budget large. RunPod demande au moins
-5 USD de crédits pour utiliser ces endpoints, mais SAAIA peut conserver une
-autorisation locale de 3 USD et un arrêt dur calculé à 2,88 USD.
+90. Une enveloppe théorique de 3 USD couvrirait donc les variations et une
+éventuelle réparation de protocole. Cette estimation n'est ni une autorisation
+d'achat, ni une sélection finale de modèle, d'endpoint ou de tarif.
 
 Le garde-budget persistant s'applique désormais à tout fournisseur externe, et
 pas seulement à OpenAI. Le profil RunPod utilise son propre registre, ses propres
 tarifs et refuse de démarrer sans budget explicitement autorisé. Le lanceur
 commun est `tools/test-advanced-product-path-provider.ps1`. Les façades
 `tools/test-advanced-product-path-openai.ps1` et
-`tools/test-advanced-product-path-runpod.ps1` préservent une invocation simple
-et isolent les valeurs par fournisseur. Aucun compte, crédit, endpoint privé,
-secret ou appel payant RunPod n'a été créé à ce stade.
+`tools/test-advanced-product-path-runpod.ps1` isolent les valeurs par
+fournisseur. Depuis `107fffe`, la façade RunPod exige explicitement l'URL, le
+modèle, les trois tarifs et le budget ; elle n'embarque plus cette hypothèse
+historique. Aucun compte, crédit, endpoint privé, secret ou appel payant RunPod
+n'a été créé à ce stade.
 
 ## Vérifications de l'état courant
 
@@ -231,9 +232,9 @@ secret ou appel payant RunPod n'a été créé à ce stade.
 
 1. Rejouer la banque avancée complète trois fois sur l'état gelé avec Terra,
    après application du Tier 1 ou réinitialisation du quota journalier.
-2. Qualifier `Qwen/Qwen3-32B-AWQ` via le Public Endpoint RunPod avec le même
-   contrat. Le candidat, l'URL, les tarifs et le lanceur sont prêts ; il manque
-   l'autorisation de dépense RunPod, au moins 5 USD de crédits et une clé RunPod.
+2. Sélectionner puis qualifier un candidat open source autour de 32B sur RunPod
+   avec le même contrat. Le lanceur est prêt ; il manque le choix documenté du
+   profil, l'autorisation de dépense dédiée, les crédits et une clé RunPod.
 3. Exécuter le même protocole sur le serveur final du client lorsque son matériel
    et son modèle seront disponibles.
 4. Pendant une réponse avancée terminale acceptée, ouvrir les cartes source
@@ -665,3 +666,21 @@ probes live opt-in ignorées. L'assessment
 a pour SHA-256
 `2CA13D8C48B34894B5FBCDF648454ACC58306DC773506BE1087254BDEDF8C0EA`.
 Les ports 1234, 5123 et 18081 sont libres et aucun appel externe n'a été lancé.
+
+## A763 — identité RunPod explicitement scellée — 2026-09-12
+
+Le commit `107fffe` retire du lanceur produit RunPod les valeurs par défaut qui
+figeaient un endpoint, un modèle et un tarif provisoires. Une campagne exige
+maintenant `BaseUrl`, `ModelId`, le budget autorisé et les tarifs entrée, cache
+et sortie. Le preflight consigne aussi le runtime, le profil, le GPU, la
+quantification, le hash du modèle, la fenêtre de contexte et le coût horaire
+lorsqu'ils sont fournis. Changer de candidat reste un changement de paramètres,
+sans modification du Router, des tools, du RAG ou du Writer.
+
+Les deux scripts PowerShell passent l'analyseur syntaxique avec zéro erreur. La
+façade ne contient plus d'endpoint, de modèle ou de prix RunPod implicite.
+L'assessment
+`artifacts/reprise-pc-20260908/a763-runpod-explicit-profile-107fffe-20260912/assessment.v1.json`
+a pour SHA-256
+`2ED735EDD70C6B5D4CB3B9CF1980D2173A4EF7E7F79D736CDABFD6A4A3AABCB6`.
+Aucun appel externe et aucune dépense RunPod n'ont été effectués.
