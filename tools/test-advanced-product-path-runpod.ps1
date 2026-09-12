@@ -13,6 +13,10 @@ param(
     [int]$Repetitions = 1,
     [ValidateRange(0, 300)]
     [int]$DelayBetweenCasesSeconds = 0,
+    [ValidateRange(1, 20)]
+    [int]$MaximumJobAttempts = 3,
+    [ValidateRange(1000, 900000)]
+    [int]$MaximumJobRetryDelayMilliseconds = 600000,
     [Parameter(Mandatory = $true)]
     [string]$BaseUrl,
     [Parameter(Mandatory = $true)]
@@ -54,6 +58,8 @@ $runner = Join-Path $PSScriptRoot "test-advanced-product-path-provider.ps1"
     -Ids $Ids `
     -Repetitions $Repetitions `
     -DelayBetweenCasesSeconds $DelayBetweenCasesSeconds `
+    -MaximumJobAttempts $MaximumJobAttempts `
+    -MaximumJobRetryDelayMilliseconds $MaximumJobRetryDelayMilliseconds `
     -ProviderBaseUrl $BaseUrl `
     -ModelId $ModelId `
     -AuthorizedBudgetUsd $AuthorizedBudgetUsd `

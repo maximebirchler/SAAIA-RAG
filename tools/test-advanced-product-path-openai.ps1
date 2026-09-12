@@ -10,8 +10,21 @@ param(
     [int]$Repetitions = 1,
     [ValidateRange(0, 300)]
     [int]$DelayBetweenCasesSeconds = 0,
+    [ValidateRange(1, 20)]
+    [int]$MaximumJobAttempts = 3,
+    [ValidateRange(1000, 900000)]
+    [int]$MaximumJobRetryDelayMilliseconds = 600000,
     [ValidateSet("gpt-5.6-terra", "gpt-5.6-luna")]
     [string]$OpenAiModel = "gpt-5.6-terra",
+    [ValidateSet("Free", "Tier1", "Tier2", "Tier3", "Tier4", "Tier5")]
+    [string]$ObservedOrganizationTier = "Free",
+    [ValidateRange(0.01, 1000)]
+    [decimal]$AuthorizedBudgetUsd = 25,
+    [decimal]$SoftLimitUsd = 20,
+    [decimal]$HardLimitUsd = 24,
+    [decimal]$MaximumCostPerJobUsd = 0.50,
+    [ValidateRange(1, 32)]
+    [int]$MaximumCallsPerJob = 4,
     [string]$LocalLlmExePath = "",
     [string]$LocalModelPath = "",
     [string]$Configuration = "Debug",
@@ -31,7 +44,15 @@ $runner = Join-Path $PSScriptRoot "test-advanced-product-path-provider.ps1"
     -Ids $Ids `
     -Repetitions $Repetitions `
     -DelayBetweenCasesSeconds $DelayBetweenCasesSeconds `
+    -MaximumJobAttempts $MaximumJobAttempts `
+    -MaximumJobRetryDelayMilliseconds $MaximumJobRetryDelayMilliseconds `
     -ModelId $OpenAiModel `
+    -ProviderAccountTier $ObservedOrganizationTier `
+    -AuthorizedBudgetUsd $AuthorizedBudgetUsd `
+    -SoftLimitUsd $SoftLimitUsd `
+    -HardLimitUsd $HardLimitUsd `
+    -MaximumCostPerJobUsd $MaximumCostPerJobUsd `
+    -MaximumCallsPerJob $MaximumCallsPerJob `
     -LocalLlmExePath $LocalLlmExePath `
     -LocalModelPath $LocalModelPath `
     -Configuration $Configuration `

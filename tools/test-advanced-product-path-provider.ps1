@@ -13,9 +13,14 @@ param(
     [int]$Repetitions = 1,
     [ValidateRange(0, 300)]
     [int]$DelayBetweenCasesSeconds = 0,
+    [ValidateRange(1, 20)]
+    [int]$MaximumJobAttempts = 3,
+    [ValidateRange(1000, 900000)]
+    [int]$MaximumJobRetryDelayMilliseconds = 600000,
     [Alias("BaseUrl")]
     [string]$ProviderBaseUrl = "",
     [string]$ModelId = "",
+    [string]$ProviderAccountTier = "",
     [decimal]$AuthorizedBudgetUsd = 0,
     [decimal]$SoftLimitUsd = 0,
     [decimal]$HardLimitUsd = 0,
@@ -155,6 +160,9 @@ if (-not [Uri]::IsWellFormedUriString($ProviderBaseUrl, [UriKind]::Absolute) -or
     throw "External provider BaseUrl must be an absolute HTTPS URI."
 }
 if ($Provider -eq "OpenAI") {
+    if ($ProviderAccountTier -notmatch '^Tier[1-5]$') {
+        throw "OpenAI product-path campaigns require a freshly verified paid tier (Tier1 through Tier5). Free-tier model calls are blocked."
+    }
     if ($AuthorizedBudgetUsd -le 0) { $AuthorizedBudgetUsd = 25 }
     if ($InputUsdPerMillionTokens -le 0 -or
         $CachedInputUsdPerMillionTokens -le 0 -or
@@ -404,7 +412,8 @@ try {
             LeaseSeconds = 120
             HeartbeatMilliseconds = 5000
             RetryDelayMilliseconds = 5000
-            MaximumAttempts = 1
+            MaximumJobRetryDelayMilliseconds = $MaximumJobRetryDelayMilliseconds
+            MaximumAttempts = $MaximumJobAttempts
             MaximumEvidenceCharactersPerItem = 24000
             MaximumEvidenceCharactersTotal = 256000
             AllowExternalProviderContent = $true
@@ -453,6 +462,7 @@ try {
         ingestionWorkersEnabled = $false
         expectedAdvancedProvider = $providerMode
         expectedAdvancedModel = $ModelId
+        providerAccountTier = $ProviderAccountTier
         externalEndpointHost = ([Uri]$ProviderBaseUrl).Host
         providerRuntime = $ProviderRuntime
         runtimeProfile = $RuntimeProfile
@@ -466,6 +476,8 @@ try {
         selectedIds = @($Ids -split '[,;]' | ForEach-Object Trim | Where-Object { $_ })
         repetitions = $Repetitions
         delayBetweenCasesSeconds = $DelayBetweenCasesSeconds
+        maximumJobAttempts = $MaximumJobAttempts
+        maximumJobRetryDelayMilliseconds = $MaximumJobRetryDelayMilliseconds
         authorizedBudgetUsd = $AuthorizedBudgetUsd
         softLimitUsd = $SoftLimitUsd
         hardStopUsd = $HardLimitUsd
