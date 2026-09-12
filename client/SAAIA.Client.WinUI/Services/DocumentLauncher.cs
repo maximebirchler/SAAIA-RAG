@@ -86,6 +86,7 @@ internal static class DocumentLauncher
             {
                 if (await TryOpenPdfAtPageAsync(resolved, page.Value).ConfigureAwait(false))
                 {
+                    LogOpenSuccess(revisionId, chunkId, requireExactSourceHash);
                     return new OpenDocumentResult(
                         Success: true,
                         ResolvedPath: resolved,
@@ -98,6 +99,7 @@ internal static class DocumentLauncher
             var fileOpened = await Launcher.LaunchFileAsync(file);
             if (fileOpened)
             {
+                LogOpenSuccess(revisionId, chunkId, requireExactSourceHash);
                 return new OpenDocumentResult(
                     Success: true,
                     ResolvedPath: resolved,
@@ -121,6 +123,16 @@ internal static class DocumentLauncher
                 ErrorMessage: BuildOpenFailureUserMessage());
         }
     }
+
+    private static void LogOpenSuccess(
+        string? revisionId,
+        string? chunkId,
+        bool requireExactSourceHash)
+        => ClientLog.Info(
+            "DocumentLauncher.Open succeeded"
+            + $"; revision={revisionId ?? "(none)"}"
+            + $"; chunk={chunkId ?? "(none)"}"
+            + $"; exactHashRequired={requireExactSourceHash}");
 
     private static string BuildOpenFailureUserMessage()
         => DT(
