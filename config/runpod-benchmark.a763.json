@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "saaia-runpod-benchmark-profile-v1",
+  "campaignId": "A763-RUNPOD-R1-QWEN3-32B-AWQ",
+  "provider": "RunPod",
+  "candidateKind": "public-endpoint",
+  "baseUrl": "https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1",
+  "modelId": "Qwen/Qwen3-32B-AWQ",
+  "providerRuntime": "runpod-public-openai",
+  "runtimeProfile": "qwen3-32b-awq-public-20260720",
+  "gpu": "",
+  "quantization": "AWQ 4-bit",
+  "modelSha256": "",
+  "contextSize": 32768,
+  "hourlyCostUsd": 0,
+  "pricingUsdPerMillionTokens": {
+    "input": 10,
+    "cachedInput": 10,
+    "output": 10
+  },
+  "budget": {
+    "authorizedUsd": 5,
+    "softLimitUsd": 4,
+    "hardLimitUsd": 4.8,
+    "maximumCostPerJobUsd": 0.4,
+    "maximumCallsPerJob": 4
+  },
+  "execution": {
+    "caseIds": [
+      "A755-ADV-01-meal-grid-5x4",
+      "A755-ADV-02-five-student-meals-fr",
+      "A755-ADV-03-explicit-document-comparison",
+      "A755-ADV-04-nist-seven-points"
+    ],
+    "repetitions": 3,
+    "delayBetweenCasesSeconds": 2
+  },
+  "dataPolicy": {
+    "externalContentTransmission": true,
+    "externalMetadataTransmission": true,
+    "requiresExplicitAuthorization": true
+  }
+}
