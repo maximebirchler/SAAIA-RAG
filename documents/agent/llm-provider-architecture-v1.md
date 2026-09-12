@@ -244,6 +244,7 @@ $env:SAAIA_RUNPOD_API_KEY = "<secret utilisateur>"
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\start-client-runpod-bench.ps1 `
   -BaseUrl "https://<endpoint>/v1" `
   -ModelId "<model-id>" `
+  -Runtime "<runtime-servi>" `
   -RuntimeProfile "qwen-32b-q5-profile-1"
 ```
 
@@ -253,8 +254,8 @@ Variables disponibles :
   `SAAIA_LLM_EXTERNAL_POLICY=BenchmarkExternalAllowed` ;
 - connexion : `SAAIA_RUNPOD_API_KEY`, `SAAIA_RUNPOD_BASE_URL`,
   `SAAIA_RUNPOD_MODEL`, `SAAIA_RUNPOD_REQUEST_TIMEOUT_SECONDS` ;
-- identité : `SAAIA_RUNPOD_RUNTIME_PROFILE`, `SAAIA_RUNPOD_MODEL_PATH`,
-  `SAAIA_RUNPOD_QUANTIZATION` ;
+- identité : `SAAIA_RUNPOD_RUNTIME`, `SAAIA_RUNPOD_RUNTIME_PROFILE`,
+  `SAAIA_RUNPOD_MODEL_PATH`, `SAAIA_RUNPOD_QUANTIZATION` ;
 - runtime : `SAAIA_RUNPOD_CTX_SIZE`, `SAAIA_RUNPOD_BATCH_SIZE`,
   `SAAIA_RUNPOD_UBATCH_SIZE`, `SAAIA_RUNPOD_THREADS`,
   `SAAIA_RUNPOD_THREADS_BATCH`, `SAAIA_RUNPOD_GPU_LAYERS`,
@@ -337,6 +338,7 @@ Ils ne doivent pas être ajoutés à une CI payante.
    ```powershell
    powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-runpod-llm-provider.ps1 `
      -BaseUrl "https://<endpoint>/v1" -ModelId "<model-id>" `
+     -Runtime "<runtime-servi>" `
      -RuntimeProfile "<profile-id>"
    ```
 

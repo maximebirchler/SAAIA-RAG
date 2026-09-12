@@ -11,6 +11,8 @@ internal sealed class LlmProviderConfiguration
     internal const string ConfigPathEnvironmentVariable = "SAAIA_LLM_CONFIG_PATH";
     internal const string OpenAiKeyEnvironmentVariable = "SAAIA_OPENAI_API_KEY";
     internal const string RunPodKeyEnvironmentVariable = "SAAIA_RUNPOD_API_KEY";
+    internal const string RunPodRuntimeEnvironmentVariable =
+        "SAAIA_RUNPOD_RUNTIME";
 
     internal required LlmProviderMode Mode { get; init; }
     internal required LlmExternalExecutionPolicy ExternalPolicy { get; init; }
@@ -93,7 +95,9 @@ internal sealed class LlmProviderConfiguration
                 Environment.GetEnvironmentVariable("SAAIA_RUNPOD_MODEL")
                 ?? ReadOptionalString(runPod, "modelId"),
                 ReadRequiredString(runPod, "apiKeyEnvironmentVariable"),
-                ReadRequiredString(runPod, "runtime"),
+                Environment.GetEnvironmentVariable(
+                    RunPodRuntimeEnvironmentVariable)
+                ?? ReadOptionalString(runPod, "runtime"),
                 Environment.GetEnvironmentVariable("SAAIA_RUNPOD_RUNTIME_PROFILE")
                 ?? ReadOptionalString(runPod, "runtimeProfile"),
                 new LlmRuntimeProfileMetadata(
@@ -142,6 +146,11 @@ internal sealed class LlmProviderConfiguration
             ValidateEndpoint(RunPod.BaseUrl, "RunPod");
             if (string.IsNullOrWhiteSpace(RunPod.ModelId))
                 throw new InvalidOperationException("RunPod modelId is required.");
+            if (string.IsNullOrWhiteSpace(RunPod.Runtime))
+            {
+                throw new InvalidOperationException(
+                    "RunPod runtime is required and must identify the served runtime explicitly.");
+            }
         }
     }
 
@@ -435,9 +444,7 @@ internal static class LlmProviderFactory
             new LlmProviderDescriptor(
                 LlmProviderMode.RunPodBench,
                 "runpod",
-                string.IsNullOrWhiteSpace(configuration.RunPod.Runtime)
-                    ? "llama.cpp"
-                    : configuration.RunPod.Runtime,
+                configuration.RunPod.Runtime,
                 configuration.RunPod.ModelId,
                 configuration.RunPod.RuntimeProfile,
                 IsExternal: true,

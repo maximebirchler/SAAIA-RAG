@@ -104,6 +104,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-advanced-server
   -Provider RunPod `
   -BaseUrl <endpoint-openai-compatible> `
   -ModelId <modele-exact> `
+  -ProviderRuntime <runtime-servi> `
   -AuthorizedBudgetUsd <budget-autorise> `
   -InputUsdPerMillionTokens <tarif-entree> `
   -CachedInputUsdPerMillionTokens <tarif-entree-cachee> `
@@ -121,6 +122,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-advanced-produc
   -ServerEnvPath <chemin-vers-.env.server-linux> `
   -BaseUrl <endpoint-openai-compatible> `
   -ModelId <modele-exact> `
+  -ProviderRuntime <runtime-servi> `
   -AuthorizedBudgetUsd <budget-autorise> `
   -InputUsdPerMillionTokens <tarif-entree> `
   -CachedInputUsdPerMillionTokens <tarif-entree-cachee> `

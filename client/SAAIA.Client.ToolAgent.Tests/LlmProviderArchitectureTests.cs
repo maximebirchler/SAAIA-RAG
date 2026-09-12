@@ -34,6 +34,7 @@ public sealed class LlmProviderArchitectureTests
         Assert.Equal("gpt-5.6-terra", configuration.OpenAi.ModelId);
         Assert.Equal(25m, configuration.OpenAi.Budget.AuthorizedBudgetUsd);
         Assert.Equal(24m, configuration.OpenAi.Budget.HardLimitUsd);
+        Assert.Equal(string.Empty, configuration.RunPod.Runtime);
     }
 
     [Fact]
@@ -89,6 +90,15 @@ public sealed class LlmProviderArchitectureTests
             runPodModel: string.Empty);
         var modelError = Assert.Throws<InvalidOperationException>(missingModel.Validate);
         Assert.Contains("modelId", modelError.Message, StringComparison.OrdinalIgnoreCase);
+
+        var missingRuntime = CreateConfiguration(
+            LlmProviderMode.RunPodBench,
+            LlmExternalExecutionPolicy.BenchmarkExternalAllowed,
+            runPodRuntime: string.Empty);
+        var runtimeError = Assert.Throws<InvalidOperationException>(
+            missingRuntime.Validate);
+        Assert.Contains("runtime", runtimeError.Message,
+            StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -806,7 +816,8 @@ public sealed class LlmProviderArchitectureTests
         string? ledger = null,
         int openAiTimeoutSeconds = 120,
         string runPodBaseUrl = "https://example.runpod.net/v1",
-        string runPodModel = "qwen-test")
+        string runPodModel = "qwen-test",
+        string runPodRuntime = "llama.cpp")
         => new()
         {
             Mode = mode,
@@ -830,7 +841,7 @@ public sealed class LlmProviderArchitectureTests
                 runPodBaseUrl,
                 runPodModel,
                 LlmProviderConfiguration.RunPodKeyEnvironmentVariable,
-                "llama.cpp",
+                runPodRuntime,
                 "qwen-test-profile",
                 new LlmRuntimeProfileMetadata(
                     "/models/qwen.gguf",

@@ -4,6 +4,8 @@ param(
     [string]$BaseUrl,
     [Parameter(Mandatory = $true)]
     [string]$ModelId,
+    [Parameter(Mandatory = $true)]
+    [string]$Runtime,
     [string]$RuntimeProfile = "",
     [string]$Configuration = "Debug",
     [string]$Platform = "x64",
@@ -24,6 +26,7 @@ $env:SAAIA_LLM_PROVIDER_MODE = "RunPodBench"
 $env:SAAIA_LLM_EXTERNAL_POLICY = "BenchmarkExternalAllowed"
 $env:SAAIA_RUNPOD_BASE_URL = $BaseUrl.TrimEnd('/')
 $env:SAAIA_RUNPOD_MODEL = $ModelId
+$env:SAAIA_RUNPOD_RUNTIME = $Runtime
 $env:SAAIA_RUNPOD_RUNTIME_PROFILE = $RuntimeProfile
 $env:SAAIA_RUN_RUNPOD_PROVIDER_TEST = "1"
 $env:SAAIA_RUNPOD_ARTIFACT_DIR = $ArtifactDirectory

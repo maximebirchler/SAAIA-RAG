@@ -27,7 +27,8 @@ param(
     [decimal]$CachedInputUsdPerMillionTokens,
     [Parameter(Mandatory = $true)]
     [decimal]$OutputUsdPerMillionTokens,
-    [string]$ProviderRuntime = "llama.cpp",
+    [Parameter(Mandatory = $true)]
+    [string]$ProviderRuntime,
     [string]$RuntimeProfile = "",
     [string]$Gpu = "",
     [string]$Quantization = "",

@@ -67,7 +67,8 @@ banque. La dépense réelle devra être rapprochée du registre SAAIA et du tabl
 RunPod après chaque jalon.
 
 Invocation préparée, à ne lancer qu'après autorisation explicite et import de la
-clé dans le coffre SAAIA :
+clé dans le coffre SAAIA. Le runtime est obligatoire afin qu'un endpoint public
+ne soit jamais étiqueté implicitement `llama.cpp` :
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-advanced-product-path-runpod.ps1 `

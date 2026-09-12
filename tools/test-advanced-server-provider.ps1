@@ -5,6 +5,7 @@ param(
     [string]$Provider,
     [string]$BaseUrl = "",
     [string]$ModelId = "",
+    [string]$ProviderRuntime = "",
     [string]$RuntimeProfile = "",
     [string]$Gpu = "",
     [string]$Quantization = "",
@@ -69,6 +70,9 @@ if ($Provider -eq "OpenAI") {
     }
 }
 else {
+    if ([string]::IsNullOrWhiteSpace($ProviderRuntime)) {
+        throw "ProviderRuntime is required for RunPod; no runtime identity is assumed."
+    }
     if ($AuthorizedBudgetUsd -le 0) {
         throw "AuthorizedBudgetUsd is required for RunPod; no RunPod spend is assumed."
     }
@@ -167,6 +171,7 @@ try {
         model = $ModelId
         endpointScheme = ([Uri]$BaseUrl).Scheme
         endpointHost = ([Uri]$BaseUrl).Host
+        providerRuntime = $ProviderRuntime
         runtimeProfile = $RuntimeProfile
         gpu = $Gpu
         quantization = $Quantization
