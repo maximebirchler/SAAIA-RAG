@@ -13876,9 +13876,9 @@ pendant cette préparation. Produit `TESTE_NON_APPROUVE`.
 Le commit `0ddaac68` remplace l'invocation RunPod entièrement manuelle par un
 profil versionné et un lanceur à deux modes. Le mode par défaut valide l'URL
 HTTPS, le modèle, l'identité runtime, les prix, l'enveloppe de coût et la banque,
-puis produit un sceau sans lire de clé ni appeler le service. Le mode payant
-exige en plus `-Execute -ExternalContentAuthorized` et le fichier environnement
-serveur avant de déléguer au parcours produit existant.
+puis produit un sceau sans lire de clé ni appeler le service. Toute exécution
+exige `-Execute -ExternalContentAuthorized`; les stages produit exigent aussi
+le fichier environnement serveur avant de déléguer au parcours existant.
 
 Le préflight sur le SHA exact scelle douze jobs, au plus quarante-huit appels,
 5 USD autorisés, un arrêt local à 4,80 USD et 0,40 USD par job. Le garde a refusé
@@ -13899,3 +13899,18 @@ secret et sans réseau. Assessment :
 `artifacts/reprise-pc-20260908/a763-runpod-final-url-e88973d-20260912/assessment.v1.json`,
 SHA-256 `43B8CA39A2D7E0AA7293BA7EB2F771FF52E7A8506F253250DB667C5245EB730E`.
 Produit `TESTE_NON_APPROUVE`.
+
+## A763 — campagne RunPod rendue progressive — 2026-09-12
+
+Le commit `90e98a24` ferme un risque de dépense et de causalité : le profil ne
+peut plus passer directement du préflight à douze jobs. Le stage par défaut
+`Probe` utilise des preuves synthétiques et deux appels au plus. `MealGrid`
+exécute un seul planning avec quatre appels au plus. `FullBank` couvre ensuite
+les douze jobs et quarante-huit appels maximum, mais seulement avec la garde
+supplémentaire `-FullBankAuthorized` après revue sémantique du planning.
+
+Les trois sceaux, les paramètres des runners et les trois chemins de refus sont
+validés sur le SHA exact sans lire de clé ni atteindre le réseau. Assessment :
+`artifacts/reprise-pc-20260908/a763-runpod-stages-90e98a2-20260912/assessment.v1.json`,
+SHA-256 `9A241C69BBB03453DAFCB24D0B9B8B21FC526062903C0983134E22046BDBB984`.
+Aucun coût nouveau. Produit `TESTE_NON_APPROUVE`.

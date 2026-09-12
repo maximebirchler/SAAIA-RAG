@@ -90,15 +90,40 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 ```
 
 Après autorisation explicite et import de la clé dans le coffre SAAIA, la même
-configuration se lance uniquement avec les deux options d'exécution et de
-sortie de contenu. Le runtime obligatoire du profil empêche qu'un endpoint
-public soit étiqueté implicitement `llama.cpp` :
+configuration commence par une sonde à deux appels maximum sur des preuves
+synthétiques. Les options d'exécution et de sortie de contenu restent toutes
+deux obligatoires. Le runtime du profil empêche qu'un endpoint public soit
+étiqueté implicitement `llama.cpp` :
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass `
   -File .\tools\test-runpod-campaign-profile.ps1 `
   -Execute `
+  -Stage Probe `
+  -ExternalContentAuthorized
+```
+
+Après succès de la sonde, un seul planning 5 x 4 traverse le parcours produit :
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File .\tools\test-runpod-campaign-profile.ps1 `
+  -Execute `
+  -Stage MealGrid `
   -ExternalContentAuthorized `
+  -ServerEnvPath <server-env-path>
+```
+
+La banque complète ne peut partir qu'après revue du planning et exige une garde
+supplémentaire :
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File .\tools\test-runpod-campaign-profile.ps1 `
+  -Execute `
+  -Stage FullBank `
+  -ExternalContentAuthorized `
+  -FullBankAuthorized `
   -ServerEnvPath <server-env-path>
 ```
 
@@ -118,6 +143,15 @@ backend ciblé confirme séparément que le provider ajoute
 lire de clé ni contacter RunPod. Assessment :
 `artifacts/reprise-pc-20260908/a763-runpod-final-url-e88973d-20260912/assessment.v1.json`,
 SHA-256 `43B8CA39A2D7E0AA7293BA7EB2F771FF52E7A8506F253250DB667C5245EB730E`.
+
+Le commit `90e98a24` impose ces trois étapes dans le lanceur. Les sceaux sans
+réseau annoncent respectivement une sonde et deux appels, un planning et quatre
+appels, puis douze jobs et quarante-huit appels maximum. Trois tentatives
+négatives prouvent les gardes : absence d'autorisation de contenu, absence
+d'environnement serveur pour le planning, et absence d'autorisation FullBank
+après revue. Aucune n'a lu de secret ou atteint le réseau. Assessment :
+`artifacts/reprise-pc-20260908/a763-runpod-stages-90e98a2-20260912/assessment.v1.json`,
+SHA-256 `9A241C69BBB03453DAFCB24D0B9B8B21FC526062903C0983134E22046BDBB984`.
 
 ## Limite de preuve du candidat R1
 
@@ -167,13 +201,14 @@ Après autorisation de dépense, la campagne R1 suivra cet ordre :
 
 1. créer ou utiliser un compte RunPod crédité et importer une clé limitée dans
    le coffre local SAAIA ;
-2. relancer le profil scellé avec `-Execute -ExternalContentAuthorized` ;
-3. exécuter une sonde OpenAI compatible minimale, vérifier l'authentification,
+2. relancer le profil scellé au stage `Probe` ;
+3. vérifier l'authentification,
    le ModelId demandé, le JSON structuré, l'usage et le coût ;
-4. lancer une seule fois le planning 5 x 4 par le parcours produit complet ;
+4. lancer le stage `MealGrid` une seule fois par le parcours produit complet ;
 5. relire chaque cellule et chaque preuve avant d'autoriser la suite ;
-6. si ce résultat est acceptable, exécuter les quatre cas trois fois sur le
-   même commit, la même banque, le même profil et le même corpus ;
+6. si ce résultat est acceptable, autoriser explicitement `FullBank` et
+   exécuter les quatre cas trois fois sur le même commit, la même banque, le
+   même profil et le même corpus ;
 7. produire l'assessment mécanique, puis une revue sémantique séparée ;
 8. vérifier le registre de coût, l'arrêt des processus SAAIA temporaires et
    l'absence de ressource RunPod privée résiduelle.

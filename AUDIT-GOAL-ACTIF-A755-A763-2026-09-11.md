@@ -779,11 +779,12 @@ les trois prix à 10 USD/M, les quatre cas, trois répétitions et les plafonds
 5/4/4,80/0,40 USD. Son SHA-256 est
 `C1925F2BF6885A10B4A36469CB1AF3E787935143A81BED305A5B74FAF0E22DF6`.
 
-Le lanceur sépare deux actions. Sans option, il valide et scelle uniquement la
-configuration : aucun secret n'est lu et aucun appel externe n'est exécuté.
-L'exécution payante exige simultanément `-Execute`,
-`-ExternalContentAuthorized` et le fichier d'environnement serveur. Une
-tentative sans autorisation de contenu a été refusée avant secret et réseau.
+Le lanceur sépare validation et exécution. Sans option, il valide et scelle
+uniquement la configuration : aucun secret n'est lu et aucun appel externe
+n'est exécuté. Toute exécution exige `-Execute` et
+`-ExternalContentAuthorized`; les stages produit exigent aussi le fichier
+d'environnement serveur. Une tentative sans autorisation de contenu a été
+refusée avant secret et réseau.
 L'analyseur PowerShell rapporte zéro erreur ; les douze jobs attendus et le
 maximum théorique de quarante-huit appels sont consignés. Assessment :
 `artifacts/reprise-pc-20260908/a763-runpod-profile-0ddaac6-20260912/assessment.v1.json`,
@@ -863,3 +864,22 @@ Assessment :
 SHA-256 `43B8CA39A2D7E0AA7293BA7EB2F771FF52E7A8506F253250DB667C5245EB730E`.
 Cette preuve ferme le risque de composition d'URL ; la disponibilité du service
 et la qualité de Qwen restent non testées. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — dépense RunPod découpée en trois étapes gardées — 2026-09-12
+
+L'audit a trouvé que le premier profil exécutable pouvait envoyer directement
+les douze jobs alors que la préinscription exigeait un contrôle progressif. Le
+commit `90e98a24` corrige cet écart. `Probe` est désormais le stage par défaut et
+borne la sonde synthétique à deux appels. `MealGrid` lance seulement le planning
+5 x 4, une fois et avec quatre appels maximum. `FullBank` lance les douze jobs,
+mais exige `-FullBankAuthorized` après revue du planning.
+
+Les trois profils de stage passent le préflight sur le SHA exact. La
+compatibilité des paramètres avec les deux runners enfants est contrôlée. Les
+gardes refusent avant secret et réseau : une sonde sans autorisation de contenu,
+un planning sans environnement serveur et une banque complète sans autorisation
+de revue. Les trois scripts passent l'analyseur PowerShell ; les ports 1234,
+5123 et 18081 sont libres. Assessment :
+`artifacts/reprise-pc-20260908/a763-runpod-stages-90e98a2-20260912/assessment.v1.json`,
+SHA-256 `9A241C69BBB03453DAFCB24D0B9B8B21FC526062903C0983134E22046BDBB984`.
+Aucun appel externe et aucun coût nouveau. Produit `TESTE_NON_APPROUVE`.
