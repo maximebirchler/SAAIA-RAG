@@ -8,6 +8,16 @@ internal sealed record AdvancedAnalysisLlmUsage(
     int? OutputTokens,
     int? CachedInputTokens);
 
+internal sealed record AdvancedAnalysisRateLimitTelemetry(
+    string? ProviderRequestId,
+    long? RequestLimit,
+    long? RequestRemaining,
+    string? RequestReset,
+    long? TokenLimit,
+    long? TokenRemaining,
+    string? TokenReset,
+    long? RetryAfterMilliseconds);
+
 internal sealed record AdvancedAnalysisBudgetCharge(
     AdvancedAnalysisLlmUsage Usage,
     decimal CostUsd,
@@ -114,7 +124,8 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
         AdvancedAnalysisLlmUsage usage,
         long elapsedMilliseconds = 0,
         int httpAttemptCount = 1,
-        string? observedModelId = null)
+        string? observedModelId = null,
+        AdvancedAnalysisRateLimitTelemetry? rateLimit = null)
     {
         var hasProviderUsage = usage.InputTokens is >= 0
                                && usage.OutputTokens is >= 0;
@@ -132,7 +143,8 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
             errorCode: null,
             elapsedMilliseconds,
             httpAttemptCount,
-            observedModelId);
+            observedModelId,
+            rateLimit);
     }
 
     internal void Fail(
@@ -171,7 +183,8 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
         Reservation reservation,
         string errorCode,
         long elapsedMilliseconds = 0,
-        int httpAttemptCount = 1)
+        int httpAttemptCount = 1,
+        AdvancedAnalysisRateLimitTelemetry? rateLimit = null)
         => Close(
             reservation,
             new AdvancedAnalysisLlmUsage(0, 0, 0),
@@ -179,7 +192,8 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
             success: false,
             errorCode,
             elapsedMilliseconds,
-            httpAttemptCount);
+            httpAttemptCount,
+            rateLimit: rateLimit);
 
     internal void EndJob(Guid jobId)
     {
@@ -200,7 +214,8 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
         string? errorCode,
         long elapsedMilliseconds,
         int httpAttemptCount,
-        string? observedModelId = null)
+        string? observedModelId = null,
+        AdvancedAnalysisRateLimitTelemetry? rateLimit = null)
     {
         lock (_gate)
         {
@@ -241,7 +256,15 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
                 elapsedMilliseconds = Math.Max(0, elapsedMilliseconds),
                 timeToFirstTokenMilliseconds = (long?)null,
                 httpAttemptCount = Math.Max(0, httpAttemptCount),
-                retryCount = Math.Max(0, httpAttemptCount - 1)
+                retryCount = Math.Max(0, httpAttemptCount - 1),
+                providerRequestId = rateLimit?.ProviderRequestId,
+                rateLimitRequestLimit = rateLimit?.RequestLimit,
+                rateLimitRequestRemaining = rateLimit?.RequestRemaining,
+                rateLimitRequestReset = rateLimit?.RequestReset,
+                rateLimitTokenLimit = rateLimit?.TokenLimit,
+                rateLimitTokenRemaining = rateLimit?.TokenRemaining,
+                rateLimitTokenReset = rateLimit?.TokenReset,
+                retryAfterMilliseconds = rateLimit?.RetryAfterMilliseconds
             });
             return new AdvancedAnalysisBudgetCharge(usage, cost, usageSource);
         }

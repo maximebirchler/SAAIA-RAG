@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -281,6 +282,7 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
         }
         AdvancedAnalysisExternalBudgetGuard.Reservation? reservation = null;
         string? rejectedErrorCode = null;
+        AdvancedAnalysisRateLimitTelemetry? responseRateLimit = null;
         var stopwatch = Stopwatch.StartNew();
         var httpAttemptCount = 0;
         if (_budget is not null)
@@ -362,6 +364,7 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                     "advanced_llm_transport_error");
             using (response)
             {
+                responseRateLimit = ReadRateLimitTelemetry(response);
                 if (!response.IsSuccessStatusCode)
                 {
                     rejectedErrorCode =
@@ -415,7 +418,8 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                                 usage,
                                 stopwatch.ElapsedMilliseconds,
                                 httpAttemptCount,
-                                observedModelId);
+                                observedModelId,
+                                responseRateLimit);
                         }
                         finally
                         {
@@ -483,7 +487,8 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                         reservation,
                         rejectedErrorCode,
                         stopwatch.ElapsedMilliseconds,
-                        httpAttemptCount);
+                        httpAttemptCount,
+                        responseRateLimit);
                 else
                     _budget!.Fail(
                         reservation,
@@ -518,6 +523,55 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
         return string.IsNullOrWhiteSpace(model) || model.Length > 256
             ? null
             : model;
+    }
+
+    private static AdvancedAnalysisRateLimitTelemetry ReadRateLimitTelemetry(
+        HttpResponseMessage response)
+        => new(
+            ReadHeader(response, "x-request-id", 512),
+            ReadNonNegativeLongHeader(response, "x-ratelimit-limit-requests"),
+            ReadNonNegativeLongHeader(response, "x-ratelimit-remaining-requests"),
+            ReadHeader(response, "x-ratelimit-reset-requests", 64),
+            ReadNonNegativeLongHeader(response, "x-ratelimit-limit-tokens"),
+            ReadNonNegativeLongHeader(response, "x-ratelimit-remaining-tokens"),
+            ReadHeader(response, "x-ratelimit-reset-tokens", 64),
+            ReadRetryAfterMilliseconds(response));
+
+    private static string? ReadHeader(
+        HttpResponseMessage response,
+        string name,
+        int maximumLength)
+    {
+        if (!response.Headers.TryGetValues(name, out var values))
+            return null;
+        var value = values.FirstOrDefault()?.Trim();
+        return string.IsNullOrWhiteSpace(value) || value.Length > maximumLength
+            ? null
+            : value;
+    }
+
+    private static long? ReadNonNegativeLongHeader(
+        HttpResponseMessage response,
+        string name)
+        => long.TryParse(
+                ReadHeader(response, name, 32),
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out var value)
+           && value >= 0
+            ? value
+            : null;
+
+    private static long? ReadRetryAfterMilliseconds(
+        HttpResponseMessage response)
+    {
+        var retryAfter = response.Headers.RetryAfter;
+        var milliseconds = retryAfter?.Delta?.TotalMilliseconds
+                           ?? (retryAfter?.Date - DateTimeOffset.UtcNow)
+                           ?.TotalMilliseconds;
+        return milliseconds is >= 0 and <= long.MaxValue
+            ? (long)Math.Ceiling(milliseconds.Value)
+            : null;
     }
 
     private bool TryResolveRateLimitRetryDelay(

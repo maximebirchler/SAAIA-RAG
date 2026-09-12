@@ -800,6 +800,25 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             Assert.Single(File.ReadAllLines(options.ExternalUsageLedgerPath)));
         Assert.Equal(0m, ledgerEntry.RootElement
             .GetProperty("costUsd").GetDecimal());
+        Assert.Equal("req-rate-limited", ledgerEntry.RootElement
+            .GetProperty("providerRequestId").GetString());
+        Assert.Equal(3, ledgerEntry.RootElement
+            .GetProperty("rateLimitRequestLimit").GetInt64());
+        Assert.Equal(0, ledgerEntry.RootElement
+            .GetProperty("rateLimitRequestRemaining").GetInt64());
+        Assert.Equal("21m30s", ledgerEntry.RootElement
+            .GetProperty("rateLimitRequestReset").GetString());
+        Assert.Equal(10_000, ledgerEntry.RootElement
+            .GetProperty("rateLimitTokenLimit").GetInt64());
+        Assert.Equal(0, ledgerEntry.RootElement
+            .GetProperty("rateLimitTokenRemaining").GetInt64());
+        Assert.Equal("2m15s", ledgerEntry.RootElement
+            .GetProperty("rateLimitTokenReset").GetString());
+        Assert.InRange(
+            ledgerEntry.RootElement.GetProperty("retryAfterMilliseconds")
+                .GetInt64(),
+            1_799_000,
+            1_800_000);
     }
 
     [Fact]
@@ -1239,6 +1258,13 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             HttpStatusCode.TooManyRequests);
         response.Headers.RetryAfter = new RetryConditionHeaderValue(
             retryAfter ?? TimeSpan.FromMilliseconds(1));
+        response.Headers.TryAddWithoutValidation("x-request-id", "req-rate-limited");
+        response.Headers.TryAddWithoutValidation("x-ratelimit-limit-requests", "3");
+        response.Headers.TryAddWithoutValidation("x-ratelimit-remaining-requests", "0");
+        response.Headers.TryAddWithoutValidation("x-ratelimit-reset-requests", "21m30s");
+        response.Headers.TryAddWithoutValidation("x-ratelimit-limit-tokens", "10000");
+        response.Headers.TryAddWithoutValidation("x-ratelimit-remaining-tokens", "0");
+        response.Headers.TryAddWithoutValidation("x-ratelimit-reset-tokens", "2m15s");
         return response;
     }
 
