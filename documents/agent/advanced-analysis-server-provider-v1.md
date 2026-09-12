@@ -87,9 +87,12 @@ l'entrée et le plafond de sortie. Les valeurs par défaut sont :
   12 USD/M tokens de sortie.
 
 Le journal persistant contient l'identité du job, le rôle, le modèle, les
-tokens, le coût et le résultat de l'appel. Il ne contient ni prompt, ni preuve,
-ni endpoint, ni secret. Une réponse sans métriques d'usage est comptabilisée au
-montant réservé afin de rester conservatrice.
+tokens, le coût et le résultat de l'appel. Chaque ligne porte aussi un
+`requestId` propre, le `traceId` du job, la durée, le nombre de tentatives HTTP
+et de retries. Le TTFT est explicitement nul sur ce chemin JSON non streamé. Le
+journal ne contient ni prompt, ni preuve, ni endpoint, ni secret. Une réponse
+sans métriques d'usage est comptabilisée au montant réservé afin de rester
+conservatrice.
 
 Les tarifs ont été revérifiés le 11 septembre 2026 sur la
 [fiche officielle GPT-5.6 Terra](https://developers.openai.com/api/docs/models/gpt-5.6-terra) :
@@ -127,9 +130,11 @@ OpenAI, le profil interne, le rejet HTTP externe, l'absence de preuve, une
 citation forgée, la non-divulgation des corps d'erreur et les coupe-circuits de
 budget. Les erreurs pendant la lecture du corps HTTP sont normalisées comme
 timeout ou rupture de transport, tandis qu'une annulation appelant reste
-distincte. Le harnais produit démarre le client avec le petit modèle local,
-crée une vraie session backend et vérifie le fournisseur, le modèle, les appels,
-les tokens et le coût renvoyés par le job avancé.
+distincte. WinUI explique séparément le timeout et le service injoignable sans
+publier le payload fournisseur ni de carte source. Le harnais produit démarre
+le client avec le petit modèle local, crée une vraie session backend et vérifie
+le fournisseur, le modèle, les appels, les tokens et le coût renvoyés par le job
+avancé.
 
 Le parcours Terra réel a produit des résultats durables. Deux cas unitaires ont
 été acceptés après revue des preuves. Le planning 5 × 4 a révélé une relation de

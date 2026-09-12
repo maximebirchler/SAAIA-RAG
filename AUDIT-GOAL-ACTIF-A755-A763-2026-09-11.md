@@ -639,3 +639,29 @@ campagne Terra. Le dashboard indique encore `Free tier`, 50 RPD et un solde
 prépayé disponible. Aucun réglage utilisateur ne retire ce plafond ; l'achat
 supplémentaire proposé par `Upgrade tier` n'a pas été confirmé. Le produit reste
 `TESTE_NON_APPROUVE`.
+
+## A763 — télémétrie d'appel avancée et erreurs compréhensibles — 2026-09-12
+
+Le commit `09207d6` complète l'observabilité du chemin serveur externe. Chaque
+ligne du registre Terra/RunPod contient désormais un `requestId` unique, le
+`traceId` et le `jobId`, le fournisseur, le modèle, le rôle, la durée, le nombre
+de tentatives HTTP et de retries, les tokens, le coût et l'erreur normalisée.
+Le champ TTFT reste nul parce que ce chemin demande un JSON complet non streamé.
+Le registre ne reçoit toujours ni prompt, ni extrait de preuve, ni endpoint, ni
+secret. Le test 429 -> retry -> succès vérifie deux tentatives pour Planner,
+zéro retry pour Writer et deux identifiants d'appel distincts.
+
+Le commit `7614018` remplace le message générique WinUI par une explication
+actionnable pour `advanced_llm_timeout` et
+`advanced_llm_transport_error`, dans les six langues déjà supportées. Le client
+continue de masquer tout payload fournisseur non validé et ne crée aucune carte
+source sur un échec. Les 24 tests ciblés du transport client et les 33 tests du
+fournisseur backend passent.
+
+La validation Release sur le SHA exact `7614018` rapporte 10 tests contrats,
+2 150 backend et 2 237 client réussis, soit 4 397 réussites, zéro échec et deux
+probes live opt-in ignorées. L'assessment
+`artifacts/reprise-pc-20260908/a763-client-provider-failure-ux-7614018-20260912/assessment.v1.json`
+a pour SHA-256
+`2CA13D8C48B34894B5FBCDF648454ACC58306DC773506BE1087254BDEDF8C0EA`.
+Les ports 1234, 5123 et 18081 sont libres et aucun appel externe n'a été lancé.

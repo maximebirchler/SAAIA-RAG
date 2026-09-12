@@ -368,6 +368,13 @@ normalisé en `advanced_llm_timeout` ou `advanced_llm_transport_error`. Une
 annulation demandée par l'appelant reste une annulation. Les 33 tests ciblés et
 les 2 150 tests backend Release passent ; une sonde live opt-in est ignorée.
 
+Le commit `09207d6` ajoute au registre avancé un identifiant propre à chaque
+appel, la corrélation du job, la durée, les tentatives et les retries. Le commit
+`7614018` rend les deux indisponibilités compréhensibles dans WinUI tout en
+masquant le payload fournisseur non validé. La validation Release exacte de ce
+dernier SHA rapporte 10 tests contrats, 2 150 backend et 2 237 client réussis,
+soit 4 397 réussites, zéro échec et deux probes live opt-in ignorées.
+
 Restent obligatoires avant approbation :
 
 - la banque Terra complète 3/3 sur `b20fcc2` ou un descendant documentaire,
