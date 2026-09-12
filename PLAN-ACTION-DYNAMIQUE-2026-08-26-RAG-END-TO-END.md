@@ -13827,3 +13827,17 @@ La validation backend Release sur ce SHA exact compte 2 151 réussites, zéro
 Assessment :
 `artifacts/reprise-pc-20260908/a763-observed-model-a0202c8-20260912/assessment.v1.json`,
 SHA-256 `2378E7BB55EECA1F2F89BE9C55D13D62922DE022048454736F32AA0AF4DF9DDD`.
+
+## A763 — runtime RunPod explicitement scellé — 2026-09-12
+
+Le commit `8a3bcd0` supprime l'identité runtime `llama.cpp` qui subsistait comme
+valeur implicite RunPod. Le dépôt reste en mode `Local` par défaut, mais toute
+activation RunPod doit maintenant nommer le runtime servi dans la configuration
+ou dans le paramètre du lanceur. Le profil public retenu utilise donc
+`runpod-public-openai`; un futur endpoint privé devra déclarer son vrai runtime.
+
+Les 20 tests d'architecture ciblés, les 2 238 tests client Release et les quatre
+analyses PowerShell passent, sans appel externe. Assessment :
+`artifacts/reprise-pc-20260908/a763-explicit-runpod-runtime-8a3bcd0-20260912/assessment.v1.json`,
+SHA-256 `D26C9629982F978509E360104F2CC99D194434DB03CDAB03A8AC0786E31EF74A`.
+Produit `TESTE_NON_APPROUVE`.

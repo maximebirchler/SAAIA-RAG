@@ -768,3 +768,23 @@ a pour SHA-256
 `2378E7BB55EECA1F2F89BE9C55D13D62922DE022048454736F32AA0AF4DF9DDD`.
 Aucun appel externe n'a été exécuté et les ports 1234, 5123 et 18081 sont libres.
 Produit `TESTE_NON_APPROUVE`.
+
+## A763 — identité runtime RunPod rendue obligatoire — 2026-09-12
+
+Le commit `8a3bcd0` retire la dernière attribution implicite de `llama.cpp` aux
+profils RunPod. Le template versionné conserve maintenant le mode `Local` mais
+laisse vide l'identité runtime RunPod. Un benchmark RunPod doit fournir cette
+identité par `SAAIA_RUNPOD_RUNTIME` ou par les paramètres obligatoires des
+lanceurs. Le provider direct, la sonde directe, la sonde serveur et le parcours
+produit refusent ainsi de sceller une métadonnée inventée.
+
+Cette règle permet d'identifier correctement le candidat public par
+`runpod-public-openai`, tout en conservant `llama.cpp`, `vLLM` ou un autre
+runtime pour un endpoint privé réellement observé. Les quatre scripts passent
+l'analyseur PowerShell. La suite cliente Release sur le SHA exact compte 2 238
+réussites, zéro échec et une probe live opt-in ignorée. L'assessment
+`artifacts/reprise-pc-20260908/a763-explicit-runpod-runtime-8a3bcd0-20260912/assessment.v1.json`
+a pour SHA-256
+`D26C9629982F978509E360104F2CC99D194434DB03CDAB03A8AC0786E31EF74A`.
+Aucun appel externe n'a été exécuté et les ports temporaires sont libres.
+Produit `TESTE_NON_APPROUVE`.
