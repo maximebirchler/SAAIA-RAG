@@ -763,7 +763,7 @@ public sealed partial class ToolAgentOrchestrator
                 updatedAtUtc = job.UpdatedAtUtc,
                 expiresAtUtc = job.ExpiresAtUtc,
                 providerKey = job.ProviderKey,
-                providerModel = result?.ProviderModel,
+                providerModel = result?.ProviderModel ?? job.ProviderModel,
                 providerCallCount = result?.ProviderCallCount,
                 claimCount = result?.Claims.Count,
                 evidenceCount = result?.Evidence.Count,

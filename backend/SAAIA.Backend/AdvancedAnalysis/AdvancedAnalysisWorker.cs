@@ -81,9 +81,22 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
             retryDelay,
             cancellationToken).ConfigureAwait(false);
 
+        var incompatibleJobs = await _store.FailQueuedProviderMismatchesAsync(
+            _provider.ProviderKey,
+            _provider.ModelId,
+            cancellationToken).ConfigureAwait(false);
+        if (incompatibleJobs > 0)
+        {
+            _logger.LogWarning(
+                "Failed {JobCount} advanced-analysis job(s) because the configured provider or model changed before retry",
+                incompatibleJobs);
+            return true;
+        }
+
         var lease = await _store.TryClaimAsync(
             _workerId,
             _provider.ProviderKey,
+            _provider.ModelId,
             leaseSeconds,
             cancellationToken).ConfigureAwait(false);
         if (lease is null)

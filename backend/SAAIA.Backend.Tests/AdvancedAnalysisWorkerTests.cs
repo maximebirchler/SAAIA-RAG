@@ -148,6 +148,7 @@ public sealed class AdvancedAnalysisWorkerTests
         var row = await database.ReadJobAsync(jobId);
         Assert.Equal("succeeded", row.Status);
         Assert.Equal("fake-internal", row.ProviderKey);
+        Assert.Equal("fake-model", row.ProviderModel);
         Assert.Null(row.LastErrorCode);
         using var result = JsonDocument.Parse(row.ResultJson!);
         Assert.Equal(
@@ -227,6 +228,46 @@ public sealed class AdvancedAnalysisWorkerTests
         var exhausted = await database.ReadJobAsync(jobId);
         Assert.Equal("failed", exhausted.Status);
         Assert.Equal("lease_retry_exhausted", exhausted.LastErrorCode);
+    }
+
+    [Fact]
+    public async Task Expired_job_fails_closed_when_provider_or_model_changes()
+    {
+        await using var database = await PostgresWorkerDatabase.CreateAsync();
+        if (database is null)
+            return;
+
+        var seed = await database.SeedEvidenceAsync(
+            "provider-affinity-tenant",
+            "Provider affinity evidence");
+        var jobId = await database.InsertJobAsync(
+            seed,
+            BuildHandoff(seed, "provider-affinity-evidence"));
+        var store = new AdvancedAnalysisJobStore(database.DataSource);
+        Assert.NotNull(await store.TryClaimAsync(
+            "old-worker",
+            "openai-dev",
+            "terra-v1",
+            5,
+            CancellationToken.None));
+        await database.ExpireLeaseAsync(jobId, attemptCount: 1);
+
+        var replacement = new DelegateProvider(
+            (request, cancellationToken) => Task.FromResult(
+                SuccessfulResult(request.Evidence[0].Reference.EvidenceId)),
+            providerKey: "customer-server",
+            modelId: "qwen-v2");
+        var worker = CreateWorker(database.DataSource, replacement);
+
+        Assert.True(await worker.ProcessOnceAsync(CancellationToken.None));
+
+        var row = await database.ReadJobAsync(jobId);
+        Assert.Equal("failed", row.Status);
+        Assert.Equal("openai-dev", row.ProviderKey);
+        Assert.Equal("terra-v1", row.ProviderModel);
+        Assert.Equal("provider_configuration_changed", row.LastErrorCode);
+        Assert.Equal(1, row.AttemptCount);
+        Assert.Empty(replacement.Requests);
     }
 
     [Fact]
@@ -505,7 +546,7 @@ public sealed class AdvancedAnalysisWorkerTests
             advancedOptions);
         var firstLease = await store.TryClaimAsync(
             "crashed-worker",
-            "fake-crash",
+            "fake-resume-aware",
             5,
             CancellationToken.None);
         Assert.NotNull(firstLease);
@@ -775,18 +816,25 @@ public sealed class AdvancedAnalysisWorkerTests
         private readonly Func<AdvancedAnalysisProviderRequest, CancellationToken,
             Task<AdvancedAnalysisProviderResult>> _handler;
         private readonly AdvancedAnalysisProviderLocation _location;
+        private readonly string _providerKey;
+        private readonly string _modelId;
 
         public DelegateProvider(
             Func<AdvancedAnalysisProviderRequest, CancellationToken,
                 Task<AdvancedAnalysisProviderResult>> handler,
             AdvancedAnalysisProviderLocation location =
-                AdvancedAnalysisProviderLocation.Internal)
+                AdvancedAnalysisProviderLocation.Internal,
+            string providerKey = "fake-internal",
+            string modelId = "fake-model")
         {
             _handler = handler;
             _location = location;
+            _providerKey = providerKey;
+            _modelId = modelId;
         }
 
-        public string ProviderKey => "fake-internal";
+        public string ProviderKey => _providerKey;
+        public string ModelId => _modelId;
         public AdvancedAnalysisProviderLocation Location => _location;
         public List<AdvancedAnalysisProviderRequest> Requests { get; } = new();
 
@@ -1218,6 +1266,7 @@ public sealed class AdvancedAnalysisWorkerTests
                 """
                 SELECT status AS "Status",
                   provider_key AS "ProviderKey",
+                  provider_model AS "ProviderModel",
                   result::text AS "ResultJson",
                   last_error_code AS "LastErrorCode",
                   attempt_count AS "AttemptCount",
@@ -1273,6 +1322,7 @@ public sealed class AdvancedAnalysisWorkerTests
     {
         public string Status { get; init; } = string.Empty;
         public string? ProviderKey { get; init; }
+        public string? ProviderModel { get; init; }
         public string? ResultJson { get; init; }
         public string? LastErrorCode { get; init; }
         public int AttemptCount { get; init; }

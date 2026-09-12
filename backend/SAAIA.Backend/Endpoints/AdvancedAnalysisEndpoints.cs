@@ -147,6 +147,7 @@ public static class AdvancedAnalysisEndpoints
               created_at AS "CreatedAt", updated_at AS "UpdatedAt",
               expires_at AS "ExpiresAt", started_at AS "StartedAt",
               finished_at AS "FinishedAt", provider_key AS "ProviderKey",
+              provider_model AS "ProviderModel",
               result::text AS "ResultJson",
               last_error_code AS "LastErrorCode";
             """;
@@ -296,6 +297,7 @@ public static class AdvancedAnalysisEndpoints
               created_at AS "CreatedAt", updated_at AS "UpdatedAt",
               expires_at AS "ExpiresAt", started_at AS "StartedAt",
               finished_at AS "FinishedAt", provider_key AS "ProviderKey",
+              provider_model AS "ProviderModel",
               result::text AS "ResultJson",
               last_error_code AS "LastErrorCode";
             """;
@@ -508,6 +510,7 @@ public static class AdvancedAnalysisEndpoints
           created_at AS "CreatedAt", updated_at AS "UpdatedAt",
           expires_at AS "ExpiresAt", started_at AS "StartedAt",
           finished_at AS "FinishedAt", provider_key AS "ProviderKey",
+          provider_model AS "ProviderModel",
           result::text AS "ResultJson",
           last_error_code AS "LastErrorCode"
         FROM advanced_analysis_jobs
@@ -529,6 +532,7 @@ public static class AdvancedAnalysisEndpoints
             StartedAtUtc = AsUtcNullable(row.StartedAt),
             FinishedAtUtc = AsUtcNullable(row.FinishedAt),
             ProviderKey = row.ProviderKey,
+            ProviderModel = row.ProviderModel,
             Result = ParseOptionalJson(row.ResultJson),
             LastErrorCode = row.LastErrorCode
         };
@@ -562,6 +566,7 @@ public static class AdvancedAnalysisEndpoints
         public DateTime? StartedAt { get; init; }
         public DateTime? FinishedAt { get; init; }
         public string? ProviderKey { get; init; }
+        public string? ProviderModel { get; init; }
         public string? ResultJson { get; init; }
         public string? LastErrorCode { get; init; }
     }

@@ -96,11 +96,15 @@ internal sealed class AdvancedAnalysisJobStore
     public async Task<AdvancedAnalysisJobLease?> TryClaimAsync(
         string workerId,
         string providerKey,
+        string providerModel,
         int leaseSeconds,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(workerId);
         ArgumentException.ThrowIfNullOrWhiteSpace(providerKey);
+        providerModel = (providerModel ?? string.Empty).Trim();
+        if (providerModel.Length > 256)
+            throw new ArgumentOutOfRangeException(nameof(providerModel));
         leaseSeconds = Math.Clamp(leaseSeconds, 5, 3_600);
         await using var connection = await _dataSource
             .OpenConnectionAsync(cancellationToken)
@@ -114,6 +118,8 @@ internal sealed class AdvancedAnalysisJobStore
                 AND cancel_requested_at IS NULL
                 AND available_at <= now()
                 AND expires_at > now()
+                AND (provider_key IS NULL OR provider_key=@provider_key)
+                AND (provider_model IS NULL OR provider_model=@provider_model)
               ORDER BY available_at, created_at, job_id
               FOR UPDATE SKIP LOCKED
               LIMIT 1
@@ -122,7 +128,8 @@ internal sealed class AdvancedAnalysisJobStore
             SET status='running',
                 revision=j.revision+1,
                 attempt_count=j.attempt_count+1,
-                provider_key=@provider_key,
+                provider_key=COALESCE(j.provider_key, @provider_key),
+                provider_model=COALESCE(j.provider_model, @provider_model),
                 lease_owner=@worker_id,
                 lease_expires_at=now() + (@lease_seconds * interval '1 second'),
                 started_at=COALESCE(j.started_at, now()),
@@ -147,6 +154,7 @@ internal sealed class AdvancedAnalysisJobStore
                 {
                     worker_id = workerId,
                     provider_key = providerKey,
+                    provider_model = providerModel,
                     lease_seconds = leaseSeconds
                 },
                 cancellationToken: cancellationToken));
@@ -160,6 +168,57 @@ internal sealed class AdvancedAnalysisJobStore
                 row.HandoffId,
                 row.AttemptCount,
                 row.HandoffJson);
+    }
+
+    public Task<AdvancedAnalysisJobLease?> TryClaimAsync(
+        string workerId,
+        string providerKey,
+        int leaseSeconds,
+        CancellationToken cancellationToken)
+        => TryClaimAsync(
+            workerId,
+            providerKey,
+            string.Empty,
+            leaseSeconds,
+            cancellationToken);
+
+    public async Task<int> FailQueuedProviderMismatchesAsync(
+        string providerKey,
+        string providerModel,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerKey);
+        providerModel = (providerModel ?? string.Empty).Trim();
+        if (providerModel.Length > 256)
+            throw new ArgumentOutOfRangeException(nameof(providerModel));
+        await using var connection = await _dataSource
+            .OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        const string sql = """
+            UPDATE advanced_analysis_jobs
+            SET status='failed',
+                revision=revision+1,
+                last_error_code='provider_configuration_changed',
+                finished_at=now(),
+                updated_at=now(),
+                lease_owner=NULL,
+                lease_expires_at=NULL
+            WHERE status='queued'
+              AND provider_key IS NOT NULL
+              AND (
+                provider_key <> @provider_key
+                OR (
+                  provider_model IS NOT NULL
+                  AND provider_model <> @provider_model));
+            """;
+        return await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new
+            {
+                provider_key = providerKey,
+                provider_model = providerModel
+            },
+            cancellationToken: cancellationToken));
     }
 
     public async Task<AdvancedAnalysisLeaseState> RenewAndReadStateAsync(

@@ -57,6 +57,17 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
         }
     }
 
+    public string ModelId
+    {
+        get
+        {
+            var configured = (_options.LlmModel ?? string.Empty).Trim();
+            return configured.Length <= 256
+                ? configured
+                : configured[..256];
+        }
+    }
+
     public AdvancedAnalysisProviderLocation Location =>
         NormalizeLocation(_options.LlmLocation) switch
         {

@@ -218,6 +218,8 @@ public sealed class AdvancedAnalysisJobDto
 
     public string? ProviderKey { get; init; }
 
+    public string? ProviderModel { get; init; }
+
     public JsonElement? Result { get; init; }
 
     public string? LastErrorCode { get; init; }

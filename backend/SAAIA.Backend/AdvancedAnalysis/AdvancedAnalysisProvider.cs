@@ -45,6 +45,8 @@ internal interface IAdvancedAnalysisProvider
 {
     string ProviderKey { get; }
 
+    string ModelId => string.Empty;
+
     AdvancedAnalysisProviderLocation Location { get; }
 
     Task<AdvancedAnalysisProviderResult> ExecuteAsync(
@@ -67,6 +69,8 @@ internal sealed class AdvancedAnalysisProviderException : Exception
 internal sealed class DisabledAdvancedAnalysisProvider : IAdvancedAnalysisProvider
 {
     public string ProviderKey => "disabled";
+
+    public string ModelId => string.Empty;
 
     public AdvancedAnalysisProviderLocation Location =>
         AdvancedAnalysisProviderLocation.Internal;

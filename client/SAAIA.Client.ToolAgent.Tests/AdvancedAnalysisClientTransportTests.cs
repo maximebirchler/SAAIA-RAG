@@ -309,6 +309,34 @@ public sealed class AdvancedAnalysisClientTransportTests
     }
 
     [Fact]
+    public async Task Workflow_explains_provider_change_without_mixing_models()
+    {
+        var handler = new SequenceHandler((_, _, _) => Task.FromResult(Json(
+            HttpStatusCode.OK,
+            Job(
+                "failed",
+                2,
+                new { answerText = "untrusted provider payload" },
+                lastErrorCode: "provider_configuration_changed",
+                providerKey: "openai-dev",
+                providerModel: "terra-v1"))));
+
+        var result = await ExecuteAsync(handler);
+
+        Assert.True(result.Handled);
+        Assert.Equal("failed", result.Outcome);
+        Assert.Contains("configuration changed", result.FinalAnswer, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("avoid mixing two models", result.FinalAnswer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("untrusted provider payload", result.FinalAnswer, StringComparison.OrdinalIgnoreCase);
+        var payload = JsonSerializer.Serialize(result.SourcesPayload, ClientJson.CamelCase);
+        Assert.Empty(SourceCardParser.Parse(payload));
+        using var json = JsonDocument.Parse(payload);
+        var advanced = json.RootElement.GetProperty("advancedAnalysis");
+        Assert.Equal("openai-dev", advanced.GetProperty("providerKey").GetString());
+        Assert.Equal("terra-v1", advanced.GetProperty("providerModel").GetString());
+    }
+
+    [Fact]
     public async Task Non_entitlement_server_rejection_is_safe_and_does_not_publish_body()
     {
         var handler = new SequenceHandler((_, _, _) => Task.FromResult(Json(
@@ -641,7 +669,9 @@ public sealed class AdvancedAnalysisClientTransportTests
         int revision,
         object? result = null,
         Guid? handoffId = null,
-        string? lastErrorCode = null)
+        string? lastErrorCode = null,
+        string? providerKey = null,
+        string? providerModel = null)
         => new
         {
             jobId = JobId,
@@ -658,7 +688,8 @@ public sealed class AdvancedAnalysisClientTransportTests
             finishedAtUtc = status is "succeeded" or "failed" or "canceled"
                 ? "2026-09-11T03:00:01Z"
                 : null,
-            providerKey = status == "succeeded" ? "fake-internal" : null,
+            providerKey = providerKey ?? (status == "succeeded" ? "fake-internal" : null),
+            providerModel,
             result,
             lastErrorCode = status == "failed"
                 ? lastErrorCode ?? "provider_failed"

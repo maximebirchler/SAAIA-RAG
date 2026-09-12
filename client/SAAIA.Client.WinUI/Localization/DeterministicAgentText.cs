@@ -124,6 +124,20 @@ internal static class DeterministicAgentText
         string? language,
         string? errorCode = null)
     {
+        if (string.Equals(
+                errorCode,
+                "provider_configuration_changed",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return Pick(language,
+                "La configuration du fournisseur ou du modèle d'analyse avancée a changé pendant cette tâche. La reprise a été bloquée pour éviter de mélanger deux modèles. Relancez la demande avec la configuration actuelle.",
+                "The advanced-analysis provider or model configuration changed during this task. Resume was blocked to avoid mixing two models. Start the request again with the current configuration.",
+                "La configuración del proveedor o del modelo de análisis avanzado cambió durante esta tarea. Se bloqueó la reanudación para evitar mezclar dos modelos. Inicia de nuevo la solicitud con la configuración actual.",
+                "A configuração do fornecedor ou do modelo de análise avançada mudou durante esta tarefa. A retoma foi bloqueada para evitar misturar dois modelos. Inicie novamente o pedido com a configuração atual.",
+                "Die Konfiguration des Anbieters oder Modells für die erweiterte Analyse wurde während dieser Aufgabe geändert. Die Fortsetzung wurde blockiert, damit nicht zwei Modelle vermischt werden. Starten Sie die Anfrage mit der aktuellen Konfiguration neu.",
+                "La configurazione del fornitore o del modello di analisi avanzata è cambiata durante questa attività. La ripresa è stata bloccata per evitare di mescolare due modelli. Avvia nuovamente la richiesta con la configurazione attuale.");
+        }
+
         if (!string.IsNullOrWhiteSpace(errorCode)
             && errorCode.EndsWith("_http_429", StringComparison.OrdinalIgnoreCase))
         {
