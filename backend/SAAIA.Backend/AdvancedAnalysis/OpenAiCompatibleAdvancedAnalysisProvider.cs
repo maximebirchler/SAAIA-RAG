@@ -58,15 +58,7 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
     }
 
     public string ModelId
-    {
-        get
-        {
-            var configured = (_options.LlmModel ?? string.Empty).Trim();
-            return configured.Length <= 256
-                ? configured
-                : configured[..256];
-        }
-    }
+        => (_options.LlmModel ?? string.Empty).Trim();
 
     public AdvancedAnalysisProviderLocation Location =>
         NormalizeLocation(_options.LlmLocation) switch
@@ -241,6 +233,11 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
         {
             throw new AdvancedAnalysisProviderException(
                 "advanced_llm_model_missing");
+        }
+        if (_options.LlmModel.Trim().Length > 256)
+        {
+            throw new AdvancedAnalysisProviderException(
+                "advanced_llm_model_invalid");
         }
         if (IsExternalProvider && _apiKey is null)
         {
