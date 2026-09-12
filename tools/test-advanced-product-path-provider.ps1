@@ -24,6 +24,13 @@ param(
     [decimal]$InputUsdPerMillionTokens = 0,
     [decimal]$CachedInputUsdPerMillionTokens = 0,
     [decimal]$OutputUsdPerMillionTokens = 0,
+    [string]$ProviderRuntime = "",
+    [string]$RuntimeProfile = "",
+    [string]$Gpu = "",
+    [string]$Quantization = "",
+    [string]$ModelSha256 = "",
+    [int]$ContextSize = 0,
+    [decimal]$HourlyCostUsd = 0,
     [string]$LocalLlmExePath = "",
     [string]$LocalModelPath = "",
     [string]$Configuration = "Debug",
@@ -443,6 +450,13 @@ try {
         expectedAdvancedProvider = $providerMode
         expectedAdvancedModel = $ModelId
         externalEndpointHost = ([Uri]$ProviderBaseUrl).Host
+        providerRuntime = $ProviderRuntime
+        runtimeProfile = $RuntimeProfile
+        gpu = $Gpu
+        quantization = $Quantization
+        modelSha256 = $ModelSha256
+        contextSize = $ContextSize
+        hourlyCostUsd = $HourlyCostUsd
         localLlmRuntimeSha256 = (Get-FileHash -LiteralPath $LocalLlmExePath -Algorithm SHA256).Hash
         localModelSha256 = (Get-FileHash -LiteralPath $LocalModelPath -Algorithm SHA256).Hash
         selectedIds = @($Ids -split '[,;]' | ForEach-Object Trim | Where-Object { $_ })

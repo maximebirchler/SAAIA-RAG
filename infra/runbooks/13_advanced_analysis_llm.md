@@ -80,14 +80,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-advanced-produc
 
 ## Benchmark RunPod
 
-Le premier candidat est le Public Endpoint `Qwen/Qwen3-32B-AWQ` :
-
-```text
-Base URL : https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1
-Modèle   : Qwen/Qwen3-32B-AWQ
-Contexte : 32768 tokens
-Tarif    : 10 USD par million de tokens, entrée et sortie confondues
-```
+Le candidat, l'endpoint et les tarifs sont choisis et revérifiés au moment du
+benchmark. Le lanceur ne fournit aucune valeur RunPod implicite : cela évite de
+réutiliser par erreur un modèle, un endpoint ou un prix devenu obsolète. Les
+familles Qwen autour de 32B restent des candidates, sans figer ici le format ou
+la quantification.
 
 Importer la clé RunPod depuis le presse-papiers dans DPAPI :
 
@@ -96,22 +93,25 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\import-llm-secret-fr
 ```
 
 Le budget RunPod n'est jamais déduit de l'autorisation OpenAI. Il doit être
-fourni explicitement et possède son propre registre persistant. Une enveloppe de
-3 USD, alerte calculée à 2,40 USD et arrêt à 2,88 USD couvre la banque 4 cas × 3
-répétitions d'après les volumes déjà observés. RunPod peut demander un achat
-minimal de crédits supérieur à cette enveloppe ; le garde SAAIA reste à 3 USD.
+fourni explicitement et possède son propre registre persistant. L'enveloppe et
+les prix doivent venir d'une autorisation dédiée et d'une vérification du tarif
+du candidat réellement sélectionné.
 
 Sonde synthétique sans corpus privé :
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-advanced-server-provider.ps1 `
   -Provider RunPod `
-  -BaseUrl https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1 `
-  -ModelId Qwen/Qwen3-32B-AWQ `
-  -AuthorizedBudgetUsd 3 `
-  -InputUsdPerMillionTokens 10 `
-  -CachedInputUsdPerMillionTokens 10 `
-  -OutputUsdPerMillionTokens 10
+  -BaseUrl <endpoint-openai-compatible> `
+  -ModelId <modele-exact> `
+  -AuthorizedBudgetUsd <budget-autorise> `
+  -InputUsdPerMillionTokens <tarif-entree> `
+  -CachedInputUsdPerMillionTokens <tarif-entree-cachee> `
+  -OutputUsdPerMillionTokens <tarif-sortie> `
+  -RuntimeProfile <profil-reproductible> `
+  -Gpu <gpu-observe> `
+  -Quantization <quantification> `
+  -ModelSha256 <hash-si-disponible>
 ```
 
 Parcours produit complet :
@@ -119,7 +119,18 @@ Parcours produit complet :
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-advanced-product-path-runpod.ps1 `
   -ServerEnvPath <chemin-vers-.env.server-linux> `
-  -AuthorizedBudgetUsd 3 `
+  -BaseUrl <endpoint-openai-compatible> `
+  -ModelId <modele-exact> `
+  -AuthorizedBudgetUsd <budget-autorise> `
+  -InputUsdPerMillionTokens <tarif-entree> `
+  -CachedInputUsdPerMillionTokens <tarif-entree-cachee> `
+  -OutputUsdPerMillionTokens <tarif-sortie> `
+  -RuntimeProfile <profil-reproductible> `
+  -Gpu <gpu-observe> `
+  -Quantization <quantification> `
+  -ModelSha256 <hash-si-disponible> `
+  -ContextSize <contexte> `
+  -HourlyCostUsd <cout-horaire-si-applicable> `
   -Repetitions 3
 ```
 

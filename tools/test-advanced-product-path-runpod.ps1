@@ -11,15 +11,27 @@ param(
     [string]$Ids = "A755-ADV-01-meal-grid-5x4,A755-ADV-02-five-student-meals-fr,A755-ADV-03-explicit-document-comparison,A755-ADV-04-nist-seven-points",
     [ValidateRange(1, 3)]
     [int]$Repetitions = 1,
-    [string]$BaseUrl = "https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1",
-    [string]$ModelId = "Qwen/Qwen3-32B-AWQ",
+    [Parameter(Mandatory = $true)]
+    [string]$BaseUrl,
+    [Parameter(Mandatory = $true)]
+    [string]$ModelId,
     [decimal]$SoftLimitUsd = 0,
     [decimal]$HardLimitUsd = 0,
     [decimal]$MaximumCostPerJobUsd = 0,
     [int]$MaximumCallsPerJob = 4,
-    [decimal]$InputUsdPerMillionTokens = 10,
-    [decimal]$CachedInputUsdPerMillionTokens = 10,
-    [decimal]$OutputUsdPerMillionTokens = 10,
+    [Parameter(Mandatory = $true)]
+    [decimal]$InputUsdPerMillionTokens,
+    [Parameter(Mandatory = $true)]
+    [decimal]$CachedInputUsdPerMillionTokens,
+    [Parameter(Mandatory = $true)]
+    [decimal]$OutputUsdPerMillionTokens,
+    [string]$ProviderRuntime = "llama.cpp",
+    [string]$RuntimeProfile = "",
+    [string]$Gpu = "",
+    [string]$Quantization = "",
+    [string]$ModelSha256 = "",
+    [int]$ContextSize = 0,
+    [decimal]$HourlyCostUsd = 0,
     [string]$LocalLlmExePath = "",
     [string]$LocalModelPath = "",
     [string]$Configuration = "Debug",
@@ -48,6 +60,13 @@ $runner = Join-Path $PSScriptRoot "test-advanced-product-path-provider.ps1"
     -InputUsdPerMillionTokens $InputUsdPerMillionTokens `
     -CachedInputUsdPerMillionTokens $CachedInputUsdPerMillionTokens `
     -OutputUsdPerMillionTokens $OutputUsdPerMillionTokens `
+    -ProviderRuntime $ProviderRuntime `
+    -RuntimeProfile $RuntimeProfile `
+    -Gpu $Gpu `
+    -Quantization $Quantization `
+    -ModelSha256 $ModelSha256 `
+    -ContextSize $ContextSize `
+    -HourlyCostUsd $HourlyCostUsd `
     -LocalLlmExePath $LocalLlmExePath `
     -LocalModelPath $LocalModelPath `
     -Configuration $Configuration `
