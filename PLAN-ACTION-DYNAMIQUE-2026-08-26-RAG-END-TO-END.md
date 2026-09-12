@@ -13842,6 +13842,27 @@ analyses PowerShell passent, sans appel externe. Assessment :
 SHA-256 `D26C9629982F978509E360104F2CC99D194434DB03CDAB03A8AC0786E31EF74A`.
 Produit `TESTE_NON_APPROUVE`.
 
+## A763 — rétention avancée exécutable et testée — 2026-09-12
+
+La présence de `expires_at` ne constituait pas une politique de suppression :
+aucune requête ne supprimait les jobs avancés échus, leurs handoffs, leurs
+résultats ou leurs traces. Le commit `951f775d` ajoute un service hébergé dédié,
+actif indépendamment du provider, du worker LLM et du droit avancé courant. Il
+traite des lots bornés, protège un job dont le bail est encore actif, interdit le
+renouvellement de ce bail après l'échéance et laisse la cascade PostgreSQL
+supprimer la trace d'outils avec le job.
+
+Le test d'intégration utilise un PostgreSQL 16 isolé et jetable. Il prouve la
+suppression du payload et de sa trace, la conservation d'un job futur, la
+protection temporaire du job en cours, puis sa suppression après la fin du bail.
+Les 19 tests avancés concernés passent. La suite backend Release hors probes live
+obtient 2 147 réussites et zéro échec. Le cluster possédé par le test est arrêté,
+le fichier de mot de passe temporaire est supprimé et aucun listener ne reste sur
+55432. Assessment :
+`artifacts/reprise-pc-20260908/a763-advanced-retention-20260912/assessment.v1.json`,
+SHA-256 `2AE5D72266E7C27E68360A4C19281E1D02BAA715F0FCC36A10B9A84065C4FA78`.
+Aucun appel LLM ni trafic externe. Le produit reste `TESTE_NON_APPROUVE`.
+
 ## A763 — séparation Compose du grand modèle rendue cohérente — 2026-09-12
 
 L'audit du déploiement on-prem a trouvé que la commande documentée fusionnait la

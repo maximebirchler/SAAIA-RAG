@@ -769,6 +769,28 @@ a pour SHA-256
 Aucun appel externe n'a été exécuté et les ports 1234, 5123 et 18081 sont libres.
 Produit `TESTE_NON_APPROUVE`.
 
+## A763 — rétention avancée réellement appliquée — 2026-09-12
+
+L'audit de la politique de données a révélé un écart réel : `RetentionDays` et
+`expires_at` bornaient la durée déclarée d'un job, mais aucun service ne
+supprimait ensuite le handoff, le résultat ou la trace d'outils. Ces données
+pouvaient donc rester indéfiniment dans PostgreSQL malgré leur échéance.
+
+Le commit `951f775d` ajoute un worker de rétention indépendant du worker LLM et
+de l'état courant de la licence. Il supprime les jobs échus par lots et la
+contrainte existante `ON DELETE CASCADE` efface leurs traces. Un job en cours est
+conservé pendant son bail actif ; une fois l'échéance atteinte, ce bail ne peut
+plus être renouvelé et le job devient supprimable après la fin du bail.
+
+La preuve PostgreSQL 16 jetable obtient 19/19 : résultat privé supprimé, trace
+associée supprimée, job futur conservé, bail actif conservé puis refusé au
+renouvellement et supprimé après expiration. La suite backend Release obtient
+2 147/2 147, zéro échec. Le cluster temporaire est arrêté, son mot de passe est
+supprimé et le port 55432 est libre. Assessment :
+`artifacts/reprise-pc-20260908/a763-advanced-retention-20260912/assessment.v1.json`,
+SHA-256 `2AE5D72266E7C27E68360A4C19281E1D02BAA715F0FCC36A10B9A84065C4FA78`.
+Aucun appel externe et aucun coût nouveau. Produit `TESTE_NON_APPROUVE`.
+
 ## A763 — topologie réseau du serveur on-prem corrigée — 2026-09-12
 
 Le runbook fusionnait `docker-compose.prod.yml` et

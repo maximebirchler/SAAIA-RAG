@@ -130,6 +130,21 @@ du projet principal et pouvait isoler le backend du service `advanced-llm`. La
 stack principale doit créer le réseau, puis le projet avancé est validé et
 démarré séparément.
 
+## Rétention des données avancées
+
+Le backend calcule `expires_at` à la création de chaque job avec une durée
+configurable de 1 à 365 jours. Un service de rétention dédié supprime par lots
+les jobs échus et laisse PostgreSQL supprimer leurs traces d'outils par cascade.
+Ce service ne dépend ni de l'activation du worker LLM ni du droit avancé actuel :
+une révocation de licence ne suspend donc pas l'effacement des données déjà
+stockées.
+
+Un job `running` n'est jamais supprimé pendant un bail actif. Une fois sa durée
+de rétention atteinte, le bail ne peut plus être renouvelé ; le provider perd le
+droit de publier un résultat et le job devient supprimable après expiration du
+bail. Les valeurs signées actuelles exécutent un balayage toutes les cinq minutes
+et suppriment jusqu'à dix lots de mille jobs par passage.
+
 ## Preuves déjà acquises et preuves manquantes
 
 Les tests simulés couvrent le cycle planner -> tools -> writer, le profil
