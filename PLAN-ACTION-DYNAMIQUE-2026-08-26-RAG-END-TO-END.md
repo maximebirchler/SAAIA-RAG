@@ -14191,3 +14191,22 @@ Prochaine porte : constater le Tier 1, exécuter les quatre cas trois fois sur l
 même commit final, revoir les douze sorties contre les chunks, puis seulement
 geler la sémantique et lancer le holdout aveugle. Aucun achat supplémentaire ni
 appel RunPod n'est autorisé à ce stade. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — les 429 temporaires ne détruisent plus le job — 2026-09-12
+
+Le commit `46a976a9` sépare la relance HTTP courte de la reprise durable. Un 429
+dont `Retry-After` dépasse la fenêtre de l'appel remet maintenant le job en file
+jusqu'au délai demandé, sans perdre l'affinité fournisseur/modèle. La reprise
+reste bornée par 24 heures de délai configurable, trois essais par défaut,
+l'expiration du job et les plafonds persistants d'appels et de coût.
+
+Les preuves PostgreSQL réelles couvrent `running -> queued`, le délai persistant
+et l'échec terminal au plafond. Résultats : 56/56 ciblés, 2 149 réussites sur la
+suite PostgreSQL complète avec deux historiques ignorés, puis 2 156 réussites
+Release avec trois ignorés. Assessment :
+`artifacts/reprise-pc-20260908/a763-durable-provider-rate-limit-retry-da2dfe9-20260912/assessment.v1.json`,
+SHA-256 `A2B5F89D1077809D9A52E723366F64429CD297D345319A0E6B45DFE40C38639E`.
+
+La limite OpenAI reste externe et le compte reste `Free tier`. Aucun nouvel
+appel ni coût. La banque Terra 3/3 sur le prompt corrigé reste la prochaine porte
+live. Produit `TESTE_NON_APPROUVE`.

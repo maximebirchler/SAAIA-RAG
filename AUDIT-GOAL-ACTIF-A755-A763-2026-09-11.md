@@ -1289,3 +1289,35 @@ Les réponses précédentes prouvent les causes et la sûreté des refus, mais n
 valident pas le prompt corrigé. La prochaine porte reste quatre cas, trois
 succès chacun sur le même commit final, puis une revue claim-preuve des douze
 sorties. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — reprise durable des limites fournisseur — 2026-09-12
+
+Les 429 réels ont montré une différence entre la relance HTTP courte et la vie
+du job durable. Lorsque `Retry-After` dépassait les 60 secondes autorisées dans
+un appel, le provider refusait correctement de bloquer plus longtemps, mais le
+worker transformait ensuite ce quota temporaire en échec terminal.
+
+Le commit `46a976a9` transporte désormais le caractère réessayable et le délai
+du provider jusqu'au worker. Un 429 remet le job en file avec `available_at`
+calculé depuis `Retry-After`, libère le lease et conserve l'affinité provider et
+modèle. Le délai durable est plafonné par configuration à 24 heures, le nombre
+d'essais reste plafonné à trois par défaut, et l'expiration du job garde la
+priorité. À épuisement, le dernier code 429 reste visible. Les autres erreurs
+provider restent terminales.
+
+Le garde-budget ne repart pas de zéro : après la fin d'une tentative, il recharge
+depuis le registre toutes les lignes du même `jobId`. Les appels rejetés, les
+appels réussis et leur coût continuent donc de compter dans les plafonds du job
+et de la campagne.
+
+Validation : 56/56 tests ciblés Release ; 56/56 sur PostgreSQL 16 jetable ;
+suite PostgreSQL complète 2 149 réussites, zéro échec et deux historiques
+ignorés ; suite backend Release 2 156 réussites, zéro échec et trois ignorés.
+Les deux clusters jetables ont été arrêtés, leurs secrets supprimés,
+l'environnement restauré et le port 55432 libéré. Assessment :
+`artifacts/reprise-pc-20260908/a763-durable-provider-rate-limit-retry-da2dfe9-20260912/assessment.v1.json`,
+SHA-256 `A2B5F89D1077809D9A52E723366F64429CD297D345319A0E6B45DFE40C38639E`.
+Aucun appel externe, aucune transmission et aucun coût nouveau. Cette correction
+évite de perdre un job sur une limite temporaire ; elle ne supprime pas la
+limite imposée au compte OpenAI et ne remplace pas la banque Terra finale.
+Produit `TESTE_NON_APPROUVE`.
