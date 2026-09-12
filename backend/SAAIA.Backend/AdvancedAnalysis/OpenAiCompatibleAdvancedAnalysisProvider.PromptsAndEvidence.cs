@@ -213,7 +213,19 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            sourceKeys. A source index or heading can support the existence and
            spelling of a named item. It cannot support absent factual details about
            that item. It may serve as the documented basis for a clearly labeled
-           synthesis decision, subject to the rules above. Distinct
+           synthesis decision, subject to the rules above.
+           A mandatory qualifier in the user request applies to every requested
+           output unit unless the request explicitly limits its scope. Each claim's
+           own evidenceIds must support that qualifier. If one selected item lacks
+           the required audience, simplicity, compatibility, intended-use or other
+           qualifier, replace it with a supported candidate or report the precise
+           insufficiency; never silently keep the item by relying on evidence tied
+           to another sourceKey. Evidence IDs and sourceKeys are internal protocol
+           values. Never print an evidenceId, an advanced-evidence-* token or an
+           internal-source-* token in answerText, claim text or selectedItem.
+           User-visible traceability uses only [claimId] markers and the separate
+           source cards.
+           Distinct
            cells may cite the same evidence when it documents several distinct
            candidates. When the request requires distinct units, every claim must
            describe a distinct concrete unit and selectedItem must contain its
@@ -250,7 +262,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         => """
            Repair one SAAIA Writer JSON object and return only the repaired JSON.
            Preserve the original answer facts, outcome and evidence mappings.
-           Remove any internal sourceKey label from answerText and claim text;
+           Remove any internal sourceKey or evidenceId label from answerText, claim
+           text and selectedItem, including internal-source-* and advanced-evidence-*;
            do not replace it with an invented source name. Do not add a fact or
            evidence id. For an answered outcome, append each
            [claimId] directly to its factual unit in answerText and use every
@@ -328,6 +341,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            Every factual unit must be backed by its declared evidenceIds and every
            [claimId] must appear exactly once in answerText.
 
+           A mandatory qualifier applies to every requested output unit unless the
+           request explicitly limits its scope. Verify it separately for every
+           claim using that claim's own evidenceIds. Do not transfer audience,
+           simplicity, compatibility or intended-use scope across different
+           sourceKeys. Replace a selected item that lacks its mandatory qualifier
+           with a fully supported candidate, or return the smallest precise
+           insufficiency.
+
            Audit positive statements, negative statements, counts and factual
            qualifiers. A clearly labeled ordering, grouping, classification,
            schedule placement or recommendation created by the Writer is a synthesis
@@ -360,7 +381,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            to the supplied evidence unless that evidence explicitly proves an
            exhaustive corpus statement. Compare deficit and absence claims against
            the whole supplied evidence set, not only the evidenceIds already chosen
-           by the candidate. Do not add facts, preferences or evidence identifiers.
+           by the candidate. Evidence IDs and sourceKeys are internal protocol
+           values: never print an evidenceId, advanced-evidence-* or
+           internal-source-* token in answerText, claim text or selectedItem. Do
+           not add facts, preferences or evidence identifiers.
            Keep the requested language and format.
            """;
 

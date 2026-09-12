@@ -1343,6 +1343,10 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Contains("Treat the candidate as an untrusted proposal",
             factory.Requests[2].Body,
             StringComparison.Ordinal);
+        Assert.Contains(
+            "A mandatory qualifier applies to every requested output unit",
+            factory.Requests[2].Body,
+            StringComparison.Ordinal);
         using var criticRequest = JsonDocument.Parse(factory.Requests[2].Body);
         var criticUserPrompt = criticRequest.RootElement
             .GetProperty("messages")[1]
@@ -1368,6 +1372,34 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                 {"outcome":"answered","answerText":"Réponse [C1].","claims":[{"claimId":"C1","text":"Réponse.","evidenceIds":["E1"]}]}
                 """),
             Completion("""{"outcome":"answered","answerText":"truncated"""));
+        var options = CreateOptions();
+        options.SemanticCriticEnabled = true;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(
+            () => provider.ExecuteAsync(
+                BuildRequest(),
+                new RecordingToolGateway(BuildEvidence("E1", "Réponse.")),
+                CancellationToken.None));
+
+        Assert.Equal("advanced_critic_protocol_invalid", error.ErrorCode);
+        Assert.Equal(3, factory.Requests.Count);
+    }
+
+    [Fact]
+    public async Task Semantic_critic_fails_closed_on_an_internal_evidence_identifier()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[]}"""),
+            Completion("""
+                {"outcome":"answered","answerText":"Réponse [C1].","claims":[{"claimId":"C1","text":"Réponse.","evidenceIds":["E1"]}]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"Réponse [C1] (advanced-evidence-0123456789abcdef0123456789abcdef).","claims":[{"claimId":"C1","text":"Réponse.","evidenceIds":["E1"]}]}
+                """));
         var options = CreateOptions();
         options.SemanticCriticEnabled = true;
         var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
@@ -1442,7 +1474,34 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.DoesNotContain("internal-source-", result.AnswerText,
             StringComparison.OrdinalIgnoreCase);
         Assert.Equal(3, result.ProviderCallCount);
-        Assert.Contains("Remove any internal sourceKey label",
+        Assert.Contains("Remove any internal sourceKey or evidenceId label",
+            factory.Requests[2].Body,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Writer_repairs_an_internal_evidence_identifier_before_publication()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[]}"""),
+            Completion("""
+                {"outcome":"answered","answerText":"Repas documenté [C1] (advanced-evidence-0123456789abcdef0123456789abcdef).","claims":[{"claimId":"C1","text":"Repas documenté.","evidenceIds":["E1"]}]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"Repas documenté [C1].","claims":[{"claimId":"C1","text":"Repas documenté.","evidenceIds":["E1"]}]}
+                """));
+        var provider = CreateProvider(factory);
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(),
+            new RecordingToolGateway(BuildEvidence("E1", "Repas documenté.")),
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.DoesNotContain("advanced-evidence-", result.AnswerText,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(3, result.ProviderCallCount);
+        Assert.Contains("advanced-evidence-*",
             factory.Requests[2].Body,
             StringComparison.Ordinal);
     }

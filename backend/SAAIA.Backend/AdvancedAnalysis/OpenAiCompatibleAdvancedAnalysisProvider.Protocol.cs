@@ -106,9 +106,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 throw new AdvancedAnalysisProviderException(
                     "advanced_writer_claim_markers_invalid");
             }
-            if (ContainsInternalSourceKey(answerText)
+            if (ContainsInternalProtocolIdentifier(answerText)
                 || claims.Any(static claim =>
-                    ContainsInternalSourceKey(claim.Text)))
+                    ContainsInternalProtocolIdentifier(claim.Text)
+                    || ContainsInternalProtocolIdentifier(
+                        claim.SelectedItem ?? string.Empty)))
             {
                 throw new AdvancedAnalysisProviderException(
                     "advanced_writer_protocol_invalid");
@@ -151,10 +153,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             : NormalizeClaimText(claim.Text);
     }
 
-    private static bool ContainsInternalSourceKey(string value)
+    private static bool ContainsInternalProtocolIdentifier(string value)
         => Regex.IsMatch(
             value ?? string.Empty,
-            @"\binternal-source-\d+\b",
+            @"\b(?:internal-source-\d+|advanced-evidence-[0-9a-f]{16,64})\b",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private AdvancedAnalysisProviderResult WithMetrics(
