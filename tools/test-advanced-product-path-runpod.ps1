@@ -11,6 +11,8 @@ param(
     [string]$Ids = "A755-ADV-01-meal-grid-5x4,A755-ADV-02-five-student-meals-fr,A755-ADV-03-explicit-document-comparison,A755-ADV-04-nist-seven-points",
     [ValidateRange(1, 3)]
     [int]$Repetitions = 1,
+    [ValidateRange(0, 300)]
+    [int]$DelayBetweenCasesSeconds = 0,
     [Parameter(Mandatory = $true)]
     [string]$BaseUrl,
     [Parameter(Mandatory = $true)]
@@ -50,6 +52,7 @@ $runner = Join-Path $PSScriptRoot "test-advanced-product-path-provider.ps1"
     -BackendPort $BackendPort `
     -Ids $Ids `
     -Repetitions $Repetitions `
+    -DelayBetweenCasesSeconds $DelayBetweenCasesSeconds `
     -ProviderBaseUrl $BaseUrl `
     -ModelId $ModelId `
     -AuthorizedBudgetUsd $AuthorizedBudgetUsd `

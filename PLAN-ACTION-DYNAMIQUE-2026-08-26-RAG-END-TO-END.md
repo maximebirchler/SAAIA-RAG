@@ -13808,5 +13808,7 @@ de confidentialité sont dans
 crédit, endpoint, pod, clé ou appel RunPod n'a été créé. La prochaine action
 RunPod sera une demande d'autorisation explicite portant sur la transmission
 des extraits de preuve et un maximum de 5 USD. Terra, l'inspection WinUI, le
-holdout aveugle et la preuve serveur client restent ouverts. Produit
+holdout aveugle et la preuve serveur client restent ouverts. Le lanceur RunPod
+expose et transmet désormais le délai inter-cas déjà supporté par le moteur
+commun, afin que la cadence puisse être scellée sans modifier le harnais. Produit
 `TESTE_NON_APPROUVE`.

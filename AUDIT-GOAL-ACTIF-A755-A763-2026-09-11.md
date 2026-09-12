@@ -743,4 +743,6 @@ consignés dans
 `documents/agent/runpod-benchmark-candidates-a763-2026-09-12.md`. Aucun compte,
 crédit, endpoint, pod, secret ou appel RunPod n'a été créé. Une autorisation
 explicite de sortie des extraits de preuve et de dépense maximale de 5 USD reste
-requise avant la première requête. Produit `TESTE_NON_APPROUVE`.
+requise avant la première requête. La façade RunPod transmet maintenant aussi
+le délai borné entre cas au moteur commun, comme la façade Terra ; son analyse
+PowerShell rapporte zéro erreur. Produit `TESTE_NON_APPROUVE`.

@@ -78,6 +78,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-advanced-produc
   -MaximumCostPerJobUsd 0.40 `
   -MaximumCallsPerJob 4 `
   -Repetitions 3 `
+  -DelayBetweenCasesSeconds 2 `
   -BaseUrl "https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1" `
   -ModelId "Qwen/Qwen3-32B-AWQ" `
   -InputUsdPerMillionTokens 10 `
