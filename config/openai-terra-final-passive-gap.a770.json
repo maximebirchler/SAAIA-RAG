@@ -1,0 +1,124 @@
+{
+  "schemaVersion": "saaia-openai-terra-final-campaign-v1",
+  "campaignId": "A770-TERRA-FINAL-PASSIVE-GAP-3X",
+  "status": "PREREGISTERED",
+  "createdAtUtc": "2026-09-12T17:05:33.6849901+00:00",
+  "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
+  "repository": {
+    "expectedBranch": "SAAIA_V3.1",
+    "preregisteredAgainstCommit": "3e15483a",
+    "minimumSemanticFixCommit": "3e15483a",
+    "executionRule": "Run the four-case final acceptance bank three times from one exact clean descendant of all A769 production fixes plus the passive source-bound insufficiency validation correction. The product-path preflight seal records the full execution commit. Freeze prompts, cases, retrieval, corpus, tools, budgets, acceptance rules and provider settings after the first answer is observed."
+  },
+  "provider": {
+    "mode": "OpenAI",
+    "model": "gpt-5.6-terra",
+    "endpoint": "https://api.openai.com/v1",
+    "minimumOrganizationTier": "Tier1",
+    "freshTierObservationMaximumAgeMinutes": 15,
+    "freeTierCallsBlocked": true,
+    "runPodAuthorized": false,
+    "semanticCriticEnabled": true,
+    "criticMaxTokens": 4096
+  },
+  "localRouter": {
+    "modelId": "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+    "runtimeSha256": "9555847A0403737C4A1B5BEAB050BD697AEC477B6675871A1F8D4737A25C1650",
+    "modelSha256": "66713CE35A58A82FE87642D4EC13425BF9B9A46800FFF5C49A665EF5701439DC",
+    "providerConfigPath": "config/llm-providers.dev.json",
+    "providerConfigSha256": "036D6C68D1780DC78E3FB594C27FF82CE86861F9BECD94E268AEADE6163D1E1D"
+  },
+  "bank": {
+    "path": "config/advanced-capacity-validation.v1.json",
+    "sha256": "8B2A5029E0A74D78FF7F26A8F1AACE2D005E84E729E9241AB94FE1BC5AEFFA3E",
+    "caseIds": [
+      "A755-ADV-01-meal-grid-5x4",
+      "A755-ADV-02-five-student-meals-fr",
+      "A755-ADV-03-explicit-document-comparison",
+      "A755-ADV-04-nist-seven-points"
+    ],
+    "repetitions": 3,
+    "expectedRows": 12
+  },
+  "execution": {
+    "runner": "tools/test-advanced-product-path-openai.ps1",
+    "configuration": "Release",
+    "delayBetweenCasesSeconds": 5,
+    "maximumJobAttempts": 3,
+    "maximumJobRetryDelayMilliseconds": 600000,
+    "serverEnvironmentPath": "C:/Users/maxim/NextCloud/Maxime/Ecommerce/SAAIA/infra/.env.server-linux",
+    "referenceBackendUrl": "http://saaia-server:5122",
+    "backendPort": 5123,
+    "artifactRoot": "artifacts/reprise-pc-20260908/a770-provider-comparison",
+    "artifactDirectoryRule": "Create a fresh directory containing the exact execution commit and UTC timestamp; never overwrite an earlier campaign."
+  },
+  "budget": {
+    "authorizedLifetimeUsd": 28.346165,
+    "softLimitUsd": 27.346165,
+    "hardStopUsd": 28.346165,
+    "maximumCostPerJobUsd": 0.4,
+    "maximumCallsPerJob": 6,
+    "maximumJobs": 12,
+    "maximumCampaignCostImpliedByPerJobCapsUsd": 4.8,
+    "expectedNormalProviderCalls": 60,
+    "maximumProviderCallsByEnvelope": 72,
+    "pricingUsdPerMillionTokens": {
+      "input": 2.0,
+      "cachedInput": 0.2,
+      "output": 12.0
+    },
+    "authorizedRemainingAtRegistrationUsd": 12.059454,
+    "authorizationBasis": "User authorized using the full 13.54 USD remaining balance observed before A767 and A768, with no purchase or top-up. The persistent hard stop remains fixed at 28.346165 USD; current ledger headroom is recorded for traceability only."
+  },
+  "acceptance": {
+    "global": [
+      "The exact four registered cases each produce three independent successful rows on the same clean commit.",
+      "All 12 rows pass the mechanical assessor and all 12 answers receive a source-by-source semantic review.",
+      "Provider and model telemetry are exactly openai-dev and gpt-5.6-terra; costs and token counts are present.",
+      "Every successful row records the durable advanced job UUID used to export its canonical evidence for semantic review.",
+      "Terra receives the available list_categories and search_corpus tool contracts and the validated category catalog; recorded tool events must prove that requested searches were executed.",
+      "When initial evidence needs expansion, the adaptive research review may request bounded complementary or reformulated search_corpus queries before writing; the absence of a follow-up is acceptable only when the initial evidence is sufficient.",
+      "For structured collections, Terra records a valid selectionMode and may refine an incompatible local-router selection contract before retrieval, writing and criticism.",
+      "A structured item may be bound to a source-chunk title split by OCR only when exact title fragments occupy separate lines around an explicit page marker; arbitrary distant word combinations remain unsupported.",
+      "No internal advanced-evidence-* or internal-source-* identifier may appear in any user-visible answer or claim.",
+      "No prompt, case, retrieval, corpus, acceptance criterion, local-router binary/model/configuration or runtime parameter changes after the first answer is observed.",
+      "The opaque reference-corpus seal is identical before and after the campaign, with no queued, running or paused ingestion job and stable catalog, ingestion history and Qdrant point/vector state.",
+      "Any unsupported substantive claim, wrong source relation, unvalidated provider payload, budget stop or protocol drift rejects the campaign.",
+      "The planner may strengthen but may not weaken an established distinct structured selection contract.",
+      "A malformed or duplicate structured Writer result may consume one bounded repair call; a source-complete but overly conservative Writer or Critic result may consume one final bounded synthesis-recovery call using only the supplied evidence.",
+      "A section-titled evidence card may support a differently titled selected item only when that exact item occurs in the supplied card content; approximate content matches remain invalid.",
+      "A precise insufficiency remains valid when the negated missing fact precedes its explicit source, extract, document, evidence or corpus relation; the same passive wording without a source relation remains invalid."
+    ],
+    "cases": {
+      "A755-ADV-01-meal-grid-5x4": [
+        "Accept functionally only a complete 5 by 4 grid with 20 distinct concrete cells and evidence supporting each semantic meal-moment placement.",
+        "Weekday labels are neutral presentation coordinates and do not require documentary support.",
+        "If the corpus cannot prove all 20 semantic placements, accept only a precise insufficiency naming the missing cells or evidence categories; this validates safe behavior but does not close the functional planning gate."
+      ],
+      "A755-ADV-02-five-student-meals-fr": [
+        "Exactly five distinct meals, each tied to canonical evidence.",
+        "The required simple and student suitability qualifiers must be supported by evidence or explicitly reported as missing; they may not be silently dropped."
+      ],
+      "A755-ADV-03-explicit-document-comparison": [
+        "Keep FD CEN TR 15281 and IEC 60079-14 separate and map every substantive claim to the correct document.",
+        "Do not merge prescriptions or substitute another document."
+      ],
+      "A755-ADV-04-nist-seven-points": [
+        "Exactly seven distinct points supported only by NIST_CSF_2_0.pdf, with one traceable citation per point.",
+        "Preserve the document meaning and add no unsupported description."
+      ]
+    },
+    "productPromotionRule": "Keep TESTE_NON_APPROUVE unless the complete meal grid is functionally and semantically accepted 3/3, all other registered cases are semantically accepted 3/3, the reference corpus remains sealed, and later blind-holdout and authorized open-source/customer-server gates pass."
+  },
+  "stopRules": [
+    "Do not execute while the organization dashboard still shows Free tier.",
+    "Do not execute without a paid-tier observation less than 15 minutes old.",
+    "Stop before the first model call if the branch, clean-tree rule or bank hash differs.",
+    "Stop before the first model call if the local llama.cpp runtime, Qwen GGUF or provider configuration hash differs.",
+    "Stop before the first model call if the reference corpus cannot be sealed or has queued, running or paused ingestion; reject the campaign if the postflight seal differs.",
+    "Let retryable 429 responses use the durable scheduled retry path, bounded to three job attempts and ten minutes per scheduled delay in this campaign.",
+    "Stop at the persistent lifetime, per-job or per-job-call budget guard.",
+    "Do not start RunPod or transmit the private evidence bundle."
+  ],
+  "campaignKind": "final-acceptance"
+}
