@@ -1396,7 +1396,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
-    public async Task Semantic_critic_fails_closed_on_an_internal_evidence_identifier()
+    public async Task Semantic_critic_sanitizes_an_internal_evidence_annotation()
     {
         using var factory = new QueuedHttpClientFactory(
             Completion("""{"queries":[]}"""),
@@ -1413,13 +1413,15 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             options,
             apiKey: null);
 
-        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(
-            () => provider.ExecuteAsync(
-                BuildRequest(),
-                new RecordingToolGateway(BuildEvidence("E1", "Réponse.")),
-                CancellationToken.None));
+        var result = await provider.ExecuteAsync(
+            BuildRequest(),
+            new RecordingToolGateway(BuildEvidence("E1", "Réponse.")),
+            CancellationToken.None);
 
-        Assert.Equal("advanced_critic_protocol_invalid", error.ErrorCode);
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal("Réponse [C1].", result.AnswerText);
+        Assert.DoesNotContain("advanced-evidence-", result.AnswerText,
+            StringComparison.OrdinalIgnoreCase);
         Assert.Equal(3, factory.Requests.Count);
     }
 
@@ -1486,15 +1488,12 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
-    public async Task Writer_repairs_an_internal_evidence_identifier_before_publication()
+    public async Task Writer_sanitizes_an_internal_evidence_annotation_before_publication()
     {
         using var factory = new QueuedHttpClientFactory(
             Completion("""{"queries":[]}"""),
             Completion("""
                 {"outcome":"answered","answerText":"Repas documenté [C1] (advanced-evidence-0123456789abcdef0123456789abcdef).","claims":[{"claimId":"C1","text":"Repas documenté.","evidenceIds":["E1"]}]}
-                """),
-            Completion("""
-                {"outcome":"answered","answerText":"Repas documenté [C1].","claims":[{"claimId":"C1","text":"Repas documenté.","evidenceIds":["E1"]}]}
                 """));
         var provider = CreateProvider(factory);
 
@@ -1506,10 +1505,8 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal("answered", result.Outcome);
         Assert.DoesNotContain("advanced-evidence-", result.AnswerText,
             StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(3, result.ProviderCallCount);
-        Assert.Contains("advanced-evidence-*",
-            factory.Requests[2].Body,
-            StringComparison.Ordinal);
+        Assert.Equal(2, result.ProviderCallCount);
+        Assert.Equal(2, factory.Requests.Count);
     }
 
     [Fact]

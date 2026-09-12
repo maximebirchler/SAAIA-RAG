@@ -18,7 +18,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             using var document = JsonDocument.Parse(UnwrapJson(raw));
             var root = document.RootElement;
             var outcome = ReadString(root, "outcome");
-            var answerText = ReadString(root, "answerText");
+            var answerText = RemoveInternalEvidenceAnnotations(
+                ReadString(root, "answerText"));
             if (outcome is not (
                     "answered"
                     or "insufficient_documentation"
@@ -40,7 +41,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 {
                     var claimId = ReadString(rawClaim, "claimId");
                     var selectedItem = ReadString(rawClaim, "selectedItem");
-                    var text = ReadString(rawClaim, "text");
+                    var text = RemoveInternalEvidenceAnnotations(
+                        ReadString(rawClaim, "text"));
                     if (string.IsNullOrWhiteSpace(claimId)
                         || string.IsNullOrWhiteSpace(text)
                         || !rawClaim.TryGetProperty(
@@ -158,6 +160,27 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             value ?? string.Empty,
             @"\b(?:internal-source-\d+|advanced-evidence-[0-9a-f]{16,64})\b",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    private static string RemoveInternalEvidenceAnnotations(string value)
+    {
+        const string evidenceId = @"advanced-evidence-[0-9a-f]{16,64}";
+        var cleaned = Regex.Replace(
+            value ?? string.Empty,
+            @"\s*\((?:(?:citation|source|preuve)\s*:\s*)?" + evidenceId + @"\s*\)",
+            string.Empty,
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        cleaned = Regex.Replace(
+            cleaned,
+            @"\b" + evidenceId + @"\b",
+            string.Empty,
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return Regex.Replace(
+                cleaned,
+                @"[ \t]{2,}",
+                " ",
+                RegexOptions.CultureInvariant)
+            .Trim();
+    }
 
     private AdvancedAnalysisProviderResult WithMetrics(
         AdvancedAnalysisProviderResult result,
