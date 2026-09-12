@@ -1,0 +1,30 @@
+{
+  "changedAtUtc": "2026-09-12T06:31:34.2737356+00:00",
+  "path": "backend/SAAIA.Backend/appsettings.Local.json",
+  "gitIgnored": true,
+  "before": {
+    "LicenseAdvancedAnalysisEnabled": true,
+    "Provider": "openai-dev",
+    "LlmLocation": "external-service",
+    "LlmBaseUrl": "https://api.openai.com/v1",
+    "LlmModel": "gpt-5.6-terra",
+    "LlmApiKeyRef": "ENV:SAAIA_ADVANCED_LLM_API_KEY",
+    "WorkerEnabled": true,
+    "AllowExternalProviderContent": true,
+    "AllowExternalProviderMetadata": true
+  },
+  "after": {
+    "LicenseAdvancedAnalysisEnabled": false,
+    "Provider": "disabled",
+    "LlmLocation": "internal",
+    "LlmBaseUrl": "",
+    "LlmModel": "",
+    "LlmApiKeyRef": "",
+    "WorkerEnabled": false,
+    "AllowExternalProviderContent": false,
+    "AllowExternalProviderMetadata": false
+  },
+  "processApiKeyPresent": false,
+  "userApiKeyPresent": false,
+  "machineApiKeyPresent": false
+}

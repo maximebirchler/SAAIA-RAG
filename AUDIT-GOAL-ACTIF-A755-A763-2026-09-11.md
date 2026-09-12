@@ -1493,3 +1493,30 @@ Assessment :
 `artifacts/reprise-pc-20260908/a763-no-internal-daily-quota-2ed56f4-20260912/assessment.v1.json`,
 SHA-256 `6AF9D6697B3D3C1FADB815BAD4350FBA78BB8E0318D5BEFB1601C0FC6CC641A0`.
 Aucun appel fournisseur et aucun coût. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — configuration OpenAI locale mise en quarantaine — 2026-09-12
+
+La revue de l'état de cette machine a trouvé un fichier ignoré
+`backend/SAAIA.Backend/appsettings.Local.json` encore configuré avec la licence
+avancée, `openai-dev`, le worker et les autorisations externes actifs. Aucun
+backend local n'écoutait sur 5122 ou 5123 et aucune clé avancée n'était présente
+dans les environnements processus, utilisateur ou machine ; aucun appel n'était
+donc en cours. Un démarrage manuel ultérieur aurait néanmoins pu réactiver ce
+chemin si une clé était injectée.
+
+L'état local a été neutralisé sans toucher aux autres paramètres du fichier :
+licence avancée désactivée, provider `disabled`, localisation `internal`, worker
+coupé, URL/modèle/référence de clé vidés et autorisations de contenu/métadonnées
+externes fermées. Le fichier reste ignoré et n'est pas distribué par Git. Le
+lanceur A763 crée sa configuration explicite temporaire uniquement après la
+porte Tier 1, puis restaure cette quarantaine dans son bloc `finally`.
+
+Trois tests backend ciblés passent en Release : résolution du provider désactivé
+avant toute configuration fournisseur, worker désactivé sans accès base/provider
+et rejet de l'endpoint avant accès base. Résultat : 3/3, zéro échec.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-local-openai-quarantine-132890a-20260912/assessment.v1.json`,
+SHA-256 `3C5401763E1D62EFE2C8BDC8E32EECE9B4245FCF2A461F6BDAE51D3F64A5BC08`.
+TRX SHA-256 `A9351276EB90340C2C315EA411432B5C11D603D587D7C0253CDF1AFAB22CFE1D`.
+Aucun appel externe ni coût. Produit `TESTE_NON_APPROUVE`.

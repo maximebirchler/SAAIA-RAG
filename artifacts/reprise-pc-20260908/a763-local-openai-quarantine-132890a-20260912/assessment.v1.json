@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "saaia-a763-local-openai-quarantine-assessment-v1",
+  "assessedAtUtc": "2026-09-12T06:32:34.5821172+00:00",
+  "repositoryCommit": "132890a98f0ad5cff9d7af0d095d1595627de529",
+  "verdict": "PASS_LOCAL_OPENAI_CONFIGURATION_QUARANTINED",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "configuration": {
+    "path": "backend/SAAIA.Backend/appsettings.Local.json",
+    "gitIgnored": true,
+    "licenseAdvancedAnalysisEnabled": false,
+    "provider": "disabled",
+    "workerEnabled": false,
+    "llmLocation": "internal",
+    "externalEndpointPresent": false,
+    "externalModelPresent": false,
+    "externalKeyReferencePresent": false,
+    "externalContentAllowed": false,
+    "externalMetadataAllowed": false
+  },
+  "environment": {
+    "processAdvancedKeyPresent": false,
+    "userAdvancedKeyPresent": false,
+    "machineAdvancedKeyPresent": false
+  },
+  "tests": {
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "trxPath": "../a763-local-openai-quarantine-tests-132890a-20260912/disabled-provider.trx",
+    "trxSha256": "A9351276EB90340C2C315EA411432B5C11D603D587D7C0253CDF1AFAB22CFE1D",
+    "validated": [
+      "disabled license resolves disabled provider before provider configuration",
+      "disabled worker does not touch database or provider",
+      "disabled endpoint rejects before database access"
+    ]
+  },
+  "evidence": [
+    {
+      "path": "../a763-local-openai-quarantine-132890a-20260912.json",
+      "sha256": "41DAE274D6B1576086A5998F69A393D5402D780D5A254AFE9BCB17956A0CD9AE"
+    }
+  ],
+  "externalProviderCalls": 0,
+  "externalCostUsd": 0,
+  "note": "The final Terra profile runner creates a temporary explicit configuration and restores this quarantined local file in its finally block."
+}
