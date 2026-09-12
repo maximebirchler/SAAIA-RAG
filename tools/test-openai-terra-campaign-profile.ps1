@@ -120,6 +120,10 @@ $preflight = [ordered]@{
     maximumCostPerJobUsd = [decimal]$profile.budget.maximumCostPerJobUsd
     maximumCampaignCostImpliedByPerJobCapsUsd = [decimal]$profile.budget.maximumCampaignCostImpliedByPerJobCapsUsd
     blockingReasons = $blockingReasons
+    executionState = "NOT_STARTED"
+    executionStartedAtUtc = $null
+    executionEndedAtUtc = $null
+    externalCallMayHaveOccurred = $false
     externalCallExecuted = $false
     productStatus = "TESTE_NON_APPROUVE"
 }
@@ -143,28 +147,44 @@ if ([string]::IsNullOrWhiteSpace($ReferenceBackendUrl)) {
 
 $runArtifactDirectory = Join-Path $ArtifactDirectory "run"
 $runner = Join-Path $PSScriptRoot "test-advanced-product-path-openai.ps1"
-& $runner `
-    -ServerEnvPath $ServerEnvPath `
-    -ReferenceBackendUrl $ReferenceBackendUrl `
-    -BackendPort $BackendPort `
-    -Ids ($caseIds -join ',') `
-    -Repetitions ([int]$profile.bank.repetitions) `
-    -DelayBetweenCasesSeconds ([int]$profile.execution.delayBetweenCasesSeconds) `
-    -MaximumJobAttempts ([int]$profile.execution.maximumJobAttempts) `
-    -MaximumJobRetryDelayMilliseconds ([int]$profile.execution.maximumJobRetryDelayMilliseconds) `
-    -OpenAiModel ([string]$profile.provider.model) `
-    -ObservedOrganizationTier $ObservedOrganizationTier `
-    -AuthorizedBudgetUsd ([decimal]$profile.budget.authorizedLifetimeUsd) `
-    -SoftLimitUsd ([decimal]$profile.budget.softLimitUsd) `
-    -HardLimitUsd ([decimal]$profile.budget.hardStopUsd) `
-    -MaximumCostPerJobUsd ([decimal]$profile.budget.maximumCostPerJobUsd) `
-    -MaximumCallsPerJob ([int]$profile.budget.maximumCallsPerJob) `
-    -LocalLlmExePath $LocalLlmExePath `
-    -LocalModelPath $LocalModelPath `
-    -Configuration ([string]$profile.execution.configuration) `
-    -ArtifactDirectory $runArtifactDirectory
-if ($LASTEXITCODE -ne 0) {
-    throw "OpenAI Terra profile campaign failed with exit code $LASTEXITCODE."
+$preflight.executionState = "STARTED_EXTERNAL_CALLS_POSSIBLE"
+$preflight.executionStartedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
+$preflight.externalCallMayHaveOccurred = $true
+$preflight | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $preflightPath -Encoding utf8
+try {
+    & $runner `
+        -ServerEnvPath $ServerEnvPath `
+        -ReferenceBackendUrl $ReferenceBackendUrl `
+        -BackendPort $BackendPort `
+        -Ids ($caseIds -join ',') `
+        -Repetitions ([int]$profile.bank.repetitions) `
+        -DelayBetweenCasesSeconds ([int]$profile.execution.delayBetweenCasesSeconds) `
+        -MaximumJobAttempts ([int]$profile.execution.maximumJobAttempts) `
+        -MaximumJobRetryDelayMilliseconds ([int]$profile.execution.maximumJobRetryDelayMilliseconds) `
+        -OpenAiModel ([string]$profile.provider.model) `
+        -ObservedOrganizationTier $ObservedOrganizationTier `
+        -AuthorizedBudgetUsd ([decimal]$profile.budget.authorizedLifetimeUsd) `
+        -SoftLimitUsd ([decimal]$profile.budget.softLimitUsd) `
+        -HardLimitUsd ([decimal]$profile.budget.hardStopUsd) `
+        -MaximumCostPerJobUsd ([decimal]$profile.budget.maximumCostPerJobUsd) `
+        -MaximumCallsPerJob ([int]$profile.budget.maximumCallsPerJob) `
+        -LocalLlmExePath $LocalLlmExePath `
+        -LocalModelPath $LocalModelPath `
+        -Configuration ([string]$profile.execution.configuration) `
+        -ArtifactDirectory $runArtifactDirectory
+    if ($LASTEXITCODE -ne 0) {
+        throw "OpenAI Terra profile campaign failed with exit code $LASTEXITCODE."
+    }
 }
+catch {
+    $preflight.executionState = "FAILED_OR_INTERRUPTED_EXTERNAL_CALLS_POSSIBLE"
+    $preflight.executionEndedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
+    $preflight | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $preflightPath -Encoding utf8
+    throw
+}
+$preflight.executionState = "COMPLETED"
+$preflight.executionEndedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
+$preflight.externalCallExecuted = $true
+$preflight | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $preflightPath -Encoding utf8
 
 Write-Output "OpenAI Terra profile campaign completed. Artifact: $ArtifactDirectory"
