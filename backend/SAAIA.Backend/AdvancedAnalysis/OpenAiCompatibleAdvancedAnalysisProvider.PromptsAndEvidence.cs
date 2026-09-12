@@ -23,9 +23,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            be asked to call search_corpus again using reformulated queries.
            Never use site:, a URL, a domain name or outside-source wording. Never
            answer the user. Prefer complementary corpus queries that can cover
-           every requested output unit. For a repeated grid, plan searches for
-           concrete candidates in each semantic column or item family. Search
-           for the content that will fill the cells, not instructions or blank
+           every requested output unit. For every structured layout, also refine
+           the selection contract:
+           distinct_named_items when cells select new named objects and repeats
+           were not explicitly allowed; repeatable_named_items when the request
+           explicitly allows repeated objects; content_claims when cells state
+           facts about subjects already named by the row axis. Do not inherit an
+           incompatible selection contract from the smaller routing model.
+           For a repeated grid, plan searches for concrete candidates in each
+           semantic column or item family. Search for the content that will fill
+           the cells, not instructions or blank
            templates for producing the requested deliverable. Omit row labels
            and layout or scheduling terms when they do not describe the needed
            content itself. Use compact retrieval phrases with useful
@@ -48,7 +55,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            When the user explicitly names documents, emit at least one focused
            query per document. Retain that document's complete identifier in the
            query and add only the subject terms needed to answer the request.
-           Shape: {"queries":[{"query":"...","category":"... or empty","topK":20}]}.
+           Shape: {"selectionMode":"distinct_named_items|repeatable_named_items|content_claims|empty for non-structured","queries":[{"query":"...","category":"... or empty","topK":20}]}.
            """;
 
     private static string BuildResearchReviewSystemPrompt()

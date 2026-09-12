@@ -84,6 +84,105 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         }
     }
 
+    private AdvancedAnalysisProviderRequest ApplyPlannerSelectionMode(
+        AdvancedAnalysisProviderRequest request,
+        string raw)
+    {
+        var load = request.Handoff.Load;
+        if (!load.StructuredLayout)
+            return request;
+
+        string selectionMode;
+        try
+        {
+            using var document = JsonDocument.Parse(UnwrapJson(raw));
+            selectionMode = ReadString(
+                    document.RootElement,
+                    "selectionMode")
+                .Trim()
+                .ToLowerInvariant();
+        }
+        catch (JsonException)
+        {
+            throw new AdvancedAnalysisProviderException(
+                "advanced_planner_selection_mode_invalid");
+        }
+
+        if (selectionMode.Length == 0)
+        {
+            if (_options.AdaptiveResearchEnabled)
+            {
+                throw new AdvancedAnalysisProviderException(
+                    "advanced_planner_selection_mode_invalid");
+            }
+            return request;
+        }
+
+        var (atomicEvidenceMode, selectionPolicy) = selectionMode switch
+        {
+            "distinct_named_items" => (
+                "named_item",
+                "distinct_structured_layout"),
+            "repeatable_named_items" => (
+                "named_item",
+                "structured_layout"),
+            "content_claims" => (
+                "content_claim",
+                "structured_layout"),
+            _ => throw new AdvancedAnalysisProviderException(
+                "advanced_planner_selection_mode_invalid")
+        };
+        if (string.Equals(
+                load.AtomicEvidenceMode,
+                atomicEvidenceMode,
+                StringComparison.Ordinal)
+            && string.Equals(
+                load.SelectionPolicy,
+                selectionPolicy,
+                StringComparison.Ordinal))
+        {
+            return request;
+        }
+
+        var refinedLoad = new AdvancedAnalysisLoadDescriptor
+        {
+            PlanKind = load.PlanKind,
+            Deliverable = load.Deliverable,
+            AnswerUnitCount = load.AnswerUnitCount,
+            AtomicEvidenceCount = load.AtomicEvidenceCount,
+            RowCount = load.RowCount,
+            ColumnCount = load.ColumnCount,
+            StructuredLayout = load.StructuredLayout,
+            AtomicEvidenceType = load.AtomicEvidenceType,
+            AtomicEvidenceMode = atomicEvidenceMode,
+            SelectionPolicy = selectionPolicy,
+            QuestionFocus = load.QuestionFocus,
+            RequestedDocumentName = load.RequestedDocumentName,
+            BoundedNamedDocumentExtraction =
+                load.BoundedNamedDocumentExtraction,
+            CandidateScopePaths = [.. load.CandidateScopePaths],
+            RowLabels = [.. load.RowLabels],
+            Columns = [.. load.Columns]
+        };
+        var handoff = request.Handoff;
+        var refinedHandoff = new AdvancedAnalysisHandoffEnvelope
+        {
+            SchemaVersion = handoff.SchemaVersion,
+            HandoffId = handoff.HandoffId,
+            CreatedAtUtc = handoff.CreatedAtUtc,
+            RequestText = handoff.RequestText,
+            Language = handoff.Language,
+            OriginIntent = handoff.OriginIntent,
+            ReasonCode = handoff.ReasonCode,
+            TransferStage = handoff.TransferStage,
+            Load = refinedLoad,
+            ResearchState = handoff.ResearchState,
+            LocalBudget = handoff.LocalBudget,
+            DataPolicy = handoff.DataPolicy
+        };
+        return request with { Handoff = refinedHandoff };
+    }
+
     private IReadOnlyList<AdvancedAnalysisSearchRequest> ParseResearchReview(
         string raw,
         AdvancedAnalysisProviderRequest request,
@@ -203,6 +302,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                || load.AtomicEvidenceMode.Contains(
                    "one_per",
                    StringComparison.OrdinalIgnoreCase));
+
+    private static string ResolveSelectionMode(
+        AdvancedAnalysisLoadDescriptor load)
+    {
+        if (!load.StructuredLayout)
+            return string.Empty;
+        if (RequiresDistinctStructuredSelection(load))
+            return "distinct_named_items";
+        return string.Equals(
+            load.AtomicEvidenceMode,
+            "named_item",
+            StringComparison.OrdinalIgnoreCase)
+            ? "repeatable_named_items"
+            : "content_claims";
+    }
 
     private static HashSet<string> BuildAllowedPlannerCategories(
         AdvancedAnalysisProviderRequest request,

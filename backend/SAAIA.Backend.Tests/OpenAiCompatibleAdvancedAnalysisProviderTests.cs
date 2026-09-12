@@ -387,7 +387,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     {
         using var factory = new QueuedHttpClientFactory(
             Completion("""
-                {"queries":[{"query":"recettes collation goûter","category":"","topK":20}]}
+                {"selectionMode":"distinct_named_items","queries":[{"query":"recettes collation goûter","category":"","topK":20}]}
                 """),
             Completion("""
                 {"decision":"search_more","queries":[{"query":"encas pause recettes titres","category":"","topK":20}]}
@@ -426,11 +426,37 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Adaptive_structured_planner_requires_a_selection_mode()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"recettes","topK":20}]}"""));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+        var gateway = new RecordingToolGateway(
+            BuildEvidence("E1", "Recette documentée."));
+
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(
+            () => provider.ExecuteAsync(
+                BuildRequest(),
+                gateway,
+                CancellationToken.None));
+
+        Assert.Equal(
+            "advanced_planner_selection_mode_invalid",
+            error.ErrorCode);
+        Assert.Empty(gateway.Searches);
+    }
+
+    [Fact]
     public async Task Structured_synthesis_insufficiency_gets_one_bounded_recovery_pass()
     {
         using var factory = new QueuedHttpClientFactory(
             Completion("""
-                {"queries":[{"query":"recettes","category":"","topK":20}]}
+                {"selectionMode":"distinct_named_items","queries":[{"query":"recettes","category":"","topK":20}]}
                 """),
             Completion("""
                 {"decision":"ready","queries":[]}
@@ -485,7 +511,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     {
         using var factory = new QueuedHttpClientFactory(
             Completion("""
-                {"queries":[{"query":"recettes","category":"","topK":20}]}
+                {"selectionMode":"distinct_named_items","queries":[{"query":"recettes","category":"","topK":20}]}
                 """),
             Completion("""
                 {"decision":"ready","queries":[]}
@@ -531,11 +557,11 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
-    public async Task Structured_unique_selected_items_allow_repeated_generic_claim_text()
+    public async Task Planner_refines_incorrect_local_handoff_to_distinct_named_items()
     {
         using var factory = new QueuedHttpClientFactory(
             Completion("""
-                {"queries":[{"query":"recettes","category":"","topK":20}]}
+                {"selectionMode":"distinct_named_items","queries":[{"query":"recettes","category":"","topK":20}]}
                 """),
             Completion("""
                 {"decision":"ready","queries":[]}
@@ -559,13 +585,14 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         var result = await provider.ExecuteAsync(
             BuildRequest(
                 answerUnitCount: 4,
-                atomicEvidenceMode: "named_item",
-                selectionPolicy: "distinct_structured_layout"),
+                atomicEvidenceMode: "content_claim",
+                selectionPolicy: "structured_layout"),
             gateway,
             CancellationToken.None);
 
         Assert.Equal("answered", result.Outcome);
         Assert.Equal(3, result.ProviderCallCount);
+        Assert.Equal("distinct_named_items", result.SelectionMode);
         Assert.Equal(4, result.Claims.Count);
         Assert.Equal(
             4,
@@ -579,7 +606,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     {
         using var factory = new QueuedHttpClientFactory(
             Completion("""
-                {"queries":[{"query":"recettes","category":"","topK":20}]}
+                {"selectionMode":"distinct_named_items","queries":[{"query":"recettes","category":"","topK":20}]}
                 """),
             Completion("""
                 {"decision":"ready","queries":[]}
@@ -625,7 +652,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     {
         using var factory = new QueuedHttpClientFactory(
             Completion("""
-                {"queries":[{"query":"recettes","category":"","topK":20}]}
+                {"selectionMode":"distinct_named_items","queries":[{"query":"recettes","category":"","topK":20}]}
                 """),
             Completion("""
                 {"decision":"ready","queries":[]}
@@ -670,7 +697,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     {
         using var factory = new QueuedHttpClientFactory(
             Completion("""
-                {"queries":[{"query":"recettes","category":"","topK":20}]}
+                {"selectionMode":"distinct_named_items","queries":[{"query":"recettes","category":"","topK":20}]}
                 """),
             Completion("""
                 {"decision":"ready","queries":[]}
@@ -711,7 +738,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     {
         using var factory = new QueuedHttpClientFactory(
             Completion("""
-                {"queries":[{"query":"recettes","category":"","topK":20}]}
+                {"selectionMode":"distinct_named_items","queries":[{"query":"recettes","category":"","topK":20}]}
                 """),
             Completion("""
                 {"decision":"ready","queries":[]}

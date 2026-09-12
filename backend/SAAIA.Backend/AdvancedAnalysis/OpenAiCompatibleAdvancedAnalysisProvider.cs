@@ -101,6 +101,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     cancellationToken)
                 .ConfigureAwait(false);
             completions.Add(planner);
+            request = ApplyPlannerSelectionMode(request, planner.Content);
             var plannedQueries = AddRequiredDocumentQueries(
                 request,
                 ParsePlan(planner.Content, request, availableCategories));
@@ -189,7 +190,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                         Outcome = "insufficient_documentation",
                         AnswerText = BuildNoEvidenceAnswer(request)
                     },
-                    completions);
+                    completions,
+                    request.Handoff.Load);
             }
 
             var promptEvidence = BuildPromptEvidence(
@@ -318,7 +320,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 synthesisRecoveryErrorCode);
             return WithMetrics(
                 parsed,
-                completions);
+                completions,
+                request.Handoff.Load);
         }
         finally
         {

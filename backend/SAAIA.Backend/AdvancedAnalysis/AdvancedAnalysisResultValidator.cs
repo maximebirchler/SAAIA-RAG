@@ -40,8 +40,14 @@ internal static class AdvancedAnalysisResultValidator
                 "provider_claim_limit_exceeded");
         }
         var providerModel = providerResult.ModelId?.Trim() ?? string.Empty;
+        var selectionMode = providerResult.SelectionMode?.Trim() ?? string.Empty;
         if (providerModel.Length > 256
             || providerResult.ProviderCallCount is < 0 or > 1_024
+            || selectionMode is not (
+                ""
+                or "distinct_named_items"
+                or "repeatable_named_items"
+                or "content_claims")
             || !IsValidUsage(providerResult.InputTokens)
             || !IsValidUsage(providerResult.OutputTokens)
             || !IsValidUsage(providerResult.CachedInputTokens)
@@ -125,6 +131,7 @@ internal static class AdvancedAnalysisResultValidator
             ProviderKey = providerKey,
             ProviderModel = providerModel,
             ProviderCallCount = providerResult.ProviderCallCount,
+            SelectionMode = selectionMode,
             InputTokens = providerResult.InputTokens,
             OutputTokens = providerResult.OutputTokens,
             CachedInputTokens = providerResult.CachedInputTokens,

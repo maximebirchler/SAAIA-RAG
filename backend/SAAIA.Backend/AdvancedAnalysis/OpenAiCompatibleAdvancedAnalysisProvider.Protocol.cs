@@ -143,7 +143,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
     private AdvancedAnalysisProviderResult WithMetrics(
         AdvancedAnalysisProviderResult result,
-        IReadOnlyList<CompletionResult> completions)
+        IReadOnlyList<CompletionResult> completions,
+        AdvancedAnalysisLoadDescriptor load)
         => new()
         {
             Outcome = result.Outcome,
@@ -151,6 +152,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             Claims = result.Claims,
             ModelId = _options.LlmModel.Trim(),
             ProviderCallCount = completions.Count,
+            SelectionMode = ResolveSelectionMode(load),
             InputTokens = SumKnownUsage(
                 completions.Select(static item => item.Usage.InputTokens)),
             OutputTokens = SumKnownUsage(

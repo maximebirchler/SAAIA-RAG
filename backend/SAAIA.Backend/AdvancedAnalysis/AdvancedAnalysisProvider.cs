@@ -33,6 +33,8 @@ internal sealed class AdvancedAnalysisProviderResult
 
     public int ProviderCallCount { get; init; }
 
+    public string SelectionMode { get; init; } = string.Empty;
+
     public int? InputTokens { get; init; }
 
     public int? OutputTokens { get; init; }
