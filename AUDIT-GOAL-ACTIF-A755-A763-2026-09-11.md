@@ -769,6 +769,30 @@ a pour SHA-256
 Aucun appel externe n'a été exécuté et les ports 1234, 5123 et 18081 sont libres.
 Produit `TESTE_NON_APPROUVE`.
 
+## A763 — topologie réseau du serveur on-prem corrigée — 2026-09-12
+
+Le runbook fusionnait `docker-compose.prod.yml` et
+`docker-compose.advanced-llm.yml` avec deux options `-f`. Or le fichier avancé
+déclare `name: saaia-advanced-llm` et un réseau externe `infra_default`, tandis
+que les services principaux sans réseau explicite utilisent le réseau par
+défaut du projet. Selon les règles Docker Compose, le dernier `name:` d'une
+fusion devient le nom du projet : le backend pouvait donc se retrouver sur
+`saaia-advanced-llm_default` et ne pas résoudre `advanced-llm` sur
+`infra_default`.
+
+Le commit `81790611` corrige le runbook : la stack principale crée d'abord son
+réseau, puis le grand modèle est validé et démarré comme projet Compose séparé,
+raccordé au même réseau externe. Le fichier avancé porte aussi un avertissement
+explicite contre la fusion. Six invariants statiques passent. Docker n'est pas
+installé sur ce PC et l'accès SSH par clé au serveur n'est pas disponible ; le
+`docker compose config --quiet` live reste donc à exécuter sur un hôte Docker.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-compose-network-8179061-20260912/assessment.v1.json`,
+SHA-256 `60E405483D37654BDD21F2C7328135A7B740497C5699C0A6A3B2B5EFD60A85DE`.
+Verdict : `PASS_STATIC_NETWORK_TOPOLOGY_LIVE_DOCKER_VALIDATION_PENDING`.
+Produit `TESTE_NON_APPROUVE`.
+
 ## A763 — protocole du serveur client rejoué sur le HEAD courant — 2026-09-12
 
 Le runner `test-advanced-protocol-repair-local.ps1` a été rejoué sur le commit

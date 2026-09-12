@@ -13842,6 +13842,24 @@ analyses PowerShell passent, sans appel externe. Assessment :
 SHA-256 `D26C9629982F978509E360104F2CC99D194434DB03CDAB03A8AC0786E31EF74A`.
 Produit `TESTE_NON_APPROUVE`.
 
+## A763 — séparation Compose du grand modèle rendue cohérente — 2026-09-12
+
+L'audit du déploiement on-prem a trouvé que la commande documentée fusionnait la
+stack principale avec un fichier avancé possédant son propre `name:` et son
+propre réseau externe. Cette combinaison pouvait changer le projet Compose de
+la stack principale et empêcher la résolution DNS de `advanced-llm` depuis le
+backend.
+
+Le commit `81790611` documente désormais l'ordre correct : démarrer la stack
+principale afin de créer son réseau, puis valider et démarrer séparément le
+projet `saaia-advanced-llm`, qui rejoint ce réseau externe. Six contrôles
+statiques passent. La validation réelle par `docker compose config --quiet`
+reste ouverte, car Docker est absent de ce PC et l'authentification SSH par clé
+vers le serveur n'est pas disponible. Assessment :
+`artifacts/reprise-pc-20260908/a763-compose-network-8179061-20260912/assessment.v1.json`,
+SHA-256 `60E405483D37654BDD21F2C7328135A7B740497C5699C0A6A3B2B5EFD60A85DE`.
+Produit `TESTE_NON_APPROUVE`.
+
 ## A763 — non-régression live loopback de la cible on-prem — 2026-09-12
 
 La cible `customer-server` a été exercée au SHA propre `b43c1a8f` avec le vrai

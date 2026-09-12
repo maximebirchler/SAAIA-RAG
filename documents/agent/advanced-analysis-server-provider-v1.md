@@ -123,6 +123,13 @@ fenêtre de contexte et ses paramètres GPU sont des entrées de déploiement. L
 service est raccordé au réseau privé Docker de SAAIA ; le port localhost sert
 uniquement au diagnostic sur l'hôte.
 
+Le grand modèle reste un projet Compose séparé raccordé au réseau externe créé
+par la stack principale. Le runbook ne fusionne plus son fichier avec
+`docker-compose.prod.yml` : le dernier `name:` d'une fusion aurait changé le nom
+du projet principal et pouvait isoler le backend du service `advanced-llm`. La
+stack principale doit créer le réseau, puis le projet avancé est validé et
+démarré séparément.
+
 ## Preuves déjà acquises et preuves manquantes
 
 Les tests simulés couvrent le cycle planner -> tools -> writer, le profil
