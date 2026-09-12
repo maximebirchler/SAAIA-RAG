@@ -21,6 +21,7 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
 {
     internal sealed record Reservation(
         long Id,
+        string RequestId,
         Guid JobId,
         string Role,
         int EstimatedInputTokens,
@@ -94,6 +95,7 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
 
             var reservation = new Reservation(
                 ++_nextReservationId,
+                Guid.NewGuid().ToString("N"),
                 jobId,
                 role,
                 estimatedInputTokens,
@@ -109,7 +111,9 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
 
     internal AdvancedAnalysisBudgetCharge Complete(
         Reservation reservation,
-        AdvancedAnalysisLlmUsage usage)
+        AdvancedAnalysisLlmUsage usage,
+        long elapsedMilliseconds = 0,
+        int httpAttemptCount = 1)
     {
         var hasProviderUsage = usage.InputTokens is >= 0
                                && usage.OutputTokens is >= 0;
@@ -124,10 +128,16 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
             billed,
             hasProviderUsage ? "provider_usage" : "reserved_upper_bound",
             success: true,
-            errorCode: null);
+            errorCode: null,
+            elapsedMilliseconds,
+            httpAttemptCount);
     }
 
-    internal void Fail(Reservation reservation, string errorCode)
+    internal void Fail(
+        Reservation reservation,
+        string errorCode,
+        long elapsedMilliseconds = 0,
+        int httpAttemptCount = 1)
         => Close(
             reservation,
             new AdvancedAnalysisLlmUsage(
@@ -136,26 +146,38 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
                 0),
             "reserved_upper_bound",
             success: false,
-            errorCode);
+            errorCode,
+            elapsedMilliseconds,
+            httpAttemptCount);
 
     internal void Fail(
         Reservation reservation,
         string errorCode,
-        AdvancedAnalysisLlmUsage usage)
+        AdvancedAnalysisLlmUsage usage,
+        long elapsedMilliseconds = 0,
+        int httpAttemptCount = 1)
         => Close(
             reservation,
             usage,
             "provider_usage",
             success: false,
-            errorCode);
+            errorCode,
+            elapsedMilliseconds,
+            httpAttemptCount);
 
-    internal void Reject(Reservation reservation, string errorCode)
+    internal void Reject(
+        Reservation reservation,
+        string errorCode,
+        long elapsedMilliseconds = 0,
+        int httpAttemptCount = 1)
         => Close(
             reservation,
             new AdvancedAnalysisLlmUsage(0, 0, 0),
             "provider_http_rejected",
             success: false,
-            errorCode);
+            errorCode,
+            elapsedMilliseconds,
+            httpAttemptCount);
 
     internal void EndJob(Guid jobId)
     {
@@ -173,7 +195,9 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
         AdvancedAnalysisLlmUsage usage,
         string usageSource,
         bool success,
-        string? errorCode)
+        string? errorCode,
+        long elapsedMilliseconds,
+        int httpAttemptCount)
     {
         lock (_gate)
         {
@@ -195,6 +219,8 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
             AppendLedger(new
             {
                 timestampUtc = DateTimeOffset.UtcNow,
+                requestId = reservation.RequestId,
+                traceId = reservation.JobId,
                 jobId = reservation.JobId,
                 provider = _providerKey,
                 modelId = _modelId,
@@ -207,7 +233,11 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
                     >= _options.ExternalBudgetSoftLimitUsd,
                 success,
                 usageSource,
-                errorCode
+                errorCode,
+                elapsedMilliseconds = Math.Max(0, elapsedMilliseconds),
+                timeToFirstTokenMilliseconds = (long?)null,
+                httpAttemptCount = Math.Max(0, httpAttemptCount),
+                retryCount = Math.Max(0, httpAttemptCount - 1)
             });
             return new AdvancedAnalysisBudgetCharge(usage, cost, usageSource);
         }

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -277,6 +278,8 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
         }
         AdvancedAnalysisExternalBudgetGuard.Reservation? reservation = null;
         string? rejectedErrorCode = null;
+        var stopwatch = Stopwatch.StartNew();
+        var httpAttemptCount = 0;
         if (_budget is not null)
         {
             reservation = _budget.Reserve(
@@ -299,6 +302,7 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
             HttpResponseMessage? response = null;
             for (var attempt = 1; attempt <= maximumHttpAttempts; attempt++)
             {
+                httpAttemptCount = attempt;
                 using var message = new HttpRequestMessage(
                     HttpMethod.Post,
                     ResolveChatCompletionsUri())
@@ -388,7 +392,9 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                             _budget!.Fail(
                                 reservation,
                                 "advanced_llm_content_missing",
-                                usage);
+                                usage,
+                                stopwatch.ElapsedMilliseconds,
+                                httpAttemptCount);
                             reservation = null;
                         }
                         throw new AdvancedAnalysisProviderException(
@@ -399,7 +405,11 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                     {
                         try
                         {
-                            charge = _budget!.Complete(reservation, usage);
+                            charge = _budget!.Complete(
+                                reservation,
+                                usage,
+                                stopwatch.ElapsedMilliseconds,
+                                httpAttemptCount);
                         }
                         finally
                         {
@@ -423,7 +433,11 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
         {
             if (reservation is not null)
             {
-                _budget!.Fail(reservation, "advanced_llm_timeout");
+                _budget!.Fail(
+                    reservation,
+                    "advanced_llm_timeout",
+                    stopwatch.ElapsedMilliseconds,
+                    httpAttemptCount);
             }
             throw new AdvancedAnalysisProviderException(
                 "advanced_llm_timeout");
@@ -433,7 +447,11 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
         {
             if (reservation is not null)
             {
-                _budget!.Fail(reservation, "advanced_llm_canceled");
+                _budget!.Fail(
+                    reservation,
+                    "advanced_llm_canceled",
+                    stopwatch.ElapsedMilliseconds,
+                    httpAttemptCount);
             }
             throw;
         }
@@ -443,7 +461,9 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
             {
                 _budget!.Fail(
                     reservation,
-                    "advanced_llm_transport_error");
+                    "advanced_llm_transport_error",
+                    stopwatch.ElapsedMilliseconds,
+                    httpAttemptCount);
             }
             throw new AdvancedAnalysisProviderException(
                 "advanced_llm_transport_error");
@@ -453,9 +473,17 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
             if (reservation is not null)
             {
                 if (rejectedErrorCode is not null)
-                    _budget!.Reject(reservation, rejectedErrorCode);
+                    _budget!.Reject(
+                        reservation,
+                        rejectedErrorCode,
+                        stopwatch.ElapsedMilliseconds,
+                        httpAttemptCount);
                 else
-                    _budget!.Fail(reservation, ex.ErrorCode);
+                    _budget!.Fail(
+                        reservation,
+                        ex.ErrorCode,
+                        stopwatch.ElapsedMilliseconds,
+                        httpAttemptCount);
             }
             throw;
         }
@@ -463,7 +491,11 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
         {
             if (reservation is not null)
             {
-                _budget!.Fail(reservation, "advanced_llm_call_failed");
+                _budget!.Fail(
+                    reservation,
+                    "advanced_llm_call_failed",
+                    stopwatch.ElapsedMilliseconds,
+                    httpAttemptCount);
             }
             throw;
         }

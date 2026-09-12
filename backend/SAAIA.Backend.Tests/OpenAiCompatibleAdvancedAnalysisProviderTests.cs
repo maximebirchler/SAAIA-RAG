@@ -695,9 +695,10 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             factory,
             options,
             "openai-secret");
+        var request = BuildRequest();
 
         var result = await provider.ExecuteAsync(
-            BuildRequest(),
+            request,
             new RecordingToolGateway(
                 BuildEvidence("E1", "Preuve externe minimale.")),
             CancellationToken.None);
@@ -705,6 +706,41 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal("answered", result.Outcome);
         Assert.Equal(2, result.ProviderCallCount);
         Assert.Equal(3, factory.Requests.Count);
+        var ledgerEntries = File.ReadAllLines(
+                options.ExternalUsageLedgerPath)
+            .Select(static line => JsonDocument.Parse(line))
+            .ToArray();
+        try
+        {
+            Assert.Equal(2, ledgerEntries.Length);
+            Assert.Equal(1, ledgerEntries[0].RootElement
+                .GetProperty("retryCount").GetInt32());
+            Assert.Equal(2, ledgerEntries[0].RootElement
+                .GetProperty("httpAttemptCount").GetInt32());
+            Assert.Equal(0, ledgerEntries[1].RootElement
+                .GetProperty("retryCount").GetInt32());
+            Assert.All(ledgerEntries, entry =>
+            {
+                Assert.False(string.IsNullOrWhiteSpace(entry.RootElement
+                    .GetProperty("requestId").GetString()));
+                Assert.Equal(request.JobId, entry.RootElement
+                    .GetProperty("traceId").GetGuid());
+                Assert.True(entry.RootElement
+                    .GetProperty("elapsedMilliseconds").GetInt64() >= 0);
+                Assert.Equal(JsonValueKind.Null, entry.RootElement
+                    .GetProperty("timeToFirstTokenMilliseconds").ValueKind);
+            });
+            Assert.Equal(2, ledgerEntries
+                .Select(entry => entry.RootElement
+                    .GetProperty("requestId").GetString())
+                .Distinct(StringComparer.Ordinal)
+                .Count());
+        }
+        finally
+        {
+            foreach (var entry in ledgerEntries)
+                entry.Dispose();
+        }
     }
 
     [Fact]
