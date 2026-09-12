@@ -598,12 +598,12 @@ vision actuelle sans déplacer le RAG chez OpenAI, RunPod ou le serveur LLM.
 | Petit modèle sur ce PC | Validé sur banque connue | 14 cas × 3, 42/42 acceptés, seuils de latence respectés, zéro appel externe |
 | Frontière local/clarification/insuffisant/avancé | Validée sur banque connue | Terminaux attendus 3/3 ; holdout aveugle encore requis |
 | Terra réel sur le parcours produit | Validé partiellement | Handoff, Planner, tools, Writer, tokens, coût et persistance observés ; banque finale incomplète |
-| Planning 5 × 4 | Rejeté sur la dernière observation | Forme complète mais relation cellule/preuve insuffisante ; contrat corrigé dans `b20fcc2`, nouveau 3/3 requis |
+| Planning 5 × 4 | Refus sûr, fonctionnellement rejeté sur la dernière observation | Le writer imposait une preuve du jour neutre ; contrat corrigé dans `2ef64f59`, nouveau 3/3 requis |
 | RunPod | Prêt mécaniquement | Endpoint, modèle, profil et harnais configurables ; aucun endpoint ni budget RunPod autorisé |
 | Serveur LLM du client | Prêt architecturalement | Profil `customer-server` et compose préparés ; matériel et modèle final absents |
 | Structured output et citations | Validé mécaniquement | JSON refusé s'il est invalide, réparation unique bornée, claims et preuves revalidés |
 | Streaming direct Local/OpenAI/RunPod | Validé mécaniquement | Chunks SSE normalisés par le même contrat jusqu'à l'UI |
-| Chemin avancé durable | Validé mécaniquement | Progression et résultat atomique après validation ; reprise réelle du même job après deux lancements WinUI |
+| Chemin avancé durable | Validé mécaniquement | Progression et résultat atomique ; reprise après redémarrage et 429 différé, avec heure visible dans WinUI |
 | Streaming token par token avancé | Ouvert | La réponse avancée reste atomique pour ne pas exposer un JSON ou des citations non validés |
 | Timeout, annulation, HTTP et réseau | Validé mécaniquement | `4744d81` normalise aussi les incidents pendant la lecture du corps HTTP ; annulation appelant distincte |
 | Secrets et politique externe | Validé mécaniquement | modes externes désactivés par défaut, autorisations explicites, secretRef/DPAPI, redaction du support bundle |
@@ -625,13 +625,13 @@ a pour SHA-256
 Les portes qui empêchent encore honnêtement l'approbation produit sont :
 
 1. promotion OpenAI Tier 1 ou réponse du support, puis banque Terra complète
-   3/3 sur `b20fcc2` ou un descendant documentaire ;
-2. revue sémantique source par source, avec trois plannings 5 × 4 acceptés ;
-3. inspection terminale dans WinUI d'une réponse avancée réussie et de chaque
-   carte source ;
-4. nouveau holdout aveugle produit sans exposer questions et oracles à la
+   3/3 sur `2ef64f59` ou son descendant final ;
+2. revue sémantique source par source, avec trois plannings 5 × 4 acceptés ou
+   trois insuffisances exactes si le corpus ne permet réellement pas les vingt
+   cellules ;
+3. nouveau holdout aveugle produit sans exposer questions et oracles à la
    session de développement ;
-5. benchmark RunPod autorisé, puis essai du modèle retenu sur un serveur client.
+4. benchmark RunPod autorisé, puis essai du modèle retenu sur un serveur client.
 
 La promotion Tier 1 est la seule porte externe qui bloque actuellement la
 campagne Terra. Le dashboard indique encore `Free tier`, 50 RPD et un solde
@@ -1321,3 +1321,28 @@ Aucun appel externe, aucune transmission et aucun coût nouveau. Cette correctio
 évite de perdre un job sur une limite temporaire ; elle ne supprime pas la
 limite imposée au compte OpenAI et ne remplace pas la banque Terra finale.
 Produit `TESTE_NON_APPROUVE`.
+
+## A763 — reprise fournisseur visible et polling proportionné — 2026-09-12
+
+La reprise durable supprimait l'échec prématuré, mais le contrat HTTP ne
+retournait pas `available_at`. WinUI ne pouvait donc pas distinguer un job
+ordinairement en file d'un job volontairement différé et continuait à lire son
+état toutes les 1,5 seconde, même pour un délai fournisseur de plusieurs minutes
+ou heures.
+
+Le commit `2ab5c758` expose `AvailableAtUtc` dans le DTO, le conserve dans l'état
+client repersisté et adapte le polling. Une tâche immédiatement exécutable garde
+le délai court ; une reprise planifiée espace les lectures jusqu'à une minute,
+avec un maximum configurable de cinq minutes. L'annulation de la fenêtre reste
+réactive et le serveur garde l'autorité sur l'heure réelle. WinUI affiche dans
+les six langues qu'une limite temporaire a été atteinte et que la tâche conservée
+reprendra automatiquement.
+
+Validation : 25/25 tests transport client ; 32/32 endpoints et worker sur
+PostgreSQL 16 jetable ; suite backend Release 2 156 réussites, zéro échec et
+trois ignorés ; suite client Release 2 240 réussites, zéro échec et une sonde
+live ignorée. Le cluster jetable a été arrêté, son secret supprimé et le port
+55432 libéré. Assessment :
+`artifacts/reprise-pc-20260908/a763-provider-retry-visibility-452d74c-20260912/assessment.v1.json`,
+SHA-256 `F41D0E40E3C5F8CAFC2FA35A8ECCE5797C3574F833A729221BFCAE36C48F4E02`.
+Aucun appel fournisseur ni coût. Produit `TESTE_NON_APPROUVE`.

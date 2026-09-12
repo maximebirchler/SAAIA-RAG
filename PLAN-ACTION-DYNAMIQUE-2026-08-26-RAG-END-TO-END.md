@@ -14210,3 +14210,18 @@ SHA-256 `A2B5F89D1077809D9A52E723366F64429CD297D345319A0E6B45DFE40C38639E`.
 La limite OpenAI reste externe et le compte reste `Free tier`. Aucun nouvel
 appel ni coût. La banque Terra 3/3 sur le prompt corrigé reste la prochaine porte
 live. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — heure de reprise exposée au client — 2026-09-12
+
+Le commit `2ab5c758` ajoute `AvailableAtUtc` au contrat de job. WinUI persiste
+cette valeur, espace jusqu'à une minute ses lectures lorsque le serveur a
+planifié une reprise lointaine et explique dans les six langues que la limite
+fournisseur est temporaire. Une tâche ordinaire conserve le polling court.
+
+Les validations comptent 25/25 transport client, 32/32 avec PostgreSQL réel,
+2 156 réussites backend Release et 2 240 réussites client Release, sans échec.
+Assessment :
+`artifacts/reprise-pc-20260908/a763-provider-retry-visibility-452d74c-20260912/assessment.v1.json`,
+SHA-256 `F41D0E40E3C5F8CAFC2FA35A8ECCE5797C3574F833A729221BFCAE36C48F4E02`.
+Aucun appel externe ni coût. Terra 3/3 reste ouverte tant que le compte affiche
+`Free tier`. Produit `TESTE_NON_APPROUVE`.
