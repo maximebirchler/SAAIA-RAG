@@ -237,10 +237,7 @@ n'a été créé à ce stade.
    profil, l'autorisation de dépense dédiée, les crédits et une clé RunPod.
 3. Exécuter le même protocole sur le serveur final du client lorsque son matériel
    et son modèle seront disponibles.
-4. Pendant une réponse avancée terminale acceptée, ouvrir les cartes source
-   exactes dans WinUI. La fermeture puis relance du vrai WinUI et la reprise du
-   même job sont désormais prouvées séparément.
-5. Ouvrir un nouveau holdout aveugle après le gel définitif du code.
+4. Ouvrir un nouveau holdout aveugle après le gel définitif du code.
 
 Le palier RunPod, l'hébergement client et le holdout aveugle dépendent de moyens
 externes encore absents. Le contrat unique permet de changer d'endpoint sans
@@ -253,8 +250,9 @@ L'état courant doit être commité et poussé avec ses tests et son audit. Ensu
 dès que le quota Terra est disponible, la banque avancée est rejouée trois fois
 sans modifier les critères. Un résultat sémantiquement incorrect réouvre la
 cause précise ; trois passages complets autorisent le gel du candidat API. La
-qualification RunPod, l'inspection WinUI des sources terminales et le holdout
-aveugle restent ensuite les dernières preuves avant toute approbation produit.
+qualification RunPod et le holdout aveugle restent ensuite les dernières
+preuves avant toute approbation produit. Le serveur final devra également être
+qualifié dès que son matériel sera disponible.
 
 ## Dernière exécution Terra sur l'état courant et incident du lanceur
 
@@ -1079,6 +1077,51 @@ Assessment :
 `artifacts/reprise-pc-20260908/a763-advanced-http-auth-20260912/assessment.v1.json`,
 SHA-256 `96D2B0E23CE58BE39776955A378A03DB5599C9E2DEE89568DFC4033FEC5C3DF6`.
 Aucun appel externe ni coût nouveau. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — cartes source terminales ouvertes dans le vrai WinUI — 2026-09-12
+
+Le commit `4e26f3dd` ajoute une preuve reproductible du dernier maillon visuel.
+Elle sélectionne le job Terra `7414ebf4-784c-48b2-82c8-6b42b0c0d2bb`, déjà
+jugé `PASS_SEMANTIC_ON_THIS_RUN`, puis vérifie localement les SHA-256 des deux
+PDF avant tout lancement. Les fichiers originaux ont été copiés depuis le
+serveur après contrôle des hashes ; aucune source synthétique ne remplace la
+révision indexée.
+
+La première exécution a révélé un défaut réel : la réponse, les claims et les
+deux cartes étaient terminaux, mais le message gardait l'étiquette
+`En attente`. Le commit `a85e0a23` efface désormais `StatusNote` et
+`ProgressText` lors des statuts `succeeded`, `failed` et `canceled`. Le lanceur
+contrôle cette absence à la fois dans l'arbre d'accessibilité WinUI et dans le
+message repersisté par le backend. Le commit `f312f4ff` place aussi la fenêtre
+SAAIA au premier plan avant la capture afin de ne pas photographier la visionneuse
+PDF qui la recouvre.
+
+Le rejeu final sur `f312f4ff8be9d5a1600a172cf03d770963b891cc` montre la
+réponse avancée acceptée, deux cartes et deux boutons `Ouvrir`, sans statut
+obsolète. Le premier bouton ouvre `9782317030376.pdf` à la page 1. Le journal
+confirme la révision `3c0f073d-004d-020c-0cff-922cd49d10be`, le chunk
+`427871a4-e96b-3a6d-211d-2c2d4f9c1810` et l'obligation de hash exact.
+
+Verdict : `PASS_REAL_WINUI_TERMINAL_SOURCE_CARDS_AND_EXACT_OPEN`. Assessment :
+`artifacts/reprise-pc-20260908/a763-winui-terminal-sources-f312f4f-20260912/assessment.v1.json`,
+SHA-256 `853571AC5FDF7ECCAC579FEBBE891A443FCC14BD18B825A7EF615509DCBAFDD2`.
+Le résultat, la capture, le journal et le shutdown ont respectivement les hashes
+`4F2720C61097FC2DCD29D9AA1B314DA776D0FEA23270054D8D55E74904917108`,
+`8B684A7603CD92B185B175B8946BCAB9ED14A8B0CFAE2E1B30AD408ED6B83C8B`,
+`3EAD03F3DC22381AE2F7C2E38B57B34A9B5B8218B6091A6637675DAD2BD0CEA0`
+et `0F2766D1FCAB62BE3A9FABB8BE550168FF05CB2B0712A6094CC5BB2514986834`.
+
+Les 210 tests ciblés de transport avancé, modèle de message, localisation et
+citation PDF passent. La suite cliente Release complète compte 2 238 réussites,
+zéro échec et une sonde live opt-in ignorée sur 2 239 ; son TRX a le SHA-256
+`D2BEB86A537B258DCBFA3697476C3CC491720B09F23DFD5AA7C3D8A426A6045D`.
+
+Le backend temporaire et WinUI sont arrêtés, les ports 5123 et 1234 sont libres,
+les réglages utilisateur et les fichiers locaux sont restaurés. Aucun appel de
+modèle, aucune nouvelle transmission de contenu vers un fournisseur externe et
+aucun coût n'ont eu lieu. Cette preuve ferme le gate WinUI des sources terminales ;
+elle ne transforme pas l'unique réussite sémantique source en banque 3/3. Produit
+`TESTE_NON_APPROUVE`.
 
 ## A763 — suite PostgreSQL assainie sans réintroduire de sémantique métier — 2026-09-12
 

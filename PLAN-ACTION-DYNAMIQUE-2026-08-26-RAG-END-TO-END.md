@@ -14109,4 +14109,32 @@ sur la suite cliente Release, avec uniquement la probe live opt-in ignorée.
 Assessment :
 `artifacts/reprise-pc-20260908/a763-canonical-product-path-435e73b-20260912/assessment.v1.json`,
 SHA-256 `2A0E41A59E43AF6F5EE075379AAEDB631D0C239847B3F9A257DDBEF8C73FE413`.
-La qualité live et WinUI restent ouvertes. Produit `TESTE_NON_APPROUVE`.
+La qualité live reste ouverte. Le rendu terminal et l'ouverture des sources dans
+le vrai WinUI sont qualifiés séparément ci-dessous. Produit
+`TESTE_NON_APPROUVE`.
+
+## A763 — preuve réelle des cartes source terminales WinUI — 2026-09-12
+
+`tools/test-advanced-winui-terminal-sources.ps1` rejoue localement un résultat
+Terra scellé sans appeler le fournisseur. Il exige une branche suivie propre,
+un résultat terminal exporté, les PDF originaux et leurs SHA-256 exacts. Il crée
+un job et un message isolés, lance le vrai client, observe les cartes par
+l'accessibilité Windows, vérifie la persistance backend, clique sur `Ouvrir` et
+exige le succès avec l'identité de révision et de chunk attendue.
+
+La première passe a découvert que `StatusNote=En attente` survivait au passage
+terminal. `a85e0a23` efface ce statut et le texte de progression dans les trois
+issues terminales. `f312f4ff` rend aussi la capture déterministe en donnant le
+focus à SAAIA avant la copie de sa fenêtre.
+
+Le rejeu final affiche deux cartes de la réponse étudiant déjà acceptée et ouvre
+la source exacte `9782317030376.pdf`, page 1. Zéro étiquette terminale obsolète
+est présente, et le message persistant ne contient plus ni statut ni progression.
+Assessment :
+`artifacts/reprise-pc-20260908/a763-winui-terminal-sources-f312f4f-20260912/assessment.v1.json`,
+SHA-256 `853571AC5FDF7ECCAC579FEBBE891A443FCC14BD18B825A7EF615509DCBAFDD2`.
+Les 210 tests ciblés et la suite cliente Release complète passent : 2 238
+réussites, zéro échec et une sonde live ignorée sur 2 239. Aucun appel LLM,
+aucune transmission externe nouvelle et aucun coût. Le gate
+WinUI terminal est fermé ; la banque Terra 3/3, le fournisseur final, le serveur
+client et le holdout aveugle restent ouverts. Produit `TESTE_NON_APPROUVE`.
