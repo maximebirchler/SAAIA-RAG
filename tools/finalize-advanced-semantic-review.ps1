@@ -50,9 +50,11 @@ $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 if ([string]$manifest.schemaVersion -ne "saaia-advanced-semantic-review-public-manifest-v1") {
     throw "Unsupported semantic review manifest schema."
 }
-if ([bool]$manifest.privateArtifactsMayLeaveWorkspace -or
+if (($null -ne $manifest.PSObject.Properties["approvalEligible"] -and
+        -not [bool]$manifest.approvalEligible) -or
+    [bool]$manifest.privateArtifactsMayLeaveWorkspace -or
     [string]$manifest.semanticVerdict -ne "PENDING_HUMAN_REVIEW") {
-    throw "The review manifest does not describe a pending private review."
+    throw "The review manifest is not eligible for an acceptance decision."
 }
 if ((Get-FileSha256 $bundlePath) -ne [string]$manifest.privateBundleSha256 -or
     (Get-FileSha256 $reviewPath) -ne [string]$manifest.privateReviewSha256) {

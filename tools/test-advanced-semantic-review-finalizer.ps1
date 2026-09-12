@@ -28,6 +28,7 @@ function New-ReviewFixture {
         [string[]]$Verdicts,
         [switch]$MissingReason,
         [switch]$UnknownJob,
+        [switch]$DiagnosticManifest,
         [int]$UnresolvedEvidence = 0
     )
     $directory = Join-Path $ArtifactDirectory $Name
@@ -78,7 +79,13 @@ function New-ReviewFixture {
         privateReviewSha256 = (Get-FileHash -LiteralPath $reviewPath -Algorithm SHA256).Hash
         privateDecisionTemplateSha256 = (Get-FileHash -LiteralPath $decisionPath -Algorithm SHA256).Hash
         privateArtifactsMayLeaveWorkspace = $false
-        semanticVerdict = "PENDING_HUMAN_REVIEW"
+        approvalEligible = -not [bool]$DiagnosticManifest
+        reviewMode = if ($DiagnosticManifest) { "DIAGNOSTIC_ONLY" } else { "ACCEPTANCE" }
+        semanticVerdict = if ($DiagnosticManifest) {
+            "PENDING_DIAGNOSTIC_REVIEW"
+        } else {
+            "PENDING_HUMAN_REVIEW"
+        }
         productStatus = "TESTE_NON_APPROUVE"
     }
     Write-JsonFile (Join-Path $directory "manifest.public.json") $manifest
@@ -124,6 +131,13 @@ try { & $finalizer -ReviewArtifactDirectory $unknownJob | Out-Null } catch { $un
 Add-TestResult "unknown durable job is refused" `
     ($unknownJobRejected -and -not (Test-Path -LiteralPath (Join-Path $unknownJob "semantic-assessment.public.json"))) `
     "rejected=$unknownJobRejected"
+
+$diagnostic = New-ReviewFixture "diagnostic" @("PASS_SEMANTIC", "PASS_SEMANTIC") -DiagnosticManifest
+$diagnosticRejected = $false
+try { & $finalizer -ReviewArtifactDirectory $diagnostic | Out-Null } catch { $diagnosticRejected = $true }
+Add-TestResult "diagnostic campaign cannot be finalized as acceptance" `
+    ($diagnosticRejected -and -not (Test-Path -LiteralPath (Join-Path $diagnostic "semantic-assessment.public.json"))) `
+    "rejected=$diagnosticRejected"
 
 $results | Format-Table -AutoSize | Out-String | Write-Output
 $failed = @($results | Where-Object { -not $_.passed })

@@ -3,6 +3,7 @@ param(
     [Parameter(Mandatory = $true)][string]$CampaignArtifactDirectory,
     [Parameter(Mandatory = $true)][string]$ServerEnvPath,
     [ValidateRange(1, 200)][int]$ExpectedRows = 12,
+    [switch]$DiagnosticMode,
     [string]$ArtifactDirectory = ""
 )
 
@@ -60,13 +61,27 @@ if (-not (Test-Path -LiteralPath $profilePreflightPath -PathType Leaf)) {
     throw "Campaign profile preflight seal is missing."
 }
 $profilePreflight = Get-Content -LiteralPath $profilePreflightPath -Raw | ConvertFrom-Json
-if ([string]$profilePreflight.executionState -ne "COMPLETED") {
-    throw "Campaign profile is not marked COMPLETED."
+$campaignExecutionState = [string]$profilePreflight.executionState
+$approvalEligible = $campaignExecutionState -eq "COMPLETED"
+$diagnosticEligible = $DiagnosticMode -and
+    $campaignExecutionState -eq "FAILED_OR_INTERRUPTED_EXTERNAL_CALLS_POSSIBLE"
+if (-not $approvalEligible -and -not $diagnosticEligible) {
+    throw "Campaign profile is not marked COMPLETED. Use -DiagnosticMode only to inspect successful rows from a failed or interrupted campaign."
 }
 $repositoryCommit = (& git -C $repositoryRoot rev-parse HEAD 2>$null).Trim()
 $trackedDirty = @(& git -C $repositoryRoot status --porcelain --untracked-files=no 2>$null).Count -gt 0
-if ($trackedDirty -or $repositoryCommit -ne [string]$profilePreflight.repositoryCommit) {
-    throw "Semantic review must be prepared from the exact clean campaign commit."
+$campaignRepositoryCommit = [string]$profilePreflight.repositoryCommit
+if ($trackedDirty) {
+    throw "Semantic review must be prepared from a clean tracked worktree."
+}
+if ($approvalEligible -and $repositoryCommit -ne $campaignRepositoryCommit) {
+    throw "Acceptance review must be prepared from the exact clean campaign commit."
+}
+if ($diagnosticEligible) {
+    & git -C $repositoryRoot merge-base --is-ancestor $campaignRepositoryCommit HEAD 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Diagnostic review must run from the campaign commit or a clean descendant."
+    }
 }
 
 $resultFiles = @(Get-ChildItem -LiteralPath $CampaignArtifactDirectory -Recurse -Filter "*.jsonl" -File | Sort-Object FullName)
@@ -167,7 +182,11 @@ foreach ($record in $records) { $recordsByJob[$record.jobId] = $record }
 $lines = [System.Collections.Generic.List[string]]::new()
 $lines.Add("# Private semantic review of the advanced campaign")
 $lines.Add("")
-$lines.Add("Initial status: PENDING_REVIEW - this file is not a verdict.")
+$lines.Add($(if ($approvalEligible) {
+    "Initial status: PENDING_REVIEW - this file is not a verdict."
+} else {
+    "Initial status: DIAGNOSTIC_ONLY - this incomplete campaign cannot be approved."
+}))
 $lines.Add("Each claim must be compared with the canonical text below.")
 foreach ($job in @($bundle.jobs | Sort-Object jobId)) {
     $jobId = [string]$job.jobId
@@ -245,6 +264,10 @@ $manifest = [ordered]@{
     schemaVersion = "saaia-advanced-semantic-review-public-manifest-v1"
     createdAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
     repositoryCommit = $repositoryCommit
+    campaignRepositoryCommit = $campaignRepositoryCommit
+    campaignExecutionState = $campaignExecutionState
+    reviewMode = $(if ($approvalEligible) { "ACCEPTANCE" } else { "DIAGNOSTIC_ONLY" })
+    approvalEligible = $approvalEligible
     campaignPreflightSha256 = (Get-FileHash -LiteralPath $profilePreflightPath -Algorithm SHA256).Hash
     resultFileSha256 = @($resultFiles | ForEach-Object {
         (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
@@ -259,7 +282,11 @@ $manifest = [ordered]@{
     privateReviewSha256 = (Get-FileHash -LiteralPath $reviewPath -Algorithm SHA256).Hash
     privateDecisionTemplateSha256 = (Get-FileHash -LiteralPath $decisionPath -Algorithm SHA256).Hash
     privateArtifactsMayLeaveWorkspace = $false
-    semanticVerdict = "PENDING_HUMAN_REVIEW"
+    semanticVerdict = $(if ($approvalEligible) {
+        "PENDING_HUMAN_REVIEW"
+    } else {
+        "PENDING_DIAGNOSTIC_REVIEW"
+    })
     productStatus = "TESTE_NON_APPROUVE"
 }
 $manifestPath = Join-Path $ArtifactDirectory "manifest.public.json"

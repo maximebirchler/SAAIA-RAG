@@ -171,6 +171,23 @@ workspace : ils ne doivent être ni versionnés, ni envoyés à Telegram, ni
 transmis à un fournisseur. Le statut produit reste `TESTE_NON_APPROUVE` tant que
 les douze réponses finales n'ont pas reçu un verdict sémantique explicite.
 
+Une campagne échouée ou interrompue ne devient jamais admissible à
+l'approbation. Ses lignes réussies peuvent néanmoins être extraites pour un
+diagnostic causal depuis le commit de campagne ou un descendant propre :
+
+```powershell
+pwsh -NoProfile -File .\tools\prepare-advanced-semantic-review.ps1 `
+  -CampaignArtifactDirectory <repertoire-de-la-campagne-echouee> `
+  -ServerEnvPath <chemin-vers-.env.server-linux> `
+  -ExpectedRows <nombre-de-lignes-reussies> `
+  -DiagnosticMode
+```
+
+Le manifeste porte alors `reviewMode=DIAGNOSTIC_ONLY`,
+`approvalEligible=false` et `PENDING_DIAGNOSTIC_REVIEW`. Le finaliseur
+d'approbation le refuse. Ce mode sert uniquement à comparer les sorties aux
+preuves canoniques sans perdre l'incident et sans relancer un cas observé.
+
 Pour chaque entrée de `semantic-decisions.private.json`, comparer la réponse au
 texte canonique dans `semantic-review.private.md`, remplacer `PENDING_REVIEW`
 par `PASS_SEMANTIC` ou `REJECT_SEMANTIC`, puis écrire un motif précis. Ne pas
