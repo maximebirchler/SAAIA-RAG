@@ -199,6 +199,8 @@ function Save-WindowScreenshot {
         [Parameter(Mandatory = $true)][string]$Path
     )
 
+    $Window.SetFocus()
+    Start-Sleep -Milliseconds 500
     $bounds = $Window.Current.BoundingRectangle
     $left = [Math]::Max(0, [int][Math]::Floor($bounds.Left))
     $top = [Math]::Max(0, [int][Math]::Floor($bounds.Top))
@@ -218,6 +220,7 @@ function Save-WindowScreenshot {
     finally {
         $bitmap.Dispose()
     }
+    return $true
 }
 
 function Wait-ForTerminalSourceUi {
@@ -692,7 +695,9 @@ try {
         -not [string]::IsNullOrWhiteSpace([string]$persistedProgressText)) {
         throw 'The terminal assistant message retained a pending status or progress label.'
     }
-    Save-WindowScreenshot -Window $window -Path (Join-Path $ArtifactDirectory 'terminal-source-cards.png')
+    $sourceCardWindowFocusedForCapture = Save-WindowScreenshot `
+        -Window $window `
+        -Path (Join-Path $ArtifactDirectory 'terminal-source-cards.png')
 
     $firstEvidence = $evidence[0]
     $invokePattern = $openButtons[0].GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
@@ -718,6 +723,7 @@ try {
         terminalSourcesObservedAtUtc=$observation.observedAtUtc
         staleTerminalStatusLabelCount=$observation.staleTerminalStatusLabelCount
         persistedTerminalStatusCleared=$true
+        sourceCardWindowFocusedForCapture=$sourceCardWindowFocusedForCapture
         exactSourceOpenedAtUtc=$sourceOpenedAtUtc
         openedEvidence=[ordered]@{
             evidenceId=[string]$firstEvidence.evidenceId;docId=[string]$firstEvidence.docId
