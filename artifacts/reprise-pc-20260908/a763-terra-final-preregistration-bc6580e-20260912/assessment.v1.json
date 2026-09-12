@@ -1,6 +1,6 @@
 {
   "schemaVersion": "saaia-a763-terra-final-preregistration-assessment-v1",
-  "assessedAtUtc": "2026-09-12T06:16:22.4283545+00:00",
+  "assessedAtUtc": "2026-09-12T08:16:22.4283545+02:00",
   "repositoryCommit": "bc6580e2c19b6939bb039694064a6ac699a68aa0",
   "repositoryBranch": "SAAIA_V3.1",
   "verdict": "PASS_LOCAL_PREREGISTRATION_WAITING_FOR_OPENAI_PAID_TIER",
@@ -43,7 +43,7 @@
     },
     {
       "path": "free-tier-guard.powershell51.log",
-      "sha256": "257AF34342FCEC96B5690B1BC6AAEAAEF526930CC2017CAE12D4A1B02BAA30DE"
+      "sha256": "6FFA27BAE6F31A51DAF76BE7AA177774D459ACA2E90F88787891E15B11F99B89"
     }
   ],
   "remainingBlockers": [

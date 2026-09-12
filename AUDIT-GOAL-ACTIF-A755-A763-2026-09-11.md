@@ -1399,7 +1399,7 @@ répertoire d'exécution et n'effectue aucun appel externe.
 
 Assessment :
 `artifacts/reprise-pc-20260908/a763-terra-final-preregistration-bc6580e-20260912/assessment.v1.json`,
-SHA-256 `48AE2BA3AF1C0D093B1634018908D55F134495ED813D5A8B02EEED35634C1B53`.
+SHA-256 `A3FF7DBC694CA1DCDC3C901B9370B39E84F1E6204D537D4C829C1DB4A1ECC2CB`.
 Aucun appel OpenAI ou RunPod, aucune transmission de preuve et aucun coût. La
 banque finale reste automatiquement bloquée jusqu'au Tier 1. Produit
 `TESTE_NON_APPROUVE`.

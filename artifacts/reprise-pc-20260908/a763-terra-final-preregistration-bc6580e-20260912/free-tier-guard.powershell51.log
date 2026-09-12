@@ -1,9 +1,3 @@
-OpenAI product-path campaigns require a freshly verified paid tier (Tier1 through Tier5). Free-tier model calls are 
-blocked.
-Au caractère C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\tools\test-advanced-product-path-provider.ps1:164 : 9
-+         throw "OpenAI product-path campaigns require a freshly verifi ...
-+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : OperationStopped: (OpenAI product-...ls are blocked.:String) [], RuntimeException
-    + FullyQualifiedErrorId : OpenAI product-path campaigns require a freshly verified paid tier (Tier1 through Tier5) 
-   . Free-tier model calls are blocked.
- 
+EXPECTED_PROCESS_EXIT=1
+ARTIFACT_CREATED=False
+MESSAGE=OpenAI product-path campaigns require a freshly verified paid tier (Tier1 through Tier5). Free-tier model calls are blocked.
