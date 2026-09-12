@@ -1346,3 +1346,60 @@ live ignorée. Le cluster jetable a été arrêté, son secret supprimé et le p
 `artifacts/reprise-pc-20260908/a763-provider-retry-visibility-452d74c-20260912/assessment.v1.json`,
 SHA-256 `AA01BAC17291A8EABDF9CC5DFD39B5ABF55DAAF366D53FDE58C00226CBFDD870`.
 Aucun appel fournisseur ni coût. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — campagne Terra finale préenregistrée et Free tier bloqué — 2026-09-12
+
+Le contrôle du tableau de bord a confirmé qu'aucun réglage de projet ne peut
+supprimer le quota Terra : le projet peut uniquement abaisser les maxima hérités
+de l'organisation. Le solde prépayé est disponible, mais l'organisation reste
+affichée en `Free tier`. La limite externe n'a donc pas été contournée et aucun
+nouvel achat n'a été effectué.
+
+Le commit `bc6580e2` retire en revanche la limite interne qui empêchait le
+lanceur de validation de profiter de la reprise durable. Le harnais ne force
+plus `MaximumAttempts = 1` : il utilise trois tentatives configurables et scelle
+ce nombre ainsi que le délai maximal de replanification. Pour cette campagne,
+chaque délai planifié est borné à dix minutes afin que le test de trente minutes
+ne laisse pas silencieusement un job différé pendant des heures. Le comportement
+produit général conserve son plafond configurable de vingt-quatre heures.
+
+Le profil `config/openai-terra-final-campaign.a763.json` préenregistre avant toute
+nouvelle réponse :
+
+- les quatre cas A755-ADV-01 à A755-ADV-04 et le hash exact de la banque ;
+- trois répétitions sur un unique commit propre, soit douze sorties attendues ;
+- Terra, le mode `openai-dev`, trente secondes entre les cas et une configuration
+  Release ;
+- le budget autorisé de 25 USD, l'arrêt global à 24 USD, quatre appels maximum
+  par job et un plafond resserré à 0,15 USD par job ;
+- un pire cas théorique de 1,80 USD pour les douze jobs, contre environ vingt-
+  quatre appels en fonctionnement normal ;
+- les critères sémantiques distincts du simple contrôle mécanique.
+
+Pour le planning, un résultat fonctionnel doit contenir vingt cellules distinctes
+dont chaque catégorie de repas est soutenue par la preuve ; les jours restent
+des coordonnées neutres. Une insuffisance exacte est sûre et peut valider le
+comportement d'abstention, mais elle ne ferme pas la porte fonctionnelle du
+planning. Pour les cinq repas, les qualificatifs `simple` et `étudiant` ne
+peuvent plus être abandonnés silencieusement. Les critères CEN/IEC et NIST sont
+également figés dans le même profil.
+
+Le nouveau lanceur profilé exige une observation `Tier1` à `Tier5` vieille de
+moins de quinze minutes. Sa valeur par défaut est `Free`; le lanceur commun
+refuse alors avant lecture du fichier d'environnement, déchiffrement de la clé,
+création d'artefact de campagne ou appel réseau. Le préflight scelle aussi la
+branche, le SHA Git, l'absence de modification suivie, l'ascendance du correctif
+sémantique et le hash de la banque.
+
+Les validations locales passent sous PowerShell 7 et Windows PowerShell 5.1.
+Sur le commit propre `bc6580e2`, tous les contrôles Git, banque et profil sont
+verts ; les seuls motifs de blocage sont l'absence de palier payant observé et
+de son horodatage frais. Le test négatif Free tier sort en erreur, ne crée aucun
+répertoire d'exécution et n'effectue aucun appel externe.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-terra-final-preregistration-bc6580e-20260912/assessment.v1.json`,
+SHA-256 `48AE2BA3AF1C0D093B1634018908D55F134495ED813D5A8B02EEED35634C1B53`.
+Aucun appel OpenAI ou RunPod, aucune transmission de preuve et aucun coût. La
+banque finale reste automatiquement bloquée jusqu'au Tier 1. Produit
+`TESTE_NON_APPROUVE`.

@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "saaia-a763-terra-final-preregistration-assessment-v1",
+  "assessedAtUtc": "2026-09-12T06:16:22.4283545+00:00",
+  "repositoryCommit": "bc6580e2c19b6939bb039694064a6ac699a68aa0",
+  "repositoryBranch": "SAAIA_V3.1",
+  "verdict": "PASS_LOCAL_PREREGISTRATION_WAITING_FOR_OPENAI_PAID_TIER",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "externalProviderCalls": 0,
+  "externalCostUsd": 0,
+  "runPodAuthorized": false,
+  "profile": {
+    "path": "config/openai-terra-final-campaign.a763.json",
+    "sha256": "809FCEEA9A3BC58094A3EC185EE01E2F7A3666261D4EB1E88ED392DEF25F34C6",
+    "caseCount": 4,
+    "repetitions": 3,
+    "expectedRows": 12,
+    "maximumCostPerJobUsd": 0.15,
+    "maximumCampaignCostImpliedByPerJobCapsUsd": 1.8
+  },
+  "gates": {
+    "branchAndSemanticAncestor": "PASS",
+    "questionBankHash": "PASS",
+    "trackedTreeOnCleanPreflight": "PASS",
+    "pwsh7ProfilePreflight": "PASS_BLOCKED_ONLY_BY_PAID_TIER",
+    "windowsPowerShell51ProfilePreflight": "PASS_BLOCKED_ONLY_BY_PAID_TIER",
+    "freeTierDirectRunnerGuard": "PASS_REJECTED_BEFORE_ARTIFACT_OR_NETWORK",
+    "paidTierFreshnessWindowMinutes": 15,
+    "openAiPaidTier": "WAITING"
+  },
+  "retryPolicy": {
+    "maximumJobAttempts": 3,
+    "maximumScheduledRetryDelayMilliseconds": 600000,
+    "note": "Campaign harness no longer forces one terminal attempt; production default remains three attempts with a longer configurable delay."
+  },
+  "evidence": [
+    {
+      "path": "profile-preflight.pwsh7.json",
+      "sha256": "44C639E0A0C164DCA3EC1BE902BAB507B679D46BB11382303F66B4C8B88D17F6"
+    },
+    {
+      "path": "profile-preflight.powershell51.json",
+      "sha256": "6AB8F2A317CECE8E3A29106CA1066D3B9BA2B2E7DE3D6FA617679BFEDA44EFC5"
+    },
+    {
+      "path": "free-tier-guard.powershell51.log",
+      "sha256": "257AF34342FCEC96B5690B1BC6AAEAAEF526930CC2017CAE12D4A1B02BAA30DE"
+    }
+  ],
+  "remainingBlockers": [
+    "OpenAI organization still displayed Free tier during the latest read-only check.",
+    "Final Terra 4-case by 3-repetition execution and semantic review are not yet executed.",
+    "Blind holdout, authorized RunPod benchmark and customer-server model qualification remain pending."
+  ]
+}
