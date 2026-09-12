@@ -13659,3 +13659,32 @@ est nul. Le gel sémantique est déplacé à `b20fcc2`; la banque Terra 3/3 et s
 revue humaine doivent maintenant éprouver cette règle avant toute décision sur
 un Critic additionnel. ADR :
 `ADR-2026-09-12-A763-RELATION-CELLULE-PREUVE.md`.
+
+## A763 — reprise avancée liée au fournisseur et au modèle — 2026-09-12
+
+Un audit de la reprise durable a identifié que la prise de bail réécrivait
+`provider_key`. Après expiration d'un bail, un changement de configuration
+pouvait donc poursuivre le même job sur un autre fournisseur ou modèle. Le
+commit `3658d9cf` ajoute la migration 067, persiste `provider_model` et lie le
+couple lors de la première exécution. Toute incompatibilité ultérieure échoue
+avec `provider_configuration_changed`, sans appel du nouveau fournisseur et
+sans écraser l'identité initiale.
+
+La preuve PostgreSQL réelle couvre le changement
+`openai-dev/terra-v1` vers `customer-server/qwen-v2`, la reprise positive avec
+identité inchangée et la revalidation des preuves : 3/3. La validation complète
+Release est à 4 391 réussites, zéro échec et deux probes live ignorées. Le
+provider HTTP loopback repasse sur le commit exact : plan, Writer tronqué,
+réparation unique, vingt claims et vingt EvidenceIds. Les ports temporaires sont
+libres et aucun secret n'est présent dans le diff.
+
+Le flux local conserve son streaming normalisé. Le flux avancé durable publie
+des états de progression et une réponse atomique après validation ; le streaming
+token par token du Writer avancé reste un choix UX ouvert afin de ne jamais
+exposer de JSON ou de citations non validés. La matrice d'acceptation complète
+est dans `ADR-2026-09-12-A763-AFFINITE-FOURNISSEUR-MODELE.md`.
+
+La prochaine porte sémantique reste la banque Terra complète 3/3 sur le prompt
+d'ancrage corrigé, dès que le palier fournisseur le permet. RunPod n'est pas
+appelé sans autorisation de dépense dédiée et le produit demeure
+`TESTE_NON_APPROUVE`.

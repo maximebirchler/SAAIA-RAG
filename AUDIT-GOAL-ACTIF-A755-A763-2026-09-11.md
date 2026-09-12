@@ -374,6 +374,45 @@ prétend pas supprimer un plafond RPD. La preuve encore requise reste une banque
 complète 3/3 sur un quota réellement disponible ou après activation du Tier 1.
 Le produit reste `TESTE_NON_APPROUVE`.
 
+## Affinité durable du fournisseur et audit de l'architecture hybride
+
+L'audit SQL a trouvé une bascule implicite possible pendant la reprise d'un job
+avancé. `TryClaimAsync` réécrivait `provider_key` lors de chaque nouvelle prise
+de bail. Un job commencé avec OpenAI puis récupéré après redémarrage sous RunPod
+ou `customer-server` pouvait donc mélanger deux modèles et réutiliser la trace
+d'outils du premier essai.
+
+Le commit `3658d9cf` lie maintenant le job au couple fournisseur/modèle lors de
+sa première prise de bail. La migration 067 persiste `provider_model`. Une
+reprise avec un couple différent termine explicitement le job avec
+`provider_configuration_changed`, conserve l'identité initiale et n'appelle pas
+le fournisseur de remplacement. Le client affiche une explication spécifique,
+ne publie aucun contenu non validé et conserve le couple lié dans son état
+durable.
+
+La preuve PostgreSQL réelle exécute trois tests sur des bases temporaires : le
+scénario `openai-dev/terra-v1` vers `customer-server/qwen-v2` échoue fermé avec
+zéro appel du remplacement, tandis que la reprise avec une identité inchangée
+continue et revalide les preuves. Les trois tests passent et les bases sont
+supprimées. La solution Release totalise ensuite 4 391 réussites, zéro échec et
+deux sondes live opt-in non exécutées. Le vrai provider HTTP loopback repasse sur
+le SHA exact avec trois appels, vingt claims et vingt preuves.
+
+La cartographie finale distingue deux flux. Le chemin simple reste entièrement
+local et diffuse les chunks via `ILlmProvider.StreamAsync`. Le chemin complexe
+crée un handoff explicite puis un job backend durable ; il expose des révisions,
+la progression des outils et une reprise WinUI, puis publie la réponse complète
+après validation du JSON, des claims et des citations. Il ne diffuse donc pas
+encore les tokens du Writer avancé. Cet écart UX est documenté comme ouvert :
+une évolution ne devra jamais afficher un JSON incomplet ou des citations non
+validées.
+
+ADR et matrice complète :
+`ADR-2026-09-12-A763-AFFINITE-FOURNISSEUR-MODELE.md`. Les portes sémantiques ne
+changent pas : banque Terra 3/3 sur `b20fcc2` ou descendant, RunPod autorisé,
+serveur client réel, inspection terminale WinUI et holdout aveugle. Produit
+`TESTE_NON_APPROUVE`.
+
 ## A763 — revue sémantique partielle et relation cellule/preuve — 2026-09-12
 
 Les quatre jobs de la campagne partielle ont été relus en transaction
