@@ -160,6 +160,9 @@ $backendContentRoot = Join-Path $repositoryRoot "backend\SAAIA.Backend"
 $localConfigPath = Join-Path $backendContentRoot "appsettings.Local.json"
 $agentBankScript = Join-Path $PSScriptRoot "test-advanced-analysis-agent-bank.ps1"
 $assessmentScript = Join-Path $PSScriptRoot "assess-advanced-capacity-results.ps1"
+$jobGuardProject = Join-Path $PSScriptRoot `
+    "SAAIA.AdvancedValidationJobGuard\SAAIA.AdvancedValidationJobGuard.csproj"
+$advancedValidationUserId = "automated-validation"
 $secretStorePath = Join-Path $env:LOCALAPPDATA "SAAIA\client\secure.json"
 $providerMode = if ($Provider -eq "OpenAI") { "openai-dev" } else { "runpod-bench" }
 $secretProperty = if ($Provider -eq "OpenAI") {
@@ -334,6 +337,7 @@ $trackedEnvironment = @(
     "ConfigSignature__AllowUnsignedInDevelopment",
     "QDRANT_API_KEY",
     "SAAIA_ADVANCED_LLM_API_KEY",
+    "SAAIA_ADVANCED_VALIDATION_JOB_GUARD_CONNECTION",
     "SAAIA_VALIDATION_BACKEND_URL",
     "SAAIA_API_KEY"
 )
@@ -349,14 +353,46 @@ $ready = $null
 $referenceCorpusSealBefore = $null
 $referenceCorpusSealAfter = $null
 $referenceCorpusSealVerified = $false
+$advancedJobGuardBefore = $null
+$advancedJobGuardAfter = $null
+$advancedJobGuardError = $null
 $bankArtifactDirectory = Join-Path $ArtifactDirectory "agent-bank"
 $backendStdout = Join-Path $ArtifactDirectory "backend.stdout.log"
 $backendStderr = Join-Path $ArtifactDirectory "backend.stderr.log"
 $baseUrl = "http://127.0.0.1:$BackendPort"
 $unsignedConfigPath = Join-Path $ArtifactDirectory "unsigned-development.config.json"
 $missingSignaturePath = Join-Path $ArtifactDirectory "unsigned-development.config.missing.sig"
+$connectionString = "Host=saaia-server;Port=5432;Database=$postgresDatabase;Username=$postgresUser;Password=$postgresPassword;Pooling=true;Maximum Pool Size=20"
+$env:SAAIA_ADVANCED_VALIDATION_JOB_GUARD_CONNECTION = $connectionString
 
 try {
+    $jobGuardBuildOutput = & dotnet build $jobGuardProject -c Release 2>&1
+    $jobGuardBuildOutput |
+        Set-Content -LiteralPath (Join-Path $ArtifactDirectory "advanced-job-guard-build.log") -Encoding utf8
+    if ($LASTEXITCODE -ne 0) {
+        throw "Advanced validation job guard build failed with exit code $LASTEXITCODE."
+    }
+    $jobGuardBeforePath = Join-Path $ArtifactDirectory "advanced-job-guard-before.json"
+    $jobGuardBeforeOutput = & dotnet run `
+        --project $jobGuardProject `
+        -c Release `
+        --no-build `
+        --no-restore `
+        -- `
+        --user-id $advancedValidationUserId `
+        --output $jobGuardBeforePath `
+        --cancel 2>&1
+    $jobGuardBeforeOutput |
+        Set-Content -LiteralPath (Join-Path $ArtifactDirectory "advanced-job-guard-before.log") -Encoding utf8
+    if ($LASTEXITCODE -ne 0) {
+        throw "Advanced validation job preflight guard failed with exit code $LASTEXITCODE."
+    }
+    $advancedJobGuardBefore = Get-Content -LiteralPath $jobGuardBeforePath -Raw |
+        ConvertFrom-Json
+    if ([int]$advancedJobGuardBefore.remainingNonterminalCount -ne 0) {
+        throw "Nonterminal jobs remain for the automated validation user."
+    }
+
     $referenceCorpusSealBefore = Get-SaaiaReferenceCorpusSeal `
         -ReferenceBackendUrl $ReferenceBackendUrl `
         -ServerApiKey $serverApiKey
@@ -366,7 +402,6 @@ try {
     $referenceCorpusSealBefore | ConvertTo-Json -Depth 8 |
         Set-Content -LiteralPath (Join-Path $ArtifactDirectory "reference-corpus-before.json") -Encoding utf8
 
-    $connectionString = "Host=saaia-server;Port=5432;Database=$postgresDatabase;Username=$postgresUser;Password=$postgresPassword;Pooling=true;Maximum Pool Size=20"
     $localConfig = [ordered]@{
         Database = [ordered]@{ ConnectionString = $connectionString }
         Auth = [ordered]@{
@@ -487,6 +522,12 @@ try {
         remoteQdrantHost = "saaia-server"
         remoteEmbeddingHost = "saaia-server"
         activeIngestionJobsBeforeStart = $referenceCorpusSealBefore.activeIngestionJobs
+        advancedValidationJobsObservedBeforeStart = `
+            [int]$advancedJobGuardBefore.observedNonterminalCount
+        advancedValidationJobsCanceledBeforeStart = `
+            [int]$advancedJobGuardBefore.canceledCount
+        advancedValidationJobsRemainingBeforeStart = `
+            [int]$advancedJobGuardBefore.remainingNonterminalCount
         referenceCorpusCompositeSha256 = $referenceCorpusSealBefore.compositeSha256
         referenceCatalogStateSha256 = $referenceCorpusSealBefore.catalogStateSha256
         referenceIngestionJobsPayloadSha256 = $referenceCorpusSealBefore.ingestionJobsPayloadSha256
@@ -602,6 +643,36 @@ finally {
     }
     Stop-OwnedProcess -Process $backendProcess
 
+    try {
+        $jobGuardAfterPath = Join-Path $ArtifactDirectory "advanced-job-guard-after.json"
+        $jobGuardAfterOutput = & dotnet run `
+            --project $jobGuardProject `
+            -c Release `
+            --no-build `
+            --no-restore `
+            -- `
+            --user-id $advancedValidationUserId `
+            --output $jobGuardAfterPath `
+            --cancel 2>&1
+        $jobGuardAfterOutput |
+            Set-Content -LiteralPath (Join-Path $ArtifactDirectory "advanced-job-guard-after.log") -Encoding utf8
+        if ($LASTEXITCODE -ne 0) {
+            throw "Advanced validation job postflight guard failed with exit code $LASTEXITCODE."
+        }
+        $advancedJobGuardAfter = Get-Content -LiteralPath $jobGuardAfterPath -Raw |
+            ConvertFrom-Json
+        if ([int]$advancedJobGuardAfter.remainingNonterminalCount -ne 0) {
+            throw "Nonterminal jobs remain after the automated validation campaign."
+        }
+    }
+    catch {
+        $advancedJobGuardError = $_.Exception.Message
+        if ([string]::IsNullOrWhiteSpace($failure)) {
+            $failure = "Advanced validation job postflight guard failed: " + `
+                $advancedJobGuardError
+        }
+    }
+
     if ($null -ne $referenceCorpusSealBefore -and $null -eq $referenceCorpusSealAfter) {
         try {
             $referenceCorpusSealAfter = Get-SaaiaReferenceCorpusSeal `
@@ -639,6 +710,7 @@ finally {
     }
     if ($plainBytes) { [Array]::Clear($plainBytes, 0, $plainBytes.Length) }
     $providerApiKey = $null
+    $connectionString = $null
     $serverApiKey = $null
     $postgresPassword = $null
     $authPepper = $null
@@ -664,9 +736,23 @@ finally {
             Get-NetTCPConnection -State Listen -LocalPort $BackendPort -ErrorAction SilentlyContinue).Count
         localLlmPortListenerCountAfterRun = @(
             Get-NetTCPConnection -State Listen -LocalPort 1234 -ErrorAction SilentlyContinue).Count
+        advancedValidationJobsObservedAfterRun = $(
+            if ($null -eq $advancedJobGuardAfter) { $null }
+            else { [int]$advancedJobGuardAfter.observedNonterminalCount })
+        advancedValidationJobsCanceledAfterRun = $(
+            if ($null -eq $advancedJobGuardAfter) { $null }
+            else { [int]$advancedJobGuardAfter.canceledCount })
+        advancedValidationJobsRemainingAfterRun = $(
+            if ($null -eq $advancedJobGuardAfter) { $null }
+            else { [int]$advancedJobGuardAfter.remainingNonterminalCount })
+        advancedValidationJobGuardError = $advancedJobGuardError
         productStatus = "TESTE_NON_APPROUVE"
     } | ConvertTo-Json -Depth 8 |
         Set-Content -LiteralPath (Join-Path $ArtifactDirectory "resource-shutdown.json") -Encoding utf8
+}
+
+if (-not [string]::IsNullOrWhiteSpace($advancedJobGuardError)) {
+    throw "Advanced validation job postflight guard failed: $advancedJobGuardError"
 }
 
 Write-Output "Advanced product-path campaign completed. Artifact: $ArtifactDirectory"
