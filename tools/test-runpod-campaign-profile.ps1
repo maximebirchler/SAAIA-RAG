@@ -82,6 +82,16 @@ if (-not [Uri]::TryCreate($baseUrl, [UriKind]::Absolute, [ref]$parsedBaseUrl) -o
     -not [string]::IsNullOrWhiteSpace($parsedBaseUrl.Fragment)) {
     throw "baseUrl must be an absolute HTTPS URI without credentials, query or fragment."
 }
+$chatCompletionsUrl = $baseUrl.TrimEnd('/') + "/chat/completions"
+$parsedChatCompletionsUrl = $null
+if (-not [Uri]::TryCreate(
+        $chatCompletionsUrl,
+        [UriKind]::Absolute,
+        [ref]$parsedChatCompletionsUrl) -or
+    $parsedChatCompletionsUrl.Scheme -ne "https" -or
+    $parsedChatCompletionsUrl.Host -ne $parsedBaseUrl.Host) {
+    throw "The profile does not produce a valid HTTPS chat completions URL."
+}
 
 $contextSize = [int]$profile.contextSize
 if ($contextSize -lt 4096 -or $contextSize -gt 1048576) {
@@ -159,6 +169,7 @@ $preflightPath = Join-Path $ArtifactDirectory "preflight-seal.json"
     endpointScheme = $parsedBaseUrl.Scheme
     endpointHost = $parsedBaseUrl.Host
     endpointPath = $parsedBaseUrl.AbsolutePath
+    chatCompletionsUrl = $parsedChatCompletionsUrl.AbsoluteUri
     modelId = $modelId
     providerRuntime = $providerRuntime
     runtimeProfile = $runtimeProfile
