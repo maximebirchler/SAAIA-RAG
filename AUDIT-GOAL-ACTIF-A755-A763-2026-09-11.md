@@ -593,7 +593,7 @@ vision actuelle sans déplacer le RAG chez OpenAI, RunPod ou le serveur LLM.
 
 | Exigence | Verdict | Preuve ou limite restante |
 |---|---|---|
-| Fournisseur client commun Local/OpenAI/RunPod | Validé mécaniquement | `ILlmProvider`, factory unique, 17 scénarios d'architecture incluant Router structuré et Writer SSE |
+| Fournisseur client commun Local/OpenAI/RunPod | Validé mécaniquement | `ILlmProvider`, factory unique, 20 scénarios d'architecture incluant constructeur provider obligatoire, Router structuré et Writer SSE |
 | Fournisseur serveur commun OpenAI/RunPod/client | Validé mécaniquement | `IAdvancedAnalysisProvider` et une implémentation OpenAI-compatible partagée |
 | Un couple fournisseur/modèle par exécution avancée | Validé causalement | Affinité SQL persistante, reprise avec identité différente fermée sans appel du remplacement |
 | Aucun fallback implicite | Validé | Échec typé du fournisseur sélectionné ; changement de configuration refusé |
@@ -684,3 +684,19 @@ L'assessment
 a pour SHA-256
 `2ED735EDD70C6B5D4CB3B9CF1980D2173A4EF7E7F79D736CDABFD6A4A3AABCB6`.
 Aucun appel externe et aucune dépense RunPod n'ont été effectués.
+
+## A763 — suppression du dernier constructeur LLM implicite — 2026-09-12
+
+`RagChatAgent` n'expose plus le constructeur de compatibilité qui recevait un
+`OpenAiLlmClient` puis lui attribuait silencieusement l'identité
+Local/llama.cpp. Son unique constructeur public exige désormais
+`ILlmProvider`. Le démarrage WinUI et tous les harnais concernés créent donc le
+provider avec `LlmProviderFactory`, y compris lorsque l'URL et le modèle d'une
+probe live diffèrent des réglages locaux persistés.
+
+Un test d'architecture vérifie par réflexion que cette frontière ne peut pas
+être réintroduite sans faire échouer la suite. Les 20 scénarios
+`LlmProviderArchitectureTests`, les 47 tests ciblés provider/mémoire/transport
+et la suite cliente complète passent. Le dernier résultat complet compte 2 238
+réussites, zéro échec et une probe live opt-in ignorée. Aucun appel externe n'a
+été exécuté pendant cette correction.

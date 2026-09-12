@@ -342,12 +342,24 @@ internal static class LlmProviderFactory
     }
 
     internal static ILlmProvider CreateLocal(OpenAiLlmClient transport, AppSettings settings)
-    {
-        var model = string.IsNullOrWhiteSpace(settings.ModelId)
-            ? ClientDefaults.LlmModel
-            : settings.ModelId.Trim();
-        transport.ConfigureEndpoint(new OpenAiCompatibleEndpointOptions(
+        => CreateLocal(
+            transport,
             settings.LlmBaseUrl,
+            settings.ModelId,
+            settings.QualifiedProfile?.ProfileId);
+
+    internal static ILlmProvider CreateLocal(
+        OpenAiLlmClient transport,
+        string baseUrl,
+        string? modelId,
+        string? runtimeProfile = null)
+    {
+        ArgumentNullException.ThrowIfNull(transport);
+        var model = string.IsNullOrWhiteSpace(modelId)
+            ? ClientDefaults.LlmModel
+            : modelId.Trim();
+        transport.ConfigureEndpoint(new OpenAiCompatibleEndpointOptions(
+            baseUrl,
             model,
             "local",
             apiKey: null,
@@ -361,7 +373,7 @@ internal static class LlmProviderFactory
                 "local",
                 "llama.cpp",
                 model,
-                settings.QualifiedProfile?.ProfileId,
+                runtimeProfile,
                 IsExternal: false,
                 IsDevelopmentOnly: false));
     }

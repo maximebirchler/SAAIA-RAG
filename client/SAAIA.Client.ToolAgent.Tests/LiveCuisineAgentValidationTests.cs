@@ -242,9 +242,9 @@ public sealed class LiveCuisineAgentValidationTests(ITestOutputHelper output)
         var llm = new OpenAiLlmClient();
         llm.Configure(llmBaseUrl, llmModel);
 
-        var agent = new RagChatAgent(api, llm);
-        agent.ApplySettings(new AppSettings
+        var settings = new AppSettings
         {
+            ModelId = llmModel,
             UseLocalLlm = true,
             ManageLocalLlmProcess = false,
             ActiveMode = "strict",
@@ -252,7 +252,11 @@ public sealed class LiveCuisineAgentValidationTests(ITestOutputHelper output)
             LlmTemperature = 0.1,
             LlmMaxOutputTokens = 900,
             UiLanguage = "fr"
-        });
+        };
+        var agent = new RagChatAgent(
+            api,
+            LlmProviderFactory.CreateLocal(llm, llmBaseUrl, llmModel));
+        agent.ApplySettings(settings);
 
         var cases = new[]
         {
@@ -543,11 +547,14 @@ public sealed class LiveCuisineAgentValidationTests(ITestOutputHelper output)
             FirstNonBlank(
                 Environment.GetEnvironmentVariable("SAAIA_VALIDATION_LLM_BASE_URL"),
                 settings.LlmBaseUrl)));
-        var llmModel = FirstNonBlank(
-            Environment.GetEnvironmentVariable("SAAIA_VALIDATION_LLM_MODEL"),
-            settings.ModelId);
+        var llmModel = RequireValue(
+            "SAAIA_VALIDATION_LLM_MODEL",
+            FirstNonBlank(
+                Environment.GetEnvironmentVariable("SAAIA_VALIDATION_LLM_MODEL"),
+                settings.ModelId));
 
         var liveSettings = settings.Clone();
+        liveSettings.ModelId = llmModel;
         liveSettings.UseLocalLlm = true;
         liveSettings.ActiveMode = "strict";
         liveSettings.RagQualityPreset = "deep";
@@ -591,7 +598,13 @@ public sealed class LiveCuisineAgentValidationTests(ITestOutputHelper output)
         var llm = new OpenAiLlmClient();
         llm.Configure(RequireValue("SAAIA_VALIDATION_LLM_BASE_URL", llmBaseUrl), RequireValue("SAAIA_VALIDATION_LLM_MODEL", llmModel));
 
-        var agent = new RagChatAgent(api, llm);
+        var agent = new RagChatAgent(
+            api,
+            LlmProviderFactory.CreateLocal(
+                llm,
+                RequireValue("SAAIA_VALIDATION_LLM_BASE_URL", llmBaseUrl),
+                RequireValue("SAAIA_VALIDATION_LLM_MODEL", llmModel),
+                liveSettings.QualifiedProfile?.ProfileId));
         agent.ApplySettings(liveSettings);
 
         return agent;

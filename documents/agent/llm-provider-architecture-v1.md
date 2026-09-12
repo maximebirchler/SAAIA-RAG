@@ -57,6 +57,11 @@ Les points existants réutilisés sont :
 
 `RagChatAgent`, le Router, le Writer et le Critic utilisent désormais la même
 instance `ILlmProvider`. Ils ne choisissent ni URL, ni modèle, ni fournisseur.
+Le dernier constructeur public de compatibilité qui acceptait directement un
+`OpenAiLlmClient` et lui attribuait implicitement l'identité Local/llama.cpp a
+été supprimé. Le constructeur public unique exige maintenant `ILlmProvider` ;
+les probes live passent elles aussi par `LlmProviderFactory` avec leur endpoint,
+leur modèle et leur profil explicitement fournis.
 Le bootstrap local, la détection de modèle et le warmup ne s'exécutent que si le
 mode actif est `Local`. La logique RAG, l'ingestion, PostgreSQL, Qdrant, TEI,
 les embeddings, le reranking et les contrats d'EvidenceBundle ne sont pas
@@ -163,7 +168,7 @@ et l'autorisation utilisés.
 | `MainWindow/Core.cs` | modifié | démarrage llama.cpp limité au mode local |
 | `Services/SupportBundleBuilder.cs` | modifié | expurgation défensive des secrets LLM externes |
 | `SAAIA.Client.WinUI.csproj` | modifié | copie de la configuration dans le build |
-| `LlmProviderArchitectureTests.cs` | créé | sélection, sécurité, budget, erreurs et streaming simulé |
+| `LlmProviderArchitectureTests.cs` | créé | sélection, sécurité, budget, erreurs, streaming simulé et constructeur provider obligatoire |
 | `LiveOpenAiTerraProviderTests.cs` | créé | sonde Terra réelle, opt-in et payante |
 | `LiveRunPodProviderTests.cs` | créé | sonde RunPod réelle, opt-in et payante |
 | `SupportBundleMemoryDiagnosticsTests.cs` | modifié | preuve de redaction du ZIP de support |

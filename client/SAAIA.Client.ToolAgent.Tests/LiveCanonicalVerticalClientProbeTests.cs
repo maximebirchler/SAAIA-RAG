@@ -65,6 +65,7 @@ public sealed class LiveCanonicalVerticalClientProbeTests
                 var settings = new AppSettings
                 {
                     BackendUrl = backend,
+                    ModelId = "local",
                     UseLocalLlm = true,
                     ManageLocalLlmProcess = false,
                     ActiveMode = "strict",
@@ -74,7 +75,12 @@ public sealed class LiveCanonicalVerticalClientProbeTests
                     LlmMaxOutputTokens = 900,
                     ExtraArgs = "--ctx-size 4096"
                 };
-                var agent = new RagChatAgent(api, llm);
+                var agent = new RagChatAgent(
+                    api,
+                    LlmProviderFactory.CreateLocal(
+                        llm,
+                        "http://127.0.0.1:1234/v1",
+                        "local"));
                 agent.ApplySettings(settings);
                 var deltas = new StringBuilder();
                 string? answer = null;

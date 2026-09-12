@@ -55,22 +55,6 @@ public sealed class RagChatAgent
         _activeMode = "auto";
     }
 
-    public RagChatAgent(ApiClient api, OpenAiLlmClient llm)
-        : this(
-            api,
-            new LocalLlmProvider(
-                llm,
-                new LlmProviderDescriptor(
-                    LlmProviderMode.Local,
-                    "local",
-                    "llama.cpp",
-                    "local",
-                    RuntimeProfile: null,
-                    IsExternal: false,
-                    IsDevelopmentOnly: false)))
-    {
-    }
-
     internal void RehydrateConversationState(
         IReadOnlyList<ChatMessageItem>? conversation)
     {

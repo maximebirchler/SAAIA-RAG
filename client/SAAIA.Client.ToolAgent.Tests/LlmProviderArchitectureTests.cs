@@ -12,6 +12,17 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class LlmProviderArchitectureTests
 {
     [Fact]
+    public void RagChatAgent_requires_an_explicit_provider_abstraction()
+    {
+        var constructor = Assert.Single(typeof(RagChatAgent).GetConstructors());
+        var parameters = constructor.GetParameters();
+
+        Assert.Equal(2, parameters.Length);
+        Assert.Equal(typeof(ApiClient), parameters[0].ParameterType);
+        Assert.Equal(typeof(ILlmProvider), parameters[1].ParameterType);
+    }
+
+    [Fact]
     public void Committed_configuration_is_local_by_default_and_caps_authorized_budget_at_25_usd()
     {
         var path = FindRepositoryFile("config", "llm-providers.dev.json");

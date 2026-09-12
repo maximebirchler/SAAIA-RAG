@@ -123,8 +123,12 @@ public sealed class ToolMemoryCdcAlignmentTests
     [Fact]
     public void RagChatAgent_reset_conversation_state_returns_mode_to_auto()
     {
-        var sut = new RagChatAgent(new ApiClient(), new OpenAiLlmClient());
-        sut.ApplySettings(new AppSettings { ActiveMode = "strict" });
+        var settings = new AppSettings { ActiveMode = "strict" };
+        var llm = new OpenAiLlmClient();
+        var sut = new RagChatAgent(
+            new ApiClient(),
+            LlmProviderFactory.CreateLocal(llm, settings));
+        sut.ApplySettings(settings);
 
         var memField = typeof(RagChatAgent).GetField("_mem", BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.NotNull(memField);
