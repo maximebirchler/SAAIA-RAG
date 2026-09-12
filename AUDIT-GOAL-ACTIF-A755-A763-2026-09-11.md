@@ -1520,3 +1520,33 @@ Assessment :
 SHA-256 `3C5401763E1D62EFE2C8BDC8E32EECE9B4245FCF2A461F6BDAE51D3F64A5BC08`.
 TRX SHA-256 `A9351276EB90340C2C315EA411432B5C11D603D587D7C0253CDF1AFAB22CFE1D`.
 Aucun appel externe ni coût. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — identité du petit routeur figée dans la campagne Terra — 2026-09-12
+
+Le profil final scellait Terra, la banque et les critères, mais il laissait le
+lanceur rechercher le dernier `llama-server.exe` installé et le modèle local par
+chemin. Une mise à jour de runtime ou un remplacement du GGUF aurait donc pu
+changer la décision local/avancé tout en laissant les réponses Terra seules
+apparaître comparables.
+
+Le commit `26f16b28` ajoute au profil les hashes exacts du runtime CUDA b10098,
+du GGUF `Qwen_Qwen3-4B-Instruct-2507-Q5_K_M` et de
+`config/llm-providers.dev.json`. Le préflight résout les chemins locaux, calcule
+les trois hashes et bloque avant appel sur absence ou divergence. Il refuse
+également un backend de référence ou un port temporaire différents du profil.
+Le sous-lanceur de banque scelle désormais lui aussi le hash de sa configuration
+provider.
+
+Sur le commit propre, les hashes de banque, runtime, modèle et configuration
+passent sous PowerShell 7 et Windows PowerShell 5.1. Une sonde négative utilisant
+`notepad.exe` pour les deux binaires, un autre backend et un autre port rejette
+les quatre divergences avec `externalCallMayHaveOccurred=false`. La seule porte
+restante du préflight conforme est toujours le palier payé et son observation
+fraîche.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-terra-local-router-freeze-26f16b2-20260912/assessment.v1.json`,
+SHA-256 `C21BE3E4201485575A1F70EE76098DDB5169EF4211E458500677982CE9C95937`.
+Le profil final courant a pour SHA-256
+`9EB41E3E0B9D07BEE163BE7B6904E3603F076930D6C7F3B12001FA4BEFC6F639`.
+Aucun appel fournisseur et aucun coût. Produit `TESTE_NON_APPROUVE`.

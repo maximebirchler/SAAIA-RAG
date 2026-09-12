@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "saaia-a763-terra-local-router-freeze-assessment-v1",
+  "assessedAtUtc": "2026-09-12T06:36:24.6644996+00:00",
+  "repositoryCommit": "26f16b2877804f7fc0c3615ed13db80ceb46c5c5",
+  "repositoryTrackedDirty": false,
+  "verdict": "PASS_LOCAL_ROUTER_IDENTITY_FROZEN_WAITING_FOR_PAID_TIER",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "registered": {
+    "profilePath": "config/openai-terra-final-campaign.a763.json",
+    "profileSha256": "9EB41E3E0B9D07BEE163BE7B6904E3603F076930D6C7F3B12001FA4BEFC6F639",
+    "runtimeSha256": "9555847A0403737C4A1B5BEAB050BD697AEC477B6675871A1F8D4737A25C1650",
+    "modelSha256": "66713CE35A58A82FE87642D4EC13425BF9B9A46800FFF5C49A665EF5701439DC",
+    "providerConfigSha256": "036D6C68D1780DC78E3FB594C27FF82CE86861F9BECD94E268AEADE6163D1E1D"
+  },
+  "checks": {
+    "pwsh7ExactHashes": "PASS",
+    "powershell51ExactHashes": "PASS",
+    "questionBankHash": "PASS",
+    "cleanTree": "PASS",
+    "wrongRuntimeRejected": "PASS",
+    "wrongModelRejected": "PASS",
+    "wrongReferenceBackendRejected": "PASS",
+    "wrongBackendPortRejected": "PASS",
+    "externalCallMayHaveOccurred": false
+  },
+  "evidence": [
+    {
+      "path": "pwsh7-valid/preflight-seal.json",
+      "sha256": "D7940E8DB017C0283E00C9530340F2EF3368053DFD46532666990CB262CC63D4"
+    },
+    {
+      "path": "powershell51-valid/preflight-seal.json",
+      "sha256": "62A1C42B632B37E21E6294B7454368F6141DC7995235E71A2F85DEA3762CB31C"
+    },
+    {
+      "path": "pwsh7-mismatch/preflight-seal.json",
+      "sha256": "CF64BBB0A58E6BA258993D19310B5410FC7BA3DB62CDBF2AE42D459955E60995"
+    }
+  ],
+  "remainingBlockers": [
+    "paid_tier_not_observed",
+    "paid_tier_observation_missing_or_stale"
+  ],
+  "externalProviderCalls": 0,
+  "externalCostUsd": 0
+}
