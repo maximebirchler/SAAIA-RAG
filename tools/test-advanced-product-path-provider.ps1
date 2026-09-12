@@ -192,7 +192,11 @@ if ($HardLimitUsd -le 0) {
     $HardLimitUsd = [decimal]::Round($AuthorizedBudgetUsd * 0.96, 2)
 }
 if ($MaximumCostPerJobUsd -le 0) {
-    $MaximumCostPerJobUsd = [decimal]::Min(0.50, $HardLimitUsd)
+    $MaximumCostPerJobUsd = if ($HardLimitUsd -lt [decimal]0.50) {
+        $HardLimitUsd
+    } else {
+        [decimal]0.50
+    }
 }
 if ($MaximumCallsPerJob -le 0 -or
     $SoftLimitUsd -le 0 -or
