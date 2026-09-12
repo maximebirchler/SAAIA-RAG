@@ -117,3 +117,20 @@ catégorie acceptée, formulation à la première personne acceptée et réponse
 partielle non déclarée rejetée. Ils passent 3/3 sous PowerShell 7 et Windows
 PowerShell 5.1. La réévaluation des douze sorties immuables passe mécaniquement
 12/12. La revue canonique reste nécessaire avant tout verdict sémantique.
+
+La revue canonique accepte les neuf réponses des trois autres familles, mais
+rejette les trois insuffisances du planning. Chaque refus évite bien de remplir
+la grille, mais présente le sous-ensemble de preuves reçu par le Writer comme
+un inventaire exhaustif du corpus. Les réponses déclarent que seules deux ou
+quatre options de petit-déjeuner existent, alors que d'autres pages canoniques
+en contiennent davantage. Verdict public : `DIAGNOSTIC_ROWS_REJECTED`, neuf
+passages et trois rejets, `approvalEligible=false`.
+
+Le contrat Writer distingue désormais explicitement deux affirmations : les
+preuves fournies ne suffisent pas à étayer une unité, et le corpus ne contient
+pas cette unité. La première est permise lorsque le paquet de preuves est
+incomplet; la seconde exige une preuve d'exhaustivité explicite. Une réponse
+d'insuffisance doit se limiter au manque décisif, qualifier les éléments
+soutenus comme des exemples et ne jamais transformer leur liste en inventaire
+exhaustif du corpus. Cette règle est générale et ne contient aucun vocabulaire
+de repas ou de benchmark.

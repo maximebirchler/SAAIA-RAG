@@ -1376,6 +1376,12 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
            fill a grid. If the evidence cannot support all mandatory units and
            partial answers are not allowed, choose insufficient_documentation and
            identify the exact rows, columns or item types that remain unsupported.
+           Describe the limits of the supplied evidence, not an exhaustive absence
+           from the document corpus. Never claim that the documents contain only a
+           listed set, or that no other candidate exists, unless supplied evidence
+           explicitly proves that exhaustive statement. Prefer the smallest
+           decisive unsupported relation or unit family; supported examples may be
+           reported as examples, but never as an exhaustive corpus inventory.
            """
            + "\nRequested output shape: "
            + JsonSerializer.Serialize(

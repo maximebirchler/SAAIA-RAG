@@ -198,6 +198,14 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             factory.Requests[1].Body,
             StringComparison.Ordinal);
         Assert.Contains(
+            "limits of the supplied evidence, not an exhaustive absence",
+            factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "never as an exhaustive corpus inventory",
+            factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.Contains(
             "common alternate terminology",
             factory.Requests[0].Body,
             StringComparison.Ordinal);
