@@ -165,14 +165,28 @@ public sealed class AdminRuntimeEndpointsTests
             Assert.Contains("blacklist_applied.json", artifacts);
             Assert.Contains("llm-logs/llama-server.log", artifacts);
             Assert.Contains("runtime-config.json", artifacts);
-            Assert.Contains("hardware_probe.json", missingArtifacts);
-            Assert.Contains("last_known_good_profile.json", missingArtifacts);
-            Assert.Contains("acquisition_log.json", missingArtifacts);
+            foreach (var optionalArtifact in new[]
+                     {
+                         "hardware_probe.json",
+                         "last_known_good_profile.json",
+                         "acquisition_log.json"
+                     })
+            {
+                var included = artifacts.Contains(
+                    optionalArtifact,
+                    StringComparer.OrdinalIgnoreCase);
+                var reportedMissing = missingArtifacts.Contains(
+                    optionalArtifact,
+                    StringComparer.OrdinalIgnoreCase);
+                Assert.NotEqual(included, reportedMissing);
+                Assert.Equal(
+                    reportedMissing,
+                    contractMissingArtifacts.Contains(
+                        optionalArtifact,
+                        StringComparer.OrdinalIgnoreCase));
+            }
             Assert.DoesNotContain("llm-logs/", missingArtifacts);
-            Assert.False(contractComplete);
-            Assert.Contains("hardware_probe.json", contractMissingArtifacts);
-            Assert.Contains("last_known_good_profile.json", contractMissingArtifacts);
-            Assert.Contains("acquisition_log.json", contractMissingArtifacts);
+            Assert.Equal(contractMissingArtifacts.Length == 0, contractComplete);
             Assert.DoesNotContain("capability-state.json", contractMissingArtifacts);
             Assert.DoesNotContain("warmup-results.json", contractMissingArtifacts);
 

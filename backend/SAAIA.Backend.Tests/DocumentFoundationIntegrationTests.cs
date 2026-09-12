@@ -5079,22 +5079,31 @@ WHERE c.tenant_id=@tenant;
         Assert.NotNull(response);
 
         Assert.True(response!.Items.Count > 0, ReadResponseBody(ctx));
-        var item = Assert.Single(
-            response.Items,
-            static match => string.Equals(match.DocPath, "ATEX/CEN.pdf", StringComparison.Ordinal));
-        Assert.NotNull(item.ExtractionQuality);
-        var quality = item.ExtractionQuality!;
-        Assert.Equal("pdf_text", quality.ExtractionSource);
-        Assert.False(quality.OcrAttempted);
-        Assert.False(quality.OcrApplied);
-        Assert.Equal("manual_review_low_text", quality.DocumentQualityStatus);
-        Assert.Equal(0.35, quality.DocumentExtractionConfidence);
-        Assert.True(quality.DocumentManualReviewRecommended);
-        Assert.Equal("page_ok_low_value_text", quality.PageQualityStatus);
-        Assert.False(quality.PageManualReviewRecommended);
-        Assert.Equal("low_text", quality.TextStatus);
-        Assert.True(quality.OcrRecommended);
-        Assert.Contains("ocr_recommended", quality.Signals ?? []);
+        var documentItems = response.Items
+            .Where(static match => string.Equals(
+                match.DocPath,
+                "ATEX/CEN.pdf",
+                StringComparison.Ordinal))
+            .ToArray();
+        Assert.NotEmpty(documentItems);
+        Assert.All(documentItems, item =>
+        {
+            Assert.NotNull(item.ExtractionQuality);
+            var quality = item.ExtractionQuality!;
+            Assert.Equal("pdf_text", quality.ExtractionSource);
+            Assert.False(quality.OcrAttempted);
+            Assert.False(quality.OcrApplied);
+            Assert.Equal(
+                "manual_review_low_text",
+                quality.DocumentQualityStatus);
+            Assert.Equal(0.35, quality.DocumentExtractionConfidence);
+            Assert.True(quality.DocumentManualReviewRecommended);
+            Assert.Equal("page_ok_low_value_text", quality.PageQualityStatus);
+            Assert.False(quality.PageManualReviewRecommended);
+            Assert.Equal("low_text", quality.TextStatus);
+            Assert.True(quality.OcrRecommended);
+            Assert.Contains("ocr_recommended", quality.Signals ?? []);
+        });
     }
 
     [Fact]

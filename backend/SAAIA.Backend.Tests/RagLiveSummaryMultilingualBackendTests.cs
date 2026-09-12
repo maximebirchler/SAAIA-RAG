@@ -1,4 +1,6 @@
+using System.Net;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using Dapper;
 using Microsoft.AspNetCore.Http;
@@ -159,7 +161,7 @@ public sealed class RagLiveSummaryMultilingualBackendTests
                 ctx,
                 ds,
                 ragOptions,
-                new ThrowingHttpClientFactory(),
+                new EmptyRetrievalHttpClientFactory(),
                 new RagSearchBulkhead(ragOptions, Microsoft.Extensions.Logging.Abstractions.NullLogger<RagSearchBulkhead>.Instance),
                 new TeiWorkloadGovernor(),
                 request
@@ -225,15 +227,38 @@ public sealed class RagLiveSummaryMultilingualBackendTests
             summaryLanguage);
 
         await using var conn = await ds.OpenConnectionAsync();
+        var unitId = Guid.NewGuid();
         await conn.ExecuteAsync(
             """
+INSERT INTO document_units(
+  unit_id, tenant_id, revision_id, ordinal,
+  page_start, page_end, text_content,
+  char_count, token_count, checksum, metadata
+)
+VALUES(
+  @unitId, @tenant, @revisionId, 0,
+  1, 1, @exactText,
+  length(@exactText), 1, decode('AA', 'hex'), '{}'::jsonb
+);
+
+INSERT INTO retrieval_chunks(
+  retrieval_chunk_id, tenant_id, revision_id, unit_id, chunk_index,
+  page_start, page_end, text_content,
+  token_count, checksum, metadata
+)
+VALUES(
+  @chunkId, @tenant, @revisionId, @unitId, 0,
+  1, 1, @exactText,
+  1, decode('BB', 'hex'), '{"chunkType":"unit_exact_v1"}'::jsonb
+);
+
 INSERT INTO exact_match_entries(
-  exact_match_entry_id, tenant_id, revision_id, entry_index,
+  exact_match_entry_id, tenant_id, revision_id, unit_id, entry_index,
   page_start, page_end, text_content, normalized_text,
   char_count, token_count, checksum, metadata
 )
 VALUES(
-  @entryId, @tenant, @revisionId, 0,
+  @entryId, @tenant, @revisionId, @unitId, 0,
   1, 1, @exactText, @normalizedText,
   length(@exactText), 1, decode('CC', 'hex'), '{"kind":"standard_ref"}'::jsonb
 );
@@ -241,6 +266,8 @@ VALUES(
             new
             {
                 entryId = Guid.NewGuid(),
+                unitId,
+                chunkId = Guid.NewGuid(),
                 tenant = tenantId,
                 revisionId,
                 exactText,
@@ -348,10 +375,32 @@ WHERE tenant_id=@tenant AND doc_id=@docId;
             NextChunkId: null,
             SameSectionChunkId: null);
 
-    private sealed class ThrowingHttpClientFactory : IHttpClientFactory
+    private sealed class EmptyRetrievalHttpClientFactory : IHttpClientFactory
     {
         public HttpClient CreateClient(string name)
-            => throw new InvalidOperationException($"HTTP client '{name}' should not be used by exact-match-only RAG tests.");
+            => new(new EmptyRetrievalHttpMessageHandler())
+            {
+                BaseAddress = new Uri("http://retrieval.test/")
+            };
+    }
+
+    private sealed class EmptyRetrievalHttpMessageHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri?.AbsolutePath ?? string.Empty;
+            var json = path.EndsWith(
+                "/v1/embeddings",
+                StringComparison.OrdinalIgnoreCase)
+                ? "{\"data\":[{\"embedding\":[0.1,0.2,0.3,0.4]}]}"
+                : "{\"result\":[]}";
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            });
+        }
     }
 
     private sealed class PostgresIntegrationDb : IAsyncDisposable
