@@ -268,6 +268,72 @@ public sealed class AdvancedAnalysisWorkerTests
     }
 
     [Fact]
+    public async Task Retention_purges_expired_payloads_and_traces_after_active_leases_end()
+    {
+        await using var database = await PostgresWorkerDatabase.CreateAsync();
+        if (database is null)
+            return;
+
+        var seed = await database.SeedEvidenceAsync(
+            "retention-tenant",
+            "Retention evidence");
+        var expiredJobId = await database.InsertJobAsync(
+            seed,
+            BuildHandoff(seed, "expired-evidence"));
+        await database.PrepareExpiredJobAsync(
+            expiredJobId,
+            status: "succeeded",
+            workerId: null,
+            leaseIsActive: false,
+            addToolEvent: true);
+
+        var activeJobId = await database.InsertJobAsync(
+            seed,
+            BuildHandoff(seed, "active-evidence"));
+        await database.PrepareExpiredJobAsync(
+            activeJobId,
+            status: "running",
+            workerId: "active-worker",
+            leaseIsActive: true,
+            addToolEvent: false);
+
+        var futureJobId = await database.InsertJobAsync(
+            seed,
+            BuildHandoff(seed, "future-evidence"));
+        var store = new AdvancedAnalysisJobStore(database.DataSource);
+        var retentionWorker = new AdvancedAnalysisRetentionWorker(
+            store,
+            Options.Create(new AdvancedAnalysisOptions
+            {
+                RetentionDeleteBatchSize = 100
+            }),
+            NullLogger<AdvancedAnalysisRetentionWorker>.Instance);
+
+        Assert.Equal(
+            1,
+            await retentionWorker.SweepOnceAsync(CancellationToken.None));
+        Assert.False(await database.JobExistsAsync(expiredJobId));
+        Assert.Equal(0, await database.CountToolEventsAsync(expiredJobId));
+        Assert.True(await database.JobExistsAsync(activeJobId));
+        Assert.True(await database.JobExistsAsync(futureJobId));
+
+        Assert.Equal(
+            AdvancedAnalysisLeaseState.Lost,
+            await store.RenewAndReadStateAsync(
+                activeJobId,
+                "active-worker",
+                30,
+                CancellationToken.None));
+        await database.ExpireLeaseAsync(activeJobId, attemptCount: 1);
+
+        Assert.Equal(
+            1,
+            await retentionWorker.SweepOnceAsync(CancellationToken.None));
+        Assert.False(await database.JobExistsAsync(activeJobId));
+        Assert.True(await database.JobExistsAsync(futureJobId));
+    }
+
+    [Fact]
     public async Task Expired_job_fails_closed_when_provider_or_model_changes()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
@@ -1292,6 +1358,75 @@ public sealed class AdvancedAnalysisWorkerTests
                 WHERE job_id=@job;
                 """,
                 new { job = jobId, attempt_count = attemptCount });
+        }
+
+        public async Task PrepareExpiredJobAsync(
+            Guid jobId,
+            string status,
+            string? workerId,
+            bool leaseIsActive,
+            bool addToolEvent)
+        {
+            await using var connection = await DataSource.OpenConnectionAsync();
+            await connection.ExecuteAsync(
+                """
+                UPDATE advanced_analysis_jobs
+                SET status=@status,
+                    result=CASE
+                      WHEN @status='succeeded'
+                      THEN '{"schemaVersion":"test","answerText":"expired-private-result"}'::jsonb
+                      ELSE NULL
+                    END,
+                    attempt_count=CASE WHEN @status='running' THEN 1 ELSE attempt_count END,
+                    lease_owner=@worker_id,
+                    lease_expires_at=CASE
+                      WHEN @lease_is_active THEN now() + interval '5 minutes'
+                      ELSE NULL
+                    END,
+                    created_at=now() - interval '2 days',
+                    expires_at=now() - interval '1 day'
+                WHERE job_id=@job;
+                """,
+                new
+                {
+                    job = jobId,
+                    status,
+                    worker_id = workerId,
+                    lease_is_active = leaseIsActive
+                });
+            if (!addToolEvent)
+                return;
+
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO advanced_analysis_tool_events(
+                  tenant_id, job_id, event_sequence, attempt_count, worker_id,
+                  tool_name, status, request, evidence_references,
+                  degraded_retrievers, elapsed_milliseconds)
+                SELECT tenant_id, job_id, 1, 1, 'expired-worker',
+                  'source_backed_canonical_search', 'succeeded',
+                  '{"query":"expired private query"}'::jsonb,
+                  '[]'::jsonb, ARRAY[]::text[], 1
+                FROM advanced_analysis_jobs
+                WHERE job_id=@job;
+                """,
+                new { job = jobId });
+        }
+
+        public async Task<bool> JobExistsAsync(Guid jobId)
+        {
+            await using var connection = await DataSource.OpenConnectionAsync();
+            return await connection.ExecuteScalarAsync<bool>(
+                "SELECT EXISTS(SELECT 1 FROM advanced_analysis_jobs WHERE job_id=@job);",
+                new { job = jobId });
+        }
+
+        public async Task<int> CountToolEventsAsync(Guid jobId)
+        {
+            await using var connection = await DataSource.OpenConnectionAsync();
+            return await connection.ExecuteScalarAsync<int>(
+                "SELECT count(*) FROM advanced_analysis_tool_events WHERE job_id=@job;",
+                new { job = jobId });
         }
 
         public async Task MarkPersistedMemoryAsEvidenceAsync(Guid jobId)

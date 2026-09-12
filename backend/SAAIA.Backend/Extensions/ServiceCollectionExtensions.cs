@@ -265,6 +265,7 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<FileWatcherService>();
         services.AddHostedService<CatalogSnapshotService>();
         services.AddHostedService<AdvancedAnalysisWorker>();
+        services.AddHostedService<AdvancedAnalysisRetentionWorker>();
 
         return services;
     }

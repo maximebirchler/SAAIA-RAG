@@ -91,6 +91,8 @@
     "ExternalOutputUsdPerMillionTokens": 12.0,
     "ExternalUsageLedgerPath": "/app/data/advanced-analysis/openai-terra-usage.jsonl",
     "RetentionDays": 30,
+    "RetentionSweepMilliseconds": 300000,
+    "RetentionDeleteBatchSize": 1000,
     "MaximumQueuedJobsPerUser": 20,
     "WorkerEnabled": __ADVANCED_ANALYSIS_ENABLED__,
     "PollDelayMilliseconds": 1000,

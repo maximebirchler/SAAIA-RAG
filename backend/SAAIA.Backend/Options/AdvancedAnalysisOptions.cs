@@ -53,6 +53,10 @@ sealed class AdvancedAnalysisOptions
 
     public int RetentionDays { get; set; } = 30;
 
+    public int RetentionSweepMilliseconds { get; set; } = 300_000;
+
+    public int RetentionDeleteBatchSize { get; set; } = 1_000;
+
     public int MaximumQueuedJobsPerUser { get; set; } = 20;
 
     public bool WorkerEnabled { get; set; }

@@ -44,6 +44,23 @@ d'installation pourra les exposer sous contrôle de la licence ; ce lot ne crée
 pas de variables d'environnement qui ne seraient pas encore lues par les
 scripts.
 
+## Rétention des transferts avancés
+
+Chaque job reçoit une échéance calculée à sa création à partir de
+`RetentionDays`, borné entre 1 et 365 jours. Un worker de rétention distinct du
+worker LLM balaie la table toutes les cinq minutes par défaut. Il supprime par
+lots les handoffs, résultats et métadonnées de job arrivés à échéance ; les
+traces d'outils associées sont supprimées par la contrainte PostgreSQL
+`ON DELETE CASCADE`.
+
+Ce worker reste actif même si la licence avancée ou le fournisseur LLM est
+ensuite désactivé, afin qu'un changement de licence ne suspende pas la politique
+de suppression. Un job en cours conserve ses données tant que son bail est
+encore actif. Dès que l'échéance de rétention est atteinte, son bail ne peut plus
+être renouvelé ; la suppression devient possible après la fin du bail. Les
+valeurs signées par défaut sont `RetentionSweepMilliseconds=300000` et
+`RetentionDeleteBatchSize=1000`.
+
 ## Baseline OpenAI Terra
 
 Valeurs de référence :

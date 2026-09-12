@@ -16,6 +16,37 @@ internal sealed class AdvancedAnalysisJobStore
         _dataSource = dataSource;
     }
 
+    public async Task<int> PurgeExpiredAsync(
+        int batchSize,
+        CancellationToken cancellationToken)
+    {
+        batchSize = Math.Clamp(batchSize, 1, 10_000);
+        await using var connection = await _dataSource
+            .OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        const string sql = """
+            WITH expired AS (
+              SELECT job_id
+              FROM advanced_analysis_jobs
+              WHERE expires_at <= now()
+                AND (
+                  status <> 'running'
+                  OR lease_expires_at IS NULL
+                  OR lease_expires_at <= now())
+              ORDER BY expires_at, job_id
+              FOR UPDATE SKIP LOCKED
+              LIMIT @batch_size
+            )
+            DELETE FROM advanced_analysis_jobs jobs
+            USING expired
+            WHERE jobs.job_id=expired.job_id;
+            """;
+        return await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new { batch_size = batchSize },
+            cancellationToken: cancellationToken));
+    }
+
     public async Task<int> RecoverExpiredAsync(
         int maximumAttempts,
         int retryDelayMilliseconds,
@@ -239,6 +270,7 @@ internal sealed class AdvancedAnalysisJobStore
               AND status='running'
               AND lease_owner=@worker_id
               AND cancel_requested_at IS NULL
+              AND expires_at > now()
               AND lease_expires_at > now()
             RETURNING 1;
             """;
