@@ -224,6 +224,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAdvancedAnalysisToolGatewayFactory, AdvancedAnalysisToolGatewayFactory>();
         services.AddSingleton<IAdvancedAnalysisProvider>(sp =>
         {
+            var license = sp
+                .GetRequiredService<IOptions<LicenseOptions>>()
+                .Value;
+            if (!license.AdvancedAnalysisEnabled)
+                return new DisabledAdvancedAnalysisProvider();
+
             var options = sp
                 .GetRequiredService<IOptions<AdvancedAnalysisOptions>>()
                 .Value;

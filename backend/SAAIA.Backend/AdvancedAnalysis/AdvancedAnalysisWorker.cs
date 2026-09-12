@@ -14,6 +14,7 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
     private readonly AdvancedAnalysisEvidenceResolver _resolver;
     private readonly IAdvancedAnalysisToolGatewayFactory _toolGatewayFactory;
     private readonly IAdvancedAnalysisProvider _provider;
+    private readonly LicenseOptions _license;
     private readonly AdvancedAnalysisOptions _options;
     private readonly ILogger<AdvancedAnalysisWorker> _logger;
     private readonly string _workerId =
@@ -24,6 +25,7 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
         AdvancedAnalysisEvidenceResolver resolver,
         IAdvancedAnalysisToolGatewayFactory toolGatewayFactory,
         IAdvancedAnalysisProvider provider,
+        IOptions<LicenseOptions> license,
         IOptions<AdvancedAnalysisOptions> options,
         ILogger<AdvancedAnalysisWorker> logger)
     {
@@ -31,12 +33,19 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
         _resolver = resolver;
         _toolGatewayFactory = toolGatewayFactory;
         _provider = provider;
+        _license = license.Value;
         _options = options.Value;
         _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (!_license.AdvancedAnalysisEnabled)
+        {
+            _logger.LogInformation(
+                "Advanced analysis worker is disabled by the current license");
+            return;
+        }
         if (!_options.WorkerEnabled)
         {
             _logger.LogInformation("Advanced analysis worker is disabled");
@@ -70,6 +79,9 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
 
     internal async Task<bool> ProcessOnceAsync(CancellationToken cancellationToken)
     {
+        if (!_license.AdvancedAnalysisEnabled)
+            return false;
+
         var maximumAttempts = Math.Clamp(_options.MaximumAttempts, 1, 20);
         var retryDelay = Math.Clamp(
             _options.RetryDelayMilliseconds,

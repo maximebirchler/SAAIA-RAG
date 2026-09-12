@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Collections.Concurrent;
 using Dapper;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +23,42 @@ namespace SAAIA.Backend.Tests;
 
 public sealed class AdvancedAnalysisWorkerTests
 {
+    [Fact]
+    public void Disabled_license_resolves_disabled_provider_before_provider_configuration()
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.Configuration["License:AdvancedAnalysisEnabled"] = "false";
+        builder.Configuration["AdvancedAnalysis:Provider"] =
+            "provider-that-must-not-be-resolved";
+        builder.Services.AddSaaiaServices(
+            builder.Configuration,
+            builder.Environment);
+        using var services = builder.Services.BuildServiceProvider();
+
+        var provider = services.GetRequiredService<IAdvancedAnalysisProvider>();
+
+        Assert.IsType<DisabledAdvancedAnalysisProvider>(provider);
+        Assert.Equal("disabled", provider.ProviderKey);
+    }
+
+    [Fact]
+    public async Task Worker_does_not_touch_database_or_provider_when_license_is_disabled()
+    {
+        await using var dataSource = new NpgsqlDataSourceBuilder(
+            "Host=127.0.0.1;Port=1;Database=unused;Username=unused;Password=unused;Timeout=1")
+            .Build();
+        var provider = new DelegateProvider((request, cancellationToken) =>
+            throw new InvalidOperationException(
+                "The provider must not execute when the license is disabled."));
+        var worker = CreateWorker(
+            dataSource,
+            provider,
+            advancedAnalysisEnabled: false);
+
+        Assert.False(await worker.ProcessOnceAsync(CancellationToken.None));
+        Assert.Empty(provider.Requests);
+    }
+
     [Theory]
     [InlineData("unknown")]
     [InlineData("duplicate")]
@@ -482,6 +519,10 @@ public sealed class AdvancedAnalysisWorkerTests
             resolver,
             toolFactory,
             provider,
+            Options.Create(new LicenseOptions
+            {
+                AdvancedAnalysisEnabled = true
+            }),
             advancedOptions,
             NullLogger<AdvancedAnalysisWorker>.Instance);
 
@@ -568,6 +609,10 @@ public sealed class AdvancedAnalysisWorkerTests
             resolver,
             toolFactory,
             provider,
+            Options.Create(new LicenseOptions
+            {
+                AdvancedAnalysisEnabled = true
+            }),
             advancedOptions,
             NullLogger<AdvancedAnalysisWorker>.Instance);
         Assert.True(await retryWorker.ProcessOnceAsync(CancellationToken.None));
@@ -634,7 +679,8 @@ public sealed class AdvancedAnalysisWorkerTests
     private static AdvancedAnalysisWorker CreateWorker(
         NpgsqlDataSource dataSource,
         IAdvancedAnalysisProvider provider,
-        int heartbeatMilliseconds = 50)
+        int heartbeatMilliseconds = 50,
+        bool advancedAnalysisEnabled = true)
     {
         var options = Options.Create(new AdvancedAnalysisOptions
         {
@@ -651,6 +697,10 @@ public sealed class AdvancedAnalysisWorkerTests
             new AdvancedAnalysisEvidenceResolver(dataSource, options),
             new InitialEvidenceToolGatewayFactory(),
             provider,
+            Options.Create(new LicenseOptions
+            {
+                AdvancedAnalysisEnabled = advancedAnalysisEnabled
+            }),
             options,
             NullLogger<AdvancedAnalysisWorker>.Instance);
     }
