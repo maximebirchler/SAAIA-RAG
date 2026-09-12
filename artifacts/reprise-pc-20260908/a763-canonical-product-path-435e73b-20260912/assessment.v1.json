@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "createdAtUtc": "2026-09-12T04:16:01.8970960Z",
+  "repository": {
+    "branch": "SAAIA_V3.1",
+    "testedHead": "435e73b727585bca5d3c37b6a8b45470da345e17",
+    "workingTreeTested": true
+  },
+  "scope": "Static and executable verification that local and advanced product paths use source-backed canonical retrieval without backend semantic guidance",
+  "findings": [
+    "LLM router plans with a source-backed mission enter SourceBackedAgentV2 when native tool support is available.",
+    "SourceBackedRouterPlanAdapter sets sourceBackedCanonical=true for search and multi-search requests.",
+    "AdvancedAnalysisToolGateway calls RagEndpoints with SourceBackedCanonical=true.",
+    "Canonical backend responses omit Guidance and SelectionHints while preserving document, revision, source hash, chunk and exact query identity through EvidenceBundle.",
+    "The no-LLM search-only fallback remains a separate legacy path and is outside the local-LLM plus advanced-provider contract currently under validation."
+  ],
+  "evidence": {
+    "canonicalClientContracts": {
+      "path": "artifacts/reprise-pc-20260908/a763-canonical-product-path-435e73b-20260912/canonical-product-path.trx",
+      "passed": 125,
+      "failed": 0,
+      "skipped": 0,
+      "trxSha256": "89B3015D8BAE85CA0945B9E09FA8D2FD417AF4C1FD615CCC6F6020DF3F436F43"
+    },
+    "fullClientRelease": {
+      "path": "artifacts/reprise-pc-20260908/a763-client-release-435e73b-20260912/client-release.trx",
+      "passed": 2238,
+      "failed": 0,
+      "skipped": 1,
+      "total": 2239,
+      "trxSha256": "2A5419201CC085EC0E847BFCFC5D3C307216E24ACE7DBBCD234352A3174B3466",
+      "skippedReason": "Opt-in live canonical vertical probe was not executed."
+    },
+    "postgresBackend": {
+      "path": "artifacts/reprise-pc-20260908/a671-backend-postgres/a763-postgres-suite-after-legacy-retirement-5c1dcc9-20260912",
+      "passed": 2146,
+      "failed": 0,
+      "skipped": 2,
+      "total": 2148,
+      "interpretation": "Includes the advanced tool gateway canonical retrieval integration test."
+    }
+  },
+  "classification": {
+    "canonicalPathMechanicalContract": "PASS",
+    "legacyDeterministicGuidanceRequiredByCanonicalProduct": false,
+    "semanticQualityApproved": false
+  },
+  "privacy": {
+    "externalLlmCalls": 0,
+    "externalContentTransmitted": false,
+    "newCostUsd": 0
+  },
+  "knownLimitations": [
+    "This assessment proves routing and evidence identity mechanics, not semantic retrieval quality or answer quality.",
+    "The opt-in live client probe, WinUI source-card inspection and advanced-provider campaign remain pending.",
+    "The separate LLM-disabled search-only fallback still uses the legacy response contract."
+  ],
+  "verdict": "PASS_CANONICAL_PRODUCT_PATH_MECHANICS_KEEP_PRODUCT_TESTE_NON_APPROUVE"
+}

@@ -14097,3 +14097,16 @@ Assessment :
 `artifacts/reprise-pc-20260908/a763-postgres-test-hygiene-20260912/assessment.v1.json`.
 SHA-256 `EF308499BE7F4135DE3C1E21919CCBACFB9C8920D3A3DD960B71F2E69843A114`.
 Produit `TESTE_NON_APPROUVE`.
+
+## A763 — branche canonique du produit confirmée — 2026-09-12
+
+Le contrôle client confirme que les plans source-backed locaux et la gateway
+avancée utilisent la route canonique, sans réintroduire les décisions
+sémantiques de `BuildAnswerGuidance`. Les identités de preuve traversent le vrai
+client API jusqu'à l'`EvidenceBundle`. Résultats : 125/125 ciblés et 2 238/2 239
+sur la suite cliente Release, avec uniquement la probe live opt-in ignorée.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-canonical-product-path-435e73b-20260912/assessment.v1.json`,
+SHA-256 `2A0E41A59E43AF6F5EE075379AAEDB631D0C239847B3F9A257DDBEF8C73FE413`.
+La qualité live et WinUI restent ouvertes. Produit `TESTE_NON_APPROUVE`.

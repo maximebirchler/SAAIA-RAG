@@ -1114,3 +1114,26 @@ Cette réussite mécanique n'approuve ni la qualité sémantique, ni les erreurs
 source visibles dans l'ancien chemin direct : elles devront être jugées sur la
 chaîne produit planner + retrieval canonique + LLM + WinUI. Produit
 `TESTE_NON_APPROUVE`.
+
+## A763 — chemins produit local et avancé reliés au retriever canonique — 2026-09-12
+
+Après la reclassification des oracles legacy, le chemin réellement exécuté par
+le produit a été contrôlé séparément. Un plan LLM porteur d'une mission
+source-backed entre dans `SourceBackedAgentV2`; son adaptateur force
+`sourceBackedCanonical=true` sur les recherches simples et multiples. La gateway
+d'analyse avancée appelle la même route canonique.
+
+Les réponses canoniques ne transportent ni `Guidance` ni `SelectionHints`
+sémantiques du backend. Les identités `docId`, `revisionId`, `sourceHash`,
+`chunkId` et la requête exacte traversent l'API et la normalisation jusqu'à
+l'`EvidenceBundle`. Les 125 tests ciblés de routeur, transport et preuve passent.
+La suite cliente Release compte 2 238 réussites, zéro échec et une probe live
+opt-in ignorée sur 2 239.
+
+Le fallback sans LLM reste une voie legacy séparée ; il n'est pas assimilé au
+contrat local-LLM + fournisseur avancé en cours de validation. Cette preuve est
+mécanique et n'approuve ni la pertinence des hits, ni la rédaction LLM, ni le
+rendu WinUI. Assessment :
+`artifacts/reprise-pc-20260908/a763-canonical-product-path-435e73b-20260912/assessment.v1.json`,
+SHA-256 `2A0E41A59E43AF6F5EE075379AAEDB631D0C239847B3F9A257DDBEF8C73FE413`.
+Aucun appel externe ni coût nouveau. Produit `TESTE_NON_APPROUVE`.
