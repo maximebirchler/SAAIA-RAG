@@ -1180,3 +1180,41 @@ rendu WinUI. Assessment :
 `artifacts/reprise-pc-20260908/a763-canonical-product-path-435e73b-20260912/assessment.v1.json`,
 SHA-256 `2A0E41A59E43AF6F5EE075379AAEDB631D0C239847B3F9A257DDBEF8C73FE413`.
 Aucun appel externe ni coût nouveau. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — licence, topologie et secret avancés découplés — 2026-09-12
+
+La revue de compatibilité avec le futur installateur a confirmé que le backend
+sépare déjà le droit signé `License.AdvancedAnalysisEnabled`, le profil actif,
+la localisation interne ou externe et la référence du secret. Elle a cependant
+trouvé une contradiction concrète : les installateurs Windows et Linux
+exigeaient `SAAIA_ADVANCED_LLM_API_KEY` pour tout profil avancé, y compris
+`customer-server`, alors que le provider interne accepte correctement un point
+d'accès privé sans authentification Bearer.
+
+Le commit `35e3e9d` rend la clé obligatoire uniquement pour une localisation
+`external-service`. Le profil client interne peut maintenant être généré et
+signé sans clé ; le backend n'envoie alors aucun en-tête `Authorization`.
+OpenAI et RunPod continuent d'échouer avant signature lorsqu'il leur manque une
+clé. La documentation interdit aussi au futur installateur client d'activer les
+modes directs `OpenAiDev` ou `RunPodBench` : ces modes restent des harnais de
+développement, tandis que le chemin produit avancé passe par le job backend et
+son droit signé.
+
+La matrice réelle de génération et signature valide les profils désactivé,
+`customer-server`, `openai-dev` et `runpod-bench`, ainsi que les deux refus de
+clé manquante. Les syntaxes PowerShell et Git Bash passent. La suite backend
+Release compte 2 154 réussites, zéro échec et trois tests ignorés sur 2 157 ;
+les 20 tests d'architecture provider du client passent également.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-license-topology-readiness-35e3e9d-20260912/assessment.v1.json`,
+SHA-256 `14C99E155A899522E05544CC899F49B1781B55769E9369F9EABBE9C22096854A`.
+La clé de signature jetable et les configurations rendues ont été vidées après
+preuve ; le scan ne trouve aucun secret. Aucun fournisseur n'a été appelé,
+aucun contenu n'est sorti et le coût est nul.
+
+Le mode hybride local + capacité avancée est compatible avec cette architecture.
+Une éventuelle licence « serveur uniquement » reste explicitement hors de ce lot :
+elle demandera un routage client licencié capable de créer un handoff sans petit
+modèle. L'interface interactive de l'installateur et les fournisseurs cloud
+supplémentaires restent aussi différés. Produit `TESTE_NON_APPROUVE`.

@@ -14138,3 +14138,23 @@ réussites, zéro échec et une sonde live ignorée sur 2 239. Aucun appel LLM,
 aucune transmission externe nouvelle et aucun coût. Le gate
 WinUI terminal est fermé ; la banque Terra 3/3, le fournisseur final, le serveur
 client et le holdout aveugle restent ouverts. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — matrice licence/topologie prête pour le mode hybride — 2026-09-12
+
+Le commit `35e3e9d` corrige l'unique contradiction trouvée dans le chemin
+d'installation actuel : `customer-server` n'exige plus une clé API externe.
+La clé reste obligatoire et résolue hors configuration signée pour OpenAI et
+RunPod. Une matrice de génération signée vérifie les quatre profils, les deux
+refus sans clé externe, les syntaxes PowerShell et Bash, sans appel réseau.
+
+La suite backend Release passe avec 2 154 réussites, zéro échec et trois tests
+ignorés sur 2 157. Les 20 tests du contrat provider client passent. Assessment :
+`artifacts/reprise-pc-20260908/a763-license-topology-readiness-35e3e9d-20260912/assessment.v1.json`,
+SHA-256 `14C99E155A899522E05544CC899F49B1781B55769E9369F9EABBE9C22096854A`.
+
+La cible locale + serveur avancé peut maintenant être configurée sans couplage
+de secret. Avant de commercialiser un profil serveur uniquement, ajouter un
+mode de routage client licencié qui ne dépend pas du petit modèle. L'assistant
+d'installation interactif et de nouveaux profils cloud restent des travaux
+ultérieurs, conformément au périmètre décidé. Aucun coût nouveau. Produit
+`TESTE_NON_APPROUVE`.
