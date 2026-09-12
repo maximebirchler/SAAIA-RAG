@@ -13842,6 +13842,22 @@ analyses PowerShell passent, sans appel externe. Assessment :
 SHA-256 `D26C9629982F978509E360104F2CC99D194434DB03CDAB03A8AC0786E31EF74A`.
 Produit `TESTE_NON_APPROUVE`.
 
+## A763 — licence avancée fermée avant toute exécution — 2026-09-12
+
+Le commit `56ae3a73` étend le verrou `AdvancedAnalysisEnabled` au provider et au
+worker. Une licence désactivée refuse déjà la création de job ; elle retourne
+maintenant aussi un provider désactivé avant lecture de sa configuration et
+arrête le worker avant base, bail ou réseau. Les jobs existants restent en file
+et ne sont pas envoyés pendant la période non autorisée.
+
+Deux tests dédiés, les 62 tests avancés et la suite backend Release passent :
+2 153 réussites, zéro échec, une probe live ignorée. Assessment :
+`artifacts/reprise-pc-20260908/a763-license-gate-56ae3a7-20260912/assessment.v1.json`,
+SHA-256 `C02B7BFB2E2AD7B89A042EB9D721E1849157AE3409F9CA4BADA20F0A9E01E9A6`.
+Ce jalon garantit la fermeture du droit actuel sans implémenter prématurément
+le futur catalogue commercial. Aucun appel externe et aucun coût nouveau.
+Produit `TESTE_NON_APPROUVE`.
+
 ## A763 — proxy de coût RunPod sur le pipeline observé — 2026-09-12
 
 Trois jobs réussis récents par cas avancé ont été sélectionnés dans les preuves

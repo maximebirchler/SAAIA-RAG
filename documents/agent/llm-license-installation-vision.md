@@ -109,6 +109,28 @@ stockage des secrets du produit final.
 - toute topologie doit exposer la même télémétrie, les mêmes erreurs typées et
   les mêmes critères de validation sémantique.
 
+## État du premier verrou de licence
+
+Le commit `56ae3a73` fait désormais appliquer l'entitlement existant
+`AdvancedAnalysisEnabled` aux trois points d'entrée du parcours avancé :
+
+- l'endpoint refuse toujours la création d'un job sans droit ;
+- la résolution de `IAdvancedAnalysisProvider` retourne le provider désactivé
+  avant d'interpréter une configuration OpenAI, RunPod ou serveur client ;
+- le worker refuse de récupérer ou traiter un job tant que le droit est absent.
+
+Une licence désactivée ne provoque donc ni résolution de secret, ni accès base
+du worker, ni appel LLM. Un job déjà en file reste conservé et pourra reprendre
+après réactivation cohérente, sans être envoyé pendant la période non autorisée.
+Les deux tests de garde, les 62 tests avancés ciblés et les 2 153 tests backend
+Release passent, zéro échec et une probe live opt-in ignorée. Assessment :
+`artifacts/reprise-pc-20260908/a763-license-gate-56ae3a7-20260912/assessment.v1.json`,
+SHA-256 `C02B7BFB2E2AD7B89A042EB9D721E1849157AE3409F9CA4BADA20F0A9E01E9A6`.
+
+Ce verrou ne remplace pas le futur schéma signé de capacités et ne choisit pas
+une offre commerciale. Il garantit que l'architecture actuelle échoue déjà de
+façon fermée lorsque la capacité avancée n'est pas acquise.
+
 ## Décisions à prendre après les validations du lot
 
 Restent à décider avec des preuves de coût, qualité et exploitation : le format

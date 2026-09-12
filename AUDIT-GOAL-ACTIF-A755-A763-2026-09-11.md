@@ -810,6 +810,29 @@ rapport au volume réellement observé sur le même pipeline. Assessment :
 SHA-256 `2880CE27D14A3926EE7333660B96C2BAB9B06C9A1ABD58A8C459BB29AF50E6AB`.
 Aucun appel externe et aucun coût nouveau. Produit `TESTE_NON_APPROUVE`.
 
+## A763 — entitlement avancé appliqué avant provider et worker — 2026-09-12
+
+L'audit de la vision d'installation a trouvé que l'endpoint refusait les
+nouveaux jobs lorsque `AdvancedAnalysisEnabled=false`, mais que le worker ne
+revérifiait pas ce droit et que le provider configuré pouvait encore être
+résolu. Un ancien job en file risquait donc d'être traité après révocation de
+la capacité si `WorkerEnabled` restait actif.
+
+Le commit `56ae3a73` ferme ces deux chemins. La factory DI retourne le provider
+désactivé avant d'interpréter l'identité ou le secret du fournisseur. Le worker
+vérifie l'entitlement avant toute récupération de bail ou connexion base. Deux
+tests prouvent qu'une configuration de provider volontairement invalide est
+ignorée sous licence désactivée et qu'aucun accès base ou appel provider n'est
+tenté.
+
+Les 62 tests avancés ciblés passent. La suite backend Release sur le SHA exact
+compte 2 153 réussites, zéro échec et une probe live opt-in ignorée. Assessment :
+`artifacts/reprise-pc-20260908/a763-license-gate-56ae3a7-20260912/assessment.v1.json`,
+SHA-256 `C02B7BFB2E2AD7B89A042EB9D721E1849157AE3409F9CA4BADA20F0A9E01E9A6`.
+Ce correctif applique le premier entitlement existant ; le schéma commercial
+complet et les installateurs restent hors du lot actuel. Aucun appel externe et
+aucun coût nouveau. Produit `TESTE_NON_APPROUVE`.
+
 ## A763 — identité runtime RunPod rendue obligatoire — 2026-09-12
 
 Le commit `8a3bcd0` retire la dernière attribution implicite de `llama.cpp` aux
