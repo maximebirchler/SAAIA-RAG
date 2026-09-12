@@ -1,7 +1,7 @@
 # A763 — La relation de cellule fait partie du fait à prouver
 
 Date de décision : 2026-09-12
-Statut : `PROMPT_ONLY_REJECTED_CRITIC_COMPARISON_REQUIRED`
+Statut : `TERRA_COMPLEX_INSUFFICIENCY_BOUNDARY_MEASURED`
 
 ## Problème observé
 
@@ -203,3 +203,24 @@ erreur sémantique du Critic. Le transport distingue désormais ce cas par
 comptés dans l'enveloppe par job. La reprise commence par une seule répétition
 de calibration; trois répétitions ne seront autorisées qu'après une sortie
 complète et une revue canonique positive.
+
+La calibration 4 096 `A763-TERRA-CRITIC-OUTPUT-4096-MEAL-GRID-1X`, exécutée
+sur le commit propre `5ca0ae44`, termine ses trois appels. Elle consomme
+19 017 tokens d'entrée, 2 125 tokens de sortie et 0,063534 USD. Le Critic
+produit cette fois un JSON complet, le test mécanique passe, le sceau du corpus
+reste identique et les ressources sont libérées.
+
+La revue canonique rejette néanmoins la réponse. Elle conserve cinq exemples
+de petit-déjeuner, mais regroupe les quinze cellules Déjeuner, Collation et
+Souper comme impossibles à remplir sans restituer les éléments positifs déjà
+soutenus ni quantifier les déficits minimaux. Les preuves contiennent au moins
+une composition explicitement nommée Déjeuner et une explicitement nommée
+Collation. La sortie reste donc ambiguë sur l'effacement des unités positives
+et ne satisfait pas le critère préenregistré du plus petit déficit décisif.
+
+Verdict causal : le plafond 4 096 résout l'échec de transport, mais le Critic
+Terra ne stabilise pas la fidélité sémantique de ce cas. La campagne 3 × 3 n'est
+pas lancée. L'option Critic reste disponible pour de futurs benchmarks, mais
+désactivée dans les templates de déploiement. La frontière mesurée de Terra sur
+ce paquet de preuves est une insuffisance souvent sûre, sans garantie 3/3 sur
+la précision des affirmations négatives et des déficits partiels.

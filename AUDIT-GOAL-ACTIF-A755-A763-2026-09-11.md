@@ -14,14 +14,20 @@ est implémentée de bout en bout : décision locale, handoff typé, job serveur
 durable, retrieval SAAIA, fournisseur OpenAI-compatible, validation des preuves,
 reprise WinUI et affichage des sources.
 
-Les appels réels à OpenAI démontrent que Terra peut produire mécaniquement les
-livrables complexes visés. La dernière revue humaine accepte une fois les cinq
-repas étudiant et la comparaison CEN/IEC, mais rejette le planning de vingt
-cellules car le placement de plusieurs recettes n'est pas soutenu par les
-preuves. Les essais ont ainsi révélé puis permis de corriger des défauts
-génériques de requêtage, de sélection des preuves, de validation sémantique et
-de protocole. L'état courant n'a pas encore trois réussites consécutives sur
-l'ensemble de la banque avancée après le dernier gel. Le produit reste donc
+Le quota OpenAI n'est plus bloquant : le tableau de bord affiche `Usage tier 1`
+et, pour Terra, 500 000 TPM, 500 RPM et 900 000 TPD. La campagne complète sur
+l'état gelé accepte sémantiquement les neuf réponses étudiant, CEN/IEC et NIST,
+mais rejette les trois plannings 5 × 4. Le corpus ne contient pas vingt relations
+explicites entre une proposition et une cellule du planning ; Terra produit alors
+des insuffisances prudentes, mais ne conserve pas systématiquement les unités
+positives ni le déficit minimal réellement démontré.
+
+Trois variantes générales de contrat Writer plafonnent chacune à deux réussites
+sur trois. Un Critic sémantique borné a également été évalué : son transport est
+valide avec 4 096 tokens de sortie, mais sa calibration sémantique est rejetée.
+Il reste donc expérimental et désactivé dans les templates. Cette frontière est
+désormais mesurée ; elle n'est plus un motif pour empiler des consignes ou
+consommer de nouveaux appels Terra sur la même variante. Le produit reste
 `TESTE_NON_APPROUVE`.
 
 ## Reprise documentaire et dépôt
@@ -149,7 +155,10 @@ Cette observation confirme que Luna peut servir aux tâches avancées modestes o
 à la planification économique, mais ne constitue pas le modèle de référence pour
 le planning complexe. Terra reste le candidat API principal de validation.
 
-## Coût et limites du compte
+## Coût et limites avant activation du palier Tier 1 (historique)
+
+Cette section conserve l'état constaté avant le passage effectif au palier 1.
+Elle est supersédée par le jalon final du présent audit.
 
 Le journal local enregistre désormais 52 appels Terra, dont 46 réussis et 6
 rejets, pour 226 635 tokens d'entrée, 39 974 tokens de sortie et 0,8846442 USD.
@@ -228,7 +237,7 @@ n'a été créé à ce stade.
   aucun secret de configuration détecté ;
 - ports temporaires 5123 et 1234 libérés après les campagnes.
 
-## Preuves manquantes avant approbation
+## Preuves manquantes avant approbation à ce jalon historique
 
 1. Rejouer la banque avancée complète trois fois sur l'état gelé avec Terra,
    après application du Tier 1 ou réinitialisation du quota journalier.
@@ -244,7 +253,7 @@ externes encore absents. Le contrat unique permet de changer d'endpoint sans
 changer la logique documentaire, et le garde-budget externe suit désormais ce
 contrat pour chaque fournisseur facturé.
 
-## Prochaine séquence
+## Prochaine séquence prévue à ce jalon historique
 
 L'état courant doit être commité et poussé avec ses tests et son audit. Ensuite,
 dès que le quota Terra est disponible, la banque avancée est rejouée trois fois
@@ -565,7 +574,7 @@ Terra 3/3. L'artefact reproductible est
 `artifacts/reprise-pc-20260908/a763-local-protocol-repair-d0a844d5-20260912`.
 Le produit reste `TESTE_NON_APPROUVE`.
 
-## Audit de clôture contre la mission LLM — 2026-09-12
+## Audit intermédiaire contre la mission LLM avant activation Tier 1 — 2026-09-12
 
 La mission initiale demandait un fournisseur interchangeable directement dans
 le client. La clarification produit ultérieure demande en plus un parcours
@@ -1678,3 +1687,85 @@ Assessment :
 SHA-256 `BCDEF03DE2A4CCBF9F284082BC53526DBA3ED367A2A4A2FE05F4B4356D00F120`.
 Verdict mécanique : `PASS_MECHANICAL_SEMANTIC_DECISION_FINALIZER_READY`.
 Produit `TESTE_NON_APPROUVE`.
+
+## A763 — palier Tier 1, campagne Terra complète et frontière de l'insuffisance — 2026-09-12
+
+Après l'achat de crédits, le tableau de bord OpenAI affiche finalement
+`Usage tier 1`. Plusieurs contrôles frais confirment pour Terra 500 000 TPM,
+500 RPM et 900 000 TPD. La campagne n'est donc plus bloquée par le quota Free
+50 RPD. Les campagnes décrites ci-dessous ne rencontrent aucune réponse 429.
+
+La campagne `A763-TERRA-FINAL-POST-COLLECTION-3X` produit huit jobs avant un
+faux négatif du harnais. Les seize appels consomment 65 897 tokens d'entrée,
+7 247 de sortie et 0,218758 USD. La revue canonique accepte les huit sorties.
+Le harnais ne reconnaissait pas la formulation explicite `je ne peux pas` comme
+une insuffisance; le commit `67f6767b` corrige cette détection sans modifier le
+Writer.
+
+La campagne `A763-TERRA-FINAL-POST-HARNESS-3X` termine ensuite les douze jobs :
+101 700 tokens d'entrée, 11 291 de sortie, 0,338892 USD. L'évaluateur
+PowerShell exigeait encore les cinq jours même lorsqu'une insuffisance précise
+était autorisée. Le commit `68ce836b` aligne l'évaluation et trois tests
+synthétiques passent sous PowerShell 7 et Windows PowerShell 5.1. Les douze
+sorties immuables passent alors mécaniquement. La revue canonique accepte les
+neuf sorties étudiant, CEN/IEC et NIST, mais rejette les trois plannings : ils
+présentent leur sous-ensemble de preuves comme un inventaire exhaustif du
+corpus.
+
+Trois probes causaux précisent successivement cette frontière :
+
+- `A763-TERRA-INSUFFICIENCY-SCOPE-MEAL-GRID-3X` : six appels,
+  0,088672 USD, deux passages et un rejet; le rejet efface les éléments positifs;
+- `A763-TERRA-INSUFFICIENCY-DEFICIT-MEAL-GRID-3X` : 29 040 tokens d'entrée,
+  3 593 de sortie, 0,101196 USD, deux passages et un rejet; le rejet transforme
+  un repas léger à 00h-2h en déjeuner;
+- `A763-TERRA-INSUFFICIENCY-RELATION-MEAL-GRID-3X` : 29 159 tokens d'entrée,
+  2 537 de sortie, 0,088762 USD, deux passages et un rejet; la relation ciblée
+  est corrigée, mais une autre répétition déclare à nouveau toutes les unités
+  d'une famille non étayées malgré ses propres preuves positives.
+
+Les contrats Writer limitent désormais les affirmations négatives aux preuves
+fournies, préservent les unités positives, demandent le déficit minimal et
+appliquent la règle d'ancrage des relations jusque dans une explication
+d'insuffisance. Ces règles restent générales. L'absence de 3/3 sur les probes
+gelés démontre cependant que l'empilement de consignes Writer ne suffit pas à
+stabiliser Terra sur ce cas.
+
+## A763 — comparaison bornée d'un Critic sémantique Terra — 2026-09-12
+
+Le commit `6beac8a1` ajoute un Critic sémantique configurable après le Writer.
+Il utilise le même modèle actif et le même paquet de preuves, rend le contrat
+final existant et possède le rôle télémétrique `critic`. Son appel compte dans
+les plafonds de coût et d'appels. Un JSON Critic invalide échoue fermé; la
+proposition Writer non contrôlée n'est jamais publiée. Le chemin maximal reste
+borné à quatre appels : Planner, Writer, éventuelle réparation Writer, Critic.
+La logique est commune à OpenAI, RunPod et au futur serveur client.
+
+La première campagne Critic s'arrête dès le premier job. Planner et Writer
+réussissent, mais le Critic consomme exactement 2 400 tokens de sortie sans
+contenu. Les appels coûtent 0,003186, 0,028658 et 0,047532 USD, soit
+0,079376 USD. Aucun résultat ni source non validée n'est publié. Le commit
+`f5bc4925` distingue désormais ce cas par `advanced_llm_output_limit` et borne
+la sortie Critic à 4 096 tokens.
+
+La calibration suivante, limitée à un job, termine les trois appels :
+19 017 tokens d'entrée, 2 125 de sortie, 0,063534 USD. Le transport, le JSON et
+l'évaluation mécanique passent. La revue canonique rejette néanmoins la sortie.
+Elle conserve cinq petits-déjeuners, puis regroupe les quinze autres cellules
+comme impossibles à remplir sans restituer les unités positives déjà prouvées
+ni leurs déficits minimaux. Le plafond supérieur résout donc le transport, mais
+le Critic ne stabilise pas la sémantique. La campagne 3 × 3 n'est pas lancée.
+
+Le Critic reste implémenté pour de futurs benchmarks, avec tests de correction
+et d'échec fermé, mais il est désactivé dans les templates de déploiement. Les
+tests provider passent 41/41, le garde OpenAI 10/10, l'assesseur 3/3 et la suite
+backend Release 2 162 réussites sur 2 165 tests, trois probes live étant
+volontairement ignorées. Le corpus conserve son empreinte et tous les processus
+temporaires sont arrêtés.
+
+Verdict : `TERRA_COMPLEX_INSUFFICIENCY_BOUNDARY_MEASURED`. Terra fournit
+souvent un refus sûr et utile, mais ne garantit pas trois fois sur trois une
+explication exacte des preuves positives et du déficit minimal pour le planning
+5 × 4 observé. Le corpus ne permet toujours pas vingt relations de cellule
+explicites; le planning fonctionnel complet reste une porte distincte. Produit
+`TESTE_NON_APPROUVE`.
