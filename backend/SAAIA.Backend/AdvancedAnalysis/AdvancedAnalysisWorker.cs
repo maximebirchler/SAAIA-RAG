@@ -219,6 +219,25 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
         }
         catch (AdvancedAnalysisProviderException ex)
         {
+            if (ex.IsRetryable)
+            {
+                var retryDelayMilliseconds = ResolveJobRetryDelayMilliseconds(ex);
+                var retryStored = await _store.TryScheduleRetryAsync(
+                    lease.JobId,
+                    _workerId,
+                    ex.ErrorCode,
+                    retryDelayMilliseconds,
+                    maximumAttempts,
+                    cancellationToken).ConfigureAwait(false);
+                if (!retryStored)
+                {
+                    _logger.LogInformation(
+                        "Advanced analysis retry {ErrorCode} was not scheduled because job {JobId} no longer owns its lease",
+                        ex.ErrorCode,
+                        lease.JobId);
+                }
+                return true;
+            }
             await FailAsync(
                 lease.JobId,
                 ex.ErrorCode,
@@ -287,6 +306,26 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
                 lease.JobId);
         }
         return true;
+    }
+
+    private int ResolveJobRetryDelayMilliseconds(
+        AdvancedAnalysisProviderException exception)
+    {
+        var maximumDelay = Math.Clamp(
+            _options.MaximumJobRetryDelayMilliseconds,
+            1_000,
+            604_800_000);
+        var configuredDelay = Math.Clamp(
+            _options.RetryDelayMilliseconds,
+            0,
+            maximumDelay);
+        var providerDelay = exception.RetryAfterMilliseconds is null
+            ? 0L
+            : Math.Clamp(
+                exception.RetryAfterMilliseconds.Value,
+                0L,
+                maximumDelay);
+        return (int)Math.Max(configuredDelay, providerDelay);
     }
 
     private async Task<ProviderExecution> ExecuteProviderWithLeaseAsync(

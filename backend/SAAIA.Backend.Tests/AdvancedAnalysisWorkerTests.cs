@@ -227,6 +227,72 @@ public sealed class AdvancedAnalysisWorkerTests
     }
 
     [Fact]
+    public async Task Worker_schedules_rate_limit_retry_at_provider_delay()
+    {
+        await using var database = await PostgresWorkerDatabase.CreateAsync();
+        if (database is null)
+            return;
+
+        var seed = await database.SeedEvidenceAsync(
+            "rate-limit-delay-tenant",
+            "Rate limit delay evidence");
+        var jobId = await database.InsertJobAsync(
+            seed,
+            BuildHandoff(seed, "rate-limit-delay-evidence"));
+        var provider = new DelegateProvider((request, cancellationToken) =>
+            throw new AdvancedAnalysisProviderException(
+                "advanced_llm_http_429",
+                isRetryable: true,
+                retryAfterMilliseconds: 120_000));
+        var worker = CreateWorker(database.DataSource, provider);
+        var before = DateTimeOffset.UtcNow;
+
+        Assert.True(await worker.ProcessOnceAsync(CancellationToken.None));
+
+        var row = await database.ReadJobAsync(jobId);
+        Assert.Equal("queued", row.Status);
+        Assert.Equal("advanced_llm_http_429", row.LastErrorCode);
+        Assert.Equal(1, row.AttemptCount);
+        Assert.True(row.AvailableAt >= before.AddSeconds(110));
+        Assert.Null(row.FinishedAt);
+        Assert.Single(provider.Requests);
+    }
+
+    [Fact]
+    public async Task Worker_rate_limit_retry_stops_at_the_job_attempt_cap()
+    {
+        await using var database = await PostgresWorkerDatabase.CreateAsync();
+        if (database is null)
+            return;
+
+        var seed = await database.SeedEvidenceAsync(
+            "rate-limit-cap-tenant",
+            "Rate limit cap evidence");
+        var jobId = await database.InsertJobAsync(
+            seed,
+            BuildHandoff(seed, "rate-limit-cap-evidence"));
+        var provider = new DelegateProvider((request, cancellationToken) =>
+            throw new AdvancedAnalysisProviderException(
+                "advanced_llm_http_429",
+                isRetryable: true,
+                retryAfterMilliseconds: 0));
+        var worker = CreateWorker(database.DataSource, provider);
+
+        Assert.True(await worker.ProcessOnceAsync(CancellationToken.None));
+        var queued = await database.ReadJobAsync(jobId);
+        Assert.Equal("queued", queued.Status);
+        Assert.Equal(1, queued.AttemptCount);
+
+        Assert.True(await worker.ProcessOnceAsync(CancellationToken.None));
+        var exhausted = await database.ReadJobAsync(jobId);
+        Assert.Equal("failed", exhausted.Status);
+        Assert.Equal("advanced_llm_http_429", exhausted.LastErrorCode);
+        Assert.Equal(2, exhausted.AttemptCount);
+        Assert.NotNull(exhausted.FinishedAt);
+        Assert.Equal(2, provider.Requests.Count);
+    }
+
+    [Fact]
     public async Task Exclusive_claim_and_expired_lease_recovery_are_deterministic()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
@@ -1456,7 +1522,9 @@ public sealed class AdvancedAnalysisWorkerTests
                   last_error_code AS "LastErrorCode",
                   attempt_count AS "AttemptCount",
                   revision AS "Revision",
-                  tool_event_count AS "ToolEventCount"
+                  tool_event_count AS "ToolEventCount",
+                  available_at AS "AvailableAt",
+                  finished_at AS "FinishedAt"
                 FROM advanced_analysis_jobs
                 WHERE job_id=@job;
                 """,
@@ -1513,6 +1581,8 @@ public sealed class AdvancedAnalysisWorkerTests
         public int AttemptCount { get; init; }
         public int Revision { get; init; }
         public int ToolEventCount { get; init; }
+        public DateTimeOffset AvailableAt { get; init; }
+        public DateTimeOffset? FinishedAt { get; init; }
     }
 
     private sealed class ToolEventState

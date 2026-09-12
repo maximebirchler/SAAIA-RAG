@@ -59,10 +59,21 @@ internal sealed class AdvancedAnalysisProviderException : Exception
 {
     public string ErrorCode { get; }
 
-    public AdvancedAnalysisProviderException(string errorCode)
+    public bool IsRetryable { get; }
+
+    public long? RetryAfterMilliseconds { get; }
+
+    public AdvancedAnalysisProviderException(
+        string errorCode,
+        bool isRetryable = false,
+        long? retryAfterMilliseconds = null)
         : base(errorCode)
     {
         ErrorCode = errorCode;
+        IsRetryable = isRetryable;
+        RetryAfterMilliseconds = retryAfterMilliseconds is >= 0
+            ? retryAfterMilliseconds
+            : null;
     }
 }
 

@@ -803,6 +803,11 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                 CancellationToken.None));
 
         Assert.Equal("advanced_llm_http_429", error.ErrorCode);
+        Assert.True(error.IsRetryable);
+        Assert.InRange(
+            error.RetryAfterMilliseconds!.Value,
+            1_799_000,
+            1_800_000);
         Assert.Single(factory.Requests);
         using var ledgerEntry = JsonDocument.Parse(
             Assert.Single(File.ReadAllLines(options.ExternalUsageLedgerPath)));

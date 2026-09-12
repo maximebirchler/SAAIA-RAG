@@ -485,6 +485,71 @@ internal sealed class AdvancedAnalysisJobStore
             NormalizeErrorCode(errorCode),
             cancellationToken);
 
+    public async Task<bool> TryScheduleRetryAsync(
+        Guid jobId,
+        string workerId,
+        string errorCode,
+        int retryDelayMilliseconds,
+        int maximumAttempts,
+        CancellationToken cancellationToken)
+    {
+        retryDelayMilliseconds = Math.Clamp(
+            retryDelayMilliseconds,
+            0,
+            604_800_000);
+        maximumAttempts = Math.Clamp(maximumAttempts, 1, 20);
+        await using var connection = await _dataSource
+            .OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        const string sql = """
+            UPDATE advanced_analysis_jobs
+            SET status = CASE
+                    WHEN attempt_count >= @maximum_attempts THEN 'failed'
+                    WHEN now() + (@retry_delay_ms * interval '1 millisecond') >= expires_at
+                      THEN 'failed'
+                    ELSE 'queued'
+                END,
+                revision=revision+1,
+                available_at = CASE
+                    WHEN attempt_count < @maximum_attempts
+                     AND now() + (@retry_delay_ms * interval '1 millisecond') < expires_at
+                    THEN now() + (@retry_delay_ms * interval '1 millisecond')
+                    ELSE available_at
+                END,
+                last_error_code = CASE
+                    WHEN now() + (@retry_delay_ms * interval '1 millisecond') >= expires_at
+                    THEN 'job_expired'
+                    ELSE @error_code
+                END,
+                finished_at = CASE
+                    WHEN attempt_count >= @maximum_attempts
+                      OR now() + (@retry_delay_ms * interval '1 millisecond') >= expires_at
+                    THEN now()
+                    ELSE NULL
+                END,
+                updated_at=now(),
+                lease_owner=NULL,
+                lease_expires_at=NULL
+            WHERE job_id=@job_id
+              AND status='running'
+              AND lease_owner=@worker_id
+              AND cancel_requested_at IS NULL
+              AND lease_expires_at > now();
+            """;
+        var changed = await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new
+            {
+                job_id = jobId,
+                worker_id = workerId,
+                error_code = NormalizeErrorCode(errorCode),
+                retry_delay_ms = retryDelayMilliseconds,
+                maximum_attempts = maximumAttempts
+            },
+            cancellationToken: cancellationToken));
+        return changed == 1;
+    }
+
     private async Task<bool> TransitionTerminalAsync(
         Guid jobId,
         string workerId,

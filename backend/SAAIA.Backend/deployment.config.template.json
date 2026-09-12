@@ -96,6 +96,7 @@
     "LeaseSeconds": 120,
     "HeartbeatMilliseconds": 5000,
     "RetryDelayMilliseconds": 5000,
+    "MaximumJobRetryDelayMilliseconds": 86400000,
     "MaximumAttempts": 3,
     "MaximumEvidenceCharactersPerItem": 24000,
     "MaximumEvidenceCharactersTotal": 256000,

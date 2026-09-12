@@ -370,7 +370,10 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                     rejectedErrorCode =
                         $"advanced_llm_http_{(int)response.StatusCode}";
                     throw new AdvancedAnalysisProviderException(
-                        rejectedErrorCode);
+                        rejectedErrorCode,
+                        isRetryable: (int)response.StatusCode == 429,
+                        retryAfterMilliseconds:
+                            responseRateLimit?.RetryAfterMilliseconds);
                 }
 
                 try

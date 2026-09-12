@@ -69,6 +69,8 @@ sealed class AdvancedAnalysisOptions
 
     public int RetryDelayMilliseconds { get; set; } = 5_000;
 
+    public int MaximumJobRetryDelayMilliseconds { get; set; } = 86_400_000;
+
     public int MaximumAttempts { get; set; } = 3;
 
     public int MaximumEvidenceCharactersPerItem { get; set; } = 24_000;
