@@ -935,3 +935,22 @@ provider et du budget guard passent. Assessment :
 `artifacts/reprise-pc-20260908/a763-runpod-probe-cap-1d558f2-20260912/assessment.v1.json`,
 SHA-256 `ED60FA58743655E999227216CAB2F45F9EFD68D89DCA86DBC8DC3CCCF19E0495`.
 Aucun appel externe et aucun coût nouveau. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — préflight RunPod compatible Windows PowerShell 5.1 — 2026-09-12
+
+L'exécution de la commande publiée dans le runbook a révélé que
+`Path.GetRelativePath` n'existe pas dans le runtime .NET de Windows PowerShell
+5.1. Le préflight s'arrêtait avant d'écrire son sceau, alors que le même script
+passait sous PowerShell 7. Le commit `ec954ff6` remplace cet appel par une
+conversion URI compatible, sans changer la validation du profil ni les gardes
+d'exécution.
+
+La commande exacte `powershell -NoProfile -ExecutionPolicy Bypass` a ensuite
+produit les trois sceaux sur le SHA propre `ec954ff6` : Probe 2 appels maximum,
+MealGrid 4 et FullBank 48. Les trois indiquent le chemin relatif attendu,
+`repositoryTrackedDirty=false`, `secretReadByPreflight=false` et
+`externalCallExecutedByPreflight=false`. Version testée : Windows PowerShell
+5.1.26100.9444. Assessment :
+`artifacts/reprise-pc-20260908/a763-windows-powershell-preflight-ec954ff6-20260912/assessment.v1.json`,
+SHA-256 `843EF528C3C13D0B346518CBFF908E667F1957751D5C9B6E7E4C0F667DE00681`.
+Produit `TESTE_NON_APPROUVE`.

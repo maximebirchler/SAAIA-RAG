@@ -13957,3 +13957,18 @@ sceaux et deux tests ciblés passent sans réseau. Assessment :
 `artifacts/reprise-pc-20260908/a763-runpod-probe-cap-1d558f2-20260912/assessment.v1.json`,
 SHA-256 `ED60FA58743655E999227216CAB2F45F9EFD68D89DCA86DBC8DC3CCCF19E0495`.
 Produit `TESTE_NON_APPROUVE`.
+
+## A763 — commande de préflight éprouvée sous Windows PowerShell — 2026-09-12
+
+Le runbook appelle explicitement `powershell.exe`, mais le préflight utilisait
+une API disponible sous PowerShell 7 et absente du runtime Windows PowerShell
+5.1. Le commit `ec954ff6` introduit un calcul de chemin relatif compatible avec
+les deux runtimes.
+
+Après commit, les stages Probe, MealGrid et FullBank ont été relancés avec la
+commande exacte du runbook sur un dépôt propre. Les sceaux conservent les
+plafonds respectifs de 2, 4 et 48 appels, le chemin du profil, le SHA exact et
+l'absence de lecture de secret ou d'appel externe. Assessment :
+`artifacts/reprise-pc-20260908/a763-windows-powershell-preflight-ec954ff6-20260912/assessment.v1.json`,
+SHA-256 `843EF528C3C13D0B346518CBFF908E667F1957751D5C9B6E7E4C0F667DE00681`.
+Produit `TESTE_NON_APPROUVE`.

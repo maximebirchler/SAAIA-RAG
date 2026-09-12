@@ -89,6 +89,12 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -File .\tools\test-runpod-campaign-profile.ps1
 ```
 
+Cette commande est vérifiée avec Windows PowerShell 5.1. Le commit `ec954ff6`
+remplace l'API `.NET` `Path.GetRelativePath`, indisponible dans ce runtime, par
+une conversion URI compatible. Les trois stages ont ensuite produit un sceau
+sur dépôt propre avec la commande documentée, sans lire de secret ni appeler
+RunPod.
+
 Après autorisation explicite et import de la clé dans le coffre SAAIA, la même
 configuration commence par une sonde à deux appels maximum sur des preuves
 synthétiques. Les options d'exécution et de sortie de contenu restent toutes
