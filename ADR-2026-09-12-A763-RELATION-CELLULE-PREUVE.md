@@ -1,7 +1,7 @@
 # A763 — La relation de cellule fait partie du fait à prouver
 
 Date de décision : 2026-09-12
-Statut : `ACCEPT_GENERIC_STRUCTURED_RELATION_GROUNDING_REQUIRES_TERRA_RERUN`
+Statut : `SAFE_INSUFFICIENCY_VALIDATED_2X_REQUIRES_COMPLETE_TERRA_RERUN`
 
 ## Problème observé
 
@@ -67,3 +67,30 @@ ce contrat n'a pas passé les critères mécaniques et la revue humaine trois fo
 sur état gelé. Un Writer qui continue à produire des relations non étayées
 imposera de comparer une étape de critique sémantique bornée à ce simple
 renforcement de prompt.
+
+## Campagne après correction de la composition documentaire
+
+La campagne préenregistrée `A763-TERRA-FINAL-POST-COLLECTION-3X`, exécutée sur
+le commit propre `771ebbc7`, a produit huit jobs durables : une première
+répétition complète des quatre cas, puis une deuxième répétition complète avant
+l'arrêt du harnais. Les seize appels Terra ont consommé 65 897 tokens d'entrée
+et 7 247 tokens de sortie pour 0,218758 USD. Aucun appel n'a reçu de 429, le
+sceau du corpus est resté identique et tous les processus temporaires ont été
+arrêtés.
+
+La revue canonique diagnostique accepte les huit réponses : deux passages sur
+deux pour le planning, les cinq repas étudiant, CEN/IEC et NIST. Les deux
+plannings refusent précisément d'inventer les cellules que le corpus ne permet
+pas de remplir. Le premier décrit les catégories encore incomplètes ; le second
+identifie les cinq collations et l'unique option concrète trouvée. Ces passages
+valident le comportement sûr, sans fermer la porte fonctionnelle du planning
+complet.
+
+L'arrêt mécanique de la deuxième répétition était un faux négatif du harnais.
+Sa détection générique d'insuffisance reconnaissait `ne peut pas`, mais pas la
+formulation explicite `je ne peux pas`. La détection couvre désormais les
+formes usuelles de `pouvoir`, `disposer` et `fournir`; un test de régression
+reprend la formulation réellement observée. Cette correction ne modifie ni le
+Writer, ni les prompts, ni la réponse publiée. Le verdict public diagnostique
+reste `DIAGNOSTIC_ROWS_ALL_PASS`, huit passages et aucun rejet,
+`approvalEligible=false`.
