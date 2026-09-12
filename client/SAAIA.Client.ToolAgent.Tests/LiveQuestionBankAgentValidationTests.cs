@@ -164,6 +164,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
 
     [Theory]
     [InlineData("Les sources ne permettent pas de documenter les cinq cellules Collation.")]
+    [InlineData("Les extraits fournis ne donnent pas de prescription technique permettant de répondre.")]
     [InlineData("Le planning complet ne peut donc pas être établi sans invention.")]
     [InlineData("Je ne peux pas produire les cinq unités demandées sans invention.")]
     [InlineData("Documentation insuffisante pour produire le planning complet.")]
@@ -1099,7 +1100,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
                      StringComparison.OrdinalIgnoreCase)
                  && !RegexIsMatch(
                      answer ?? string.Empty,
-                     @"\b(?:manqu\p{L}*|insuffis\p{L}*|absent\p{L}*|impossible|pas\s+assez|pas\s+suffisamment|non\s+(?:document|[eé]tay)\p{L}*|ne\s+(?:contient|contiennent|dispose|disposent|documentent|fournit|fournissent|permet(?:tent)?|peux|peut|peuvent)\s+(?:donc\s+)?pas|sans\s+fournir|not\s+enough|cannot|missing|insufficient)"))
+                     @"\b(?:manqu\p{L}*|insuffis\p{L}*|absent\p{L}*|impossible|pas\s+assez|pas\s+suffisamment|non\s+(?:document|[eé]tay)\p{L}*|ne\s+(?:contient|contiennent|dispose|disposent|documentent|donne(?:nt)?|fournit|fournissent|permet(?:tent)?|peux|peut|peuvent)\s+(?:donc\s+)?pas|sans\s+fournir|not\s+enough|cannot|missing|insufficient)"))
         {
             flags.Add("advanced_insufficiency_not_specific");
         }
