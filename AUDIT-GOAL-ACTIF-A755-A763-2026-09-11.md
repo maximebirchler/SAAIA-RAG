@@ -769,6 +769,24 @@ a pour SHA-256
 Aucun appel externe n'a été exécuté et les ports 1234, 5123 et 18081 sont libres.
 Produit `TESTE_NON_APPROUVE`.
 
+## A763 — protocole du serveur client rejoué sur le HEAD courant — 2026-09-12
+
+Le runner `test-advanced-protocol-repair-local.ps1` a été rejoué sur le commit
+propre `b43c1a8f` avec une fixture HTTP loopback et le profil
+`customer-server/internal`. La séquence observée est Planner valide, Writer JSON
+tronqué, puis réparation unique. Le provider retourne exactement trois appels,
+vingt claims et vingt preuves distinctes, avec le verdict
+`PASS_BOUNDED_PROTOCOL_REPAIR_LIVE_LOOPBACK`.
+
+La fixture est arrêtée, le port 18081 ne conserve aucun listener, les variables
+d'environnement sont restaurées et aucune donnée n'est transmise à l'extérieur.
+Assessment :
+`artifacts/reprise-pc-20260908/a763-customer-server-loopback-b43c1a8f-20260912/assessment.v1.json`,
+SHA-256 `5617B85A8B26E6D03F2CCE2EDC848E17AAAAB6B3628DEF34FCAAF8A4F5AE9124`.
+Cette preuve ferme la non-régression du contrat on-prem au HEAD courant, mais ne
+remplace ni la qualification d'un vrai modèle ni la mesure du matériel serveur.
+Produit `TESTE_NON_APPROUVE`.
+
 ## A763 — profil RunPod exécutable figé et préflight sans réseau — 2026-09-12
 
 Le commit `0ddaac68` transforme les paramètres proposés en un profil versionné

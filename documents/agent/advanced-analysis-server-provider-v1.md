@@ -136,6 +136,15 @@ le client avec le petit modèle local, crée une vraie session backend et vérif
 le fournisseur, le modèle, les appels, les tokens et le coût renvoyés par le job
 avancé.
 
+Le profil final `customer-server` a été rejoué sur le SHA `b43c1a8f` contre une
+fixture HTTP locale OpenAI-compatible. La séquence live loopback comporte un
+Planner valide, un Writer JSON volontairement tronqué et une réparation unique
+valide. Elle termine avec exactement trois appels, vingt claims et vingt preuves
+distinctes, sans appel externe. La fixture est arrêtée et le port 18081 est libre
+après le test. Cette preuve valide le protocole et sa borne de réparation sur la
+topologie interne ; elle ne qualifie pas encore la qualité ou la performance du
+grand modèle final.
+
 Le parcours Terra réel a produit des résultats durables. Deux cas unitaires ont
 été acceptés après revue des preuves. Le planning 5 × 4 a révélé une relation de
 cellule insuffisamment prouvée ; le contrat Writer a été durci dans `b20fcc2`.

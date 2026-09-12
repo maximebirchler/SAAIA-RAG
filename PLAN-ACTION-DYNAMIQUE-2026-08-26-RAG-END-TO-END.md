@@ -13842,6 +13842,21 @@ analyses PowerShell passent, sans appel externe. Assessment :
 SHA-256 `D26C9629982F978509E360104F2CC99D194434DB03CDAB03A8AC0786E31EF74A`.
 Produit `TESTE_NON_APPROUVE`.
 
+## A763 — non-régression live loopback de la cible on-prem — 2026-09-12
+
+La cible `customer-server` a été exercée au SHA propre `b43c1a8f` avec le vrai
+provider HTTP et une fixture OpenAI-compatible locale. Planner, Writer invalide
+et réparation unique consomment exactement trois appels ; le résultat contient
+vingt claims reliés à vingt preuves distinctes. Le test Release passe, la
+fixture est arrêtée, le port 18081 est libéré et aucune sortie externe n'a lieu.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-customer-server-loopback-b43c1a8f-20260912/assessment.v1.json`,
+SHA-256 `5617B85A8B26E6D03F2CCE2EDC848E17AAAAB6B3628DEF34FCAAF8A4F5AE9124`.
+Le contrat on-prem est donc encore exécutable au HEAD courant. La qualité du
+modèle final, sa latence et son dimensionnement matériel restent à mesurer sur
+une infrastructure représentative. Produit `TESTE_NON_APPROUVE`.
+
 ## A763 — vérification du plafond projet OpenAI — 2026-09-12
 
 La page authentifiée du `Default project` a été inspectée en lecture seule.
