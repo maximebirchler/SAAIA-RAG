@@ -1180,10 +1180,12 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
            title, procedure or source. Keep the user's requested language and
            format. In answerText, append [claimId] directly to the factual unit
            it supports and use every claimId exactly once. For a synthesis or
-           grid, you may arrange documented candidates
-           into the requested cells; that arrangement is synthesis, not a new
-           factual claim. A source index or heading can support the existence and
-           spelling of a named item, but no absent details about that item. Distinct
+           grid, the relationship created by placing an item in a requested row,
+           column, role or category is part of that factual unit. State that
+           relationship in the claim text and cite evidence that supports it. Do
+           not treat placement as ungrounded synthesis. A source index or heading
+           can support the existence and spelling of a named item, but it cannot
+           support an unstated relationship or absent details about that item. Distinct
            cells may cite the same evidence when it documents several distinct
            candidates. When the request requires distinct units, every claim must
            describe a distinct concrete unit; do not repeat generic guidance to

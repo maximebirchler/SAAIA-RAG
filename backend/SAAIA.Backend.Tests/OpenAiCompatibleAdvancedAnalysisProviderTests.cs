@@ -138,6 +138,14 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         });
         Assert.Contains("Porridge aux pommes", factory.Requests[1].Body,
             StringComparison.Ordinal);
+        Assert.Contains(
+            "relationship created by placing an item in a requested row",
+            factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "that arrangement is synthesis, not a new factual claim",
+            factory.Requests[1].Body,
+            StringComparison.Ordinal);
         Assert.DoesNotContain("server-secret", factory.Requests[0].Body,
             StringComparison.Ordinal);
     }
