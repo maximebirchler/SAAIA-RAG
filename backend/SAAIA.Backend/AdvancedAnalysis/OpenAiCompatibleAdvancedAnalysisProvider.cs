@@ -52,9 +52,7 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
             var configured = string.IsNullOrWhiteSpace(_options.ProviderKey)
                 ? NormalizeProvider(_options.Provider)
                 : _options.ProviderKey.Trim();
-            return configured.Length <= 100
-                ? configured
-                : configured[..100];
+            return configured;
         }
     }
 
@@ -218,6 +216,11 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
         {
             throw new AdvancedAnalysisProviderException(
                 "advanced_llm_profile_location_mismatch");
+        }
+        if (ProviderKey.Length > 100)
+        {
+            throw new AdvancedAnalysisProviderException(
+                "advanced_llm_provider_key_invalid");
         }
         if (!Uri.TryCreate(_options.LlmBaseUrl, UriKind.Absolute, out var uri)
             || uri.Scheme is not ("http" or "https"))

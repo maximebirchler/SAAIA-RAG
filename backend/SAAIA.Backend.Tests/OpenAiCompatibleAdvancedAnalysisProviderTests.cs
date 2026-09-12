@@ -844,6 +844,28 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Provider_rejects_oversized_provider_identity_without_truncation()
+    {
+        using var factory = new QueuedHttpClientFactory();
+        var options = CreateOptions();
+        options.ProviderKey = new string('p', 101);
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+
+        Assert.Equal(options.ProviderKey, provider.ProviderKey);
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(
+            () => provider.ExecuteAsync(
+                BuildRequest(),
+                new RecordingToolGateway(),
+                CancellationToken.None));
+
+        Assert.Equal("advanced_llm_provider_key_invalid", error.ErrorCode);
+        Assert.Empty(factory.Requests);
+    }
+
+    [Fact]
     public async Task External_profile_cannot_be_mislabeled_as_internal()
     {
         using var factory = new QueuedHttpClientFactory();
