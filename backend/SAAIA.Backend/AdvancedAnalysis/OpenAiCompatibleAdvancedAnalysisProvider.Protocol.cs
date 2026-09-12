@@ -87,7 +87,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }
             if (outcome == "answered"
                 && claims
-                    .Select(static claim => NormalizeClaimText(claim.Text))
+                    .Select(claim => NormalizeClaimDeduplicationKey(
+                        claim,
+                        request.Handoff.Load))
                     .GroupBy(static text => text, StringComparer.Ordinal)
                     .Any(static group => group.Count() > 1)
                 && !RequiresDistinctStructuredSelection(request.Handoff.Load))
@@ -134,6 +136,20 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 RegexOptions.CultureInvariant)
             .Trim()
             .ToLowerInvariant();
+
+    private static string NormalizeClaimDeduplicationKey(
+        AdvancedAnalysisResultClaim claim,
+        AdvancedAnalysisLoadDescriptor load)
+    {
+        var selectedItem = claim.SelectedItem?.Trim() ?? string.Empty;
+        return string.Equals(
+                   load.AtomicEvidenceMode,
+                   "named_item",
+                   StringComparison.OrdinalIgnoreCase)
+               && selectedItem.Length > 0
+            ? NormalizeClaimText(selectedItem)
+            : NormalizeClaimText(claim.Text);
+    }
 
     private static bool ContainsInternalSourceKey(string value)
         => Regex.IsMatch(

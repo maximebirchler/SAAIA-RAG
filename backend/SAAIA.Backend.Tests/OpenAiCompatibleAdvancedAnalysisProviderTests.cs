@@ -1239,6 +1239,52 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Writer_allows_repeated_qualifier_text_for_distinct_named_items()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[]}"""),
+            Completion("""
+                {"outcome":"answered","answerText":"Omelette [C1]. Quiche [C2].","claims":[{"claimId":"C1","selectedItem":"Omelette","text":"Repas simple.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"Quiche","text":"Repas simple.","evidenceIds":["E2"]}]}
+                """));
+        var provider = CreateProvider(factory);
+        var gateway = new RecordingToolGateway(
+            BuildEvidence("E1", "Omelette", exactTitle: "Omelette"),
+            BuildEvidence("E2", "Quiche", exactTitle: "Quiche"));
+
+        var result = await provider.ExecuteAsync(
+            BuildFlatNamedItemRequest(),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(2, result.Claims.Count);
+        Assert.Equal(
+            ["Omelette", "Quiche"],
+            result.Claims.Select(static claim => claim.SelectedItem));
+    }
+
+    [Fact]
+    public async Task Writer_rejects_a_repeated_selected_item_in_named_item_list()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[]}"""),
+            Completion("""
+                {"outcome":"answered","answerText":"Omelette [C1]. Omelette [C2].","claims":[{"claimId":"C1","selectedItem":"Omelette","text":"Premier repas.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"Omelette","text":"Deuxième repas.","evidenceIds":["E1"]}]}
+                """));
+        var provider = CreateProvider(factory);
+        var gateway = new RecordingToolGateway(
+            BuildEvidence("E1", "Omelette", exactTitle: "Omelette"));
+
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(
+            () => provider.ExecuteAsync(
+                BuildFlatNamedItemRequest(),
+                gateway,
+                CancellationToken.None));
+
+        Assert.Equal("advanced_writer_duplicate_claims", error.ErrorCode);
+    }
+
+    [Fact]
     public async Task Writer_answer_repairs_missing_claim_markers_once()
     {
         using var factory = new QueuedHttpClientFactory(
@@ -2118,6 +2164,39 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                     AtomicEvidenceMode = "one_per_document",
                     SelectionPolicy = "explicit_set",
                     RequestedDocumentName = "FD CEN TR 15281 2023"
+                },
+                ResearchState = new AdvancedAnalysisResearchState
+                {
+                    EvidenceRevalidationRequired = true,
+                    MemoryIsEvidence = false
+                }
+            },
+            [],
+            []);
+
+    private static AdvancedAnalysisProviderRequest BuildFlatNamedItemRequest()
+        => new(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "test-user",
+            new AdvancedAnalysisHandoffEnvelope
+            {
+                HandoffId = Guid.NewGuid(),
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                RequestText = "Propose exactement deux repas simples et distincts.",
+                Language = "fr",
+                OriginIntent = "structured_answer",
+                ReasonCode = "advanced_capacity_required",
+                TransferStage = "pre_retrieval",
+                Load = new AdvancedAnalysisLoadDescriptor
+                {
+                    PlanKind = "multi_item",
+                    Deliverable = "liste de repas",
+                    AnswerUnitCount = 2,
+                    AtomicEvidenceCount = 2,
+                    AtomicEvidenceType = "documented_preparation",
+                    AtomicEvidenceMode = "named_item",
+                    SelectionPolicy = "explicit_set"
                 },
                 ResearchState = new AdvancedAnalysisResearchState
                 {
