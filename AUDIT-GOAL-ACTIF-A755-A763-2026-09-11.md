@@ -1547,6 +1547,51 @@ fraîche.
 Assessment :
 `artifacts/reprise-pc-20260908/a763-terra-local-router-freeze-26f16b2-20260912/assessment.v1.json`,
 SHA-256 `C21BE3E4201485575A1F70EE76098DDB5169EF4211E458500677982CE9C95937`.
-Le profil final courant a pour SHA-256
+Le profil après ce gel avait pour SHA-256
 `9EB41E3E0B9D07BEE163BE7B6904E3603F076930D6C7F3B12001FA4BEFC6F639`.
 Aucun appel fournisseur et aucun coût. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — corpus de référence scellé avant et après la campagne Terra — 2026-09-12
+
+Le lanceur produit vérifiait l'absence de job d'ingestion `queued` ou `running`
+avant de démarrer son backend temporaire, mais il ne prouvait pas que le corpus
+était resté identique jusqu'à la dernière réponse. Un job créé et terminé pendant
+la campagne, un rafraîchissement du catalogue ou une variation de Qdrant aurait
+donc pu changer les preuves disponibles sans invalider mécaniquement le verdict.
+
+Le commit `ec205b80` ajoute un sceau opaque du corpus de référence. Avant le
+démarrage, puis après l'arrêt du backend temporaire, le lanceur lit le catalogue
+du tenant, jusqu'à 2 000 entrées de l'historique d'ingestion et la santé Qdrant.
+Il hache en mémoire l'état logique du catalogue hors timestamps, le payload de
+l'historique et une projection stable contenant collection, statut, compte de
+points et compte de vecteurs. Les chemins, catégories, aliases et payloads
+privés ne sont pas écrits dans les artefacts. Une ingestion `queued`, `running`
+ou `paused` bloque le départ ou l'arrivée ; toute différence de hash rejette la
+campagne avant de la marquer terminée.
+
+Les tests de mutation passent 7/7 sous PowerShell 7 et 7/7 sous Windows
+PowerShell 5.1. Ils prouvent le rejet indépendant d'un changement du catalogue,
+de l'historique d'ingestion ou du nombre de points, l'ignorance de la latence
+Qdrant volatile et l'absence de données privées dans le sceau sérialisé. Les
+gardes OpenAI restent simultanément verts à 10/10 sur les deux moteurs.
+
+Le contrôle live a traversé un vrai cycle automatique de cinq minutes du
+catalogue serveur. Son identifiant est passé de
+`snap_2026-09-12T06:45:19Z_6ba9f9f0` à
+`snap_2026-09-12T06:50:19Z_4b67c0f1`, tandis que l'empreinte logique est restée
+`7B119CDB072F909236CF3291790B0E287ECCEF48716FC97E338CE8C7EFB798E2`.
+Les deux lectures comptent 305 documents, 31 catégories, 120 130 points et
+vecteurs, et zéro ingestion active. Le profil Free exécuté depuis le commit
+propre reste bloqué exclusivement par `paid_tier_not_observed` et
+`paid_tier_observation_missing_or_stale`, avant tout appel externe.
+Après ajout du sceau, le profil final courant a pour SHA-256
+`EEB05D67AE73A710EACC8269259A516142CCC9B6A2D29E0E9FFE1BB99708A3AA`.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-reference-corpus-seal-ec205b8-20260912/assessment.v1.json`,
+SHA-256 `7B0525FB2D838A66C0D9DDE5458171D3FA7BA0167ED1C8FEB1A28F7FF6B4F305`.
+Le composant Qdrant scelle ses compteurs et non le contenu des vecteurs ; les
+mutations produit sont couvertes en parallèle par le catalogue et l'historique
+d'ingestion du tenant. Cette preuve reste mécanique et ne qualifie aucune
+réponse. Aucun appel fournisseur, aucune transmission externe et aucun coût.
+Produit `TESTE_NON_APPROUVE`.
