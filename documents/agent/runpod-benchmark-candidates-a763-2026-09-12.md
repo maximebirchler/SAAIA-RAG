@@ -98,7 +98,10 @@ suffit pas à reproduire exactement l'infrastructure : RunPod ne publie pas dans
 cette fiche le hash des poids servis, la révision du conteneur, le GPU ou les
 paramètres de runtime. Le preflight pourra sceller l'URL, le ModelId demandé, la
 date de la fiche et toutes les métriques renvoyées, mais il ne devra pas inventer
-un hash ou un GPU.
+un hash ou un GPU. Le registre distingue maintenant `modelId`, demandé par
+SAAIA, de `observedModelId`, annoncé dans chaque réponse compatible lorsqu'il
+est présent. Cette trace permet de détecter une révision ou une substitution
+visible sans supposer qu'un alias OpenAI doit être identique à son snapshot.
 
 Ce candidat est donc une preuve fonctionnelle et économique. La preuve de
 reproductibilité matérielle doit ensuite employer un endpoint Serverless privé

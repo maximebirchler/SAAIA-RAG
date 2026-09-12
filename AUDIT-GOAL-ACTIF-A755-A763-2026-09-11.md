@@ -746,3 +746,25 @@ explicite de sortie des extraits de preuve et de dépense maximale de 5 USD rest
 requise avant la première requête. La façade RunPod transmet maintenant aussi
 le délai borné entre cas au moteur commun, comme la façade Terra ; son analyse
 PowerShell rapporte zéro erreur. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — modèle demandé et modèle observé séparés — 2026-09-12
+
+Le commit `a0202c8` ajoute `observedModelId` à chaque ligne de télémétrie d'un
+appel avancé réussi lorsque la réponse OpenAI-compatible contient un champ
+`model` exploitable. `modelId` reste l'identité demandée, persistée pour
+l'affinité du job. Les deux valeurs ne sont pas forcées à être identiques : un
+alias OpenAI peut légitimement résoudre vers un snapshot nommé différemment.
+
+Cette observation améliore la preuve RunPod sans surinterpréter l'endpoint
+public. Une valeur absente, vide, non textuelle ou supérieure à 256 caractères
+n'est pas journalisée. Les prompts, preuves, endpoints et secrets restent
+exclus du registre. Le test RunPod simulé vérifie deux appels et deux identités
+observées `Qwen/Qwen3-32B-AWQ`.
+
+La suite backend Release sur le SHA exact compte 2 151 réussites, zéro échec et
+une probe live opt-in ignorée. L'assessment
+`artifacts/reprise-pc-20260908/a763-observed-model-a0202c8-20260912/assessment.v1.json`
+a pour SHA-256
+`2378E7BB55EECA1F2F89BE9C55D13D62922DE022048454736F32AA0AF4DF9DDD`.
+Aucun appel externe n'a été exécuté et les ports 1234, 5123 et 18081 sont libres.
+Produit `TESTE_NON_APPROUVE`.

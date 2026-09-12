@@ -13812,3 +13812,18 @@ holdout aveugle et la preuve serveur client restent ouverts. Le lanceur RunPod
 expose et transmet désormais le délai inter-cas déjà supporté par le moteur
 commun, afin que la cadence puisse être scellée sans modifier le harnais. Produit
 `TESTE_NON_APPROUVE`.
+
+## A763 — identité du modèle observée dans la télémétrie — 2026-09-12
+
+Le commit `a0202c8` conserve désormais, pour chaque succès du provider avancé,
+le modèle demandé dans `modelId` et le champ `model` annoncé par la réponse dans
+`observedModelId`. Une valeur observée absente ou invalide reste nulle ; elle ne
+remplace jamais l'identité demandée et ne casse pas les alias résolus vers un
+snapshot. Le test RunPod simulé prouve que les deux appels journalisent
+`Qwen/Qwen3-32B-AWQ` comme identité observée.
+
+La validation backend Release sur ce SHA exact compte 2 151 réussites, zéro
+échec et une probe live ignorée. Aucun appel externe ni coût n'a été engagé.
+Assessment :
+`artifacts/reprise-pc-20260908/a763-observed-model-a0202c8-20260912/assessment.v1.json`,
+SHA-256 `2378E7BB55EECA1F2F89BE9C55D13D62922DE022048454736F32AA0AF4DF9DDD`.
