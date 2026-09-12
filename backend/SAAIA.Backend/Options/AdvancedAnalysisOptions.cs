@@ -30,7 +30,7 @@ sealed class AdvancedAnalysisOptions
 
     public bool SemanticCriticEnabled { get; set; }
 
-    public int CriticMaxTokens { get; set; } = 2_400;
+    public int CriticMaxTokens { get; set; } = 4_096;
 
     public int MaximumPlanQueries { get; set; } = 8;
 

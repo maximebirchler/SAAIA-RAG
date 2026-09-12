@@ -82,7 +82,7 @@ Writer pour les réponses avancées qui exigent une fidélité sémantique forte
 Le Critic reçoit la proposition du Writer et le même paquet de preuves, puis
 rend le même contrat final. Sa sortie est validée mécaniquement et une sortie
 invalide fait échouer le job sans publier la proposition non contrôlée.
-`CriticMaxTokens` borne sa sortie. L'appel porte le rôle télémétrique `critic`,
+`CriticMaxTokens` borne sa sortie à 4 096 tokens par défaut. L'appel porte le rôle télémétrique `critic`,
 compte dans `ExternalMaximumCallsPerJob` et dans le budget fournisseur. La
 valeur quatre permet le chemin maximal Planner, Writer, réparation Writer et
 Critic. Les templates de capacité avancée l'activent; la configuration de base

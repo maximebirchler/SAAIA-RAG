@@ -187,3 +187,19 @@ Sa sortie invalide provoque un échec fermé; elle ne permet jamais de publier l
 proposition Writer non contrôlée. L'appel est tracé et soumis aux mêmes plafonds
 de coût et d'appels. Cette étape est indépendante du fournisseur et reste
 désactivable par configuration.
+
+La première campagne avec Critic, `A763-TERRA-CRITIC-MEAL-GRID-3X`, s'arrête
+après la première répétition sans lancer les deux suivantes. Planner et Writer
+réussissent, puis le Critic consomme exactement son plafond de 2 400 tokens de
+sortie sans produire de contenu. Les trois appels coûtent respectivement
+0,003186, 0,028658 et 0,047532 USD, soit 0,079376 USD. Le job échoue fermé avec
+`advanced_llm_content_missing`; aucune réponse ni source non validée n'est
+publiée. Le sceau du corpus reste identique, la configuration est restaurée et
+les ports temporaires sont libres.
+
+L'usage exactement égal au plafond établit une limite de génération, pas une
+erreur sémantique du Critic. Le transport distingue désormais ce cas par
+`advanced_llm_output_limit`. Le plafond Critic passe à 4 096 tokens, toujours
+comptés dans l'enveloppe par job. La reprise commence par une seule répétition
+de calibration; trois répétitions ne seront autorisées qu'après une sortie
+complète et une revue canonique positive.

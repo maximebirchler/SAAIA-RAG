@@ -119,7 +119,7 @@ $semanticCriticEnabled = $null -ne $profile.provider.PSObject.Properties["semant
     [bool]$profile.provider.semanticCriticEnabled
 $criticMaxTokens = if ($null -ne $profile.provider.PSObject.Properties["criticMaxTokens"]) {
     [int]$profile.provider.criticMaxTokens
-} else { 2400 }
+} else { 4096 }
 $campaignKind = if ($null -eq $profile.PSObject.Properties["campaignKind"]) {
     "final-acceptance"
 } else {

@@ -417,21 +417,29 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
                         || choices.GetArrayLength() == 0
                         || !choices[0].TryGetProperty("message", out var answer)
                         || !answer.TryGetProperty("content", out var content)
-                        || content.ValueKind != JsonValueKind.String
-                        || string.IsNullOrWhiteSpace(content.GetString()))
+                         || content.ValueKind != JsonValueKind.String
+                         || string.IsNullOrWhiteSpace(content.GetString()))
                     {
+                        var errorCode = choices.ValueKind == JsonValueKind.Array
+                                        && choices.GetArrayLength() > 0
+                                        && string.Equals(
+                                            ReadString(choices[0], "finish_reason"),
+                                            "length",
+                                            StringComparison.OrdinalIgnoreCase)
+                            ? "advanced_llm_output_limit"
+                            : "advanced_llm_content_missing";
                         if (reservation is not null)
                         {
                             _budget!.Fail(
                                 reservation,
-                                "advanced_llm_content_missing",
+                                errorCode,
                                 usage,
                                 stopwatch.ElapsedMilliseconds,
                                 httpAttemptCount);
                             reservation = null;
                         }
                         throw new AdvancedAnalysisProviderException(
-                            "advanced_llm_content_missing");
+                            errorCode);
                     }
                     AdvancedAnalysisBudgetCharge? charge = null;
                     if (reservation is not null)

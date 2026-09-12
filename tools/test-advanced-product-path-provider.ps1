@@ -29,7 +29,7 @@ param(
     [int]$MaximumCallsPerJob = 4,
     [switch]$EnableSemanticCritic,
     [ValidateRange(512, 16384)]
-    [int]$CriticMaxTokens = 2400,
+    [int]$CriticMaxTokens = 4096,
     [decimal]$InputUsdPerMillionTokens = 0,
     [decimal]$CachedInputUsdPerMillionTokens = 0,
     [decimal]$OutputUsdPerMillionTokens = 0,

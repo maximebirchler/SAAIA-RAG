@@ -667,6 +667,41 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Length_limited_empty_completion_reports_output_limit()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new
+                {
+                    choices = new[]
+                    {
+                        new
+                        {
+                            finish_reason = "length",
+                            message = new { role = "assistant", content = "" }
+                        }
+                    },
+                    usage = new
+                    {
+                        prompt_tokens = 100,
+                        completion_tokens = 600
+                    }
+                })
+            });
+        var provider = CreateProvider(factory);
+
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(
+            () => provider.ExecuteAsync(
+                BuildRequest(),
+                new RecordingToolGateway(),
+                CancellationToken.None));
+
+        Assert.Equal("advanced_llm_output_limit", error.ErrorCode);
+        Assert.Single(factory.Requests);
+    }
+
+    [Fact]
     public async Task Writer_repairs_an_internal_source_key_before_publication()
     {
         using var factory = new QueuedHttpClientFactory(

@@ -28,7 +28,7 @@ param(
     [int]$MaximumCallsPerJob = 4,
     [switch]$EnableSemanticCritic,
     [ValidateRange(512, 16384)]
-    [int]$CriticMaxTokens = 2400,
+    [int]$CriticMaxTokens = 4096,
     [string]$LocalLlmExePath = "",
     [string]$LocalModelPath = "",
     [string]$Configuration = "Debug",
