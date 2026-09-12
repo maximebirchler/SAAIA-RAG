@@ -149,3 +149,18 @@ déclarer tous les emplacements neutres non étayés au seul motif que le livrab
 complet est impossible. Il doit exprimer le déficit minimal restant dans la
 famille ou la relation décisive. Les jours restent des coordonnées neutres :
 l'insuffisance ne doit pas leur attribuer arbitrairement l'absence d'un candidat.
+
+Le probe suivant `A763-TERRA-INSUFFICIENCY-DEFICIT-MEAL-GRID-3X`, exécuté sur
+le commit propre `43827cff`, a terminé trois répétitions et six appels. Il a
+consommé 29 040 tokens d'entrée et 3 593 tokens de sortie pour 0,101196 USD,
+sans erreur 429, dérive du sceau du corpus ni processus résiduel. Deux réponses
+sur trois passent la revue canonique : elles préservent les candidats soutenus,
+bornent le constat aux extraits et expriment le déficit minimal restant.
+
+La troisième réponse est rejetée malgré une insuffisance correctement bornée :
+elle présente sous le rôle demandé `Déjeuner` un extrait décrivant seulement
+un `Repas léger (00h-2h)`. La preuve ne nomme pas le rôle demandé. La règle de
+relation doit donc s'appliquer aussi aux exemples partiels utilisés dans une
+explication d'insuffisance. Un exemple générique ou lié à un rôle voisin ne peut
+être placé sous le rôle demandé sans preuve explicite de cette relation. Cette
+précision reste générique dans le contrat produit.

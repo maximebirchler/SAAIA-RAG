@@ -214,6 +214,14 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             factory.Requests[1].Body,
             StringComparison.Ordinal);
         Assert.Contains(
+            "same relation-grounding rule applies inside an insufficiency",
+            factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "generic or neighboring role is not interchangeable",
+            factory.Requests[1].Body,
+            StringComparison.Ordinal);
+        Assert.Contains(
             "common alternate terminology",
             factory.Requests[0].Body,
             StringComparison.Ordinal);

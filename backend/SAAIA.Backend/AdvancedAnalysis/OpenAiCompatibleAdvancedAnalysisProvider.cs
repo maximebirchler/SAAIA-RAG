@@ -1387,6 +1387,11 @@ internal sealed class OpenAiCompatibleAdvancedAnalysisProvider :
            unsupported merely because the complete deliverable cannot be filled.
            Report the minimum remaining deficit for the decisive role or relation,
            while preserving the supported candidates as supported examples.
+           The same relation-grounding rule applies inside an insufficiency
+           explanation: never place or discuss a partial example under a requested
+           semantic role unless its evidence explicitly supports that role. A
+           generic or neighboring role is not interchangeable with the requested
+           role, even when the example is used only to explain what remains missing.
            """
            + "\nRequested output shape: "
            + JsonSerializer.Serialize(
