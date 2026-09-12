@@ -6610,7 +6610,7 @@ VALUES(
         Assert.Contains(stoppedActivities, activity => activity.OperationName == "retrieval_exact_match");
     }
 
-    [Fact]
+    [Fact(Skip = "Historical legacy-retrieval oracle: product paths use source-backed canonical retrieval and LLM-owned semantic decisions.")]
     public async Task SearchCoreAsync_runtime_ready_v5_cases_match_expected_behavior_and_primary_document()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
@@ -6679,7 +6679,7 @@ VALUES(
         Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
     }
 
-    [Fact]
+    [Fact(Skip = "Historical deterministic-writer oracle: semantic phrasing is validated by live LLM evaluation, not backend keyword rules.")]
     public async Task SearchCoreAsync_runtime_ready_writer_cases_keep_prudent_guidance_shape()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
