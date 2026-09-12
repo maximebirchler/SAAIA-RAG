@@ -1,7 +1,9 @@
 # Candidats RunPod pour la validation A763
 
-Date de recherche : 12 septembre 2026  
-Statut : **PROPOSITION SANS AUTORISATION DE DEPENSE**  
+Date de recherche : 12 septembre 2026
+
+Statut : **PROPOSITION SANS AUTORISATION DE DEPENSE**
+
 Statut produit : **TESTE_NON_APPROUVE**
 
 Ce document prépare la validation du même parcours produit que Terra : petit
