@@ -1047,3 +1047,35 @@ Docker est absent de ce PC et l'accès SSH sûr au serveur n'est pas disponible 
 le Compose réel, le TLS ou tunnel et le chiffrement du volume serveur restent à
 valider avant approbation. Aucun serveur n'a été modifié, aucun appel LLM n'a été
 effectué et aucun coût nouveau n'a été engagé. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — authentification HTTP et désactivation du tenant — 2026-09-12
+
+L'audit des routes avancées a montré que leurs tests injectaient directement le
+tenant dans `HttpContext`. Ils prouvaient les filtres SQL, mais pas le passage
+réel par la clé API. Il a aussi révélé qu'une clé non révoquée restait acceptée
+lorsque son tenant était désactivé.
+
+La résolution de clé joint désormais `tenants` et exige `is_active=true`. Un
+test Kestrel sur loopback et PostgreSQL réel couvre la clé absente, invalide,
+valide et révoquée, le tenant désactivé, la création du job, la lecture et
+l'annulation inter-tenant refusées ainsi que le filtre utilisateur. La série
+sécurité ciblée compte 15 réussites et zéro échec. Le cluster jetable est arrêté,
+son secret temporaire supprimé et le port 55432 libéré.
+
+La suite backend Release sans connexion d'intégration compte 2 148 réussites.
+La passe PostgreSQL globale compte 2 143 réussites et cinq échecs déjà présents
+avant ce correctif : deux banques historiques de retrieval, la propagation de
+qualité sur plusieurs surfaces d'un même document, une fixture multilingue qui
+interdit désormais à tort l'appel TEI, et un support bundle dépendant du vrai
+LocalAppData. Aucun de leurs stacks ne passe par `ApiKeyAuth`; ils restent des
+preuves négatives à nettoyer séparément et ne sont pas requalifiés en succès.
+
+Le contrat actuel authentifie le tenant. `userId` reste un espace de noms fourni
+par le client sous cette clé et ne constitue pas encore un principal utilisateur
+individuel. Une identité par utilisateur devra être ajoutée avant un déploiement
+où plusieurs utilisateurs non fiables partagent la même clé de tenant.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-advanced-http-auth-20260912/assessment.v1.json`,
+SHA-256 `96D2B0E23CE58BE39776955A378A03DB5599C9E2DEE89568DFC4033FEC5C3DF6`.
+Aucun appel externe ni coût nouveau. Produit `TESTE_NON_APPROUVE`.

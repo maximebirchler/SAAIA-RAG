@@ -14051,3 +14051,29 @@ SHA-256 `8BD1A2C93C0A60C163A45C09F5B2DE8C7170C52936A584206B1AD48E1C4B598F`.
 Le déploiement serveur et les propriétés réelles du volume ne sont pas encore
 inspectables avec l'accès actuel. Aucun serveur, secret ou fournisseur externe
 n'a été touché. Produit `TESTE_NON_APPROUVE`.
+
+## A763 — preuve HTTP réelle et fermeture des tenants inactifs — 2026-09-12
+
+Les endpoints avancés étaient filtrés par tenant et utilisateur, mais leur test
+d'intégration construisait lui-même le contexte authentifié. En parallèle,
+`ApiKeyAuth` ne vérifiait pas l'état actif du tenant. Une clé encore valide
+pouvait donc survivre à la désactivation logique de son tenant.
+
+La requête d'authentification exige maintenant une clé non révoquée rattachée à
+un tenant actif. La nouvelle preuve traverse Kestrel, le rate limiter, le vrai
+middleware, PostgreSQL et les endpoints avancés. Elle vérifie les réponses 401
+pour absence, invalidité, révocation et tenant inactif, puis les réponses 404
+sans fuite pour lecture et annulation par un autre tenant.
+
+Quinze tests de sécurité PostgreSQL passent et la suite backend Release compte
+2 148 réussites. Une passe PostgreSQL globale a aussi rendu visibles cinq tests
+anciens encore rouges et déjà observés avant ce patch ; ils ne concernent pas
+l'authentification et sont conservés comme dette causale au lieu d'être masqués.
+Le contrat utilisateur reste limité : le tenant est authentifié, alors que
+`userId` demeure déclaré par le client jusqu'au futur mécanisme d'identité.
+
+Assessment :
+`artifacts/reprise-pc-20260908/a763-advanced-http-auth-20260912/assessment.v1.json`,
+SHA-256 `96D2B0E23CE58BE39776955A378A03DB5599C9E2DEE89568DFC4033FEC5C3DF6`.
+Aucun appel fournisseur, aucune transmission externe et aucun coût nouveau.
+Produit `TESTE_NON_APPROUVE`.
