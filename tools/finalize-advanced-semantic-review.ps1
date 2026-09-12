@@ -81,7 +81,17 @@ if ((Get-FileSha256 $bundlePath) -ne [string]$manifest.privateBundleSha256 -or
 
 $repositoryCommit = (& git -C $repositoryRoot rev-parse HEAD 2>$null).Trim()
 $trackedDirty = @(& git -C $repositoryRoot status --porcelain --untracked-files=no 2>$null).Count -gt 0
-if ($trackedDirty -or $repositoryCommit -ne [string]$manifest.repositoryCommit) {
+$reviewPreparationCommit = [string]$manifest.repositoryCommit
+if ($trackedDirty) {
+    throw "Semantic decisions must be finalized from a clean repository state."
+}
+if ($DiagnosticMode) {
+    & git -C $repositoryRoot merge-base --is-ancestor `
+        $reviewPreparationCommit $repositoryCommit 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Diagnostic decisions must be finalized from the review preparation commit or a clean descendant."
+    }
+} elseif ($repositoryCommit -ne $reviewPreparationCommit) {
     throw "Semantic decisions must be finalized from the exact clean campaign commit."
 }
 
@@ -93,7 +103,7 @@ $decisionDocument = Get-Content -LiteralPath $decisionPath -Raw | ConvertFrom-Js
 if ([string]$decisionDocument.schemaVersion -ne "saaia-advanced-semantic-decisions-v1") {
     throw "Unsupported semantic decision schema."
 }
-if ([string]$decisionDocument.repositoryCommit -ne $repositoryCommit) {
+if ([string]$decisionDocument.repositoryCommit -ne $reviewPreparationCommit) {
     throw "Semantic decisions do not target the campaign commit."
 }
 $decisions = @($decisionDocument.decisions)
@@ -174,6 +184,7 @@ $assessment = [ordered]@{
     }
     assessedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
     repositoryCommit = $repositoryCommit
+    reviewPreparationCommit = $reviewPreparationCommit
     campaignRepositoryCommit = $(if ($DiagnosticMode) {
         [string]$manifest.campaignRepositoryCommit
     } else { $null })
