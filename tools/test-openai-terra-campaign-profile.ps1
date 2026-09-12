@@ -115,6 +115,11 @@ $freshTierObservation = $null -ne $tierObservation -and
     $tierObservationAgeMinutes -le $maximumTierAgeMinutes
 
 $caseIds = @($profile.bank.caseIds | ForEach-Object { Require-Text $_ "bank.caseIds item" })
+$campaignKind = if ($null -eq $profile.PSObject.Properties["campaignKind"]) {
+    "final-acceptance"
+} else {
+    Require-Text $profile.campaignKind "campaignKind"
+}
 $blockingReasons = @()
 if ($branch -ne [string]$profile.repository.expectedBranch) { $blockingReasons += "unexpected_branch" }
 if ($trackedDirty) { $blockingReasons += "tracked_worktree_dirty" }
@@ -144,7 +149,11 @@ if ($BackendPort -ne [int]$profile.execution.backendPort) {
 }
 if (-not $minimumTierSatisfied) { $blockingReasons += "paid_tier_not_observed" }
 if (-not $freshTierObservation) { $blockingReasons += "paid_tier_observation_missing_or_stale" }
-if ($caseIds.Count -ne 4 -or @($caseIds | Sort-Object -Unique).Count -ne 4) {
+if (($campaignKind -eq "final-acceptance" -and $caseIds.Count -ne 4) -or
+    ($campaignKind -eq "targeted-causal" -and
+        ($caseIds.Count -lt 1 -or $caseIds.Count -gt 4)) -or
+    $campaignKind -notin @("final-acceptance", "targeted-causal") -or
+    @($caseIds | Sort-Object -Unique).Count -ne $caseIds.Count) {
     $blockingReasons += "registered_case_set_invalid"
 }
 
@@ -175,6 +184,7 @@ $preflight = [ordered]@{
     providerConfigPath = $providerConfigPath
     providerConfigSha256 = $providerConfigHash
     providerConfigHashMatches = $providerConfigHash -eq [string]$profile.localRouter.providerConfigSha256
+    campaignKind = $campaignKind
     localLlmRuntimePath = $LocalLlmExePath
     localLlmRuntimeSha256 = $localRuntimeHash
     localLlmRuntimeHashMatches = $localRuntimeHash -eq [string]$profile.localRouter.runtimeSha256
