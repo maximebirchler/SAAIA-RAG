@@ -705,3 +705,20 @@ Cette validation a été rejouée sur le SHA exact `690d7d14`. L'assessment
 `artifacts/reprise-pc-20260908/a763-explicit-client-provider-690d7d1-20260912/assessment.v1.json`
 a pour SHA-256
 `47A293EBABE2BA90374014EEFE86EA8770B1408B93550A797FB61CADF47F9ADA`.
+
+## A763 — identité fournisseur exacte sans troncature — 2026-09-12
+
+L'audit de l'affinité a trouvé une asymétrie résiduelle : les modèles trop longs
+étaient déjà rejetés, mais une `ProviderKey` personnalisée de plus de 100
+caractères était encore tronquée. Deux identités partageant le même préfixe
+pouvaient alors être confondues lors d'une reprise. Le commit `d960cdb8`
+conserve l'identité exacte et rejette une valeur surdimensionnée avec
+`advanced_llm_provider_key_invalid` avant tout appel HTTP.
+
+Les 50 tests ciblés provider/worker passent. La suite backend Release rejouée
+sur le SHA exact compte 2 151 réussites, zéro échec et une probe live opt-in
+ignorée. L'assessment
+`artifacts/reprise-pc-20260908/a763-exact-provider-identity-d960cdb-20260912/assessment.v1.json`
+a pour SHA-256
+`1B7CEAD5AD73B001C784182361A5A2D1DF37CB97E3EDD79B6289E74EB24AE833`.
+Aucun appel externe n'a été exécuté.

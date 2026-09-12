@@ -13778,3 +13778,12 @@ la banque Terra trois fois sur le descendant de `b20fcc2`, les trois plannings
 acceptés avec relation cellule/preuve, l'inspection terminale WinUI et des
 cartes sources, puis un nouveau holdout aveugle. RunPod attend une autorisation
 de dépense et un candidat concret. Le produit reste `TESTE_NON_APPROUVE`.
+
+Un dernier contrôle de l'identité avancée a ensuite trouvé que `ProviderKey`
+était tronquée à 100 caractères tandis que `ModelId` était déjà rejeté au-delà
+de sa capacité. `d960cdb8` supprime cette troncature : l'identité exacte reste
+observable et toute clé surdimensionnée échoue avant HTTP. Les 50 tests ciblés
+provider/worker et les 2 151 tests backend passent, zéro échec, une probe live
+ignorée, sans appel externe. Assessment :
+`artifacts/reprise-pc-20260908/a763-exact-provider-identity-d960cdb-20260912/assessment.v1.json`,
+SHA-256 `1B7CEAD5AD73B001C784182361A5A2D1DF37CB97E3EDD79B6289E74EB24AE833`.

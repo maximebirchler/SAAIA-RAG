@@ -46,6 +46,12 @@ désormais strictement identiques. Une valeur dépassant la capacité SQL de 256
 caractères est rejetée avant tout appel externe avec
 `advanced_llm_model_invalid`; elle n'est jamais tronquée pour la comparaison.
 
+Le commit `d960cdb8` applique la même règle au fournisseur. Une `ProviderKey`
+personnalisée dépassant 100 caractères reste visible telle quelle pour
+l'affinité puis est rejetée avec `advanced_llm_provider_key_invalid` avant tout
+appel HTTP. Deux clés distinctes ne peuvent donc plus devenir identiques par
+troncature silencieuse.
+
 Cette règle porte sur le job avancé. Dans l'architecture hybride demandée, le
 petit modèle local peut décider que la capacité avancée est nécessaire et
 créer le handoff. Une fois ce handoff pris en charge par le backend, Planner,
@@ -66,8 +72,9 @@ n'autorise aucun transfert externe. Les profils `openai-dev`, `runpod-bench` et
 
 ## Preuves
 
-- commits produit : `3658d9cf74839e8b226a841bf734645dbb82ee8c` puis
-  `4cbca2d5fb28f1550d927699cbcd118b44c040b8` ;
+- commits produit : `3658d9cf74839e8b226a841bf734645dbb82ee8c`,
+  `4cbca2d5fb28f1550d927699cbcd118b44c040b8` puis
+  `d960cdb84376f5c32348911a0574251506827375` ;
 - test PostgreSQL réel : trois tests réussis, zéro échec, base temporaire
   supprimée ;
 - scénario causal : `openai-dev/terra-v1` puis
@@ -79,6 +86,8 @@ n'autorise aucun transfert externe. Les profils `openai-dev`, `runpod-bench` et
   opt-in non exécutées ;
 - validation backend après durcissement de l'identité : 2 147 réussites, zéro
   échec, une sonde live opt-in non exécutée ;
+- validation backend après suppression de la troncature fournisseur : 2 151
+  réussites, zéro échec, une sonde live opt-in non exécutée ;
 - protocole HTTP loopback : trois appels attendus, vingt claims, vingt preuves,
   verdict `PASS_BOUNDED_PROTOCOL_REPAIR_LIVE_LOOPBACK` ;
 - ports 1234, 5123 et 18081 libres après exécution ;
@@ -89,6 +98,7 @@ Artefacts :
 - `artifacts/reprise-pc-20260908/a763-provider-affinity-3658d9cf-20260912` ;
 - `artifacts/reprise-pc-20260908/a763-local-validation-provider-affinity-20260912` ;
 - `artifacts/reprise-pc-20260908/a763-backend-validation-model-identity-20260912` ;
+- `artifacts/reprise-pc-20260908/a763-exact-provider-identity-d960cdb-20260912` ;
 - `artifacts/reprise-pc-20260908/a763-local-protocol-repair-4cbca2d5-20260912`.
 
 ## Matrice d'acceptation de l'architecture hybride
@@ -99,7 +109,7 @@ Artefacts :
 | Décision locale simple / clarification / insuffisant / avancé | Validée mécaniquement, qualité bornée par A755 | Frontière et handoff typés ; le verdict sémantique global reste non approuvé |
 | Fournisseur avancé configurable | Validé | `openai-dev`, `runpod-bench`, `customer-server`, ou `disabled` |
 | Même logique RAG pour OpenAI, RunPod et serveur client | Validé mécaniquement | Même provider OpenAI-compatible, mêmes outils, mêmes claims et validations |
-| Un fournisseur et un modèle par job avancé | Validé causalement | Commits `3658d9cf` et `4cbca2d5`, migration 067, test PostgreSQL réel |
+| Un fournisseur et un modèle par job avancé | Validé causalement | Commits `3658d9cf`, `4cbca2d5` et `d960cdb8`, identités exactes, migration 067, test PostgreSQL réel |
 | Aucun fallback implicite après échec ou changement de config | Validé | Échec fermé, code explicite, zéro appel au fournisseur de remplacement |
 | Politique de transfert externe | Validée mécaniquement | Contenu et métadonnées externes exigent les deux autorisations serveur |
 | Secrets hors configuration et artefacts | Validé sur l'état courant | Résolution par référence protégée et scans sans fuite |
