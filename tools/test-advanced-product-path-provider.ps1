@@ -21,6 +21,7 @@ param(
     [string]$ProviderBaseUrl = "",
     [string]$ModelId = "",
     [string]$ProviderAccountTier = "",
+    [string]$ProviderAccountTierObservedAtUtc = "",
     [decimal]$AuthorizedBudgetUsd = 0,
     [decimal]$SoftLimitUsd = 0,
     [decimal]$HardLimitUsd = 0,
@@ -45,6 +46,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot "openai-paid-tier-guard.ps1")
 
 if (-not ("System.Security.Cryptography.ProtectedData" -as [type])) {
     Add-Type -AssemblyName System.Security
@@ -160,9 +162,9 @@ if (-not [Uri]::IsWellFormedUriString($ProviderBaseUrl, [UriKind]::Absolute) -or
     throw "External provider BaseUrl must be an absolute HTTPS URI."
 }
 if ($Provider -eq "OpenAI") {
-    if ($ProviderAccountTier -notmatch '^Tier[1-5]$') {
-        throw "OpenAI product-path campaigns require a freshly verified paid tier (Tier1 through Tier5). Free-tier model calls are blocked."
-    }
+    $verifiedProviderTierAt = Assert-OpenAiPaidTierObservation `
+        -ObservedOrganizationTier $ProviderAccountTier `
+        -TierObservedAtUtc $ProviderAccountTierObservedAtUtc
     if ($AuthorizedBudgetUsd -le 0) { $AuthorizedBudgetUsd = 25 }
     if ($InputUsdPerMillionTokens -le 0 -or
         $CachedInputUsdPerMillionTokens -le 0 -or
@@ -463,6 +465,9 @@ try {
         expectedAdvancedProvider = $providerMode
         expectedAdvancedModel = $ModelId
         providerAccountTier = $ProviderAccountTier
+        providerAccountTierObservedAtUtc = $(if ($Provider -eq "OpenAI") {
+            $verifiedProviderTierAt.ToString("o")
+        } else { $null })
         externalEndpointHost = ([Uri]$ProviderBaseUrl).Host
         providerRuntime = $ProviderRuntime
         runtimeProfile = $RuntimeProfile

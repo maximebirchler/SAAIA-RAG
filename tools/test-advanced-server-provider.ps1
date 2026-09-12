@@ -17,6 +17,9 @@ param(
     [decimal]$HardLimitUsd = 0,
     [decimal]$MaximumCostPerJobUsd = 0,
     [int]$MaximumCallsPerJob = 4,
+    [ValidateSet("Free", "Tier1", "Tier2", "Tier3", "Tier4", "Tier5")]
+    [string]$ObservedOrganizationTier = "Free",
+    [string]$TierObservedAtUtc = "",
     [decimal]$InputUsdPerMillionTokens = 0,
     [decimal]$CachedInputUsdPerMillionTokens = 0,
     [decimal]$OutputUsdPerMillionTokens = 0,
@@ -26,6 +29,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot "openai-paid-tier-guard.ps1")
 
 if (-not ("System.Security.Cryptography.ProtectedData" -as [type])) {
     Add-Type -AssemblyName System.Security
@@ -49,6 +53,9 @@ if ([string]::IsNullOrWhiteSpace($ModelId)) {
     else { throw "ModelId is required for RunPod." }
 }
 if ($Provider -eq "OpenAI") {
+    $verifiedProviderTierAt = Assert-OpenAiPaidTierObservation `
+        -ObservedOrganizationTier $ObservedOrganizationTier `
+        -TierObservedAtUtc $TierObservedAtUtc
     if ($AuthorizedBudgetUsd -le 0) { $AuthorizedBudgetUsd = 25 }
     if ($InputUsdPerMillionTokens -le 0 -or
         $CachedInputUsdPerMillionTokens -le 0 -or
@@ -174,6 +181,12 @@ try {
         startedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
         provider = $providerMode
         model = $ModelId
+        organizationTier = $(if ($Provider -eq "OpenAI") {
+            $ObservedOrganizationTier
+        } else { $null })
+        organizationTierObservedAtUtc = $(if ($Provider -eq "OpenAI") {
+            $verifiedProviderTierAt.ToString("o")
+        } else { $null })
         endpointScheme = ([Uri]$BaseUrl).Scheme
         endpointHost = ([Uri]$BaseUrl).Host
         providerRuntime = $ProviderRuntime

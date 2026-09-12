@@ -2,11 +2,18 @@
 param(
     [string]$Configuration = "Debug",
     [string]$Platform = "x64",
+    [ValidateSet("Free", "Tier1", "Tier2", "Tier3", "Tier4", "Tier5")]
+    [string]$ObservedOrganizationTier = "Free",
+    [string]$TierObservedAtUtc = "",
     [string]$ArtifactDirectory = ""
 )
 
 $ErrorActionPreference = "Stop"
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "openai-paid-tier-guard.ps1")
+Assert-OpenAiPaidTierObservation `
+    -ObservedOrganizationTier $ObservedOrganizationTier `
+    -TierObservedAtUtc $TierObservedAtUtc | Out-Null
 $project = Join-Path $repositoryRoot "client\SAAIA.Client.ToolAgent.Tests\SAAIA.Client.ToolAgent.Tests.csproj"
 
 if ([string]::IsNullOrWhiteSpace($ArtifactDirectory)) {

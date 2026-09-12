@@ -110,11 +110,22 @@ SAAIA_ADVANCED_LLM_API_KEY=<secret injecté hors Git>
 La configuration générée active explicitement l'autorisation de contenu et de
 métadonnées externes. Vérifier le journal global avant tout appel et conserver
 les limites 25/20/24 USD tant qu'une nouvelle autorisation n'a pas été donnée.
+Tous les lanceurs live OpenAI exigent aussi le palier observé et l'heure de ce
+contrôle. Vérifier la page organisation en lecture seule, puis capturer l'heure
+immédiatement ; le garde refuse `Free`, une heure sans fuseau et une observation
+vieille de plus de quinze minutes.
+
+```powershell
+$tierObservedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
+```
 
 Sonde synthétique sans corpus privé :
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-advanced-server-provider.ps1 -Provider OpenAI
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-advanced-server-provider.ps1 `
+  -Provider OpenAI `
+  -ObservedOrganizationTier Tier1 `
+  -TierObservedAtUtc $tierObservedAtUtc
 ```
 
 Parcours produit du cas gelé avec backend temporaire, retrieval réel et petit
@@ -124,8 +135,21 @@ modèle local :
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\test-advanced-product-path-openai.ps1 `
   -ServerEnvPath <chemin-vers-.env.server-linux> `
   -OpenAiModel gpt-5.6-terra `
+  -ObservedOrganizationTier Tier1 `
+  -TierObservedAtUtc $tierObservedAtUtc `
   -Ids A755-ADV-01-meal-grid-5x4 `
   -Repetitions 1
+```
+
+La banque finale A763 doit passer par le profil préenregistré, après le même
+contrôle du tableau de bord :
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File .\tools\test-openai-terra-campaign-profile.ps1 `
+  -ObservedOrganizationTier Tier1 `
+  -TierObservedAtUtc $tierObservedAtUtc `
+  -Execute
 ```
 
 ## Benchmark RunPod

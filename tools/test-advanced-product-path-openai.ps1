@@ -18,6 +18,7 @@ param(
     [string]$OpenAiModel = "gpt-5.6-terra",
     [ValidateSet("Free", "Tier1", "Tier2", "Tier3", "Tier4", "Tier5")]
     [string]$ObservedOrganizationTier = "Free",
+    [string]$TierObservedAtUtc = "",
     [ValidateRange(0.01, 1000)]
     [decimal]$AuthorizedBudgetUsd = 25,
     [decimal]$SoftLimitUsd = 20,
@@ -48,6 +49,7 @@ $runner = Join-Path $PSScriptRoot "test-advanced-product-path-provider.ps1"
     -MaximumJobRetryDelayMilliseconds $MaximumJobRetryDelayMilliseconds `
     -ModelId $OpenAiModel `
     -ProviderAccountTier $ObservedOrganizationTier `
+    -ProviderAccountTierObservedAtUtc $TierObservedAtUtc `
     -AuthorizedBudgetUsd $AuthorizedBudgetUsd `
     -SoftLimitUsd $SoftLimitUsd `
     -HardLimitUsd $HardLimitUsd `

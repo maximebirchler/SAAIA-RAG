@@ -6,11 +6,19 @@ param(
     [string]$Ids = "",
     [ValidateRange(1, 3)]
     [int]$Repetitions = 1,
+    [ValidateSet("Free", "Tier1", "Tier2", "Tier3", "Tier4", "Tier5")]
+    [string]$ObservedOrganizationTier = "Free",
+    [string]$TierObservedAtUtc = "",
     [string]$ArtifactDirectory = ""
 )
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot "openai-paid-tier-guard.ps1")
+
+$verifiedTierAt = Assert-OpenAiPaidTierObservation `
+    -ObservedOrganizationTier $ObservedOrganizationTier `
+    -TierObservedAtUtc $TierObservedAtUtc
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 $project = Join-Path $repositoryRoot "client\SAAIA.Client.ToolAgent.Tests\SAAIA.Client.ToolAgent.Tests.csproj"
@@ -115,6 +123,8 @@ try {
         provider = "openai"
         providerMode = "OpenAiDev"
         model = "gpt-5.6-terra"
+        organizationTier = $ObservedOrganizationTier
+        organizationTierObservedAtUtc = $verifiedTierAt.ToString("o")
         policy = "DevelopmentExternalAllowed"
         bankPath = $BankPath
         bankSha256 = (Get-FileHash -LiteralPath $BankPath -Algorithm SHA256).Hash

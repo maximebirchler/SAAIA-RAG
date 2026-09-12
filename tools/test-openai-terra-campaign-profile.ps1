@@ -59,15 +59,23 @@ $containsMinimumCommit = $LASTEXITCODE -eq 0
 
 $tierObservation = $null
 $tierObservationAgeMinutes = $null
-if (-not [string]::IsNullOrWhiteSpace($TierObservedAtUtc)) {
-    $tierObservation = [DateTimeOffset]::Parse(
-        $TierObservedAtUtc,
-        [Globalization.CultureInfo]::InvariantCulture)
-    $tierObservationAgeMinutes = ([DateTimeOffset]::UtcNow - $tierObservation).TotalMinutes
+$tierTimestampHasExplicitOffset = $TierObservedAtUtc -match '(?:[zZ]|[+-]\d{2}:\d{2})$'
+if (-not [string]::IsNullOrWhiteSpace($TierObservedAtUtc) -and
+    $tierTimestampHasExplicitOffset) {
+    try {
+        $tierObservation = [DateTimeOffset]::Parse(
+            $TierObservedAtUtc,
+            [Globalization.CultureInfo]::InvariantCulture)
+        $tierObservationAgeMinutes = ([DateTimeOffset]::UtcNow - $tierObservation).TotalMinutes
+    }
+    catch {
+        $tierObservation = $null
+    }
 }
 $minimumTierSatisfied = $ObservedOrganizationTier -match '^Tier[1-5]$'
 $maximumTierAgeMinutes = [double]$profile.provider.freshTierObservationMaximumAgeMinutes
 $freshTierObservation = $null -ne $tierObservation -and
+    $tierTimestampHasExplicitOffset -and
     $tierObservationAgeMinutes -ge -2 -and
     $tierObservationAgeMinutes -le $maximumTierAgeMinutes
 
@@ -110,6 +118,7 @@ $preflight = [ordered]@{
     observedOrganizationTier = $ObservedOrganizationTier
     tierObservedAtUtc = if ($null -eq $tierObservation) { $null } else { $tierObservation.ToString("o") }
     tierObservationAgeMinutes = $tierObservationAgeMinutes
+    tierTimestampHasExplicitOffset = $tierTimestampHasExplicitOffset
     maximumTierObservationAgeMinutes = $maximumTierAgeMinutes
     paidTierGateSatisfied = $minimumTierSatisfied -and $freshTierObservation
     selectedIds = $caseIds
@@ -163,6 +172,7 @@ try {
         -MaximumJobRetryDelayMilliseconds ([int]$profile.execution.maximumJobRetryDelayMilliseconds) `
         -OpenAiModel ([string]$profile.provider.model) `
         -ObservedOrganizationTier $ObservedOrganizationTier `
+        -TierObservedAtUtc $TierObservedAtUtc `
         -AuthorizedBudgetUsd ([decimal]$profile.budget.authorizedLifetimeUsd) `
         -SoftLimitUsd ([decimal]$profile.budget.softLimitUsd) `
         -HardLimitUsd ([decimal]$profile.budget.hardStopUsd) `
