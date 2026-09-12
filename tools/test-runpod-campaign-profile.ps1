@@ -156,9 +156,14 @@ $stageExpectedJobs = switch ($Stage) {
     "Probe" { 1 }
     default { $stageCaseIds.Count * $stageRepetitions }
 }
+$stageMaximumCallsPerJob = if ($Stage -eq "Probe") {
+    2
+} else {
+    $maximumCallsPerJob
+}
 $stageMaximumProviderCalls = switch ($Stage) {
-    "Probe" { 2 }
-    default { $stageExpectedJobs * $maximumCallsPerJob }
+    "Probe" { $stageMaximumCallsPerJob }
+    default { $stageExpectedJobs * $stageMaximumCallsPerJob }
 }
 if (-not [bool]$profile.dataPolicy.externalContentTransmission -or
     -not [bool]$profile.dataPolicy.externalMetadataTransmission -or
@@ -221,6 +226,7 @@ $preflightPath = Join-Path $ArtifactDirectory "preflight-seal.json"
     stageCaseIds = $stageCaseIds
     stageRepetitions = $stageRepetitions
     stageExpectedJobs = $stageExpectedJobs
+    stageMaximumCallsPerJob = $stageMaximumCallsPerJob
     stageMaximumProviderCallsByEnvelope = $stageMaximumProviderCalls
     fullBankAuthorized = [bool]$FullBankAuthorized
     profilePath = [System.IO.Path]::GetRelativePath($repositoryRoot, $ProfilePath)
@@ -267,7 +273,7 @@ $sharedRunnerArguments = @{
     SoftLimitUsd = $softLimit
     HardLimitUsd = $hardLimit
     MaximumCostPerJobUsd = $maximumCostPerJob
-    MaximumCallsPerJob = $maximumCallsPerJob
+    MaximumCallsPerJob = $stageMaximumCallsPerJob
     InputUsdPerMillionTokens = $inputPrice
     CachedInputUsdPerMillionTokens = $cachedInputPrice
     OutputUsdPerMillionTokens = $outputPrice
