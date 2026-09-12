@@ -153,6 +153,15 @@ après revue. Aucune n'a lu de secret ou atteint le réseau. Assessment :
 `artifacts/reprise-pc-20260908/a763-runpod-stages-90e98a2-20260912/assessment.v1.json`,
 SHA-256 `9A241C69BBB03453DAFCB24D0B9B8B21FC526062903C0983134E22046BDBB984`.
 
+Le commit `1d558f23` aligne aussi le garde budgétaire réel de `Probe` sur son
+sceau : deux appels maximum par job, au lieu d'hériter du plafond général de
+quatre. Une éventuelle réparation après Planner et Writer est donc bloquée avant
+un troisième HTTP payant. Les stages `MealGrid` et `FullBank` conservent quatre
+appels par job. Les trois préflights et deux tests ciblés du provider et du
+budget guard passent sans réseau. Assessment :
+`artifacts/reprise-pc-20260908/a763-runpod-probe-cap-1d558f2-20260912/assessment.v1.json`,
+SHA-256 `ED60FA58743655E999227216CAB2F45F9EFD68D89DCA86DBC8DC3CCCF19E0495`.
+
 ## Limite de preuve du candidat R1
 
 L'endpoint public suffit pour savoir si un Qwen open source plus grand peut

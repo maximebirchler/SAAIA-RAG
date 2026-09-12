@@ -883,3 +883,13 @@ de revue. Les trois scripts passent l'analyseur PowerShell ; les ports 1234,
 `artifacts/reprise-pc-20260908/a763-runpod-stages-90e98a2-20260912/assessment.v1.json`,
 SHA-256 `9A241C69BBB03453DAFCB24D0B9B8B21FC526062903C0983134E22046BDBB984`.
 Aucun appel externe et aucun coût nouveau. Produit `TESTE_NON_APPROUVE`.
+
+Le commit `1d558f23` ferme ensuite un écart entre le sceau et le budget guard :
+`Probe` applique réellement deux appels maximum par job. Une réparation après
+les deux appels prévus est refusée avant HTTP, au lieu de pouvoir consommer un
+troisième appel puis échouer sur l'assertion du test. `MealGrid` et `FullBank`
+restent à quatre appels par job. Les trois sceaux et deux tests ciblés du
+provider et du budget guard passent. Assessment :
+`artifacts/reprise-pc-20260908/a763-runpod-probe-cap-1d558f2-20260912/assessment.v1.json`,
+SHA-256 `ED60FA58743655E999227216CAB2F45F9EFD68D89DCA86DBC8DC3CCCF19E0495`.
+Aucun appel externe et aucun coût nouveau. Produit `TESTE_NON_APPROUVE`.

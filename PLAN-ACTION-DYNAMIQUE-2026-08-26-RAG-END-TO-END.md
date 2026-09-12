@@ -13914,3 +13914,12 @@ validés sur le SHA exact sans lire de clé ni atteindre le réseau. Assessment 
 `artifacts/reprise-pc-20260908/a763-runpod-stages-90e98a2-20260912/assessment.v1.json`,
 SHA-256 `9A241C69BBB03453DAFCB24D0B9B8B21FC526062903C0983134E22046BDBB984`.
 Aucun coût nouveau. Produit `TESTE_NON_APPROUVE`.
+
+Le commit `1d558f23` fait du maximum de deux appels de `Probe` une limite réelle
+du budget guard, et non une simple attente du test. Planner et Writer peuvent
+donc consommer les deux appels prévus ; une réparation supplémentaire est
+arrêtée avant HTTP. Les stages produit gardent quatre appels par job. Les trois
+sceaux et deux tests ciblés passent sans réseau. Assessment :
+`artifacts/reprise-pc-20260908/a763-runpod-probe-cap-1d558f2-20260912/assessment.v1.json`,
+SHA-256 `ED60FA58743655E999227216CAB2F45F9EFD68D89DCA86DBC8DC3CCCF19E0495`.
+Produit `TESTE_NON_APPROUVE`.
