@@ -13787,3 +13787,26 @@ provider/worker et les 2 151 tests backend passent, zéro échec, une probe live
 ignorée, sans appel externe. Assessment :
 `artifacts/reprise-pc-20260908/a763-exact-provider-identity-d960cdb-20260912/assessment.v1.json`,
 SHA-256 `1B7CEAD5AD73B001C784182361A5A2D1DF37CB97E3EDD79B6289E74EB24AE833`.
+
+## A763 — sélection documentée du premier candidat RunPod — 2026-09-12
+
+La voie RunPod est maintenant concrète sans engager de dépense. Le premier
+candidat est l'endpoint public OpenAI-compatible Qwen3 32B AWQ, facturé 10 USD
+par million de tokens. La campagne proposée conserve les quatre cas et trois
+répétitions, avec une autorisation totale de 5 USD, une alerte à 4 USD, un arrêt
+à 4,80 USD et un plafond de 0,40 USD par job.
+
+Ce choix sert à mesurer la qualité au coût minimal sans créer un worker GPU.
+Il ne peut pas prouver le GPU, le hash des poids ou la révision du runtime que
+l'endpoint public ne publie pas. Un endpoint Serverless privé et le candidat
+Qwen3 30B A3B Instruct 2507 restent conditionnels à un échec sémantique ou au
+besoin d'une infrastructure entièrement scellée.
+
+Le profil, le calcul de coût, l'invocation préparée, les sources et les portes
+de confidentialité sont dans
+`documents/agent/runpod-benchmark-candidates-a763-2026-09-12.md`. Aucun compte,
+crédit, endpoint, pod, clé ou appel RunPod n'a été créé. La prochaine action
+RunPod sera une demande d'autorisation explicite portant sur la transmission
+des extraits de preuve et un maximum de 5 USD. Terra, l'inspection WinUI, le
+holdout aveugle et la preuve serveur client restent ouverts. Produit
+`TESTE_NON_APPROUVE`.

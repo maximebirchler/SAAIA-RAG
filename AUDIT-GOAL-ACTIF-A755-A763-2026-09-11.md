@@ -722,3 +722,25 @@ ignorée. L'assessment
 a pour SHA-256
 `1B7CEAD5AD73B001C784182361A5A2D1DF37CB97E3EDD79B6289E74EB24AE833`.
 Aucun appel externe n'a été exécuté.
+
+## A763 — candidat RunPod borné sans dépense — 2026-09-12
+
+La recherche officielle retient comme première voie l'endpoint public
+OpenAI-compatible `Qwen/Qwen3-32B-AWQ`. RunPod publie un tarif plat de 10 USD
+par million de tokens et une URL dédiée ; l'enveloppe proposée pour les quatre
+cas répétés trois fois est limitée à 5 USD, avec alerte à 4 USD, arrêt local à
+4,80 USD et plafond de 0,40 USD par job. L'endpoint public évite une location
+GPU horaire et permet de valider d'abord la qualité du parcours produit.
+
+La preuve aura une limite assumée : cet endpoint ne publie ni GPU, ni hash des
+poids, ni révision de runtime. Il qualifie la fonction et le coût, pas la
+reproductibilité matérielle. Un second candidat Serverless privé à base de
+`Qwen/Qwen3-30B-A3B-Instruct-2507` n'est envisagé que si le premier échoue pour
+une cause sémantique ou si une infrastructure scellée devient nécessaire.
+
+Le profil exact, les calculs, les critères d'acceptation et les sources sont
+consignés dans
+`documents/agent/runpod-benchmark-candidates-a763-2026-09-12.md`. Aucun compte,
+crédit, endpoint, pod, secret ou appel RunPod n'a été créé. Une autorisation
+explicite de sortie des extraits de preuve et de dépense maximale de 5 USD reste
+requise avant la première requête. Produit `TESTE_NON_APPROUVE`.
