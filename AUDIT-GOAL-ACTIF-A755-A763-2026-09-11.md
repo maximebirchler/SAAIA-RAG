@@ -700,3 +700,8 @@ Un test d'architecture vérifie par réflexion que cette frontière ne peut pas
 et la suite cliente complète passent. Le dernier résultat complet compte 2 238
 réussites, zéro échec et une probe live opt-in ignorée. Aucun appel externe n'a
 été exécuté pendant cette correction.
+
+Cette validation a été rejouée sur le SHA exact `690d7d14`. L'assessment
+`artifacts/reprise-pc-20260908/a763-explicit-client-provider-690d7d1-20260912/assessment.v1.json`
+a pour SHA-256
+`47A293EBABE2BA90374014EEFE86EA8770B1408B93550A797FB61CADF47F9ADA`.
