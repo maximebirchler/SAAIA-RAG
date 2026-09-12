@@ -305,18 +305,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var titleSimilarity = ComputeNormalizedEditSimilarity(
                 foldedSelected,
                 foldedTitle);
-            return titleSimilarity >= 0.82
-                ? new SelectedItemEvidenceMatch(
+            if (titleSimilarity >= 0.82)
+            {
+                return new SelectedItemEvidenceMatch(
                     evidenceId,
                     title,
                     targetColumnMatch,
                     2,
-                    titleSimilarity)
-                : null;
+                    titleSimilarity);
+            }
         }
 
         var contentPhrase = FindNearContentPhrase(selectedItem, evidence.Content);
         return contentPhrase is null
+               || (!string.IsNullOrWhiteSpace(evidence.CandidateTitle)
+                   && !contentPhrase.Value.IsExact)
             ? null
             : new SelectedItemEvidenceMatch(
                 evidenceId,

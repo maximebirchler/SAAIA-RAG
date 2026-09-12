@@ -841,6 +841,47 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Structured_section_card_content_can_support_an_exact_listed_item()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""
+                {"selectionMode":"distinct_named_items","queries":[{"query":"recettes petit-déjeuner","category":"","topK":20}]}
+                """),
+            Completion("""
+                {"decision":"ready","queries":[]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"R1 [C1], R2 [C2], FRITTATA À FLO [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"R1 est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"R2 est documentée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"FRITTATA À FLO","text":"La frittata est documentée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"R4 est documentée.","evidenceIds":["E4"]}]}
+                """));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
+            factory,
+            options,
+            apiKey: null);
+        var gateway = new RecordingToolGateway(
+            BuildEvidence("E1", "R1 est une recette documentée."),
+            BuildEvidence("E2", "R2 est une recette documentée."),
+            BuildEvidence(
+                "E3",
+                "PETITS DÉJEUNERS Repas pris le matin. FRITTATA À FLO I page 64",
+                exactTitle: "PETITS DÉJEUNERS"),
+            BuildEvidence("E4", "R4 est une recette documentée."));
+
+        var result = await provider.ExecuteAsync(
+            BuildRequest(
+                answerUnitCount: 4,
+                atomicEvidenceMode: "named_item",
+                selectionPolicy: "distinct_structured_layout"),
+            gateway,
+            CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal("FRITTATA À FLO", result.Claims[2].SelectedItem);
+        Assert.Equal(["E3"], result.Claims[2].EvidenceIds);
+    }
+
+    [Fact]
     public async Task Structured_near_source_phrase_is_canonicalized_and_keeps_its_source()
     {
         using var factory = new QueuedHttpClientFactory(
