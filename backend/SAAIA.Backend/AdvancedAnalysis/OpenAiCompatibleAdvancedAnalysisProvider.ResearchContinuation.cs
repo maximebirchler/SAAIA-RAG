@@ -123,9 +123,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private string BuildSynthesisResearchContract()
         => !_options.AdaptiveResearchEnabled ? string.Empty : """
            You may request new documentary research before your final result.
-           Your tool is search_corpus(query, category, topK, documentHint, sourceKey),
-           executed by SAAIA in this job's private corpus. researchTools describes
-           its actual categories and previous searches. If a needed item's content
+           Your research operations are search_corpus, read_source and
+           find_source_text in this job's private corpus. researchTools.tools
+           lists their parameters; choose the operation explicitly in each query.
+           researchTools describes actual categories and previous searches. If a needed item's content
            is missing, ambiguous or inconsistent, return this non-final object:
            {"outcome":"research_required","queries":[{"query":"exact observed title or targeted reformulation","sourceKey":"exact observed opaque sourceKey, or empty","category":"allowed category or empty","topK":20}]}.
            Leave documentHint empty when using sourceKey. Do not repeat a search
@@ -177,10 +178,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 if (_options.AdaptiveResearchEnabled)
                     payload["researchTools"] = JsonSerializer.SerializeToNode(new
                 {
-                    tool = "search_corpus",
-                    readSourceTool = new { name = "read_source", operation = "read_source", sourceKey = "required observed sourceKey",
-                        pageStart = "positive physical page", pageEnd = "inclusive, at most three pages after pageStart", topK = 60 },
-                    findSourceTextTool = BuildCanonicalFindToolForPrompt(),
+                    tools = BuildResearchToolsForPrompt(),
                     researchAllowed = maximumCalls - completions.Count - 1 - reservedFinalCalls > 0,
                     remainingModelCalls = Math.Max(0, maximumCalls - completions.Count - 1 - reservedFinalCalls),
                     maximumQueries = ResolveMaximumPlanQueries(request),

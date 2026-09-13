@@ -74,6 +74,25 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         topK = "integer from 1 to 60", offset = "0 initially, then diagnostic nextOffset; maximum 10000"
     };
 
+    private static object[] BuildResearchToolsForPrompt() =>
+    [
+        new
+        {
+            name = "search_corpus", operation = "search_corpus",
+            query = "required semantic corpus retrieval phrase",
+            category = "exact allowed category or empty", topK = "integer from 1 to 60",
+            documentHint = "optional known filename fragment or document identifier; no invented filename",
+            sourceKey = "optional exact observed sourceKey; leave documentHint empty when supplied"
+        },
+        new
+        {
+            name = "read_source", operation = "read_source",
+            sourceKey = "required exact observed sourceKey", pageStart = "positive integer physical page",
+            pageEnd = "inclusive physical page, at most three pages after pageStart", topK = 60
+        },
+        BuildCanonicalFindToolForPrompt()
+    ];
+
     private static string BuildPlannerSystemPrompt()
         => """
            You are the research planner for SAAIA advanced analysis. Return one
@@ -150,8 +169,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private static string BuildResearchReviewSystemPrompt()
         => """
            You are the adaptive research controller for SAAIA advanced analysis.
-           You have two private-corpus tools: list_categories() and
-           search_corpus(query, category, topK, documentHint, sourceKey). list_categories has already been
+           Your private-corpus research operations are search_corpus, read_source
+           and find_source_text, listed in tools. Select an operation and its
+           matching parameters explicitly in each query. list_categories has already been
            called and its exact result is supplied as availableCategories. Select
            an exact listed category when it clearly matches the user request; keep
            category empty when the scope is ambiguous. search_corpus searches only the tenant's
@@ -245,22 +265,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             request = request.Handoff.RequestText,
             language = request.Handoff.Language,
             load = BuildPromptLoad(request.Handoff.Load),
-            tool = new
-            {
-                name = "search_corpus",
-                parameters = new
-                {
-                    query = "required corpus retrieval phrase",
-                    category = "exact allowed category or empty",
-                    topK = "integer from 1 to 60",
-                    documentHint = "optional known filename fragment or formal document identifier; no invented filename",
-                    sourceKey = "optional exact opaque sourceKey from an observation to scope this search; leave documentHint empty"
-                }
-            },
-            readSourceTool = new { name = "read_source", operation = "read_source",
-                sourceKey = "required exact observed sourceKey", pageStart = "positive integer physical page",
-                pageEnd = "inclusive physical page, at most three pages after pageStart", topK = 60 },
-            findSourceTextTool = BuildCanonicalFindToolForPrompt(),
+            tools = BuildResearchToolsForPrompt(),
             priorQueries = request.Handoff.ResearchState.ExecutedQueries
                 .Concat(priorSearches.Select(static search => search.Query))
                 .Distinct(StringComparer.OrdinalIgnoreCase)

@@ -28,6 +28,16 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Null(find.DocumentHint); Assert.Null(find.Category);
         Assert.Null(find.PageStart); Assert.Null(find.PageEnd);
         Assert.Contains("find_source_text", factory.Requests[1].Body);
+        for (var index = 1; index <= 2; index++)
+        {
+            using var envelope = JsonDocument.Parse(factory.Requests[index].Body);
+            using var payload = JsonDocument.Parse(envelope.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+            var tools = index == 1 ? payload.RootElement.GetProperty("tools")
+                : payload.RootElement.GetProperty("researchTools").GetProperty("tools");
+            Assert.Equal(new[] { "search_corpus", "read_source", "find_source_text" },
+                tools.EnumerateArray().Select(tool => tool.GetProperty("operation").GetString()));
+            Assert.DoesNotContain("Your tool is search_corpus", envelope.RootElement.GetProperty("messages")[0].GetProperty("content").GetString());
+        }
     }
 
     [Theory]
