@@ -42,11 +42,14 @@ param(
     [string]$NativeResearchApiProtocol = "chat-completions",
     [ValidateSet("reviewed", "agent")]
     [string]$NativeResearchTopology = "reviewed",
+    [ValidateRange(16384, 65536)]
+    [int]$NativeResearchMaximumHistoryCharacters = 16384,
     [switch]$EnableNativeResearchWorkspace,
     [switch]$EnableNativeResearchActiveProposal,
     [switch]$EnableCandidateBindingFeedback,
     [ValidateRange(512, 16384)]
-    [ValidateRange(512, 16384)][int]$WriterMaxTokens = 4096,
+    [int]$WriterMaxTokens = 4096,
+    [ValidateRange(512, 16384)]
     [int]$CriticMaxTokens = 4096,
     [decimal]$InputUsdPerMillionTokens = 0,
     [decimal]$CachedInputUsdPerMillionTokens = 0,
@@ -488,6 +491,7 @@ try {
             NativeResearchToolsEnabled = [bool]$EnableNativeResearchTools
             NativeResearchApiProtocol = $NativeResearchApiProtocol
             NativeResearchTopology = $NativeResearchTopology
+            NativeResearchMaximumHistoryCharacters = $NativeResearchMaximumHistoryCharacters
             NativeResearchWorkspaceEnabled = [bool]$EnableNativeResearchWorkspace
             NativeResearchActiveProposalEnabled = [bool]$EnableNativeResearchActiveProposal
             CandidateBindingFeedbackEnabled = [bool]$EnableCandidateBindingFeedback
@@ -611,6 +615,7 @@ try {
         nativeResearchToolsEnabled = [bool]$EnableNativeResearchTools
         nativeResearchApiProtocol = $NativeResearchApiProtocol
         nativeResearchTopology = $NativeResearchTopology
+        nativeResearchMaximumHistoryCharacters = $NativeResearchMaximumHistoryCharacters
         nativeResearchWorkspaceEnabled = [bool]$EnableNativeResearchWorkspace
         nativeResearchActiveProposalEnabled = [bool]$EnableNativeResearchActiveProposal
         candidateBindingFeedbackEnabled = [bool]$EnableCandidateBindingFeedback

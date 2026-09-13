@@ -10,14 +10,25 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
     [Fact]
     public async Task Large_native_read_batch_preserves_all_outputs_opaque_state_and_current_proof()
+        => await AssertHistoryBatchCompletes(8_000, 16_384);
+
+    [Theory]
+    [InlineData(20_000, 32_768)]
+    [InlineData(40_000, 65_536)]
+    public async Task Expanded_native_history_budget_preserves_all_outputs_and_opaque_state(
+        int opaqueCharacters, int historyCharacters)
+        => await AssertHistoryBatchCompletes(opaqueCharacters, historyCharacters);
+
+    private static async Task AssertHistoryBatchCompletes(int opaqueCharacters, int historyCharacters)
     {
         using var factory = new QueuedHttpClientFactory(
             Completion("""{"selectionMode":"content_claims","queries":[{"query":"overview","topK":12}]}"""),
-            HistoryNativeReadBatch(8_000), NativeResponseAnswer(NativeAnswered));
+            HistoryNativeReadBatch(opaqueCharacters), NativeResponseAnswer(NativeAnswered));
         var gateway = new RecordingToolGateway(BuildEvidence("E1", "Le seuil est 17 bar."));
         var options = WorkspaceOptions("responses");
         options.NativeResearchWorkspaceEnabled = false;
         options.ExternalMaximumCallsPerJob = 3;
+        options.NativeResearchMaximumHistoryCharacters = historyCharacters;
         var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)
             .ExecuteAsync(BuildRequest(atomicEvidenceMode: "content_claim",
                 selectionPolicy: "structured_layout", atomicEvidenceType: "documented_fact"),
@@ -29,7 +40,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var items = request.RootElement.GetProperty("input").EnumerateArray().ToArray();
         var state = Assert.Single(items, i => i.TryGetProperty("type", out var type)
             && type.GetString() == "reasoning");
-        Assert.Equal(new string('s', 8_000), state.GetProperty("encrypted_content").GetString());
+        Assert.Equal(new string('s', opaqueCharacters), state.GetProperty("encrypted_content").GetString());
         var outputs = items.Where(i => i.TryGetProperty("type", out var type)
             && type.GetString() == "function_call_output").ToArray();
         Assert.Equal(8, outputs.Length);
@@ -50,23 +61,46 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal("E1", Assert.Single(result.Claims).EvidenceIds[0]);
     }
 
-    [Fact]
-    public async Task Oversized_native_state_is_rejected_without_truncation_or_another_model_call()
+    [Theory]
+    [InlineData(20_000, 16_384)]
+    [InlineData(40_000, 32_768)]
+    public async Task Oversized_native_state_is_rejected_without_truncation_or_another_model_call(
+        int opaqueCharacters, int historyCharacters)
     {
         using var factory = new QueuedHttpClientFactory(
             Completion("""{"selectionMode":"content_claims","queries":[{"query":"overview","topK":12}]}"""),
-            HistoryNativeReadBatch(20_000));
+            HistoryNativeReadBatch(opaqueCharacters));
         var gateway = new RecordingToolGateway(BuildEvidence("E1", "Le seuil est 17 bar."));
         var options = WorkspaceOptions("responses");
         options.NativeResearchWorkspaceEnabled = false;
         options.ExternalMaximumCallsPerJob = 3;
+        options.NativeResearchMaximumHistoryCharacters = historyCharacters;
         var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
             new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null).ExecuteAsync(
                 BuildRequest(atomicEvidenceMode: "content_claim", selectionPolicy: "structured_layout",
                     atomicEvidenceType: "documented_fact"), gateway, CancellationToken.None));
         Assert.Equal("advanced_native_tool_history_limit_exceeded", error.Message);
+        Assert.Equal(historyCharacters, error.Data["maximumHistoryCharacters"]);
+        Assert.True((int)error.Data["historyCharacters"]! > historyCharacters);
         Assert.Equal(2, factory.Requests.Count);
         Assert.Equal(9, gateway.Searches.Count);
+    }
+
+    [Theory]
+    [InlineData(16_383)]
+    [InlineData(65_537)]
+    public async Task Invalid_native_history_budget_is_rejected_before_model_or_corpus_io(int characters)
+    {
+        using var factory = new QueuedHttpClientFactory();
+        var gateway = new RecordingToolGateway(BuildEvidence("E1", "Le seuil est 17 bar."));
+        var options = WorkspaceOptions("responses");
+        options.NativeResearchMaximumHistoryCharacters = characters;
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
+            new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)
+                .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None));
+        Assert.Equal("advanced_native_tool_history_budget_invalid", error.Message);
+        Assert.Empty(factory.Requests);
+        Assert.Empty(gateway.Searches);
     }
 
     private static HttpResponseMessage HistoryNativeReadBatch(int opaqueCharacters)

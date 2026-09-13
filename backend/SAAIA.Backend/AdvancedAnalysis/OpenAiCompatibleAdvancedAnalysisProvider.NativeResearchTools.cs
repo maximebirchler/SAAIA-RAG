@@ -120,7 +120,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         return normalized.ToJsonString(JsonOptions);
     }
 
-    private static IReadOnlyList<object> BuildNativeToolTurnMessages(NativeResearchTurn? turn,
+    private IReadOnlyList<object> BuildNativeToolTurnMessages(NativeResearchTurn? turn,
         IReadOnlyList<PromptEvidenceItem> visible, bool responses = false)
     {
         if (turn is null) return [];
@@ -173,8 +173,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             messages.Add(responses ? new { type = "function_call_output", call_id = ReadString(call, "id"), output = resultJson }
                 : (object)new { role = "tool", tool_call_id = ReadString(call, "id"), content = resultJson });
         }
-        if (JsonSerializer.Serialize(messages, JsonOptions).Length > 16_384)
-            throw new AdvancedAnalysisProviderException("advanced_native_tool_history_limit_exceeded");
+        var historyCharacters = JsonSerializer.Serialize(messages, JsonOptions).Length;
+        if (historyCharacters > _options.NativeResearchMaximumHistoryCharacters)
+        {
+            var error = new AdvancedAnalysisProviderException("advanced_native_tool_history_limit_exceeded");
+            error.Data["historyCharacters"] = historyCharacters;
+            error.Data["maximumHistoryCharacters"] = _options.NativeResearchMaximumHistoryCharacters;
+            throw error;
+        }
         return messages;
     }
 }

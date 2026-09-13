@@ -524,6 +524,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             throw new AdvancedAnalysisProviderException("advanced_native_api_protocol_invalid");
         if (_options.NativeResearchToolsEnabled && _options.NativeResearchTopology is not ("reviewed" or "agent"))
             throw new AdvancedAnalysisProviderException("advanced_native_research_topology_invalid");
+        if (_options.NativeResearchToolsEnabled && _options.NativeResearchMaximumHistoryCharacters is < 16_384 or > 65_536)
+            throw new AdvancedAnalysisProviderException("advanced_native_tool_history_budget_invalid");
         var provider = NormalizeProvider(_options.Provider);
         var location = NormalizeLocation(_options.LlmLocation);
         if (location is not ("internal" or "external-service"))

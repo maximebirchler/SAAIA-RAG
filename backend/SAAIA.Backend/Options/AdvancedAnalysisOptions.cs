@@ -39,6 +39,7 @@ sealed class AdvancedAnalysisOptions
     public bool NativeResearchToolsEnabled { get; set; }
     public string NativeResearchApiProtocol { get; set; } = "chat-completions";
     public string NativeResearchTopology { get; set; } = "reviewed";
+    public int NativeResearchMaximumHistoryCharacters { get; set; } = 16_384;
     public bool NativeResearchWorkspaceEnabled { get; set; }
     public bool NativeResearchActiveProposalEnabled { get; set; }
     public bool CandidateBindingFeedbackEnabled { get; set; }

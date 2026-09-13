@@ -60,6 +60,16 @@ régressions ciblées réussies, suite complète A844 conservée sans nouvelle
 revendication. Registre 37,29977600 USD / 40, reste calculé 2,70022400 USD.
 Un pilote après gel propre avant analyse. Voir
 documents/agent/liste-candidats-et-lacunes-a846-2026-09-13.md.
+Le pilote A846 appelle pour la première fois le save (deux entrées groupées),
+mais échoue avant synthèse sur l'historique natif, après trente-deux opérations
+réussies. Coût 0,55869260 USD ; aucun bénéfice qualité de mémoire mesuré.
+A847 rend la borne opérationnelle configurable, défaut 16 384, profil 32 768,
+sans hausse documentaire ni troncature. Sept contrôles dédiés, 95 régressions
+ciblées et 2 417 tests backend réussis, trois live ignorés ; réservations sur
+le payload complet conservées. Registre 37,85846860 USD / 40, reste calculé
+2,14153140 USD. Un pilote après gel propre avant analyse ; pas de WinUI ou
+banc inédit encore validé. Voir
+documents/agent/controle-budget-historique-a847-2026-09-13.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.
