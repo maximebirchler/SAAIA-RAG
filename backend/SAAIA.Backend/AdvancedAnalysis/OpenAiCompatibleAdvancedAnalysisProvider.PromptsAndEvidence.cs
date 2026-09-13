@@ -14,10 +14,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            JSON object and no prose. Every query is executed only inside the
            private SAAIA document corpus; internet and web search are unavailable.
            Your available tools are list_categories() and
-           search_corpus(query, category, topK). The orchestrator has already called
+           search_corpus(query, category, topK, documentHint). The orchestrator has already called
            list_categories and supplies its exact result as availableCategories.
-           Select an exact listed category when it clearly matches the user request;
-           use an empty category when the scope is ambiguous. The orchestrator
+           Categories are filing buckets, not guarantees of a document's subject.
+           For a direct fact or document identity, leave category empty unless the
+           user explicitly constrained it or observations establish its exact filing bucket.
+           Do not infer a category from the subject alone. Use optional documentHint
+           for an identifying filename fragment or formal document identifier;
+           the backend resolves it only against indexed tenant documents and
+           applies a file scope only for one strong match. Never invent a filename.
+           The orchestrator
            executes every search_corpus query you request and returns revalidated
            source evidence. You may receive a later turn with the observations and
            be asked to call search_corpus again using reformulated queries.
@@ -67,7 +73,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         => """
            You are the adaptive research controller for SAAIA advanced analysis.
            You have two private-corpus tools: list_categories() and
-           search_corpus(query, category, topK). list_categories has already been
+           search_corpus(query, category, topK, documentHint). list_categories has already been
            called and its exact result is supplied as availableCategories. Select
            an exact listed category when it clearly matches the user request; keep
            category empty when the scope is ambiguous. search_corpus searches only the tenant's
@@ -78,7 +84,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            call the tool again by returning
            {"decision":"search_more","queries":[{"query":"...","category":"... or empty","topK":20}]}.
            Use targeted reformulations, alternate terminology and distinguishing
-           context. Do not repeat prior queries. For a repeated grid, test each
+           context. Categories are filing buckets, not subject guarantees. When
+           observations are irrelevant, remove a category inferred from the subject
+           and search across the corpus, preserving explicit user scope constraints.
+           Use documentHint to identify a known document; its identity is validated
+           by the backend. Do not repeat an identical search with identical filters.
+           The same query with a changed category or document scope is a new search;
+           priorSearches supplies those filters. For a repeated grid, test each
            semantic column independently and seek enough distinct concrete items
            to fill it. Ignore navigation fragments, generic advice and occurrences
            where a query word is used in an unrelated grammatical sense. Search
@@ -139,7 +151,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private string BuildResearchReviewUserPrompt(
         AdvancedAnalysisProviderRequest request,
         IReadOnlyList<PromptEvidenceItem> evidence,
-        IReadOnlySet<string> previouslyExecuted,
+        IReadOnlyList<AdvancedAnalysisSearchRequest> priorSearches,
         IReadOnlyList<string> availableCategories)
         => JsonSerializer.Serialize(new
         {
@@ -153,12 +165,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 {
                     query = "required corpus retrieval phrase",
                     category = "exact allowed category or empty",
-                    topK = "integer from 1 to 60"
+                    topK = "integer from 1 to 60",
+                    documentHint = "optional known filename fragment or formal document identifier; no invented filename"
                 }
             },
-            priorQueries = previouslyExecuted
+            priorQueries = request.Handoff.ResearchState.ExecutedQueries
+                .Concat(priorSearches.Select(static search => search.Query))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Order(StringComparer.OrdinalIgnoreCase)
                 .ToArray(),
+            priorSearches = priorSearches.Select(static search => new
+            {
+                search.Query, search.Category, search.DocumentHint,
+                search.DocId, search.DocPath, search.PageStart, search.PageEnd,
+                search.TopK, search.MaxPerDocument, search.MaxPerPage
+            }),
             maximumFollowUpQueries = ResolveMaximumPlanQueries(request),
             availableCategories,
             observations = evidence

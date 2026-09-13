@@ -38,8 +38,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 var query = NormalizeCorpusSearchQuery(
                     ReadString(item, "query"));
                 if (string.IsNullOrWhiteSpace(query)
-                    || query.Length > 8_000
-                    || !dedupe.Add(query))
+                    || query.Length > 8_000)
                 {
                     continue;
                 }
@@ -53,7 +52,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                            && topKValue.TryGetInt32(out var parsedTopK)
                     ? Math.Clamp(parsedTopK, 1, 60)
                     : 20;
-                result.Add(new AdvancedAnalysisSearchRequest(
+                var documentHint = ReadString(item, "documentHint").Trim();
+                if (documentHint.Length > 2_000)
+                    throw new JsonException();
+                var search = new AdvancedAnalysisSearchRequest(
                     query,
                     string.IsNullOrWhiteSpace(category) ? null : category,
                     topK,
@@ -62,7 +64,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         : null,
                     MaxPerPage: request.Handoff.Load.StructuredLayout
                         ? 2
-                        : null));
+                        : null,
+                    DocumentHint: documentHint.Length == 0 ? null : documentHint);
+                if (dedupe.Add(BuildSearchIdentity(search)))
+                    result.Add(search);
             }
 
             if (result.Count == 0)
@@ -210,7 +215,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var queries = ParsePlan(raw, request, availableCategories);
             if (queries.Count == 0)
                 throw new JsonException();
-            return queries;
+            var documents = GetRequestedDocumentIdentifiers(request);
+            return documents.Count == 0 ? queries : queries.Select(planned => planned with
+            {
+                DocumentHint = ResolveRequiredDocumentHint(planned, documents)
+            }).ToArray();
         }
         catch (JsonException)
         {
@@ -543,28 +552,29 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 documents);
             var query = NormalizeCorpusSearchQuery(
                 string.Join(' ', document, context));
-            if (query.Length == 0 || !seen.Add(query))
+            if (query.Length == 0)
                 continue;
-            result.Add(new AdvancedAnalysisSearchRequest(
+            var required = new AdvancedAnalysisSearchRequest(
                 query,
                 Category: null,
                 TopK: Math.Clamp(
                     Math.Max(20, load.AtomicEvidenceCount * 4),
                     1,
                     60),
-                DocumentHint: document));
+                DocumentHint: document);
+            if (!seen.Add(BuildSearchIdentity(required)))
+                continue;
+            result.Add(required);
             if (result.Count >= maximumQueries)
                 return result;
         }
         foreach (var planned in plannedQueries)
         {
-            var documentHint = ResolvePlannedDocumentHint(
-                planned.Query,
-                documents);
-            var scopedPlanned = documentHint is null
-                ? planned
-                : planned with { DocumentHint = documentHint };
-            if (!seen.Add(scopedPlanned.Query))
+            var scopedPlanned = planned with
+            {
+                DocumentHint = ResolveRequiredDocumentHint(planned, documents)
+            };
+            if (!seen.Add(BuildSearchIdentity(scopedPlanned)))
                 continue;
             result.Add(scopedPlanned);
             if (result.Count >= maximumQueries)
@@ -572,6 +582,27 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         }
         return result;
     }
+
+    private static string? ResolveRequiredDocumentHint(
+        AdvancedAnalysisSearchRequest planned,
+        IReadOnlyList<string> documents)
+        => ResolvePlannedDocumentHint(planned.Query, documents)
+           ?? documents.FirstOrDefault(document =>
+               !string.IsNullOrWhiteSpace(planned.DocumentHint)
+               && NormalizeDocumentIdentifier(document) ==
+                  NormalizeDocumentIdentifier(planned.DocumentHint));
+
+    private static string BuildSearchIdentity(AdvancedAnalysisSearchRequest search)
+        => JsonSerializer.Serialize(new
+        {
+            query = search.Query.Trim(),
+            category = search.Category?.Trim() ?? string.Empty,
+            docId = search.DocId?.Trim() ?? string.Empty,
+            docPath = search.DocPath?.Trim().Replace('\\', '/') ?? string.Empty,
+            documentHint = search.DocumentHint?.Trim() ?? string.Empty,
+            search.PageStart, search.PageEnd, search.TopK,
+            search.MaxPerDocument, search.MaxPerPage
+        });
 
     private static string? ResolvePlannedDocumentHint(
         string query,

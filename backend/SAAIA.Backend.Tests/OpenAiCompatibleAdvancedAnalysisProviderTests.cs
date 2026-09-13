@@ -504,6 +504,87 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Research_can_remove_a_category_without_changing_the_query()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"reference threshold","category":"Finance","topK":12}]}"""),
+            Completion("""{"decision":"search_more","queries":[{"query":"reference threshold","category":"","topK":12}]}"""),
+            Completion("""{"outcome":"answered","answerText":"Le seuil est 17 [C1].","claims":[{"claimId":"C1","text":"Le seuil est 17.","evidenceIds":["E2"]}]}"""));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        options.ExternalMaximumCallsPerJob = 3;
+        var gateway = new SequencedToolGateway([], [BuildEvidence("E2", "Le seuil est 17.")]) { Categories = ["Finance"] };
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+            .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+        Assert.Equal(2, gateway.Searches.Count);
+        Assert.Equal("Finance", gateway.Searches[0].Category);
+        Assert.Null(gateway.Searches[1].Category);
+        Assert.Equal("answered", result.Outcome);
+        using var reviewRequest = JsonDocument.Parse(factory.Requests[1].Body);
+        using var reviewPayload = JsonDocument.Parse(reviewRequest.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+        Assert.Equal("Finance", Assert.Single(reviewPayload.RootElement.GetProperty("priorSearches").EnumerateArray()).GetProperty("category").GetString());
+    }
+
+    [Fact]
+    public async Task Initial_plan_can_search_the_same_phrase_in_two_different_categories()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"reference threshold","category":"Finance","topK":12},{"query":"reference threshold","category":"Guides","topK":12},{"query":"REFERENCE THRESHOLD","category":"finance","topK":12}]}"""),
+            Completion("""{"outcome":"answered","answerText":"Le seuil est 17 [C1].","claims":[{"claimId":"C1","text":"Le seuil est 17.","evidenceIds":["E1"]}]}"""));
+        var gateway = new RecordingToolGateway(BuildEvidence("E1", "Le seuil est 17.")) { Categories = ["Finance", "Guides"] };
+        await new OpenAiCompatibleAdvancedAnalysisProvider(factory, CreateOptions(), apiKey: null)
+            .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+        Assert.Equal(["Finance", "Guides"], gateway.Searches.Select(item => item.Category ?? string.Empty).ToArray());
+    }
+
+    [Fact]
+    public async Task Planner_can_request_a_validated_document_identity_hint()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"reference threshold","documentHint":"Reference_Guide_2024","topK":12}]}"""),
+            Completion("""{"outcome":"answered","answerText":"Le seuil est 17 [C1].","claims":[{"claimId":"C1","text":"Le seuil est 17.","evidenceIds":["E1"]}]}"""));
+        var gateway = new RecordingToolGateway(BuildEvidence("E1", "Le seuil est 17."));
+        await new OpenAiCompatibleAdvancedAnalysisProvider(factory, CreateOptions(), apiKey: null)
+            .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+        Assert.Equal("Reference_Guide_2024", Assert.Single(gateway.Searches).DocumentHint);
+    }
+
+    [Fact]
+    public async Task Identical_followup_search_is_not_executed_again()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"reference threshold","topK":12}]}"""),
+            Completion("""{"decision":"search_more","queries":[{"query":"REFERENCE THRESHOLD","topK":12}]}"""),
+            Completion("""{"outcome":"answered","answerText":"Le seuil est 17 [C1].","claims":[{"claimId":"C1","text":"Le seuil est 17.","evidenceIds":["E1"]}]}"""));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        options.ExternalMaximumCallsPerJob = 3;
+        var gateway = new RecordingToolGateway(BuildEvidence("E1", "Le seuil est 17."));
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+            .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+        Assert.Single(gateway.Searches);
+        Assert.Equal(3, result.ProviderCallCount);
+    }
+
+    [Fact]
+    public async Task Followup_preserves_a_single_required_document_without_reinjecting_initial_queries()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"reference overview","topK":12}]}"""),
+            Completion("""{"decision":"search_more","queries":[{"query":"reference exact function","topK":12}]}"""),
+            Completion("""{"outcome":"insufficient_documentation","answerText":"Les extraits ne documentent pas les fonctions demandées.","claims":[]}"""));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        options.ExternalMaximumCallsPerJob = 3;
+        var gateway = new RecordingToolGateway();
+        await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+            .ExecuteAsync(BuildNamedDocumentRequest(), gateway, CancellationToken.None);
+        var followup = Assert.Single(gateway.Searches, item => item.Query == "reference exact function");
+        Assert.Equal("NIST_CSF_2_0.pdf", followup.DocumentHint);
+        Assert.Equal(3, gateway.Searches.Count);
+    }
+
+    [Fact]
     public async Task Planner_cannot_relax_an_existing_distinct_item_contract()
     {
         using var factory = new QueuedHttpClientFactory(
@@ -2940,6 +3021,8 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         private readonly List<AdvancedAnalysisResolvedEvidence> _evidence = [];
         public IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence => _evidence;
         public List<AdvancedAnalysisSearchRequest> Searches { get; } = [];
+        public IReadOnlyList<string> Categories { get; init; } = [];
+        public Task<IReadOnlyList<string>> ListCategoriesAsync(CancellationToken cancellationToken) => Task.FromResult(Categories);
 
         public Task<AdvancedAnalysisSearchObservation> SearchAsync(AdvancedAnalysisSearchRequest request, CancellationToken cancellationToken)
         {

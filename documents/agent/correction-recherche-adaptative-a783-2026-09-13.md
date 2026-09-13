@@ -44,3 +44,12 @@ pour elles. Les réponses TLS, FOMC et OAuth de la banque consommée restent à
 rejouer comme diagnostics avec Terra et à réviser contre leurs sources. Le
 verdict BH6 reste inchangé ; une nouvelle banque aveugle nécessitera ensuite
 un nouveau gel et des corrigés documentaires contrôlés.
+
+Une première reprise live a ensuite été exécutée : les trois réponses restent
+rejetées malgré quinze appels estimés à 0,275706 USD au total. Les recherches
+complémentaires sont réellement utilisées, mais leurs catégories déduites du
+sujet conservent un mauvais périmètre pour TLS et FOMC. OAuth rencontre également
+un contrat de sélection distincte inadapté à sa séquence. Le diagnostic et la
+correction du périmètre sont documentés dans
+`correction-perimetre-recherche-a784-2026-09-13.md`. L'éligibilité de la recherche
+est donc prouvée ; son résultat sémantique n'est pas encore validé.

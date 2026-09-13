@@ -105,17 +105,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             var plannedQueries = AddRequiredDocumentQueries(
                 request,
                 ParsePlan(planner.Content, request, availableCategories));
-            var previouslyExecuted = request.Handoff.ResearchState.ExecutedQueries
-                .Concat(request.PreviousToolEvents.Select(static item =>
-                    item.Request.Query))
-                .Where(static value => !string.IsNullOrWhiteSpace(value))
-                .Select(static value => value.Trim())
+            var priorSearches = request.PreviousToolEvents.Select(static item => item.Request).ToList();
+            var previouslyExecuted = priorSearches.Select(BuildSearchIdentity)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             await ExecuteSearchBatchAsync(
                     tools,
                     plannedQueries,
                     previouslyExecuted,
+                    priorSearches,
                     evidenceGroups,
                     retrievalQueriesByEvidenceId,
                     cancellationToken)
@@ -151,7 +149,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                                     request,
                                     currentEvidence,
                                     retrievalQueriesByEvidenceId),
-                                previouslyExecuted,
+                                priorSearches,
                                 availableCategories),
                             Math.Clamp(_options.PlannerMaxTokens, 256, 4_096),
                             cancellationToken)
@@ -167,6 +165,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                             tools,
                             followUpQueries,
                             previouslyExecuted,
+                            priorSearches,
                             evidenceGroups,
                             retrievalQueriesByEvidenceId,
                             cancellationToken)
@@ -413,14 +412,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         IAdvancedAnalysisToolGateway tools,
         IReadOnlyList<AdvancedAnalysisSearchRequest> plannedQueries,
         HashSet<string> previouslyExecuted,
+        List<AdvancedAnalysisSearchRequest> priorSearches,
         List<IReadOnlyList<AdvancedAnalysisResolvedEvidence>> evidenceGroups,
         Dictionary<string, HashSet<string>> retrievalQueriesByEvidenceId,
         CancellationToken cancellationToken)
     {
         foreach (var planned in plannedQueries)
         {
-            if (!previouslyExecuted.Add(planned.Query))
+            if (!previouslyExecuted.Add(BuildSearchIdentity(planned)))
                 continue;
+            priorSearches.Add(planned);
             var observation = await tools.SearchAsync(
                     planned,
                     cancellationToken)
