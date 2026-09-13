@@ -121,9 +121,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            if (_options.AdaptiveResearchEnabled
-                && ShouldRunAdaptiveResearch(request)
-                && tools.Evidence.Count > 0)
+            if (_options.AdaptiveResearchEnabled)
             {
                 var maximumCalls = Math.Clamp(
                     _options.ExternalMaximumCallsPerJob,

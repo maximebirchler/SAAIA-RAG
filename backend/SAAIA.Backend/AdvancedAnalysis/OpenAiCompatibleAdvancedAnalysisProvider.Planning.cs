@@ -225,18 +225,6 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         }
     }
 
-    private static bool ShouldRunAdaptiveResearch(
-        AdvancedAnalysisProviderRequest request)
-    {
-        var load = request.Handoff.Load;
-        return load.StructuredLayout
-               || load.AnswerUnitCount >= 4
-               || load.AtomicEvidenceCount >= 4
-               || load.PlanKind.Contains(
-                   "comparison",
-                   StringComparison.OrdinalIgnoreCase);
-    }
-
     private static bool ShouldAttemptSynthesisRecovery(
         AdvancedAnalysisProviderRequest request,
         AdvancedAnalysisProviderResult result,

@@ -457,6 +457,52 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Empty(gateway.Searches);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Direct_question_can_reformulate_after_irrelevant_or_empty_first_search(bool firstSearchHasEvidence)
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"reference guide summary","topK":12}]}"""),
+            Completion("""{"decision":"search_more","queries":[{"query":"reference guide threshold default","topK":12}]}"""),
+            Completion("""{"outcome":"answered","answerText":"Le seuil par défaut est 17 [C1].","claims":[{"claimId":"C1","text":"Le seuil par défaut est 17.","evidenceIds":["E2"]}]}"""));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        options.ExternalMaximumCallsPerJob = 3;
+        var gateway = new SequencedToolGateway(
+            firstSearchHasEvidence ? new[] { BuildEvidence("E1", "Table des matières du guide de référence.") } : [],
+            [BuildEvidence("E2", "Le seuil par défaut est 17.")]);
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null);
+        var result = await provider.ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(3, result.ProviderCallCount);
+        Assert.Equal(["reference guide summary", "reference guide threshold default"], gateway.Searches.Select(item => item.Query).ToArray());
+        Assert.Contains("reference guide threshold default", factory.Requests[2].Body, StringComparison.Ordinal);
+        using var writerRequest = JsonDocument.Parse(factory.Requests[2].Body);
+        using var writerPayload = JsonDocument.Parse(writerRequest.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+        var foundEvidence = Assert.Single(writerPayload.RootElement.GetProperty("evidence").EnumerateArray(),
+            item => item.GetProperty("evidenceId").GetString() == "E2");
+        Assert.Equal("Le seuil par défaut est 17.", foundEvidence.GetProperty("content").GetString());
+    }
+
+    [Fact]
+    public async Task Direct_research_review_preserves_the_available_provider_call_budget()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"reference threshold","topK":12}]}"""),
+            Completion("""{"outcome":"answered","answerText":"Le seuil par défaut est 17 [C1].","claims":[{"claimId":"C1","text":"Le seuil par défaut est 17.","evidenceIds":["E1"]}]}"""));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        options.ExternalMaximumCallsPerJob = 2;
+        var gateway = new RecordingToolGateway(BuildEvidence("E1", "Le seuil par défaut est 17."));
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null);
+        var result = await provider.ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(2, result.ProviderCallCount);
+        Assert.Single(gateway.Searches);
+        Assert.Equal(2, factory.Requests.Count);
+    }
+
     [Fact]
     public async Task Planner_cannot_relax_an_existing_distinct_item_contract()
     {
@@ -2692,6 +2738,22 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             [],
             []);
 
+    private static AdvancedAnalysisProviderRequest BuildDirectRequest()
+        => new(Guid.NewGuid(), Guid.NewGuid(), "test-user",
+            new AdvancedAnalysisHandoffEnvelope
+            {
+                HandoffId = Guid.NewGuid(), CreatedAtUtc = DateTimeOffset.UtcNow,
+                RequestText = "Quel est le seuil par défaut dans le guide de référence ?", Language = "fr",
+                OriginIntent = "rag.answer", ReasonCode = "local_model_budget_exhausted", TransferStage = "post_retrieval",
+                Load = new AdvancedAnalysisLoadDescriptor
+                {
+                    PlanKind = "single_item", Deliverable = "sourced_answer", AnswerUnitCount = 1, AtomicEvidenceCount = 1,
+                    StructuredLayout = false, AtomicEvidenceType = "documented_fact", AtomicEvidenceMode = "content_claim",
+                    SelectionPolicy = "single_item"
+                },
+                ResearchState = new AdvancedAnalysisResearchState { EvidenceRevalidationRequired = true, MemoryIsEvidence = false }
+            }, [], []);
+
     private static AdvancedAnalysisProviderRequest BuildFlatNamedItemRequest()
         => new(
             Guid.NewGuid(),
@@ -2870,6 +2932,24 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                 [],
                 1,
                 Searches.Count));
+        }
+    }
+
+    private sealed class SequencedToolGateway(params IReadOnlyList<AdvancedAnalysisResolvedEvidence>[] batches) : IAdvancedAnalysisToolGateway
+    {
+        private readonly List<AdvancedAnalysisResolvedEvidence> _evidence = [];
+        public IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence => _evidence;
+        public List<AdvancedAnalysisSearchRequest> Searches { get; } = [];
+
+        public Task<AdvancedAnalysisSearchObservation> SearchAsync(AdvancedAnalysisSearchRequest request, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var found = batches[Math.Min(Searches.Count, batches.Length - 1)];
+            Searches.Add(request);
+            foreach (var item in found)
+                if (_evidence.All(existing => existing.Reference.EvidenceId != item.Reference.EvidenceId))
+                    _evidence.Add(item);
+            return Task.FromResult(new AdvancedAnalysisSearchObservation(request.Query, found, [], 1, Searches.Count));
         }
     }
 
