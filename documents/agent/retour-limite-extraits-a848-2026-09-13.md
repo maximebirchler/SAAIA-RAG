@@ -5,8 +5,8 @@ Préenregistrement avant modification produit, contrôles et pilote.
 A847 sur 7a4ae4b1 : cinq appels / 0,32866290 USD ; le job
 c1d998eb-48b4-44af-a816-9330d1d80254 échoue sur
 accumulated_evidence_limit_exceeded. Trente opérations réussies : huit
-recherches initiales, vingt lectures, une recherche littérale puis une recherche
-sémantique ; une recherche supplémentaire échoue, trente et un événements.
+recherches initiales, vingt lectures et deux recherches littérales ; une recherche
+sémantique supplémentaire échoue, trente et un événements.
 Les références admises contiennent 504 IDs uniques. Le plafond d'accumulation
 est 512 ; déduplication canonique déjà existante, ne pas attribuer cet arrêt
 à un simple comptage des retours répétés. Les états historiques transmis

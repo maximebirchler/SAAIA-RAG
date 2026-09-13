@@ -44,7 +44,12 @@ internal sealed record AdvancedAnalysisSearchObservation(
     long ElapsedMilliseconds,
     int ToolCallNumber,
     AdvancedAnalysisReadDiagnostic? ReadDiagnostic = null,
-    AdvancedAnalysisFindDiagnostic? FindDiagnostic = null);
+    AdvancedAnalysisFindDiagnostic? FindDiagnostic = null,
+    AdvancedAnalysisResearchResourceLimit? ResourceLimit = null,
+    bool NotExecutedAfterResourceLimit = false);
+
+internal sealed record AdvancedAnalysisResearchResourceLimit(string ReasonCode,
+    int? MaximumEvidenceItems, int? ConsumedEvidenceItems, int? RequestedNewEvidenceItems);
 
 internal sealed record AdvancedAnalysisToolEventSummary(
     int EventSequence,
@@ -59,11 +64,14 @@ internal sealed record AdvancedAnalysisToolEventSummary(
 
 internal sealed record AdvancedAnalysisToolBudget(
     int MaximumCalls, int ConsumedCalls,
-    long MaximumElapsedMilliseconds, long ConsumedElapsedMilliseconds)
+    long MaximumElapsedMilliseconds, long ConsumedElapsedMilliseconds,
+    int? MaximumEvidenceItems = null, int? ConsumedEvidenceItems = null)
 {
     public int RemainingCalls => Math.Max(0, MaximumCalls - ConsumedCalls);
     public long RemainingElapsedMilliseconds => Math.Max(
         0, MaximumElapsedMilliseconds - ConsumedElapsedMilliseconds);
+    public int? RemainingEvidenceItems => MaximumEvidenceItems is { } maximum
+        && ConsumedEvidenceItems is { } consumed ? Math.Max(0, maximum - consumed) : null;
 }
 
 internal interface IAdvancedAnalysisToolGateway
@@ -243,7 +251,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
 
     public AdvancedAnalysisToolBudget Budget => new(
         _maximumToolCalls, _toolCallCount,
-        _maximumElapsedMilliseconds, _elapsedMilliseconds);
+        _maximumElapsedMilliseconds, _elapsedMilliseconds, _maximumEvidenceItems, _evidence.Count);
 
     public async Task<IReadOnlyList<string>> ListCategoriesAsync(
         CancellationToken cancellationToken)
@@ -413,7 +421,9 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             if (_evidence.Count + newEvidence.Count > _maximumEvidenceItems)
             {
                 throw new AdvancedAnalysisToolException(
-                    "accumulated_evidence_limit_exceeded");
+                    "accumulated_evidence_limit_exceeded",
+                    new("accumulated_evidence_limit_exceeded", _maximumEvidenceItems,
+                        _evidence.Count, newEvidence.Count));
             }
             foreach (var item in newEvidence)
             {
@@ -753,10 +763,12 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
 internal sealed class AdvancedAnalysisToolException : Exception
 {
     public string ErrorCode { get; }
+    public AdvancedAnalysisResearchResourceLimit? ResourceLimit { get; }
 
-    public AdvancedAnalysisToolException(string errorCode)
+    public AdvancedAnalysisToolException(string errorCode, AdvancedAnalysisResearchResourceLimit? resourceLimit = null)
         : base(errorCode)
     {
         ErrorCode = errorCode;
+        ResourceLimit = resourceLimit;
     }
 }

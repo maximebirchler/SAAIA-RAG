@@ -18,6 +18,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         public IReadOnlyList<ResearchWorkspaceItem> Workspace { get; set; } = [];
         public IReadOnlyList<string> ActiveProposalEvidenceIds { get; set; } = [];
         public int ActiveProposalOmittedEvidenceCount { get; set; }
+        public AdvancedAnalysisResearchResourceLimit? ResourceLimit { get; set; }
     }
 
     private sealed record SynthesisCompletion(
@@ -209,14 +210,23 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 {
                     tools = BuildResearchToolsForPrompt(),
                     researchAllowed = maximumCalls - completions.Count - 1 - reservedFinalCalls > 0
+                        && context.ResourceLimit is null
                         && (toolBudget is null || toolBudget.RemainingCalls > 0
-                            && toolBudget.RemainingElapsedMilliseconds > 0),
+                            && toolBudget.RemainingElapsedMilliseconds > 0
+                            && toolBudget.RemainingEvidenceItems is not 0),
                     remainingModelCalls = Math.Max(0, maximumCalls - completions.Count - 1 - reservedFinalCalls),
                     documentaryBudget = toolBudget,
                     maximumQueries = ResolveMaximumPlanQueries(request),
                     availableCategories = context.AvailableCategories,
                     priorSearches = BuildPriorSearchesForPrompt(context.PriorSearches, observations)
                 }, JsonOptions);
+                if (context.ResourceLimit is not null)
+                    payload["researchResourceLimit"] = JsonSerializer.SerializeToNode(new
+                    {
+                        context.ResourceLimit.ReasonCode, context.ResourceLimit.MaximumEvidenceItems,
+                        context.ResourceLimit.ConsumedEvidenceItems, context.ResourceLimit.RequestedNewEvidenceItems,
+                        instruction = "Research stopped at this operational capacity limit. Previously admitted evidence remains valid after current revalidation. The refused result admitted no new evidence; later batch operations did not run. Produce a supported synthesis from current evidence or explain the bounded research limit. This is not proof of corpus absence or a numerical shortage."
+                    }, JsonOptions);
                 if (candidateSupportFeedback is not null)
                     payload["candidateSupportCorrections"] = JsonSerializer.SerializeToNode(candidateSupportFeedback, JsonOptions);
                 if (argumentFeedback is not null)
@@ -264,6 +274,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             completions.Add(completion);
             if (!_options.AdaptiveResearchEnabled)
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_research_disabled");
+            if (context.ResourceLimit is not null)
+                throw new AdvancedAnalysisProviderException("advanced_synthesis_research_after_resource_limit");
             if (completions.Count >= maximumCalls - reservedFinalCalls)
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_research_call_budget_exhausted");
 
@@ -324,9 +336,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             repeatedSearches = null;
             var nativeResults = completion.NativeToolCallsJson is null ? null
                 : new Dictionary<string, AdvancedAnalysisSearchObservation>(StringComparer.OrdinalIgnoreCase);
-            await ExecuteSearchBatchAsync(context.Tools, queries, context.PreviouslyExecuted,
+            var resourceLimit = await ExecuteSearchBatchAsync(context.Tools, queries, context.PreviouslyExecuted,
                 context.PriorSearches, context.EvidenceGroups, context.RetrievalQueriesByEvidenceId,
-                cancellationToken, nativeResults).ConfigureAwait(false);
+                cancellationToken, nativeResults, allowResourceLimitFeedback: true).ConfigureAwait(false);
+            context.ResourceLimit ??= resourceLimit;
             if (workspaceUpdate is not null) context.Workspace = workspaceUpdate;
             if (completion.NativeToolCallsJson is { } executedCalls)
                 context.NativeTurn = new(executedCalls, queries, nativeResults!, ResponseOutputItemsJson: completion.NativeResponseOutputJson,

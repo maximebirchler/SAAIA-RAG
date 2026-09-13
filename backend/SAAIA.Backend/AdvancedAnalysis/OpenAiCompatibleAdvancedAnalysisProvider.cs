@@ -458,7 +458,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         }
     }
 
-    private static async Task ExecuteSearchBatchAsync(
+    private static async Task<AdvancedAnalysisResearchResourceLimit?> ExecuteSearchBatchAsync(
         IAdvancedAnalysisToolGateway tools,
         IReadOnlyList<AdvancedAnalysisSearchRequest> plannedQueries,
         HashSet<string> previouslyExecuted,
@@ -466,19 +466,40 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         List<IReadOnlyList<AdvancedAnalysisResolvedEvidence>> evidenceGroups,
         Dictionary<string, HashSet<string>> retrievalQueriesByEvidenceId,
         CancellationToken cancellationToken,
-        Dictionary<string, AdvancedAnalysisSearchObservation>? observationsBySearch = null)
+        Dictionary<string, AdvancedAnalysisSearchObservation>? observationsBySearch = null,
+        bool allowResourceLimitFeedback = false)
     {
         EnsureResearchBatchFitsToolBudget(tools, plannedQueries, previouslyExecuted);
+        AdvancedAnalysisResearchResourceLimit? resourceLimit = null;
         foreach (var planned in plannedQueries)
         {
+            if (resourceLimit is not null)
+            {
+                if (observationsBySearch is not null)
+                    observationsBySearch[BuildSearchIdentity(planned)] = new(planned.Query,
+                        [], [], 0, 0, ResourceLimit: resourceLimit, NotExecutedAfterResourceLimit: true);
+                continue;
+            }
             if (!previouslyExecuted.Add(BuildSearchIdentity(planned)))
                 continue;
             var searchIndex=priorSearches.Count;
             priorSearches.Add(planned);
-            var observation = await tools.SearchAsync(
+            AdvancedAnalysisSearchObservation observation;
+            try
+            {
+                observation = await tools.SearchAsync(
                     planned,
                     cancellationToken)
                 .ConfigureAwait(false);
+            }
+            catch (AdvancedAnalysisToolException error) when (allowResourceLimitFeedback
+                && error.ErrorCode == "accumulated_evidence_limit_exceeded")
+            {
+                resourceLimit = error.ResourceLimit ?? new(error.ErrorCode,
+                    tools.Budget?.MaximumEvidenceItems, tools.Budget?.ConsumedEvidenceItems, null);
+                observation = new(planned.Query, [], [], 0, tools.Budget?.ConsumedCalls ?? 0,
+                    ResourceLimit: resourceLimit);
+            }
             if (observationsBySearch is not null)
                 observationsBySearch[BuildSearchIdentity(planned)] = observation;
             if(observation.ReadDiagnostic is not null)
@@ -510,6 +531,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 retrievalQueries.Add(planned.Query);
             }
         }
+        return resourceLimit;
     }
 
     private void ValidateConfiguration()

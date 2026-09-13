@@ -70,6 +70,17 @@ le payload complet conservées. Registre 37,85846860 USD / 40, reste calculé
 2,14153140 USD. Un pilote après gel propre avant analyse ; pas de WinUI ou
 banc inédit encore validé. Voir
 documents/agent/controle-budget-historique-a847-2026-09-13.md.
+Le pilote A847 échoue sur l'accumulation après trente opérations réussies et
+un refus, sans synthèse ; 504 IDs uniques admis, maximum d'historique transmis
+14 686, pas d'effet causal live de la borne étendue. A848 conserve le plafond
+512 et rend cette seule limite en diagnostic opérationnel à la synthèse,
+avec preuves admises conservées et opérations suivantes non exécutées.
+Sécurité/révalidation et collecte initiale restent fatales. Deux contrôles
+causaux provider, quatre contrôles de refus fatal et deux contrôles PostgreSQL
+réels passent ; 102 régressions ciblées et 2 424 tests backend réussis, trois
+live ignorés. Registre 38,18713150 USD / 40, reste calculé 1,81286850 USD.
+Un pilote connu après gel avant analyse. Voir
+documents/agent/controle-retour-limite-a848-2026-09-13.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

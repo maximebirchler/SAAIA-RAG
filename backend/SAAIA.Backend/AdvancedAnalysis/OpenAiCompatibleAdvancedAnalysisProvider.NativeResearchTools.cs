@@ -155,6 +155,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var result = new
             {
                 status = turn.Rejection is not null ? "batch_rejected_before_execution"
+                    : observation?.NotExecutedAfterResourceLimit == true ? "not_executed_after_resource_limit"
+                    : observation?.ResourceLimit is not null ? "resource_limit_before_evidence_admission"
                     : observation is null ? "not_executed_again" : "executed",
                 operation = ReadString(call.GetProperty("function"), "name"),
                 resolvedSource = request is null ? null : new { request.DocId, request.RevisionId, request.DocPath },
@@ -162,6 +164,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 returnedEvidenceCount = observation?.Evidence.Count,
                 visibleEvidenceIds = ids.Take(8).ToArray(), visibleEvidenceIdsOmitted = Math.Max(0, ids.Length - 8),
                 readDiagnostic = observation?.ReadDiagnostic, findDiagnostic = observation?.FindDiagnostic,
+                resourceLimit = observation?.ResourceLimit,
                 instruction = "Bounded operational result. Only current user.evidence excerpts are documentary proof. Historical source handles belong to their original turn; use current user.evidence handles, reidentifying sources through evidence IDs and resolved identity. Unlisted or omitted evidence is not proof of corpus absence."
             };
             var outputNode = JsonSerializer.SerializeToNode(result, JsonOptions)!.AsObject();

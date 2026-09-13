@@ -103,7 +103,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Empty(gateway.Searches);
     }
 
-    private static HttpResponseMessage HistoryNativeReadBatch(int opaqueCharacters)
+    private static HttpResponseMessage HistoryNativeReadBatch(int opaqueCharacters, int callCount = 8)
         => new(HttpStatusCode.OK)
         {
             Content = JsonContent.Create(new
@@ -113,7 +113,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 {
                     new { id = "simulated-history-state", type = "reasoning",
                         summary = Array.Empty<object>(), encrypted_content = new string('s', opaqueCharacters) }
-                }.Concat(Enumerable.Range(0, 8).Select(i => (object)new
+                }.Concat(Enumerable.Range(0, callCount).Select(i => (object)new
                 {
                     id = "history-function-" + i, type = "function_call", call_id = "history-call-" + i,
                     name = "read_source", status = "completed",
