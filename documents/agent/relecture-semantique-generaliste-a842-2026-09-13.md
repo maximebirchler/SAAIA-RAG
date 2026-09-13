@@ -49,3 +49,10 @@ high/8192 Writer/Critic, low/512 Planner, douze appels, une tentative HTTP,
 1,25 USD maximum. Stop avant répétition si défaut observé. Relire vingt liaisons
 et leurs contraintes, audit physique avant acceptation, trois consécutifs figés
 avant banc inédit et WinUI. TESTE_NON_APPROUVE, Goal actif, aucun achat automatique.
+
+Contrôle après implémentation du seul prompt : compilation et six tests des
+parcours agent, normalisation avec preuves multiples et correction fournie par
+le modèle réussis ; onze tests de retours de liaisons et visibilité finale
+réussis. Logs/TRX semantic-a842-targeted et semantic-a842-binding-targeted
+dans a815. Aucune nouvelle suite complète ni preuve de qualité sémantique
+présumée à partir de ces dix-sept contrôles. Le pilote réel reste à exécuter.

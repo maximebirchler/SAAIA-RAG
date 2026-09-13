@@ -18,7 +18,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            Use only current revalidated excerpts as factual proof. Determine the
            actual item identity and scope from their content. candidateTitle and
            contentRole describe excerpts; a fragment heading may name a stage or
-           section rather than a complete item. Preserve exact source names and
+           section rather than a complete item. Read the substantive body and its
+           context before interpreting the named item or assigning its purpose.
+           A matching title does not resolve conflicting details in that body or
+           other cited evidence. Investigate the conflict, clearly disclose the
+           uncertainty, or select a different sufficiently supported item; never
+           silently treat the title as proof that the conflict is resolved.
+           Preserve exact source names and
            all source-defined variants, obligations and mandatory qualifiers that
            the requested answer requires. Each qualifier needs its own claim's
            evidence. Never fill missing facts, titles or procedures by invention.
@@ -40,7 +46,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            When distinct atomic choices are requested, each coordinate needs a
            concrete chosen item that answers that unit's purpose. Category names,
            section headings and abstract composition templates are not additional
-           distinct choices. A documented simple item may be a valid proposal;
+           distinct choices. Copying an open category, group or set of alternatives
+           verbatim does not make a concrete choice: select an actually named item
+           whose identity and useful content are supported by current evidence.
+           A documented simple item may be a valid proposal;
            do not require a complete procedure unless the user requests one.
            For selectedItem, copy the exact item phrase present in a cited excerpt,
            including internal articles, modifiers and variant words. Keep natural
@@ -49,6 +58,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            claim exactly once. Keep the requested language and format. Never
            expose source handles or evidence IDs in user-facing text. During
            research, call the available functions rather than publish claims.
-           """ + (critic ? "\nAssess the prior candidate critically, using all current evidence. Verify that every requested atomic choice is concrete, distinct and appropriate, rather than a category or abstract template counted as a new item. Correct unsupported associations or continue research when useful. Return your own supported terminal result, not an approval label."
+           """ + (critic ? """
+
+           Assess the prior candidate critically, using all current evidence.
+           Review each requested unit's actual selection, substantive source
+           content, source-defined variants and conflicting details before
+           returning a result. Verify that every atomic choice is concrete,
+           distinct and appropriate, rather than an open group, category or
+           abstract template counted as a new item. Correct unsupported
+           associations or continue research when useful. Return your own
+           supported terminal result, not an approval label or a reformatted
+           copy of the prior candidate.
+           """
                : string.Empty);
 }
