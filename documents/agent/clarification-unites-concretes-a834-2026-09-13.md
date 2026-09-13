@@ -46,3 +46,20 @@ réussissent. Suite backend Release : 2 375 réussites, aucun échec, trois igno
 Build sans avertissement, diff propre. Le premier filtre ciblé ne sélectionnait
 aucun test ; son résultat n'est pas compté, le filtre corrigé en exécute trois.
 Aucun appel réel A834 à ce stade.
+
+## Pilote clos
+
+Candidat 5c0cf55, job 466e571a-41c3-40f2-872e-20a9127d8263 : sept appels,
+0,43989090 USD, seize recherches et cinq lectures. Le modèle produit vingt
+choix nommés concrets, sans remplacer le vendredi par des compositions abstraites.
+Cependant C5 cite la preuve du porridge, présente avant la dernière lecture de
+Critic puis évincée de sa projection finale. La réponse durable reste une
+insuffisance sans affirmation. Les vingt liaisons ont été lues ; dix-neuf sont
+visibles dans le dernier contexte, une n'est qu'historique et inadmissible.
+
+Autres préoccupations sémantiques : C15 n'a qu'un titre de muffins et un champ
+sans valeur, C20 cite une idée de repas dont l'antécédent documentaire n'est pas
+visible. Ni leur substance ni leur portée complète ne sont approuvées. Pas
+d'audit physique, répétition, holdout ni WinUI sur ce résultat rejeté. Ressources
+closes, candidat stable et suivi propre. Registre clos : 33,98436250 USD sur 40.
+Artefact : meal-a834-semantic-assessment.v1.json dans le dossier de continuité.
