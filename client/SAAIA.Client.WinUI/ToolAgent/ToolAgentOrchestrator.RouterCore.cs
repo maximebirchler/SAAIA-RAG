@@ -193,7 +193,19 @@ USER_MESSAGE:
                         nativeRouterTimeoutCts.Token).ConfigureAwait(false);
                     EmitRagTrace("router.document_binding.completed", ("state", binding.ToString()));
                     if (binding == UserDocumentBindingState.Unbound)
-                        selectedRouteToolName = RequestUnboundUserReferenceRouteToolName;
+                    {
+                        // The two structured checks already establish the typed missing
+                        // reference. Render it after the literal PDF identity guard;
+                        // another native paraphrase must not turn an anchor-copy error
+                        // into unrelated retrieval.
+                        if (string.IsNullOrWhiteSpace(TryExtractPdfFileNameRequestedTitle(userMessage)))
+                        {
+                            EmitRagTrace("router.document_binding.clarification", ("path", "typed_reference_after_identity_guard"));
+                            return BuildMissingDocumentReferenceRouterPlan(detectedMessageLanguage);
+                        }
+                        EmitRagTrace("router.document_binding.identity_supplied", ("path", "documentary_investigation"));
+                        selectedRouteToolName = SubmitSourceBackedRouteToolName;
+                    }
                     else if (binding == UserDocumentBindingState.Identified)
                         selectedRouteToolName = SubmitSourceBackedRouteToolName;
                     else if (binding == UserDocumentBindingState.Unconfirmed)

@@ -43,6 +43,21 @@ public sealed class UserDocumentBindingContractTests
     }
 
     [Theory]
+    [InlineData("Donne la conclusion de Guide.pdf.")]
+    [InlineData("Give the conclusion of Guide.pdf.")]
+    [InlineData("Da la conclusión de Guide.pdf.")]
+    [InlineData("Dê a conclusão de Guide.pdf.")]
+    [InlineData("Nenne das Fazit von Guide.pdf.")]
+    [InlineData("Fornisci la conclusione di Guide.pdf.")]
+    public async Task Explicit_pdf_identity_cannot_be_requested_again_even_when_both_extractors_omit_it(string request)
+    {
+        var agent = Create(new BindingRouter("", true, "document"), out _);
+        var plan = await Route(agent, [], request);
+        Assert.False(plan.NeedClarification);
+        Assert.NotNull(plan.SourceBackedMission);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Ungrounded_or_invalid_identity_checks_transfer_without_inventing_missing_information(bool malformed)
@@ -103,7 +118,7 @@ public sealed class UserDocumentBindingContractTests
         {
             var missing = tools.Count == 1 && tools[0].Name == "request_missing_user_input";
             var name = missing ? "request_missing_user_input" : "submit_source_backed_route";
-            object args = missing ? new { question = "Quel document souhaitez-vous vérifier ?", userTextAnchor = "document que je veux vérifier",
+            object args = missing ? new { question = "Quel document souhaitez-vous vérifier ?", userTextAnchor = "le document que je veux vérifier",
                 missingInformation = "The particular document the user selected has not been identified.", resumeRoute = "source_backed" }
                 : new { tool = "search", intent = "answer", query = "conclusion documentaire", answerUnitType = "fact",
                     answerUnitMode = "content_claim", selectionPolicy = "single_item", useFocusedDocument = false,
