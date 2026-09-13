@@ -135,6 +135,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             tool_calls = calls.RootElement.Clone() });
         var visibleIds = visible.Select(e => e.EvidenceId).ToHashSet(StringComparer.Ordinal);
         var index = 0;
+        var documentaryInstructionWritten = false;
         foreach (var call in calls.RootElement.EnumerateArray())
         {
             if (ReadString(call.GetProperty("function"), "name") == "save_research_state")
@@ -163,7 +164,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 readDiagnostic = observation?.ReadDiagnostic, findDiagnostic = observation?.FindDiagnostic,
                 instruction = "Bounded operational result. Only current user.evidence excerpts are documentary proof. Historical source handles belong to their original turn; use current user.evidence handles, reidentifying sources through evidence IDs and resolved identity. Unlisted or omitted evidence is not proof of corpus absence."
             };
-            var resultJson = JsonSerializer.Serialize(result, JsonOptions);
+            var outputNode = JsonSerializer.SerializeToNode(result, JsonOptions)!.AsObject();
+            foreach (var property in outputNode.Where(property => property.Value is null).ToArray())
+                outputNode.Remove(property.Key);
+            if (documentaryInstructionWritten) outputNode.Remove("instruction");
+            documentaryInstructionWritten = true;
+            var resultJson = outputNode.ToJsonString(JsonOptions);
             messages.Add(responses ? new { type = "function_call_output", call_id = ReadString(call, "id"), output = resultJson }
                 : (object)new { role = "tool", tool_call_id = ReadString(call, "id"), content = resultJson });
         }

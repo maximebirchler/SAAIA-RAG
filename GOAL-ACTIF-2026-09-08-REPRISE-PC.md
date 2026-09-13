@@ -40,6 +40,14 @@ test PostgreSQL réel ciblé passent, suite backend à 2 410 réussites et trois
 ignorés. Un pilote avant analyse avec la même enveloppe A837 de 1,25 USD max ;
 aucune répétition aveugle ni WinUI encore autorisée par les preuves d'acceptation.
 Voir documents/agent/budget-outils-et-erreur-frontiere-a843-2026-09-13.md.
+Le pilote A843 corrige son batch puis exécute huit lectures, mais l'historique
+natif trop volumineux empêche la synthèse. A844 retire seulement les répétitions
+de consigne et propriétés nulles, sans tronquer l'état opaque ou les résultats.
+Contrôle causal à 8 000 caractères simulés réussi ; un bloc de 20 000 reste
+refusé. Deux contrôles dédiés, 88 régressions ciblées et 2 412 tests backend
+réussis, trois live ignorés. Aucun nouveau planning approuvé. Registre clos
+36,46125760 USD / 40, solde calculé 3,53874240 USD. Un pilote avant analyse.
+Voir documents/agent/controle-compaction-outils-a844-2026-09-13.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.
