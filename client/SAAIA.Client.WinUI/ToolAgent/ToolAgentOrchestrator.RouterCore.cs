@@ -152,7 +152,7 @@ USER_MESSAGE:
                 EmitRagTrace(
                     "router.native.classifier.completed",
                     ("accepted", classifierAccepted),
-                    ("classifier_contract", useStructuredClassifier ? "saaia_work_family_v3" : "native_tools"),
+                    ("classifier_contract", useStructuredClassifier ? "saaia_work_family_v4" : "native_tools"),
                     ("selected_contract", selectedRouteToolName),
                     ("finish_reason", classifierCompletion.FinishReason),
                     ("prompt_tokens", classifierCompletion.PromptTokens),
@@ -167,6 +167,9 @@ USER_MESSAGE:
                     ("server_predicted_ms",
                         classifierCompletion.ServerPredictedMilliseconds),
                     ("ms", classifierSw.ElapsedMilliseconds));
+                if (classifierAccepted && selectedRouteToolName == RequestMissingUserInputToolName)
+                    return BuildMissingInstanceFactsRouterPlan(detectedMessageLanguage);
+
                 var nativeRouterSystem = useSpecializedRoute
                     ? BuildNativeRouterSpecializedSystemPrompt(
                         selectedRouteToolName,
@@ -430,6 +433,8 @@ USER_MESSAGE:
                          out var nativePlan,
                          out var nativeFailureReason);
                 if (nativeRouteAccepted)
+                    nativeRouteAccepted = ValidateAdvertisedNativeRoute(nativeCompletion, nativeRouterTools, ref nativeFailureReason);
+                if (nativeRouteAccepted)
                     nativeRouteAccepted = ValidateGroundedAnswerUnits(groundedAnswerUnits, nativePlan, ref nativeFailureReason);
                 if (nativeRouteAccepted)
                     nativeRouteAccepted = ValidateGroundedGridShape(groundedGridShape, nativePlan, ref nativeFailureReason);
@@ -514,7 +519,8 @@ USER_MESSAGE:
                                 || string.Equals(
                                     nativeFailureReason,
                                     ExplicitDocumentIdentityAlreadySuppliedFailure,
-                                    StringComparison.Ordinal));
+                                    StringComparison.Ordinal)
+                                || string.Equals(nativeFailureReason, UnadvertisedNativeRouteFailure, StringComparison.Ordinal));
                         var releaseRouteFamily = releaseGridFastPath
                                                  || releaseInvalidClarification
                                                  || releaseInvalidDocumentOverview;
@@ -572,6 +578,7 @@ USER_MESSAGE:
                         var repairOutputTokens = Math.Max(
                             nativeRouterMaximumOutputTokens,
                             nativeRouterOutputTokens);
+                        nativeRouterTools = repairTools;
                         nativeRouterTimeoutCts.CancelAfter(
                             ResolveNativeRouterTimeoutMs(
                                 nativeRouterInputTokens,
@@ -599,6 +606,8 @@ USER_MESSAGE:
                          out nativePlan,
                          out nativeFailureReason);
                     if (nativeRouteAccepted)
+                        nativeRouteAccepted = ValidateAdvertisedNativeRoute(nativeCompletion, nativeRouterTools, ref nativeFailureReason);
+                    if (nativeRouteAccepted)
                         nativeRouteAccepted = ValidateGroundedAnswerUnits(groundedAnswerUnits, nativePlan, ref nativeFailureReason);
                     if (nativeRouteAccepted)
                         nativeRouteAccepted = ValidateGroundedGridShape(groundedGridShape, nativePlan, ref nativeFailureReason);
@@ -606,6 +615,9 @@ USER_MESSAGE:
 
                 if (nativeRouteAccepted)
                 {
+                    if (selectedRouteToolName == SubmitApplicationDecisionRouteToolName
+                        && nativePlan.SourceBackedMission is not null)
+                        nativePlan.SourceBackedMission.QuestionFocus = "application_decision";
                     if (groundedGridShape?.IsComplete == true)
                     {
                         nativePlan.GroundedGridDiscoveryQueries =

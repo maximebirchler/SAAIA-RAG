@@ -49,7 +49,7 @@ public sealed class GroundedAnswerUnitContractTests
         Assert.Equal(5, plan.SourceBackedMission!.AtomicEvidenceCount);
         Assert.Equal("explicit_set", plan.SourceBackedMission.SelectionPolicy);
         Assert.Contains(
-            "native_clarification_route_contract_invalid",
+            "native_route_tool_not_advertised",
             llm.LastUserMessage,
             StringComparison.Ordinal);
     }
@@ -301,7 +301,7 @@ public sealed class GroundedAnswerUnitContractTests
         public Task<SourceBackedAgentCompletion> CompleteStructuredAsync(IReadOnlyList<SourceBackedAgentMessage> messages,
             LlmStructuredOutputContract contract, int maxTokens, CancellationToken ct, double? temperatureOverride = null)
         {
-            if (contract.Name == "saaia_work_family_v3")
+            if (contract.Name == "saaia_work_family_v4")
                 return Task.FromResult(new SourceBackedAgentCompletion("{\"family\":\"answer\"}", [], "stop"));
             Assert.Equal("saaia_answer_units_v2", contract.Name);
             UnitCalls++;
@@ -322,9 +322,7 @@ public sealed class GroundedAnswerUnitContractTests
             Assert.True(NativeCalls <= (DriftFirstCount ? 2 : 1));
             LastUserMessage = messages.Last(m => m.Role == "user").Content!;
             LastTool = Assert.Single(tools, tool => tool.Name == "submit_source_backed_route");
-            Assert.Equal(NativeCalls == 1
-                ? new[] { "submit_source_backed_route", "request_missing_user_input" }
-                : new[] { "submit_source_backed_route" }, tools.Select(tool => tool.Name));
+            Assert.Equal(new[] { "submit_source_backed_route" }, tools.Select(tool => tool.Name));
             var drift = DriftFirstCount && NativeCalls == 1;
             var args = JsonSerializer.SerializeToElement(new
             {
@@ -365,7 +363,7 @@ public sealed class GroundedAnswerUnitContractTests
             CancellationToken ct,
             double? temperatureOverride = null)
         {
-            if (contract.Name == "saaia_work_family_v3")
+            if (contract.Name == "saaia_work_family_v4")
             {
                 return Task.FromResult(new SourceBackedAgentCompletion(
                     "{\"family\":\"answer\"}", [], "stop"));
@@ -402,7 +400,7 @@ public sealed class GroundedAnswerUnitContractTests
             LastUserMessage = messages.Last(m => m.Role == "user").Content!;
             if (NativeCalls == 1)
             {
-                Assert.Contains(tools, static tool =>
+                Assert.DoesNotContain(tools, static tool =>
                     tool.Name == "request_missing_user_input");
                 return Task.FromResult(new SourceBackedAgentCompletion(
                     "",
@@ -476,7 +474,7 @@ public sealed class GroundedAnswerUnitContractTests
             CancellationToken ct,
             double? temperatureOverride = null)
         {
-            if (contract.Name == "saaia_work_family_v3")
+            if (contract.Name == "saaia_work_family_v4")
             {
                 return Task.FromResult(new SourceBackedAgentCompletion(
                     "{\"family\":\"answer\"}", [], "stop"));

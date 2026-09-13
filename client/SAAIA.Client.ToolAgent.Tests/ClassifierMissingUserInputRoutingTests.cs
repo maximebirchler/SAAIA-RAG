@@ -26,8 +26,9 @@ public sealed class ClassifierMissingUserInputRoutingTests
             new AppSettings { ActiveMode = "strict" });
         var result = await agent.RunAsync([], request, CancellationToken.None);
         Assert.Equal(1, llm.StructuredCalls);
-        Assert.Equal(1, llm.NativeCalls);
-        Assert.Equal(MissingInputRouter.OpenQuestion, result.finalAnswer.Trim());
+        Assert.Equal(0, llm.NativeCalls);
+        Assert.EndsWith("?", result.finalAnswer.Trim());
+        Assert.DoesNotContain("regulatory", result.finalAnswer, StringComparison.OrdinalIgnoreCase);
         Assert.Null(result.sourcesPayload);
         Assert.Null(agent.LastAdvancedAnalysisHandoff);
         Assert.NotNull(memory.PendingClarification);

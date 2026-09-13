@@ -445,12 +445,21 @@ public sealed partial class ToolAgentOrchestrator
         if (capabilityBoundary.RequiresAdvancedAnalysis
             && EnforcesLocalCapabilityBoundary)
         {
-            var boundaryAnswer = DeterministicAgentText.AdvancedAnalysisRequired(
+            var boundaryAnswer = capabilityBoundary.PlanKind == "application_decision"
+                ? SourceBackedLabel(plan.Language,
+                    "Cette décision appliquée à votre situation nécessite l’analyse avancée. Votre contexte accompagne la demande.",
+                    "This decision about your situation requires advanced analysis. Your context accompanies the request.",
+                    "Esta decisión sobre su situación requiere análisis avanzado. Su contexto acompaña la solicitud.",
+                    "Esta decisão sobre a sua situação requer análise avançada. O seu contexto acompanha o pedido.",
+                    "Diese Entscheidung für Ihre Situation benötigt eine erweiterte Analyse. Ihr Kontext begleitet die Anfrage.",
+                    "Questa decisione sulla sua situazione richiede l’analisi avanzata. Il suo contesto accompagna la richiesta.")
+                : DeterministicAgentText.AdvancedAnalysisRequired(
                 capabilityBoundary.AnswerUnitCount,
                 plan.Language);
             BuildAndRememberAdvancedAnalysisHandoff(
                 plan,
-                effectiveUserMessage,
+                capabilityBoundary.PlanKind == "application_decision"
+                    ? IncludeUserInstanceContext(chatHistory, effectiveUserMessage) : effectiveUserMessage,
                 capabilityBoundary.ReasonCode,
                 "before_retrieval",
                 capabilityBoundary.AnswerUnitCount);

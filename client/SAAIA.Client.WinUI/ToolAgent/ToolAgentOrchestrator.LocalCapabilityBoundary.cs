@@ -44,6 +44,10 @@ public sealed partial class ToolAgentOrchestrator
         }
 
         var mission = plan.SourceBackedMission;
+        if (string.Equals(mission.QuestionFocus, "application_decision", StringComparison.Ordinal))
+            return new LocalCapabilityBoundaryDecision(true,
+                "user_application_decision_outside_local_envelope", "application_decision",
+                Math.Max(1, mission.AtomicEvidenceCount));
         var planKind = (mission.PlanKind ?? string.Empty).Trim().ToLowerInvariant();
         var atomicUnits = Math.Max(1, mission.AtomicEvidenceCount);
         var gridUnits = SafeAnswerUnitProduct(mission.RowCount, mission.ColumnCount);

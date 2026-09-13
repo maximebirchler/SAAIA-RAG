@@ -431,6 +431,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
             RagChatAgent? agent = null;
             ILlmProvider? provider = null;
             var providerMetrics = new List<LlmCallMetrics>();
+            var previousTurnResults = new List<object>();
             string answer;
             string error = string.Empty;
             object? sourcesPayload = null;
@@ -447,10 +448,25 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
                 agent = live.Agent;
                 provider = live.Provider;
                 provider.CallCompleted += providerMetrics.Add;
+                var conversation = new List<ChatMessageItem>();
+                if (testCase.PreviousUserTurns.Length > 2
+                    || testCase.PreviousUserTurns.Any(turn => string.IsNullOrWhiteSpace(turn) || turn.Length > 2_000))
+                    throw new InvalidOperationException("Diagnostic conversation exceeds its bounded contract.");
+                foreach (var previousQuestion in testCase.PreviousUserTurns)
+                {
+                    var previous = await agent.RunAsync(previousQuestion,
+                        category: Environment.GetEnvironmentVariable("SAAIA_AGENT_VALIDATION_CATEGORY") ?? string.Empty,
+                        conversationTail: conversation.ToArray(), onDelta: _ => { }, ct: cts.Token,
+                        sessionId: live.SessionId);
+                    previousTurnResults.Add(new { question = previousQuestion, answer = previous.finalAnswer,
+                        previous.sourcesPayload, diagnostics = GetAgentDiagnostics(agent) });
+                    conversation.Add(new ChatMessageItem { Role = "user", Content = previousQuestion });
+                    conversation.Add(new ChatMessageItem { Role = "assistant", Content = previous.finalAnswer });
+                }
                 var run = await agent.RunAsync(
                     testCase.Question ?? string.Empty,
                     category: Environment.GetEnvironmentVariable("SAAIA_AGENT_VALIDATION_CATEGORY") ?? string.Empty,
-                    conversationTail: Array.Empty<ChatMessageItem>(),
+                    conversationTail: conversation.ToArray(),
                     onDelta: delta => streamed.Append(delta),
                     ct: cts.Token,
                     sessionId: live.SessionId);
@@ -549,6 +565,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
             {
                 row,
                 answer,
+                previousTurnResults,
                 diagnostics = new
                 {
                     diagnostics.Intent,
@@ -1304,6 +1321,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         public string Theme { get; set; } = string.Empty;
         public string Language { get; set; } = string.Empty;
         public string Question { get; set; } = string.Empty;
+        public string[] PreviousUserTurns { get; set; } = [];
         public string ExpectedAnswerKind { get; set; } = string.Empty;
         public string ValidationPoints { get; set; } = string.Empty;
         public int ExpectedAnswerUnitCount { get; set; }

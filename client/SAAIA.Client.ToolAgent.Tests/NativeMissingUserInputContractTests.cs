@@ -18,7 +18,7 @@ public sealed class NativeMissingUserInputContractTests
     [InlineData("submit_document_overview_route")]
     [InlineData("submit_source_backed_grid_route")]
     public void Documentary_router_can_request_essential_missing_input(string family)
-        => Assert.Equal(new[] { family, ToolName },
+        => Assert.Equal(family == "submit_source_backed_route" ? new[] { family } : new[] { family, ToolName },
             ToolAgentOrchestrator.BuildNativeRouterSecondStageToolNamesForTests(family, true));
 
     [Fact]
@@ -185,7 +185,7 @@ public sealed class NativeMissingUserInputContractTests
             new AppSettings { ActiveMode = "strict" });
         var plan = await sut.RouteOnlyForTests(Question, CancellationToken.None);
         Assert.Equal(1, llm.NativeCalls);
-        Assert.Equal(1, llm.UnitCalls);
+        Assert.Equal(0, llm.UnitCalls);
         Assert.True(plan.NeedClarification);
         Assert.Equal(Clarification, Assert.Single(plan.ClarificationQuestions));
         Assert.Empty(plan.ToolCalls);
@@ -207,8 +207,8 @@ public sealed class NativeMissingUserInputContractTests
         public Task<SourceBackedAgentCompletion> CompleteStructuredAsync(IReadOnlyList<SourceBackedAgentMessage> messages,
             LlmStructuredOutputContract contract, int maxTokens, CancellationToken ct, double? temperatureOverride = null)
         {
-            if (contract.Name == "saaia_work_family_v3")
-                return Task.FromResult(new SourceBackedAgentCompletion("{\"family\":\"answer\"}", [], "stop"));
+            if (contract.Name == "saaia_work_family_v4")
+                return Task.FromResult(new SourceBackedAgentCompletion("{\"family\":\"missing_user_binding\"}", [], "stop"));
             Assert.Equal("saaia_answer_units_v2", contract.Name);
             UnitCalls++;
             return Task.FromResult(new SourceBackedAgentCompletion(JsonSerializer.Serialize(new
@@ -251,7 +251,7 @@ public sealed class NativeMissingUserInputContractTests
             CancellationToken ct,
             double? temperatureOverride = null)
         {
-            if (contract.Name == "saaia_work_family_v3")
+            if (contract.Name == "saaia_work_family_v4")
             {
                 return Task.FromResult(new SourceBackedAgentCompletion(
                     "{\"family\":\"answer\"}", [], "stop"));
@@ -283,7 +283,7 @@ public sealed class NativeMissingUserInputContractTests
             NativeCalls++;
             if (NativeCalls == 1)
             {
-                Assert.Contains(tools, tool => tool.Name == ToolName);
+                Assert.DoesNotContain(tools, tool => tool.Name == ToolName);
                 return Task.FromResult(new SourceBackedAgentCompletion(
                     "",
                     [new SourceBackedAgentToolCall(

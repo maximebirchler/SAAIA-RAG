@@ -26,7 +26,9 @@ public sealed class NativeRouterPromptBudgetTests
                 "submit_source_backed_route",
                 "submit_source_backed_grid_route",
                 "submit_operational_route",
-                "request_missing_user_input"
+                "request_missing_user_input",
+                "submit_application_decision_route",
+                "request_unbound_user_reference_route"
             },
             tools.Select(static tool => tool.Name));
         Assert.Contains(
@@ -67,7 +69,7 @@ public sealed class NativeRouterPromptBudgetTests
             prompt,
             StringComparison.Ordinal);
         Assert.Contains(
-            "truth, status, applicability or value",
+            "status, applicability or value",
             prompt,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -119,7 +121,9 @@ public sealed class NativeRouterPromptBudgetTests
         string selectedRouteToolName)
     {
         Assert.Equal(
-            new[] { selectedRouteToolName, "request_missing_user_input" },
+            selectedRouteToolName == "submit_source_backed_route"
+                ? new[] { selectedRouteToolName }
+                : new[] { selectedRouteToolName, "request_missing_user_input" },
             ToolAgentOrchestrator.BuildNativeRouterSecondStageToolNamesForTests(
                 selectedRouteToolName,
                 classifierAccepted: true));
@@ -185,10 +189,10 @@ public sealed class NativeRouterPromptBudgetTests
             "evidence-first",
             prompt,
             StringComparison.Ordinal);
-        Assert.Contains(
-            "unnamed user-designated documents",
-            prompt,
-            StringComparison.Ordinal);
+        if (routeToolName == "submit_source_backed_route")
+            Assert.DoesNotContain("request_missing_user_input", prompt, StringComparison.Ordinal);
+        else
+            Assert.Contains("unnamed user-designated documents", prompt, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "request_user_clarification",
             prompt,

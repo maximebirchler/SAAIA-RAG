@@ -15,6 +15,9 @@ public sealed partial class ToolAgentOrchestrator
         "request_user_clarification";
     private const string SubmitOperationalRouteToolName =
         "submit_operational_route";
+    private const string SubmitApplicationDecisionRouteToolName = "submit_application_decision_route";
+    private const string RequestUnboundUserReferenceRouteToolName = "request_unbound_user_reference_route";
+    private const string UnadvertisedNativeRouteFailure = "native_route_tool_not_advertised";
     private string BuildNativeRouterRuntimePolicy()
     {
         var mode = AppSettings.NormalizeActiveMode(_settings?.ActiveMode);
@@ -26,24 +29,18 @@ public sealed partial class ToolAgentOrchestrator
 
     private static string BuildNativeRouterClassifierSystemPrompt()
         => """
-            Classify SAAIA requests by contract family. Never answer, retrieve or
-            fill route arguments. Call exactly one function.
-
-            Use submit_document_overview_route only for one explicitly named
-            whole-document overview with 2+ cumulative content facets. Use
-            submit_source_backed_grid_route only when sourced values fill repeated
-            row-by-column positions in a plan, schedule or table. Use
-            submit_source_backed_route for other corpus-backed work. An N-point list
-            or whole-document summary has one axis and is never a grid. Alternatives whose
-            truth, status, applicability or value evidence must establish are
-            answer candidates, not user choices: choose source-backed. Choose
-            request_missing_user_input only for actual state of the user's own
-            setup needed for an actionable decision, absent from conversation.
-            Sources cannot supply it. Optional preferences and document
-            availability stay in the work family. Acceptable evidence forms
-            joined by "or" are retrieval targets. A named document with requested
-            passages is source-backed. Use submit_operational_route for social chat,
-            settings, inventory, export or diagnostics.
+            Classify SAAIA requests. Never answer, retrieve or fill arguments.
+            Call exactly one function according to its description.
+            A list or summary has one axis and is never a grid. A named document
+            with requested passages is source-backed. Alternatives whose truth,
+            status, applicability or value evidence must establish are answer candidates, not user choices.
+            Acceptable evidence forms joined by "or" are retrieval targets.
+            request_missing_user_input is only for actual instance facts entirely
+            absent from conversation. Sources cannot supply it. With some actual
+            context, use submit_application_decision_route for an applied decision.
+            Essential unbound user references use request_unbound_user_reference_route.
+            Corpus/PDF collections, optional preferences and document availability
+            stay in the work family. General rules and hypothetical cases are source-backed.
             """;
 
     internal static string BuildNativeRouterClassifierSystemPromptForTests()
@@ -79,6 +76,7 @@ public sealed partial class ToolAgentOrchestrator
             IReadOnlyList<SourceBackedAgentToolDefinition> tools,
             string selectedRouteToolName)
     {
+        selectedRouteToolName = ResolveClassifierPlanningToolName(selectedRouteToolName);
         var selected = tools.FirstOrDefault(tool => string.Equals(
             tool.Name,
             selectedRouteToolName,
@@ -91,6 +89,8 @@ public sealed partial class ToolAgentOrchestrator
             return Array.Empty<SourceBackedAgentToolDefinition>();
 
         if (selectedRouteToolName == RequestMissingUserInputToolName)
+            return new[] { selected };
+        if (selectedRouteToolName == SubmitSourceBackedRouteToolName)
             return new[] { selected };
 
         if (!string.Equals(
@@ -146,6 +146,14 @@ public sealed partial class ToolAgentOrchestrator
             new SourceBackedAgentToolDefinition(
                 RequestMissingUserInputToolName,
                 "Missing actual configuration, state or project phase of the user's own setup essential for an actionable decision. Not optional preferences or document availability.",
+                emptyParameters),
+            new SourceBackedAgentToolDefinition(
+                SubmitApplicationDecisionRouteToolName,
+                "Decision or action about the user's own setup with actual instance context supplied. General rules, definitions or hypothetical examples stay source-backed.",
+                emptyParameters),
+            new SourceBackedAgentToolDefinition(
+                RequestUnboundUserReferenceRouteToolName,
+                "An essential user-designated reference or mandatory choice is unbound and conversation cannot identify it. Corpus/PDF collection searches and optional preferences are ordinary work.",
                 emptyParameters)
         };
     }
@@ -159,7 +167,9 @@ public sealed partial class ToolAgentOrchestrator
             or SubmitSourceBackedRouteToolName
             or SubmitSourceBackedGridRouteToolName
             or SubmitOperationalRouteToolName
-            or RequestMissingUserInputToolName)
+            or RequestMissingUserInputToolName
+            or SubmitApplicationDecisionRouteToolName
+            or RequestUnboundUserReferenceRouteToolName)
             return true;
 
         selectedToolName = string.Empty;
@@ -171,6 +181,7 @@ public sealed partial class ToolAgentOrchestrator
         string detectedLanguage,
         bool disallowMetaSetLanguage)
     {
+        routeToolName = ResolveClassifierPlanningToolName(routeToolName);
         var clarificationPolicy = string.Equals(
             routeToolName,
             SubmitOperationalRouteToolName,
@@ -181,6 +192,8 @@ public sealed partial class ToolAgentOrchestrator
                 request_user_clarification only for missing user input that
                 sources or conversation cannot supply.
                 """
+            : routeToolName == SubmitSourceBackedRouteToolName
+            ? "Call exactly one available route function. Begin evidence-first corpus work; selection of PDF files is not a prerequisite."
             : """
                 Call exactly one available route function. Ask
                 request_missing_user_input for unnamed user-designated documents
@@ -297,6 +310,26 @@ public sealed partial class ToolAgentOrchestrator
             _ => string.Empty
         };
         return common + Environment.NewLine + Environment.NewLine + family;
+    }
+
+    private static string ResolveClassifierPlanningToolName(string selectedName)
+        => selectedName switch
+        {
+            SubmitApplicationDecisionRouteToolName => SubmitSourceBackedRouteToolName,
+            RequestUnboundUserReferenceRouteToolName => RequestMissingUserInputToolName,
+            _ => selectedName
+        };
+
+    private static bool ValidateAdvertisedNativeRoute(
+        SourceBackedAgentCompletion completion,
+        IReadOnlyList<SourceBackedAgentToolDefinition> advertisedTools,
+        ref string failureReason)
+    {
+        if (completion.ToolCalls.All(call => advertisedTools.Any(tool =>
+                string.Equals(tool.Name, call.Name, StringComparison.Ordinal))))
+            return true;
+        failureReason = UnadvertisedNativeRouteFailure;
+        return false;
     }
 
     private static string BuildNativeRouterSystemPrompt(
