@@ -92,6 +92,8 @@ public sealed class LocalCapabilityBoundaryTests
     [InlineData("Compare deux recettes de quiche lorraine du corpus : ingrédients, méthode et difficulté.")]
     [InlineData("Mets en parallèle FD CEN TR 15281 2023 et IEC 60079-14.")]
     [InlineData("Put ISO 9001 and ISO 14001 side by side.")]
+    [InlineData("Comparez les voies de signalement et les protections contre les représailles dans le manuel de l'université Howard et le modèle de manuel pour organismes sans but lucratif.")]
+    [InlineData("Comparez ISO 9001 et ISO 14001.")]
     public void Explicit_documentary_comparisons_require_advanced_analysis(string request)
     {
         var plan = new RouterPlan
@@ -144,6 +146,7 @@ public sealed class LocalCapabilityBoundaryTests
     [Theory]
     [InlineData("Compare ces deux fichiers.")]
     [InlineData("Compare these two documents.")]
+    [InlineData("Comparez ces deux documents.")]
     public void Deictic_comparison_without_identified_documents_requests_references(
         string request)
     {

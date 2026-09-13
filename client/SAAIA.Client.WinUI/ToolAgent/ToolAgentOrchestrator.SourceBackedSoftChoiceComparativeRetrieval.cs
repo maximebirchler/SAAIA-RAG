@@ -118,7 +118,7 @@ public sealed partial class ToolAgentOrchestrator
 
         var hasComparativeOperator = Regex.IsMatch(
                 normalized,
-                @"\b(?:compare|comparer|comparaison|comparatif|comparative|difference|differences|versus|compara|comparar|comparacion|comparacao|vergleiche|vergleichen|vergleich|confronta|confrontare|confronto|paragona|paragonare)\b|\b(?:met|mets|mettre|mise|mises|mettons|mettez)\s+en\s+parallele\b|\b(?:put|place|set)\b.{0,20}\bside\s+by\s+side\b|\bside\s+by\s+side\b",
+                @"\b(?:compare|comparez|comparer|comparaison|comparatif|comparative|difference|differences|versus|compara|comparar|comparacion|comparacao|vergleiche|vergleichen|vergleich|confronta|confrontare|confronto|paragona|paragonare)\b|\b(?:met|mets|mettre|mise|mises|mettons|mettez)\s+en\s+parallele\b|\b(?:put|place|set)\b.{0,20}\bside\s+by\s+side\b|\bside\s+by\s+side\b",
                 RegexOptions.CultureInvariant);
         var hasRankingOperator = Regex.IsMatch(
                 normalized,
