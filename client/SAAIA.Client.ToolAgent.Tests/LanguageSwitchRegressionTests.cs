@@ -157,4 +157,16 @@ public sealed class LanguageSwitchRegressionTests
         Assert.Equal(expected, ToolAgentOrchestrator.ResolveTurnLanguageForTests(question, routerLanguage: "fr", interactionLanguage: "fr"));
     }
 
+    [Theory]
+    [InlineData("Quelle est la valeur selon le document ?", "fr")]
+    [InlineData("Quelle option doit être utilisée ?", "fr")]
+    [InlineData("Quelle est la consommation électrique annuelle du Moulinex HF93D810 selon le manuel ?", "fr")]
+    [InlineData("Welche Quelle soll ich verwenden?", "de")]
+    [InlineData("Was sagt diese Quelle?", "de")]
+    public void French_question_word_and_german_source_noun_use_the_surrounding_language(string question, string expected)
+    {
+        Assert.Equal(expected, ToolAgentOrchestrator.DetectMessageLanguageForTests(question));
+        Assert.Equal(expected, ToolAgentOrchestrator.ResolveTurnLanguageForTests(question, routerLanguage: "en", interactionLanguage: "fr"));
+    }
+
 }

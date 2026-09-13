@@ -18,7 +18,7 @@ La construction et l'évaluation ont utilisé des appels séparés à Terra sans
 |---|---|---|
 | BH6-001 | Deux usages vapeur corrects, sourcés, en français ; réponse produite par Terra au lieu du local attendu | Qualité de réponse acceptée par l'évaluateur ; attente de routage à vérifier contre la frontière locale qualifiée |
 | BH6-007 | Demande pertinente de préciser le document ; job serveur réussi avec `clarification_required` | Le harnais a ignoré le résultat final et compté une réponse avancée : erreur de classement confirmée |
-| BH6-011 et BH6-014 | Insuffisances sans fait inventé, mais texte anglais pour des demandes française et italienne | Défaut produit de langue ; la cause exacte de la langue d'intake française n'est pas établie par la trace historique |
+| BH6-011 et BH6-014 | Insuffisances sans fait inventé, mais texte anglais pour des demandes française et italienne | Défaut produit de langue ; la trace historique ne suffisait pas à établir la langue d'intake. Une reproduction locale révèle ensuite une langue d'intake allemande pour la demande française |
 | BH6-013 | Valeur `0.2` soutenue par le manuel PostgreSQL 18, page 773 ; réponse portugaise au lieu d'italienne | Le corrigé « information absente » est invalide : il ne regardait qu'un échantillon d'extraits. La mauvaise langue reste un défaut produit |
 | BH6-015 | Tableau de cinq étapes OAuth ; l'étape E traite l'accès à une ressource au lieu de la validation du code et de l'émission du jeton attendues | Erreur de contenu et de relation aux sources ; le tableau bien formé ne suffit pas |
 | BH6-017 | Tableau AR5/AR6, mais les deux sources rendues sont AR6 WG2 | Provenance de la comparaison AR5 non démontrée par les sources affichées |
@@ -54,6 +54,30 @@ Validation mécanique de cette correction : 53 tests ciblés réussis, six tests
 Python de diagnostic réussis ; suite client Release complète : 2 282 réussites,
 zéro échec et une sonde live ignorée. Ces tests ne font pas d'appel OpenAI et ne
 constituent pas une approbation sémantique du produit.
+
+### Reproduction locale après le premier correctif
+
+Six cas consommés sont rejoués à titre diagnostique sur ce PC au commit
+`e8b691739b1c3ac43a8888305fc5490178500678`, fournisseur Local, politique
+ProductionLocal et serveur avancé désactivé. Quatre cas atteignent la limite
+locale et émettent un transfert proposé ; un cas donne une insuffisance ; un
+autre conserve une clarification inutile d'édition. Le journal fournisseur est
+inchangé, le modèle est arrêté et le port 1234 libéré. Ce rejeu ne mesure pas la
+qualité des réponses Terra et ne réouvre pas la validation aveugle.
+
+La demande PostgreSQL de BH6-013 est maintenant détectée en italien ; sa sortie
+locale est un transfert en italien, pas une réponse locale sur le paramètre.
+BH6-001 atteint réellement le budget local avant le transfert : l'attente
+rigide « réponse locale » ne suffit pas à juger ce transfert erroné dans une
+architecture qui prévoit précisément le recours au serveur.
+
+BH6-011 expose `language=de` au terminal et une insuffisance allemande malgré
+une demande française. Le mot « quelle » est partagé entre la question française
+et le nom allemand « Quelle » ; le détecteur pouvait retourner une égalité et
+laisser la langue du routeur prendre le dessus. Des indices grammaticaux
+français généraux et cinq régressions français/allemand sont ajoutés. Les
+messages traduits seuls n'auraient pas corrigé cette erreur en amont. Les 58
+tests ciblés de cette deuxième correction passent.
 
 ## Méthode exigée pour la prochaine banque
 
