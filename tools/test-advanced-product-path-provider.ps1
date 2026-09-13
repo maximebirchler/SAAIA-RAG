@@ -476,7 +476,7 @@ try {
             ExternalInputUsdPerMillionTokens = $InputUsdPerMillionTokens
             ExternalCachedInputUsdPerMillionTokens = $CachedInputUsdPerMillionTokens
             ExternalCacheWriteInputUsdPerMillionTokens = $(if ($Provider -eq "OpenAI") {
-                $InputUsdPerMillionTokens * 1.25m
+                $InputUsdPerMillionTokens * [decimal]1.25
             } else { $InputUsdPerMillionTokens })
             ExternalOutputUsdPerMillionTokens = $OutputUsdPerMillionTokens
             ExternalUsageLedgerPath = $usageLedgerPath
