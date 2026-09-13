@@ -8,7 +8,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private sealed record NativeResearchTurn(string CallsJson,
         IReadOnlyList<AdvancedAnalysisSearchRequest>? Requests,
         IReadOnlyDictionary<string, AdvancedAnalysisSearchObservation> Results,
-        AdvancedAnalysisResearchArgumentFeedback? Rejection = null);
+        AdvancedAnalysisResearchArgumentFeedback? Rejection = null,
+        string? ResponseOutputItemsJson = null);
 
     private const string NativeResearchContract = """
         If further documentary facts are needed and research is allowed, choose
@@ -105,12 +106,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     }
 
     private static IReadOnlyList<object> BuildNativeToolTurnMessages(NativeResearchTurn? turn,
-        IReadOnlyList<PromptEvidenceItem> visible)
+        IReadOnlyList<PromptEvidenceItem> visible, bool responses = false)
     {
         if (turn is null) return [];
         using var calls = JsonDocument.Parse(turn.CallsJson);
-        var messages = new List<object> { new { role = "assistant", content = (string?)null,
-            tool_calls = calls.RootElement.Clone() } };
+        var messages = new List<object>();
+        if (responses && turn.ResponseOutputItemsJson is not null)
+        {
+            using var items = JsonDocument.Parse(turn.ResponseOutputItemsJson);
+            messages.AddRange(items.RootElement.EnumerateArray().Select(item => (object)item.Clone()));
+        }
+        else messages.Add(new { role = "assistant", content = (string?)null,
+            tool_calls = calls.RootElement.Clone() });
         var visibleIds = visible.Select(e => e.EvidenceId).ToHashSet(StringComparer.Ordinal);
         var index = 0;
         foreach (var call in calls.RootElement.EnumerateArray())
@@ -125,13 +132,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 status = turn.Rejection is not null ? "batch_rejected_before_execution"
                     : observation is null ? "not_executed_again" : "executed",
                 operation = ReadString(call.GetProperty("function"), "name"),
+                resolvedSource = request is null ? null : new { request.DocId, request.RevisionId, request.DocPath },
                 argumentFeedback = turn.Rejection,
                 returnedEvidenceCount = observation?.Evidence.Count,
                 visibleEvidenceIds = ids.Take(8).ToArray(), visibleEvidenceIdsOmitted = Math.Max(0, ids.Length - 8),
                 readDiagnostic = observation?.ReadDiagnostic, findDiagnostic = observation?.FindDiagnostic,
-                instruction = "Bounded operational result. Only current user.evidence excerpts are documentary proof. Unlisted or omitted evidence is not proof of corpus absence."
+                instruction = "Bounded operational result. Only current user.evidence excerpts are documentary proof. Historical source handles belong to their original turn; use current user.evidence handles, reidentifying sources through evidence IDs and resolved identity. Unlisted or omitted evidence is not proof of corpus absence."
             };
-            messages.Add(new { role = "tool", tool_call_id = ReadString(call, "id"), content = JsonSerializer.Serialize(result, JsonOptions) });
+            var resultJson = JsonSerializer.Serialize(result, JsonOptions);
+            messages.Add(responses ? new { type = "function_call_output", call_id = ReadString(call, "id"), output = resultJson }
+                : (object)new { role = "tool", tool_call_id = ReadString(call, "id"), content = resultJson });
         }
         if (JsonSerializer.Serialize(messages, JsonOptions).Length > 16_384)
             throw new AdvancedAnalysisProviderException("advanced_native_tool_history_limit_exceeded");

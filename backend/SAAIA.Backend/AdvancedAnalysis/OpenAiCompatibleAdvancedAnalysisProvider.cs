@@ -33,7 +33,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         string Content,
         AdvancedAnalysisLlmUsage Usage,
         decimal? EstimatedCostUsd,
-        string? NativeToolCallsJson = null);
+        string? NativeToolCallsJson = null,
+        string? NativeResponseOutputJson = null);
 
     internal OpenAiCompatibleAdvancedAnalysisProvider(
         IHttpClientFactory httpClientFactory,
@@ -508,6 +509,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
     private void ValidateConfiguration()
     {
         ValidateDevelopmentTraceDirectory();
+        if (_options.NativeResearchToolsEnabled && _options.NativeResearchApiProtocol is not ("chat-completions" or "responses"))
+            throw new AdvancedAnalysisProviderException("advanced_native_api_protocol_invalid");
         var provider = NormalizeProvider(_options.Provider);
         var location = NormalizeLocation(_options.LlmLocation);
         if (location is not ("internal" or "external-service"))
@@ -567,6 +570,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
     {
         var nativeFunctions = allowNativeResearch && _options.NativeResearchToolsEnabled
             ? BuildNativeResearchFunctions(userPrompt) : null;
+        var nativeResponses = allowNativeResearch && _options.NativeResearchToolsEnabled && UsesNativeResponses;
         if (nativeFunctions is not null)
             systemPrompt = systemPrompt.Replace(BuildSynthesisResearchContract(), NativeResearchContract, StringComparison.Ordinal);
         var messages = new List<object> { new { role = "system", content = systemPrompt } };
@@ -595,6 +599,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         {
             payload["temperature"] = 0;
         }
+        if (nativeResponses) ConvertNativePayloadToResponses(payload);
         AdvancedAnalysisExternalBudgetGuard.Reservation? reservation = null;
         string? rejectedErrorCode = null;
         AdvancedAnalysisRateLimitTelemetry? responseRateLimit = null;
@@ -605,7 +610,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             reservation = _budget.Reserve(
                 jobId,
                 role,
-                nativeFunctions is not null || nativeToolTurnMessages is { Count: > 0 }
+                nativeResponses || nativeFunctions is not null || nativeToolTurnMessages is { Count: > 0 }
                     ? JsonSerializer.Serialize(payload, JsonOptions).Length
                     : systemPrompt.Length + userPrompt.Length,
                 maximumOutputTokens);
@@ -627,7 +632,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 httpAttemptCount = attempt;
                 using var message = new HttpRequestMessage(
                     HttpMethod.Post,
-                    ResolveChatCompletionsUri())
+                    nativeResponses ? ResolveNativeResponsesUri() : ResolveChatCompletionsUri())
                 {
                     Content = new StringContent(
                         JsonSerializer.Serialize(payload, JsonOptions),
@@ -686,6 +691,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 {
                     rejectedErrorCode =
                         $"advanced_llm_http_{(int)response.StatusCode}";
+                    await WriteDevelopmentHttpRejectionAsync(jobId, role, payload, response,
+                        rejectedErrorCode, httpAttemptCount, stopwatch.ElapsedMilliseconds, timeout.Token).ConfigureAwait(false);
                     throw new AdvancedAnalysisProviderException(
                         rejectedErrorCode,
                         isRetryable: (int)response.StatusCode == 429,
@@ -702,7 +709,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                             body,
                             cancellationToken: timeout.Token)
                         .ConfigureAwait(false);
-                    var usage = ReadUsage(document.RootElement);
+                    var usage = nativeResponses ? ReadNativeResponsesUsage(document.RootElement) : ReadUsage(document.RootElement);
                     var observedModelId = ReadObservedModelId(
                         document.RootElement);
                     var hasAnswer = document.RootElement.TryGetProperty(
@@ -714,8 +721,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                         ? answerValue : default;
                     string? completionContent = null;
                     string? nativeCallsJson = null;
+                    string? nativeOutputJson = null;
                     string? normalizationError = null;
-                    if (answer.ValueKind == JsonValueKind.Object)
+                    var completionOrigin = "message.content";
+                    if (nativeResponses)
+                    {
+                        (completionContent, nativeCallsJson, nativeOutputJson, completionOrigin, normalizationError) =
+                            ReadNativeResponsesCompletion(document.RootElement, userPrompt, nativeFunctions is not null);
+                    }
+                    else if (answer.ValueKind == JsonValueKind.Object)
                     {
                         if (answer.TryGetProperty("tool_calls", out var calls)
                             && calls.ValueKind != JsonValueKind.Null && !(calls.ValueKind == JsonValueKind.Array && calls.GetArrayLength() == 0))
@@ -736,7 +750,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                             completionContent = content.GetString();
                     }
                     if (string.IsNullOrWhiteSpace(completionContent) || normalizationError is not null
-                        || (nativeCallsJson is not null && ReadString(choices[0], "finish_reason") == "length"))
+                        || (!nativeResponses && nativeCallsJson is not null && ReadString(choices[0], "finish_reason") == "length"))
                     {
                         var errorCode = choices.ValueKind == JsonValueKind.Array
                                         && choices.GetArrayLength() > 0
@@ -756,11 +770,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                                 httpAttemptCount);
                             reservation = null;
                         }
-                        if (normalizationError is not null || nativeCallsJson is not null)
+                        if (nativeResponses || normalizationError is not null || nativeCallsJson is not null)
                             await WriteDevelopmentTraceAsync(jobId, role, payload, document.RootElement,
                                 completionContent ?? string.Empty, observedModelId, null,
                                 httpAttemptCount, stopwatch.ElapsedMilliseconds, cancellationToken,
-                                "tool_calls.rejected", errorCode).ConfigureAwait(false);
+                                nativeResponses ? completionOrigin : "tool_calls.rejected", errorCode).ConfigureAwait(false);
                         throw new AdvancedAnalysisProviderException(
                             errorCode);
                     }
@@ -785,12 +799,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     await WriteDevelopmentTraceAsync(jobId, role, payload, document.RootElement,
                         completionContent!, observedModelId, charge?.CostUsd,
                         httpAttemptCount, stopwatch.ElapsedMilliseconds, cancellationToken,
-                        nativeCallsJson is null ? "message.content" : "tool_calls.normalized").ConfigureAwait(false);
+                        nativeResponses ? completionOrigin : nativeCallsJson is null ? "message.content" : "tool_calls.normalized").ConfigureAwait(false);
                     return new CompletionResult(
                         completionContent!.Trim(),
                         usage,
                         charge?.CostUsd,
-                        nativeCallsJson);
+                        nativeCallsJson,
+                        nativeOutputJson);
                 }
                 catch (JsonException)
                 {

@@ -212,7 +212,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 systemPrompt, userPrompt, maximumTokens, cancellationToken,
                 allowNativeResearch: true,
                 nativeToolTurnMessages: _options.NativeResearchToolsEnabled
-                    ? BuildNativeToolTurnMessages(context.NativeTurn, observations) : null).ConfigureAwait(false);
+                    ? BuildNativeToolTurnMessages(context.NativeTurn, observations, UsesNativeResponses) : null).ConfigureAwait(false);
             if (!RequestsCorpusResearch(completion.Content))
             {
                 var corrections = FindIdentityOnlyCandidateSupport(completion.Content, evidence, request);
@@ -258,7 +258,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     argumentFeedback = feedback;
                     if (completion.NativeToolCallsJson is { } rejectedCalls)
                         context.NativeTurn = new(rejectedCalls, null,
-                            new Dictionary<string, AdvancedAnalysisSearchObservation>(), feedback);
+                            new Dictionary<string, AdvancedAnalysisSearchObservation>(), feedback, completion.NativeResponseOutputJson);
                     nextPhase = $"{phase}-research-argument-recovery-{++argumentRecovery}";
                     continue;
                 }
@@ -275,7 +275,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 repeatedSearches = queries;
                 if (completion.NativeToolCallsJson is { } duplicateCalls)
                     context.NativeTurn = new(duplicateCalls, queries,
-                        new Dictionary<string, AdvancedAnalysisSearchObservation>());
+                        new Dictionary<string, AdvancedAnalysisSearchObservation>(), ResponseOutputItemsJson: completion.NativeResponseOutputJson);
                 nextPhase = $"{phase}-research-recovery-{noProgressRecovery}";
                 continue;
             }
@@ -286,7 +286,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 context.PriorSearches, context.EvidenceGroups, context.RetrievalQueriesByEvidenceId,
                 cancellationToken, nativeResults).ConfigureAwait(false);
             if (completion.NativeToolCallsJson is { } executedCalls)
-                context.NativeTurn = new(executedCalls, queries, nativeResults!);
+                context.NativeTurn = new(executedCalls, queries, nativeResults!, ResponseOutputItemsJson: completion.NativeResponseOutputJson);
             followup++;
             nextPhase = $"{phase}-research-followup-{followup}";
         }

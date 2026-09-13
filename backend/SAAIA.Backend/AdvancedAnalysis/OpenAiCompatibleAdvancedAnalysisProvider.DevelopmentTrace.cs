@@ -6,6 +6,30 @@ namespace SAAIA.Backend.AdvancedAnalysis;
 
 internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 {
+    private async Task WriteDevelopmentHttpRejectionAsync(Guid jobId, string role,
+        Dictionary<string, object?> payload, HttpResponseMessage response, string errorCode,
+        int attempts, long elapsed, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(_options.DevelopmentTraceDirectory)) return;
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var buffer = new byte[64_001]; var length = 0;
+        while (length < buffer.Length)
+        {
+            var read = await stream.ReadAsync(buffer.AsMemory(length), cancellationToken).ConfigureAwait(false);
+            if (read == 0) break; length += read;
+        }
+        var body = length > 64_000 ? "{\"providerErrorBodyOmitted\":\"limit_exceeded\"}"
+            : Encoding.UTF8.GetString(buffer, 0, length);
+        if (_apiKey is not null && body.Contains(_apiKey, StringComparison.Ordinal))
+            body = "{\"providerErrorBodyOmitted\":\"secret_detected\"}";
+        JsonDocument document;
+        try { document = JsonDocument.Parse(body); }
+        catch (JsonException) { document = JsonDocument.Parse(JsonSerializer.Serialize(new { providerErrorText = body }, JsonOptions)); }
+        using (document)
+            await WriteDevelopmentTraceAsync(jobId, role, payload, document.RootElement, string.Empty,
+                null, 0m, attempts, elapsed, cancellationToken, "http.error", errorCode).ConfigureAwait(false);
+    }
+
     private void ValidateDevelopmentTraceDirectory()
     {
         if (string.IsNullOrWhiteSpace(_options.DevelopmentTraceDirectory)) return;

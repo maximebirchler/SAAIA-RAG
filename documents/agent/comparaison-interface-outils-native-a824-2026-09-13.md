@@ -120,3 +120,27 @@ Faire une sonde synthétique Responses au plus 0,03 USD et un appel avant le
 deuxième pilote C1. Le refus A824 compte dans les deux pilotes/plafond de C1,
 mais pas comme preuve sémantique. Total clos : 31,70265940 USD, reste
 8,29734060 USD sur 40 USD. Aucun nouveau financement.
+
+## Adaptateur Responses vérifié avant A825
+
+La sonde Responses corrigée est acceptée, 0,000838 USD, sans corpus transmis.
+Une première conversion de cette sonde avait conservé `temperature` du
+transport Qwen synthétique ; refus 400 gratuit conservé. Ce paramètre n'était
+pas présent dans le payload OpenAI de production. Les sondes refusées ne
+constituent pas une évaluation sémantique et ne consomment pas de crédit.
+
+Configuration `NativeResearchApiProtocol` : défaut `chat-completions`, option
+`responses`. Elle ne change que la synthèse lorsque le mode natif est activé.
+Les sorties de raisonnement et appels natifs sont reportés avec leurs retours,
+dans le dernier tour borné, sans `previous_response_id` ni stockage fournisseur.
+Identités documentaires résolues et handles actuels distingués de l'historique.
+Les usages Responses input/output/cached sont convertis en métriques communes.
+Un résultat incomplete, failed, queued ou in_progress ne peut pas être publié,
+même si son texte contient du JSON parsable. Les refus HTTP sont désormais
+capturés avec le vrai payload et le diagnostic privé, taille bornée, clé exclue.
+
+Onze nouveaux cas Responses, ajoutés aux quatorze natifs, passent. Suite finale
+backend Release : 2 343 réussites, zéro échec, trois ignorés. Build propre et
+diff sans erreur. Le prochain pilote A825 reste le deuxième et dernier C1,
+sur une nouvelle version figée, mêmes budgets et raisonnement low. Total clos
+31,70349740 USD, 8,29650260 USD disponibles ; zéro achat nouveau.
