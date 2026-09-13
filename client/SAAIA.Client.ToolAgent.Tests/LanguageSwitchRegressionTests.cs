@@ -144,4 +144,17 @@ public sealed class LanguageSwitchRegressionTests
         Assert.Equal("de", ToolAgentOrchestrator.ResolveTurnLanguageForTests("Wie mache ich die Wartung?", routerLanguage: "fr", interactionLanguage: "fr"));
     }
 
+    [Theory]
+    [InlineData("Qual è il valore predefinito di questo parametro?", "it")]
+    [InlineData("Secondo il documento, quali valori sono ammessi?", "it")]
+    [InlineData("Quale opzione viene usata nella configurazione?", "it")]
+    [InlineData("Qual è il valore predefinito di autovacuum_vacuum_scale_factor in PostgreSQL 18?", "it")]
+    [InlineData("Qual é o valor padrão deste parâmetro?", "pt")]
+    [InlineData("Quais documentos falam sobre essa configuração?", "pt")]
+    public void Italian_value_questions_and_portuguese_questions_keep_their_language(string question, string expected)
+    {
+        Assert.Equal(expected, ToolAgentOrchestrator.DetectMessageLanguageForTests(question));
+        Assert.Equal(expected, ToolAgentOrchestrator.ResolveTurnLanguageForTests(question, routerLanguage: "fr", interactionLanguage: "fr"));
+    }
+
 }

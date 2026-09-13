@@ -136,6 +136,7 @@ public sealed partial class ToolAgentOrchestrator
             ("final_intent", terminalIntent),
             ("entry", entryPoint),
             ("decision", result.JudgeDecision.Decision),
+            ("language", result.Intake.Language),
             ("clarification", isClarification),
             ("clarification_kind",
                 result.Clarification?.AmbiguityKind),

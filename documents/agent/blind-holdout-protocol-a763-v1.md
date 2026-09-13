@@ -164,3 +164,19 @@ historique.
 
 Ce protocole ferme la méthode, pas la preuve. Aucun nouveau holdout n'a été créé
 ou exécuté lors de sa rédaction, et aucun contenu caché n'a été consulté.
+
+## 8. Amendement du 13 septembre 2026 après consommation de BH6
+
+Le texte précédent conserve l'état et les seuils préinscrits du 12 septembre.
+BH6 a depuis été exécuté et consommé, avec verdict historique `REJETE` (1/24).
+Le [diagnostic après divulgation](diagnostic-holdout-bh6-2026-09-13.md) démontre
+des défauts de mesure et de corrigé en plus des défauts produit. Ce diagnostic
+ne modifie pas le verdict historique.
+
+Avant toute nouvelle banque, il faut appliquer les exigences de méthode de ce
+diagnostic : distinguer chemin d'exécution et résultat final ; vérifier le
+périmètre documentaire et les absences ; admettre toute preuve canonique
+autorisée pertinente ; préciser la frontière locale ; contrôler les éditions
+et la qualité des clarifications. La sémantique et le routage doivent être
+mesurés séparément avant le calcul de conformité complète. Les nouveaux seuils
+et corrigés seront figés avant toute réponse du prochain candidat.
