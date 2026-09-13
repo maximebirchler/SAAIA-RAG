@@ -61,3 +61,25 @@ ceux du même pipeline. Suite backend Release : 2 375 réussites, aucun échec,
 trois ignorés ; build sans avertissement, diff propre. La correction de
 compteur A829 conserve tous les montants historiques. Aucun pilote A830 encore
 exécuté ; qualité et généralisation du contrat court restent à démontrer.
+
+## Pilote clos et rejeté
+
+Candidat be24174f, job 49d85b1f-8dfb-4b8e-9010-9c6148426821 : sept
+appels réussis, 0,51515610 USD, huit recherches et quatre lectures canoniques
+choisies par le modèle. La recherche progresse : Writer suit effectivement
+des pages, puis demande deux lectures supplémentaires après correction des
+liaisons limitées aux titres. Workspace reste proposé sans sauvegarde observée.
+
+La dernière proposition brute contient vingt affirmations. Le résultat durable
+est toutefois une insuffisance sans affirmation : l'identité « Légumes et fruits
+coupés » ne satisfait pas le contrôle exact, car le passage dit « les légumes et
+les fruits coupés ». Son sens est documenté ; ce refus lexical ne démontre pas
+une absence de preuve. La lecture des vingt liaisons découvre aussi quatre
+compositions abstraites en C17–C20, sans choix concrets d'aliments. La grille
+reste donc rejetée même si l'on résout la différence de formulation.
+
+Pas d'audit physique des propositions rejetées, de répétition, de holdout ni de
+WinUI. Ressources propres closes, candidat stable et arbre suivi propre.
+Artefact : artifacts/reprise-pc-20260908/a800-meal-planning-continuity-20260913/
+meal-a830-semantic-assessment.v1.json. Registre : 33,54447160 USD sur 40 USD.
+La clarification A834 suivante est préenregistrée avant modification du prompt.

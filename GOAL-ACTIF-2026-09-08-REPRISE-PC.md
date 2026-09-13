@@ -13,10 +13,12 @@ Point de preuve du 13 septembre, A825–A827 : le transport Responses accepte
 les outils natifs. C1 puis C2a restent rejetés sur le planning. C2a livre neuf
 options attestées et neuf cartes physiques vérifiées, aucune grille complète ;
 son insuffisance choisie avant épuisement ne prouve pas un déficit du corpus.
-Le registre clos totalise 33,02931550 USD sur 40 USD. C2b offre une mémoire
+Le registre clos totalise 33,54447160 USD sur 40 USD. C2b offre une mémoire
 choisie par le modèle, mais son pilote ne l'utilise pas. A828 medium conduit
 Critic à explorer davantage, sans livrer la grille. A830 compare séparément
-un contrat court de recherche et réponse, encore sans pilote réel. Les
+un contrat court de recherche et réponse : quatre lectures choisies, mais
+rejet final d'une identité et quatre choix abstraits. A834 préenregistre la
+clarification généraliste des choix concrets et de leur formulation exacte. Les
 2 375 tests backend réussis valident ces contrats, pas encore le planning.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
