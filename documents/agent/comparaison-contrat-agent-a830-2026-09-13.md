@@ -51,3 +51,13 @@ Le compteur cache Responses est corrigé séparément, sans changer le coût
 aux tarifs actuels ; cette correction n'est pas une intervention sémantique.
 Registre clos : 33,02931550 USD sur 40 USD, reste 6,97068450 USD.
 Aucun nouvel achat ni location.
+
+## Contrôle avant pilote
+
+Le style optionnel est implémenté, défaut contract conservé. Trois nouveaux
+cas vérifient recherche canonique et critique pour Chat/Responses, et rejet
+d'un style inconnu avant I/O. Les références, contenus et parseurs restent
+ceux du même pipeline. Suite backend Release : 2 375 réussites, aucun échec,
+trois ignorés ; build sans avertissement, diff propre. La correction de
+compteur A829 conserve tous les montants historiques. Aucun pilote A830 encore
+exécuté ; qualité et généralisation du contrat court restent à démontrer.

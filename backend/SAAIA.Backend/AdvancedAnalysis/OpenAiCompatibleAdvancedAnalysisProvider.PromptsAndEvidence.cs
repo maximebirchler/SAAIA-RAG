@@ -279,7 +279,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
     private string BuildWriterSystemPrompt(
         AdvancedAnalysisProviderRequest request)
-        => """
+        => _options.SynthesisPromptStyle == "agent"
+            ? BuildResearchAgentSystemPrompt(false) + "\n" + BuildSynthesisResearchContract()
+            : """
            You are the SAAIA advanced-analysis Writer. Use only the supplied
            revalidated evidence. Return one JSON object and no prose with shape
            {"outcome":"answered|insufficient_documentation|clarification_required",
@@ -488,7 +490,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            """ + "\n" + CandidateEvidenceUsePolicy;
 
     private string BuildCriticSystemPrompt()
-        => """
+        => _options.SynthesisPromptStyle == "agent"
+            ? BuildResearchAgentSystemPrompt(true) + "\n" + BuildSynthesisResearchContract()
+            : """
            You are the SAAIA advanced-analysis Critic. Independently audit the
            proposed Writer result against the user request and every supplied
            evidence item. Return one final JSON object and no commentary, using

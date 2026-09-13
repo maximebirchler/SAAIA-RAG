@@ -53,3 +53,15 @@ transport interne sans paramètre OpenAI et le refus avant I/O d'une valeur
 invalide. Les réparations et la récupération n'activent pas cet override.
 Suite backend Release : 2 371 réussites, aucun échec, trois ignorés ; build
 sans avertissement et diff propre. Aucun résultat réel A828 encore acquis.
+
+## Résultat réel clos
+
+Sur `d65f240e`, six appels coûtent 0,3434699 USD. Le medium est confirmé
+dans les enveloppes API. Writer s'arrête après un tour ; Critic choisit trois
+recherches supplémentaires, puis revient en insuffisance. Quinze recherches
+au total, aucune lecture, recherche littérale ou sauvegarde de mémoire.
+La récupération produit une assertion agrégée de treize préparations avec
+treize références. Treize cartes passent l'audit physique. Cela n'approuve
+ni treize préparations complètes ni un déficit minimum de sept dans le corpus.
+Grille absente : rejet, aucune nouvelle répétition. Ressources fermées.
+Registre 33,02931550 USD sur 40 USD. Contrat court A830 préenregistré séparément.

@@ -27,6 +27,8 @@ param(
     [string]$ReasoningEffort = "low",
     [ValidateSet("", "low", "medium", "high")]
     [string]$SynthesisReasoningEffort = "",
+    [ValidateSet("contract", "agent")]
+    [string]$SynthesisPromptStyle = "contract",
     [string]$ProviderAccountTier = "",
     [string]$ProviderAccountTierObservedAtUtc = "",
     [decimal]$AuthorizedBudgetUsd = 0,
@@ -471,6 +473,7 @@ try {
             LlmApiKeyRef = "ENV:SAAIA_ADVANCED_LLM_API_KEY"
             ReasoningEffort = $ReasoningEffort
             SynthesisReasoningEffort = $SynthesisReasoningEffort
+            SynthesisPromptStyle = $SynthesisPromptStyle
             LlmTimeoutSeconds = 600
             LlmMaximumHttpAttempts = $MaximumProviderHttpAttempts
             DevelopmentTraceDirectory = $DevelopmentTraceDirectory
@@ -598,6 +601,7 @@ try {
         ownerIdentityRecordedBeforeJobCreation = $true
         reasoningEffort = $ReasoningEffort
         synthesisReasoningEffort = $SynthesisReasoningEffort
+        synthesisPromptStyle = $SynthesisPromptStyle
         semanticCriticEnabled = [bool]$EnableSemanticCritic
         nativeResearchToolsEnabled = [bool]$EnableNativeResearchTools
         nativeResearchApiProtocol = $NativeResearchApiProtocol

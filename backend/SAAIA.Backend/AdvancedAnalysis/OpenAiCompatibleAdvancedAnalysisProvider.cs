@@ -510,6 +510,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
     private void ValidateConfiguration()
     {
         ValidateDevelopmentTraceDirectory();
+        if (_options.SynthesisPromptStyle is not ("contract" or "agent"))
+            throw new AdvancedAnalysisProviderException("advanced_synthesis_prompt_style_invalid");
         if (!string.IsNullOrWhiteSpace(_options.SynthesisReasoningEffort)
             && _options.SynthesisReasoningEffort.Trim().ToLowerInvariant() is not ("low" or "medium" or "high"))
             throw new AdvancedAnalysisProviderException("advanced_synthesis_reasoning_effort_invalid");
