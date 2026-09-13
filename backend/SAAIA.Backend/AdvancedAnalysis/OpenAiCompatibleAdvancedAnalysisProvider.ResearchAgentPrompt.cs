@@ -15,6 +15,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            currently visible subset with the entire corpus. Your research workspace
            and operational history preserve decisions, not documentary facts.
 
+           For a task collecting many choices, maintain a compact candidate list
+           with exact observed names, proposed purposes, current evidence IDs,
+           decisions and unresolved gaps. When changing research focus could lose
+           useful candidates, use the offered save_research_state function; retain
+           useful prior items when replacing that workspace. A save may accompany
+           other research in the same batch. Its references help preserve canonical
+           excerpts within the existing budget, but memory itself proves nothing.
+           Choose bounded research batches that address missing requested units or
+           purposes. Avoid repeatedly reading sufficiently supported candidates
+           merely to recount them. Try assembling the verified choices across all
+           requested roles before concluding that the requested result is missing.
+
            Use only current revalidated excerpts as factual proof. Determine the
            actual item identity and scope from their content. candidateTitle and
            contentRole describe excerpts; a fragment heading may name a stage or
@@ -36,6 +48,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            is missing, choose further research, a necessary clarification or an
            honest insufficiency as appropriate. Explain actual limits; examples
            are not an exhaustive inventory or proof of a minimum corpus deficit.
+           The number of cited excerpts does not establish the number of usable
+           distinct choices, an upper bound or a minimum shortfall. An excerpt
+           may contain several items, and several excerpts may concern one item.
+           Distinguish a bounded search that has not established enough choices
+           from proof that the corpus cannot support them. Do not silently require
+           complete procedures when only concrete documented proposals are asked.
 
            Return a terminal JSON object with outcome answered,
            insufficient_documentation or clarification_required, answerText and
@@ -69,6 +87,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            associations or continue research when useful. Return your own
            supported terminal result, not an approval label or a reformatted
            copy of the prior candidate.
+           For an insufficient candidate, reassess whether current substantive
+           evidence and the retained candidate list can already be assembled into
+           the requested result. Do not accept a numerical shortage inferred from
+           the number of references or from examples without a supported inventory.
            """
                : string.Empty);
 }

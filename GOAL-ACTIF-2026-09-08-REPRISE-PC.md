@@ -48,6 +48,18 @@ refusé. Deux contrôles dédiés, 88 régressions ciblées et 2 412 tests backe
 réussis, trois live ignorés. Aucun nouveau planning approuvé. Registre clos
 36,46125760 USD / 40, solde calculé 3,53874240 USD. Un pilote avant analyse.
 Voir documents/agent/controle-compaction-outils-a844-2026-09-13.md.
+Le pilote de cette compaction, A845 sur 746c5e68 après un lancement sans I/O,
+dépasse le blocage historique mais finit en insuffisance : douze appels,
+0,83851840 USD, trente opérations dont quatorze lectures. Dix-huit cartes
+physiques exactes ; aucune grille. Le claim « au plus dix-neuf » n'est pas
+établi par ses dix-neuf références. Mémoire offerte, zéro save observé.
+A846 explicite la liste de candidats, sa conservation lors des changements
+de focus, les lacunes par rôle et la distinction recherche bornée/inventaire.
+Prompt généraliste seulement, capacités et source guards inchangés ; 90
+régressions ciblées réussies, suite complète A844 conservée sans nouvelle
+revendication. Registre 37,29977600 USD / 40, reste calculé 2,70022400 USD.
+Un pilote après gel propre avant analyse. Voir
+documents/agent/liste-candidats-et-lacunes-a846-2026-09-13.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.
