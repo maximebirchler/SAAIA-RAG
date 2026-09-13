@@ -34,7 +34,7 @@ var contentCardIds = new HashSet<Guid>();
 
 const string jobSql = """
 SELECT job_id, tenant_id, status, result::text, provider_key, provider_model,
-       last_error_code, revision, attempt_count, created_at, finished_at
+       last_error_code, revision, attempt_count, created_at, finished_at, handoff::text
 FROM advanced_analysis_jobs
 WHERE job_id=ANY(@ids)
 ORDER BY job_id;
@@ -69,11 +69,13 @@ await using (var command = new NpgsqlCommand(jobSql, connection, transaction))
         }
 
         tenantIds.Add(tenantId);
+        using var handoffDocument = JsonDocument.Parse(reader.GetString(11));
         jobs.Add(new
         {
             jobId,
             tenantId,
             status,
+            handoff = handoffDocument.RootElement.Clone(),
             result,
             providerKey = reader.IsDBNull(4) ? null : reader.GetString(4),
             providerModel = reader.IsDBNull(5) ? null : reader.GetString(5),
