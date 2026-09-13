@@ -90,10 +90,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 if (isRead)
                 {
                     if (observedSource is null || ReadString(item, "category").Trim().Length > 0 || documentHint.Length > 0
-                        || !Guid.TryParse(observedSource.SourceReference.RevisionId, out _)
-                        || !item.TryGetProperty("pageStart", out var start) || start.ValueKind != JsonValueKind.Number || !start.TryGetInt32(out var first)
-                        || !item.TryGetProperty("pageEnd", out var end) || end.ValueKind != JsonValueKind.Number || !end.TryGetInt32(out var last)
-                        || first <= 0 || last < first || (long)last - first > 3) throw new JsonException();
+                        || !Guid.TryParse(observedSource.SourceReference.RevisionId, out _)) throw new JsonException();
+                    int? first = item.TryGetProperty("pageStart", out var start) && start.ValueKind == JsonValueKind.Number
+                        && start.TryGetInt32(out var parsedFirst) ? parsedFirst : null;
+                    int? last = item.TryGetProperty("pageEnd", out var end) && end.ValueKind == JsonValueKind.Number
+                        && end.TryGetInt32(out var parsedLast) ? parsedLast : null;
+                    if (first is null || last is null || first <= 0 || last < first || (long)last - first > 3)
+                        throw new AdvancedAnalysisProviderException("advanced_research_arguments_invalid",
+                            researchArgumentFeedback: new("read_source_page_window_invalid", operation, sourceKey, first, last, 4));
                     pageStart = first; pageEnd = last;
                     query = $"Canonical source physical pages {first}-{last}";
                 }
@@ -301,10 +305,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 "advanced_research_review_protocol_invalid");
         }
         catch (AdvancedAnalysisProviderException ex) when (
-            ex.ErrorCode == "advanced_planner_protocol_invalid")
+            ex.ErrorCode is "advanced_planner_protocol_invalid" or "advanced_research_arguments_invalid")
         {
             throw new AdvancedAnalysisProviderException(
-                "advanced_research_review_protocol_invalid");
+                "advanced_research_review_protocol_invalid", researchArgumentFeedback: ex.ResearchArgumentFeedback);
         }
     }
 

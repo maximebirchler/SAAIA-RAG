@@ -13,6 +13,69 @@ namespace SAAIA.Backend.Tests;
 public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
     [Fact]
+    public async Task Research_reviewer_can_correct_known_source_window_inside_its_existing_call_budget()
+    {
+        using var factory = new QueuedHttpClientFactory(Completion("""{"queries":[{"query":"overview","topK":12}]}"""),
+            Completion("""{"decision":"search_more","queries":[{"operation":"read_source","sourceKey":"internal-source-1","pageStart":34,"pageEnd":38}]}"""),
+            Completion("""{"decision":"search_more","queries":[{"operation":"read_source","sourceKey":"internal-source-1","pageStart":34,"pageEnd":37}]}"""),
+            Completion("""{"outcome":"answered","answerText":"Le seuil est 17 bar [C1].","claims":[{"claimId":"C1","text":"Le seuil est 17 bar.","evidenceIds":["E1"]}]}"""));
+        var options = CreateOptions(); options.AdaptiveResearchEnabled = true; options.ExternalMaximumCallsPerJob = 4;
+        var gateway = new RecordingToolGateway(BuildEvidence("E1", "Le seuil est 17 bar."));
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null).ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+        Assert.Equal("answered", result.Outcome); Assert.Equal(4, result.ProviderCallCount);
+        Assert.Equal(37, Assert.Single(gateway.Searches, search => search.Operation == "read_source").PageEnd);
+        using var envelope = JsonDocument.Parse(factory.Requests[2].Body);
+        using var payload = JsonDocument.Parse(envelope.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+        Assert.True(payload.RootElement.TryGetProperty("researchArgumentFeedback", out _));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Known_source_read_window_error_returns_feedback_and_model_corrects_without_widening_limits(bool criticEnabled)
+    {
+        const string bad = """{"outcome":"research_required","queries":[{"operation":"read_source","sourceKey":"internal-source-1","pageStart":34,"pageEnd":38,"topK":60}]}""";
+        const string corrected = """{"outcome":"research_required","queries":[{"operation":"read_source","sourceKey":"internal-source-1","pageStart":34,"pageEnd":37,"topK":60}]}""";
+        const string answer = """{"outcome":"answered","answerText":"Le seuil est 17 bar [C1].","claims":[{"claimId":"C1","text":"Le seuil est 17 bar.","evidenceIds":["E1"]}]}""";
+        var responses = new List<HttpResponseMessage> { Completion("""{"queries":[{"query":"overview","topK":12}]}"""),
+            Completion("""{"decision":"ready","queries":[]}"""), Completion(bad), Completion(corrected), Completion(answer) };
+        if (criticEnabled) responses.Add(Completion(answer));
+        using var factory = new QueuedHttpClientFactory(responses.ToArray());
+        var options = CreateOptions(); options.AdaptiveResearchEnabled = true; options.SemanticCriticEnabled = criticEnabled;
+        options.ExternalMaximumCallsPerJob = criticEnabled ? 6 : 5;
+        var gateway = new RecordingToolGateway(BuildEvidence("E1", "Le seuil est 17 bar."));
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null).ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+        Assert.Equal("answered", result.Outcome); Assert.Equal(options.ExternalMaximumCallsPerJob, result.ProviderCallCount);
+        Assert.Equal(2, gateway.Searches.Count);
+        var read = Assert.Single(gateway.Searches, search => search.Operation == "read_source");
+        Assert.Equal(34, read.PageStart); Assert.Equal(37, read.PageEnd);
+        using var envelope = JsonDocument.Parse(factory.Requests[3].Body);
+        using var payload = JsonDocument.Parse(envelope.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+        var feedback = payload.RootElement.GetProperty("researchArgumentFeedback");
+        Assert.Equal("research_batch_rejected_before_execution", feedback.GetProperty("reasonCode").GetString());
+        Assert.Equal(4, feedback.GetProperty("correction").GetProperty("maximumInclusivePages").GetInt32());
+        Assert.Equal(38, feedback.GetProperty("correction").GetProperty("requestedPageEnd").GetInt32());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Known_source_window_recovery_is_bounded_and_preserves_final_call_budget(bool insufficientBudget)
+    {
+        const string bad = """{"outcome":"research_required","queries":[{"operation":"read_source","sourceKey":"internal-source-1","pageStart":34,"pageEnd":38,"topK":60}]}""";
+        var responses = new List<HttpResponseMessage> { Completion("""{"queries":[{"query":"overview","topK":12}]}"""),
+            Completion("""{"decision":"ready","queries":[]}"""), Completion(bad) };
+        if (!insufficientBudget) responses.Add(Completion(bad));
+        using var factory = new QueuedHttpClientFactory(responses.ToArray());
+        var options = CreateOptions(); options.AdaptiveResearchEnabled = true; options.ExternalMaximumCallsPerJob = insufficientBudget ? 4 : 7;
+        var gateway = new RecordingToolGateway(BuildEvidence("E1", "A source observation."));
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
+            new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null).ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None));
+        Assert.Equal("advanced_synthesis_research_protocol_invalid", error.ErrorCode);
+        Assert.Single(gateway.Searches); Assert.Equal(insufficientBudget ? 3 : 4, factory.Requests.Count);
+    }
+
+    [Fact]
     public async Task Literal_find_preserves_model_text_scope_and_offset_in_followup_tool_call()
     {
         using var factory = new QueuedHttpClientFactory(Completion("""{"queries":[{"query":"overview","topK":12}]}"""),
@@ -137,7 +200,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         var options=CreateOptions();options.AdaptiveResearchEnabled=true;options.ExternalMaximumCallsPerJob=3;
         var gateway=new RecordingToolGateway(evidence);
         await new OpenAiCompatibleAdvancedAnalysisProvider(factory,options,null).ExecuteAsync(BuildNamedDocumentRequest(),gateway,CancellationToken.None);
-        var read=Assert.Single(gateway.Searches.Where(search=>search.Operation=="read_source"));
+        var read=Assert.Single(gateway.Searches, search=>search.Operation=="read_source");
         Assert.Null(read.DocumentHint);Assert.Equal(evidence.Reference.DocId,read.DocId);Assert.Equal(evidence.Reference.RevisionId,read.RevisionId);
     }
 

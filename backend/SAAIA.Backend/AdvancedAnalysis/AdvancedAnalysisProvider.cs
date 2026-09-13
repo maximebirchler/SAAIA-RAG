@@ -66,6 +66,10 @@ internal interface IAdvancedAnalysisProvider
         CancellationToken cancellationToken);
 }
 
+internal sealed record AdvancedAnalysisResearchArgumentFeedback(
+    string ReasonCode, string Operation, string SourceKey,
+    int? RequestedPageStart, int? RequestedPageEnd, int MaximumInclusivePages);
+
 internal sealed class AdvancedAnalysisProviderException : Exception
 {
     public string ErrorCode { get; }
@@ -74,13 +78,17 @@ internal sealed class AdvancedAnalysisProviderException : Exception
 
     public long? RetryAfterMilliseconds { get; }
 
+    public AdvancedAnalysisResearchArgumentFeedback? ResearchArgumentFeedback { get; }
+
     public AdvancedAnalysisProviderException(
         string errorCode,
         bool isRetryable = false,
-        long? retryAfterMilliseconds = null)
+        long? retryAfterMilliseconds = null,
+        AdvancedAnalysisResearchArgumentFeedback? researchArgumentFeedback = null)
         : base(errorCode)
     {
         ErrorCode = errorCode;
+        ResearchArgumentFeedback = researchArgumentFeedback;
         IsRetryable = isRetryable;
         RetryAfterMilliseconds = retryAfterMilliseconds is >= 0
             ? retryAfterMilliseconds

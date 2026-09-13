@@ -24,6 +24,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private sealed record CandidateSupportCorrection(string ClaimId, string SelectedItem,
         IReadOnlyList<string> EvidenceIds, string Reason);
 
+    private static object BuildResearchArgumentFeedbackForPrompt(AdvancedAnalysisResearchArgumentFeedback feedback) => new
+    {
+        reasonCode = "research_batch_rejected_before_execution", correction = feedback,
+        instruction = "No request from the rejected batch ran. Submit a corrected complete batch using the catalogue and observed evidence, or return a supported final result. Page bounds are inclusive; do not widen the limits or invent a source handle. This correction consumes the existing model-call budget."
+    };
+
     internal static bool IsSourceScopedResearch(AdvancedAnalysisSearchRequest search)
         => search.Operation == "read_source" || !string.IsNullOrWhiteSpace(search.DocId)
            || !string.IsNullOrWhiteSpace(search.DocPath) || !string.IsNullOrWhiteSpace(search.DocumentHint);
@@ -157,6 +163,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var followup = 0;
         var supportCorrection = 0;
         var noProgressRecovery = 0;
+        var argumentRecovery = 0;
+        AdvancedAnalysisResearchArgumentFeedback? argumentFeedback = null;
         IReadOnlyList<AdvancedAnalysisSearchRequest>? repeatedSearches = null;
         var nextPhase = phase;
         object? candidateSupportFeedback = null;
@@ -172,7 +180,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var observations = BuildPromptEvidence(request, evidence, context.RetrievalQueriesByEvidenceId,
                 focusedEvidence);
             var userPrompt = buildUserPrompt(observations);
-            if (_options.AdaptiveResearchEnabled || candidateSupportFeedback is not null)
+            if (_options.AdaptiveResearchEnabled || candidateSupportFeedback is not null || argumentFeedback is not null)
             {
                 var payload = JsonNode.Parse(userPrompt)!.AsObject();
                 if (_options.AdaptiveResearchEnabled)
@@ -187,6 +195,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 }, JsonOptions);
                 if (candidateSupportFeedback is not null)
                     payload["candidateSupportCorrections"] = JsonSerializer.SerializeToNode(candidateSupportFeedback, JsonOptions);
+                if (argumentFeedback is not null)
+                    payload["researchArgumentFeedback"] = JsonSerializer.SerializeToNode(BuildResearchArgumentFeedbackForPrompt(argumentFeedback), JsonOptions);
                 if (repeatedSearches is not null)
                     payload["researchFeedback"] = JsonSerializer.SerializeToNode(new
                     {
@@ -238,8 +248,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }
             catch (Exception error) when (error is JsonException or AdvancedAnalysisProviderException)
             {
+                if (error is AdvancedAnalysisProviderException { ResearchArgumentFeedback: { } feedback }
+                    && argumentRecovery == 0 && completions.Count < maximumCalls - reservedFinalCalls - 1)
+                {
+                    argumentFeedback = feedback;
+                    nextPhase = $"{phase}-research-argument-recovery-{++argumentRecovery}";
+                    continue;
+                }
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_research_protocol_invalid");
             }
+            argumentFeedback = null;
             var rememberedFocus = RememberFocusedSearches(context.FocusSearches, queries);
             context.FocusSearches.Clear();
             context.FocusSearches.AddRange(rememberedFocus);

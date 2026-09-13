@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using SAAIA.Contracts;
 
@@ -135,6 +136,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     ? reserveSynthesisRecovery ? 4 : 3
                     : 1;
                 var reviewRound = 0;
+                var reviewArgumentRecovery = 0;
+                AdvancedAnalysisResearchArgumentFeedback? reviewArgumentFeedback = null;
                 while (completions.Count < maximumCalls - reservedFinalCalls)
                 {
                     reviewRound++;
@@ -145,26 +148,38 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                         request, currentEvidence, retrievalQueriesByEvidenceId,
                         PrioritizeFocusedEvidenceForPrompt(currentEvidence, retrievalQueriesByEvidenceId,
                             priorSearches.Where(IsSourceScopedResearch).TakeLast(20).ToArray()));
+                    var reviewUserPrompt = BuildResearchReviewUserPrompt(request, observations, priorSearches, availableCategories);
+                    if (reviewArgumentFeedback is not null)
+                    {
+                        var payload = JsonNode.Parse(reviewUserPrompt)!.AsObject();
+                        payload["researchArgumentFeedback"] = JsonSerializer.SerializeToNode(
+                            BuildResearchArgumentFeedbackForPrompt(reviewArgumentFeedback), JsonOptions);
+                        reviewUserPrompt = payload.ToJsonString(JsonOptions);
+                    }
                     var researchReview = await CompleteJsonAsync(
                             request.JobId,
-                            reviewRound == 1
+                            reviewArgumentFeedback is not null ? "research-review-argument-recovery" : reviewRound == 1
                                 ? "research-review"
                                 : $"research-review-{reviewRound}",
                             BuildResearchReviewSystemPrompt(),
-                            BuildResearchReviewUserPrompt(
-                                request,
-                                observations,
-                                priorSearches,
-                                availableCategories),
+                            reviewUserPrompt,
                             Math.Clamp(_options.PlannerMaxTokens, 256, 4_096),
                             cancellationToken)
                         .ConfigureAwait(false);
                     completions.Add(researchReview);
-                    var followUpQueries = ParseResearchReview(
-                        researchReview.Content,
-                        request,
-                        availableCategories,
-                        observations);
+                    IReadOnlyList<AdvancedAnalysisSearchRequest> followUpQueries;
+                    try
+                    {
+                        followUpQueries = ParseResearchReview(researchReview.Content, request, availableCategories, observations);
+                    }
+                    catch (AdvancedAnalysisProviderException error) when (error.ResearchArgumentFeedback is not null
+                        && reviewArgumentRecovery == 0 && completions.Count < maximumCalls - reservedFinalCalls)
+                    {
+                        reviewArgumentFeedback = error.ResearchArgumentFeedback;
+                        reviewArgumentRecovery++;
+                        continue;
+                    }
+                    reviewArgumentFeedback = null;
                     if (followUpQueries.Count == 0)
                         break;
                     await ExecuteSearchBatchAsync(
