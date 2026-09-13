@@ -775,6 +775,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var remaining = preserveDocumentaryContext
             ? configuredMaximum
             : (int)Math.Max(configuredMaximum, structuredMinimum);
+        remaining -= 2; // The serialized evidence array brackets consume the same budget.
         var promptEvidence = new List<PromptEvidenceItem>();
         var sourceKeys = new Dictionary<string, string>(StringComparer.Ordinal);
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> prioritizedEvidence =
@@ -791,9 +792,6 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var contentSignal = RetrievalContentClassifier.AnalyzeEvidenceContent(content, item.ExactTitle);
             if (content.Length > maximumCharactersPerPromptEvidence)
                 content = content[..maximumCharactersPerPromptEvidence];
-            if (content.Length > remaining)
-                content = content[..remaining];
-            remaining -= content.Length;
             var evidenceId = item.Reference.EvidenceId;
             var retrievedFor = evidenceId is not null
                                && retrievalQueriesByEvidenceId.TryGetValue(
@@ -809,7 +807,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 sourceKey = $"internal-source-{sourceKeys.Count + 1}";
                 sourceKeys.Add(sourceIdentity, sourceKey);
             }
-            promptEvidence.Add(new PromptEvidenceItem(
+            var observation = new PromptEvidenceItem(
                 evidenceId,
                 sourceKey,
                 retrievedFor,
@@ -830,7 +828,39 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 content.Length < originalContentLength,
                 contentSignal.ContentRole,
                 contentSignal.NavigationReason,
-                item.Reference));
+                item.Reference);
+            var separatorCharacters = promptEvidence.Count == 0 ? 0 : 1;
+            var serializedCharacters = JsonSerializer.Serialize(observation, JsonOptions).Length
+                + separatorCharacters;
+            if (serializedCharacters > remaining)
+            {
+                var lower = 0;
+                var upper = content.Length;
+                while (lower < upper)
+                {
+                    var middle = lower + (upper - lower + 1) / 2;
+                    var bounded = observation with
+                    {
+                        Content = content[..middle],
+                        ContentTruncated = middle < originalContentLength
+                    };
+                    if (JsonSerializer.Serialize(bounded, JsonOptions).Length + separatorCharacters <= remaining)
+                        lower = middle;
+                    else
+                        upper = middle - 1;
+                }
+                if (lower == 0)
+                    break;
+                observation = observation with
+                {
+                    Content = content[..lower],
+                    ContentTruncated = lower < originalContentLength
+                };
+                serializedCharacters = JsonSerializer.Serialize(observation, JsonOptions).Length
+                    + separatorCharacters;
+            }
+            remaining -= serializedCharacters;
+            promptEvidence.Add(observation);
         }
         return promptEvidence;
     }

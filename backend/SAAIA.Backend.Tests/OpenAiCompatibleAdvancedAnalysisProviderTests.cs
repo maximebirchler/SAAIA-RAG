@@ -12,6 +12,43 @@ namespace SAAIA.Backend.Tests;
 
 public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Evidence_prompt_budget_counts_serialized_metadata_as_well_as_source_content(bool structured)
+    {
+        const string terminal = """{"outcome":"clarification_required","answerText":"Quelle est la configuration du projet ?","claims":[]}""";
+        using var factory = new QueuedHttpClientFactory(Completion("""{"queries":[]}"""), Completion(terminal));
+        var evidence = Enumerable.Range(1, 350).Select(index => BuildEvidence("E" + index, "Canonical threshold: 17 bar.")).ToArray();
+        var request = structured ? BuildRequest(answerUnitCount: 4, atomicEvidenceMode: "named_item") : BuildDirectRequest();
+        await new OpenAiCompatibleAdvancedAnalysisProvider(factory, CreateOptions(), apiKey: null)
+            .ExecuteAsync(request, new RecordingToolGateway(evidence), CancellationToken.None);
+        using var body = JsonDocument.Parse(factory.Requests[1].Body);
+        using var payload = JsonDocument.Parse(body.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+        var items = payload.RootElement.GetProperty("evidence");
+        Assert.True(items.GetRawText().Length <= 64000);
+        Assert.True(items.GetArrayLength() < evidence.Length);
+        Assert.Equal("Canonical threshold: 17 bar.", items[0].GetProperty("content").GetString());
+    }
+
+    [Fact]
+    public async Task Documentary_prompt_preserves_unicode_without_expanding_letters_to_escape_sequences()
+    {
+        const string source = "Procédure été : Überdruck 17 bar. 漢字. Citation \"exacte\", chemin C:\\demo.\n<script> & </script>";
+        const string terminal = """{"outcome":"insufficient_documentation","answerText":"Autres éléments à documenter.","claims":[]}""";
+        using var factory = new QueuedHttpClientFactory(Completion("""{"queries":[]}"""), Completion(terminal));
+        await new OpenAiCompatibleAdvancedAnalysisProvider(factory, CreateOptions(), apiKey: null)
+            .ExecuteAsync(BuildDirectRequest(), new RecordingToolGateway(BuildEvidence("E1", source)), CancellationToken.None);
+        using var body = JsonDocument.Parse(factory.Requests[1].Body);
+        var userPrompt = body.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!;
+        using var payload = JsonDocument.Parse(userPrompt);
+        Assert.Equal(source, payload.RootElement.GetProperty("evidence")[0].GetProperty("content").GetString());
+        Assert.Contains("Procédure été", userPrompt, StringComparison.Ordinal);
+        Assert.Contains("Überdruck", userPrompt, StringComparison.Ordinal);
+        Assert.Contains("漢字", userPrompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("<script>", userPrompt, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Named_grid_support_correction_can_research_the_observed_source_and_then_cite_the_body()
     {

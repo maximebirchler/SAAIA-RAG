@@ -18,7 +18,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
 {
     private const string HttpClientName = "advanced-analysis-llm";
     private static readonly JsonSerializerOptions JsonOptions =
-        new(JsonSerializerDefaults.Web);
+        new(JsonSerializerDefaults.Web)
+        {
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(
+                System.Text.Unicode.UnicodeRanges.All)
+        };
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly AdvancedAnalysisOptions _options;
     private readonly string? _apiKey;
