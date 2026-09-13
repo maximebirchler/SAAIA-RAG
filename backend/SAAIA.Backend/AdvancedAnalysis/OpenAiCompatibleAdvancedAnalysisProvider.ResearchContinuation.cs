@@ -24,6 +24,22 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private sealed record CandidateSupportCorrection(string ClaimId, string SelectedItem,
         IReadOnlyList<string> EvidenceIds, string Reason);
 
+    internal static bool IsSourceScopedResearch(AdvancedAnalysisSearchRequest search)
+        => search.Operation == "read_source" || !string.IsNullOrWhiteSpace(search.DocId)
+           || !string.IsNullOrWhiteSpace(search.DocPath) || !string.IsNullOrWhiteSpace(search.DocumentHint);
+
+    internal static IReadOnlyList<AdvancedAnalysisSearchRequest> RememberFocusedSearches(
+        IReadOnlyList<AdvancedAnalysisSearchRequest> remembered,
+        IReadOnlyList<AdvancedAnalysisSearchRequest> additions)
+    {
+        var distinct = remembered.Concat(additions)
+            .GroupBy(BuildSearchIdentity, StringComparer.OrdinalIgnoreCase)
+            .Select(static group => group.Last()).ToArray();
+        var scoped = distinct.Where(IsSourceScopedResearch).TakeLast(20).ToArray();
+        return scoped.Concat(distinct.Where(static search => !IsSourceScopedResearch(search))
+            .TakeLast(20 - scoped.Length)).ToArray();
+    }
+
     internal static IReadOnlyList<AdvancedAnalysisResolvedEvidence> PrioritizeFocusedEvidenceForPrompt(
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
         IReadOnlyDictionary<string, HashSet<string>> retrievalQueriesByEvidenceId,
@@ -215,8 +231,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             {
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_research_protocol_invalid");
             }
+            var rememberedFocus = RememberFocusedSearches(context.FocusSearches, queries);
             context.FocusSearches.Clear();
-            context.FocusSearches.AddRange(queries);
+            context.FocusSearches.AddRange(rememberedFocus);
             if (!queries.Any(query => !context.PreviouslyExecuted.Contains(BuildSearchIdentity(query))))
             {
                 if (++noProgressRecovery > 1)

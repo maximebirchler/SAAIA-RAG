@@ -13,6 +13,73 @@ namespace SAAIA.Backend.Tests;
 public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
     [Fact]
+    public void Focus_memory_preserves_source_scopes_and_bounds_general_searches()
+    {
+        var scopes=Enumerable.Range(1,8).Select(i=>new AdvancedAnalysisSearchRequest("Candidate "+i,DocId:Guid.NewGuid().ToString())).ToArray();
+        var broad=Enumerable.Range(1,20).Select(i=>new AdvancedAnalysisSearchRequest("General "+i)).ToArray();
+        var memory=OpenAiCompatibleAdvancedAnalysisProvider.RememberFocusedSearches(scopes,broad);
+        Assert.Equal(20,memory.Count);Assert.Equal(scopes,memory.Take(8));Assert.Equal(broad.Skip(8),memory.Skip(8));
+    }
+
+    [Fact]
+    public void Focus_memory_deduplicates_scope_identity_and_keeps_latest_scoped_searches()
+    {
+        var scopes=Enumerable.Range(1,25).Select(i=>new AdvancedAnalysisSearchRequest("Candidate "+i,DocId:Guid.NewGuid().ToString())).ToArray();
+        var memory=OpenAiCompatibleAdvancedAnalysisProvider.RememberFocusedSearches(scopes,scopes.TakeLast(3).ToArray());
+        Assert.Equal(scopes.Skip(5),memory);Assert.Equal(20,memory.Count);
+    }
+
+    [Fact]
+    public async Task Development_trace_preserves_exact_requests_and_responses_without_authentication_headers()
+    {
+        var directory=Path.Combine(Path.GetTempPath(),"saaia-trace-test-"+Guid.NewGuid().ToString("N"));
+        var options=CreateOptions();options.DevelopmentTraceDirectory=directory;
+        using var factory=new QueuedHttpClientFactory(Completion("""{"queries":[]}"""),
+            Completion("""{"outcome":"answered","answerText":"Le seuil est 17 bar [C1].","claims":[{"claimId":"C1","text":"Le seuil est 17 bar.","evidenceIds":["E1"]}]}"""));
+        await new OpenAiCompatibleAdvancedAnalysisProvider(factory,options,"server-secret")
+            .ExecuteAsync(BuildDirectRequest(),new RecordingToolGateway(BuildEvidence("E1","Le seuil est 17 bar.")),CancellationToken.None);
+        Assert.Equal(2,Directory.GetFiles(directory,"*.json").Length);
+        foreach(var file in Directory.GetFiles(directory,"*.json"))
+        {
+            var raw=File.ReadAllText(file);Assert.DoesNotContain("server-secret",raw);Assert.DoesNotContain("Bearer",raw);
+            using var trace=JsonDocument.Parse(raw);
+            var requestJson=trace.RootElement.GetProperty("requestJson").GetString()!;
+            Assert.Contains(factory.Requests,request=>request.Body==requestJson);
+            Assert.Equal(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(requestJson))),trace.RootElement.GetProperty("requestSha256").GetString());
+            using var response=JsonDocument.Parse(trace.RootElement.GetProperty("responseEnvelopeJson").GetString()!);
+            Assert.Equal(response.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString(),trace.RootElement.GetProperty("completionJson").GetString());
+        }
+    }
+
+    [Fact]
+    public async Task Relative_development_trace_directory_is_rejected_before_any_model_call()
+    {
+        var options=CreateOptions();options.DevelopmentTraceDirectory="relative-trace-directory";
+        using var factory=new QueuedHttpClientFactory();
+        var error=await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(()=>new OpenAiCompatibleAdvancedAnalysisProvider(factory,options,null)
+            .ExecuteAsync(BuildDirectRequest(),new RecordingToolGateway(BuildEvidence("E1","Le seuil est 17 bar.")),CancellationToken.None));
+        Assert.Equal("advanced_development_trace_directory_invalid",error.ErrorCode);Assert.Empty(factory.Requests);
+    }
+
+    [Fact]
+    public async Task Later_general_research_keeps_the_prior_source_specific_evidence_in_priority()
+    {
+        var index=BuildEvidence("E-INDEX","Contents\nIsolation procedure 8");
+        var body=BuildEvidence("E-BODY","Isolation procedure\nHold for three minutes at 17 bar.",docId:index.Reference.DocId,revisionId:index.Reference.RevisionId,pageStart:8);
+        var alternate=BuildEvidence("E-ALTERNATE","Alternate procedure\nHold for three minutes at 19 bar.");
+        using var factory=new QueuedHttpClientFactory(Completion("""{"queries":[{"query":"reference overview","topK":12}]}"""),
+            Completion("""{"decision":"ready","queries":[]}"""),
+            Completion("""{"outcome":"research_required","queries":[{"query":"Isolation procedure","sourceKey":"internal-source-1","topK":12}]}"""),
+            Completion("""{"outcome":"research_required","queries":[{"query":"alternate procedure","topK":12}]}"""),
+            Completion("""{"outcome":"answered","answerText":"Le seuil est 17 bar [C1].","claims":[{"claimId":"C1","text":"Le seuil est 17 bar.","evidenceIds":["E-BODY"]}]}"""));
+        var options=CreateOptions();options.AdaptiveResearchEnabled=true;options.ExternalMaximumCallsPerJob=5;
+        await new OpenAiCompatibleAdvancedAnalysisProvider(factory,options,null).ExecuteAsync(BuildDirectRequest(),new SequencedToolGateway([index],[body],[alternate]),CancellationToken.None);
+        using var request=JsonDocument.Parse(factory.Requests[4].Body);
+        using var prompt=JsonDocument.Parse(request.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+        Assert.Equal("E-BODY",prompt.RootElement.GetProperty("evidence")[0].GetProperty("evidenceId").GetString());
+    }
+
+    [Fact]
     public async Task Canonical_page_read_preserves_observed_scope_for_an_explicitly_named_document()
     {
         var evidence=BuildEvidence("E1","A document point.",fileName:"NIST_CSF_2_0.pdf",pageStart:7);

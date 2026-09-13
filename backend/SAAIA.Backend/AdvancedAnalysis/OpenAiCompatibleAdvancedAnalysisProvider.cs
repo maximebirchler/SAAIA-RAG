@@ -144,7 +144,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     var observations = BuildPromptEvidence(
                         request, currentEvidence, retrievalQueriesByEvidenceId,
                         PrioritizeFocusedEvidenceForPrompt(currentEvidence, retrievalQueriesByEvidenceId,
-                            priorSearches.Where(static search => search.Operation == "read_source").TakeLast(20).ToArray()));
+                            priorSearches.Where(IsSourceScopedResearch).TakeLast(20).ToArray()));
                     var researchReview = await CompleteJsonAsync(
                             request.JobId,
                             reviewRound == 1
@@ -208,7 +208,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             var synthesisResearch = new SynthesisResearchContext(tools, availableCategories,
                 priorSearches, previouslyExecuted, evidenceGroups, retrievalQueriesByEvidenceId);
             synthesisResearch.FocusSearches.AddRange(priorSearches
-                .Where(static search => search.Operation == "read_source").TakeLast(20));
+                .Where(IsSourceScopedResearch).TakeLast(20));
             var writerRound = await CompleteWithCorpusResearchAsync(
                     request,
                     "writer",
@@ -486,6 +486,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
 
     private void ValidateConfiguration()
     {
+        ValidateDevelopmentTraceDirectory();
         var provider = NormalizeProvider(_options.Provider);
         var location = NormalizeLocation(_options.LlmLocation);
         if (location is not ("internal" or "external-service"))
@@ -719,6 +720,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                             reservation = null;
                         }
                     }
+                    await WriteDevelopmentTraceAsync(jobId, role, payload, document.RootElement,
+                        content.GetString()!, observedModelId, charge?.CostUsd,
+                        httpAttemptCount, stopwatch.ElapsedMilliseconds, cancellationToken).ConfigureAwait(false);
                     return new CompletionResult(
                         content.GetString()!.Trim(),
                         usage,

@@ -59,6 +59,8 @@ sealed class AdvancedAnalysisOptions
     public string ExternalUsageLedgerPath { get; set; } =
         "data/advanced-analysis/openai-terra-usage.jsonl";
 
+    public string DevelopmentTraceDirectory { get; set; } = string.Empty;
+
     public int RetentionDays { get; set; } = 30;
 
     public int RetentionSweepMilliseconds { get; set; } = 300_000;
