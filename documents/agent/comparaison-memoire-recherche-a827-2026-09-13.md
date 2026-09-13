@@ -57,3 +57,25 @@ holdout inédit et validation WinUI. Produit `TESTE_NON_APPROUVE`.
 
 Registre clos avant C2b : 32,34559770 USD sur 40 USD, reste 7,65440230 USD.
 Aucun nouvel achat ni location.
+
+## Implémentation vérifiée avant pilote
+
+`NativeResearchWorkspaceEnabled` est désactivé par défaut. La fonction
+`save_research_state` remplace l'état du job ; tous ses champs et références
+sont vérifiés avant les opérations du lot. Une sauvegarde est appliquée après
+la validation et l'exécution documentaire du lot. Le retour natif est lié à
+son identifiant d'appel, quel que soit son ordre parmi les recherches.
+La mémoire est reconstruite à chaque job, même sur la même instance provider.
+
+Dix-neuf nouveaux cas couvrent sauvegarde seule pour les deux transports,
+ordre des fonctions, IDs invisibles, doublons, tailles, états invalides,
+projections selected/rejected, séparation des jobs, désactivation, corpus
+vide et non-application d'une sauvegarde lors d'un lot de lecture refusé.
+Un test a révélé que la priorité des recherches ne contenait qu'un sous-ensemble
+des preuves : la mémoire doit résoudre ses IDs dans l'ensemble canonique
+filtré, puis précéder cette priorité. Ce défaut d'intégration est corrigé.
+Le test conserve sa condition de visibilité et le plafond de 8 000 caractères.
+
+Build sans avertissement. Suite backend Release finale : 2 367 réussites,
+aucun échec, trois ignorés. Ces tests ne prouvent ni l'usage de l'espace par
+Terra ni vingt propositions adaptées. Aucun appel réel C2b à ce stade.

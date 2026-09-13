@@ -9,7 +9,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyList<AdvancedAnalysisSearchRequest>? Requests,
         IReadOnlyDictionary<string, AdvancedAnalysisSearchObservation> Results,
         AdvancedAnalysisResearchArgumentFeedback? Rejection = null,
-        string? ResponseOutputItemsJson = null);
+        string? ResponseOutputItemsJson = null,
+        bool WorkspaceStored = false);
 
     private const string NativeResearchContract = """
         If further documentary facts are needed and research is allowed, choose
@@ -64,6 +65,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 ["offset"] = Count(0, 10_000), ["topK"] = Count(1, 60)
             }));
         }
+        if (root.GetProperty("evidence").GetArrayLength() > 0 && root.TryGetProperty("researchWorkspace", out var workspace)
+            && workspace.TryGetProperty("enabled", out var enabled) && enabled.ValueKind == JsonValueKind.True)
+            functions.Add(BuildResearchWorkspaceFunction(root));
         return functions.ToArray();
     }
 
@@ -76,6 +80,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
         var ids = new HashSet<string>(StringComparer.Ordinal);
         var queries = new JsonArray();
+        JsonNode? state = null;
         foreach (var call in calls.EnumerateArray())
         {
             var id = ReadString(call, "id");
@@ -83,6 +88,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 || !call.TryGetProperty("function", out var function) || function.ValueKind != JsonValueKind.Object)
                 throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
             var name = ReadString(function, "name");
+            if (name == "save_research_state")
+            {
+                if (state is not null) throw new AdvancedAnalysisProviderException("advanced_native_workspace_invalid");
+                using var value = JsonDocument.Parse(ReadString(function, "arguments"));
+                var items = ParseResearchWorkspace(value.RootElement, prompt.RootElement);
+                state = JsonSerializer.SerializeToNode(new { items }, JsonOptions);
+                continue;
+            }
             string[] properties = name switch
             {
                 "search_corpus" => ["query", "sourceKey", "category", "documentHint", "topK"],
@@ -102,7 +115,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             query["operation"] = name;
             queries.Add(query);
         }
-        return new JsonObject { ["outcome"] = "research_required", ["queries"] = queries }.ToJsonString(JsonOptions);
+        var normalized = new JsonObject { ["outcome"] = "research_required", ["queries"] = queries };
+        if (state is not null) normalized["researchState"] = state;
+        return normalized.ToJsonString(JsonOptions);
     }
 
     private static IReadOnlyList<object> BuildNativeToolTurnMessages(NativeResearchTurn? turn,
@@ -122,6 +137,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var index = 0;
         foreach (var call in calls.RootElement.EnumerateArray())
         {
+            if (ReadString(call.GetProperty("function"), "name") == "save_research_state")
+            {
+                var output = JsonSerializer.Serialize(new { status = turn.Rejection is not null ? "batch_rejected_before_execution"
+                    : turn.WorkspaceStored ? "stored" : "not_changed", operation = "save_research_state",
+                    argumentFeedback = turn.Rejection, instruction = "Research memory only; it establishes no documentary facts. See current user.researchWorkspace and user.evidence." }, JsonOptions);
+                messages.Add(responses ? new { type = "function_call_output", call_id = ReadString(call, "id"), output }
+                    : (object)new { role = "tool", tool_call_id = ReadString(call, "id"), content = output });
+                continue;
+            }
             var request = turn.Requests?.ElementAtOrDefault(index++);
             AdvancedAnalysisSearchObservation? observation = null;
             if (request is not null) turn.Results.TryGetValue(BuildSearchIdentity(request), out observation);

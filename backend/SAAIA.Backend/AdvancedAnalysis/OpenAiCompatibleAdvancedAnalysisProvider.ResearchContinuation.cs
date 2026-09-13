@@ -15,6 +15,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     {
         public List<AdvancedAnalysisSearchRequest> FocusSearches { get; } = [];
         public NativeResearchTurn? NativeTurn { get; set; }
+        public IReadOnlyList<ResearchWorkspaceItem> Workspace { get; set; } = [];
     }
 
     private sealed record SynthesisCompletion(
@@ -178,12 +179,22 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 OrderEvidenceForPrompt(context.Tools.Evidence, context.EvidenceGroups));
             var focusedEvidence = PrioritizeFocusedEvidenceForPrompt(evidence,
                 context.RetrievalQueriesByEvidenceId, context.FocusSearches);
+            if (_options.NativeResearchToolsEnabled && _options.NativeResearchWorkspaceEnabled)
+                focusedEvidence = PrioritizeResearchWorkspace(evidence, context.Workspace, focusedEvidence);
             var observations = BuildPromptEvidence(request, evidence, context.RetrievalQueriesByEvidenceId,
                 focusedEvidence);
             var userPrompt = buildUserPrompt(observations);
             if (_options.AdaptiveResearchEnabled || candidateSupportFeedback is not null || argumentFeedback is not null)
             {
                 var payload = JsonNode.Parse(userPrompt)!.AsObject();
+                if (_options.NativeResearchToolsEnabled && _options.NativeResearchWorkspaceEnabled)
+                    payload["researchWorkspace"] = JsonSerializer.SerializeToNode(new
+                    {
+                        enabled = true, items = context.Workspace,
+                        currentVisibleEvidenceIds = context.Workspace.SelectMany(i => i.EvidenceIds).Distinct(StringComparer.Ordinal)
+                            .Where(id => observations.Any(e => e.EvidenceId == id)).ToArray(),
+                        instruction = "Your bounded operational workspace, not proof. When researchTools.researchAllowed is true, you may use save_research_state to retain chosen items, purposes, decisions and gaps before changing research focus. Only current evidence excerpts support facts. Choose further research yourself; absence from this view or memory does not demonstrate corpus absence."
+                    }, JsonOptions);
                 if (_options.AdaptiveResearchEnabled)
                     payload["researchTools"] = JsonSerializer.SerializeToNode(new
                 {
@@ -239,13 +250,20 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_research_call_budget_exhausted");
 
             IReadOnlyList<AdvancedAnalysisSearchRequest> queries;
+            IReadOnlyList<ResearchWorkspaceItem>? workspaceUpdate = null;
             try
             {
                 using var document = JsonDocument.Parse(UnwrapJson(completion.Content));
+                if (document.RootElement.TryGetProperty("researchState", out var state))
+                {
+                    if (completion.NativeToolCallsJson is null) throw new JsonException();
+                    using var current = JsonDocument.Parse(userPrompt);
+                    workspaceUpdate = ParseResearchWorkspace(state, current.RootElement);
+                }
                 if (!document.RootElement.TryGetProperty("queries", out var values)
-                    || values.ValueKind != JsonValueKind.Array || values.GetArrayLength() == 0)
+                    || values.ValueKind != JsonValueKind.Array || values.GetArrayLength() == 0 && workspaceUpdate is null)
                     throw new JsonException();
-                queries = ParseResearchReview(JsonSerializer.Serialize(new
+                queries = values.GetArrayLength() == 0 ? [] : ParseResearchReview(JsonSerializer.Serialize(new
                 {
                     decision = "search_more", queries = values
                 }, JsonOptions), request, context.AvailableCategories, observations);
@@ -265,10 +283,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_research_protocol_invalid");
             }
             argumentFeedback = null;
+            var workspaceChanged = workspaceUpdate is not null
+                && JsonSerializer.Serialize(workspaceUpdate, JsonOptions) != JsonSerializer.Serialize(context.Workspace, JsonOptions);
             var rememberedFocus = RememberFocusedSearches(context.FocusSearches, queries);
             context.FocusSearches.Clear();
             context.FocusSearches.AddRange(rememberedFocus);
-            if (!queries.Any(query => !context.PreviouslyExecuted.Contains(BuildSearchIdentity(query))))
+            if (!workspaceChanged && !queries.Any(query => !context.PreviouslyExecuted.Contains(BuildSearchIdentity(query))))
             {
                 if (++noProgressRecovery > 1)
                     throw new AdvancedAnalysisProviderException("advanced_synthesis_research_no_progress");
@@ -285,8 +305,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             await ExecuteSearchBatchAsync(context.Tools, queries, context.PreviouslyExecuted,
                 context.PriorSearches, context.EvidenceGroups, context.RetrievalQueriesByEvidenceId,
                 cancellationToken, nativeResults).ConfigureAwait(false);
+            if (workspaceUpdate is not null) context.Workspace = workspaceUpdate;
             if (completion.NativeToolCallsJson is { } executedCalls)
-                context.NativeTurn = new(executedCalls, queries, nativeResults!, ResponseOutputItemsJson: completion.NativeResponseOutputJson);
+                context.NativeTurn = new(executedCalls, queries, nativeResults!, ResponseOutputItemsJson: completion.NativeResponseOutputJson,
+                    WorkspaceStored: workspaceChanged);
             followup++;
             nextPhase = $"{phase}-research-followup-{followup}";
         }
