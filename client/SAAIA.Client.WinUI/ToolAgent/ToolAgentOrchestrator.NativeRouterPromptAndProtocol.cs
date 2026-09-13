@@ -37,7 +37,8 @@ public sealed partial class ToolAgentOrchestrator
             or whole-document summary has one axis and is never a grid. Alternatives whose
             truth, status, applicability or value evidence must establish are
             answer candidates, not user choices: choose source-backed. If a goal,
-            scope, constraint or deliverable preference is missing and
+            scope, constraint, deliverable preference or essential facts about
+            the user's own setup are missing and
             sources or conversation cannot supply it, still choose the probable
             resume work family; the next stage may clarify. Acceptable evidence forms
             joined by "or" are retrieval targets. A named document with requested
@@ -172,9 +173,13 @@ public sealed partial class ToolAgentOrchestrator
                 request_user_clarification only for missing user input that
                 sources or conversation cannot supply.
                 """
-            : "Call exactly one available route function. Ask request_missing_user_input for unnamed user-designated documents; facts and recommendations stay evidence-first.";
+            : """
+                Call exactly one available route function. Ask
+                request_missing_user_input for unnamed user-designated documents
+                or missing user state; rules cannot supply it. Facts stay evidence-first.
+                """;
         var common = $"""
-            You are SAAIA's specialized semantic router. Never answer.
+            Route this request. Never answer.
             The classifier's proposed work family is {routeToolName}.
             {clarificationPolicy}
             Language: {NormalizeLanguageCode(detectedLanguage)}.
@@ -255,10 +260,12 @@ public sealed partial class ToolAgentOrchestrator
                 """,
             RequestUserClarificationToolName => """
                 Ask only when 2+ readings materially change route, scope,
-                constraints or deliverable and only the user can resolve them.
+                constraints or deliverable and only the user can resolve them,
+                or essential facts about the user's own setup prevent an
+                actionable decision and sources or conversation cannot supply them.
                 Alternatives whose truth, status, applicability or value evidence
                 must establish are answer candidates, not user choices. Clarify only
-                for a missing preference that sources or conversation cannot supply.
+                for a missing preference or such user-specific application facts.
                 If one reading dominates, proceed. understanding preserves the
                 request but omits alternatives. Put 2-4 choices only in options. For
                 an explicit alternative, userTextAnchor copies its shortest complete
@@ -287,8 +294,9 @@ public sealed partial class ToolAgentOrchestrator
             available route function.
 
             Evidence decides truth, status, applicability or value: answer candidates, not user choices;
-            route source-backed. Clarify only if 2+
-            readings need the user. Do not ask about uncertainty source tools can resolve.
+            route source-backed. Clarify only for user ambiguity or essential
+            missing instance facts (setup, state, project phase); general rules
+            do not supply them. Do not ask about uncertainty source tools can resolve.
             Copy exact explicit userTextAnchor; inferred choices use null.
             Evidence forms joined by "or" are retrieval targets. A named reference
             with passages is source-backed. Never turn nested fragments into
@@ -297,7 +305,7 @@ public sealed partial class ToolAgentOrchestrator
             Source-back facts, instructions, recipes, recommendations, comparisons,
             selections and plans when documents can help. Social chat, fiction,
             rewriting, translation, settings, inventory, export and diagnostics are
-            operational. Recipes and practical recommendations are source-backed.
+            operational.
 
             Use submit_source_backed_grid_route for repeated sourced row-by-column
             values. Expand finite ranges. count = rows.length * columns.length.

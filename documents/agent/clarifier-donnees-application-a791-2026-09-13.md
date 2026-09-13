@@ -1,0 +1,11 @@
+# A791 — Autoriser la clarification sur des faits propres au cas utilisateur
+
+BH6-022 demande si « notre fonction de sécurité » doit être validée « dès maintenant », sans décrire l'installation, son état ou sa phase de projet. La réponse historique « oui, dès maintenant » utilisait un principe normatif général pour conclure sur un cas non décrit. Un diagnostic plus récent à la version A788 ne reproduit pas cette réponse : il cherche jusqu'au budget local puis passe la main. Ce résultat évite la conclusion injustifiée, mais n'apporte pas encore une clarification utile.
+
+Le routeur possède déjà `request_missing_user_input`, dont le contrat peut demander une information utilisateur essentielle. Toutefois, la consigne de la deuxième étape documentaire ne l'autorisait explicitement que pour les documents non identifiés. D'autres consignes limitaient la clarification aux préférences ou à plusieurs interprétations. Elles ne distinguaient pas assez un fait documentaire vérifiable d'une donnée propre à une installation non décrite.
+
+Les consignes du classifieur, des routeurs et de l'outil distinguent maintenant ces cas : les faits, seuils et règles que le corpus peut établir restent des cibles de recherche ; les faits indispensables sur la configuration, l'état ou la phase du cas utilisateur peuvent justifier une question ouverte si la demande et la conversation ne les fournissent pas. Une règle générale ne prouve pas l'état d'une instance. Aucun choix ou paramètre d'installation n'est inventé. Le contrat JSON et les fournisseurs restent inchangés ; aucun mot-clé de sécurité ni question BH6 n'est codé dans une règle déterministe.
+
+Les premières rédactions dépassaient le budget de longueur des prompts ; elles ont été raccourcies sans relever les limites. La suite client finale passe 2 298 tests, zéro échec, un test réel non exécuté. Elle conserve les plafonds de 1 200 caractères pour le classifieur, 1 800 pour les prompts spécialisés et 4 000 pour le routeur général. Preuve : `artifacts/reprise-pc-20260908/a791-private-application-input-20260913/client-a791-v4.trx`.
+
+Un diagnostic local de BH6-022 sur le binaire Release scellé reste nécessaire. La réussite mécanique ne démontre pas que Qwen demande les bonnes informations ni que cette limite est robuste aux paraphrases. Produit TESTE_NON_APPROUVE.

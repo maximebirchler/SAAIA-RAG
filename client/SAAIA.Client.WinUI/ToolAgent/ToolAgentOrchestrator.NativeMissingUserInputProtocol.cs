@@ -13,7 +13,7 @@ public sealed partial class ToolAgentOrchestrator
 
     private static SourceBackedAgentToolDefinition BuildNativeMissingUserInputTool()
         => new(RequestMissingUserInputToolName,
-            "Ask one open question for essential user input missing from the request and conversation. Do not ask the user to supply facts or choose answers that corpus evidence can establish. Do not invent options.",
+            "Ask one open question for essential user input missing from the request and conversation. This includes facts about the user's own setup, configuration, operating state or project phase when an actionable decision depends on them: a general standard does not establish instance facts. Do not ask the user to supply facts or choose answers that corpus evidence can establish. Do not invent options.",
             JsonSerializer.SerializeToElement(new
             {
                 type = "object",
