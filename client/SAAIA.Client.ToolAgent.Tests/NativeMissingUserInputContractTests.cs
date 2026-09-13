@@ -86,6 +86,45 @@ public sealed class NativeMissingUserInputContractTests
             Assert.Single(result.Plan.ClarificationQuestions));
     }
 
+    [Theory]
+    [InlineData("Le document Guide-A.pdf existe-t-il dans votre système ?")]
+    [InlineData("Is the file Guide-A.pdf available in your system?")]
+    [InlineData("Ist das Dokument Guide-A.pdf vorhanden?")]
+    [InlineData("¿Existe el documento Guide-A.pdf en su sistema?")]
+    [InlineData("O documento Guide-A.pdf está disponível no sistema?")]
+    [InlineData("Il documento Guide-A.pdf è disponibile nel sistema?")]
+    public void Indexed_availability_of_an_explicit_file_requires_a_document_probe(string question)
+    {
+        var args = new JsonObject
+        {
+            ["question"] = question,
+            ["userTextAnchor"] = "Guide-A.pdf",
+            ["missingInformation"] = "Whether the named file exists must be supplied by the user.",
+            ["resumeRoute"] = "source_backed"
+        };
+        var result = ToolAgentOrchestrator.TryBuildNativeRouterPlanForTests(
+            new ToolMemory(), "Donne les conclusions de Guide-A.pdf.", ToolName, args.ToJsonString());
+        Assert.False(result.Accepted);
+        Assert.Equal("native_missing_user_input_explicit_document_identity_already_supplied", result.FailureReason);
+        Assert.Empty(result.Plan.ToolCalls);
+    }
+
+    [Fact]
+    public void An_explicit_file_does_not_establish_the_users_actual_project_phase()
+    {
+        var args = new JsonObject
+        {
+            ["question"] = "Quelle est la phase actuelle de votre installation ?",
+            ["userTextAnchor"] = "notre installation",
+            ["missingInformation"] = "The actual project phase is not supplied; a general guide cannot establish it.",
+            ["resumeRoute"] = "source_backed"
+        };
+        var result = ToolAgentOrchestrator.TryBuildNativeRouterPlanForTests(
+            new ToolMemory(), "Selon Guide-A.pdf, faut-il valider notre installation maintenant ?", ToolName, args.ToJsonString());
+        Assert.True(result.Accepted, result.FailureReason);
+        Assert.True(result.Plan.NeedClarification);
+    }
+
     [Fact]
     public async Task Redundant_pdf_identity_clarification_is_repaired_to_source_backed_route()
     {
@@ -168,7 +207,7 @@ public sealed class NativeMissingUserInputContractTests
         public Task<SourceBackedAgentCompletion> CompleteStructuredAsync(IReadOnlyList<SourceBackedAgentMessage> messages,
             LlmStructuredOutputContract contract, int maxTokens, CancellationToken ct, double? temperatureOverride = null)
         {
-            if (contract.Name == "saaia_work_family_v2")
+            if (contract.Name == "saaia_work_family_v3")
                 return Task.FromResult(new SourceBackedAgentCompletion("{\"family\":\"answer\"}", [], "stop"));
             Assert.Equal("saaia_answer_units_v2", contract.Name);
             UnitCalls++;
@@ -212,7 +251,7 @@ public sealed class NativeMissingUserInputContractTests
             CancellationToken ct,
             double? temperatureOverride = null)
         {
-            if (contract.Name == "saaia_work_family_v2")
+            if (contract.Name == "saaia_work_family_v3")
             {
                 return Task.FromResult(new SourceBackedAgentCompletion(
                     "{\"family\":\"answer\"}", [], "stop"));

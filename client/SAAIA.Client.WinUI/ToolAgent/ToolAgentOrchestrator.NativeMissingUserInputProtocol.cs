@@ -13,7 +13,7 @@ public sealed partial class ToolAgentOrchestrator
 
     private static SourceBackedAgentToolDefinition BuildNativeMissingUserInputTool()
         => new(RequestMissingUserInputToolName,
-            "Ask one open question for essential user input missing from the request and conversation. This includes facts about the user's own setup, configuration, operating state or project phase when an actionable decision depends on them: a general standard does not establish instance facts. Do not ask the user to supply facts or choose answers that corpus evidence can establish. Do not invent options.",
+            "Ask one open question for essential user input absent from request and conversation. A decision about the user's actual configuration, state or project phase needs instance facts that general rules cannot establish. Optional preferences do not block a request permitting documented candidates or defaults. Document contents and indexed availability require investigation, not user input. Do not ask users to choose answers evidence can establish. Do not invent options.",
             JsonSerializer.SerializeToElement(new
             {
                 type = "object",
@@ -118,7 +118,15 @@ public sealed partial class ToolAgentOrchestrator
                 question,
                 @"\b(?:document|fichier|source|file|pdf|dokument|datei|archivo|ficheiro)\b",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-        if (!asksForDocumentIdentity)
+        var asksForDocumentAvailability = Regex.IsMatch(
+                question,
+                @"\b(?:exist(?:e|en|ence|encia|iert)?|exists?|available|availability|disponib\p{L}*|dispon[ií]v\p{L}*|vorhanden|verf[uü]g\p{L}*|esiste|cop(?:y|ies|ie|ia)|kopie)\b",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+            && (question.Contains(fileName, StringComparison.OrdinalIgnoreCase)
+                || Regex.IsMatch(question,
+                    @"\b(?:documents?|fichiers?|sources?|files?|pdf|dokument\p{L}*|datei\p{L}*|archivo\p{L}*|ficheiro\p{L}*|cop(?:y|ies|ie|ia)|kopie)\b",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant));
+        if (!asksForDocumentIdentity && !asksForDocumentAvailability)
             return false;
 
         return !Regex.IsMatch(

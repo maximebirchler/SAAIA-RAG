@@ -37,10 +37,10 @@ public sealed partial class ToolAgentOrchestrator
             or whole-document summary has one axis and is never a grid. Alternatives whose
             truth, status, applicability or value evidence must establish are
             answer candidates, not user choices: choose source-backed. Choose
-            request_missing_user_input when essential user input is absent from
-            request and conversation and sources cannot supply it. A decision
-            about the user's own setup needs its actual state, not only general
-            rules. Supplied facts stay in the work family. Acceptable evidence forms
+            request_missing_user_input only for actual state of the user's own
+            setup needed for an actionable decision, absent from conversation.
+            Sources cannot supply it. Optional preferences and document
+            availability stay in the work family. Acceptable evidence forms
             joined by "or" are retrieval targets. A named document with requested
             passages is source-backed. Use submit_operational_route for social chat,
             settings, inventory, export or diagnostics.
@@ -145,7 +145,7 @@ public sealed partial class ToolAgentOrchestrator
                 emptyParameters),
             new SourceBackedAgentToolDefinition(
                 RequestMissingUserInputToolName,
-                "Essential user input missing from request and conversation that corpus evidence cannot supply, including the actual state of the user's own setup.",
+                "Missing actual configuration, state or project phase of the user's own setup essential for an actionable decision. Not optional preferences or document availability.",
                 emptyParameters)
         };
     }
@@ -244,6 +244,7 @@ public sealed partial class ToolAgentOrchestrator
                 document's own family/type is asked; otherwise content.
                 """,
             SubmitSourceBackedRouteToolName => """
+                Optional preferences do not block a request permitting documented candidates.
                 Preserve subjective wording; no proxies. answerUnitType is the answer-bearing source
                 unit, never query, target document, deliverable or guessed answer.
                 answerUnitMode describes it. For internal information about a named
@@ -254,17 +255,16 @@ public sealed partial class ToolAgentOrchestrator
 
                 selectionPolicy counts answer units: explicit_set is an explicit
                 quantity. An unnumbered plural or open collective uses
-                a small comparison set of 2 or 3 through open_set. For a broad
-                whole-document overview without explicit facets or count, use overview
-                with open_set and count 2 or 3; do not invent facets. query is short;
-                count counts answer units; pool is a candidate budget.
+                a small comparison set of 2 or 3 through open_set. Without overview
+                facets or count, use overview with open_set and count 2 or 3;
+                do not invent facets. pool is a candidate budget.
 
                 Use overview + summary_doc for a named whole-document summary/about;
                 otherwise search, cards, navigate or context. scope is one exact
                 category only when clear. namedReferenceKind: subject for a
-                product/model/entity (not a document); document for an explicit
-                artifact title, filename, path or formal standard/specification/
-                regulation identifier, with or without an extension; none otherwise.
+                product/model/entity (not a document); document for an explicit title, filename,
+                path or formal standard/specification/regulation identifier,
+                with or without an extension; none otherwise.
                 Only document permits it.
                 useFocusedDocument requires an
                 explicit FOCUSED_DOCUMENT_MEMORY reference. questionFocus is

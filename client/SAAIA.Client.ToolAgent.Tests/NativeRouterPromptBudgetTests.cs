@@ -71,7 +71,7 @@ public sealed class NativeRouterPromptBudgetTests
             prompt,
             StringComparison.Ordinal);
         Assert.Contains(
-            "sources cannot supply it",
+            "Sources cannot supply it",
             prompt,
             StringComparison.Ordinal);
         Assert.Contains(

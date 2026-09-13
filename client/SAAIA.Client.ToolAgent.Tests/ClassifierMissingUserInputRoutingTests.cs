@@ -47,10 +47,10 @@ public sealed class ClassifierMissingUserInputRoutingTests
         {
             StructuredCalls++;
             Assert.Equal(1, StructuredCalls); // No answer-unit extraction for a clarification.
-            Assert.Contains("clarification", contract.Schema.GetProperty("properties")
+            Assert.Contains("missing_instance_facts", contract.Schema.GetProperty("properties")
                 .GetProperty("family").GetProperty("enum").EnumerateArray().Select(x => x.GetString()));
             Assert.Contains(messages, m => m.Role == "user" && m.Content!.Contains(request, StringComparison.Ordinal));
-            return Task.FromResult(new SourceBackedAgentCompletion("{\"family\":\"clarification\"}", [], "stop"));
+            return Task.FromResult(new SourceBackedAgentCompletion("{\"family\":\"missing_instance_facts\"}", [], "stop"));
         }
         public Task<SourceBackedAgentCompletion> CompleteAsync(
             IReadOnlyList<SourceBackedAgentMessage> messages, IReadOnlyList<SourceBackedAgentToolDefinition> tools,
