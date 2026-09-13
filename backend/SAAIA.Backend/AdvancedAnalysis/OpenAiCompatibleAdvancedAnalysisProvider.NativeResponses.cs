@@ -46,7 +46,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             && number.ValueKind == JsonValueKind.Number && number.TryGetInt32(out var value) && value >= 0 ? value : null;
         var cached = usage.TryGetProperty("input_tokens_details", out var details) && details.ValueKind == JsonValueKind.Object
             ? Number(details, "cached_tokens") : null;
-        return new(Number(usage, "input_tokens"), Number(usage, "output_tokens"), cached, 0);
+        var writes = details.ValueKind == JsonValueKind.Object && details.TryGetProperty("cache_write_tokens", out _)
+            ? Number(details, "cache_write_tokens") : 0;
+        return new(Number(usage, "input_tokens"), Number(usage, "output_tokens"), cached, writes);
     }
 
     private static (string? Content, string? CallsJson, string? OutputItemsJson, string Origin, string? Error)
