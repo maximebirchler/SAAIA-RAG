@@ -200,7 +200,8 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
             lease.TenantId,
             _workerId,
             lease.AttemptCount,
-            evidenceResolution.Evidence);
+            evidenceResolution.Evidence,
+            previousToolEvents);
         ProviderExecution execution;
         try
         {

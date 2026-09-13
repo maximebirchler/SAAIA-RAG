@@ -57,9 +57,19 @@ internal sealed record AdvancedAnalysisToolEventSummary(
     long ElapsedMilliseconds,
     string? ErrorCode);
 
+internal sealed record AdvancedAnalysisToolBudget(
+    int MaximumCalls, int ConsumedCalls,
+    long MaximumElapsedMilliseconds, long ConsumedElapsedMilliseconds)
+{
+    public int RemainingCalls => Math.Max(0, MaximumCalls - ConsumedCalls);
+    public long RemainingElapsedMilliseconds => Math.Max(
+        0, MaximumElapsedMilliseconds - ConsumedElapsedMilliseconds);
+}
+
 internal interface IAdvancedAnalysisToolGateway
 {
     IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence { get; }
+    AdvancedAnalysisToolBudget? Budget => null;
 
     Task<IReadOnlyList<string>> ListCategoriesAsync(
         CancellationToken cancellationToken)
@@ -78,6 +88,12 @@ internal interface IAdvancedAnalysisToolGatewayFactory
         string workerId,
         int attemptCount,
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> initialEvidence);
+
+    IAdvancedAnalysisToolGateway Create(
+        Guid jobId, Guid tenantId, string workerId, int attemptCount,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> initialEvidence,
+        IReadOnlyList<AdvancedAnalysisToolEventSummary> previousToolEvents)
+        => Create(jobId, tenantId, workerId, attemptCount, initialEvidence);
 }
 
 internal sealed class AdvancedAnalysisToolGatewayFactory :
@@ -118,6 +134,12 @@ internal sealed class AdvancedAnalysisToolGatewayFactory :
         string workerId,
         int attemptCount,
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> initialEvidence)
+        => Create(jobId, tenantId, workerId, attemptCount, initialEvidence, []);
+
+    public IAdvancedAnalysisToolGateway Create(
+        Guid jobId, Guid tenantId, string workerId, int attemptCount,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> initialEvidence,
+        IReadOnlyList<AdvancedAnalysisToolEventSummary> previousToolEvents)
         => new AdvancedAnalysisToolGateway(
             jobId,
             tenantId,
@@ -131,7 +153,8 @@ internal sealed class AdvancedAnalysisToolGatewayFactory :
             _options,
             _store,
             workerId,
-            attemptCount);
+            attemptCount,
+            previousToolEvents);
 }
 
 internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
@@ -173,7 +196,8 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
         AdvancedAnalysisOptions options,
         AdvancedAnalysisJobStore? eventStore = null,
         string? workerId = null,
-        int attemptCount = 0)
+        int attemptCount = 0,
+        IReadOnlyList<AdvancedAnalysisToolEventSummary>? previousToolEvents = null)
     {
         _jobId = jobId;
         _tenantId = tenantId;
@@ -196,6 +220,9 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             options.MaximumToolElapsedMilliseconds,
             1_000,
             3_600_000);
+        var history = previousToolEvents ?? [];
+        _toolCallCount = history.Count == 0 ? 0 : history.Max(e => e.EventSequence);
+        _elapsedMilliseconds = history.Sum(e => e.ElapsedMilliseconds);
         _evidence = new List<AdvancedAnalysisResolvedEvidence>(initialEvidence);
         _evidenceByCanonicalKey = initialEvidence
             .GroupBy(static item => CanonicalKey(item.Reference), StringComparer.Ordinal)
@@ -213,6 +240,10 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
 
     public IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence =>
         _evidence.ToArray();
+
+    public AdvancedAnalysisToolBudget Budget => new(
+        _maximumToolCalls, _toolCallCount,
+        _maximumElapsedMilliseconds, _elapsedMilliseconds);
 
     public async Task<IReadOnlyList<string>> ListCategoriesAsync(
         CancellationToken cancellationToken)
@@ -250,6 +281,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
         ValidateRequest(request);
         await _serialGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         var callNumber = 0;
+        var admitted = false;
         Stopwatch? stopwatch = null;
         var requestForTrace = request;
         try
@@ -260,6 +292,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             if (_elapsedMilliseconds >= _maximumElapsedMilliseconds)
                 throw new AdvancedAnalysisToolException("tool_time_limit_exceeded");
             _toolCallCount = callNumber;
+            admitted = true;
 
             using var admission = await _bulkhead
                 .AcquireAsync(cancellationToken)
@@ -415,7 +448,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
         catch (Exception ex)
         {
             stopwatch?.Stop();
-            if (callNumber > 0)
+            if (admitted)
             {
                 var errorCode = ex is AdvancedAnalysisToolException toolException
                     ? toolException.ErrorCode

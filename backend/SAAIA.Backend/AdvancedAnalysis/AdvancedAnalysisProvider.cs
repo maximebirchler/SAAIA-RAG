@@ -68,7 +68,8 @@ internal interface IAdvancedAnalysisProvider
 
 internal sealed record AdvancedAnalysisResearchArgumentFeedback(
     string ReasonCode, string Operation, string SourceKey,
-    int? RequestedPageStart, int? RequestedPageEnd, int MaximumInclusivePages);
+    int? RequestedPageStart, int? RequestedPageEnd, int MaximumInclusivePages,
+    AdvancedAnalysisToolBudget? ToolBudget = null, int? RequestedNewOperations = null);
 
 internal sealed class AdvancedAnalysisProviderException : Exception
 {

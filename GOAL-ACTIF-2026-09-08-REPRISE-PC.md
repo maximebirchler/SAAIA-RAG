@@ -13,8 +13,8 @@ Point de preuve du 13 septembre, A825–A827 : le transport Responses accepte
 les outils natifs. C1 puis C2a restent rejetés sur le planning. C2a livre neuf
 options attestées et neuf cartes physiques vérifiées, aucune grille complète ;
 son insuffisance choisie avant épuisement ne prouve pas un déficit du corpus.
-Le registre clos après A841 totalise 35,89634150 USD sur 40 USD ; reste calculé
-4,10365850 USD, sans nouvel achat. C2b offre une mémoire
+Le registre clos après A842 totalise 36,33177790 USD sur 40 USD ; reste calculé
+3,66822210 USD, sans nouvel achat. C2b offre une mémoire
 choisie par le modèle, mais son pilote ne l'utilise pas. A828 medium conduit
 Critic à explorer davantage, sans livrer la grille. A830 compare séparément
 un contrat court de recherche et réponse : quatre lectures choisies, mais
@@ -30,11 +30,16 @@ du passage de préparation pendant la normalisation d'identité : conserver les
 citations choisies par le modèle et lui laisser corriger les mauvaises liaisons.
 Les 2 397 tests backend réussis et trois tests ciblés valident ces contrats,
 pas encore le planning. Le pilote A841 publie vingt choix, vingt références
-physiques vérifiées, mais reste rejeté sur une catégorie laissée ouverte et
-une contradiction titre/corps non signalée. A842 préenregistre une relecture
-sémantique généraliste, un pilote avant analyse avec la même enveloppe A837
-de 1,25 USD maximum ; aucune répétition aveugle ni WinUI encore autorisée par
-les preuves d'acceptation. Voir documents/agent/relecture-semantique-generaliste-a842-2026-09-13.md.
+physiques vérifiées, mais reste rejeté sur une catégorie laissée ouverte.
+Correction du diagnostic C18 : la page originale autorise poulet ou dinde ;
+le fragment omettait cette information, aucune incohérence du PDF démontrée.
+A842 ne produit pas de réponse finale : trente-deux opérations documentaires
+atteignent le plafond, masqué par l'erreur de persistance. A843 expose le
+budget réel et conserve l'erreur de frontière ; douze tests provider et un
+test PostgreSQL réel ciblé passent, suite backend à 2 410 réussites et trois
+ignorés. Un pilote avant analyse avec la même enveloppe A837 de 1,25 USD max ;
+aucune répétition aveugle ni WinUI encore autorisée par les preuves d'acceptation.
+Voir documents/agent/budget-outils-et-erreur-frontiere-a843-2026-09-13.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

@@ -45,3 +45,46 @@ figés avant banc inédit et WinUI. Aucun achat automatique, TESTE_NON_APPROUVE,
 Goal actif. L'essai séparé d'extraction physique de la page 108 a échoué : il
 ne prouve pas encore le contenu textuel direct du PDF, distinct de la page/hash
 et du texte canonique déjà contrôlés. Préserver cet échec sans le cacher.
+
+Contrôles exécutés ensuite : base temporaire isolée PostgreSQL 16, test initial
+RED (erreur de persistance à la place de l'erreur de limite), correctif puis
+PASS avec deux événements durables conservés et erreur de limite intacte.
+Chaque cluster est vérifié et arrêté, port 55432 libre, variables restaurées.
+Douze scénarios provider passent en Responses et Chat Completions : batch
+excédentaire totalement refusé puis corrigé par le modèle, admission exacte,
+zéro appels ou temps restant, aucun appel de correction hors réserve, premier
+batch du Planner refusé atomiquement. Les outils natifs sont déjà indisponibles
+si researchAllowed est faux ; ne pas changer le protocole ou l'effort par phase.
+Suite complète finale : 2 410 réussites, zéro échec, trois live ignorés. Les
+échecs intermédiaires de compilation/fixtures et de suite sont conservés ;
+ils ne sont pas présentés comme une reproduction causale du défaut gateway.
+
+Correction de diagnostic après lecture directe et examen visuel de la page 108
+du PDF original, hash identique : la liste des ingrédients autorise « poulet ou
+de dinde ». Le fragment modèle omettait cette information. Retirer la conclusion
+d'incohérence source et conserver l'évaluation A841 v1, remplacée par v2 :
+rejet pour une catégorie ouverte C19 ; dix-neuf choix nommés documentés. Ne pas
+prétendre que le modèle avait vu les ingrédients supplémentaires. A842 reste
+une demande généraliste d'investigation du contexte d'un désaccord apparent.
+Copie et rendu privé non versionnés, aucune modification du corpus ni appel API.
+
+Amendement avant correction de reprise, 19h43 UTC : le budget d'opérations
+est partagé avec le compteur durable, qui survit aux tentatives, tandis que
+le compteur gateway local repartait à zéro. Restaurer appels et temps consommés
+depuis l'historique déjà chargé et revalidé par le worker. Adapter la factory
+sans inventer un budget dans les gateways de test qui ne le fournissent pas.
+Étendre le contrôle PostgreSQL à un bail expiré : le gateway repris conserve
+le reste zéro et n'écrit pas une nouvelle opération refusée. Aucun nouveau
+pilote ni nouvelle attribution causale avant cette vérification et la suite.
+
+Contrôle de reprise terminé : deux tests PostgreSQL réels réussis sur nouveau
+cluster isolé, dont frontière et compteur/temps restaurés ainsi que la reprise
+canonique historique. Le premier essai de cette extension omettait la récupération
+du bail expiré avant revendication ; fixture corrigée, échec conservé. Suite
+complète après modification worker/factory : 2 410 réussites, zéro échec, trois
+ignorés (tool-a843-backend-full-v3). La reproduction RED initiale concerne le
+masquage d'erreur ; pas de prétention à une mesure RED antérieure de la reprise.
+Un budget nul empêche aussi le batch initial d'un job repris ; aucun résultat
+answered après reprise à budget nul n'est démontré par ces tests. Les informations
+de budget sont présentées pendant la synthèse/recherche et les batches initiaux
+restent contrôlés mécaniquement avant I/O.

@@ -468,6 +468,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         CancellationToken cancellationToken,
         Dictionary<string, AdvancedAnalysisSearchObservation>? observationsBySearch = null)
     {
+        EnsureResearchBatchFitsToolBudget(tools, plannedQueries, previouslyExecuted);
         foreach (var planned in plannedQueries)
         {
             if (!previouslyExecuted.Add(BuildSearchIdentity(planned)))

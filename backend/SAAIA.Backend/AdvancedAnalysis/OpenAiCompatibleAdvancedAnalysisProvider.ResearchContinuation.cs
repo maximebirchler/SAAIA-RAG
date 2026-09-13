@@ -139,6 +139,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            A contents entry identifies where to investigate, not the item's body.
            Prefer this follow-up to another general query for the same unit family.
            Request research only when researchTools.researchAllowed is true.
+           researchTools.documentaryBudget, when present, is the actual shared
+           budget for search, page read and literal find operations. Each new
+           operation consumes one call; an open model-call budget does not grant
+           additional documentary calls. Keep complete batches within the remainder.
            A limit on further research does not prove absence from the corpus.
            """ + "\n" + CanonicalSourceReadContract;
 
@@ -167,6 +171,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             cancellationToken.ThrowIfCancellationRequested();
             if (completions.Count >= maximumCalls)
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_research_call_budget_exhausted");
+            var toolBudget = context.Tools.Budget;
             var evidence = FilterEvidenceToRequestedDocumentSet(request,
                 OrderEvidenceForPrompt(context.Tools.Evidence, context.EvidenceGroups));
             var focusedEvidence = PrioritizeFocusedEvidenceForPrompt(evidence,
@@ -203,8 +208,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     payload["researchTools"] = JsonSerializer.SerializeToNode(new
                 {
                     tools = BuildResearchToolsForPrompt(),
-                    researchAllowed = maximumCalls - completions.Count - 1 - reservedFinalCalls > 0,
+                    researchAllowed = maximumCalls - completions.Count - 1 - reservedFinalCalls > 0
+                        && (toolBudget is null || toolBudget.RemainingCalls > 0
+                            && toolBudget.RemainingElapsedMilliseconds > 0),
                     remainingModelCalls = Math.Max(0, maximumCalls - completions.Count - 1 - reservedFinalCalls),
+                    documentaryBudget = toolBudget,
                     maximumQueries = ResolveMaximumPlanQueries(request),
                     availableCategories = context.AvailableCategories,
                     priorSearches = BuildPriorSearchesForPrompt(context.PriorSearches, observations)
@@ -277,6 +285,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 {
                     decision = "search_more", queries = values
                 }, JsonOptions), request, context.AvailableCategories, observations);
+                EnsureResearchBatchFitsToolBudget(context.Tools, queries, context.PreviouslyExecuted);
             }
             catch (Exception error) when (error is JsonException or AdvancedAnalysisProviderException)
             {
@@ -290,6 +299,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     nextPhase = $"{phase}-research-argument-recovery-{++argumentRecovery}";
                     continue;
                 }
+                if (error is AdvancedAnalysisProviderException
+                    { ErrorCode: "advanced_synthesis_research_tool_budget_exceeded" })
+                    throw;
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_research_protocol_invalid");
             }
             argumentFeedback = null;
@@ -322,6 +334,27 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             followup++;
             nextPhase = $"{phase}-research-followup-{followup}";
         }
+    }
+
+    private static void EnsureResearchBatchFitsToolBudget(
+        IAdvancedAnalysisToolGateway tools,
+        IReadOnlyList<AdvancedAnalysisSearchRequest> queries,
+        IReadOnlySet<string> previouslyExecuted)
+    {
+        if (tools.Budget is not { } budget)
+            return;
+        var newOperations = queries.Select(BuildSearchIdentity)
+            .Where(identity => !previouslyExecuted.Contains(identity))
+            .Distinct(StringComparer.OrdinalIgnoreCase).Count();
+        if (newOperations <= budget.RemainingCalls
+            && (newOperations == 0 || budget.RemainingElapsedMilliseconds > 0))
+            return;
+        var reason = newOperations > budget.RemainingCalls
+            ? "research_tool_call_budget_exceeded" : "research_tool_time_budget_exhausted";
+        throw new AdvancedAnalysisProviderException(
+            "advanced_synthesis_research_tool_budget_exceeded",
+            researchArgumentFeedback: new(reason, "batch", string.Empty, null, null, 4,
+                budget, newOperations));
     }
 
     private static bool RequestsCorpusResearch(string raw)
