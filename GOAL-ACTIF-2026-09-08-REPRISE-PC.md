@@ -13,15 +13,18 @@ Point de preuve du 13 septembre, A825–A827 : le transport Responses accepte
 les outils natifs. C1 puis C2a restent rejetés sur le planning. C2a livre neuf
 options attestées et neuf cartes physiques vérifiées, aucune grille complète ;
 son insuffisance choisie avant épuisement ne prouve pas un déficit du corpus.
-Le registre clos totalise 33,98436250 USD sur 40 USD. C2b offre une mémoire
+Le registre clos totalise 34,45560220 USD sur 40 USD. C2b offre une mémoire
 choisie par le modèle, mais son pilote ne l'utilise pas. A828 medium conduit
 Critic à explorer davantage, sans livrer la grille. A830 compare séparément
 un contrat court de recherche et réponse : quatre lectures choisies, mais
 rejet final d'une identité et quatre choix abstraits. A834 préenregistre la
 clarification généraliste des choix concrets et de leur formulation exacte :
 vingt choix nommés, mais preuve évincée et portée de deux liaisons non approuvée.
-A835 préenregistre la continuité bornée des preuves choisies par le modèle. Les
-2 375 tests backend réussis valident ces contrats, pas encore le planning.
+A835 conserve les preuves sélectionnées ; A836 ajoute les retours de liaisons
+et protège toutes les citations invisibles. Son pilote reste rejeté sur un
+remplacement cité sur couverture. A837 préenregistre high/8192/douze appels,
+1,25 USD maximum, sans affaiblir les critères. Les 2 395 tests backend réussis
+valident ces contrats, pas encore le planning.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

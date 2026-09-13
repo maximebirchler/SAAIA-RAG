@@ -55,3 +55,20 @@ plutôt qu'un passage silencieux de l'ancien parseur. Suite backend Release :
 valide, build sans avertissement, diff propre. Première compilation des nouvelles
 fixtures corrigée : leur helper devait retourner HttpResponseMessage et non
 string. Le diagnostic d'échec est conservé. Aucun appel réel A836 à ce stade.
+
+## Pilote clos, rejeté
+
+Candidat d21ec3d, job 3228323d-5704-4d18-bc88-033a85140481 : sept appels,
+0,47123970 USD, dix-sept recherches, aucune lecture. Les trois propositions
+terminales gardent toutes leurs citations visibles. Critic introduit toutefois
+un choix cité seulement dans un index ; le retour de contenu est bien transmis.
+Sa correction finale remplace ce choix par des muffins cités sur une couverture
+publicitaire. Le nom contient la ligature ﬁ dans la source, et le contrôle
+d'identité exact refuse cette dernière liaison. Le sens du nom peut être compris,
+mais la couverture ne prouve pas non plus le contenu substantiel de l'item.
+
+Job failed, erreur advanced_synthesis_candidate_identity_not_supported, aucun
+résultat publié. Le runner signale donc un contrat de réponse non satisfait.
+Pas d'acceptation des vingt liaisons, audit physique, répétition, holdout ni
+WinUI ; ressources closes et suivi propre. Registre clos : 34,45560220 USD sur
+40. L'expérience A837 augmente séparément l'enveloppe de travail avancée.
