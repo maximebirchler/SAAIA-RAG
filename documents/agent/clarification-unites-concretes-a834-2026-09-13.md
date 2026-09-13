@@ -37,3 +37,12 @@ avant holdout inédit et WinUI. En cas d'échec, pas de répétition automatique
 analyser puis préenregistrer une nouvelle hypothèse. Enveloppe achetée 40 USD,
 registre clos 33,54447160 USD, reste calculé 6,45552840 USD. Aucun nouvel achat.
 Goal actif ; produit TESTE_NON_APPROUVE.
+
+## Contrôle avant pilote
+
+Contrat agent clarifié dans son seul constructeur système ; défaut contract,
+fonctions et validations inchangés. Les trois cas existants des deux protocoles
+réussissent. Suite backend Release : 2 375 réussites, aucun échec, trois ignorés.
+Build sans avertissement, diff propre. Le premier filtre ciblé ne sélectionnait
+aucun test ; son résultat n'est pas compté, le filtre corrigé en exécute trois.
+Aucun appel réel A834 à ce stade.

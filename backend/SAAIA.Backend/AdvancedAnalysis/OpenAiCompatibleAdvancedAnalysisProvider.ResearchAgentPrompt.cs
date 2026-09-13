@@ -37,10 +37,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            text and evidenceIds. Copy only IDs present in current user.evidence.
            Respect the requested distinctions and layout; for claimCoordinates,
            use their exact claimIds and do not invent an entry to fill a cell.
+           When distinct atomic choices are requested, each coordinate needs a
+           concrete chosen item that answers that unit's purpose. Category names,
+           section headings and abstract composition templates are not additional
+           distinct choices. A documented simple item may be a valid proposal;
+           do not require a complete procedure unless the user requests one.
+           For selectedItem, copy the exact item phrase present in a cited excerpt,
+           including internal articles, modifiers and variant words. Keep natural
+           wording in answerText, but preserve the documentary identity in claims.
            Place [claimId] once beside each supported answer unit and use every
            claim exactly once. Keep the requested language and format. Never
            expose source handles or evidence IDs in user-facing text. During
            research, call the available functions rather than publish claims.
-           """ + (critic ? "\nAssess the prior candidate critically, using all current evidence. Correct unsupported associations or continue research when useful. Return your own supported terminal result, not an approval label."
+           """ + (critic ? "\nAssess the prior candidate critically, using all current evidence. Verify that every requested atomic choice is concrete, distinct and appropriate, rather than a category or abstract template counted as a new item. Correct unsupported associations or continue research when useful. Return your own supported terminal result, not an approval label."
                : string.Empty);
 }
