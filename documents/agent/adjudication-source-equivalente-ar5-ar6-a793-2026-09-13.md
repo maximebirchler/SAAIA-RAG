@@ -1,0 +1,13 @@
+# A793 — Revue de la comparaison AR5/AR6 et du critère de source
+
+BH6-017 demande un tableau comparant quatre expressions probabilistes dans IPCC AR5 et AR6, puis une conclusion limitée sur leur cohérence. Il ne demande pas que chaque valeur soit citée exclusivement dans le rapport original correspondant. Le verdict aveugle historique rejette cette réponse pour `source_substitution`. Aucune modification de ce verdict ni de son score 1/24 n'est faite.
+
+L'export du job original montre que les quatre claims AR5 citent chacun les pages PDF 1186 et 17 d'AR6 WG2 ; les claims AR6 citent la page 17. Cette dernière définit les quatre plages demandées — 90–100 %, 66–100 %, 33–66 % et 0–10 % — et indique explicitement que cette terminologie est cohérente avec AR5 et les autres rapports AR6. Cette phrase figure dans le texte canonique indexé et dans le PDF physique. La page 1186 seule ne prouve pas l'attribution AR5 ; la page 17 la complète dans les propres citations de chaque claim concerné.
+
+Les deux sources du résultat original passent à nouveau l'audit physique/canonique : fichier et hash, révision, ancre, pages, aucun défaut. Une extraction indépendante des deux pages physiques par pikepdf en mémoire puis pypdf confirme le passage. Aucun fichier serveur n'est modifié ; aucune génération modèle ni dépense API n'est effectuée. Le premier transfert SFTP du PDF entier, trop lent, est interrompu uniquement sur le processus de lecture possédé et remplacé par cette extraction des deux pages en mémoire. L'incident reste consigné.
+
+La revue manuelle conclut que les huit valeurs et la conclusion limitée sont soutenues par une source équivalente valide. Elle diffère du jugement automatique du cas consommé. Elle ne constitue ni une nouvelle exécution aveugle, ni un score recalculé, ni une approbation produit. Mon diagnostic précédent présentant encore l'attribution AR5 comme un défaut à corriger est retiré sur la base de cette preuve.
+
+Preuves : `artifacts/reprise-pc-20260908/a793-ipcc-source-adjudication-20260913/semantic-adjudication.v1.json`, `source-audit.json`, `physical-pdf-read.json` et export A788 `original-ipcc-evidence/evidence-bundle.json`. SHA du verdict historique inchangé : `21681AC12FAEF66B337843004FF9381A649E0F70D7F89678593B11BCFD7481D2`.
+
+Le prochain protocole doit distinguer une identité documentaire explicitement imposée d'une preuve équivalente qui soutient la même affirmation. Il doit aussi séparer capacité exécutante et issue finale, et ne pas déduire une absence dans tout le corpus depuis un registre limité d'extraits. Ces règles seront fixées avant la création du prochain holdout. Aucun correctif produit de provenance AR5 n'est ajouté pour ce cas.
