@@ -79,6 +79,15 @@ français généraux et cinq régressions français/allemand sont ajoutés. Les
 messages traduits seuls n'auraient pas corrigé cette erreur en amont. Les 58
 tests ciblés de cette deuxième correction passent.
 
+Vérification réelle au commit `32d0dd6521095bd72520627892019feb5915edd0` :
+BH6-011 est rejoué seul, avec le modèle local sur ce PC et sans serveur avancé.
+L'insuffisance est maintenant rendue en français, avec `language=fr` dans la
+trace et langue française détectée dans la réponse, en 16,031 s. Le journal
+OpenAI reste inchangé, l'environnement est restauré et le port 1234 libéré.
+La suite client Release finale compte 2 287 réussites, zéro échec et une sonde
+live ignorée. Cette preuve porte sur la correction de langue de ce cas et ne
+valide pas la qualité générale des recherches ni des synthèses avancées.
+
 ## Méthode exigée pour la prochaine banque
 
 - Décrire la frontière locale de manière opérationnelle, issue des mesures qualifiées, avant d'imposer un chemin d'exécution. Éviter une définition vague telle que « relativement direct ».
