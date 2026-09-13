@@ -61,8 +61,8 @@ public sealed partial class ToolAgentOrchestrator
     private static string IncludeUserInstanceContext(
         IReadOnlyList<(string role, string content)> history, string request)
     {
-        var userContext = history.TakeLast(2)
-            .Where(turn => string.Equals(turn.role, "user", StringComparison.OrdinalIgnoreCase))
+        var userContext = history
+            .Where(turn => string.Equals(turn.role, "user", StringComparison.OrdinalIgnoreCase)).TakeLast(2)
             .Select(turn => TruncateForPrompt(turn.content, 1_200))
             .Where(content => !string.IsNullOrWhiteSpace(content)
                 && !string.Equals(content, request, StringComparison.Ordinal)).ToArray();

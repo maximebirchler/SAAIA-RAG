@@ -207,9 +207,11 @@ public sealed class NativeMissingUserInputContractTests
         public Task<SourceBackedAgentCompletion> CompleteStructuredAsync(IReadOnlyList<SourceBackedAgentMessage> messages,
             LlmStructuredOutputContract contract, int maxTokens, CancellationToken ct, double? temperatureOverride = null)
         {
+            if (contract.Name == "saaia_user_document_binding_v1")
+                return Task.FromResult(new SourceBackedAgentCompletion("{\"copiedDocumentIdentity\":\"\",\"userRequiresParticularDocument\":false}", [], "stop"));
             if (contract.Name == "saaia_user_instance_context_v1")
                 return Task.FromResult(new SourceBackedAgentCompletion("{\"actualContextSupplied\":false}", [], "stop"));
-            if (contract.Name == "saaia_work_family_v5")
+            if (contract.Name == "saaia_work_family_v6")
                 return Task.FromResult(new SourceBackedAgentCompletion("{\"family\":\"missing_user_binding\"}", [], "stop"));
             Assert.Equal("saaia_answer_units_v2", contract.Name);
             UnitCalls++;
@@ -253,9 +255,11 @@ public sealed class NativeMissingUserInputContractTests
             CancellationToken ct,
             double? temperatureOverride = null)
         {
+            if (contract.Name == "saaia_user_document_binding_v1")
+                return Task.FromResult(new SourceBackedAgentCompletion("{\"copiedDocumentIdentity\":\"\",\"userRequiresParticularDocument\":false}", [], "stop"));
             if (contract.Name == "saaia_user_instance_context_v1")
                 return Task.FromResult(new SourceBackedAgentCompletion("{\"actualContextSupplied\":false}", [], "stop"));
-            if (contract.Name == "saaia_work_family_v5")
+            if (contract.Name == "saaia_work_family_v6")
             {
                 return Task.FromResult(new SourceBackedAgentCompletion(
                     "{\"family\":\"answer\"}", [], "stop"));

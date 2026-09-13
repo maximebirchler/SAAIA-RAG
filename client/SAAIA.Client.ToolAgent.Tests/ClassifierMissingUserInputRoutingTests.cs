@@ -25,7 +25,7 @@ public sealed class ClassifierMissingUserInputRoutingTests
         var agent = new ToolAgentOrchestrator(new ApiClient(), llm, memory,
             new AppSettings { ActiveMode = "strict" });
         var result = await agent.RunAsync([], request, CancellationToken.None);
-        Assert.Equal(2, llm.StructuredCalls);
+        Assert.Equal(3, llm.StructuredCalls); // Work family, supplied facts, document binding.
         Assert.Equal(1, llm.NativeCalls);
         Assert.EndsWith("?", result.finalAnswer.Trim());
         Assert.DoesNotContain("regulatory", result.finalAnswer, StringComparison.OrdinalIgnoreCase);
@@ -47,6 +47,8 @@ public sealed class ClassifierMissingUserInputRoutingTests
             int maxTokens, CancellationToken ct, double? temperatureOverride = null)
         {
             StructuredCalls++;
+            if (contract.Name == "saaia_user_document_binding_v1")
+                return Task.FromResult(new SourceBackedAgentCompletion("{\"copiedDocumentIdentity\":\"\",\"userRequiresParticularDocument\":false}", [], "stop"));
             if (contract.Name == "saaia_user_instance_context_v1")
                 return Task.FromResult(new SourceBackedAgentCompletion("{\"actualContextSupplied\":false}", [], "stop"));
             Assert.Equal(1, StructuredCalls); // No answer-unit extraction for a clarification.

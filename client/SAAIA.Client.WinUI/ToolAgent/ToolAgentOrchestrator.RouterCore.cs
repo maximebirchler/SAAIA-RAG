@@ -152,7 +152,7 @@ USER_MESSAGE:
                 EmitRagTrace(
                     "router.native.classifier.completed",
                     ("accepted", classifierAccepted),
-                    ("classifier_contract", useStructuredClassifier ? "saaia_work_family_v5" : "native_tools"),
+                    ("classifier_contract", useStructuredClassifier ? "saaia_work_family_v6" : "native_tools"),
                     ("selected_contract", selectedRouteToolName),
                     ("finish_reason", classifierCompletion.FinishReason),
                     ("prompt_tokens", classifierCompletion.PromptTokens),
@@ -168,6 +168,7 @@ USER_MESSAGE:
                         classifierCompletion.ServerPredictedMilliseconds),
                     ("ms", classifierSw.ElapsedMilliseconds));
                 var instanceContextUnconfirmed = false;
+                var userReferenceUnconfirmed = false;
                 if (classifierAccepted && (selectedRouteToolName is RequestMissingUserInputToolName or SubmitSourceBackedRouteToolName)
                     && structuredClassifier is not null)
                 {
@@ -184,6 +185,22 @@ USER_MESSAGE:
                     // An uncertain context check cannot justify asking the user again.
                     if (!validContext || suppliedContext)
                         selectedRouteToolName = SubmitApplicationDecisionRouteToolName;
+                }
+
+                if (useStructuredClassifier && selectedRouteToolName is RequestMissingUserInputToolName or SubmitSourceBackedRouteToolName)
+                {
+                    var binding = await CompleteUserDocumentBindingAsync(structuredClassifier!, chatHistory, userMessage,
+                        nativeRouterTimeoutCts.Token).ConfigureAwait(false);
+                    EmitRagTrace("router.document_binding.completed", ("state", binding.ToString()));
+                    if (binding == UserDocumentBindingState.Unbound)
+                        selectedRouteToolName = RequestUnboundUserReferenceRouteToolName;
+                    else if (binding == UserDocumentBindingState.Identified)
+                        selectedRouteToolName = SubmitSourceBackedRouteToolName;
+                    else if (binding == UserDocumentBindingState.Unconfirmed)
+                    {
+                        userReferenceUnconfirmed = true;
+                        selectedRouteToolName = SubmitApplicationDecisionRouteToolName;
+                    }
                 }
 
                 var nativeRouterSystem = useSpecializedRoute
@@ -633,10 +650,12 @@ USER_MESSAGE:
                 {
                     if (selectedRouteToolName == RequestMissingUserInputToolName && nativePlan.NeedClarification)
                         nativePlan = BuildMissingInstanceFactsRouterPlan(detectedMessageLanguage);
+                    if (selectedRouteToolName == RequestUnboundUserReferenceRouteToolName && nativePlan.NeedClarification)
+                        nativePlan = BuildMissingDocumentReferenceRouterPlan(detectedMessageLanguage);
                     if (selectedRouteToolName == SubmitApplicationDecisionRouteToolName
                         && nativePlan.SourceBackedMission is not null)
                     {
-                        nativePlan.SourceBackedMission.QuestionFocus = "user_instance_context";
+                        nativePlan.SourceBackedMission.QuestionFocus = userReferenceUnconfirmed ? "user_reference_context" : "user_instance_context";
                         if (instanceContextUnconfirmed)
                             nativePlan.RiskFlags.Add("instance_context_check_unconfirmed");
                     }

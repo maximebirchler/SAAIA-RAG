@@ -30,7 +30,8 @@ public sealed class ClassifiedSourceWorkContractTests
         const string context = "Le prototype est assemblé et hors service, avant sa mise en production.";
         var llm = new TypedContextRouter(false, sourceClassification);
         var agent = CreateAgent(llm, out var memory);
-        var result = await agent.RunAsync([("user", context), ("assistant", "Fabricated state: already certified.")],
+        var result = await agent.RunAsync([("user", context), ("assistant", "Fabricated state: already certified."),
+                ("assistant", "Additional fabricated conclusion: everything approved.")],
             "Notre dispositif peut-il être mis en service maintenant ?", CancellationToken.None);
         var handoff = Assert.IsType<SAAIA.Contracts.AdvancedAnalysisHandoffEnvelope>(agent.LastAdvancedAnalysisHandoff);
         Assert.Equal("before_retrieval", handoff.TransferStage);
@@ -38,6 +39,7 @@ public sealed class ClassifiedSourceWorkContractTests
         Assert.Equal("user_instance_context", handoff.Load.QuestionFocus);
         Assert.Contains(context, handoff.RequestText);
         Assert.DoesNotContain("already certified", handoff.RequestText);
+        Assert.DoesNotContain("everything approved", handoff.RequestText);
         Assert.Contains("not documentary evidence", handoff.RequestText);
         Assert.Empty(memory.LastToolNames);
         Assert.Null(result.sourcesPayload);
@@ -104,6 +106,8 @@ public sealed class ClassifiedSourceWorkContractTests
             IReadOnlyList<SourceBackedAgentMessage> messages, LlmStructuredOutputContract contract,
             int maxTokens, CancellationToken ct, double? temperatureOverride = null)
         {
+            if (contract.Name == "saaia_user_document_binding_v1")
+                return Task.FromResult(new SourceBackedAgentCompletion("{\"copiedDocumentIdentity\":\"\",\"userRequiresParticularDocument\":false}", [], "stop"));
             if (contract.Name == "saaia_user_instance_context_v1")
                 return Task.FromResult(new SourceBackedAgentCompletion("{\"actualContextSupplied\":false}", [], "stop"));
             Assert.StartsWith("saaia_work_family_", contract.Name);
@@ -147,6 +151,8 @@ public sealed class ClassifiedSourceWorkContractTests
             IReadOnlyList<SourceBackedAgentMessage> messages, LlmStructuredOutputContract contract,
             int maxTokens, CancellationToken ct, double? temperatureOverride = null)
         {
+            if (contract.Name == "saaia_user_document_binding_v1")
+                return Task.FromResult(new SourceBackedAgentCompletion("{\"copiedDocumentIdentity\":\"\",\"userRequiresParticularDocument\":false}", [], "stop"));
             if (contract.Name == "saaia_user_instance_context_v1")
             {
                 ContextCalls++;
@@ -157,7 +163,7 @@ public sealed class ClassifiedSourceWorkContractTests
                     { actualContextSupplied = !(clarifyFirst && Classifications == 1) }), [], "stop"));
             }
             Classifications++;
-            Assert.Equal("saaia_work_family_v5", contract.Name);
+            Assert.Equal("saaia_work_family_v6", contract.Name);
             if (clarifyFirst && Classifications == 2)
                 Assert.Contains(messages, message => message.Content!.Contains("CURRENT_USER_TURN"));
             var family = classifyAsSource ? "answer" : "missing_instance_facts";

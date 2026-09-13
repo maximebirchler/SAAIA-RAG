@@ -25,10 +25,10 @@ public sealed class StructuredFamilyClassifierTests
         Assert.Equal(new[] { "submit_operational_route", "request_user_clarification" }, llm.LastToolNames);
         if (expectedStructured)
         {
-            Assert.Equal("saaia_work_family_v5", llm.Contract!.Name);
+            Assert.Equal("saaia_work_family_v6", llm.Contract!.Name);
             var properties = llm.Contract.Schema.GetProperty("properties");
             Assert.Single(properties.EnumerateObject());
-            Assert.Equal(new[] { "answer", "overview", "grid", "operation", "missing_instance_facts", "missing_user_binding" },
+            Assert.Equal(new[] { "answer", "overview", "grid", "operation", "missing_instance_facts" },
                 properties.GetProperty("family").GetProperty("enum").EnumerateArray().Select(x => x.GetString()));
             Assert.False(llm.Terminal);
             Assert.Equal(64, llm.MaximumOutput);
@@ -42,7 +42,7 @@ public sealed class StructuredFamilyClassifierTests
     [InlineData("{\"family\":\"operation\"}", "stop", "submit_operational_route")]
     [InlineData("{\"family\":\"missing_instance_facts\"}", "stop", "request_missing_user_input")]
     [InlineData("{\"family\":\"application_decision\"}", "stop", "")]
-    [InlineData("{\"family\":\"missing_user_binding\"}", "stop", "request_unbound_user_reference_route")]
+    [InlineData("{\"family\":\"missing_user_binding\"}", "stop", "")]
     [InlineData("{\"family\":\"answer\"}", "length", "")]
     [InlineData("{\"family\":\"answer\"", "length", "")]
     [InlineData("{\"family\":\"unknown\"}", "stop", "")]

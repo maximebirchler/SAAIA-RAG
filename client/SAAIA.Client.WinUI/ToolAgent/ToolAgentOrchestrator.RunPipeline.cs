@@ -458,7 +458,7 @@ public sealed partial class ToolAgentOrchestrator
                 plan.Language);
             BuildAndRememberAdvancedAnalysisHandoff(
                 plan,
-                capabilityBoundary.PlanKind == "user_instance_context"
+                capabilityBoundary.PlanKind is "user_instance_context" or "user_reference_context"
                     ? IncludeUserInstanceContext(chatHistory, effectiveUserMessage) : effectiveUserMessage,
                 capabilityBoundary.ReasonCode,
                 "before_retrieval",

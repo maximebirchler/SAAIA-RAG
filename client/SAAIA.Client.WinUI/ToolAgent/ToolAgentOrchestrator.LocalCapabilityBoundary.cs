@@ -44,6 +44,9 @@ public sealed partial class ToolAgentOrchestrator
         }
 
         var mission = plan.SourceBackedMission;
+        if (mission.QuestionFocus == "user_reference_context")
+            return new LocalCapabilityBoundaryDecision(true, "user_reference_check_unconfirmed_outside_local_envelope",
+                "user_reference_context", Math.Max(1, mission.AtomicEvidenceCount));
         if (string.Equals(mission.QuestionFocus, "user_instance_context", StringComparison.Ordinal))
             return new LocalCapabilityBoundaryDecision(true,
                 plan.RiskFlags.Contains("instance_context_check_unconfirmed", StringComparer.Ordinal)
