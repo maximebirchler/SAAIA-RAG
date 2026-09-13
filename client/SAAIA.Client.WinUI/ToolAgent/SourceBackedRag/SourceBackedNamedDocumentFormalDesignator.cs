@@ -26,6 +26,7 @@ public sealed partial class SourceBackedNamedDocumentResolver
         var designators = ExtractFormalDesignators(requestedName);
         if (designators.Count == 0)
             return false;
+        var editionYears = ExtractFormalEditionYears(requestedName);
 
         return new[]
             {
@@ -35,7 +36,7 @@ public sealed partial class SourceBackedNamedDocumentResolver
             .Where(static value => !string.IsNullOrWhiteSpace(value))
             .Select(RemoveExtension)
             .Any(candidateStem => designators.All(designator =>
-                ContainsExactFormalDesignator(candidateStem, designator)));
+                ContainsExactFormalDesignator(candidateStem, designator, editionYears)));
     }
 
     internal static bool IsFormalDesignatorCatalogQueryMatch(
@@ -81,11 +82,33 @@ public sealed partial class SourceBackedNamedDocumentResolver
                out var numeric)
            && numeric is >= 1900 and <= 2099;
 
+    private static IReadOnlyList<string> ExtractFormalEditionYears(string value)
+        => Regex.Matches(
+                value,
+                @"(?<!\d)\d{4,6}(?:[-/]\d{1,4})?(?!\d)",
+                RegexOptions.CultureInvariant)
+            .Select(static match => match.Value)
+            .Where(IsPlausibleStandaloneYear)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
     private static bool ContainsExactFormalDesignator(
         string candidateStem,
-        string designator)
-        => Regex.IsMatch(
+        string designator,
+        IReadOnlyList<string>? editionYears = null)
+    {
+        if (editionYears is not { Count: > 0 })
+            return Regex.IsMatch(
+                candidateStem,
+                $@"(?<!\d){Regex.Escape(designator)}(?![\d/-])",
+                RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+        // An explicit edition qualifies the identifier, not any publication
+        // date elsewhere in the title. This is an identity check, not a
+        // preference for the newest edition in the catalog.
+        return editionYears.All(year => Regex.IsMatch(
             candidateStem,
-            $@"(?<!\d){Regex.Escape(designator)}(?![\d/-])",
-            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+            $@"(?<!\d){Regex.Escape(designator)}[\s:_-]+{Regex.Escape(year)}(?!\d)",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase));
+    }
 }

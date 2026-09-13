@@ -137,6 +137,51 @@ public sealed class SourceBackedNamedDocumentCatalogResolverTests
             result.ReasonCode);
     }
 
+    [Theory]
+    [InlineData("ISO 13849-1:2023", "ISO 13849-1 2023")]
+    [InlineData("norme EN ISO 13849-1:2023", "ISO 13849-1 2023")]
+    [InlineData("EN ISO 13849-1 2023", "ISO 13849-1:2023")]
+    [InlineData("ISO 13849-1:2023", "EN_ISO_13849-1_2023")]
+    [InlineData("ISO 13849-1:2023", "EN ISO 13849-1-2023")]
+    public async Task Explicit_edition_is_preserved_when_formal_designator_resolves_identity(string requested, string targetStem)
+    {
+        var catalog = SinglePageCatalog(
+            Candidate("doc-old", "Standards/ISO 13849-1 2015 Safety of machinery.pdf"),
+            Candidate("doc-target", "Standards/" + targetStem + " Safety of machinery.pdf"));
+        var result = await new SourceBackedNamedDocumentResolver(catalog).ResolveAsync(requested, CancellationToken.None);
+        Assert.Equal(SourceBackedDocumentResolutionStatus.Resolved, result.Status);
+        Assert.True(result.CatalogObservationComplete);
+        Assert.Equal("doc-target", Assert.Single(result.Candidates).DocId);
+    }
+
+    [Fact]
+    public async Task Explicit_edition_never_resolves_to_another_edition()
+    {
+        var catalog = SinglePageCatalog(Candidate("doc-old", "Standards/ISO 13849-1 2015 Safety of machinery.pdf"));
+        var result = await new SourceBackedNamedDocumentResolver(catalog).ResolveAsync("ISO 13849-1:2023", CancellationToken.None);
+        Assert.Equal(SourceBackedDocumentResolutionStatus.NotFound, result.Status);
+        Assert.Empty(result.Candidates);
+    }
+
+    [Fact]
+    public async Task Publication_year_elsewhere_in_the_title_is_not_the_requested_edition()
+    {
+        var catalog = SinglePageCatalog(Candidate("doc-old", "Standards/ISO 13849-1 2015 Commentary published 2023.pdf"));
+        var result = await new SourceBackedNamedDocumentResolver(catalog).ResolveAsync("ISO 13849-1:2023", CancellationToken.None);
+        Assert.Equal(SourceBackedDocumentResolutionStatus.NotFound, result.Status);
+    }
+
+    [Fact]
+    public async Task Unspecified_edition_remains_ambiguous_when_multiple_editions_exist()
+    {
+        var catalog = SinglePageCatalog(
+            Candidate("doc-old", "Standards/ISO 13849-1 2015 Safety of machinery.pdf"),
+            Candidate("doc-new", "Standards/ISO 13849-1 2023 Safety of machinery.pdf"));
+        var result = await new SourceBackedNamedDocumentResolver(catalog).ResolveAsync("norme ISO 13849-1", CancellationToken.None);
+        Assert.Equal(SourceBackedDocumentResolutionStatus.Ambiguous, result.Status);
+        Assert.Equal(2, result.ExactMatchCount);
+    }
+
     [Fact]
     public async Task Formal_designator_is_sent_as_a_catalog_query()
     {
