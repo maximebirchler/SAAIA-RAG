@@ -219,6 +219,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            source_chunk may also support a named item when that exact name is
            explicitly present in its content, including a source index; copy the
            exact displayed name and cite that chunk.
+           For source-defined procedures and sequences, preserve the requested
+           variant and each stage's actors, transferred items and validation
+           conditions. A general description of the protocol family cannot
+           replace a more specific supplied description. Do not omit a binding,
+           compatibility or verification condition merely because a shorter
+           statement is individually true. contentTruncated means the supplied text was clipped: never
+           infer that its unseen remainder has no additional requirements.
            In answerText, append [claimId] directly to the factual unit
            it supports and use every claimId exactly once. For a synthesis or
            grid, separate documentary facts from the synthesis you create. You may
@@ -407,6 +414,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            Every factual unit must be backed by its declared evidenceIds and every
            [claimId] must appear exactly once in answerText.
 
+           Before accepting the candidate, audit completeness against the most
+           specific supplied procedure or variant. Individually true generic
+           claims can still omit decisive stage-specific transferred items,
+           validation conditions or bindings. Complete those fields from the
+           supplied evidence and cite the specific passage. Do not confuse stage
+           labels from a generic family flow with those of the requested variant.
+           A clipped
+           item is marked contentTruncated and cannot establish that its unseen
+           remainder adds no requirements. Preserve the distinction between
+           source-defined stages and arrangements SAAIA is asked to create.
+
            A mandatory qualifier applies to every requested output unit unless the
            request explicitly limits its scope. Verify it separately for every
            claim using that claim's own evidenceIds. Do not transfer audience,
@@ -498,7 +516,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         string EvidenceKind,
         string? CandidateTitle,
         bool CandidateTitleIsSourceExact,
-        string Content);
+        string Content,
+        int OriginalContentLength,
+        bool ContentTruncated);
 
     private sealed record StructuredClaimCoordinate(
         string ClaimId,
@@ -694,7 +714,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             _options.MaximumEvidencePromptCharacters,
             8_000,
             1_000_000);
-        const int maximumCharactersPerPromptEvidence = 700;
+        var preserveDocumentaryContext = !request.Handoff.Load.StructuredLayout
+            || HasFixedSubjectFactFamily(request.Handoff.Load);
+        var maximumCharactersPerPromptEvidence = preserveDocumentaryContext ? 2400 : 700;
         var distinctRetrievalQueryCount = retrievalQueriesByEvidenceId
             .Values
             .SelectMany(static queries => queries)
@@ -705,7 +727,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             request.Handoff.Load,
             distinctRetrievalQueryCount,
             maximumCharactersPerPromptEvidence);
-        var remaining = (int)Math.Max(configuredMaximum, structuredMinimum);
+        var remaining = preserveDocumentaryContext
+            ? configuredMaximum
+            : (int)Math.Max(configuredMaximum, structuredMinimum);
         var promptEvidence = new List<PromptEvidenceItem>();
         var sourceKeys = new Dictionary<string, string>(StringComparer.Ordinal);
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> prioritizedEvidence =
@@ -718,6 +742,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (remaining <= 0)
                 break;
             var content = item.Content ?? string.Empty;
+            var originalContentLength = content.Length;
             if (content.Length > maximumCharactersPerPromptEvidence)
                 content = content[..maximumCharactersPerPromptEvidence];
             if (content.Length > remaining)
@@ -754,7 +779,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     ? null
                     : item.ExactTitle.Trim(),
                 !string.IsNullOrWhiteSpace(item.ExactTitle),
-                content));
+                content,
+                originalContentLength,
+                content.Length < originalContentLength));
         }
         return promptEvidence;
     }

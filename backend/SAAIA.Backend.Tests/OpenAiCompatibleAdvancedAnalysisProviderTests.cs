@@ -12,6 +12,36 @@ namespace SAAIA.Backend.Tests;
 
 public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
+    [Theory]
+    [InlineData(760, false)]
+    [InlineData(3000, true)]
+    public async Task Documentary_fact_prompts_preserve_late_preconditions_and_report_clipping(
+        int prefixLength, bool expectedClipped)
+    {
+        const string decisiveCondition = "The callback must match the originally registered URI.";
+        var original = new string('a', prefixLength) + " " + decisiveCondition;
+        const string answer = """{"outcome":"answered","answerText":"La condition est documentée [C1].","claims":[{"claimId":"C1","text":"La condition est documentée.","evidenceIds":["E1"]}]}""";
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[]}"""), Completion(answer), Completion(answer));
+        var options = CreateOptions();
+        options.SemanticCriticEnabled = true;
+        await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+            .ExecuteAsync(BuildDirectRequest(), new RecordingToolGateway(
+                BuildEvidence("E1", original, fileName: "Protocol_V2.pdf")), CancellationToken.None);
+        foreach (var call in factory.Requests.Skip(1))
+        {
+            using var body = JsonDocument.Parse(call.Body);
+            using var payload = JsonDocument.Parse(body.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+            var evidence = payload.RootElement.GetProperty("evidence")[0];
+            var content = evidence.GetProperty("content").GetString()!;
+            if (!expectedClipped) Assert.Contains(decisiveCondition, content, StringComparison.Ordinal);
+            Assert.Equal(expectedClipped, evidence.GetProperty("contentTruncated").GetBoolean());
+            Assert.Equal(original.Length, evidence.GetProperty("originalContentLength").GetInt32());
+            Assert.DoesNotContain("Protocol_V2.pdf", call.Body, StringComparison.Ordinal);
+            Assert.True(content.Length <= 2400);
+        }
+    }
+
     [Fact]
     public void Structured_prompt_budget_preserves_row_coverage_for_follow_up_queries()
     {
