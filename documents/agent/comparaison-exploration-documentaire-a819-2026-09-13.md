@@ -104,3 +104,29 @@ préservées. Preuves du diagnostic :
 `artifacts/reprise-pc-20260908/a800-meal-planning-continuity-20260913/meal-a819-literal-find-known-diagnostic.v1.json` ;
 contrôles mécaniques : `a815-completion-audit-20260913/exploration-a819-*.trx`
 et `a671-backend-postgres/a819-canonical-find-final-20260913/`.
+
+## Pilote B1 clos et protocole B2 avant modification
+
+Job `23bac570-6337-4b79-8438-d3b5471ff505`, candidat `9cfcd1e6` : sept appels,
+0,3793323 USD, 108,186 secondes de provider. Vingt-huit recherches sémantiques,
+zéro `read_source`, zéro `find_source_text`, zéro cellule de planning. Résultat
+final insuffisant avec une affirmation agrégée « seize options, quatre
+manquantes » dont le décompte n'est pas approuvé. Les ressources possédées sont
+arrêtées et le nouveau garde vérifie le vrai GUID enregistré. Le verdict est
+**REJECT_COMPLETE_PLANNING_NOT_ESTABLISHED**, sans amélioration autonome démontrée.
+
+La requête exacte du premier Writer contient le contrat littéral et son
+inventaire, mais conserve `researchTools.tool='search_corpus'`. Une consigne
+dit encore « Your tool is search_corpus ». Cela ne démontre pas causalement
+pourquoi le modèle n'a pas choisi les autres opérations. B2 comparera seulement
+un catalogue commun où les trois opérations sont présentées comme outils de
+premier niveau, avec les mêmes paramètres et une description cohérente.
+Retirer le singulier donnant une opération comme outil principal ; aucune
+instruction métier, recette ou décision automatique n'est ajoutée.
+
+B2 constitue le second et dernier pilote B prévu : même demande/corpus,
+projection, sept appels, une tentative HTTP, critique et cap 0,75 USD. La
+consommation cumulée B1+B2 reste au plus 1,50 USD. Préenregistrement présent
+avant édition du catalogue et avant nouvel appel. Si le planning ne passe
+pas, diagnostiquer la chaîne et enregistrer C séparément ; pas de troisième
+pilote répétitif de B. Le solde calculé après B1 est 9,2540389 USD.
