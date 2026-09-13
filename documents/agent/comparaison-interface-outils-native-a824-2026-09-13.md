@@ -71,3 +71,29 @@ Schéma vérifié dans la documentation officielle OpenAI :
 https://developers.openai.com/api/docs/guides/function-calling ; Terra indique
 le support de fonctions dans https://developers.openai.com/api/docs/models/gpt-5.6-terra.
 Ces capacités documentées ne garantissent pas l'acceptation du cas SAAIA.
+
+## Implémentation vérifiée, avant premier pilote
+
+Mode `NativeResearchToolsEnabled` optionnel, sans changement du défaut. Le
+runner de validation expose `EnableNativeResearchTools` et le scelle. Fonctions
+strictes, paramètres tous déclarés et sans propriété supplémentaire ; noms,
+identités d'appel uniques, taille de lot et arguments vérifiés avant outils.
+Le dernier tour natif est conservé, avec retour compact et au plus huit
+identités visibles par résultat ; aucune copie de passage dans l'historique.
+Un résultat omis reste explicitement omis, pas absent du corpus. Taille du
+tour bornée à 16 384 caractères. Les requêtes n'ajoutent ni budget d'appels ni
+limite de recherche supplémentaire ; elles consomment l'enveloppe existante.
+
+Les traces natives distinguent l'enveloppe réelle `tool_calls` et le JSON
+normalisé ; aucun contenu fictif n'est présenté comme `message.content` reçu.
+La réservation monétaire inclut le payload sérialisé complet avec fonctions
+et historique. Un contrôle de panne sans usage prouve cette réservation.
+
+Quatorze nouveaux cas automatisés couvrent les trois opérations, lien appel /
+retour, rejet atomique, correction bornée, portée inconnue, paramètres malformés,
+fonction indisponible, budget final, lot trop grand, trace brute/normalisée et
+comptabilité. Suite backend finale Release : 2 332 réussites, zéro échec,
+trois ignorés ; build sans avertissement, runner PowerShell parsé et diff propre.
+Une première suite a échoué sur la sélection de deux fichiers par le nouveau
+test de traces ; le test cible désormais le rôle exact. Cette capture est
+préservée séparément. Aucun appel API depuis la clôture A823.

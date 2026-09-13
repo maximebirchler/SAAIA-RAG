@@ -10,7 +10,7 @@ using Xunit;
 
 namespace SAAIA.Backend.Tests;
 
-public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
+public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
     [Fact]
     public async Task Research_reviewer_can_correct_known_source_window_inside_its_existing_call_budget()

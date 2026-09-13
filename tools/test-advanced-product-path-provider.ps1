@@ -33,6 +33,7 @@ param(
     [decimal]$MaximumCostPerJobUsd = 0,
     [int]$MaximumCallsPerJob = 4,
     [switch]$EnableSemanticCritic,
+    [switch]$EnableNativeResearchTools,
     [ValidateRange(512, 16384)]
     [int]$CriticMaxTokens = 4096,
     [decimal]$InputUsdPerMillionTokens = 0,
@@ -470,6 +471,7 @@ try {
             PlannerMaxTokens = 512
             WriterMaxTokens = 4096
             AdaptiveResearchEnabled = $true
+            NativeResearchToolsEnabled = [bool]$EnableNativeResearchTools
             SemanticCriticEnabled = [bool]$EnableSemanticCritic
             CriticMaxTokens = $CriticMaxTokens
             MaximumPlanQueries = 8
@@ -585,6 +587,7 @@ try {
         ownerIdentityRecordedBeforeJobCreation = $true
         reasoningEffort = $ReasoningEffort
         semanticCriticEnabled = [bool]$EnableSemanticCritic
+        nativeResearchToolsEnabled = [bool]$EnableNativeResearchTools
         criticMaxTokens = $CriticMaxTokens
         inputUsdPerMillionTokens = $InputUsdPerMillionTokens
         cachedInputUsdPerMillionTokens = $CachedInputUsdPerMillionTokens

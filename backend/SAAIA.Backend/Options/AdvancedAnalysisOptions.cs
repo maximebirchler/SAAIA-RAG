@@ -36,6 +36,8 @@ sealed class AdvancedAnalysisOptions
 
     public bool AdaptiveResearchEnabled { get; set; } = true;
 
+    public bool NativeResearchToolsEnabled { get; set; }
+
     public int MaximumEvidencePromptCharacters { get; set; } = 14_000;
 
     public decimal ExternalBudgetAuthorizedUsd { get; set; } = 25m;

@@ -21,17 +21,19 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private async Task WriteDevelopmentTraceAsync(Guid jobId, string role,
         Dictionary<string, object?> requestPayload, JsonElement responseEnvelope,
         string completionJson, string? observedModelId, decimal? chargedCostUsd,
-        int httpAttemptCount, long elapsedMilliseconds, CancellationToken cancellationToken)
+        int httpAttemptCount, long elapsedMilliseconds, CancellationToken cancellationToken,
+        string completionOrigin = "message.content", string? normalizationError = null)
     {
         if (string.IsNullOrWhiteSpace(_options.DevelopmentTraceDirectory)) return;
         var requestJson = JsonSerializer.Serialize(requestPayload, JsonOptions);
         var traceJson = JsonSerializer.Serialize(new
         {
-            schema = "advanced-development-trace.v1", jobId, role,
+            schema = completionOrigin == "message.content" ? "advanced-development-trace.v1" : "advanced-development-trace.v2", jobId, role,
             capturedAtUtc = DateTimeOffset.UtcNow, modelId = ModelId, observedModelId,
             httpAttemptCount, elapsedMilliseconds, chargedCostUsd,
             requestSha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(requestJson))),
-            requestJson, responseEnvelopeJson = responseEnvelope.GetRawText(), completionJson
+            requestJson, responseEnvelopeJson = responseEnvelope.GetRawText(), completionJson,
+            completionOrigin, normalizationError
         }, JsonOptions);
         if (traceJson.Length > 3_000_000)
             throw new AdvancedAnalysisProviderException("advanced_development_trace_limit_exceeded");

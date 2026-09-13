@@ -14,6 +14,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         Dictionary<string, HashSet<string>> RetrievalQueriesByEvidenceId)
     {
         public List<AdvancedAnalysisSearchRequest> FocusSearches { get; } = [];
+        public NativeResearchTurn? NativeTurn { get; set; }
     }
 
     private sealed record SynthesisCompletion(
@@ -208,7 +209,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }
             var completion = await CompleteJsonAsync(request.JobId,
                 nextPhase,
-                systemPrompt, userPrompt, maximumTokens, cancellationToken).ConfigureAwait(false);
+                systemPrompt, userPrompt, maximumTokens, cancellationToken,
+                allowNativeResearch: true,
+                nativeToolTurnMessages: _options.NativeResearchToolsEnabled
+                    ? BuildNativeToolTurnMessages(context.NativeTurn, observations) : null).ConfigureAwait(false);
             if (!RequestsCorpusResearch(completion.Content))
             {
                 var corrections = FindIdentityOnlyCandidateSupport(completion.Content, evidence, request);
@@ -252,6 +256,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     && argumentRecovery == 0 && completions.Count < maximumCalls - reservedFinalCalls - 1)
                 {
                     argumentFeedback = feedback;
+                    if (completion.NativeToolCallsJson is { } rejectedCalls)
+                        context.NativeTurn = new(rejectedCalls, null,
+                            new Dictionary<string, AdvancedAnalysisSearchObservation>(), feedback);
                     nextPhase = $"{phase}-research-argument-recovery-{++argumentRecovery}";
                     continue;
                 }
@@ -266,13 +273,20 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 if (++noProgressRecovery > 1)
                     throw new AdvancedAnalysisProviderException("advanced_synthesis_research_no_progress");
                 repeatedSearches = queries;
+                if (completion.NativeToolCallsJson is { } duplicateCalls)
+                    context.NativeTurn = new(duplicateCalls, queries,
+                        new Dictionary<string, AdvancedAnalysisSearchObservation>());
                 nextPhase = $"{phase}-research-recovery-{noProgressRecovery}";
                 continue;
             }
             repeatedSearches = null;
+            var nativeResults = completion.NativeToolCallsJson is null ? null
+                : new Dictionary<string, AdvancedAnalysisSearchObservation>(StringComparer.OrdinalIgnoreCase);
             await ExecuteSearchBatchAsync(context.Tools, queries, context.PreviouslyExecuted,
                 context.PriorSearches, context.EvidenceGroups, context.RetrievalQueriesByEvidenceId,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken, nativeResults).ConfigureAwait(false);
+            if (completion.NativeToolCallsJson is { } executedCalls)
+                context.NativeTurn = new(executedCalls, queries, nativeResults!);
             followup++;
             nextPhase = $"{phase}-research-followup-{followup}";
         }
