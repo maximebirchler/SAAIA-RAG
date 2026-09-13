@@ -79,3 +79,18 @@ Le test conserve sa condition de visibilité et le plafond de 8 000 caractères.
 Build sans avertissement. Suite backend Release finale : 2 367 réussites,
 aucun échec, trois ignorés. Ces tests ne prouvent ni l'usage de l'espace par
 Terra ni vingt propositions adaptées. Aucun appel réel C2b à ce stade.
+
+## Résultat réel et clôture
+
+Version `503117e6`, job `59a97600-ac7c-44b2-a4af-12c196c072e2` : six appels,
+0,3402479 USD. La fonction est réellement offerte, jamais appelée. Quinze
+recherches sémantiques, aucune lecture ni recherche littérale. Writer s'arrête
+avec deux tours disponibles. Critic partiel, récupération finale en
+insuffisance sans citation. Le déficit de sept options annoncé n'est pas
+approuvé comme absence dans le corpus.
+
+Aucun gain réel de mémoire démontré, aucune preuve de causalité concernant
+la rotation des passages. C2b s'arrête sans nouvelle répétition ; son option
+reste expérimentale et désactivée par défaut. Ressources fermées, registre
+32,68584560 USD sur 40 USD. Comparer maintenant, séparément, le raisonnement
+de synthèse, avec les mêmes outils, contexte et plafond de sept appels.
