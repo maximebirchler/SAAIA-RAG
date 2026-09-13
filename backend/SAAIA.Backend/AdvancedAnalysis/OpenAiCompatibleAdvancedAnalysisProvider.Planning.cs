@@ -37,10 +37,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 {
                     break;
                 }
+                var operation = ReadString(item, "operation").Trim();
+                if (item.TryGetProperty("operation", out var operationValue)
+                    && operationValue.ValueKind is not JsonValueKind.String and not JsonValueKind.Null) throw new JsonException();
+                if (operation.Length == 0) operation = "search_corpus";
+                if (operation is not "search_corpus" and not "read_source") throw new JsonException();
+                var isRead = operation == "read_source";
                 var query = NormalizeCorpusSearchQuery(
                     ReadString(item, "query"));
-                if (string.IsNullOrWhiteSpace(query)
-                    || query.Length > 8_000)
+                if (!isRead && (string.IsNullOrWhiteSpace(query) || query.Length > 8_000))
                 {
                     continue;
                 }
@@ -51,7 +56,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     category = string.Empty;
                 }
                 var topK = item.TryGetProperty("topK", out var topKValue)
-                           && topKValue.TryGetInt32(out var parsedTopK)
+                           && topKValue.ValueKind == JsonValueKind.Number && topKValue.TryGetInt32(out var parsedTopK)
                     ? Math.Clamp(parsedTopK, 1, 60)
                     : 20;
                 var documentHint = ReadString(item, "documentHint").Trim();
@@ -69,6 +74,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         || string.IsNullOrWhiteSpace(observedSource.SourceReference.DocId)
                         || string.IsNullOrWhiteSpace(observedSource.SourceReference.DocPath)))
                     throw new JsonException();
+                int? pageStart = null, pageEnd = null;
+                if (isRead)
+                {
+                    if (observedSource is null || ReadString(item, "category").Trim().Length > 0 || documentHint.Length > 0
+                        || !Guid.TryParse(observedSource.SourceReference.RevisionId, out _)
+                        || !item.TryGetProperty("pageStart", out var start) || start.ValueKind != JsonValueKind.Number || !start.TryGetInt32(out var first)
+                        || !item.TryGetProperty("pageEnd", out var end) || end.ValueKind != JsonValueKind.Number || !end.TryGetInt32(out var last)
+                        || first <= 0 || last < first || (long)last - first > 3) throw new JsonException();
+                    pageStart = first; pageEnd = last;
+                    query = $"Canonical source physical pages {first}-{last}";
+                }
                 var search = new AdvancedAnalysisSearchRequest(
                     query,
                     string.IsNullOrWhiteSpace(category) ? null : category,
@@ -81,7 +97,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         : null,
                     DocId: observedSource?.SourceReference.DocId,
                     DocPath: observedSource?.SourceReference.DocPath,
-                    DocumentHint: documentHint.Length == 0 ? null : documentHint);
+                    PageStart: pageStart, PageEnd: pageEnd,
+                    DocumentHint: documentHint.Length == 0 ? null : documentHint,
+                    Operation: operation, RevisionId: isRead ? observedSource!.SourceReference.RevisionId : null);
                 if (dedupe.Add(BuildSearchIdentity(search)))
                     result.Add(search);
             }
@@ -643,6 +661,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             docId = search.DocId?.Trim() ?? string.Empty,
             docPath = search.DocPath?.Trim().Replace('\\', '/') ?? string.Empty,
             documentHint = search.DocumentHint?.Trim() ?? string.Empty,
+            search.Operation, search.RevisionId,
             search.PageStart, search.PageEnd, search.TopK,
             search.MaxPerDocument, search.MaxPerPage
         });

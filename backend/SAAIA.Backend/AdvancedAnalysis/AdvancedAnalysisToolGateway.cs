@@ -21,7 +21,9 @@ internal sealed record AdvancedAnalysisSearchRequest(
     int? PageEnd = null,
     int? MaxPerDocument = null,
     int? MaxPerPage = null,
-    string? DocumentHint = null);
+    string? DocumentHint = null,
+    string Operation = "search_corpus",
+    string? RevisionId = null);
 
 internal sealed record AdvancedAnalysisSearchObservation(
     string Query,
@@ -280,40 +282,53 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
                 DocPath = NormalizePath(effectiveDocPath)
             };
             stopwatch = Stopwatch.StartNew();
-            var response = await RagEndpoints.SearchCoreAsync(
-                context,
-                _dataSource,
-                _ragOptions,
-                _httpClientFactory,
-                new RagSearchRequestDto(
-                    Query: request.Query.Trim(),
-                    Category: NullIfBlank(request.Category),
-                    TopK: Math.Clamp(request.TopK, 1, _maximumSearchTopK),
-                    MinScore: 0.0,
-                    Candidates: null,
-                    MaxPerDoc: NormalizePositive(request.MaxPerDocument),
-                    MaxPerPage: NormalizePositive(request.MaxPerPage),
-                    Mode: "broad",
-                    Diversity: null,
-                    DocId: NullIfBlank(request.DocId),
-                    DocPath: NormalizePath(effectiveDocPath),
-                    IncludeContextualSnippet: false,
-                    CategoryPath: null,
-                    CategoryRef: null,
-                    IncludeDiagnostics: false,
-                    PageStart: request.PageStart,
-                    PageEnd: request.PageEnd,
-                    ResearchMode: "advanced_analysis",
-                    IncludeResearchSurfaces: true,
-                    SourceBackedCanonical: true))
-                .ConfigureAwait(false);
+            IReadOnlyList<AdvancedAnalysisEvidenceReference> references;
+            IReadOnlyList<string> degraded;
+            if (request.Operation == "read_source")
+            {
+                ValidateObservedReadScope(requestForTrace);
+                references = await ReadCanonicalPagesAsync(requestForTrace, cancellationToken)
+                    .ConfigureAwait(false);
+                degraded = [];
+            }
+            else
+            {
+                var response = await RagEndpoints.SearchCoreAsync(
+                    context,
+                    _dataSource,
+                    _ragOptions,
+                    _httpClientFactory,
+                    new RagSearchRequestDto(
+                        Query: request.Query.Trim(),
+                        Category: NullIfBlank(request.Category),
+                        TopK: Math.Clamp(request.TopK, 1, _maximumSearchTopK),
+                        MinScore: 0.0,
+                        Candidates: null,
+                        MaxPerDoc: NormalizePositive(request.MaxPerDocument),
+                        MaxPerPage: NormalizePositive(request.MaxPerPage),
+                        Mode: "broad",
+                        Diversity: null,
+                        DocId: NullIfBlank(request.DocId),
+                        DocPath: NormalizePath(effectiveDocPath),
+                        IncludeContextualSnippet: false,
+                        CategoryPath: null,
+                        CategoryRef: null,
+                        IncludeDiagnostics: false,
+                        PageStart: request.PageStart,
+                        PageEnd: request.PageEnd,
+                        ResearchMode: "advanced_analysis",
+                        IncludeResearchSurfaces: true,
+                        SourceBackedCanonical: true))
+                    .ConfigureAwait(false);
+                references = BuildEvidenceReferences(response.Matches);
+                degraded = response.DegradedRetrievers ?? [];
+            }
             stopwatch.Stop();
             _elapsedMilliseconds = checked(
                 _elapsedMilliseconds + stopwatch.ElapsedMilliseconds);
             if (_elapsedMilliseconds > _maximumElapsedMilliseconds)
                 throw new AdvancedAnalysisToolException("tool_time_limit_exceeded");
 
-            var references = BuildEvidenceReferences(response.Matches);
             var revalidated = await _resolver.ResolveAsync(
                 _tenantId,
                 references,
@@ -352,7 +367,6 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
                 observationEvidence.Add(canonical);
             }
 
-            var degraded = response.DegradedRetrievers ?? [];
             await PersistEventAsync(
                 "succeeded",
                 requestForTrace,
@@ -391,6 +405,50 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
         {
             _serialGate.Release();
         }
+    }
+
+    private void ValidateObservedReadScope(AdvancedAnalysisSearchRequest request)
+    {
+        if (!_evidence.Any(item =>
+                string.Equals(item.Reference.DocId, request.DocId, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(item.Reference.RevisionId, request.RevisionId, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(NormalizePath(item.Reference.DocPath), NormalizePath(request.DocPath), StringComparison.Ordinal)))
+            throw new AdvancedAnalysisToolException("canonical_read_source_not_observed");
+    }
+
+    private async Task<IReadOnlyList<AdvancedAnalysisEvidenceReference>> ReadCanonicalPagesAsync(
+        AdvancedAnalysisSearchRequest request, CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT d.doc_id::text AS "DocId", dr.revision_id::text AS "RevisionId",
+                   d.doc_name AS "FileName", d.doc_path AS "DocPath",
+                   encode(dr.source_hash, 'hex') AS "SourceHash",
+                   rc.page_start AS "PageStart", rc.page_end AS "PageEnd",
+                   rc.retrieval_chunk_id::text AS "ChunkId"
+            FROM retrieval_chunks rc
+            JOIN document_revisions dr ON dr.tenant_id=rc.tenant_id AND dr.revision_id=rc.revision_id
+            JOIN documents d ON d.tenant_id=dr.tenant_id AND d.doc_id=dr.doc_id
+            WHERE rc.tenant_id=@tenant AND d.doc_id=@doc_id AND dr.revision_id=@revision_id
+              AND d.status='indexed' AND d.indexed_version>0
+              AND rc.page_start<=@page_end AND rc.page_end>=@page_start
+            ORDER BY rc.page_start, rc.page_end, rc.chunk_index, rc.retrieval_chunk_id
+            LIMIT @row_limit;
+            """;
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        var references = (await connection.QueryAsync<AdvancedAnalysisEvidenceReference>(new CommandDefinition(sql,
+            new { tenant = _tenantId, doc_id = Guid.Parse(request.DocId!), revision_id = Guid.Parse(request.RevisionId!),
+                page_start = request.PageStart, page_end = request.PageEnd, row_limit = request.TopK + 1 },
+            cancellationToken: cancellationToken))).ToArray();
+        if (references.Length > request.TopK)
+            throw new AdvancedAnalysisToolException("canonical_read_window_result_limit_exceeded");
+        var observed = _evidence.First(item =>
+            string.Equals(item.Reference.DocId, request.DocId, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(item.Reference.RevisionId, request.RevisionId, StringComparison.OrdinalIgnoreCase));
+        if (references.Any(reference =>
+                !string.Equals(NormalizePath(reference.DocPath), NormalizePath(request.DocPath), StringComparison.Ordinal)
+                || !string.Equals(reference.SourceHash, observed.Reference.SourceHash, StringComparison.OrdinalIgnoreCase)))
+            throw new AdvancedAnalysisToolException("canonical_read_source_identity_changed");
+        return references;
     }
 
     internal static IReadOnlyList<AdvancedAnalysisEvidenceReference>
@@ -569,6 +627,15 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
         }
         if (request.TopK is <= 0 || request.TopK > _maximumSearchTopK)
             throw new AdvancedAnalysisToolException("search_top_k_invalid");
+        if (request.Operation is not "search_corpus" and not "read_source")
+            throw new AdvancedAnalysisToolException("research_operation_invalid");
+        if (request.Operation == "read_source"
+            && (!Guid.TryParse(request.DocId, out _) || !Guid.TryParse(request.RevisionId, out _)
+                || string.IsNullOrWhiteSpace(request.DocPath)
+                || !string.IsNullOrWhiteSpace(request.Category) || !string.IsNullOrWhiteSpace(request.DocumentHint)
+                || !request.PageStart.HasValue || !request.PageEnd.HasValue
+                || (long)request.PageEnd.Value - request.PageStart.Value > 3))
+            throw new AdvancedAnalysisToolException("canonical_read_scope_or_window_invalid");
         if (HasOversizedScope(request.Category)
             || HasOversizedScope(request.DocId)
             || HasOversizedScope(request.DocPath)

@@ -142,7 +142,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                         request,
                         OrderEvidenceForPrompt(tools.Evidence, evidenceGroups));
                     var observations = BuildPromptEvidence(
-                        request, currentEvidence, retrievalQueriesByEvidenceId);
+                        request, currentEvidence, retrievalQueriesByEvidenceId,
+                        PrioritizeFocusedEvidenceForPrompt(currentEvidence, retrievalQueriesByEvidenceId,
+                            priorSearches.Where(static search => search.Operation == "read_source").TakeLast(20).ToArray()));
                     var researchReview = await CompleteJsonAsync(
                             request.JobId,
                             reviewRound == 1
@@ -205,6 +207,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 retrievalQueriesByEvidenceId);
             var synthesisResearch = new SynthesisResearchContext(tools, availableCategories,
                 priorSearches, previouslyExecuted, evidenceGroups, retrievalQueriesByEvidenceId);
+            synthesisResearch.FocusSearches.AddRange(priorSearches
+                .Where(static search => search.Operation == "read_source").TakeLast(20));
             var writerRound = await CompleteWithCorpusResearchAsync(
                     request,
                     "writer",

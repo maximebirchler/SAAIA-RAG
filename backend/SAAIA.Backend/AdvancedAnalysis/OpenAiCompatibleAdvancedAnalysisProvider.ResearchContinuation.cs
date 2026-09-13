@@ -30,12 +30,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyList<AdvancedAnalysisSearchRequest> searches)
     {
         var buckets = searches.Take(20).Select(search =>
-            OrderEvidenceForQuery(search.Query, search.DocumentHint, evidence.Where(item =>
+        {
+            var ordered = OrderEvidenceForQuery(search.Query, search.DocumentHint, evidence.Where(item =>
                 item.Reference.EvidenceId is { } id
                 && retrievalQueriesByEvidenceId.TryGetValue(id, out var queries)
                 && queries.Contains(search.Query)
                 && (string.IsNullOrWhiteSpace(search.DocId)
                     || string.Equals(search.DocId, item.Reference.DocId, StringComparison.OrdinalIgnoreCase))
+                && (string.IsNullOrWhiteSpace(search.RevisionId)
+                    || string.Equals(search.RevisionId, item.Reference.RevisionId, StringComparison.OrdinalIgnoreCase))
                 && (string.IsNullOrWhiteSpace(search.DocPath)
                     || string.Equals(search.DocPath.Replace('\\', '/'), item.Reference.DocPath, StringComparison.Ordinal))
                 && (string.IsNullOrWhiteSpace(search.Category)
@@ -47,7 +50,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 RetrievalContentClassifier.ContentRole => 0,
                 RetrievalContentClassifier.MixedNavigationContentRole => 1,
                 _ => 2
-            }).Take(3).ToArray()).ToArray();
+            }).ToArray();
+            if (search.Operation != "read_source") return ordered.Take(3).ToArray();
+            var heading = ordered.Where(item => item.Reference.PageStart == search.PageStart
+                && RetrievalContentClassifier.AnalyzeEvidenceContent(item.Content, item.ExactTitle).ContentRole == RetrievalContentClassifier.NavigationRole)
+                .OrderByDescending(static item => item.Content.Length).FirstOrDefault();
+            var substantive = ordered.Where(item => item != heading)
+                .OrderBy(item => RetrievalContentClassifier.AnalyzeEvidenceContent(item.Content, item.ExactTitle).ContentRole == RetrievalContentClassifier.NavigationRole ? 1 : 0)
+                .ThenByDescending(static item => item.Content.Length);
+            return (heading is null ? substantive : new[] { heading }.Concat(substantive)).Take(3).ToArray();
+        }).ToArray();
         var selected = new List<AdvancedAnalysisResolvedEvidence>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
         for (var rank = 0; rank < 3 && selected.Count < 20; rank++)
@@ -101,7 +113,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            user preferences. Only a subsequent terminal result reaches the user.
            Request research only when researchTools.researchAllowed is true.
            A limit on further research does not prove absence from the corpus.
-           """;
+           """ + "\n" + CanonicalSourceReadContract;
 
     private async Task<SynthesisCompletion> CompleteWithCorpusResearchAsync(
         AdvancedAnalysisProviderRequest request,
@@ -140,6 +152,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     payload["researchTools"] = JsonSerializer.SerializeToNode(new
                 {
                     tool = "search_corpus",
+                    readSourceTool = new { name = "read_source", operation = "read_source", sourceKey = "required observed sourceKey",
+                        pageStart = "positive physical page", pageEnd = "inclusive, at most three pages after pageStart", topK = 60 },
                     researchAllowed = maximumCalls - completions.Count - 1 - reservedFinalCalls > 0,
                     remainingModelCalls = Math.Max(0, maximumCalls - completions.Count - 1 - reservedFinalCalls),
                     maximumQueries = ResolveMaximumPlanQueries(request),

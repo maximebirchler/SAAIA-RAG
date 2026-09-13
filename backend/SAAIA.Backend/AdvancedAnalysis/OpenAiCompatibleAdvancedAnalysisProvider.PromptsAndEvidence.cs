@@ -28,6 +28,25 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         sources to prescribe the arrangement SAAIA is asked to propose.
         """;
 
+    private const string CanonicalSourceReadContract = """
+        You can also call read_source(sourceKey, pageStart, pageEnd, topK) by
+        adding {"operation":"read_source","sourceKey":"exact observed sourceKey",
+        "pageStart":61,"pageEnd":62,"topK":60} to queries in the same non-final
+        search_more or research_required object. query is unnecessary for this
+        operation. Copy a sourceKey from current observations. Use their
+        physicalPageStart/physicalPageEnd coordinates, which are one-based physical
+        document pages and can differ from printed page labels or index numbers.
+        Read a fully specified inclusive window of at most four pages, such as a
+        heading's page and the next page when its body is missing. Leave category
+        and documentHint empty. This reads the indexed canonical chunks directly
+        in that exact observed document revision; it does not search the internet
+        or rank by keywords. It returns separately cited chunks in page order,
+        not a fabricated merged passage. Inspect their actual content and bind
+        title, scope and substantive body evidence together when appropriate.
+        All tool, time, evidence and model-call limits still apply. An empty
+        window establishes no text in that window, not absence from the corpus.
+        """;
+
     private static string BuildPlannerSystemPrompt()
         => """
            You are the research planner for SAAIA advanced analysis. Return one
@@ -164,7 +183,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            Never invent a category or output
            one absent from availableCategories. Never answer the user. Return
            one JSON object and no prose.
-           """ + "\n" + CandidateEvidenceUsePolicy;
+           """ + "\n" + CandidateEvidenceUsePolicy + "\n" + CanonicalSourceReadContract;
 
     private string BuildPlannerUserPrompt(
         AdvancedAnalysisProviderRequest request,
@@ -206,6 +225,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     sourceKey = "optional exact opaque sourceKey from an observation to scope this search; leave documentHint empty"
                 }
             },
+            readSourceTool = new { name = "read_source", operation = "read_source",
+                sourceKey = "required exact observed sourceKey", pageStart = "positive integer physical page",
+                pageEnd = "inclusive physical page, at most three pages after pageStart", topK = 60 },
             priorQueries = request.Handoff.ResearchState.ExecutedQueries
                 .Concat(priorSearches.Select(static search => search.Query))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -505,6 +527,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         => searches.Select(search => (object)new
         {
             search.Query, search.Category, search.DocumentHint,
+            search.Operation,
             sourceKey = observations.FirstOrDefault(observation =>
                 (!string.IsNullOrWhiteSpace(search.DocId)
                  && string.Equals(search.DocId, observation.SourceReference.DocId, StringComparison.OrdinalIgnoreCase))
@@ -563,6 +586,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         bool ContentTruncated,
         string ContentRole,
         string? NavigationReason,
+        int PhysicalPageStart,
+        int PhysicalPageEnd,
         [property: JsonIgnore] AdvancedAnalysisResultEvidence SourceReference);
 
     private sealed record StructuredClaimCoordinate(
@@ -836,6 +861,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 content.Length < originalContentLength,
                 contentSignal.ContentRole,
                 contentSignal.NavigationReason,
+                item.Reference.PageStart,
+                item.Reference.PageEnd,
                 item.Reference);
             var separatorCharacters = promptEvidence.Count == 0 ? 0 : 1;
             var serializedCharacters = JsonSerializer.Serialize(observation, JsonOptions).Length

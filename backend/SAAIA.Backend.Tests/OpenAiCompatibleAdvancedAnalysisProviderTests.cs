@@ -13,6 +13,65 @@ namespace SAAIA.Backend.Tests;
 public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
     [Fact]
+    public void Canonical_read_focus_keeps_a_heading_with_its_body_and_filters_revision()
+    {
+        var header=BuildEvidence("E-HEADER", "Isolation procedure", exactTitle:"Isolation procedure", pageStart:61);
+        var bodies=Enumerable.Range(1,4).Select(index=>BuildEvidence("E-BODY-"+index, "Set the pressure to 17 bar and hold for three minutes. "+new string('x', index*60),
+            docId:header.Reference.DocId, revisionId:header.Reference.RevisionId, pageStart:62)).ToArray();
+        var wrongRevision=BuildEvidence("E-WRONG-REVISION", bodies[3].Content+new string('x',500), docId:header.Reference.DocId, pageStart:62);
+        var all=new[]{header, wrongRevision}.Concat(bodies).ToArray();
+        const string query="Canonical source physical pages 61-62";
+        var queries=all.ToDictionary(item=>item.Reference.EvidenceId!,_=>new HashSet<string>{query});
+        var focus=OpenAiCompatibleAdvancedAnalysisProvider.PrioritizeFocusedEvidenceForPrompt(all,queries,
+            [new AdvancedAnalysisSearchRequest(query, DocId:header.Reference.DocId, RevisionId:header.Reference.RevisionId, PageStart:61, PageEnd:62, Operation:"read_source")]);
+        Assert.Equal(new[]{"E-HEADER","E-BODY-4","E-BODY-3"},focus.Select(item=>item.Reference.EvidenceId));
+    }
+
+    [Fact]
+    public async Task Research_can_read_neighboring_physical_pages_of_an_observed_source()
+    {
+        var header = BuildEvidence("E-HEADER", "Isolation procedure", fileName: "Private_Manual.pdf", pageStart: 61);
+        var body = BuildEvidence("E-BODY", "Set the pressure to 17 bar and hold for three minutes.",
+            fileName: "Private_Manual.pdf", docId: header.Reference.DocId, revisionId: header.Reference.RevisionId, pageStart: 62);
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"Isolation procedure","topK":12}]}"""),
+            Completion("""{"decision":"search_more","queries":[{"operation":"read_source","sourceKey":"internal-source-1","pageStart":61,"pageEnd":62,"topK":60}]}"""),
+            Completion("""{"outcome":"answered","answerText":"Le seuil est 17 bar [C1].","claims":[{"claimId":"C1","text":"Le seuil est 17 bar.","evidenceIds":["E-HEADER","E-BODY"]}]}"""));
+        var options = CreateOptions(); options.AdaptiveResearchEnabled = true; options.ExternalMaximumCallsPerJob = 3;
+        var gateway = new SequencedToolGateway([header], [body]);
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+            .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+        Assert.Equal("answered", result.Outcome);
+        var read = gateway.Searches[1];
+        using var trace = JsonDocument.Parse(JsonSerializer.Serialize(read, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        Assert.Equal("read_source", trace.RootElement.GetProperty("operation").GetString());
+        Assert.Equal(header.Reference.RevisionId, trace.RootElement.GetProperty("revisionId").GetString());
+        Assert.Equal(header.Reference.DocId, read.DocId); Assert.Equal(header.Reference.DocPath, read.DocPath);
+        Assert.Equal(61, read.PageStart); Assert.Equal(62, read.PageEnd);
+        using var call = JsonDocument.Parse(factory.Requests[1].Body);
+        using var prompt = JsonDocument.Parse(call.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+        Assert.Equal(61, prompt.RootElement.GetProperty("observations")[0].GetProperty("physicalPageStart").GetInt32());
+        Assert.All(factory.Requests, request => { Assert.DoesNotContain(header.Reference.DocId!, request.Body); Assert.DoesNotContain(header.Reference.RevisionId!, request.Body); Assert.DoesNotContain("Private_Manual.pdf", request.Body); });
+    }
+
+    [Theory]
+    [InlineData("0", "2", "internal-source-1")]
+    [InlineData("62", "61", "internal-source-1")]
+    [InlineData("61", "65", "internal-source-1")]
+    [InlineData("\"61\"", "62", "internal-source-1")]
+    [InlineData("61", "null", "internal-source-1")]
+    [InlineData("61", "62", "internal-source-999")]
+    public async Task Invalid_canonical_page_reads_are_rejected_before_a_followup_tool_call(string start, string end, string sourceKey)
+    {
+        var review = "{\"decision\":\"search_more\",\"queries\":[{\"operation\":\"read_source\",\"query\":\"procedure\",\"sourceKey\":\"" + sourceKey + "\",\"pageStart\":" + start + ",\"pageEnd\":" + end + "}]}";
+        using var factory = new QueuedHttpClientFactory(Completion("""{"queries":[{"query":"overview","topK":12}]}"""), Completion(review));
+        var options = CreateOptions(); options.AdaptiveResearchEnabled = true; options.ExternalMaximumCallsPerJob = 3;
+        var gateway = new RecordingToolGateway(BuildEvidence("E1", "Source observation."));
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() => new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null).ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None));
+        Assert.Equal("advanced_research_review_protocol_invalid", error.ErrorCode); Assert.Single(gateway.Searches);
+    }
+
+    [Fact]
     public void Focused_evidence_preserves_document_and_page_scope_and_prefers_substantive_content()
     {
         var index = BuildEvidence("E-INDEX", "Options\nOption alpha I page 8", pageStart: 8);
