@@ -12,7 +12,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         string raw,
         AdvancedAnalysisProviderRequest request,
         IReadOnlyList<string> availableCategories,
-        IReadOnlyList<PromptEvidenceItem>? observations = null)
+        IReadOnlyList<PromptEvidenceItem>? observations = null,
+        bool allowQuestionFallback = true)
     {
         try
         {
@@ -87,6 +88,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
             if (result.Count == 0)
             {
+                if (!allowQuestionFallback)
+                    throw new JsonException();
                 result.Add(new AdvancedAnalysisSearchRequest(
                     request.Handoff.RequestText,
                     Category: null,
@@ -250,7 +253,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (decision != "search_more")
                 throw new JsonException();
 
-            var queries = ParsePlan(raw, request, availableCategories, observations);
+            var queries = ParsePlan(raw, request, availableCategories, observations,
+                allowQuestionFallback: false);
             if (queries.Count == 0)
                 throw new JsonException();
             var documents = GetRequestedDocumentIdentifiers(request);

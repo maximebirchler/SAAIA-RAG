@@ -60,3 +60,21 @@ décision de financer les répétitions suivantes ou la nouvelle banque aveugle.
 Aucune future question aveugle n'a été générée pour préparer cette correction.
 Les anciens résultats restent immuables ; aucun achat, déploiement serveur,
 installateur ou appel RunPod ne fait partie de ce lot.
+
+## Complément après la preuve réelle
+
+Le job A802 a terminé avec une réponse partielle : dix-neuf choix et une case
+explicitement non documentée. Il a consommé cinq appels, 0,362257 USD et environ
+122 secondes. Les dix-huit cartes sources passent les contrôles physiques et
+canoniques ; ce résultat ne valide pas un planning complet. La correction A803
+traite la possibilité de retourner chercher une preuve pendant la rédaction
+ou la critique, absente du protocole de ce job.
+
+Les trois anciens résultats complets ont aussi été récupérés en lecture seule
+pendant la fenêtre de backend temporaire. Les premiers 404 provenaient du
+mauvais identifiant d'utilisateur : le client de validation emploie un UUID
+aléatoire, distinct du libellé de création de session. L'identifiant exact
+retrouvé dans chaque événement de mise en file permet la lecture autorisée.
+Ces captures conservent les liens Claim → Evidence de chaque job ; les anciens
+verdicts ne sont pas réécrits. Elles confirment notamment les index cités pour
+plusieurs choix et le caractère distinct du cas de collation à examiner.

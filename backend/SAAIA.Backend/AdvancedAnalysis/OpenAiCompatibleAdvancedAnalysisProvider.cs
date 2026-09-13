@@ -199,14 +199,22 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 request,
                 evidence,
                 retrievalQueriesByEvidenceId);
-            var writer = await CompleteJsonAsync(
-                    request.JobId,
+            var synthesisResearch = new SynthesisResearchContext(tools, availableCategories,
+                priorSearches, previouslyExecuted, evidenceGroups, retrievalQueriesByEvidenceId);
+            var writerRound = await CompleteWithCorpusResearchAsync(
+                    request,
                     "writer",
                     BuildWriterSystemPrompt(request),
-                    BuildWriterUserPrompt(request, promptEvidence),
+                    observations => BuildWriterUserPrompt(request, observations),
                     Math.Clamp(_options.WriterMaxTokens, 512, 16_384),
+                    runSemanticCritic ? 1 : 0,
+                    synthesisResearch,
+                    completions,
                     cancellationToken)
                 .ConfigureAwait(false);
+            var writer = writerRound.Completion;
+            evidence = writerRound.Evidence;
+            promptEvidence = writerRound.PromptEvidence;
             completions.Add(writer);
             AdvancedAnalysisProviderResult parsed;
             try
@@ -272,14 +280,20 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     1,
                     1_024))
             {
-                var critic = await CompleteJsonAsync(
-                        request.JobId,
+                var criticRound = await CompleteWithCorpusResearchAsync(
+                        request,
                         "critic",
                         BuildCriticSystemPrompt(),
-                        BuildCriticUserPrompt(request, parsed, promptEvidence),
+                        observations => BuildCriticUserPrompt(request, parsed, observations),
                         Math.Clamp(_options.CriticMaxTokens, 512, 16_384),
+                        0,
+                        synthesisResearch,
+                        completions,
                         cancellationToken)
                     .ConfigureAwait(false);
+                var critic = criticRound.Completion;
+                evidence = criticRound.Evidence;
+                promptEvidence = criticRound.PromptEvidence;
                 completions.Add(critic);
                 try
                 {

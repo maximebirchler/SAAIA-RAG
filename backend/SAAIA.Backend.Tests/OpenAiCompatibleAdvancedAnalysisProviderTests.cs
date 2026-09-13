@@ -12,6 +12,108 @@ namespace SAAIA.Backend.Tests;
 
 public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
+    [Theory]
+    [InlineData("[{}]")]
+    [InlineData("[\"noop\"]")]
+    [InlineData("[{\"query\":\"\"}]")]
+    public async Task Empty_late_research_actions_do_not_create_an_implicit_question_search(string actions)
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"reference overview","topK":12}]}"""),
+            Completion("""{"decision":"ready","queries":[]}"""),
+            Completion("{\"outcome\":\"research_required\",\"queries\":" + actions + "}"));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        options.ExternalMaximumCallsPerJob = 6;
+        var gateway = new RecordingToolGateway(BuildEvidence("E1", "Initial source observation."));
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
+            new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+                .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None));
+        Assert.Equal("advanced_synthesis_research_protocol_invalid", error.ErrorCode);
+        Assert.Single(gateway.Searches);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Writer_or_critic_can_request_new_corpus_evidence_before_a_final_answer(bool writerRequests)
+    {
+        var index = BuildEvidence("E-INDEX", "Table of contents Isolation procedure 8 Alarm reset 12", fileName: "Private_Device_Manual.pdf");
+        var body = BuildEvidence("E-BODY", "The isolation threshold is 17.", fileName: "Private_Device_Manual.pdf", docId: index.Reference.DocId, revisionId: index.Reference.RevisionId, pageStart: 8);
+        const string research = """{"outcome":"research_required","queries":[{"query":"Isolation procedure threshold","sourceKey":"internal-source-1","topK":12}]}""";
+        const string answer = """{"outcome":"answered","answerText":"Le seuil est 17 [C1].","claims":[{"claimId":"C1","text":"Le seuil est 17.","evidenceIds":["E-BODY"]}]}""";
+        const string unverified = """{"outcome":"answered","answerText":"Le seuil est 17 [C1].","claims":[{"claimId":"C1","text":"Le seuil est 17.","evidenceIds":["E-INDEX"]}]}""";
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"reference overview","topK":12}]}"""),
+            Completion("""{"decision":"ready","queries":[]}"""),
+            Completion(writerRequests ? research : unverified),
+            Completion(writerRequests ? answer : research),
+            Completion(answer));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        options.SemanticCriticEnabled = true;
+        options.ExternalMaximumCallsPerJob = 7;
+        var gateway = new SequencedToolGateway([index], [body]);
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+            .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal("E-BODY", Assert.Single(Assert.Single(result.Claims).EvidenceIds));
+        Assert.Equal(5, result.ProviderCallCount);
+        var followup = Assert.Single(gateway.Searches, search => search.Query == "Isolation procedure threshold");
+        Assert.Equal(index.Reference.DocId, followup.DocId);
+        Assert.All(factory.Requests, call =>
+        {
+            Assert.DoesNotContain("Private_Device_Manual.pdf", call.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain(index.Reference.DocId!, call.Body, StringComparison.Ordinal);
+        });
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task Late_research_rejects_repetition_unknown_scope_or_exhausted_call_budget(bool unknownScope, bool exhaustedBudget)
+    {
+        var query = unknownScope || exhaustedBudget ? "Isolation procedure" : "reference overview";
+        var signal = JsonSerializer.Serialize(new { outcome = "research_required", queries = new[] { new { query, sourceKey = unknownScope ? "unknown-source" : "", topK = 12 } } });
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"reference overview","topK":12}]}"""),
+            Completion("""{"decision":"ready","queries":[]}"""),
+            Completion(signal));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        options.ExternalMaximumCallsPerJob = exhaustedBudget ? 3 : 6;
+        var gateway = new RecordingToolGateway(BuildEvidence("E1", "Index only."));
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
+            new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+                .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None));
+        Assert.Equal(exhaustedBudget ? "advanced_synthesis_research_call_budget_exhausted" : unknownScope ? "advanced_synthesis_research_protocol_invalid" : "advanced_synthesis_research_no_progress", error.ErrorCode);
+        Assert.Single(gateway.Searches);
+        Assert.Equal(3, factory.Requests.Count);
+    }
+
+    [Fact]
+    public async Task A_second_research_review_does_not_disclose_canonical_ids_from_prior_scoped_searches()
+    {
+        var index = BuildEvidence("E1", "Table of contents Item A 3 Item B 8 Item C 12 Item D 18", fileName: "Private_Scope.pdf");
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"selectionMode":"distinct_named_items","queries":[{"query":"overview","topK":12}]}"""),
+            Completion("""{"decision":"search_more","queries":[{"query":"Item A","sourceKey":"internal-source-1","topK":12}]}"""),
+            Completion("""{"decision":"ready","queries":[]}"""),
+            Completion("""{"outcome":"insufficient_documentation","answerText":"Le contenu des candidats reste à établir.","claims":[]}"""));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        options.ExternalMaximumCallsPerJob = 4;
+        await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+            .ExecuteAsync(BuildRequest(answerUnitCount: 4, atomicEvidenceMode: "named_item", selectionPolicy: "distinct_structured_layout"), new RecordingToolGateway(index), CancellationToken.None);
+        Assert.Equal(4, factory.Requests.Count);
+        Assert.All(factory.Requests, call =>
+        {
+            Assert.DoesNotContain("Private_Scope.pdf", call.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain(index.Reference.DocId!, call.Body, StringComparison.Ordinal);
+        });
+    }
+
     [Fact]
     public async Task Research_can_follow_an_opaque_observed_source_without_disclosing_its_identity()
     {

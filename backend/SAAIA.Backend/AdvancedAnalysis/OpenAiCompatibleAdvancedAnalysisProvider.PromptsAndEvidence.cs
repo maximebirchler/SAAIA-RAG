@@ -211,12 +211,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Order(StringComparer.OrdinalIgnoreCase)
                 .ToArray(),
-            priorSearches = priorSearches.Select(static search => new
-            {
-                search.Query, search.Category, search.DocumentHint,
-                search.DocId, search.DocPath, search.PageStart, search.PageEnd,
-                search.TopK, search.MaxPerDocument, search.MaxPerPage
-            }),
+            priorSearches = BuildPriorSearchesForPrompt(priorSearches, evidence),
             maximumFollowUpQueries = ResolveMaximumPlanQueries(request),
             availableCategories,
             observations = evidence
@@ -343,6 +338,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            that claim.
            """
            + "\n" + CandidateEvidenceUsePolicy
+           + "\n" + BuildSynthesisResearchContract()
            + "\nRequested output shape: "
            + JsonSerializer.Serialize(
                BuildPromptLoad(request.Handoff.Load),
@@ -429,7 +425,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            choice, do not repeat row, column or placement wording in that claim.
            """ + "\n" + CandidateEvidenceUsePolicy;
 
-    private static string BuildCriticSystemPrompt()
+    private string BuildCriticSystemPrompt()
         => """
            You are the SAAIA advanced-analysis Critic. Independently audit the
            proposed Writer result against the user request and every supplied
@@ -500,7 +496,23 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            internal-source-* token in answerText, claim text or selectedItem. Do
            not add facts, preferences or evidence identifiers.
            Keep the requested language and format.
-           """ + "\n" + CandidateEvidenceUsePolicy;
+           """ + "\n" + CandidateEvidenceUsePolicy
+           + "\n" + BuildSynthesisResearchContract();
+
+    private static IEnumerable<object> BuildPriorSearchesForPrompt(
+        IReadOnlyList<AdvancedAnalysisSearchRequest> searches,
+        IReadOnlyList<PromptEvidenceItem> observations)
+        => searches.Select(search => (object)new
+        {
+            search.Query, search.Category, search.DocumentHint,
+            sourceKey = observations.FirstOrDefault(observation =>
+                (!string.IsNullOrWhiteSpace(search.DocId)
+                 && string.Equals(search.DocId, observation.SourceReference.DocId, StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrWhiteSpace(search.DocPath)
+                    && string.Equals(search.DocPath, observation.SourceReference.DocPath, StringComparison.Ordinal)))?.SourceKey,
+            search.PageStart, search.PageEnd,
+            search.TopK, search.MaxPerDocument, search.MaxPerPage
+        });
 
     private static string BuildCriticRepairSystemPrompt()
         => """
