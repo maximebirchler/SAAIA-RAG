@@ -9,6 +9,7 @@ param(
     [ValidateRange(1024, 65535)]
     [int]$BackendPort = 5123,
     [string]$Ids = "A755-ADV-01-meal-grid-5x4",
+    [string]$BankPath = "",
     [ValidateRange(1, 3)]
     [int]$Repetitions = 1,
     [ValidateRange(0, 300)]
@@ -20,6 +21,8 @@ param(
     [Alias("BaseUrl")]
     [string]$ProviderBaseUrl = "",
     [string]$ModelId = "",
+    [ValidateSet("low", "medium", "high")]
+    [string]$ReasoningEffort = "low",
     [string]$ProviderAccountTier = "",
     [string]$ProviderAccountTierObservedAtUtc = "",
     [decimal]$AuthorizedBudgetUsd = 0,
@@ -159,6 +162,13 @@ $backendProject = Join-Path $repositoryRoot "backend\SAAIA.Backend\SAAIA.Backend
 $backendContentRoot = Join-Path $repositoryRoot "backend\SAAIA.Backend"
 $localConfigPath = Join-Path $backendContentRoot "appsettings.Local.json"
 $agentBankScript = Join-Path $PSScriptRoot "test-advanced-analysis-agent-bank.ps1"
+if ([string]::IsNullOrWhiteSpace($BankPath)) {
+    $BankPath = Join-Path $repositoryRoot "config\advanced-capacity-validation.v1.json"
+}
+$BankPath = [System.IO.Path]::GetFullPath($BankPath)
+if (-not (Test-Path -LiteralPath $BankPath -PathType Leaf)) {
+    throw "Question bank not found: $BankPath"
+}
 $assessmentScript = Join-Path $PSScriptRoot "assess-advanced-capacity-results.ps1"
 $jobGuardProject = Join-Path $PSScriptRoot `
     "SAAIA.AdvancedValidationJobGuard\SAAIA.AdvancedValidationJobGuard.csproj"
@@ -446,7 +456,7 @@ try {
             LlmBaseUrl = $ProviderBaseUrl.TrimEnd('/')
             LlmModel = $ModelId
             LlmApiKeyRef = "ENV:SAAIA_ADVANCED_LLM_API_KEY"
-            ReasoningEffort = "low"
+            ReasoningEffort = $ReasoningEffort
             LlmTimeoutSeconds = 600
             LlmMaximumHttpAttempts = 3
             LlmRetryBaseDelayMilliseconds = 15000
@@ -551,6 +561,8 @@ try {
         localLlmRuntimeSha256 = (Get-FileHash -LiteralPath $LocalLlmExePath -Algorithm SHA256).Hash
         localModelSha256 = (Get-FileHash -LiteralPath $LocalModelPath -Algorithm SHA256).Hash
         selectedIds = @($Ids -split '[,;]' | ForEach-Object Trim | Where-Object { $_ })
+        bankPath = $BankPath
+        bankSha256 = (Get-FileHash -LiteralPath $BankPath -Algorithm SHA256).Hash
         repetitions = $Repetitions
         delayBetweenCasesSeconds = $DelayBetweenCasesSeconds
         maximumJobAttempts = $MaximumJobAttempts
@@ -560,6 +572,7 @@ try {
         hardStopUsd = $HardLimitUsd
         maximumCostPerJobUsd = $MaximumCostPerJobUsd
         maximumCallsPerJob = $MaximumCallsPerJob
+        reasoningEffort = $ReasoningEffort
         semanticCriticEnabled = [bool]$EnableSemanticCritic
         criticMaxTokens = $CriticMaxTokens
         inputUsdPerMillionTokens = $InputUsdPerMillionTokens
@@ -603,6 +616,7 @@ try {
         -ExpectedAdvancedModel $ModelId `
         -LocalLlmExePath $LocalLlmExePath `
         -LocalModelPath $LocalModelPath `
+        -BankPath $BankPath `
         -Ids $Ids `
         -Repetitions $Repetitions `
         -DelayBetweenCasesSeconds $DelayBetweenCasesSeconds `

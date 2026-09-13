@@ -6,6 +6,7 @@ param(
     [ValidateRange(1024, 65535)]
     [int]$BackendPort = 5123,
     [string]$Ids = "A755-ADV-01-meal-grid-5x4",
+    [string]$BankPath = "",
     [ValidateRange(1, 3)]
     [int]$Repetitions = 1,
     [ValidateRange(0, 300)]
@@ -16,6 +17,8 @@ param(
     [int]$MaximumJobRetryDelayMilliseconds = 600000,
     [ValidateSet("gpt-5.6-terra", "gpt-5.6-luna")]
     [string]$OpenAiModel = "gpt-5.6-terra",
+    [ValidateSet("low", "medium", "high")]
+    [string]$ReasoningEffort = "low",
     [ValidateSet("Free", "Tier1", "Tier2", "Tier3", "Tier4", "Tier5")]
     [string]$ObservedOrganizationTier = "Free",
     [string]$TierObservedAtUtc = "",
@@ -46,11 +49,13 @@ $runner = Join-Path $PSScriptRoot "test-advanced-product-path-provider.ps1"
     -ReferenceBackendUrl $ReferenceBackendUrl `
     -BackendPort $BackendPort `
     -Ids $Ids `
+    -BankPath $BankPath `
     -Repetitions $Repetitions `
     -DelayBetweenCasesSeconds $DelayBetweenCasesSeconds `
     -MaximumJobAttempts $MaximumJobAttempts `
     -MaximumJobRetryDelayMilliseconds $MaximumJobRetryDelayMilliseconds `
     -ModelId $OpenAiModel `
+    -ReasoningEffort $ReasoningEffort `
     -ProviderAccountTier $ObservedOrganizationTier `
     -ProviderAccountTierObservedAtUtc $TierObservedAtUtc `
     -AuthorizedBudgetUsd $AuthorizedBudgetUsd `
