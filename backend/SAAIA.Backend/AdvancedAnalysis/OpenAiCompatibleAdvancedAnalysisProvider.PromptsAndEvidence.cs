@@ -154,8 +154,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            The same query with a changed category or document scope is a new search;
            priorSearches supplies those filters. For a repeated grid, test each
            semantic column independently and seek enough distinct concrete items
-           to fill it. Ignore navigation fragments, generic advice and occurrences
-           where a query word is used in an unrelated grammatical sense. Search
+           to fill it. Do not count navigation fragments, generic advice or unrelated
+           word occurrences as substantive candidate evidence. Use covers, headings
+           and contents to recognize a document's structure and discover concrete
+           candidates. Follow promising observed names with exact-title sourceKey
+           searches, or read_source at valid physical pages, to obtain their content.
+           Search
            for answer-bearing names or headings and their relevant scope, not for
            templates or instructions about producing the deliverable. Do not add
            constraints the user did not request. For named-item grids, inspect
@@ -164,9 +168,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            it only when it is a concrete candidate for the requested role. Use
            targetColumns to measure each column separately.
            Continue with search_more while a column has fewer distinct usable
-           candidates than load.rowCount. Reformulate the weak column using
-           concrete alternate item names or subtypes absent from priorQueries;
-           do not merely reorder the same generic words. You may be called for
+           candidates than load.rowCount. First follow promising observed candidates
+           whose substantive content is missing. Otherwise use alternate item names
+           or subtypes absent from priorQueries. Do not substitute another general
+           column query for following a useful observed contents entry. You may be called for
            more than one review round, and each round must use the newly supplied
            observations and priorQueries.
            For a direct question, ready requires an observed passage that supports
@@ -359,6 +364,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            unsupported merely because the complete deliverable cannot be filled.
            Report the minimum remaining deficit for the decisive role or relation,
            while preserving the supported candidates as supported examples.
+           Any stated deficit must match the quota and supported count for that
+           role. A count of cited examples is not an exhaustive candidate inventory.
            Do not turn an optional synthesis choice into an insufficiency. Reserve
            insufficient_documentation for a missing documentary fact, item or
            mandatory source-defined relationship that prevents the deliverable.
@@ -520,7 +527,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            to the supplied evidence unless that evidence explicitly proves an
            exhaustive corpus statement. Compare deficit and absence claims against
            the whole supplied evidence set, not only the evidenceIds already chosen
-           by the candidate. Evidence IDs and sourceKeys are internal protocol
+           by the candidate. Check every stated deficit against that role's quota
+           and supported count; cited examples do not constitute an exhaustive
+           candidate inventory. Evidence IDs and sourceKeys are internal protocol
            values: never print an evidenceId, advanced-evidence-* or
            internal-source-* token in answerText, claim text or selectedItem. Do
            not add facts, preferences or evidence identifiers.

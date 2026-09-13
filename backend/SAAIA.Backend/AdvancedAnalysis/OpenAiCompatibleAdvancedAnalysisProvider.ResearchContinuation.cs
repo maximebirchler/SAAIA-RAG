@@ -127,6 +127,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            research_required object. SAAIA executes the searches and calls you
            again with revalidated evidence. Request documentary facts, not optional
            user preferences. Only a subsequent terminal result reaches the user.
+           Use observed covers, headings and contents to discover candidate names,
+           then follow their exact titles in that source or read their physical pages.
+           A contents entry identifies where to investigate, not the item's body.
+           Prefer this follow-up to another general query for the same unit family.
            Request research only when researchTools.researchAllowed is true.
            A limit on further research does not prove absence from the corpus.
            """ + "\n" + CanonicalSourceReadContract;
