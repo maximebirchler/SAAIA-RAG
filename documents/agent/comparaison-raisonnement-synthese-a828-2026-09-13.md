@@ -44,3 +44,12 @@ Le produit reste `TESTE_NON_APPROUVE`.
 
 Registre clos : 32,68584560 USD sur 40 USD, reste 7,31415440 USD.
 Aucun nouvel achat ni location.
+
+## Contrôle avant pilote
+
+L'option est implémentée. Quatre nouveaux cas vérifient les requêtes réellement
+envoyées pour l'héritage low, l'override medium dans Writer/retour/Critic, le
+transport interne sans paramètre OpenAI et le refus avant I/O d'une valeur
+invalide. Les réparations et la récupération n'activent pas cet override.
+Suite backend Release : 2 371 réussites, aucun échec, trois ignorés ; build
+sans avertissement et diff propre. Aucun résultat réel A828 encore acquis.

@@ -510,6 +510,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
     private void ValidateConfiguration()
     {
         ValidateDevelopmentTraceDirectory();
+        if (!string.IsNullOrWhiteSpace(_options.SynthesisReasoningEffort)
+            && _options.SynthesisReasoningEffort.Trim().ToLowerInvariant() is not ("low" or "medium" or "high"))
+            throw new AdvancedAnalysisProviderException("advanced_synthesis_reasoning_effort_invalid");
         if (_options.NativeResearchToolsEnabled && _options.NativeResearchApiProtocol is not ("chat-completions" or "responses"))
             throw new AdvancedAnalysisProviderException("advanced_native_api_protocol_invalid");
         if (_options.NativeResearchToolsEnabled && _options.NativeResearchTopology is not ("reviewed" or "agent"))
@@ -595,8 +598,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         }
         if (IsOpenAiDev)
         {
-            if (!string.IsNullOrWhiteSpace(_options.ReasoningEffort))
-                payload["reasoning_effort"] = _options.ReasoningEffort.Trim();
+            var effort = allowNativeResearch && !string.IsNullOrWhiteSpace(_options.SynthesisReasoningEffort)
+                ? _options.SynthesisReasoningEffort : _options.ReasoningEffort;
+            if (!string.IsNullOrWhiteSpace(effort))
+                payload["reasoning_effort"] = effort.Trim().ToLowerInvariant();
         }
         else
         {

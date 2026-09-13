@@ -25,6 +25,8 @@ param(
     [string]$ModelId = "",
     [ValidateSet("low", "medium", "high")]
     [string]$ReasoningEffort = "low",
+    [ValidateSet("", "low", "medium", "high")]
+    [string]$SynthesisReasoningEffort = "",
     [string]$ProviderAccountTier = "",
     [string]$ProviderAccountTierObservedAtUtc = "",
     [decimal]$AuthorizedBudgetUsd = 0,
@@ -468,6 +470,7 @@ try {
             LlmModel = $ModelId
             LlmApiKeyRef = "ENV:SAAIA_ADVANCED_LLM_API_KEY"
             ReasoningEffort = $ReasoningEffort
+            SynthesisReasoningEffort = $SynthesisReasoningEffort
             LlmTimeoutSeconds = 600
             LlmMaximumHttpAttempts = $MaximumProviderHttpAttempts
             DevelopmentTraceDirectory = $DevelopmentTraceDirectory
@@ -594,6 +597,7 @@ try {
         advancedValidationOwnerIdsPath = $advancedOwnerIdsPath
         ownerIdentityRecordedBeforeJobCreation = $true
         reasoningEffort = $ReasoningEffort
+        synthesisReasoningEffort = $SynthesisReasoningEffort
         semanticCriticEnabled = [bool]$EnableSemanticCritic
         nativeResearchToolsEnabled = [bool]$EnableNativeResearchTools
         nativeResearchApiProtocol = $NativeResearchApiProtocol

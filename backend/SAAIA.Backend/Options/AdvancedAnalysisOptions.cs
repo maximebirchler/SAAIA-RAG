@@ -40,6 +40,7 @@ sealed class AdvancedAnalysisOptions
     public string NativeResearchApiProtocol { get; set; } = "chat-completions";
     public string NativeResearchTopology { get; set; } = "reviewed";
     public bool NativeResearchWorkspaceEnabled { get; set; }
+    public string SynthesisReasoningEffort { get; set; } = string.Empty;
 
     public int MaximumEvidencePromptCharacters { get; set; } = 14_000;
 

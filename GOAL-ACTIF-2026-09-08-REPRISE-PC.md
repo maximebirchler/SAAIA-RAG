@@ -13,11 +13,13 @@ Point de preuve du 13 septembre, A825–A827 : le transport Responses accepte
 les outils natifs. C1 puis C2a restent rejetés sur le planning. C2a livre neuf
 options attestées et neuf cartes physiques vérifiées, aucune grille complète ;
 son insuffisance choisie avant épuisement ne prouve pas un déficit du corpus.
-Le registre clos totalise 32,34559770 USD sur 40 USD. C2b, mémoire de recherche
-choisie par le modèle, est préenregistré séparément, implémenté et encore sans
-pilote réel. Les 2 367 tests backend réussis valident ses contrats, pas encore
-le planning. Plafond global conservé à sept appels, installateurs différés.
-Voir `documents/agent/comparaison-memoire-recherche-a827-2026-09-13.md`.
+Le registre clos totalise 32,68584560 USD sur 40 USD. C2b offre une mémoire
+choisie par le modèle, mais son pilote ne l'utilise pas et reste rejeté.
+A828 compare séparément medium pendant la synthèse/critique, sans modifier
+le Planner low ni les plafonds de tokens. Les 2 371 tests backend réussis
+valident ces contrats, pas encore le planning. Plafond global conservé à sept
+appels, installateurs différés. Voir
+`documents/agent/comparaison-raisonnement-synthese-a828-2026-09-13.md`.
 Le produit reste `TESTE_NON_APPROUVE` et le Goal actif.
 
 ## Amendement prioritaire autorisé le 9 septembre 2026 — capacités locale et avancée
