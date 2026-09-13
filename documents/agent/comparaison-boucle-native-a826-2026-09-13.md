@@ -74,3 +74,17 @@ Cinq nouveaux cas vérifient la séquence et la critique pour les deux
 transports, le comportement non natif et le rejet de configuration.
 Suite backend Release : 2 348 réussites, aucun échec, trois ignorés.
 Cela valide le contrat technique ; aucun résultat réel C2a n'est encore acquis.
+
+## Résultat réel C2a et arrêt
+
+Version `95bebd84`, job `896452bf-c288-48f5-a284-dee32f04e687` : six appels,
+0,2666888 USD. Quinze recherches, aucune lecture ni recherche littérale.
+Writer choisit deux tours puis s'arrête avec deux tours encore possibles.
+Critic et récupération aboutissent à neuf options, aucune grille complète.
+Les neuf attestations sont relues ; neuf cartes passent l'audit physique.
+Le déficit de onze options annoncé n'est pas approuvé comme absence du corpus.
+
+Le résultat demeure rejeté. Pas de deuxième répétition C2a. Les projections
+perdent 24 puis 11 passages visibles, dont certains corps nommés utiles ;
+la causalité de l'échec reste à tester. C2b est préenregistré séparément.
+Ressources possédées fermées. Registre : 32,34559770 USD sur 40 USD.
