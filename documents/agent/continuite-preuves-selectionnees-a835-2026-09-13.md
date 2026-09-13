@@ -39,3 +39,20 @@ Sinon arrêt des répétitions et nouvelle hypothèse préenregistrée.
 
 Enveloppe achetée 40 USD, registre clos 33,98436250, reste calculé 6,01563750.
 Pas d'achat automatique ni location. Produit TESTE_NON_APPROUVE, Goal actif.
+
+## Contrôle mécanique achevé
+
+Option NativeResearchActiveProposalEnabled ajoutée, défaut false. Neuf cas
+ciblés réussissent : éviction/preservation et nouvelle preuve encore visible
+pour les deux protocoles avec option active ou inactive, renouvellement après
+correction, absence de fuite entre jobs, refus de ressusciter un ID déjà
+invisible et bornes 256/257 avec compte explicite d'omission. Suite backend
+Release : 2 384 réussites, aucun échec, trois ignorés. Script du runner analysé
+sans erreur syntaxique ; build sans avertissement et diff propre.
+
+Le premier test de renouvellement avait une réponse Planner sans selectionMode
+requis en topologie agent ; fixture corrigée, échec original conservé. Aucun
+pilote réel A835 encore exécuté. Un autre défaut est identifié : ParseResult
+reconnaît les IDs canoniques du job sans garantir que chacun reste visible au
+tour final. La validation d'identité protège le cas A834, mais ne suffit pas à
+garantir toutes les citations. Cette correction sera préenregistrée séparément.

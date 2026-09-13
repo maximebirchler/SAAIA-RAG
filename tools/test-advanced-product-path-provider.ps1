@@ -43,6 +43,7 @@ param(
     [ValidateSet("reviewed", "agent")]
     [string]$NativeResearchTopology = "reviewed",
     [switch]$EnableNativeResearchWorkspace,
+    [switch]$EnableNativeResearchActiveProposal,
     [ValidateRange(512, 16384)]
     [int]$CriticMaxTokens = 4096,
     [decimal]$InputUsdPerMillionTokens = 0,
@@ -486,6 +487,7 @@ try {
             NativeResearchApiProtocol = $NativeResearchApiProtocol
             NativeResearchTopology = $NativeResearchTopology
             NativeResearchWorkspaceEnabled = [bool]$EnableNativeResearchWorkspace
+            NativeResearchActiveProposalEnabled = [bool]$EnableNativeResearchActiveProposal
             SemanticCriticEnabled = [bool]$EnableSemanticCritic
             CriticMaxTokens = $CriticMaxTokens
             MaximumPlanQueries = 8
@@ -607,6 +609,7 @@ try {
         nativeResearchApiProtocol = $NativeResearchApiProtocol
         nativeResearchTopology = $NativeResearchTopology
         nativeResearchWorkspaceEnabled = [bool]$EnableNativeResearchWorkspace
+        nativeResearchActiveProposalEnabled = [bool]$EnableNativeResearchActiveProposal
         criticMaxTokens = $CriticMaxTokens
         inputUsdPerMillionTokens = $InputUsdPerMillionTokens
         cachedInputUsdPerMillionTokens = $CachedInputUsdPerMillionTokens

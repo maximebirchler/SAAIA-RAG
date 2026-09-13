@@ -16,6 +16,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         public List<AdvancedAnalysisSearchRequest> FocusSearches { get; } = [];
         public NativeResearchTurn? NativeTurn { get; set; }
         public IReadOnlyList<ResearchWorkspaceItem> Workspace { get; set; } = [];
+        public IReadOnlyList<string> ActiveProposalEvidenceIds { get; set; } = [];
+        public int ActiveProposalOmittedEvidenceCount { get; set; }
     }
 
     private sealed record SynthesisCompletion(
@@ -181,12 +183,24 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 context.RetrievalQueriesByEvidenceId, context.FocusSearches);
             if (_options.NativeResearchToolsEnabled && _options.NativeResearchWorkspaceEnabled)
                 focusedEvidence = PrioritizeResearchWorkspace(evidence, context.Workspace, focusedEvidence);
+            if (_options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
+                focusedEvidence = PrioritizeActiveProposalEvidence(evidence, context.ActiveProposalEvidenceIds, focusedEvidence);
             var observations = BuildPromptEvidence(request, evidence, context.RetrievalQueriesByEvidenceId,
                 focusedEvidence);
             var userPrompt = buildUserPrompt(observations);
-            if (_options.AdaptiveResearchEnabled || candidateSupportFeedback is not null || argumentFeedback is not null)
+            if (_options.AdaptiveResearchEnabled || candidateSupportFeedback is not null || argumentFeedback is not null
+                || _options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
             {
                 var payload = JsonNode.Parse(userPrompt)!.AsObject();
+                if (_options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
+                    payload["activeProposal"] = JsonSerializer.SerializeToNode(new
+                    {
+                        retainedEvidenceIds = context.ActiveProposalEvidenceIds,
+                        omittedBeyondRetentionLimit = context.ActiveProposalOmittedEvidenceCount,
+                        currentlyVisibleEvidenceIds = context.ActiveProposalEvidenceIds.Where(id => observations.Any(e => e.EvidenceId == id)).ToArray(),
+                        currentlyAbsentEvidenceIds = context.ActiveProposalEvidenceIds.Where(id => observations.All(e => e.EvidenceId != id)).ToArray(),
+                        instruction = "References explicitly cited by your last structured proposal, not facts or approval. Canonical excerpts are prioritized within the existing context limit. Only current evidence bodies support claims; absent references cannot be cited. Reassess substantive content and source scope yourself, research or replace a choice if needed."
+                    }, JsonOptions);
                 if (_options.NativeResearchToolsEnabled && _options.NativeResearchWorkspaceEnabled)
                     payload["researchWorkspace"] = JsonSerializer.SerializeToNode(new
                     {
@@ -226,6 +240,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     ? BuildNativeToolTurnMessages(context.NativeTurn, observations, UsesNativeResponses) : null).ConfigureAwait(false);
             if (!RequestsCorpusResearch(completion.Content))
             {
+                if (_options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
+                    RememberActiveProposalEvidence(completion.Content, evidence, observations, request, context);
                 var corrections = FindIdentityOnlyCandidateSupport(completion.Content, evidence, request);
                 if (corrections.Count == 0)
                     return new SynthesisCompletion(completion, evidence, observations);

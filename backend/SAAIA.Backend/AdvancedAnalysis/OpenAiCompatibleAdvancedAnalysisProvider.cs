@@ -271,6 +271,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 completions.Add(repair);
                 parsed = ParseResult(repair.Content, evidence, request);
             }
+            if (_options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
+                RememberActiveProposalEvidence(parsed, promptEvidence, synthesisResearch);
             parsed = CanonicalizeDistinctSelectedItems(
                 request,
                 parsed,
