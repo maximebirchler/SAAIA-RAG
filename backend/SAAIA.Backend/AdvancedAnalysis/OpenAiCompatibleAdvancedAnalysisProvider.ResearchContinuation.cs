@@ -180,6 +180,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     tool = "search_corpus",
                     readSourceTool = new { name = "read_source", operation = "read_source", sourceKey = "required observed sourceKey",
                         pageStart = "positive physical page", pageEnd = "inclusive, at most three pages after pageStart", topK = 60 },
+                    findSourceTextTool = BuildCanonicalFindToolForPrompt(),
                     researchAllowed = maximumCalls - completions.Count - 1 - reservedFinalCalls > 0,
                     remainingModelCalls = Math.Max(0, maximumCalls - completions.Count - 1 - reservedFinalCalls),
                     maximumQueries = ResolveMaximumPlanQueries(request),

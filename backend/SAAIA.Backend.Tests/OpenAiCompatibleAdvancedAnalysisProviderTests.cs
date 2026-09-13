@@ -13,6 +13,44 @@ namespace SAAIA.Backend.Tests;
 public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
     [Fact]
+    public async Task Literal_find_preserves_model_text_scope_and_offset_in_followup_tool_call()
+    {
+        using var factory = new QueuedHttpClientFactory(Completion("""{"queries":[{"query":"overview","topK":12}]}"""),
+            Completion("""{"decision":"search_more","queries":[{"operation":"find_source_text","query":"ISO %_ 17","sourceKey":"internal-source-1","offset":20,"topK":12}]}"""),
+            Completion("""{"outcome":"insufficient_documentation","answerText":"Documentation insuffisante.","claims":[]}"""));
+        var options = CreateOptions(); options.AdaptiveResearchEnabled = true; options.ExternalMaximumCallsPerJob = 3;
+        var evidence = BuildEvidence("E1", "An observed source body.");
+        var gateway = new RecordingToolGateway(evidence);
+        await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null).ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+        var find = Assert.Single(gateway.Searches, search => search.Operation == "find_source_text");
+        Assert.Equal("ISO %_ 17", find.Query); Assert.Equal(20, find.Offset);
+        Assert.Equal(evidence.Reference.DocId, find.DocId); Assert.Equal(evidence.Reference.RevisionId, find.RevisionId);
+        Assert.Null(find.DocumentHint); Assert.Null(find.Category);
+        Assert.Null(find.PageStart); Assert.Null(find.PageEnd);
+        Assert.Contains("find_source_text", factory.Requests[1].Body);
+    }
+
+    [Theory]
+    [InlineData("{\"query\":\"ab\",\"sourceKey\":\"internal-source-999\"}")]
+    [InlineData("{\"query\":\"ab\"}")]
+    [InlineData("{\"query\":\"x\",\"sourceKey\":\"internal-source-1\"}")]
+    [InlineData("{\"query\":\"ab\",\"sourceKey\":\"internal-source-1\",\"offset\":-1}")]
+    [InlineData("{\"query\":\"ab\",\"sourceKey\":\"internal-source-1\",\"offset\":10001}")]
+    [InlineData("{\"query\":\"ab\",\"sourceKey\":\"internal-source-1\",\"offset\":\"1\"}")]
+    [InlineData("{\"query\":\"ab\",\"sourceKey\":\"internal-source-1\",\"pageStart\":2}")]
+    [InlineData("{\"query\":\"ab\",\"sourceKey\":\"internal-source-1\",\"category\":\"other\"}")]
+    public async Task Invalid_literal_find_is_rejected_before_a_followup_tool_call(string properties)
+    {
+        var query = System.Text.Json.Nodes.JsonNode.Parse(properties)!.AsObject(); query["operation"] = "find_source_text";
+        var review = "{\"decision\":\"search_more\",\"queries\":[" + query.ToJsonString() + "]}";
+        using var factory = new QueuedHttpClientFactory(Completion("""{"queries":[{"query":"overview","topK":12}]}"""), Completion(review));
+        var options = CreateOptions(); options.AdaptiveResearchEnabled = true; options.ExternalMaximumCallsPerJob = 3;
+        var gateway = new RecordingToolGateway(BuildEvidence("E1", "Source observation."));
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() => new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null).ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None));
+        Assert.Equal("advanced_research_review_protocol_invalid", error.ErrorCode); Assert.Single(gateway.Searches);
+    }
+
+    [Fact]
     public void Focus_memory_preserves_source_scopes_and_bounds_general_searches()
     {
         var scopes=Enumerable.Range(1,8).Select(i=>new AdvancedAnalysisSearchRequest("Candidate "+i,DocId:Guid.NewGuid().ToString())).ToArray();

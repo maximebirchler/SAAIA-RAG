@@ -457,6 +457,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 .ConfigureAwait(false);
             if(observation.ReadDiagnostic is not null)
                 priorSearches[searchIndex]=planned with {ReadDiagnostic=observation.ReadDiagnostic};
+            if (observation.FindDiagnostic is not null)
+                priorSearches[searchIndex] = planned with { FindDiagnostic = observation.FindDiagnostic };
             if (observation.Evidence.Count == 0)
                 continue;
 

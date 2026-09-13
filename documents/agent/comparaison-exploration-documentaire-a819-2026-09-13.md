@@ -68,3 +68,39 @@ réunir ensuite trois réussites live consécutives. Le futur holdout reste
 inconnu jusqu'au gel ; BH6 reste historiquement rejeté à 1/24. Les exigences
 générales, locales et WinUI du Goal restent nécessaires. Le produit reste
 **TESTE_NON_APPROUVE** pendant la comparaison.
+
+## Implémentation B et contrôles sans API exécutés
+
+`find_source_text` est ajouté au gateway et au protocole JSON du modèle. Le
+modèle doit fournir un `sourceKey` observé, un texte littéral et éventuellement
+l'offset renvoyé. La portée tenant/révision/hash/chemin est vérifiée même en
+cas de résultat vide, dans une transaction PostgreSQL en lecture seule et
+snapshot stable. Les identités des chunks sont ensuite revalidées par le même
+resolver. Aucun résultat n'est fusionné, aucune requête n'est réécrite en
+liste de mots et aucun choix de recette n'est codé.
+
+Neuf contrôles du protocole passent. Deux contrôles PostgreSQL réels passent,
+dont une autre révision du même document contenant le même texte, les autres
+documents/tenants, la pagination stable, les caractères littéraux et le refus
+du changement de hash. Suite backend Release : 2 313 réussites, zéro échec,
+trois tests live ignorés. PostgreSQL temporaire arrêté, environnement restauré.
+
+Sur les vingt `selectedItem` réellement produits par A817, un diagnostic
+externe en lecture seule dans leurs sources retrouve des références exactes
+de dix-neuf choix : 58 chunks au total, somme des durées des outils 1 965 ms.
+Huit scopes document/révision sont revalidés. La recherche du titre complet
+du porridge ne retrouve pas de match littéral. Ce contrôle ne cherche pas
+d'alternative automatiquement et ne transforme pas ce zéro en absence du
+contenu. Les titres proviennent du résultat connu et non d'une sélection
+autonome dans B. Aucun appel API ni lecture de corps supplémentaire ; ce
+diagnostic ne valide pas le planning ni la disponibilité de toutes les
+recettes dans un corpus aveugle.
+
+Le runner source expose désormais deux paramètres optionnels de validation :
+répertoire privé de traces et nombre maximum de tentatives HTTP (défaut
+historique trois, pilote enregistré une). Les budgets et paramètres de
+contexte/outils restent ceux du protocole. Les anciennes captures sont
+préservées. Preuves du diagnostic :
+`artifacts/reprise-pc-20260908/a800-meal-planning-continuity-20260913/meal-a819-literal-find-known-diagnostic.v1.json` ;
+contrôles mécaniques : `a815-completion-audit-20260913/exploration-a819-*.trx`
+et `a671-backend-postgres/a819-canonical-find-final-20260913/`.

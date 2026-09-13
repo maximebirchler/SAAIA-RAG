@@ -16,6 +16,8 @@ param(
     [int]$DelayBetweenCasesSeconds = 0,
     [ValidateRange(1, 20)]
     [int]$MaximumJobAttempts = 3,
+    [ValidateRange(1, 3)]
+    [int]$MaximumProviderHttpAttempts = 3,
     [ValidateRange(1000, 900000)]
     [int]$MaximumJobRetryDelayMilliseconds = 600000,
     [Alias("BaseUrl")]
@@ -41,6 +43,7 @@ param(
     [string]$Gpu = "",
     [string]$Quantization = "",
     [string]$ModelSha256 = "",
+    [string]$DevelopmentTraceDirectory = "",
     [int]$ContextSize = 0,
     [decimal]$HourlyCostUsd = 0,
     [string]$LocalLlmExePath = "",
@@ -460,7 +463,8 @@ try {
             LlmApiKeyRef = "ENV:SAAIA_ADVANCED_LLM_API_KEY"
             ReasoningEffort = $ReasoningEffort
             LlmTimeoutSeconds = 600
-            LlmMaximumHttpAttempts = 3
+            LlmMaximumHttpAttempts = $MaximumProviderHttpAttempts
+            DevelopmentTraceDirectory = $DevelopmentTraceDirectory
             LlmRetryBaseDelayMilliseconds = 15000
             LlmMaximumRetryDelayMilliseconds = 60000
             PlannerMaxTokens = 512

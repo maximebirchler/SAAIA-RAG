@@ -21,7 +21,7 @@ using Xunit;
 
 namespace SAAIA.Backend.Tests;
 
-public sealed class AdvancedAnalysisWorkerTests
+public sealed partial class AdvancedAnalysisWorkerTests
 {
     [Fact]
     public void Disabled_license_resolves_disabled_provider_before_provider_configuration()

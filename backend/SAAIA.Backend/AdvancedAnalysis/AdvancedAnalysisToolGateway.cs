@@ -24,7 +24,12 @@ internal sealed record AdvancedAnalysisSearchRequest(
     string? DocumentHint = null,
     string Operation = "search_corpus",
     string? RevisionId = null,
-    AdvancedAnalysisReadDiagnostic? ReadDiagnostic = null);
+    AdvancedAnalysisReadDiagnostic? ReadDiagnostic = null,
+    int Offset = 0,
+    AdvancedAnalysisFindDiagnostic? FindDiagnostic = null);
+
+internal sealed record AdvancedAnalysisFindDiagnostic(
+    string Status, int ReturnedChunkCount, int? NextOffset);
 
 internal sealed record AdvancedAnalysisReadDiagnostic(
     string Status,
@@ -38,7 +43,8 @@ internal sealed record AdvancedAnalysisSearchObservation(
     IReadOnlyList<string> DegradedRetrievers,
     long ElapsedMilliseconds,
     int ToolCallNumber,
-    AdvancedAnalysisReadDiagnostic? ReadDiagnostic = null);
+    AdvancedAnalysisReadDiagnostic? ReadDiagnostic = null,
+    AdvancedAnalysisFindDiagnostic? FindDiagnostic = null);
 
 internal sealed record AdvancedAnalysisToolEventSummary(
     int EventSequence,
@@ -128,7 +134,7 @@ internal sealed class AdvancedAnalysisToolGatewayFactory :
             attemptCount);
 }
 
-internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
+internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
 {
     private const int MaximumQueryCharacters = 8_000;
     private const int MaximumScopeCharacters = 2_000;
@@ -292,7 +298,15 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
             stopwatch = Stopwatch.StartNew();
             IReadOnlyList<AdvancedAnalysisEvidenceReference> references;
             IReadOnlyList<string> degraded;
-            if (request.Operation == "read_source")
+            if (request.Operation == "find_source_text")
+            {
+                ValidateObservedReadScope(requestForTrace);
+                var found = await FindCanonicalTextAsync(requestForTrace, cancellationToken).ConfigureAwait(false);
+                references = found.References;
+                requestForTrace = requestForTrace with { FindDiagnostic = found.Diagnostic };
+                degraded = [];
+            }
+            else if (request.Operation == "read_source")
             {
                 ValidateObservedReadScope(requestForTrace);
                 references = await ReadCanonicalPagesAsync(requestForTrace, cancellationToken)
@@ -395,7 +409,8 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
                 degraded,
                 stopwatch.ElapsedMilliseconds,
                 callNumber,
-                requestForTrace.ReadDiagnostic);
+                requestForTrace.ReadDiagnostic,
+                requestForTrace.FindDiagnostic);
         }
         catch (Exception ex)
         {
@@ -642,8 +657,17 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
         }
         if (request.TopK is <= 0 || request.TopK > _maximumSearchTopK)
             throw new AdvancedAnalysisToolException("search_top_k_invalid");
-        if (request.Operation is not "search_corpus" and not "read_source")
+        if (request.Operation is not "search_corpus" and not "read_source" and not "find_source_text")
             throw new AdvancedAnalysisToolException("research_operation_invalid");
+        if (request.Operation == "find_source_text"
+            && (!Guid.TryParse(request.DocId, out _) || !Guid.TryParse(request.RevisionId, out _)
+                || string.IsNullOrWhiteSpace(request.DocPath)
+                || !string.IsNullOrWhiteSpace(request.Category) || !string.IsNullOrWhiteSpace(request.DocumentHint)
+                || request.PageStart is not null || request.PageEnd is not null
+                || request.Query.Trim().Length is < 2 or > 512 || request.Offset is < 0 or > 10_000))
+            throw new AdvancedAnalysisToolException("canonical_find_scope_or_literal_invalid");
+        if (request.Operation != "find_source_text" && request.Offset != 0)
+            throw new AdvancedAnalysisToolException("research_offset_invalid");
         if (request.Operation == "read_source"
             && (!Guid.TryParse(request.DocId, out _) || !Guid.TryParse(request.RevisionId, out _)
                 || string.IsNullOrWhiteSpace(request.DocPath)

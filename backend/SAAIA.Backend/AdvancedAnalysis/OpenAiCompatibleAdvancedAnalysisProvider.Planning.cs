@@ -41,10 +41,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 if (item.TryGetProperty("operation", out var operationValue)
                     && operationValue.ValueKind is not JsonValueKind.String and not JsonValueKind.Null) throw new JsonException();
                 if (operation.Length == 0) operation = "search_corpus";
-                if (operation is not "search_corpus" and not "read_source") throw new JsonException();
+                if (operation is not "search_corpus" and not "read_source" and not "find_source_text") throw new JsonException();
                 var isRead = operation == "read_source";
-                var query = NormalizeCorpusSearchQuery(
-                    ReadString(item, "query"));
+                var isFind = operation == "find_source_text";
+                var query = isFind ? ReadString(item, "query").Trim()
+                    : NormalizeCorpusSearchQuery(ReadString(item, "query"));
                 if (!isRead && (string.IsNullOrWhiteSpace(query) || query.Length > 8_000))
                 {
                     continue;
@@ -75,6 +76,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         || string.IsNullOrWhiteSpace(observedSource.SourceReference.DocPath)))
                     throw new JsonException();
                 int? pageStart = null, pageEnd = null;
+                var offset = 0;
+                if (item.TryGetProperty("offset", out var offsetValue))
+                {
+                    if (!isFind || offsetValue.ValueKind != JsonValueKind.Number
+                        || !offsetValue.TryGetInt32(out offset) || offset is < 0 or > 10_000) throw new JsonException();
+                }
+                if (isFind && (observedSource is null || query.Length is < 2 or > 512
+                        || ReadString(item, "category").Trim().Length > 0 || documentHint.Length > 0
+                        || !Guid.TryParse(observedSource.SourceReference.RevisionId, out _)
+                        || item.TryGetProperty("pageStart", out _) || item.TryGetProperty("pageEnd", out _)))
+                    throw new JsonException();
                 if (isRead)
                 {
                     if (observedSource is null || ReadString(item, "category").Trim().Length > 0 || documentHint.Length > 0
@@ -99,7 +111,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     DocPath: observedSource?.SourceReference.DocPath,
                     PageStart: pageStart, PageEnd: pageEnd,
                     DocumentHint: documentHint.Length == 0 ? null : documentHint,
-                    Operation: operation, RevisionId: isRead ? observedSource!.SourceReference.RevisionId : null);
+                    Operation: operation, RevisionId: isRead || isFind ? observedSource!.SourceReference.RevisionId : null,
+                    Offset: offset);
                 if (dedupe.Add(BuildSearchIdentity(search)))
                     result.Add(search);
             }
@@ -662,7 +675,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             docId = search.DocId?.Trim() ?? string.Empty,
             docPath = search.DocPath?.Trim().Replace('\\', '/') ?? string.Empty,
             documentHint = search.DocumentHint?.Trim() ?? string.Empty,
-            search.Operation, search.RevisionId,
+            search.Operation, search.RevisionId, search.Offset,
             search.PageStart, search.PageEnd, search.TopK,
             search.MaxPerDocument, search.MaxPerPage
         });

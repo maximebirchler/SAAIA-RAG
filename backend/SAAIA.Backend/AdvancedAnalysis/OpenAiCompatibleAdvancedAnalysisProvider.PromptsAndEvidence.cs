@@ -52,7 +52,27 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         title, scope and substantive body evidence together when appropriate.
         All tool, time, evidence and model-call limits still apply. An empty
         window establishes no text in that window, not absence from the corpus.
+        You can find a literal text in an observed document revision with
+        {"operation":"find_source_text","sourceKey":"exact observed sourceKey",
+        "query":"literal text to locate","topK":20,"offset":0}. This is a
+        case-insensitive text lookup, with whitespace normalized, not a semantic
+        query. Use 2 to 512 characters; leave category and documentHint empty
+        and omit pageStart/pageEnd. Matches keep their actual cited chunks and
+        physical pages, in page order. A matching contents entry or title alone
+        is navigation, not substantive support; inspect and read its body.
+        For pagination copy nextOffset from findDiagnostic when supplied
+        (maximum 10000). No match at an offset concerns only that observed
+        revision and offset, never corpus-wide absence. No automatic fallback
+        or web search runs. The same budgets and identity checks apply.
         """;
+
+    private static object BuildCanonicalFindToolForPrompt() => new
+    {
+        name = "find_source_text", operation = "find_source_text",
+        sourceKey = "required exact observed sourceKey",
+        query = "literal text, 2 to 512 characters; case-insensitive, whitespace normalized",
+        topK = "integer from 1 to 60", offset = "0 initially, then diagnostic nextOffset; maximum 10000"
+    };
 
     private static string BuildPlannerSystemPrompt()
         => """
@@ -240,6 +260,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             readSourceTool = new { name = "read_source", operation = "read_source",
                 sourceKey = "required exact observed sourceKey", pageStart = "positive integer physical page",
                 pageEnd = "inclusive physical page, at most three pages after pageStart", topK = 60 },
+            findSourceTextTool = BuildCanonicalFindToolForPrompt(),
             priorQueries = request.Handoff.ResearchState.ExecutedQueries
                 .Concat(priorSearches.Select(static search => search.Query))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -545,6 +566,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             search.Query, search.Category, search.DocumentHint,
             search.Operation,
             search.ReadDiagnostic,
+            search.FindDiagnostic, search.Offset,
             sourceKey = observations.FirstOrDefault(observation =>
                 (!string.IsNullOrWhiteSpace(search.DocId)
                  && string.Equals(search.DocId, observation.SourceReference.DocId, StringComparison.OrdinalIgnoreCase))
