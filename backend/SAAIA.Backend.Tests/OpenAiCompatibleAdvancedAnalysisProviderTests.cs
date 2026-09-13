@@ -2732,6 +2732,46 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal("advanced_external_budget_job_cost_limit", error.ErrorCode);
     }
 
+    [Theory]
+    [InlineData(60, "0.000314")]
+    [InlineData(0, "0.000284")]
+    [InlineData(null, "0.000324")]
+    public void Cache_write_pricing_preserves_reads_writes_and_unknown_write_upper_bound(int? writeTokens, string expected)
+    {
+        var options = CreateOptions();
+        options.ExternalCacheWriteInputUsdPerMillionTokens = 2.5m;
+        var cost = AdvancedAnalysisExternalBudgetGuard.CalculateCost(100, 10, 20, options, writeTokens);
+        Assert.Equal(decimal.Parse(expected, System.Globalization.CultureInfo.InvariantCulture), cost);
+    }
+
+    [Fact]
+    public void Cache_write_reservation_rejects_a_job_that_only_base_input_pricing_would_admit()
+    {
+        var options = CreateOptions();
+        options.ExternalCacheWriteInputUsdPerMillionTokens = 2.5m;
+        options.ExternalMaximumCostPerJobUsd = 0.00034m;
+        var error = Assert.Throws<AdvancedAnalysisProviderException>(() =>
+            new AdvancedAnalysisExternalBudgetGuard(options, "openai-dev", "gpt-5.6-terra")
+                .Reserve(Guid.NewGuid(), "writer", 400, 10));
+        Assert.Equal("advanced_external_budget_job_cost_limit", error.ErrorCode);
+    }
+
+    [Theory]
+    [InlineData(60, 120)]
+    [InlineData(null, null)]
+    public async Task Provider_retains_reported_cache_write_tokens_across_its_calls(
+        int? secondCallWrites, int? expectedTotalWrites)
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[]}""", cacheWriteTokens: 60),
+            Completion("""{"outcome":"answered","answerText":"Le seuil est 17 [C1].","claims":[{"claimId":"C1","text":"Le seuil est 17.","evidenceIds":["E1"]}]}""", cacheWriteTokens: secondCallWrites));
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, CreateOptions(), apiKey: null)
+            .ExecuteAsync(BuildDirectRequest(), new RecordingToolGateway(BuildEvidence("E1", "Le seuil est 17.")), CancellationToken.None);
+        Assert.Equal(expectedTotalWrites, result.CacheWriteTokens);
+        Assert.Equal(200, result.InputTokens);
+        Assert.Equal(20, result.CachedInputTokens);
+    }
+
     [Fact]
     public void OpenAi_budget_prices_the_reference_7000_input_1000_output_call()
     {
@@ -2796,8 +2836,11 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             .GetProperty("errorCode").GetString());
     }
 
-    [Fact]
-    public void OpenAi_budget_uses_provider_usage_for_a_billed_invalid_response()
+    [Theory]
+    [InlineData(null, "0.03819", "provider_usage_cache_write_upper_bound")]
+    [InlineData(0, "0.034872", "provider_usage")]
+    public void OpenAi_budget_uses_provider_usage_for_a_billed_invalid_response(
+        int? cacheWriteTokens, string expectedCost, string expectedUsageSource)
     {
         var options = CreateOptions();
         var jobId = Guid.NewGuid();
@@ -2810,15 +2853,18 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         guard.Fail(
             reservation,
             "advanced_llm_content_missing",
-            new AdvancedAnalysisLlmUsage(6_636, 1_800, 0));
+            new AdvancedAnalysisLlmUsage(6_636, 1_800, 0, cacheWriteTokens));
         guard.EndJob(jobId);
 
         using var entry = JsonDocument.Parse(
             Assert.Single(File.ReadAllLines(options.ExternalUsageLedgerPath)));
-        Assert.Equal(0.034872m,
+        Assert.Equal(decimal.Parse(expectedCost, System.Globalization.CultureInfo.InvariantCulture),
             entry.RootElement.GetProperty("costUsd").GetDecimal());
-        Assert.Equal("provider_usage", entry.RootElement
+        Assert.Equal(expectedUsageSource, entry.RootElement
             .GetProperty("usageSource").GetString());
+        Assert.Equal(cacheWriteTokens, entry.RootElement.GetProperty("cacheWriteTokens")
+            .ValueKind == JsonValueKind.Null ? (int?)null
+            : entry.RootElement.GetProperty("cacheWriteTokens").GetInt32());
         Assert.False(entry.RootElement.GetProperty("success").GetBoolean());
         Assert.Equal("advanced_llm_content_missing", entry.RootElement
             .GetProperty("errorCode").GetString());
@@ -3055,7 +3101,8 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
 
     private static HttpResponseMessage Completion(
         string content,
-        string? model = null)
+        string? model = null,
+        int? cacheWriteTokens = 0)
         => new(HttpStatusCode.OK)
         {
             Content = JsonContent.Create(new
@@ -3069,7 +3116,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                 {
                     prompt_tokens = 100,
                     completion_tokens = 50,
-                    prompt_tokens_details = new { cached_tokens = 10 }
+                    prompt_tokens_details = new { cached_tokens = 10, cache_write_tokens = cacheWriteTokens }
                 }
             })
         };

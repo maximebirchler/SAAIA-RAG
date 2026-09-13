@@ -190,7 +190,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             SchemaVersion = handoff.SchemaVersion,
             HandoffId = handoff.HandoffId,
             CreatedAtUtc = handoff.CreatedAtUtc,
-            RequestText = handoff.RequestText,
+            RequestText = handoff.RequestText ?? string.Empty,
             Language = handoff.Language,
             OriginIntent = handoff.OriginIntent,
             ReasonCode = handoff.ReasonCode,

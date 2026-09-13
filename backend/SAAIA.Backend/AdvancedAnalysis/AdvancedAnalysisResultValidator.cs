@@ -51,9 +51,13 @@ internal static class AdvancedAnalysisResultValidator
             || !IsValidUsage(providerResult.InputTokens)
             || !IsValidUsage(providerResult.OutputTokens)
             || !IsValidUsage(providerResult.CachedInputTokens)
+            || !IsValidUsage(providerResult.CacheWriteTokens)
             || (providerResult.CachedInputTokens.HasValue
                 && providerResult.InputTokens.HasValue
                 && providerResult.CachedInputTokens > providerResult.InputTokens)
+            || (providerResult.InputTokens.HasValue
+                && (long)(providerResult.CachedInputTokens ?? 0) + (providerResult.CacheWriteTokens ?? 0)
+                    > providerResult.InputTokens.Value)
             || providerResult.EstimatedCostUsd is < 0 or > 1_000_000m)
         {
             return AdvancedAnalysisResultValidation.Invalid(
@@ -135,6 +139,7 @@ internal static class AdvancedAnalysisResultValidator
             InputTokens = providerResult.InputTokens,
             OutputTokens = providerResult.OutputTokens,
             CachedInputTokens = providerResult.CachedInputTokens,
+            CacheWriteTokens = providerResult.CacheWriteTokens,
             EstimatedCostUsd = providerResult.EstimatedCostUsd,
             CompletedAtUtc = completedAtUtc,
             ElapsedMilliseconds = Math.Max(0, elapsedMilliseconds),

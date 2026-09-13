@@ -52,6 +52,8 @@ sealed class AdvancedAnalysisOptions
 
     public decimal ExternalCachedInputUsdPerMillionTokens { get; set; } = 0.20m;
 
+    public decimal? ExternalCacheWriteInputUsdPerMillionTokens { get; set; }
+
     public decimal ExternalOutputUsdPerMillionTokens { get; set; } = 12m;
 
     public string ExternalUsageLedgerPath { get; set; } =

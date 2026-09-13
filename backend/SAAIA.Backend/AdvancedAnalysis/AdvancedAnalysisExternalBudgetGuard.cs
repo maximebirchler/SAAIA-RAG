@@ -6,7 +6,8 @@ namespace SAAIA.Backend.AdvancedAnalysis;
 internal sealed record AdvancedAnalysisLlmUsage(
     int? InputTokens,
     int? OutputTokens,
-    int? CachedInputTokens);
+    int? CachedInputTokens,
+    int? CacheWriteTokens = null);
 
 internal sealed record AdvancedAnalysisRateLimitTelemetry(
     string? ProviderRequestId,
@@ -49,6 +50,7 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
     private readonly AdvancedAnalysisOptions _options;
     private readonly string _providerKey;
     private readonly string _modelId;
+    private readonly decimal _cacheWriteRateUsdPerMillionTokens;
     private readonly Dictionary<Guid, JobState> _jobs = new();
     private readonly Dictionary<long, Reservation> _reservations = new();
     private long _nextReservationId;
@@ -63,6 +65,10 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
         _options = Validate(options);
         _providerKey = providerKey;
         _modelId = modelId;
+        _cacheWriteRateUsdPerMillionTokens = options.ExternalCacheWriteInputUsdPerMillionTokens
+            ?? (string.Equals(providerKey, "openai-dev", StringComparison.OrdinalIgnoreCase)
+                ? options.ExternalInputUsdPerMillionTokens * 1.25m
+                : options.ExternalInputUsdPerMillionTokens);
         _recordedCostUsd = ReadRecordedCost(options.ExternalUsageLedgerPath);
     }
 
@@ -79,7 +85,8 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
             estimatedInputTokens,
             maximumOutputTokens,
             cachedInputTokens: 0,
-            _options);
+            _options,
+            cacheWriteRateOverride: _cacheWriteRateUsdPerMillionTokens);
 
         lock (_gate)
         {
@@ -229,7 +236,13 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
                 usage.InputTokens ?? reservation.EstimatedInputTokens,
                 usage.OutputTokens ?? reservation.MaximumOutputTokens,
                 usage.CachedInputTokens ?? 0,
-                _options);
+                _options,
+                usage.CacheWriteTokens,
+                _cacheWriteRateUsdPerMillionTokens);
+            if (usageSource == "provider_usage"
+                && !usage.CacheWriteTokens.HasValue
+                && _cacheWriteRateUsdPerMillionTokens > _options.ExternalInputUsdPerMillionTokens)
+                usageSource = "provider_usage_cache_write_upper_bound";
             _reservedCostUsd -= reservation.ReservedCostUsd;
             job.ReservedUsd -= reservation.ReservedCostUsd;
             job.ChargedUsd += cost;
@@ -247,6 +260,8 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
                 inputTokens = usage.InputTokens,
                 outputTokens = usage.OutputTokens,
                 cachedInputTokens = usage.CachedInputTokens,
+                cacheWriteTokens = usage.CacheWriteTokens,
+                cacheWriteInputUsdPerMillionTokens = _cacheWriteRateUsdPerMillionTokens,
                 costUsd = cost,
                 softLimitReached = _recordedCostUsd
                     >= _options.ExternalBudgetSoftLimitUsd,
@@ -282,15 +297,23 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
         int inputTokens,
         int outputTokens,
         int cachedInputTokens,
-        AdvancedAnalysisOptions options)
+        AdvancedAnalysisOptions options,
+        int? cacheWriteTokens = null,
+        decimal? cacheWriteRateOverride = null)
     {
         inputTokens = Math.Max(0, inputTokens);
         outputTokens = Math.Max(0, outputTokens);
         cachedInputTokens = Math.Clamp(cachedInputTokens, 0, inputTokens);
         var uncachedInput = inputTokens - cachedInputTokens;
+        var cacheWriteRate = cacheWriteRateOverride
+            ?? options.ExternalCacheWriteInputUsdPerMillionTokens
+            ?? options.ExternalInputUsdPerMillionTokens;
+        var writes = Math.Clamp(cacheWriteTokens
+            ?? (cacheWriteRate > options.ExternalInputUsdPerMillionTokens ? uncachedInput : 0), 0, uncachedInput);
         return decimal.Round(
-            (uncachedInput * options.ExternalInputUsdPerMillionTokens
+            ((uncachedInput - writes) * options.ExternalInputUsdPerMillionTokens
              + cachedInputTokens * options.ExternalCachedInputUsdPerMillionTokens
+             + writes * cacheWriteRate
              + outputTokens * options.ExternalOutputUsdPerMillionTokens)
             / 1_000_000m,
             8,
@@ -390,6 +413,7 @@ internal sealed class AdvancedAnalysisExternalBudgetGuard
             || options.ExternalMaximumCallsPerJob <= 0
             || options.ExternalInputUsdPerMillionTokens < 0
             || options.ExternalCachedInputUsdPerMillionTokens < 0
+            || options.ExternalCacheWriteInputUsdPerMillionTokens is < 0
             || options.ExternalOutputUsdPerMillionTokens < 0
             || string.IsNullOrWhiteSpace(options.ExternalUsageLedgerPath))
         {

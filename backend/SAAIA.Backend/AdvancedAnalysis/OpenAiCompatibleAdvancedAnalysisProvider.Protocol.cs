@@ -200,6 +200,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 completions.Select(static item => item.Usage.OutputTokens)),
             CachedInputTokens = SumKnownUsage(
                 completions.Select(static item => item.Usage.CachedInputTokens)),
+            CacheWriteTokens = completions.All(static item => item.Usage.CacheWriteTokens.HasValue)
+                ? SumKnownUsage(completions.Select(static item => item.Usage.CacheWriteTokens))
+                : null,
             EstimatedCostUsd = completions.Any(static item =>
                     item.EstimatedCostUsd.HasValue)
                 ? completions.Sum(static item => item.EstimatedCostUsd ?? 0m)
@@ -226,16 +229,25 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var output = ReadNonNegativeInt(usage, "completion_tokens")
                      ?? ReadNonNegativeInt(usage, "output_tokens");
         int? cached = null;
+        int? cacheWrite = null;
         if (usage.TryGetProperty("prompt_tokens_details", out var details)
             && details.ValueKind == JsonValueKind.Object)
         {
             cached = ReadNonNegativeInt(details, "cached_tokens");
+            cacheWrite = ReadNonNegativeInt(details, "cache_write_tokens");
         }
-        return new AdvancedAnalysisLlmUsage(input, output, cached);
+        else if (usage.TryGetProperty("input_tokens_details", out details)
+                 && details.ValueKind == JsonValueKind.Object)
+        {
+            cached = ReadNonNegativeInt(details, "cached_tokens");
+            cacheWrite = ReadNonNegativeInt(details, "cache_write_tokens");
+        }
+        return new AdvancedAnalysisLlmUsage(input, output, cached, cacheWrite);
     }
 
     private static int? ReadNonNegativeInt(JsonElement element, string property)
         => element.TryGetProperty(property, out var value)
+           && value.ValueKind == JsonValueKind.Number
            && value.TryGetInt32(out var parsed)
            && parsed >= 0
             ? parsed

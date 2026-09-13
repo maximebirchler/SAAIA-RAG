@@ -41,6 +41,8 @@ internal sealed class AdvancedAnalysisProviderResult
 
     public int? CachedInputTokens { get; init; }
 
+    public int? CacheWriteTokens { get; init; }
+
     public decimal? EstimatedCostUsd { get; init; }
 }
 
