@@ -12,6 +12,84 @@ namespace SAAIA.Backend.Tests;
 
 public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
+    [Fact]
+    public void Focused_evidence_preserves_document_and_page_scope_and_prefers_substantive_content()
+    {
+        var index = BuildEvidence("E-INDEX", "Options\nOption alpha I page 8", pageStart: 8);
+        var body = BuildEvidence("E-BODY", "Option alpha\nSet the pressure to 17 bar and hold for three minutes.",
+            docId: index.Reference.DocId, revisionId: index.Reference.RevisionId, pageStart: 8);
+        var wrongPage = BuildEvidence("E-WRONG-PAGE", body.Content, docId: index.Reference.DocId, revisionId: index.Reference.RevisionId, pageStart: 9);
+        var wrongDocument = BuildEvidence("E-WRONG-DOC", body.Content, pageStart: 8);
+        var evidence = new[] { index, wrongDocument, wrongPage, body };
+        var queries = evidence.ToDictionary(item => item.Reference.EvidenceId!, _ => new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Option alpha" });
+        var focus = OpenAiCompatibleAdvancedAnalysisProvider.PrioritizeFocusedEvidenceForPrompt(evidence, queries,
+            [new AdvancedAnalysisSearchRequest("Option alpha", null, 12, DocId: index.Reference.DocId, PageStart: 8, PageEnd: 8)]);
+        Assert.Equal(["E-BODY", "E-INDEX"], focus.Select(item => item.Reference.EvidenceId).ToArray());
+    }
+
+    [Fact]
+    public void Focused_evidence_is_bounded_and_diverse_across_requested_queries()
+    {
+        var evidence = Enumerable.Range(1, 30).Select(index => BuildEvidence("E" + index, "Procedure option " + index + ": hold for 3 min at 17 bar.")).ToArray();
+        var queries = evidence.ToDictionary(item => item.Reference.EvidenceId!, item => new HashSet<string> { item.Reference.EvidenceId! });
+        var searches = evidence.Select(item => new AdvancedAnalysisSearchRequest(item.Reference.EvidenceId!, null, 12)).ToArray();
+        var focus = OpenAiCompatibleAdvancedAnalysisProvider.PrioritizeFocusedEvidenceForPrompt(evidence, queries, searches);
+        Assert.Equal(20, focus.Count);
+        Assert.Equal(evidence.Take(20).Select(item => item.Reference.EvidenceId), focus.Select(item => item.Reference.EvidenceId));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Repeated_late_search_receives_existing_evidence_feedback_and_can_reformulate(bool reformulates)
+    {
+        var index = BuildEvidence("E-INDEX", "Table of contents Isolation procedure 8 Alarm reset 12");
+        var body = BuildEvidence("E-BODY", "Isolation procedure\nSet the pressure to 17 bar and hold for three minutes.");
+        const string repeated = """{"outcome":"research_required","queries":[{"query":"reference overview","topK":12}]}""";
+        const string novel = """{"outcome":"research_required","queries":[{"query":"Isolation procedure pressure conditions","topK":12}]}""";
+        const string answer = """{"outcome":"answered","answerText":"Le seuil est 17 bar [C1].","claims":[{"claimId":"C1","text":"Le seuil est 17 bar.","evidenceIds":["E-BODY"]}]}""";
+        var responses = new List<HttpResponseMessage> {
+            Completion("""{"queries":[{"query":"reference overview","topK":12}]}"""),
+            Completion("""{"decision":"ready","queries":[]}"""), Completion(repeated), Completion(reformulates ? novel : answer)
+        };
+        if (reformulates) responses.Add(Completion(answer));
+        using var factory = new QueuedHttpClientFactory(responses.ToArray());
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        options.ExternalMaximumCallsPerJob = reformulates ? 5 : 4;
+        var gateway = new SequencedToolGateway(reformulates ? [index] : [index, body], [body]);
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+            .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal("E-BODY", Assert.Single(Assert.Single(result.Claims).EvidenceIds));
+        Assert.Equal(reformulates ? 2 : 1, gateway.Searches.Count);
+        Assert.Equal(reformulates ? 5 : 4, result.ProviderCallCount);
+        using var request = JsonDocument.Parse(factory.Requests[3].Body);
+        using var payload = JsonDocument.Parse(request.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+        Assert.Equal("search_already_executed", payload.RootElement.GetProperty("researchFeedback").GetProperty("reasonCode").GetString());
+        Assert.All(factory.Requests, call => Assert.DoesNotContain(index.Reference.DocId!, call.Body, StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Format_repairs_cannot_bypass_substantive_body_requirement(bool criticRepair)
+    {
+        const string locatorAnswer = """{"outcome":"answered","answerText":"Option alpha [C1].","claims":[{"claimId":"C1","selectedItem":"Option alpha","text":"Option alpha convient à cette unité.","evidenceIds":["E-LOCATOR"]}]}""";
+        const string supported = """{"outcome":"answered","answerText":"Option alpha [C1].","claims":[{"claimId":"C1","selectedItem":"Option alpha","text":"Option alpha convient à cette unité.","evidenceIds":["E-BODY"]}]}""";
+        var responses = new List<HttpResponseMessage> { Completion("""{"queries":[]}"""), Completion(criticRepair ? supported : "not json"), Completion(criticRepair ? "not json" : locatorAnswer) };
+        if (criticRepair) responses.Add(Completion(locatorAnswer));
+        using var factory = new QueuedHttpClientFactory(responses.ToArray());
+        var options = CreateOptions();
+        options.SemanticCriticEnabled = criticRepair;
+        options.ExternalMaximumCallsPerJob = responses.Count;
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
+            new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+                .ExecuteAsync(BuildRequest(atomicEvidenceMode: "named_item"),
+                    new RecordingToolGateway(BuildEvidence("E-LOCATOR", "Option alpha", exactTitle: "Option alpha"), BuildEvidence("E-BODY", "Option alpha\nSet the pressure to 17 bar.", exactTitle: "Option alpha")), CancellationToken.None));
+        Assert.Equal("advanced_synthesis_candidate_body_not_supported", error.ErrorCode);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -236,10 +314,12 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     {
         var query = unknownScope || exhaustedBudget ? "Isolation procedure" : "reference overview";
         var signal = JsonSerializer.Serialize(new { outcome = "research_required", queries = new[] { new { query, sourceKey = unknownScope ? "unknown-source" : "", topK = 12 } } });
-        using var factory = new QueuedHttpClientFactory(
+        var responses = new List<HttpResponseMessage> {
             Completion("""{"queries":[{"query":"reference overview","topK":12}]}"""),
             Completion("""{"decision":"ready","queries":[]}"""),
-            Completion(signal));
+            Completion(signal) };
+        if (!unknownScope && !exhaustedBudget) responses.Add(Completion(signal));
+        using var factory = new QueuedHttpClientFactory(responses.ToArray());
         var options = CreateOptions();
         options.AdaptiveResearchEnabled = true;
         options.ExternalMaximumCallsPerJob = exhaustedBudget ? 3 : 6;
@@ -249,7 +329,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                 .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None));
         Assert.Equal(exhaustedBudget ? "advanced_synthesis_research_call_budget_exhausted" : unknownScope ? "advanced_synthesis_research_protocol_invalid" : "advanced_synthesis_research_no_progress", error.ErrorCode);
         Assert.Single(gateway.Searches);
-        Assert.Equal(3, factory.Requests.Count);
+        Assert.Equal(!unknownScope && !exhaustedBudget ? 4 : 3, factory.Requests.Count);
     }
 
     [Fact]

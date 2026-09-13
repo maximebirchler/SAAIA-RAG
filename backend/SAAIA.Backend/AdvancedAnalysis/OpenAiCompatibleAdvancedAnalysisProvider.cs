@@ -377,6 +377,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 parsed,
                 promptEvidence,
                 synthesisRecoveryErrorCode);
+            if (FindIdentityOnlyCandidateClaims(parsed, evidence, request).Count > 0)
+                throw new AdvancedAnalysisProviderException("advanced_synthesis_candidate_body_not_supported");
             return WithMetrics(
                 parsed,
                 completions,

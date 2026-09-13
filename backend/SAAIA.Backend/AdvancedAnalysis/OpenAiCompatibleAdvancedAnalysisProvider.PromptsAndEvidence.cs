@@ -753,7 +753,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private IReadOnlyList<PromptEvidenceItem> BuildPromptEvidence(
         AdvancedAnalysisProviderRequest request,
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
-        IReadOnlyDictionary<string, HashSet<string>> retrievalQueriesByEvidenceId)
+        IReadOnlyDictionary<string, HashSet<string>> retrievalQueriesByEvidenceId,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence>? focusedEvidence = null)
     {
         var configuredMaximum = Math.Clamp(
             _options.MaximumEvidencePromptCharacters,
@@ -783,6 +784,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             request.Handoff.Load,
             evidence,
             retrievalQueriesByEvidenceId);
+        if (focusedEvidence is { Count: > 0 })
+        {
+            var focusedIds = focusedEvidence.Select(item => item.Reference.EvidenceId)
+                .ToHashSet(StringComparer.Ordinal);
+            prioritizedEvidence = focusedEvidence.Concat(prioritizedEvidence.Where(item =>
+                !focusedIds.Contains(item.Reference.EvidenceId))).ToArray();
+        }
         foreach (var item in prioritizedEvidence)
         {
             if (remaining <= 0)

@@ -11,7 +11,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         List<AdvancedAnalysisSearchRequest> PriorSearches,
         HashSet<string> PreviouslyExecuted,
         List<IReadOnlyList<AdvancedAnalysisResolvedEvidence>> EvidenceGroups,
-        Dictionary<string, HashSet<string>> RetrievalQueriesByEvidenceId);
+        Dictionary<string, HashSet<string>> RetrievalQueriesByEvidenceId)
+    {
+        public List<AdvancedAnalysisSearchRequest> FocusSearches { get; } = [];
+    }
 
     private sealed record SynthesisCompletion(
         CompletionResult Completion,
@@ -21,16 +24,57 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private sealed record CandidateSupportCorrection(string ClaimId, string SelectedItem,
         IReadOnlyList<string> EvidenceIds, string Reason);
 
+    internal static IReadOnlyList<AdvancedAnalysisResolvedEvidence> PrioritizeFocusedEvidenceForPrompt(
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
+        IReadOnlyDictionary<string, HashSet<string>> retrievalQueriesByEvidenceId,
+        IReadOnlyList<AdvancedAnalysisSearchRequest> searches)
+    {
+        var buckets = searches.Take(20).Select(search =>
+            OrderEvidenceForQuery(search.Query, search.DocumentHint, evidence.Where(item =>
+                item.Reference.EvidenceId is { } id
+                && retrievalQueriesByEvidenceId.TryGetValue(id, out var queries)
+                && queries.Contains(search.Query)
+                && (string.IsNullOrWhiteSpace(search.DocId)
+                    || string.Equals(search.DocId, item.Reference.DocId, StringComparison.OrdinalIgnoreCase))
+                && (string.IsNullOrWhiteSpace(search.DocPath)
+                    || string.Equals(search.DocPath.Replace('\\', '/'), item.Reference.DocPath, StringComparison.Ordinal))
+                && (string.IsNullOrWhiteSpace(search.Category)
+                    || item.Reference.DocPath.StartsWith(search.Category.Trim('/') + "/", StringComparison.OrdinalIgnoreCase))
+                && (search.PageStart is null || item.Reference.PageEnd >= search.PageStart)
+                && (search.PageEnd is null || item.Reference.PageStart <= search.PageEnd)).ToArray())
+            .OrderBy(item => RetrievalContentClassifier.AnalyzeEvidenceContent(item.Content, item.ExactTitle).ContentRole switch
+            {
+                RetrievalContentClassifier.ContentRole => 0,
+                RetrievalContentClassifier.MixedNavigationContentRole => 1,
+                _ => 2
+            }).Take(3).ToArray()).ToArray();
+        var selected = new List<AdvancedAnalysisResolvedEvidence>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (var rank = 0; rank < 3 && selected.Count < 20; rank++)
+            foreach (var bucket in buckets)
+                if (rank < bucket.Length && selected.Count < 20
+                    && seen.Add(bucket[rank].Reference.EvidenceId!))
+                    selected.Add(bucket[rank]);
+        return selected;
+    }
+
     private static IReadOnlyList<CandidateSupportCorrection> FindIdentityOnlyCandidateSupport(
         string raw, IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
+        AdvancedAnalysisProviderRequest request)
+    {
+        AdvancedAnalysisProviderResult result;
+        try { result = ParseResult(raw, evidence, request); }
+        catch (AdvancedAnalysisProviderException) { return []; }
+        return FindIdentityOnlyCandidateClaims(result, evidence, request);
+    }
+
+    private static IReadOnlyList<CandidateSupportCorrection> FindIdentityOnlyCandidateClaims(
+        AdvancedAnalysisProviderResult result, IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
         AdvancedAnalysisProviderRequest request)
     {
         if (!request.Handoff.Load.StructuredLayout
             || !request.Handoff.Load.AtomicEvidenceMode.Contains("named_item", StringComparison.OrdinalIgnoreCase))
             return [];
-        AdvancedAnalysisProviderResult result;
-        try { result = ParseResult(raw, evidence, request); }
-        catch (AdvancedAnalysisProviderException) { return []; }
         if (result.Outcome != "answered")
             return [];
         var byId = evidence.ToDictionary(item => item.Reference.EvidenceId!, StringComparer.Ordinal);
@@ -73,6 +117,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var maximumCalls = Math.Clamp(_options.ExternalMaximumCallsPerJob, 1, 1_024);
         var followup = 0;
         var supportCorrection = 0;
+        var noProgressRecovery = 0;
+        IReadOnlyList<AdvancedAnalysisSearchRequest>? repeatedSearches = null;
         var nextPhase = phase;
         object? candidateSupportFeedback = null;
         while (true)
@@ -82,7 +128,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_research_call_budget_exhausted");
             var evidence = FilterEvidenceToRequestedDocumentSet(request,
                 OrderEvidenceForPrompt(context.Tools.Evidence, context.EvidenceGroups));
-            var observations = BuildPromptEvidence(request, evidence, context.RetrievalQueriesByEvidenceId);
+            var focusedEvidence = PrioritizeFocusedEvidenceForPrompt(evidence,
+                context.RetrievalQueriesByEvidenceId, context.FocusSearches);
+            var observations = BuildPromptEvidence(request, evidence, context.RetrievalQueriesByEvidenceId,
+                focusedEvidence);
             var userPrompt = buildUserPrompt(observations);
             if (_options.AdaptiveResearchEnabled || candidateSupportFeedback is not null)
             {
@@ -99,6 +148,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 }, JsonOptions);
                 if (candidateSupportFeedback is not null)
                     payload["candidateSupportCorrections"] = JsonSerializer.SerializeToNode(candidateSupportFeedback, JsonOptions);
+                if (repeatedSearches is not null)
+                    payload["researchFeedback"] = JsonSerializer.SerializeToNode(new
+                    {
+                        reasonCode = "search_already_executed",
+                        searches = BuildPriorSearchesForPrompt(repeatedSearches, observations),
+                        instruction = "These searches already ran. Their existing evidence is prioritized in this context; they were not executed again. Use the available substantive content, or reformulate the query/scope if a different fact is needed. Do not repeat the same search. Lack of a visible passage does not prove corpus absence."
+                    }, JsonOptions);
                 userPrompt = payload.ToJsonString(JsonOptions);
             }
             var completion = await CompleteJsonAsync(request.JobId,
@@ -145,8 +201,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             {
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_research_protocol_invalid");
             }
+            context.FocusSearches.Clear();
+            context.FocusSearches.AddRange(queries);
             if (!queries.Any(query => !context.PreviouslyExecuted.Contains(BuildSearchIdentity(query))))
-                throw new AdvancedAnalysisProviderException("advanced_synthesis_research_no_progress");
+            {
+                if (++noProgressRecovery > 1)
+                    throw new AdvancedAnalysisProviderException("advanced_synthesis_research_no_progress");
+                repeatedSearches = queries;
+                nextPhase = $"{phase}-research-recovery-{noProgressRecovery}";
+                continue;
+            }
+            repeatedSearches = null;
             await ExecuteSearchBatchAsync(context.Tools, queries, context.PreviouslyExecuted,
                 context.PriorSearches, context.EvidenceGroups, context.RetrievalQueriesByEvidenceId,
                 cancellationToken).ConfigureAwait(false);
