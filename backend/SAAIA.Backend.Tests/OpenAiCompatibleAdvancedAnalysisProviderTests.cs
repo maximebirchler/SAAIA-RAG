@@ -118,6 +118,38 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.All(factory.Requests,request=>{Assert.DoesNotContain(index.Reference.DocId!,request.Body);Assert.DoesNotContain(index.Reference.RevisionId!,request.Body);});
     }
     [Fact]
+    public void Canonical_read_focus_does_not_replace_requested_page_with_longer_neighboring_content()
+    {
+        var primary=BuildEvidence("E-PRIMARY", "Pressure adjustment: set the pressure to 17 bar and hold for three minutes. "+new string('x',200), pageStart:10);
+        var neighbor=BuildEvidence("E-NEIGHBOR", "Temperature adjustment: set the temperature to 200 degrees for thirty minutes. "+new string('x',1200),
+            docId:primary.Reference.DocId, revisionId:primary.Reference.RevisionId, pageStart:11);
+        const string query="Canonical source physical pages 10-11";
+        var all=new[]{primary,neighbor};
+        var queries=all.ToDictionary(item=>item.Reference.EvidenceId!,_=>new HashSet<string>{query});
+        var focus=OpenAiCompatibleAdvancedAnalysisProvider.PrioritizeFocusedEvidenceForPrompt(all,queries,
+            [new AdvancedAnalysisSearchRequest(query,DocId:primary.Reference.DocId,RevisionId:primary.Reference.RevisionId,PageStart:10,PageEnd:11,Operation:"read_source")]);
+        Assert.Equal("E-PRIMARY",focus[0].Reference.EvidenceId);
+        Assert.Contains(neighbor,focus);
+    }
+
+    [Fact]
+    public void Twenty_canonical_reads_keep_twenty_substantive_bodies_in_the_bounded_priority_set()
+    {
+        const string query="Canonical source physical pages 61-62";
+        var headers=Enumerable.Range(1,20).Select(i=>BuildEvidence("E-HEADER-"+i,"Pressure adjustment procedure "+i,exactTitle:"Pressure adjustment procedure "+i,pageStart:61)).ToArray();
+        Assert.All(headers,header=>Assert.Equal(RetrievalContentClassifier.NavigationRole,
+            RetrievalContentClassifier.AnalyzeEvidenceContent(header.Content,header.ExactTitle).ContentRole));
+        var bodies=headers.Select((header,i)=>BuildEvidence("E-BODY-"+i,"Set the pressure to 17 bar and hold for three minutes. "+new string('x',200),
+            docId:header.Reference.DocId,revisionId:header.Reference.RevisionId,pageStart:62)).ToArray();
+        var all=headers.Concat(bodies).ToArray();
+        var queries=all.ToDictionary(item=>item.Reference.EvidenceId!,_=>new HashSet<string>{query});
+        var searches=headers.Select(header=>new AdvancedAnalysisSearchRequest(query,DocId:header.Reference.DocId,RevisionId:header.Reference.RevisionId,PageStart:61,PageEnd:62,Operation:"read_source")).ToArray();
+        var focus=OpenAiCompatibleAdvancedAnalysisProvider.PrioritizeFocusedEvidenceForPrompt(all,queries,searches);
+        Assert.Equal(20,focus.Count);
+        Assert.All(bodies,body=>Assert.Contains(body,focus));
+    }
+
+    [Fact]
     public void Canonical_read_focus_keeps_a_heading_with_its_body_and_filters_revision()
     {
         var header=BuildEvidence("E-HEADER", "Isolation procedure", exactTitle:"Isolation procedure", pageStart:61);
@@ -129,7 +161,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         var queries=all.ToDictionary(item=>item.Reference.EvidenceId!,_=>new HashSet<string>{query});
         var focus=OpenAiCompatibleAdvancedAnalysisProvider.PrioritizeFocusedEvidenceForPrompt(all,queries,
             [new AdvancedAnalysisSearchRequest(query, DocId:header.Reference.DocId, RevisionId:header.Reference.RevisionId, PageStart:61, PageEnd:62, Operation:"read_source")]);
-        Assert.Equal(new[]{"E-HEADER","E-BODY-4","E-BODY-3"},focus.Select(item=>item.Reference.EvidenceId));
+        Assert.Equal(new[]{"E-BODY-4","E-HEADER","E-BODY-3"},focus.Select(item=>item.Reference.EvidenceId));
     }
 
     [Fact]

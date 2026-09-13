@@ -73,8 +73,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 .OrderByDescending(static item => item.Content.Length).FirstOrDefault();
             var substantive = ordered.Where(item => item != heading)
                 .OrderBy(item => RetrievalContentClassifier.AnalyzeEvidenceContent(item.Content, item.ExactTitle).ContentRole == RetrievalContentClassifier.NavigationRole ? 1 : 0)
-                .ThenByDescending(static item => item.Content.Length);
-            return (heading is null ? substantive : new[] { heading }.Concat(substantive)).Take(3).ToArray();
+                .ThenByDescending(static item => item.Content.Length).ToArray();
+            var primaryBody = substantive.FirstOrDefault(item => item.Reference.PageStart == search.PageStart
+                && RetrievalContentClassifier.AnalyzeEvidenceContent(item.Content, item.ExactTitle).ContentRole != RetrievalContentClassifier.NavigationRole);
+            var body = primaryBody ?? substantive.FirstOrDefault(item =>
+                RetrievalContentClassifier.AnalyzeEvidenceContent(item.Content, item.ExactTitle).ContentRole != RetrievalContentClassifier.NavigationRole);
+            var anchors = new[] { body, heading }.Where(static item => item is not null)
+                .Cast<AdvancedAnalysisResolvedEvidence>().ToArray();
+            return anchors.Concat(substantive.Where(item => !anchors.Contains(item))).Take(3).ToArray();
         }).ToArray();
         var selected = new List<AdvancedAnalysisResolvedEvidence>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
