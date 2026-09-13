@@ -617,6 +617,67 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("fixed_subject_attributes", false, "content_claims")]
+    [InlineData("", false, "distinct_named_items")]
+    [InlineData("fixed_subject_attributes", true, "distinct_named_items")]
+    public async Task Planner_can_correct_inferred_object_selection_only_for_fixed_subject_facts(
+        string selectionBasis, bool explicitlyDistinct, string expectedMode)
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion(JsonSerializer.Serialize(new { selectionMode = "content_claims", selectionBasis, queries = new[] { new { query = "control procedure steps", topK = 12 } } })),
+            Completion("""{"outcome":"insufficient_documentation","answerText":"Les extraits ne documentent pas les dix faits demandés.","claims":[]}"""));
+        var request = BuildFixedSubjectRequest(explicitlyDistinct);
+        var options = CreateOptions();
+        options.ExternalMaximumCallsPerJob = 2;
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+            .ExecuteAsync(request, new RecordingToolGateway(BuildEvidence("E1", "Aperçu de la procédure.")), CancellationToken.None);
+        Assert.Equal(expectedMode, result.SelectionMode);
+        using var writerRequest = JsonDocument.Parse(factory.Requests[1].Body);
+        using var writerPayload = JsonDocument.Parse(writerRequest.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+        var load = writerPayload.RootElement.GetProperty("load");
+        Assert.Equal(expectedMode == "content_claims" ? "content_claim" : "named_item", load.GetProperty("atomicEvidenceMode").GetString());
+        Assert.Equal(10, load.GetProperty("answerUnitCount").GetInt32());
+        Assert.Equal(5, load.GetProperty("rowLabels").GetArrayLength());
+        Assert.Equal(2, load.GetProperty("columns").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Fixed_subject_fact_refinement_avoids_named_title_enforcement_on_supported_actions()
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"selectionMode":"content_claims","selectionBasis":"fixed_subject_attributes","queries":[{"query":"control procedure steps","topK":12}]}"""),
+            Completion(JsonSerializer.Serialize(new
+            {
+                outcome = "answered", answerText = "Dix faits documentés sur les étapes. " + string.Join(' ', Enumerable.Range(1, 10).Select(index => $"[C{index}]")),
+                claims = Enumerable.Range(1, 10).Select(index => new { claimId = $"C{index}", text = $"Le fait {index} décrit l'action documentée.", evidenceIds = new[] { "E1" } })
+            })));
+        var gateway = new RecordingToolGateway(BuildEvidence("E1", "Dix faits décrivent les acteurs et données de cinq étapes."));
+        var options = CreateOptions();
+        options.ExternalMaximumCallsPerJob = 2;
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+            .ExecuteAsync(BuildFixedSubjectRequest(false), gateway, CancellationToken.None);
+        Assert.Equal("content_claims", result.SelectionMode);
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(10, result.Claims.Count);
+    }
+
+    [Theory]
+    [InlineData("Use different actions for each cell.")]
+    [InlineData("Utilise des actions différentes dans chaque case.")]
+    [InlineData("Verwende unterschiedliche Aktionen für jede Zelle.")]
+    [InlineData("Usa acciones diferentes para cada celda.")]
+    [InlineData("Usa azioni differenti per ogni cella.")]
+    [InlineData("Use ações diferentes para cada célula.")]
+    public async Task Explicit_distinction_in_each_supported_language_prevents_fact_refinement(string requestText)
+    {
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"selectionMode":"content_claims","selectionBasis":"fixed_subject_attributes","queries":[{"query":"control procedure steps","topK":12}]}"""));
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, CreateOptions(), apiKey: null)
+            .ExecuteAsync(BuildFixedSubjectRequest(false, requestText), new RecordingToolGateway(), CancellationToken.None);
+        Assert.Equal("distinct_named_items", result.SelectionMode);
+    }
+
     [Fact]
     public async Task Structured_synthesis_insufficiency_gets_one_bounded_recovery_pass()
     {
@@ -2818,6 +2879,23 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             },
             [],
             []);
+
+    private static AdvancedAnalysisProviderRequest BuildFixedSubjectRequest(bool explicitlyDistinct, string? requestText = null)
+        => new(Guid.NewGuid(), Guid.NewGuid(), "test-user", new AdvancedAnalysisHandoffEnvelope
+        {
+            HandoffId = Guid.NewGuid(), CreatedAtUtc = DateTimeOffset.UtcNow,
+            RequestText = requestText ?? (explicitlyDistinct
+                ? "For steps 1 through 5 select different actions and transferred data for each cell."
+                : "For each control procedure step 1 through 5 describe its actor/action and the data transferred or checked."),
+            Language = "fr", OriginIntent = "structured_answer", ReasonCode = "advanced_capacity_required", TransferStage = "pre_retrieval",
+            Load = new AdvancedAnalysisLoadDescriptor
+            {
+                StructuredLayout = true, PlanKind = "structured_layout", AnswerUnitCount = 10, AtomicEvidenceCount = 10,
+                RowCount = 5, ColumnCount = 2, RowLabels = ["1", "2", "3", "4", "5"], Columns = ["Actor/action", "Transferred or checked data"],
+                AtomicEvidenceType = "action_with_item", AtomicEvidenceMode = "named_item", SelectionPolicy = "distinct_structured_layout"
+            },
+            ResearchState = new AdvancedAnalysisResearchState { EvidenceRevalidationRequired = true, MemoryIsEvidence = false }
+        }, [], []);
 
     private static AdvancedAnalysisProviderRequest BuildDirectRequest()
         => new(Guid.NewGuid(), Guid.NewGuid(), "test-user",

@@ -36,6 +36,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            explicitly allows repeated objects; content_claims when cells state
            facts about subjects already named by the row axis. Do not inherit an
            incompatible selection contract from the smaller routing model.
+           For content_claims about fixed row subjects, also return
+           "selectionBasis":"fixed_subject_attributes". This permits correcting
+           an inferred object-selection contract when the atomic evidence family
+           describes actions, actors, steps, facts, attributes, properties,
+           requirements, definitions, conditions or rules and the row/column axes
+           are already fixed. Keep every requested row, column and evidence unit.
+           A transfer or validation action is a fact about its given step; its
+           data item does not make it a new named-object selection. Preserve any
+           explicit requirement for distinct or different objects. Do not use
+           fixed_subject_attributes for a grid selecting new candidates such as meals.
            For a repeated grid, plan searches for concrete candidates in each
            semantic column or item family. Search for the content that will fill
            the cells, not instructions or blank

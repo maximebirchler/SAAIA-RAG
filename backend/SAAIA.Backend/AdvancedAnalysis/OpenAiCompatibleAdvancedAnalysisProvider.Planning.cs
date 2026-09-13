@@ -123,7 +123,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             return request;
         }
 
+        var fixedSubjectFactRefinement = selectionMode == "content_claims"
+            && ReadSelectionBasis(raw) == "fixed_subject_attributes"
+            && HasFixedSubjectFactFamily(load)
+            && !Regex.IsMatch(request.Handoff.RequestText ?? string.Empty,
+                @"\b(?:distinct\p{L}*|different\p{L}*|diferent\p{L}*|diff[eé]rent\p{L}*|unterschiedlich\p{L}*|distint\p{L}*|verschillend\p{L}*)\b",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         if (RequiresDistinctStructuredSelection(load)
+            && !fixedSubjectFactRefinement
             && selectionMode != "distinct_named_items")
         {
             // A planner may strengthen a weak local handoff, but it must not
@@ -195,6 +202,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         };
         return request with { Handoff = refinedHandoff };
     }
+
+    private static string ReadSelectionBasis(string raw)
+    {
+        using var document = JsonDocument.Parse(UnwrapJson(raw));
+        return ReadString(document.RootElement, "selectionBasis").Trim().ToLowerInvariant();
+    }
+
+    private static bool HasFixedSubjectFactFamily(AdvancedAnalysisLoadDescriptor load)
+        => load.StructuredLayout
+           && load.RowCount >= 2
+           && load.RowLabels.Count == load.RowCount
+           && load.Columns.Count == load.ColumnCount
+           && Regex.IsMatch(load.AtomicEvidenceType ?? string.Empty,
+               @"(?:^|[_\s-])(?:action|actor|step|fact|attribute|property|requirement|definition|condition|rule)(?:$|[_\s-])",
+               RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private IReadOnlyList<AdvancedAnalysisSearchRequest> ParseResearchReview(
         string raw,
@@ -313,7 +335,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                    && Regex.IsMatch(
                        load.AtomicEvidenceType ?? string.Empty,
                        @"(?:^|[_\s-])(?:entry|item|option|instance)(?:$|[_\s-])",
-                       RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)));
+                       RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+                   && !HasFixedSubjectFactFamily(load)));
 
     private static string ResolveSelectionMode(
         AdvancedAnalysisLoadDescriptor load)
