@@ -1,6 +1,6 @@
 # Registre de lecture de la reprise du 8 septembre 2026
 
-Le Goal est actif. Cette phase termine la lecture avant toute nouvelle implementation produit.
+Le Goal est actif. La lecture textuelle initiale est achevée ; ce registre conserve sa couverture et ses limites. Le chantier courant est la qualification locale/avancée, pas une reprise de lecture en attente. Voir le rapport de lecture complète A657 et l'audit A815 du 13 septembre.
 
 Les extractions ne sont pas des lectures. Un passage devient lu seulement apres affichage au modele, analyse et confirmation explicite dans le journal. Les repetitions exactes renvoient a une occurrence deja lue. Les lectures integrales anterieures sont identifiees separement. Les caracteres mesures sont ceux du texte extrait, pas une estimation de comprehension.
 

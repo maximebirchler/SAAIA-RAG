@@ -14225,3 +14225,57 @@ Assessment :
 SHA-256 `AA01BAC17291A8EABDF9CC5DFD39B5ABF55DAAF366D53FDE58C00226CBFDD870`.
 Aucun appel externe ni coût. Terra 3/3 reste ouverte tant que le compte affiche
 `Free tier`. Produit `TESTE_NON_APPROUVE`.
+
+## Actualisation du 13 septembre 2026 — A815, A816 et A817
+
+L'état Free tier ci-dessus est historique. À 15:59 UTC, Billing affiche
+10,08 USD avant les nouveaux essais et Limits confirme Tier 1 : Terra
+500 000 TPM, 500 RPM, 900 000 TPD. L'utilisateur confirme dix USD ajoutés aux
+trente précédents et autorise l'usage de tous ses crédits achetés pour cette
+mission. Plafond global des essais : 40 USD ; aucun achat/auto-reload ni
+financement de location RunPod. Après les deux nouveaux diagnostics, le journal
+compte 30,36662880 USD et 9,63337120 USD calculés disponibles.
+
+A815 rapproche les cinq priorités de reprise, les douze points A755 et les
+neuf phases des preuves closes. La lecture textuelle D001–D043 est achevée,
+le remplacement laptop n'est pas à refaire, et la preuve WinUI historique
+de deux cartes/un clic exact existe sur un résultat durable rejoué. La dernière
+banque locale connue sur `8437c345` accepte 42 comportements, dont neuf réponses
+locales terminées ; quatre préparations et quatre valeurs ne sont pas qualifiées
+comme réponses locales finies. Le holdout historique reste rejeté à 1/24.
+
+A816 reprend le vrai parcours produit sur `ad7fe14e` : 31 recherches, dont
+des titres dans leurs sources, zéro lecture native, sept appels, 0,3669042 USD,
+107,161 s de provider. Writer et critique livrent encore une insuffisance,
+pas vingt cellules. Les plafonds d'outils/contexte/temps et sept appels restent
+identiques ; le plafond monétaire de job passe de 0,40 à 0,75 USD pour ne pas
+couper cette mesure après la recharge. Verdict E2E rejeté.
+
+A817 isole le Writer avec la même demande et le même prompt système de
+production, mais les vingt lectures canoniques retrouvées extérieurement :
+209 chunks, 58 preuves visibles. Un appel réel à 0,0768015 USD / 20,223 s
+produit vingt choix distincts et plausibles avec 23 références. Revue humaine
+et parseur/policy de production passent. Ce diagnostic n'exécute pas critique,
+sélection autonome des lectures, job durable, WinUI ou trois répétitions.
+Parmi ses 23 références exactes, huit avaient été retournées par A816 et trois
+étaient visibles au Writer final ; les alternatives restent possibles.
+
+Écart de garde : le runner filtre le propriétaire `automated-validation`,
+mais le test utilise un GUID aléatoire et ce texte comme libellé de session.
+L'inventaire complémentaire en lecture seule de 306 UUID du journal retrouve
+295 jobs et aucun connu non-terminal ; onze manquent, dont la corrélation du
+Writer sans job durable. Les jobs sans appel enregistré ne sont pas couverts.
+Corriger la propriété effective avant le prochain holdout.
+
+Chantier actif : phase 4 / A755.3 et A755.9, exploration documentaire et
+conservation des contenus utiles. Comparer des stratégies générales après
+cette séparation rédaction/exploration ; aucune recette, langue ou source
+spécifique dans le code produit. Obtenir ensuite une réponse E2E acceptée,
+trois réussites critiques sur état figé, nouveau holdout et WinUI. Installateurs
+interactifs différés et serveur final non encore qualifié. Produit
+**TESTE_NON_APPROUVE** ; aucun gate assoupli.
+
+Preuves détaillées : `documents/agent/audit-de-cloture-du-goal-a815-2026-09-13.md`,
+`documents/agent/navigation-autonome-et-redaction-isolee-a816-a817-2026-09-13.md`,
+`artifacts/reprise-pc-20260908/a815-completion-audit-20260913/completion-evidence-audit.v1.json`
+et les assessments A816/A817 dans `a800-meal-planning-continuity-20260913`.

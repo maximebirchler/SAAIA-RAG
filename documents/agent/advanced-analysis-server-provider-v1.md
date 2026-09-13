@@ -139,6 +139,15 @@ le serveur cible.
 
 ## Budget OpenAI temporaire
 
+État courant du 13 septembre : les valeurs ci-dessous sont les valeurs par
+défaut et le pré-enregistrement initial, pas le plafond des campagnes actuelles.
+Après les recharges confirmées et l'autorisation d'utiliser tous ses crédits
+achetés, l'utilisateur dispose d'une enveloppe mission de 40 USD. A816/A817
+emploient un plafond global local de 40 USD, une alerte à 39,6 USD et des
+plafonds de job explicites. Tier 1 est observé le 13 septembre à 15:59 UTC.
+Voir l'état A815–A817 dans `llm-provider-architecture-v1.md`. Aucun achat
+automatique ni financement RunPod n'est autorisé.
+
 Le backend partage le journal de consommation Terra avec les sondes du client.
 Avant chaque appel, il réserve un coût maximal selon la taille estimée de
 l'entrée et le plafond de sortie. Les valeurs par défaut sont :

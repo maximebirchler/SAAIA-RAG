@@ -1,6 +1,6 @@
 # Architecture des fournisseurs LLM — Local, OpenAI Terra et RunPod
 
-Date de référence : 12 septembre 2026
+Date de référence : 13 septembre 2026 ; les résultats antérieurs restent datés dans le texte.
 Statut produit : **TESTE_NON_APPROUVE**
 
 Ce document décrit la restructuration du runtime LLM de SAAIA. Elle permet
@@ -9,8 +9,10 @@ un llama-server distant sur RunPod pour les benchmarks. Le petit modèle local
 reste la capacité par défaut ; la direction produit amendée prévoit ensuite un
 grand modèle sur un serveur on-prem du client pour l'option avancée.
 
-La frontière du petit modèle local est déjà qualifiée sur la banque A755 connue :
-14 cas répétés trois fois, soit 42/42 résultats acceptés. Cette preuve autorise
+Les routes du petit modèle local sont qualifiées sur la banque A755 connue :
+14 cas répétés trois fois, soit 42/42 comportements acceptés, comprenant aussi
+les transferts et clarifications. La dernière campagne connue A801 sur `8437c345`
+compte neuf réponses locales terminées sur ces 42 résultats. Cette preuve autorise
 l'ouverture du chantier avancé ; elle n'approuve ni le produit complet, ni le
 parcours WinUI avancé, ni le planning de repas 5 × 4.
 
@@ -392,9 +394,11 @@ Le parcours produit local -> job serveur -> Terra a été exécuté réellement.
 a démontré le handoff, Planner, les tools RAG, Writer, les métriques et les
 résultats durables. Deux cas réussis ont été acceptés unitairement ; le planning
 5 × 4 a révélé un défaut général d'ancrage entre cellule et preuve, corrigé dans
-`b20fcc2`. Une campagne complète 3/3 sur ce descendant reste empêchée par le
-plafond OpenAI Free de 50 requêtes par jour. Le compte financé n'a toujours pas
-été promu automatiquement au Tier 1 malgré l'achat payé ; le support est saisi.
+`b20fcc2`. À ce stade historique du 12 septembre, la campagne complète 3/3
+restait empêchée par le plafond Free de 50 requêtes par jour. Ce blocage ne
+décrit plus le compte actuel : Tier 1 est vérifié le 13 septembre à 15:59 UTC,
+avec 500 000 TPM, 500 RPM et 900 000 TPD pour Terra. Les derniers essais ont
+effectivement été exécutés sur ce palier.
 
 Le commit `4744d81` ferme aussi un écart de résilience du fournisseur avancé :
 un timeout ou une rupture réseau pendant la lecture du corps HTTP est maintenant
@@ -411,13 +415,14 @@ soit 4 397 réussites, zéro échec et deux probes live opt-in ignorées.
 
 Restent obligatoires avant approbation :
 
-- la banque Terra complète 3/3 sur `b20fcc2` ou un descendant documentaire,
-  après activation réelle du Tier 1 ;
+- la banque Terra complète 3/3 sur un descendant corrigé, à code,
+  configuration et corpus figés ; le palier payé est déjà disponible ;
 - la validation qualitative et source par source de chaque répétition ;
 - trois réussites consécutives du planning 5 × 4 sur état figé ;
 - un test RunPod réel et la comparaison d'un modèle open-source ;
-- la validation terminale WinUI d'une réponse avancée réussie et de ses cartes
-  source ;
+- la validation terminale WinUI actuelle d'une réponse avancée acceptée et de
+  toutes ses cartes ; l'affichage réel de deux cartes et un clic exact ont déjà
+  été démontrés historiquement sur un résultat durable rejoué, sans nouvel appel ;
 - un nouveau holdout aveugle après gel du code ;
 - l'essai du modèle final sur un serveur client réellement dimensionné ;
 - la décision de catalogue et les profils de warmup finaux.
@@ -436,3 +441,49 @@ RunPod = infrastructure BENCH temporaire
 petit llama.cpp local = capacité locale de production
 grand modèle sur serveur on-prem client = capacité avancée finale
 ```
+
+## I. État mesuré du 13 septembre — A815 à A817
+
+L'enveloppe autorisée est de 40 USD après dix USD achetés par l'utilisateur,
+qui autorise l'usage de tous ses crédits achetés pour la mission. Aucun achat
+par l'agent et aucune activation d'auto-reload. Billing affichait 10,08 USD
+avant les nouveaux essais, à 15:59 UTC. Le journal après ces essais totalise
+30,36662880 USD ; il reste 9,63337120 USD calculés. Cette dernière valeur est
+une comptabilité locale, pas une nouvelle lecture du solde de facturation.
+
+Sur `ad7fe14e`, A816 exécute réellement 31 recherches, dont des titres dans
+leurs sources observées, et aucune lecture native. Sept appels coûtent
+0,3669042 USD ; le résultat final reste une insuffisance avec un exemple,
+sans les vingt cellules. Le planning E2E n'est donc pas validé.
+
+A817 réutilise la même demande et exactement le même prompt système Writer,
+mais fournit la projection de vingt lectures canoniques déjà retrouvées :
+209 chunks, 58 preuves visibles. Un seul appel réel coûte 0,0768015 USD et
+prend 20,223 s. Il produit vingt choix distincts et ordinaires pour les quatre
+créneaux. La revue humaine de leurs 23 références et le parseur/policy de
+production passent. Les placements sont annoncés comme une proposition ; les
+sources ne doivent pas avoir prescrit ces placements. Les recettes restent
+reliées à leurs propres contenus, parfois par heading et corps voisins.
+
+Ce résultat prouve une capacité de synthèse sur ce diagnostic connu. Les
+lectures sont choisies extérieurement, dont deux coordonnées manuellement ;
+aucun critique, job durable, clic WinUI ni trois répétitions n'est exécuté
+dans A817. Il ne valide pas le RAG autonome et ne remplace pas un oracle complet
+ou le holdout. Parmi les 23 références exactes utilisées dans ce diagnostic,
+huit avaient été retournées par A816 et trois étaient visibles à son Writer
+final ; des preuves alternatives peuvent avoir existé. Il faut comparer
+l'exploration documentaire et la conservation des preuves utiles avant de
+multiplier les corrections de consignes.
+
+Le garde des campagnes fondé sur `user_id='automated-validation'` ne couvre
+pas les GUID utilisateurs réellement générés par le client. L'inventaire
+complémentaire de 306 UUID connus du journal retrouve 295 jobs et aucun
+non-terminal ; onze UUID manquent, dont la corrélation du diagnostic Writer
+sans job durable. Ce contrôle en lecture seule ne couvre pas les jobs sans
+appel enregistré ; corriger le garde avant une prochaine campagne aveugle.
+
+Preuves : `audit-de-cloture-du-goal-a815-2026-09-13.md`,
+`navigation-autonome-et-redaction-isolee-a816-a817-2026-09-13.md` et leurs
+assessments/empreintes. Le verdict aveugle historique BH6 reste rejeté à 1/24,
+les installateurs interactifs restent différés, RunPod reste non financé et
+le produit reste **TESTE_NON_APPROUVE**.
