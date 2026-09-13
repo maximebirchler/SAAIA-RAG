@@ -487,3 +487,14 @@ Preuves : `audit-de-cloture-du-goal-a815-2026-09-13.md`,
 assessments/empreintes. Le verdict aveugle historique BH6 reste rejeté à 1/24,
 les installateurs interactifs restent différés, RunPod reste non financé et
 le produit reste **TESTE_NON_APPROUVE**.
+
+### I.9 — Garde de propriété corrigé pour les nouvelles campagnes (A818)
+
+Les GUID utilisateurs réels sont maintenant enregistrés avant toute requête
+du client de test, puis utilisés pour la clôture de la campagne. Le contrôle
+par libellé reste en lecture seule et une portée vide est explicitement
+distinguée d'un audit global. Les trois tests PostgreSQL réels et les suites
+client/backend passent ; aucun comportement sémantique du produit ni appel
+API n'est changé. Voir `propriete-des-jobs-de-validation-a818-2026-09-13.md`.
+Cette annotation clôt la correction du garde pour les futurs runners source ;
+elle ne requalifie pas les anciennes captures ni le planning autonome.

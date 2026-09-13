@@ -14279,3 +14279,7 @@ Preuves détaillées : `documents/agent/audit-de-cloture-du-goal-a815-2026-09-13
 `documents/agent/navigation-autonome-et-redaction-isolee-a816-a817-2026-09-13.md`,
 `artifacts/reprise-pc-20260908/a815-completion-audit-20260913/completion-evidence-audit.v1.json`
 et les assessments A816/A817 dans `a800-meal-planning-continuity-20260913`.
+
+## 2026-09-13 — A818 : propriété réelle des jobs de validation
+
+Le garde legacy par libellé de session pouvait annoncer zéro alors que le GUID utilisateur aléatoire possédait des jobs non terminaux. Correction : manifeste des GUID flushé avant toute HTTP, GUID neuf par contexte, clôture uniquement des propriétaires enregistrés après arrêt du backend, annulation legacy interdite avant connexion. Scope vide explicitement non global. Cinq tests client ciblés et trois contrôles PostgreSQL isolé réel passent ; suites Release 2 338 client / 2 302 backend, zéro échec, tests live ignorés distincts. Ressources PostgreSQL temporaires arrêtées. Zéro API nouveau, total calculé 30,36662880 USD sur 40. Détail et limitations dans documents/agent/propriete-des-jobs-de-validation-a818-2026-09-13.md. Anciennes captures figées préservées ; nouveaux essais dérivés du runner source actuel. Le produit reste TESTE_NON_APPROUVE ; phase active suivante : comparer l'exploration documentaire et la rétention des contenus jusqu'au Writer, sans règles spécifiques au planning.

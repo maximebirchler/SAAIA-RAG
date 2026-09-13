@@ -172,7 +172,6 @@ if (-not (Test-Path -LiteralPath $BankPath -PathType Leaf)) {
 $assessmentScript = Join-Path $PSScriptRoot "assess-advanced-capacity-results.ps1"
 $jobGuardProject = Join-Path $PSScriptRoot `
     "SAAIA.AdvancedValidationJobGuard\SAAIA.AdvancedValidationJobGuard.csproj"
-$advancedValidationUserId = "automated-validation"
 $secretStorePath = Join-Path $env:LOCALAPPDATA "SAAIA\client\secure.json"
 $providerMode = if ($Provider -eq "OpenAI") { "openai-dev" } else { "runpod-bench" }
 $secretProperty = if ($Provider -eq "OpenAI") {
@@ -310,6 +309,8 @@ if (Test-Path -LiteralPath $ArtifactDirectory) {
     throw "Artifact directory already exists: $ArtifactDirectory"
 }
 New-Item -ItemType Directory -Path $ArtifactDirectory | Out-Null
+$advancedOwnerIdsPath = Join-Path $ArtifactDirectory "advanced-validation-owner-ids.jsonl"
+[IO.File]::WriteAllText($advancedOwnerIdsPath, "", [Text.UTF8Encoding]::new($false))
 
 $serverEnvironment = Read-EnvFile -Path $ServerEnvPath
 $postgresDatabase = Require-EnvValue $serverEnvironment "POSTGRES_DB"
@@ -348,6 +349,7 @@ $trackedEnvironment = @(
     "QDRANT_API_KEY",
     "SAAIA_ADVANCED_LLM_API_KEY",
     "SAAIA_ADVANCED_VALIDATION_JOB_GUARD_CONNECTION",
+    "SAAIA_ADVANCED_VALIDATION_OWNER_IDS_PATH",
     "SAAIA_VALIDATION_BACKEND_URL",
     "SAAIA_API_KEY"
 )
@@ -374,6 +376,7 @@ $unsignedConfigPath = Join-Path $ArtifactDirectory "unsigned-development.config.
 $missingSignaturePath = Join-Path $ArtifactDirectory "unsigned-development.config.missing.sig"
 $connectionString = "Host=saaia-server;Port=5432;Database=$postgresDatabase;Username=$postgresUser;Password=$postgresPassword;Pooling=true;Maximum Pool Size=20"
 $env:SAAIA_ADVANCED_VALIDATION_JOB_GUARD_CONNECTION = $connectionString
+$env:SAAIA_ADVANCED_VALIDATION_OWNER_IDS_PATH = $advancedOwnerIdsPath
 
 try {
     $jobGuardBuildOutput = & dotnet build $jobGuardProject -c Release 2>&1
@@ -389,9 +392,8 @@ try {
         --no-build `
         --no-restore `
         -- `
-        --user-id $advancedValidationUserId `
-        --output $jobGuardBeforePath `
-        --cancel 2>&1
+        --owner-ids-path $advancedOwnerIdsPath `
+        --output $jobGuardBeforePath 2>&1
     $jobGuardBeforeOutput |
         Set-Content -LiteralPath (Join-Path $ArtifactDirectory "advanced-job-guard-before.log") -Encoding utf8
     if ($LASTEXITCODE -ne 0) {
@@ -400,7 +402,7 @@ try {
     $advancedJobGuardBefore = Get-Content -LiteralPath $jobGuardBeforePath -Raw |
         ConvertFrom-Json
     if ([int]$advancedJobGuardBefore.remainingNonterminalCount -ne 0) {
-        throw "Nonterminal jobs remain for the automated validation user."
+        throw "Nonterminal jobs remain for recorded validation owners."
     }
 
     $referenceCorpusSealBefore = Get-SaaiaReferenceCorpusSeal `
@@ -575,6 +577,8 @@ try {
         hardStopUsd = $HardLimitUsd
         maximumCostPerJobUsd = $MaximumCostPerJobUsd
         maximumCallsPerJob = $MaximumCallsPerJob
+        advancedValidationOwnerIdsPath = $advancedOwnerIdsPath
+        ownerIdentityRecordedBeforeJobCreation = $true
         reasoningEffort = $ReasoningEffort
         semanticCriticEnabled = [bool]$EnableSemanticCritic
         criticMaxTokens = $CriticMaxTokens
@@ -605,7 +609,7 @@ try {
         -FilePath "dotnet" `
         -ArgumentList $argumentList `
         -WorkingDirectory $repositoryRoot `
-        -NoNewWindow `
+        -WindowStyle Hidden `
         -RedirectStandardOutput $backendStdout `
         -RedirectStandardError $backendStderr `
         -PassThru
@@ -668,7 +672,7 @@ finally {
             --no-build `
             --no-restore `
             -- `
-            --user-id $advancedValidationUserId `
+            --owner-ids-path $advancedOwnerIdsPath `
             --output $jobGuardAfterPath `
             --cancel 2>&1
         $jobGuardAfterOutput |
@@ -679,7 +683,7 @@ finally {
         $advancedJobGuardAfter = Get-Content -LiteralPath $jobGuardAfterPath -Raw |
             ConvertFrom-Json
         if ([int]$advancedJobGuardAfter.remainingNonterminalCount -ne 0) {
-            throw "Nonterminal jobs remain after the automated validation campaign."
+            throw "Nonterminal jobs remain for recorded owners after the validation campaign."
         }
     }
     catch {

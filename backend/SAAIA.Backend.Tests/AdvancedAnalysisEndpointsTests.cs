@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using SAAIA.ValidationTools;
 using SAAIA.Backend.Auth;
 using SAAIA.Backend.Db;
 using SAAIA.Backend.Endpoints;
@@ -72,6 +73,84 @@ public sealed class AdvancedAnalysisEndpointsTests
         Assert.Equal(
             StatusCodes.Status403Forbidden,
             await ExecuteStatusCodeAsync(result, context));
+    }
+
+    [Fact]
+    public async Task Validation_job_guard_uses_recorded_random_owners_and_preserves_other_jobs()
+    {
+        await using var database=await PostgresIntegrationDb.CreateAsync();
+        if(database is null)return;
+        await using var dataSource=NpgsqlDataSource.Create(database.ConnectionString);
+        var tenant=Guid.NewGuid();
+        var otherTenant=Guid.NewGuid();
+        var owner=Guid.NewGuid().ToString("D");
+        var unrelatedOwner=Guid.NewGuid().ToString("D");
+        var anotherOwner=Guid.NewGuid().ToString("D");
+        var rows=new[]{(Tenant:tenant,Owner:owner,Status:"queued"),(Tenant:tenant,Owner:owner,Status:"running"),
+            (Tenant:tenant,Owner:unrelatedOwner,Status:"queued"),(Tenant:otherTenant,Owner:anotherOwner,Status:"queued")};
+        var jobIds=new List<Guid>();
+        foreach(var row in rows)
+        {
+            var session=Guid.NewGuid();
+            await SeedSessionAsync(dataSource,row.Tenant,session,row.Owner);
+            var id=Guid.NewGuid(); jobIds.Add(id);
+            await using var seed=await dataSource.OpenConnectionAsync();
+            await seed.ExecuteAsync("UPDATE chat_sessions SET client_user='automated-validation' WHERE tenant_id=@tenant AND session_id=@session",new{tenant=row.Tenant,session});
+            await seed.ExecuteAsync("""
+                INSERT INTO advanced_analysis_jobs(job_id,tenant_id,user_id,session_id,handoff_id,schema_version,status,handoff,expires_at)
+                VALUES(@id,@tenant,@owner,@session,@handoff,'saaia.advanced-analysis-handoff.v1',@status,'{}'::jsonb,now()+interval '1 day');
+                """,new{id,tenant=row.Tenant,owner=row.Owner,session,handoff=Guid.NewGuid(),status=row.Status});
+        }
+        var manifest=Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(manifest,JsonSerializer.Serialize(owner)+"\n"+JsonSerializer.Serialize(owner)+"\n");
+            var owners=ValidationJobGuardRunner.ReadOwnerManifest(manifest);
+            Assert.Single(owners);
+            await using var connection=await dataSource.OpenConnectionAsync();
+            var oldLabel=await ValidationJobGuardRunner.RunAsync(connection,["automated-validation"],false);
+            Assert.Empty(oldLabel.Observed); // Reproduce the old false witness with real random-owner jobs present.
+            var read=await ValidationJobGuardRunner.RunAsync(connection,owners,false);
+            Assert.Equal(jobIds.Take(2).Order(),read.Observed.Select(j=>j.JobId).Order());
+            Assert.Equal(0,read.CanceledCount);
+            Assert.Equal(2,read.Remaining.Count);
+            var cleanup=await ValidationJobGuardRunner.RunAsync(connection,owners,true);
+            Assert.Equal(2,cleanup.CanceledCount);
+            Assert.Empty(cleanup.Remaining);
+            var states=await connection.QueryAsync<string>(
+                "SELECT status FROM advanced_analysis_jobs WHERE job_id=ANY(@ids) ORDER BY array_position(@ids,job_id)",
+                new{ids=jobIds.ToArray()});
+            Assert.Equal(new[]{"canceled","canceled","queued","queued"},states);
+        }
+        finally { File.Delete(manifest); }
+    }
+
+    [Fact]
+    public async Task Validation_job_guard_empty_scope_is_explicit_and_does_not_cancel_unrelated_queue()
+    {
+        await using var database=await PostgresIntegrationDb.CreateAsync();
+        if(database is null)return;
+        await using var dataSource=NpgsqlDataSource.Create(database.ConnectionString);
+        var tenant=Guid.NewGuid(); var session=Guid.NewGuid(); var owner=Guid.NewGuid().ToString("D"); var id=Guid.NewGuid();
+        await SeedSessionAsync(dataSource,tenant,session,owner);
+        await using var connection=await dataSource.OpenConnectionAsync();
+        await connection.ExecuteAsync("""
+            INSERT INTO advanced_analysis_jobs(job_id,tenant_id,user_id,session_id,handoff_id,schema_version,status,handoff,expires_at)
+            VALUES(@id,@tenant,@owner,@session,@handoff,'saaia.advanced-analysis-handoff.v1','queued','{}'::jsonb,now()+interval '1 day');
+            """,new{id,tenant,owner,session,handoff=Guid.NewGuid()});
+        var result=await ValidationJobGuardRunner.RunAsync(connection,[],true);
+        Assert.True(result.EmptyOwnerScope);
+        Assert.Empty(result.Observed);
+        Assert.Equal(0,result.CanceledCount);
+        Assert.Equal("queued",await connection.QuerySingleAsync<string>("SELECT status FROM advanced_analysis_jobs WHERE job_id=@id",new{id}));
+    }
+
+    [Fact]
+    public async Task Validation_job_guard_rejects_legacy_label_cancellation_before_database_access()
+    {
+        await using var connection=new NpgsqlConnection();
+        await Assert.ThrowsAsync<InvalidOperationException>(()=>
+            ValidationJobGuardRunner.RunAsync(connection,["automated-validation"],true));
     }
 
     [Fact]

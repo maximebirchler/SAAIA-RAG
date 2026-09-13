@@ -68,6 +68,7 @@ $trackedEnvironment = @(
     "SAAIA_VALIDATION_LLM_MODEL_PATH",
     "SAAIA_VALIDATION_MANAGE_LOCAL_LLM_PROCESS",
     "SAAIA_AGENT_VALIDATION_ADVANCED_SERVER",
+    "SAAIA_ADVANCED_VALIDATION_OWNER_IDS_PATH",
     "SAAIA_AGENT_VALIDATION_BANK_PATH",
     "SAAIA_AGENT_VALIDATION_IDS",
     "SAAIA_AGENT_VALIDATION_OUTPUT_DIR",
@@ -95,6 +96,15 @@ try {
     $env:SAAIA_VALIDATION_LLM_MODEL_PATH = $LocalModelPath
     $env:SAAIA_VALIDATION_MANAGE_LOCAL_LLM_PROCESS = "1"
     $env:SAAIA_AGENT_VALIDATION_ADVANCED_SERVER = "1"
+    $ownerPath = [Environment]::GetEnvironmentVariable("SAAIA_ADVANCED_VALIDATION_OWNER_IDS_PATH", "Process")
+    if ([string]::IsNullOrWhiteSpace($ownerPath)) {
+        $ownerPath = Join-Path $ArtifactDirectory "advanced-validation-owner-ids.jsonl"
+        [IO.File]::WriteAllText($ownerPath, "", [Text.UTF8Encoding]::new($false))
+    }
+    if (-not [IO.Path]::IsPathFullyQualified($ownerPath) -or -not (Test-Path -LiteralPath $ownerPath -PathType Leaf)) {
+        throw "Advanced validation requires an existing absolute owner manifest."
+    }
+    $env:SAAIA_ADVANCED_VALIDATION_OWNER_IDS_PATH = $ownerPath
     $env:SAAIA_AGENT_VALIDATION_BANK_PATH = $BankPath
     $env:SAAIA_AGENT_VALIDATION_IDS = $selectedIds -join ","
     $env:SAAIA_AGENT_VALIDATION_TIMEOUT_SECONDS = "1800"

@@ -606,7 +606,12 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         CancellationToken ct)
     {
         var api = new ApiClient();
-        api.Configure(backendUrl, apiKey, Guid.NewGuid().ToString("D"));
+        var advancedServer = string.Equals(Environment.GetEnvironmentVariable(
+            "SAAIA_AGENT_VALIDATION_ADVANCED_SERVER"), "1", StringComparison.Ordinal);
+        var contextUserId = LiveAdvancedValidationOwnership.CreateUserId(
+            Environment.GetEnvironmentVariable(LiveAdvancedValidationOwnership.ManifestEnvironmentVariable),
+            advancedServer);
+        api.Configure(backendUrl, apiKey, contextUserId);
 
         var settings = AppSettings.Load();
         var liveSettings = settings.Clone();

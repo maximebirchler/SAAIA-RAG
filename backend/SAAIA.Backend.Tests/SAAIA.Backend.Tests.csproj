@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SAAIA.Backend\SAAIA.Backend.csproj" />
+    <ProjectReference Include="..\..\tools\SAAIA.AdvancedValidationJobGuard\SAAIA.AdvancedValidationJobGuard.csproj" />
   </ItemGroup>
 
   <ItemGroup>
