@@ -42,3 +42,16 @@ figés avant holdout inédit/WinUI. Arrêt des répétitions si échec.
 
 Registre 33,98436250 USD sur 40 achetés ; aucun nouvel achat ou location.
 Goal actif, produit TESTE_NON_APPROUVE.
+
+## Contrôle avant pilote
+
+Onze nouveaux tests réussissent : formulations lexicales, doublons et identités
+manquantes sur les deux transports ; citation invisible supplémentaire corrigée
+avec appel disponible ou refusée sans dépasser la borne ; garde finale de chaque
+ID pour les trois outcomes. Les neuf tests de continuité restent réussis. Celui
+qui propose un ID déjà invisible prévoit désormais sa correction avant Critic,
+plutôt qu'un passage silencieux de l'ancien parseur. Suite backend Release :
+2 395 réussites, aucun échec, trois ignorés. Script PowerShell syntaxiquement
+valide, build sans avertissement, diff propre. Première compilation des nouvelles
+fixtures corrigée : leur helper devait retourner HttpResponseMessage et non
+string. Le diagnostic d'échec est conservé. Aucun appel réel A836 à ce stade.

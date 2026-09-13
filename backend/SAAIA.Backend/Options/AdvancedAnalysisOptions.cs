@@ -41,6 +41,7 @@ sealed class AdvancedAnalysisOptions
     public string NativeResearchTopology { get; set; } = "reviewed";
     public bool NativeResearchWorkspaceEnabled { get; set; }
     public bool NativeResearchActiveProposalEnabled { get; set; }
+    public bool CandidateBindingFeedbackEnabled { get; set; }
     public string SynthesisReasoningEffort { get; set; } = string.Empty;
     public string SynthesisPromptStyle { get; set; } = "contract";
 

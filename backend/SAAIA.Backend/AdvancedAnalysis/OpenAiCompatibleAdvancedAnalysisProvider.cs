@@ -403,6 +403,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 synthesisRecoveryErrorCode);
             if (FindIdentityOnlyCandidateClaims(parsed, evidence, request).Count > 0)
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_candidate_body_not_supported");
+            EnsureVisibleClaimCitations(parsed, promptEvidence.Where(e => e.EvidenceId is not null)
+                .Select(e => e.EvidenceId!).ToArray());
             return WithMetrics(
                 parsed,
                 completions,

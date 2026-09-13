@@ -31,9 +31,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var original=BuildEvidence("E1","Le seuil est 17 bar.");
         var newcomers=Enumerable.Range(2,5).Select(i=>BuildEvidence("E"+i,"Le seuil est 17 bar. "+new string('x',2300))).ToArray();
         using var factory=new QueuedHttpClientFactory(Completion("""{"queries":[{"query":"overview","topK":12}]}"""),
-            NativeCompletion(("search_corpus",WorkspaceSearch)),Completion(NativeAnswered),Completion(NativeAnswered.Replace("E1","E2")));
+            NativeCompletion(("search_corpus",WorkspaceSearch)),Completion(NativeAnswered),Completion(NativeAnswered.Replace("E1","E2")),Completion(NativeAnswered.Replace("E1","E2")));
         var options=WorkspaceOptions();options.NativeResearchActiveProposalEnabled=true;options.SemanticCriticEnabled=true;
-        options.MaximumEvidencePromptCharacters=8000;options.ExternalMaximumCallsPerJob=4;
+        options.MaximumEvidencePromptCharacters=8000;options.ExternalMaximumCallsPerJob=5;
         var result=await new OpenAiCompatibleAdvancedAnalysisProvider(factory,options,null)
             .ExecuteAsync(BuildDirectRequest(),new SequencedToolGateway([original],newcomers),CancellationToken.None);
         var frame=WorkspaceUser(factory.Requests[3].Body);

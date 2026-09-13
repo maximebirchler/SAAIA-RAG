@@ -44,6 +44,7 @@ param(
     [string]$NativeResearchTopology = "reviewed",
     [switch]$EnableNativeResearchWorkspace,
     [switch]$EnableNativeResearchActiveProposal,
+    [switch]$EnableCandidateBindingFeedback,
     [ValidateRange(512, 16384)]
     [int]$CriticMaxTokens = 4096,
     [decimal]$InputUsdPerMillionTokens = 0,
@@ -488,6 +489,7 @@ try {
             NativeResearchTopology = $NativeResearchTopology
             NativeResearchWorkspaceEnabled = [bool]$EnableNativeResearchWorkspace
             NativeResearchActiveProposalEnabled = [bool]$EnableNativeResearchActiveProposal
+            CandidateBindingFeedbackEnabled = [bool]$EnableCandidateBindingFeedback
             SemanticCriticEnabled = [bool]$EnableSemanticCritic
             CriticMaxTokens = $CriticMaxTokens
             MaximumPlanQueries = 8
@@ -610,6 +612,7 @@ try {
         nativeResearchTopology = $NativeResearchTopology
         nativeResearchWorkspaceEnabled = [bool]$EnableNativeResearchWorkspace
         nativeResearchActiveProposalEnabled = [bool]$EnableNativeResearchActiveProposal
+        candidateBindingFeedbackEnabled = [bool]$EnableCandidateBindingFeedback
         criticMaxTokens = $CriticMaxTokens
         inputUsdPerMillionTokens = $InputUsdPerMillionTokens
         cachedInputUsdPerMillionTokens = $CachedInputUsdPerMillionTokens

@@ -26,7 +26,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyList<PromptEvidenceItem> PromptEvidence);
 
     private sealed record CandidateSupportCorrection(string ClaimId, string SelectedItem,
-        IReadOnlyList<string> EvidenceIds, string Reason);
+        IReadOnlyList<string> EvidenceIds, string Reason, string ReasonCode = "candidate_body_required");
 
     private static object BuildResearchArgumentFeedbackForPrompt(AdvancedAnalysisResearchArgumentFeedback feedback) => new
     {
@@ -100,16 +100,6 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     && seen.Add(bucket[rank].Reference.EvidenceId!))
                     selected.Add(bucket[rank]);
         return selected;
-    }
-
-    private static IReadOnlyList<CandidateSupportCorrection> FindIdentityOnlyCandidateSupport(
-        string raw, IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
-        AdvancedAnalysisProviderRequest request)
-    {
-        AdvancedAnalysisProviderResult result;
-        try { result = ParseResult(raw, evidence, request); }
-        catch (AdvancedAnalysisProviderException) { return []; }
-        return FindIdentityOnlyCandidateClaims(result, evidence, request);
     }
 
     private static IReadOnlyList<CandidateSupportCorrection> FindIdentityOnlyCandidateClaims(
@@ -242,18 +232,22 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             {
                 if (_options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
                     RememberActiveProposalEvidence(completion.Content, evidence, observations, request, context);
-                var corrections = FindIdentityOnlyCandidateSupport(completion.Content, evidence, request);
+                var corrections = FindCandidateBindingCorrections(completion.Content, evidence, observations, request);
                 if (corrections.Count == 0)
                     return new SynthesisCompletion(completion, evidence, observations);
                 completions.Add(completion);
                 if (completions.Count >= maximumCalls - reservedFinalCalls)
-                    throw new AdvancedAnalysisProviderException("advanced_synthesis_candidate_body_not_supported");
+                    throw new AdvancedAnalysisProviderException(corrections.Any(c => c.ReasonCode == "candidate_evidence_not_visible")
+                        ? "advanced_synthesis_candidate_evidence_not_visible"
+                        : corrections.Any(c => c.ReasonCode != "candidate_body_required")
+                            ? "advanced_synthesis_candidate_identity_not_supported"
+                            : "advanced_synthesis_candidate_body_not_supported");
                 var proposed = ParseResult(completion.Content, evidence, request);
                 candidateSupportFeedback = new
                 {
                     corrections,
                     previousProposal = new { proposed.Outcome, proposed.AnswerText, proposed.Claims },
-                    instruction = "Correct the listed selections before returning a terminal answer. Reuse substantive evidence already observed when possible; request research if necessary and available. Preserve supported choices. An identity locator is not the selected item's body."
+                    instruction = "Correct the listed bindings or selections before returning a terminal answer. Use only currently visible substantive evidence; request research if necessary and available. Preserve supported choices. An identity locator is not the selected item's body. Copy exact documentary item wording or choose another supported item yourself. The code has not selected a replacement or performed further research. This correction consumes the existing call budget."
                 };
                 nextPhase = $"{phase}-support-correction-{++supportCorrection}";
                 continue;
