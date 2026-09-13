@@ -42,8 +42,13 @@ L'export des trois jobs A783 a été réellement exécuté avec cette extension,
 dans une transaction `REPEATABLE READ ONLY`. Il permet de comparer le contrat
 reçu au mode de sélection final sans déduire le premier depuis la réponse.
 
-Ces preuves sont mécaniques. La réponse OAuth après A785 reste à vérifier
-avec Terra contre le passage de la séquence authorization-code, notamment
+Une reprise avec Terra après A785 a été exécutée. TLS et FOMC répondent
+correctement, mais OAuth est rejeté avant affichage avec
+`advanced_writer_evidence_id_invalid`. Il a consommé trois appels estimés à
+0,044904 USD malgré l'absence de résultat validé. A786 étend la réparation
+unique du Writer tout en conservant le rejet des références inconnues.
+La réponse OAuth reste à vérifier après cette correction contre le passage
+de la séquence authorization-code, notamment
 la validation du code et de l'URI à l'étape E. La correction de son contrat
 ne prouve ni la récupération du bon passage ni la justesse de la réponse.
 Le verdict consommé BH6 reste inchangé et le produit reste non approuvé.

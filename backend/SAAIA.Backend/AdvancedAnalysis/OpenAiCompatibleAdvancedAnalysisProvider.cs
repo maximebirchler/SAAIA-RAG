@@ -214,10 +214,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 parsed = ParseResult(writer.Content, evidence, request);
             }
             catch (AdvancedAnalysisProviderException ex) when (
-                ex.ErrorCode is "advanced_writer_claim_markers_invalid"
+                (ex.ErrorCode is "advanced_writer_claim_markers_invalid"
                     or "advanced_writer_protocol_invalid"
+                    or "advanced_writer_evidence_id_invalid"
+                    or "advanced_writer_claim_count_invalid"
                 || (ex.ErrorCode == "advanced_writer_duplicate_claims"
                     && request.Handoff.Load.StructuredLayout))
+                && completions.Count < Math.Clamp(_options.ExternalMaximumCallsPerJob, 1, 1_024)
+                    - (runSemanticCritic ? 1 : 0))
             {
                 var repair = await CompleteJsonAsync(
                         request.JobId,

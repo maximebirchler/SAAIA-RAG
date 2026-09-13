@@ -58,8 +58,13 @@ contient également un doublon avec une casse différente, toujours éliminé.
 La suite backend Release complète passe : **2 201 réussites, zéro échec,
 trois tests live ignorés**.
 
-Les preuves synthétiques valident le mécanisme. Les diagnostics Terra après
-A784 restent à exécuter. OAuth nécessite encore de distinguer les faits sur
+Les preuves synthétiques valident le mécanisme. La reprise sur A784+A785 donne
+maintenant une réponse TLS soutenue par le RFC page 72 et une réponse FOMC
+soutenue par les minutes page 2, au lieu des deux insuffisances précédentes.
+Les deux passages canoniques ont été lus ; les deux sources passent également
+le contrôle indépendant de fichier, hash, révision, ancre et pages. Il s'agit
+de deux diagnostics consommés réussis une fois, sans nouvelle approbation
+aveugle. OAuth nécessite encore de distinguer les faits sur
 des lignes fixées d'une sélection de nouveaux objets nommés. Aucun score BH6
 ni aucune approbation produit ne sont révisés par cette correction.
 

@@ -205,6 +205,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            "selectedItem":"exact selected item or empty","text":"...",
            "evidenceIds":["E1"]}]}. Every factual answer unit must have a claim
            backed by one or more supplied evidenceIds. Do not invent a value,
+           Copy evidenceId values verbatim from the supplied evidence array.
+           E1 in this schema example is a placeholder, not an available id unless
+           it actually occurs in that array. A claimId, row label, page number or
+           guessed hash is never a substitute for an evidenceId.
            title, procedure or source. Keep the user's requested language and
            format. When the evidence gives a named title, preserve the exact source
            words, spelling and diacritics; only normalize capitalization when needed
@@ -311,11 +315,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private static string BuildWriterRepairSystemPrompt()
         => """
            Repair one SAAIA Writer JSON object and return only the repaired JSON.
-           Preserve the original answer facts, outcome and evidence mappings.
+           Preserve supported answer facts and valid evidence mappings. Replace
+           any unknown evidence id only by an exact supplied evidenceId whose
+           content supports the claim; never guess or approximately match an id.
+           The example E1 is a schema placeholder, not an available id unless it
+           occurs in the supplied evidence array. Restore the required claim count
+           from load.answerUnitCount while preserving every requested row and column.
+           If evidence cannot support a required fact, return a precise insufficiency.
            Remove any internal sourceKey or evidenceId label from answerText, claim
            text and selectedItem, including internal-source-* and advanced-evidence-*;
            do not replace it with an invented source name. Do not invent a fact or
-           evidence id. When a structured result repeats a claim or selectedItem,
+           evidence id. When a distinct named-object selection repeats a claim or selectedItem,
            use the supplied evidence to replace the duplicate with a distinct,
            semantically suitable candidate. Copy a non-empty candidateTitle
            verbatim, or use an exact concrete name explicitly present in a

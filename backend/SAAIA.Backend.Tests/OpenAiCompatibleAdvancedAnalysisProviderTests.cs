@@ -1726,15 +1726,60 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Single(gateway.Searches);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Invalid_writer_reference_or_unit_count_gets_one_validated_repair_then_critic(bool invalidReference)
+    {
+        var invalid = invalidReference
+            ? """{"outcome":"answered","answerText":"Le seuil est 17 [C1].","claims":[{"claimId":"C1","text":"Le seuil est 17.","evidenceIds":["FORGED"]}]}"""
+            : """{"outcome":"answered","answerText":"Le seuil est 17 [C1]. Le guide décrit le seuil [C2].","claims":[{"claimId":"C1","text":"Le seuil est 17.","evidenceIds":["E1"]},{"claimId":"C2","text":"Le guide décrit le seuil.","evidenceIds":["E1"]}]}""";
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"reference threshold","topK":12}]}"""),
+            Completion(invalid),
+            Completion("""{"outcome":"answered","answerText":"Le seuil est 17 [C1].","claims":[{"claimId":"C1","text":"Le seuil est 17.","evidenceIds":["E1"]}]}"""),
+            Completion("""{"outcome":"answered","answerText":"Le seuil est 17 [C1].","claims":[{"claimId":"C1","text":"Le seuil est 17.","evidenceIds":["E1"]}]}"""));
+        var options = CreateOptions();
+        options.SemanticCriticEnabled = true;
+        options.ExternalMaximumCallsPerJob = 4;
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+            .ExecuteAsync(BuildDirectRequest(), new RecordingToolGateway(BuildEvidence("E1", "Le seuil est 17.")), CancellationToken.None);
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(["E1"], Assert.Single(result.Claims).EvidenceIds);
+        Assert.Equal(4, result.ProviderCallCount);
+        Assert.Contains("SAAIA advanced-analysis Critic", factory.Requests[3].Body, StringComparison.Ordinal);
+        Assert.Contains("Repair one SAAIA Writer", factory.Requests[2].Body, StringComparison.Ordinal);
+    }
+
     [Fact]
-    public async Task Writer_cannot_cite_an_evidence_id_that_was_not_revalidated()
+    public async Task Invalid_reference_still_fails_after_a_single_unsuccessful_repair()
+    {
+        var invalid = """{"outcome":"answered","answerText":"Faux [C1].","claims":[{"claimId":"C1","text":"Faux.","evidenceIds":["FORGED"]}]}""";
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[]}"""), Completion(invalid), Completion(invalid));
+        var options = CreateOptions();
+        options.ExternalMaximumCallsPerJob = 3;
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
+            new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+                .ExecuteAsync(BuildDirectRequest(), new RecordingToolGateway(BuildEvidence("E1", "Preuve réelle.")), CancellationToken.None));
+        Assert.Equal("advanced_writer_evidence_id_invalid", error.ErrorCode);
+        Assert.Equal(3, factory.Requests.Count);
+    }
+
+    [Theory]
+    [InlineData(false, 2)]
+    [InlineData(true, 3)]
+    public async Task Writer_cannot_cite_an_unvalidated_id_when_repair_lacks_room_after_critic_reservation(bool criticEnabled, int maximumCalls)
     {
         using var factory = new QueuedHttpClientFactory(
             Completion("""{"queries":[]}"""),
             Completion("""
                 {"outcome":"answered","answerText":"Réponse forgée [C1].","claims":[{"claimId":"C1","text":"Faux.","evidenceIds":["FORGED"]}]}
                 """));
-        var provider = CreateProvider(factory);
+        var options = CreateOptions();
+        options.SemanticCriticEnabled = criticEnabled;
+        options.ExternalMaximumCallsPerJob = maximumCalls;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null);
         var gateway = new RecordingToolGateway(
             BuildEvidence("E1", "Preuve réelle."));
 
@@ -1758,7 +1803,9 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             Completion("""
                 {"outcome":"answered","answerText":"Une seule unité [C1].","claims":[{"claimId":"C1","text":"Une seule unité.","evidenceIds":["E-FD"]}]}
                 """));
-        var provider = CreateProvider(factory);
+        var options = CreateOptions();
+        options.ExternalMaximumCallsPerJob = 2;
+        var provider = new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null);
         var gateway = new RecordingToolGateway(
             BuildEvidence("E-FD", "Preuve CEN.", "FD CEN TR 15281 2023.pdf"),
             BuildEvidence("E-IEC", "Preuve IEC.", "IEC 60079-14 2013.pdf"));
@@ -1770,6 +1817,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
                 CancellationToken.None));
 
         Assert.Equal("advanced_writer_claim_count_invalid", error.ErrorCode);
+        Assert.Equal(2, factory.Requests.Count);
     }
 
     [Fact]
