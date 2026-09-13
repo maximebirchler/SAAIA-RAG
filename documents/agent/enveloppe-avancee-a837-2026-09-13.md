@@ -34,3 +34,11 @@ Registre clos 34,45560220 USD sur 40 achetés, reste calculé 5,54439780 USD.
 Le pilote réserve au plus 1,25 USD, laissant au moins 4,29439780 après ce plafond.
 Pas d'achat ou location automatique. L'utilisation des crédits reste autorisée
 jusqu'à leur enveloppe réelle. Goal actif, produit TESTE_NON_APPROUVE.
+
+## Contrôle avant pilote
+
+Runner expose WriterMaxTokens et le transmet aux options backend et à son
+scellement. Défaut 4 096 inchangé ; paramètres 511 et 16 385 refusés par le
+binding PowerShell avant exécution. Script analysé sans erreur, diff propre.
+Backend inchangé depuis les 2 395 tests réussis : suite non répétée pour ce
+réglage du harness. Aucun appel réel A837 encore effectué.

@@ -46,6 +46,7 @@ param(
     [switch]$EnableNativeResearchActiveProposal,
     [switch]$EnableCandidateBindingFeedback,
     [ValidateRange(512, 16384)]
+    [ValidateRange(512, 16384)][int]$WriterMaxTokens = 4096,
     [int]$CriticMaxTokens = 4096,
     [decimal]$InputUsdPerMillionTokens = 0,
     [decimal]$CachedInputUsdPerMillionTokens = 0,
@@ -482,7 +483,7 @@ try {
             LlmRetryBaseDelayMilliseconds = 15000
             LlmMaximumRetryDelayMilliseconds = 60000
             PlannerMaxTokens = 512
-            WriterMaxTokens = 4096
+            WriterMaxTokens = $WriterMaxTokens
             AdaptiveResearchEnabled = $true
             NativeResearchToolsEnabled = [bool]$EnableNativeResearchTools
             NativeResearchApiProtocol = $NativeResearchApiProtocol
@@ -613,6 +614,7 @@ try {
         nativeResearchWorkspaceEnabled = [bool]$EnableNativeResearchWorkspace
         nativeResearchActiveProposalEnabled = [bool]$EnableNativeResearchActiveProposal
         candidateBindingFeedbackEnabled = [bool]$EnableCandidateBindingFeedback
+        writerMaxTokens = $WriterMaxTokens
         criticMaxTokens = $CriticMaxTokens
         inputUsdPerMillionTokens = $InputUsdPerMillionTokens
         cachedInputUsdPerMillionTokens = $CachedInputUsdPerMillionTokens
