@@ -788,7 +788,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 break;
             var content = item.Content ?? string.Empty;
             var originalContentLength = content.Length;
-            var contentSignal = RetrievalContentClassifier.AnalyzeChunk(content);
+            var contentSignal = RetrievalContentClassifier.AnalyzeEvidenceContent(content, item.ExactTitle);
             if (content.Length > maximumCharactersPerPromptEvidence)
                 content = content[..maximumCharactersPerPromptEvidence];
             if (content.Length > remaining)

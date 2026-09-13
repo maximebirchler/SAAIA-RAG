@@ -12,6 +12,81 @@ namespace SAAIA.Backend.Tests;
 
 public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
+    [Fact]
+    public async Task Named_grid_support_correction_can_research_the_observed_source_and_then_cite_the_body()
+    {
+        var locator = BuildEvidence("E-LOCATOR", "Options\nOption alpha I page 64", exactTitle: "Options");
+        var body = BuildEvidence("E-BODY", "Option alpha\nSet the pressure to 17 bar and hold for three minutes.",
+            exactTitle: "Option alpha", docId: locator.Reference.DocId, revisionId: locator.Reference.RevisionId, pageStart: 64);
+        const string unsupported = """{"outcome":"answered","answerText":"Option alpha [C1].","claims":[{"claimId":"C1","selectedItem":"Option alpha","text":"Option alpha convient à cette unité.","evidenceIds":["E-LOCATOR"]}]}""";
+        const string supported = """{"outcome":"answered","answerText":"Option alpha [C1].","claims":[{"claimId":"C1","selectedItem":"Option alpha","text":"Option alpha convient à cette unité.","evidenceIds":["E-LOCATOR","E-BODY"]}]}""";
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"selectionMode":"distinct_named_items","queries":[{"query":"reference overview","topK":12}]}"""),
+            Completion("""{"decision":"ready","queries":[]}"""), Completion(unsupported),
+            Completion("""{"outcome":"research_required","queries":[{"query":"Option alpha pressure threshold","sourceKey":"internal-source-1","topK":12}]}"""),
+            Completion(supported), Completion(supported));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        options.SemanticCriticEnabled = true;
+        options.ExternalMaximumCallsPerJob = 6;
+        var gateway = new SequencedToolGateway([locator], [body]);
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+            .ExecuteAsync(BuildRequest(atomicEvidenceMode: "named_item"), gateway, CancellationToken.None);
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(["E-LOCATOR", "E-BODY"], Assert.Single(result.Claims).EvidenceIds);
+        Assert.Equal(6, result.ProviderCallCount);
+        Assert.Equal(locator.Reference.DocId, gateway.Searches[1].DocId);
+        Assert.Equal("Option alpha pressure threshold", gateway.Searches[1].Query);
+        Assert.All(factory.Requests, call => Assert.DoesNotContain(locator.Reference.DocId!, call.Body, StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Named_grid_corrects_writer_or_critic_locator_binding_before_publication(bool writerNeedsCorrection)
+    {
+        const string unsupported = """{"outcome":"answered","answerText":"Option alpha [C1].","claims":[{"claimId":"C1","selectedItem":"Option alpha","text":"Option alpha convient à cette unité.","evidenceIds":["E-LOCATOR"]}]}""";
+        const string supported = """{"outcome":"answered","answerText":"Option alpha [C1].","claims":[{"claimId":"C1","selectedItem":"Option alpha","text":"Option alpha convient à cette unité.","evidenceIds":["E-BODY"]}]}""";
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[]}"""),
+            Completion(writerNeedsCorrection ? unsupported : supported),
+            Completion(writerNeedsCorrection ? supported : unsupported),
+            Completion(supported));
+        var options = CreateOptions();
+        options.SemanticCriticEnabled = true;
+        options.ExternalMaximumCallsPerJob = 4;
+        var gateway = new RecordingToolGateway(
+            BuildEvidence("E-LOCATOR", "Options\nAn option is a documented choice.\nOption alpha I page 64", exactTitle: "Options"),
+            BuildEvidence("E-BODY", "Option alpha\nSet the pressure to 17 bar and hold for three minutes.", exactTitle: "Option alpha"));
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+            .ExecuteAsync(BuildRequest(atomicEvidenceMode: "named_item"), gateway, CancellationToken.None);
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal("E-BODY", Assert.Single(Assert.Single(result.Claims).EvidenceIds));
+        Assert.Equal(4, result.ProviderCallCount);
+        using var body = JsonDocument.Parse(factory.Requests[writerNeedsCorrection ? 2 : 3].Body);
+        using var payload = JsonDocument.Parse(body.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+        Assert.Equal("Option alpha", payload.RootElement.GetProperty("candidateSupportCorrections").GetProperty("corrections")[0].GetProperty("selectedItem").GetString());
+        Assert.Single(gateway.Searches);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Named_grid_cannot_publish_locator_only_answer_when_the_call_budget_is_exhausted(bool reserveCritic)
+    {
+        const string unsupported = """{"outcome":"answered","answerText":"Option alpha [C1].","claims":[{"claimId":"C1","selectedItem":"Option alpha","text":"Option alpha convient à cette unité.","evidenceIds":["E1"]}]}""";
+        using var factory = new QueuedHttpClientFactory(Completion("""{"queries":[]}"""), Completion(unsupported));
+        var options = CreateOptions();
+        options.SemanticCriticEnabled = reserveCritic;
+        options.ExternalMaximumCallsPerJob = reserveCritic ? 3 : 2;
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
+            new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+                .ExecuteAsync(BuildRequest(atomicEvidenceMode: "named_item"),
+                    new RecordingToolGateway(BuildEvidence("E1", "Option alpha", exactTitle: "Option alpha")), CancellationToken.None));
+        Assert.Equal("advanced_synthesis_candidate_body_not_supported", error.ErrorCode);
+        Assert.Equal(2, factory.Requests.Count);
+    }
+
     [Theory]
     [InlineData(1100, false)]
     [InlineData(3000, true)]
@@ -1375,7 +1450,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
-    public async Task Structured_section_card_content_can_support_an_exact_listed_item()
+    public async Task Structured_section_card_with_body_content_can_support_an_exact_listed_item()
     {
         using var factory = new QueuedHttpClientFactory(
             Completion("""
@@ -1398,7 +1473,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             BuildEvidence("E2", "R2 est une recette documentée."),
             BuildEvidence(
                 "E3",
-                "PETITS DÉJEUNERS Repas pris le matin. FRITTATA À FLO I page 64",
+                "PETITS DÉJEUNERS\nRepas pris le matin.\nFRITTATA À FLO I page 64\nFRITTATA À FLO\nBattre les œufs, ajouter les légumes et cuire à la poêle.",
                 exactTitle: "PETITS DÉJEUNERS"),
             BuildEvidence("E4", "R4 est une recette documentée."));
 
@@ -1439,7 +1514,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             BuildEvidence("E2", "R2 est une recette documentée."),
             BuildEvidence(
                 "E3",
-                "PETITS DÉJEUNERS I page 67 LA CRÊPE\nÀ JO SMOOTHIE VERT I page 71"),
+                "PETITS DÉJEUNERS I page 67 LA CRÊPE\nÀ JO SMOOTHIE VERT I page 71\nLA CRÊPE\nÀ JO\nMélanger la farine, les œufs et le lait puis cuire à la poêle."),
             BuildEvidence("E4", "R4 est une recette documentée."));
 
         var result = await provider.ExecuteAsync(

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Dapper;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -53,14 +54,18 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                     "evidence_revalidation_failed");
             }
 
-            if (string.IsNullOrWhiteSpace(row.Content)
-                || row.Content.Length > maximumPerItem)
+            var content = string.IsNullOrWhiteSpace(row.ContentCardId)
+                ? row.Content
+                : row.CardCanonicalContent
+                    ?? BuildGroundedContentCardText(row.ExactTitle, row.EvidenceJson);
+            if (string.IsNullOrWhiteSpace(content)
+                || content.Length > maximumPerItem)
             {
                 return AdvancedAnalysisEvidenceResolution.Invalid(
                     "evidence_content_limit_exceeded");
             }
 
-            totalCharacters += row.Content.Length;
+            totalCharacters += content.Length;
             if (totalCharacters > maximumTotal)
             {
                 return AdvancedAnalysisEvidenceResolution.Invalid(
@@ -91,12 +96,70 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                     AnchorId = NullIfBlank(row.AnchorId),
                     ContentCardId = NullIfBlank(row.ContentCardId)
                 },
-                row.Content,
+                content,
                 NullIfBlank(row.ExactTitle)));
         }
 
         return AdvancedAnalysisEvidenceResolution.Valid(resolved);
     }
+
+    internal static string BuildGroundedContentCardText(string? exactTitle, string? evidenceJson)
+    {
+        var parts = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        void Add(string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value) && seen.Add(value.Trim()))
+                parts.Add(value.Trim());
+        }
+        Add(exactTitle);
+        if (!string.IsNullOrWhiteSpace(evidenceJson))
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(evidenceJson);
+                if (document.RootElement.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var name in new[] { "facts", "quantityFacts" })
+                    {
+                        if (!document.RootElement.TryGetProperty(name, out var facts)
+                            || facts.ValueKind != JsonValueKind.Array)
+                            continue;
+                        foreach (var fact in facts.EnumerateArray())
+                        {
+                            if (fact.ValueKind == JsonValueKind.Object
+                                && fact.TryGetProperty("sourceText", out var text)
+                                && text.ValueKind == JsonValueKind.String)
+                                Add(text.GetString());
+                        }
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // The exact canonical title remains an identity locator only.
+            }
+        }
+        return string.Join("\n\n", parts);
+    }
+
+    private const string CanonicalContentCardSourceJoin = """
+        LEFT JOIN retrieval_chunks card_source
+          ON card_source.tenant_id=cc.tenant_id
+         AND card_source.revision_id=cc.revision_id
+         AND cc.metadata #>> '{evidence,schemaVersion}'='canonical_section_anchor_evidence_v1'
+         AND card_source.chunk_index=(
+           SELECT CASE WHEN fact->>'value' ~ '^[0-9]{1,9}$'
+             THEN (fact->>'value')::int END
+           FROM jsonb_array_elements(CASE
+             WHEN jsonb_typeof(cc.metadata #> '{evidence,facts}')='array'
+             THEN cc.metadata #> '{evidence,facts}' ELSE '[]'::jsonb END) fact
+           WHERE fact->>'kind'='canonical_source'
+             AND fact->>'label'='retrieval_chunk_index'
+           LIMIT 1)
+         AND card_source.page_start>=COALESCE(cc.page_start,1)
+         AND card_source.page_end<=COALESCE(cc.page_end,cc.page_start,1)
+        """;
 
     private static async Task<ResolvedEvidenceRow?> ResolveOneAsync(
         NpgsqlConnection connection,
@@ -181,7 +244,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
         CancellationToken cancellationToken)
         => connection.QuerySingleOrDefaultAsync<ResolvedEvidenceRow>(
             new CommandDefinition(
-                """
+                $$"""
                 SELECT
                   d.doc_id AS "DocId",
                   dr.revision_id AS "RevisionId",
@@ -194,7 +257,9 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                   NULL::text AS "AnchorId",
                   cc.content_card_id::text AS "ContentCardId",
                   cc.title AS "ExactTitle",
-                  cc.search_text AS "Content"
+                  cc.title AS "Content",
+                  (cc.metadata->'evidence')::text AS "EvidenceJson",
+                  card_source.text_content AS "CardCanonicalContent"
                 FROM document_profile_content_cards cc
                 JOIN document_revisions dr
                   ON dr.tenant_id=cc.tenant_id
@@ -202,6 +267,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                 JOIN documents d
                   ON d.tenant_id=dr.tenant_id
                  AND d.doc_id=dr.doc_id
+                {{CanonicalContentCardSourceJoin}}
                 WHERE cc.tenant_id=@tenant
                   AND cc.content_card_id=@content_card_id
                 LIMIT 1;
@@ -217,7 +283,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
     {
         var rows = (await connection.QueryAsync<ResolvedEvidenceRow>(
             new CommandDefinition(
-                """
+                $$"""
                 SELECT
                   d.doc_id AS "DocId",
                   dr.revision_id AS "RevisionId",
@@ -230,7 +296,9 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                   sa.anchor_id AS "AnchorId",
                   cc.content_card_id::text AS "ContentCardId",
                   cc.title AS "ExactTitle",
-                  COALESCE(rc.text_content, cc.search_text) AS "Content"
+                  COALESCE(rc.text_content, cc.title) AS "Content",
+                  (cc.metadata->'evidence')::text AS "EvidenceJson",
+                  card_source.text_content AS "CardCanonicalContent"
                 FROM document_source_anchors sa
                 JOIN document_revisions dr
                   ON dr.tenant_id=sa.tenant_id
@@ -248,6 +316,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                  AND cc.tenant_id=sa.tenant_id
                  AND cc.revision_id=sa.revision_id
                  AND cc.content_card_id::text=sa.projection_id
+                {{CanonicalContentCardSourceJoin}}
                 WHERE sa.tenant_id=@tenant
                   AND sa.anchor_id=@anchor_id
                 LIMIT 2;
@@ -396,6 +465,8 @@ internal sealed class AdvancedAnalysisEvidenceResolver
         public string? ContentCardId { get; init; }
         public string? ExactTitle { get; init; }
         public string Content { get; init; } = string.Empty;
+        public string? EvidenceJson { get; init; }
+        public string? CardCanonicalContent { get; init; }
     }
 }
 

@@ -60,6 +60,52 @@ internal static partial class RetrievalContentClassifier
             : signal.NavigationReason;
     }
 
+    internal static RetrievalNavigationSignal AnalyzeEvidenceContent(string? text, string? exactTitle = null)
+    {
+        var signal = AnalyzeChunk(text);
+        if (string.IsNullOrWhiteSpace(text))
+            return signal;
+        var headingOnly = !string.IsNullOrWhiteSpace(exactTitle)
+            && string.Equals(text.Trim(), exactTitle.Trim(), StringComparison.Ordinal);
+        var locatorLines = NamedPageLocatorLineRegex().Matches(text).Count;
+        var layoutIndex = ContainsLayoutIndexArtifact(FoldDiacritics(text).ToLowerInvariant());
+        if (!headingOnly && locatorLines == 0 && !layoutIndex
+            && (IndexTermNarrativeCueRegex().IsMatch(text)
+                || CountMeasurementOrSpecificationTokens(text) >= 2))
+            return new RetrievalNavigationSignal(ContentRole, null, 0.0,
+                Math.Max(signal.ContentDensityScore, 0.55));
+        if (!headingOnly && locatorLines == 0 && !layoutIndex)
+            return signal;
+        var residual = NamedPageLocatorLineRegex().Replace(text, string.Empty);
+        var hasProse = Regex.IsMatch(residual, @"\p{L}[.!?](?:\s|$)", RegexOptions.CultureInvariant)
+            || CountMeasurementOrSpecificationTokens(residual) >= 2;
+        return new RetrievalNavigationSignal(
+            hasProse && !headingOnly ? MixedNavigationContentRole : NavigationRole,
+            headingOnly ? "canonical_heading_only"
+                : locatorLines > 0 ? "named_page_locator_fragment" : "layout_index_fragment",
+            hasProse ? 0.70 : 0.88,
+            hasProse ? Math.Max(signal.ContentDensityScore, 0.55)
+                : Math.Min(signal.ContentDensityScore, 0.30));
+    }
+
+    [GeneratedRegex(@"^[ \t]*[^\r\n.!?]{1,140}[ \t]+(?:[|I][ \t]+)?(?:pages?|pp?\.|p[aá]ginas?|p[aá]gina|seite|pagina|pagine)[ \t]+\d{1,5}(?:[ \t]*[-–][ \t]*\d{1,5})?[ \t\r]*$", RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex NamedPageLocatorLineRegex();
+
+    internal static bool IsIdentityOnlyCandidateEvidence(string text, string? exactTitle, string selectedItem)
+    {
+        if (AnalyzeEvidenceContent(text, exactTitle).ContentRole == NavigationRole)
+            return true;
+        if (NamedPageLocatorLineRegex().Matches(text).Count == 0)
+            return false;
+        var name = NormalizeForNavigationLookup(FoldDiacritics(selectedItem)).ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(name))
+            return false;
+        var original = $" {NormalizeForNavigationLookup(FoldDiacritics(text)).ToLowerInvariant()} ";
+        var substantive = $" {NormalizeForNavigationLookup(FoldDiacritics(NamedPageLocatorLineRegex().Replace(text, string.Empty))).ToLowerInvariant()} ";
+        return original.Contains($" {name} ", StringComparison.Ordinal)
+            && !substantive.Contains($" {name} ", StringComparison.Ordinal);
+    }
+
     internal static RetrievalNavigationSignal AnalyzeChunk(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))

@@ -18,6 +18,30 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence,
         IReadOnlyList<PromptEvidenceItem> PromptEvidence);
 
+    private sealed record CandidateSupportCorrection(string ClaimId, string SelectedItem,
+        IReadOnlyList<string> EvidenceIds, string Reason);
+
+    private static IReadOnlyList<CandidateSupportCorrection> FindIdentityOnlyCandidateSupport(
+        string raw, IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
+        AdvancedAnalysisProviderRequest request)
+    {
+        if (!request.Handoff.Load.StructuredLayout
+            || !request.Handoff.Load.AtomicEvidenceMode.Contains("named_item", StringComparison.OrdinalIgnoreCase))
+            return [];
+        AdvancedAnalysisProviderResult result;
+        try { result = ParseResult(raw, evidence, request); }
+        catch (AdvancedAnalysisProviderException) { return []; }
+        if (result.Outcome != "answered")
+            return [];
+        var byId = evidence.ToDictionary(item => item.Reference.EvidenceId!, StringComparer.Ordinal);
+        return result.Claims.Where(claim => !string.IsNullOrWhiteSpace(claim.SelectedItem)
+                && claim.EvidenceIds.All(id => RetrievalContentClassifier.IsIdentityOnlyCandidateEvidence(
+                    byId[id].Content, byId[id].ExactTitle, claim.SelectedItem!)))
+            .Select(claim => new CandidateSupportCorrection(claim.ClaimId, claim.SelectedItem!,
+                claim.EvidenceIds, "The bound evidence only locates or names this selected item. Cite its substantive canonical content; retain a locator as additional same-source scope only. Use search_corpus if that content is missing. Do not infer corpus absence from this correction."))
+            .ToArray();
+    }
+
     private string BuildSynthesisResearchContract()
         => !_options.AdaptiveResearchEnabled ? string.Empty : """
            You may request new documentary research before your final result.
@@ -48,6 +72,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     {
         var maximumCalls = Math.Clamp(_options.ExternalMaximumCallsPerJob, 1, 1_024);
         var followup = 0;
+        var supportCorrection = 0;
+        var nextPhase = phase;
+        object? candidateSupportFeedback = null;
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -57,10 +84,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 OrderEvidenceForPrompt(context.Tools.Evidence, context.EvidenceGroups));
             var observations = BuildPromptEvidence(request, evidence, context.RetrievalQueriesByEvidenceId);
             var userPrompt = buildUserPrompt(observations);
-            if (_options.AdaptiveResearchEnabled)
+            if (_options.AdaptiveResearchEnabled || candidateSupportFeedback is not null)
             {
                 var payload = JsonNode.Parse(userPrompt)!.AsObject();
-                payload["researchTools"] = JsonSerializer.SerializeToNode(new
+                if (_options.AdaptiveResearchEnabled)
+                    payload["researchTools"] = JsonSerializer.SerializeToNode(new
                 {
                     tool = "search_corpus",
                     researchAllowed = maximumCalls - completions.Count - 1 - reservedFinalCalls > 0,
@@ -69,13 +97,31 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     availableCategories = context.AvailableCategories,
                     priorSearches = BuildPriorSearchesForPrompt(context.PriorSearches, observations)
                 }, JsonOptions);
+                if (candidateSupportFeedback is not null)
+                    payload["candidateSupportCorrections"] = JsonSerializer.SerializeToNode(candidateSupportFeedback, JsonOptions);
                 userPrompt = payload.ToJsonString(JsonOptions);
             }
             var completion = await CompleteJsonAsync(request.JobId,
-                followup == 0 ? phase : $"{phase}-research-followup-{followup}",
+                nextPhase,
                 systemPrompt, userPrompt, maximumTokens, cancellationToken).ConfigureAwait(false);
             if (!RequestsCorpusResearch(completion.Content))
-                return new SynthesisCompletion(completion, evidence, observations);
+            {
+                var corrections = FindIdentityOnlyCandidateSupport(completion.Content, evidence, request);
+                if (corrections.Count == 0)
+                    return new SynthesisCompletion(completion, evidence, observations);
+                completions.Add(completion);
+                if (completions.Count >= maximumCalls - reservedFinalCalls)
+                    throw new AdvancedAnalysisProviderException("advanced_synthesis_candidate_body_not_supported");
+                var proposed = ParseResult(completion.Content, evidence, request);
+                candidateSupportFeedback = new
+                {
+                    corrections,
+                    previousProposal = new { proposed.Outcome, proposed.AnswerText, proposed.Claims },
+                    instruction = "Correct the listed selections before returning a terminal answer. Reuse substantive evidence already observed when possible; request research if necessary and available. Preserve supported choices. An identity locator is not the selected item's body."
+                };
+                nextPhase = $"{phase}-support-correction-{++supportCorrection}";
+                continue;
+            }
 
             completions.Add(completion);
             if (!_options.AdaptiveResearchEnabled)
@@ -105,6 +151,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 context.PriorSearches, context.EvidenceGroups, context.RetrievalQueriesByEvidenceId,
                 cancellationToken).ConfigureAwait(false);
             followup++;
+            nextPhase = $"{phase}-research-followup-{followup}";
         }
     }
 
