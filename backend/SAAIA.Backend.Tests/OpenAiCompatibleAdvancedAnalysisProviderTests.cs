@@ -12,6 +12,87 @@ namespace SAAIA.Backend.Tests;
 
 public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
+    [Fact]
+    public async Task Research_can_follow_an_opaque_observed_source_without_disclosing_its_identity()
+    {
+        const string privateName = "Private_Equipment_Manual.pdf";
+        var index = BuildEvidence("E-INDEX",
+            "Table of contents Safety overview 3 Lockout procedure 8 Alarm reset 12 Maintenance plan 18",
+            fileName: privateName);
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"reference overview","topK":12}]}"""),
+            Completion("""{"decision":"search_more","queries":[{"query":"Lockout procedure","sourceKey":"internal-source-1","topK":12}]}"""),
+            Completion("""{"outcome":"insufficient_documentation","answerText":"Le contenu de la procédure reste à établir.","claims":[]}"""));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        options.ExternalMaximumCallsPerJob = 3;
+        var gateway = new RecordingToolGateway(index);
+        await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+            .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+        var followup = Assert.Single(gateway.Searches, search => search.Query == "Lockout procedure");
+        Assert.Equal(index.Reference.DocId, followup.DocId);
+        Assert.Equal(index.Reference.DocPath, followup.DocPath);
+        Assert.Null(followup.DocumentHint);
+        Assert.All(factory.Requests, call =>
+        {
+            Assert.DoesNotContain(privateName, call.Body, StringComparison.Ordinal);
+            Assert.DoesNotContain(index.Reference.DocId!, call.Body, StringComparison.Ordinal);
+        });
+        using var review = JsonDocument.Parse(factory.Requests[1].Body);
+        using var payload = JsonDocument.Parse(review.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+        var observation = payload.RootElement.GetProperty("observations")[0];
+        Assert.Equal("navigation", observation.GetProperty("contentRole").GetString());
+        Assert.Equal("table_of_contents", observation.GetProperty("navigationReason").GetString());
+    }
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData("true")]
+    [InlineData("[]")]
+    [InlineData("{}")]
+    public async Task Invalid_source_scope_type_is_not_silently_treated_as_an_unscoped_search(string scopeJson)
+    {
+        var review = "{\"decision\":\"search_more\",\"queries\":[{\"query\":\"Lockout procedure\",\"sourceKey\":" + scopeJson + "}]}";
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"reference overview","topK":12}]}"""),
+            Completion(review));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        options.ExternalMaximumCallsPerJob = 3;
+        var gateway = new RecordingToolGateway(BuildEvidence("E1", "Source observation."));
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
+            new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+                .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None));
+        Assert.Equal("advanced_research_review_protocol_invalid", error.ErrorCode);
+        Assert.Single(gateway.Searches);
+    }
+
+    [Theory]
+    [InlineData("internal-source-999", "")]
+    [InlineData("INTERNAL-SOURCE-1", "")]
+    [InlineData("internal-source-1", "Other_Manual.pdf")]
+    public async Task Invalid_or_ambiguous_observed_source_scope_does_not_execute_an_unscoped_search(
+        string sourceKey, string documentHint)
+    {
+        var review = JsonSerializer.Serialize(new
+        {
+            decision = "search_more",
+            queries = new[] { new { query = "Lockout procedure", sourceKey, documentHint, topK = 12 } }
+        });
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"reference overview","topK":12}]}"""),
+            Completion(review));
+        var options = CreateOptions();
+        options.AdaptiveResearchEnabled = true;
+        options.ExternalMaximumCallsPerJob = 3;
+        var gateway = new RecordingToolGateway(BuildEvidence("E-INDEX", "Table of contents Safety overview 3 Lockout procedure 8 Alarm reset 12 Maintenance plan 18"));
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
+            new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+                .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None));
+        Assert.Equal("advanced_research_review_protocol_invalid", error.ErrorCode);
+        Assert.Single(gateway.Searches);
+    }
+
     [Theory]
     [InlineData(760, false)]
     [InlineData(3000, true)]

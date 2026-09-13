@@ -11,7 +11,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private IReadOnlyList<AdvancedAnalysisSearchRequest> ParsePlan(
         string raw,
         AdvancedAnalysisProviderRequest request,
-        IReadOnlyList<string> availableCategories)
+        IReadOnlyList<string> availableCategories,
+        IReadOnlyList<PromptEvidenceItem>? observations = null)
     {
         try
         {
@@ -55,6 +56,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 var documentHint = ReadString(item, "documentHint").Trim();
                 if (documentHint.Length > 2_000)
                     throw new JsonException();
+                if (item.TryGetProperty("sourceKey", out var scopeValue)
+                    && scopeValue.ValueKind is not JsonValueKind.String and not JsonValueKind.Null)
+                    throw new JsonException();
+                var sourceKey = ReadString(item, "sourceKey").Trim();
+                var observedSource = sourceKey.Length == 0 ? null : observations?
+                    .FirstOrDefault(observation => string.Equals(
+                        observation.SourceKey, sourceKey, StringComparison.Ordinal));
+                if (sourceKey.Length > 0
+                    && (observedSource is null || documentHint.Length > 0
+                        || string.IsNullOrWhiteSpace(observedSource.SourceReference.DocId)
+                        || string.IsNullOrWhiteSpace(observedSource.SourceReference.DocPath)))
+                    throw new JsonException();
                 var search = new AdvancedAnalysisSearchRequest(
                     query,
                     string.IsNullOrWhiteSpace(category) ? null : category,
@@ -65,6 +78,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     MaxPerPage: request.Handoff.Load.StructuredLayout
                         ? 2
                         : null,
+                    DocId: observedSource?.SourceReference.DocId,
+                    DocPath: observedSource?.SourceReference.DocPath,
                     DocumentHint: documentHint.Length == 0 ? null : documentHint);
                 if (dedupe.Add(BuildSearchIdentity(search)))
                     result.Add(search);
@@ -221,7 +236,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private IReadOnlyList<AdvancedAnalysisSearchRequest> ParseResearchReview(
         string raw,
         AdvancedAnalysisProviderRequest request,
-        IReadOnlyList<string> availableCategories)
+        IReadOnlyList<string> availableCategories,
+        IReadOnlyList<PromptEvidenceItem> observations)
     {
         try
         {
@@ -234,7 +250,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (decision != "search_more")
                 throw new JsonException();
 
-            var queries = ParsePlan(raw, request, availableCategories);
+            var queries = ParsePlan(raw, request, availableCategories, observations);
             if (queries.Count == 0)
                 throw new JsonException();
             var documents = GetRequestedDocumentIdentifiers(request);

@@ -137,6 +137,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     var currentEvidence = FilterEvidenceToRequestedDocumentSet(
                         request,
                         OrderEvidenceForPrompt(tools.Evidence, evidenceGroups));
+                    var observations = BuildPromptEvidence(
+                        request, currentEvidence, retrievalQueriesByEvidenceId);
                     var researchReview = await CompleteJsonAsync(
                             request.JobId,
                             reviewRound == 1
@@ -145,10 +147,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                             BuildResearchReviewSystemPrompt(),
                             BuildResearchReviewUserPrompt(
                                 request,
-                                BuildPromptEvidence(
-                                    request,
-                                    currentEvidence,
-                                    retrievalQueriesByEvidenceId),
+                                observations,
                                 priorSearches,
                                 availableCategories),
                             Math.Clamp(_options.PlannerMaxTokens, 256, 4_096),
@@ -158,7 +157,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     var followUpQueries = ParseResearchReview(
                         researchReview.Content,
                         request,
-                        availableCategories);
+                        availableCategories,
+                        observations);
                     if (followUpQueries.Count == 0)
                         break;
                     await ExecuteSearchBatchAsync(

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using SAAIA.Contracts;
 
@@ -8,6 +9,25 @@ namespace SAAIA.Backend.AdvancedAnalysis;
 
 internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 {
+    private const string CandidateEvidenceUsePolicy = """
+        Candidate evidence policy: an index or heading can prove an item's name,
+        existence or an explicitly requested contents list. For proposed usable
+        selections, obtain and cite the item's own canonical content; retain an
+        index only as an additional locator or same-source scope statement.
+        Do not promote an index mention into the usable option itself. contentRole
+        and navigationReason describe text structure, not semantic approval:
+        content does not certify suitability, and mixed text must be read.
+        Distinguish a complete option for the requested unit from an ingredient,
+        accompaniment, component, category or blank template. A component must
+        not stand alone for a whole unit unless the observed source documents
+        that complete proposed presentation. Never invent a carrier, combination
+        or absent detail to make it fit. During research, follow the observed
+        exact candidate title and sourceKey to retrieve its substantive content.
+        During writing or review, replace unsupported selections from the supplied
+        evidence or report the precise remaining evidence deficit. Do not require
+        sources to prescribe the arrangement SAAIA is asked to propose.
+        """;
+
     private static string BuildPlannerSystemPrompt()
         => """
            You are the research planner for SAAIA advanced analysis. Return one
@@ -68,6 +88,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            such as ingredients or preparation because they rank fragments whose
            item name may be outside the chunk. Never invent a category or output a
            category absent from availableCategories.
+           Indexes locate candidates; they do not replace the item's actual
+           content when selecting usable options for a proposed deliverable.
            When the user explicitly names documents, emit at least one focused
            query per document. Retain that document's complete identifier in the
            query and add only the subject terms needed to answer the request.
@@ -83,7 +105,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         => """
            You are the adaptive research controller for SAAIA advanced analysis.
            You have two private-corpus tools: list_categories() and
-           search_corpus(query, category, topK, documentHint). list_categories has already been
+           search_corpus(query, category, topK, documentHint, sourceKey). list_categories has already been
            called and its exact result is supplied as availableCategories. Select
            an exact listed category when it clearly matches the user request; keep
            category empty when the scope is ambiguous. search_corpus searches only the tenant's
@@ -99,6 +121,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            and search across the corpus, preserving explicit user scope constraints.
            Use documentHint to identify a known document; its identity is validated
            by the backend. Do not repeat an identical search with identical filters.
+           To follow an observed candidate inside its actual source, copy its
+           opaque sourceKey into the search request and leave documentHint empty.
+           The backend resolves that handle only against these observations;
+           never invent a sourceKey. You do not need a private filename or path.
            The same query with a changed category or document scope is a new search;
            priorSearches supplies those filters. For a repeated grid, test each
            semantic column independently and seek enough distinct concrete items
@@ -138,7 +164,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            Never invent a category or output
            one absent from availableCategories. Never answer the user. Return
            one JSON object and no prose.
-           """;
+           """ + "\n" + CandidateEvidenceUsePolicy;
 
     private string BuildPlannerUserPrompt(
         AdvancedAnalysisProviderRequest request,
@@ -176,7 +202,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     query = "required corpus retrieval phrase",
                     category = "exact allowed category or empty",
                     topK = "integer from 1 to 60",
-                    documentHint = "optional known filename fragment or formal document identifier; no invented filename"
+                    documentHint = "optional known filename fragment or formal document identifier; no invented filename",
+                    sourceKey = "optional exact opaque sourceKey from an observation to scope this search; leave documentHint empty"
                 }
             },
             priorQueries = request.Handoff.ResearchState.ExecutedQueries
@@ -218,7 +245,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            chosen candidateTitle verbatim into selectedItem and answerText. A
            source_chunk may also support a named item when that exact name is
            explicitly present in its content, including a source index; copy the
-           exact displayed name and cite that chunk.
+           exact displayed name. For a proposed usable selection, follow the
+           candidate evidence policy below before choosing its final evidence.
            For source-defined procedures and sequences, preserve the requested
            variant and each stage's actors, transferred items and validation
            conditions. A general description of the protocol family cannot
@@ -273,8 +301,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            items in that claim. Never carry a scope statement across different
            sourceKeys. A source index or heading can support the existence and
            spelling of a named item. It cannot support absent factual details about
-           that item. It may serve as the documented basis for a clearly labeled
-           synthesis decision, subject to the rules above.
+           that item. For proposed usable selections, it is a locator or scope
+           statement supplementing the item's own canonical content.
            A mandatory qualifier in the user request applies to every requested
            output unit unless the request explicitly limits its scope. Each claim's
            own evidenceIds must support that qualifier. If one selected item lacks
@@ -314,6 +342,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            choice, do not repeat the table row, column or placement wording in
            that claim.
            """
+           + "\n" + CandidateEvidenceUsePolicy
            + "\nRequested output shape: "
            + JsonSerializer.Serialize(
                BuildPromptLoad(request.Handoff.Load),
@@ -344,7 +373,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            If the original object is malformed or truncated,
            recover only information that is explicitly present. Keep the same JSON
            schema.
-           """;
+           """ + "\n" + CandidateEvidenceUsePolicy;
 
     private static string BuildSynthesisRecoverySystemPrompt()
         => """
@@ -369,7 +398,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            candidates and copy the chosen candidateTitle verbatim into selectedItem
            and answerText. A source_chunk may also support a named item when its
            exact name is explicitly present in the chunk content, including an
-           index; copy that exact displayed name and cite the chunk.
+           index; copy that exact displayed name, then apply the candidate
+           evidence policy below to select its final supporting evidence.
            Every placement must be semantically plausible for its target label.
            Use the exact title, supplied content and retrievedFor queries to make
            that synthesis judgment. Prefer individual candidateTitle evidence over
@@ -397,7 +427,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            [claimId] must appear exactly once in answerText.
            Keep each claim text concise. When selectedItem already identifies the
            choice, do not repeat row, column or placement wording in that claim.
-           """;
+           """ + "\n" + CandidateEvidenceUsePolicy;
 
     private static string BuildCriticSystemPrompt()
         => """
@@ -470,7 +500,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            internal-source-* token in answerText, claim text or selectedItem. Do
            not add facts, preferences or evidence identifiers.
            Keep the requested language and format.
-           """;
+           """ + "\n" + CandidateEvidenceUsePolicy;
 
     private static string BuildCriticRepairSystemPrompt()
         => """
@@ -487,7 +517,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            precise insufficiency. Never invent a fact, title, evidence ID or
            source, and never expose internal evidence or source identifiers in
            user-visible text. Keep the requested language and format.
-           """;
+           """ + "\n" + CandidateEvidenceUsePolicy;
 
     private string BuildWriterRepairUserPrompt(
         AdvancedAnalysisProviderRequest request,
@@ -518,7 +548,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         bool CandidateTitleIsSourceExact,
         string Content,
         int OriginalContentLength,
-        bool ContentTruncated);
+        bool ContentTruncated,
+        string ContentRole,
+        string? NavigationReason,
+        [property: JsonIgnore] AdvancedAnalysisResultEvidence SourceReference);
 
     private sealed record StructuredClaimCoordinate(
         string ClaimId,
@@ -743,6 +776,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 break;
             var content = item.Content ?? string.Empty;
             var originalContentLength = content.Length;
+            var contentSignal = RetrievalContentClassifier.AnalyzeChunk(content);
             if (content.Length > maximumCharactersPerPromptEvidence)
                 content = content[..maximumCharactersPerPromptEvidence];
             if (content.Length > remaining)
@@ -781,7 +815,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 !string.IsNullOrWhiteSpace(item.ExactTitle),
                 content,
                 originalContentLength,
-                content.Length < originalContentLength));
+                content.Length < originalContentLength,
+                contentSignal.ContentRole,
+                contentSignal.NavigationReason,
+                item.Reference));
         }
         return promptEvidence;
     }
