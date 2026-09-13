@@ -27,7 +27,6 @@ public sealed class NativeRouterPromptBudgetTests
                 "submit_source_backed_grid_route",
                 "submit_operational_route",
                 "request_missing_user_input",
-                "submit_application_decision_route",
                 "request_unbound_user_reference_route"
             },
             tools.Select(static tool => tool.Name));

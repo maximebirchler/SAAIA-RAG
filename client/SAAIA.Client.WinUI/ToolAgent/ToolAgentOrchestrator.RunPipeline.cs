@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -445,7 +445,7 @@ public sealed partial class ToolAgentOrchestrator
         if (capabilityBoundary.RequiresAdvancedAnalysis
             && EnforcesLocalCapabilityBoundary)
         {
-            var boundaryAnswer = capabilityBoundary.PlanKind == "application_decision"
+            var boundaryAnswer = capabilityBoundary.PlanKind == "user_instance_context"
                 ? SourceBackedLabel(plan.Language,
                     "Cette décision appliquée à votre situation nécessite l’analyse avancée. Votre contexte accompagne la demande.",
                     "This decision about your situation requires advanced analysis. Your context accompanies the request.",
@@ -458,7 +458,7 @@ public sealed partial class ToolAgentOrchestrator
                 plan.Language);
             BuildAndRememberAdvancedAnalysisHandoff(
                 plan,
-                capabilityBoundary.PlanKind == "application_decision"
+                capabilityBoundary.PlanKind == "user_instance_context"
                     ? IncludeUserInstanceContext(chatHistory, effectiveUserMessage) : effectiveUserMessage,
                 capabilityBoundary.ReasonCode,
                 "before_retrieval",

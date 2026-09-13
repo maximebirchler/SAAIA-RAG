@@ -36,8 +36,8 @@ public sealed partial class ToolAgentOrchestrator
             status, applicability or value evidence must establish are answer candidates, not user choices.
             Acceptable evidence forms joined by "or" are retrieval targets.
             request_missing_user_input is only for actual instance facts entirely
-            absent from conversation. Sources cannot supply it. With some actual
-            context, use submit_application_decision_route for an applied decision.
+            absent from conversation. Sources cannot supply it. With actual
+            context supplied, choose corpus work; a separate context check preserves it.
             Essential unbound user references use request_unbound_user_reference_route.
             Corpus/PDF collections, optional preferences and document availability
             stay in the work family. General rules and hypothetical cases are source-backed.
@@ -148,10 +148,6 @@ public sealed partial class ToolAgentOrchestrator
                 "Missing actual configuration, state or project phase of the user's own setup essential for an actionable decision. Not optional preferences or document availability.",
                 emptyParameters),
             new SourceBackedAgentToolDefinition(
-                SubmitApplicationDecisionRouteToolName,
-                "Decision or action about the user's own setup with actual instance context supplied. General rules, definitions or hypothetical examples stay source-backed.",
-                emptyParameters),
-            new SourceBackedAgentToolDefinition(
                 RequestUnboundUserReferenceRouteToolName,
                 "An essential user-designated reference or mandatory choice is unbound and conversation cannot identify it. Corpus/PDF collection searches and optional preferences are ordinary work.",
                 emptyParameters)
@@ -168,7 +164,6 @@ public sealed partial class ToolAgentOrchestrator
             or SubmitSourceBackedGridRouteToolName
             or SubmitOperationalRouteToolName
             or RequestMissingUserInputToolName
-            or SubmitApplicationDecisionRouteToolName
             or RequestUnboundUserReferenceRouteToolName)
             return true;
 

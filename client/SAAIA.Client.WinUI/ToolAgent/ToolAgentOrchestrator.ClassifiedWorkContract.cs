@@ -1,7 +1,38 @@
+using System.Text.Json;
+using SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag;
+
 namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
 public sealed partial class ToolAgentOrchestrator
 {
+    private const string UserInstanceContextPresencePrompt =
+        "Does request or conversation supply any actual configuration, operating state or project phase of the user's own real setup? A question asking what its state is supplies no state. A hypothetical example is not an actual state. Actual supplied user facts remain supplied even if insufficient for a final decision. Return one JSON boolean actualContextSupplied.";
+
+    private static LlmStructuredOutputContract BuildUserInstanceContextPresenceContract()
+        => new("saaia_user_instance_context_v1", JsonSerializer.SerializeToElement(new
+        {
+            type = "object",
+            properties = new { actualContextSupplied = new { type = "boolean" } },
+            required = new[] { "actualContextSupplied" }, additionalProperties = false
+        }));
+
+    private static bool TryResolveUserInstanceContextPresence(SourceBackedAgentCompletion completion, out bool supplied)
+    {
+        supplied = false;
+        if (completion.ToolCalls.Count != 0 || completion.ProtocolError is { Length: > 0 }
+            || completion.FinishReason != "stop") return false;
+        try
+        {
+            using var doc = JsonDocument.Parse(completion.Content);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object || root.EnumerateObject().Count() != 1
+                || !root.TryGetProperty("actualContextSupplied", out var value)
+                || value.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) return false;
+            supplied = value.GetBoolean();
+            return true;
+        }
+        catch (JsonException) { return false; }
+    }
     // The LLM chooses the semantic family. Code renders that typed decision;
     // it does not infer a business domain or invent required technical fields.
     private static RouterPlan BuildMissingInstanceFactsRouterPlan(string language)

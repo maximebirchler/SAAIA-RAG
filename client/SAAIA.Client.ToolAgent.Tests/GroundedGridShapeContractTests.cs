@@ -448,7 +448,9 @@ public sealed class GroundedGridShapeContractTests
             CancellationToken ct,
             double? temperatureOverride = null)
         {
-            if (contract.Name == "saaia_work_family_v4")
+            if (contract.Name == "saaia_user_instance_context_v1")
+                return Task.FromResult(new SourceBackedAgentCompletion("{\"actualContextSupplied\":false}", [], "stop"));
+            if (contract.Name == "saaia_work_family_v5")
             {
                 return Task.FromResult(new SourceBackedAgentCompletion(
                     "{\"family\":\"grid\"}",

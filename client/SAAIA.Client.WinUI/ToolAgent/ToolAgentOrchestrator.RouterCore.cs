@@ -94,7 +94,7 @@ USER_MESSAGE:
                         BuildNativeRouterClassifierSystemPrompt() + nativeRouterRuntimePolicy),
                     SourceBackedAgentMessage.User(
                         "CHAT_TAIL:\n"
-                        + SerializeTail(chatHistory, maxTurns: 2)
+                        + SerializeTail(chatHistory.Where(turn => turn.role is "user" or "assistant").ToArray(), maxTurns: 2)
                         + "\n\nUSER_MESSAGE:\n"
                         + userMessage)
                 };
@@ -152,7 +152,7 @@ USER_MESSAGE:
                 EmitRagTrace(
                     "router.native.classifier.completed",
                     ("accepted", classifierAccepted),
-                    ("classifier_contract", useStructuredClassifier ? "saaia_work_family_v4" : "native_tools"),
+                    ("classifier_contract", useStructuredClassifier ? "saaia_work_family_v5" : "native_tools"),
                     ("selected_contract", selectedRouteToolName),
                     ("finish_reason", classifierCompletion.FinishReason),
                     ("prompt_tokens", classifierCompletion.PromptTokens),
@@ -167,8 +167,24 @@ USER_MESSAGE:
                     ("server_predicted_ms",
                         classifierCompletion.ServerPredictedMilliseconds),
                     ("ms", classifierSw.ElapsedMilliseconds));
-                if (classifierAccepted && selectedRouteToolName == RequestMissingUserInputToolName)
-                    return BuildMissingInstanceFactsRouterPlan(detectedMessageLanguage);
+                var instanceContextUnconfirmed = false;
+                if (classifierAccepted && (selectedRouteToolName is RequestMissingUserInputToolName or SubmitSourceBackedRouteToolName)
+                    && structuredClassifier is not null)
+                {
+                    var contextCompletion = await structuredClassifier.CompleteStructuredAsync(
+                        [SourceBackedAgentMessage.System(UserInstanceContextPresencePrompt), SourceBackedAgentMessage.User(
+                            "CHAT_TAIL:\n" + SerializeTail(chatHistory.Where(turn => turn.role == "user").ToArray(), 2)
+                            + "\n\nUSER_MESSAGE:\n" + userMessage)],
+                        BuildUserInstanceContextPresenceContract(), 64, nativeRouterTimeoutCts.Token, temperatureOverride: 0)
+                        .ConfigureAwait(false);
+                    var validContext = TryResolveUserInstanceContextPresence(contextCompletion, out var suppliedContext);
+                    instanceContextUnconfirmed = !validContext;
+                    EmitRagTrace("router.instance_context.completed", ("accepted", validContext),
+                        ("actual_context_supplied", suppliedContext));
+                    // An uncertain context check cannot justify asking the user again.
+                    if (!validContext || suppliedContext)
+                        selectedRouteToolName = SubmitApplicationDecisionRouteToolName;
+                }
 
                 var nativeRouterSystem = useSpecializedRoute
                     ? BuildNativeRouterSpecializedSystemPrompt(
@@ -615,9 +631,15 @@ USER_MESSAGE:
 
                 if (nativeRouteAccepted)
                 {
+                    if (selectedRouteToolName == RequestMissingUserInputToolName && nativePlan.NeedClarification)
+                        nativePlan = BuildMissingInstanceFactsRouterPlan(detectedMessageLanguage);
                     if (selectedRouteToolName == SubmitApplicationDecisionRouteToolName
                         && nativePlan.SourceBackedMission is not null)
-                        nativePlan.SourceBackedMission.QuestionFocus = "application_decision";
+                    {
+                        nativePlan.SourceBackedMission.QuestionFocus = "user_instance_context";
+                        if (instanceContextUnconfirmed)
+                            nativePlan.RiskFlags.Add("instance_context_check_unconfirmed");
+                    }
                     if (groundedGridShape?.IsComplete == true)
                     {
                         nativePlan.GroundedGridDiscoveryQueries =

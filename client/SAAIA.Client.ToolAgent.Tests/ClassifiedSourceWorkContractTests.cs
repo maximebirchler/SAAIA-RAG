@@ -10,17 +10,32 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class ClassifiedSourceWorkContractTests
 {
     [Fact]
-    public async Task Supplied_instance_context_transfers_before_retrieval_and_excludes_assistant_inventions()
+    public async Task Invalid_context_check_transfers_without_claiming_context_is_missing()
+    {
+        var llm = new TypedContextRouter(false, true, true);
+        var agent = CreateAgent(llm, out var memory);
+        var result = await agent.RunAsync([], "Quelle règle documentaire s'applique ?", CancellationToken.None);
+        var handoff = Assert.IsType<SAAIA.Contracts.AdvancedAnalysisHandoffEnvelope>(agent.LastAdvancedAnalysisHandoff);
+        Assert.Equal("instance_context_check_unconfirmed_outside_local_envelope", handoff.ReasonCode);
+        Assert.Null(memory.PendingClarification);
+        Assert.Null(result.sourcesPayload);
+        Assert.Empty(memory.LastToolNames);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Supplied_instance_context_transfers_before_retrieval_and_excludes_assistant_inventions(bool sourceClassification)
     {
         const string context = "Le prototype est assemblé et hors service, avant sa mise en production.";
-        var llm = new TypedContextRouter(false);
+        var llm = new TypedContextRouter(false, sourceClassification);
         var agent = CreateAgent(llm, out var memory);
         var result = await agent.RunAsync([("user", context), ("assistant", "Fabricated state: already certified.")],
             "Notre dispositif peut-il être mis en service maintenant ?", CancellationToken.None);
         var handoff = Assert.IsType<SAAIA.Contracts.AdvancedAnalysisHandoffEnvelope>(agent.LastAdvancedAnalysisHandoff);
         Assert.Equal("before_retrieval", handoff.TransferStage);
-        Assert.Equal("user_application_decision_outside_local_envelope", handoff.ReasonCode);
-        Assert.Equal("application_decision", handoff.Load.QuestionFocus);
+        Assert.Equal("user_instance_context_outside_local_envelope", handoff.ReasonCode);
+        Assert.Equal("user_instance_context", handoff.Load.QuestionFocus);
         Assert.Contains(context, handoff.RequestText);
         Assert.DoesNotContain("already certified", handoff.RequestText);
         Assert.Contains("not documentary evidence", handoff.RequestText);
@@ -39,7 +54,7 @@ public sealed class ClassifiedSourceWorkContractTests
         var first = await agent.RunAsync([], request, CancellationToken.None);
         Assert.NotNull(memory.PendingClarification);
         Assert.Null(agent.LastAdvancedAnalysisHandoff);
-        Assert.Equal(0, llm.NativeCalls);
+        Assert.Equal(1, llm.NativeCalls);
         var second = await agent.RunAsync([("user", request), ("assistant", first.finalAnswer)], context, CancellationToken.None);
         Assert.Null(memory.PendingClarification);
         var handoff = Assert.IsType<SAAIA.Contracts.AdvancedAnalysisHandoffEnvelope>(agent.LastAdvancedAnalysisHandoff);
@@ -50,7 +65,7 @@ public sealed class ClassifiedSourceWorkContractTests
         Assert.Null(second.sourcesPayload);
         Assert.Empty(memory.LastToolNames);
         Assert.Equal(2, llm.Classifications);
-        Assert.Equal(1, llm.NativeCalls);
+        Assert.Equal(2, llm.NativeCalls);
     }
 
     private static ToolAgentOrchestrator CreateAgent(ILlmClient llm, out ToolMemory memory)
@@ -70,7 +85,7 @@ public sealed class ClassifiedSourceWorkContractTests
             new AppSettings { ActiveMode = "strict" });
         var method = typeof(ToolAgentOrchestrator).GetMethod("RouterAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var task = (Task<RouterPlan>)method.Invoke(agent,
-            new object[] { new List<(string role, string content)> { ("user", "Earlier context.") },
+            new object[] { new List<(string role, string content)> { ("system", "User preference: strict documentary mode. Avoid invention. If missing sources, say so and ask 1 clarification question."), ("user", "Earlier context.") },
                 "Trouve dans le corpus une préparation documentée.", CancellationToken.None, false })!;
         var plan = await task;
         Assert.False(plan.NeedClarification);
@@ -89,7 +104,10 @@ public sealed class ClassifiedSourceWorkContractTests
             IReadOnlyList<SourceBackedAgentMessage> messages, LlmStructuredOutputContract contract,
             int maxTokens, CancellationToken ct, double? temperatureOverride = null)
         {
+            if (contract.Name == "saaia_user_instance_context_v1")
+                return Task.FromResult(new SourceBackedAgentCompletion("{\"actualContextSupplied\":false}", [], "stop"));
             Assert.StartsWith("saaia_work_family_", contract.Name);
+            Assert.DoesNotContain(messages, message => message.Role == "user" && message.Content!.Contains("User preference:"));
             return Task.FromResult(new SourceBackedAgentCompletion("{\"family\":\"answer\"}", [], "stop"));
         }
         public Task<SourceBackedAgentCompletion> CompleteAsync(
@@ -119,20 +137,30 @@ public sealed class ClassifiedSourceWorkContractTests
             => throw new NotSupportedException();
     }
 
-    private sealed class TypedContextRouter(bool clarifyFirst)
+    private sealed class TypedContextRouter(bool clarifyFirst, bool classifyAsSource = false, bool malformedContext = false)
         : ILlmClient, ISourceBackedAgentLlmClient, ISourceBackedAgentStructuredLlmClient
     {
         public int Classifications { get; private set; }
         public int NativeCalls { get; private set; }
+        public int ContextCalls { get; private set; }
         public Task<SourceBackedAgentCompletion> CompleteStructuredAsync(
             IReadOnlyList<SourceBackedAgentMessage> messages, LlmStructuredOutputContract contract,
             int maxTokens, CancellationToken ct, double? temperatureOverride = null)
         {
+            if (contract.Name == "saaia_user_instance_context_v1")
+            {
+                ContextCalls++;
+                if (malformedContext)
+                    return Task.FromResult(new SourceBackedAgentCompletion("{\"wrongField\":true}", [], "stop"));
+                Assert.DoesNotContain(messages, message => message.Content!.Contains("already certified"));
+                return Task.FromResult(new SourceBackedAgentCompletion(JsonSerializer.Serialize(new
+                    { actualContextSupplied = !(clarifyFirst && Classifications == 1) }), [], "stop"));
+            }
             Classifications++;
-            Assert.Equal("saaia_work_family_v4", contract.Name);
+            Assert.Equal("saaia_work_family_v5", contract.Name);
             if (clarifyFirst && Classifications == 2)
                 Assert.Contains(messages, message => message.Content!.Contains("CURRENT_USER_TURN"));
-            var family = clarifyFirst && Classifications == 1 ? "missing_instance_facts" : "application_decision";
+            var family = classifyAsSource ? "answer" : "missing_instance_facts";
             return Task.FromResult(new SourceBackedAgentCompletion(JsonSerializer.Serialize(new { family }), [], "stop"));
         }
         public Task<SourceBackedAgentCompletion> CompleteAsync(
@@ -140,6 +168,11 @@ public sealed class ClassifiedSourceWorkContractTests
             int maxTokens, CancellationToken ct, double? temperatureOverride = null, bool requireToolCall = false)
         {
             NativeCalls++;
+            if (tools.Count == 1 && tools[0].Name == "request_missing_user_input")
+                return Task.FromResult(new SourceBackedAgentCompletion("", [new SourceBackedAgentToolCall("missing", tools[0].Name,
+                    JsonSerializer.SerializeToElement(new { question = "Quel est l'état actuel du dispositif ?",
+                        userTextAnchor = "Notre dispositif", missingInformation = "Actual configuration and state not supplied.",
+                        resumeRoute = "source_backed" }))], "tool_calls"));
             Assert.Equal("submit_source_backed_route", Assert.Single(tools).Name);
             return Task.FromResult(new SourceBackedAgentCompletion("",
                 [new SourceBackedAgentToolCall("application", "submit_source_backed_route", JsonSerializer.SerializeToElement(new

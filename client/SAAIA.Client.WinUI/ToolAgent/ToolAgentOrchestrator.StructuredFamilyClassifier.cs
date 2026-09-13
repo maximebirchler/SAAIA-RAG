@@ -14,19 +14,18 @@ public sealed partial class ToolAgentOrchestrator
            family="grid": sourced content must occupy repeated row-by-column positions in a table, schedule or plan. A one-axis list is answer.
            family="operation": social conversation or operating the app itself: greetings, thanks, settings, catalog inventory, export or diagnostics.
            family="missing_instance_facts": a decision about the user's own setup needs actual configuration, state or project phase, entirely absent from request and conversation. Sources cannot establish those facts.
-           family="application_decision": a decision or action about the user's own setup with some actual instance context supplied. General rules, definitions and hypothetical examples remain answer.
            family="missing_user_binding": an essential user-designated reference or mandatory choice is unbound and conversation cannot identify it. Searching the corpus, PDF collections, document contents and availability are work, not missing bindings. Optional preferences permit documented defaults.
 
            Missing instance facts take priority. Facts, values and alternatives that corpus evidence can establish remain answer candidates. Optional refinements do not block a request that permits documented candidates or defaults. Never choose operation merely because no document is mentioned.
            """;
 
     private static LlmStructuredOutputContract BuildStructuredRouterFamilyContract()
-        => new("saaia_work_family_v4", JsonSerializer.SerializeToElement(new
+        => new("saaia_work_family_v5", JsonSerializer.SerializeToElement(new
         {
             type = "object",
             properties = new
             {
-                family = new { type = "string", @enum = new[] { "answer", "overview", "grid", "operation", "missing_instance_facts", "application_decision", "missing_user_binding" } }
+                family = new { type = "string", @enum = new[] { "answer", "overview", "grid", "operation", "missing_instance_facts", "missing_user_binding" } }
             },
             required = new[] { "family" },
             additionalProperties = false
@@ -57,7 +56,6 @@ public sealed partial class ToolAgentOrchestrator
                 "grid" => SubmitSourceBackedGridRouteToolName,
                 "operation" => SubmitOperationalRouteToolName,
                 "missing_instance_facts" => RequestMissingUserInputToolName,
-                "application_decision" => SubmitApplicationDecisionRouteToolName,
                 "missing_user_binding" => RequestUnboundUserReferenceRouteToolName,
                 _ => string.Empty
             };
