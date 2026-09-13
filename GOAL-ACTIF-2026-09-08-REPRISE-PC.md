@@ -13,7 +13,8 @@ Point de preuve du 13 septembre, A825–A827 : le transport Responses accepte
 les outils natifs. C1 puis C2a restent rejetés sur le planning. C2a livre neuf
 options attestées et neuf cartes physiques vérifiées, aucune grille complète ;
 son insuffisance choisie avant épuisement ne prouve pas un déficit du corpus.
-Le registre clos totalise 34,45560220 USD sur 40 USD. C2b offre une mémoire
+Le registre clos après A837 totalise 35,43728460 USD sur 40 USD ; reste calculé
+4,56271540 USD, sans nouvel achat. C2b offre une mémoire
 choisie par le modèle, mais son pilote ne l'utilise pas. A828 medium conduit
 Critic à explorer davantage, sans livrer la grille. A830 compare séparément
 un contrat court de recherche et réponse : quatre lectures choisies, mais
@@ -22,9 +23,15 @@ clarification généraliste des choix concrets et de leur formulation exacte :
 vingt choix nommés, mais preuve évincée et portée de deux liaisons non approuvée.
 A835 conserve les preuves sélectionnées ; A836 ajoute les retours de liaisons
 et protège toutes les citations invisibles. Son pilote reste rejeté sur un
-remplacement cité sur couverture. A837 préenregistre high/8192/douze appels,
-1,25 USD maximum, sans affaiblir les critères. Les 2 395 tests backend réussis
-valident ces contrats, pas encore le planning.
+remplacement cité sur couverture. A837 exécute high/8192/douze appels : onze
+lectures, quatre recherches littérales et vingt choix bruts, mais desserts seuls
+utilisés comme déjeuners et rejet final. A841 reproduit puis corrige la perte
+du passage de préparation pendant la normalisation d'identité : conserver les
+citations choisies par le modèle et lui laisser corriger les mauvaises liaisons.
+Les 2 397 tests backend réussis et trois tests ciblés valident ces contrats,
+pas encore le planning. Un seul pilote A841 avant analyse, même enveloppe A837
+de 1,25 USD maximum ; aucune répétition aveugle ni WinUI encore autorisée par
+les preuves d'acceptation. Voir documents/agent/conserver-liaisons-multisources-a841-2026-09-13.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

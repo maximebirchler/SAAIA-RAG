@@ -156,7 +156,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 continue;
 
             coordinateColumns.TryGetValue(claim.ClaimId, out var targetColumn);
-            var matches = evidence
+            var matches = evidence.Where(item => claim.EvidenceIds.Contains(
+                    item.EvidenceId ?? string.Empty, StringComparer.Ordinal))
                 .Select(item => BuildSelectedItemEvidenceMatch(
                     selectedItem,
                     item,
@@ -171,12 +172,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (matches.Length == 0)
                 continue;
 
-            var citedMatches = matches
-                .Where(item => claim.EvidenceIds.Contains(
-                    item.EvidenceId,
-                    StringComparer.Ordinal))
-                .ToArray();
-            var candidates = citedMatches.Length > 0 ? citedMatches : matches;
+            var candidates = matches;
             var best = candidates[0];
             var bestCanonicalIdentity = NormalizeClaimText(best.CanonicalItem);
             var competing = candidates
@@ -221,12 +217,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     selectedItem,
                     canonicalItem);
             }
-            var evidenceChanged = claim.EvidenceIds.Count != 1
-                                  || !string.Equals(
-                                      claim.EvidenceIds[0],
-                                      best.EvidenceId,
-                                      StringComparison.Ordinal);
-            if (!itemChanged && !evidenceChanged)
+            if (!itemChanged)
                 continue;
 
             claims[index] = new AdvancedAnalysisResultClaim
@@ -240,7 +231,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         selectedItem,
                         canonicalItem)
                     : claim.Text,
-                EvidenceIds = [best.EvidenceId]
+                EvidenceIds = claim.EvidenceIds
             };
             changed = true;
         }

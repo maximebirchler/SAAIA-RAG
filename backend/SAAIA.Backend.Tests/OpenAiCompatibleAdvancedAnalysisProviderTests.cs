@@ -1833,7 +1833,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
-    public async Task Structured_selected_item_is_rebound_to_the_source_that_contains_it()
+    public async Task Structured_selected_item_binding_is_corrected_by_the_model()
     {
         using var factory = new QueuedHttpClientFactory(
             Completion("""
@@ -1844,6 +1844,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 """),
             Completion("""
                 {"outcome":"answered","answerText":"R1 [C1], R2 [C2], SANDWICH COMPLET ET ÉQUILIBRÉ SELON VOS ENVIES [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"R1 est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"R2 est documentée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"SANDWICH COMPLET ET ÉQUILIBRÉ SELON VOS ENVIES","text":"Le sandwich est documenté.","evidenceIds":["E9"]},{"claimId":"C4","selectedItem":"R4","text":"R4 est documentée.","evidenceIds":["E4"]}]}
+                """),
+            Completion("""
+                {"outcome":"answered","answerText":"R1 [C1], R2 [C2], SANDWICH COMPLET ET ÉQUILIBRÉ SELON VOS ENVIES [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"R1 est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"R2 est documentée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"SANDWICH COMPLET ET ÉQUILIBRÉ SELON VOS ENVIES","text":"Le sandwich est documenté.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"R4 est documentée.","evidenceIds":["E4"]}]}
                 """));
         var options = CreateOptions();
         options.AdaptiveResearchEnabled = true;
@@ -1869,8 +1872,10 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             CancellationToken.None);
 
         Assert.Equal("answered", result.Outcome);
-        Assert.Equal(3, result.ProviderCallCount);
+        Assert.Equal(4, result.ProviderCallCount);
         Assert.Equal(["E3"], result.Claims[2].EvidenceIds);
+        Assert.Contains("final SAAIA synthesis completer", factory.Requests[3].Body,
+            StringComparison.Ordinal);
     }
 
     [Fact]
