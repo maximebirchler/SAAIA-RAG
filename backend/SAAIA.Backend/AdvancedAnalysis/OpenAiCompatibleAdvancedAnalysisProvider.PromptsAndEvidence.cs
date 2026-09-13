@@ -36,6 +36,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         operation. Copy a sourceKey from current observations. Use their
         physicalPageStart/physicalPageEnd coordinates, which are one-based physical
         document pages and can differ from printed page labels or index numbers.
+        sourceOverview gives the actual indexed physical page range and chunk
+        count for this observed revision, not the length of an original unabridged
+        book. A contents entry may refer to a printed page absent from this indexed
+        file. Do not copy those numbers as physical coordinates. If a readDiagnostic
+        reports outside_indexed_page_range or no_canonical_chunks_in_window, use
+        the available physical range or search_corpus for the exact observed title
+        in another eligible source. That result does not prove corpus absence.
         Read a fully specified inclusive window of at most four pages, such as a
         heading's page and the next page when its body is missing. Leave category
         and documentHint empty. This reads the indexed canonical chunks directly
@@ -528,6 +535,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         {
             search.Query, search.Category, search.DocumentHint,
             search.Operation,
+            search.ReadDiagnostic,
             sourceKey = observations.FirstOrDefault(observation =>
                 (!string.IsNullOrWhiteSpace(search.DocId)
                  && string.Equals(search.DocId, observation.SourceReference.DocId, StringComparison.OrdinalIgnoreCase))
@@ -588,6 +596,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         string? NavigationReason,
         int PhysicalPageStart,
         int PhysicalPageEnd,
+        AdvancedAnalysisSourceOverview? SourceOverview,
         [property: JsonIgnore] AdvancedAnalysisResultEvidence SourceReference);
 
     private sealed record StructuredClaimCoordinate(
@@ -863,6 +872,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 contentSignal.NavigationReason,
                 item.Reference.PageStart,
                 item.Reference.PageEnd,
+                item.SourceOverview,
                 item.Reference);
             var separatorCharacters = promptEvidence.Count == 0 ? 0 : 1;
             var serializedCharacters = JsonSerializer.Serialize(observation, JsonOptions).Length

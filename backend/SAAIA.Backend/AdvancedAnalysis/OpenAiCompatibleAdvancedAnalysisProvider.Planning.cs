@@ -278,7 +278,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var documents = GetRequestedDocumentIdentifiers(request);
             return documents.Count == 0 ? queries : queries.Select(planned => planned with
             {
-                DocumentHint = ResolveRequiredDocumentHint(planned, documents)
+                DocumentHint = string.IsNullOrWhiteSpace(planned.DocId)
+                    ? ResolveRequiredDocumentHint(planned, documents) : planned.DocumentHint
             }).ToArray();
         }
         catch (JsonException)

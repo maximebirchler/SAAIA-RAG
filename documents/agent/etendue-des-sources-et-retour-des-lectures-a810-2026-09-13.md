@@ -1,0 +1,17 @@
+# Étendue indexée des sources et retour des lectures — A810
+
+Le modèle doit reconnaître le contenu d'un document, exploiter son sommaire, lire les recettes disponibles et décider de leur place dans le planning. Les sources doivent documenter les recettes ; elles n'ont pas à prescrire les jours ou les créneaux que SAAIA propose. Cette liberté de synthèse demeure dans le contrat du rédacteur et du critique.
+
+L'essai A809 démontre un manque précis : Terra lit les pages imprimées du sommaire 118–135 dans une révision dont l'étendue physique indexée s'arrête à 22. Trois lectures vides lui sont retournées sans diagnostic. Cela ne prouve ni l'absence de recettes dans les autres fichiers ni l'incapacité du modèle à raisonner.
+
+Le resolver calcule désormais, pour chaque révision effectivement revalidée, la première et la dernière page physique indexée ainsi que le nombre de chunks canoniques paginés. Cette information `sourceOverview` accompagne les observations. Elle décrit l'index de cette révision, et ne prétend pas donner la longueur d'un livre original complet. L'agrégation est limitée au tenant et aux révisions des preuves résolues. Les noms, chemins et identifiants privés restent exclus du prompt.
+
+Chaque lecture canonique retourne aussi un diagnostic : chunks retournés, fenêtre sans chunks ou coordonnées hors de l'étendue indexée. Les bornes et le nombre retourné sont calculés par le backend. Ce diagnostic est conservé dans la trace de la requête exécutée et dans l'historique sûr fourni au modèle. Il n'est pas transformé en erreur de protocole ou en preuve d'absence globale. Le modèle peut utiliser les pages disponibles ou rechercher le titre exact dans une autre source éligible. Une nouvelle lecture ou recherche consomme les mêmes budgets existants.
+
+Une lecture par handle observé garde aussi son scope lorsqu'un document est explicitement nommé par la question : la revue ne réintroduit plus un `documentHint` incompatible avec ce handle. Le filtre des documents demandés demeure appliqué aux preuves.
+
+Le contrôle de comportement `Empty_page_read_reports_indexed_bounds_to_the_model_without_claiming_corpus_absence` échoue avant la transmission des métadonnées et du diagnostic, puis passe. Un autre contrôle couvre la lecture d'un document explicitement nommé. Le replay `meal-a810-empty-read-feedback-proof.v1.json` rejoue les trois lectures consommées A809 avec le gateway, le resolver et les constructeurs de prompt réels, en SQL lecture seule. Il vérifie les bornes 1–22, les 37 chunks, les trois diagnostics hors plage, et leur présence dans le prompt sûr. Aucun appel HTTP, aucun appel LLM, aucune ingestion ni aucun événement SQL écrit pendant ce replay.
+
+La preuve est celle de la transmission correcte des informations au modèle. Une réponse corrigée de Terra reste à exécuter sur un commit gelé ; aucun planning n'est approuvé. Le solde calculé avant cet essai est 0,75335920 USD sur les 30 USD déjà achetés. Le résultat aveugle historique reste 1/24.
+
+La suite backend complète termine avec 2 292 réussites, aucun échec et trois tests live ignorés (`source-overview-full-backend.trx`). Les quatorze contrôles de lecture précédents restent couverts. Le budget JSON inclut ces nouvelles métadonnées ; les plafonds de contexte, d'outils, de temps et de sept appels du scénario ne sont pas augmentés.

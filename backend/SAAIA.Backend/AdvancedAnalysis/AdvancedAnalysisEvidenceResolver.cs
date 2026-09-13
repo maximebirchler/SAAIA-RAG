@@ -100,8 +100,25 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                 NullIfBlank(row.ExactTitle)));
         }
 
+        if (resolved.Count > 0)
+        {
+            var ranges = (await connection.QueryAsync<SourceOverviewRow>(new CommandDefinition("""
+                SELECT revision_id AS "RevisionId", MIN(page_start) AS "FirstIndexedPhysicalPage",
+                    MAX(page_end) AS "LastIndexedPhysicalPage", COUNT(*)::int AS "CanonicalChunkCount"
+                FROM retrieval_chunks
+                WHERE tenant_id=@tenant AND revision_id=ANY(@revisions)
+                  AND page_start>0 AND page_end>=page_start
+                GROUP BY revision_id;
+                """, new { tenant=tenantId, revisions=resolved.Select(item=>Guid.Parse(item.Reference.RevisionId)).Distinct().ToArray() },
+                cancellationToken:cancellationToken))).ToDictionary(static row=>row.RevisionId);
+            resolved = resolved.Select(item => ranges.TryGetValue(Guid.Parse(item.Reference.RevisionId), out var range)
+                ? item with { SourceOverview=new AdvancedAnalysisSourceOverview(range.FirstIndexedPhysicalPage,range.LastIndexedPhysicalPage,range.CanonicalChunkCount) }
+                : item).ToList();
+        }
         return AdvancedAnalysisEvidenceResolution.Valid(resolved);
     }
+
+    private sealed record SourceOverviewRow(Guid RevisionId,int FirstIndexedPhysicalPage,int LastIndexedPhysicalPage,int CanonicalChunkCount);
 
     internal static string BuildGroundedContentCardText(string? exactTitle, string? evidenceJson)
     {

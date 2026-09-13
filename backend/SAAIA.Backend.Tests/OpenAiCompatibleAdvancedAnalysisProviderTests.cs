@@ -13,6 +13,44 @@ namespace SAAIA.Backend.Tests;
 public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
     [Fact]
+    public async Task Canonical_page_read_preserves_observed_scope_for_an_explicitly_named_document()
+    {
+        var evidence=BuildEvidence("E1","A document point.",fileName:"NIST_CSF_2_0.pdf",pageStart:7);
+        using var factory=new QueuedHttpClientFactory(Completion("""{"queries":[]}"""),
+            Completion("""{"decision":"search_more","queries":[{"operation":"read_source","sourceKey":"internal-source-1","pageStart":7,"pageEnd":8}]}"""),
+            Completion("""{"outcome":"insufficient_documentation","answerText":"Le point demandé reste à établir.","claims":[]}"""));
+        var options=CreateOptions();options.AdaptiveResearchEnabled=true;options.ExternalMaximumCallsPerJob=3;
+        var gateway=new RecordingToolGateway(evidence);
+        await new OpenAiCompatibleAdvancedAnalysisProvider(factory,options,null).ExecuteAsync(BuildNamedDocumentRequest(),gateway,CancellationToken.None);
+        var read=Assert.Single(gateway.Searches.Where(search=>search.Operation=="read_source"));
+        Assert.Null(read.DocumentHint);Assert.Equal(evidence.Reference.DocId,read.DocId);Assert.Equal(evidence.Reference.RevisionId,read.RevisionId);
+    }
+
+    [Fact]
+    public async Task Empty_page_read_reports_indexed_bounds_to_the_model_without_claiming_corpus_absence()
+    {
+        var index=BuildEvidence("E-INDEX","Contents\nPalmiers 128\nBiscuits fourrés à la figue 132",pageStart:4)
+            with {SourceOverview=new AdvancedAnalysisSourceOverview(1,22,37)};
+        using var factory=new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"recipe index","topK":12}]}"""),
+            Completion("""{"decision":"search_more","queries":[{"operation":"read_source","sourceKey":"internal-source-1","pageStart":128,"pageEnd":131,"topK":60}]}"""),
+            Completion("""{"outcome":"insufficient_documentation","answerText":"La lecture demandée sort des pages indexées de cette source.","claims":[]}"""));
+        var settings=CreateOptions(); settings.AdaptiveResearchEnabled=true; settings.ExternalMaximumCallsPerJob=3;
+        var gateway=new SequencedToolGateway([index],[]) {ReadDiagnostic=new AdvancedAnalysisReadDiagnostic("outside_indexed_page_range",1,22,0)};
+        await new OpenAiCompatibleAdvancedAnalysisProvider(factory,settings,null).ExecuteAsync(BuildDirectRequest(),gateway,CancellationToken.None);
+        using var reviewCall=JsonDocument.Parse(factory.Requests[1].Body);
+        using var review=JsonDocument.Parse(reviewCall.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+        Assert.Equal(22,review.RootElement.GetProperty("observations")[0].GetProperty("sourceOverview").GetProperty("lastIndexedPhysicalPage").GetInt32());
+        using var writerCall=JsonDocument.Parse(factory.Requests[2].Body);
+        using var writer=JsonDocument.Parse(writerCall.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+        var read=writer.RootElement.GetProperty("researchTools").GetProperty("priorSearches")[1];
+        Assert.Equal("internal-source-1",read.GetProperty("sourceKey").GetString());
+        Assert.Equal("outside_indexed_page_range",read.GetProperty("readDiagnostic").GetProperty("status").GetString());
+        Assert.Equal(22,read.GetProperty("readDiagnostic").GetProperty("lastIndexedPhysicalPage").GetInt32());
+        Assert.Equal(2,gateway.Searches.Count);
+        Assert.All(factory.Requests,request=>{Assert.DoesNotContain(index.Reference.DocId!,request.Body);Assert.DoesNotContain(index.Reference.RevisionId!,request.Body);});
+    }
+    [Fact]
     public void Canonical_read_focus_keeps_a_heading_with_its_body_and_filters_revision()
     {
         var header=BuildEvidence("E-HEADER", "Isolation procedure", exactTitle:"Isolation procedure", pageStart:61);
@@ -3707,6 +3745,7 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
         public IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence => _evidence;
         public List<AdvancedAnalysisSearchRequest> Searches { get; } = [];
         public IReadOnlyList<string> Categories { get; init; } = [];
+        public AdvancedAnalysisReadDiagnostic? ReadDiagnostic { get; init; }
         public Task<IReadOnlyList<string>> ListCategoriesAsync(CancellationToken cancellationToken) => Task.FromResult(Categories);
 
         public Task<AdvancedAnalysisSearchObservation> SearchAsync(AdvancedAnalysisSearchRequest request, CancellationToken cancellationToken)
@@ -3717,7 +3756,8 @@ public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
             foreach (var item in found)
                 if (_evidence.All(existing => existing.Reference.EvidenceId != item.Reference.EvidenceId))
                     _evidence.Add(item);
-            return Task.FromResult(new AdvancedAnalysisSearchObservation(request.Query, found, [], 1, Searches.Count));
+            return Task.FromResult(new AdvancedAnalysisSearchObservation(request.Query, found, [], 1, Searches.Count,
+                request.Operation == "read_source" ? ReadDiagnostic : null));
         }
     }
 

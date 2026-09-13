@@ -23,14 +23,22 @@ internal sealed record AdvancedAnalysisSearchRequest(
     int? MaxPerPage = null,
     string? DocumentHint = null,
     string Operation = "search_corpus",
-    string? RevisionId = null);
+    string? RevisionId = null,
+    AdvancedAnalysisReadDiagnostic? ReadDiagnostic = null);
+
+internal sealed record AdvancedAnalysisReadDiagnostic(
+    string Status,
+    int? FirstIndexedPhysicalPage,
+    int? LastIndexedPhysicalPage,
+    int ReturnedChunkCount);
 
 internal sealed record AdvancedAnalysisSearchObservation(
     string Query,
     IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence,
     IReadOnlyList<string> DegradedRetrievers,
     long ElapsedMilliseconds,
-    int ToolCallNumber);
+    int ToolCallNumber,
+    AdvancedAnalysisReadDiagnostic? ReadDiagnostic = null);
 
 internal sealed record AdvancedAnalysisToolEventSummary(
     int EventSequence,
@@ -289,6 +297,12 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
                 ValidateObservedReadScope(requestForTrace);
                 references = await ReadCanonicalPagesAsync(requestForTrace, cancellationToken)
                     .ConfigureAwait(false);
+                var source = _evidence.First(item=>string.Equals(item.Reference.DocId,request.DocId,StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(item.Reference.RevisionId,request.RevisionId,StringComparison.OrdinalIgnoreCase)).SourceOverview;
+                var outside = source is not null && (request.PageStart > source.LastIndexedPhysicalPage || request.PageEnd < source.FirstIndexedPhysicalPage);
+                requestForTrace = requestForTrace with {ReadDiagnostic=new AdvancedAnalysisReadDiagnostic(
+                    outside ? "outside_indexed_page_range" : references.Count == 0 ? "no_canonical_chunks_in_window" : "canonical_chunks_returned",
+                    source?.FirstIndexedPhysicalPage,source?.LastIndexedPhysicalPage,references.Count)};
                 degraded = [];
             }
             else
@@ -380,7 +394,8 @@ internal sealed class AdvancedAnalysisToolGateway : IAdvancedAnalysisToolGateway
                 observationEvidence,
                 degraded,
                 stopwatch.ElapsedMilliseconds,
-                callNumber);
+                callNumber,
+                requestForTrace.ReadDiagnostic);
         }
         catch (Exception ex)
         {

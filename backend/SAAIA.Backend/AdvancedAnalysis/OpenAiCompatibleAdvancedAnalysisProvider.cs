@@ -449,11 +449,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         {
             if (!previouslyExecuted.Add(BuildSearchIdentity(planned)))
                 continue;
+            var searchIndex=priorSearches.Count;
             priorSearches.Add(planned);
             var observation = await tools.SearchAsync(
                     planned,
                     cancellationToken)
                 .ConfigureAwait(false);
+            if(observation.ReadDiagnostic is not null)
+                priorSearches[searchIndex]=planned with {ReadDiagnostic=observation.ReadDiagnostic};
             if (observation.Evidence.Count == 0)
                 continue;
 
