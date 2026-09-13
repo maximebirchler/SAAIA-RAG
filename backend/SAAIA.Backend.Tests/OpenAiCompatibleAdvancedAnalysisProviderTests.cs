@@ -13,6 +13,54 @@ namespace SAAIA.Backend.Tests;
 public sealed class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
     [Theory]
+    [InlineData(1100, false)]
+    [InlineData(3000, true)]
+    public async Task Named_grid_prompts_preserve_late_documented_usage_within_a_bounded_item(
+        int prefixLength, bool expectedClipped)
+    {
+        const string documentedUsage = "This complete option may be used for the requested unit.";
+        var original = new string('a', prefixLength) + " " + documentedUsage;
+        const string terminal = """{"outcome":"insufficient_documentation","answerText":"Les autres candidats restent à documenter.","claims":[]}""";
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[]}"""), Completion(terminal), Completion(terminal));
+        var options = CreateOptions();
+        options.SemanticCriticEnabled = true;
+        await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+            .ExecuteAsync(BuildRequest(answerUnitCount: 4, atomicEvidenceMode: "named_item", selectionPolicy: "distinct_structured_layout"),
+                new RecordingToolGateway(BuildEvidence("E1", original)), CancellationToken.None);
+        foreach (var call in factory.Requests.Skip(1))
+        {
+            using var body = JsonDocument.Parse(call.Body);
+            using var payload = JsonDocument.Parse(body.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+            var item = payload.RootElement.GetProperty("evidence")[0];
+            var content = item.GetProperty("content").GetString()!;
+            if (!expectedClipped) Assert.Contains(documentedUsage, content, StringComparison.Ordinal);
+            Assert.Equal(expectedClipped, item.GetProperty("contentTruncated").GetBoolean());
+            Assert.Equal(original.Length, item.GetProperty("originalContentLength").GetInt32());
+            Assert.True(content.Length <= 2400);
+        }
+    }
+
+    [Fact]
+    public void Named_grid_prompt_keeps_relevant_body_ahead_of_a_unique_irrelevant_hit()
+    {
+        var evidence = new[]
+        {
+            BuildEvidence("E-WEAK", "Unrelated source passage."),
+            BuildEvidence("E-BODY", "Target procedure with its documented conditions.")
+        };
+        var queries = new Dictionary<string, HashSet<string>>
+        {
+            ["E-WEAK"] = ["target procedure"],
+            ["E-BODY"] = ["target procedure", "zz conditions", "zz process"]
+        };
+        var prioritized = OpenAiCompatibleAdvancedAnalysisProvider.PrioritizeCollectionEvidenceForPrompt(
+            BuildRequest(answerUnitCount: 4, atomicEvidenceMode: "named_item", selectionPolicy: "distinct_structured_layout").Handoff.Load,
+            evidence, queries);
+        Assert.Equal("E-BODY", prioritized[0].Reference.EvidenceId);
+    }
+
+    [Theory]
     [InlineData("[{}]")]
     [InlineData("[\"noop\"]")]
     [InlineData("[{\"query\":\"\"}]")]

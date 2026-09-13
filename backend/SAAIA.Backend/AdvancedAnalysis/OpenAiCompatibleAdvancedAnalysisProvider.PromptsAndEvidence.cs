@@ -761,7 +761,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             1_000_000);
         var preserveDocumentaryContext = !request.Handoff.Load.StructuredLayout
             || HasFixedSubjectFactFamily(request.Handoff.Load);
-        var maximumCharactersPerPromptEvidence = preserveDocumentaryContext ? 2400 : 700;
+        const int maximumCharactersPerPromptEvidence = 2400;
         var distinctRetrievalQueryCount = retrievalQueriesByEvidenceId
             .Values
             .SelectMany(static queries => queries)
@@ -897,6 +897,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 .ToArray();
             var selectedIndexes = new HashSet<int>();
             var prioritized = new List<AdvancedAnalysisResolvedEvidence>(evidence.Count);
+            var tokensByQuery = queryOrder.ToDictionary(
+                static query => query,
+                static query => ExtractEvidenceRankingTokens(query, null),
+                StringComparer.OrdinalIgnoreCase);
+            var relevanceScores = new Dictionary<(int Index, string Query), int>();
+
+            int ScoreCandidateForQuery(int index, string query)
+            {
+                if (!relevanceScores.TryGetValue((index, query), out var score))
+                {
+                    score = ScoreEvidenceText(evidence[index].Content, tokensByQuery[query]);
+                    relevanceScores.Add((index, query), score);
+                }
+                return score;
+            }
 
             while (true)
             {
@@ -914,7 +929,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                                            && item.Queries.Contains(
                                                query,
                                                StringComparer.OrdinalIgnoreCase))
-                            .OrderBy(static item => item.Queries.Length)
+                            .OrderByDescending(item => ScoreCandidateForQuery(item.Index, query))
+                            .ThenBy(static item => item.Queries.Length)
                             .ThenBy(static item => item.Index)
                             .FirstOrDefault();
                         if (next is null)
