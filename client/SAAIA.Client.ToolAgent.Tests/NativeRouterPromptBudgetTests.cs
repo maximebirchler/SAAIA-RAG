@@ -25,7 +25,8 @@ public sealed class NativeRouterPromptBudgetTests
                 "submit_document_overview_route",
                 "submit_source_backed_route",
                 "submit_source_backed_grid_route",
-                "submit_operational_route"
+                "submit_operational_route",
+                "request_missing_user_input"
             },
             tools.Select(static tool => tool.Name));
         Assert.Contains(
@@ -70,7 +71,7 @@ public sealed class NativeRouterPromptBudgetTests
             prompt,
             StringComparison.Ordinal);
         Assert.Contains(
-            "sources or conversation cannot supply",
+            "sources cannot supply it",
             prompt,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -94,6 +95,7 @@ public sealed class NativeRouterPromptBudgetTests
     [InlineData("submit_source_backed_route", true)]
     [InlineData("request_user_clarification", false)]
     [InlineData("submit_operational_route", true)]
+    [InlineData("request_missing_user_input", true)]
     [InlineData("defer_to_general_router", false)]
     [InlineData("", false)]
     public void Native_router_classifier_accepts_only_known_semantic_labels(

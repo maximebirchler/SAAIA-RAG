@@ -36,11 +36,11 @@ public sealed partial class ToolAgentOrchestrator
             submit_source_backed_route for other corpus-backed work. An N-point list
             or whole-document summary has one axis and is never a grid. Alternatives whose
             truth, status, applicability or value evidence must establish are
-            answer candidates, not user choices: choose source-backed. If a goal,
-            scope, constraint, deliverable preference or essential facts about
-            the user's own setup are missing and
-            sources or conversation cannot supply it, still choose the probable
-            resume work family; the next stage may clarify. Acceptable evidence forms
+            answer candidates, not user choices: choose source-backed. Choose
+            request_missing_user_input when essential user input is absent from
+            request and conversation and sources cannot supply it. A decision
+            about the user's own setup needs its actual state, not only general
+            rules. Supplied facts stay in the work family. Acceptable evidence forms
             joined by "or" are retrieval targets. A named document with requested
             passages is source-backed. Use submit_operational_route for social chat,
             settings, inventory, export or diagnostics.
@@ -89,6 +89,9 @@ public sealed partial class ToolAgentOrchestrator
             StringComparison.OrdinalIgnoreCase));
         if (selected is null)
             return Array.Empty<SourceBackedAgentToolDefinition>();
+
+        if (selectedRouteToolName == RequestMissingUserInputToolName)
+            return new[] { selected };
 
         if (!string.Equals(
                 selectedRouteToolName,
@@ -139,6 +142,10 @@ public sealed partial class ToolAgentOrchestrator
             new SourceBackedAgentToolDefinition(
                 SubmitOperationalRouteToolName,
                 "Social, settings, inventory, export, diagnostics or other non-source-backed operation.",
+                emptyParameters),
+            new SourceBackedAgentToolDefinition(
+                RequestMissingUserInputToolName,
+                "Essential user input missing from request and conversation that corpus evidence cannot supply, including the actual state of the user's own setup.",
                 emptyParameters)
         };
     }
@@ -151,7 +158,8 @@ public sealed partial class ToolAgentOrchestrator
         if (selectedToolName is SubmitDocumentOverviewRouteToolName
             or SubmitSourceBackedRouteToolName
             or SubmitSourceBackedGridRouteToolName
-            or SubmitOperationalRouteToolName)
+            or SubmitOperationalRouteToolName
+            or RequestMissingUserInputToolName)
             return true;
 
         selectedToolName = string.Empty;
@@ -187,6 +195,11 @@ public sealed partial class ToolAgentOrchestrator
             """;
         var family = routeToolName switch
         {
+            RequestMissingUserInputToolName => """
+                Ask one open question for essential missing user input. Copy its
+                exact user-text anchor and explain why sources cannot supply the
+                information. Do not invent choices, instance facts or answers.
+                """,
             SubmitDocumentOverviewRouteToolName => """
                 The first-stage classifier has already decided that the user
                 requests one overview of one explicit document. Preserve the

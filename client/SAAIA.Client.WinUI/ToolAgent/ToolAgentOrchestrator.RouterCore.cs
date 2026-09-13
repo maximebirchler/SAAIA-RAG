@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -152,7 +152,7 @@ USER_MESSAGE:
                 EmitRagTrace(
                     "router.native.classifier.completed",
                     ("accepted", classifierAccepted),
-                    ("classifier_contract", useStructuredClassifier ? "saaia_work_family_v1" : "native_tools"),
+                    ("classifier_contract", useStructuredClassifier ? "saaia_work_family_v2" : "native_tools"),
                     ("selected_contract", selectedRouteToolName),
                     ("finish_reason", classifierCompletion.FinishReason),
                     ("prompt_tokens", classifierCompletion.PromptTokens),

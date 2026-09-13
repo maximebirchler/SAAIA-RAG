@@ -168,7 +168,7 @@ public sealed class NativeMissingUserInputContractTests
         public Task<SourceBackedAgentCompletion> CompleteStructuredAsync(IReadOnlyList<SourceBackedAgentMessage> messages,
             LlmStructuredOutputContract contract, int maxTokens, CancellationToken ct, double? temperatureOverride = null)
         {
-            if (contract.Name == "saaia_work_family_v1")
+            if (contract.Name == "saaia_work_family_v2")
                 return Task.FromResult(new SourceBackedAgentCompletion("{\"family\":\"answer\"}", [], "stop"));
             Assert.Equal("saaia_answer_units_v2", contract.Name);
             UnitCalls++;
@@ -212,7 +212,7 @@ public sealed class NativeMissingUserInputContractTests
             CancellationToken ct,
             double? temperatureOverride = null)
         {
-            if (contract.Name == "saaia_work_family_v1")
+            if (contract.Name == "saaia_work_family_v2")
             {
                 return Task.FromResult(new SourceBackedAgentCompletion(
                     "{\"family\":\"answer\"}", [], "stop"));
