@@ -97,3 +97,26 @@ trois ignorés ; build sans avertissement, runner PowerShell parsé et diff prop
 Une première suite a échoué sur la sélection de deux fichiers par le nouveau
 test de traces ; le test cible désormais le rôle exact. Cette capture est
 préservée séparément. Aucun appel API depuis la clôture A823.
+
+## Refus de transport A824 et amendement avant deuxième pilote
+
+A824 a été refusé au premier Writer natif : HTTP 400, coût nul pour cet appel.
+Ses trois préparations ont coûté 0,1039325 USD. Une sonde synthétique des mêmes
+schémas a reproduit le refus sans coût : Terra interdit les fonctions avec
+`reasoning_effort=low` sur Chat Completions et demande Responses ou un effort
+`none`. Le corps du refus original n'était pas capturé ; le diagnostic précis
+vient de la sonde reproduisant ce contrat. Aucun comportement natif évalué.
+
+Conserver `low` : configurer le protocole natif `responses` pour la synthèse.
+Planner et Review gardent Chat Completions ; sources/outils/limites identiques.
+L'adaptateur transport et usage doit conserver les identités de fonctions,
+les sorties de raisonnement nécessaires, les résultats liés et les enveloppes
+réelles. Responses est stateless (`store=false`), sans utiliser une conversation
+hébergée ; reporter les items de raisonnement avec les retours outils, sous
+limite explicite. Le protocole natif reste configurable pour les endpoints
+compatibles ; pas de raisonnement désactivé silencieusement ni de fallback.
+
+Faire une sonde synthétique Responses au plus 0,03 USD et un appel avant le
+deuxième pilote C1. Le refus A824 compte dans les deux pilotes/plafond de C1,
+mais pas comme preuve sémantique. Total clos : 31,70265940 USD, reste
+8,29734060 USD sur 40 USD. Aucun nouveau financement.
