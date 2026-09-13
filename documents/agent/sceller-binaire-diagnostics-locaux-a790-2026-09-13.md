@@ -1,0 +1,11 @@
+# A790 — Compiler et sceller le binaire des diagnostics locaux
+
+Le lanceur A781 exécutait les diagnostics avec `dotnet test -c Release --no-build`, sans compiler lui-même le candidat. Une suite mécanique en Debug pouvait donc laisser le binaire Release périmé. Le commit inscrit dans le rapport ne suffisait pas à identifier le code exécuté. Cette omission a été observée lors du diagnostic A789 r5 et ce résultat est marqué non probant, sans modifier son compte rendu original.
+
+`tools/test-consumed-local-diagnostics.ps1` compile désormais le projet de test en Release/x64 avant de démarrer Qwen. Il résout le chemin du binaire avec MSBuild, enregistre son SHA-256, le commit source ainsi que les empreintes du runtime et du modèle. Il refuse un arbre source sale ou un changement de commit durant la compilation. Le compte rendu final vérifie que le commit et le binaire exécuté restent inchangés.
+
+Le lanceur reste réservé aux cas BH6 divulgués. Il ne produit aucun score d'acceptation aveugle. Le modèle tourne sur ce PC, la capacité avancée est désactivée, et le registre OpenAI doit rester intact. La configuration d'environnement est restaurée et seul le processus Qwen créé par le lanceur est arrêté. Aucun secret n'est écrit dans les artifacts. Le corpus est celui du backend existant ; aucune ingestion ou modification des sources n'est effectuée.
+
+Le schéma corrigé a été exercé par r6 à `f08473b4` : compilation Release réussie, empreinte du binaire F6C1A5025901318FC6A9ADCD1F0C8DEAFC6EF609DA717EA82F132F79B7B2F9BA, commit et binaire inchangés. BH6-020 suit maintenant le transfert avant recherche attendu. Le script réutilisable reprend ce lanceur avec une racine de repo dérivée de son emplacement et un répertoire d'artifacts configurable. Son analyse syntaxique PowerShell passe ; un premier essai du script réutilisable est encore requis.
+
+Cette correction ne remet pas en cause les essais OAuth A787/A788 : leur lanceur distinct compilait le projet Release avant exécution. Les anciens diagnostics locaux sans sceau de binaire ne suffisent pas, à eux seuls, à valider un changement source ; les corrections concernées doivent être revérifiées avec le lanceur corrigé. Les résultats historiques et le verdict BH6 sont conservés. Produit TESTE_NON_APPROUVE.
