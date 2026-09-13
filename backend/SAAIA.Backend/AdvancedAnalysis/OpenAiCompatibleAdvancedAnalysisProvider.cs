@@ -126,7 +126,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            if (_options.AdaptiveResearchEnabled)
+            if (_options.AdaptiveResearchEnabled
+                && !(_options.NativeResearchToolsEnabled && _options.NativeResearchTopology == "agent"))
             {
                 var maximumCalls = Math.Clamp(
                     _options.ExternalMaximumCallsPerJob,
@@ -511,6 +512,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         ValidateDevelopmentTraceDirectory();
         if (_options.NativeResearchToolsEnabled && _options.NativeResearchApiProtocol is not ("chat-completions" or "responses"))
             throw new AdvancedAnalysisProviderException("advanced_native_api_protocol_invalid");
+        if (_options.NativeResearchToolsEnabled && _options.NativeResearchTopology is not ("reviewed" or "agent"))
+            throw new AdvancedAnalysisProviderException("advanced_native_research_topology_invalid");
         var provider = NormalizeProvider(_options.Provider);
         var location = NormalizeLocation(_options.LlmLocation);
         if (location is not ("internal" or "external-service"))

@@ -61,3 +61,16 @@ preuves actuelles ; ne pas la mélanger à C2a. Le produit demeure
 
 Registre clos : 32,07890890 USD sur 40 USD achetés, reste 7,92109110 USD.
 Aucun nouveau financement ni location.
+
+## Implémentation et contrôles avant le pilote
+
+Le mode optionnel est implémenté : le Planner initial est conservé, seuls
+les ResearchReview séparés sont omis en mode natif agent. Les plafonds et la
+critique finale restent inchangés. Le runner expose et trace ce choix.
+Une topologie native inconnue est refusée avant tout HTTP ou accès outil.
+Le chemin non natif conserve ses revues même si cette option vaut agent.
+
+Cinq nouveaux cas vérifient la séquence et la critique pour les deux
+transports, le comportement non natif et le rejet de configuration.
+Suite backend Release : 2 348 réussites, aucun échec, trois ignorés.
+Cela valide le contrat technique ; aucun résultat réel C2a n'est encore acquis.

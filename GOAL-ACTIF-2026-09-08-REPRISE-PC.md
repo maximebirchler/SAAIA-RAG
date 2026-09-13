@@ -9,6 +9,16 @@ Précisions prioritaires de la reprise autorisée par Maxime le 8 septembre 2026
 4. Le protocole A656–A665 reste la séquence expérimentale en cours, subordonnée à l'objectif produit. A658 n'a pas commencé. Préparer ses dépendances et vérifier son éligibilité après la lecture ; aucune génération Qwen avant le palier prévu, aucune WinUI avant les validations qui l'autorisent. Préserver les expériences rejetées et les incidents comme preuves, sans les réactiver automatiquement.
 5. Les rapports destinés à l'utilisateur sont consignés dans cette tâche et dans les artefacts. Maxime a explicitement autorisé le 8 septembre 2026 l'envoi de rapports de progression avec `C:\Users\maxim\NextCloud\Maxime\Ecommerce\SAAIA\SAAIA - Notifier` : aux étapes utiles et au moins une fois par heure pendant le travail. Utiliser le script fourni, conserver les textes et les confirmations d'envoi dans `artifacts/reprise-pc-20260908/rapports`, ne jamais afficher les secrets et désactiver le suivi horaire après le bilan final. Cette autorisation ne demande pas de rejouer les anciens messages Telegram ni de contacter d'autres destinataires.
 
+Point de preuve du 13 septembre, A825/A826 : le transport Responses accepte les
+outils natifs, mais le dernier planning reste rejeté (26 recherches, aucune
+lecture, insuffisance finale sans citation). Le registre clos totalise
+32,07890890 USD sur 40 USD. C1 est clos ; C2a est préenregistré séparément.
+Son mode optionnel conserve le Planner et la critique, redistribue les deux
+revues dans la synthèse, avec le même plafond de sept appels. Les 2 348 tests
+backend réussis valident ce contrat technique, pas encore le planning réel.
+Voir `documents/agent/comparaison-boucle-native-a826-2026-09-13.md`.
+Le produit reste `TESTE_NON_APPROUVE` et le Goal actif.
+
 ## Amendement prioritaire autorisé le 9 septembre 2026 — capacités locale et avancée
 
 À la demande explicite de Maxime le 9 septembre 2026, les clauses suivantes

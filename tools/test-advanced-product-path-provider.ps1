@@ -36,6 +36,8 @@ param(
     [switch]$EnableNativeResearchTools,
     [ValidateSet("chat-completions", "responses")]
     [string]$NativeResearchApiProtocol = "chat-completions",
+    [ValidateSet("reviewed", "agent")]
+    [string]$NativeResearchTopology = "reviewed",
     [ValidateRange(512, 16384)]
     [int]$CriticMaxTokens = 4096,
     [decimal]$InputUsdPerMillionTokens = 0,
@@ -475,6 +477,7 @@ try {
             AdaptiveResearchEnabled = $true
             NativeResearchToolsEnabled = [bool]$EnableNativeResearchTools
             NativeResearchApiProtocol = $NativeResearchApiProtocol
+            NativeResearchTopology = $NativeResearchTopology
             SemanticCriticEnabled = [bool]$EnableSemanticCritic
             CriticMaxTokens = $CriticMaxTokens
             MaximumPlanQueries = 8
@@ -592,6 +595,7 @@ try {
         semanticCriticEnabled = [bool]$EnableSemanticCritic
         nativeResearchToolsEnabled = [bool]$EnableNativeResearchTools
         nativeResearchApiProtocol = $NativeResearchApiProtocol
+        nativeResearchTopology = $NativeResearchTopology
         criticMaxTokens = $CriticMaxTokens
         inputUsdPerMillionTokens = $InputUsdPerMillionTokens
         cachedInputUsdPerMillionTokens = $CachedInputUsdPerMillionTokens

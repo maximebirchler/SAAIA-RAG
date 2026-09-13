@@ -144,3 +144,19 @@ backend Release : 2 343 réussites, zéro échec, trois ignorés. Build propre e
 diff sans erreur. Le prochain pilote A825 reste le deuxième et dernier C1,
 sur une nouvelle version figée, mêmes budgets et raisonnement low. Total clos
 31,70349740 USD, 8,29650260 USD disponibles ; zéro achat nouveau.
+
+## Clôture de C1 après le pilote A825
+
+Sur `96ced458`, sept appels réussis coûtent 0,3754115 USD. Responses accepte
+huit fonctions natives choisies par Writer, toutes des recherches sémantiques.
+Le job exécute 26 recherches au total, aucune lecture ou recherche littérale.
+Writer s'arrête en insuffisance alors qu'un tour supplémentaire reste autorisé.
+Critic invalide puis réparation vers une insuffisance sans citation : statut
+durable succeeded, zéro proposition livrée. Le planning reste rejeté ; ce
+résultat ne démontre pas une absence de contenu dans le corpus.
+
+Les deux pilotes C1 totalisent 0,479344 USD, plus 0,000838 USD pour la sonde
+acceptée. C1 est clos sans troisième pilote. La perte de mémoire n'est pas
+établie causalement. C2a est préenregistré séparément dans le document de
+comparaison de la boucle native. Ressources possédées fermées, aucun job
+possédé non terminal. Total du registre : 32,07890890 USD sur 40 USD.
