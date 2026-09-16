@@ -291,6 +291,15 @@ internal static partial class RetrievalContentClassifier
             return new RetrievalNavigationSignal(ContentRole, null, 0.0, Math.Max(contentDensityScore, 0.70));
         }
 
+        if (reason is null && LooksLikeProceduralBulletBodyContent(text, folded, shape))
+        {
+            return new RetrievalNavigationSignal(
+                ContentRole,
+                null,
+                0.0,
+                Math.Max(contentDensityScore, 0.70));
+        }
+
         if (reason is null
             && looksStructured
             && !hasListShape
@@ -809,6 +818,24 @@ internal static partial class RetrievalContentClassifier
             || words >= 60;
 
         return hasContentCue || hasStructuredBodyShape;
+    }
+
+    private static bool LooksLikeProceduralBulletBodyContent(
+        string text,
+        string foldedText,
+        RetrievalNavigationShape shape)
+    {
+        if (shape.DotLeaderLineCount > 0 || shape.PageReferenceLineCount >= 2)
+            return false;
+
+        if (CountWords(text) < 70 || CountBulletMarkers(text) < 6)
+            return false;
+
+        if (!StructuredContentLexicon.ContainsRetrievalProcedureCue(foldedText))
+            return false;
+
+        var sentencePunctuationCount = text.Count(static ch => ch is '.' or '!' or '?' or ';');
+        return sentencePunctuationCount >= 4;
     }
 
     private static bool HasStrongNavigationMarker(string foldedText, string paddedNormalizedText)

@@ -146,6 +146,79 @@ PREPARATION 1. Rinse the modules and dry them. 2. Mix the base compound with the
     }
 
     [Fact]
+    public void AnalyzeChunk_keeps_numbered_manual_header_with_procedural_bullet_body_as_content()
+    {
+        var text = """
+57 fiches cuisine et un livret pour l'animateur
+• 1 assiette plate du diamètre du moule à
+charlotte
+• 1 presse-agrumes
+• 1 saladier
+• 1 couteau à découper
+• 1 planche à découper
+• 1 balance
+• 1 verre mesureur
+Technique
+• Met re le jus des oranges, l'eau et son sucre
+dans l'assiette creuse. Bien remuer avec la
+cuil ère en bois.
+• Y tremper les biscuits et au fur et à mesure
+les disposer dans le moule, sur le fond et sur
+les côtés.
+• Mélanger le fromage blanc avec le sucre
+dans le saladier.
+• Tail er les pêches en cubes sur la planche et
+en déposer la moitié dans le fond du moule.
+• Y ajouter la moitié du fromage blanc sucré,
+puis une couche de gâteaux puis le reste de
+fromage blanc.
+• Finir par une couche de biscuits.
+• Couvrir le moule avec l'assiette plate.
+• Placer au frais 4 à 5 heures avant de
+démouler.
+Truc du chef
+• Presque tous les fruits peuvent être utili-sés pour confectionner une charlotte :
+fraises, poires, abricots. Les choisir bien
+mûrs car il n'y a pas de cuisson.
+Suggestions
+• Un coulis de fruits peut accompagner la
+charlotte.
+• On peut utiliser des morceaux de pêches
+pour le décor.
+© Ceméa 2003
+Charlotte
+""";
+
+        var signal = RetrievalContentClassifier.AnalyzeChunk(text);
+
+        Assert.Equal(RetrievalContentClassifier.ContentRole, signal.ContentRole);
+        Assert.Null(signal.NavigationReason);
+        Assert.False(RetrievalContentClassifier.IsIdentityOnlyCandidateEvidence(
+            text, exactTitle: null, selectedItem: "Charlotte"));
+    }
+
+    [Fact]
+    public void AnalyzeChunk_marks_numbered_procedure_title_catalog_as_navigation()
+    {
+        var text = """
+Techniques du livret
+• 1 Préparation des fruits
+• 2 Préparation des légumes
+• 3 Préparation des céréales
+• 4 Préparation des sauces
+• 5 Préparation des boissons
+• 6 Préparation des desserts
+• 7 Préparation des entrées
+• 8 Préparation des plats
+""";
+
+        var signal = RetrievalContentClassifier.AnalyzeChunk(text);
+
+        Assert.Equal(RetrievalContentClassifier.NavigationRole, signal.ContentRole);
+        Assert.NotNull(signal.NavigationReason);
+    }
+
+    [Fact]
     public void AnalyzeChunk_keeps_measured_sequential_body_as_content_despite_inline_numbers()
     {
         var text = """

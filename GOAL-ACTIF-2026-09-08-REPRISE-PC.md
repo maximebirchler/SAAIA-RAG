@@ -95,6 +95,19 @@ identité modifiée. Suite backend actuelle : 2 433 réussites, zéro échec, tr
 live ignorés. Aucun appel OpenAI A849 encore exécuté ; mécanisme validé, qualité
 du planning non validée. Voir
 documents/agent/controle-retour-limite-lecture-a849-2026-09-16.md.
+Le pilote A849 sur `c37f103b` utilise onze appels pour 0,79183200 USD et exécute
+trente-deux opérations réussies, dont sept lectures, sans rencontrer la limite
+de fenêtre corrigée. Il construit vingt choix, mais échoue avant Critic sur
+`advanced_synthesis_candidate_body_not_supported`. La preuve refusée pour
+« Charlotte » contient pourtant matériel, technique, actions et suggestions :
+le classifieur la marque à tort `navigation/numeric_title_catalog`. A850 ajoute
+une reconnaissance généraliste des corps procéduraux substantiels à puces sans
+affaiblir les vrais catalogues numérotés. Le cas OCR exact passe, 492
+régressions ciblées passent et la suite backend compte 2 435 réussites, zéro
+échec et trois live ignorés. Aucun appel payant A850. Registre clos
+39,24170860 USD / 40, reste calculé 0,75829140 USD. Le planning A849 reste
+rejeté et le produit `TESTE_NON_APPROUVE`. Voir
+documents/agent/controle-faux-navigation-corps-procedural-a850-2026-09-16.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.
