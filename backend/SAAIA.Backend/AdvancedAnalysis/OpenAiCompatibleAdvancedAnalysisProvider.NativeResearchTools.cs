@@ -54,7 +54,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         };
         if (sources.Length > 0)
         {
-            functions.Add(Function("read_source", "Read a physical page window of an observed revision. Page bounds are inclusive; at most four pages per request. Useful for reading bodies located by contents or headings.", new()
+            functions.Add(Function("read_source", "Read a physical page window of an observed revision. Page bounds are inclusive; at most four pages per request. topK bounds every chunk intersecting the window: if the bounded result reports canonical_read_window_result_limit_exceeded, retry with a smaller window or a larger permitted topK instead of treating the source as absent. Useful for reading bodies located by contents or headings.", new()
             {
                 ["sourceKey"] = Choice(sources), ["pageStart"] = Count(1, int.MaxValue),
                 ["pageEnd"] = Count(1, int.MaxValue), ["topK"] = Count(1, 60)

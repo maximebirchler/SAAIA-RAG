@@ -81,6 +81,20 @@ réels passent ; 102 régressions ciblées et 2 424 tests backend réussis, troi
 live ignorés. Registre 38,18713150 USD / 40, reste calculé 1,81286850 USD.
 Un pilote connu après gel avant analyse. Voir
 documents/agent/controle-retour-limite-a848-2026-09-13.md.
+Le pilote A848 exécute seize opérations réussies (douze recherches, quatre
+recherches littérales), puis une lecture refuse une fenêtre contenant au moins
+trente et un chunks
+pour `topK=30`. Aucun terminal ni Critic ; coût 0,26274510 USD. Registre clos
+38,44987660 USD / 40, reste calculé 1,55012340 USD. A849 rend cette limite de
+lecture locale au modèle sans preuve et sans suspendre les autres opérations :
+il peut réduire la fenêtre ou augmenter `topK` dans la borne déclarée. Le
+contrôle d'identité reste prioritaire et fatal ; Planner, JSON ancien et autres
+opérations ne récupèrent pas ce code. Quinze contrôles ciblés passent, ainsi
+qu'un contrôle PostgreSQL 16.14 réel sur refus atomique, lecture corrigée et
+identité modifiée. Suite backend actuelle : 2 433 réussites, zéro échec, trois
+live ignorés. Aucun appel OpenAI A849 encore exécuté ; mécanisme validé, qualité
+du planning non validée. Voir
+documents/agent/controle-retour-limite-lecture-a849-2026-09-16.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

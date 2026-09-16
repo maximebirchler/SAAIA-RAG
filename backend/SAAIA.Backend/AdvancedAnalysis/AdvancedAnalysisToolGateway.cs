@@ -49,7 +49,8 @@ internal sealed record AdvancedAnalysisSearchObservation(
     bool NotExecutedAfterResourceLimit = false);
 
 internal sealed record AdvancedAnalysisResearchResourceLimit(string ReasonCode,
-    int? MaximumEvidenceItems, int? ConsumedEvidenceItems, int? RequestedNewEvidenceItems);
+    int? MaximumEvidenceItems, int? ConsumedEvidenceItems, int? RequestedNewEvidenceItems,
+    int? RequestedTopK = null, int? ObservedAtLeastChunkCount = null, bool StopsResearch = true);
 
 internal sealed record AdvancedAnalysisToolEventSummary(
     int EventSequence,
@@ -512,8 +513,6 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             new { tenant = _tenantId, doc_id = Guid.Parse(request.DocId!), revision_id = Guid.Parse(request.RevisionId!),
                 page_start = request.PageStart, page_end = request.PageEnd, row_limit = request.TopK + 1 },
             cancellationToken: cancellationToken))).ToArray();
-        if (references.Length > request.TopK)
-            throw new AdvancedAnalysisToolException("canonical_read_window_result_limit_exceeded");
         var observed = _evidence.First(item =>
             string.Equals(item.Reference.DocId, request.DocId, StringComparison.OrdinalIgnoreCase)
             && string.Equals(item.Reference.RevisionId, request.RevisionId, StringComparison.OrdinalIgnoreCase));
@@ -521,6 +520,11 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                 !string.Equals(NormalizePath(reference.DocPath), NormalizePath(request.DocPath), StringComparison.Ordinal)
                 || !string.Equals(reference.SourceHash, observed.Reference.SourceHash, StringComparison.OrdinalIgnoreCase)))
             throw new AdvancedAnalysisToolException("canonical_read_source_identity_changed");
+        if (references.Length > request.TopK)
+            throw new AdvancedAnalysisToolException(
+                "canonical_read_window_result_limit_exceeded",
+                new("canonical_read_window_result_limit_exceeded", null, null, null,
+                    request.TopK, references.Length, StopsResearch: false));
         return references;
     }
 

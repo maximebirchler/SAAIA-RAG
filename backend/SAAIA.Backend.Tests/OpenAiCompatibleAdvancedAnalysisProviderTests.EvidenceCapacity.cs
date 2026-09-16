@@ -91,6 +91,101 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             ("read_source", """{"sourceKey":"internal-source-1","pageStart":5,"pageEnd":8,"topK":12}"""),
             ("read_source", """{"sourceKey":"internal-source-1","pageStart":9,"pageEnd":12,"topK":12}"""));
 
+    [Theory]
+    [InlineData("responses")]
+    [InlineData("chat-completions")]
+    public async Task Local_read_limit_allows_model_correction_on_same_window_and_preserves_other_outputs(string protocol)
+    {
+        const string corrected = """{"sourceKey":"internal-source-1","pageStart":5,"pageEnd":8,"topK":24}""";
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"overview","topK":12}]}"""), CapacityBatch(protocol),
+            protocol == "responses" ? NativeResponseFunction("read_source", corrected) : NativeCompletion(("read_source", corrected)),
+            protocol == "responses" ? NativeResponseAnswer(NativeAnswered) : Completion(NativeAnswered),
+            protocol == "responses" ? NativeResponseAnswer(NativeAnswered) : Completion(NativeAnswered));
+        var gateway = new CapacityRefusingGateway(BuildEvidence("E1", "Le seuil est 17 bar."),
+            failureCode: "canonical_read_window_result_limit_exceeded");
+        var options = WorkspaceOptions(protocol);
+        options.SemanticCriticEnabled = true;
+        options.ExternalMaximumCallsPerJob = 6;
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)
+            .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(5, factory.Requests.Count);
+        Assert.Equal(5, gateway.Searches.Count);
+        Assert.Equal(24, gateway.Searches[4].TopK);
+        Assert.Equal(gateway.Searches[2].PageStart, gateway.Searches[4].PageStart);
+        Assert.Equal(gateway.Searches[2].PageEnd, gateway.Searches[4].PageEnd);
+        Assert.Equal("E1", Assert.Single(result.Claims).EvidenceIds[0]);
+        using var body = JsonDocument.Parse(factory.Requests[2].Body);
+        var input = body.RootElement.GetProperty(protocol == "responses" ? "input" : "messages").EnumerateArray().ToArray();
+        var outputs = input.Where(i => protocol == "responses"
+            ? i.TryGetProperty("type", out var type) && type.GetString() == "function_call_output"
+            : i.GetProperty("role").GetString() == "tool").ToArray();
+        Assert.Equal(3, outputs.Length);
+        var statuses = new List<string?>();
+        foreach (var output in outputs)
+        {
+            using var value = JsonDocument.Parse(output.GetProperty(protocol == "responses" ? "output" : "content").GetString()!);
+            statuses.Add(value.RootElement.GetProperty("status").GetString());
+        }
+        Assert.Equal(new[] { "executed", "resource_limit_before_evidence_admission", "executed" }, statuses);
+        using var refused = JsonDocument.Parse(outputs[1].GetProperty(protocol == "responses" ? "output" : "content").GetString()!);
+        var refusal = refused.RootElement.GetProperty("resourceLimit");
+        Assert.Equal("canonical_read_window_result_limit_exceeded", refusal.GetProperty("reasonCode").GetString());
+        Assert.Equal(12, refusal.GetProperty("requestedTopK").GetInt32());
+        Assert.False(refusal.GetProperty("stopsResearch").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, refusal.GetProperty("observedAtLeastChunkCount").ValueKind);
+        Assert.Empty(refused.RootElement.GetProperty("visibleEvidenceIds").EnumerateArray());
+        using var prompt = JsonDocument.Parse(input.Single(i => i.TryGetProperty("role", out var role)
+            && role.GetString() == "user").GetProperty("content").GetString()!);
+        Assert.True(prompt.RootElement.GetProperty("researchTools").GetProperty("researchAllowed").GetBoolean());
+        Assert.False(prompt.RootElement.TryGetProperty("researchResourceLimit", out _));
+    }
+
+    [Theory]
+    [InlineData("responses", true)]
+    [InlineData("chat-completions", true)]
+    [InlineData("responses", false)]
+    [InlineData("chat-completions", false)]
+    public async Task Local_read_limit_without_native_call_outputs_remains_fatal(string protocol, bool initial)
+    {
+        using var factory = initial
+            ? new QueuedHttpClientFactory(Completion("""{"queries":[{"query":"overview","topK":12}]}"""))
+            : new QueuedHttpClientFactory(
+                Completion("""{"queries":[{"query":"overview","topK":12}]}"""),
+                protocol == "responses"
+                    ? NativeResponseAnswer("""{"outcome":"research_required","queries":[{"query":"next","topK":12}]}""")
+                    : Completion("""{"outcome":"research_required","queries":[{"query":"next","topK":12}]}"""));
+        var gateway = new CapacityRefusingGateway(BuildEvidence("E1", "Le seuil est 17 bar."),
+            initial ? 1 : 2, "canonical_read_window_result_limit_exceeded");
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisToolException>(() =>
+            new OpenAiCompatibleAdvancedAnalysisProvider(factory, WorkspaceOptions(protocol), null)
+                .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None));
+        Assert.Equal("canonical_read_window_result_limit_exceeded", error.ErrorCode);
+        Assert.Equal(initial ? 1 : 2, factory.Requests.Count);
+        Assert.Equal(initial ? 1 : 2, gateway.Searches.Count);
+    }
+
+    [Theory]
+    [InlineData("responses")]
+    [InlineData("chat-completions")]
+    public async Task Local_read_limit_code_on_non_read_native_operation_remains_fatal(string protocol)
+    {
+        const string search = """{"query":"next","sourceKey":"","category":"","documentHint":"","topK":12}""";
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[{"query":"overview","topK":12}]}"""),
+            protocol == "responses" ? NativeResponseFunction("search_corpus", search)
+                : NativeCompletion(("search_corpus", search)));
+        var gateway = new CapacityRefusingGateway(BuildEvidence("E1", "Le seuil est 17 bar."),
+            2, "canonical_read_window_result_limit_exceeded");
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisToolException>(() =>
+            new OpenAiCompatibleAdvancedAnalysisProvider(factory, WorkspaceOptions(protocol), null)
+                .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None));
+        Assert.Equal("canonical_read_window_result_limit_exceeded", error.ErrorCode);
+        Assert.Equal(2, factory.Requests.Count);
+        Assert.Equal(2, gateway.Searches.Count);
+    }
+
     private sealed class CapacityRefusingGateway(AdvancedAnalysisResolvedEvidence item,
         int failureAt = 3, string failureCode = "accumulated_evidence_limit_exceeded") : IAdvancedAnalysisToolGateway
     {

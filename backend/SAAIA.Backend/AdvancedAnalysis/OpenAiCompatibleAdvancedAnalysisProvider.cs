@@ -493,12 +493,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 .ConfigureAwait(false);
             }
             catch (AdvancedAnalysisToolException error) when (allowResourceLimitFeedback
-                && error.ErrorCode == "accumulated_evidence_limit_exceeded")
+                && (error.ErrorCode == "accumulated_evidence_limit_exceeded"
+                    || observationsBySearch is not null
+                        && string.Equals(planned.Operation, "read_source", StringComparison.Ordinal)
+                        && error.ErrorCode == "canonical_read_window_result_limit_exceeded"))
             {
-                resourceLimit = error.ResourceLimit ?? new(error.ErrorCode,
-                    tools.Budget?.MaximumEvidenceItems, tools.Budget?.ConsumedEvidenceItems, null);
+                var limit = error.ResourceLimit ?? (error.ErrorCode == "canonical_read_window_result_limit_exceeded"
+                    ? new(error.ErrorCode, null, null, null, planned.TopK, null, StopsResearch: false)
+                    : new(error.ErrorCode, tools.Budget?.MaximumEvidenceItems,
+                        tools.Budget?.ConsumedEvidenceItems, null));
+                if (limit.StopsResearch)
+                    resourceLimit = limit;
+                else
+                    previouslyExecuted.Remove(BuildSearchIdentity(planned));
                 observation = new(planned.Query, [], [], 0, tools.Budget?.ConsumedCalls ?? 0,
-                    ResourceLimit: resourceLimit);
+                    ResourceLimit: limit);
             }
             if (observationsBySearch is not null)
                 observationsBySearch[BuildSearchIdentity(planned)] = observation;
