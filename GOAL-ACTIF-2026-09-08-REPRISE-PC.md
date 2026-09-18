@@ -103,7 +103,8 @@ de fenêtre corrigée. Il construit vingt choix, mais échoue avant Critic sur
 le classifieur la marque à tort `navigation/numeric_title_catalog`. A850 ajoute
 une reconnaissance généraliste des corps procéduraux substantiels à puces sans
 affaiblir les vrais catalogues numérotés. Le cas OCR exact passe, 492
-régressions ciblées passent et la suite backend compte 2 435 réussites, zéro
+régressions ciblées passent ; un replay complet du garde atteint Writer puis
+Critic en trois appels simulés. La suite backend compte 2 436 réussites, zéro
 échec et trois live ignorés. Aucun appel payant A850. Registre clos
 39,24170860 USD / 40, reste calculé 0,75829140 USD. Le planning A849 reste
 rejeté et le produit `TESTE_NON_APPROUVE`. Voir

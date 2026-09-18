@@ -47,14 +47,17 @@ Contrôles exécutés sur les sources actuelles :
 - classifieur et matériaux de source : 77 réussites, zéro échec ;
 - classifieur, projection de chunks, profils, matériaux de source et provider
   avancé : 492 réussites, zéro échec ;
-- suite backend complète : 2 435 réussites, zéro échec et trois tests live
+- replay du garde de liaison avec l'extrait OCR réel : le provider accepte
+  `Charlotte`, atteint Writer puis Critic en trois appels simulés et termine
+  `answered`; les 279 tests du provider avancé passent ;
+- suite backend complète : 2 436 réussites, zéro échec et trois tests live
   explicitement ignorés ;
 - `git diff --check` : aucune erreur.
 
 Aucun appel OpenAI n'a été exécuté pour A850. Le registre autorisé reste à
 39,24170860 USD sur 40 USD, soit 0,75829140 USD calculé. Le pilote A849 reste
 rejeté : cette correction retire sa cause fatale observée, mais ne transforme
-pas sa grille en réponse approuvée. Il manque toujours une exécution terminale,
-le Critic, l'audit sémantique des vingt affectations, les cartes physiques et la
-répétition probabiliste sur un candidat figé. Le produit reste
+pas sa grille en réponse approuvée. Il manque toujours une exécution live
+terminale et son Critic, l'audit sémantique des vingt affectations, les cartes
+physiques et la répétition probabiliste sur un candidat figé. Le produit reste
 `TESTE_NON_APPROUVE`.

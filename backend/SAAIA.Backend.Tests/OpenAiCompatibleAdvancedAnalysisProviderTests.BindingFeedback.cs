@@ -7,6 +7,71 @@ namespace SAAIA.Backend.Tests;
 
 public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 {
+    [Fact]
+    public async Task Binding_guard_accepts_substantive_ocr_procedure_despite_numeric_equipment_list()
+    {
+        const string body = """
+57 fiches cuisine et un livret pour l'animateur
+• 1 assiette plate du diamètre du moule à
+charlotte
+• 1 presse-agrumes
+• 1 saladier
+• 1 couteau à découper
+• 1 planche à découper
+• 1 balance
+• 1 verre mesureur
+Technique
+• Met re le jus des oranges, l'eau et son sucre
+dans l'assiette creuse. Bien remuer avec la
+cuil ère en bois.
+• Y tremper les biscuits et au fur et à mesure
+les disposer dans le moule, sur le fond et sur
+les côtés.
+• Mélanger le fromage blanc avec le sucre
+dans le saladier.
+• Tail er les pêches en cubes sur la planche et
+en déposer la moitié dans le fond du moule.
+• Y ajouter la moitié du fromage blanc sucré,
+puis une couche de gâteaux puis le reste de
+fromage blanc.
+• Finir par une couche de biscuits.
+• Couvrir le moule avec l'assiette plate.
+• Placer au frais 4 à 5 heures avant de
+démouler.
+Truc du chef
+• Presque tous les fruits peuvent être utili-sés pour confectionner une charlotte :
+fraises, poires, abricots. Les choisir bien
+mûrs car il n'y a pas de cuisson.
+Suggestions
+• Un coulis de fruits peut accompagner la
+charlotte.
+• On peut utiliser des morceaux de pêches
+pour le décor.
+© Ceméa 2003
+Charlotte
+""";
+        const string answer = """{"outcome":"answered","answerText":"Charlotte [C1].","claims":[{"claimId":"C1","selectedItem":"Charlotte","text":"La recette Charlotte est documentée avec sa technique et ses suggestions.","evidenceIds":["E-CHARLOTTE"]}]}""";
+        using var factory = new QueuedHttpClientFactory(
+            Completion("""{"queries":[]}"""),
+            Completion(answer),
+            Completion(answer));
+        var options = CreateOptions();
+        options.CandidateBindingFeedbackEnabled = true;
+        options.SemanticCriticEnabled = true;
+        options.ExternalMaximumCallsPerJob = 3;
+
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, apiKey: null)
+            .ExecuteAsync(
+                BuildRequest(atomicEvidenceMode: "named_item"),
+                new RecordingToolGateway(BuildEvidence("E-CHARLOTTE", body)),
+                CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal("Charlotte", Assert.Single(result.Claims).SelectedItem);
+        Assert.Equal(3, result.ProviderCallCount);
+        Assert.Equal(3, factory.Requests.Count);
+    }
+
     [Theory]
     [InlineData("responses", "lexical")]
     [InlineData("responses", "duplicate")]
