@@ -241,6 +241,20 @@ reconnaît l'obligation d'intégrité et une copie sans cette obligation est
 refusée avant réseau. Aucun fichier .NET n'a changé depuis les 2 459 tests verts
 d'A862 et aucun appel payant n'a été exécuté. Voir
 documents/agent/verification-integrite-preuves-explorer-a863-2026-09-18.md.
+A864 transforme la preuve intègre en paquet causal lisible par le reviewer. Le
+vérificateur écrit une annexe privée et hashée contenant, par job, les titres,
+états, rôles, EvidenceId et notes du checkpoint ainsi que la séquence, requête,
+preuves, erreurs et latence de chaque outil. Le préparateur sémantique exige le
+verdict positif A863, les nombres exacts de jobs et checkpoints et l'empreinte
+inchangée de cette annexe avant de l'ajouter à la réponse, aux claims et aux
+textes canoniques. Le manifeste public ne conserve que verdict, empreintes et
+comptes. Les cinq fixtures A863 restent vertes et vérifient aussi que le titre
+et la requête privés apparaissent seulement dans l'annexe. La préparation réelle
+écarte le manifeste JSONL des propriétaires et un contrôle négatif confirme
+qu'elle refuse l'absence d'assessment A863 avant toute connexion PostgreSQL. La
+préparation complète reste à exécuter après le premier pilote disponible ; aucun appel payant et
+aucune validation sémantique ne sont revendiqués. Voir
+documents/agent/paquet-revue-causale-explorer-a864-2026-09-18.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

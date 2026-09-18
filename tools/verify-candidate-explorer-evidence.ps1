@@ -30,6 +30,12 @@ function Get-FileSha256 {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
 }
 
+function ConvertTo-PrivateSingleLine {
+    param([object]$Value)
+    if ($null -eq $Value) { return "" }
+    return ([string]$Value).Replace("`r", " ").Replace("`n", " ").Trim()
+}
+
 $ArtifactDirectory = [IO.Path]::GetFullPath($ArtifactDirectory)
 if (-not (Test-Path -LiteralPath $ArtifactDirectory -PathType Container)) {
     throw "Candidate Explorer artifact directory was not found: $ArtifactDirectory"
@@ -50,6 +56,15 @@ $checkpointCount = 0
 $traceCount = 0
 $checkpointMetrics = @()
 $traceRoleCounts = [ordered]@{}
+$privateReviewPath = Join-Path `
+    $ArtifactDirectory `
+    "candidate-explorer-evidence-review.private.md"
+$privateReviewSha256 = $null
+$privateReviewLines = [Collections.Generic.List[string]]::new()
+$privateReviewLines.Add("# Private Candidate Explorer evidence review")
+$privateReviewLines.Add("")
+$privateReviewLines.Add("Status: EVIDENCE_ONLY - human semantic review is still required.")
+$privateReviewLines.Add("This file contains private corpus metadata and must not leave the workspace.")
 
 try {
     $guardPath = Require-File $ArtifactDirectory "advanced-job-guard-after.json"
@@ -157,6 +172,48 @@ try {
                 } |
                 Sort-Object -Unique).Count
         }
+        $privateReviewLines.Add("")
+        $privateReviewLines.Add("## Job $ordinal")
+        $privateReviewLines.Add("")
+        $privateReviewLines.Add(('Job identity: `{0}`' -f $jobId))
+        $privateReviewLines.Add("")
+        $privateReviewLines.Add("### Candidate checkpoint")
+        foreach ($candidate in $candidates) {
+            $privateReviewLines.Add("")
+            $privateReviewLines.Add("- Title: " +
+                (ConvertTo-PrivateSingleLine $candidate.exactTitle))
+            $privateReviewLines.Add("  - Status: " +
+                (ConvertTo-PrivateSingleLine $candidate.status))
+            $privateReviewLines.Add("  - Source key: " +
+                (ConvertTo-PrivateSingleLine $candidate.sourceKey))
+            $privateReviewLines.Add("  - Target roles: " +
+                (@($candidate.targetRoles) -join ", "))
+            $privateReviewLines.Add("  - Selected roles: " +
+                (@($candidate.selectedRoles) -join ", "))
+            $privateReviewLines.Add("  - Locator evidence: " +
+                (@($candidate.locatorEvidenceIds) -join ", "))
+            $privateReviewLines.Add("  - Body evidence: " +
+                (@($candidate.bodyEvidenceIds) -join ", "))
+            $privateReviewLines.Add("  - Model note: " +
+                (ConvertTo-PrivateSingleLine $candidate.note))
+        }
+        $privateReviewLines.Add("")
+        $privateReviewLines.Add("### Tool events")
+        foreach ($event in @($job.toolEvents | Sort-Object eventSequence)) {
+            $privateReviewLines.Add("")
+            $privateReviewLines.Add((
+                "- Sequence {0}: {1} / {2} / {3} ms" -f
+                    [int]$event.eventSequence,
+                    (ConvertTo-PrivateSingleLine $event.toolName),
+                    (ConvertTo-PrivateSingleLine $event.status),
+                    [long]$event.elapsedMilliseconds))
+            $privateReviewLines.Add("  - Error: " +
+                (ConvertTo-PrivateSingleLine $event.errorCode))
+            $privateReviewLines.Add("  - Request JSON: " +
+                ($event.request | ConvertTo-Json -Depth 8 -Compress))
+            $privateReviewLines.Add("  - Evidence references JSON: " +
+                ($event.evidenceReferences | ConvertTo-Json -Depth 8 -Compress))
+        }
     }
 
     $traceDirectory = [IO.Path]::GetFullPath(
@@ -233,6 +290,19 @@ catch {
     $errors.Add($_.Exception.Message)
 }
 
+if ($errors.Count -eq 0) {
+    $privateReviewTemporaryPath = $privateReviewPath + ".tmp"
+    [IO.File]::WriteAllLines(
+        $privateReviewTemporaryPath,
+        $privateReviewLines,
+        [Text.UTF8Encoding]::new($false))
+    Move-Item `
+        -LiteralPath $privateReviewTemporaryPath `
+        -Destination $privateReviewPath `
+        -Force
+    $privateReviewSha256 = Get-FileSha256 $privateReviewPath
+}
+
 $assessment = [ordered]@{
     schemaVersion = "saaia-candidate-explorer-evidence-assessment-public-v1"
     assessedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
@@ -242,6 +312,7 @@ $assessment = [ordered]@{
     privateArtifactsMayLeaveWorkspace = $false
     privateAuditSha256 = $auditSha256
     privateTraceManifestSha256 = $traceManifestSha256
+    privateCandidateReviewSha256 = $privateReviewSha256
     auditedJobs = $jobCount
     auditedToolEvents = $toolEventCount
     auditedResearchCheckpoints = $checkpointCount

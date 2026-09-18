@@ -116,6 +116,10 @@ function New-EvidenceFixture {
                 eventSequence = 1
                 toolName = "source_backed_canonical_search"
                 status = "succeeded"
+                request = [ordered]@{ query = "private fixture query" }
+                evidenceReferences = @([ordered]@{ evidenceId = "E2" })
+                elapsedMilliseconds = 17
+                errorCode = $null
             })
         })
     })
@@ -169,12 +173,19 @@ $validAssessmentPath = Join-Path $valid `
     "candidate-explorer-evidence-assessment.public.json"
 $validAssessmentRaw = Get-Content -LiteralPath $validAssessmentPath -Raw
 $validAssessment = $validAssessmentRaw | ConvertFrom-Json
+$validPrivateReviewPath = Join-Path $valid `
+    "candidate-explorer-evidence-review.private.md"
+$validPrivateReviewRaw = Get-Content -LiteralPath $validPrivateReviewPath -Raw
 Add-Result "valid private evidence passes integrity verification" `
     ($validExit -eq 0 -and
      [string]$validAssessment.verdict -eq
         "PASS_PRIVATE_EVIDENCE_INTEGRITY_REQUIRES_SEMANTIC_REVIEW" -and
      [int]$validAssessment.auditedJobs -eq 1 -and
      [int]$validAssessment.providerTraces -eq 3 -and
+     (Get-FileHash -LiteralPath $validPrivateReviewPath -Algorithm SHA256).Hash -eq
+        [string]$validAssessment.privateCandidateReviewSha256 -and
+     $validPrivateReviewRaw -match 'Private fixture title' -and
+     $validPrivateReviewRaw -match 'private fixture query' -and
      $validAssessmentRaw -notmatch
         'Private fixture title|private-source|candidate-1|"E[12]"') `
     "exit=$validExit verdict=$($validAssessment.verdict)"

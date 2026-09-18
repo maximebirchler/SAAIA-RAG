@@ -37,6 +37,11 @@ function Require-ReviewEnvValue {
     return [string]$Values[$Name]
 }
 
+function Get-FileSha256 {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
+}
+
 function Add-ReviewMarkdownText {
     param(
         [System.Collections.Generic.List[string]]$Lines,
@@ -44,6 +49,23 @@ function Add-ReviewMarkdownText {
     )
     $value = if ($null -eq $Text) { "" } else { $Text }
     $Lines.Add($value.Trim())
+}
+
+function Test-AgentBankResultFile {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $firstRecord = Get-Content -LiteralPath $Path |
+        Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } |
+        Select-Object -First 1
+    if ([string]::IsNullOrWhiteSpace([string]$firstRecord)) { return $false }
+    try {
+        $value = $firstRecord | ConvertFrom-Json
+        return $value -is [pscustomobject] -and
+            $null -ne $value.PSObject.Properties["row"] -and
+            $null -ne $value.PSObject.Properties["answer"]
+    }
+    catch {
+        return $false
+    }
 }
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
@@ -67,6 +89,9 @@ $campaignKind = if ($null -eq $profilePreflight.PSObject.Properties["campaignKin
 } else {
     [string]$profilePreflight.campaignKind
 }
+$candidateExplorerEnabled = $null -ne $profilePreflight.PSObject.Properties[
+    "nativeCandidateExplorerEnabled"] -and
+    [bool]$profilePreflight.nativeCandidateExplorerEnabled
 $approvalEligible = -not $DiagnosticMode -and
     $campaignExecutionState -eq "COMPLETED" -and
     $campaignKind -eq "final-acceptance"
@@ -93,7 +118,13 @@ if ($diagnosticEligible) {
     }
 }
 
-$resultFiles = @(Get-ChildItem -LiteralPath $CampaignArtifactDirectory -Recurse -Filter "*.jsonl" -File | Sort-Object FullName)
+$resultFiles = @(Get-ChildItem `
+    -LiteralPath $CampaignArtifactDirectory `
+    -Recurse `
+    -Filter "*.jsonl" `
+    -File | Where-Object {
+        Test-AgentBankResultFile $_.FullName
+    } | Sort-Object FullName)
 if ($resultFiles.Count -eq 0) { throw "No campaign JSONL result was found." }
 $records = @()
 $repetition = 0
@@ -131,6 +162,45 @@ if ($records.Count -ne $ExpectedRows) {
 $jobIds = @($records | ForEach-Object jobId | Sort-Object -Unique)
 if ($jobIds.Count -ne $ExpectedRows) {
     throw "Each successful row must map to one distinct durable job UUID."
+}
+
+$candidateExplorerEvidenceAssessment = $null
+$candidateExplorerEvidenceAssessmentPath = $null
+$candidateExplorerPrivateReviewPath = $null
+if ($candidateExplorerEnabled) {
+    $integrityAssessments = @(Get-ChildItem `
+        -LiteralPath $CampaignArtifactDirectory `
+        -Recurse `
+        -Filter "candidate-explorer-evidence-assessment.public.json" `
+        -File)
+    if ($integrityAssessments.Count -ne 1) {
+        throw "Exactly one Candidate Explorer evidence assessment is required."
+    }
+    $candidateExplorerEvidenceAssessmentPath = $integrityAssessments[0].FullName
+    $candidateExplorerEvidenceAssessment = Get-Content `
+        -LiteralPath $candidateExplorerEvidenceAssessmentPath `
+        -Raw | ConvertFrom-Json
+    if ([string]$candidateExplorerEvidenceAssessment.schemaVersion -ne
+            "saaia-candidate-explorer-evidence-assessment-public-v1" -or
+        [string]$candidateExplorerEvidenceAssessment.verdict -ne
+            "PASS_PRIVATE_EVIDENCE_INTEGRITY_REQUIRES_SEMANTIC_REVIEW" -or
+        [bool]$candidateExplorerEvidenceAssessment.privateArtifactsMayLeaveWorkspace -or
+        [int]$candidateExplorerEvidenceAssessment.expectedJobs -ne $ExpectedRows -or
+        [int]$candidateExplorerEvidenceAssessment.auditedJobs -ne $ExpectedRows -or
+        [int]$candidateExplorerEvidenceAssessment.auditedResearchCheckpoints -ne
+            $ExpectedRows) {
+        throw "Candidate Explorer evidence is not eligible for semantic review."
+    }
+    $candidateExplorerPrivateReviewPath = Join-Path `
+        (Split-Path -Parent $candidateExplorerEvidenceAssessmentPath) `
+        "candidate-explorer-evidence-review.private.md"
+    if (-not (Test-Path `
+            -LiteralPath $candidateExplorerPrivateReviewPath `
+            -PathType Leaf) -or
+        (Get-FileSha256 $candidateExplorerPrivateReviewPath) -ne
+            [string]$candidateExplorerEvidenceAssessment.privateCandidateReviewSha256) {
+        throw "Candidate Explorer private review changed after integrity verification."
+    }
 }
 
 if ([string]::IsNullOrWhiteSpace($ArtifactDirectory)) {
@@ -246,6 +316,15 @@ foreach ($job in @($bundle.jobs | Sort-Object jobId)) {
     $lines.Add("Decision to fill: PASS_SEMANTIC or REJECT_SEMANTIC")
     $lines.Add("Reason:")
 }
+if ($candidateExplorerEnabled) {
+    $lines.Add("")
+    $lines.Add("# Candidate Explorer causal evidence appendix")
+    $lines.Add("")
+    $lines.Add("This appendix was integrity-checked before semantic review.")
+    foreach ($line in Get-Content -LiteralPath $candidateExplorerPrivateReviewPath) {
+        $lines.Add([string]$line)
+    }
+}
 $reviewPath = Join-Path $ArtifactDirectory "semantic-review.private.md"
 [IO.File]::WriteAllLines($reviewPath, $lines, [Text.UTF8Encoding]::new($false))
 
@@ -287,6 +366,31 @@ $manifest = [ordered]@{
     canonicalChunks = @($bundle.chunks).Count
     canonicalContentCards = @($bundle.contentCards).Count
     toolEvents = @($bundle.toolEvents).Count
+    candidateExplorerEnabled = $candidateExplorerEnabled
+    candidateExplorerEvidenceIntegrityVerdict = $(
+        if ($candidateExplorerEnabled) {
+            [string]$candidateExplorerEvidenceAssessment.verdict
+        } else { $null })
+    candidateExplorerEvidenceAssessmentSha256 = $(
+        if ($candidateExplorerEnabled) {
+            Get-FileSha256 $candidateExplorerEvidenceAssessmentPath
+        } else { $null })
+    privateCandidateExplorerReviewSha256 = $(
+        if ($candidateExplorerEnabled) {
+            Get-FileSha256 $candidateExplorerPrivateReviewPath
+        } else { $null })
+    candidateExplorerAuditedJobs = $(
+        if ($candidateExplorerEnabled) {
+            [int]$candidateExplorerEvidenceAssessment.auditedJobs
+        } else { 0 })
+    candidateExplorerAuditedToolEvents = $(
+        if ($candidateExplorerEnabled) {
+            [int]$candidateExplorerEvidenceAssessment.auditedToolEvents
+        } else { 0 })
+    candidateExplorerProviderTraces = $(
+        if ($candidateExplorerEnabled) {
+            [int]$candidateExplorerEvidenceAssessment.providerTraces
+        } else { 0 })
     unresolvedEvidence = $unresolvedEvidence
     privateBundleSha256 = (Get-FileHash -LiteralPath $bundlePath -Algorithm SHA256).Hash
     privateReviewSha256 = (Get-FileHash -LiteralPath $reviewPath -Algorithm SHA256).Hash
