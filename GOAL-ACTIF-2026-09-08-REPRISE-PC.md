@@ -178,6 +178,20 @@ l'option et ses gardes. État final : 297 contrôles provider et 2 456 tests
 backend réussis, zéro échec, trois live ignorés ; aucun appel payant. L'option
 reste désactivée par défaut jusqu'au pilote live. Voir
 documents/agent/explorer-separe-et-replay-a817-a859-2026-09-18.md.
+A860 étend le même inventaire et le même Candidate Explorer aux collections
+plates de plusieurs candidats nommés, avec sélection `explicit_set` ou
+`open_set`, sans leur inventer de colonnes. Leur couverture est globale : les
+tableaux de rôles restent vides et le dossier n'est prêt que lorsque le nombre
+de corps distincts jugés adaptés par le modèle atteint `answerUnitCount`. Les
+contrôles mécaniques vérifient titres, sources, preuves et compte, mais ne
+décident pas de l'adéquation. Cette extension couvre la forme du scout A855 :
+trois corps sur sept restent une lacune, pas une réussite. Elle est générale et
+ne contient aucune règle Cuisine ou petit-déjeuner. État final : sept contrôles
+Explorer ciblés, 298 contrôles provider et 2 457 tests backend réussis, zéro
+échec, trois live ignorés ; le run backend avec PostgreSQL local actif a duré
+13 min 53 s. Aucun appel payant. L'autonomie sémantique de Terra sur A855 et le
+planning 5 x 4 restent à établir par un futur pilote live. Voir
+documents/agent/explorer-collections-plates-a860-2026-09-18.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

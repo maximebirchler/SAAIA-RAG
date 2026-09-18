@@ -192,7 +192,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            least load.answerUnitCount distinct body-verified candidates and the
            required count for every target role. When budget permits, aim for the
            reserve target shown in coverage rather than stopping at the first
-           barely complete set. A contents entry is a locator, not a body. Search
+           barely complete set. For a flat collection with no target roles,
+           targetRoles stays empty and body_verified means that you judge the
+           candidate suitable for the request as a whole; reject observed named
+           items that do not meet that request. A contents entry is a locator, not a body. Search
            an observed exact title in its opaque source and read canonical
            physical pages when needed. Preserve candidates across focus changes;
            do not repeat completed searches.

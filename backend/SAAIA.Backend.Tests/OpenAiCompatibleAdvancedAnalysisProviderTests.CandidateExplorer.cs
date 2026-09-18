@@ -139,6 +139,61 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Candidate_explorer_uses_global_coverage_for_a_flat_named_collection()
+    {
+        var documentId = Guid.NewGuid().ToString("D");
+        var revisionId = Guid.NewGuid().ToString("D");
+        var evidence = Enumerable.Range(1, 2).Select(index => BuildEvidence(
+                $"E{index}",
+                $"R{index}\nSubstantive documented body for candidate {index}.",
+                docId: documentId,
+                revisionId: revisionId,
+                exactTitle: $"R{index}"))
+            .ToArray();
+        var update = JsonSerializer.Serialize(new
+        {
+            items = Enumerable.Range(1, 2).Select(index => new
+            {
+                key = $"flat-{index}",
+                exactTitle = $"R{index}",
+                sourceKey = "internal-source-1",
+                targetRoles = Array.Empty<string>(),
+                selectedRoles = Array.Empty<string>(),
+                status = "body_verified",
+                note = "Suitable for the request-wide flat collection.",
+                locatorEvidenceIds = Array.Empty<string>(),
+                bodyEvidenceIds = new[] { $"E{index}" }
+            }).ToArray()
+        });
+        using var factory = new QueuedHttpClientFactory(
+            Completion(CandidatePlanner),
+            NativeCompletion(("save_candidate_inventory", update)),
+            Completion(ExplorerReady),
+            Completion(CandidateAnswered(2)));
+        var options = WorkspaceOptions();
+        options.NativeCandidateExplorerEnabled = true;
+        options.NativeResearchMaximumHistoryCharacters = 32_768;
+        options.ExternalMaximumCallsPerJob = 4;
+
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(
+                factory,
+                options,
+                null)
+            .ExecuteAsync(
+                BuildFlatNamedItemRequest(),
+                new RecordingToolGateway(evidence),
+                CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(2, result.Claims.Count);
+        var dossier = WorkspaceUser(factory.Requests[3].Body)
+            .GetProperty("candidateDossier");
+        Assert.Equal("ready", dossier.GetProperty("outcome").GetString());
+        Assert.Equal(2, dossier.GetProperty("bodyVerifiedDistinctCount").GetInt32());
+        Assert.Empty(dossier.GetProperty("roles").EnumerateArray());
+    }
+
+    [Fact]
     public async Task Native_inventory_accepts_a_realistic_twenty_candidate_batch_above_the_old_envelope()
     {
         var documentId = Guid.NewGuid().ToString("D");

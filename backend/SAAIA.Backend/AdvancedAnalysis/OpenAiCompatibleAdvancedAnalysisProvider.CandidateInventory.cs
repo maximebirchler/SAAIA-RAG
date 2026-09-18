@@ -30,11 +30,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     }
 
     private static bool CandidateInventoryEnabled(AdvancedAnalysisProviderRequest request)
-        => request.Handoff.Load.StructuredLayout
+        => request.Handoff.Load.AnswerUnitCount > 1
            && request.Handoff.Load.AtomicEvidenceMode.Contains(
                "named_item",
                StringComparison.OrdinalIgnoreCase)
-           && request.Handoff.Load.Columns.Count > 0;
+           && (request.Handoff.Load.StructuredLayout
+               ? request.Handoff.Load.Columns.Count > 0
+               : request.Handoff.Load.SelectionPolicy is "explicit_set" or "open_set");
 
     private static object BuildCandidateInventoryFunction(JsonElement prompt)
     {
@@ -72,10 +74,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             ["targetRoles"] = new
             {
                 type = "array",
-                minItems = 1,
+                minItems = targetRoles.Length == 0 ? 0 : 1,
                 maxItems = Math.Min(8, targetRoles.Length),
                 uniqueItems = true,
-                items = new { type = "string", @enum = targetRoles }
+                items = targetRoles.Length == 0
+                    ? (object)new { type = "string", maxLength = 1 }
+                    : new { type = "string", @enum = targetRoles }
             },
             ["selectedRoles"] = new
             {
@@ -83,7 +87,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 minItems = 0,
                 maxItems = Math.Min(8, targetRoles.Length),
                 uniqueItems = true,
-                items = new { type = "string", @enum = targetRoles }
+                items = targetRoles.Length == 0
+                    ? (object)new { type = "string", maxLength = 1 }
+                    : new { type = "string", @enum = targetRoles }
             },
             ["status"] = new { type = "string", @enum = CandidateInventoryStates },
             ["note"] = Text(200),
@@ -213,7 +219,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 || !CandidateInventoryStates.Contains(status, StringComparer.Ordinal)
                 || !identities.Add(sourceKey + "\n" + NormalizeClaimText(title)))
                 Reject();
-            var targetRoles = TextArray(item, "targetRoles", 8, roles, required: true);
+            var targetRoles = TextArray(
+                item,
+                "targetRoles",
+                8,
+                roles,
+                required: roles.Count > 0);
             var selectedRoles = TextArray(item, "selectedRoles", 8, roles, required: false);
             var locatorIds = TextArray(
                 item,
