@@ -86,9 +86,10 @@ public sealed class LiveAdvancedAnalysisCriticReplayTests(ITestOutputHelper outp
         };
         var request = BuildRequest(fixture);
         var evidence = BuildEvidence(fixture.Evidence);
-        var gateway = new ReplayEvidenceGateway(evidence);
+        var replayPlannerJson = BuildReplayPlannerJson();
+        var gateway = new ReplayEvidenceGateway(evidence, fixture.Evidence);
         using var factory = new CriticReplayHttpClientFactory(
-            fixture.PlannerCompletionJson,
+            replayPlannerJson,
             fixture.WriterCandidateJson);
         var provider = new OpenAiCompatibleAdvancedAnalysisProvider(
             factory,
@@ -123,6 +124,8 @@ public sealed class LiveAdvancedAnalysisCriticReplayTests(ITestOutputHelper outp
                     endedAtUtc = DateTimeOffset.UtcNow,
                     fixturePath,
                     fixtureSha256 = Sha256(fixtureBytes),
+                    capturedPlannerSha256 = fixture.Source.PlannerCompletionSha256,
+                    replayPlannerSha256 = Sha256(replayPlannerJson),
                     request.JobId,
                     syntheticPlannerCalls = factory.SyntheticPlannerCalls,
                     syntheticWriterCalls = factory.SyntheticWriterCalls,
@@ -177,6 +180,20 @@ public sealed class LiveAdvancedAnalysisCriticReplayTests(ITestOutputHelper outp
             },
             [],
             []);
+
+    private static string BuildReplayPlannerJson()
+        => JsonSerializer.Serialize(new
+        {
+            selectionMode = "distinct_named_items",
+            queries = new[]
+            {
+                new { query = "a851 replay candidats génériques", topK = 60 },
+                new { query = "a851 replay recettes petit-déjeuner", topK = 60 },
+                new { query = "a851 replay recettes déjeuner", topK = 60 },
+                new { query = "a851 replay recettes collation", topK = 60 },
+                new { query = "a851 replay recettes souper", topK = 60 }
+            }
+        }, JsonOptions);
 
     private static IReadOnlyList<AdvancedAnalysisResolvedEvidence> BuildEvidence(
         IReadOnlyList<FixtureEvidence> fixtureEvidence)
@@ -241,13 +258,22 @@ public sealed class LiveAdvancedAnalysisCriticReplayTests(ITestOutputHelper outp
     private static string Sha256(byte[] value)
         => Convert.ToHexString(SHA256.HashData(value)).ToLowerInvariant();
 
-    private sealed class ReplayEvidenceGateway(
-        IReadOnlyList<AdvancedAnalysisResolvedEvidence> sourceEvidence)
-        : IAdvancedAnalysisToolGateway
+    private sealed class ReplayEvidenceGateway : IAdvancedAnalysisToolGateway
     {
+        private readonly IReadOnlyList<AdvancedAnalysisResolvedEvidence> _sourceEvidence;
+        private readonly IReadOnlyList<FixtureEvidence> _fixtureEvidence;
         private readonly List<AdvancedAnalysisResolvedEvidence> _evidence = [];
         public IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence => _evidence;
         public List<AdvancedAnalysisSearchRequest> Searches { get; } = [];
+
+        public ReplayEvidenceGateway(
+            IReadOnlyList<AdvancedAnalysisResolvedEvidence> sourceEvidence,
+            IReadOnlyList<FixtureEvidence> fixtureEvidence)
+        {
+            _sourceEvidence = sourceEvidence;
+            _fixtureEvidence = fixtureEvidence;
+            Assert.Equal(_sourceEvidence.Count, _fixtureEvidence.Count);
+        }
 
         public Task<AdvancedAnalysisSearchObservation> SearchAsync(
             AdvancedAnalysisSearchRequest request,
@@ -255,7 +281,21 @@ public sealed class LiveAdvancedAnalysisCriticReplayTests(ITestOutputHelper outp
         {
             cancellationToken.ThrowIfCancellationRequested();
             Searches.Add(request);
-            foreach (var item in sourceEvidence)
+            var requestedColumn = request.Query switch
+            {
+                "a851 replay recettes petit-déjeuner" => "Petit-déjeuner",
+                "a851 replay recettes déjeuner" => "Déjeuner",
+                "a851 replay recettes collation" => "Collation",
+                "a851 replay recettes souper" => "Souper",
+                _ => string.Empty
+            };
+            var found = _sourceEvidence.Where((_, index) =>
+                requestedColumn.Length == 0
+                    ? _fixtureEvidence[index].TargetColumns.Count == 0
+                    : _fixtureEvidence[index].TargetColumns.Contains(
+                        requestedColumn,
+                        StringComparer.OrdinalIgnoreCase)).ToArray();
+            foreach (var item in found)
             {
                 if (_evidence.All(existing => existing.Reference.EvidenceId
                     != item.Reference.EvidenceId))
@@ -265,7 +305,7 @@ public sealed class LiveAdvancedAnalysisCriticReplayTests(ITestOutputHelper outp
             }
             return Task.FromResult(new AdvancedAnalysisSearchObservation(
                 request.Query,
-                sourceEvidence,
+                found,
                 [],
                 1,
                 Searches.Count));
@@ -421,6 +461,7 @@ public sealed class LiveAdvancedAnalysisCriticReplayTests(ITestOutputHelper outp
         public string EvidenceKind { get; init; } = string.Empty;
         public string? CandidateTitle { get; init; }
         public string Content { get; init; } = string.Empty;
+        public List<string> TargetColumns { get; init; } = [];
         public int PhysicalPageStart { get; init; }
         public int PhysicalPageEnd { get; init; }
         public FixtureSourceOverview? SourceOverview { get; init; }

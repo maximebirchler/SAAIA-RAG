@@ -58,3 +58,27 @@ Le produit reste `TESTE_NON_APPROUVE`, quel que soit le résultat d'un replay
 unique. Le solde restant après A851 sera attribué seulement après diagnostic du
 résultat, à une correction ciblée ou à une mesure complémentaire qui puisse
 changer une décision d'architecture.
+
+## Amendement après le replay R1
+
+Le replay R1 a révélé une différence de contexte avant d'atteindre le Critic.
+Le gateway synthétique renvoyait les 53 preuves pour chacune des huit requêtes
+Planner. Chaque preuve portait donc huit libellés `retrievedFor`, ce qui a gonflé
+le contexte et évincé cinq références citées. Le garde de liaison a demandé une
+correction Writer. Cet appel live a coûté 0,087758 USD et a répondu
+`insufficient_documentation`. Le Critic n'a pas été appelé : sa réservation a
+ensuite été refusée par le plafond R1 de 0,20 USD. Ce résultat ne mesure donc
+pas la qualité du Critic.
+
+R2 conserve exactement les 53 preuves et le candidat Writer scellé, mais remplace
+le Planner capturé par cinq requêtes synthétiques sans coût : une pour les
+preuves génériques et une par colonne du planning. Chaque preuve n'est renvoyée
+que pour ses `targetColumns` capturées ; les preuves sans cible passent par la
+requête générique. Cette construction préserve toutes les preuves tout en
+évitant l'inflation artificielle des métadonnées. Elle isole le Critic sans
+modifier son prompt, son modèle ni le contrat de sortie.
+
+Le registre est à 39,507758 USD après R1. R2 est plafonné à 0,28 USD, avec au
+plus un Critic et sa réparation de protocole. Le plafond cumulé local devient
+39,787758 USD, ce qui reste inférieur aux 40 USD achetés et au solde fournisseur
+estimé après R1. Aucun achat ni recharge automatique.
