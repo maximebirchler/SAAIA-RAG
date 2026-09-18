@@ -58,7 +58,8 @@ public sealed class LiveAdvancedAnalysisCriticReplayTests(ITestOutputHelper outp
             LlmTimeoutSeconds = 600,
             LlmMaximumHttpAttempts = 1,
             PlannerMaxTokens = 512,
-            WriterMaxTokens = 8_192,
+            WriterMaxTokens = RequireInt(
+                "SAAIA_ADVANCED_CRITIC_REPLAY_WRITER_MAX_TOKENS"),
             SemanticCriticEnabled = true,
             CriticMaxTokens = RequireInt(
                 "SAAIA_ADVANCED_CRITIC_REPLAY_MAX_TOKENS"),

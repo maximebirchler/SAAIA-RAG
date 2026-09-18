@@ -18,3 +18,14 @@ distincts, les vingt coordonnées et aucune liaison rejetée. La revue sémantiq
 compare ensuite les placements au candidat A817 déjà audité. Aucun succès ne
 transforme ce replay connu en preuve de navigation autonome ou d'acceptation
 produit. Aucune recharge ni achat n'est autorisé ; `TESTE_NON_APPROUVE` demeure.
+
+## Addendum avant la troisième répétition
+
+La première tentative de troisième répétition a été arrêtée avant réseau par
+`advanced_external_budget_job_cost_limit`. Le plafond Writer historique de
+8 192 jetons réservait inutilement le pire cas alors que le Writer est
+synthétique dans ce replay et que son JSON capturé tient sous 4 096 jetons.
+Le harness rend donc aussi ce plafond explicite et le fixe à 4 096 pour A854-R3,
+sans modifier le candidat fourni ni le plafond Critic. Le reliquat reste plafonné
+à 0,122869 USD. Cette correction permet de tester le Critic sans contourner sa
+propre réservation et sans déclencher d'appel Writer payant.
