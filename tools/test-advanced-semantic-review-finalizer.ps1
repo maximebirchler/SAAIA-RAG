@@ -29,6 +29,8 @@ function New-ReviewFixture {
         [switch]$MissingReason,
         [switch]$UnknownJob,
         [switch]$DiagnosticManifest,
+        [switch]$CandidateExplorerManifest,
+        [switch]$InvalidCandidateExplorerIntegrity,
         [int]$UnresolvedEvidence = 0
     )
     $directory = Join-Path $ArtifactDirectory $Name
@@ -92,6 +94,22 @@ function New-ReviewFixture {
         }
         productStatus = "TESTE_NON_APPROUVE"
     }
+    if ($CandidateExplorerManifest) {
+        $manifest["candidateExplorerEnabled"] = $true
+        $manifest["candidateExplorerEvidenceIntegrityVerdict"] = if (
+            $InvalidCandidateExplorerIntegrity) {
+            "REJECT_PRIVATE_EVIDENCE_INTEGRITY"
+        } else {
+            "PASS_PRIVATE_EVIDENCE_INTEGRITY_REQUIRES_SEMANTIC_REVIEW"
+        }
+        $manifest["candidateExplorerEvidenceAssessmentSha256"] = "A" * 64
+        $manifest["privateCandidateExplorerReviewSha256"] = "B" * 64
+        $manifest["candidateExplorerAuditedJobs"] = 2
+        $manifest["candidateExplorerAuditedResearchCheckpoints"] = 2
+        $manifest["candidateExplorerAuditedToolEvents"] = 2
+        $manifest["candidateExplorerProviderTraces"] = 6
+        $manifest["candidateExplorerRequiresSemanticCritic"] = $true
+    }
     Write-JsonFile (Join-Path $directory "manifest.public.json") $manifest
     return $directory
 }
@@ -151,6 +169,37 @@ Add-TestResult "diagnostic rows produce a non-approving public verdict" `
      -not [bool]$diagnosticAssessment.approvalEligible -and
      $diagnosticAssessment.productStatus -eq "TESTE_NON_APPROUVE") `
     ([string]$diagnosticAssessment.verdict)
+
+$candidateExplorer = New-ReviewFixture `
+    "candidate-explorer" `
+    @("PASS_SEMANTIC", "PASS_SEMANTIC") `
+    -CandidateExplorerManifest
+& $finalizer -ReviewArtifactDirectory $candidateExplorer | Out-Null
+$candidateExplorerAssessment = Get-Content -LiteralPath `
+    (Join-Path $candidateExplorer "semantic-assessment.public.json") -Raw |
+    ConvertFrom-Json
+Add-TestResult "integrity-checked Candidate Explorer review can be finalized" `
+    ($candidateExplorerAssessment.verdict -eq
+        "ACCEPT_SEMANTIC_ALL_REGISTERED_REPETITIONS") `
+    ([string]$candidateExplorerAssessment.verdict)
+
+$invalidCandidateExplorer = New-ReviewFixture `
+    "candidate-explorer-invalid" `
+    @("PASS_SEMANTIC", "PASS_SEMANTIC") `
+    -CandidateExplorerManifest `
+    -InvalidCandidateExplorerIntegrity
+$invalidCandidateExplorerRejected = $false
+try {
+    & $finalizer -ReviewArtifactDirectory $invalidCandidateExplorer | Out-Null
+}
+catch {
+    $invalidCandidateExplorerRejected = $true
+}
+Add-TestResult "Candidate Explorer review without positive integrity is refused" `
+    ($invalidCandidateExplorerRejected -and
+     -not (Test-Path -LiteralPath (Join-Path $invalidCandidateExplorer `
+        "semantic-assessment.public.json"))) `
+    "rejected=$invalidCandidateExplorerRejected"
 
 $results | Format-Table -AutoSize | Out-String | Write-Output
 $failed = @($results | Where-Object { -not $_.passed })

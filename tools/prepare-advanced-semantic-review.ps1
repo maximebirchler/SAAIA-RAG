@@ -383,6 +383,10 @@ $manifest = [ordered]@{
         if ($candidateExplorerEnabled) {
             [int]$candidateExplorerEvidenceAssessment.auditedJobs
         } else { 0 })
+    candidateExplorerAuditedResearchCheckpoints = $(
+        if ($candidateExplorerEnabled) {
+            [int]$candidateExplorerEvidenceAssessment.auditedResearchCheckpoints
+        } else { 0 })
     candidateExplorerAuditedToolEvents = $(
         if ($candidateExplorerEnabled) {
             [int]$candidateExplorerEvidenceAssessment.auditedToolEvents
@@ -391,6 +395,10 @@ $manifest = [ordered]@{
         if ($candidateExplorerEnabled) {
             [int]$candidateExplorerEvidenceAssessment.providerTraces
         } else { 0 })
+    candidateExplorerRequiresSemanticCritic = $(
+        if ($candidateExplorerEnabled) {
+            [bool]$candidateExplorerEvidenceAssessment.requireSemanticCritic
+        } else { $false })
     unresolvedEvidence = $unresolvedEvidence
     privateBundleSha256 = (Get-FileHash -LiteralPath $bundlePath -Algorithm SHA256).Hash
     privateReviewSha256 = (Get-FileHash -LiteralPath $reviewPath -Algorithm SHA256).Hash

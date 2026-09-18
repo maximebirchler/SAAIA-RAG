@@ -79,6 +79,30 @@ if ((Get-FileSha256 $bundlePath) -ne [string]$manifest.privateBundleSha256 -or
     (Get-FileSha256 $reviewPath) -ne [string]$manifest.privateReviewSha256) {
     throw "The private evidence or review text changed after packet preparation."
 }
+$candidateExplorerEnabled = $null -ne $manifest.PSObject.Properties[
+    "candidateExplorerEnabled"] -and
+    [bool]$manifest.candidateExplorerEnabled
+if ($candidateExplorerEnabled) {
+    $expectedCandidateExplorerJobs = [int]$manifest.expectedRows
+    $minimumCandidateExplorerTraces = $expectedCandidateExplorerJobs * $(
+        if ([bool]$manifest.candidateExplorerRequiresSemanticCritic) { 3 } else { 2 })
+    if ([string]$manifest.candidateExplorerEvidenceIntegrityVerdict -ne
+            "PASS_PRIVATE_EVIDENCE_INTEGRITY_REQUIRES_SEMANTIC_REVIEW" -or
+        [string]::IsNullOrWhiteSpace(
+            [string]$manifest.candidateExplorerEvidenceAssessmentSha256) -or
+        [string]::IsNullOrWhiteSpace(
+            [string]$manifest.privateCandidateExplorerReviewSha256) -or
+        [int]$manifest.candidateExplorerAuditedJobs -ne
+            $expectedCandidateExplorerJobs -or
+        [int]$manifest.candidateExplorerAuditedResearchCheckpoints -ne
+            $expectedCandidateExplorerJobs -or
+        [int]$manifest.candidateExplorerAuditedToolEvents -lt
+            $expectedCandidateExplorerJobs -or
+        [int]$manifest.candidateExplorerProviderTraces -lt
+            $minimumCandidateExplorerTraces) {
+        throw "Candidate Explorer evidence is not eligible for a semantic decision."
+    }
+}
 
 $repositoryCommit = (& git -C $repositoryRoot rev-parse HEAD 2>$null).Trim()
 $trackedDirty = @(& git -C $repositoryRoot status --porcelain --untracked-files=no 2>$null).Count -gt 0

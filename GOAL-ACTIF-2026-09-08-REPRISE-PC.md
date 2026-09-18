@@ -265,6 +265,15 @@ fonctionnelle DEV, une location GPU/RunPod le benchmark d'un modèle ouvert et
 le serveur client la cible avancée on-premise. Licence et installateurs restent
 différés jusqu'à la qualification du modèle et du dimensionnement. Voir la
 section J de documents/agent/llm-provider-architecture-v1.md.
+A866 ferme la chaîne de preuve au niveau de la décision humaine. Le préparateur
+publie désormais le nombre de checkpoints et l'obligation du Critic ; le
+finaliseur refuse une décision Candidate Explorer sans verdict A863 positif,
+empreintes non vides, nombres exacts de jobs/checkpoints, événements d'outils et
+minimum de traces correspondant à Explorer, Writer et au Critic. Neuf contrôles
+du finaliseur réussissent, dont l'acceptation d'un paquet intègre et le refus du
+même paquet avec verdict d'intégrité négatif. Aucun appel payant ni changement
+.NET. Voir
+documents/agent/garde-decision-semantique-explorer-a866-2026-09-18.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.
