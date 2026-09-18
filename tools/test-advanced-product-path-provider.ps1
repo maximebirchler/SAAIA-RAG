@@ -344,8 +344,20 @@ if (Test-Path -LiteralPath $ArtifactDirectory) {
     throw "Artifact directory already exists: $ArtifactDirectory"
 }
 New-Item -ItemType Directory -Path $ArtifactDirectory | Out-Null
+if ([string]::IsNullOrWhiteSpace($DevelopmentTraceDirectory) -and
+    $EnableNativeCandidateExplorer) {
+    $DevelopmentTraceDirectory = Join-Path $ArtifactDirectory "private-traces"
+}
+if (-not [string]::IsNullOrWhiteSpace($DevelopmentTraceDirectory)) {
+    $DevelopmentTraceDirectory = [System.IO.Path]::GetFullPath(
+        $DevelopmentTraceDirectory)
+}
 $advancedOwnerIdsPath = Join-Path $ArtifactDirectory "advanced-validation-owner-ids.jsonl"
 [IO.File]::WriteAllText($advancedOwnerIdsPath, "", [Text.UTF8Encoding]::new($false))
+$advancedAuditPath = Join-Path $ArtifactDirectory "private-advanced-job-audit.json"
+$developmentTraceManifestPath = Join-Path `
+    $ArtifactDirectory `
+    "private-development-traces-manifest.json"
 
 $serverEnvironment = Read-EnvFile -Path $ServerEnvPath
 $postgresDatabase = Require-EnvValue $serverEnvironment "POSTGRES_DB"
@@ -627,6 +639,13 @@ try {
         maximumCallsPerJob = $MaximumCallsPerJob
         advancedValidationOwnerIdsPath = $advancedOwnerIdsPath
         ownerIdentityRecordedBeforeJobCreation = $true
+        privateAdvancedJobAuditPlanned = $true
+        privateDevelopmentTraceManifestPlanned = [bool]$EnableNativeCandidateExplorer
+        developmentTraceEnabled = -not [string]::IsNullOrWhiteSpace(
+            $DevelopmentTraceDirectory)
+        developmentTraceDirectory = $DevelopmentTraceDirectory
+        developmentTraceContainsPrivateData = -not [string]::IsNullOrWhiteSpace(
+            $DevelopmentTraceDirectory)
         reasoningEffort = $ReasoningEffort
         synthesisReasoningEffort = $SynthesisReasoningEffort
         synthesisPromptStyle = $SynthesisPromptStyle
@@ -704,6 +723,37 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Advanced product-path mechanical assessment failed with exit code $LASTEXITCODE."
     }
+    if ($EnableNativeCandidateExplorer) {
+        if ([string]::IsNullOrWhiteSpace($DevelopmentTraceDirectory) -or
+            -not (Test-Path -LiteralPath $DevelopmentTraceDirectory -PathType Container)) {
+            throw "Candidate Explorer development trace directory was not created."
+        }
+        $developmentTraceFiles = @(
+            Get-ChildItem -LiteralPath $DevelopmentTraceDirectory -File -Recurse |
+                Sort-Object FullName)
+        if ($developmentTraceFiles.Count -eq 0) {
+            throw "Candidate Explorer completed without a provider development trace."
+        }
+        $developmentTraceEntries = @($developmentTraceFiles | ForEach-Object {
+            [ordered]@{
+                relativePath = [IO.Path]::GetRelativePath(
+                    $DevelopmentTraceDirectory,
+                    $_.FullName)
+                lengthBytes = $_.Length
+                sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
+            }
+        })
+        [ordered]@{
+            schemaVersion = "saaia-private-development-trace-manifest-v1"
+            capturedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
+            containsPrivateCorpusMetadata = $true
+            mustNotCommit = $true
+            traceDirectory = $DevelopmentTraceDirectory
+            traceCount = $developmentTraceEntries.Count
+            traces = $developmentTraceEntries
+        } | ConvertTo-Json -Depth 6 |
+            Set-Content -LiteralPath $developmentTraceManifestPath -Encoding utf8
+    }
     Stop-OwnedProcess -Process $backendProcess
     $referenceCorpusSealAfter = Get-SaaiaReferenceCorpusSeal `
         -ReferenceBackendUrl $ReferenceBackendUrl `
@@ -736,6 +786,7 @@ finally {
             -- `
             --owner-ids-path $advancedOwnerIdsPath `
             --output $jobGuardAfterPath `
+            --audit-output $advancedAuditPath `
             --cancel 2>&1
         $jobGuardAfterOutput |
             Set-Content -LiteralPath (Join-Path $ArtifactDirectory "advanced-job-guard-after.log") -Encoding utf8
@@ -746,6 +797,16 @@ finally {
             ConvertFrom-Json
         if ([int]$advancedJobGuardAfter.remainingNonterminalCount -ne 0) {
             throw "Nonterminal jobs remain for recorded owners after the validation campaign."
+        }
+        if (-not [bool]$advancedJobGuardAfter.privateAuditCaptured -or
+            -not (Test-Path -LiteralPath $advancedAuditPath -PathType Leaf)) {
+            throw "Private advanced validation job audit was not captured."
+        }
+        if ($campaignCompleted -and $EnableNativeCandidateExplorer -and
+            ([int]$advancedJobGuardAfter.auditedJobCount -lt 1 -or
+             [int]$advancedJobGuardAfter.auditedToolEventCount -lt 1 -or
+             [int]$advancedJobGuardAfter.auditedResearchCheckpointCount -lt 1)) {
+            throw "Candidate Explorer completed without durable job, checkpoint, and tool-event audit evidence."
         }
     }
     catch {
@@ -828,7 +889,34 @@ finally {
         advancedValidationJobsRemainingAfterRun = $(
             if ($null -eq $advancedJobGuardAfter) { $null }
             else { [int]$advancedJobGuardAfter.remainingNonterminalCount })
+        advancedValidationResearchCheckpointsAudited = $(
+            if ($null -eq $advancedJobGuardAfter) { $null }
+            else { [int]$advancedJobGuardAfter.auditedResearchCheckpointCount })
         advancedValidationJobGuardError = $advancedJobGuardError
+        privateAdvancedJobAuditCaptured = Test-Path -LiteralPath $advancedAuditPath -PathType Leaf
+        privateAdvancedJobAuditSha256 = $(
+            if (Test-Path -LiteralPath $advancedAuditPath -PathType Leaf) {
+                (Get-FileHash -LiteralPath $advancedAuditPath -Algorithm SHA256).Hash
+            } else { $null })
+        privateDevelopmentTraceManifestCaptured = Test-Path `
+            -LiteralPath $developmentTraceManifestPath `
+            -PathType Leaf
+        privateDevelopmentTraceManifestSha256 = $(
+            if (Test-Path -LiteralPath $developmentTraceManifestPath -PathType Leaf) {
+                (Get-FileHash `
+                    -LiteralPath $developmentTraceManifestPath `
+                    -Algorithm SHA256).Hash
+            } else { $null })
+        privateDevelopmentTraceFileCount = $(
+            if ([string]::IsNullOrWhiteSpace($DevelopmentTraceDirectory) -or
+                -not (Test-Path -LiteralPath $DevelopmentTraceDirectory -PathType Container)) {
+                0
+            } else {
+                @(Get-ChildItem `
+                    -LiteralPath $DevelopmentTraceDirectory `
+                    -File `
+                    -Recurse).Count
+            })
         productStatus = "TESTE_NON_APPROUVE"
     } | ConvertTo-Json -Depth 8 |
         Set-Content -LiteralPath (Join-Path $ArtifactDirectory "resource-shutdown.json") -Encoding utf8

@@ -489,6 +489,88 @@ public sealed class AdvancedAnalysisEndpointsTests
     }
 
     [Fact]
+    public async Task Validation_job_audit_exports_only_recorded_owners_with_checkpoint_and_tool_events()
+    {
+        await using var database = await PostgresIntegrationDb.CreateAsync();
+        if (database is null) return;
+        await using var dataSource = NpgsqlDataSource.Create(database.ConnectionString);
+        var tenant = Guid.NewGuid();
+        var owner = Guid.NewGuid().ToString("D");
+        var unrelatedOwner = Guid.NewGuid().ToString("D");
+        var jobId = Guid.NewGuid();
+        var unrelatedJobId = Guid.NewGuid();
+
+        foreach (var item in new[]
+                 {
+                     (Owner: owner, JobId: jobId),
+                     (Owner: unrelatedOwner, JobId: unrelatedJobId)
+                 })
+        {
+            var session = Guid.NewGuid();
+            await SeedSessionAsync(dataSource, tenant, session, item.Owner);
+            await using var seed = await dataSource.OpenConnectionAsync();
+            await seed.ExecuteAsync("""
+                INSERT INTO advanced_analysis_jobs(
+                  job_id,tenant_id,user_id,session_id,handoff_id,schema_version,
+                  status,handoff,result,research_checkpoint,tool_event_count,
+                  provider_key,provider_model,finished_at,expires_at)
+                VALUES(
+                  @job_id,@tenant,@owner,@session,@handoff_id,
+                  'saaia.advanced-analysis-handoff.v1','succeeded',
+                  '{"load":{"answerUnitCount":20}}'::jsonb,
+                  '{"outcome":"answered"}'::jsonb,
+                  '{"schemaVersion":"checkpoint-v1","candidates":[{"exactTitle":"R1","status":"body_verified","bodyEvidenceIds":["E1"]}]}'::jsonb,
+                  @tool_event_count,'openai-dev','gpt-5.6-terra',now(),
+                  now()+interval '1 day');
+                """, new
+            {
+                job_id = item.JobId,
+                tenant,
+                owner = item.Owner,
+                session,
+                handoff_id = Guid.NewGuid(),
+                tool_event_count = item.JobId == jobId ? 1 : 0
+            });
+        }
+
+        await using (var seed = await dataSource.OpenConnectionAsync())
+        {
+            await seed.ExecuteAsync("""
+                INSERT INTO advanced_analysis_tool_events(
+                  tenant_id,job_id,event_sequence,attempt_count,worker_id,
+                  tool_name,status,request,evidence_references,
+                  degraded_retrievers,elapsed_milliseconds)
+                VALUES(
+                  @tenant,@job_id,1,1,'validation-worker',
+                  'source_backed_canonical_search','succeeded',
+                  '{"query":"R1"}'::jsonb,
+                  '[{"evidenceId":"E1"}]'::jsonb,
+                  ARRAY[]::text[],17);
+                """, new { tenant, job_id = jobId });
+        }
+
+        await using var connection = await dataSource.OpenConnectionAsync();
+        var audit = await ValidationJobGuardRunner.ReadAuditAsync(
+            connection,
+            [owner]);
+
+        var job = Assert.Single(audit.Jobs);
+        Assert.Equal(jobId, job.JobId);
+        Assert.Equal("answered", job.Result!.Value.GetProperty("outcome").GetString());
+        Assert.Equal(20, job.Handoff.GetProperty("load")
+            .GetProperty("answerUnitCount").GetInt32());
+        Assert.Equal("checkpoint-v1", job.ResearchCheckpoint!.Value
+            .GetProperty("schemaVersion").GetString());
+        var toolEvent = Assert.Single(job.ToolEvents);
+        Assert.Equal("R1", toolEvent.Request.GetProperty("query").GetString());
+        Assert.Equal("E1", toolEvent.EvidenceReferences[0]
+            .GetProperty("evidenceId").GetString());
+        Assert.Equal(1, audit.ToolEventCount);
+        Assert.Equal(1, audit.ResearchCheckpointCount);
+        Assert.DoesNotContain(audit.Jobs, item => item.JobId == unrelatedJobId);
+    }
+
+    [Fact]
     public void Durable_job_migration_is_last_and_contains_the_isolation_constraints()
     {
         var migrationsDirectory = Path.GetFullPath(Path.Combine(

@@ -12,6 +12,44 @@ public sealed record ValidationJobGuardResult(IReadOnlyList<string> UserIds,
     public bool EmptyOwnerScope => UserIds.Count == 0;
 }
 
+public sealed record OwnedValidationToolEventAudit(
+    int EventSequence,
+    int AttemptCount,
+    string ToolName,
+    string Status,
+    JsonElement Request,
+    JsonElement EvidenceReferences,
+    IReadOnlyList<string> DegradedRetrievers,
+    long ElapsedMilliseconds,
+    string? ErrorCode,
+    DateTimeOffset CreatedAtUtc);
+
+public sealed record OwnedValidationJobAudit(
+    Guid JobId,
+    Guid TenantId,
+    string UserId,
+    string Status,
+    int AttemptCount,
+    string? ProviderKey,
+    string? ProviderModel,
+    string? LastErrorCode,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? FinishedAtUtc,
+    JsonElement Handoff,
+    JsonElement? Result,
+    JsonElement? ResearchCheckpoint,
+    int ToolEventCount,
+    IReadOnlyList<OwnedValidationToolEventAudit> ToolEvents);
+
+public sealed record ValidationJobAuditResult(
+    IReadOnlyList<string> UserIds,
+    IReadOnlyList<OwnedValidationJobAudit> Jobs)
+{
+    public bool EmptyOwnerScope => UserIds.Count == 0;
+    public int ToolEventCount => Jobs.Sum(job => job.ToolEvents.Count);
+    public int ResearchCheckpointCount => Jobs.Count(job => job.ResearchCheckpoint.HasValue);
+}
+
 public static class ValidationJobGuardRunner
 {
     public static string[] ReadOwnerManifest(string path)
@@ -66,6 +104,147 @@ public static class ValidationJobGuardRunner
         return new(owners, observed, canceled, remaining);
     }
 
+    public static async Task<ValidationJobAuditResult> ReadAuditAsync(
+        NpgsqlConnection connection,
+        IReadOnlyList<string> userIds)
+    {
+        var owners = userIds.Distinct(StringComparer.Ordinal).ToArray();
+        if (owners.Any(owner =>
+                !Guid.TryParseExact(owner, "D", out var id) || id == Guid.Empty))
+        {
+            throw new InvalidOperationException(
+                "Validation job audit requires recorded non-empty GUID owners.");
+        }
+        if (owners.Length == 0)
+            return new(owners, []);
+
+        await using var transaction = await connection.BeginTransactionAsync();
+        await using (var readOnly = new NpgsqlCommand(
+                         "SET TRANSACTION READ ONLY",
+                         connection,
+                         transaction))
+        {
+            await readOnly.ExecuteNonQueryAsync();
+        }
+
+        const string jobsSql = """
+            SELECT job_id, tenant_id, user_id, status, attempt_count,
+                   provider_key, provider_model, last_error_code,
+                   created_at, finished_at, handoff::text, result::text,
+                   research_checkpoint::text, tool_event_count
+            FROM advanced_analysis_jobs
+            WHERE user_id=ANY(@user_ids)
+            ORDER BY created_at, job_id
+            LIMIT 1001;
+            """;
+        var jobRows = new List<AuditJobRow>();
+        await using (var command = new NpgsqlCommand(jobsSql, connection, transaction))
+        {
+            command.Parameters.AddWithValue("user_ids", owners);
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                jobRows.Add(new AuditJobRow(
+                    reader.GetGuid(0),
+                    reader.GetGuid(1),
+                    reader.GetString(2),
+                    reader.GetString(3),
+                    reader.GetInt32(4),
+                    reader.IsDBNull(5) ? null : reader.GetString(5),
+                    reader.IsDBNull(6) ? null : reader.GetString(6),
+                    reader.IsDBNull(7) ? null : reader.GetString(7),
+                    reader.GetFieldValue<DateTimeOffset>(8),
+                    reader.IsDBNull(9)
+                        ? null
+                        : reader.GetFieldValue<DateTimeOffset>(9),
+                    reader.GetString(10),
+                    reader.IsDBNull(11) ? null : reader.GetString(11),
+                    reader.IsDBNull(12) ? null : reader.GetString(12),
+                    reader.GetInt32(13)));
+            }
+        }
+        if (jobRows.Count > 1000)
+            throw new InvalidOperationException(
+                "Validation job audit exceeds its job bound.");
+
+        var events = new Dictionary<Guid, List<OwnedValidationToolEventAudit>>();
+        var jobIds = jobRows.Select(row => row.JobId).ToArray();
+        if (jobIds.Length > 0)
+        {
+            const string eventsSql = """
+                SELECT job_id, event_sequence, attempt_count, tool_name, status,
+                       request::text, evidence_references::text,
+                       degraded_retrievers, elapsed_milliseconds, error_code,
+                       created_at
+                FROM advanced_analysis_tool_events
+                WHERE job_id=ANY(@job_ids)
+                ORDER BY job_id, event_sequence
+                LIMIT 32769;
+                """;
+            var eventCount = 0;
+            await using var command = new NpgsqlCommand(
+                eventsSql,
+                connection,
+                transaction);
+            command.Parameters.AddWithValue("job_ids", jobIds);
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                if (++eventCount > 32768)
+                    throw new InvalidOperationException(
+                        "Validation job audit exceeds its tool-event bound.");
+                var jobId = reader.GetGuid(0);
+                if (!events.TryGetValue(jobId, out var jobEvents))
+                {
+                    jobEvents = [];
+                    events.Add(jobId, jobEvents);
+                }
+                jobEvents.Add(new OwnedValidationToolEventAudit(
+                    reader.GetInt32(1),
+                    reader.GetInt32(2),
+                    reader.GetString(3),
+                    reader.GetString(4),
+                    ParseJson(reader.GetString(5)),
+                    ParseJson(reader.GetString(6)),
+                    reader.GetFieldValue<string[]>(7),
+                    reader.GetInt64(8),
+                    reader.IsDBNull(9) ? null : reader.GetString(9),
+                    reader.GetFieldValue<DateTimeOffset>(10)));
+            }
+        }
+
+        await transaction.CommitAsync();
+        return new ValidationJobAuditResult(
+            owners,
+            jobRows.Select(row => new OwnedValidationJobAudit(
+                row.JobId,
+                row.TenantId,
+                row.UserId,
+                row.Status,
+                row.AttemptCount,
+                row.ProviderKey,
+                row.ProviderModel,
+                row.LastErrorCode,
+                row.CreatedAtUtc,
+                row.FinishedAtUtc,
+                ParseJson(row.HandoffJson),
+                ParseOptionalJson(row.ResultJson),
+                ParseOptionalJson(row.ResearchCheckpointJson),
+                row.ToolEventCount,
+                events.TryGetValue(row.JobId, out var jobEvents)
+                    ? jobEvents
+                    : [])).ToArray());
+    }
+
+    private static JsonElement ParseJson(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.Clone();
+    }
+
+    private static JsonElement? ParseOptionalJson(string? json)
+        => string.IsNullOrWhiteSpace(json) ? null : ParseJson(json);
+
     private static async Task<List<OwnedValidationJob>> ReadAsync(NpgsqlConnection connection,
         NpgsqlTransaction transaction, string[] owners, bool lockRows)
     {
@@ -83,4 +262,20 @@ public static class ValidationJobGuardRunner
         while (await reader.ReadAsync()) jobs.Add(new(reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4), reader.GetFieldValue<DateTimeOffset>(5), reader.IsDBNull(6) ? null : reader.GetString(6), reader.IsDBNull(7) ? null : reader.GetString(7), reader.IsDBNull(8) ? null : reader.GetString(8)));
         return jobs;
     }
+
+    private sealed record AuditJobRow(
+        Guid JobId,
+        Guid TenantId,
+        string UserId,
+        string Status,
+        int AttemptCount,
+        string? ProviderKey,
+        string? ProviderModel,
+        string? LastErrorCode,
+        DateTimeOffset CreatedAtUtc,
+        DateTimeOffset? FinishedAtUtc,
+        string HandoffJson,
+        string? ResultJson,
+        string? ResearchCheckpointJson,
+        int ToolEventCount);
 }

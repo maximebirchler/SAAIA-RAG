@@ -209,6 +209,24 @@ duré 14 min 32 s. Aucun appel payant. Ce palier prépare la mesure, mais ne val
 pas encore la découverte autonome. Voir
 documents/agent/preflight-pilote-explorer-a861-2026-09-18.md et
 config/openai-terra-candidate-explorer-pilot.a861.json.
+A862 rend ce pilote causalement auditable avant toute nouvelle dépense. Les
+traces fournisseur sont automatiquement dirigées vers un répertoire privé ; un
+manifeste en conserve les tailles et SHA-256. Le garde PostgreSQL exporte, en
+lecture seule et uniquement pour les propriétaires GUID enregistrés, le
+handoff, le résultat, le checkpoint de recherche et les événements d'outils. Le
+postflight refuse une réussite Explorer sans trace, job, checkpoint et événement
+durables. Les exports sont bornés, marqués comme contenant des métadonnées de
+corpus privées et interdits de commit. Un préflight négatif refuse aussi un
+profil Explorer qui ne déclare pas ces preuves. Le premier smoke test réel a
+détecté l'absence locale de la migration 068 ; un démarrage contrôlé du backend
+a appliqué les migrations, après quoi la CLI a produit un audit vide isolé et
+une empreinte vérifiée. État final : 15 tests d'endpoints avancés, 299 tests
+provider et 2 459 tests backend réussis, zéro échec, trois live ignorés ; la
+suite complète PostgreSQL a duré 14 min 47 s. Aucun appel payant. Le registre
+reste à 39,9943606 USD sur 40 USD et le pilote
+`PREREGISTERED_BUDGET_BLOCKED`; A862 améliore la preuve du futur essai sans
+valider Terra. Voir
+documents/agent/audit-prive-pilote-explorer-a862-2026-09-18.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

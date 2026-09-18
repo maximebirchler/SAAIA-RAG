@@ -65,6 +65,12 @@
     "artifactRoot": "artifacts/reprise-pc-20260908/a861-candidate-explorer-pilot",
     "artifactDirectoryRule": "Create a fresh directory containing the exact execution commit and UTC timestamp; never overwrite an earlier pilot."
   },
+  "evidenceCapture": {
+    "developmentTracesRequired": true,
+    "durableJobAuditRequired": true,
+    "containsPrivateCorpusMetadata": true,
+    "mustNotCommit": true
+  },
   "budget": {
     "authorizedLifetimeUsd": 40.0,
     "softLimitUsd": 39.9943606,

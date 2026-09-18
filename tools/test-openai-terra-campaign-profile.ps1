@@ -177,6 +177,14 @@ $registeredRecordedCostUsd = Get-OptionalProfileValue `
     $profile.budget `
     "recordedCostAtRegistrationUsd" `
     $null
+$evidenceCapture = Get-OptionalProfileValue $profile "evidenceCapture" $null
+$developmentTracesRequired = $null -ne $evidenceCapture -and
+    [bool](Get-OptionalProfileValue $evidenceCapture "developmentTracesRequired" $false)
+$durableJobAuditRequired = $null -ne $evidenceCapture -and
+    [bool](Get-OptionalProfileValue $evidenceCapture "durableJobAuditRequired" $false)
+$privateCaptureDeclared = $null -ne $evidenceCapture -and
+    [bool](Get-OptionalProfileValue $evidenceCapture "containsPrivateCorpusMetadata" $false) -and
+    [bool](Get-OptionalProfileValue $evidenceCapture "mustNotCommit" $false)
 $campaignKind = if ($null -eq $profile.PSObject.Properties["campaignKind"]) {
     "final-acceptance"
 } else {
@@ -257,6 +265,12 @@ if ($nativeCandidateExplorerEnabled -and
      [int]$profile.budget.maximumCallsPerJob -lt $minimumExplorerCalls)) {
     $blockingReasons += "candidate_explorer_profile_invalid"
 }
+if ($nativeCandidateExplorerEnabled -and
+    (-not $developmentTracesRequired -or
+     -not $durableJobAuditRequired -or
+     -not $privateCaptureDeclared)) {
+    $blockingReasons += "candidate_explorer_evidence_capture_invalid"
+}
 if (($campaignKind -eq "final-acceptance" -and $caseIds.Count -ne 4) -or
     ($campaignKind -eq "targeted-causal" -and
         ($caseIds.Count -lt 1 -or $caseIds.Count -gt 4)) -or
@@ -314,6 +328,9 @@ $preflight = [ordered]@{
     hardStopUsd = $hardStopUsd
     budgetHeadroomUsd = $budgetHeadroomUsd
     minimumFirstCallReservationUsd = $minimumFirstCallReservationUsd
+    developmentTracesRequired = $developmentTracesRequired
+    durableJobAuditRequired = $durableJobAuditRequired
+    privateCaptureDeclared = $privateCaptureDeclared
     semanticCriticEnabled = $semanticCriticEnabled
     criticMaxTokens = $criticMaxTokens
     writerMaxTokens = $writerMaxTokens
