@@ -77,7 +77,8 @@ public sealed class LiveAdvancedAnalysisCriticReplayTests(ITestOutputHelper outp
                 "SAAIA_ADVANCED_CRITIC_REPLAY_HARD_LIMIT_USD"),
             ExternalMaximumCostPerJobUsd = RequireDecimal(
                 "SAAIA_ADVANCED_CRITIC_REPLAY_MAXIMUM_COST_USD"),
-            ExternalMaximumCallsPerJob = 4,
+            ExternalMaximumCallsPerJob = RequireInt(
+                "SAAIA_ADVANCED_CRITIC_REPLAY_MAXIMUM_CALLS"),
             ExternalInputUsdPerMillionTokens = 2m,
             ExternalCachedInputUsdPerMillionTokens = 0.20m,
             ExternalOutputUsdPerMillionTokens = 12m,
@@ -145,8 +146,10 @@ public sealed class LiveAdvancedAnalysisCriticReplayTests(ITestOutputHelper outp
         Assert.NotNull(result);
         Assert.Equal(1, factory.SyntheticPlannerCalls);
         Assert.Equal(1, factory.SyntheticWriterCalls);
-        Assert.InRange(factory.LiveProviderCalls, 1, 2);
-        Assert.InRange(result.ProviderCallCount, 3, 4);
+        Assert.InRange(factory.LiveProviderCalls, 1,
+            Math.Max(1, options.ExternalMaximumCallsPerJob - 2));
+        Assert.InRange(result.ProviderCallCount, 3,
+            options.ExternalMaximumCallsPerJob);
         Assert.False(string.IsNullOrWhiteSpace(result.AnswerText));
         output.WriteLine("Artifact: " + artifactDirectory);
     }
@@ -250,6 +253,10 @@ public sealed class LiveAdvancedAnalysisCriticReplayTests(ITestOutputHelper outp
 
     private static decimal RequireDecimal(string name)
         => decimal.Parse(Require(name), NumberStyles.Number,
+            CultureInfo.InvariantCulture);
+
+    private static int RequireInt(string name)
+        => int.Parse(Require(name), NumberStyles.Integer,
             CultureInfo.InvariantCulture);
 
     private static string Sha256(string value)

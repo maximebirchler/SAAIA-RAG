@@ -87,6 +87,23 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            associations or continue research when useful. Return your own
            supported terminal result, not an approval label or a reformatted
            copy of the prior candidate.
+           Suitability is a separate test from documentary identity. Do not keep
+           an item in a requested slot merely because it is a documented recipe,
+           procedure or object. Determine whether it can ordinarily fulfill that
+           slot as a standalone choice. For meal planning, a sauce, coulis,
+           condiment, topping or accompaniment is not a standalone meal or snack
+           unless the evidence says it is served that way; a dessert is not an
+           ordinary breakfast merely because it is edible. Audit starters, side
+           dishes and light components by the same rule. First try reassigning
+           the already supported distinct candidates across coordinates. If an
+           incompatible placement cannot be replaced, return the smallest honest
+           insufficiency. A failed replacement search is never a reason to repeat
+           the incompatible placement.
+           Preserve substantive body citations while correcting the result. For
+           every named selection, retain or add at least one current evidence ID
+           whose content establishes that item's body or useful content; never
+           simplify a supported claim to an index, contents entry or title-only
+           citation when substantive current evidence is available.
            For an insufficient candidate, reassess whether current substantive
            evidence and the retained candidate list can already be assembled into
            the requested result. Do not accept a numerical shortage inferred from

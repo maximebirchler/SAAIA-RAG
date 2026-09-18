@@ -23,6 +23,19 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal("read_source",gateway.Searches[1].Operation);
         Assert.Equal(source.Reference.RevisionId,Assert.Single(gateway.Evidence).Reference.RevisionId);
         Assert.Equal("E1",Assert.Single(result.Claims).EvidenceIds[0]);
+        using var criticRequest = System.Text.Json.JsonDocument.Parse(
+            factory.Requests[^1].Body);
+        var messages = criticRequest.RootElement.GetProperty(
+            protocol == "responses" ? "input" : "messages");
+        var criticSystemPrompt = messages[0].GetProperty("content").GetString()!;
+        Assert.Contains("a sauce, coulis,", criticSystemPrompt,
+            StringComparison.Ordinal);
+        Assert.Contains("a dessert is not an", criticSystemPrompt,
+            StringComparison.Ordinal);
+        Assert.Contains("Preserve substantive body citations", criticSystemPrompt,
+            StringComparison.Ordinal);
+        Assert.Contains("failed replacement search", criticSystemPrompt,
+            StringComparison.Ordinal);
     }
 
     [Fact]

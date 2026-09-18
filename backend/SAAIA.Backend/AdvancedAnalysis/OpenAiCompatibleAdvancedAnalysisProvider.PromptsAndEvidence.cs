@@ -550,6 +550,22 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            so a clearly suitable item may be reassigned, but generic headings,
            metadata labels and obviously incompatible items must be replaced from
            the supplied evidence set.
+           Suitability is separate from documentary identity. Do not keep an item
+           in a requested slot merely because it is documented. Determine whether
+           it can ordinarily fulfill that slot as a standalone choice. For meal
+           planning, a sauce, coulis, condiment, topping or accompaniment is not
+           a standalone meal or snack unless the evidence says it is served that
+           way; a dessert is not an ordinary breakfast merely because it is
+           edible. Audit starters, side dishes and light components by the same
+           rule. First try reassigning supported distinct candidates across
+           coordinates. If no compatible replacement is supported, return the
+           smallest honest insufficiency. A failed replacement search is never a
+           reason to repeat an incompatible placement.
+           Preserve substantive body citations while correcting the result. For
+           every named selection, retain or add at least one current evidence ID
+           whose content establishes that item's body or useful content; never
+           simplify a supported claim to an index, contents entry or title-only
+           citation when substantive current evidence is available.
            When the user asks what a source itself assigns, classifies or prescribes,
            the relationship is factual and must be explicit in the evidence. For an incomplete required
            deliverable, use insufficient_documentation, preserve supported examples,
