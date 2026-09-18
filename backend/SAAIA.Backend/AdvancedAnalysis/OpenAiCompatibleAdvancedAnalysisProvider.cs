@@ -227,6 +227,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 priorSearches, previouslyExecuted, evidenceGroups, retrievalQueriesByEvidenceId);
             synthesisResearch.FocusSearches.AddRange(priorSearches
                 .Where(IsSourceScopedResearch).TakeLast(20));
+            if (CandidateExplorerEnabled(request))
+            {
+                await RunCandidateExplorerAsync(
+                        request,
+                        runSemanticCritic,
+                        synthesisResearch,
+                        completions,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
             var writerRound = await CompleteWithCorpusResearchAsync(
                     request,
                     "writer",
@@ -568,6 +578,22 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             throw new AdvancedAnalysisProviderException("advanced_native_research_topology_invalid");
         if (_options.NativeResearchToolsEnabled && _options.NativeResearchMaximumHistoryCharacters is < 16_384 or > 65_536)
             throw new AdvancedAnalysisProviderException("advanced_native_tool_history_budget_invalid");
+        if (_options.CandidateExplorerReservePerRole is < 0 or > 8)
+            throw new AdvancedAnalysisProviderException(
+                "advanced_candidate_explorer_reserve_invalid");
+        if (_options.NativeCandidateExplorerEnabled
+            && (!_options.AdaptiveResearchEnabled
+                || !_options.NativeResearchToolsEnabled
+                || !_options.NativeResearchWorkspaceEnabled
+                || _options.NativeResearchTopology != "agent"
+                || _options.NativeResearchMaximumHistoryCharacters < 32_768))
+            throw new AdvancedAnalysisProviderException(
+                "advanced_candidate_explorer_configuration_invalid");
+        if (_options.NativeCandidateExplorerEnabled
+            && _options.ExternalMaximumCallsPerJob
+            < (_options.SemanticCriticEnabled ? 4 : 3))
+            throw new AdvancedAnalysisProviderException(
+                "advanced_candidate_explorer_call_budget_invalid");
         var provider = NormalizeProvider(_options.Provider);
         var location = NormalizeLocation(_options.LlmLocation);
         if (location is not ("internal" or "external-service"))

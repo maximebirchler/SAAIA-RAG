@@ -162,6 +162,22 @@ complète exécutée avant le dernier contrôle négatif compte 2 449 réussites
 contrôle PostgreSQL ciblé. Aucun appel payant. L'Explorer séparé, le replay
 complet A817, le pilote live et WinUI restent à établir. Voir
 documents/agent/reprise-durable-inventaire-a858-2026-09-18.md.
+A859 sépare une phase Candidate Explorer du Writer pour les grilles structurées
+de candidats nommés. L'Explorer conserve les corps vérifiés, mesure le minimum
+global et par rôle, vise deux réserves par rôle, et ne peut plus annoncer une
+borne tant que recherche et appels restent disponibles. Le Writer reçoit un
+dossier `ready` ou `bounded_gap`, puis le Critic. Les indices de colonne issus
+du retrieval ne sont plus transformés en jugement d'adéquation : seul le modèle
+ou la sélection finale attribue les rôles. Le replay local du dossier A817 fait
+passer vingt candidats et vingt-trois références par Explorer, Writer et Critic,
+sans recopier les contenus privés dans Git ; il valide le transport connu, pas
+la découverte autonome. Ce replay a révélé l'ancien plafond natif de 8 192
+caractères, incompatible avec vingt candidats ; la borne suit maintenant le
+budget d'historique et le mode Explorer exige 32 768. Le runner produit expose
+l'option et ses gardes. État final : 297 contrôles provider et 2 456 tests
+backend réussis, zéro échec, trois live ignorés ; aucun appel payant. L'option
+reste désactivée par défaut jusqu'au pilote live. Voir
+documents/agent/explorer-separe-et-replay-a817-a859-2026-09-18.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

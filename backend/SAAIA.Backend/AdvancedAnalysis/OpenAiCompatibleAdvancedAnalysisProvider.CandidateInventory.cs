@@ -351,13 +351,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     item.SourceKey + "\n" + NormalizeClaimText(item.ExactTitle),
                     identity,
                     StringComparison.OrdinalIgnoreCase));
-            var roles = evidence.TargetColumns
-                .Select(target => request.Handoff.Load.Columns.FirstOrDefault(column =>
-                    string.Equals(column, target, StringComparison.OrdinalIgnoreCase)))
-                .Where(static target => target is not null)
-                .Cast<string>()
-                .Distinct(StringComparer.Ordinal)
-                .ToArray();
+            // Retrieval target columns describe why an excerpt was fetched; they
+            // do not establish that the named candidate is semantically suitable
+            // for those roles. Only the model's inventory update or final Writer
+            // selection may add target roles.
+            IReadOnlyList<string> roles = [];
             var navigation = string.Equals(
                 evidence.ContentRole,
                 RetrievalContentClassifier.NavigationRole,
@@ -417,7 +415,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             .ToArray();
     }
 
-    private static object BuildCandidateInventoryForPrompt(
+    private object BuildCandidateInventoryForPrompt(
         AdvancedAnalysisProviderRequest request,
         IReadOnlyList<CandidateInventoryItem> inventory,
         IReadOnlyList<PromptEvidenceItem> observations)
@@ -429,6 +427,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         {
             targetRole = column,
             requiredCount = request.Handoff.Load.RowCount,
+            reserveTargetCount = Math.Min(
+                64,
+                request.Handoff.Load.RowCount
+                + Math.Clamp(_options.CandidateExplorerReservePerRole, 0, 8)),
             bodyVerifiedCount = inventory.Count(item =>
                 (item.Status is "body_verified" or "selected")
                 && item.TargetRoles.Contains(column, StringComparer.Ordinal)
@@ -443,6 +445,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             updateMode = "upsert",
             items = inventory,
             coverage,
+            requiredDistinctCount = request.Handoff.Load.AnswerUnitCount,
+            bodyVerifiedDistinctCount = inventory.Count(item =>
+                (item.Status is "body_verified" or "selected")
+                && item.BodyEvidenceIds.Count > 0),
             currentVisibleEvidenceIds = inventory
                 .SelectMany(item => item.LocatorEvidenceIds.Concat(item.BodyEvidenceIds))
                 .Distinct(StringComparer.Ordinal)

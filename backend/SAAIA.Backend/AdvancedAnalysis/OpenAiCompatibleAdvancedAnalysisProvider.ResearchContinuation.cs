@@ -19,6 +19,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         public IReadOnlyList<CandidateInventoryItem> CandidateInventory { get; set; } = [];
         public Dictionary<string, string> PromptSourceKeys { get; } = new(StringComparer.Ordinal);
         public bool CandidateInventoryCheckpointLoaded { get; set; }
+        public CandidateExplorerDossier? CandidateExplorerDossier { get; set; }
         public IReadOnlyList<string> ActiveProposalEvidenceIds { get; set; } = [];
         public int ActiveProposalOmittedEvidenceCount { get; set; }
         public AdvancedAnalysisResearchResourceLimit? ResourceLimit { get; set; }
@@ -159,7 +160,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         int reservedFinalCalls,
         SynthesisResearchContext context,
         List<CompletionResult> completions,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool candidateExplorer = false)
     {
         var maximumCalls = Math.Clamp(_options.ExternalMaximumCallsPerJob, 1, 1_024);
         var followup = 0;
@@ -250,6 +252,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                             context.CandidateInventory,
                             observations),
                         JsonOptions);
+                if (!candidateExplorer && context.CandidateExplorerDossier is not null)
+                    payload["candidateDossier"] = JsonSerializer.SerializeToNode(
+                        context.CandidateExplorerDossier,
+                        JsonOptions);
                 if (_options.AdaptiveResearchEnabled)
                     payload["researchTools"] = JsonSerializer.SerializeToNode(new
                 {
@@ -293,6 +299,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     ? BuildNativeToolTurnMessages(context.NativeTurn, observations, UsesNativeResponses) : null).ConfigureAwait(false);
             if (!RequestsCorpusResearch(completion.Content))
             {
+                if (candidateExplorer)
+                    return new SynthesisCompletion(completion, evidence, observations);
                 if (_options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
                     RememberActiveProposalEvidence(completion.Content, evidence, observations, request, context);
                 var corrections = FindCandidateBindingCorrections(completion.Content, evidence, observations, request);

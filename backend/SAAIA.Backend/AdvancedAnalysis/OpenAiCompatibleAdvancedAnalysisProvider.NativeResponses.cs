@@ -51,7 +51,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         return new(Number(usage, "input_tokens"), Number(usage, "output_tokens"), cached, writes);
     }
 
-    private static (string? Content, string? CallsJson, string? OutputItemsJson, string Origin, string? Error)
+    private (string? Content, string? CallsJson, string? OutputItemsJson, string Origin, string? Error)
         ReadNativeResponsesCompletion(JsonElement root, string userPrompt, bool toolsAvailable)
     {
         if (ReadString(root, "status") == "incomplete")

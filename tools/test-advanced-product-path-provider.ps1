@@ -45,6 +45,9 @@ param(
     [ValidateRange(16384, 65536)]
     [int]$NativeResearchMaximumHistoryCharacters = 16384,
     [switch]$EnableNativeResearchWorkspace,
+    [switch]$EnableNativeCandidateExplorer,
+    [ValidateRange(0, 8)]
+    [int]$CandidateExplorerReservePerRole = 2,
     [switch]$EnableNativeResearchActiveProposal,
     [switch]$EnableCandidateBindingFeedback,
     [ValidateRange(512, 16384)]
@@ -271,6 +274,15 @@ if ($MaximumCallsPerJob -le 0 -or
     $MaximumCostPerJobUsd -gt $HardLimitUsd) {
     throw "The external provider budget envelope is invalid."
 }
+$minimumExplorerCalls = if ($EnableSemanticCritic) { 4 } else { 3 }
+if ($EnableNativeCandidateExplorer -and
+    (-not $EnableNativeResearchTools -or
+     -not $EnableNativeResearchWorkspace -or
+     $NativeResearchTopology -ne "agent" -or
+     $NativeResearchMaximumHistoryCharacters -lt 32768 -or
+     $MaximumCallsPerJob -lt $minimumExplorerCalls)) {
+    throw "Candidate Explorer requires native agent tools, the research workspace, at least 32768 history characters and enough calls reserved for Writer/Critic."
+}
 $ledgerSlug = ($providerMode + "-" + $ModelId) -replace '[^a-zA-Z0-9._-]', '-'
 $usageLedgerPath = if ($Provider -eq "OpenAI" -and
     -not [string]::IsNullOrWhiteSpace($env:SAAIA_OPENAI_USAGE_LEDGER_PATH)) {
@@ -493,6 +505,8 @@ try {
             NativeResearchTopology = $NativeResearchTopology
             NativeResearchMaximumHistoryCharacters = $NativeResearchMaximumHistoryCharacters
             NativeResearchWorkspaceEnabled = [bool]$EnableNativeResearchWorkspace
+            NativeCandidateExplorerEnabled = [bool]$EnableNativeCandidateExplorer
+            CandidateExplorerReservePerRole = $CandidateExplorerReservePerRole
             NativeResearchActiveProposalEnabled = [bool]$EnableNativeResearchActiveProposal
             CandidateBindingFeedbackEnabled = [bool]$EnableCandidateBindingFeedback
             SemanticCriticEnabled = [bool]$EnableSemanticCritic
@@ -617,6 +631,8 @@ try {
         nativeResearchTopology = $NativeResearchTopology
         nativeResearchMaximumHistoryCharacters = $NativeResearchMaximumHistoryCharacters
         nativeResearchWorkspaceEnabled = [bool]$EnableNativeResearchWorkspace
+        nativeCandidateExplorerEnabled = [bool]$EnableNativeCandidateExplorer
+        candidateExplorerReservePerRole = $CandidateExplorerReservePerRole
         nativeResearchActiveProposalEnabled = [bool]$EnableNativeResearchActiveProposal
         candidateBindingFeedbackEnabled = [bool]$EnableCandidateBindingFeedback
         writerMaxTokens = $WriterMaxTokens

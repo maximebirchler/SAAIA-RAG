@@ -77,12 +77,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         return functions.ToArray();
     }
 
-    private static string NormalizeNativeResearchCalls(JsonElement calls, string userPrompt)
+    private string NormalizeNativeResearchCalls(JsonElement calls, string userPrompt)
     {
         using var prompt = JsonDocument.Parse(userPrompt);
         var maximum = prompt.RootElement.GetProperty("researchTools").GetProperty("maximumQueries").GetInt32();
         if (calls.ValueKind != JsonValueKind.Array || calls.GetArrayLength() < 1
-            || calls.GetArrayLength() > maximum || calls.GetRawText().Length > 8_192)
+            || calls.GetArrayLength() > maximum
+            || calls.GetRawText().Length > _options.NativeResearchMaximumHistoryCharacters)
             throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
         var ids = new HashSet<string>(StringComparer.Ordinal);
         var queries = new JsonArray();

@@ -82,6 +82,8 @@
     "CriticMaxTokens": 4096,
     "MaximumPlanQueries": 8,
     "AdaptiveResearchEnabled": true,
+    "NativeCandidateExplorerEnabled": false,
+    "CandidateExplorerReservePerRole": 2,
     "MaximumEvidencePromptCharacters": 14000,
     "ExternalBudgetAuthorizedUsd": 25.0,
     "ExternalBudgetSoftLimitUsd": 20.0,
