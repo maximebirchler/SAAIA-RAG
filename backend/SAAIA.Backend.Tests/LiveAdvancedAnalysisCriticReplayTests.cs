@@ -60,7 +60,8 @@ public sealed class LiveAdvancedAnalysisCriticReplayTests(ITestOutputHelper outp
             PlannerMaxTokens = 512,
             WriterMaxTokens = 8_192,
             SemanticCriticEnabled = true,
-            CriticMaxTokens = 8_192,
+            CriticMaxTokens = RequireInt(
+                "SAAIA_ADVANCED_CRITIC_REPLAY_MAX_TOKENS"),
             MaximumPlanQueries = 8,
             AdaptiveResearchEnabled = true,
             NativeResearchToolsEnabled = true,
