@@ -10,7 +10,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyDictionary<string, AdvancedAnalysisSearchObservation> Results,
         AdvancedAnalysisResearchArgumentFeedback? Rejection = null,
         string? ResponseOutputItemsJson = null,
-        bool WorkspaceStored = false);
+        bool WorkspaceStored = false,
+        bool CandidateInventoryStored = false);
 
     private const string NativeResearchContract = """
         If further documentary facts are needed and research is allowed, choose
@@ -68,6 +69,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         if (root.GetProperty("evidence").GetArrayLength() > 0 && root.TryGetProperty("researchWorkspace", out var workspace)
             && workspace.TryGetProperty("enabled", out var enabled) && enabled.ValueKind == JsonValueKind.True)
             functions.Add(BuildResearchWorkspaceFunction(root));
+        if (root.GetProperty("evidence").GetArrayLength() > 0
+            && root.TryGetProperty("candidateInventory", out var inventory)
+            && inventory.TryGetProperty("enabled", out var inventoryEnabled)
+            && inventoryEnabled.ValueKind == JsonValueKind.True)
+            functions.Add(BuildCandidateInventoryFunction(root));
         return functions.ToArray();
     }
 
@@ -81,6 +87,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var ids = new HashSet<string>(StringComparer.Ordinal);
         var queries = new JsonArray();
         JsonNode? state = null;
+        JsonNode? candidateInventoryUpdates = null;
         foreach (var call in calls.EnumerateArray())
         {
             var id = ReadString(call, "id");
@@ -94,6 +101,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 using var value = JsonDocument.Parse(ReadString(function, "arguments"));
                 var items = ParseResearchWorkspace(value.RootElement, prompt.RootElement);
                 state = JsonSerializer.SerializeToNode(new { items }, JsonOptions);
+                continue;
+            }
+            if (name == "save_candidate_inventory")
+            {
+                if (candidateInventoryUpdates is not null)
+                    throw new AdvancedAnalysisProviderException(
+                        "advanced_native_candidate_inventory_invalid");
+                using var value = JsonDocument.Parse(ReadString(function, "arguments"));
+                var items = ParseCandidateInventoryUpdates(value.RootElement, prompt.RootElement);
+                candidateInventoryUpdates = JsonSerializer.SerializeToNode(new { items }, JsonOptions);
                 continue;
             }
             string[] properties = name switch
@@ -117,6 +134,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         }
         var normalized = new JsonObject { ["outcome"] = "research_required", ["queries"] = queries };
         if (state is not null) normalized["researchState"] = state;
+        if (candidateInventoryUpdates is not null)
+            normalized["candidateInventoryUpdates"] = candidateInventoryUpdates;
         return normalized.ToJsonString(JsonOptions);
     }
 
@@ -145,6 +164,27 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     argumentFeedback = turn.Rejection, instruction = "Research memory only; it establishes no documentary facts. See current user.researchWorkspace and user.evidence." }, JsonOptions);
                 messages.Add(responses ? new { type = "function_call_output", call_id = ReadString(call, "id"), output }
                     : (object)new { role = "tool", tool_call_id = ReadString(call, "id"), content = output });
+                continue;
+            }
+            if (ReadString(call.GetProperty("function"), "name") == "save_candidate_inventory")
+            {
+                var output = JsonSerializer.Serialize(new
+                {
+                    status = turn.Rejection is not null
+                        ? "batch_rejected_before_execution"
+                        : turn.CandidateInventoryStored ? "stored" : "not_changed",
+                    operation = "save_candidate_inventory",
+                    argumentFeedback = turn.Rejection,
+                    instruction = "Operational candidate memory only; it establishes no documentary facts. See current user.candidateInventory and user.evidence."
+                }, JsonOptions);
+                messages.Add(responses
+                    ? new { type = "function_call_output", call_id = ReadString(call, "id"), output }
+                    : (object)new
+                    {
+                        role = "tool",
+                        tool_call_id = ReadString(call, "id"),
+                        content = output
+                    });
                 continue;
             }
             var request = turn.Requests?.ElementAtOrDefault(index++);

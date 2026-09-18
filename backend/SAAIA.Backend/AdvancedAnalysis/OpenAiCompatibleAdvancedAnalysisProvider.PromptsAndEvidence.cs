@@ -845,6 +845,19 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
         IReadOnlyDictionary<string, HashSet<string>> retrievalQueriesByEvidenceId,
         IReadOnlyList<AdvancedAnalysisResolvedEvidence>? focusedEvidence = null)
+        => BuildPromptEvidenceWithPersistentSourceKeys(
+            request,
+            evidence,
+            retrievalQueriesByEvidenceId,
+            focusedEvidence,
+            persistentSourceKeys: null);
+
+    private IReadOnlyList<PromptEvidenceItem> BuildPromptEvidenceWithPersistentSourceKeys(
+        AdvancedAnalysisProviderRequest request,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
+        IReadOnlyDictionary<string, HashSet<string>> retrievalQueriesByEvidenceId,
+        IReadOnlyList<AdvancedAnalysisResolvedEvidence>? focusedEvidence,
+        IDictionary<string, string>? persistentSourceKeys)
     {
         var configuredMaximum = Math.Clamp(
             _options.MaximumEvidencePromptCharacters,
@@ -868,7 +881,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             : (int)Math.Max(configuredMaximum, structuredMinimum);
         remaining -= 2; // The serialized evidence array brackets consume the same budget.
         var promptEvidence = new List<PromptEvidenceItem>();
-        var sourceKeys = new Dictionary<string, string>(StringComparer.Ordinal);
+        var sourceKeys = persistentSourceKeys
+            ?? new Dictionary<string, string>(StringComparer.Ordinal);
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> prioritizedEvidence =
             PrioritizeCollectionEvidenceForPrompt(
             request.Handoff.Load,

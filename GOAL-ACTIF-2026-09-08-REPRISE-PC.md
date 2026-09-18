@@ -131,6 +131,23 @@ ignorés ; `git diff --check` passe. Le produit et le Goal restent
 `TESTE_NON_APPROUVE`. Voir
 documents/agent/controle-campagne-critic-et-eclaireur-a851-a856-2026-09-18.md
 et documents/agent/proposition-suite-apres-terra-a857-2026-09-18.md.
+A857 implémente ensuite la première fondation hors réseau de l'inventaire typé
+de candidats dans le contexte natif Writer/Critic. Les titres exacts structurés
+sont retenus automatiquement ; les titres reconnus par le modèle dans un corps
+visible peuvent être sauvegardés par un outil strict. Localisateurs et corps,
+rôles envisagés et rôles finalement sélectionnés restent distincts. Les clés
+opaques de source sont maintenant stables pendant toute l'exécution, et les
+choix du Writer sont projetés mécaniquement vers l'inventaire vu par le Critic.
+Un replay de forme A855 conserve Porridge, Pancakes et Scones au travers de trois
+focus sans métadonnée de titre ; l'audit des traces originales confirme zéro
+`candidateTitle` exact pour ces trois choix et six EvidenceId dont la clé source
+dérivait entre prompts. Les deux protocoles natifs, l'upsert, les bornes, le
+refus atomique et les transitions sont couverts par 289 tests provider réussis ;
+la suite backend compte 2 447 réussites, zéro échec et trois live ignorés.
+Cette fondation reste interne au contexte d'une exécution : phase Explorer
+séparée, reprise durable, replay complet A817, pilote live, 3/3 end-to-end et
+WinUI restent à établir. Aucun appel payant n'a été exécuté. Voir
+documents/agent/inventaire-candidats-a857-2026-09-18.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

@@ -22,6 +22,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            useful prior items when replacing that workspace. A save may accompany
            other research in the same batch. Its references help preserve canonical
            excerpts within the existing budget, but memory itself proves nothing.
+           For a structured named-item collection, use the offered candidate
+           inventory as an upsert log: retain exact observed titles across focus
+           changes, separate navigation locators from substantive body evidence,
+           and advance each item from discovery to body verification or rejection.
+           Omitted inventory items remain stored. Treat its per-role coverage as
+           an operational gap count, not proof that the corpus lacks other items.
            Choose bounded research batches that address missing requested units or
            purposes. Avoid repeatedly reading sufficiently supported candidates
            merely to recount them. Try assembling the verified choices across all

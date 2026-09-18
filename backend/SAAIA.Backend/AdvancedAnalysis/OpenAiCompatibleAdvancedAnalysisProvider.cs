@@ -281,6 +281,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 request,
                 parsed,
                 promptEvidence);
+            RememberSelectedCandidates(request, parsed, promptEvidence, synthesisResearch);
             string? synthesisRecoveryErrorCode = null;
             if (!runSemanticCritic
                 && ShouldAttemptSynthesisRecovery(

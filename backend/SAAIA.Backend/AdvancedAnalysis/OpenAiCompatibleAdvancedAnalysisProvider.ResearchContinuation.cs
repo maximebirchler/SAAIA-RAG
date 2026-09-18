@@ -16,6 +16,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         public List<AdvancedAnalysisSearchRequest> FocusSearches { get; } = [];
         public NativeResearchTurn? NativeTurn { get; set; }
         public IReadOnlyList<ResearchWorkspaceItem> Workspace { get; set; } = [];
+        public IReadOnlyList<CandidateInventoryItem> CandidateInventory { get; set; } = [];
+        public Dictionary<string, string> PromptSourceKeys { get; } = new(StringComparer.Ordinal);
         public IReadOnlyList<string> ActiveProposalEvidenceIds { get; set; } = [];
         public int ActiveProposalOmittedEvidenceCount { get; set; }
         public AdvancedAnalysisResearchResourceLimit? ResourceLimit { get; set; }
@@ -179,10 +181,23 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 context.RetrievalQueriesByEvidenceId, context.FocusSearches);
             if (_options.NativeResearchToolsEnabled && _options.NativeResearchWorkspaceEnabled)
                 focusedEvidence = PrioritizeResearchWorkspace(evidence, context.Workspace, focusedEvidence);
+            if (_options.NativeResearchToolsEnabled && _options.NativeResearchWorkspaceEnabled
+                && CandidateInventoryEnabled(request))
+                focusedEvidence = PrioritizeCandidateInventoryEvidence(
+                    evidence,
+                    context.CandidateInventory,
+                    focusedEvidence);
             if (_options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
                 focusedEvidence = PrioritizeActiveProposalEvidence(evidence, context.ActiveProposalEvidenceIds, focusedEvidence);
-            var observations = BuildPromptEvidence(request, evidence, context.RetrievalQueriesByEvidenceId,
-                focusedEvidence);
+            var observations = BuildPromptEvidenceWithPersistentSourceKeys(
+                request, evidence, context.RetrievalQueriesByEvidenceId,
+                focusedEvidence, context.PromptSourceKeys);
+            if (_options.NativeResearchToolsEnabled && _options.NativeResearchWorkspaceEnabled
+                && CandidateInventoryEnabled(request))
+                context.CandidateInventory = ObserveCandidateInventory(
+                    request,
+                    context.CandidateInventory,
+                    observations);
             var userPrompt = buildUserPrompt(observations);
             if (_options.AdaptiveResearchEnabled || candidateSupportFeedback is not null || argumentFeedback is not null
                 || _options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
@@ -205,6 +220,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                             .Where(id => observations.Any(e => e.EvidenceId == id)).ToArray(),
                         instruction = "Your bounded operational workspace, not proof. When researchTools.researchAllowed is true, you may use save_research_state to retain chosen items, purposes, decisions and gaps before changing research focus. Only current evidence excerpts support facts. Choose further research yourself; absence from this view or memory does not demonstrate corpus absence."
                     }, JsonOptions);
+                if (_options.NativeResearchToolsEnabled && _options.NativeResearchWorkspaceEnabled
+                    && CandidateInventoryEnabled(request))
+                    payload["candidateInventory"] = JsonSerializer.SerializeToNode(
+                        BuildCandidateInventoryForPrompt(
+                            request,
+                            context.CandidateInventory,
+                            observations),
+                        JsonOptions);
                 if (_options.AdaptiveResearchEnabled)
                     payload["researchTools"] = JsonSerializer.SerializeToNode(new
                 {
@@ -281,6 +304,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
             IReadOnlyList<AdvancedAnalysisSearchRequest> queries;
             IReadOnlyList<ResearchWorkspaceItem>? workspaceUpdate = null;
+            IReadOnlyList<CandidateInventoryItem>? candidateInventoryUpdates = null;
+            IReadOnlyList<CandidateInventoryItem>? mergedCandidateInventory = null;
             try
             {
                 using var document = JsonDocument.Parse(UnwrapJson(completion.Content));
@@ -290,8 +315,24 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     using var current = JsonDocument.Parse(userPrompt);
                     workspaceUpdate = ParseResearchWorkspace(state, current.RootElement);
                 }
+                if (document.RootElement.TryGetProperty(
+                        "candidateInventoryUpdates",
+                        out var candidateUpdates))
+                {
+                    if (completion.NativeToolCallsJson is null) throw new JsonException();
+                    using var current = JsonDocument.Parse(userPrompt);
+                    candidateInventoryUpdates = ParseCandidateInventoryUpdates(
+                        candidateUpdates,
+                        current.RootElement);
+                    mergedCandidateInventory = MergeCandidateInventory(
+                        context.CandidateInventory,
+                        candidateInventoryUpdates);
+                }
                 if (!document.RootElement.TryGetProperty("queries", out var values)
-                    || values.ValueKind != JsonValueKind.Array || values.GetArrayLength() == 0 && workspaceUpdate is null)
+                    || values.ValueKind != JsonValueKind.Array
+                    || values.GetArrayLength() == 0
+                    && workspaceUpdate is null
+                    && candidateInventoryUpdates is null)
                     throw new JsonException();
                 queries = values.GetArrayLength() == 0 ? [] : ParseResearchReview(JsonSerializer.Serialize(new
                 {
@@ -319,10 +360,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             argumentFeedback = null;
             var workspaceChanged = workspaceUpdate is not null
                 && JsonSerializer.Serialize(workspaceUpdate, JsonOptions) != JsonSerializer.Serialize(context.Workspace, JsonOptions);
+            var candidateInventoryChanged = mergedCandidateInventory is not null
+                && JsonSerializer.Serialize(mergedCandidateInventory, JsonOptions)
+                != JsonSerializer.Serialize(context.CandidateInventory, JsonOptions);
             var rememberedFocus = RememberFocusedSearches(context.FocusSearches, queries);
             context.FocusSearches.Clear();
             context.FocusSearches.AddRange(rememberedFocus);
-            if (!workspaceChanged && !queries.Any(query => !context.PreviouslyExecuted.Contains(BuildSearchIdentity(query))))
+            if (!workspaceChanged && !candidateInventoryChanged
+                && !queries.Any(query => !context.PreviouslyExecuted.Contains(BuildSearchIdentity(query))))
             {
                 if (++noProgressRecovery > 1)
                     throw new AdvancedAnalysisProviderException("advanced_synthesis_research_no_progress");
@@ -341,9 +386,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 cancellationToken, nativeResults, allowResourceLimitFeedback: true).ConfigureAwait(false);
             context.ResourceLimit ??= resourceLimit;
             if (workspaceUpdate is not null) context.Workspace = workspaceUpdate;
+            if (mergedCandidateInventory is not null)
+                context.CandidateInventory = mergedCandidateInventory;
             if (completion.NativeToolCallsJson is { } executedCalls)
                 context.NativeTurn = new(executedCalls, queries, nativeResults!, ResponseOutputItemsJson: completion.NativeResponseOutputJson,
-                    WorkspaceStored: workspaceChanged);
+                    WorkspaceStored: workspaceChanged,
+                    CandidateInventoryStored: candidateInventoryChanged);
             followup++;
             nextPhase = $"{phase}-research-followup-{followup}";
         }
