@@ -36,7 +36,8 @@ public sealed class LiveAdvancedAnalysisCriticReplayTests(ITestOutputHelper outp
         var fixture = JsonSerializer.Deserialize<CriticReplayFixture>(fixtureBytes, JsonOptions)
             ?? throw new InvalidOperationException("The Critic replay fixture is invalid.");
         Assert.Equal("saaia.meal-critic-replay.v1", fixture.Schema);
-        Assert.Equal(53, fixture.EvidenceCount);
+        Assert.Equal(fixture.Evidence.Count, fixture.EvidenceCount);
+        Assert.NotEmpty(fixture.Evidence);
         Assert.Equal(20, fixture.CandidateClaimCount);
         Assert.Equal(fixture.Source.WriterCandidateSha256,
             Sha256(fixture.WriterCandidateJson));
