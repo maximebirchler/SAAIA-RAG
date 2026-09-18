@@ -109,6 +109,28 @@ Critic en trois appels simulés. La suite backend compte 2 436 réussites, zéro
 39,24170860 USD / 40, reste calculé 0,75829140 USD. Le planning A849 reste
 rejeté et le produit `TESTE_NON_APPROUVE`. Voir
 documents/agent/controle-faux-navigation-corps-procedural-a850-2026-09-16.md.
+La campagne A851–A856 isole ensuite le goulot. A852 durcit le Critic de façon
+généraliste : il rejette `Charlotte` au petit-déjeuner et un coulis comme
+collation autonome, sans inventer de remplacements. Le candidat A817 avec ses
+vingt choix et vingt-trois preuves de corps est accepté trois fois sur trois par
+le Critic dans A853/A854, avec le même ordre, les mêmes choix distincts et le
+même ensemble de preuves. Cette preuve valide le Critic sur candidat connu, pas
+la navigation autonome. A855, exécuté end-to-end sur une seule colonne, trouve
+trois petits-déjeuners correctement prouvés puis déclare une insuffisance après
+un seul tour de recherche, alors que les extractions A813/A817 démontrent
+d'autres corps disponibles. A856 confirme que Terra propose bien des recherches
+de sommaires et de familles de plats pour déjeuner, collation et souper, mais ne
+transforme pas encore ces découvertes en inventaire persistant de titres exacts
+et de corps vérifiés. Le prochain palier A857 introduit cet inventaire entre
+Explorer et Writer, avec lacunes et quotas mécaniques, décisions sémantiques
+conservées au modèle et séparation stricte navigation/corps. Registre final
+39,99436060 USD / 40 ; le reliquat 0,00563940 USD ne couvre plus la réservation
+minimale et un contrôle est refusé avant réseau, registre inchangé. Aucun achat
+supplémentaire. Suite backend finale : 2 437 réussites, zéro échec, trois live
+ignorés ; `git diff --check` passe. Le produit et le Goal restent
+`TESTE_NON_APPROUVE`. Voir
+documents/agent/controle-campagne-critic-et-eclaireur-a851-a856-2026-09-18.md
+et documents/agent/proposition-suite-apres-terra-a857-2026-09-18.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.
