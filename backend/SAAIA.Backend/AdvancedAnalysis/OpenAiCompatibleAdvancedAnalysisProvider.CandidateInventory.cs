@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -242,7 +243,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 || status is "navigation_only" or "body_requested" && locatorIds.Count == 0
                 || status is "body_verified" or "selected" && bodyIds.Count == 0
                 || status == "selected" && selectedRoles.Count == 0
-                || status != "selected" && selectedRoles.Count > 0)
+                || status != "selected" && selectedRoles.Count > 0
+                || selectedRoles.Any(role => !targetRoles.Contains(role, StringComparer.Ordinal)))
                 Reject();
             var normalizedTitle = NormalizeClaimText(title);
             if (normalizedTitle.Length == 0 || !references.Any(id =>
@@ -450,7 +452,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         };
     }
 
-    private static void RememberSelectedCandidates(
+    private static bool RememberSelectedCandidates(
         AdvancedAnalysisProviderRequest request,
         AdvancedAnalysisProviderResult result,
         IReadOnlyList<PromptEvidenceItem> observations,
@@ -458,10 +460,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     {
         if (!CandidateInventoryEnabled(request)
             || result.Outcome != "answered")
-            return;
+            return false;
 
         var coordinates = BuildStructuredClaimCoordinates(request.Handoff.Load)
             .ToDictionary(item => item.ClaimId, item => item.ColumnLabel, StringComparer.Ordinal);
+        var original = JsonSerializer.Serialize(context.CandidateInventory, JsonOptions);
         var inventory = context.CandidateInventory.ToArray();
         foreach (var claim in result.Claims.Where(claim =>
                      !string.IsNullOrWhiteSpace(claim.SelectedItem)))
@@ -529,5 +532,170 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         context.CandidateInventory = inventory
             .OrderBy(item => item.Key, StringComparer.Ordinal)
             .ToArray();
+        return original != JsonSerializer.Serialize(context.CandidateInventory, JsonOptions);
+    }
+
+    private static async Task RestoreCandidateInventoryCheckpointAsync(
+        AdvancedAnalysisProviderRequest request,
+        SynthesisResearchContext context,
+        CancellationToken cancellationToken)
+    {
+        context.CandidateInventoryCheckpointLoaded = true;
+        var checkpoint = await context.Tools.LoadResearchCheckpointAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (checkpoint is null)
+            return;
+
+        [DoesNotReturn]
+        void Reject() => throw new AdvancedAnalysisProviderException(
+            "advanced_research_checkpoint_invalid");
+        if (checkpoint.SchemaVersion
+                != AdvancedAnalysisResearchCheckpoint.CurrentSchemaVersion
+            || checkpoint.Candidates is null
+            || checkpoint.PromptSourceKeys is null
+            || checkpoint.Candidates.Count > 64
+            || checkpoint.PromptSourceKeys.Count > 64)
+            Reject();
+
+        var columns = request.Handoff.Load.Columns.ToHashSet(StringComparer.Ordinal);
+        var evidenceById = context.Tools.Evidence
+            .Where(item => !string.IsNullOrWhiteSpace(item.Reference.EvidenceId))
+            .ToDictionary(item => item.Reference.EvidenceId!, StringComparer.Ordinal);
+        var canonicalSources = context.Tools.Evidence
+            .Select((item, index) => BuildCanonicalSourceIdentity(
+                item,
+                item.Reference.EvidenceId ?? index.ToString()))
+            .ToHashSet(StringComparer.Ordinal);
+        var sourceKeys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var pair in checkpoint.PromptSourceKeys)
+        {
+            if (string.IsNullOrWhiteSpace(pair.Key)
+                || pair.Key.Length > 500
+                || !canonicalSources.Contains(pair.Key)
+                || string.IsNullOrWhiteSpace(pair.Value)
+                || pair.Value.Length > 80
+                || !pair.Value.StartsWith("internal-source-", StringComparison.Ordinal)
+                || !sourceKeys.Add(pair.Value))
+                Reject();
+        }
+        var sourceIdentityByKey = checkpoint.PromptSourceKeys
+            .ToDictionary(pair => pair.Value, pair => pair.Key, StringComparer.Ordinal);
+        var keys = new HashSet<string>(StringComparer.Ordinal);
+        var identities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var restored = new List<CandidateInventoryItem>(checkpoint.Candidates.Count);
+        foreach (var candidate in checkpoint.Candidates)
+        {
+            if (string.IsNullOrWhiteSpace(candidate.Key)
+                || candidate.Key.Length > 80
+                || !keys.Add(candidate.Key)
+                || string.IsNullOrWhiteSpace(candidate.ExactTitle)
+                || candidate.ExactTitle.Length > 240
+                || !sourceIdentityByKey.TryGetValue(candidate.SourceKey, out var sourceIdentity)
+                || !CandidateInventoryStates.Contains(candidate.Status, StringComparer.Ordinal)
+                || candidate.Note is null
+                || candidate.Note.Length > 200
+                || candidate.TargetRoles is null
+                || candidate.SelectedRoles is null
+                || candidate.LocatorEvidenceIds is null
+                || candidate.BodyEvidenceIds is null
+                || candidate.TargetRoles.Count > 8
+                || candidate.SelectedRoles.Count > 8
+                || candidate.LocatorEvidenceIds.Count > 4
+                || candidate.BodyEvidenceIds.Count > 4
+                || candidate.TargetRoles.Any(role => !columns.Contains(role))
+                || candidate.SelectedRoles.Any(role =>
+                    !candidate.TargetRoles.Contains(role, StringComparer.Ordinal))
+                || candidate.TargetRoles.Distinct(StringComparer.Ordinal).Count()
+                    != candidate.TargetRoles.Count
+                || candidate.SelectedRoles.Distinct(StringComparer.Ordinal).Count()
+                    != candidate.SelectedRoles.Count
+                || candidate.LocatorEvidenceIds.Distinct(StringComparer.Ordinal).Count()
+                    != candidate.LocatorEvidenceIds.Count
+                || candidate.BodyEvidenceIds.Distinct(StringComparer.Ordinal).Count()
+                    != candidate.BodyEvidenceIds.Count
+                || !identities.Add(candidate.SourceKey + "\n"
+                    + NormalizeClaimText(candidate.ExactTitle)))
+                Reject();
+
+            var referencedIds = candidate.LocatorEvidenceIds
+                .Concat(candidate.BodyEvidenceIds)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (referencedIds.Length == 0
+                || candidate.Status is "navigation_only" or "body_requested"
+                    && candidate.LocatorEvidenceIds.Count == 0
+                || candidate.Status is "body_verified" or "selected"
+                    && candidate.BodyEvidenceIds.Count == 0
+                || candidate.Status == "selected" && candidate.SelectedRoles.Count == 0
+                || candidate.Status != "selected" && candidate.SelectedRoles.Count > 0)
+                Reject();
+
+            var referenced = new List<AdvancedAnalysisResolvedEvidence>(referencedIds.Length);
+            foreach (var evidenceId in referencedIds)
+            {
+                if (!evidenceById.TryGetValue(evidenceId, out var evidence)
+                    || BuildCanonicalSourceIdentity(evidence, evidenceId) != sourceIdentity)
+                    Reject();
+                referenced.Add(evidence);
+            }
+            if (candidate.BodyEvidenceIds.Any(id =>
+                    RetrievalContentClassifier.AnalyzeEvidenceContent(
+                        evidenceById[id].Content,
+                        evidenceById[id].ExactTitle).ContentRole
+                    == RetrievalContentClassifier.NavigationRole))
+                Reject();
+            var normalizedTitle = NormalizeClaimText(candidate.ExactTitle);
+            if (normalizedTitle.Length == 0 || !referenced.Any(evidence =>
+                    NormalizeClaimText(evidence.ExactTitle ?? string.Empty) == normalizedTitle
+                    || NormalizeClaimText(evidence.Content).Contains(
+                        normalizedTitle,
+                        StringComparison.Ordinal)))
+                Reject();
+
+            restored.Add(new CandidateInventoryItem(
+                candidate.Key,
+                candidate.ExactTitle,
+                candidate.SourceKey,
+                candidate.TargetRoles,
+                candidate.SelectedRoles,
+                candidate.Status,
+                candidate.Note,
+                candidate.LocatorEvidenceIds,
+                candidate.BodyEvidenceIds));
+        }
+        context.PromptSourceKeys.Clear();
+        foreach (var pair in checkpoint.PromptSourceKeys)
+            context.PromptSourceKeys.Add(pair.Key, pair.Value);
+        context.CandidateInventory = restored
+            .OrderBy(item => item.Key, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static Task SaveCandidateInventoryCheckpointAsync(
+        SynthesisResearchContext context,
+        CancellationToken cancellationToken)
+    {
+        var retainedSourceKeys = context.CandidateInventory
+            .Select(item => item.SourceKey)
+            .ToHashSet(StringComparer.Ordinal);
+        var sourceKeys = context.PromptSourceKeys
+            .Where(pair => retainedSourceKeys.Contains(pair.Value))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        var checkpoint = new AdvancedAnalysisResearchCheckpoint(
+            AdvancedAnalysisResearchCheckpoint.CurrentSchemaVersion,
+            context.CandidateInventory.Select(item => new AdvancedAnalysisCandidateCheckpoint(
+                item.Key,
+                item.ExactTitle,
+                item.SourceKey,
+                item.TargetRoles,
+                item.SelectedRoles,
+                item.Status,
+                item.Note,
+                item.LocatorEvidenceIds,
+                item.BodyEvidenceIds)).ToArray(),
+            sourceKeys);
+        return context.Tools.SaveResearchCheckpointAsync(
+            checkpoint,
+            cancellationToken);
     }
 }

@@ -916,7 +916,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 evidenceId ?? sourceKeys.Count.ToString());
             if (!sourceKeys.TryGetValue(sourceIdentity, out var sourceKey))
             {
-                sourceKey = $"internal-source-{sourceKeys.Count + 1}";
+                var nextSourceNumber = 1;
+                do
+                {
+                    sourceKey = $"internal-source-{nextSourceNumber++}";
+                }
+                while (sourceKeys.Values.Contains(sourceKey, StringComparer.Ordinal));
                 sourceKeys.Add(sourceIdentity, sourceKey);
             }
             var observation = new PromptEvidenceItem(

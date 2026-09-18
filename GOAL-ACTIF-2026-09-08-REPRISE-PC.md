@@ -148,6 +148,20 @@ Cette fondation reste interne au contexte d'une exécution : phase Explorer
 séparée, reprise durable, replay complet A817, pilote live, 3/3 end-to-end et
 WinUI restent à établir. Aucun appel payant n'a été exécuté. Voir
 documents/agent/inventaire-candidats-a857-2026-09-18.md.
+A858 rend cet inventaire durable dans le job PostgreSQL. Le checkpoint versionné
+et borné conserve au plus soixante-quatre candidats et leurs identités opaques,
+sans recopier les contenus documentaires. Toute reprise revalide rôles, sources,
+EvidenceId, titres et nature des corps contre les preuves canoniques reconstruites
+depuis le handoff et l'historique des outils ; un état incohérent est refusé
+avant toute nouvelle recherche. Un contrôle simule deux instances provider et
+conserve `Porridge`, `E1` et `internal-source-1`; un autre refuse une preuve
+absente. Le contrôle PostgreSQL réel conserve le checkpoint après expiration du
+lease et reprise par un autre worker, tout en isolant le tenant. La suite backend
+complète exécutée avant le dernier contrôle négatif compte 2 449 réussites, zéro
+échec et trois live ignorés ; l'état final passe 291 contrôles provider et le
+contrôle PostgreSQL ciblé. Aucun appel payant. L'Explorer séparé, le replay
+complet A817, le pilote live et WinUI restent à établir. Voir
+documents/agent/reprise-durable-inventaire-a858-2026-09-18.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

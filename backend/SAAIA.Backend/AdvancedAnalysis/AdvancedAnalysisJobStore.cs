@@ -459,6 +459,83 @@ internal sealed class AdvancedAnalysisJobStore
         return result;
     }
 
+    public async Task<AdvancedAnalysisResearchCheckpoint?> LoadResearchCheckpointAsync(
+        Guid tenantId,
+        Guid jobId,
+        string workerId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(workerId);
+        await using var connection = await _dataSource
+            .OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        const string sql = """
+            SELECT research_checkpoint::text
+            FROM advanced_analysis_jobs
+            WHERE tenant_id=@tenant
+              AND job_id=@job_id
+              AND status='running'
+              AND lease_owner=@worker_id
+              AND cancel_requested_at IS NULL
+              AND lease_expires_at > now();
+            """;
+        var json = await connection.ExecuteScalarAsync<string?>(
+            new CommandDefinition(
+                sql,
+                new { tenant = tenantId, job_id = jobId, worker_id = workerId },
+                cancellationToken: cancellationToken));
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+        if (System.Text.Encoding.UTF8.GetByteCount(json) > 65_536)
+            throw new InvalidDataException(
+                "Advanced analysis research checkpoint exceeds its bound.");
+        return JsonSerializer.Deserialize<AdvancedAnalysisResearchCheckpoint>(
+                   json,
+                   JsonOptions)
+               ?? throw new InvalidDataException(
+                   "Advanced analysis research checkpoint contains invalid JSON.");
+    }
+
+    public async Task<bool> TrySaveResearchCheckpointAsync(
+        Guid tenantId,
+        Guid jobId,
+        string workerId,
+        AdvancedAnalysisResearchCheckpoint checkpoint,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(workerId);
+        ArgumentNullException.ThrowIfNull(checkpoint);
+        var json = JsonSerializer.Serialize(checkpoint, JsonOptions);
+        if (System.Text.Encoding.UTF8.GetByteCount(json) > 65_536)
+            return false;
+        await using var connection = await _dataSource
+            .OpenConnectionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        const string sql = """
+            UPDATE advanced_analysis_jobs
+            SET research_checkpoint=CAST(@checkpoint AS jsonb),
+                revision=revision+1,
+                updated_at=now()
+            WHERE tenant_id=@tenant
+              AND job_id=@job_id
+              AND status='running'
+              AND lease_owner=@worker_id
+              AND cancel_requested_at IS NULL
+              AND lease_expires_at > now();
+            """;
+        var changed = await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new
+            {
+                tenant = tenantId,
+                job_id = jobId,
+                worker_id = workerId,
+                checkpoint = json
+            },
+            cancellationToken: cancellationToken));
+        return changed == 1;
+    }
+
     public Task<bool> TryMarkSucceededAsync(
         Guid jobId,
         string workerId,

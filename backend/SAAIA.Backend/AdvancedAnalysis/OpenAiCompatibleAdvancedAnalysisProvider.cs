@@ -281,7 +281,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 request,
                 parsed,
                 promptEvidence);
-            RememberSelectedCandidates(request, parsed, promptEvidence, synthesisResearch);
+            if (RememberSelectedCandidates(
+                    request,
+                    parsed,
+                    promptEvidence,
+                    synthesisResearch))
+            {
+                await SaveCandidateInventoryCheckpointAsync(
+                        synthesisResearch,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
             string? synthesisRecoveryErrorCode = null;
             if (!runSemanticCritic
                 && ShouldAttemptSynthesisRecovery(

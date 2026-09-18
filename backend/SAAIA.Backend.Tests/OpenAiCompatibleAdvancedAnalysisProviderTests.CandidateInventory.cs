@@ -353,6 +353,123 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Candidate_checkpoint_restores_inventory_and_source_identity_after_provider_restart()
+    {
+        var update = CandidateUpdate(
+            "porridge",
+            "Porridge",
+            "internal-source-1",
+            "petit-déjeuner",
+            "body_verified",
+            [],
+            ["E1"]);
+        var evidence = BuildEvidence(
+            "E1",
+            "PORRIDGE\nINGRÉDIENTS\nAvoine et lait. PRÉPARATION\nCuire doucement.");
+        var gateway = new CheckpointToolGateway(evidence);
+        using (var firstFactory = new QueuedHttpClientFactory(
+                   Completion(CandidatePlanner),
+                   NativeCompletion(("save_candidate_inventory", update)),
+                   CompletionStream(new IOException("simulated restart"))))
+        {
+            var firstOptions = WorkspaceOptions();
+            firstOptions.LlmMaximumHttpAttempts = 1;
+            await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
+                new OpenAiCompatibleAdvancedAnalysisProvider(firstFactory, firstOptions, null)
+                    .ExecuteAsync(
+                        BuildRequest(
+                            answerUnitCount: 20,
+                            atomicEvidenceMode: "named_item",
+                            selectionPolicy: "distinct_structured_layout"),
+                        gateway,
+                        CancellationToken.None));
+        }
+
+        Assert.NotNull(gateway.Checkpoint);
+        Assert.Equal("Porridge", Assert.Single(gateway.Checkpoint!.Candidates).ExactTitle);
+        Assert.Equal(
+            "internal-source-1",
+            Assert.Single(gateway.Checkpoint.PromptSourceKeys).Value);
+
+        using var resumedFactory = new QueuedHttpClientFactory(
+            Completion(CandidatePlanner),
+            Completion(CandidateTerminal));
+        var resumed = await new OpenAiCompatibleAdvancedAnalysisProvider(
+                resumedFactory,
+                WorkspaceOptions(),
+                null)
+            .ExecuteAsync(
+                BuildRequest(
+                    answerUnitCount: 20,
+                    atomicEvidenceMode: "named_item",
+                    selectionPolicy: "distinct_structured_layout"),
+                gateway,
+                CancellationToken.None);
+
+        Assert.Equal("insufficient_documentation", resumed.Outcome);
+        var restored = WorkspaceUser(resumedFactory.Requests[1].Body)
+            .GetProperty("candidateInventory")
+            .GetProperty("items")[0];
+        Assert.Equal("Porridge", restored.GetProperty("exactTitle").GetString());
+        Assert.Equal("internal-source-1", restored.GetProperty("sourceKey").GetString());
+        Assert.Equal("E1", restored.GetProperty("bodyEvidenceIds")[0].GetString());
+    }
+
+    [Fact]
+    public async Task Candidate_checkpoint_fails_closed_when_it_references_unknown_evidence()
+    {
+        var evidence = BuildEvidence(
+            "E1",
+            "PORRIDGE\nINGRÉDIENTS\nAvoine et lait. PRÉPARATION\nCuire doucement.");
+        var gateway = new CheckpointToolGateway(evidence);
+        await gateway.SearchAsync(
+            new AdvancedAnalysisSearchRequest("porridge", TopK: 5),
+            CancellationToken.None);
+        var sourceIdentity = string.Join(
+            "|",
+            evidence.Reference.DocId,
+            evidence.Reference.RevisionId,
+            evidence.Reference.SourceHash);
+        await gateway.SaveResearchCheckpointAsync(
+            new AdvancedAnalysisResearchCheckpoint(
+                AdvancedAnalysisResearchCheckpoint.CurrentSchemaVersion,
+                [
+                    new AdvancedAnalysisCandidateCheckpoint(
+                        "porridge",
+                        "Porridge",
+                        "internal-source-1",
+                        ["petit-déjeuner"],
+                        [],
+                        "body_verified",
+                        "Invalid evidence reference.",
+                        [],
+                        ["E404"])
+                ],
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    [sourceIdentity] = "internal-source-1"
+                }),
+            CancellationToken.None);
+
+        using var factory = new QueuedHttpClientFactory(Completion(CandidatePlanner));
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
+            new OpenAiCompatibleAdvancedAnalysisProvider(
+                    factory,
+                    WorkspaceOptions(),
+                    null)
+                .ExecuteAsync(
+                    BuildRequest(
+                        answerUnitCount: 20,
+                        atomicEvidenceMode: "named_item",
+                        selectionPolicy: "distinct_structured_layout"),
+                    gateway,
+                    CancellationToken.None));
+
+        Assert.Equal("advanced_research_checkpoint_invalid", error.ErrorCode);
+        Assert.Single(factory.Requests);
+    }
+
+    [Fact]
     public async Task Candidate_inventory_advances_a_locator_to_verified_body_without_losing_the_locator()
     {
         var discovered = CandidateUpdate(
@@ -455,5 +572,49 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 
         Assert.Equal("advanced_native_tool_protocol_invalid", error.ErrorCode);
         Assert.Single(gateway.Searches);
+    }
+
+    private sealed class CheckpointToolGateway(
+        params AdvancedAnalysisResolvedEvidence[] searchEvidence) :
+        IAdvancedAnalysisToolGateway
+    {
+        private readonly List<AdvancedAnalysisResolvedEvidence> _evidence = [];
+
+        public IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence => _evidence;
+
+        public AdvancedAnalysisResearchCheckpoint? Checkpoint { get; private set; }
+
+        public Task<AdvancedAnalysisResearchCheckpoint?> LoadResearchCheckpointAsync(
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(Checkpoint);
+        }
+
+        public Task SaveResearchCheckpointAsync(
+            AdvancedAnalysisResearchCheckpoint checkpoint,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Checkpoint = checkpoint;
+            return Task.CompletedTask;
+        }
+
+        public Task<AdvancedAnalysisSearchObservation> SearchAsync(
+            AdvancedAnalysisSearchRequest request,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (var item in searchEvidence)
+                if (_evidence.All(existing =>
+                        existing.Reference.EvidenceId != item.Reference.EvidenceId))
+                    _evidence.Add(item);
+            return Task.FromResult(new AdvancedAnalysisSearchObservation(
+                request.Query,
+                searchEvidence,
+                [],
+                1,
+                1));
+        }
     }
 }

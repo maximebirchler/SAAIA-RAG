@@ -18,6 +18,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         public IReadOnlyList<ResearchWorkspaceItem> Workspace { get; set; } = [];
         public IReadOnlyList<CandidateInventoryItem> CandidateInventory { get; set; } = [];
         public Dictionary<string, string> PromptSourceKeys { get; } = new(StringComparer.Ordinal);
+        public bool CandidateInventoryCheckpointLoaded { get; set; }
         public IReadOnlyList<string> ActiveProposalEvidenceIds { get; set; } = [];
         public int ActiveProposalOmittedEvidenceCount { get; set; }
         public AdvancedAnalysisResearchResourceLimit? ResourceLimit { get; set; }
@@ -169,6 +170,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyList<AdvancedAnalysisSearchRequest>? repeatedSearches = null;
         var nextPhase = phase;
         object? candidateSupportFeedback = null;
+        if (_options.NativeResearchToolsEnabled && _options.NativeResearchWorkspaceEnabled
+            && CandidateInventoryEnabled(request)
+            && !context.CandidateInventoryCheckpointLoaded)
+        {
+            await RestoreCandidateInventoryCheckpointAsync(
+                    request,
+                    context,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -194,10 +205,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 focusedEvidence, context.PromptSourceKeys);
             if (_options.NativeResearchToolsEnabled && _options.NativeResearchWorkspaceEnabled
                 && CandidateInventoryEnabled(request))
-                context.CandidateInventory = ObserveCandidateInventory(
+            {
+                var observedInventory = ObserveCandidateInventory(
                     request,
                     context.CandidateInventory,
                     observations);
+                if (JsonSerializer.Serialize(observedInventory, JsonOptions)
+                    != JsonSerializer.Serialize(context.CandidateInventory, JsonOptions))
+                {
+                    context.CandidateInventory = observedInventory;
+                    await SaveCandidateInventoryCheckpointAsync(
+                            context,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+            }
             var userPrompt = buildUserPrompt(observations);
             if (_options.AdaptiveResearchEnabled || candidateSupportFeedback is not null || argumentFeedback is not null
                 || _options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
@@ -379,6 +401,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 continue;
             }
             repeatedSearches = null;
+            if (mergedCandidateInventory is not null)
+            {
+                context.CandidateInventory = mergedCandidateInventory;
+                if (candidateInventoryChanged)
+                    await SaveCandidateInventoryCheckpointAsync(
+                            context,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+            }
             var nativeResults = completion.NativeToolCallsJson is null ? null
                 : new Dictionary<string, AdvancedAnalysisSearchObservation>(StringComparer.OrdinalIgnoreCase);
             var resourceLimit = await ExecuteSearchBatchAsync(context.Tools, queries, context.PreviouslyExecuted,
@@ -386,8 +417,6 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 cancellationToken, nativeResults, allowResourceLimitFeedback: true).ConfigureAwait(false);
             context.ResourceLimit ??= resourceLimit;
             if (workspaceUpdate is not null) context.Workspace = workspaceUpdate;
-            if (mergedCandidateInventory is not null)
-                context.CandidateInventory = mergedCandidateInventory;
             if (completion.NativeToolCallsJson is { } executedCalls)
                 context.NativeTurn = new(executedCalls, queries, nativeResults!, ResponseOutputItemsJson: completion.NativeResponseOutputJson,
                     WorkspaceStored: workspaceChanged,

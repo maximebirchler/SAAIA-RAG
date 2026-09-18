@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using Dapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
@@ -75,6 +76,26 @@ internal sealed record AdvancedAnalysisToolBudget(
         && ConsumedEvidenceItems is { } consumed ? Math.Max(0, maximum - consumed) : null;
 }
 
+internal sealed record AdvancedAnalysisCandidateCheckpoint(
+    string Key,
+    string ExactTitle,
+    string SourceKey,
+    IReadOnlyList<string> TargetRoles,
+    IReadOnlyList<string> SelectedRoles,
+    string Status,
+    string Note,
+    IReadOnlyList<string> LocatorEvidenceIds,
+    IReadOnlyList<string> BodyEvidenceIds);
+
+internal sealed record AdvancedAnalysisResearchCheckpoint(
+    string SchemaVersion,
+    IReadOnlyList<AdvancedAnalysisCandidateCheckpoint> Candidates,
+    IReadOnlyDictionary<string, string> PromptSourceKeys)
+{
+    public const string CurrentSchemaVersion =
+        "saaia.advanced-analysis-research-checkpoint.v1";
+}
+
 internal interface IAdvancedAnalysisToolGateway
 {
     IReadOnlyList<AdvancedAnalysisResolvedEvidence> Evidence { get; }
@@ -83,6 +104,15 @@ internal interface IAdvancedAnalysisToolGateway
     Task<IReadOnlyList<string>> ListCategoriesAsync(
         CancellationToken cancellationToken)
         => Task.FromResult<IReadOnlyList<string>>([]);
+
+    Task<AdvancedAnalysisResearchCheckpoint?> LoadResearchCheckpointAsync(
+        CancellationToken cancellationToken)
+        => Task.FromResult<AdvancedAnalysisResearchCheckpoint?>(null);
+
+    Task SaveResearchCheckpointAsync(
+        AdvancedAnalysisResearchCheckpoint checkpoint,
+        CancellationToken cancellationToken)
+        => Task.CompletedTask;
 
     Task<AdvancedAnalysisSearchObservation> SearchAsync(
         AdvancedAnalysisSearchRequest request,
@@ -253,6 +283,47 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
     public AdvancedAnalysisToolBudget Budget => new(
         _maximumToolCalls, _toolCallCount,
         _maximumElapsedMilliseconds, _elapsedMilliseconds, _maximumEvidenceItems, _evidence.Count);
+
+    public async Task<AdvancedAnalysisResearchCheckpoint?> LoadResearchCheckpointAsync(
+        CancellationToken cancellationToken)
+    {
+        if (_eventStore is null || string.IsNullOrWhiteSpace(_workerId))
+            return null;
+        try
+        {
+            return await _eventStore.LoadResearchCheckpointAsync(
+                    _tenantId,
+                    _jobId,
+                    _workerId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is InvalidDataException
+                                          or JsonException
+                                          or NotSupportedException)
+        {
+            throw new AdvancedAnalysisToolException(
+                "advanced_research_checkpoint_invalid");
+        }
+    }
+
+    public async Task SaveResearchCheckpointAsync(
+        AdvancedAnalysisResearchCheckpoint checkpoint,
+        CancellationToken cancellationToken)
+    {
+        if (_eventStore is null || string.IsNullOrWhiteSpace(_workerId))
+            return;
+        if (!await _eventStore.TrySaveResearchCheckpointAsync(
+                _tenantId,
+                _jobId,
+                _workerId,
+                checkpoint,
+                cancellationToken).ConfigureAwait(false))
+        {
+            throw new AdvancedAnalysisToolException(
+                "advanced_research_checkpoint_store_failed");
+        }
+    }
 
     public async Task<IReadOnlyList<string>> ListCategoriesAsync(
         CancellationToken cancellationToken)

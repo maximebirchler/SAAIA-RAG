@@ -502,7 +502,7 @@ public sealed class AdvancedAnalysisEndpointsTests
             "Migrations"));
         var versions = DbMigrator.GetOrderedMigrationVersions(
             migrationsDirectory);
-        Assert.Equal("067_advanced_analysis_provider_affinity.sql", versions[^1]);
+        Assert.Equal("068_advanced_analysis_research_checkpoint.sql", versions[^1]);
 
         var sql = File.ReadAllText(Path.Combine(
             migrationsDirectory,
@@ -526,6 +526,13 @@ public sealed class AdvancedAnalysisEndpointsTests
             "067_advanced_analysis_provider_affinity.sql"));
         Assert.Contains("provider_model TEXT NULL", affinitySql, StringComparison.Ordinal);
         Assert.Contains("ix_advanced_analysis_provider_affinity", affinitySql, StringComparison.Ordinal);
+
+        var checkpointSql = File.ReadAllText(Path.Combine(
+            migrationsDirectory,
+            "068_advanced_analysis_research_checkpoint.sql"));
+        Assert.Contains("research_checkpoint JSONB NULL", checkpointSql, StringComparison.Ordinal);
+        Assert.Contains("octet_length(research_checkpoint::text) <= 65536", checkpointSql,
+            StringComparison.Ordinal);
     }
 
     private static AdvancedAnalysisJobCreateRequest BuildRequest(
