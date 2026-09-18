@@ -498,3 +498,92 @@ client/backend passent ; aucun comportement sémantique du produit ni appel
 API n'est changé. Voir `propriete-des-jobs-de-validation-a818-2026-09-13.md`.
 Cette annotation clôt la correction du garde pour les futurs runners source ;
 elle ne requalifie pas les anciennes captures ni le planning autonome.
+
+## J. État du 18 septembre — Candidate Explorer et budget opérationnellement épuisé
+
+Cette section actualise la prochaine séquence expérimentale sans effacer les
+mesures historiques ci-dessus.
+
+Le registre local réconcilié contient 1 127 écritures et totalise
+39,99436060 USD sur l'enveloppe autorisée de 40 USD. La marge calculée est de
+0,00563940 USD. Le profil gelé doit réserver au minimum 0,00614650 USD pour son
+premier appel Planner ; la campagne est donc
+`PREREGISTERED_BUDGET_BLOCKED`. Le solde résiduel ne doit pas être utilisé en
+abaissant artificiellement les tokens du Planner, car cela changerait
+l'expérience et mesurerait une troncature prévisible. Aucun achat, auto-reload
+ou location GPU n'est autorisé par ce constat.
+
+### J.1 — Architecture désormais prête pour la prochaine mesure
+
+A857 à A860 ont ajouté un inventaire de candidats généraliste, son checkpoint
+PostgreSQL reprenable, une phase Candidate Explorer distincte du Writer et la
+couverture des grilles comme des collections plates. Le modèle décide toujours
+de la pertinence ; le code vérifie identités, états, preuves, comptes, bornes et
+transitions.
+
+A861 gèle un unique pilote Terra du planning 5 × 4 : Responses, topologie agent,
+espace de travail natif, historique de 32 768 caractères, 4 096 tokens pour
+Explorer, Writer et Critic, sept appels maximum et une répétition. Les wrappers
+OpenAI et RunPod transmettent le même contrat au runner commun.
+
+A862 à A864 ferment la chaîne de preuve de ce pilote :
+
+- traces brutes fournisseur dans un répertoire privé ;
+- audit privé et borné du job, du checkpoint et des événements d'outils ;
+- empreintes SHA-256 et manifeste de traces, y compris après interruption ;
+- vérification automatique des schémas, comptes, chemins, empreintes, jobs et
+  rôles Explorer/Writer/Critic ;
+- annexe privée lisible qui rapproche candidats, rôles, EvidenceId, recherches,
+  réponse et textes canoniques ;
+- rapport public limité aux comptes, rôles techniques, verdicts et empreintes.
+
+La suite backend A862 compte 2 459 réussites, zéro échec et trois live ignorés.
+Les cinq fixtures d'intégrité A863 réussissent. Ces résultats valident le
+harnais, pas l'autonomie sémantique de Terra.
+
+### J.2 — Séquence proposée lorsque du calcul redevient disponible
+
+1. Réenregistrer uniquement l'enveloppe réellement autorisée et observer le
+   tier fournisseur juste avant l'essai. Ne modifier ni corpus, ni banque, ni
+   paramètres sémantiques.
+2. Exécuter un seul run du profil gelé. Ne pas lancer immédiatement un lot ou
+   une campagne 3/3.
+3. Exécuter l'assessment mécanique, la vérification d'intégrité A863 et le paquet
+   humain A864.
+4. Examiner les vingt cellules et leurs sources, mais aussi l'inventaire : titres
+   découverts, corps vérifiés, lacunes par rôle, recherches sans rendement et
+   pertes éventuelles entre Explorer et Writer.
+5. Si le run échoue, corriger uniquement l'étape démontrée fautive puis geler un
+   nouveau profil. Un défaut de recherche ne devient pas une limite de synthèse,
+   et un défaut Writer ne justifie pas davantage d'appels Explorer.
+6. Si le run réussit mécaniquement et sémantiquement, exécuter les répétitions
+   deux et trois sur le même état, puis un nouveau holdout aveugle.
+7. Valider enfin le basculement local-vers-avancé et les cartes source dans
+   WinUI avant toute approbation produit.
+
+### J.3 — Choix de l'hébergement après preuve fonctionnelle
+
+La localisation du grand modèle ne change pas le contrat RAG. La sélection doit
+venir après la première preuve fonctionnelle et suivre trois niveaux :
+
+1. **OpenAI Terra** reste le prototype DEV de référence pour savoir si le contrat
+   agentique fonctionne avec un modèle suffisamment capable.
+2. **RunPod ou une location GPU comparable** sert ensuite de BENCH temporaire
+   pour choisir un modèle ouvert et mesurer VRAM, contexte réellement utile,
+   latence, concurrence et coût horaire sur les mêmes cas gelés.
+3. **Serveur client on-premise** reste la cible de production avancée. Le modèle,
+   le runtime et le dimensionnement ne sont retenus qu'après reproduction de la
+   qualité et mesure de la charge simultanée attendue.
+
+Il serait prématuré de construire maintenant les choix interactifs complets de
+licence et d'installateur. Le code doit continuer à exposer une capacité locale,
+une capacité avancée et une configuration de provider indépendante. Lorsque le
+modèle serveur est qualifié, la licence pourra autoriser local seul, avancé
+seul, combinaison des deux ou endpoint externe approuvé, et l'installateur
+matérialisera URL, secret, téléchargement, préflight matériel et politique de
+transmission.
+
+Le point de reprise n'est donc plus une nouvelle variante de prompt. C'est
+l'unique pilote A861, suivi de la chaîne de preuve A862–A864. Tant que ce pilote
+n'est pas exécuté et revu, le planning, la capacité avancée et le produit
+restent `TESTE_NON_APPROUVE`.

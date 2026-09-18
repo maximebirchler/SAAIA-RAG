@@ -255,6 +255,16 @@ qu'elle refuse l'absence d'assessment A863 avant toute connexion PostgreSQL. La
 préparation complète reste à exécuter après le premier pilote disponible ; aucun appel payant et
 aucune validation sémantique ne sont revendiqués. Voir
 documents/agent/paquet-revue-causale-explorer-a864-2026-09-18.md.
+A865 actualise le document d'architecture fournisseur avec l'état après
+épuisement opérationnel du budget et fixe la direction suivante. Le reliquat de
+0,00563940 USD reste inférieur à la réservation Planner de 0,00614650 USD et ne
+doit pas être consommé en dégradant le profil. Le prochain calcul exécute un seul
+pilote A861, puis assessments mécanique, d'intégrité et humain ; les répétitions
+deux et trois ne viennent qu'après une réussite. OpenAI reste la preuve
+fonctionnelle DEV, une location GPU/RunPod le benchmark d'un modèle ouvert et
+le serveur client la cible avancée on-premise. Licence et installateurs restent
+différés jusqu'à la qualification du modèle et du dimensionnement. Voir la
+section J de documents/agent/llm-provider-architecture-v1.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.
