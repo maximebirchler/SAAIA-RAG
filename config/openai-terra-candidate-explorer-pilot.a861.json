@@ -68,6 +68,7 @@
   "evidenceCapture": {
     "developmentTracesRequired": true,
     "durableJobAuditRequired": true,
+    "integrityVerificationRequired": true,
     "containsPrivateCorpusMetadata": true,
     "mustNotCommit": true
   },

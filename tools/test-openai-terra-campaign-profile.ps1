@@ -182,6 +182,8 @@ $developmentTracesRequired = $null -ne $evidenceCapture -and
     [bool](Get-OptionalProfileValue $evidenceCapture "developmentTracesRequired" $false)
 $durableJobAuditRequired = $null -ne $evidenceCapture -and
     [bool](Get-OptionalProfileValue $evidenceCapture "durableJobAuditRequired" $false)
+$integrityVerificationRequired = $null -ne $evidenceCapture -and
+    [bool](Get-OptionalProfileValue $evidenceCapture "integrityVerificationRequired" $false)
 $privateCaptureDeclared = $null -ne $evidenceCapture -and
     [bool](Get-OptionalProfileValue $evidenceCapture "containsPrivateCorpusMetadata" $false) -and
     [bool](Get-OptionalProfileValue $evidenceCapture "mustNotCommit" $false)
@@ -268,6 +270,7 @@ if ($nativeCandidateExplorerEnabled -and
 if ($nativeCandidateExplorerEnabled -and
     (-not $developmentTracesRequired -or
      -not $durableJobAuditRequired -or
+     -not $integrityVerificationRequired -or
      -not $privateCaptureDeclared)) {
     $blockingReasons += "candidate_explorer_evidence_capture_invalid"
 }
@@ -330,6 +333,7 @@ $preflight = [ordered]@{
     minimumFirstCallReservationUsd = $minimumFirstCallReservationUsd
     developmentTracesRequired = $developmentTracesRequired
     durableJobAuditRequired = $durableJobAuditRequired
+    integrityVerificationRequired = $integrityVerificationRequired
     privateCaptureDeclared = $privateCaptureDeclared
     semanticCriticEnabled = $semanticCriticEnabled
     criticMaxTokens = $criticMaxTokens
@@ -387,6 +391,8 @@ if ([string]::IsNullOrWhiteSpace($ReferenceBackendUrl)) {
 
 $runArtifactDirectory = Join-Path $ArtifactDirectory "run"
 $runner = Join-Path $PSScriptRoot "test-advanced-product-path-openai.ps1"
+$evidenceVerifier = Join-Path $PSScriptRoot `
+    "verify-candidate-explorer-evidence.ps1"
 $preflight.executionState = "STARTED_EXTERNAL_CALLS_POSSIBLE"
 $preflight.executionStartedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
 $preflight.externalCallMayHaveOccurred = $true
@@ -433,6 +439,25 @@ try {
         -ArtifactDirectory $runArtifactDirectory
     if ($LASTEXITCODE -ne 0) {
         throw "OpenAI Terra profile campaign failed with exit code $LASTEXITCODE."
+    }
+    if ($nativeCandidateExplorerEnabled) {
+        $evidenceVerifierArguments = @(
+            "-NoProfile",
+            "-File", $evidenceVerifier,
+            "-ArtifactDirectory", $runArtifactDirectory,
+            "-ExpectedJobs", ($caseIds.Count * [int]$profile.bank.repetitions)
+        )
+        if ($semanticCriticEnabled) {
+            $evidenceVerifierArguments += "-RequireSemanticCritic"
+        }
+        $evidenceVerificationOutput = & pwsh @evidenceVerifierArguments 2>&1
+        $evidenceVerificationOutput | Set-Content -LiteralPath `
+            (Join-Path $runArtifactDirectory `
+                "candidate-explorer-evidence-verification.log") `
+            -Encoding utf8
+        if ($LASTEXITCODE -ne 0) {
+            throw "Candidate Explorer private evidence verification failed with exit code $LASTEXITCODE."
+        }
     }
 }
 catch {

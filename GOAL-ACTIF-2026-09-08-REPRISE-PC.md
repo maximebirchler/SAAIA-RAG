@@ -227,6 +227,20 @@ reste à 39,9943606 USD sur 40 USD et le pilote
 `PREREGISTERED_BUDGET_BLOCKED`; A862 améliore la preuve du futur essai sans
 valider Terra. Voir
 documents/agent/audit-prive-pilote-explorer-a862-2026-09-18.md.
+A863 vérifie automatiquement l'intégrité de ces preuves avant toute revue
+sémantique. Le postflight recalcule les SHA-256, vérifie les comptes du garde,
+le statut, résultat, checkpoint et événements de chaque job, confine chaque
+trace sous son répertoire privé, refuse les traces modifiées ou associées à un
+autre job et exige les rôles Explorer, Writer et Critic du profil. Son rapport
+public ne contient que des empreintes, comptes et métriques agrégées ; le
+verdict positif exige encore une revue sémantique. Le manifeste des traces est
+désormais aussi écrit dans le `finally`, afin de préserver le diagnostic d'un
+essai interrompu. Cinq fixtures couvrent paquet valide, trace altérée,
+identité étrangère, checkpoint absent et Critic manquant : 5/5 réussissent. Le préflight positif
+reconnaît l'obligation d'intégrité et une copie sans cette obligation est
+refusée avant réseau. Aucun fichier .NET n'a changé depuis les 2 459 tests verts
+d'A862 et aucun appel payant n'a été exécuté. Voir
+documents/agent/verification-integrite-preuves-explorer-a863-2026-09-18.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

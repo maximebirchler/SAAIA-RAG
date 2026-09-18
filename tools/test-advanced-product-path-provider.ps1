@@ -157,6 +157,41 @@ function Stop-OwnedProcess {
     }
 }
 
+function Write-PrivateDevelopmentTraceManifest {
+    param(
+        [Parameter(Mandatory = $true)][string]$TraceDirectory,
+        [Parameter(Mandatory = $true)][string]$ManifestPath
+    )
+
+    $files = if (Test-Path -LiteralPath $TraceDirectory -PathType Container) {
+        @(Get-ChildItem -LiteralPath $TraceDirectory -File -Recurse |
+            Sort-Object FullName)
+    } else {
+        @()
+    }
+    $entries = @($files | ForEach-Object {
+        [ordered]@{
+            relativePath = [IO.Path]::GetRelativePath(
+                $TraceDirectory,
+                $_.FullName)
+            lengthBytes = $_.Length
+            sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
+        }
+    })
+    $manifest = [ordered]@{
+        schemaVersion = "saaia-private-development-trace-manifest-v1"
+        capturedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
+        containsPrivateCorpusMetadata = $true
+        mustNotCommit = $true
+        traceDirectory = $TraceDirectory
+        traceCount = $entries.Count
+        traces = $entries
+    }
+    $manifest | ConvertTo-Json -Depth 6 |
+        Set-Content -LiteralPath $ManifestPath -Encoding utf8
+    return $manifest
+}
+
 $repositoryRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 $repositoryCommit = (& git -C $repositoryRoot rev-parse HEAD 2>$null).Trim()
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($repositoryCommit)) {
@@ -415,6 +450,7 @@ $referenceCorpusSealVerified = $false
 $advancedJobGuardBefore = $null
 $advancedJobGuardAfter = $null
 $advancedJobGuardError = $null
+$developmentTraceManifestError = $null
 $bankArtifactDirectory = Join-Path $ArtifactDirectory "agent-bank"
 $backendStdout = Join-Path $ArtifactDirectory "backend.stdout.log"
 $backendStderr = Join-Path $ArtifactDirectory "backend.stderr.log"
@@ -723,37 +759,6 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw "Advanced product-path mechanical assessment failed with exit code $LASTEXITCODE."
     }
-    if ($EnableNativeCandidateExplorer) {
-        if ([string]::IsNullOrWhiteSpace($DevelopmentTraceDirectory) -or
-            -not (Test-Path -LiteralPath $DevelopmentTraceDirectory -PathType Container)) {
-            throw "Candidate Explorer development trace directory was not created."
-        }
-        $developmentTraceFiles = @(
-            Get-ChildItem -LiteralPath $DevelopmentTraceDirectory -File -Recurse |
-                Sort-Object FullName)
-        if ($developmentTraceFiles.Count -eq 0) {
-            throw "Candidate Explorer completed without a provider development trace."
-        }
-        $developmentTraceEntries = @($developmentTraceFiles | ForEach-Object {
-            [ordered]@{
-                relativePath = [IO.Path]::GetRelativePath(
-                    $DevelopmentTraceDirectory,
-                    $_.FullName)
-                lengthBytes = $_.Length
-                sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
-            }
-        })
-        [ordered]@{
-            schemaVersion = "saaia-private-development-trace-manifest-v1"
-            capturedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
-            containsPrivateCorpusMetadata = $true
-            mustNotCommit = $true
-            traceDirectory = $DevelopmentTraceDirectory
-            traceCount = $developmentTraceEntries.Count
-            traces = $developmentTraceEntries
-        } | ConvertTo-Json -Depth 6 |
-            Set-Content -LiteralPath $developmentTraceManifestPath -Encoding utf8
-    }
     Stop-OwnedProcess -Process $backendProcess
     $referenceCorpusSealAfter = Get-SaaiaReferenceCorpusSeal `
         -ReferenceBackendUrl $ReferenceBackendUrl `
@@ -775,6 +780,24 @@ finally {
         $failure = "Campaign interrupted before completion."
     }
     Stop-OwnedProcess -Process $backendProcess
+
+    if ($EnableNativeCandidateExplorer) {
+        try {
+            $traceManifest = Write-PrivateDevelopmentTraceManifest `
+                -TraceDirectory $DevelopmentTraceDirectory `
+                -ManifestPath $developmentTraceManifestPath
+            if ($campaignCompleted -and [int]$traceManifest.traceCount -lt 1) {
+                throw "Candidate Explorer completed without a provider development trace."
+            }
+        }
+        catch {
+            $developmentTraceManifestError = $_.Exception.Message
+            if ([string]::IsNullOrWhiteSpace($failure)) {
+                $failure = "Candidate Explorer trace manifest failed: " + `
+                    $developmentTraceManifestError
+            }
+        }
+    }
 
     try {
         $jobGuardAfterPath = Join-Path $ArtifactDirectory "advanced-job-guard-after.json"
@@ -893,6 +916,7 @@ finally {
             if ($null -eq $advancedJobGuardAfter) { $null }
             else { [int]$advancedJobGuardAfter.auditedResearchCheckpointCount })
         advancedValidationJobGuardError = $advancedJobGuardError
+        privateDevelopmentTraceManifestError = $developmentTraceManifestError
         privateAdvancedJobAuditCaptured = Test-Path -LiteralPath $advancedAuditPath -PathType Leaf
         privateAdvancedJobAuditSha256 = $(
             if (Test-Path -LiteralPath $advancedAuditPath -PathType Leaf) {
@@ -924,6 +948,9 @@ finally {
 
 if (-not [string]::IsNullOrWhiteSpace($advancedJobGuardError)) {
     throw "Advanced validation job postflight guard failed: $advancedJobGuardError"
+}
+if (-not [string]::IsNullOrWhiteSpace($developmentTraceManifestError)) {
+    throw "Candidate Explorer trace manifest failed: $developmentTraceManifestError"
 }
 
 Write-Output "Advanced product-path campaign completed. Artifact: $ArtifactDirectory"
