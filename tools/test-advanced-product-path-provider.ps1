@@ -48,8 +48,12 @@ param(
     [switch]$EnableNativeCandidateExplorer,
     [ValidateRange(0, 8)]
     [int]$CandidateExplorerReservePerRole = 2,
+    [ValidateRange(512, 16384)]
+    [int]$CandidateExplorerMaxTokens = 4096,
     [switch]$EnableNativeResearchActiveProposal,
     [switch]$EnableCandidateBindingFeedback,
+    [ValidateRange(256, 4096)]
+    [int]$PlannerMaxTokens = 512,
     [ValidateRange(512, 16384)]
     [int]$WriterMaxTokens = 4096,
     [ValidateRange(512, 16384)]
@@ -497,7 +501,7 @@ try {
             DevelopmentTraceDirectory = $DevelopmentTraceDirectory
             LlmRetryBaseDelayMilliseconds = 15000
             LlmMaximumRetryDelayMilliseconds = 60000
-            PlannerMaxTokens = 512
+            PlannerMaxTokens = $PlannerMaxTokens
             WriterMaxTokens = $WriterMaxTokens
             AdaptiveResearchEnabled = $true
             NativeResearchToolsEnabled = [bool]$EnableNativeResearchTools
@@ -507,6 +511,7 @@ try {
             NativeResearchWorkspaceEnabled = [bool]$EnableNativeResearchWorkspace
             NativeCandidateExplorerEnabled = [bool]$EnableNativeCandidateExplorer
             CandidateExplorerReservePerRole = $CandidateExplorerReservePerRole
+            CandidateExplorerMaxTokens = $CandidateExplorerMaxTokens
             NativeResearchActiveProposalEnabled = [bool]$EnableNativeResearchActiveProposal
             CandidateBindingFeedbackEnabled = [bool]$EnableCandidateBindingFeedback
             SemanticCriticEnabled = [bool]$EnableSemanticCritic
@@ -633,8 +638,10 @@ try {
         nativeResearchWorkspaceEnabled = [bool]$EnableNativeResearchWorkspace
         nativeCandidateExplorerEnabled = [bool]$EnableNativeCandidateExplorer
         candidateExplorerReservePerRole = $CandidateExplorerReservePerRole
+        candidateExplorerMaxTokens = $CandidateExplorerMaxTokens
         nativeResearchActiveProposalEnabled = [bool]$EnableNativeResearchActiveProposal
         candidateBindingFeedbackEnabled = [bool]$EnableCandidateBindingFeedback
+        plannerMaxTokens = $PlannerMaxTokens
         writerMaxTokens = $WriterMaxTokens
         criticMaxTokens = $CriticMaxTokens
         inputUsdPerMillionTokens = $InputUsdPerMillionTokens

@@ -192,6 +192,23 @@ Explorer ciblés, 298 contrôles provider et 2 457 tests backend réussis, zéro
 13 min 53 s. Aucun appel payant. L'autonomie sémantique de Terra sur A855 et le
 planning 5 x 4 restent à établir par un futur pilote live. Voir
 documents/agent/explorer-collections-plates-a860-2026-09-18.md.
+A861 préenregistre le prochain pilote causal du planning 5 x 4 et corrige deux
+risques qui l'auraient faussé. Les wrappers OpenAI et RunPod transmettent
+maintenant toute la topologie Explorer au runner générique ; auparavant ils
+perdaient ces options. L'Explorer reçoit aussi son propre plafond de sortie,
+borné et fixé à 4 096 tokens pour le pilote, au lieu des 512 tokens du Planner.
+Le profil gèle un seul run Terra Responses, sept appels maximum, l'espace de
+travail, 32 768 caractères d'historique, deux réserves visées par rôle, le
+Writer et le Critic. Son préflight hors réseau réconcilie 39,9943606 USD sur
+40 USD, une marge de 0,0056394 USD et une réservation minimale de premier appel
+de 0,0061465 USD ; il reste donc `NOT_STARTED` avec le blocage explicite
+`lifetime_budget_headroom_below_first_call`. État final : huit contrôles
+Explorer ciblés, 299 contrôles provider, dix gardes OpenAI et 2 458 tests
+backend réussis, zéro échec, trois live ignorés ; le run backend PostgreSQL a
+duré 14 min 32 s. Aucun appel payant. Ce palier prépare la mesure, mais ne valide
+pas encore la découverte autonome. Voir
+documents/agent/preflight-pilote-explorer-a861-2026-09-18.md et
+config/openai-terra-candidate-explorer-pilot.a861.json.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

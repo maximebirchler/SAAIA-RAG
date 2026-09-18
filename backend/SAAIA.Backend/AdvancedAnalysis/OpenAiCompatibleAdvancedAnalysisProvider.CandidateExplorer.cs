@@ -85,7 +85,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         request,
                         observations,
                         explorerFeedback),
-                    Math.Clamp(_options.PlannerMaxTokens, 256, 4_096),
+                    Math.Clamp(_options.CandidateExplorerMaxTokens, 512, 16_384),
                     reservedFinalCalls,
                     context,
                     completions,

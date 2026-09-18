@@ -19,6 +19,12 @@ param(
     [string]$OpenAiModel = "gpt-5.6-terra",
     [ValidateSet("low", "medium", "high")]
     [string]$ReasoningEffort = "low",
+    [ValidateSet("", "low", "medium", "high")]
+    [string]$SynthesisReasoningEffort = "",
+    [ValidateSet("contract", "agent")]
+    [string]$SynthesisPromptStyle = "contract",
+    [ValidateRange(1, 3)]
+    [int]$MaximumProviderHttpAttempts = 3,
     [ValidateSet("Free", "Tier1", "Tier2", "Tier3", "Tier4", "Tier5")]
     [string]$ObservedOrganizationTier = "Free",
     [string]$TierObservedAtUtc = "",
@@ -30,6 +36,25 @@ param(
     [ValidateRange(1, 32)]
     [int]$MaximumCallsPerJob = 4,
     [switch]$EnableSemanticCritic,
+    [switch]$EnableNativeResearchTools,
+    [ValidateSet("chat-completions", "responses")]
+    [string]$NativeResearchApiProtocol = "chat-completions",
+    [ValidateSet("reviewed", "agent")]
+    [string]$NativeResearchTopology = "reviewed",
+    [ValidateRange(16384, 65536)]
+    [int]$NativeResearchMaximumHistoryCharacters = 16384,
+    [switch]$EnableNativeResearchWorkspace,
+    [switch]$EnableNativeCandidateExplorer,
+    [ValidateRange(0, 8)]
+    [int]$CandidateExplorerReservePerRole = 2,
+    [ValidateRange(512, 16384)]
+    [int]$CandidateExplorerMaxTokens = 4096,
+    [switch]$EnableNativeResearchActiveProposal,
+    [switch]$EnableCandidateBindingFeedback,
+    [ValidateRange(256, 4096)]
+    [int]$PlannerMaxTokens = 512,
+    [ValidateRange(512, 16384)]
+    [int]$WriterMaxTokens = 4096,
     [ValidateRange(512, 16384)]
     [int]$CriticMaxTokens = 4096,
     [string]$LocalLlmExePath = "",
@@ -56,6 +81,9 @@ $runner = Join-Path $PSScriptRoot "test-advanced-product-path-provider.ps1"
     -MaximumJobRetryDelayMilliseconds $MaximumJobRetryDelayMilliseconds `
     -ModelId $OpenAiModel `
     -ReasoningEffort $ReasoningEffort `
+    -SynthesisReasoningEffort $SynthesisReasoningEffort `
+    -SynthesisPromptStyle $SynthesisPromptStyle `
+    -MaximumProviderHttpAttempts $MaximumProviderHttpAttempts `
     -ProviderAccountTier $ObservedOrganizationTier `
     -ProviderAccountTierObservedAtUtc $TierObservedAtUtc `
     -AuthorizedBudgetUsd $AuthorizedBudgetUsd `
@@ -64,6 +92,18 @@ $runner = Join-Path $PSScriptRoot "test-advanced-product-path-provider.ps1"
     -MaximumCostPerJobUsd $MaximumCostPerJobUsd `
     -MaximumCallsPerJob $MaximumCallsPerJob `
     -EnableSemanticCritic:$EnableSemanticCritic `
+    -EnableNativeResearchTools:$EnableNativeResearchTools `
+    -NativeResearchApiProtocol $NativeResearchApiProtocol `
+    -NativeResearchTopology $NativeResearchTopology `
+    -NativeResearchMaximumHistoryCharacters $NativeResearchMaximumHistoryCharacters `
+    -EnableNativeResearchWorkspace:$EnableNativeResearchWorkspace `
+    -EnableNativeCandidateExplorer:$EnableNativeCandidateExplorer `
+    -CandidateExplorerReservePerRole $CandidateExplorerReservePerRole `
+    -CandidateExplorerMaxTokens $CandidateExplorerMaxTokens `
+    -EnableNativeResearchActiveProposal:$EnableNativeResearchActiveProposal `
+    -EnableCandidateBindingFeedback:$EnableCandidateBindingFeedback `
+    -PlannerMaxTokens $PlannerMaxTokens `
+    -WriterMaxTokens $WriterMaxTokens `
     -CriticMaxTokens $CriticMaxTokens `
     -LocalLlmExePath $LocalLlmExePath `
     -LocalModelPath $LocalModelPath `

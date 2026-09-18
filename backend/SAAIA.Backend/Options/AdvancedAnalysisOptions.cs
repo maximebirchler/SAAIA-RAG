@@ -26,6 +26,8 @@ sealed class AdvancedAnalysisOptions
 
     public int PlannerMaxTokens { get; set; } = 512;
 
+    public int CandidateExplorerMaxTokens { get; set; } = 4_096;
+
     public int WriterMaxTokens { get; set; } = 4_096;
 
     public bool SemanticCriticEnabled { get; set; } = true;

@@ -581,6 +581,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         if (_options.CandidateExplorerReservePerRole is < 0 or > 8)
             throw new AdvancedAnalysisProviderException(
                 "advanced_candidate_explorer_reserve_invalid");
+        if (_options.CandidateExplorerMaxTokens is < 512 or > 16_384)
+            throw new AdvancedAnalysisProviderException(
+                "advanced_candidate_explorer_token_budget_invalid");
         if (_options.NativeCandidateExplorerEnabled
             && (!_options.AdaptiveResearchEnabled
                 || !_options.NativeResearchToolsEnabled

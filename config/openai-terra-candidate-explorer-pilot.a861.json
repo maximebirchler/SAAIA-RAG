@@ -1,0 +1,110 @@
+{
+  "schemaVersion": "saaia-openai-terra-final-campaign-v1",
+  "campaignId": "A861-TERRA-CANDIDATE-EXPLORER-PILOT-R1",
+  "status": "PREREGISTERED_BUDGET_BLOCKED",
+  "createdAtUtc": "2026-09-18T15:04:40.0033234+00:00",
+  "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
+  "repository": {
+    "expectedBranch": "SAAIA_V3.1",
+    "preregisteredAgainstCommit": "8901160c65dc6eb608ab30279dc8eb86117a4baa",
+    "minimumSemanticFixCommit": "8901160c65dc6eb608ab30279dc8eb86117a4baa",
+    "executionRule": "Run one meal-grid pilot from a clean descendant containing A857 through A861. Freeze the bank, corpus, prompts, tools, model, topology, token limits and acceptance rules before the first answer is observed. A budget-only re-registration is allowed before execution when newly authorized compute exists; it must not alter semantic or retrieval settings."
+  },
+  "provider": {
+    "mode": "OpenAI",
+    "model": "gpt-5.6-terra",
+    "endpoint": "https://api.openai.com/v1",
+    "minimumOrganizationTier": "Tier1",
+    "freshTierObservationMaximumAgeMinutes": 15,
+    "freeTierCallsBlocked": true,
+    "runPodAuthorized": false,
+    "reasoningEffort": "low",
+    "synthesisReasoningEffort": "low",
+    "synthesisPromptStyle": "agent",
+    "maximumProviderHttpAttempts": 3,
+    "semanticCriticEnabled": true,
+    "plannerMaxTokens": 512,
+    "writerMaxTokens": 4096,
+    "criticMaxTokens": 4096,
+    "nativeResearchToolsEnabled": true,
+    "nativeResearchApiProtocol": "responses",
+    "nativeResearchTopology": "agent",
+    "nativeResearchMaximumHistoryCharacters": 32768,
+    "nativeResearchWorkspaceEnabled": true,
+    "nativeCandidateExplorerEnabled": true,
+    "candidateExplorerReservePerRole": 2,
+    "candidateExplorerMaxTokens": 4096,
+    "nativeResearchActiveProposalEnabled": true,
+    "candidateBindingFeedbackEnabled": true
+  },
+  "localRouter": {
+    "modelId": "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+    "runtimeSha256": "9555847A0403737C4A1B5BEAB050BD697AEC477B6675871A1F8D4737A25C1650",
+    "modelSha256": "66713CE35A58A82FE87642D4EC13425BF9B9A46800FFF5C49A665EF5701439DC",
+    "providerConfigPath": "config/llm-providers.dev.json",
+    "providerConfigSha256": "036D6C68D1780DC78E3FB594C27FF82CE86861F9BECD94E268AEADE6163D1E1D"
+  },
+  "bank": {
+    "path": "config/advanced-capacity-validation.v1.json",
+    "sha256": "8B2A5029E0A74D78FF7F26A8F1AACE2D005E84E729E9241AB94FE1BC5AEFFA3E",
+    "caseIds": [
+      "A755-ADV-01-meal-grid-5x4"
+    ],
+    "repetitions": 1,
+    "expectedRows": 1
+  },
+  "execution": {
+    "runner": "tools/test-advanced-product-path-openai.ps1",
+    "configuration": "Release",
+    "delayBetweenCasesSeconds": 0,
+    "maximumJobAttempts": 3,
+    "maximumJobRetryDelayMilliseconds": 600000,
+    "serverEnvironmentPath": "C:/Users/maxim/NextCloud/Maxime/Ecommerce/SAAIA/infra/.env.server-linux",
+    "referenceBackendUrl": "http://saaia-server:5122",
+    "backendPort": 5123,
+    "artifactRoot": "artifacts/reprise-pc-20260908/a861-candidate-explorer-pilot",
+    "artifactDirectoryRule": "Create a fresh directory containing the exact execution commit and UTC timestamp; never overwrite an earlier pilot."
+  },
+  "budget": {
+    "authorizedLifetimeUsd": 40.0,
+    "softLimitUsd": 39.9943606,
+    "hardStopUsd": 40.0,
+    "maximumCostPerJobUsd": 0.75,
+    "maximumCallsPerJob": 7,
+    "maximumJobs": 1,
+    "maximumCampaignCostImpliedByPerJobCapsUsd": 0.75,
+    "expectedNormalProviderCalls": 7,
+    "maximumProviderCallsByEnvelope": 7,
+    "pricingUsdPerMillionTokens": {
+      "input": 2.0,
+      "cachedInput": 0.2,
+      "output": 12.0
+    },
+    "recordedCostAtRegistrationUsd": 39.9943606,
+    "authorizedRemainingAtRegistrationUsd": 0.0056394,
+    "minimumPlannerReservationAtRegistrationUsd": 0.0061465,
+    "authorizationBasis": "The user authorized use of all credits already purchased and prohibited a new purchase for now. The persistent ledger leaves less than the minimum first-call reservation, so this profile is intentionally blocked until separately authorized compute exists."
+  },
+  "acceptance": {
+    "pilot": [
+      "The one registered meal-grid case completes on the exact clean execution state with the sealed reference corpus unchanged.",
+      "The Candidate Explorer is present in the preflight seal with Responses transport, agent topology, workspace, 32768 history characters, a 4096-token Explorer output budget and seven total provider calls.",
+      "The Explorer dossier reaches the Writer with at least twenty distinct body-verified candidates and at least five candidates assigned by the model to each of the four requested meal roles.",
+      "Every retained candidate has an exact documentary title and at least one canonical body EvidenceId; locator-only contents or index excerpts do not satisfy body coverage.",
+      "The final result is answered with twenty concrete, distinct and semantically suitable selections, one for every weekday and meal moment, with canonical source references and no unsupported item.",
+      "The durable job, provider telemetry, tool events, candidate checkpoint, final claims and source payload are preserved for mechanical and human semantic review.",
+      "A precise bounded gap is safe behavior but fails this functional pilot when the historical corpus contains the missing bodies."
+    ],
+    "progressionRule": "Only a successful and semantically reviewed first pilot permits registration of repetitions two and three on the same frozen semantic configuration. Failure returns to causal trace review; it does not authorize prompt stacking or a larger budget by itself.",
+    "productPromotionRule": "Keep TESTE_NON_APPROUVE after this pilot. Product promotion still requires two further consecutive successes, a new blind holdout, durable end-to-end recovery and WinUI source-card validation."
+  },
+  "stopRules": [
+    "Do not execute while the persistent lifetime budget cannot reserve the first provider call.",
+    "Do not execute without a paid-tier observation less than 15 minutes old.",
+    "Stop before the first model call if the branch, clean-tree rule, bank hash, local router binary, model or provider configuration differs.",
+    "Stop before the first model call if the reference corpus cannot be sealed or has an active ingestion job; reject the pilot if the postflight seal differs.",
+    "Stop at the persistent lifetime, per-job or per-call guard; do not purchase or reload credits automatically.",
+    "Do not run repetitions two or three after a failed or semantically unreviewed first pilot."
+  ],
+  "campaignKind": "targeted-causal"
+}

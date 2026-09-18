@@ -59,6 +59,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var options = WorkspaceOptions(protocol);
         options.NativeCandidateExplorerEnabled = true;
         options.NativeResearchMaximumHistoryCharacters = 32_768;
+        options.CandidateExplorerMaxTokens = 2_345;
         options.SemanticCriticEnabled = true;
         options.ExternalMaximumCallsPerJob = 7;
 
@@ -77,6 +78,14 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal("answered", result.Outcome);
         Assert.Equal(20, result.Claims.Count);
         Assert.Equal(5, factory.Requests.Count);
+        using (var explorerRequest = JsonDocument.Parse(factory.Requests[1].Body))
+        {
+            Assert.Equal(
+                2_345,
+                explorerRequest.RootElement.GetProperty(
+                    protocol == "responses" ? "max_output_tokens" : "max_tokens")
+                    .GetInt32());
+        }
         var writer = WorkspaceUser(factory.Requests[3].Body);
         var dossier = writer.GetProperty("candidateDossier");
         Assert.Equal("ready", dossier.GetProperty("outcome").GetString());
@@ -291,6 +300,31 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                     CancellationToken.None));
 
         Assert.Equal("advanced_candidate_explorer_configuration_invalid", error.ErrorCode);
+        Assert.Empty(factory.Requests);
+    }
+
+    [Fact]
+    public async Task Candidate_explorer_rejects_an_output_budget_too_small_for_its_contract()
+    {
+        using var factory = new QueuedHttpClientFactory();
+        var options = WorkspaceOptions();
+        options.NativeCandidateExplorerEnabled = true;
+        options.NativeResearchMaximumHistoryCharacters = 32_768;
+        options.CandidateExplorerMaxTokens = 511;
+
+        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
+            new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)
+                .ExecuteAsync(
+                    BuildRequest(
+                        answerUnitCount: 20,
+                        atomicEvidenceMode: "named_item",
+                        selectionPolicy: "distinct_structured_layout"),
+                    new RecordingToolGateway(),
+                    CancellationToken.None));
+
+        Assert.Equal(
+            "advanced_candidate_explorer_token_budget_invalid",
+            error.ErrorCode);
         Assert.Empty(factory.Requests);
     }
 }

@@ -78,6 +78,7 @@
     "LlmRetryBaseDelayMilliseconds": 15000,
     "LlmMaximumRetryDelayMilliseconds": 60000,
     "PlannerMaxTokens": 512,
+    "CandidateExplorerMaxTokens": 4096,
     "WriterMaxTokens": 4096,
     "SemanticCriticEnabled": true,
     "CriticMaxTokens": 4096,

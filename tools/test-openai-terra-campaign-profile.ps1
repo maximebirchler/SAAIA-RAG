@@ -24,6 +24,13 @@ function Require-Text {
     return $text
 }
 
+function Get-OptionalProfileValue {
+    param([object]$Object, [string]$Name, [object]$Default)
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property -or $null -eq $property.Value) { return $Default }
+    return $property.Value
+}
+
 $repositoryRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 if ([string]::IsNullOrWhiteSpace($ProfilePath)) {
     $ProfilePath = Join-Path $repositoryRoot "config\openai-terra-final-campaign.a763.json"
@@ -115,11 +122,61 @@ $freshTierObservation = $null -ne $tierObservation -and
     $tierObservationAgeMinutes -le $maximumTierAgeMinutes
 
 $caseIds = @($profile.bank.caseIds | ForEach-Object { Require-Text $_ "bank.caseIds item" })
-$semanticCriticEnabled = $null -ne $profile.provider.PSObject.Properties["semanticCriticEnabled"] -and
-    [bool]$profile.provider.semanticCriticEnabled
-$criticMaxTokens = if ($null -ne $profile.provider.PSObject.Properties["criticMaxTokens"]) {
-    [int]$profile.provider.criticMaxTokens
-} else { 4096 }
+$reasoningEffort = [string](Get-OptionalProfileValue $profile.provider "reasoningEffort" "low")
+$synthesisReasoningEffort = [string](Get-OptionalProfileValue $profile.provider "synthesisReasoningEffort" "")
+$synthesisPromptStyle = [string](Get-OptionalProfileValue $profile.provider "synthesisPromptStyle" "contract")
+$maximumProviderHttpAttempts = [int](Get-OptionalProfileValue $profile.provider "maximumProviderHttpAttempts" 3)
+$semanticCriticEnabled = [bool](Get-OptionalProfileValue $profile.provider "semanticCriticEnabled" $false)
+$criticMaxTokens = [int](Get-OptionalProfileValue $profile.provider "criticMaxTokens" 4096)
+$writerMaxTokens = [int](Get-OptionalProfileValue $profile.provider "writerMaxTokens" 4096)
+$nativeResearchToolsEnabled = [bool](Get-OptionalProfileValue $profile.provider "nativeResearchToolsEnabled" $false)
+$nativeResearchApiProtocol = [string](Get-OptionalProfileValue $profile.provider "nativeResearchApiProtocol" "chat-completions")
+$nativeResearchTopology = [string](Get-OptionalProfileValue $profile.provider "nativeResearchTopology" "reviewed")
+$nativeResearchMaximumHistoryCharacters = [int](Get-OptionalProfileValue $profile.provider "nativeResearchMaximumHistoryCharacters" 16384)
+$nativeResearchWorkspaceEnabled = [bool](Get-OptionalProfileValue $profile.provider "nativeResearchWorkspaceEnabled" $false)
+$nativeCandidateExplorerEnabled = [bool](Get-OptionalProfileValue $profile.provider "nativeCandidateExplorerEnabled" $false)
+$candidateExplorerReservePerRole = [int](Get-OptionalProfileValue $profile.provider "candidateExplorerReservePerRole" 2)
+$candidateExplorerMaxTokens = [int](Get-OptionalProfileValue $profile.provider "candidateExplorerMaxTokens" 4096)
+$nativeResearchActiveProposalEnabled = [bool](Get-OptionalProfileValue $profile.provider "nativeResearchActiveProposalEnabled" $false)
+$candidateBindingFeedbackEnabled = [bool](Get-OptionalProfileValue $profile.provider "candidateBindingFeedbackEnabled" $false)
+$plannerMaxTokens = [int](Get-OptionalProfileValue $profile.provider "plannerMaxTokens" 512)
+$usageLedgerPath = if (-not [string]::IsNullOrWhiteSpace($env:SAAIA_OPENAI_USAGE_LEDGER_PATH)) {
+    [System.IO.Path]::GetFullPath($env:SAAIA_OPENAI_USAGE_LEDGER_PATH)
+} else {
+    Join-Path $env:LOCALAPPDATA "SAAIA\llm-dev\openai-terra-usage.jsonl"
+}
+$usageLedgerValid = $true
+$recordedCostUsd = [decimal]0
+if (Test-Path -LiteralPath $usageLedgerPath -PathType Leaf) {
+    foreach ($line in Get-Content -LiteralPath $usageLedgerPath) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        try {
+            $entry = $line | ConvertFrom-Json
+            if ($null -eq $entry.PSObject.Properties["costUsd"] -or
+                [decimal]$entry.costUsd -lt 0) {
+                throw "Invalid costUsd."
+            }
+            $recordedCostUsd += [decimal]$entry.costUsd
+        }
+        catch {
+            $usageLedgerValid = $false
+            break
+        }
+    }
+}
+$hardStopUsd = [decimal]$profile.budget.hardStopUsd
+$outputRateUsdPerMillion = [decimal]$profile.budget.pricingUsdPerMillionTokens.output
+$inputRateUsdPerMillion = [decimal]$profile.budget.pricingUsdPerMillionTokens.input
+$minimumFirstCallReservationUsd = [decimal]::Round(
+    (([decimal]$plannerMaxTokens * $outputRateUsdPerMillion) +
+     ([decimal]1 * $inputRateUsdPerMillion * [decimal]1.25)) / [decimal]1000000,
+    8,
+    [MidpointRounding]::AwayFromZero)
+$budgetHeadroomUsd = $hardStopUsd - $recordedCostUsd
+$registeredRecordedCostUsd = Get-OptionalProfileValue `
+    $profile.budget `
+    "recordedCostAtRegistrationUsd" `
+    $null
 $campaignKind = if ($null -eq $profile.PSObject.Properties["campaignKind"]) {
     "final-acceptance"
 } else {
@@ -154,6 +211,17 @@ if ($BackendPort -ne [int]$profile.execution.backendPort) {
 }
 if (-not $minimumTierSatisfied) { $blockingReasons += "paid_tier_not_observed" }
 if (-not $freshTierObservation) { $blockingReasons += "paid_tier_observation_missing_or_stale" }
+if (-not $usageLedgerValid) {
+    $blockingReasons += "usage_ledger_invalid"
+} elseif ($null -ne $registeredRecordedCostUsd -and
+    [decimal]$registeredRecordedCostUsd -ne $recordedCostUsd) {
+    $blockingReasons += "usage_ledger_registration_mismatch"
+} elseif ($budgetHeadroomUsd -lt $minimumFirstCallReservationUsd) {
+    $blockingReasons += "lifetime_budget_headroom_below_first_call"
+}
+if ([decimal]$profile.budget.maximumCostPerJobUsd -lt $minimumFirstCallReservationUsd) {
+    $blockingReasons += "job_budget_below_first_call"
+}
 if ($semanticCriticEnabled -and
     ($criticMaxTokens -lt 512 -or $criticMaxTokens -gt 16384)) {
     $blockingReasons += "semantic_critic_token_limit_invalid"
@@ -161,6 +229,33 @@ if ($semanticCriticEnabled -and
 if ($semanticCriticEnabled -and
     [int]$profile.budget.maximumCallsPerJob -lt 4) {
     $blockingReasons += "semantic_critic_requires_four_call_envelope"
+}
+if ($reasoningEffort -notin @("low", "medium", "high") -or
+    $synthesisReasoningEffort -notin @("", "low", "medium", "high") -or
+    $synthesisPromptStyle -notin @("contract", "agent") -or
+    $maximumProviderHttpAttempts -lt 1 -or $maximumProviderHttpAttempts -gt 3 -or
+    $plannerMaxTokens -lt 256 -or $plannerMaxTokens -gt 4096 -or
+    $writerMaxTokens -lt 512 -or $writerMaxTokens -gt 16384) {
+    $blockingReasons += "provider_execution_profile_invalid"
+}
+if ($nativeResearchApiProtocol -notin @("chat-completions", "responses") -or
+    $nativeResearchTopology -notin @("reviewed", "agent") -or
+    $nativeResearchMaximumHistoryCharacters -lt 16384 -or
+    $nativeResearchMaximumHistoryCharacters -gt 65536 -or
+    $candidateExplorerReservePerRole -lt 0 -or
+    $candidateExplorerReservePerRole -gt 8 -or
+    $candidateExplorerMaxTokens -lt 512 -or
+    $candidateExplorerMaxTokens -gt 16384) {
+    $blockingReasons += "native_research_profile_invalid"
+}
+$minimumExplorerCalls = if ($semanticCriticEnabled) { 4 } else { 3 }
+if ($nativeCandidateExplorerEnabled -and
+    (-not $nativeResearchToolsEnabled -or
+     -not $nativeResearchWorkspaceEnabled -or
+     $nativeResearchTopology -ne "agent" -or
+     $nativeResearchMaximumHistoryCharacters -lt 32768 -or
+     [int]$profile.budget.maximumCallsPerJob -lt $minimumExplorerCalls)) {
+    $blockingReasons += "candidate_explorer_profile_invalid"
 }
 if (($campaignKind -eq "final-acceptance" -and $caseIds.Count -ne 4) -or
     ($campaignKind -eq "targeted-causal" -and
@@ -210,8 +305,33 @@ $preflight = [ordered]@{
     tierTimestampHasExplicitOffset = $tierTimestampHasExplicitOffset
     maximumTierObservationAgeMinutes = $maximumTierAgeMinutes
     paidTierGateSatisfied = $minimumTierSatisfied -and $freshTierObservation
+    usageLedgerPath = $usageLedgerPath
+    usageLedgerValid = $usageLedgerValid
+    recordedCostUsd = $recordedCostUsd
+    registeredRecordedCostUsd = $registeredRecordedCostUsd
+    usageLedgerMatchesRegistration = $null -eq $registeredRecordedCostUsd -or
+        [decimal]$registeredRecordedCostUsd -eq $recordedCostUsd
+    hardStopUsd = $hardStopUsd
+    budgetHeadroomUsd = $budgetHeadroomUsd
+    minimumFirstCallReservationUsd = $minimumFirstCallReservationUsd
     semanticCriticEnabled = $semanticCriticEnabled
     criticMaxTokens = $criticMaxTokens
+    writerMaxTokens = $writerMaxTokens
+    reasoningEffort = $reasoningEffort
+    synthesisReasoningEffort = $synthesisReasoningEffort
+    synthesisPromptStyle = $synthesisPromptStyle
+    maximumProviderHttpAttempts = $maximumProviderHttpAttempts
+    nativeResearchToolsEnabled = $nativeResearchToolsEnabled
+    nativeResearchApiProtocol = $nativeResearchApiProtocol
+    nativeResearchTopology = $nativeResearchTopology
+    nativeResearchMaximumHistoryCharacters = $nativeResearchMaximumHistoryCharacters
+    nativeResearchWorkspaceEnabled = $nativeResearchWorkspaceEnabled
+    nativeCandidateExplorerEnabled = $nativeCandidateExplorerEnabled
+    candidateExplorerReservePerRole = $candidateExplorerReservePerRole
+    candidateExplorerMaxTokens = $candidateExplorerMaxTokens
+    nativeResearchActiveProposalEnabled = $nativeResearchActiveProposalEnabled
+    candidateBindingFeedbackEnabled = $candidateBindingFeedbackEnabled
+    plannerMaxTokens = $plannerMaxTokens
     selectedIds = $caseIds
     repetitions = [int]$profile.bank.repetitions
     referenceBackendUrl = [string]$profile.execution.referenceBackendUrl
@@ -220,6 +340,7 @@ $preflight = [ordered]@{
     maximumJobAttempts = [int]$profile.execution.maximumJobAttempts
     maximumJobRetryDelayMilliseconds = [int]$profile.execution.maximumJobRetryDelayMilliseconds
     maximumCostPerJobUsd = [decimal]$profile.budget.maximumCostPerJobUsd
+    maximumCallsPerJob = [int]$profile.budget.maximumCallsPerJob
     maximumCampaignCostImpliedByPerJobCapsUsd = [decimal]$profile.budget.maximumCampaignCostImpliedByPerJobCapsUsd
     blockingReasons = $blockingReasons
     executionState = "NOT_STARTED"
@@ -264,6 +385,10 @@ try {
         -MaximumJobAttempts ([int]$profile.execution.maximumJobAttempts) `
         -MaximumJobRetryDelayMilliseconds ([int]$profile.execution.maximumJobRetryDelayMilliseconds) `
         -OpenAiModel ([string]$profile.provider.model) `
+        -ReasoningEffort $reasoningEffort `
+        -SynthesisReasoningEffort $synthesisReasoningEffort `
+        -SynthesisPromptStyle $synthesisPromptStyle `
+        -MaximumProviderHttpAttempts $maximumProviderHttpAttempts `
         -ObservedOrganizationTier $ObservedOrganizationTier `
         -TierObservedAtUtc $TierObservedAtUtc `
         -AuthorizedBudgetUsd ([decimal]$profile.budget.authorizedLifetimeUsd) `
@@ -272,6 +397,18 @@ try {
         -MaximumCostPerJobUsd ([decimal]$profile.budget.maximumCostPerJobUsd) `
         -MaximumCallsPerJob ([int]$profile.budget.maximumCallsPerJob) `
         -EnableSemanticCritic:$semanticCriticEnabled `
+        -EnableNativeResearchTools:$nativeResearchToolsEnabled `
+        -NativeResearchApiProtocol $nativeResearchApiProtocol `
+        -NativeResearchTopology $nativeResearchTopology `
+        -NativeResearchMaximumHistoryCharacters $nativeResearchMaximumHistoryCharacters `
+        -EnableNativeResearchWorkspace:$nativeResearchWorkspaceEnabled `
+        -EnableNativeCandidateExplorer:$nativeCandidateExplorerEnabled `
+        -CandidateExplorerReservePerRole $candidateExplorerReservePerRole `
+        -CandidateExplorerMaxTokens $candidateExplorerMaxTokens `
+        -EnableNativeResearchActiveProposal:$nativeResearchActiveProposalEnabled `
+        -EnableCandidateBindingFeedback:$candidateBindingFeedbackEnabled `
+        -PlannerMaxTokens $plannerMaxTokens `
+        -WriterMaxTokens $writerMaxTokens `
         -CriticMaxTokens $criticMaxTokens `
         -LocalLlmExePath $LocalLlmExePath `
         -LocalModelPath $LocalModelPath `
