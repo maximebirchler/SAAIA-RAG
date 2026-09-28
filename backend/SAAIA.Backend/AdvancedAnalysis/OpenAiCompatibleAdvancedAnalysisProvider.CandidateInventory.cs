@@ -291,6 +291,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var merged = current.ToDictionary(item => item.Key, StringComparer.Ordinal);
         foreach (var update in updates)
         {
+            var canonicalUpdate = update;
             if (!merged.TryGetValue(update.Key, out var prior))
             {
                 var matchingIdentity = merged.Values.FirstOrDefault(item =>
@@ -306,26 +307,42 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 }
                 prior = matchingIdentity;
             }
-            if (!string.Equals(prior.ExactTitle, update.ExactTitle, StringComparison.Ordinal)
-                || !string.Equals(prior.SourceKey, update.SourceKey, StringComparison.Ordinal))
+            if (!string.Equals(prior.SourceKey, update.SourceKey, StringComparison.Ordinal)
+                || !string.Equals(
+                    NormalizeClaimText(prior.ExactTitle),
+                    NormalizeClaimText(update.ExactTitle),
+                    StringComparison.Ordinal))
                 throw new AdvancedAnalysisProviderException(
                     "advanced_native_candidate_inventory_invalid");
-            var status = update.Status == "rejected" || prior.Status == "rejected"
-                ? update.Status
-                : Rank(update.Status) >= Rank(prior.Status) ? update.Status : prior.Status;
+            // Existing candidates already carry the canonical source title. A model
+            // may reproduce punctuation or OCR private-use glyphs differently while
+            // keeping the same normalized words. Preserve the server-owned identity
+            // instead of requiring a brittle byte-for-byte echo.
+            canonicalUpdate = update with
+            {
+                ExactTitle = prior.ExactTitle,
+                SourceKey = prior.SourceKey
+            };
+            var status = canonicalUpdate.Status == "rejected" || prior.Status == "rejected"
+                ? canonicalUpdate.Status
+                : Rank(canonicalUpdate.Status) >= Rank(prior.Status)
+                    ? canonicalUpdate.Status
+                    : prior.Status;
             merged[prior.Key] = prior with
             {
-                TargetRoles = prior.TargetRoles.Concat(update.TargetRoles)
+                TargetRoles = prior.TargetRoles.Concat(canonicalUpdate.TargetRoles)
                     .Distinct(StringComparer.Ordinal).Take(8).ToArray(),
                 SelectedRoles = status == "selected"
-                    ? prior.SelectedRoles.Concat(update.SelectedRoles)
+                    ? prior.SelectedRoles.Concat(canonicalUpdate.SelectedRoles)
                         .Distinct(StringComparer.Ordinal).Take(8).ToArray()
                     : [],
                 Status = status,
-                Note = string.IsNullOrWhiteSpace(update.Note) ? prior.Note : update.Note,
-                LocatorEvidenceIds = prior.LocatorEvidenceIds.Concat(update.LocatorEvidenceIds)
+                Note = string.IsNullOrWhiteSpace(canonicalUpdate.Note)
+                    ? prior.Note
+                    : canonicalUpdate.Note,
+                LocatorEvidenceIds = prior.LocatorEvidenceIds.Concat(canonicalUpdate.LocatorEvidenceIds)
                     .Distinct(StringComparer.Ordinal).Take(4).ToArray(),
-                BodyEvidenceIds = prior.BodyEvidenceIds.Concat(update.BodyEvidenceIds)
+                BodyEvidenceIds = prior.BodyEvidenceIds.Concat(canonicalUpdate.BodyEvidenceIds)
                     .Distinct(StringComparer.Ordinal).Take(4).ToArray()
             };
         }

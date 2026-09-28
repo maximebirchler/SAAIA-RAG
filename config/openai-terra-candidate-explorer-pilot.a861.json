@@ -1,10 +1,11 @@
 {
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
   "campaignId": "A861-TERRA-CANDIDATE-EXPLORER-PILOT-R1",
-  "status": "PREREGISTERED_AFTER_TOOL_SCHEMA_FIX",
+  "status": "PREREGISTERED_AFTER_CANONICAL_IDENTITY_FIX",
   "createdAtUtc": "2026-09-18T15:04:40.0033234+00:00",
   "computeReauthorizedAtUtc": "2026-09-28T16:04:07.6514505+00:00",
   "schemaFixRegisteredAtUtc": "2026-09-28T16:13:20.0436194Z",
+  "canonicalIdentityFixRegisteredAtUtc": "2026-09-28T16:20:38.0534021Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
@@ -89,10 +90,10 @@
       "cachedInput": 0.2,
       "output": 12.0
     },
-    "recordedCostAtRegistrationUsd": 40.0007356,
-    "authorizedRemainingAtRegistrationUsd": 4.9992644,
+    "recordedCostAtRegistrationUsd": 40.262952,
+    "authorizedRemainingAtRegistrationUsd": 4.737048,
     "minimumPlannerReservationAtRegistrationUsd": 0.0061465,
-    "authorizationBasis": "On 2026-09-28 the user added and authorized 5 USD of OpenAI API credit for the causal campaign. A868 spent 0.006375 USD on the Planner, then OpenAI rejected the Candidate Explorer function schema before inference because uniqueItems is unsupported. The general tool contract was corrected and covered by the existing provider suite; corpus, bank, prompts, topology and semantic acceptance rules remain frozen. Automatic purchase and automatic reload remain prohibited."
+    "authorizationBasis": "On 2026-09-28 the user added and authorized 5 USD of OpenAI API credit for the causal campaign. A868 exposed and fixed an unsupported OpenAI tool-schema keyword. A869 then spent 0.2622164 USD and demonstrated three successful Candidate Explorer calls before the backend rejected two existing OCR titles whose private-use prefix glyph was reproduced differently despite the same key, source and normalized words. The general merge contract now preserves the server-owned canonical title for normalized-equivalent updates while continuing to reject source or word changes. Corpus, bank, prompts, topology and semantic acceptance rules remain frozen. Automatic purchase and automatic reload remain prohibited."
   },
   "acceptance": {
     "pilot": [

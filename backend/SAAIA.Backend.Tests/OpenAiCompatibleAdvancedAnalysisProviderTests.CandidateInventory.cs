@@ -534,6 +534,45 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal("E-BODY", item.GetProperty("bodyEvidenceIds")[0].GetString());
     }
 
+    [Fact]
+    public async Task Candidate_inventory_preserves_canonical_title_when_only_an_ocr_glyph_is_reproduced_differently()
+    {
+        const string canonicalTitle = "\uF0FC Une collation!";
+        const string reproducedTitle = "\uF07C Une collation!";
+        var update = CandidateUpdate(
+            "candidate-075f4c21e528686a",
+            reproducedTitle,
+            "internal-source-1",
+            "petit-déjeuner",
+            "body_verified",
+            [],
+            ["E1"]);
+        using var factory = new QueuedHttpClientFactory(
+            Completion(CandidatePlanner),
+            NativeCompletion(("save_candidate_inventory", update)),
+            Completion(CandidateTerminal));
+        var evidence = BuildEvidence(
+            "E1",
+            canonicalTitle + "\nFruits et légumes coupés.",
+            exactTitle: canonicalTitle);
+
+        await new OpenAiCompatibleAdvancedAnalysisProvider(factory, WorkspaceOptions(), null)
+            .ExecuteAsync(
+                BuildRequest(
+                    answerUnitCount: 20,
+                    atomicEvidenceMode: "named_item",
+                    selectionPolicy: "distinct_structured_layout"),
+                new RecordingToolGateway(evidence),
+                CancellationToken.None);
+
+        var item = WorkspaceUser(factory.Requests[2].Body)
+            .GetProperty("candidateInventory")
+            .GetProperty("items")[0];
+        Assert.Equal(canonicalTitle, item.GetProperty("exactTitle").GetString());
+        Assert.Equal("internal-source-1", item.GetProperty("sourceKey").GetString());
+        Assert.Equal("petit-déjeuner", item.GetProperty("targetRoles")[0].GetString());
+    }
+
     [Theory]
     [InlineData("navigation_body")]
     [InlineData("verified_without_body")]

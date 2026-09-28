@@ -298,6 +298,21 @@ retirées du schéma tandis que la déduplication reste imposée par le parseur.
 Les 299 tests provider réussissent. Le corpus postflight est inchangé et les
 processus temporaires sont arrêtés. Voir
 documents/agent/rejet-schema-outil-openai-a868-2026-09-28.md.
+A869 démontre ensuite que le Candidate Explorer exécute réellement ses outils :
+trois appels Explorer réussissent, deux recherches sémantiques puis deux
+localisations littérales retrouvent notamment les corps du porridge et des
+pancakes, et Terra propose un inventaire de vingt candidats avec cinq éléments
+par rôle. Le backend rejette toutefois le lot avant Writer : deux titres OCR
+existants ont conservé les mêmes mots, clés et sources mais Terra a reproduit le
+pictogramme privé initial `` sous la forme ``. L'exigence d'une égalité octet
+par octet était trop fragile. Le merge conserve désormais l'identité canonique
+possédée par le serveur lorsque clé, source et titre normalisé concordent, tout
+en refusant les changements de source ou de mots. Les 300 tests provider
+réussissent. A869 coûte 0,26221640 USD ; le cumul atteint 40,26295200 USD sur
+45 USD. L'inventaire révèle aussi des rubriques automatiquement retenues qui ne
+sont pas toutes des recettes : ce signal de qualité reste à suivre pendant la
+revue sémantique, sans être attribué prématurément au modèle. Voir
+documents/agent/rejet-identite-canonique-a869-2026-09-28.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.
