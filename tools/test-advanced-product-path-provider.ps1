@@ -59,6 +59,8 @@ param(
     [int]$WriterMaxTokens = 4096,
     [ValidateRange(512, 16384)]
     [int]$CriticMaxTokens = 4096,
+    [ValidateRange(8000, 1000000)]
+    [int]$MaximumEvidencePromptCharacters = 14000,
     [decimal]$InputUsdPerMillionTokens = 0,
     [decimal]$CachedInputUsdPerMillionTokens = 0,
     [decimal]$OutputUsdPerMillionTokens = 0,
@@ -567,7 +569,7 @@ try {
             SemanticCriticEnabled = [bool]$EnableSemanticCritic
             CriticMaxTokens = $CriticMaxTokens
             MaximumPlanQueries = 8
-            MaximumEvidencePromptCharacters = 14000
+            MaximumEvidencePromptCharacters = $MaximumEvidencePromptCharacters
             ExternalBudgetAuthorizedUsd = $AuthorizedBudgetUsd
             ExternalBudgetSoftLimitUsd = $SoftLimitUsd
             ExternalBudgetHardLimitUsd = $HardLimitUsd
@@ -702,6 +704,7 @@ try {
         plannerMaxTokens = $PlannerMaxTokens
         writerMaxTokens = $WriterMaxTokens
         criticMaxTokens = $CriticMaxTokens
+        maximumEvidencePromptCharacters = $MaximumEvidencePromptCharacters
         inputUsdPerMillionTokens = $InputUsdPerMillionTokens
         cachedInputUsdPerMillionTokens = $CachedInputUsdPerMillionTokens
         outputUsdPerMillionTokens = $OutputUsdPerMillionTokens

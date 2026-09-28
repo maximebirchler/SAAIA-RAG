@@ -141,6 +141,7 @@ $candidateExplorerMaxTokens = [int](Get-OptionalProfileValue $profile.provider "
 $nativeResearchActiveProposalEnabled = [bool](Get-OptionalProfileValue $profile.provider "nativeResearchActiveProposalEnabled" $false)
 $candidateBindingFeedbackEnabled = [bool](Get-OptionalProfileValue $profile.provider "candidateBindingFeedbackEnabled" $false)
 $plannerMaxTokens = [int](Get-OptionalProfileValue $profile.provider "plannerMaxTokens" 512)
+$maximumEvidencePromptCharacters = [int](Get-OptionalProfileValue $profile.provider "maximumEvidencePromptCharacters" 14000)
 $usageLedgerPath = if (-not [string]::IsNullOrWhiteSpace($env:SAAIA_OPENAI_USAGE_LEDGER_PATH)) {
     [System.IO.Path]::GetFullPath($env:SAAIA_OPENAI_USAGE_LEDGER_PATH)
 } else {
@@ -253,6 +254,8 @@ if ($reasoningEffort -notin @("low", "medium", "high") -or
     $synthesisPromptStyle -notin @("contract", "agent") -or
     $maximumProviderHttpAttempts -lt 1 -or $maximumProviderHttpAttempts -gt 3 -or
     $plannerMaxTokens -lt 256 -or $plannerMaxTokens -gt 4096 -or
+    $maximumEvidencePromptCharacters -lt 8000 -or
+    $maximumEvidencePromptCharacters -gt 1000000 -or
     $writerMaxTokens -lt 512 -or $writerMaxTokens -gt 16384) {
     $blockingReasons += "provider_execution_profile_invalid"
 }
@@ -371,6 +374,7 @@ $preflight = [ordered]@{
     nativeResearchActiveProposalEnabled = $nativeResearchActiveProposalEnabled
     candidateBindingFeedbackEnabled = $candidateBindingFeedbackEnabled
     plannerMaxTokens = $plannerMaxTokens
+    maximumEvidencePromptCharacters = $maximumEvidencePromptCharacters
     selectedIds = $caseIds
     repetitions = [int]$profile.bank.repetitions
     referenceBackendUrl = [string]$profile.execution.referenceBackendUrl
@@ -452,6 +456,7 @@ try {
         -PlannerMaxTokens $plannerMaxTokens `
         -WriterMaxTokens $writerMaxTokens `
         -CriticMaxTokens $criticMaxTokens `
+        -MaximumEvidencePromptCharacters $maximumEvidencePromptCharacters `
         -LocalLlmExePath $LocalLlmExePath `
         -LocalModelPath $LocalModelPath `
         -Configuration ([string]$profile.execution.configuration) `
