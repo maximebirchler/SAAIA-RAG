@@ -36,6 +36,10 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             StringComparison.Ordinal);
         Assert.Contains("failed replacement search", criticSystemPrompt,
             StringComparison.Ordinal);
+        Assert.Contains("claims may be empty", criticSystemPrompt,
+            StringComparison.Ordinal);
+        Assert.Contains("do not create placeholder claims", criticSystemPrompt,
+            StringComparison.Ordinal);
     }
 
     [Fact]

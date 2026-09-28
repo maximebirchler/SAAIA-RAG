@@ -375,6 +375,19 @@ maintenant ce raffinement uniquement avec source et EvidenceId de corps
 identiques. Un test exact porte la suite provider à 305/305. A874 coûte
 0,26732440 USD ; le cumul atteint 41,88678500 USD sur 45 USD. Voir
 documents/agent/rejet-raffinement-cle-candidat-a874-2026-09-28.md.
+A875 accepte le raffinement de clé et transmet un dossier borné de treize
+candidats sans compter les composants. Le Writer produit une insuffisance
+honnête, mais remplit les vingt coordonnées avec quinze claims sans EvidenceId ;
+le parseur les refuse correctement sous un code d'erreur trop général. Le
+contrat commun précise maintenant que le quota de claims ne vaut que pour
+`answered`, tandis qu'une insuffisance ou clarification peut garder `claims`
+vide et ne doit jamais fabriquer de claims de cases absentes. L'essai montre
+aussi que sept appels réservent Writer/Critic avant un nouveau tour de recherche
+alors que les corps A813/A817 existent. Le plafond passe à neuf appels, avec le
+même maximum de 0,75 USD par job, afin de permettre un tour documentaire et son
+terminal supplémentaires. A875 coûte 0,40699340 USD ; le cumul atteint
+42,29377840 USD sur 45 USD. Voir
+documents/agent/rejet-claims-insuffisance-et-budget-explorer-a875-2026-09-28.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

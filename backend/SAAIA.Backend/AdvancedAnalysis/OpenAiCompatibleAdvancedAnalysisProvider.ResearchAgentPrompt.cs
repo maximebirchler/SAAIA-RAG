@@ -76,8 +76,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            insufficient_documentation or clarification_required, answerText and
            claims. Each claim has claimId, selectedItem (exact item name or empty),
            text and evidenceIds. Copy only IDs present in current user.evidence.
+           claimCoordinates and the required claim count apply to an answered
+           deliverable. For insufficient_documentation or clarification_required,
+           do not create placeholder claims for unsupported coordinates and do not
+           cite unrelated examples as proof of absence. claims may be empty. Include
+           only positive documentary statements that have non-empty current
+           evidenceIds; explain the bounded gap directly in answerText.
            Respect the requested distinctions and layout; for claimCoordinates,
-           use their exact claimIds and do not invent an entry to fill a cell.
+           use their exact claimIds in an answered result and do not invent an
+           entry to fill a cell.
            When distinct atomic choices are requested, each coordinate needs a
            concrete chosen item that answers that unit's purpose. Category names,
            section headings and abstract composition templates are not additional

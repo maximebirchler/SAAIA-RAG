@@ -1,7 +1,7 @@
 {
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
   "campaignId": "A861-TERRA-CANDIDATE-EXPLORER-PILOT-R1",
-  "status": "PREREGISTERED_AFTER_SAME_BODY_IDENTITY_REFINEMENT_FIX",
+  "status": "PREREGISTERED_AFTER_BOUNDED_GAP_AND_EXPLORER_BUDGET_FIX",
   "createdAtUtc": "2026-09-18T15:04:40.0033234+00:00",
   "computeReauthorizedAtUtc": "2026-09-28T16:04:07.6514505+00:00",
   "schemaFixRegisteredAtUtc": "2026-09-28T16:13:20.0436194Z",
@@ -11,6 +11,7 @@
   "responsesJsonFormatFixRegisteredAtUtc": "2026-09-28T16:42:19.4070353Z",
   "cardIdentityAndNavigationFixRegisteredAtUtc": "2026-09-28T16:54:48.8724425Z",
   "sameBodyIdentityRefinementFixRegisteredAtUtc": "2026-09-28T17:00:35.5726677Z",
+  "boundedGapAndExplorerBudgetFixRegisteredAtUtc": "2026-09-28T17:06:14.9740481Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
@@ -85,25 +86,25 @@
     "softLimitUsd": 44.0,
     "hardStopUsd": 45.0,
     "maximumCostPerJobUsd": 0.75,
-    "maximumCallsPerJob": 7,
+    "maximumCallsPerJob": 9,
     "maximumJobs": 1,
     "maximumCampaignCostImpliedByPerJobCapsUsd": 0.75,
-    "expectedNormalProviderCalls": 7,
-    "maximumProviderCallsByEnvelope": 7,
+    "expectedNormalProviderCalls": 9,
+    "maximumProviderCallsByEnvelope": 9,
     "pricingUsdPerMillionTokens": {
       "input": 2.0,
       "cachedInput": 0.2,
       "output": 12.0
     },
-    "recordedCostAtRegistrationUsd": 41.886785,
-    "authorizedRemainingAtRegistrationUsd": 3.113215,
+    "recordedCostAtRegistrationUsd": 42.2937784,
+    "authorizedRemainingAtRegistrationUsd": 2.7062216,
     "minimumPlannerReservationAtRegistrationUsd": 0.0061465,
-    "authorizationBasis": "On 2026-09-28 the user added and authorized 5 USD of OpenAI API credit for the causal campaign. A873 established that named indexes were visible but underused and that card titles could be subordinate to fuller body identities. After the general navigation and identity clarification, A874 spent 0.2673244 USD and Terra followed named entries with find_source_text across observed sources. It then submitted fourteen grounded candidate updates, including a correct refinement from Les pates to the exact whole-line identity Timbale de pates on the same key, source and body evidence. The local merge rejected that normalized-title change even though the parser had validated it. The merge now permits an identity refinement only when source and at least one body EvidenceId remain identical; unrelated key or source changes remain rejected. Corpus, bank, model, tools, topology and semantic acceptance rules remain frozen. Automatic purchase and automatic reload remain prohibited."
+    "authorizationBasis": "On 2026-09-28 the user added and authorized 5 USD of OpenAI API credit for the causal campaign. A875 spent 0.4069934 USD and proved that same-body identity refinement now works. Explorer produced an honest bounded dossier with 13 candidates, but Writer emitted twenty placeholder claims for an insufficient_documentation outcome; fifteen had empty evidence arrays and were correctly rejected. The common prompt now states that claim coordinates and counts apply to answered results, while insufficiency or clarification may use empty claims and must not create unsupported placeholders. A875 also showed that the seven-call envelope reserved Writer and Critic immediately after the first bounded inventory, although the known A813/A817 corpus contains the missing bodies. The call cap rises to nine so one additional research plus terminal Explorer round remains possible while Writer and Critic stay reserved. The monetary cap remains 0.75 USD per job; corpus, bank, model, tools, token limits and semantic acceptance rules remain frozen. Automatic purchase and automatic reload remain prohibited."
   },
   "acceptance": {
     "pilot": [
       "The one registered meal-grid case completes on the exact clean execution state with the sealed reference corpus unchanged.",
-      "The Candidate Explorer is present in the preflight seal with Responses transport, agent topology, workspace, 32768 history characters, a 4096-token Explorer output budget and seven total provider calls.",
+      "The Candidate Explorer is present in the preflight seal with Responses transport, agent topology, workspace, 32768 history characters, a 4096-token Explorer output budget and nine total provider calls.",
       "The Explorer dossier reaches the Writer with at least twenty distinct body-verified candidates and at least five candidates assigned by the model to each of the four requested meal roles.",
       "Every retained candidate has an exact documentary title and at least one canonical body EvidenceId; locator-only contents or index excerpts do not satisfy body coverage.",
       "The final result is answered with twenty concrete, distinct and semantically suitable selections, one for every weekday and meal moment, with canonical source references and no unsupported item.",

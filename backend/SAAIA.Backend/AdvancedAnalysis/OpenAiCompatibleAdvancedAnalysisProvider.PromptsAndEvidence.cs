@@ -26,6 +26,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         During writing or review, replace unsupported selections from the supplied
         evidence or report the precise remaining evidence deficit. Do not require
         sources to prescribe the arrangement SAAIA is asked to propose.
+        claimCoordinates and the required claim count apply to an answered
+        deliverable. For insufficient_documentation or clarification_required,
+        do not create placeholder claims for unsupported coordinates and do not
+        cite unrelated examples as proof of absence. claims may be empty. Include
+        only positive documentary statements that have non-empty current
+        evidenceIds; explain the bounded gap directly in answerText.
         """;
 
     private const string CanonicalSourceReadContract = """
