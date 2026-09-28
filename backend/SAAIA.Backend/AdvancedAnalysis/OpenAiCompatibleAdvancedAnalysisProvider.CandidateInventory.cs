@@ -63,7 +63,6 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             type = "array",
             minItems = 0,
             maxItems = 4,
-            uniqueItems = true,
             items = new { type = "string", @enum = evidenceIds }
         };
         var itemProperties = new Dictionary<string, object>
@@ -76,7 +75,6 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 type = "array",
                 minItems = targetRoles.Length == 0 ? 0 : 1,
                 maxItems = Math.Min(8, targetRoles.Length),
-                uniqueItems = true,
                 items = targetRoles.Length == 0
                     ? (object)new { type = "string", maxLength = 1 }
                     : new { type = "string", @enum = targetRoles }
@@ -86,7 +84,6 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 type = "array",
                 minItems = 0,
                 maxItems = Math.Min(8, targetRoles.Length),
-                uniqueItems = true,
                 items = targetRoles.Length == 0
                     ? (object)new { type = "string", maxLength = 1 }
                     : new { type = "string", @enum = targetRoles }

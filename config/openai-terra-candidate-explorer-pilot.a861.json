@@ -1,9 +1,10 @@
 {
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
   "campaignId": "A861-TERRA-CANDIDATE-EXPLORER-PILOT-R1",
-  "status": "PREREGISTERED_COMPUTE_REAUTHORIZED",
+  "status": "PREREGISTERED_AFTER_TOOL_SCHEMA_FIX",
   "createdAtUtc": "2026-09-18T15:04:40.0033234+00:00",
   "computeReauthorizedAtUtc": "2026-09-28T16:04:07.6514505+00:00",
+  "schemaFixRegisteredAtUtc": "2026-09-28T16:13:20.0436194Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
@@ -88,10 +89,10 @@
       "cachedInput": 0.2,
       "output": 12.0
     },
-    "recordedCostAtRegistrationUsd": 39.9943606,
-    "authorizedRemainingAtRegistrationUsd": 5.0056394,
+    "recordedCostAtRegistrationUsd": 40.0007356,
+    "authorizedRemainingAtRegistrationUsd": 4.9992644,
     "minimumPlannerReservationAtRegistrationUsd": 0.0061465,
-    "authorizationBasis": "On 2026-09-28 the user added and authorized 5 USD of OpenAI API credit for the causal campaign. The semantic profile remains frozen; only the lifetime, soft and hard budget envelope changed from 40 USD to 45 USD. Automatic purchase and automatic reload remain prohibited."
+    "authorizationBasis": "On 2026-09-28 the user added and authorized 5 USD of OpenAI API credit for the causal campaign. A868 spent 0.006375 USD on the Planner, then OpenAI rejected the Candidate Explorer function schema before inference because uniqueItems is unsupported. The general tool contract was corrected and covered by the existing provider suite; corpus, bank, prompts, topology and semantic acceptance rules remain frozen. Automatic purchase and automatic reload remain prohibited."
   },
   "acceptance": {
     "pilot": [

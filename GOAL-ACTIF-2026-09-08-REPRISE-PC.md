@@ -287,6 +287,17 @@ plafond global passe de 40 à 45 USD sans changer corpus, banque, prompts,
 topologie ou critères. Le premier pilote A861 reste limité à 0,75 USD et doit
 être revu avant toute répétition. Voir
 documents/agent/audit-entree-et-reauthorisation-a867-2026-09-28.md.
+A868 arrête le premier pilote réautorisé avant toute évaluation du Candidate
+Explorer : le Planner produit huit requêtes cohérentes, puis l'API OpenAI refuse
+le schéma de `save_candidate_inventory` car le sous-ensemble strict des outils
+Responses n'accepte pas `uniqueItems`. Terra n'a donc reçu ni les outils ni le
+dossier documentaire de ce rôle et ce résultat ne mesure pas sa capacité
+sémantique. Le seul appel facturé est le Planner : 0,006375 USD ; le registre
+atteint 40,00073560 USD sur 45 USD. Les trois occurrences incompatibles ont été
+retirées du schéma tandis que la déduplication reste imposée par le parseur.
+Les 299 tests provider réussissent. Le corpus postflight est inchangé et les
+processus temporaires sont arrêtés. Voir
+documents/agent/rejet-schema-outil-openai-a868-2026-09-28.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

@@ -104,12 +104,18 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(1, breakfast.GetProperty("bodyVerifiedCount").GetInt32());
 
         using var request = JsonDocument.Parse(factory.Requests[1].Body);
-        Assert.Contains(
-            request.RootElement.GetProperty("tools").EnumerateArray(),
-            tool => (tool.TryGetProperty("function", out var function)
+        var inventoryTool = request.RootElement.GetProperty("tools").EnumerateArray()
+            .Single(tool => (tool.TryGetProperty("function", out var function)
                     ? function.GetProperty("name").GetString()
                     : tool.GetProperty("name").GetString())
                 == "save_candidate_inventory");
+        var inventoryFunction = inventoryTool.TryGetProperty("function", out var nestedFunction)
+            ? nestedFunction
+            : inventoryTool;
+        Assert.DoesNotContain(
+            "\"uniqueItems\"",
+            inventoryFunction.GetProperty("parameters").GetRawText(),
+            StringComparison.Ordinal);
     }
 
     [Fact]
