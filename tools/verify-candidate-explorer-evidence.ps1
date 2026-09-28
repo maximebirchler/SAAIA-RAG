@@ -5,6 +5,7 @@ param(
     [ValidateRange(1, 200)]
     [int]$ExpectedJobs = 1,
     [switch]$RequireSemanticCritic,
+    [switch]$RequireStagedPipeline,
     [string]$OutputPath = ""
 )
 
@@ -277,13 +278,22 @@ try {
             throw "A completed Candidate Explorer job has no provider trace."
         }
     }
-    if (@($traceRoleCounts.Keys | Where-Object {
-            $_ -eq "candidate-explorer" -or
-            $_ -like "candidate-explorer-correction-*"
-        }).Count -lt 1 -or
+    $hasIntegratedExplorer = @($traceRoleCounts.Keys | Where-Object {
+        $_ -eq "candidate-explorer" -or
+        $_ -like "candidate-explorer-correction-*"
+    }).Count -gt 0
+    $hasStagedNavigator = @($traceRoleCounts.Keys | Where-Object {
+        $_ -like "candidate-navigator-*"
+    }).Count -gt 0
+    $hasStagedJudge = @($traceRoleCounts.Keys | Where-Object {
+        $_ -like "candidate-judge-*"
+    }).Count -gt 0
+    if (($RequireStagedPipeline -and
+            (-not $hasStagedNavigator -or -not $hasStagedJudge)) -or
+        (-not $RequireStagedPipeline -and -not $hasIntegratedExplorer) -or
         -not $traceRoleCounts.Contains("writer") -or
         ($RequireSemanticCritic -and -not $traceRoleCounts.Contains("critic"))) {
-        throw "The provider traces do not contain every required Candidate Explorer role."
+        throw "The provider traces do not contain every required Candidate Explorer pipeline role."
     }
 }
 catch {
@@ -309,6 +319,7 @@ $assessment = [ordered]@{
     artifactDirectory = $ArtifactDirectory
     expectedJobs = $ExpectedJobs
     requireSemanticCritic = [bool]$RequireSemanticCritic
+    requireStagedPipeline = [bool]$RequireStagedPipeline
     privateArtifactsMayLeaveWorkspace = $false
     privateAuditSha256 = $auditSha256
     privateTraceManifestSha256 = $traceManifestSha256

@@ -30,7 +30,10 @@ function New-EvidenceFixture {
         [switch]$TamperTrace,
         [switch]$ForeignTraceJob,
         [switch]$MissingCheckpoint,
-        [switch]$MissingCritic
+        [switch]$MissingCritic,
+        [switch]$StagedPipeline,
+        [switch]$MissingNavigator,
+        [switch]$MissingJudge
     )
 
     $directory = Join-Path $ArtifactDirectory $Name
@@ -43,7 +46,14 @@ function New-EvidenceFixture {
         $jobId
     }
     $traceEntries = @()
-    $roles = @("candidate-explorer", "writer")
+    $roles = @()
+    if ($StagedPipeline) {
+        if (-not $MissingNavigator) { $roles += "candidate-navigator-1" }
+        if (-not $MissingJudge) { $roles += "candidate-judge-1" }
+    } else {
+        $roles += "candidate-explorer"
+    }
+    $roles += "writer"
     if (-not $MissingCritic) { $roles += "critic" }
     foreach ($role in $roles) {
         $tracePath = Join-Path $traceDirectory "$role.json"
@@ -190,6 +200,23 @@ Add-Result "valid private evidence passes integrity verification" `
         'Private fixture title|private-source|candidate-1|"E[12]"') `
     "exit=$validExit verdict=$($validAssessment.verdict)"
 
+$validStaged = New-EvidenceFixture "valid-staged" -StagedPipeline
+& pwsh -NoProfile -File $verifier `
+    -ArtifactDirectory $validStaged `
+    -ExpectedJobs 1 `
+    -RequireSemanticCritic `
+    -RequireStagedPipeline | Out-Null
+$validStagedExit = $LASTEXITCODE
+$validStagedAssessment = Get-Content -LiteralPath (Join-Path $validStaged `
+    "candidate-explorer-evidence-assessment.public.json") -Raw | ConvertFrom-Json
+Add-Result "valid staged private evidence requires navigator and judge traces" `
+    ($validStagedExit -eq 0 -and
+     [bool]$validStagedAssessment.requireStagedPipeline -and
+     [int]$validStagedAssessment.providerTraces -eq 4 -and
+     [string]$validStagedAssessment.verdict -eq
+        "PASS_PRIVATE_EVIDENCE_INTEGRITY_REQUIRES_SEMANTIC_REVIEW") `
+    "exit=$validStagedExit verdict=$($validStagedAssessment.verdict)"
+
 foreach ($case in @(
     [pscustomobject]@{ Name = "tampered-trace"; Arguments = @{ TamperTrace = $true } },
     [pscustomobject]@{ Name = "foreign-trace-job"; Arguments = @{ ForeignTraceJob = $true } },
@@ -202,6 +229,27 @@ foreach ($case in @(
         -ArtifactDirectory $fixture `
         -ExpectedJobs 1 `
         -RequireSemanticCritic | Out-Null
+    $exitCode = $LASTEXITCODE
+    $assessment = Get-Content -LiteralPath (Join-Path $fixture `
+        "candidate-explorer-evidence-assessment.public.json") -Raw | ConvertFrom-Json
+    Add-Result "$($case.Name) is rejected" `
+        ($exitCode -eq 2 -and
+         [string]$assessment.verdict -eq "REJECT_PRIVATE_EVIDENCE_INTEGRITY" -and
+         @($assessment.errors).Count -eq 1) `
+        "exit=$exitCode verdict=$($assessment.verdict)"
+}
+
+foreach ($case in @(
+    [pscustomobject]@{ Name = "staged-missing-navigator"; Arguments = @{ StagedPipeline = $true; MissingNavigator = $true } },
+    [pscustomobject]@{ Name = "staged-missing-judge"; Arguments = @{ StagedPipeline = $true; MissingJudge = $true } }
+)) {
+    $fixtureArguments = $case.Arguments
+    $fixture = New-EvidenceFixture -Name $case.Name @fixtureArguments
+    & pwsh -NoProfile -File $verifier `
+        -ArtifactDirectory $fixture `
+        -ExpectedJobs 1 `
+        -RequireSemanticCritic `
+        -RequireStagedPipeline | Out-Null
     $exitCode = $LASTEXITCODE
     $assessment = Get-Content -LiteralPath (Join-Path $fixture `
         "candidate-explorer-evidence-assessment.public.json") -Raw | ConvertFrom-Json
