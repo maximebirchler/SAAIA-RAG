@@ -307,20 +307,30 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 }
                 prior = matchingIdentity;
             }
-            if (!string.Equals(prior.SourceKey, update.SourceKey, StringComparison.Ordinal)
-                || !string.Equals(
-                    NormalizeClaimText(prior.ExactTitle),
-                    NormalizeClaimText(update.ExactTitle),
-                    StringComparison.Ordinal))
+            if (!string.Equals(prior.SourceKey, update.SourceKey, StringComparison.Ordinal))
                 throw new AdvancedAnalysisProviderException(
                     "advanced_native_candidate_inventory_invalid");
-            // Existing candidates already carry the canonical source title. A model
-            // may reproduce punctuation or OCR private-use glyphs differently while
-            // keeping the same normalized words. Preserve the server-owned identity
-            // instead of requiring a brittle byte-for-byte echo.
+            var sameNormalizedTitle = string.Equals(
+                NormalizeClaimText(prior.ExactTitle),
+                NormalizeClaimText(update.ExactTitle),
+                StringComparison.Ordinal);
+            if (!sameNormalizedTitle
+                && !prior.BodyEvidenceIds.Intersect(
+                    update.BodyEvidenceIds,
+                    StringComparer.Ordinal).Any())
+            {
+                throw new AdvancedAnalysisProviderException(
+                    "advanced_native_candidate_inventory_invalid");
+            }
+            // Preserve a server-owned title when the model only echoes OCR glyphs
+            // differently. When the same source body is cited again, however, the
+            // model may replace a subordinate card heading with a fuller exact
+            // identity already validated from that body by the parser.
             canonicalUpdate = update with
             {
-                ExactTitle = prior.ExactTitle,
+                ExactTitle = sameNormalizedTitle
+                    ? prior.ExactTitle
+                    : update.ExactTitle,
                 SourceKey = prior.SourceKey
             };
             var status = canonicalUpdate.Status == "rejected" || prior.Status == "rejected"

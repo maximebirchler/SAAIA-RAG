@@ -364,6 +364,17 @@ et donne priorité aux entrées nommées d'un sommaire lorsque la couverture est
 incomplète. Un test causal porte la suite provider à 304/304. A873 coûte
 0,46666140 USD ; le cumul atteint 41,61946060 USD sur 45 USD. Voir
 documents/agent/rejet-identite-carte-et-navigation-a873-2026-09-28.md.
+A874 confirme que la nouvelle instruction change la stratégie : Terra suit les
+sommaires avec `find_source_text` sur six titres nommés au lieu de rester sur
+des recherches générales. Il soumet ensuite quatorze candidats, dont le
+raffinement correct de `Les pâtes` vers `Timbale de pâtes` sur la même clé, la
+même source et le même corps. Le parseur valide le titre complet, mais le merge
+local refuse encore toute modification du titre associé à une clé et masque ce
+rejet sous `advanced_synthesis_research_protocol_invalid`. Le merge autorise
+maintenant ce raffinement uniquement avec source et EvidenceId de corps
+identiques. Un test exact porte la suite provider à 305/305. A874 coûte
+0,26732440 USD ; le cumul atteint 41,88678500 USD sur 45 USD. Voir
+documents/agent/rejet-raffinement-cle-candidat-a874-2026-09-28.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.
