@@ -360,6 +360,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         options.SemanticCriticEnabled = true;
         options.ExternalMaximumCallsPerJob = 5;
 
+        var gateway = new CheckpointToolGateway(evidence);
         var result = await new OpenAiCompatibleAdvancedAnalysisProvider(
                 factory,
                 options,
@@ -369,11 +370,14 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                     answerUnitCount: 20,
                     atomicEvidenceMode: "named_item",
                     selectionPolicy: "distinct_structured_layout"),
-                new RecordingToolGateway(evidence),
+                gateway,
                 CancellationToken.None);
 
         Assert.Equal("answered", result.Outcome);
         Assert.Equal("Timbale de pâtes", result.Claims[1].SelectedItem);
+        Assert.Contains(gateway.Checkpoint!.Candidates, candidate =>
+            candidate.ExactTitle == "Timbale de pâtes"
+            && candidate.BodyEvidenceIds.Contains("E2", StringComparer.Ordinal));
         Assert.Equal(5, factory.Requests.Count);
     }
 

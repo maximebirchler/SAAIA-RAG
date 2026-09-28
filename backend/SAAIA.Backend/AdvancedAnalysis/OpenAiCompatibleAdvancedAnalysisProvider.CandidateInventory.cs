@@ -340,6 +340,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     : prior.Status;
             merged[prior.Key] = prior with
             {
+                ExactTitle = canonicalUpdate.ExactTitle,
                 TargetRoles = prior.TargetRoles.Concat(canonicalUpdate.TargetRoles)
                     .Distinct(StringComparer.Ordinal).Take(8).ToArray(),
                 SelectedRoles = status == "selected"
