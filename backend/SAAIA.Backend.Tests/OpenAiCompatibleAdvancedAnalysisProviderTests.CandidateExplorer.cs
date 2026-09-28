@@ -86,6 +86,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                     protocol == "responses" ? "max_output_tokens" : "max_tokens")
                     .GetInt32());
         }
+        string explorerSystemPrompt;
         if (protocol == "responses")
         {
             using var terminalRequest = JsonDocument.Parse(factory.Requests[2].Body);
@@ -93,11 +94,22 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 .EnumerateArray()
                 .Single(item => item.TryGetProperty("role", out var role)
                     && role.GetString() == "system");
-            Assert.Contains(
-                "json",
-                systemMessage.GetProperty("content").GetString()!,
-                StringComparison.OrdinalIgnoreCase);
+            explorerSystemPrompt = systemMessage.GetProperty("content").GetString()!;
+            Assert.Contains("json", explorerSystemPrompt, StringComparison.OrdinalIgnoreCase);
         }
+        else
+        {
+            using var explorerRequest = JsonDocument.Parse(factory.Requests[1].Body);
+            explorerSystemPrompt = explorerRequest.RootElement.GetProperty("messages")
+                .EnumerateArray()
+                .Single(message => message.GetProperty("role").GetString() == "system")
+                .GetProperty("content")
+                .GetString()!;
+        }
+        Assert.Contains("find_source_text with exact", explorerSystemPrompt);
+        Assert.Contains("observed entry names", explorerSystemPrompt);
+        Assert.Contains("read_source from observed physical coordinates", explorerSystemPrompt);
+        Assert.Contains("another broad search_corpus query", explorerSystemPrompt);
         var writer = WorkspaceUser(factory.Requests[3].Body);
         var dossier = writer.GetProperty("candidateDossier");
         Assert.Equal("ready", dossier.GetProperty("outcome").GetString());

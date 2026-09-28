@@ -14,6 +14,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            information with the operation you consider useful; do not confuse the
            currently visible subset with the entire corpus. Your research workspace
            and operational history preserve decisions, not documentary facts.
+           When a visible contents or index page offers concrete named entries that
+           may address an uncovered purpose, prefer find_source_text with exact
+           observed entry names, or read_source from observed physical coordinates,
+           over another broad search_corpus query scoped to that same source. A
+           generic source-scoped semantic search remains useful when no promising
+           named entry is visible. Verify every located entry from its substantive
+           body before accepting it.
 
            For a task collecting many choices, maintain a compact candidate list
            with exact observed names, proposed purposes, current evidence IDs,

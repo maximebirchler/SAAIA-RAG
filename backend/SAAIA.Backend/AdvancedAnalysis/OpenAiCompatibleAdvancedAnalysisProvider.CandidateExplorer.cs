@@ -226,11 +226,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            do not repeat completed searches.
 
            When coverage is incomplete and current evidence contains a contents
-           or index with concrete named entries, prefer following promising entry
-           names in that same opaque source with find_source_text or read_source.
-           Use another broad semantic search when the visible navigation does not
-           offer a useful candidate for the remaining gap. You choose which names
-           and operations are relevant; do not merely count the locator itself.
+           or index with concrete named entries that you judge potentially useful,
+           do not issue another broad search_corpus query scoped to that same source
+           before testing at least one such entry. Use find_source_text with exact
+           observed entry names, or read_source from observed physical coordinates.
+           Another broad semantic search is appropriate when visible navigation
+           offers no promising entry or exact named attempts fail. You choose which
+           names and operations are relevant; do not merely count the locator itself.
 
            While researchTools.researchAllowed is true, continue from measured
            gaps instead of claiming an operational bound. When the dossier is

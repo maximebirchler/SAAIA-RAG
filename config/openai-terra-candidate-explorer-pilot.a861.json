@@ -1,7 +1,7 @@
 {
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
   "campaignId": "A861-TERRA-CANDIDATE-EXPLORER-PILOT-R1",
-  "status": "PREREGISTERED_AFTER_BOUNDED_GAP_AND_EXPLORER_BUDGET_FIX",
+  "status": "PREREGISTERED_AFTER_EXACT_NAVIGATION_PRIORITY_FIX",
   "createdAtUtc": "2026-09-18T15:04:40.0033234+00:00",
   "computeReauthorizedAtUtc": "2026-09-28T16:04:07.6514505+00:00",
   "schemaFixRegisteredAtUtc": "2026-09-28T16:13:20.0436194Z",
@@ -12,6 +12,7 @@
   "cardIdentityAndNavigationFixRegisteredAtUtc": "2026-09-28T16:54:48.8724425Z",
   "sameBodyIdentityRefinementFixRegisteredAtUtc": "2026-09-28T17:00:35.5726677Z",
   "boundedGapAndExplorerBudgetFixRegisteredAtUtc": "2026-09-28T17:06:14.9740481Z",
+  "exactNavigationPriorityFixRegisteredAtUtc": "2026-09-28T17:13:34.2412171Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
@@ -96,10 +97,10 @@
       "cachedInput": 0.2,
       "output": 12.0
     },
-    "recordedCostAtRegistrationUsd": 42.2937784,
-    "authorizedRemainingAtRegistrationUsd": 2.7062216,
+    "recordedCostAtRegistrationUsd": 42.9044766,
+    "authorizedRemainingAtRegistrationUsd": 2.0955234,
     "minimumPlannerReservationAtRegistrationUsd": 0.0061465,
-    "authorizationBasis": "On 2026-09-28 the user added and authorized 5 USD of OpenAI API credit for the causal campaign. A875 spent 0.4069934 USD and proved that same-body identity refinement now works. Explorer produced an honest bounded dossier with 13 candidates, but Writer emitted twenty placeholder claims for an insufficient_documentation outcome; fifteen had empty evidence arrays and were correctly rejected. The common prompt now states that claim coordinates and counts apply to answered results, while insufficiency or clarification may use empty claims and must not create unsupported placeholders. A875 also showed that the seven-call envelope reserved Writer and Critic immediately after the first bounded inventory, although the known A813/A817 corpus contains the missing bodies. The call cap rises to nine so one additional research plus terminal Explorer round remains possible while Writer and Critic stay reserved. The monetary cap remains 0.75 USD per job; corpus, bank, model, tools, token limits and semantic acceptance rules remain frozen. Automatic purchase and automatic reload remain prohibited."
+    "authorizationBasis": "On 2026-09-28 the user added and authorized 5 USD of OpenAI API credit for the causal campaign. A876 spent 0.6106982 USD and completed Planner, Candidate Explorer, Writer and Critic with mechanically valid evidence and an honest bounded insufficiency. Its dossier assigned only 13 body-verified candidates to the requested roles, although the known A813/A817 corpus contains the missing bodies. The trace shows 18 documentary operations but repeated broad source-scoped semantic searches even when visible navigation entries could be followed exactly; one call also recovered an invalid five-page read request. The general prompt now prioritizes exact observed navigation entries through find_source_text or observed read_source coordinates before another broad query in the same source, while preserving model judgement and requiring body verification. The nine-call and 0.75 USD per-job caps remain unchanged; corpus, bank, model, tools, token limits and semantic acceptance rules remain frozen. Automatic purchase and automatic reload remain prohibited."
   },
   "acceptance": {
     "pilot": [

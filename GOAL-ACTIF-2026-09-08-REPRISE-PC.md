@@ -1,6 +1,6 @@
 # Goal actif — reprise SAAIA RAG du 8 septembre 2026
 
-Complément de financement du 13 septembre 2026 : l'utilisateur confirme dix USD achetés supplémentaires après les trente USD précédents et autorise l'usage de tous les crédits qu'il achète pour cette mission. L'enveloppe OpenAI actuelle est donc de 40 USD ; toute recharge future signalée actualise ce montant et son journal de preuve. Cette autorisation porte sur les crédits déjà achetés, pas sur un nouvel achat par l'agent ni une location RunPod. Garder la comptabilité persistante, les réservations par appel et les plafonds locaux correspondant à l'enveloppe réellement autorisée. Les seuils monétaires de 25 USD des plans historiques restent des pré-enregistrements datés et ne remplacent pas cette instruction actuelle. Aucun nouveau résultat ni aucune approbation ne découle d'une recharge.
+Compléments de financement : l'utilisateur a confirmé dix USD achetés après les trente USD précédents le 13 septembre 2026, puis cinq USD supplémentaires le 28 septembre 2026, et autorise l'usage de tous les crédits qu'il achète pour cette mission. L'enveloppe OpenAI enregistrée est donc de 45 USD ; toute recharge future signalée actualise ce montant et son journal de preuve. Cette autorisation porte sur les crédits déjà achetés, pas sur un nouvel achat par l'agent ni une location RunPod. Garder la comptabilité persistante, les réservations par appel et les plafonds locaux correspondant à l'enveloppe réellement autorisée. Les seuils monétaires de 25 USD des plans historiques restent des pré-enregistrements datés et ne remplacent pas cette instruction actuelle. Aucun nouveau résultat ni aucune approbation ne découle d'une recharge.
 
 Précisions prioritaires de la reprise autorisée par Maxime le 8 septembre 2026 :
 1. Commencer par terminer la lecture intégrale des documents fournis et des documents de reprise désignés par le prompt du 7 septembre : pièces jointes, relais, autorités, cahiers des charges et annexes, discussions et historiques. Tenir un registre de lecture avec fichiers, hashes, passages effectivement lus, notes et questions non résolues. Une extraction, un index, un résumé automatique ou un contrôle SHA ne vaut pas lecture intégrale. Les répétitions strictement identiques peuvent être référencées à leur première occurrence déjà lue, avec traçabilité. Les sources, patches et artefacts techniques doivent ensuite servir à vérifier les affirmations ; ne pas prétendre avoir lu chaque artefact si ce n'est pas le cas. Aucune nouvelle implémentation produit avant achèvement de cette reprise documentaire et rapprochement explicite CDC / décisions ultérieures / code / action.
@@ -388,9 +388,24 @@ même maximum de 0,75 USD par job, afin de permettre un tour documentaire et son
 terminal supplémentaires. A875 coûte 0,40699340 USD ; le cumul atteint
 42,29377840 USD sur 45 USD. Voir
 documents/agent/rejet-claims-insuffisance-et-budget-explorer-a875-2026-09-28.md.
+A876 utilise les neuf appels et termine Planner, Candidate Explorer, Writer et
+Critic sans défaut de contrat. Les audits mécanique et d'intégrité passent,
+mais le verdict sémantique reste rejeté : le dossier affecte treize choix aux
+quatre rôles et déclare une insuffisance, alors que les corps A813/A817 prouvent
+que le corpus permet d'en atteindre vingt. Ses dix-huit opérations montrent
+des lectures et changements de sources réels, mais aussi le retour à des
+recherches sémantiques générales dans des sources dont des sommaires nommés
+étaient visibles. Le prompt du Candidate Explorer exige désormais de tester au
+moins une entrée exacte jugée prometteuse avec `find_source_text`, ou ses
+coordonnées observées avec `read_source`, avant une nouvelle recherche large
+dans cette source. La pertinence, le choix des entrées et l'affectation restent
+au modèle. A876 coûte 0,61069820 USD ; le cumul atteint 42,90447660 USD sur
+45 USD. Voir
+documents/agent/rejet-decouverte-autonome-bornee-a876-2026-09-28.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
-restent inchangés. Plafond global conservé à sept appels, installateurs
-différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.
+restent inchangés. Plafond du pilote Candidate Explorer conservé à neuf appels,
+installateurs différés. Voir
+`documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.
 Le produit reste `TESTE_NON_APPROUVE` et le Goal actif.
 
 ## Amendement prioritaire autorisé le 9 septembre 2026 — capacités locale et avancée
