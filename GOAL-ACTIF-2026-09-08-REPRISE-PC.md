@@ -274,6 +274,19 @@ du finaliseur réussissent, dont l'acceptation d'un paquet intègre et le refus 
 même paquet avec verdict d'intégrité négatif. Aucun appel payant ni changement
 .NET. Voir
 documents/agent/garde-decision-semantique-explorer-a866-2026-09-18.md.
+
+A867 audite les entrées avant toute nouvelle dépense et réautorise uniquement
+l'enveloppe de calcul. Le corpus actuel compte 305 documents et 31 catégories,
+aucune ingestion active et 120 130 points/vecteurs Qdrant sains. Une relecture
+PostgreSQL forcée en lecture seule retrouve les vingt fenêtres canoniques A813/
+A817, vingt résultats non vides et 221 preuves cumulées, sans HTTP ni appel
+payant. Le contrat réellement remis à Terra conserve les quatre rôles, vingt
+coordonnées, les outils natifs de recherche/lecture/localisation, l'espace de
+travail et l'inventaire persistant. L'utilisateur ajoute et autorise 5 USD ; le
+plafond global passe de 40 à 45 USD sans changer corpus, banque, prompts,
+topologie ou critères. Le premier pilote A861 reste limité à 0,75 USD et doit
+être revu avant toute répétition. Voir
+documents/agent/audit-entree-et-reauthorisation-a867-2026-09-28.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

@@ -1,8 +1,9 @@
 {
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
   "campaignId": "A861-TERRA-CANDIDATE-EXPLORER-PILOT-R1",
-  "status": "PREREGISTERED_BUDGET_BLOCKED",
+  "status": "PREREGISTERED_COMPUTE_REAUTHORIZED",
   "createdAtUtc": "2026-09-18T15:04:40.0033234+00:00",
+  "computeReauthorizedAtUtc": "2026-09-28T16:04:07.6514505+00:00",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
@@ -73,9 +74,9 @@
     "mustNotCommit": true
   },
   "budget": {
-    "authorizedLifetimeUsd": 40.0,
-    "softLimitUsd": 39.9943606,
-    "hardStopUsd": 40.0,
+    "authorizedLifetimeUsd": 45.0,
+    "softLimitUsd": 44.0,
+    "hardStopUsd": 45.0,
     "maximumCostPerJobUsd": 0.75,
     "maximumCallsPerJob": 7,
     "maximumJobs": 1,
@@ -88,9 +89,9 @@
       "output": 12.0
     },
     "recordedCostAtRegistrationUsd": 39.9943606,
-    "authorizedRemainingAtRegistrationUsd": 0.0056394,
+    "authorizedRemainingAtRegistrationUsd": 5.0056394,
     "minimumPlannerReservationAtRegistrationUsd": 0.0061465,
-    "authorizationBasis": "The user authorized use of all credits already purchased and prohibited a new purchase for now. The persistent ledger leaves less than the minimum first-call reservation, so this profile is intentionally blocked until separately authorized compute exists."
+    "authorizationBasis": "On 2026-09-28 the user added and authorized 5 USD of OpenAI API credit for the causal campaign. The semantic profile remains frozen; only the lifetime, soft and hard budget envelope changed from 40 USD to 45 USD. Automatic purchase and automatic reload remain prohibited."
   },
   "acceptance": {
     "pilot": [
