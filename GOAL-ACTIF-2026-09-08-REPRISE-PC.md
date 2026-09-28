@@ -472,6 +472,16 @@ privé ; aucun réseau ni coût. Le total reste 44,42531530 USD et le reliquat
 est le préenregistrement d'un pilote live staged complet, sans le lancer avec
 une enveloppe insuffisante. Produit `TESTE_NON_APPROUVE`. Voir
 documents/agent/replay-prive-staged-a817-a881-2026-09-28.md.
+A882 préenregistre le premier pilote live staged sans l'exécuter. Le profil
+transmet réellement `StagedCandidateExplorerEnabled` jusqu'au backend ; le
+vérificateur exige des traces Navigator et Judge, Writer et Critic, avec huit
+contrôles sur huit réussis et rétrocompatibilité A878. Un nouveau garde réserve
+l'enveloppe complète du job avant le premier appel. Avec 44,42531530 USD
+enregistrés sur un hard stop de 45 USD, les 0,57468470 USD restants ne couvrent
+pas le cap de 1,10 USD : `lifetime_budget_headroom_below_job_cap` bloque donc
+le run avant toute dépense. Le profil scellé contre `d6238776` reste
+préenregistré et non exécuté. Produit `TESTE_NON_APPROUVE`. Voir
+documents/agent/preenregistrement-pilote-staged-a882-2026-09-28.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond du pilote Candidate Explorer porté à douze appels,
 installateurs différés. Voir

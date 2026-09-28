@@ -1,0 +1,123 @@
+{
+  "schemaVersion": "saaia-openai-terra-final-campaign-v1",
+  "campaignId": "A882-TERRA-STAGED-CANDIDATE-PILOT-R1",
+  "status": "PREREGISTERED_BLOCKED_INSUFFICIENT_FULL_JOB_RESERVATION",
+  "createdAtUtc": "2026-09-28T18:43:07.5157244Z",
+  "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
+  "repository": {
+    "expectedBranch": "SAAIA_V3.1",
+    "preregisteredAgainstCommit": "d623877608a4f15e4028df416b14993c880e1220",
+    "minimumSemanticFixCommit": "d623877608a4f15e4028df416b14993c880e1220",
+    "executionRule": "Run one staged meal-grid pilot only from a clean descendant containing the A879 solver, A880 staged pipeline, A881 identity fix and A882 runner guards. Freeze the bank, corpus, prompts, tools, model, topology, token limits and acceptance rules before the first answer is observed. A budget-only re-registration may extend the authorized lifetime hard stop after explicit user funding, but must not alter semantic or retrieval settings."
+  },
+  "provider": {
+    "mode": "OpenAI",
+    "model": "gpt-5.6-terra",
+    "endpoint": "https://api.openai.com/v1",
+    "minimumOrganizationTier": "Tier1",
+    "freshTierObservationMaximumAgeMinutes": 15,
+    "freeTierCallsBlocked": true,
+    "runPodAuthorized": false,
+    "reasoningEffort": "low",
+    "synthesisReasoningEffort": "low",
+    "synthesisPromptStyle": "agent",
+    "maximumProviderHttpAttempts": 3,
+    "semanticCriticEnabled": true,
+    "plannerMaxTokens": 512,
+    "writerMaxTokens": 4096,
+    "criticMaxTokens": 4096,
+    "nativeResearchToolsEnabled": true,
+    "nativeResearchApiProtocol": "responses",
+    "nativeResearchTopology": "agent",
+    "nativeResearchMaximumHistoryCharacters": 32768,
+    "nativeResearchWorkspaceEnabled": true,
+    "nativeCandidateExplorerEnabled": true,
+    "stagedCandidateExplorerEnabled": true,
+    "candidateExplorerReservePerRole": 2,
+    "candidateExplorerMaxTokens": 4096,
+    "nativeResearchActiveProposalEnabled": true,
+    "candidateBindingFeedbackEnabled": true
+  },
+  "localRouter": {
+    "modelId": "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+    "runtimeSha256": "9555847A0403737C4A1B5BEAB050BD697AEC477B6675871A1F8D4737A25C1650",
+    "modelSha256": "66713CE35A58A82FE87642D4EC13425BF9B9A46800FFF5C49A665EF5701439DC",
+    "providerConfigPath": "config/llm-providers.dev.json",
+    "providerConfigSha256": "036D6C68D1780DC78E3FB594C27FF82CE86861F9BECD94E268AEADE6163D1E1D"
+  },
+  "bank": {
+    "path": "config/advanced-capacity-validation.v1.json",
+    "sha256": "8B2A5029E0A74D78FF7F26A8F1AACE2D005E84E729E9241AB94FE1BC5AEFFA3E",
+    "caseIds": [
+      "A755-ADV-01-meal-grid-5x4"
+    ],
+    "repetitions": 1,
+    "expectedRows": 1
+  },
+  "execution": {
+    "runner": "tools/test-advanced-product-path-openai.ps1",
+    "configuration": "Release",
+    "delayBetweenCasesSeconds": 0,
+    "maximumJobAttempts": 3,
+    "maximumJobRetryDelayMilliseconds": 600000,
+    "serverEnvironmentPath": "C:/Users/maxim/NextCloud/Maxime/Ecommerce/SAAIA/infra/.env.server-linux",
+    "referenceBackendUrl": "http://saaia-server:5122",
+    "backendPort": 5123,
+    "artifactRoot": "artifacts/reprise-pc-20260908/a882-terra-staged-candidate-pilot",
+    "artifactDirectoryRule": "Create a fresh directory containing the exact execution commit and UTC timestamp; never overwrite an earlier pilot."
+  },
+  "evidenceCapture": {
+    "developmentTracesRequired": true,
+    "durableJobAuditRequired": true,
+    "integrityVerificationRequired": true,
+    "stagedTraceTopologyRequired": true,
+    "containsPrivateCorpusMetadata": true,
+    "mustNotCommit": true
+  },
+  "budget": {
+    "authorizedLifetimeUsd": 45.0,
+    "softLimitUsd": 44.0,
+    "hardStopUsd": 45.0,
+    "maximumCostPerJobUsd": 1.1,
+    "maximumCallsPerJob": 12,
+    "maximumJobs": 1,
+    "maximumCampaignCostImpliedByPerJobCapsUsd": 1.1,
+    "expectedNormalProviderCalls": 11,
+    "maximumProviderCallsByEnvelope": 12,
+    "pricingUsdPerMillionTokens": {
+      "input": 2.0,
+      "cachedInput": 0.2,
+      "output": 12.0
+    },
+    "recordedCostAtRegistrationUsd": 44.4253153,
+    "authorizedRemainingAtRegistrationUsd": 0.5746847,
+    "fullJobReservationRequiredUsd": 1.1,
+    "additionalAuthorizedHeadroomRequiredUsd": 0.5253153,
+    "usageLedgerSha256AtRegistration": "26B4ADF4FED88975AAEBA523D7E9AA57CB759B87E5025E07002F5CAAB139CEFE",
+    "authorizationBasis": "The user authorized all previously purchased OpenAI credits, with a local lifetime hard stop of 45 USD and no automatic purchase. A877 and A878 cost 0.68198040 and 0.83885830 USD. A staged run must reserve its complete 1.10 USD job envelope before the first call so the Navigator, Judge, Writer and Critic cannot be cut off after a partial spend. The current 0.57468470 USD headroom is insufficient, so this profile is preregistered but execution remains blocked."
+  },
+  "acceptance": {
+    "pilot": [
+      "The one registered meal-grid case completes on the exact clean execution state with the sealed reference corpus unchanged.",
+      "The preflight seal proves Responses transport, agent topology, workspace, 32768 history characters, staged Candidate Explorer enabled, 4096-token Judge/Navigator output budget and twelve total provider calls.",
+      "Private provider traces contain at least one candidate-navigator-N role, one candidate-judge-N role, writer and critic; the staged evidence verifier rejects the run if one stage is absent.",
+      "The Candidate Judge receives only bounded substantive bodies, returns every supplied key and does not invent target roles for rejected candidates.",
+      "The deterministic solver reports maximumAssignableCount 20 and proposedAssignments 20 before the Writer; per-role counts alone are insufficient.",
+      "The final result is answered with twenty concrete, distinct and semantically suitable selections, one for every weekday and meal moment, each tied to its assigned canonical body EvidenceId and exact source reference.",
+      "The durable job, tool events, research checkpoint, provider telemetry, final claims and source payload are preserved for mechanical and human semantic review.",
+      "A precise bounded gap is safe behavior but fails this functional pilot when the historical corpus contains the missing bodies."
+    ],
+    "progressionRule": "Only a successful and semantically reviewed first staged pilot permits registration of repetitions two and three on the exact same frozen semantic configuration. Failure returns to causal trace review and does not authorize prompt stacking, hidden oracle input or a larger call count by itself.",
+    "productPromotionRule": "Keep TESTE_NON_APPROUVE after this pilot. Promotion still requires two further consecutive staged successes, a new blind holdout, durable recovery and WinUI source-card validation."
+  },
+  "stopRules": [
+    "Do not execute while the persistent lifetime headroom is lower than the complete 1.10 USD per-job cap; reserving only the first call is forbidden.",
+    "Do not change the 45 USD hard stop or treat account balance as mission authorization without an explicit user-funded budget extension.",
+    "Do not execute without a paid-tier observation less than 15 minutes old.",
+    "Stop before the first model call if branch, clean-tree rule, minimum commit, bank hash, local router binary, model or provider configuration differs.",
+    "Stop before the first model call if the reference corpus cannot be sealed or has an active ingestion job; reject the pilot if the postflight seal differs.",
+    "Stop at the persistent lifetime, per-job or per-call guard; never purchase or reload credits automatically.",
+    "Do not run repetitions two or three after a failed or semantically unreviewed first pilot."
+  ],
+  "campaignKind": "targeted-causal"
+}

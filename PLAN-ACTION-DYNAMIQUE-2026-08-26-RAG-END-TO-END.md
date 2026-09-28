@@ -14358,3 +14358,25 @@ préenregistrer le pilote live staged avec mesures par étape et critères de
 qualité, sans l'exécuter tant que son enveloppe complète n'est pas disponible.
 Total externe inchangé 44,42531530 USD sur 45 USD ; reliquat 0,57468470 USD.
 Mode staged désactivé par défaut, produit `TESTE_NON_APPROUVE`.
+
+## 2026-09-28 — A882 : pilote staged préenregistré et bloqué avant dépense
+
+Le profil `config/openai-terra-staged-candidate-pilot.a882.json` fige un seul
+cas meal-grid, Terra low, Responses, agent/workspace, 32 768 caractères
+d'historique, douze appels, 1,10 USD maximum et Critic actif. Le drapeau staged
+est transporté par le profil, le wrapper OpenAI et le runner provider jusqu'à
+la configuration backend. Le vérificateur exige maintenant Navigator, Judge,
+Writer et Critic dans les traces privées authentifiées.
+
+Huit contrôles du vérificateur passent, dont les rejets d'un run sans Navigator
+ou sans Judge ; le replay du vérificateur sur A878 reste compatible. Le
+préflight exige désormais le cap complet du job, et non la seule réservation
+du premier appel. État mesuré : 44,42531530 USD enregistrés, 0,57468470 USD de
+headroom, 1,10 USD requis, réservation complète fausse. Le dry-run staged est
+donc bloqué par `lifetime_budget_headroom_below_job_cap`, sans appel externe.
+
+Commits : `94ba1540` pour la preuve de topologie, `d6d6aced` pour le transport
+du drapeau, `d6238776` pour la réservation complète. Prochaine action externe
+possible seulement après une extension explicite du hard stop couvrant au
+minimum 0,52531530 USD supplémentaires et une observation Tier 1 fraîche. Les
+paramètres sémantiques restent figés. Produit `TESTE_NON_APPROUVE`.
