@@ -4,7 +4,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 {
     private IReadOnlyList<CandidateSupportCorrection> FindCandidateBindingCorrections(string raw,
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
-        IReadOnlyList<PromptEvidenceItem> observations, AdvancedAnalysisProviderRequest request)
+        IReadOnlyList<PromptEvidenceItem> observations,
+        AdvancedAnalysisProviderRequest request,
+        IReadOnlyList<CandidateInventoryItem> candidateInventory,
+        bool candidateDossierAvailable)
     {
         AdvancedAnalysisProviderResult proposal;
         try { proposal = ParseResult(raw, evidence, request); }
@@ -21,6 +24,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var duplicates = proposal.Claims.Where(c => !string.IsNullOrWhiteSpace(c.SelectedItem))
             .GroupBy(c => NormalizeClaimText(c.SelectedItem!), StringComparer.Ordinal)
             .Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.Ordinal);
+        var coordinates = BuildStructuredClaimCoordinates(request.Handoff.Load)
+            .ToDictionary(item => item.ClaimId, item => item.ColumnLabel, StringComparer.Ordinal);
         foreach (var claim in proposal.Claims)
         {
             var name = claim.SelectedItem ?? string.Empty;
@@ -35,6 +40,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 corrections.Add(new(claim.ClaimId, name, claim.EvidenceIds,
                     "The selected identity does not exactly match its cited current excerpts under the final identity contract. Preserve internal words and source variants; correct the wording or association yourself. This lexical check does not establish a semantic contradiction or corpus absence.",
                     "candidate_identity_not_supported"));
+            else if (candidateDossierAvailable
+                     && coordinates.TryGetValue(claim.ClaimId, out var role)
+                     && !candidateInventory.Any(candidate =>
+                         candidate.Status is "body_verified" or "selected"
+                         && candidate.TargetRoles.Contains(role, StringComparer.Ordinal)
+                         && NormalizeClaimText(candidate.ExactTitle)
+                             == NormalizeClaimText(name)
+                         && candidate.BodyEvidenceIds.Any(id =>
+                             claim.EvidenceIds.Contains(id, StringComparer.Ordinal))))
+                corrections.Add(new(claim.ClaimId, name, claim.EvidenceIds,
+                    "This item is not a body-verified Candidate Explorer choice for the requested coordinate role. Choose a distinct candidate whose targetRoles contains this column, or research and save a newly verified candidate with that role before selecting it.",
+                    "candidate_role_not_verified"));
         }
         return corrections;
     }

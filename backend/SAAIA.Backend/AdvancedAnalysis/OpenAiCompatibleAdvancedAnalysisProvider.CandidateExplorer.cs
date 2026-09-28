@@ -15,7 +15,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         int RequiredDistinctCount,
         int BodyVerifiedDistinctCount,
         IReadOnlyList<CandidateExplorerRoleCoverage> Roles,
-        IReadOnlyList<string> BodyEvidenceIds);
+        IReadOnlyList<string> BodyEvidenceIds,
+        IReadOnlyList<string> EligibleCandidateKeys);
 
     private sealed record CandidateExplorerDossier(
         string Outcome,
@@ -23,7 +24,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         int RequiredDistinctCount,
         int BodyVerifiedDistinctCount,
         IReadOnlyList<CandidateExplorerRoleCoverage> Roles,
-        IReadOnlyList<string> BodyEvidenceIds);
+        IReadOnlyList<string> BodyEvidenceIds,
+        IReadOnlyList<string> EligibleCandidateKeys,
+        string Instruction);
 
     private bool CandidateExplorerEnabled(AdvancedAnalysisProviderRequest request)
         => _options.NativeCandidateExplorerEnabled
@@ -41,12 +44,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 (item.Status is "body_verified" or "selected")
                 && item.BodyEvidenceIds.Count > 0)
             .ToArray();
+        var requestedRoles = request.Handoff.Load.Columns
+            .ToHashSet(StringComparer.Ordinal);
+        var eligible = requestedRoles.Count == 0
+            ? verified
+            : verified.Where(item => item.TargetRoles.Any(requestedRoles.Contains))
+                .ToArray();
         var requiredDistinct = Math.Max(1, request.Handoff.Load.AnswerUnitCount);
         var requiredPerRole = Math.Max(1, request.Handoff.Load.RowCount);
         var reserve = Math.Clamp(_options.CandidateExplorerReservePerRole, 0, 8);
         var roles = request.Handoff.Load.Columns.Select(role =>
         {
-            var count = verified.Count(item =>
+            var count = eligible.Count(item =>
                 item.TargetRoles.Contains(role, StringComparer.Ordinal));
             return new CandidateExplorerRoleCoverage(
                 role,
@@ -55,12 +64,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 count);
         }).ToArray();
         return new CandidateExplorerCoverage(
-            verified.Length >= requiredDistinct
+            eligible.Length >= requiredDistinct
             && roles.All(role => role.BodyVerifiedCount >= role.RequiredCount),
             requiredDistinct,
-            verified.Length,
+            eligible.Length,
             roles,
-            verified.SelectMany(item => item.BodyEvidenceIds)
+            eligible.SelectMany(item => item.BodyEvidenceIds)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray(),
+            eligible.Select(item => item.Key)
                 .Distinct(StringComparer.Ordinal)
                 .ToArray());
     }
@@ -106,7 +118,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     coverage.RequiredDistinctCount,
                     coverage.BodyVerifiedDistinctCount,
                     coverage.Roles,
-                    coverage.BodyEvidenceIds);
+                    coverage.BodyEvidenceIds,
+                    coverage.EligibleCandidateKeys,
+                    "For each claim coordinate, choose one distinct body-verified candidate whose targetRoles contains that coordinate's columnLabel. Do not select an unassigned inventory item. If further research reveals a better item, first save it with substantive body evidence and the intended target role. Never reuse one candidate for two distinct coordinates.");
+                context.FocusSearches.Clear();
                 return;
             }
 
@@ -128,7 +143,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     coverage.RequiredDistinctCount,
                     coverage.BodyVerifiedDistinctCount,
                     coverage.Roles,
-                    coverage.BodyEvidenceIds);
+                    coverage.BodyEvidenceIds,
+                    coverage.EligibleCandidateKeys,
+                    "The Explorer stopped with a bounded gap. Use only role-assigned body-verified candidates for supported cells and describe the smallest exact remaining gap; do not treat unassigned headings as replacements.");
                 return;
             }
 

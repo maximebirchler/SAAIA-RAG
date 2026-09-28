@@ -313,6 +313,21 @@ réussissent. A869 coûte 0,26221640 USD ; le cumul atteint 40,26295200 USD sur
 sont pas toutes des recettes : ce signal de qualité reste à suivre pendant la
 revue sémantique, sans être attribué prématurément au modèle. Voir
 documents/agent/rejet-identite-canonique-a869-2026-09-28.md.
+A870 franchit l'identité OCR, termine le Candidate Explorer et atteint le
+Writer. Terra produit un tableau français de vingt cellules, mais le garde le
+refuse avant Critic : `CURRY DE POULET INDIEN` est répété, plusieurs choix ne
+respectent pas le rôle qualifié par l'Explorer et des titres extérieurs aux
+vingt candidats sont sélectionnés. L'entrée du Writer était polluée : le dossier
+`ready` annonçait 38 corps, dont 18 rubriques observées automatiquement sans rôle
+sémantique, alors que l'Explorer n'en avait qualifié que vingt. Le dossier ne
+compte et ne transmet désormais en priorité que les candidats ayant un rôle ;
+le Writer doit choisir un candidat distinct affecté à chaque colonne, et le
+garde émet `candidate_role_not_verified` si ce contrat est ignoré. Une recherche
+supplémentaire reste possible après enregistrement du nouveau candidat et de son
+corps. Les 301 tests provider réussissent, dont le filtrage d'une rubrique
+parasite et la correction d'une permutation entre rôles. A870 coûte 0,44663440
+USD ; le cumul atteint 40,70958640 USD sur 45 USD. Voir
+documents/agent/rejet-handoff-dossier-writer-a870-2026-09-28.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

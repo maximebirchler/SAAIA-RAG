@@ -20,7 +20,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var documentId = Guid.NewGuid().ToString("D");
         var revisionId = Guid.NewGuid().ToString("D");
         var roles = new[] { "petit-déjeuner", "déjeuner", "collation", "souper" };
-        var evidence = Enumerable.Range(1, 20).Select(index => BuildEvidence(
+        var evidence = Enumerable.Range(1, 21).Select(index => BuildEvidence(
                 $"E{index}",
                 $"R{index}\nINGRÉDIENTS\nÉlément {index}. PRÉPARATION\nProcédure {index}.",
                 docId: documentId,
@@ -34,7 +34,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 key = $"candidate-{index}",
                 exactTitle = $"R{index}",
                 sourceKey = "internal-source-1",
-                targetRoles = new[] { roles[(index - 1) / 5] },
+                targetRoles = new[] { roles[(index - 1) % roles.Length] },
                 selectedRoles = Array.Empty<string>(),
                 status = "body_verified",
                 note = "Verified by the Explorer.",
@@ -90,6 +90,11 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var dossier = writer.GetProperty("candidateDossier");
         Assert.Equal("ready", dossier.GetProperty("outcome").GetString());
         Assert.Equal(20, dossier.GetProperty("bodyVerifiedDistinctCount").GetInt32());
+        Assert.Equal(20, dossier.GetProperty("bodyEvidenceIds").GetArrayLength());
+        Assert.Equal(20, dossier.GetProperty("eligibleCandidateKeys").GetArrayLength());
+        Assert.DoesNotContain(
+            dossier.GetProperty("bodyEvidenceIds").EnumerateArray(),
+            id => id.GetString() == "E21");
         Assert.All(
             dossier.GetProperty("roles").EnumerateArray(),
             role => Assert.Equal(5, role.GetProperty("bodyVerifiedCount").GetInt32()));
@@ -98,6 +103,93 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             writer.GetProperty("candidateInventory")
                 .GetProperty("bodyVerifiedDistinctCount")
                 .GetInt32());
+        Assert.Equal(
+            20,
+            writer.GetProperty("candidateInventory")
+                .GetProperty("items")
+                .GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Candidate_explorer_requests_correction_when_writer_ignores_verified_roles()
+    {
+        var documentId = Guid.NewGuid().ToString("D");
+        var revisionId = Guid.NewGuid().ToString("D");
+        var roles = new[] { "petit-déjeuner", "déjeuner", "collation", "souper" };
+        var evidence = Enumerable.Range(1, 20).Select(index => BuildEvidence(
+                $"E{index}",
+                $"R{index}\nINGRÉDIENTS\nÉlément {index}. PRÉPARATION\nProcédure {index}.",
+                docId: documentId,
+                revisionId: revisionId,
+                exactTitle: $"R{index}"))
+            .ToArray();
+        var update = JsonSerializer.Serialize(new
+        {
+            items = Enumerable.Range(1, 20).Select(index => new
+            {
+                key = $"candidate-{index}",
+                exactTitle = $"R{index}",
+                sourceKey = "internal-source-1",
+                targetRoles = new[] { roles[(index - 1) % roles.Length] },
+                selectedRoles = Array.Empty<string>(),
+                status = "body_verified",
+                note = "Verified by the Explorer.",
+                locatorEvidenceIds = Array.Empty<string>(),
+                bodyEvidenceIds = new[] { $"E{index}" }
+            }).ToArray()
+        });
+        var wrongRoles = JsonSerializer.Serialize(new
+        {
+            outcome = "answered",
+            answerText = string.Join(", ", Enumerable.Range(1, 20)
+                .Select(index => $"R{index} [C{index}]")) + ".",
+            claims = Enumerable.Range(1, 20).Select(index =>
+            {
+                var selected = index switch { 1 => 2, 2 => 1, _ => index };
+                return new
+                {
+                    claimId = $"C{index}",
+                    selectedItem = $"R{selected}",
+                    text = $"R{selected} est documenté.",
+                    evidenceIds = new[] { $"E{selected}" }
+                };
+            }).ToArray()
+        });
+        using var factory = new QueuedHttpClientFactory(
+            Completion(CandidatePlanner),
+            NativeCompletion(("save_candidate_inventory", update)),
+            Completion(ExplorerReady),
+            Completion(wrongRoles),
+            Completion(CandidateAnswered(20)));
+        var options = WorkspaceOptions();
+        options.NativeCandidateExplorerEnabled = true;
+        options.NativeResearchMaximumHistoryCharacters = 32_768;
+        options.CandidateBindingFeedbackEnabled = true;
+        options.ExternalMaximumCallsPerJob = 5;
+
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(
+                factory,
+                options,
+                null)
+            .ExecuteAsync(
+                BuildRequest(
+                    answerUnitCount: 20,
+                    atomicEvidenceMode: "named_item",
+                    selectionPolicy: "distinct_structured_layout"),
+                new RecordingToolGateway(evidence),
+                CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal(5, factory.Requests.Count);
+        var correction = WorkspaceUser(factory.Requests[4].Body)
+            .GetProperty("candidateSupportCorrections")
+            .GetProperty("corrections")
+            .EnumerateArray()
+            .ToArray();
+        Assert.Equal(2, correction.Length);
+        Assert.All(correction, item => Assert.Equal(
+            "candidate_role_not_verified",
+            item.GetProperty("reasonCode").GetString()));
     }
 
     [Fact]
@@ -143,7 +235,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var writer = WorkspaceUser(factory.Requests[3].Body);
         var dossier = writer.GetProperty("candidateDossier");
         Assert.Equal("bounded_gap", dossier.GetProperty("outcome").GetString());
-        Assert.Equal(1, dossier.GetProperty("bodyVerifiedDistinctCount").GetInt32());
+        Assert.Equal(0, dossier.GetProperty("bodyVerifiedDistinctCount").GetInt32());
         Assert.Equal(20, dossier.GetProperty("requiredDistinctCount").GetInt32());
     }
 

@@ -196,10 +196,19 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 focusedEvidence = PrioritizeResearchWorkspace(evidence, context.Workspace, focusedEvidence);
             if (_options.NativeResearchToolsEnabled && _options.NativeResearchWorkspaceEnabled
                 && CandidateInventoryEnabled(request))
+            {
+                var priorityInventory = !candidateExplorer
+                    && context.CandidateExplorerDossier is not null
+                    ? context.CandidateInventory.Where(item =>
+                            item.TargetRoles.Count > 0
+                            && item.Status is "body_verified" or "selected")
+                        .ToArray()
+                    : context.CandidateInventory;
                 focusedEvidence = PrioritizeCandidateInventoryEvidence(
                     evidence,
-                    context.CandidateInventory,
+                    priorityInventory,
                     focusedEvidence);
+            }
             if (_options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
                 focusedEvidence = PrioritizeActiveProposalEvidence(evidence, context.ActiveProposalEvidenceIds, focusedEvidence);
             var observations = BuildPromptEvidenceWithPersistentSourceKeys(
@@ -246,12 +255,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     }, JsonOptions);
                 if (_options.NativeResearchToolsEnabled && _options.NativeResearchWorkspaceEnabled
                     && CandidateInventoryEnabled(request))
+                {
+                    var promptInventory = !candidateExplorer
+                        && context.CandidateExplorerDossier is not null
+                        ? context.CandidateInventory.Where(item =>
+                                item.TargetRoles.Count > 0
+                                && item.Status is "body_verified" or "selected")
+                            .ToArray()
+                        : context.CandidateInventory;
                     payload["candidateInventory"] = JsonSerializer.SerializeToNode(
                         BuildCandidateInventoryForPrompt(
                             request,
-                            context.CandidateInventory,
+                            promptInventory,
                             observations),
                         JsonOptions);
+                }
                 if (!candidateExplorer && context.CandidateExplorerDossier is not null)
                     payload["candidateDossier"] = JsonSerializer.SerializeToNode(
                         context.CandidateExplorerDossier,
@@ -303,7 +321,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     return new SynthesisCompletion(completion, evidence, observations);
                 if (_options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
                     RememberActiveProposalEvidence(completion.Content, evidence, observations, request, context);
-                var corrections = FindCandidateBindingCorrections(completion.Content, evidence, observations, request);
+                var corrections = FindCandidateBindingCorrections(
+                    completion.Content,
+                    evidence,
+                    observations,
+                    request,
+                    context.CandidateInventory,
+                    context.CandidateExplorerDossier is not null);
                 if (corrections.Count == 0)
                     return new SynthesisCompletion(completion, evidence, observations);
                 completions.Add(completion);

@@ -32,6 +32,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            purposes. Avoid repeatedly reading sufficiently supported candidates
            merely to recount them. Try assembling the verified choices across all
            requested roles before concluding that the requested result is missing.
+           When candidateDossier.outcome is ready, its eligibleCandidateKeys and
+           candidateInventory.targetRoles define the Explorer's semantically
+           qualified synthesis set. Fill each claim coordinate with one distinct
+           body-verified candidate assigned to that coordinate's columnLabel.
+           Do not replace it with an unassigned inventory heading. If further
+           research reveals a better candidate, first save its substantive body
+           and intended role in the candidate inventory, then use it.
 
            Use only current revalidated excerpts as factual proof. Determine the
            actual item identity and scope from their content. candidateTitle and
