@@ -1,3 +1,5 @@
+using SAAIA.Contracts;
+
 namespace SAAIA.Backend.AdvancedAnalysis;
 
 internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
@@ -45,16 +47,56 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                      && !candidateInventory.Any(candidate =>
                          candidate.Status is "body_verified" or "selected"
                          && candidate.TargetRoles.Contains(role, StringComparer.Ordinal)
-                         && NormalizeClaimText(candidate.ExactTitle)
-                             == NormalizeClaimText(name)
-                         && candidate.BodyEvidenceIds.Any(id =>
-                             claim.EvidenceIds.Contains(id, StringComparer.Ordinal))))
+                         && CandidateRoleSupportsClaimIdentity(
+                             candidate,
+                             claim,
+                             name,
+                             observations)))
                 corrections.Add(new(claim.ClaimId, name, claim.EvidenceIds,
                     "This item is not a body-verified Candidate Explorer choice for the requested coordinate role. Choose a distinct candidate whose targetRoles contains this column, or research and save a newly verified candidate with that role before selecting it.",
                     "candidate_role_not_verified"));
         }
         return corrections;
     }
+
+    private static bool CandidateRoleSupportsClaimIdentity(
+        CandidateInventoryItem candidate,
+        AdvancedAnalysisResultClaim claim,
+        string selectedItem,
+        IReadOnlyList<PromptEvidenceItem> observations)
+    {
+        if (NormalizeClaimText(candidate.ExactTitle) == NormalizeClaimText(selectedItem)
+            && candidate.BodyEvidenceIds.Any(id =>
+                claim.EvidenceIds.Contains(id, StringComparer.Ordinal)))
+        {
+            return true;
+        }
+
+        // A grounded content card can expose a subordinate heading as its exact
+        // card title while the same canonical body starts with the complete item
+        // identity. The Explorer qualified that body for the role; allow the
+        // Writer to refine only to an exact whole line from that same body/source.
+        // This does not authorize a different excerpt, a partial phrase or a
+        // role that the Explorer did not assign.
+        var normalizedSelected = NormalizeClaimText(selectedItem);
+        return normalizedSelected.Length > 0
+               && candidate.BodyEvidenceIds.Any(id =>
+                   claim.EvidenceIds.Contains(id, StringComparer.Ordinal)
+                   && observations.Any(observation =>
+                       string.Equals(observation.EvidenceId, id, StringComparison.Ordinal)
+                       && string.Equals(observation.SourceKey, candidate.SourceKey, StringComparison.Ordinal)
+                       && EvidenceContainsExactIdentityLine(
+                           normalizedSelected,
+                           observation.Content)));
+    }
+
+    private static bool EvidenceContainsExactIdentityLine(
+        string normalizedSelected,
+        string? content)
+        => !string.IsNullOrWhiteSpace(content)
+           && content.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+               .Select(line => line.Trim(' ', '\t', '-', ':', ';', '.', ',', '|', '/', '\\', '(', ')', '*', '\u2022'))
+               .Any(line => NormalizeClaimText(line) == normalizedSelected);
 
     internal static void EnsureVisibleClaimCitations(AdvancedAnalysisProviderResult result,
         IReadOnlyCollection<string> visibleEvidenceIds)

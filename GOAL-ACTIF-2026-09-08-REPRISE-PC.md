@@ -349,6 +349,21 @@ manque, et le test inspecte précisément l'appel terminal sans outil. Les 303
 tests provider réussissent. A872 coûte 0,26018990 USD ; le cumul atteint
 41,15279920 USD sur 45 USD. Voir
 documents/agent/rejet-format-json-a872-2026-09-28.md.
+A873 atteint enfin un dossier Explorer prêt puis une proposition Writer de
+vingt cellules et vingt claims distincts. Le premier prompt Explorer contenait
+61 extraits, dont cinq vrais index/sommaires nommés avec pages, mais Terra a
+préféré trois recherches générales. Deux cartes associaient aussi les corps de
+`Timbale de pâtes` et `Gratin dauphinois` aux sous-titres `Les pâtes` et
+`Préparation` : le Writer a retrouvé les identités complètes dans les mêmes
+corps, puis le garde de rôle les a refusées avant Critic. Deux autres choix de
+composants de crêpes rendaient de toute façon la réponse non acceptable. Le
+garde autorise maintenant un raffinement uniquement vers une ligne exacte du
+même corps, de la même source et du même EvidenceId déjà qualifié pour le rôle.
+Le prompt distingue aussi explicitement les identités complètes des sous-titres
+et donne priorité aux entrées nommées d'un sommaire lorsque la couverture est
+incomplète. Un test causal porte la suite provider à 304/304. A873 coûte
+0,46666140 USD ; le cumul atteint 41,61946060 USD sur 45 USD. Voir
+documents/agent/rejet-identite-carte-et-navigation-a873-2026-09-28.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

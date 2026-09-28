@@ -1,7 +1,7 @@
 {
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
   "campaignId": "A861-TERRA-CANDIDATE-EXPLORER-PILOT-R1",
-  "status": "PREREGISTERED_AFTER_RESPONSES_JSON_FORMAT_FIX",
+  "status": "PREREGISTERED_AFTER_CARD_IDENTITY_AND_NAVIGATION_FIX",
   "createdAtUtc": "2026-09-18T15:04:40.0033234+00:00",
   "computeReauthorizedAtUtc": "2026-09-28T16:04:07.6514505+00:00",
   "schemaFixRegisteredAtUtc": "2026-09-28T16:13:20.0436194Z",
@@ -9,6 +9,7 @@
   "dossierInputFixRegisteredAtUtc": "2026-09-28T16:30:43.5514670Z",
   "ocrSplitIdentityFixRegisteredAtUtc": "2026-09-28T16:36:35.2783958Z",
   "responsesJsonFormatFixRegisteredAtUtc": "2026-09-28T16:42:19.4070353Z",
+  "cardIdentityAndNavigationFixRegisteredAtUtc": "2026-09-28T16:54:48.8724425Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
@@ -93,10 +94,10 @@
       "cachedInput": 0.2,
       "output": 12.0
     },
-    "recordedCostAtRegistrationUsd": 41.1527992,
-    "authorizedRemainingAtRegistrationUsd": 3.8472008,
+    "recordedCostAtRegistrationUsd": 41.6194606,
+    "authorizedRemainingAtRegistrationUsd": 3.3805394,
     "minimumPlannerReservationAtRegistrationUsd": 0.0061465,
-    "authorizationBasis": "On 2026-09-28 the user added and authorized 5 USD of OpenAI API credit for the causal campaign. A868 through A871 exposed and corrected the OpenAI schema, canonical-title echo, noisy dossier handoff and inconsistent OCR title recognition. A872 then spent 0.2601899 USD: Planner and Candidate Explorer successfully searched, located and registered twenty candidates, but OpenAI rejected the terminal Explorer request before inference because Responses json_object format requires the literal word json in the request messages. The common native Responses JSON request builder now guarantees that requirement without changing corpus, bank, tools, topology or semantic acceptance rules. This transport compatibility change is the registered causal fix. Automatic purchase and automatic reload remain prohibited."
+    "authorizationBasis": "On 2026-09-28 the user added and authorized 5 USD of OpenAI API credit for the causal campaign. A868 through A872 exposed and corrected four local protocol and handoff defects before a clean semantic measurement. A873 then spent 0.4666614 USD and reached a twenty-cell Writer proposal. The prompt had 61 excerpts including five useful named indexes, but the Explorer chose broad searches. Two grounded content cards also exposed subordinate exact titles while their bodies began with fuller item identities; the Writer recovered Timbale de pates and Gratin dauphinois from the same qualified bodies, but the role guard rejected them before Critic. The guard now permits only an exact whole-line identity from the same role-qualified body, evidence id and source, while prompts explicitly distinguish whole items from subordinate card headings and prioritize following useful named navigation when coverage is incomplete. Corpus, bank, model, tool set and semantic acceptance rules remain frozen; this representation and navigation clarification is the registered causal fix. Automatic purchase and automatic reload remain prohibited."
   },
   "acceptance": {
     "pilot": [

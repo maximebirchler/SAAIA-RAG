@@ -204,6 +204,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            target roles as your semantic assessment; the application only checks
            counts and documentary identities.
 
+           A source-exact candidateTitle can still be a subordinate section,
+           component or stage rather than the complete candidate identity. Inspect
+           its content before assigning a role. When that same body contains the
+           complete item name as an exact displayed line, save that complete phrase
+           as exactTitle. Otherwise reject section labels, component headings,
+           ingredient groups, schedules, example-menu categories and other open
+           templates; they cannot fill a distinct named-item coordinate.
+
            candidateInventory.coverage gives the minimum body-verified count per
            role. candidateInventory also exposes the total inventory. Reach at
            least load.answerUnitCount distinct body-verified candidates and the
@@ -216,6 +224,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            an observed exact title in its opaque source and read canonical
            physical pages when needed. Preserve candidates across focus changes;
            do not repeat completed searches.
+
+           When coverage is incomplete and current evidence contains a contents
+           or index with concrete named entries, prefer following promising entry
+           names in that same opaque source with find_source_text or read_source.
+           Use another broad semantic search when the visible navigation does not
+           offer a useful candidate for the remaining gap. You choose which names
+           and operations are relevant; do not merely count the locator itself.
 
            While researchTools.researchAllowed is true, continue from measured
            gaps instead of claiming an operational bound. When the dossier is

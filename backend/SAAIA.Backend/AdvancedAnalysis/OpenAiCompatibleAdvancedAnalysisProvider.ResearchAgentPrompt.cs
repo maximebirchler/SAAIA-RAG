@@ -44,7 +44,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            actual item identity and scope from their content. candidateTitle and
            contentRole describe excerpts; a fragment heading may name a stage or
            section rather than a complete item. Read the substantive body and its
-           context before interpreting the named item or assigning its purpose.
+           context before interpreting the named item or assigning its purpose. If
+           the body displays a more complete item identity on its own line, retain
+           that exact complete phrase rather than the subordinate card heading.
+           Reject component labels and open category headings that do not identify
+           a standalone choice for the requested coordinate.
            A matching title does not resolve conflicting details in that body or
            other cited evidence. Investigate the conflict, clearly disclose the
            uncertainty, or select a different sufficiently supported item; never
