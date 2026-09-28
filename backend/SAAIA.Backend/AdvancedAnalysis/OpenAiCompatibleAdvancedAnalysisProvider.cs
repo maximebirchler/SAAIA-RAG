@@ -659,6 +659,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         var nativeResponses = allowNativeResearch && _options.NativeResearchToolsEnabled && UsesNativeResponses;
         if (nativeFunctions is not null)
             systemPrompt = systemPrompt.Replace(BuildSynthesisResearchContract(), NativeResearchContract, StringComparison.Ordinal);
+        if (nativeResponses
+            && !systemPrompt.Contains("json", StringComparison.OrdinalIgnoreCase)
+            && !userPrompt.Contains("json", StringComparison.OrdinalIgnoreCase))
+        {
+            systemPrompt += "\nReturn only a valid JSON object.";
+        }
         var messages = new List<object> { new { role = "system", content = systemPrompt } };
         if (nativeToolTurnMessages is { Count: > 0 }) messages.AddRange(nativeToolTurnMessages);
         messages.Add(new { role = "user", content = userPrompt });

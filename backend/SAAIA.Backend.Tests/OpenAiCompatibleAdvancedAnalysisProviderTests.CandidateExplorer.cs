@@ -86,6 +86,18 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                     protocol == "responses" ? "max_output_tokens" : "max_tokens")
                     .GetInt32());
         }
+        if (protocol == "responses")
+        {
+            using var terminalRequest = JsonDocument.Parse(factory.Requests[2].Body);
+            var systemMessage = terminalRequest.RootElement.GetProperty("input")
+                .EnumerateArray()
+                .Single(item => item.TryGetProperty("role", out var role)
+                    && role.GetString() == "system");
+            Assert.Contains(
+                "json",
+                systemMessage.GetProperty("content").GetString()!,
+                StringComparison.OrdinalIgnoreCase);
+        }
         var writer = WorkspaceUser(factory.Requests[3].Body);
         var dossier = writer.GetProperty("candidateDossier");
         Assert.Equal("ready", dossier.GetProperty("outcome").GetString());

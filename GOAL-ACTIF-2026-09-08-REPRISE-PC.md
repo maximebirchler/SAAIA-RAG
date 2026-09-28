@@ -340,6 +340,15 @@ sans relâcher source, ordre des mots ou EvidenceId. Deux fixtures exactes
 portent la suite provider à 303/303. A871 coûte 0,18302290 USD ; le cumul atteint
 40,89260930 USD sur 45 USD. Voir
 documents/agent/rejet-identite-ocr-divisee-a871-2026-09-28.md.
+A872 confirme que Terra sait rechercher, localiser et enregistrer les vingt
+candidats attendus. Le dernier appel Explorer n'a cependant jamais atteint le
+modèle : OpenAI refuse `text.format=json_object` lorsque les messages ne
+contiennent pas littéralement le mot `json`. Le constructeur central des
+requêtes Responses ajoute désormais la consigne JSON uniquement lorsqu'elle
+manque, et le test inspecte précisément l'appel terminal sans outil. Les 303
+tests provider réussissent. A872 coûte 0,26018990 USD ; le cumul atteint
+41,15279920 USD sur 45 USD. Voir
+documents/agent/rejet-format-json-a872-2026-09-28.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.
