@@ -677,6 +677,30 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                    StringComparison.Ordinal);
     }
 
+    private static bool EvidenceBodySupportsSelectedIdentity(
+        string selectedItem,
+        string? candidateTitle,
+        string? content)
+    {
+        var normalizedSelected = NormalizeClaimText(selectedItem);
+        if (normalizedSelected.Length == 0)
+            return false;
+        if (!string.IsNullOrWhiteSpace(candidateTitle)
+            && string.Equals(
+                NormalizeClaimText(candidateTitle),
+                normalizedSelected,
+                StringComparison.Ordinal))
+        {
+            return true;
+        }
+        var contentPhrase = FindNearContentPhrase(selectedItem, content);
+        return contentPhrase is { IsExact: true }
+               && string.Equals(
+                   NormalizeClaimText(contentPhrase.Value.Text),
+                   normalizedSelected,
+                   StringComparison.Ordinal);
+    }
+
     private static string BuildDistinctSelectionFailureDetail(
         string language,
         DistinctSelectionValidation validation,

@@ -1,12 +1,13 @@
 {
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
   "campaignId": "A861-TERRA-CANDIDATE-EXPLORER-PILOT-R1",
-  "status": "PREREGISTERED_AFTER_DOSSIER_INPUT_FIX",
+  "status": "PREREGISTERED_AFTER_OCR_SPLIT_IDENTITY_FIX",
   "createdAtUtc": "2026-09-18T15:04:40.0033234+00:00",
   "computeReauthorizedAtUtc": "2026-09-28T16:04:07.6514505+00:00",
   "schemaFixRegisteredAtUtc": "2026-09-28T16:13:20.0436194Z",
   "canonicalIdentityFixRegisteredAtUtc": "2026-09-28T16:20:38.0534021Z",
   "dossierInputFixRegisteredAtUtc": "2026-09-28T16:30:43.5514670Z",
+  "ocrSplitIdentityFixRegisteredAtUtc": "2026-09-28T16:36:35.2783958Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
@@ -91,10 +92,10 @@
       "cachedInput": 0.2,
       "output": 12.0
     },
-    "recordedCostAtRegistrationUsd": 40.7095864,
-    "authorizedRemainingAtRegistrationUsd": 4.2904136,
+    "recordedCostAtRegistrationUsd": 40.8926093,
+    "authorizedRemainingAtRegistrationUsd": 4.1073907,
     "minimumPlannerReservationAtRegistrationUsd": 0.0061465,
-    "authorizationBasis": "On 2026-09-28 the user added and authorized 5 USD of OpenAI API credit for the causal campaign. A868 exposed the unsupported OpenAI schema keyword, and A869 exposed brittle canonical-title echoing. A870 then spent 0.4466344 USD, completed the Explorer and reached the Writer, which produced twenty cells but repeated one item, assigned others outside their Explorer-qualified roles and selected unassigned evidence. The ready dossier had exposed 38 automatically observed bodies although only 20 had a model-assigned role. The general handoff now counts, prioritizes and presents only role-qualified candidates, explicitly binds coordinates to those roles, and mechanically requests correction for out-of-dossier selections. Corpus, bank, model, topology and acceptance rules remain frozen; the prompt and dossier payload change is the registered causal fix. Automatic purchase and automatic reload remain prohibited."
+    "authorizationBasis": "On 2026-09-28 the user added and authorized 5 USD of OpenAI API credit for the causal campaign. A868 through A870 exposed and corrected the OpenAI schema, canonical-title echo and noisy dossier handoff. A871 then spent 0.1830229 USD and returned a twenty-candidate inventory, but the inventory parser rejected two documentary titles split by OCR layout tokens even though the final identity validator already accepts those bounded patterns. Candidate Inventory now reuses the same bounded identity recognition for ignorable service tokens and page-marker title splits, with exact source and evidence constraints preserved. Corpus, bank, model, topology and acceptance rules remain frozen; this validation consistency change is the registered causal fix. Automatic purchase and automatic reload remain prohibited."
   },
   "acceptance": {
     "pilot": [

@@ -574,6 +574,50 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Theory]
+    [InlineData(
+        "SANDWICH COMPLET ET ÉQUILIBRÉ SELON VOS ENVIES",
+        "SANDWICH\n/pers.\nCOMPLET ET ÉQUILIBRÉ\nSELON VOS ENVIES\nPain, viande et légumes.")]
+    [InlineData(
+        "Mousse yaourt et fruits rouges",
+        "Mousse yaourt\nIngrédients\nFraises, framboises et yaourt.\nMatériel\n1 saladier\nPage 11\net fruits rouges\nTechnique\nMixer la préparation.")]
+    public async Task Candidate_inventory_accepts_bounded_ocr_title_splits_already_supported_by_final_identity(
+        string title,
+        string content)
+    {
+        var update = CandidateUpdate(
+            "candidate-ocr-split",
+            title,
+            "internal-source-1",
+            "petit-déjeuner",
+            "body_verified",
+            [],
+            ["E1"]);
+        using var factory = new QueuedHttpClientFactory(
+            Completion(CandidatePlanner),
+            NativeCompletion(("save_candidate_inventory", update)),
+            Completion(CandidateTerminal));
+
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(
+                factory,
+                WorkspaceOptions(),
+                null)
+            .ExecuteAsync(
+                BuildRequest(
+                    answerUnitCount: 20,
+                    atomicEvidenceMode: "named_item",
+                    selectionPolicy: "distinct_structured_layout"),
+                new RecordingToolGateway(BuildEvidence("E1", content)),
+                CancellationToken.None);
+
+        Assert.Equal("insufficient_documentation", result.Outcome);
+        var item = WorkspaceUser(factory.Requests[2].Body)
+            .GetProperty("candidateInventory")
+            .GetProperty("items")[0];
+        Assert.Equal(title, item.GetProperty("exactTitle").GetString());
+        Assert.Equal("E1", item.GetProperty("bodyEvidenceIds")[0].GetString());
+    }
+
+    [Theory]
     [InlineData("navigation_body")]
     [InlineData("verified_without_body")]
     [InlineData("unsupported_title")]

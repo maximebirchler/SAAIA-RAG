@@ -328,6 +328,18 @@ corps. Les 301 tests provider réussissent, dont le filtrage d'une rubrique
 parasite et la correction d'une permutation entre rôles. A870 coûte 0,44663440
 USD ; le cumul atteint 40,70958640 USD sur 45 USD. Voir
 documents/agent/rejet-handoff-dossier-writer-a870-2026-09-28.md.
+A871 s'arrête dans l'Explorer sur `advanced_native_tool_protocol_invalid` après
+un Planner, une recherche et un lot de vingt candidats. L'appel OpenAI a réussi
+mais la normalisation locale a rejeté deux titres dont les mots sont séparés par
+la mise en page OCR : un marqueur `/pers.` au milieu d'un titre de sandwich et
+un bloc d'ingrédients suivi de `Page 11` au milieu d'un titre de mousse. La
+validation finale possédait déjà des règles bornées pour ces deux formes, tandis
+que Candidate Inventory exigeait encore un `Contains` contigu. Le parseur
+d'inventaire réutilise maintenant la même reconnaissance d'identité bornée,
+sans relâcher source, ordre des mots ou EvidenceId. Deux fixtures exactes
+portent la suite provider à 303/303. A871 coûte 0,18302290 USD ; le cumul atteint
+40,89260930 USD sur 45 USD. Voir
+documents/agent/rejet-identite-ocr-divisee-a871-2026-09-28.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond global conservé à sept appels, installateurs
 différés. Voir `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.

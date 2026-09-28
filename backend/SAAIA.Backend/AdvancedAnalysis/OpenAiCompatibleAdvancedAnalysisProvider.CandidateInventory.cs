@@ -256,10 +256,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 Reject();
             var normalizedTitle = NormalizeClaimText(title);
             if (normalizedTitle.Length == 0 || !references.Any(id =>
-                NormalizeClaimText(ReadString(visible[id], "candidateTitle")) == normalizedTitle
-                || NormalizeClaimText(ReadString(visible[id], "content")).Contains(
-                    normalizedTitle,
-                    StringComparison.Ordinal)))
+                EvidenceBodySupportsSelectedIdentity(
+                    title,
+                    ReadString(visible[id], "candidateTitle"),
+                    ReadString(visible[id], "content"))))
                 Reject();
             result.Add(new CandidateInventoryItem(
                 key,
