@@ -1,7 +1,7 @@
 {
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
   "campaignId": "A861-TERRA-CANDIDATE-EXPLORER-PILOT-R1",
-  "status": "PREREGISTERED_AFTER_EXACT_NAVIGATION_PRIORITY_FIX",
+  "status": "PREREGISTERED_AFTER_ELIGIBLE_COUNT_AND_COMPLETE_RESEARCH_CYCLE_FIX",
   "createdAtUtc": "2026-09-18T15:04:40.0033234+00:00",
   "computeReauthorizedAtUtc": "2026-09-28T16:04:07.6514505+00:00",
   "schemaFixRegisteredAtUtc": "2026-09-28T16:13:20.0436194Z",
@@ -13,6 +13,7 @@
   "sameBodyIdentityRefinementFixRegisteredAtUtc": "2026-09-28T17:00:35.5726677Z",
   "boundedGapAndExplorerBudgetFixRegisteredAtUtc": "2026-09-28T17:06:14.9740481Z",
   "exactNavigationPriorityFixRegisteredAtUtc": "2026-09-28T17:13:34.2412171Z",
+  "eligibleCountAndCompleteResearchCycleFixRegisteredAtUtc": "2026-09-28T17:23:07.5868635Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
@@ -86,26 +87,26 @@
     "authorizedLifetimeUsd": 45.0,
     "softLimitUsd": 44.0,
     "hardStopUsd": 45.0,
-    "maximumCostPerJobUsd": 0.75,
-    "maximumCallsPerJob": 9,
+    "maximumCostPerJobUsd": 1.1,
+    "maximumCallsPerJob": 12,
     "maximumJobs": 1,
-    "maximumCampaignCostImpliedByPerJobCapsUsd": 0.75,
-    "expectedNormalProviderCalls": 9,
-    "maximumProviderCallsByEnvelope": 9,
+    "maximumCampaignCostImpliedByPerJobCapsUsd": 1.1,
+    "expectedNormalProviderCalls": 12,
+    "maximumProviderCallsByEnvelope": 12,
     "pricingUsdPerMillionTokens": {
       "input": 2.0,
       "cachedInput": 0.2,
       "output": 12.0
     },
-    "recordedCostAtRegistrationUsd": 42.9044766,
-    "authorizedRemainingAtRegistrationUsd": 2.0955234,
+    "recordedCostAtRegistrationUsd": 43.586457,
+    "authorizedRemainingAtRegistrationUsd": 1.413543,
     "minimumPlannerReservationAtRegistrationUsd": 0.0061465,
-    "authorizationBasis": "On 2026-09-28 the user added and authorized 5 USD of OpenAI API credit for the causal campaign. A876 spent 0.6106982 USD and completed Planner, Candidate Explorer, Writer and Critic with mechanically valid evidence and an honest bounded insufficiency. Its dossier assigned only 13 body-verified candidates to the requested roles, although the known A813/A817 corpus contains the missing bodies. The trace shows 18 documentary operations but repeated broad source-scoped semantic searches even when visible navigation entries could be followed exactly; one call also recovered an invalid five-page read request. The general prompt now prioritizes exact observed navigation entries through find_source_text or observed read_source coordinates before another broad query in the same source, while preserving model judgement and requiring body verification. The nine-call and 0.75 USD per-job caps remain unchanged; corpus, bank, model, tools, token limits and semantic acceptance rules remain frozen. Automatic purchase and automatic reload remain prohibited."
+    "authorizationBasis": "On 2026-09-28 the user added and authorized 5 USD of OpenAI API credit for the causal campaign. A877 spent 0.6819804 USD and proved that exact navigation priority changes behavior: Terra followed six observed names with find_source_text/read_source and reached 17 distinct role-eligible candidates with five occurrences per requested role. The Writer then correctly returned a bounded insufficiency instead of reusing candidates. Trace review found that the Explorer prompt misleadingly reported 42 body-verified items because it included unassigned automatic cards, while the local terminal guard correctly counted 17 role-eligible items; it also failed to warn that per-role counts overlap. The prompt count now matches the guard, preserves the total under a separately named field and explicitly forbids summing role counts. The final Explorer call saw researchAllowed false, so a further research cycle could not start. One complete choose/integrate/terminal cycle requires three model calls; the cap rises from nine to twelve and the per-job cap from 0.75 to 1.10 USD, within the remaining authorized lifetime budget and persistent 45 USD hard stop. Corpus, bank, model, tools, token limits and semantic acceptance rules remain frozen. Automatic purchase and automatic reload remain prohibited."
   },
   "acceptance": {
     "pilot": [
       "The one registered meal-grid case completes on the exact clean execution state with the sealed reference corpus unchanged.",
-      "The Candidate Explorer is present in the preflight seal with Responses transport, agent topology, workspace, 32768 history characters, a 4096-token Explorer output budget and nine total provider calls.",
+      "The Candidate Explorer is present in the preflight seal with Responses transport, agent topology, workspace, 32768 history characters, a 4096-token Explorer output budget and twelve total provider calls.",
       "The Explorer dossier reaches the Writer with at least twenty distinct body-verified candidates and at least five candidates assigned by the model to each of the four requested meal roles.",
       "Every retained candidate has an exact documentary title and at least one canonical body EvidenceId; locator-only contents or index excerpts do not satisfy body coverage.",
       "The final result is answered with twenty concrete, distinct and semantically suitable selections, one for every weekday and meal moment, with canonical source references and no unsupported item.",

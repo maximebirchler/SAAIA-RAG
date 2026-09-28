@@ -119,6 +119,65 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Structured_inventory_distinct_count_excludes_unassigned_bodies_and_does_not_sum_roles()
+    {
+        var update = JsonSerializer.Serialize(new
+        {
+            items = new[]
+            {
+                new
+                {
+                    key = "shared-item",
+                    exactTitle = "Shared item",
+                    sourceKey = "internal-source-1",
+                    targetRoles = new[] { "petit-déjeuner", "collation" },
+                    selectedRoles = Array.Empty<string>(),
+                    status = "body_verified",
+                    note = "One candidate may suit two roles.",
+                    locatorEvidenceIds = Array.Empty<string>(),
+                    bodyEvidenceIds = new[] { "E1" }
+                }
+            }
+        });
+        using var factory = new QueuedHttpClientFactory(
+            Completion(CandidatePlanner),
+            NativeCompletion(("save_candidate_inventory", update)),
+            Completion(CandidateTerminal));
+        var evidence = new[]
+        {
+            BuildEvidence("E1", "Shared item\nSubstantive body.", exactTitle: "Shared item"),
+            BuildEvidence("E2", "Unassigned item\nSubstantive body.", exactTitle: "Unassigned item")
+        };
+
+        await new OpenAiCompatibleAdvancedAnalysisProvider(factory, WorkspaceOptions(), null)
+            .ExecuteAsync(
+                BuildRequest(
+                    answerUnitCount: 20,
+                    atomicEvidenceMode: "named_item",
+                    selectionPolicy: "distinct_structured_layout"),
+                new RecordingToolGateway(evidence),
+                CancellationToken.None);
+
+        var inventory = WorkspaceUser(factory.Requests[2].Body)
+            .GetProperty("candidateInventory");
+        Assert.Equal(1, inventory.GetProperty("bodyVerifiedDistinctCount").GetInt32());
+        Assert.Equal(2, inventory.GetProperty("totalBodyVerifiedDistinctCount").GetInt32());
+        Assert.Equal(
+            1,
+            inventory.GetProperty("coverage").EnumerateArray()
+                .Single(role => role.GetProperty("targetRole").GetString() == "petit-déjeuner")
+                .GetProperty("bodyVerifiedCount").GetInt32());
+        Assert.Equal(
+            1,
+            inventory.GetProperty("coverage").EnumerateArray()
+                .Single(role => role.GetProperty("targetRole").GetString() == "collation")
+                .GetProperty("bodyVerifiedCount").GetInt32());
+        Assert.Contains(
+            "Never sum per-role coverage counts",
+            inventory.GetProperty("instruction").GetString());
+    }
+
+    [Fact]
     public async Task Candidate_inventory_upserts_without_dropping_prior_verified_items()
     {
         var first = CandidateUpdate(

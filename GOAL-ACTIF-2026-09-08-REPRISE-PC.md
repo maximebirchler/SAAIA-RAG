@@ -402,8 +402,21 @@ dans cette source. La pertinence, le choix des entrées et l'affectation restent
 au modèle. A876 coûte 0,61069820 USD ; le cumul atteint 42,90447660 USD sur
 45 USD. Voir
 documents/agent/rejet-decouverte-autonome-bornee-a876-2026-09-28.md.
+A877 suit effectivement six noms observés avec `find_source_text` ou
+`read_source` et atteint dix-sept candidats distincts affectés, avec cinq
+occurrences par rôle. Le résultat reste une insuffisance : le dernier prompt
+Explorer annonçait à tort 42 corps distincts parce qu'il incluait les cartes
+automatiques sans rôle, alors que le garde local comptait correctement les
+dix-sept candidats éligibles. Il ne précisait pas non plus qu'un candidat peut
+compter dans plusieurs rôles. Le compteur transmis est aligné sur le garde, le
+total non affecté est exposé séparément et la somme des comptes de rôles est
+explicitement interdite. Le dernier appel Explorer recevait déjà
+`researchAllowed: false`; l'enveloppe passe à douze appels et 1,10 USD afin de
+permettre un cycle choisir/intégrer/terminer supplémentaire. A877 coûte
+0,68198040 USD ; le cumul atteint 43,58645700 USD sur 45 USD. Voir
+documents/agent/rejet-compteur-eligible-et-cycle-incomplet-a877-2026-09-28.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
-restent inchangés. Plafond du pilote Candidate Explorer conservé à neuf appels,
+restent inchangés. Plafond du pilote Candidate Explorer porté à douze appels,
 installateurs différés. Voir
 `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.
 Le produit reste `TESTE_NON_APPROUVE` et le Goal actif.

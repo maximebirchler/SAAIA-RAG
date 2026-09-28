@@ -473,6 +473,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             selectedCount = inventory.Count(item => item.Status == "selected"
                 && item.SelectedRoles.Contains(column, StringComparer.Ordinal))
         }).ToArray();
+        var bodyVerified = inventory.Where(item =>
+                (item.Status is "body_verified" or "selected")
+                && item.BodyEvidenceIds.Count > 0)
+            .ToArray();
+        var requestedRoles = request.Handoff.Load.Columns
+            .ToHashSet(StringComparer.Ordinal);
+        var eligibleBodyVerified = requestedRoles.Count == 0
+            ? bodyVerified
+            : bodyVerified.Where(item =>
+                    item.TargetRoles.Any(requestedRoles.Contains))
+                .ToArray();
         return new
         {
             enabled = true,
@@ -481,15 +492,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             items = inventory,
             coverage,
             requiredDistinctCount = request.Handoff.Load.AnswerUnitCount,
-            bodyVerifiedDistinctCount = inventory.Count(item =>
-                (item.Status is "body_verified" or "selected")
-                && item.BodyEvidenceIds.Count > 0),
+            bodyVerifiedDistinctCount = eligibleBodyVerified.Length,
+            totalBodyVerifiedDistinctCount = bodyVerified.Length,
             currentVisibleEvidenceIds = inventory
                 .SelectMany(item => item.LocatorEvidenceIds.Concat(item.BodyEvidenceIds))
                 .Distinct(StringComparer.Ordinal)
                 .Where(visible.Contains)
                 .ToArray(),
-            instruction = "Operational candidate memory, not proof. Use save_candidate_inventory to retain exact observed titles across focus changes. A navigation locator discovers an item; body_verified and selected require current substantive body evidence. Omitted candidates remain stored. Continue research from coverage gaps, and do not turn a bounded search limit into corpus absence."
+            instruction = "Operational candidate memory, not proof. bodyVerifiedDistinctCount counts distinct body-verified candidates assigned to at least one requested role; totalBodyVerifiedDistinctCount also includes unassigned items. Never sum per-role coverage counts because one candidate can occur in several roles. Use save_candidate_inventory to retain exact observed titles across focus changes. A navigation locator discovers an item; body_verified and selected require current substantive body evidence. Omitted candidates remain stored. Continue research from coverage gaps, and do not turn a bounded search limit into corpus absence."
         };
     }
 
