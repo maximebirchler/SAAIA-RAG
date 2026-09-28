@@ -458,6 +458,20 @@ réseau ni coût ; la suite complète passe avec 10 Contracts, 2 475 Backend et
 de la projection staged reste nécessaire
 avant tout pilote live ; le produit reste `TESTE_NON_APPROUVE`. Voir
 documents/agent/pipeline-navigator-judge-a880-2026-09-28.md.
+A881 rejoue hors réseau les 23 preuves privées du dossier A817 dans le vrai
+provider staged avec un transport LLM déterministe. Le Candidate Judge traite
+deux lots de 12 puis 8, accepte vingt corps, le solveur obtient 20/20, le
+Navigator reste à zéro appel et le Writer fermé produit vingt choix distincts.
+Le replay révèle que `MergeCandidateInventory` validait un titre source plus
+complet sans le recopier dans le registre ; le correctif `19d12ec6` préserve
+maintenant `canonicalUpdate.ExactTitle` et sa régression contrôle le checkpoint.
+La suite complète passe avec 10 Contracts, 2 475 Backend et 2 338 Client, zéro
+échec et quatre live ignorés. Le manifeste public ne contient aucun contenu
+privé ; aucun réseau ni coût. Le total reste 44,42531530 USD et le reliquat
+0,57468470 USD. Le mode staged demeure désactivé par défaut. La prochaine porte
+est le préenregistrement d'un pilote live staged complet, sans le lancer avec
+une enveloppe insuffisante. Produit `TESTE_NON_APPROUVE`. Voir
+documents/agent/replay-prive-staged-a817-a881-2026-09-28.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond du pilote Candidate Explorer porté à douze appels,
 installateurs différés. Voir

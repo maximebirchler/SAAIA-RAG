@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "saaia.a881-staged-a817-private-replay.v1",
+  "createdAtUtc": "2026-09-28T18:34:20.1438889+00:00",
+  "candidate": "19d12ec6ee3c96d05fc4c87d43fb55179b7c0d9c",
+  "inputs": [
+    {
+      "label": "native-read-replay",
+      "sha256": "7B8A1A1E26FEB25B06230BACE85EB0B3C9BE15C95693BA6045364A21B5091DC0"
+    },
+    {
+      "label": "claim-review",
+      "sha256": "0E40630D7CEE4F9D449ED916773A9E8101F6E58B0CE6EA511503EB65B2AFA403"
+    },
+    {
+      "label": "closed-writer-result",
+      "sha256": "42D4AD52B221495FBEBF057567C24C915F030C8BB4189D685F899A1516A84CAB"
+    }
+  ],
+  "networkCalls": 0,
+  "paidCalls": 0,
+  "privateContentEmbedded": false,
+  "privateEvidenceCount": 23,
+  "plannerCalls": 1,
+  "navigatorCalls": 0,
+  "judgeCalls": 2,
+  "judgeBatchSizes": [
+    12,
+    8
+  ],
+  "judgePromptCharacters": [
+    21976,
+    18197
+  ],
+  "acceptedCandidates": 20,
+  "rejectedCandidates": 0,
+  "writerCalls": 1,
+  "writerPromptCharacters": 49751,
+  "writerVisibleEvidenceCount": 23,
+  "maximumAssignableCount": 20,
+  "proposedAssignmentCount": 20,
+  "result": {
+    "outcome": "answered",
+    "claimCount": 20,
+    "distinctSelectedItems": 20
+  },
+  "productStatus": "TESTE_NON_APPROUVE",
+  "limitation": "Deterministic offline replay over the known A817 bodies and closed answer. It validates current staged projection, batching, inventory, assignment and Writer transport; it does not validate autonomous navigation, live model judgment, durable jobs, WinUI or blind quality."
+}

@@ -14335,3 +14335,26 @@ appel externe. Le mode staged reste désactivé par défaut jusqu'au replay priv
 A817 et au protocole live figé.
 Produit `TESTE_NON_APPROUVE`. Détail :
 `documents/agent/pipeline-navigator-judge-a880-2026-09-28.md`.
+
+## 2026-09-28 — A881 : replay privé staged A817 accepté hors ligne
+
+Le provider staged réel reçoit localement les 23 preuves A817 déjà auditées.
+Deux appels Judge simulés traitent 12 puis 8 corps, les vingt candidats sont
+acceptés, le matching est complet à 20/20, le Navigator n'est pas sollicité et
+le Writer fermé conserve vingt choix distincts. Zéro réseau et zéro coût.
+
+Le replay a trouvé une perte d'identité dans la fusion du registre : le titre
+complet validé était calculé mais pas réaffecté dans le record fusionné. Le
+commit poussé `19d12ec6` conserve `canonicalUpdate.ExactTitle` et une assertion
+sur le checkpoint empêche la régression. Provider 311/311 ; suite complète 10
+Contracts, 2 475 Backend, 2 338 Client, zéro échec, quatre live ignorés.
+
+Preuve publique :
+`artifacts/reprise-pc-20260908/a881-staged-a817-private-replay-20260928/assessment.public.json`,
+SHA-256
+`FBFD10B6F9A8EE9DDDBCF4A097DA441C2E015EFE6B2ED2A79BB49BCB1E85C304`.
+Le harnais et les contenus privés restent ignorés. Phase active suivante :
+préenregistrer le pilote live staged avec mesures par étape et critères de
+qualité, sans l'exécuter tant que son enveloppe complète n'est pas disponible.
+Total externe inchangé 44,42531530 USD sur 45 USD ; reliquat 0,57468470 USD.
+Mode staged désactivé par défaut, produit `TESTE_NON_APPROUVE`.
