@@ -9,9 +9,9 @@ préflight refuse actuellement l'exécution parce que le reliquat de
 
 Le profil est
 `config/openai-terra-staged-candidate-pilot.a882.json`, SHA-256
-`2B703477D32C27366B86BFC5B37E8BC80FFD9D6D2BB141311A774CDB63CDC5B4`.
+`3EEFC2D46F227C7415ED854A7D364AB7E4B181C3E911020B753ADADCF5ABA7E3`.
 Il est préenregistré contre
-`d623877608a4f15e4028df416b14993c880e1220` et reste
+`abffd0681f24559534695ca3fd303d35d65d5128` et reste
 `PREREGISTERED_BLOCKED_INSUFFICIENT_FULL_JOB_RESERVATION`.
 
 ## Chaîne réellement câblée
@@ -79,7 +79,17 @@ Le pilote conserve le cas `A755-ADV-01-meal-grid-5x4`, la banque et son hash,
 le corpus de référence, Terra avec reasoning `low`, Responses, topologie
 `agent`, workspace, historique 32 768 caractères, Planner 512 tokens,
 Navigator/Judge 4 096, Writer 4 096 et Critic 4 096. Le maximum reste douze
-appels et 1,10 USD pour un seul job.
+appels et 1,10 USD pour un seul job. Le budget explicite des preuves est fixé à
+64 000 caractères.
+
+Le runner historique affichait 14 000 caractères, mais le provider relève déjà
+mécaniquement la limite des grilles structurées : pour 5 × 4 et quatre colonnes,
+le plancher atteint 57 600 caractères et reste borné à 64 000. Un replay A817
+supplémentaire avec la valeur historique 14 000 garde bien les 23 preuves, les
+lots Judge 12+8, un prompt Writer de 49 751 caractères et l'affectation 20/20.
+Le commit `abffd068` rend maintenant 64 000 explicite dans le profil, les deux
+runners et le sceau de préflight. Il ne dépend donc plus d'un relèvement interne
+invisible au moment de relire la campagne.
 
 Le déroulement nominal attendu est Planner, puis plusieurs cycles
 Navigator-vers-outils-vers-Judge, suivi du Writer et du Critic. Les appels

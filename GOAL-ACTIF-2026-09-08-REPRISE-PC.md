@@ -479,8 +479,10 @@ contrôles sur huit réussis et rétrocompatibilité A878. Un nouveau garde rés
 l'enveloppe complète du job avant le premier appel. Avec 44,42531530 USD
 enregistrés sur un hard stop de 45 USD, les 0,57468470 USD restants ne couvrent
 pas le cap de 1,10 USD : `lifetime_budget_headroom_below_job_cap` bloque donc
-le run avant toute dépense. Le profil scellé contre `d6238776` reste
-préenregistré et non exécuté. Produit `TESTE_NON_APPROUVE`. Voir
+le run avant toute dépense. Le profil scellé contre `abffd068` expose en plus
+un budget de preuves explicite de 64 000 caractères, confirmé par un replay
+A817 à 23 preuves et 20/20. Il reste préenregistré et non exécuté. Produit
+`TESTE_NON_APPROUVE`. Voir
 documents/agent/preenregistrement-pilote-staged-a882-2026-09-28.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond du pilote Candidate Explorer porté à douze appels,

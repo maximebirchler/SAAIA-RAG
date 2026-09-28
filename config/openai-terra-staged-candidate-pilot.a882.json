@@ -6,8 +6,8 @@
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
-    "preregisteredAgainstCommit": "d623877608a4f15e4028df416b14993c880e1220",
-    "minimumSemanticFixCommit": "d623877608a4f15e4028df416b14993c880e1220",
+    "preregisteredAgainstCommit": "abffd0681f24559534695ca3fd303d35d65d5128",
+    "minimumSemanticFixCommit": "abffd0681f24559534695ca3fd303d35d65d5128",
     "executionRule": "Run one staged meal-grid pilot only from a clean descendant containing the A879 solver, A880 staged pipeline, A881 identity fix and A882 runner guards. Freeze the bank, corpus, prompts, tools, model, topology, token limits and acceptance rules before the first answer is observed. A budget-only re-registration may extend the authorized lifetime hard stop after explicit user funding, but must not alter semantic or retrieval settings."
   },
   "provider": {
@@ -26,6 +26,7 @@
     "plannerMaxTokens": 512,
     "writerMaxTokens": 4096,
     "criticMaxTokens": 4096,
+    "maximumEvidencePromptCharacters": 64000,
     "nativeResearchToolsEnabled": true,
     "nativeResearchApiProtocol": "responses",
     "nativeResearchTopology": "agent",

@@ -14376,7 +14376,10 @@ headroom, 1,10 USD requis, réservation complète fausse. Le dry-run staged est
 donc bloqué par `lifetime_budget_headroom_below_job_cap`, sans appel externe.
 
 Commits : `94ba1540` pour la preuve de topologie, `d6d6aced` pour le transport
-du drapeau, `d6238776` pour la réservation complète. Prochaine action externe
+du drapeau, `d6238776` pour la réservation complète et `abffd068` pour exposer
+64 000 caractères de preuves dans le profil et son sceau. Le replay A817 avec
+la valeur historique 14 000 confirme que le plancher structuré retenait déjà
+les 23 preuves et l'affectation 20/20. Prochaine action externe
 possible seulement après une extension explicite du hard stop couvrant au
 minimum 0,52531530 USD supplémentaires et une observation Tier 1 fraîche. Les
 paramètres sémantiques restent figés. Produit `TESTE_NON_APPROUVE`.
