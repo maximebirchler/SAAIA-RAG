@@ -45,6 +45,7 @@ param(
     [int]$NativeResearchMaximumHistoryCharacters = 16384,
     [switch]$EnableNativeResearchWorkspace,
     [switch]$EnableNativeCandidateExplorer,
+    [switch]$EnableStagedCandidateExplorer,
     [ValidateRange(0, 8)]
     [int]$CandidateExplorerReservePerRole = 2,
     [ValidateRange(512, 16384)]
@@ -99,6 +100,7 @@ $runner = Join-Path $PSScriptRoot "test-advanced-product-path-provider.ps1"
     -NativeResearchMaximumHistoryCharacters $NativeResearchMaximumHistoryCharacters `
     -EnableNativeResearchWorkspace:$EnableNativeResearchWorkspace `
     -EnableNativeCandidateExplorer:$EnableNativeCandidateExplorer `
+    -EnableStagedCandidateExplorer:$EnableStagedCandidateExplorer `
     -CandidateExplorerReservePerRole $CandidateExplorerReservePerRole `
     -CandidateExplorerMaxTokens $CandidateExplorerMaxTokens `
     -EnableNativeResearchActiveProposal:$EnableNativeResearchActiveProposal `

@@ -135,6 +135,7 @@ $nativeResearchTopology = [string](Get-OptionalProfileValue $profile.provider "n
 $nativeResearchMaximumHistoryCharacters = [int](Get-OptionalProfileValue $profile.provider "nativeResearchMaximumHistoryCharacters" 16384)
 $nativeResearchWorkspaceEnabled = [bool](Get-OptionalProfileValue $profile.provider "nativeResearchWorkspaceEnabled" $false)
 $nativeCandidateExplorerEnabled = [bool](Get-OptionalProfileValue $profile.provider "nativeCandidateExplorerEnabled" $false)
+$stagedCandidateExplorerEnabled = [bool](Get-OptionalProfileValue $profile.provider "stagedCandidateExplorerEnabled" $false)
 $candidateExplorerReservePerRole = [int](Get-OptionalProfileValue $profile.provider "candidateExplorerReservePerRole" 2)
 $candidateExplorerMaxTokens = [int](Get-OptionalProfileValue $profile.provider "candidateExplorerMaxTokens" 4096)
 $nativeResearchActiveProposalEnabled = [bool](Get-OptionalProfileValue $profile.provider "nativeResearchActiveProposalEnabled" $false)
@@ -258,7 +259,11 @@ if ($nativeResearchApiProtocol -notin @("chat-completions", "responses") -or
     $candidateExplorerMaxTokens -gt 16384) {
     $blockingReasons += "native_research_profile_invalid"
 }
-$minimumExplorerCalls = if ($semanticCriticEnabled) { 4 } else { 3 }
+$minimumExplorerCalls = if ($stagedCandidateExplorerEnabled) {
+    if ($semanticCriticEnabled) { 5 } else { 4 }
+} else {
+    if ($semanticCriticEnabled) { 4 } else { 3 }
+}
 if ($nativeCandidateExplorerEnabled -and
     (-not $nativeResearchToolsEnabled -or
      -not $nativeResearchWorkspaceEnabled -or
@@ -266,6 +271,9 @@ if ($nativeCandidateExplorerEnabled -and
      $nativeResearchMaximumHistoryCharacters -lt 32768 -or
      [int]$profile.budget.maximumCallsPerJob -lt $minimumExplorerCalls)) {
     $blockingReasons += "candidate_explorer_profile_invalid"
+}
+if ($stagedCandidateExplorerEnabled -and -not $nativeCandidateExplorerEnabled) {
+    $blockingReasons += "staged_candidate_explorer_requires_candidate_explorer"
 }
 if ($nativeCandidateExplorerEnabled -and
     (-not $developmentTracesRequired -or
@@ -348,6 +356,7 @@ $preflight = [ordered]@{
     nativeResearchMaximumHistoryCharacters = $nativeResearchMaximumHistoryCharacters
     nativeResearchWorkspaceEnabled = $nativeResearchWorkspaceEnabled
     nativeCandidateExplorerEnabled = $nativeCandidateExplorerEnabled
+    stagedCandidateExplorerEnabled = $stagedCandidateExplorerEnabled
     candidateExplorerReservePerRole = $candidateExplorerReservePerRole
     candidateExplorerMaxTokens = $candidateExplorerMaxTokens
     nativeResearchActiveProposalEnabled = $nativeResearchActiveProposalEnabled
@@ -426,6 +435,7 @@ try {
         -NativeResearchMaximumHistoryCharacters $nativeResearchMaximumHistoryCharacters `
         -EnableNativeResearchWorkspace:$nativeResearchWorkspaceEnabled `
         -EnableNativeCandidateExplorer:$nativeCandidateExplorerEnabled `
+        -EnableStagedCandidateExplorer:$stagedCandidateExplorerEnabled `
         -CandidateExplorerReservePerRole $candidateExplorerReservePerRole `
         -CandidateExplorerMaxTokens $candidateExplorerMaxTokens `
         -EnableNativeResearchActiveProposal:$nativeResearchActiveProposalEnabled `
@@ -449,6 +459,9 @@ try {
         )
         if ($semanticCriticEnabled) {
             $evidenceVerifierArguments += "-RequireSemanticCritic"
+        }
+        if ($stagedCandidateExplorerEnabled) {
+            $evidenceVerifierArguments += "-RequireStagedPipeline"
         }
         $evidenceVerificationOutput = & pwsh @evidenceVerifierArguments 2>&1
         $evidenceVerificationOutput | Set-Content -LiteralPath `

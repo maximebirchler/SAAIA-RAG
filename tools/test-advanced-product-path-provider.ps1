@@ -46,6 +46,7 @@ param(
     [int]$NativeResearchMaximumHistoryCharacters = 16384,
     [switch]$EnableNativeResearchWorkspace,
     [switch]$EnableNativeCandidateExplorer,
+    [switch]$EnableStagedCandidateExplorer,
     [ValidateRange(0, 8)]
     [int]$CandidateExplorerReservePerRole = 2,
     [ValidateRange(512, 16384)]
@@ -558,6 +559,7 @@ try {
             NativeResearchMaximumHistoryCharacters = $NativeResearchMaximumHistoryCharacters
             NativeResearchWorkspaceEnabled = [bool]$EnableNativeResearchWorkspace
             NativeCandidateExplorerEnabled = [bool]$EnableNativeCandidateExplorer
+            StagedCandidateExplorerEnabled = [bool]$EnableStagedCandidateExplorer
             CandidateExplorerReservePerRole = $CandidateExplorerReservePerRole
             CandidateExplorerMaxTokens = $CandidateExplorerMaxTokens
             NativeResearchActiveProposalEnabled = [bool]$EnableNativeResearchActiveProposal
@@ -692,6 +694,7 @@ try {
         nativeResearchMaximumHistoryCharacters = $NativeResearchMaximumHistoryCharacters
         nativeResearchWorkspaceEnabled = [bool]$EnableNativeResearchWorkspace
         nativeCandidateExplorerEnabled = [bool]$EnableNativeCandidateExplorer
+        stagedCandidateExplorerEnabled = [bool]$EnableStagedCandidateExplorer
         candidateExplorerReservePerRole = $CandidateExplorerReservePerRole
         candidateExplorerMaxTokens = $CandidateExplorerMaxTokens
         nativeResearchActiveProposalEnabled = [bool]$EnableNativeResearchActiveProposal
