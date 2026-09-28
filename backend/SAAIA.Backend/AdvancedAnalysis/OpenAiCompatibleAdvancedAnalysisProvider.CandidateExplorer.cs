@@ -8,13 +8,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         string TargetRole,
         int RequiredCount,
         int ReserveTargetCount,
-        int BodyVerifiedCount);
+        int BodyVerifiedCount,
+        int AssignedCount,
+        int MissingCount);
 
     private sealed record CandidateExplorerCoverage(
         bool Ready,
         int RequiredDistinctCount,
         int BodyVerifiedDistinctCount,
+        int MaximumAssignableCount,
         IReadOnlyList<CandidateExplorerRoleCoverage> Roles,
+        IReadOnlyDictionary<string, int> MissingByRole,
+        IReadOnlyList<CandidateCoverageAssignment> ProposedAssignments,
         IReadOnlyList<string> BodyEvidenceIds,
         IReadOnlyList<string> EligibleCandidateKeys);
 
@@ -23,7 +28,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         string Reason,
         int RequiredDistinctCount,
         int BodyVerifiedDistinctCount,
+        int MaximumAssignableCount,
         IReadOnlyList<CandidateExplorerRoleCoverage> Roles,
+        IReadOnlyDictionary<string, int> MissingByRole,
+        IReadOnlyList<CandidateCoverageAssignment> ProposedAssignments,
         IReadOnlyList<string> BodyEvidenceIds,
         IReadOnlyList<string> EligibleCandidateKeys,
         string Instruction);
@@ -53,22 +61,53 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var requiredDistinct = Math.Max(1, request.Handoff.Load.AnswerUnitCount);
         var requiredPerRole = Math.Max(1, request.Handoff.Load.RowCount);
         var reserve = Math.Clamp(_options.CandidateExplorerReservePerRole, 0, 8);
+        var coordinates = BuildStructuredClaimCoordinates(request.Handoff.Load);
+        CandidateCoverageSolution? solution = null;
+        if (request.Handoff.Load.StructuredLayout && coordinates.Count > 0)
+        {
+            solution = CandidateCoverageSolver.Solve(
+                coordinates.Select(coordinate => new CandidateCoverageSlot(
+                        coordinate.ClaimId,
+                        coordinate.ColumnLabel))
+                    .ToArray(),
+                eligible.Select(item => new CandidateCoverageOption(
+                        item.Key,
+                        item.TargetRoles))
+                    .ToArray());
+        }
         var roles = request.Handoff.Load.Columns.Select(role =>
         {
             var count = eligible.Count(item =>
                 item.TargetRoles.Contains(role, StringComparer.Ordinal));
+            var assignedCount = solution?.Assignments.Count(assignment =>
+                string.Equals(assignment.TargetRole, role, StringComparison.Ordinal)) ?? 0;
+            var missingCount = solution?.MissingByRole.GetValueOrDefault(role) ?? 0;
             return new CandidateExplorerRoleCoverage(
                 role,
                 requiredPerRole,
                 Math.Min(64, requiredPerRole + reserve),
-                count);
+                count,
+                assignedCount,
+                missingCount);
         }).ToArray();
+        var structured = request.Handoff.Load.StructuredLayout;
+        var maximumAssignable = structured
+            ? solution?.MaximumAssignableCount ?? 0
+            : eligible.Length;
+        var ready = structured
+            ? solution is not null
+              && solution.RequiredSlotCount == requiredDistinct
+              && solution.Complete
+            : eligible.Length >= requiredDistinct;
         return new CandidateExplorerCoverage(
-            eligible.Length >= requiredDistinct
-            && roles.All(role => role.BodyVerifiedCount >= role.RequiredCount),
+            ready,
             requiredDistinct,
             eligible.Length,
+            maximumAssignable,
             roles,
+            solution?.MissingByRole
+            ?? new Dictionary<string, int>(StringComparer.Ordinal),
+            solution?.Assignments ?? [],
             eligible.SelectMany(item => item.BodyEvidenceIds)
                 .Distinct(StringComparer.Ordinal)
                 .ToArray(),
@@ -117,10 +156,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     terminal.Reason,
                     coverage.RequiredDistinctCount,
                     coverage.BodyVerifiedDistinctCount,
+                    coverage.MaximumAssignableCount,
                     coverage.Roles,
+                    coverage.MissingByRole,
+                    coverage.ProposedAssignments,
                     coverage.BodyEvidenceIds,
                     coverage.EligibleCandidateKeys,
-                    "For each claim coordinate, choose one distinct body-verified candidate whose targetRoles contains that coordinate's columnLabel. Do not select an unassigned inventory item. If further research reveals a better item, first save it with substantive body evidence and the intended target role. Never reuse one candidate for two distinct coordinates.");
+                    "proposedAssignments is a deterministic feasible placement over the Explorer's semantic targetRoles. Use its assigned candidate for each claim coordinate and never reuse one candidate for two coordinates. You may refine a subordinate displayed title only when the same assigned substantive body proves the complete identity. If further research reveals a better item, first save it with substantive body evidence and the intended target role.");
                 context.FocusSearches.Clear();
                 return;
             }
@@ -142,10 +184,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     terminal.Reason,
                     coverage.RequiredDistinctCount,
                     coverage.BodyVerifiedDistinctCount,
+                    coverage.MaximumAssignableCount,
                     coverage.Roles,
+                    coverage.MissingByRole,
+                    coverage.ProposedAssignments,
                     coverage.BodyEvidenceIds,
                     coverage.EligibleCandidateKeys,
-                    "The Explorer stopped with a bounded gap. Use only role-assigned body-verified candidates for supported cells and describe the smallest exact remaining gap; do not treat unassigned headings as replacements.");
+                    "The Explorer stopped with a bounded gap. maximumAssignableCount and missingByRole measure the smallest proven assignment gap. Use only proposedAssignments for supported cells and describe that exact gap; do not treat unassigned headings as replacements.");
                 return;
             }
 
@@ -212,10 +257,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            ingredient groups, schedules, example-menu categories and other open
            templates; they cannot fill a distinct named-item coordinate.
 
-           candidateInventory.coverage gives the minimum body-verified count per
-           role. candidateInventory also exposes the total inventory. Reach at
-           least load.answerUnitCount distinct body-verified candidates and the
-           required count for every target role. When budget permits, aim for the
+           candidateInventory.coverage gives both raw body-verified counts and
+           globally distinct assignment counts. candidateInventory also exposes
+           the total inventory. A structured dossier is mechanically complete only
+           when maximumAssignableCount equals requiredDistinctCount and
+           missingByRole is empty; raw per-role counts can overlap and are not proof.
+           When budget permits, aim for the
            reserve target shown in coverage rather than stopping at the first
            barely complete set. For a flat collection with no target roles,
            targetRoles stays empty and body_verified means that you judge the

@@ -458,6 +458,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var visible = observations.Select(item => item.EvidenceId)
             .Where(static id => !string.IsNullOrWhiteSpace(id))
             .ToHashSet(StringComparer.Ordinal);
+        var measuredCoverage = BuildCandidateExplorerCoverage(request, inventory);
+        var measuredRoles = measuredCoverage.Roles.ToDictionary(
+            role => role.TargetRole,
+            StringComparer.Ordinal);
         var coverage = request.Handoff.Load.Columns.Select(column => new
         {
             targetRole = column,
@@ -470,6 +474,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 (item.Status is "body_verified" or "selected")
                 && item.TargetRoles.Contains(column, StringComparer.Ordinal)
                 && item.BodyEvidenceIds.Count > 0),
+            assignedCount = measuredRoles.GetValueOrDefault(column)?.AssignedCount ?? 0,
+            missingCount = measuredRoles.GetValueOrDefault(column)?.MissingCount ?? 0,
             selectedCount = inventory.Count(item => item.Status == "selected"
                 && item.SelectedRoles.Contains(column, StringComparer.Ordinal))
         }).ToArray();
@@ -487,19 +493,22 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         return new
         {
             enabled = true,
-            version = "candidate-inventory.v1",
+            version = "candidate-inventory.v2",
             updateMode = "upsert",
             items = inventory,
             coverage,
             requiredDistinctCount = request.Handoff.Load.AnswerUnitCount,
             bodyVerifiedDistinctCount = eligibleBodyVerified.Length,
             totalBodyVerifiedDistinctCount = bodyVerified.Length,
+            maximumAssignableCount = measuredCoverage.MaximumAssignableCount,
+            missingByRole = measuredCoverage.MissingByRole,
+            proposedAssignments = measuredCoverage.ProposedAssignments,
             currentVisibleEvidenceIds = inventory
                 .SelectMany(item => item.LocatorEvidenceIds.Concat(item.BodyEvidenceIds))
                 .Distinct(StringComparer.Ordinal)
                 .Where(visible.Contains)
                 .ToArray(),
-            instruction = "Operational candidate memory, not proof. bodyVerifiedDistinctCount counts distinct body-verified candidates assigned to at least one requested role; totalBodyVerifiedDistinctCount also includes unassigned items. Never sum per-role coverage counts because one candidate can occur in several roles. Use save_candidate_inventory to retain exact observed titles across focus changes. A navigation locator discovers an item; body_verified and selected require current substantive body evidence. Omitted candidates remain stored. Continue research from coverage gaps, and do not turn a bounded search limit into corpus absence."
+            instruction = "Operational candidate memory, not proof. bodyVerifiedDistinctCount counts distinct body-verified candidates assigned to at least one requested role; totalBodyVerifiedDistinctCount also includes unassigned items. Never sum per-role coverage counts because one candidate can occur in several roles. For a structured layout, maximumAssignableCount is the maximum number of distinct coordinates fillable at once from your semantic targetRoles; missingByRole is the remaining global assignment gap. proposedAssignments is mechanical and does not add semantic roles. Use save_candidate_inventory to retain exact observed titles across focus changes. A navigation locator discovers an item; body_verified and selected require current substantive body evidence. Omitted candidates remain stored. Continue research from measured assignment gaps, and do not turn a bounded search limit into corpus absence."
         };
     }
 

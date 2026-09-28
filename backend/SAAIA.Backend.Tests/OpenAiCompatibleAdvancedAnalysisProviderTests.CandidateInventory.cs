@@ -93,7 +93,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal("insufficient_documentation", result.Outcome);
         var prompt = WorkspaceUser(factory.Requests[2].Body);
         var inventory = prompt.GetProperty("candidateInventory");
-        Assert.Equal("candidate-inventory.v1", inventory.GetProperty("version").GetString());
+        Assert.Equal("candidate-inventory.v2", inventory.GetProperty("version").GetString());
         var item = inventory.GetProperty("items")[0];
         Assert.Equal("Omelette", item.GetProperty("exactTitle").GetString());
         Assert.Equal("body_verified", item.GetProperty("status").GetString());

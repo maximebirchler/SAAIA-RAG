@@ -114,6 +114,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var dossier = writer.GetProperty("candidateDossier");
         Assert.Equal("ready", dossier.GetProperty("outcome").GetString());
         Assert.Equal(20, dossier.GetProperty("bodyVerifiedDistinctCount").GetInt32());
+        Assert.Equal(20, dossier.GetProperty("maximumAssignableCount").GetInt32());
+        Assert.Equal(20, dossier.GetProperty("proposedAssignments").GetArrayLength());
+        Assert.Empty(dossier.GetProperty("missingByRole").EnumerateObject());
         Assert.Equal(20, dossier.GetProperty("bodyEvidenceIds").GetArrayLength());
         Assert.Equal(20, dossier.GetProperty("eligibleCandidateKeys").GetArrayLength());
         Assert.DoesNotContain(
@@ -419,6 +422,99 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal("bounded_gap", dossier.GetProperty("outcome").GetString());
         Assert.Equal(0, dossier.GetProperty("bodyVerifiedDistinctCount").GetInt32());
         Assert.Equal(20, dossier.GetProperty("requiredDistinctCount").GetInt32());
+    }
+
+    [Fact]
+    public async Task Candidate_explorer_rejects_raw_role_counts_without_a_distinct_full_assignment()
+    {
+        var documentId = Guid.NewGuid().ToString("D");
+        var revisionId = Guid.NewGuid().ToString("D");
+        var roles = new[] { "petit-déjeuner", "déjeuner", "collation", "souper" };
+        var candidateDefinitions = Enumerable.Range(1, 15)
+            .Select(index => new
+            {
+                Key = $"breakfast-{index:D2}",
+                Roles = new[] { roles[0] }
+            })
+            .Concat(Enumerable.Range(1, 5).Select(index => new
+            {
+                Key = $"shared-{index:D2}",
+                Roles = roles
+            }))
+            .ToArray();
+        var evidence = candidateDefinitions.Select((candidate, index) => BuildEvidence(
+                $"E{index + 1}",
+                $"R{index + 1}\nINGRÉDIENTS\nÉlément. PRÉPARATION\nProcédure.",
+                docId: documentId,
+                revisionId: revisionId,
+                exactTitle: $"R{index + 1}"))
+            .ToArray();
+        var update = JsonSerializer.Serialize(new
+        {
+            items = candidateDefinitions.Select((candidate, index) => new
+            {
+                key = candidate.Key,
+                exactTitle = $"R{index + 1}",
+                sourceKey = "internal-source-1",
+                targetRoles = candidate.Roles,
+                selectedRoles = Array.Empty<string>(),
+                status = "body_verified",
+                note = "Verified by the Explorer.",
+                locatorEvidenceIds = Array.Empty<string>(),
+                bodyEvidenceIds = new[] { $"E{index + 1}" }
+            }).ToArray()
+        });
+        using var factory = new QueuedHttpClientFactory(
+            Completion(CandidatePlanner),
+            NativeCompletion(("save_candidate_inventory", update)),
+            Completion(ExplorerReady),
+            Completion(ExplorerBounded),
+            Completion(CandidateTerminal));
+        var options = WorkspaceOptions();
+        options.NativeCandidateExplorerEnabled = true;
+        options.NativeResearchMaximumHistoryCharacters = 32_768;
+        options.SemanticCriticEnabled = false;
+        options.ExternalMaximumCallsPerJob = 5;
+
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(
+                factory,
+                options,
+                null)
+            .ExecuteAsync(
+                BuildRequest(
+                    answerUnitCount: 20,
+                    atomicEvidenceMode: "named_item",
+                    selectionPolicy: "distinct_structured_layout"),
+                new RecordingToolGateway(evidence),
+                CancellationToken.None);
+
+        Assert.Equal("insufficient_documentation", result.Outcome);
+        Assert.Equal(5, factory.Requests.Count);
+        var coverage = WorkspaceUser(factory.Requests[3].Body)
+            .GetProperty("explorerFeedback")
+            .GetProperty("coverage");
+        Assert.Equal(20, coverage.GetProperty("bodyVerifiedDistinctCount").GetInt32());
+        Assert.Equal(10, coverage.GetProperty("maximumAssignableCount").GetInt32());
+        Assert.Equal(
+            10,
+            coverage.GetProperty("missingByRole").EnumerateObject()
+                .Sum(property => property.Value.GetInt32()));
+        Assert.All(
+            coverage.GetProperty("roles").EnumerateArray(),
+            role => Assert.True(role.GetProperty("bodyVerifiedCount").GetInt32() >= 5));
+        var assignmentGap = WorkspaceUser(factory.Requests[3].Body)
+            .GetProperty("candidateAssignmentGap");
+        Assert.Equal(10, assignmentGap.GetProperty("maximumAssignableCount").GetInt32());
+        Assert.NotEmpty(assignmentGap.GetProperty("focusRoles").EnumerateArray());
+        Assert.Equal(
+            10,
+            assignmentGap.GetProperty("missingByRole").EnumerateObject()
+                .Sum(property => property.Value.GetInt32()));
+        var dossier = WorkspaceUser(factory.Requests[4].Body)
+            .GetProperty("candidateDossier");
+        Assert.Equal("bounded_gap", dossier.GetProperty("outcome").GetString());
+        Assert.Equal(10, dossier.GetProperty("maximumAssignableCount").GetInt32());
+        Assert.Equal(10, dossier.GetProperty("proposedAssignments").GetArrayLength());
     }
 
     [Fact]

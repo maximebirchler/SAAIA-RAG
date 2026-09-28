@@ -430,6 +430,19 @@ pilote end-to-end comparable et la campagne payante est close sans achat
 automatique. Voir
 documents/agent/rejet-explorateur-libre-a878-2026-09-28.md et
 RAPPORT-CAMPAGNE-TERRA-ET-SUITE-2026-09-28.md.
+A879 implémente hors réseau le premier palier de cette architecture. Un matching
+biparti maximal déterministe remplace le faux critère fondé sur les comptes par
+rôle : le modèle reste seul responsable des `targetRoles`, tandis que le code
+prouve l'unicité et l'affectabilité globale. Candidate Inventory v2 expose
+`maximumAssignableCount`, `missingByRole` et une affectation proposée ; le
+contrôleur de déficit concentre les nouveaux tours sur les rôles encore
+impossibles à couvrir. Des fixtures sans contenu privé rejouent exactement les
+frontières A817 = 20/20, A877 = 17/20 et A878 = 3/20. La suite complète passe
+avec 10 Contracts, 2 471 Backend et 2 338 Client réussis, quatre tests live
+ignorés et zéro échec. Aucun appel externe ni coût. Navigator et Candidate
+Judge séparés restent à implémenter avant un nouveau pilote ; le produit reste
+`TESTE_NON_APPROUVE`. Voir
+documents/agent/registre-affectation-et-replays-a879-2026-09-28.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond du pilote Candidate Explorer porté à douze appels,
 installateurs différés. Voir

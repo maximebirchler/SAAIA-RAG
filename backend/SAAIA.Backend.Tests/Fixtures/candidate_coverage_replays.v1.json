@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "saaia.candidate-coverage-replays.v1",
+  "privateContentEmbedded": false,
+  "roles": [
+    "Petit-déjeuner",
+    "Déjeuner",
+    "Collation",
+    "Souper"
+  ],
+  "rowCount": 5,
+  "cases": [
+    {
+      "id": "A817-known-complete-dossier",
+      "sourceSha256": "A536C0934DAF6466C4D8FAD99B5E987354266216BB8BA4659701478E6FFA2270",
+      "derivation": "Twenty audited distinct selections, anonymized to their final coordinate roles.",
+      "expectedMaximumAssignableCount": 20,
+      "expectedComplete": true,
+      "candidates": [
+        { "candidateKey": "a817-01", "targetRoles": ["Petit-déjeuner"] },
+        { "candidateKey": "a817-02", "targetRoles": ["Petit-déjeuner"] },
+        { "candidateKey": "a817-03", "targetRoles": ["Petit-déjeuner"] },
+        { "candidateKey": "a817-04", "targetRoles": ["Petit-déjeuner"] },
+        { "candidateKey": "a817-05", "targetRoles": ["Petit-déjeuner"] },
+        { "candidateKey": "a817-06", "targetRoles": ["Déjeuner"] },
+        { "candidateKey": "a817-07", "targetRoles": ["Déjeuner"] },
+        { "candidateKey": "a817-08", "targetRoles": ["Déjeuner"] },
+        { "candidateKey": "a817-09", "targetRoles": ["Déjeuner"] },
+        { "candidateKey": "a817-10", "targetRoles": ["Déjeuner"] },
+        { "candidateKey": "a817-11", "targetRoles": ["Collation"] },
+        { "candidateKey": "a817-12", "targetRoles": ["Collation"] },
+        { "candidateKey": "a817-13", "targetRoles": ["Collation"] },
+        { "candidateKey": "a817-14", "targetRoles": ["Collation"] },
+        { "candidateKey": "a817-15", "targetRoles": ["Collation"] },
+        { "candidateKey": "a817-16", "targetRoles": ["Souper"] },
+        { "candidateKey": "a817-17", "targetRoles": ["Souper"] },
+        { "candidateKey": "a817-18", "targetRoles": ["Souper"] },
+        { "candidateKey": "a817-19", "targetRoles": ["Souper"] },
+        { "candidateKey": "a817-20", "targetRoles": ["Souper"] }
+      ]
+    },
+    {
+      "id": "A877-final-ledger",
+      "sourceSha256": "B5FD348E1F3B8AC50D82199AEBFECDAC24A9F68EF1DF3F4FEC664A57DAC578CA",
+      "derivation": "Final body-verified role sets from the private trace, with titles, evidence and source identities removed.",
+      "expectedMaximumAssignableCount": 17,
+      "expectedComplete": false,
+      "candidates": [
+        { "candidateKey": "a877-01", "targetRoles": ["Collation"] },
+        { "candidateKey": "a877-02", "targetRoles": ["Collation"] },
+        { "candidateKey": "a877-03", "targetRoles": ["Collation", "Petit-déjeuner"] },
+        { "candidateKey": "a877-04", "targetRoles": ["Collation", "Petit-déjeuner"] },
+        { "candidateKey": "a877-05", "targetRoles": ["Collation", "Petit-déjeuner"] },
+        { "candidateKey": "a877-06", "targetRoles": ["Déjeuner"] },
+        { "candidateKey": "a877-07", "targetRoles": ["Déjeuner"] },
+        { "candidateKey": "a877-08", "targetRoles": ["Déjeuner"] },
+        { "candidateKey": "a877-09", "targetRoles": ["Déjeuner"] },
+        { "candidateKey": "a877-10", "targetRoles": ["Déjeuner"] },
+        { "candidateKey": "a877-11", "targetRoles": ["Petit-déjeuner"] },
+        { "candidateKey": "a877-12", "targetRoles": ["Petit-déjeuner"] },
+        { "candidateKey": "a877-13", "targetRoles": ["Souper"] },
+        { "candidateKey": "a877-14", "targetRoles": ["Souper"] },
+        { "candidateKey": "a877-15", "targetRoles": ["Souper"] },
+        { "candidateKey": "a877-16", "targetRoles": ["Souper"] },
+        { "candidateKey": "a877-17", "targetRoles": ["Souper"] }
+      ]
+    },
+    {
+      "id": "A878-final-ledger",
+      "sourceSha256": "95F183C316169D9C08A7737DDD8C7798B643F66A8632A498B5C166E66C8050DE",
+      "derivation": "Final body-verified role sets from the private trace, with titles, evidence and source identities removed.",
+      "expectedMaximumAssignableCount": 3,
+      "expectedComplete": false,
+      "candidates": [
+        { "candidateKey": "a878-01", "targetRoles": ["Déjeuner", "Souper"] },
+        { "candidateKey": "a878-02", "targetRoles": ["Petit-déjeuner"] },
+        { "candidateKey": "a878-03", "targetRoles": ["Petit-déjeuner"] }
+      ]
+    }
+  ]
+}

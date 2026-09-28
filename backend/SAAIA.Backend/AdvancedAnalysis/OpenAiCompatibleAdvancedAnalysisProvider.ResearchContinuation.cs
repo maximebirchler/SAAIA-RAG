@@ -269,6 +269,23 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                             promptInventory,
                             observations),
                         JsonOptions);
+                    if (candidateExplorer)
+                    {
+                        var assignmentGap = BuildCandidateExplorerCoverage(
+                            request,
+                            context.CandidateInventory);
+                        payload["candidateAssignmentGap"] = JsonSerializer.SerializeToNode(new
+                        {
+                            assignmentGap.RequiredDistinctCount,
+                            assignmentGap.BodyVerifiedDistinctCount,
+                            assignmentGap.MaximumAssignableCount,
+                            assignmentGap.MissingByRole,
+                            focusRoles = assignmentGap.MissingByRole.Keys.ToArray(),
+                            instruction = assignmentGap.Ready
+                                ? "The distinct assignment is complete. Finish any already justified reserve work, then submit candidate_dossier_ready."
+                                : "Spend the next documentary operations on the listed focusRoles. Choose the titles and tools semantically, and save every verified body's targetRoles. Do not spend new searches on a role whose missing count is zero unless the same candidate is also being assessed for a listed focus role. The application will recompute the global assignment after each inventory update."
+                        }, JsonOptions);
+                    }
                 }
                 if (!candidateExplorer && context.CandidateExplorerDossier is not null)
                     payload["candidateDossier"] = JsonSerializer.SerializeToNode(

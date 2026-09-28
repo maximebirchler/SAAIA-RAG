@@ -14303,3 +14303,19 @@ Le pilote réel A823 termine failed / advanced_critic_protocol_invalid : sept ap
 ## 2026-09-13 — A824 refus de contrat API ; A825 Responses vérifié
 
 A824 coûte 0,1039325 USD pour trois préparations ; premier Writer HTTP 400 non facturé, aucune opération native exécutée. Une sonde gratuite reproduit le contrat : Terra interdit les fonctions avec reasoning_effort=low sur Chat Completions. Amendement au commit `95b339c0` avant édition : conserver low et utiliser Responses pour la synthèse native, protocole configuré indépendamment de la localisation. Sonde Responses correcte acceptée pour 0,000838 USD ; première sonde conservait à tort une température issue du fixture Qwen et a été refusée gratuitement. Adaptateur stateless, items de raisonnement et appels/retours liés conservés dans un tour borné, usages input/output/cache convertis, sortie non terminée ou failed rejetée, refus HTTP maintenant capturés en privé. Onze nouveaux cas et suite finale 2 343 réussites, zéro échec, trois ignorés. Deuxième et dernier pilote C1 A825 à figer puis exécuter, sept appels / 0,75 USD / HTTP une tentative ; aucun raisonnement désactivé ni changement des limites. Total clos 31,70349740 USD sur 40 USD, reste 8,29650260 USD. Aucun achat ; produit TESTE_NON_APPROUVE.
+
+## 2026-09-28 — A879 : affectation distincte et replays structurels
+
+Après la clôture payante A878 à 44,42531530 USD sur 45 USD, le premier palier
+de la nouvelle architecture est réalisé sans réseau. Le garde Candidate
+Explorer utilise maintenant un matching biparti maximal sur les rôles décidés
+par le modèle. Il expose capacité simultanée, affectation réalisable et déficit
+par rôle, et refuse le faux état prêt lorsque des comptes par rôle se
+recouvrent. Candidate Inventory v2 transmet ce registre au modèle et le
+contrôleur cible uniquement les rôles encore manquants. Les replays anonymisés
+retrouvent A817 20/20, A877 17/20 et A878 3/20. Suite complète : 10 Contracts,
+2 471 Backend, 2 338 Client réussis, zéro échec, quatre live ignorés. Prochaine
+phase active : séparer Navigator, exécution documentaire mécanique et Candidate
+Judge par lots, d'abord sur appels simulés et replays. Aucun nouveau coût ;
+produit `TESTE_NON_APPROUVE`. Détail :
+`documents/agent/registre-affectation-et-replays-a879-2026-09-28.md`.
