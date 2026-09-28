@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "saaia-final-code-validation-v1",
+  "validatedAtUtc": "2026-09-28T17:31:02.5404203Z",
+  "command": "dotnet test RAG.sln -c Release --no-restore",
+  "results": {
+    "contracts": { "passed": 10, "failed": 0, "skipped": 0 },
+    "backend": { "passed": 2466, "failed": 0, "skipped": 3 },
+    "clientToolAgent": { "passed": 2338, "failed": 0, "skipped": 1 }
+  },
+  "providerFocusedSuite": { "passed": 306, "failed": 0 },
+  "diffCheck": "passed",
+  "liveTestsExecutedBySolutionRun": false,
+  "productStatus": "TESTE_NON_APPROUVE",
+  "semanticReason": "The meal-grid advanced-capacity stress test remains rejected after A878."
+}

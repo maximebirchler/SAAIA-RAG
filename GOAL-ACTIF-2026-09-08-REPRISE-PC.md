@@ -415,6 +415,21 @@ explicitement interdite. Le dernier appel Explorer recevait déjà
 permettre un cycle choisir/intégrer/terminer supplémentaire. A877 coûte
 0,68198040 USD ; le cumul atteint 43,58645700 USD sur 45 USD. Voir
 documents/agent/rejet-compteur-eligible-et-cycle-incomplet-a877-2026-09-28.md.
+A878 reçoit le compteur corrigé et douze appels. Il choisit plusieurs titres
+exacts et exécute trente et une opérations, mais répète des recherches
+littérales, demande deux fenêtres de pages invalides et attend l'avant-dernier
+appel pour affecter seulement trois corps aux rôles. Writer et Critic rendent
+une insuffisance sûre de dix-sept entrées. L'échec ne démontre pas une incapacité
+de Terra à lire un sommaire ; il démontre que la boucle Explorer libre actuelle
+ne consolide pas de façon reproductible une collection de vingt candidats.
+Le prochain palier sépare Navigator, exécution documentaire mécanique,
+classification LLM par lots, registre compact et solveur déterministe
+d'affectation, avant Writer/Critic. A878 coûte 0,83885830 USD ; le cumul atteint
+44,42531530 USD sur 45 USD. Le reliquat de 0,57468470 USD est inférieur à un
+pilote end-to-end comparable et la campagne payante est close sans achat
+automatique. Voir
+documents/agent/rejet-explorateur-libre-a878-2026-09-28.md et
+RAPPORT-CAMPAGNE-TERRA-ET-SUITE-2026-09-28.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond du pilote Candidate Explorer porté à douze appels,
 installateurs différés. Voir

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
   "campaignId": "A861-TERRA-CANDIDATE-EXPLORER-PILOT-R1",
-  "status": "PREREGISTERED_AFTER_ELIGIBLE_COUNT_AND_COMPLETE_RESEARCH_CYCLE_FIX",
+  "status": "CLOSED_AFTER_A878_SEMANTIC_REJECTION_REMAINING_BUDGET_BELOW_COMPARABLE_RUN",
   "createdAtUtc": "2026-09-18T15:04:40.0033234+00:00",
   "computeReauthorizedAtUtc": "2026-09-28T16:04:07.6514505+00:00",
   "schemaFixRegisteredAtUtc": "2026-09-28T16:13:20.0436194Z",
@@ -14,6 +14,7 @@
   "boundedGapAndExplorerBudgetFixRegisteredAtUtc": "2026-09-28T17:06:14.9740481Z",
   "exactNavigationPriorityFixRegisteredAtUtc": "2026-09-28T17:13:34.2412171Z",
   "eligibleCountAndCompleteResearchCycleFixRegisteredAtUtc": "2026-09-28T17:23:07.5868635Z",
+  "campaignClosedAtUtc": "2026-09-28T17:26:38.1335573Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
@@ -98,8 +99,8 @@
       "cachedInput": 0.2,
       "output": 12.0
     },
-    "recordedCostAtRegistrationUsd": 43.586457,
-    "authorizedRemainingAtRegistrationUsd": 1.413543,
+    "recordedCostAtRegistrationUsd": 44.4253153,
+    "authorizedRemainingAtRegistrationUsd": 0.5746847,
     "minimumPlannerReservationAtRegistrationUsd": 0.0061465,
     "authorizationBasis": "On 2026-09-28 the user added and authorized 5 USD of OpenAI API credit for the causal campaign. A877 spent 0.6819804 USD and proved that exact navigation priority changes behavior: Terra followed six observed names with find_source_text/read_source and reached 17 distinct role-eligible candidates with five occurrences per requested role. The Writer then correctly returned a bounded insufficiency instead of reusing candidates. Trace review found that the Explorer prompt misleadingly reported 42 body-verified items because it included unassigned automatic cards, while the local terminal guard correctly counted 17 role-eligible items; it also failed to warn that per-role counts overlap. The prompt count now matches the guard, preserves the total under a separately named field and explicitly forbids summing role counts. The final Explorer call saw researchAllowed false, so a further research cycle could not start. One complete choose/integrate/terminal cycle requires three model calls; the cap rises from nine to twelve and the per-job cap from 0.75 to 1.10 USD, within the remaining authorized lifetime budget and persistent 45 USD hard stop. Corpus, bank, model, tools, token limits and semantic acceptance rules remain frozen. Automatic purchase and automatic reload remain prohibited."
   },
@@ -117,6 +118,7 @@
     "productPromotionRule": "Keep TESTE_NON_APPROUVE after this pilot. Product promotion still requires two further consecutive successes, a new blind holdout, durable end-to-end recovery and WinUI source-card validation."
   },
   "stopRules": [
+    "The registered paid campaign is closed after A878; do not execute another paid pilot from this profile without a new causal implementation, preregistration and explicit budget state update.",
     "Do not execute while the persistent lifetime budget cannot reserve the first provider call.",
     "Do not execute without a paid-tier observation less than 15 minutes old.",
     "Stop before the first model call if the branch, clean-tree rule, bank hash, local router binary, model or provider configuration differs.",
