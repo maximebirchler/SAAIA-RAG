@@ -73,7 +73,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             ["targetRoles"] = new
             {
                 type = "array",
-                minItems = targetRoles.Length == 0 ? 0 : 1,
+                minItems = 0,
                 maxItems = Math.Min(8, targetRoles.Length),
                 items = targetRoles.Length == 0
                     ? (object)new { type = "string", maxLength = 1 }
@@ -221,7 +221,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 "targetRoles",
                 8,
                 roles,
-                required: roles.Count > 0);
+                required: roles.Count > 0 && status != "rejected");
             var selectedRoles = TextArray(item, "selectedRoles", 8, roles, required: false);
             var locatorIds = TextArray(
                 item,

@@ -14319,3 +14319,19 @@ phase active : séparer Navigator, exécution documentaire mécanique et Candida
 Judge par lots, d'abord sur appels simulés et replays. Aucun nouveau coût ;
 produit `TESTE_NON_APPROUVE`. Détail :
 `documents/agent/registre-affectation-et-replays-a879-2026-09-28.md`.
+
+## 2026-09-28 — A880 : pipeline staged Navigator et Candidate Judge
+
+Un chemin optionnel sépare maintenant la décision de navigation, l'exécution
+documentaire et la qualification des corps. Le Candidate Judge sans outil traite
+des lots de douze corps ; le Navigator reçoit vingt observations compactes au
+maximum et uniquement les fonctions documentaires. Le backend conserve les
+fenêtres, offsets, répétitions, EvidenceId, registre et matching A879. Quatre
+scénarios prouvent le traitement 12+8 avant Writer, le parcours sommaire ->
+`find_source_text` -> Judge, le rejet sans rôle inventé et le refus d'une
+configuration incomplète. Provider 311/311 ; suite complète 10 Contracts,
+2 475 Backend et 2 338 Client réussis, zéro échec et quatre live ignorés. Zéro
+appel externe. Le mode staged reste désactivé par défaut jusqu'au replay privé
+A817 et au protocole live figé.
+Produit `TESTE_NON_APPROUVE`. Détail :
+`documents/agent/pipeline-navigator-judge-a880-2026-09-28.md`.

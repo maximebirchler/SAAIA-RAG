@@ -229,13 +229,26 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 .Where(IsSourceScopedResearch).TakeLast(20));
             if (CandidateExplorerEnabled(request))
             {
-                await RunCandidateExplorerAsync(
-                        request,
-                        runSemanticCritic,
-                        synthesisResearch,
-                        completions,
-                        cancellationToken)
-                    .ConfigureAwait(false);
+                if (_options.StagedCandidateExplorerEnabled)
+                {
+                    await RunStagedCandidateExplorerAsync(
+                            request,
+                            runSemanticCritic,
+                            synthesisResearch,
+                            completions,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                else
+                {
+                    await RunCandidateExplorerAsync(
+                            request,
+                            runSemanticCritic,
+                            synthesisResearch,
+                            completions,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
             }
             var writerRound = await CompleteWithCorpusResearchAsync(
                     request,
@@ -597,6 +610,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             < (_options.SemanticCriticEnabled ? 4 : 3))
             throw new AdvancedAnalysisProviderException(
                 "advanced_candidate_explorer_call_budget_invalid");
+        if (_options.StagedCandidateExplorerEnabled
+            && (!_options.NativeCandidateExplorerEnabled
+                || _options.ExternalMaximumCallsPerJob
+                < (_options.SemanticCriticEnabled ? 5 : 4)))
+            throw new AdvancedAnalysisProviderException(
+                "advanced_staged_candidate_explorer_configuration_invalid");
         var provider = NormalizeProvider(_options.Provider);
         var location = NormalizeLocation(_options.LlmLocation);
         if (location is not ("internal" or "external-service"))

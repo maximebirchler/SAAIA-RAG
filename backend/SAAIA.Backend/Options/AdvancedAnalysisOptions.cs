@@ -44,6 +44,7 @@ sealed class AdvancedAnalysisOptions
     public int NativeResearchMaximumHistoryCharacters { get; set; } = 16_384;
     public bool NativeResearchWorkspaceEnabled { get; set; }
     public bool NativeCandidateExplorerEnabled { get; set; }
+    public bool StagedCandidateExplorerEnabled { get; set; }
     public int CandidateExplorerReservePerRole { get; set; } = 2;
     public bool NativeResearchActiveProposalEnabled { get; set; }
     public bool CandidateBindingFeedbackEnabled { get; set; }

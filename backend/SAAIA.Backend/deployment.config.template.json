@@ -84,6 +84,7 @@
     "MaximumPlanQueries": 8,
     "AdaptiveResearchEnabled": true,
     "NativeCandidateExplorerEnabled": false,
+    "StagedCandidateExplorerEnabled": false,
     "CandidateExplorerReservePerRole": 2,
     "MaximumEvidencePromptCharacters": 14000,
     "ExternalBudgetAuthorizedUsd": 25.0,

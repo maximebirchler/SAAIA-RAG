@@ -443,6 +443,21 @@ ignorés et zéro échec. Aucun appel externe ni coût. Navigator et Candidate
 Judge séparés restent à implémenter avant un nouveau pilote ; le produit reste
 `TESTE_NON_APPROUVE`. Voir
 documents/agent/registre-affectation-et-replays-a879-2026-09-28.md.
+A880 ajoute le chemin produit staged derrière
+`StagedCandidateExplorerEnabled`, désactivé par défaut pendant sa qualification.
+Les corps visibles passent par un Candidate Judge sans outil, par lots de douze ;
+un rejet peut conserver zéro rôle. Les lacunes du solveur alimentent un
+Navigator qui reçoit au plus vingt observations compactes et seulement les
+trois outils documentaires. Le backend exécute ensuite les opérations avant de
+remettre les nouveaux corps au Judge. Les appels Writer/Critic restent réservés
+avant tout nouveau cycle. Les tests prouvent un dossier complet jugé en lots et
+le chemin réel sommaire -> `find_source_text` -> corps -> Judge, ainsi que rejet
+sans faux rôle et configuration invalide. Le fournisseur passe 311/311, sans
+réseau ni coût ; la suite complète passe avec 10 Contracts, 2 475 Backend et
+2 338 Client réussis, zéro échec et quatre live ignorés. Un replay privé A817
+de la projection staged reste nécessaire
+avant tout pilote live ; le produit reste `TESTE_NON_APPROUVE`. Voir
+documents/agent/pipeline-navigator-judge-a880-2026-09-28.md.
 Le compteur cache Responses est corrigé ; les quinze montants réconciliés
 restent inchangés. Plafond du pilote Candidate Explorer porté à douze appels,
 installateurs différés. Voir
