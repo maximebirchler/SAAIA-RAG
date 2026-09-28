@@ -230,6 +230,13 @@ if (-not $usageLedgerValid) {
 } elseif ($budgetHeadroomUsd -lt $minimumFirstCallReservationUsd) {
     $blockingReasons += "lifetime_budget_headroom_below_first_call"
 }
+if ($usageLedgerValid -and
+    ($null -eq $registeredRecordedCostUsd -or
+        [decimal]$registeredRecordedCostUsd -eq $recordedCostUsd) -and
+    $budgetHeadroomUsd -ge $minimumFirstCallReservationUsd -and
+    $budgetHeadroomUsd -lt [decimal]$profile.budget.maximumCostPerJobUsd) {
+    $blockingReasons += "lifetime_budget_headroom_below_job_cap"
+}
 if ([decimal]$profile.budget.maximumCostPerJobUsd -lt $minimumFirstCallReservationUsd) {
     $blockingReasons += "job_budget_below_first_call"
 }
@@ -339,6 +346,8 @@ $preflight = [ordered]@{
     hardStopUsd = $hardStopUsd
     budgetHeadroomUsd = $budgetHeadroomUsd
     minimumFirstCallReservationUsd = $minimumFirstCallReservationUsd
+    fullJobReservationSatisfied = $budgetHeadroomUsd -ge
+        [decimal]$profile.budget.maximumCostPerJobUsd
     developmentTracesRequired = $developmentTracesRequired
     durableJobAuditRequired = $durableJobAuditRequired
     integrityVerificationRequired = $integrityVerificationRequired
