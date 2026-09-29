@@ -62,8 +62,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             outputContract = new
             {
                 shape = new { items = "array" },
+                requiredItemFields = new[]
+                {
+                    "key", "exactTitle", "sourceKey", "targetRoles",
+                    "selectedRoles", "status", "note", "locatorEvidenceIds",
+                    "bodyEvidenceIds"
+                },
                 allowedStatus = new[] { "body_verified", "rejected" },
-                instruction = "A body_verified item needs at least one semantically justified targetRole. A rejected item uses an empty targetRoles array."
+                instruction = "A body_verified item needs at least one semantically justified targetRole. A rejected item uses an empty targetRoles array. Always include note as a JSON string; use an empty string when no note is needed."
             },
             currentEligibleCandidateKeys = inventory.Where(item =>
                     item.Status is "body_verified" or "selected"
@@ -88,10 +94,60 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            it does not decide suitability. Use body_verified with one or more
            roles, or rejected with no roles. selectedRoles is always empty. Cite
            only supplied evidence IDs in bodyEvidenceIds; locatorEvidenceIds is
-           empty for this body batch. Return exactly one item per supplied key and
-           only this JSON object: {"items":[...]}. Do not research, draft the user
-           answer, count the whole dossier or invent missing evidence.
+           empty for this body batch. Every returned item must contain key,
+           exactTitle, sourceKey, targetRoles, selectedRoles, status, note,
+           locatorEvidenceIds and bodyEvidenceIds. note is always a JSON string;
+           use "" when no note is needed. Return exactly one item per supplied key
+           and only this JSON object: {"items":[...]}. Do not research, draft the
+           user answer, count the whole dossier or invent missing evidence.
            """;
+
+    private static JsonDocument NormalizeCandidateJudgeOptionalNotes(
+        JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object)
+            return JsonDocument.Parse(root.GetRawText());
+
+        using var buffer = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            writer.WriteStartObject();
+            foreach (var property in root.EnumerateObject())
+            {
+                writer.WritePropertyName(property.Name);
+                if (property.Name != "items"
+                    || property.Value.ValueKind != JsonValueKind.Array)
+                {
+                    property.Value.WriteTo(writer);
+                    continue;
+                }
+
+                writer.WriteStartArray();
+                foreach (var item in property.Value.EnumerateArray())
+                {
+                    if (item.ValueKind != JsonValueKind.Object)
+                    {
+                        item.WriteTo(writer);
+                        continue;
+                    }
+
+                    writer.WriteStartObject();
+                    var hasNote = false;
+                    foreach (var itemProperty in item.EnumerateObject())
+                    {
+                        hasNote |= itemProperty.NameEquals("note");
+                        itemProperty.WriteTo(writer);
+                    }
+                    if (!hasNote)
+                        writer.WriteString("note", "");
+                    writer.WriteEndObject();
+                }
+                writer.WriteEndArray();
+            }
+            writer.WriteEndObject();
+        }
+        return JsonDocument.Parse(buffer.ToArray());
+    }
 
     private IReadOnlyList<CandidateInventoryItem> ParseCandidateJudgeUpdates(
         string raw,
@@ -108,9 +164,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         try
         {
             using var output = JsonDocument.Parse(UnwrapJson(raw));
+            using var normalizedOutput = NormalizeCandidateJudgeOptionalNotes(
+                output.RootElement);
             using var promptDocument = JsonDocument.Parse(prompt);
             var updates = ParseCandidateInventoryUpdates(
-                output.RootElement,
+                normalizedOutput.RootElement,
                 promptDocument.RootElement);
             var expectedKeys = batch.Candidates.Select(item => item.Key)
                 .ToHashSet(StringComparer.Ordinal);

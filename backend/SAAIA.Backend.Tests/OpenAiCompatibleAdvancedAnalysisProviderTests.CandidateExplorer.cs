@@ -671,7 +671,6 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                     targetRoles = new[] { candidate.Role },
                     selectedRoles = Array.Empty<string>(),
                     status = "body_verified",
-                    note = "Standalone item judged from the supplied body.",
                     locatorEvidenceIds = Array.Empty<string>(),
                     bodyEvidenceIds = new[] { $"E{candidate.Index}" }
                 }).ToArray()
@@ -711,6 +710,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 .Single(message => message.GetProperty("role").GetString() == "system")
                 .GetProperty("content").GetString();
             Assert.Contains("Candidate Judge", system);
+            Assert.Contains("note is always a JSON string", system);
         }
         Assert.Equal(12, WorkspaceUser(factory.Requests[1].Body)
             .GetProperty("evidence").GetArrayLength());
