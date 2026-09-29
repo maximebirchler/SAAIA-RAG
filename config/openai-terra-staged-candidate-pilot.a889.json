@@ -1,52 +1,16 @@
 {
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
-  "campaignId": "A888-TERRA-STAGED-CANDIDATE-PILOT-R5",
-  "parentCampaignId": "A887-TERRA-STAGED-CANDIDATE-PILOT-R4",
-  "status": "EXECUTED_FUNCTIONAL_FAIL_STAGED_CALL_ENVELOPE_EXHAUSTED",
-  "createdAtUtc": "2026-09-29T14:21:18.7106990Z",
+  "campaignId": "A889-TERRA-STAGED-CANDIDATE-PILOT-R6",
+  "parentCampaignId": "A888-TERRA-STAGED-CANDIDATE-PILOT-R5",
+  "status": "PREREGISTERED_READY_WITH_CAUSALLY_EXPANDED_24_CALL_ENVELOPE",
+  "createdAtUtc": "2026-09-29T14:28:00.9653658Z",
   "budgetExtensionRegisteredAtUtc": "2026-09-29T13:37:32.4351888Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
-  "executionResult": {
-    "executedAtUtc": "2026-09-29T14:22:04Z",
-    "repositoryCommit": "83552be32a84964989c681fe1852316296e09cf3",
-    "artifactPath": "artifacts/reprise-pc-20260908/a888-terra-staged-candidate-pilot-20260929-162204",
-    "outcome": "insufficient_documentation",
-    "mechanicalVerdict": "PASS_MECHANICAL_REQUIRES_SEMANTIC_REVIEW",
-    "semanticVerdict": "FAIL_FUNCTIONAL_PILOT",
-    "providerCalls": 12,
-    "inputTokens": 138940,
-    "outputTokens": 6194,
-    "costUsd": 0.4128625,
-    "recordedCostAfterUsd": 45.7968823,
-    "candidateInventory": {
-      "total": 41,
-      "bodyVerifiedTotal": 9,
-      "bodyVerifiedAssigned": 6,
-      "bodyVerifiedAwaitingJudge": 3,
-      "navigationOnly": 2,
-      "rejected": 30,
-      "maximumAssignableCountBeforeWriter": 6,
-      "requiredDistinctCount": 20,
-      "missingByRoleBeforeWriter": {
-        "Petit-déjeuner": 3,
-        "Déjeuner": 3,
-        "Collation": 4,
-        "Souper": 4
-      }
-    },
-    "validatedFixEffects": [
-      "Canonical read_source bodies were promoted into candidate inventory from their exact leading source line.",
-      "candidate-judge-5 assessed the promoted page-read candidates and accepted GRUAU TARTE A LA CITROUILLE and Omelette italienne for semantic target roles.",
-      "The checkpoint retained three new body candidates awaiting a Judge when the twelve-call envelope moved to Writer and Critic."
-    ],
-    "cause": "The staged pipeline now preserves both literal-find and page-read bodies, but the twelve-call envelope is exhausted after Planner, five Judge rounds and three Navigator rounds. Three bodies remained unjudged, further documentary routes remained available, and Critic consumed the final two calls for a broad research follow-up that cannot update the staged Judge ledger. The observed per-job cost remained 0.41286250 USD, leaving room for a causally expanded call envelope under the unchanged 1.10 USD per-job cap.",
-    "productStatusAfterCampaign": "TESTE_NON_APPROUVE"
-  },
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
     "preregisteredAgainstCommit": "b1bef5d7de7fd5d1b704e97362a75702c4d2efa2",
     "minimumSemanticFixCommit": "b1bef5d7de7fd5d1b704e97362a75702c4d2efa2",
-    "executionRule": "Run one staged meal-grid pilot only from a clean descendant containing all prior staged fixes plus the A887 canonical page-read title promotion. A887 proved that literal finds now become judged candidates and that the recovery count remains tied to the deterministic solver. It then exposed complete named bodies through read_source that still lacked candidate title metadata. The fix exposes the exact first non-empty line of non-navigation canonical page chunks as a provenance title; Candidate Judge remains solely responsible for accepting or rejecting semantic suitability. Freeze the bank, corpus, prompts, tools, model, topology, token limits and acceptance rules before the first A888 answer is observed."
+    "executionRule": "Run one staged meal-grid pilot only from a clean descendant containing all prior staged fixes and the canonical page-read title promotion. A888 proved that page-read bodies reach Candidate Judge, then stopped with three bodies still awaiting judgment and further routes available because the twelve-call envelope reserved Writer/Critic. This one causal pilot expands only the provider-call envelope to twenty-four while retaining the unchanged 1.10 USD per-job cap and 50 USD lifetime hard stop. Freeze the bank, corpus, prompts, tools, model, topology, token limits and acceptance rules before the first A889 answer is observed."
   },
   "provider": {
     "mode": "OpenAI",
@@ -102,7 +66,7 @@
     "serverEnvironmentPath": "C:/Users/maxim/NextCloud/Maxime/Ecommerce/SAAIA/infra/.env.server-linux",
     "referenceBackendUrl": "http://saaia-server:5122",
     "backendPort": 5123,
-    "artifactRoot": "artifacts/reprise-pc-20260908/a888-terra-staged-candidate-pilot",
+    "artifactRoot": "artifacts/reprise-pc-20260908/a889-terra-staged-candidate-pilot",
     "artifactDirectoryRule": "Create a fresh directory containing the exact execution commit and UTC timestamp; never overwrite an earlier pilot."
   },
   "evidenceCapture": {
@@ -118,27 +82,27 @@
     "softLimitUsd": 49.0,
     "hardStopUsd": 50.0,
     "maximumCostPerJobUsd": 1.1,
-    "maximumCallsPerJob": 12,
+    "maximumCallsPerJob": 24,
     "maximumJobs": 1,
     "maximumCampaignCostImpliedByPerJobCapsUsd": 1.1,
-    "expectedNormalProviderCalls": 11,
-    "maximumProviderCallsByEnvelope": 12,
+    "expectedNormalProviderCalls": 22,
+    "maximumProviderCallsByEnvelope": 24,
     "pricingUsdPerMillionTokens": {
       "input": 2.0,
       "cachedInput": 0.2,
       "output": 12.0
     },
-    "recordedCostAtRegistrationUsd": 45.3840198,
-    "authorizedRemainingAtRegistrationUsd": 4.6159802,
+    "recordedCostAtRegistrationUsd": 45.7968823,
+    "authorizedRemainingAtRegistrationUsd": 4.2031177,
     "fullJobReservationRequiredUsd": 1.1,
     "additionalAuthorizedHeadroomRequiredUsd": 0.0,
-    "usageLedgerSha256AtRegistration": "82A935C5C73E9684FF8967688C89D0FAD01CFBE307AD24DD4419697FC29A7476",
-    "authorizationBasis": "On 2026-09-29 the user explicitly extended the previously authorized OpenAI campaign budget by 5 USD. The local lifetime hard stop remains 50 USD, with no automatic purchase. A887 consumed 0.40772520 USD in twelve calls and proved the literal-find promotion and deterministic recovery count, but failed because complete bodies obtained by canonical page reads still lacked title metadata. The persistent ledger now records 45.38401980 USD, leaving 4.61598020 USD and satisfying the complete 1.10 USD A888 staged-job reservation."
+    "usageLedgerSha256AtRegistration": "F239010002C6BF71415652FB8BFFC8C47CA8BF73BA2EBC6FABEBD82E3C6F0463",
+    "authorizationBasis": "On 2026-09-29 the user explicitly authorized use of all purchased OpenAI credits and added the current 5 USD extension. The local lifetime hard stop remains 50 USD, with no automatic purchase. A888 consumed 0.41286250 USD in twelve calls and stopped with three promoted bodies awaiting Candidate Judge plus additional documentary routes. The persistent ledger now records 45.79688230 USD, leaving 4.20311770 USD. The A889 envelope is expanded to twenty-four calls for this causal pilot, while the complete reserved per-job cap remains unchanged at 1.10 USD."
   },
   "acceptance": {
     "pilot": [
       "The one registered meal-grid case completes on the exact clean execution state with the sealed reference corpus unchanged.",
-      "The preflight seal proves Responses transport, agent topology, workspace, 32768 history characters, staged Candidate Explorer enabled, 4096-token Judge/Navigator output budget and twelve total provider calls.",
+      "The preflight seal proves Responses transport, agent topology, workspace, 32768 history characters, staged Candidate Explorer enabled, 4096-token Judge/Navigator output budget and twenty-four total provider calls under the unchanged 1.10 USD job cap.",
       "Private provider traces contain at least one candidate-navigator-N role, one candidate-judge-N role, writer and critic; the staged evidence verifier rejects the run if one stage is absent.",
       "The Candidate Judge receives only bounded substantive bodies, returns every supplied key and does not invent target roles for rejected candidates.",
       "The deterministic solver reports maximumAssignableCount 20 and proposedAssignments 20 before the Writer; per-role counts alone are insufficient.",
@@ -146,7 +110,7 @@
       "The durable job, tool events, research checkpoint, provider telemetry, final claims and source payload are preserved for mechanical and human semantic review.",
       "A precise bounded gap is safe behavior but fails this functional pilot when the historical corpus contains the missing bodies."
     ],
-    "progressionRule": "Only a successful and semantically reviewed first staged pilot permits registration of repetitions two and three on the exact same frozen semantic configuration. Failure returns to causal trace review and does not authorize prompt stacking, hidden oracle input or a larger call count by itself.",
+    "progressionRule": "Only a successful and semantically reviewed A889 pilot permits registration of repetitions two and three on the exact same frozen semantic configuration. The twenty-four-call envelope is justified by A888 traces showing promoted bodies awaiting Judge at twelve calls; any further increase requires a new causal trace review.",
     "productPromotionRule": "Keep TESTE_NON_APPROUVE after this pilot. Promotion still requires two further consecutive staged successes, a new blind holdout, durable recovery and WinUI source-card validation."
   },
   "stopRules": [
@@ -155,7 +119,7 @@
     "Do not execute without a paid-tier observation less than 15 minutes old.",
     "Stop before the first model call if branch, clean-tree rule, minimum commit, bank hash, local router binary, model or provider configuration differs.",
     "Stop before the first model call if the reference corpus cannot be sealed or has an active ingestion job; reject the pilot if the postflight seal differs.",
-    "Stop at the persistent lifetime, per-job or per-call guard; never purchase or reload credits automatically.",
+    "Stop at the persistent lifetime, 1.10 USD per-job or twenty-four-call guard; never purchase or reload credits automatically.",
     "Do not run repetitions two or three after a failed or semantically unreviewed first pilot."
   ],
   "campaignKind": "targeted-causal"
