@@ -1,6 +1,6 @@
 # A895-A897 — clôture OpenAI et transition contrôlée vers Runpod
 
-Date : 29 septembre 2026  
+Date : 29 septembre 2026
 État produit : `TESTE_NON_APPROUVE`
 
 ## Décision
@@ -23,9 +23,9 @@ OpenAI-compatible.
 
 ## A895 : résultat complet et sûr, mais insuffisant
 
-Profil : `config/openai-terra-staged-candidate-pilot.a895.json`  
+Profil : `config/openai-terra-staged-candidate-pilot.a895.json`
 Artefact privé :
-`artifacts/reprise-pc-20260908/a895-terra-staged-candidate-pilot-20260929-173137`  
+`artifacts/reprise-pc-20260908/a895-terra-staged-candidate-pilot-20260929-173137`
 Job : `ef06f79a-56e0-42d2-931c-087026c3565c`
 
 - 24 appels fournisseur et 39 opérations documentaires ;
@@ -46,9 +46,9 @@ modèle, le corpus, les contrats de preuve, les prompts ou le cap de 1,10 USD.
 
 ## A896 : progrès du registre, interruption par le solde fournisseur
 
-Profil : `config/openai-terra-staged-candidate-pilot.a896.json`  
+Profil : `config/openai-terra-staged-candidate-pilot.a896.json`
 Artefact privé :
-`artifacts/reprise-pc-20260908/a896-terra-staged-candidate-pilot-20260929-174039`  
+`artifacts/reprise-pc-20260908/a896-terra-staged-candidate-pilot-20260929-174039`
 Job : `9c40ae1c-9362-431c-b200-bb99e06a55e6`
 
 Avant l'interruption :
