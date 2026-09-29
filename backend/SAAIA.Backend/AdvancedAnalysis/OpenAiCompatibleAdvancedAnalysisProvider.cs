@@ -343,73 +343,91 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     1,
                     1_024))
             {
-                var criticRound = await CompleteWithCorpusResearchAsync(
-                        request,
-                        "critic",
-                        BuildCriticSystemPrompt(),
-                        observations => BuildCriticUserPrompt(request, parsed, observations),
-                        Math.Clamp(_options.CriticMaxTokens, 512, 16_384),
-                        0,
-                        synthesisResearch,
-                        completions,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                var critic = criticRound.Completion;
-                evidence = criticRound.Evidence;
-                promptEvidence = criticRound.PromptEvidence;
-                completions.Add(critic);
+                var writerResultBeforeCritic = parsed;
                 try
                 {
-                    parsed = ParseResult(critic.Content, evidence, request);
-                }
-                catch (AdvancedAnalysisProviderException) when (
-                    completions.Count < Math.Clamp(
-                        _options.ExternalMaximumCallsPerJob,
-                        1,
-                        1_024))
-                {
-                    var criticRepair = await CompleteJsonAsync(
-                            request.JobId,
-                            "critic-repair",
-                            BuildCriticRepairSystemPrompt(),
-                            BuildCriticRepairUserPrompt(
-                                request,
-                                parsed,
-                                critic.Content,
-                                promptEvidence),
-                            Math.Clamp(
-                                _options.CriticMaxTokens,
-                                512,
-                                16_384),
+                    var criticRound = await CompleteWithCorpusResearchAsync(
+                            request,
+                            "critic",
+                            BuildCriticSystemPrompt(),
+                            observations => BuildCriticUserPrompt(request, parsed, observations),
+                            Math.Clamp(_options.CriticMaxTokens, 512, 16_384),
+                            0,
+                            synthesisResearch,
+                            completions,
                             cancellationToken)
                         .ConfigureAwait(false);
-                    completions.Add(criticRepair);
+                    var critic = criticRound.Completion;
+                    evidence = criticRound.Evidence;
+                    promptEvidence = criticRound.PromptEvidence;
+                    completions.Add(critic);
                     try
                     {
-                        parsed = ParseResult(
-                            criticRepair.Content,
-                            evidence,
-                            request);
+                        parsed = ParseResult(critic.Content, evidence, request);
+                    }
+                    catch (AdvancedAnalysisProviderException) when (
+                        completions.Count < Math.Clamp(
+                            _options.ExternalMaximumCallsPerJob,
+                            1,
+                            1_024))
+                    {
+                        var criticRepair = await CompleteJsonAsync(
+                                request.JobId,
+                                "critic-repair",
+                                BuildCriticRepairSystemPrompt(),
+                                BuildCriticRepairUserPrompt(
+                                    request,
+                                    parsed,
+                                    critic.Content,
+                                    promptEvidence),
+                                Math.Clamp(
+                                    _options.CriticMaxTokens,
+                                    512,
+                                    16_384),
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                        completions.Add(criticRepair);
+                        try
+                        {
+                            parsed = ParseResult(
+                                criticRepair.Content,
+                                evidence,
+                                request);
+                        }
+                        catch (AdvancedAnalysisProviderException)
+                        {
+                            throw new AdvancedAnalysisProviderException(
+                                "advanced_critic_protocol_invalid");
+                        }
                     }
                     catch (AdvancedAnalysisProviderException)
                     {
                         throw new AdvancedAnalysisProviderException(
                             "advanced_critic_protocol_invalid");
                     }
+                    parsed = CanonicalizeDistinctSelectedItems(
+                        request,
+                        parsed,
+                        promptEvidence);
+                    parsed = RebindDistinctSelectedItemsToSupportingEvidence(
+                        request,
+                        parsed,
+                        promptEvidence);
                 }
-                catch (AdvancedAnalysisProviderException)
+                catch (AdvancedAnalysisProviderException error) when (
+                    _options.CandidateBindingFeedbackEnabled
+                    && synthesisResearch.CandidateExplorerDossier is not null
+                    && writerResultBeforeCritic.Outcome == "answered"
+                    && error.ErrorCode is
+                        "advanced_synthesis_candidate_evidence_not_visible"
+                        or "advanced_synthesis_candidate_identity_not_supported"
+                        or "advanced_synthesis_candidate_body_not_supported")
                 {
-                    throw new AdvancedAnalysisProviderException(
-                        "advanced_critic_protocol_invalid");
+                    // The Writer already passed the same deterministic candidate
+                    // and evidence guards. A final Critic substitution must not
+                    // replace that valid answer when no correction call remains.
+                    parsed = writerResultBeforeCritic;
                 }
-                parsed = CanonicalizeDistinctSelectedItems(
-                    request,
-                    parsed,
-                    promptEvidence);
-                parsed = RebindDistinctSelectedItemsToSupportingEvidence(
-                    request,
-                    parsed,
-                    promptEvidence);
             }
             if (runSemanticCritic
                 && ShouldAttemptSynthesisRecovery(

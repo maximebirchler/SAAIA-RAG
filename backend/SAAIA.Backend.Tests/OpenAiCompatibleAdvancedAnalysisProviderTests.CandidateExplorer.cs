@@ -231,6 +231,78 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Candidate_explorer_keeps_a_valid_writer_when_the_final_critic_substitutes_an_unverified_item()
+    {
+        var documentId = Guid.NewGuid().ToString("D");
+        var revisionId = Guid.NewGuid().ToString("D");
+        var roles = new[] { "petit-déjeuner", "déjeuner", "collation", "souper" };
+        var evidence = Enumerable.Range(1, 20).Select(index => BuildEvidence(
+                $"E{index}",
+                $"R{index}\nINGRÉDIENTS\nÉlément {index}. PRÉPARATION\nProcédure {index}.",
+                docId: documentId,
+                revisionId: revisionId,
+                exactTitle: $"R{index}"))
+            .ToArray();
+        var update = JsonSerializer.Serialize(new
+        {
+            items = Enumerable.Range(1, 20).Select(index => new
+            {
+                key = $"candidate-{index}",
+                exactTitle = $"R{index}",
+                sourceKey = "internal-source-1",
+                targetRoles = new[] { roles[(index - 1) % roles.Length] },
+                selectedRoles = Array.Empty<string>(),
+                status = "body_verified",
+                note = "Verified by the Explorer.",
+                locatorEvidenceIds = Array.Empty<string>(),
+                bodyEvidenceIds = new[] { $"E{index}" }
+            }).ToArray()
+        });
+        var invalidCritic = JsonSerializer.Serialize(new
+        {
+            outcome = "answered",
+            answerText = string.Join(", ", Enumerable.Range(1, 20)
+                .Select(index => $"{(index == 1 ? "Unsupported item" : $"R{index}")} [C{index}]")) + ".",
+            claims = Enumerable.Range(1, 20).Select(index => new
+            {
+                claimId = $"C{index}",
+                selectedItem = index == 1 ? "Unsupported item" : $"R{index}",
+                text = index == 1 ? "Unsupported item." : $"R{index} est documenté.",
+                evidenceIds = new[] { $"E{index}" }
+            }).ToArray()
+        });
+        using var factory = new QueuedHttpClientFactory(
+            Completion(CandidatePlanner),
+            NativeCompletion(("save_candidate_inventory", update)),
+            Completion(ExplorerReady),
+            Completion(CandidateAnswered(20)),
+            Completion(invalidCritic));
+        var options = WorkspaceOptions();
+        options.NativeCandidateExplorerEnabled = true;
+        options.NativeResearchMaximumHistoryCharacters = 32_768;
+        options.CandidateBindingFeedbackEnabled = true;
+        options.SemanticCriticEnabled = true;
+        options.ExternalMaximumCallsPerJob = 5;
+
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(
+                factory,
+                options,
+                null)
+            .ExecuteAsync(
+                BuildRequest(
+                    answerUnitCount: 20,
+                    atomicEvidenceMode: "named_item",
+                    selectionPolicy: "distinct_structured_layout"),
+                new RecordingToolGateway(evidence),
+                CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal("R1", result.Claims[0].SelectedItem);
+        Assert.Equal(5, result.ProviderCallCount);
+        Assert.Equal(5, factory.Requests.Count);
+    }
+
+    [Fact]
     public async Task Candidate_explorer_allows_writer_to_refine_a_subordinate_card_title_from_the_same_qualified_body()
     {
         var documentId = Guid.NewGuid().ToString("D");
