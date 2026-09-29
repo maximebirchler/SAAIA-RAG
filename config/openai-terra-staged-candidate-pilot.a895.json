@@ -1,0 +1,128 @@
+{
+  "schemaVersion": "saaia-openai-terra-final-campaign-v1",
+  "campaignId": "A895-TERRA-STAGED-CANDIDATE-PILOT-R12",
+  "parentCampaignId": "A894-TERRA-STAGED-CANDIDATE-PILOT-R11",
+  "status": "PREREGISTERED_DUPLICATE_CONVERGENCE_REPETITION",
+  "createdAtUtc": "2026-09-29T15:30:35.9111355Z",
+  "budgetExtensionRegisteredAtUtc": "2026-09-29T15:30:35.9111355Z",
+  "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
+  "repository": {
+    "expectedBranch": "SAAIA_V3.1",
+    "preregisteredAgainstCommit": "2ba6cac315bb2c23375d834d181dd5123ee6b9ad",
+    "minimumSemanticFixCommit": "b5ed7dfd",
+    "executionRule": "Run one staged meal-grid pilot from a clean descendant containing the same-source candidate-identity convergence fix. A894 stopped before Writer when Candidate Judge correctly refined two separately retrieved cards from one source to the same exact recipe identity. The generic inventory contract remains strict; only Judge batches may converge, and deterministic merge must consolidate non-rejected same-source identities while rejecting any convergence involving a rejected card. Keep Terra, 24 provider calls, 48 documentary calls, 512 evidence items, 300000 ms tool time, 1.10 USD per-job cap, corpus and all other prompts frozen. The user added 5 USD and explicitly authorized using purchased OpenAI credits; raise only the lifetime hard stop from 50 to 55 USD, with no automatic purchase or reload."
+  },
+  "provider": {
+    "mode": "OpenAI",
+    "model": "gpt-5.6-terra",
+    "endpoint": "https://api.openai.com/v1",
+    "minimumOrganizationTier": "Tier1",
+    "freshTierObservationMaximumAgeMinutes": 15,
+    "freeTierCallsBlocked": true,
+    "runPodAuthorized": false,
+    "reasoningEffort": "low",
+    "synthesisReasoningEffort": "low",
+    "synthesisPromptStyle": "agent",
+    "maximumProviderHttpAttempts": 3,
+    "semanticCriticEnabled": true,
+    "plannerMaxTokens": 512,
+    "writerMaxTokens": 4096,
+    "criticMaxTokens": 4096,
+    "maximumEvidencePromptCharacters": 64000,
+    "nativeResearchToolsEnabled": true,
+    "nativeResearchApiProtocol": "responses",
+    "nativeResearchTopology": "agent",
+    "nativeResearchMaximumHistoryCharacters": 32768,
+    "nativeResearchWorkspaceEnabled": true,
+    "nativeCandidateExplorerEnabled": true,
+    "stagedCandidateExplorerEnabled": true,
+    "candidateExplorerReservePerRole": 2,
+    "candidateExplorerMaxTokens": 4096,
+    "nativeResearchActiveProposalEnabled": true,
+    "candidateBindingFeedbackEnabled": true,
+    "maximumToolCalls": 48
+  },
+  "localRouter": {
+    "modelId": "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+    "runtimeSha256": "9555847A0403737C4A1B5BEAB050BD697AEC477B6675871A1F8D4737A25C1650",
+    "modelSha256": "66713CE35A58A82FE87642D4EC13425BF9B9A46800FFF5C49A665EF5701439DC",
+    "providerConfigPath": "config/llm-providers.dev.json",
+    "providerConfigSha256": "036D6C68D1780DC78E3FB594C27FF82CE86861F9BECD94E268AEADE6163D1E1D"
+  },
+  "bank": {
+    "path": "config/advanced-capacity-validation.v1.json",
+    "sha256": "8B2A5029E0A74D78FF7F26A8F1AACE2D005E84E729E9241AB94FE1BC5AEFFA3E",
+    "caseIds": [
+      "A755-ADV-01-meal-grid-5x4"
+    ],
+    "repetitions": 1,
+    "expectedRows": 1
+  },
+  "execution": {
+    "runner": "tools/test-advanced-product-path-openai.ps1",
+    "configuration": "Release",
+    "delayBetweenCasesSeconds": 0,
+    "maximumJobAttempts": 3,
+    "maximumJobRetryDelayMilliseconds": 600000,
+    "serverEnvironmentPath": "C:/Users/maxim/NextCloud/Maxime/Ecommerce/SAAIA/infra/.env.server-linux",
+    "referenceBackendUrl": "http://saaia-server:5122",
+    "backendPort": 5123,
+    "artifactRoot": "artifacts/reprise-pc-20260908/a895-terra-staged-candidate-pilot",
+    "artifactDirectoryRule": "Create a fresh directory containing the exact execution commit and UTC timestamp; never overwrite an earlier pilot."
+  },
+  "evidenceCapture": {
+    "developmentTracesRequired": true,
+    "durableJobAuditRequired": true,
+    "integrityVerificationRequired": true,
+    "stagedTraceTopologyRequired": true,
+    "containsPrivateCorpusMetadata": true,
+    "mustNotCommit": true
+  },
+  "budget": {
+    "authorizedLifetimeUsd": 55.0,
+    "softLimitUsd": 54.0,
+    "hardStopUsd": 55.0,
+    "maximumCostPerJobUsd": 1.1,
+    "maximumCallsPerJob": 24,
+    "maximumJobs": 1,
+    "maximumCampaignCostImpliedByPerJobCapsUsd": 1.1,
+    "expectedNormalProviderCalls": 22,
+    "maximumProviderCallsByEnvelope": 24,
+    "pricingUsdPerMillionTokens": {
+      "input": 2.0,
+      "cachedInput": 0.2,
+      "output": 12.0
+    },
+    "recordedCostAtRegistrationUsd": 49.0462648,
+    "authorizedRemainingAtRegistrationUsd": 5.9537352,
+    "fullJobReservationRequiredUsd": 1.1,
+    "additionalAuthorizedHeadroomRequiredUsd": 0.0,
+    "usageLedgerSha256AtRegistration": "54F3B867C5E7747D209FFA6F6921660D7E00B11276EFF32F9D71C34EABCF4932",
+    "authorizationBasis": "On 2026-09-29 the user explicitly added another 5 USD and asked to finish the OpenAI validation before moving to Runpod. The persistent ledger records 49.04626480 USD. The local lifetime hard stop is therefore raised exactly from 50 to 55 USD, leaving 5.95373520 USD and fully reserving this 1.10 USD job. No automatic purchase or reload is authorized."
+  },
+  "acceptance": {
+    "pilot": [
+      "The one registered meal-grid case completes on the exact clean execution state with the sealed reference corpus unchanged.",
+      "The preflight seal proves Responses transport, agent topology, workspace, category-aware planning, staged Candidate Explorer, twenty-four total provider calls and forty-eight documentary tool calls under the unchanged 1.10 USD job cap.",
+      "A Candidate Judge batch may converge different candidate keys to one normalized identity only when they have the same opaque source; deterministic merge consolidates their bounded roles and evidence.",
+      "Any same-source identity convergence involving a rejected candidate fails closed, and the generic native inventory tool continues rejecting duplicate identities.",
+      "The Planner uses the exact listed cuisine category for targeted structured-candidate queries and keeps at least one complementary unscoped query.",
+      "The deterministic Candidate Explorer dossier, or the dossier plus exact late Writer discoveries, supports twenty distinct coordinate assignments.",
+      "The final result is answered with twenty concrete, distinct and semantically suitable selections, one for every weekday and meal moment, each tied to current canonical body evidence and an exact source reference.",
+      "The durable job, tool events, research checkpoint, provider telemetry, final claims and source payload are preserved for mechanical and human semantic review.",
+      "A safe bounded gap remains a functional failure for this pilot."
+    ],
+    "progressionRule": "Review A895 mechanically and semantically before registering another OpenAI pilot. On success, freeze the profile and run exact repetitions while a full 1.10 USD reservation remains under the 55 USD lifetime stop. On failure, make only a causal offline correction before another registered run. Close OpenAI no later than the 55 USD lifetime stop, then continue with Runpod architecture and benchmark preparation.",
+    "productPromotionRule": "Keep TESTE_NON_APPROUVE after this pilot. Promotion still requires two further consecutive staged successes, a new blind holdout, durable recovery and WinUI source-card validation."
+  },
+  "stopRules": [
+    "Do not execute while the persistent lifetime headroom is lower than the complete 1.10 USD per-job cap; reserving only the first call is forbidden.",
+    "Do not change the 55 USD hard stop or treat account balance as mission authorization without another explicit user-funded budget extension.",
+    "Do not execute without a paid-tier observation less than 15 minutes old.",
+    "Stop before the first model call if branch, clean-tree rule, minimum commit, bank hash, local router binary, model or provider configuration differs.",
+    "Stop before the first model call if the reference corpus cannot be sealed or has an active ingestion job; reject the pilot if the postflight seal differs.",
+    "Stop at the persistent lifetime, 1.10 USD per-job or twenty-four-provider-call or forty-eight-documentary-call guard; never purchase or reload credits automatically.",
+    "Do not run another repetition before mechanical and semantic review of this pilot."
+  ],
+  "campaignKind": "targeted-causal"
+}
