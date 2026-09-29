@@ -332,6 +332,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                             parsed,
                             evidence,
                             promptEvidence,
+                            synthesisResearch.CandidateExplorerDossier,
                             completions,
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -426,6 +427,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                             parsed,
                             evidence,
                             promptEvidence,
+                            synthesisResearch.CandidateExplorerDossier,
                             completions,
                             cancellationToken)
                         .ConfigureAwait(false);
@@ -456,6 +458,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             AdvancedAnalysisProviderResult candidate,
             IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
             IReadOnlyList<PromptEvidenceItem> promptEvidence,
+        CandidateExplorerDossier? candidateDossier,
             ICollection<CompletionResult> completions,
             CancellationToken cancellationToken)
     {
@@ -468,7 +471,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     BuildSynthesisRecoveryUserPrompt(
                         request,
                         candidate,
-                        promptEvidence),
+                        promptEvidence,
+                        candidateDossier),
                     Math.Clamp(_options.WriterMaxTokens, 512, 16_384),
                     cancellationToken)
                 .ConfigureAwait(false);

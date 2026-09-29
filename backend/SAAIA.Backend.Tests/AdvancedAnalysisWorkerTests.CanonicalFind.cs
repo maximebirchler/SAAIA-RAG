@@ -11,6 +11,39 @@ namespace SAAIA.Backend.Tests;
 
 public sealed partial class AdvancedAnalysisWorkerTests
 {
+    [Theory]
+    [InlineData(
+        "Scones au babeurre",
+        "Scones au babeurre\nINGRÉDIENTS\nFarine et babeurre.",
+        "Scones au babeurre")]
+    [InlineData(
+        "Titre canonique sur deux lignes",
+        "Titre canonique\nsur deux lignes\nContenu documenté.",
+        "Titre canonique sur deux lignes")]
+    [InlineData(
+        "Scones au babeurre",
+        "Index général\nScones au babeurre 32",
+        null)]
+    [InlineData(
+        "Tarte de Linz",
+        "Pour un moule démontable. La tarte de Linz cuit ensuite.",
+        null)]
+    [InlineData(
+        "Plan",
+        "Planification détaillée",
+        null)]
+    public void Canonical_find_promotes_only_an_exact_leading_literal_as_title(
+        string query,
+        string content,
+        string? expected)
+    {
+        Assert.Equal(
+            expected,
+            AdvancedAnalysisToolGateway.ResolveLeadingCanonicalFindTitle(
+                query,
+                content));
+    }
+
     [Fact]
     public async Task Canonical_find_locates_literal_text_paginates_and_excludes_other_documents_and_tenants()
     {
@@ -52,6 +85,7 @@ public sealed partial class AdvancedAnalysisWorkerTests
             DocId: seed.DocId.ToString(), DocPath: seed.DocPath, RevisionId: seed.RevisionId.ToString(), Operation: "find_source_text");
         var first = await gateway.SearchAsync(request, CancellationToken.None);
         Assert.Equal(seed.ChunkId.ToString(), Assert.Single(first.Evidence).Reference.ChunkId);
+        Assert.Null(first.Evidence[0].ExactTitle); // Query casing is not source-exact.
         Assert.Equal("canonical_text_matches_more_available", first.FindDiagnostic!.Status);
         Assert.Equal(1, first.FindDiagnostic.NextOffset);
         var second = await gateway.SearchAsync(request with { Offset = 1 }, CancellationToken.None);
@@ -66,6 +100,59 @@ public sealed partial class AdvancedAnalysisWorkerTests
         var unseen = await Assert.ThrowsAsync<AdvancedAnalysisToolException>(() => gateway.SearchAsync(
             request with { RevisionId = Guid.NewGuid().ToString() }, CancellationToken.None));
         Assert.Equal("canonical_read_source_not_observed", unseen.ErrorCode);
+    }
+
+    [Fact]
+    public async Task Canonical_find_promotes_a_leading_title_even_when_the_chunk_was_already_observed()
+    {
+        await using var database = await PostgresWorkerDatabase.CreateAsync();
+        if (database is null) return;
+        const string title = "Scones au babeurre";
+        var seed = await database.SeedEvidenceAsync(
+            "canonical-leading-title",
+            title + "\nINGRÉDIENTS\nFarine et babeurre.\nPRÉPARATION\nMélanger.");
+        var settings = BuildAdvancedOptions();
+        var resolver = new AdvancedAnalysisEvidenceResolver(
+            database.DataSource,
+            Options.Create(settings));
+        var initial = await resolver.ResolveAsync(
+            seed.TenantId,
+            [new AdvancedAnalysisEvidenceReference
+            {
+                DocId = seed.DocId.ToString(),
+                ChunkId = seed.ChunkId.ToString()
+            }],
+            CancellationToken.None);
+        Assert.True(initial.IsValid);
+        Assert.Null(Assert.Single(initial.Evidence).ExactTitle);
+        using var services = new ServiceCollection().BuildServiceProvider();
+        using var httpFactory = new UnavailableHttpClientFactory();
+        var rag = Options.Create(BuildRagOptions());
+        var gateway = new AdvancedAnalysisToolGateway(
+            Guid.NewGuid(),
+            seed.TenantId,
+            initial.Evidence,
+            database.DataSource,
+            rag.Value,
+            httpFactory,
+            services,
+            new RagSearchBulkhead(rag, NullLogger<RagSearchBulkhead>.Instance),
+            resolver,
+            settings);
+
+        var observation = await gateway.SearchAsync(
+            new AdvancedAnalysisSearchRequest(
+                title,
+                TopK: 10,
+                DocId: seed.DocId.ToString(),
+                DocPath: seed.DocPath,
+                RevisionId: seed.RevisionId.ToString(),
+                Operation: "find_source_text"),
+            CancellationToken.None);
+
+        Assert.Equal(title, Assert.Single(observation.Evidence).ExactTitle);
+        Assert.Equal(title, Assert.Single(gateway.Evidence).ExactTitle);
+        Assert.Single(gateway.Evidence);
     }
 
     [Fact]

@@ -488,7 +488,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            the arrangement as a SAAIA synthesis. Never invent an item, value,
            title, qualifier or evidence id. If there are truly fewer documented
            candidates than required, keep insufficient_documentation and state
-           the exact smallest remaining deficit. Every factual answer unit must
+           the exact smallest remaining deficit. When candidateDossier is present,
+           it is the deterministic result of the staged Candidate Judge and global
+           assignment solver. An insufficiency answer must use its
+           verifiedAssignmentDeficit and must not claim a larger verified or
+           assignable candidate count than candidateDossier reports. You may only
+           supersede that bounded dossier by returning a complete answered result
+           whose every distinct selection is supported by the supplied evidence.
+           Every factual answer unit must
            have one claim, every claim must cite supplied evidenceIds, and every
            [claimId] must appear exactly once in answerText.
            Keep each claim text concise. When selectedItem already identifies the
@@ -683,7 +690,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private string BuildSynthesisRecoveryUserPrompt(
         AdvancedAnalysisProviderRequest request,
         AdvancedAnalysisProviderResult candidate,
-        IReadOnlyList<PromptEvidenceItem> evidence)
+        IReadOnlyList<PromptEvidenceItem> evidence,
+        CandidateExplorerDossier? candidateDossier)
         => JsonSerializer.Serialize(new
         {
             request = request.Handoff.RequestText,
@@ -704,6 +712,25 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     evidenceIds = claim.EvidenceIds
                 }).ToArray()
             },
+            candidateDossier = candidateDossier is null
+                ? null
+                : new
+                {
+                    candidateDossier.Outcome,
+                    candidateDossier.Reason,
+                    candidateDossier.RequiredDistinctCount,
+                    candidateDossier.BodyVerifiedDistinctCount,
+                    candidateDossier.MaximumAssignableCount,
+                    verifiedAssignmentDeficit = Math.Max(
+                        0,
+                        candidateDossier.RequiredDistinctCount
+                        - candidateDossier.MaximumAssignableCount),
+                    candidateDossier.MissingByRole,
+                    candidateDossier.ProposedAssignments,
+                    candidateDossier.BodyEvidenceIds,
+                    candidateDossier.EligibleCandidateKeys,
+                    candidateDossier.Instruction
+                },
             evidence
         }, JsonOptions);
 

@@ -480,9 +480,16 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                     revalidated.ErrorCode ?? "retrieval_evidence_revalidation_failed");
             }
 
+            var resolvedEvidence = request.Operation == "find_source_text"
+                ? revalidated.Evidence
+                    .Select(item => PromoteLeadingCanonicalFindTitle(
+                        request.Query,
+                        item))
+                    .ToArray()
+                : revalidated.Evidence;
             var observationEvidence = new List<AdvancedAnalysisResolvedEvidence>(
-                revalidated.Evidence.Count);
-            var newEvidence = revalidated.Evidence
+                resolvedEvidence.Count);
+            var newEvidence = resolvedEvidence
                 .Where(item => !_evidenceByCanonicalKey.ContainsKey(
                     CanonicalKey(item.Reference)))
                 .GroupBy(
@@ -503,10 +510,32 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                 _evidenceByCanonicalKey.Add(key, item);
                 _evidence.Add(item);
             }
-            foreach (var item in revalidated.Evidence)
+            foreach (var item in resolvedEvidence)
             {
                 var key = CanonicalKey(item.Reference);
                 var canonical = _evidenceByCanonicalKey[key];
+                if (string.IsNullOrWhiteSpace(canonical.ExactTitle)
+                    && !string.IsNullOrWhiteSpace(item.ExactTitle))
+                {
+                    // A literal canonical find can revisit a chunk that broad
+                    // retrieval already stored. Preserve the newly proved leading
+                    // title on the canonical in-memory item so the staged Judge
+                    // receives the body as a named candidate on its next pass.
+                    canonical = item;
+                    _evidenceByCanonicalKey[key] = canonical;
+                    for (var index = 0; index < _evidence.Count; index++)
+                    {
+                        if (!string.Equals(
+                                CanonicalKey(_evidence[index].Reference),
+                                key,
+                                StringComparison.Ordinal))
+                        {
+                            continue;
+                        }
+                        _evidence[index] = canonical;
+                        break;
+                    }
+                }
                 observationEvidence.Add(canonical);
             }
 
@@ -821,6 +850,41 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
 
     private static string? NormalizePath(string? value)
         => NullIfBlank(value)?.Replace('\\', '/').TrimStart('/');
+
+    internal static string? ResolveLeadingCanonicalFindTitle(
+        string query,
+        string content)
+    {
+        var title = CollapseCanonicalWhitespace(query);
+        if (title.Length is < 2 or > 240)
+            return null;
+        var normalizedContent = CollapseCanonicalWhitespace(content);
+        if (!normalizedContent.StartsWith(title, StringComparison.Ordinal))
+            return null;
+        if (normalizedContent.Length > title.Length
+            && char.IsLetterOrDigit(normalizedContent[title.Length]))
+        {
+            return null;
+        }
+        return title;
+    }
+
+    private static AdvancedAnalysisResolvedEvidence PromoteLeadingCanonicalFindTitle(
+        string query,
+        AdvancedAnalysisResolvedEvidence evidence)
+    {
+        if (!string.IsNullOrWhiteSpace(evidence.ExactTitle))
+            return evidence;
+        var title = ResolveLeadingCanonicalFindTitle(query, evidence.Content);
+        return title is null ? evidence : evidence with { ExactTitle = title };
+    }
+
+    private static string CollapseCanonicalWhitespace(string? value)
+        => string.Join(
+            ' ',
+            (value ?? string.Empty).Split(
+                (char[]?)null,
+                StringSplitOptions.RemoveEmptyEntries));
 
     private static string CanonicalKey(AdvancedAnalysisResultEvidence evidence)
         => string.Join(
