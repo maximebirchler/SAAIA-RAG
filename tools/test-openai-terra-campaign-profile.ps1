@@ -142,6 +142,7 @@ $nativeResearchActiveProposalEnabled = [bool](Get-OptionalProfileValue $profile.
 $candidateBindingFeedbackEnabled = [bool](Get-OptionalProfileValue $profile.provider "candidateBindingFeedbackEnabled" $false)
 $plannerMaxTokens = [int](Get-OptionalProfileValue $profile.provider "plannerMaxTokens" 512)
 $maximumEvidencePromptCharacters = [int](Get-OptionalProfileValue $profile.provider "maximumEvidencePromptCharacters" 14000)
+$maximumToolCalls = [int](Get-OptionalProfileValue $profile.provider "maximumToolCalls" 32)
 $usageLedgerPath = if (-not [string]::IsNullOrWhiteSpace($env:SAAIA_OPENAI_USAGE_LEDGER_PATH)) {
     [System.IO.Path]::GetFullPath($env:SAAIA_OPENAI_USAGE_LEDGER_PATH)
 } else {
@@ -256,6 +257,7 @@ if ($reasoningEffort -notin @("low", "medium", "high") -or
     $plannerMaxTokens -lt 256 -or $plannerMaxTokens -gt 4096 -or
     $maximumEvidencePromptCharacters -lt 8000 -or
     $maximumEvidencePromptCharacters -gt 1000000 -or
+    $maximumToolCalls -lt 1 -or $maximumToolCalls -gt 128 -or
     $writerMaxTokens -lt 512 -or $writerMaxTokens -gt 16384) {
     $blockingReasons += "provider_execution_profile_invalid"
 }
@@ -375,6 +377,7 @@ $preflight = [ordered]@{
     candidateBindingFeedbackEnabled = $candidateBindingFeedbackEnabled
     plannerMaxTokens = $plannerMaxTokens
     maximumEvidencePromptCharacters = $maximumEvidencePromptCharacters
+    maximumToolCalls = $maximumToolCalls
     selectedIds = $caseIds
     repetitions = [int]$profile.bank.repetitions
     referenceBackendUrl = [string]$profile.execution.referenceBackendUrl
@@ -457,6 +460,7 @@ try {
         -WriterMaxTokens $writerMaxTokens `
         -CriticMaxTokens $criticMaxTokens `
         -MaximumEvidencePromptCharacters $maximumEvidencePromptCharacters `
+        -MaximumToolCalls $maximumToolCalls `
         -LocalLlmExePath $LocalLlmExePath `
         -LocalModelPath $LocalModelPath `
         -Configuration ([string]$profile.execution.configuration) `

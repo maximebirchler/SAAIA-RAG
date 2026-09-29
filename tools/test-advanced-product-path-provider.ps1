@@ -61,6 +61,8 @@ param(
     [int]$CriticMaxTokens = 4096,
     [ValidateRange(8000, 1000000)]
     [int]$MaximumEvidencePromptCharacters = 14000,
+    [ValidateRange(1, 128)]
+    [int]$MaximumToolCalls = 32,
     [decimal]$InputUsdPerMillionTokens = 0,
     [decimal]$CachedInputUsdPerMillionTokens = 0,
     [decimal]$OutputUsdPerMillionTokens = 0,
@@ -595,7 +597,7 @@ try {
             MaximumEvidenceCharactersTotal = 256000
             AllowExternalProviderContent = $true
             AllowExternalProviderMetadata = $true
-            MaximumToolCalls = 32
+            MaximumToolCalls = $MaximumToolCalls
             MaximumSearchTopK = 60
             MaximumAccumulatedEvidenceItems = 512
             MaximumToolElapsedMilliseconds = 300000

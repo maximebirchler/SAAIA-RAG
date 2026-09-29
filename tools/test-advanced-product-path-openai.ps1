@@ -60,6 +60,8 @@ param(
     [int]$CriticMaxTokens = 4096,
     [ValidateRange(8000, 1000000)]
     [int]$MaximumEvidencePromptCharacters = 14000,
+    [ValidateRange(1, 128)]
+    [int]$MaximumToolCalls = 32,
     [string]$DevelopmentTraceDirectory = "",
     [string]$LocalLlmExePath = "",
     [string]$LocalModelPath = "",
@@ -111,6 +113,7 @@ $runner = Join-Path $PSScriptRoot "test-advanced-product-path-provider.ps1"
     -WriterMaxTokens $WriterMaxTokens `
     -CriticMaxTokens $CriticMaxTokens `
     -MaximumEvidencePromptCharacters $MaximumEvidencePromptCharacters `
+    -MaximumToolCalls $MaximumToolCalls `
     -DevelopmentTraceDirectory $DevelopmentTraceDirectory `
     -LocalLlmExePath $LocalLlmExePath `
     -LocalModelPath $LocalModelPath `

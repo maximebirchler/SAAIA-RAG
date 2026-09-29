@@ -56,6 +56,8 @@ param(
     [int]$WriterMaxTokens = 4096,
     [ValidateRange(512, 16384)]
     [int]$CriticMaxTokens = 4096,
+    [ValidateRange(1, 128)]
+    [int]$MaximumToolCalls = 32,
     [string]$DevelopmentTraceDirectory = "",
     [Parameter(Mandatory = $true)]
     [decimal]$InputUsdPerMillionTokens,
@@ -118,6 +120,7 @@ $runner = Join-Path $PSScriptRoot "test-advanced-product-path-provider.ps1"
     -PlannerMaxTokens $PlannerMaxTokens `
     -WriterMaxTokens $WriterMaxTokens `
     -CriticMaxTokens $CriticMaxTokens `
+    -MaximumToolCalls $MaximumToolCalls `
     -DevelopmentTraceDirectory $DevelopmentTraceDirectory `
     -InputUsdPerMillionTokens $InputUsdPerMillionTokens `
     -CachedInputUsdPerMillionTokens $CachedInputUsdPerMillionTokens `
