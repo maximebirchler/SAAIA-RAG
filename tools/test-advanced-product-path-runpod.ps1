@@ -44,6 +44,7 @@ param(
     [int]$NativeResearchMaximumHistoryCharacters = 16384,
     [switch]$EnableNativeResearchWorkspace,
     [switch]$EnableNativeCandidateExplorer,
+    [switch]$EnableStagedCandidateExplorer,
     [ValidateRange(0, 8)]
     [int]$CandidateExplorerReservePerRole = 2,
     [ValidateRange(512, 16384)]
@@ -56,6 +57,8 @@ param(
     [int]$WriterMaxTokens = 4096,
     [ValidateRange(512, 16384)]
     [int]$CriticMaxTokens = 4096,
+    [ValidateRange(8000, 1000000)]
+    [int]$MaximumEvidencePromptCharacters = 14000,
     [ValidateRange(1, 128)]
     [int]$MaximumToolCalls = 32,
     [string]$DevelopmentTraceDirectory = "",
@@ -113,6 +116,7 @@ $runner = Join-Path $PSScriptRoot "test-advanced-product-path-provider.ps1"
     -NativeResearchMaximumHistoryCharacters $NativeResearchMaximumHistoryCharacters `
     -EnableNativeResearchWorkspace:$EnableNativeResearchWorkspace `
     -EnableNativeCandidateExplorer:$EnableNativeCandidateExplorer `
+    -EnableStagedCandidateExplorer:$EnableStagedCandidateExplorer `
     -CandidateExplorerReservePerRole $CandidateExplorerReservePerRole `
     -CandidateExplorerMaxTokens $CandidateExplorerMaxTokens `
     -EnableNativeResearchActiveProposal:$EnableNativeResearchActiveProposal `
@@ -120,6 +124,7 @@ $runner = Join-Path $PSScriptRoot "test-advanced-product-path-provider.ps1"
     -PlannerMaxTokens $PlannerMaxTokens `
     -WriterMaxTokens $WriterMaxTokens `
     -CriticMaxTokens $CriticMaxTokens `
+    -MaximumEvidencePromptCharacters $MaximumEvidencePromptCharacters `
     -MaximumToolCalls $MaximumToolCalls `
     -DevelopmentTraceDirectory $DevelopmentTraceDirectory `
     -InputUsdPerMillionTokens $InputUsdPerMillionTokens `

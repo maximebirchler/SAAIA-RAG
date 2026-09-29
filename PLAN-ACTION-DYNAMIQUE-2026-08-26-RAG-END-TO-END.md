@@ -14383,3 +14383,35 @@ les 23 preuves et l'affectation 20/20. Prochaine action externe
 possible seulement après une extension explicite du hard stop couvrant au
 minimum 0,52531530 USD supplémentaires et une observation Tier 1 fraîche. Les
 paramètres sémantiques restent figés. Produit `TESTE_NON_APPROUVE`.
+
+## 2026-09-29 — A895/A896 : clôture OpenAI sur solde fournisseur épuisé
+
+A895 passe mécaniquement et confirme la sûreté du chemin staged, sans satisfaire
+le stress-test : 54 candidats, 17 corps validés, 15 affectations possibles,
+manque de trois petits-déjeuners et deux collations. Writer/Critic rendent cette
+insuffisance exacte. Vingt-quatre appels et 39 opérations documentaires coûtent
+0,7088906 USD. A896 porte uniquement les enveloppes à 32 appels et 64 opérations.
+Après 19 appels réussis, 38 événements documentaires et 0,4717236 USD, le
+checkpoint compte 62 candidats et 18 corps validés. OpenAI renvoie ensuite
+HTTP 429 `insufficient_quota` / `credit_balance_exhausted` trois fois avant
+Writer. Aucun verdict sémantique final n'est possible. Corpus et configuration
+restaurés, secrets absents des artefacts, ressources arrêtées. La campagne
+OpenAI est close ; le journal SAAIA atteint 50,2268790 USD mais ne constitue
+pas le solde fournisseur.
+
+## 2026-09-29 — A897 : transition Runpod prête et bloquée avant dépense
+
+Le profil v2 `config/runpod-staged-candidate-pilot.a897.json` reprend la topologie
+agent, Navigator/Judge, Candidate Explorer staged, Writer/Critic, 32 appels,
+64 opérations et 64 000 caractères de preuves sur l'endpoint public
+`Qwen/Qwen3-32B-AWQ`. Le protocole est `chat-completions`. Budget proposé :
+5 USD, soft 4 USD, hard 4,80 USD, cap job 3,20 USD. Son statut
+`PROPOSED_PENDING_USER_CONFIRMATION` interdit mécaniquement `-Execute`. Le
+préflight v2 passe sans lire de secret ni faire d'appel ; le profil v1 historique
+reste compatible. Le template privé vLLM Flex documente Qwen3, AWQ, Hermes et
+le futur compteur GPU-seconde. Prochaine porte : autorisation explicite du cap
+Runpod, import sécurisé de la clé, sonde synthétique deux appels, revue, puis un
+seul meal-grid. Aucun appel ni coût Runpod. Produit `TESTE_NON_APPROUVE`.
+
+Détail :
+`documents/agent/cloture-openai-et-transition-runpod-a895-a897-2026-09-29.md`.

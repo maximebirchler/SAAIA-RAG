@@ -49,6 +49,19 @@ function Require-Decimal {
     return $number
 }
 
+function Get-OptionalProfileValue {
+    param(
+        [object]$Object,
+        [string]$Name,
+        [object]$Default
+    )
+
+    if ($null -eq $Object) { return $Default }
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property -or $null -eq $property.Value) { return $Default }
+    return $property.Value
+}
+
 function Get-CompatibleRelativePath {
     param(
         [Parameter(Mandatory = $true)][string]$BasePath,
@@ -90,9 +103,13 @@ $profileBytes = [System.IO.File]::ReadAllBytes($ProfilePath)
 $profileSha256 = (Get-FileHash -LiteralPath $ProfilePath -Algorithm SHA256).Hash
 $profile = [System.Text.Encoding]::UTF8.GetString($profileBytes) | ConvertFrom-Json
 
-if ([string]$profile.schemaVersion -ne "saaia-runpod-benchmark-profile-v1") {
+$profileSchemaVersion = [string]$profile.schemaVersion
+if ($profileSchemaVersion -notin @(
+        "saaia-runpod-benchmark-profile-v1",
+        "saaia-runpod-benchmark-profile-v2")) {
     throw "Unsupported RunPod campaign profile schema: $($profile.schemaVersion)"
 }
+$isStagedProfile = $profileSchemaVersion -eq "saaia-runpod-benchmark-profile-v2"
 if ([string]$profile.provider -ne "RunPod") {
     throw "The campaign profile provider must be RunPod."
 }
@@ -104,6 +121,94 @@ $modelId = Require-Text $profile.modelId "modelId"
 $providerRuntime = Require-Text $profile.providerRuntime "providerRuntime"
 $runtimeProfile = Require-Text $profile.runtimeProfile "runtimeProfile"
 $quantization = Require-Text $profile.quantization "quantization"
+$advanced = Get-OptionalProfileValue $profile "advancedAnalysis" $null
+$reasoningEffort = [string](Get-OptionalProfileValue $advanced "reasoningEffort" "low")
+$synthesisReasoningEffort = [string](Get-OptionalProfileValue $advanced "synthesisReasoningEffort" "")
+$synthesisPromptStyle = [string](Get-OptionalProfileValue $advanced "synthesisPromptStyle" "contract")
+$maximumProviderHttpAttempts = [int](Get-OptionalProfileValue $advanced "maximumProviderHttpAttempts" 3)
+$maximumJobAttempts = [int](Get-OptionalProfileValue $advanced "maximumJobAttempts" 3)
+$maximumJobRetryDelayMilliseconds = [int](Get-OptionalProfileValue $advanced "maximumJobRetryDelayMilliseconds" 600000)
+$semanticCriticEnabled = [bool](Get-OptionalProfileValue $advanced "semanticCriticEnabled" $false)
+$nativeResearchToolsEnabled = [bool](Get-OptionalProfileValue $advanced "nativeResearchToolsEnabled" $false)
+$nativeResearchApiProtocol = [string](Get-OptionalProfileValue $advanced "nativeResearchApiProtocol" "chat-completions")
+$nativeResearchTopology = [string](Get-OptionalProfileValue $advanced "nativeResearchTopology" "reviewed")
+$nativeResearchMaximumHistoryCharacters = [int](Get-OptionalProfileValue $advanced "nativeResearchMaximumHistoryCharacters" 16384)
+$nativeResearchWorkspaceEnabled = [bool](Get-OptionalProfileValue $advanced "nativeResearchWorkspaceEnabled" $false)
+$nativeCandidateExplorerEnabled = [bool](Get-OptionalProfileValue $advanced "nativeCandidateExplorerEnabled" $false)
+$stagedCandidateExplorerEnabled = [bool](Get-OptionalProfileValue $advanced "stagedCandidateExplorerEnabled" $false)
+$candidateExplorerReservePerRole = [int](Get-OptionalProfileValue $advanced "candidateExplorerReservePerRole" 2)
+$candidateExplorerMaxTokens = [int](Get-OptionalProfileValue $advanced "candidateExplorerMaxTokens" 4096)
+$nativeResearchActiveProposalEnabled = [bool](Get-OptionalProfileValue $advanced "nativeResearchActiveProposalEnabled" $false)
+$candidateBindingFeedbackEnabled = [bool](Get-OptionalProfileValue $advanced "candidateBindingFeedbackEnabled" $false)
+$plannerMaxTokens = [int](Get-OptionalProfileValue $advanced "plannerMaxTokens" 512)
+$writerMaxTokens = [int](Get-OptionalProfileValue $advanced "writerMaxTokens" 4096)
+$criticMaxTokens = [int](Get-OptionalProfileValue $advanced "criticMaxTokens" 4096)
+$maximumEvidencePromptCharacters = [int](Get-OptionalProfileValue $advanced "maximumEvidencePromptCharacters" 14000)
+$maximumToolCalls = [int](Get-OptionalProfileValue $advanced "maximumToolCalls" 32)
+$spendAuthorization = Get-OptionalProfileValue $profile "spendAuthorization" $null
+$defaultSpendAuthorizationStatus = if ($isStagedProfile) {
+    "PROPOSED_PENDING_USER_CONFIRMATION"
+} else {
+    "LEGACY_PROFILE"
+}
+$spendAuthorizationStatus = [string](Get-OptionalProfileValue $spendAuthorization "status" `
+        $defaultSpendAuthorizationStatus)
+
+if ($reasoningEffort -notin @("low", "medium", "high") -or
+    $synthesisReasoningEffort -notin @("", "low", "medium", "high") -or
+    $synthesisPromptStyle -notin @("contract", "agent")) {
+    throw "The advanced reasoning profile is invalid."
+}
+if ($maximumProviderHttpAttempts -lt 1 -or $maximumProviderHttpAttempts -gt 3 -or
+    $maximumJobAttempts -lt 1 -or $maximumJobAttempts -gt 20 -or
+    $maximumJobRetryDelayMilliseconds -lt 1000 -or
+    $maximumJobRetryDelayMilliseconds -gt 900000 -or
+    $nativeResearchMaximumHistoryCharacters -lt 16384 -or
+    $nativeResearchMaximumHistoryCharacters -gt 65536 -or
+    $candidateExplorerReservePerRole -lt 0 -or $candidateExplorerReservePerRole -gt 8 -or
+    $candidateExplorerMaxTokens -lt 512 -or $candidateExplorerMaxTokens -gt 16384 -or
+    $plannerMaxTokens -lt 256 -or $plannerMaxTokens -gt 4096 -or
+    $writerMaxTokens -lt 512 -or $writerMaxTokens -gt 16384 -or
+    $criticMaxTokens -lt 512 -or $criticMaxTokens -gt 16384 -or
+    $maximumEvidencePromptCharacters -lt 8000 -or $maximumEvidencePromptCharacters -gt 1000000 -or
+    $maximumToolCalls -lt 1 -or $maximumToolCalls -gt 128) {
+    throw "The advanced analysis envelope is invalid."
+}
+if ($nativeResearchApiProtocol -ne "chat-completions") {
+    throw "RunPod profiles must use the OpenAI-compatible chat-completions protocol."
+}
+if ($stagedCandidateExplorerEnabled -and -not $nativeCandidateExplorerEnabled) {
+    throw "Staged Candidate Explorer requires Native Candidate Explorer."
+}
+if ($isStagedProfile -and (
+        -not $semanticCriticEnabled -or
+        -not $nativeResearchToolsEnabled -or
+        $nativeResearchTopology -ne "agent" -or
+        $nativeResearchMaximumHistoryCharacters -lt 32768 -or
+        -not $nativeResearchWorkspaceEnabled -or
+        -not $nativeCandidateExplorerEnabled -or
+        -not $stagedCandidateExplorerEnabled -or
+        -not $nativeResearchActiveProposalEnabled -or
+        -not $candidateBindingFeedbackEnabled)) {
+    throw "A staged RunPod profile must preserve the complete agentic research and verification topology."
+}
+if ($isStagedProfile -and $spendAuthorizationStatus -notin @(
+        "PROPOSED_PENDING_USER_CONFIRMATION",
+        "AUTHORIZED")) {
+    throw "A v2 RunPod profile must declare a pending or authorized spend status."
+}
+if ($isStagedProfile -and $spendAuthorizationStatus -eq "AUTHORIZED") {
+    $authorizedAtText = [string](Get-OptionalProfileValue $spendAuthorization `
+            "authorizedAtUtc" "")
+    $authorizationBasis = [string](Get-OptionalProfileValue $spendAuthorization `
+            "authorizationBasis" "")
+    $authorizedAt = [DateTimeOffset]::MinValue
+    if ([string]::IsNullOrWhiteSpace($authorizationBasis) -or
+        -not [DateTimeOffset]::TryParse($authorizedAtText, [ref]$authorizedAt) -or
+        $authorizedAt.Offset -ne [TimeSpan]::Zero) {
+        throw "An authorized v2 profile requires a UTC authorization timestamp and a non-empty authorization basis."
+    }
+}
 
 $parsedBaseUrl = $null
 if (-not [Uri]::TryCreate($baseUrl, [UriKind]::Absolute, [ref]$parsedBaseUrl) -or
@@ -139,17 +244,18 @@ $cachedInputPrice = Require-Decimal $profile.pricingUsdPerMillionTokens.cachedIn
     "pricingUsdPerMillionTokens.cachedInput"
 $outputPrice = Require-Decimal $profile.pricingUsdPerMillionTokens.output `
     "pricingUsdPerMillionTokens.output"
-$authorizedBudget = Require-Decimal $profile.budget.authorizedUsd "budget.authorizedUsd" 0 5
-$softLimit = Require-Decimal $profile.budget.softLimitUsd "budget.softLimitUsd" 0 5
-$hardLimit = Require-Decimal $profile.budget.hardLimitUsd "budget.hardLimitUsd" 0 5
+$authorizedBudget = Require-Decimal $profile.budget.authorizedUsd "budget.authorizedUsd" 0 25
+$softLimit = Require-Decimal $profile.budget.softLimitUsd "budget.softLimitUsd" 0 25
+$hardLimit = Require-Decimal $profile.budget.hardLimitUsd "budget.hardLimitUsd" 0 25
 $maximumCostPerJob = Require-Decimal $profile.budget.maximumCostPerJobUsd `
-    "budget.maximumCostPerJobUsd" 0 5
+    "budget.maximumCostPerJobUsd" 0 25
 $maximumCallsPerJob = [int]$profile.budget.maximumCallsPerJob
 if ($softLimit -gt $hardLimit -or
     $hardLimit -gt $authorizedBudget -or
     $maximumCostPerJob -gt $hardLimit -or
     $maximumCallsPerJob -lt 1 -or
-    $maximumCallsPerJob -gt 4) {
+    $maximumCallsPerJob -gt 128 -or
+    ($isStagedProfile -and $maximumCallsPerJob -lt 5)) {
     throw "The RunPod campaign budget envelope is invalid."
 }
 
@@ -218,7 +324,11 @@ New-Item -ItemType Directory -Path $ArtifactDirectory | Out-Null
 
 $preflightPath = Join-Path $ArtifactDirectory "preflight-seal.json"
 [ordered]@{
-    schemaVersion = "saaia-runpod-campaign-preflight-v1"
+    schemaVersion = if ($isStagedProfile) {
+        "saaia-runpod-campaign-preflight-v2"
+    } else {
+        "saaia-runpod-campaign-preflight-v1"
+    }
     validatedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
     verdict = "VALID_CONFIGURATION_NO_EXTERNAL_CALL"
     campaignId = $campaignId
@@ -244,6 +354,30 @@ $preflightPath = Join-Path $ArtifactDirectory "preflight-seal.json"
     hardLimitUsd = $hardLimit
     maximumCostPerJobUsd = $maximumCostPerJob
     maximumCallsPerJob = $maximumCallsPerJob
+    spendAuthorizationStatus = $spendAuthorizationStatus
+    reasoningEffort = $reasoningEffort
+    synthesisReasoningEffort = $synthesisReasoningEffort
+    synthesisPromptStyle = $synthesisPromptStyle
+    maximumProviderHttpAttempts = $maximumProviderHttpAttempts
+    maximumJobAttempts = $maximumJobAttempts
+    maximumJobRetryDelayMilliseconds = $maximumJobRetryDelayMilliseconds
+    semanticCriticEnabled = $semanticCriticEnabled
+    nativeResearchToolsEnabled = $nativeResearchToolsEnabled
+    nativeResearchApiProtocol = $nativeResearchApiProtocol
+    nativeResearchTopology = $nativeResearchTopology
+    nativeResearchMaximumHistoryCharacters = $nativeResearchMaximumHistoryCharacters
+    nativeResearchWorkspaceEnabled = $nativeResearchWorkspaceEnabled
+    nativeCandidateExplorerEnabled = $nativeCandidateExplorerEnabled
+    stagedCandidateExplorerEnabled = $stagedCandidateExplorerEnabled
+    candidateExplorerReservePerRole = $candidateExplorerReservePerRole
+    candidateExplorerMaxTokens = $candidateExplorerMaxTokens
+    nativeResearchActiveProposalEnabled = $nativeResearchActiveProposalEnabled
+    candidateBindingFeedbackEnabled = $candidateBindingFeedbackEnabled
+    plannerMaxTokens = $plannerMaxTokens
+    writerMaxTokens = $writerMaxTokens
+    criticMaxTokens = $criticMaxTokens
+    maximumEvidencePromptCharacters = $maximumEvidencePromptCharacters
+    maximumToolCalls = $maximumToolCalls
     caseIds = $caseIds
     repetitions = $repetitions
     expectedJobs = $caseIds.Count * $repetitions
@@ -278,6 +412,9 @@ if (-not $Execute) {
 
 if (-not $ExternalContentAuthorized) {
     throw "Execute requires -ExternalContentAuthorized because prompts and selected evidence leave SAAIA."
+}
+if ($isStagedProfile -and $spendAuthorizationStatus -ne "AUTHORIZED") {
+    throw "Execute requires spendAuthorization.status=AUTHORIZED in the reviewed v2 profile."
 }
 if ($Stage -eq "FullBank" -and -not $FullBankAuthorized) {
     throw "FullBank execution requires -FullBankAuthorized after review of the staged meal-grid result."
@@ -327,6 +464,29 @@ else {
         Ids = ($stageCaseIds -join ',')
         Repetitions = $stageRepetitions
         DelayBetweenCasesSeconds = $delayBetweenCasesSeconds
+        MaximumJobAttempts = $maximumJobAttempts
+        MaximumProviderHttpAttempts = $maximumProviderHttpAttempts
+        MaximumJobRetryDelayMilliseconds = $maximumJobRetryDelayMilliseconds
+        ReasoningEffort = $reasoningEffort
+        SynthesisReasoningEffort = $synthesisReasoningEffort
+        SynthesisPromptStyle = $synthesisPromptStyle
+        EnableSemanticCritic = $semanticCriticEnabled
+        EnableNativeResearchTools = $nativeResearchToolsEnabled
+        NativeResearchApiProtocol = $nativeResearchApiProtocol
+        NativeResearchTopology = $nativeResearchTopology
+        NativeResearchMaximumHistoryCharacters = $nativeResearchMaximumHistoryCharacters
+        EnableNativeResearchWorkspace = $nativeResearchWorkspaceEnabled
+        EnableNativeCandidateExplorer = $nativeCandidateExplorerEnabled
+        EnableStagedCandidateExplorer = $stagedCandidateExplorerEnabled
+        CandidateExplorerReservePerRole = $candidateExplorerReservePerRole
+        CandidateExplorerMaxTokens = $candidateExplorerMaxTokens
+        EnableNativeResearchActiveProposal = $nativeResearchActiveProposalEnabled
+        EnableCandidateBindingFeedback = $candidateBindingFeedbackEnabled
+        PlannerMaxTokens = $plannerMaxTokens
+        WriterMaxTokens = $writerMaxTokens
+        CriticMaxTokens = $criticMaxTokens
+        MaximumEvidencePromptCharacters = $maximumEvidencePromptCharacters
+        MaximumToolCalls = $maximumToolCalls
         Platform = $Platform
     }
     foreach ($entry in $sharedRunnerArguments.GetEnumerator()) {

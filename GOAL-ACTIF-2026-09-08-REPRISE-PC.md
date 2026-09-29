@@ -490,6 +490,30 @@ installateurs différés. Voir
 `documents/agent/comparaison-contrat-agent-a830-2026-09-13.md`.
 Le produit reste `TESTE_NON_APPROUVE` et le Goal actif.
 
+## Actualisation du 29 septembre 2026 — A895, A896 et passage Runpod
+
+A895 valide le correctif de convergence d'identité et termine Writer/Critic en
+sécurité, mais seulement 15 des 20 coordonnées sont affectables : 17 corps
+validés, manque de trois petits-déjeuners et deux collations. Coût 0,7088906 USD,
+24 appels fournisseur et 39 opérations documentaires. A896 augmente seulement
+l'enveloppe à 32/64 ; son checkpoint atteint 62 candidats et 18 corps validés,
+mais OpenAI interrompt le Candidate Judge par
+`credit_balance_exhausted` avant Writer. Dix-neuf appels réussis coûtent
+0,4717236 USD ; trois refus sont gratuits. Le journal local atteint
+50,2268790 USD, mais son reliquat d'autorisation de 4,7731210 USD n'est pas un
+solde fournisseur. Aucun nouvel appel ou achat OpenAI n'est retenu.
+
+A897 prépare l'endpoint public Runpod `Qwen/Qwen3-32B-AWQ` avec le protocole
+`chat-completions` et la même topologie staged. Le profil v2 transporte tous les
+budgets et garde un statut `PROPOSED_PENDING_USER_CONFIRMATION` que le runner
+refuse d'exécuter. Une sonde de deux appels synthétiques doit précéder un seul
+meal-grid. Le budget proposé est de 5 USD, hard stop 4,80 USD et cap job
+3,20 USD ; aucune dépense Runpod n'est encore autorisée ou effectuée. Le
+template vLLM privé prépare ensuite un worker Flex Qwen3 32B AWQ, mais exige un
+compteur GPU-seconde et une preuve de scale-to-zero avant déploiement. Le Goal
+reste actif et le produit `TESTE_NON_APPROUVE`. Détail :
+`documents/agent/cloture-openai-et-transition-runpod-a895-a897-2026-09-29.md`.
+
 ## Amendement prioritaire autorisé le 9 septembre 2026 — capacités locale et avancée
 
 À la demande explicite de Maxime le 9 septembre 2026, les clauses suivantes

@@ -2,7 +2,7 @@
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
   "campaignId": "A896-TERRA-STAGED-CANDIDATE-PILOT-R13",
   "parentCampaignId": "A895-TERRA-STAGED-CANDIDATE-PILOT-R12",
-  "status": "PREREGISTERED_EXTENDED_AGENTIC_TURN_ENVELOPE",
+  "status": "EXECUTED_PROVIDER_CREDIT_BALANCE_EXHAUSTED",
   "createdAtUtc": "2026-09-29T15:37:30.0000000Z",
   "budgetExtensionRegisteredAtUtc": "2026-09-29T15:30:35.9111355Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
@@ -123,5 +123,55 @@
     "Stop at the persistent lifetime, 1.10 USD per-job or thirty-two-provider-call or sixty-four-documentary-call guard; never purchase or reload credits automatically.",
     "Do not run another repetition before mechanical and semantic review of this pilot."
   ],
-  "campaignKind": "targeted-causal"
+  "campaignKind": "targeted-causal",
+  "executionResult": {
+    "executedAtUtc": "2026-09-29T15:40:39.0000000Z",
+    "artifactDirectory": "artifacts/reprise-pc-20260908/a896-terra-staged-candidate-pilot-20260929-174039",
+    "jobId": "9c40ae1c-9362-431c-b200-bb99e06a55e6",
+    "mechanicalVerdict": "FAILED_PROVIDER_CREDIT_BALANCE_EXHAUSTED",
+    "semanticVerdict": "NO_FINAL_ANSWER_PROVIDER_INTERRUPTED_BEFORE_WRITER",
+    "providerError": {
+      "httpStatus": 429,
+      "type": "insufficient_quota",
+      "code": "credit_balance_exhausted",
+      "messageSummary": "The provider reported that no credits remained and rejected the next Candidate Judge call and the two worker retry attempts."
+    },
+    "providerTelemetry": {
+      "successfulCalls": 19,
+      "rejectedZeroCostCalls": 3,
+      "documentaryToolEvents": 38,
+      "inputTokens": 137863,
+      "cachedInputTokens": 1418,
+      "outputTokens": 10863,
+      "recordedCostUsd": 0.4717236
+    },
+    "lastDurableResearchCheckpoint": {
+      "candidateCount": 62,
+      "bodyVerifiedCount": 18,
+      "rejectedCount": 41,
+      "otherStateCount": 3,
+      "bodyVerifiedRoleCounts": {
+        "breakfast": 3,
+        "lunch": 9,
+        "snack": 4,
+        "supper": 11
+      }
+    },
+    "lifetimeLedgerAfterExecution": {
+      "entryCount": 1394,
+      "recordedCostUsd": 50.2268790,
+      "localAuthorizedRemainingUsd": 4.7731210,
+      "sha256": "F8225E76F8E86F5EA1EC6402407A83FE3EF028B39662D4B1CF58485B175527C0",
+      "interpretation": "The local authorization envelope is only a safety ceiling. The provider balance is authoritative and reached zero before the local 55 USD ceiling."
+    },
+    "postflight": {
+      "environmentAndProviderConfigurationRestored": true,
+      "referenceCorpusSealUnchanged": true,
+      "secretPersistedInArtifacts": false,
+      "temporaryBackendStopped": true,
+      "ports5123And1234Free": true,
+      "remainingValidationJobs": 0
+    },
+    "decision": "Close the OpenAI paid campaign without another call. Preserve TESTE_NON_APPROUVE and prepare the same staged agentic topology for RunPod chat completions."
+  }
 }

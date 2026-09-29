@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "saaia-runpod-vllm-deployment-template-v1",
+  "status": "TEMPLATE_NOT_DEPLOYED",
+  "purpose": "Private RunPod Serverless vLLM candidate for repeated SAAIA advanced-capacity validation after the public-endpoint pilot.",
+  "model": {
+    "modelName": "Qwen/Qwen3-32B-AWQ",
+    "servedModelNameOverride": "Qwen/Qwen3-32B-AWQ",
+    "maximumModelLength": 32768,
+    "quantization": "awq"
+  },
+  "vllmEnvironment": {
+    "MODEL_NAME": "Qwen/Qwen3-32B-AWQ",
+    "OPENAI_SERVED_MODEL_NAME_OVERRIDE": "Qwen/Qwen3-32B-AWQ",
+    "MAX_MODEL_LEN": "32768",
+    "QUANTIZATION": "awq",
+    "ENABLE_AUTO_TOOL_CHOICE": "true",
+    "TOOL_CALL_PARSER": "hermes",
+    "RAW_OPENAI_OUTPUT": "1"
+  },
+  "endpoint": {
+    "baseUrlTemplate": "https://api.runpod.ai/v2/ENDPOINT_ID/openai/v1",
+    "protocol": "chat-completions",
+    "workerMode": "Flex",
+    "maximumWorkers": 1,
+    "minimumWorkers": 0
+  },
+  "gpuSelection": {
+    "initialRecommendation": "One 80 GB GPU for the first measured load test; right-size only after model-load, context and tool-call telemetry proves a smaller worker reliable.",
+    "status": "TO_BE_MEASURED"
+  },
+  "billingControl": {
+    "meter": "GPU_SECONDS",
+    "applicationTokenBudgetIsNotSufficient": true,
+    "requiredBeforeExecution": [
+      "A RunPod endpoint-level spending limit or funded balance cap",
+      "A lifecycle procedure that scales to zero and verifies no worker remains active",
+      "A separate GPU-second ledger captured with every SAAIA campaign"
+    ]
+  }
+}

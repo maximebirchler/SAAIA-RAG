@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "saaia-runpod-benchmark-profile-v2",
+  "campaignId": "A897-RUNPOD-PUBLIC-QWEN3-32B-AWQ-STAGED-PILOT",
+  "provider": "RunPod",
+  "candidateKind": "public-endpoint",
+  "baseUrl": "https://api.runpod.ai/v2/qwen3-32b-awq/openai/v1",
+  "modelId": "Qwen/Qwen3-32B-AWQ",
+  "providerRuntime": "runpod-public-openai",
+  "runtimeProfile": "qwen3-32b-awq-public-20260720",
+  "gpu": "",
+  "quantization": "AWQ 4-bit",
+  "modelSha256": "",
+  "contextSize": 32768,
+  "hourlyCostUsd": 0,
+  "pricingUsdPerMillionTokens": {
+    "input": 10,
+    "cachedInput": 10,
+    "output": 10
+  },
+  "budget": {
+    "authorizedUsd": 5,
+    "softLimitUsd": 4,
+    "hardLimitUsd": 4.8,
+    "maximumCostPerJobUsd": 3.2,
+    "maximumCallsPerJob": 32
+  },
+  "execution": {
+    "caseIds": [
+      "A755-ADV-01-meal-grid-5x4"
+    ],
+    "repetitions": 1,
+    "delayBetweenCasesSeconds": 0
+  },
+  "advancedAnalysis": {
+    "reasoningEffort": "low",
+    "synthesisReasoningEffort": "low",
+    "synthesisPromptStyle": "agent",
+    "maximumProviderHttpAttempts": 3,
+    "maximumJobAttempts": 3,
+    "maximumJobRetryDelayMilliseconds": 600000,
+    "semanticCriticEnabled": true,
+    "nativeResearchToolsEnabled": true,
+    "nativeResearchApiProtocol": "chat-completions",
+    "nativeResearchTopology": "agent",
+    "nativeResearchMaximumHistoryCharacters": 32768,
+    "nativeResearchWorkspaceEnabled": true,
+    "nativeCandidateExplorerEnabled": true,
+    "stagedCandidateExplorerEnabled": true,
+    "candidateExplorerReservePerRole": 2,
+    "candidateExplorerMaxTokens": 4096,
+    "nativeResearchActiveProposalEnabled": true,
+    "candidateBindingFeedbackEnabled": true,
+    "plannerMaxTokens": 512,
+    "writerMaxTokens": 4096,
+    "criticMaxTokens": 4096,
+    "maximumEvidencePromptCharacters": 64000,
+    "maximumToolCalls": 64
+  },
+  "spendAuthorization": {
+    "status": "PROPOSED_PENDING_USER_CONFIRMATION",
+    "authorizedAtUtc": null,
+    "authorizationBasis": "Prepared after OpenAI returned credit_balance_exhausted. This profile cannot execute until the user confirms a concrete RunPod operational cap and the status is changed to AUTHORIZED in a reviewed commit."
+  },
+  "dataPolicy": {
+    "externalContentTransmission": true,
+    "externalMetadataTransmission": true,
+    "requiresExplicitAuthorization": true
+  },
+  "acceptance": {
+    "probe": "Two synthetic calls must first prove endpoint authentication, exact model routing, chat-completions compatibility and usage accounting.",
+    "mealGrid": "Only after probe review, one sealed meal-grid run must preserve the A896 agentic research, evidence, distinctness and source contracts within the 3.20 USD job cap.",
+    "productPromotion": "Keep TESTE_NON_APPROUVE. This single pilot cannot promote the product even if it succeeds."
+  }
+}
