@@ -1,58 +1,16 @@
 {
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
-  "campaignId": "A886-TERRA-STAGED-CANDIDATE-PILOT-R3",
-  "parentCampaignId": "A885-TERRA-STAGED-CANDIDATE-PILOT-R2",
-  "status": "EXECUTED_FUNCTIONAL_FAIL_EXACT_FOUND_BODIES_NOT_PROMOTED",
-  "createdAtUtc": "2026-09-29T13:52:54.7487975Z",
+  "campaignId": "A887-TERRA-STAGED-CANDIDATE-PILOT-R4",
+  "parentCampaignId": "A886-TERRA-STAGED-CANDIDATE-PILOT-R3",
+  "status": "PREREGISTERED_READY_AFTER_CANONICAL_FIND_TITLE_PROMOTION_FIX",
+  "createdAtUtc": "2026-09-29T14:12:27.6286426Z",
   "budgetExtensionRegisteredAtUtc": "2026-09-29T13:37:32.4351888Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
-  "executionResult": {
-    "executedAtUtc": "2026-09-29T13:53:59Z",
-    "repositoryCommit": "caba1ef6b3d0405d234cd4c4984fe524c3aca201",
-    "artifactPath": "artifacts/reprise-pc-20260908/a886-terra-staged-candidate-pilot-20260929-155359",
-    "outcome": "insufficient_documentation",
-    "mechanicalVerdict": "PASS_MECHANICAL_REQUIRES_SEMANTIC_REVIEW",
-    "semanticVerdict": "FAIL_FUNCTIONAL_PILOT",
-    "providerCalls": 12,
-    "roles": [
-      "planner",
-      "candidate-judge-1",
-      "candidate-judge-2",
-      "candidate-judge-3",
-      "candidate-navigator-1",
-      "candidate-navigator-2",
-      "candidate-navigator-3",
-      "candidate-navigator-4",
-      "candidate-navigator-5",
-      "writer",
-      "critic",
-      "synthesis-recovery"
-    ],
-    "inputTokens": 142508,
-    "outputTokens": 8489,
-    "costUsd": 0.4549874,
-    "recordedCostAfterUsd": 44.9762946,
-    "candidateInventory": {
-      "total": 31,
-      "bodyVerifiedAssigned": 9,
-      "navigationOnly": 3,
-      "rejected": 19,
-      "maximumAssignableCount": 9,
-      "requiredDistinctCount": 20,
-      "missingByRole": {
-        "Petit-déjeuner": 5,
-        "Collation": 5,
-        "Souper": 1
-      }
-    },
-    "cause": "Terra selected useful canonical reads and exact literal finds, including complete bodies for Scones au babeurre, Tarte aux poires normande, Saucisses en pâte and Salade de pommes de terre bavaroise. The gateway revalidated these results as source_chunk evidence but left ExactTitle empty, so the staged inventory never promoted them into Judge candidates. The recovery prompt also lacked the deterministic candidate dossier and stated an unsupported count of sixteen options instead of the solver-measured maximum of nine.",
-    "productStatusAfterCampaign": "TESTE_NON_APPROUVE"
-  },
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
-    "preregisteredAgainstCommit": "c98f9e17fa184ff85a6ea0c56f7a7e4c6e9e7a54",
-    "minimumSemanticFixCommit": "c98f9e17fa184ff85a6ea0c56f7a7e4c6e9e7a54",
-    "executionRule": "Run one staged meal-grid pilot only from a clean descendant containing the A879 solver, A880 staged pipeline, A881 identity fix, A882 runner guards, the A884 Candidate Judge optional-note contract fix and the A885 refined-candidate reobservation fix. A885 passed two Judge batches and then failed because the original subordinate title of a Judge-refined body regenerated the existing stable key. The fix merges that reobservation into the refined record. Freeze the bank, corpus, prompts, tools, model, topology, token limits and acceptance rules before the first A886 answer is observed."
+    "preregisteredAgainstCommit": "037d4c8bd48ce333cf479ff344126844f39d5ba1",
+    "minimumSemanticFixCommit": "037d4c8bd48ce333cf479ff344126844f39d5ba1",
+    "executionRule": "Run one staged meal-grid pilot only from a clean descendant containing the A879 solver, A880 staged pipeline, A881 identity fix, A882 runner guards, the A884 Candidate Judge optional-note fix, the A885 refined-candidate reobservation fix, and the A886 canonical find title-promotion plus recovery-dossier fix. A886 proved that Terra retrieved useful complete recipe bodies but the gateway discarded their exact leading title metadata before candidate observation. The fix promotes only a case-sensitive literal find that begins the canonical chunk, preserves it on a previously observed chunk, and supplies the deterministic dossier to synthesis recovery. Freeze the bank, corpus, prompts, tools, model, topology, token limits and acceptance rules before the first A887 answer is observed."
   },
   "provider": {
     "mode": "OpenAI",
@@ -108,7 +66,7 @@
     "serverEnvironmentPath": "C:/Users/maxim/NextCloud/Maxime/Ecommerce/SAAIA/infra/.env.server-linux",
     "referenceBackendUrl": "http://saaia-server:5122",
     "backendPort": 5123,
-    "artifactRoot": "artifacts/reprise-pc-20260908/a886-terra-staged-candidate-pilot",
+    "artifactRoot": "artifacts/reprise-pc-20260908/a887-terra-staged-candidate-pilot",
     "artifactDirectoryRule": "Create a fresh directory containing the exact execution commit and UTC timestamp; never overwrite an earlier pilot."
   },
   "evidenceCapture": {
@@ -134,12 +92,12 @@
       "cachedInput": 0.2,
       "output": 12.0
     },
-    "recordedCostAtRegistrationUsd": 44.5213072,
-    "authorizedRemainingAtRegistrationUsd": 5.4786928,
+    "recordedCostAtRegistrationUsd": 44.9762946,
+    "authorizedRemainingAtRegistrationUsd": 5.0237054,
     "fullJobReservationRequiredUsd": 1.1,
     "additionalAuthorizedHeadroomRequiredUsd": 0.0,
-    "usageLedgerSha256AtRegistration": "57E05EFA3980E6CAD93BF640BAD001EF45DAC4FDF5F322BA759E9377CC5237D3",
-    "authorizationBasis": "On 2026-09-29 the user explicitly extended the previously authorized OpenAI campaign budget by 5 USD. The local lifetime hard stop remains 50 USD, with no automatic purchase. A885 consumed 0.06000990 USD in three calls before the refined-candidate reobservation defect stopped the job. The persistent ledger now records 44.52130720 USD, leaving 5.47869280 USD and satisfying the complete 1.10 USD A886 staged-job reservation."
+    "usageLedgerSha256AtRegistration": "F1F9F9F2489F1F490AE2B1DE1746BDDA908C16E56611781BD62995E7547A4150",
+    "authorizationBasis": "On 2026-09-29 the user explicitly extended the previously authorized OpenAI campaign budget by 5 USD. The local lifetime hard stop remains 50 USD, with no automatic purchase. A886 consumed 0.45498740 USD in twelve calls and completed mechanically, but failed the functional pilot because canonical bodies found by Terra lost their exact leading title before candidate observation. The persistent ledger now records 44.97629460 USD, leaving 5.02370540 USD and satisfying the complete 1.10 USD A887 staged-job reservation."
   },
   "acceptance": {
     "pilot": [
