@@ -387,6 +387,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     item.SourceKey + "\n" + NormalizeClaimText(item.ExactTitle),
                     identity,
                     StringComparison.OrdinalIgnoreCase));
+            var observedKey = BuildCandidateInventoryKey(evidence.SourceKey, title);
+            if (existing is null
+                && merged.TryGetValue(observedKey, out var refinedIdentity)
+                && string.Equals(
+                    refinedIdentity.SourceKey,
+                    evidence.SourceKey,
+                    StringComparison.Ordinal))
+            {
+                // The Judge may replace an automatically observed subordinate
+                // title with the complete identity from the same body. The key
+                // remains tied to the original observation, so seeing that
+                // observation again must enrich the refined candidate instead
+                // of attempting to insert its key a second time.
+                existing = refinedIdentity;
+            }
             // Retrieval target columns describe why an excerpt was fetched; they
             // do not establish that the named candidate is semantically suitable
             // for those roles. Only the model's inventory update or final Writer
@@ -400,7 +415,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             {
                 if (merged.Count >= 64) continue;
                 var observed = new CandidateInventoryItem(
-                    BuildCandidateInventoryKey(evidence.SourceKey, title),
+                    observedKey,
                     title,
                     evidence.SourceKey,
                     roles,

@@ -827,6 +827,67 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Staged_candidate_explorer_reobserves_a_judge_refined_identity_without_duplicate_key_failure()
+    {
+        var evidence = BuildEvidence(
+            "E1",
+            "Timbale de pâtes\nLes pâtes\nINGRÉDIENTS\nÉlément. PRÉPARATION\nProcédure.",
+            exactTitle: "Les pâtes");
+        var keyBytes = System.Text.Encoding.UTF8.GetBytes(
+            "internal-source-1\nles pâtes");
+        var candidateKey = "candidate-" + Convert.ToHexString(
+                System.Security.Cryptography.SHA256.HashData(keyBytes))
+            .ToLowerInvariant()[..16];
+        var judged = JsonSerializer.Serialize(new
+        {
+            items = new[]
+            {
+                new
+                {
+                    key = candidateKey,
+                    exactTitle = "Timbale de pâtes",
+                    sourceKey = "internal-source-1",
+                    targetRoles = new[] { "souper" },
+                    selectedRoles = Array.Empty<string>(),
+                    status = "body_verified",
+                    locatorEvidenceIds = Array.Empty<string>(),
+                    bodyEvidenceIds = new[] { "E1" }
+                }
+            }
+        });
+        using var factory = new QueuedHttpClientFactory(
+            Completion(CandidatePlanner),
+            Completion(judged),
+            Completion(CandidateTerminal));
+        var options = WorkspaceOptions();
+        options.NativeCandidateExplorerEnabled = true;
+        options.StagedCandidateExplorerEnabled = true;
+        options.NativeResearchMaximumHistoryCharacters = 32_768;
+        options.SemanticCriticEnabled = false;
+        options.ExternalMaximumCallsPerJob = 4;
+
+        var gateway = new CheckpointToolGateway([evidence]);
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(
+                factory,
+                options,
+                null)
+            .ExecuteAsync(
+                BuildRequest(
+                    answerUnitCount: 20,
+                    atomicEvidenceMode: "named_item",
+                    selectionPolicy: "distinct_structured_layout"),
+                gateway,
+                CancellationToken.None);
+
+        Assert.Equal("insufficient_documentation", result.Outcome);
+        var candidate = Assert.Single(gateway.Checkpoint!.Candidates);
+        Assert.Equal(candidateKey, candidate.Key);
+        Assert.Equal("Timbale de pâtes", candidate.ExactTitle);
+        Assert.Contains("E1", candidate.BodyEvidenceIds);
+        Assert.Equal(3, factory.Requests.Count);
+    }
+
+    [Fact]
     public async Task Staged_candidate_judge_can_reject_a_body_without_assigning_a_false_role()
     {
         var evidence = BuildEvidence(
