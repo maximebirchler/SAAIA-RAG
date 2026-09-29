@@ -2,7 +2,7 @@
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
   "campaignId": "A893-TERRA-STAGED-CANDIDATE-PILOT-R10",
   "parentCampaignId": "A892-TERRA-STAGED-CANDIDATE-PILOT-R9",
-  "status": "PREREGISTERED_READY_WITH_CATEGORY_AWARE_PLANNER",
+  "status": "EXECUTED_PROTOCOL_FAIL_LATE_WRITER_DISCOVERIES_NOT_CHECKPOINTED",
   "createdAtUtc": "2026-09-29T15:05:20.3881339Z",
   "budgetExtensionRegisteredAtUtc": "2026-09-29T13:37:32.4351888Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
@@ -123,5 +123,49 @@
     "Stop at the persistent lifetime, 1.10 USD per-job or twenty-four-provider-call or forty-eight-documentary-call guard; never purchase or reload credits automatically.",
     "Do not run repetitions two or three after a failed or semantically unreviewed first pilot."
   ],
-  "campaignKind": "targeted-causal"
+  "campaignKind": "targeted-causal",
+  "executionResult": {
+    "executedAtUtc": "2026-09-29T15:06:46Z",
+    "repositoryCommit": "41b9eea7",
+    "artifactPath": "artifacts/reprise-pc-20260908/a763-provider-comparison/terra-final-profile-preflight-20260929-170601",
+    "jobId": "3366aee1-0272-43f2-bbc3-eabc2b18fd61",
+    "outcome": "failed",
+    "lastErrorCode": "advanced_synthesis_candidate_identity_not_supported",
+    "mechanicalVerdict": "FAIL_BINDING_AFTER_COMPLETE_LATE_RESEARCH_WRITER",
+    "semanticVerdict": "COMPLETE_WRITER_TABLE_REJECTED_BECAUSE_TWO_LATE_IDENTITIES_WERE_NOT_CHECKPOINTED",
+    "providerCalls": 23,
+    "documentaryToolCalls": 41,
+    "inputTokens": 208339,
+    "outputTokens": 11916,
+    "cachedInputTokens": 2096,
+    "costUsd": 0.6589842,
+    "recordedCostAfterUsd": 48.6205123,
+    "plannerValidation": {
+      "exactCuisineQueries": 7,
+      "complementaryUnscopedQueries": 1,
+      "categoryContractSatisfied": true
+    },
+    "candidateInventoryAtWriter": {
+      "total": 52,
+      "totalBodyVerified": 19,
+      "eligibleBodyVerified": 18,
+      "navigationOnly": 3,
+      "rejected": 30,
+      "maximumAssignableCount": 18,
+      "requiredDistinctCount": 20,
+      "missingByRole": {
+        "Déjeuner": 1,
+        "Souper": 1
+      }
+    },
+    "validatedObservations": [
+      "The category-aware Planner used the exact cuisine category in seven targeted queries and retained one complementary unscoped breakfast query.",
+      "The staged dossier reached eighteen globally assignable candidates, with one lunch and one supper still missing.",
+      "The Writer used its reserved research turn to read substantive bodies for Cannelloni aux épinards and Coq au vin, then produced a complete twenty-cell table with distinct names and current evidence IDs.",
+      "The two exact item lines were newly visible after the bounded dossier, but they were not present in the Candidate Explorer checkpoint. The identity guard rejected the otherwise complete Writer table before the final Critic call."
+    ],
+    "cause": "The final Writer can request and receive new canonical bodies after a bounded Candidate Explorer dossier, but candidate binding ran before the existing Writer-selection checkpoint logic. Therefore exact late discoveries with current substantive evidence could not be admitted for their selected coordinate role, even though the Writer had found and cited them correctly.",
+    "correctiveCommit": "1c6bcd9e",
+    "productStatusAfterCampaign": "TESTE_NON_APPROUVE"
+  }
 }

@@ -1,0 +1,128 @@
+{
+  "schemaVersion": "saaia-openai-terra-final-campaign-v1",
+  "campaignId": "A894-TERRA-STAGED-CANDIDATE-PILOT-R11",
+  "parentCampaignId": "A893-TERRA-STAGED-CANDIDATE-PILOT-R10",
+  "status": "PREREGISTERED_LAST_OPENAI_PILOT_WITH_LATE_WRITER_BINDING",
+  "createdAtUtc": "2026-09-29T15:19:17.0940692Z",
+  "budgetExtensionRegisteredAtUtc": "2026-09-29T13:37:32.4351888Z",
+  "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
+  "repository": {
+    "expectedBranch": "SAAIA_V3.1",
+    "preregisteredAgainstCommit": "1c6bcd9e",
+    "minimumSemanticFixCommit": "1c6bcd9e",
+    "executionRule": "Run the last fully reservable OpenAI meal-grid pilot only from a clean descendant containing the bounded-dossier late Writer binding fix. A893 proved category-aware planning, reached eighteen deterministic assignments, then the Writer found exact substantive bodies for the missing lunch and supper and produced twenty evidence-bound cells. Admit only new Writer selections found after a bounded dossier when their current non-navigation evidence contains the complete item identity as an exact line, the evidence was outside the dossier and was not rejected; never expand a previously judged candidate to another role. Keep Terra, 24 provider calls, 48 documentary calls, 512 evidence items, 300000 ms tool time, 1.10 USD per-job cap, 50 USD lifetime stop, corpus and all other prompts frozen."
+  },
+  "provider": {
+    "mode": "OpenAI",
+    "model": "gpt-5.6-terra",
+    "endpoint": "https://api.openai.com/v1",
+    "minimumOrganizationTier": "Tier1",
+    "freshTierObservationMaximumAgeMinutes": 15,
+    "freeTierCallsBlocked": true,
+    "runPodAuthorized": false,
+    "reasoningEffort": "low",
+    "synthesisReasoningEffort": "low",
+    "synthesisPromptStyle": "agent",
+    "maximumProviderHttpAttempts": 3,
+    "semanticCriticEnabled": true,
+    "plannerMaxTokens": 512,
+    "writerMaxTokens": 4096,
+    "criticMaxTokens": 4096,
+    "maximumEvidencePromptCharacters": 64000,
+    "nativeResearchToolsEnabled": true,
+    "nativeResearchApiProtocol": "responses",
+    "nativeResearchTopology": "agent",
+    "nativeResearchMaximumHistoryCharacters": 32768,
+    "nativeResearchWorkspaceEnabled": true,
+    "nativeCandidateExplorerEnabled": true,
+    "stagedCandidateExplorerEnabled": true,
+    "candidateExplorerReservePerRole": 2,
+    "candidateExplorerMaxTokens": 4096,
+    "nativeResearchActiveProposalEnabled": true,
+    "candidateBindingFeedbackEnabled": true,
+    "maximumToolCalls": 48
+  },
+  "localRouter": {
+    "modelId": "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+    "runtimeSha256": "9555847A0403737C4A1B5BEAB050BD697AEC477B6675871A1F8D4737A25C1650",
+    "modelSha256": "66713CE35A58A82FE87642D4EC13425BF9B9A46800FFF5C49A665EF5701439DC",
+    "providerConfigPath": "config/llm-providers.dev.json",
+    "providerConfigSha256": "036D6C68D1780DC78E3FB594C27FF82CE86861F9BECD94E268AEADE6163D1E1D"
+  },
+  "bank": {
+    "path": "config/advanced-capacity-validation.v1.json",
+    "sha256": "8B2A5029E0A74D78FF7F26A8F1AACE2D005E84E729E9241AB94FE1BC5AEFFA3E",
+    "caseIds": [
+      "A755-ADV-01-meal-grid-5x4"
+    ],
+    "repetitions": 1,
+    "expectedRows": 1
+  },
+  "execution": {
+    "runner": "tools/test-advanced-product-path-openai.ps1",
+    "configuration": "Release",
+    "delayBetweenCasesSeconds": 0,
+    "maximumJobAttempts": 3,
+    "maximumJobRetryDelayMilliseconds": 600000,
+    "serverEnvironmentPath": "C:/Users/maxim/NextCloud/Maxime/Ecommerce/SAAIA/infra/.env.server-linux",
+    "referenceBackendUrl": "http://saaia-server:5122",
+    "backendPort": 5123,
+    "artifactRoot": "artifacts/reprise-pc-20260908/a894-terra-staged-candidate-pilot",
+    "artifactDirectoryRule": "Create a fresh directory containing the exact execution commit and UTC timestamp; never overwrite an earlier pilot."
+  },
+  "evidenceCapture": {
+    "developmentTracesRequired": true,
+    "durableJobAuditRequired": true,
+    "integrityVerificationRequired": true,
+    "stagedTraceTopologyRequired": true,
+    "containsPrivateCorpusMetadata": true,
+    "mustNotCommit": true
+  },
+  "budget": {
+    "authorizedLifetimeUsd": 50.0,
+    "softLimitUsd": 49.0,
+    "hardStopUsd": 50.0,
+    "maximumCostPerJobUsd": 1.1,
+    "maximumCallsPerJob": 24,
+    "maximumJobs": 1,
+    "maximumCampaignCostImpliedByPerJobCapsUsd": 1.1,
+    "expectedNormalProviderCalls": 22,
+    "maximumProviderCallsByEnvelope": 24,
+    "pricingUsdPerMillionTokens": {
+      "input": 2.0,
+      "cachedInput": 0.2,
+      "output": 12.0
+    },
+    "recordedCostAtRegistrationUsd": 48.6205123,
+    "authorizedRemainingAtRegistrationUsd": 1.3794877,
+    "fullJobReservationRequiredUsd": 1.1,
+    "additionalAuthorizedHeadroomRequiredUsd": 0.0,
+    "usageLedgerSha256AtRegistration": "63B8D289886185FDAA4250DDA15C46CCF628B71BD677094CAE9288A1FF321C80",
+    "authorizationBasis": "On 2026-09-29 the user explicitly authorized use of all purchased OpenAI credits and added the current 5 USD extension. The local lifetime hard stop remains 50 USD, with no automatic purchase. A893 consumed 0.65898420 USD in twenty-three calls. The persistent ledger now records 48.62051230 USD, leaving 1.37948770 USD, enough for exactly one complete 1.10 USD job reservation. No further OpenAI campaign may be registered unless this run costs at most 0.27948770 USD, which is not expected."
+  },
+  "acceptance": {
+    "pilot": [
+      "The one registered meal-grid case completes on the exact clean execution state with the sealed reference corpus unchanged.",
+      "The preflight seal proves Responses transport, agent topology, workspace, category-aware planning, staged Candidate Explorer, twenty-four total provider calls and forty-eight documentary tool calls under the unchanged 1.10 USD job cap.",
+      "The Planner uses the exact listed cuisine category for targeted structured-candidate queries and keeps at least one complementary unscoped query.",
+      "The deterministic Candidate Explorer dossier, or the dossier plus exact late Writer discoveries, supports twenty distinct coordinate assignments.",
+      "A late Writer discovery is admitted only when it follows a bounded dossier, its cited current non-navigation evidence was outside the dossier, the complete selected identity is an exact source line, all body evidence comes from one opaque source and no rejected candidate shares that body.",
+      "A candidate already judged for one or more roles cannot acquire another role through this late Writer path.",
+      "The final result is answered with twenty concrete, distinct and semantically suitable selections, one for every weekday and meal moment, each tied to current canonical body evidence and an exact source reference.",
+      "The durable job, tool events, research checkpoint, provider telemetry, final claims and source payload are preserved for mechanical and human semantic review.",
+      "A safe bounded gap remains a functional failure for this pilot."
+    ],
+    "progressionRule": "After A894, stop OpenAI spending unless at least the complete 1.10 USD reservation remains under the 50 USD lifetime stop. Regardless of outcome, produce the campaign report and continue with offline RunPod architecture and benchmark preparation; any RunPod spend or resource creation requires its own explicit budget authorization.",
+    "productPromotionRule": "Keep TESTE_NON_APPROUVE after this pilot. Promotion still requires two further consecutive staged successes, a new blind holdout, durable recovery and WinUI source-card validation."
+  },
+  "stopRules": [
+    "Do not execute while the persistent lifetime headroom is lower than the complete 1.10 USD per-job cap; reserving only the first call is forbidden.",
+    "Do not change the 50 USD hard stop or treat account balance as mission authorization without another explicit user-funded budget extension.",
+    "Do not execute without a paid-tier observation less than 15 minutes old.",
+    "Stop before the first model call if branch, clean-tree rule, minimum commit, bank hash, local router binary, model or provider configuration differs.",
+    "Stop before the first model call if the reference corpus cannot be sealed or has an active ingestion job; reject the pilot if the postflight seal differs.",
+    "Stop at the persistent lifetime, 1.10 USD per-job or twenty-four-provider-call or forty-eight-documentary-call guard; never purchase or reload credits automatically.",
+    "Do not run repetitions two or three after a failed or semantically unreviewed first pilot."
+  ],
+  "campaignKind": "targeted-causal"
+}
