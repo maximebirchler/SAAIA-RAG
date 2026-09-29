@@ -1,16 +1,16 @@
 {
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
-  "campaignId": "A892-TERRA-STAGED-CANDIDATE-PILOT-R9",
-  "parentCampaignId": "A891-TERRA-STAGED-CANDIDATE-PILOT-R8",
-  "status": "EXECUTED_FUNCTIONAL_FAIL_UNSCOPED_INITIAL_RETRIEVAL_VARIANCE",
-  "createdAtUtc": "2026-09-29T14:55:38.311745Z",
+  "campaignId": "A893-TERRA-STAGED-CANDIDATE-PILOT-R10",
+  "parentCampaignId": "A892-TERRA-STAGED-CANDIDATE-PILOT-R9",
+  "status": "PREREGISTERED_READY_WITH_CATEGORY_AWARE_PLANNER",
+  "createdAtUtc": "2026-09-29T15:05:20.3881339Z",
   "budgetExtensionRegisteredAtUtc": "2026-09-29T13:37:32.4351888Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
-    "preregisteredAgainstCommit": "98e71025e8ba764a8178665478bd8873e0f28fa4",
-    "minimumSemanticFixCommit": "98e71025e8ba764a8178665478bd8873e0f28fa4",
-    "executionRule": "Run one staged meal-grid pilot only from a clean descendant containing the validated-Writer fallback for a final Critic candidate-binding violation. A891 reached maximumAssignableCount 20, produced a complete candidate-bound Writer table, then failed because the Critic spent the last provider call substituting an unverified candidate. The fix retains the already validated Writer result only for a terminal Critic evidence, identity or body binding failure when no correction can complete. Keep Terra, 24 provider calls, 48 documentary calls, 512 evidence items, 300000 ms tool time, 1.10 USD per-job cap, 50 USD lifetime stop, corpus, prompts and acceptance rules frozen."
+    "preregisteredAgainstCommit": "9b90dfd3",
+    "minimumSemanticFixCommit": "9b90dfd3",
+    "executionRule": "Run one staged meal-grid pilot only from a clean descendant containing the category-aware Planner contract. A892 completed all twenty-four provider calls but retrieved only nine assignable recipe bodies after its unscoped initial queries mixed cuisine with irrelevant PostgreSQL and manual content. For structured named-item collections, allow an exact listed category only when its label clearly and unambiguously matches the requested information domain, and retain at least one complementary unscoped query. Keep Terra, 24 provider calls, 48 documentary calls, 512 evidence items, 300000 ms tool time, 1.10 USD per-job cap, 50 USD lifetime stop, corpus, all other prompts and acceptance rules frozen."
   },
   "provider": {
     "mode": "OpenAI",
@@ -67,7 +67,7 @@
     "serverEnvironmentPath": "C:/Users/maxim/NextCloud/Maxime/Ecommerce/SAAIA/infra/.env.server-linux",
     "referenceBackendUrl": "http://saaia-server:5122",
     "backendPort": 5123,
-    "artifactRoot": "artifacts/reprise-pc-20260908/a892-terra-staged-candidate-pilot",
+    "artifactRoot": "artifacts/reprise-pc-20260908/a893-terra-staged-candidate-pilot",
     "artifactDirectoryRule": "Create a fresh directory containing the exact execution commit and UTC timestamp; never overwrite an earlier pilot."
   },
   "evidenceCapture": {
@@ -93,27 +93,25 @@
       "cachedInput": 0.2,
       "output": 12.0
     },
-    "recordedCostAtRegistrationUsd": 47.2059131,
-    "authorizedRemainingAtRegistrationUsd": 2.7940869,
+    "recordedCostAtRegistrationUsd": 47.9615281,
+    "authorizedRemainingAtRegistrationUsd": 2.0384719,
     "fullJobReservationRequiredUsd": 1.1,
     "additionalAuthorizedHeadroomRequiredUsd": 0.0,
-    "usageLedgerSha256AtRegistration": "72FA8FE9EF8E905A6853660F39A520E95443E4E92DCF88692514B5E238C9F419",
-    "authorizationBasis": "On 2026-09-29 the user explicitly authorized use of all purchased OpenAI credits and added the current 5 USD extension. The local lifetime hard stop remains 50 USD, with no automatic purchase. A891 consumed 0.74073620 USD in twenty-four calls and reached a complete 20/20 Writer answer before the final Critic introduced an unverified substitution. The persistent ledger now records 47.20591310 USD, leaving 2.79408690 USD and satisfying the complete 1.10 USD A892 staged-job reservation."
+    "usageLedgerSha256AtRegistration": "2DF08846811BDEF1C0643692AE2942ED34D30BCE533F063E945C547439F579E7",
+    "authorizationBasis": "On 2026-09-29 the user explicitly authorized use of all purchased OpenAI credits and added the current 5 USD extension. The local lifetime hard stop remains 50 USD, with no automatic purchase. A892 consumed 0.75561500 USD in twenty-four calls and exposed unscoped initial retrieval as the dominant variance source. The persistent ledger now records 47.96152810 USD, leaving 2.03847190 USD and satisfying the complete 1.10 USD A893 staged-job reservation."
   },
   "acceptance": {
     "pilot": [
       "The one registered meal-grid case completes on the exact clean execution state with the sealed reference corpus unchanged.",
       "The preflight seal proves Responses transport, agent topology, workspace, 32768 history characters, staged Candidate Explorer enabled, 4096-token Judge/Navigator output budget, twenty-four total provider calls and forty-eight documentary tool calls under the unchanged 1.10 USD job cap.",
-      "Private provider traces contain at least one candidate-navigator-N role, one candidate-judge-N role, writer and critic; the staged evidence verifier rejects the run if one stage is absent.",
-      "The Candidate Judge receives only bounded substantive bodies, returns every supplied key and does not invent target roles for rejected candidates.",
-      "Every Candidate Judge bodyEvidenceId must belong to that exact Judge prompt evidence array; historical retained IDs absent from the window must not be exposed in the bounded candidate batch.",
-      "The deterministic solver reports maximumAssignableCount 20 and proposedAssignments 20 before the Writer; per-role counts alone are insufficient.",
-      "If the final Critic violates deterministic candidate binding after the Writer has already passed the same guards and no correction call remains, the valid Writer result is retained and the invalid Critic output remains in private traces for review.",
+      "The Planner uses the exact listed cuisine category for at least one structured candidate query when it is present in availableCategories, while keeping at least one complementary unscoped query.",
+      "Private provider traces contain planner, at least one candidate-navigator-N role, at least one candidate-judge-N role, writer and critic; the staged evidence verifier rejects the run if one stage is absent.",
+      "The deterministic solver reports maximumAssignableCount 20 and proposedAssignments 20 before the final answer; per-role counts alone are insufficient.",
       "The final result is answered with twenty concrete, distinct and semantically suitable selections, one for every weekday and meal moment, each tied to its assigned canonical body EvidenceId and exact source reference.",
       "The durable job, tool events, research checkpoint, provider telemetry, final claims and source payload are preserved for mechanical and human semantic review.",
       "A precise bounded gap is safe behavior but fails this functional pilot when the historical corpus contains the missing bodies."
     ],
-    "progressionRule": "A semantically reviewed A892 success freezes this configuration and permits up to two further consecutive repetitions while complete 1.10 USD reservations remain under the 50 USD lifetime stop. Any failure returns to causal trace review.",
+    "progressionRule": "A semantically reviewed A893 success freezes this configuration and permits one exact repetition only while a complete 1.10 USD reservation remains under the 50 USD lifetime stop. Any failure returns to causal trace review and ends the OpenAI campaign if a full reservation is unavailable.",
     "productPromotionRule": "Keep TESTE_NON_APPROUVE after this pilot. Promotion still requires two further consecutive staged successes, a new blind holdout, durable recovery and WinUI source-card validation."
   },
   "stopRules": [
@@ -125,43 +123,5 @@
     "Stop at the persistent lifetime, 1.10 USD per-job or twenty-four-provider-call or forty-eight-documentary-call guard; never purchase or reload credits automatically.",
     "Do not run repetitions two or three after a failed or semantically unreviewed first pilot."
   ],
-  "campaignKind": "targeted-causal",
-  "executionResult": {
-    "executedAtUtc": "2026-09-29T14:56:48Z",
-    "repositoryCommit": "199e1cca8aa7869b52cd098f30e0bf693bc5b25c",
-    "artifactPath": "artifacts/reprise-pc-20260908/a892-terra-staged-candidate-pilot-20260929-165610",
-    "jobId": "066c3990-171b-4be1-979f-2b585ebae6d0",
-    "outcome": "insufficient_documentation",
-    "mechanicalVerdict": "PASS_MECHANICAL_REQUIRES_SEMANTIC_REVIEW",
-    "semanticVerdict": "FAIL_FUNCTIONAL_PILOT_RETRIEVAL_VARIANCE",
-    "providerCalls": 24,
-    "inputTokens": 253869,
-    "outputTokens": 11612,
-    "cachedInputTokens": 7985,
-    "costUsd": 0.755615,
-    "recordedCostAfterUsd": 47.9615281,
-    "candidateInventory": {
-      "total": 62,
-      "bodyVerifiedTotal": 9,
-      "bodyVerifiedAssigned": 9,
-      "navigationOnly": 1,
-      "rejected": 52,
-      "maximumAssignableCountBeforeWriter": 9,
-      "requiredDistinctCount": 20,
-      "missingByRoleBeforeWriter": {
-        "Petit-déjeuner": 4,
-        "Collation": 4,
-        "Déjeuner": 1,
-        "Dîner": 2
-      }
-    },
-    "validatedObservations": [
-      "The run completed all twenty-four provider calls without a protocol error and returned a safe, evidence-bound insufficiency instead of fabricating the eleven missing selections.",
-      "Unlike A891, the initial planner left every query category empty; the retrieval mixed recipe material with irrelevant PostgreSQL and manual content before a later Navigator began using the exact cuisine category.",
-      "The forty-eight-documentary-call envelope was not exhausted. The active limitation was provider-turn efficiency after low-precision initial retrieval."
-    ],
-    "cause": "Run-to-run variance in the unscoped initial retrieval determined whether the candidate pipeline received enough recipe bodies. The Planner prompt prohibited inferring an exact category from the requested subject even when availableCategories exposed an unambiguous cuisine bucket. A892 therefore spent early evidence and provider turns on irrelevant corpus regions; category-aware recovery began too late to reach twenty assignable recipes.",
-    "correctiveCommit": "9b90dfd3",
-    "productStatusAfterCampaign": "TESTE_NON_APPROUVE"
-  }
+  "campaignKind": "targeted-causal"
 }
