@@ -611,6 +611,98 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         return original != JsonSerializer.Serialize(context.CandidateInventory, JsonOptions);
     }
 
+    private static bool RememberLateWriterCandidatesAfterBoundedDossier(
+        AdvancedAnalysisProviderRequest request,
+        AdvancedAnalysisProviderResult result,
+        IReadOnlyList<PromptEvidenceItem> observations,
+        SynthesisResearchContext context)
+    {
+        if (!CandidateInventoryEnabled(request)
+            || result.Outcome != "answered"
+            || context.CandidateExplorerDossier is not { Outcome: "bounded_gap" } dossier)
+            return false;
+
+        var coordinates = BuildStructuredClaimCoordinates(request.Handoff.Load)
+            .ToDictionary(item => item.ClaimId, item => item.ColumnLabel, StringComparer.Ordinal);
+        var dossierEvidence = dossier.BodyEvidenceIds.ToHashSet(StringComparer.Ordinal);
+        var original = JsonSerializer.Serialize(context.CandidateInventory, JsonOptions);
+        var inventory = context.CandidateInventory.ToList();
+        foreach (var claim in result.Claims.Where(claim =>
+                     !string.IsNullOrWhiteSpace(claim.SelectedItem)))
+        {
+            if (!coordinates.TryGetValue(claim.ClaimId, out var role))
+                continue;
+            var normalizedTitle = NormalizeClaimText(claim.SelectedItem!);
+            var bodies = observations.Where(observation =>
+                    observation.EvidenceId is not null
+                    && claim.EvidenceIds.Contains(observation.EvidenceId, StringComparer.Ordinal)
+                    && !dossierEvidence.Contains(observation.EvidenceId)
+                    && observation.ContentRole != RetrievalContentClassifier.NavigationRole
+                    && (observation.CandidateTitleIsSourceExact
+                        && NormalizeClaimText(observation.CandidateTitle ?? string.Empty) == normalizedTitle
+                        || EvidenceContainsExactIdentityLine(
+                            normalizedTitle,
+                            observation.Content)))
+                .ToArray();
+            var sourceKeys = bodies.Select(item => item.SourceKey)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (normalizedTitle.Length == 0 || sourceKeys.Length != 1)
+                continue;
+            var bodyIds = bodies.Select(item => item.EvidenceId!)
+                .Distinct(StringComparer.Ordinal)
+                .Take(4)
+                .ToArray();
+            if (bodyIds.Length == 0
+                || inventory.Any(candidate => candidate.Status == "rejected"
+                    && candidate.BodyEvidenceIds.Intersect(
+                        bodyIds,
+                        StringComparer.Ordinal).Any()))
+                continue;
+
+            var matches = inventory.Select((item, index) => new { Item = item, Index = index })
+                .Where(candidate =>
+                    string.Equals(candidate.Item.SourceKey, sourceKeys[0], StringComparison.Ordinal)
+                    && NormalizeClaimText(candidate.Item.ExactTitle) == normalizedTitle)
+                .ToArray();
+            if (matches.Length == 0)
+            {
+                if (inventory.Count >= 64)
+                    continue;
+                inventory.Add(new CandidateInventoryItem(
+                    BuildCandidateInventoryKey(sourceKeys[0], claim.SelectedItem!),
+                    claim.SelectedItem!,
+                    sourceKeys[0],
+                    [role],
+                    [role],
+                    "selected",
+                    "Retained from the final Writer after bounded dossier research, with an exact identity line and current substantive body evidence.",
+                    [],
+                    bodyIds));
+                continue;
+            }
+            if (matches.Length != 1
+                || matches[0].Item.Status == "rejected"
+                || matches[0].Item.TargetRoles.Count > 0)
+                continue;
+
+            var match = matches[0];
+            inventory[match.Index] = match.Item with
+            {
+                Status = "selected",
+                TargetRoles = [role],
+                SelectedRoles = [role],
+                BodyEvidenceIds = match.Item.BodyEvidenceIds.Concat(bodyIds)
+                    .Distinct(StringComparer.Ordinal).Take(4).ToArray(),
+                Note = "Retained from the final Writer after bounded dossier research, with an exact identity line and current substantive body evidence."
+            };
+        }
+        context.CandidateInventory = inventory
+            .OrderBy(item => item.Key, StringComparer.Ordinal)
+            .ToArray();
+        return original != JsonSerializer.Serialize(context.CandidateInventory, JsonOptions);
+    }
+
     private static async Task RestoreCandidateInventoryCheckpointAsync(
         AdvancedAnalysisProviderRequest request,
         SynthesisResearchContext context,

@@ -338,6 +338,30 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     return new SynthesisCompletion(completion, evidence, observations);
                 if (_options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
                     RememberActiveProposalEvidence(completion.Content, evidence, observations, request, context);
+                if (string.Equals(phase, "writer", StringComparison.Ordinal)
+                    && context.CandidateExplorerDossier is not null)
+                {
+                    try
+                    {
+                        var proposal = ParseResult(completion.Content, evidence, request);
+                        if (RememberLateWriterCandidatesAfterBoundedDossier(
+                                request,
+                                proposal,
+                                observations,
+                                context))
+                        {
+                            await SaveCandidateInventoryCheckpointAsync(
+                                    context,
+                                    cancellationToken)
+                                .ConfigureAwait(false);
+                        }
+                    }
+                    catch (AdvancedAnalysisProviderException)
+                    {
+                        // The normal parser and binding correction path below owns
+                        // malformed or unsupported terminal proposals.
+                    }
+                }
                 var corrections = FindCandidateBindingCorrections(
                     completion.Content,
                     evidence,

@@ -303,6 +303,85 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Bounded_candidate_dossier_accepts_a_new_exact_body_found_by_the_final_writer()
+    {
+        var documentId = Guid.NewGuid().ToString("D");
+        var revisionId = Guid.NewGuid().ToString("D");
+        var roles = new[] { "petit-déjeuner", "déjeuner", "collation", "souper" };
+        var initialEvidence = Enumerable.Range(1, 3).Select(index => BuildEvidence(
+                $"E{index}",
+                $"R{index}\nINGRÉDIENTS\nÉlément {index}. PRÉPARATION\nProcédure {index}.",
+                docId: documentId,
+                revisionId: revisionId,
+                exactTitle: $"R{index}"))
+            .ToArray();
+        var lateEvidence = BuildEvidence(
+            "E4",
+            "INGRÉDIENTS\nR4\nÉlément 4. PRÉPARATION\nProcédure 4.",
+            docId: documentId,
+            revisionId: revisionId);
+        static string AutomaticKey(int index)
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes(
+                $"internal-source-1\nr{index}");
+            var hash = Convert.ToHexString(
+                    System.Security.Cryptography.SHA256.HashData(bytes))
+                .ToLowerInvariant()[..16];
+            return "candidate-" + hash;
+        }
+        var judgeUpdate = JsonSerializer.Serialize(new
+        {
+            items = Enumerable.Range(1, 3).Select(index => new
+            {
+                key = AutomaticKey(index),
+                exactTitle = $"R{index}",
+                sourceKey = "internal-source-1",
+                targetRoles = new[] { roles[index - 1] },
+                selectedRoles = Array.Empty<string>(),
+                status = "body_verified",
+                locatorEvidenceIds = Array.Empty<string>(),
+                bodyEvidenceIds = new[] { $"E{index}" }
+            }).ToArray()
+        });
+        const string finalSearch =
+            """{"outcome":"research_required","queries":[{"query":"R4","sourceKey":"internal-source-1","category":"","documentHint":"","topK":20}]}""";
+        using var factory = new QueuedHttpClientFactory(
+            Completion(CandidatePlanner),
+            Completion(judgeUpdate),
+            Completion(finalSearch),
+            Completion(CandidateAnswered(4)),
+            Completion(CandidateAnswered(4)));
+        var options = WorkspaceOptions();
+        options.NativeCandidateExplorerEnabled = true;
+        options.StagedCandidateExplorerEnabled = true;
+        options.NativeResearchMaximumHistoryCharacters = 32_768;
+        options.CandidateBindingFeedbackEnabled = true;
+        options.SemanticCriticEnabled = true;
+        options.ExternalMaximumCallsPerJob = 5;
+        var gateway = new SequencedToolGateway(initialEvidence, [lateEvidence]);
+
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(
+                factory,
+                options,
+                null)
+            .ExecuteAsync(
+                BuildRequest(
+                    answerUnitCount: 4,
+                    atomicEvidenceMode: "named_item",
+                    selectionPolicy: "distinct_structured_layout"),
+                gateway,
+                CancellationToken.None);
+
+        Assert.Equal("answered", result.Outcome);
+        Assert.Equal("R4", result.Claims[3].SelectedItem);
+        Assert.Equal(["E4"], result.Claims[3].EvidenceIds);
+        Assert.Equal(5, factory.Requests.Count);
+        Assert.DoesNotContain(
+            "candidateSupportCorrections",
+            WorkspaceUser(factory.Requests[4].Body).ToString());
+    }
+
+    [Fact]
     public async Task Candidate_explorer_allows_writer_to_refine_a_subordinate_card_title_from_the_same_qualified_body()
     {
         var documentId = Guid.NewGuid().ToString("D");
