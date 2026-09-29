@@ -1,8 +1,9 @@
 {
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
   "campaignId": "A882-TERRA-STAGED-CANDIDATE-PILOT-R1",
-  "status": "PREREGISTERED_BLOCKED_INSUFFICIENT_FULL_JOB_RESERVATION",
+  "status": "PREREGISTERED_READY_PENDING_FRESH_TIER_OBSERVATION",
   "createdAtUtc": "2026-09-28T18:43:07.5157244Z",
+  "budgetExtensionRegisteredAtUtc": "2026-09-29T13:37:32.4351888Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
@@ -76,9 +77,9 @@
     "mustNotCommit": true
   },
   "budget": {
-    "authorizedLifetimeUsd": 45.0,
-    "softLimitUsd": 44.0,
-    "hardStopUsd": 45.0,
+    "authorizedLifetimeUsd": 50.0,
+    "softLimitUsd": 49.0,
+    "hardStopUsd": 50.0,
     "maximumCostPerJobUsd": 1.1,
     "maximumCallsPerJob": 12,
     "maximumJobs": 1,
@@ -91,11 +92,11 @@
       "output": 12.0
     },
     "recordedCostAtRegistrationUsd": 44.4253153,
-    "authorizedRemainingAtRegistrationUsd": 0.5746847,
+    "authorizedRemainingAtRegistrationUsd": 5.5746847,
     "fullJobReservationRequiredUsd": 1.1,
-    "additionalAuthorizedHeadroomRequiredUsd": 0.5253153,
+    "additionalAuthorizedHeadroomRequiredUsd": 0.0,
     "usageLedgerSha256AtRegistration": "26B4ADF4FED88975AAEBA523D7E9AA57CB759B87E5025E07002F5CAAB139CEFE",
-    "authorizationBasis": "The user authorized all previously purchased OpenAI credits, with a local lifetime hard stop of 45 USD and no automatic purchase. A877 and A878 cost 0.68198040 and 0.83885830 USD. A staged run must reserve its complete 1.10 USD job envelope before the first call so the Navigator, Judge, Writer and Critic cannot be cut off after a partial spend. The current 0.57468470 USD headroom is insufficient, so this profile is preregistered but execution remains blocked."
+    "authorizationBasis": "On 2026-09-29 the user explicitly extended the previously authorized OpenAI campaign budget by 5 USD. The local lifetime hard stop is therefore 50 USD, with no automatic purchase. The persistent ledger records 44.42531530 USD before this run, leaving 5.57468470 USD and satisfying the complete 1.10 USD staged-job reservation. Semantic, retrieval, model and acceptance settings remain unchanged."
   },
   "acceptance": {
     "pilot": [
@@ -113,7 +114,7 @@
   },
   "stopRules": [
     "Do not execute while the persistent lifetime headroom is lower than the complete 1.10 USD per-job cap; reserving only the first call is forbidden.",
-    "Do not change the 45 USD hard stop or treat account balance as mission authorization without an explicit user-funded budget extension.",
+    "Do not change the 50 USD hard stop or treat account balance as mission authorization without another explicit user-funded budget extension.",
     "Do not execute without a paid-tier observation less than 15 minutes old.",
     "Stop before the first model call if branch, clean-tree rule, minimum commit, bank hash, local router binary, model or provider configuration differs.",
     "Stop before the first model call if the reference corpus cannot be sealed or has an active ingestion job; reject the pilot if the postflight seal differs.",
