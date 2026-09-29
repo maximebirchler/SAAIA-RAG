@@ -2132,6 +2132,12 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             StringComparison.Ordinal);
         Assert.Contains("Cuisine", factory.Requests[0].Body,
             StringComparison.Ordinal);
+        Assert.Contains("exact listed category", factory.Requests[0].Body,
+            StringComparison.Ordinal);
+        Assert.Contains("clearly and unambiguously matches", factory.Requests[0].Body,
+            StringComparison.Ordinal);
+        Assert.Contains("complementary unscoped", factory.Requests[0].Body,
+            StringComparison.Ordinal);
     }
 
     [Fact]

@@ -110,7 +110,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            Categories are filing buckets, not guarantees of a document's subject.
            For a direct fact or document identity, leave category empty unless the
            user explicitly constrained it or observations establish its exact filing bucket.
-           Do not infer a category from the subject alone. Use optional documentHint
+           For a structured or bounded collection of named items, you may select an
+           exact listed category when its label clearly and unambiguously matches the
+           requested information domain. Keep at least one complementary unscoped
+           query unless the user explicitly constrained every eligible source. Never
+           invent a category or infer an ambiguous category from the subject. Use optional documentHint
            for an identifying filename fragment or formal document identifier;
            the backend resolves it only against indexed tenant documents and
            applies a file scope only for one strong match. Never invent a filename.
