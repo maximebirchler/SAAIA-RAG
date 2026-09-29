@@ -2,7 +2,7 @@
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
   "campaignId": "A894-TERRA-STAGED-CANDIDATE-PILOT-R11",
   "parentCampaignId": "A893-TERRA-STAGED-CANDIDATE-PILOT-R10",
-  "status": "PREREGISTERED_LAST_OPENAI_PILOT_WITH_LATE_WRITER_BINDING",
+  "status": "EXECUTED_PROTOCOL_FAIL_DUPLICATE_REFINED_IDENTITY_NOT_CONSOLIDATED",
   "createdAtUtc": "2026-09-29T15:19:17.0940692Z",
   "budgetExtensionRegisteredAtUtc": "2026-09-29T13:37:32.4351888Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
@@ -124,5 +124,45 @@
     "Stop at the persistent lifetime, 1.10 USD per-job or twenty-four-provider-call or forty-eight-documentary-call guard; never purchase or reload credits automatically.",
     "Do not run repetitions two or three after a failed or semantically unreviewed first pilot."
   ],
-  "campaignKind": "targeted-causal"
+  "campaignKind": "targeted-causal",
+  "executionResult": {
+    "executedAtUtc": "2026-09-29T15:20:34Z",
+    "repositoryCommit": "fba5f10a",
+    "artifactPath": "artifacts/reprise-pc-20260908/a894-terra-staged-candidate-pilot-20260929-171945",
+    "jobId": "c91e557e-69fb-468a-95a3-42558f3fa607",
+    "outcome": "failed",
+    "lastErrorCode": "advanced_candidate_judge_protocol_invalid",
+    "mechanicalVerdict": "FAIL_CANDIDATE_IDENTITY_CONVERGENCE",
+    "semanticVerdict": "NO_FINAL_WRITER_RESULT",
+    "providerCalls": 18,
+    "documentaryToolCalls": 40,
+    "inputTokens": 123507,
+    "outputTokens": 9751,
+    "cachedInputTokens": 0,
+    "costUsd": 0.4257525,
+    "recordedCostAfterUsd": 49.0462648,
+    "authorizedRemainingAfterUsd": 0.9537352,
+    "plannerValidation": {
+      "exactCuisineQueries": 7,
+      "complementaryUnscopedQueries": 1,
+      "categoryContractSatisfied": true
+    },
+    "candidateInventoryAtFailure": {
+      "total": 56,
+      "bodyVerified": 15,
+      "navigationOnly": 2,
+      "rejected": 39
+    },
+    "validatedObservations": [
+      "The category-aware Planner again used seven exact cuisine queries and one complementary unscoped query.",
+      "The run completed eighteen successful provider calls and forty documentary operations without transport or budget failure.",
+      "Candidate Judge round nine refined a subordinate SEMMELKNÖDEL title to the complete exact line SEMMELKNÖDEL AUX LÉGUMES while another card from the same opaque source already used that complete identity.",
+      "The generic inventory parser rejected the two different candidate keys converging on one source identity before deterministic inventory merge, so the Writer was never called."
+    ],
+    "cause": "Two separately retrieved cards from the same source represented the same recipe. The Candidate Judge correctly refined the subordinate card title to the full exact identity, but ParseCandidateInventoryUpdates prohibited duplicate normalized identities inside the Judge batch before MergeCandidateInventory could consolidate them. This valid documentary deduplication case was misclassified as a Judge protocol failure.",
+    "correctiveCommit": "b5ed7dfd",
+    "productStatusAfterCampaign": "TESTE_NON_APPROUVE",
+    "openAiCampaignClosed": true,
+    "nextFullJobReservationSatisfied": false
+  }
 }
