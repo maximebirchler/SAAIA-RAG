@@ -44,6 +44,24 @@ public sealed partial class AdvancedAnalysisWorkerTests
                 content));
     }
 
+    [Theory]
+    [InlineData(
+        "Spaghetti aux fruits de mer\nPour 4 personnes\nFaire revenir les oignons.",
+        "Spaghetti aux fruits de mer")]
+    [InlineData(
+        "INGRÉDIENTS\n500 g de pommes de terre\nMélanger.",
+        "INGRÉDIENTS")]
+    [InlineData("Q", null)]
+    [InlineData("Titre sans corps", null)]
+    public void Canonical_page_read_exposes_its_exact_leading_line_for_semantic_judgment(
+        string content,
+        string? expected)
+    {
+        Assert.Equal(
+            expected,
+            AdvancedAnalysisToolGateway.ResolveLeadingCanonicalReadTitle(content));
+    }
+
     [Fact]
     public async Task Canonical_find_locates_literal_text_paginates_and_excludes_other_documents_and_tenants()
     {

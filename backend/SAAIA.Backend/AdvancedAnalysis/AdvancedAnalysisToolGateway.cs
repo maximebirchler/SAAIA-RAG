@@ -480,13 +480,18 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                     revalidated.ErrorCode ?? "retrieval_evidence_revalidation_failed");
             }
 
-            var resolvedEvidence = request.Operation == "find_source_text"
-                ? revalidated.Evidence
+            var resolvedEvidence = request.Operation switch
+            {
+                "find_source_text" => revalidated.Evidence
                     .Select(item => PromoteLeadingCanonicalFindTitle(
                         request.Query,
                         item))
-                    .ToArray()
-                : revalidated.Evidence;
+                    .ToArray(),
+                "read_source" => revalidated.Evidence
+                    .Select(PromoteLeadingCanonicalReadTitle)
+                    .ToArray(),
+                _ => revalidated.Evidence
+            };
             var observationEvidence = new List<AdvancedAnalysisResolvedEvidence>(
                 resolvedEvidence.Count);
             var newEvidence = resolvedEvidence
@@ -517,7 +522,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                 if (string.IsNullOrWhiteSpace(canonical.ExactTitle)
                     && !string.IsNullOrWhiteSpace(item.ExactTitle))
                 {
-                    // A literal canonical find can revisit a chunk that broad
+                    // A canonical find or page read can revisit a chunk that broad
                     // retrieval already stored. Preserve the newly proved leading
                     // title on the canonical in-memory item so the staged Judge
                     // receives the body as a named candidate on its next pass.
@@ -876,6 +881,43 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
         if (!string.IsNullOrWhiteSpace(evidence.ExactTitle))
             return evidence;
         var title = ResolveLeadingCanonicalFindTitle(query, evidence.Content);
+        return title is null ? evidence : evidence with { ExactTitle = title };
+    }
+
+    internal static string? ResolveLeadingCanonicalReadTitle(string content)
+    {
+        var lines = (content ?? string.Empty).Split(
+            ['\r', '\n'],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (lines.Length < 2)
+            return null;
+        var title = CollapseCanonicalWhitespace(lines[0]);
+        if (title.Length is < 2 or > 240
+            || !title.Any(char.IsLetterOrDigit)
+            || !lines.Skip(1).Any(line =>
+                CollapseCanonicalWhitespace(line).Length > 0))
+        {
+            return null;
+        }
+        return title;
+    }
+
+    private static AdvancedAnalysisResolvedEvidence PromoteLeadingCanonicalReadTitle(
+        AdvancedAnalysisResolvedEvidence evidence)
+    {
+        if (!string.IsNullOrWhiteSpace(evidence.ExactTitle))
+            return evidence;
+        var signal = RetrievalContentClassifier.AnalyzeEvidenceContent(
+            evidence.Content,
+            evidence.ExactTitle);
+        if (string.Equals(
+                signal.ContentRole,
+                RetrievalContentClassifier.NavigationRole,
+                StringComparison.Ordinal))
+        {
+            return evidence;
+        }
+        var title = ResolveLeadingCanonicalReadTitle(evidence.Content);
         return title is null ? evidence : evidence with { ExactTitle = title };
     }
 
