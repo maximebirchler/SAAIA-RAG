@@ -2,7 +2,7 @@
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
   "campaignId": "A895-TERRA-STAGED-CANDIDATE-PILOT-R12",
   "parentCampaignId": "A894-TERRA-STAGED-CANDIDATE-PILOT-R11",
-  "status": "PREREGISTERED_DUPLICATE_CONVERGENCE_REPETITION",
+  "status": "EXECUTED_FUNCTIONAL_FAIL_BOUNDED_ROLE_COVERAGE",
   "createdAtUtc": "2026-09-29T15:30:35.9111355Z",
   "budgetExtensionRegisteredAtUtc": "2026-09-29T15:30:35.9111355Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
@@ -124,5 +124,43 @@
     "Stop at the persistent lifetime, 1.10 USD per-job or twenty-four-provider-call or forty-eight-documentary-call guard; never purchase or reload credits automatically.",
     "Do not run another repetition before mechanical and semantic review of this pilot."
   ],
-  "campaignKind": "targeted-causal"
+  "campaignKind": "targeted-causal",
+  "executionResult": {
+    "executedAtUtc": "2026-09-29T15:32:15Z",
+    "repositoryCommit": "7c8767d0",
+    "artifactPath": "artifacts/reprise-pc-20260908/a895-terra-staged-candidate-pilot-20260929-173137",
+    "jobId": "ef06f79a-56e0-42d2-931c-087026c3565c",
+    "outcome": "insufficient_documentation",
+    "lastErrorCode": null,
+    "mechanicalVerdict": "PASS_MECHANICAL_REQUIRES_SEMANTIC_REVIEW",
+    "semanticVerdict": "FAIL_INCOMPLETE_MEAL_GRID_SAFE_BOUNDED_INSUFFICIENCY",
+    "providerCalls": 24,
+    "documentaryToolCalls": 39,
+    "inputTokens": 237360,
+    "outputTokens": 9899,
+    "cachedInputTokens": 1418,
+    "costUsd": 0.7088906,
+    "recordedCostAfterUsd": 49.7551554,
+    "authorizedRemainingAfterUsd": 5.2448446,
+    "candidateInventoryAtWriter": {
+      "total": 54,
+      "bodyVerified": 17,
+      "rejected": 37,
+      "maximumAssignableCount": 15,
+      "missingByRole": {
+        "Petit-déjeuner": 3,
+        "Collation": 2
+      }
+    },
+    "validatedObservations": [
+      "The A894 same-source identity convergence failure did not recur; Writer, Critic and one Critic research follow-up all completed.",
+      "The durable job succeeded safely with an exact bounded insufficiency and no unsupported claim.",
+      "The staged dossier contained seventeen body-verified recipes but only fifteen distinct coordinate assignments because the breakfast and snack candidates overlapped.",
+      "The job exhausted all twenty-four provider calls while nine of forty-eight documentary operations remained, so provider-turn capacity, not the documentary gateway, stopped further Judge/Navigator cycles."
+    ],
+    "cause": "Retrieval variance left a measured five-coordinate role gap after the staged Explorer. The call envelope reserved Writer and Critic before another Navigator/Judge cycle could run; provider calls reached 24/24 while documentary operations stopped at 39/48.",
+    "nextChange": "Increase only the provider-call envelope from 24 to 32 and documentary operations from 48 to 64 under the unchanged 1.10 USD cost cap, leaving the corpus, prompts, evidence rules and model frozen.",
+    "productStatusAfterCampaign": "TESTE_NON_APPROUVE",
+    "nextFullJobReservationSatisfied": true
+  }
 }
