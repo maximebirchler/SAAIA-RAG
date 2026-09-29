@@ -1,16 +1,16 @@
 {
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
-  "campaignId": "A891-TERRA-STAGED-CANDIDATE-PILOT-R8",
-  "parentCampaignId": "A890-TERRA-STAGED-CANDIDATE-PILOT-R7",
-  "status": "EXECUTED_PROTOCOL_FAIL_FINAL_CRITIC_UNVERIFIED_SUBSTITUTION",
-  "createdAtUtc": "2026-09-29T14:45:18.367382Z",
+  "campaignId": "A892-TERRA-STAGED-CANDIDATE-PILOT-R9",
+  "parentCampaignId": "A891-TERRA-STAGED-CANDIDATE-PILOT-R8",
+  "status": "PREREGISTERED_READY_WITH_VALIDATED_WRITER_CRITIC_FALLBACK",
+  "createdAtUtc": "2026-09-29T14:55:38.311745Z",
   "budgetExtensionRegisteredAtUtc": "2026-09-29T13:37:32.4351888Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
-    "preregisteredAgainstCommit": "a2b3c802b0111b7a16607f5078f502626bf65bd3",
-    "minimumSemanticFixCommit": "a2b3c802b0111b7a16607f5078f502626bf65bd3",
-    "executionRule": "Run one staged meal-grid pilot only from a clean descendant containing the provider-neutral configurable documentary tool budget. A890 completed the A889 evidence-scope fix, nine Judge rounds and six Navigator rounds, then stopped at exactly 32/32 documentary operations with six provider calls, 83 evidence slots and 287826 tool milliseconds still available. Expand only MaximumToolCalls from 32 to 48; keep the 24 provider-call envelope, 512 evidence-item cap, 300000 ms tool-time cap, 1.10 USD per-job cap, 50 USD lifetime stop, bank, corpus, model, prompts, token limits and acceptance rules frozen."
+    "preregisteredAgainstCommit": "98e71025e8ba764a8178665478bd8873e0f28fa4",
+    "minimumSemanticFixCommit": "98e71025e8ba764a8178665478bd8873e0f28fa4",
+    "executionRule": "Run one staged meal-grid pilot only from a clean descendant containing the validated-Writer fallback for a final Critic candidate-binding violation. A891 reached maximumAssignableCount 20, produced a complete candidate-bound Writer table, then failed because the Critic spent the last provider call substituting an unverified candidate. The fix retains the already validated Writer result only for a terminal Critic evidence, identity or body binding failure when no correction can complete. Keep Terra, 24 provider calls, 48 documentary calls, 512 evidence items, 300000 ms tool time, 1.10 USD per-job cap, 50 USD lifetime stop, corpus, prompts and acceptance rules frozen."
   },
   "provider": {
     "mode": "OpenAI",
@@ -67,7 +67,7 @@
     "serverEnvironmentPath": "C:/Users/maxim/NextCloud/Maxime/Ecommerce/SAAIA/infra/.env.server-linux",
     "referenceBackendUrl": "http://saaia-server:5122",
     "backendPort": 5123,
-    "artifactRoot": "artifacts/reprise-pc-20260908/a891-terra-staged-candidate-pilot",
+    "artifactRoot": "artifacts/reprise-pc-20260908/a892-terra-staged-candidate-pilot",
     "artifactDirectoryRule": "Create a fresh directory containing the exact execution commit and UTC timestamp; never overwrite an earlier pilot."
   },
   "evidenceCapture": {
@@ -93,12 +93,12 @@
       "cachedInput": 0.2,
       "output": 12.0
     },
-    "recordedCostAtRegistrationUsd": 46.4651769,
-    "authorizedRemainingAtRegistrationUsd": 3.5348231,
+    "recordedCostAtRegistrationUsd": 47.2059131,
+    "authorizedRemainingAtRegistrationUsd": 2.7940869,
     "fullJobReservationRequiredUsd": 1.1,
     "additionalAuthorizedHeadroomRequiredUsd": 0.0,
-    "usageLedgerSha256AtRegistration": "C8A8D47594862D9F5EB6D481D6C0DB48B2BC3C139F3F19674F264607E17F9105",
-    "authorizationBasis": "On 2026-09-29 the user explicitly authorized use of all purchased OpenAI credits and added the current 5 USD extension. The local lifetime hard stop remains 50 USD, with no automatic purchase. A890 consumed 0.54407570 USD in nineteen calls and failed functionally only after exhausting 32/32 documentary operations while six provider calls and other resource headroom remained. The persistent ledger now records 46.46517690 USD, leaving 3.53482310 USD and satisfying the complete 1.10 USD A891 staged-job reservation."
+    "usageLedgerSha256AtRegistration": "72FA8FE9EF8E905A6853660F39A520E95443E4E92DCF88692514B5E238C9F419",
+    "authorizationBasis": "On 2026-09-29 the user explicitly authorized use of all purchased OpenAI credits and added the current 5 USD extension. The local lifetime hard stop remains 50 USD, with no automatic purchase. A891 consumed 0.74073620 USD in twenty-four calls and reached a complete 20/20 Writer answer before the final Critic introduced an unverified substitution. The persistent ledger now records 47.20591310 USD, leaving 2.79408690 USD and satisfying the complete 1.10 USD A892 staged-job reservation."
   },
   "acceptance": {
     "pilot": [
@@ -108,11 +108,12 @@
       "The Candidate Judge receives only bounded substantive bodies, returns every supplied key and does not invent target roles for rejected candidates.",
       "Every Candidate Judge bodyEvidenceId must belong to that exact Judge prompt evidence array; historical retained IDs absent from the window must not be exposed in the bounded candidate batch.",
       "The deterministic solver reports maximumAssignableCount 20 and proposedAssignments 20 before the Writer; per-role counts alone are insufficient.",
+      "If the final Critic violates deterministic candidate binding after the Writer has already passed the same guards and no correction call remains, the valid Writer result is retained and the invalid Critic output remains in private traces for review.",
       "The final result is answered with twenty concrete, distinct and semantically suitable selections, one for every weekday and meal moment, each tied to its assigned canonical body EvidenceId and exact source reference.",
       "The durable job, tool events, research checkpoint, provider telemetry, final claims and source payload are preserved for mechanical and human semantic review.",
       "A precise bounded gap is safe behavior but fails this functional pilot when the historical corpus contains the missing bodies."
     ],
-    "progressionRule": "Only a successful and semantically reviewed A891 pilot permits registration of repetitions two and three on the exact same frozen semantic configuration. A remaining measured gap returns to causal trace review; no further resource increase is justified without showing which independent bound stopped useful retrieval.",
+    "progressionRule": "A semantically reviewed A892 success freezes this configuration and permits up to two further consecutive repetitions while complete 1.10 USD reservations remain under the 50 USD lifetime stop. Any failure returns to causal trace review.",
     "productPromotionRule": "Keep TESTE_NON_APPROUVE after this pilot. Promotion still requires two further consecutive staged successes, a new blind holdout, durable recovery and WinUI source-card validation."
   },
   "stopRules": [
@@ -124,48 +125,5 @@
     "Stop at the persistent lifetime, 1.10 USD per-job or twenty-four-provider-call or forty-eight-documentary-call guard; never purchase or reload credits automatically.",
     "Do not run repetitions two or three after a failed or semantically unreviewed first pilot."
   ],
-  "campaignKind": "targeted-causal",
-  "executionResult": {
-    "executedAtUtc": "2026-09-29T14:46:08Z",
-    "repositoryCommit": "fbfd12b63ff72cd237258578044a772e995db4cf",
-    "artifactPath": "artifacts/reprise-pc-20260908/a891-terra-staged-candidate-pilot-20260929-164608",
-    "jobId": "cf535381-4867-495d-97cb-8b7b8342f419",
-    "outcome": "failed",
-    "lastErrorCode": "advanced_synthesis_candidate_identity_not_supported",
-    "mechanicalVerdict": "FAIL_CONTRACT_AFTER_COMPLETE_WRITER",
-    "semanticVerdict": "COMPLETE_WRITER_PRESERVED_BUT_JOB_FAILED",
-    "providerCalls": 24,
-    "inputTokens": 236065,
-    "outputTokens": 13885,
-    "cachedInputTokens": 6961,
-    "costUsd": 0.7407362,
-    "recordedCostAfterUsd": 47.2059131,
-    "candidateInventoryAtFailure": {
-      "total": 48,
-      "selected": 20,
-      "bodyVerifiedUnselected": 1,
-      "navigationOnly": 2,
-      "rejected": 25,
-      "maximumAssignableCountAfterWriterUpdate": 20,
-      "missingByRoleAfterWriterUpdate": {}
-    },
-    "resourceBudgetAtCritic": {
-      "providerMaximumCalls": 24,
-      "providerCallsRemaining": 0,
-      "maximumDocumentaryToolCalls": 48,
-      "consumedDocumentaryToolCalls": 35,
-      "maximumEvidenceItems": 512,
-      "consumedEvidenceItems": 286,
-      "remainingEvidenceItems": 226
-    },
-    "validatedObservations": [
-      "The forty-eight-tool envelope removed the A890 bound: only 35 documentary operations were needed.",
-      "The Writer used the final research-capable turn to add PORRIDGE AUX FLOCONS D’AVOINE and select Scones au babeurre as the fifth snack; the checkpoint then contained twenty selected candidates and maximumAssignableCount 20.",
-      "The Writer follow-up produced a complete five-by-four table with twenty distinct candidate-bound selections and current evidence IDs.",
-      "The final Critic replaced the validated C19 Scones au babeurre with LES BISCUITS À MIKE and an evidence ID outside the selected candidate checkpoint. The binding guard rejected this degradation."
-    ],
-    "cause": "The candidate dossier and Writer reached the requested 20/20 result. The final Critic used the twenty-fourth provider call and substituted an unverified item. With no correction call remaining, CompleteWithCorpusResearchAsync raised advanced_synthesis_candidate_identity_not_supported and the job discarded the already validated Writer answer.",
-    "correctiveCommit": "98e71025e8ba764a8178665478bd8873e0f28fa4",
-    "productStatusAfterCampaign": "TESTE_NON_APPROUVE"
-  }
+  "campaignKind": "targeted-causal"
 }
