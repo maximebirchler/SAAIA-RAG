@@ -1050,6 +1050,93 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
+    public async Task Staged_candidate_judge_consolidates_two_cards_refined_to_the_same_identity()
+    {
+        var documentId = Guid.NewGuid().ToString("D");
+        var revisionId = Guid.NewGuid().ToString("D");
+        var full = BuildEvidence(
+            "E1",
+            "VEGETABLE DUMPLINGS\nINGREDIENTS\nVegetables. PREPARATION\nCook and serve.",
+            docId: documentId,
+            revisionId: revisionId,
+            exactTitle: "VEGETABLE DUMPLINGS");
+        var subordinate = BuildEvidence(
+            "E2",
+            "VEGETABLE DUMPLINGS\nDUMPLINGS\nINGREDIENTS\nVegetables. PREPARATION\nCook and serve.",
+            docId: documentId,
+            revisionId: revisionId,
+            exactTitle: "DUMPLINGS");
+        static string AutomaticKey(string normalizedTitle)
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes(
+                "internal-source-1\n" + normalizedTitle);
+            var hash = Convert.ToHexString(
+                    System.Security.Cryptography.SHA256.HashData(bytes))
+                .ToLowerInvariant()[..16];
+            return "candidate-" + hash;
+        }
+        var judged = JsonSerializer.Serialize(new
+        {
+            items = new[]
+            {
+                new
+                {
+                    key = AutomaticKey("vegetable dumplings"),
+                    exactTitle = "VEGETABLE DUMPLINGS",
+                    sourceKey = "internal-source-1",
+                    targetRoles = new[] { "déjeuner", "souper" },
+                    selectedRoles = Array.Empty<string>(),
+                    status = "body_verified",
+                    locatorEvidenceIds = Array.Empty<string>(),
+                    bodyEvidenceIds = new[] { "E1" }
+                },
+                new
+                {
+                    key = AutomaticKey("dumplings"),
+                    exactTitle = "VEGETABLE DUMPLINGS",
+                    sourceKey = "internal-source-1",
+                    targetRoles = new[] { "déjeuner", "souper" },
+                    selectedRoles = Array.Empty<string>(),
+                    status = "body_verified",
+                    locatorEvidenceIds = Array.Empty<string>(),
+                    bodyEvidenceIds = new[] { "E2" }
+                }
+            }
+        });
+        using var factory = new QueuedHttpClientFactory(
+            Completion(CandidatePlanner),
+            Completion(judged),
+            Completion(CandidateTerminal));
+        var options = WorkspaceOptions();
+        options.NativeCandidateExplorerEnabled = true;
+        options.StagedCandidateExplorerEnabled = true;
+        options.NativeResearchMaximumHistoryCharacters = 32_768;
+        options.SemanticCriticEnabled = false;
+        options.ExternalMaximumCallsPerJob = 4;
+        var gateway = new CheckpointToolGateway(full, subordinate);
+
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(
+                factory,
+                options,
+                null)
+            .ExecuteAsync(
+                BuildRequest(
+                    answerUnitCount: 20,
+                    atomicEvidenceMode: "named_item",
+                    selectionPolicy: "distinct_structured_layout"),
+                gateway,
+                CancellationToken.None);
+
+        Assert.Equal("insufficient_documentation", result.Outcome);
+        var candidate = Assert.Single(gateway.Checkpoint!.Candidates);
+        Assert.Equal("VEGETABLE DUMPLINGS", candidate.ExactTitle);
+        Assert.Equal(["E1", "E2"], candidate.BodyEvidenceIds.Order().ToArray());
+        Assert.Contains("déjeuner", candidate.TargetRoles);
+        Assert.Contains("souper", candidate.TargetRoles);
+        Assert.Equal(3, factory.Requests.Count);
+    }
+
+    [Fact]
     public async Task Staged_candidate_judge_can_reject_a_body_without_assigning_a_false_role()
     {
         var evidence = BuildEvidence(

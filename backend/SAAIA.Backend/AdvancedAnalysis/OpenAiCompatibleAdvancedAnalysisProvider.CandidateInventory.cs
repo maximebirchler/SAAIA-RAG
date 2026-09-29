@@ -129,7 +129,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
     private static IReadOnlyList<CandidateInventoryItem> ParseCandidateInventoryUpdates(
         JsonElement value,
-        JsonElement prompt)
+        JsonElement prompt,
+        bool allowConvergedIdentities = false)
     {
         void Reject() => throw new AdvancedAnalysisProviderException(
             "advanced_native_candidate_inventory_invalid");
@@ -214,8 +215,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (!keys.Add(key)
                 || !sourceKeys.Contains(sourceKey)
                 || !CandidateInventoryStates.Contains(status, StringComparer.Ordinal)
-                || !identities.Add(sourceKey + "\n" + NormalizeClaimText(title)))
+                || !allowConvergedIdentities
+                && !identities.Add(sourceKey + "\n" + NormalizeClaimText(title)))
                 Reject();
+            identities.Add(sourceKey + "\n" + NormalizeClaimText(title));
             var targetRoles = TextArray(
                 item,
                 "targetRoles",
@@ -338,7 +341,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 : Rank(canonicalUpdate.Status) >= Rank(prior.Status)
                     ? canonicalUpdate.Status
                     : prior.Status;
-            merged[prior.Key] = prior with
+            var updated = prior with
             {
                 ExactTitle = canonicalUpdate.ExactTitle,
                 TargetRoles = prior.TargetRoles.Concat(canonicalUpdate.TargetRoles)
@@ -356,6 +359,51 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 BodyEvidenceIds = prior.BodyEvidenceIds.Concat(canonicalUpdate.BodyEvidenceIds)
                     .Distinct(StringComparer.Ordinal).Take(4).ToArray()
             };
+            var duplicate = merged.Values.FirstOrDefault(item =>
+                !string.Equals(item.Key, prior.Key, StringComparison.Ordinal)
+                && string.Equals(item.SourceKey, updated.SourceKey, StringComparison.Ordinal)
+                && string.Equals(
+                    NormalizeClaimText(item.ExactTitle),
+                    NormalizeClaimText(updated.ExactTitle),
+                    StringComparison.Ordinal));
+            if (duplicate is null)
+            {
+                merged[prior.Key] = updated;
+                continue;
+            }
+            if (duplicate.Status == "rejected" || updated.Status == "rejected")
+                throw new AdvancedAnalysisProviderException(
+                    "advanced_native_candidate_inventory_invalid");
+
+            var consolidatedStatus = Rank(duplicate.Status) >= Rank(updated.Status)
+                ? duplicate.Status
+                : updated.Status;
+            var consolidatedKey = new[] { duplicate.Key, updated.Key }
+                .Order(StringComparer.Ordinal)
+                .First();
+            var consolidated = updated with
+            {
+                Key = consolidatedKey,
+                TargetRoles = duplicate.TargetRoles.Concat(updated.TargetRoles)
+                    .Distinct(StringComparer.Ordinal).Take(8).ToArray(),
+                SelectedRoles = consolidatedStatus == "selected"
+                    ? duplicate.SelectedRoles.Concat(updated.SelectedRoles)
+                        .Distinct(StringComparer.Ordinal).Take(8).ToArray()
+                    : [],
+                Status = consolidatedStatus,
+                Note = !string.IsNullOrWhiteSpace(updated.Note)
+                    ? updated.Note
+                    : duplicate.Note,
+                LocatorEvidenceIds = duplicate.LocatorEvidenceIds
+                    .Concat(updated.LocatorEvidenceIds)
+                    .Distinct(StringComparer.Ordinal).Take(4).ToArray(),
+                BodyEvidenceIds = duplicate.BodyEvidenceIds
+                    .Concat(updated.BodyEvidenceIds)
+                    .Distinct(StringComparer.Ordinal).Take(4).ToArray()
+            };
+            merged.Remove(prior.Key);
+            merged.Remove(duplicate.Key);
+            merged[consolidated.Key] = consolidated;
         }
         if (merged.Count > 64
             || merged.Values.GroupBy(

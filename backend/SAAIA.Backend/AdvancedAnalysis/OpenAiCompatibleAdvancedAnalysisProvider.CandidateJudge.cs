@@ -186,7 +186,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             using var promptDocument = JsonDocument.Parse(prompt);
             var updates = ParseCandidateInventoryUpdates(
                 normalizedOutput.RootElement,
-                promptDocument.RootElement);
+                promptDocument.RootElement,
+                allowConvergedIdentities: true);
             var expectedKeys = batch.Candidates.Select(item => item.Key)
                 .ToHashSet(StringComparer.Ordinal);
             var actualKeys = updates.Select(item => item.Key)
