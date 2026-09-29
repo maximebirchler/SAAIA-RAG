@@ -1,16 +1,16 @@
 {
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
-  "campaignId": "A890-TERRA-STAGED-CANDIDATE-PILOT-R7",
-  "parentCampaignId": "A889-TERRA-STAGED-CANDIDATE-PILOT-R6",
-  "status": "EXECUTED_FUNCTIONAL_FAIL_DOCUMENTARY_TOOL_CALL_BUDGET_EXHAUSTED",
-  "createdAtUtc": "2026-09-29T14:38:00.454742Z",
+  "campaignId": "A891-TERRA-STAGED-CANDIDATE-PILOT-R8",
+  "parentCampaignId": "A890-TERRA-STAGED-CANDIDATE-PILOT-R7",
+  "status": "PREREGISTERED_READY_WITH_CAUSAL_48_TOOL_CALL_ENVELOPE",
+  "createdAtUtc": "2026-09-29T14:45:18.367382Z",
   "budgetExtensionRegisteredAtUtc": "2026-09-29T13:37:32.4351888Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
-    "preregisteredAgainstCommit": "c9fbc17e",
-    "minimumSemanticFixCommit": "c9fbc17e",
-    "executionRule": "Run one staged meal-grid pilot only from a clean descendant containing the Candidate Judge visible-evidence projection fix. A889 stopped after six successful calls because a merged candidate exposed a historical body evidence ID absent from the current Judge evidence array; Terra echoed the supplied ID and the parser rejected it. The fix now projects every Judge candidate to body evidence actually present in that prompt and removes locator references from the body-only batch. Keep the A889 twenty-four-call envelope, 1.10 USD per-job cap, 50 USD lifetime hard stop, bank, corpus, prompts, tools, model and all other acceptance rules frozen."
+    "preregisteredAgainstCommit": "a2b3c802b0111b7a16607f5078f502626bf65bd3",
+    "minimumSemanticFixCommit": "a2b3c802b0111b7a16607f5078f502626bf65bd3",
+    "executionRule": "Run one staged meal-grid pilot only from a clean descendant containing the provider-neutral configurable documentary tool budget. A890 completed the A889 evidence-scope fix, nine Judge rounds and six Navigator rounds, then stopped at exactly 32/32 documentary operations with six provider calls, 83 evidence slots and 287826 tool milliseconds still available. Expand only MaximumToolCalls from 32 to 48; keep the 24 provider-call envelope, 512 evidence-item cap, 300000 ms tool-time cap, 1.10 USD per-job cap, 50 USD lifetime stop, bank, corpus, model, prompts, token limits and acceptance rules frozen."
   },
   "provider": {
     "mode": "OpenAI",
@@ -39,7 +39,8 @@
     "candidateExplorerReservePerRole": 2,
     "candidateExplorerMaxTokens": 4096,
     "nativeResearchActiveProposalEnabled": true,
-    "candidateBindingFeedbackEnabled": true
+    "candidateBindingFeedbackEnabled": true,
+    "maximumToolCalls": 48
   },
   "localRouter": {
     "modelId": "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
@@ -66,7 +67,7 @@
     "serverEnvironmentPath": "C:/Users/maxim/NextCloud/Maxime/Ecommerce/SAAIA/infra/.env.server-linux",
     "referenceBackendUrl": "http://saaia-server:5122",
     "backendPort": 5123,
-    "artifactRoot": "artifacts/reprise-pc-20260908/a890-terra-staged-candidate-pilot",
+    "artifactRoot": "artifacts/reprise-pc-20260908/a891-terra-staged-candidate-pilot",
     "artifactDirectoryRule": "Create a fresh directory containing the exact execution commit and UTC timestamp; never overwrite an earlier pilot."
   },
   "evidenceCapture": {
@@ -92,17 +93,17 @@
       "cachedInput": 0.2,
       "output": 12.0
     },
-    "recordedCostAtRegistrationUsd": 45.9211012,
-    "authorizedRemainingAtRegistrationUsd": 4.0788988,
+    "recordedCostAtRegistrationUsd": 46.4651769,
+    "authorizedRemainingAtRegistrationUsd": 3.5348231,
     "fullJobReservationRequiredUsd": 1.1,
     "additionalAuthorizedHeadroomRequiredUsd": 0.0,
-    "usageLedgerSha256AtRegistration": "9FF46BE986114470C647134954A60A62DBCCA48E8D430E35C3E20589BB049F35",
-    "authorizationBasis": "On 2026-09-29 the user explicitly authorized use of all purchased OpenAI credits and added the current 5 USD extension. The local lifetime hard stop remains 50 USD, with no automatic purchase. A889 consumed 0.12421890 USD in six successful calls before the internal Candidate Judge evidence-scope mismatch aborted the run. The persistent ledger now records 45.92110120 USD, leaving 4.07889880 USD and satisfying the complete 1.10 USD A890 staged-job reservation."
+    "usageLedgerSha256AtRegistration": "C8A8D47594862D9F5EB6D481D6C0DB48B2BC3C139F3F19674F264607E17F9105",
+    "authorizationBasis": "On 2026-09-29 the user explicitly authorized use of all purchased OpenAI credits and added the current 5 USD extension. The local lifetime hard stop remains 50 USD, with no automatic purchase. A890 consumed 0.54407570 USD in nineteen calls and failed functionally only after exhausting 32/32 documentary operations while six provider calls and other resource headroom remained. The persistent ledger now records 46.46517690 USD, leaving 3.53482310 USD and satisfying the complete 1.10 USD A891 staged-job reservation."
   },
   "acceptance": {
     "pilot": [
       "The one registered meal-grid case completes on the exact clean execution state with the sealed reference corpus unchanged.",
-      "The preflight seal proves Responses transport, agent topology, workspace, 32768 history characters, staged Candidate Explorer enabled, 4096-token Judge/Navigator output budget and twenty-four total provider calls under the unchanged 1.10 USD job cap.",
+      "The preflight seal proves Responses transport, agent topology, workspace, 32768 history characters, staged Candidate Explorer enabled, 4096-token Judge/Navigator output budget, twenty-four total provider calls and forty-eight documentary tool calls under the unchanged 1.10 USD job cap.",
       "Private provider traces contain at least one candidate-navigator-N role, one candidate-judge-N role, writer and critic; the staged evidence verifier rejects the run if one stage is absent.",
       "The Candidate Judge receives only bounded substantive bodies, returns every supplied key and does not invent target roles for rejected candidates.",
       "Every Candidate Judge bodyEvidenceId must belong to that exact Judge prompt evidence array; historical retained IDs absent from the window must not be exposed in the bounded candidate batch.",
@@ -111,7 +112,7 @@
       "The durable job, tool events, research checkpoint, provider telemetry, final claims and source payload are preserved for mechanical and human semantic review.",
       "A precise bounded gap is safe behavior but fails this functional pilot when the historical corpus contains the missing bodies."
     ],
-    "progressionRule": "Only a successful and semantically reviewed A890 pilot permits registration of repetitions two and three on the exact same frozen semantic configuration. A protocol failure or functional gap returns to causal trace review; it does not authorize prompt stacking or another call-envelope increase.",
+    "progressionRule": "Only a successful and semantically reviewed A891 pilot permits registration of repetitions two and three on the exact same frozen semantic configuration. A remaining measured gap returns to causal trace review; no further resource increase is justified without showing which independent bound stopped useful retrieval.",
     "productPromotionRule": "Keep TESTE_NON_APPROUVE after this pilot. Promotion still requires two further consecutive staged successes, a new blind holdout, durable recovery and WinUI source-card validation."
   },
   "stopRules": [
@@ -120,54 +121,8 @@
     "Do not execute without a paid-tier observation less than 15 minutes old.",
     "Stop before the first model call if branch, clean-tree rule, minimum commit, bank hash, local router binary, model or provider configuration differs.",
     "Stop before the first model call if the reference corpus cannot be sealed or has an active ingestion job; reject the pilot if the postflight seal differs.",
-    "Stop at the persistent lifetime, 1.10 USD per-job or twenty-four-call guard; never purchase or reload credits automatically.",
+    "Stop at the persistent lifetime, 1.10 USD per-job or twenty-four-provider-call or forty-eight-documentary-call guard; never purchase or reload credits automatically.",
     "Do not run repetitions two or three after a failed or semantically unreviewed first pilot."
   ],
-  "campaignKind": "targeted-causal",
-  "executionResult": {
-    "executedAtUtc": "2026-09-29T14:38:54Z",
-    "repositoryCommit": "3c3f2bec2c3a11e178d90ea774cb52163202e5dd",
-    "artifactPath": "artifacts/reprise-pc-20260908/a890-terra-staged-candidate-pilot-20260929-163854",
-    "jobId": "f302e836-3283-40a6-9606-45ab308fcd04",
-    "outcome": "insufficient_documentation",
-    "mechanicalVerdict": "PASS_MECHANICAL_REQUIRES_SEMANTIC_REVIEW",
-    "semanticVerdict": "FAIL_FUNCTIONAL_PILOT",
-    "providerCalls": 19,
-    "inputTokens": 176776,
-    "outputTokens": 9868,
-    "cachedInputTokens": 7066,
-    "costUsd": 0.5440757,
-    "recordedCostAfterUsd": 46.4651769,
-    "candidateInventory": {
-      "total": 53,
-      "bodyVerifiedTotal": 17,
-      "bodyVerifiedAssigned": 17,
-      "bodyVerifiedAwaitingJudge": 0,
-      "navigationOnly": 3,
-      "rejected": 33,
-      "maximumAssignableCountBeforeWriter": 16,
-      "requiredDistinctCount": 20,
-      "missingByRoleBeforeWriter": {
-        "Petit-déjeuner": 2,
-        "Collation": 2
-      }
-    },
-    "resourceBudgetAtWriter": {
-      "providerMaximumCalls": 24,
-      "providerCallsRemainingBeforeWriterAndCritic": 6,
-      "maximumDocumentaryToolCalls": 32,
-      "consumedDocumentaryToolCalls": 32,
-      "maximumEvidenceItems": 512,
-      "consumedEvidenceItems": 429,
-      "remainingEvidenceItems": 83,
-      "remainingToolElapsedMilliseconds": 287826
-    },
-    "validatedFixEffects": [
-      "Candidate Judge round four completed without the A889 hidden historical evidence protocol rejection.",
-      "Nine Judge rounds and six Navigator rounds completed; all 53 retained candidates were either judged or remained navigation-only, with no body candidate awaiting judgment.",
-      "The deterministic assignment solver and synthesis recovery agreed on maximumAssignableCount 16 and the exact deficit of two breakfasts and two snacks."
-    ],
-    "cause": "The staged pipeline consumed all 32 configured documentary tool operations while six provider calls, 83 evidence slots and 287826 tool milliseconds remained. It therefore reserved Writer and Critic and emitted a safe measured gap. The 24-call model envelope was not the active limit; the fixed validation-runner MaximumToolCalls value was.",
-    "productStatusAfterCampaign": "TESTE_NON_APPROUVE"
-  }
+  "campaignKind": "targeted-causal"
 }
