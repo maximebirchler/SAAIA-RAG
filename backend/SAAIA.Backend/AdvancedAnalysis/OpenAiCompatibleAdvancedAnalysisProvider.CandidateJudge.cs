@@ -16,12 +16,20 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     {
         var visible = observations.Where(item => !string.IsNullOrWhiteSpace(item.EvidenceId))
             .ToDictionary(item => item.EvidenceId!, StringComparer.Ordinal);
+        var visibleEvidenceIds = visible.Keys.ToHashSet(StringComparer.Ordinal);
         var candidates = inventory.Where(item =>
                 item.Status == "body_verified"
                 && item.TargetRoles.Count == 0
                 && item.BodyEvidenceIds.Any(visible.ContainsKey))
             .OrderBy(item => item.Key, StringComparer.Ordinal)
             .Take(CandidateJudgeMaximumBatchSize)
+            .Select(item => item with
+            {
+                LocatorEvidenceIds = [],
+                BodyEvidenceIds = ProjectCandidateJudgeEvidenceIds(
+                    item.BodyEvidenceIds,
+                    visibleEvidenceIds)
+            })
             .ToArray();
         var evidenceIds = candidates.SelectMany(item => item.BodyEvidenceIds)
             .Where(visible.ContainsKey)
@@ -33,6 +41,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                                        && evidenceIds.Contains(item.EvidenceId))
                 .ToArray());
     }
+
+    internal static IReadOnlyList<string> ProjectCandidateJudgeEvidenceIds(
+        IReadOnlyList<string> candidateEvidenceIds,
+        IReadOnlySet<string> visibleEvidenceIds)
+        => candidateEvidenceIds
+            .Where(visibleEvidenceIds.Contains)
+            .Distinct(StringComparer.Ordinal)
+            .Take(4)
+            .ToArray();
 
     private string BuildCandidateJudgeUserPrompt(
         AdvancedAnalysisProviderRequest request,

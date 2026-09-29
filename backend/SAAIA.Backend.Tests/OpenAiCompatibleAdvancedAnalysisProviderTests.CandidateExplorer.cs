@@ -11,6 +11,17 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     private const string ExplorerBounded =
         """{"outcome":"candidate_dossier_bounded","reason":"The reserved Writer call leaves no further research call."}""";
 
+    [Fact]
+    public void Candidate_judge_projects_historical_evidence_ids_to_the_current_prompt()
+    {
+        var projected = OpenAiCompatibleAdvancedAnalysisProvider
+            .ProjectCandidateJudgeEvidenceIds(
+                ["E-visible", "E-hidden", "E-visible"],
+                new HashSet<string>(["E-visible"], StringComparer.Ordinal));
+
+        Assert.Equal(["E-visible"], projected);
+    }
+
     [Theory]
     [InlineData("chat-completions")]
     [InlineData("responses")]
