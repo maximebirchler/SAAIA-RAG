@@ -1,50 +1,16 @@
 {
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
-  "campaignId": "A887-TERRA-STAGED-CANDIDATE-PILOT-R4",
-  "parentCampaignId": "A886-TERRA-STAGED-CANDIDATE-PILOT-R3",
-  "status": "EXECUTED_FUNCTIONAL_FAIL_CANONICAL_PAGE_READ_TITLES_NOT_PROMOTED",
-  "createdAtUtc": "2026-09-29T14:12:27.6286426Z",
+  "campaignId": "A888-TERRA-STAGED-CANDIDATE-PILOT-R5",
+  "parentCampaignId": "A887-TERRA-STAGED-CANDIDATE-PILOT-R4",
+  "status": "PREREGISTERED_READY_AFTER_CANONICAL_PAGE_READ_TITLE_PROMOTION",
+  "createdAtUtc": "2026-09-29T14:21:18.7106990Z",
   "budgetExtensionRegisteredAtUtc": "2026-09-29T13:37:32.4351888Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
-  "executionResult": {
-    "executedAtUtc": "2026-09-29T14:13:59Z",
-    "repositoryCommit": "cb16eb8eb75b7866f49a4785a884c0abf0580358",
-    "artifactPath": "artifacts/reprise-pc-20260908/a887-terra-staged-candidate-pilot-20260929-161359",
-    "outcome": "insufficient_documentation",
-    "mechanicalVerdict": "PASS_MECHANICAL_REQUIRES_SEMANTIC_REVIEW",
-    "semanticVerdict": "FAIL_FUNCTIONAL_PILOT",
-    "providerCalls": 12,
-    "inputTokens": 136178,
-    "outputTokens": 6284,
-    "costUsd": 0.4077252,
-    "recordedCostAfterUsd": 45.3840198,
-    "candidateInventory": {
-      "total": 32,
-      "bodyVerifiedAssigned": 8,
-      "navigationOnly": 4,
-      "rejected": 20,
-      "maximumAssignableCount": 8,
-      "requiredDistinctCount": 20,
-      "missingByRole": {
-        "Petit-déjeuner": 3,
-        "Déjeuner": 2,
-        "Collation": 4,
-        "Souper": 3
-      }
-    },
-    "validatedFixEffects": [
-      "The exact leading title from find_source_text was retained on previously observed canonical chunks.",
-      "Scones au babeurre and Tarte aux poires normande were promoted into body-verified candidates and semantically assigned by candidate-judge-4.",
-      "The synthesis recovery received maximumAssignableCount 8 and verifiedAssignmentDeficit 12 and repeated those exact measured values instead of inventing a count."
-    ],
-    "cause": "After the successful literal-find promotion, Terra used read_source on targeted physical pages and obtained complete canonical bodies for named items such as Trifle aux cerises, Spaghetti aux fruits de mer, Saltimbocca, Soupe a l'oignon francaise and Saumon avec sauce yaourt-menthe. Canonical page reads still left ExactTitle empty, so these useful bodies were never materialized as Judge candidates before the call envelope reserved Writer and Critic.",
-    "productStatusAfterCampaign": "TESTE_NON_APPROUVE"
-  },
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
-    "preregisteredAgainstCommit": "037d4c8bd48ce333cf479ff344126844f39d5ba1",
-    "minimumSemanticFixCommit": "037d4c8bd48ce333cf479ff344126844f39d5ba1",
-    "executionRule": "Run one staged meal-grid pilot only from a clean descendant containing the A879 solver, A880 staged pipeline, A881 identity fix, A882 runner guards, the A884 Candidate Judge optional-note fix, the A885 refined-candidate reobservation fix, and the A886 canonical find title-promotion plus recovery-dossier fix. A886 proved that Terra retrieved useful complete recipe bodies but the gateway discarded their exact leading title metadata before candidate observation. The fix promotes only a case-sensitive literal find that begins the canonical chunk, preserves it on a previously observed chunk, and supplies the deterministic dossier to synthesis recovery. Freeze the bank, corpus, prompts, tools, model, topology, token limits and acceptance rules before the first A887 answer is observed."
+    "preregisteredAgainstCommit": "b1bef5d7de7fd5d1b704e97362a75702c4d2efa2",
+    "minimumSemanticFixCommit": "b1bef5d7de7fd5d1b704e97362a75702c4d2efa2",
+    "executionRule": "Run one staged meal-grid pilot only from a clean descendant containing all prior staged fixes plus the A887 canonical page-read title promotion. A887 proved that literal finds now become judged candidates and that the recovery count remains tied to the deterministic solver. It then exposed complete named bodies through read_source that still lacked candidate title metadata. The fix exposes the exact first non-empty line of non-navigation canonical page chunks as a provenance title; Candidate Judge remains solely responsible for accepting or rejecting semantic suitability. Freeze the bank, corpus, prompts, tools, model, topology, token limits and acceptance rules before the first A888 answer is observed."
   },
   "provider": {
     "mode": "OpenAI",
@@ -100,7 +66,7 @@
     "serverEnvironmentPath": "C:/Users/maxim/NextCloud/Maxime/Ecommerce/SAAIA/infra/.env.server-linux",
     "referenceBackendUrl": "http://saaia-server:5122",
     "backendPort": 5123,
-    "artifactRoot": "artifacts/reprise-pc-20260908/a887-terra-staged-candidate-pilot",
+    "artifactRoot": "artifacts/reprise-pc-20260908/a888-terra-staged-candidate-pilot",
     "artifactDirectoryRule": "Create a fresh directory containing the exact execution commit and UTC timestamp; never overwrite an earlier pilot."
   },
   "evidenceCapture": {
@@ -126,12 +92,12 @@
       "cachedInput": 0.2,
       "output": 12.0
     },
-    "recordedCostAtRegistrationUsd": 44.9762946,
-    "authorizedRemainingAtRegistrationUsd": 5.0237054,
+    "recordedCostAtRegistrationUsd": 45.3840198,
+    "authorizedRemainingAtRegistrationUsd": 4.6159802,
     "fullJobReservationRequiredUsd": 1.1,
     "additionalAuthorizedHeadroomRequiredUsd": 0.0,
-    "usageLedgerSha256AtRegistration": "F1F9F9F2489F1F490AE2B1DE1746BDDA908C16E56611781BD62995E7547A4150",
-    "authorizationBasis": "On 2026-09-29 the user explicitly extended the previously authorized OpenAI campaign budget by 5 USD. The local lifetime hard stop remains 50 USD, with no automatic purchase. A886 consumed 0.45498740 USD in twelve calls and completed mechanically, but failed the functional pilot because canonical bodies found by Terra lost their exact leading title before candidate observation. The persistent ledger now records 44.97629460 USD, leaving 5.02370540 USD and satisfying the complete 1.10 USD A887 staged-job reservation."
+    "usageLedgerSha256AtRegistration": "82A935C5C73E9684FF8967688C89D0FAD01CFBE307AD24DD4419697FC29A7476",
+    "authorizationBasis": "On 2026-09-29 the user explicitly extended the previously authorized OpenAI campaign budget by 5 USD. The local lifetime hard stop remains 50 USD, with no automatic purchase. A887 consumed 0.40772520 USD in twelve calls and proved the literal-find promotion and deterministic recovery count, but failed because complete bodies obtained by canonical page reads still lacked title metadata. The persistent ledger now records 45.38401980 USD, leaving 4.61598020 USD and satisfying the complete 1.10 USD A888 staged-job reservation."
   },
   "acceptance": {
     "pilot": [
