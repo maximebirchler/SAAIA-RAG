@@ -1,16 +1,16 @@
 {
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
-  "campaignId": "A889-TERRA-STAGED-CANDIDATE-PILOT-R6",
-  "parentCampaignId": "A888-TERRA-STAGED-CANDIDATE-PILOT-R5",
-  "status": "EXECUTED_PROTOCOL_FAIL_CANDIDATE_JUDGE_HISTORICAL_EVIDENCE_SCOPE",
-  "createdAtUtc": "2026-09-29T14:28:00.9653658Z",
+  "campaignId": "A890-TERRA-STAGED-CANDIDATE-PILOT-R7",
+  "parentCampaignId": "A889-TERRA-STAGED-CANDIDATE-PILOT-R6",
+  "status": "PREREGISTERED_READY_AFTER_VISIBLE_EVIDENCE_PROJECTION_FIX",
+  "createdAtUtc": "2026-09-29T14:38:00.454742Z",
   "budgetExtensionRegisteredAtUtc": "2026-09-29T13:37:32.4351888Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
-    "preregisteredAgainstCommit": "b1bef5d7de7fd5d1b704e97362a75702c4d2efa2",
-    "minimumSemanticFixCommit": "b1bef5d7de7fd5d1b704e97362a75702c4d2efa2",
-    "executionRule": "Run one staged meal-grid pilot only from a clean descendant containing all prior staged fixes and the canonical page-read title promotion. A888 proved that page-read bodies reach Candidate Judge, then stopped with three bodies still awaiting judgment and further routes available because the twelve-call envelope reserved Writer/Critic. This one causal pilot expands only the provider-call envelope to twenty-four while retaining the unchanged 1.10 USD per-job cap and 50 USD lifetime hard stop. Freeze the bank, corpus, prompts, tools, model, topology, token limits and acceptance rules before the first A889 answer is observed."
+    "preregisteredAgainstCommit": "c9fbc17e",
+    "minimumSemanticFixCommit": "c9fbc17e",
+    "executionRule": "Run one staged meal-grid pilot only from a clean descendant containing the Candidate Judge visible-evidence projection fix. A889 stopped after six successful calls because a merged candidate exposed a historical body evidence ID absent from the current Judge evidence array; Terra echoed the supplied ID and the parser rejected it. The fix now projects every Judge candidate to body evidence actually present in that prompt and removes locator references from the body-only batch. Keep the A889 twenty-four-call envelope, 1.10 USD per-job cap, 50 USD lifetime hard stop, bank, corpus, prompts, tools, model and all other acceptance rules frozen."
   },
   "provider": {
     "mode": "OpenAI",
@@ -66,7 +66,7 @@
     "serverEnvironmentPath": "C:/Users/maxim/NextCloud/Maxime/Ecommerce/SAAIA/infra/.env.server-linux",
     "referenceBackendUrl": "http://saaia-server:5122",
     "backendPort": 5123,
-    "artifactRoot": "artifacts/reprise-pc-20260908/a889-terra-staged-candidate-pilot",
+    "artifactRoot": "artifacts/reprise-pc-20260908/a890-terra-staged-candidate-pilot",
     "artifactDirectoryRule": "Create a fresh directory containing the exact execution commit and UTC timestamp; never overwrite an earlier pilot."
   },
   "evidenceCapture": {
@@ -92,12 +92,12 @@
       "cachedInput": 0.2,
       "output": 12.0
     },
-    "recordedCostAtRegistrationUsd": 45.7968823,
-    "authorizedRemainingAtRegistrationUsd": 4.2031177,
+    "recordedCostAtRegistrationUsd": 45.9211012,
+    "authorizedRemainingAtRegistrationUsd": 4.0788988,
     "fullJobReservationRequiredUsd": 1.1,
     "additionalAuthorizedHeadroomRequiredUsd": 0.0,
-    "usageLedgerSha256AtRegistration": "F239010002C6BF71415652FB8BFFC8C47CA8BF73BA2EBC6FABEBD82E3C6F0463",
-    "authorizationBasis": "On 2026-09-29 the user explicitly authorized use of all purchased OpenAI credits and added the current 5 USD extension. The local lifetime hard stop remains 50 USD, with no automatic purchase. A888 consumed 0.41286250 USD in twelve calls and stopped with three promoted bodies awaiting Candidate Judge plus additional documentary routes. The persistent ledger now records 45.79688230 USD, leaving 4.20311770 USD. The A889 envelope is expanded to twenty-four calls for this causal pilot, while the complete reserved per-job cap remains unchanged at 1.10 USD."
+    "usageLedgerSha256AtRegistration": "9FF46BE986114470C647134954A60A62DBCCA48E8D430E35C3E20589BB049F35",
+    "authorizationBasis": "On 2026-09-29 the user explicitly authorized use of all purchased OpenAI credits and added the current 5 USD extension. The local lifetime hard stop remains 50 USD, with no automatic purchase. A889 consumed 0.12421890 USD in six successful calls before the internal Candidate Judge evidence-scope mismatch aborted the run. The persistent ledger now records 45.92110120 USD, leaving 4.07889880 USD and satisfying the complete 1.10 USD A890 staged-job reservation."
   },
   "acceptance": {
     "pilot": [
@@ -105,12 +105,13 @@
       "The preflight seal proves Responses transport, agent topology, workspace, 32768 history characters, staged Candidate Explorer enabled, 4096-token Judge/Navigator output budget and twenty-four total provider calls under the unchanged 1.10 USD job cap.",
       "Private provider traces contain at least one candidate-navigator-N role, one candidate-judge-N role, writer and critic; the staged evidence verifier rejects the run if one stage is absent.",
       "The Candidate Judge receives only bounded substantive bodies, returns every supplied key and does not invent target roles for rejected candidates.",
+      "Every Candidate Judge bodyEvidenceId must belong to that exact Judge prompt evidence array; historical retained IDs absent from the window must not be exposed in the bounded candidate batch.",
       "The deterministic solver reports maximumAssignableCount 20 and proposedAssignments 20 before the Writer; per-role counts alone are insufficient.",
       "The final result is answered with twenty concrete, distinct and semantically suitable selections, one for every weekday and meal moment, each tied to its assigned canonical body EvidenceId and exact source reference.",
       "The durable job, tool events, research checkpoint, provider telemetry, final claims and source payload are preserved for mechanical and human semantic review.",
       "A precise bounded gap is safe behavior but fails this functional pilot when the historical corpus contains the missing bodies."
     ],
-    "progressionRule": "Only a successful and semantically reviewed A889 pilot permits registration of repetitions two and three on the exact same frozen semantic configuration. The twenty-four-call envelope is justified by A888 traces showing promoted bodies awaiting Judge at twelve calls; any further increase requires a new causal trace review.",
+    "progressionRule": "Only a successful and semantically reviewed A890 pilot permits registration of repetitions two and three on the exact same frozen semantic configuration. A protocol failure or functional gap returns to causal trace review; it does not authorize prompt stacking or another call-envelope increase.",
     "productPromotionRule": "Keep TESTE_NON_APPROUVE after this pilot. Promotion still requires two further consecutive staged successes, a new blind holdout, durable recovery and WinUI source-card validation."
   },
   "stopRules": [
@@ -122,37 +123,5 @@
     "Stop at the persistent lifetime, 1.10 USD per-job or twenty-four-call guard; never purchase or reload credits automatically.",
     "Do not run repetitions two or three after a failed or semantically unreviewed first pilot."
   ],
-  "campaignKind": "targeted-causal",
-  "executionResult": {
-    "executedAtUtc": "2026-09-29T14:28:43Z",
-    "repositoryCommit": "d10324a0f0e2c23c6f5d6aeba04cb2177c654cb2",
-    "artifactPath": "artifacts/reprise-pc-20260908/a889-terra-staged-candidate-pilot-20260929-162840",
-    "jobId": "6894eb46-dd26-46ca-b147-13e70e821d47",
-    "outcome": "failed",
-    "lastErrorCode": "advanced_candidate_judge_protocol_invalid",
-    "mechanicalVerdict": "FAIL_PROTOCOL_BEFORE_WRITER",
-    "semanticVerdict": "NOT_REACHED",
-    "providerCalls": 6,
-    "inputTokens": 29301,
-    "outputTokens": 4509,
-    "cachedInputTokens": 1362,
-    "costUsd": 0.1242189,
-    "recordedCostAfterUsd": 45.9211012,
-    "candidateInventoryAtFailure": {
-      "total": 38,
-      "bodyVerifiedTotal": 16,
-      "bodyVerifiedAssigned": 8,
-      "bodyVerifiedAwaitingJudge": 8,
-      "navigationOnly": 4,
-      "rejected": 18
-    },
-    "validatedObservations": [
-      "The twenty-four-call envelope was not reached; the run stopped after six successful paid provider calls at Candidate Judge round four.",
-      "Terra returned one structurally complete decision for every supplied key and semantically accepted Scones au babeurre, Muhallabia and Pudding vapeur au sirop while rejecting generic headings.",
-      "The generic INGRÉDIENTS candidate exposed two historical body evidence IDs in candidateInventory, but only one ID was present in the current evidence array. Terra echoed both IDs and the parser correctly rejected the invisible reference."
-    ],
-    "cause": "BuildCandidateJudgeBatch selected a candidate when any historical body evidence was visible, but sent all retained bodyEvidenceIds in candidateInventory while the output parser permitted only IDs in the current evidence array. This internal prompt/parser mismatch caused a false protocol rejection even though the Terra completion followed the supplied candidate ledger.",
-    "correctiveCommit": "c9fbc17e",
-    "productStatusAfterCampaign": "TESTE_NON_APPROUVE"
-  }
+  "campaignKind": "targeted-causal"
 }
