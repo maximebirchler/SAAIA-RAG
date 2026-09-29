@@ -1,28 +1,16 @@
 {
   "schemaVersion": "saaia-openai-terra-final-campaign-v1",
-  "campaignId": "A882-TERRA-STAGED-CANDIDATE-PILOT-R1",
-  "status": "EXECUTED_FAILED_CANDIDATE_JUDGE_PROTOCOL_MISMATCH",
-  "createdAtUtc": "2026-09-28T18:43:07.5157244Z",
+  "campaignId": "A885-TERRA-STAGED-CANDIDATE-PILOT-R2",
+  "parentCampaignId": "A882-TERRA-STAGED-CANDIDATE-PILOT-R1",
+  "status": "PREREGISTERED_READY_AFTER_A884_JUDGE_PROTOCOL_FIX",
+  "createdAtUtc": "2026-09-29T13:45:48.2416062Z",
   "budgetExtensionRegisteredAtUtc": "2026-09-29T13:37:32.4351888Z",
   "productStatusBeforeCampaign": "TESTE_NON_APPROUVE",
-  "executionResult": {
-    "executedAtUtc": "2026-09-29T13:38:46Z",
-    "repositoryCommit": "8659f4caf97e8516d3d9049f0856bd6103bcffe1",
-    "artifactPath": "artifacts/reprise-pc-20260908/a884-terra-staged-candidate-pilot-20260929-153846",
-    "outcome": "failed",
-    "errorCode": "advanced_candidate_judge_protocol_invalid",
-    "providerCalls": 2,
-    "roles": ["planner", "candidate-judge-1"],
-    "costUsd": 0.035982,
-    "recordedCostAfterUsd": 44.4612973,
-    "cause": "The Judge returned all twelve requested semantic decisions but omitted the non-semantic note field, which the parser required although the Judge prompt did not specify it.",
-    "productStatusAfterCampaign": "TESTE_NON_APPROUVE"
-  },
   "repository": {
     "expectedBranch": "SAAIA_V3.1",
-    "preregisteredAgainstCommit": "abffd0681f24559534695ca3fd303d35d65d5128",
-    "minimumSemanticFixCommit": "abffd0681f24559534695ca3fd303d35d65d5128",
-    "executionRule": "Run one staged meal-grid pilot only from a clean descendant containing the A879 solver, A880 staged pipeline, A881 identity fix and A882 runner guards. Freeze the bank, corpus, prompts, tools, model, topology, token limits and acceptance rules before the first answer is observed. A budget-only re-registration may extend the authorized lifetime hard stop after explicit user funding, but must not alter semantic or retrieval settings."
+    "preregisteredAgainstCommit": "2d187cf79517c33990d23eed8ae3d1bfa6deba71",
+    "minimumSemanticFixCommit": "2d187cf79517c33990d23eed8ae3d1bfa6deba71",
+    "executionRule": "Run one staged meal-grid pilot only from a clean descendant containing the A879 solver, A880 staged pipeline, A881 identity fix, A882 runner guards and the A884 Candidate Judge optional-note contract fix. The A884 attempt stopped after Planner and the first Judge because the model omitted the semantically optional note field that the parser required but the prompt did not specify. Freeze the bank, corpus, prompts, tools, model, topology, token limits and acceptance rules before the first A885 answer is observed."
   },
   "provider": {
     "mode": "OpenAI",
@@ -78,7 +66,7 @@
     "serverEnvironmentPath": "C:/Users/maxim/NextCloud/Maxime/Ecommerce/SAAIA/infra/.env.server-linux",
     "referenceBackendUrl": "http://saaia-server:5122",
     "backendPort": 5123,
-    "artifactRoot": "artifacts/reprise-pc-20260908/a882-terra-staged-candidate-pilot",
+    "artifactRoot": "artifacts/reprise-pc-20260908/a885-terra-staged-candidate-pilot",
     "artifactDirectoryRule": "Create a fresh directory containing the exact execution commit and UTC timestamp; never overwrite an earlier pilot."
   },
   "evidenceCapture": {
@@ -104,12 +92,12 @@
       "cachedInput": 0.2,
       "output": 12.0
     },
-    "recordedCostAtRegistrationUsd": 44.4253153,
-    "authorizedRemainingAtRegistrationUsd": 5.5746847,
+    "recordedCostAtRegistrationUsd": 44.4612973,
+    "authorizedRemainingAtRegistrationUsd": 5.5387027,
     "fullJobReservationRequiredUsd": 1.1,
     "additionalAuthorizedHeadroomRequiredUsd": 0.0,
-    "usageLedgerSha256AtRegistration": "26B4ADF4FED88975AAEBA523D7E9AA57CB759B87E5025E07002F5CAAB139CEFE",
-    "authorizationBasis": "On 2026-09-29 the user explicitly extended the previously authorized OpenAI campaign budget by 5 USD. The local lifetime hard stop is therefore 50 USD, with no automatic purchase. The persistent ledger records 44.42531530 USD before this run, leaving 5.57468470 USD and satisfying the complete 1.10 USD staged-job reservation. Semantic, retrieval, model and acceptance settings remain unchanged."
+    "usageLedgerSha256AtRegistration": "AB52D22A81831C454DBF4FB8AAF1ADBA74402423042B9918C386CCA4743A8F05",
+    "authorizationBasis": "On 2026-09-29 the user explicitly extended the previously authorized OpenAI campaign budget by 5 USD. The local lifetime hard stop remains 50 USD, with no automatic purchase. A884 consumed 0.03598200 USD in two calls before a reproducible Candidate Judge protocol mismatch stopped the job. The persistent ledger now records 44.46129730 USD, leaving 5.53870270 USD and satisfying the complete 1.10 USD A885 staged-job reservation."
   },
   "acceptance": {
     "pilot": [
