@@ -1,0 +1,177 @@
+[
+  {
+    "id": "S01",
+    "boundary": "P0 — performance client",
+    "observedGap": "Orchestrateur recréé à chaque tour ; compteurs remis à zéro ; `diagnostic.performance` lit le tour courant et ignore `lastN`.",
+    "diagnosticQuestion": "Combien a réellement duré la question précédente et dans quelles phases ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S02",
+    "boundary": "P0 — mesure du parcours complet",
+    "observedGap": "`_lastTotalMs` est arrêté avant le handoff serveur.",
+    "diagnosticQuestion": "Quelle durée l'utilisateur a-t-il réellement attendue, serveur et affichage compris ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S03",
+    "boundary": "P0 — banc performance",
+    "observedGap": "Faux TTFT, débit absent validé, zéro échantillon accepté ; reprise non testée.",
+    "diagnosticQuestion": "La mesure a-t-elle eu lieu et que mesure-t-elle exactement ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S04",
+    "boundary": "P1 — UI → API → worker",
+    "observedGap": "IDs locaux/job existent, sans parent durable commun.",
+    "diagnosticQuestion": "Retrouve-t-on tous les événements d'une seule question ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S05",
+    "boundary": "P1 — fin HTTP",
+    "observedGap": "Log de fin après `await`, sans `finally` ; scope fermé avant le log du middleware d'erreur extérieur.",
+    "diagnosticQuestion": "Comment cette requête a-t-elle fini, y compris en exception/annulation ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S06",
+    "boundary": "P1 — retrieval canonique",
+    "observedGap": "Gateway force `IncludeDiagnostics:false` ; les preuves finales ne donnent pas les candidats éliminés.",
+    "diagnosticQuestion": "La recette n'a-t-elle pas été récupérée ou a-t-elle été écartée après récupération ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S07",
+    "boundary": "P1 — résultat retrieval",
+    "observedGap": "Compteur métier enregistré à la fin seulement.",
+    "diagnosticQuestion": "Combien de recherches ont échoué ou été annulées avant de produire un résultat ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S08",
+    "boundary": "P1 — outils avancés",
+    "observedGap": "`tool_name` persisté est toujours `source_backed_canonical_search`, même pour lecture/recherche de texte.",
+    "diagnosticQuestion": "Quel outil a réellement été demandé et exécuté ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S09",
+    "boundary": "P1 — file avancée",
+    "observedGap": "État présent, transitions/retries/reprises et pertes de lease pas tous conservés.",
+    "diagnosticQuestion": "Le délai vient-il de la file, d'une exécution, d'une panne ou d'une reprise ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S10",
+    "boundary": "P1 — worker avancé",
+    "observedGap": "`/ready` ne prouve pas worker vivant ni provider avancé prêt.",
+    "diagnosticQuestion": "La capacité avancée peut-elle prendre et terminer un job maintenant ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S11",
+    "boundary": "P1 — projection envoyée au modèle",
+    "observedGap": "Capture exacte avancée optionnelle existante ; manque de synthèse homogène de composition et de liaison aux autres parcours.",
+    "diagnosticQuestion": "Quelles sections/outils/sources étaient effectivement visibles, avec quelles limites ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S12",
+    "boundary": "P1 — exécution LLM commune",
+    "observedGap": "Journal externe couplé au budget ; provider serveur client ne passe pas par le même journal.",
+    "diagnosticQuestion": "Peut-on comparer local, OpenAI, RunPod et serveur client avec les mêmes mesures ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S13",
+    "boundary": "P1 — boucle d'agent",
+    "observedGap": "Événements dispersés, pas une chronologie commune de transitions/outils/validation et issue terminale.",
+    "diagnosticQuestion": "Pourquoi l'agent a-t-il reformulé, relu, réessayé ou décidé d'arrêter ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S14",
+    "boundary": "P1 — polling client",
+    "observedGap": "Certaines erreurs transitoires sont absorbées sans événement structuré par tentative.",
+    "diagnosticQuestion": "Pourquoi l'UI attend-elle alors que le serveur a avancé, ou inversement ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S15",
+    "boundary": "P1 — ingestion/OCR",
+    "observedGap": "Excellent récapitulatif au succès, pas de finalisation équivalente sur échec intermédiaire.",
+    "diagnosticQuestion": "Quelle étape a échoué et quelles données étaient déjà produites ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S16",
+    "boundary": "P1 — preuves affichées",
+    "observedGap": "Pas de bilan uniforme sources reçues/acceptées/rejetées et motifs ; un `catch` de dialogue est silencieux.",
+    "diagnosticQuestion": "Une citation a-t-elle été perdue dans le transport, le parser ou l'UI ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S17",
+    "boundary": "P1 — ouverture source",
+    "observedGap": "Logs d'identité existants mais pas de durée ni parent du tour ; garanties différentes carte/lien.",
+    "diagnosticQuestion": "Quelle version et quelle page ont été résolues, et quel lancement a été accepté ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S18",
+    "boundary": "P1 — export support",
+    "observedGap": "Export paramètres sans snapshot agent ; erreurs de copie facultative silencieuses.",
+    "diagnosticQuestion": "Le paquet de diagnostic contient-il réellement les preuves attendues du tour échoué ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S19",
+    "boundary": "P1 — configuration effective",
+    "observedGap": "Informations réparties entre réglages, licence, profils et readiness ; pas un manifeste unique de campagne/parcours.",
+    "diagnosticQuestion": "Quels modèle, route, capacités, budgets et révisions étaient vraiment actifs ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S20",
+    "boundary": "P2 — démarrage/migrations",
+    "observedGap": "HTTP indisponible avant fin de migrations ; pas de progression détaillée par migration.",
+    "diagnosticQuestion": "Le logiciel est-il bloqué, encore en migration ou sorti avant l'ouverture du port ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S21",
+    "boundary": "P2 — disponibilité en cache",
+    "observedGap": "`/ready` conserve ancien `RequestId` et `Ts` dans le corps pendant le cache.",
+    "diagnosticQuestion": "Le résultat correspond-il à cette requête ou à un contrôle précédent ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S22",
+    "boundary": "P2 — dépendances",
+    "observedGap": "HTTP instrumentable, mais pas de source métier uniforme ingestion/job/LLM ni instrumentation Npgsql enregistrée ici.",
+    "diagnosticQuestion": "Le temps est-il passé en SQL, TEI, Qdrant, OCR ou génération ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S23",
+    "boundary": "P1 — intégrité des tests",
+    "observedGap": "Retours silencieux et pas de manifeste commun des prérequis/scénarios réellement exécutés.",
+    "diagnosticQuestion": "Le scénario a-t-il été exécuté, ignoré, échoué ou seulement préparé ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S24",
+    "boundary": "P0 — fonctionnement des sondes",
+    "observedGap": "Activation OTel optionnelle ; hooks conditionnels absents d'un Release standard ; collecte partielle non déclarée ; une capture avancée trop grande ou impossible à écrire peut faire échouer le job.",
+    "diagnosticQuestion": "Les sondes étaient-elles actives, complètes et sans effet bloquant sur la réponse ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  },
+  {
+    "id": "S25",
+    "boundary": "P1 — présence dans l'index",
+    "observedGap": "Les traces de recherche seules ne distinguent pas document absent et document présent mais non récupéré.",
+    "diagnosticQuestion": "La révision/page/unité attendue est-elle publiée et interrogeable dans l'index canonique ?",
+    "status": "AUDITED_NOT_IMPLEMENTED"
+  }
+]

@@ -1,0 +1,39 @@
+{
+  "subject": "tools/runtime-ci-harness.ps1",
+  "subjectSha256": "7E8D0A16090ABF198634E3B60DB41B8F7C208D582C3CBF2392BD490C28804533",
+  "executionMode": "AST-extracted functions, local HTTP stub, no model or network",
+  "cases": [
+    {
+      "id": "no_samples",
+      "result": {
+        "ok": true,
+        "reason": "not_enough_samples"
+      },
+      "counterexampleObserved": true
+    },
+    {
+      "id": "no_throughput",
+      "result": {
+        "ok": true,
+        "ttftDriftPercent": 0.0,
+        "tokPerSecDriftPercent": 0.0,
+        "ttftTolerancePercent": 10.0,
+        "tokPerSecTolerancePercent": 10.0
+      },
+      "counterexampleObserved": true
+    },
+    {
+      "id": "non_streaming_ttft",
+      "stream": false,
+      "result": {
+        "ok": true,
+        "statusCode": 200,
+        "elapsedMs": 1,
+        "ttftMs": 1,
+        "tokPerSec": null,
+        "bodyTail": "stub response omitted"
+      },
+      "counterexampleObserved": true
+    }
+  ]
+}

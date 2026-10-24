@@ -1,0 +1,7 @@
+{
+  "sourceRevision": "5131dee30131c1206f6a2881d615ce53a0764682",
+  "observedHead": "5131dee30131c1206f6a2881d615ce53a0764682",
+  "sourceCount": 1267,
+  "content": "Working-tree files for the tracked paths in SourceRevision. Verify source-hashes.json before comparing snapshots.",
+  "classification": "Path-based test classification; an inventory, not an exact build or reachability graph."
+}

@@ -1,0 +1,13 @@
+{
+  "files": 1267,
+  "sourceCs": 1159,
+  "parser": "4.11.0.0",
+  "symbols": [
+    "DEBUG",
+    "TRACE",
+    "SAAIA_TEST_HOOKS"
+  ],
+  "syntaxErrorCount": 0,
+  "warning": "Syntax inventory only. Physical LOC is not a quality score. Identifier/string reference absence is a candidate, not a reachability proof; compiler profiles, delegates, reflection and generated code require manual review. Nested type lines overlap with enclosing type lines; aggregate only same named type.",
+  "decisionNodes": "Count of branching/loop/catch/switch/conditional/short-circuit syntax nodes; not certified cyclomatic complexity."
+}

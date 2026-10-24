@@ -1,0 +1,1255 @@
+[
+  {
+    "Type": "SAAIA.Backend.Endpoints.DocumentsEndpoints",
+    "Name": "ParseJsonOrEmptyObject",
+    "Path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.CatalogSupport.cs",
+    "Line": 103,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Backend.Endpoints.DocumentsEndpoints",
+    "Name": "ParseJsonOrEmptyArray",
+    "Path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.CatalogSupport.cs",
+    "Line": 123,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Backend.Endpoints.DocumentsEndpoints",
+    "Name": "RangesOverlap",
+    "Path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.ExtractionQualityPages.cs",
+    "Line": 398,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Backend.Endpoints.RagEndpoints",
+    "Name": "ContainsPrimarySpecificSelectionAnchor",
+    "Path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.cs",
+    "Line": 27560,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Backend.Endpoints.RagEndpoints",
+    "Name": "BuildMatchedContentCardCalibrationSignal",
+    "Path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.cs",
+    "Line": 28208,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Backend.Endpoints.RagEndpoints",
+    "Name": "ComputeRawOrderedTitleScore",
+    "Path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.cs",
+    "Line": 29280,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Backend.CapabilityBBackofficeSummaryService",
+    "Name": "NormalizePreferredLanguage",
+    "Path": "backend/SAAIA.Backend/Llm/CapabilityBBackofficeSummaryService.cs",
+    "Line": 773,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "DocumentTitleNavigationProjector",
+    "Name": "ContainsNormalizedPhrase",
+    "Path": "backend/SAAIA.Backend/Pdf/DocumentTitleNavigationProjector.cs",
+    "Line": 973,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "PdfOcrTextExtractor",
+    "Name": "RunProcessAsync",
+    "Path": "backend/SAAIA.Backend/Pdf/PdfOcrTextExtractor.cs",
+    "Line": 2296,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Controls.SetupWizardDialog",
+    "Name": "TestReady_Click",
+    "Path": "client/SAAIA.Client.WinUI/Controls/SetupWizardDialog.BackendTests.cs",
+    "Line": 18,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/Controls/SetupWizardDialog.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Controls.SetupWizardDialog",
+    "Name": "TestApiKey_Click",
+    "Path": "client/SAAIA.Client.WinUI/Controls/SetupWizardDialog.BackendTests.cs",
+    "Line": 309,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/Controls/SetupWizardDialog.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Controls.SetupWizardDialog",
+    "Name": "TestModels_Click",
+    "Path": "client/SAAIA.Client.WinUI/Controls/SetupWizardDialog.LocalLlm.cs",
+    "Line": 14,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/Controls/SetupWizardDialog.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Controls.SetupWizardDialog",
+    "Name": "StartLocalLlm_Click",
+    "Path": "client/SAAIA.Client.WinUI/Controls/SetupWizardDialog.LocalLlm.cs",
+    "Line": 74,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/Controls/SetupWizardDialog.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Controls.SetupWizardDialog",
+    "Name": "StopLocalLlm_Click",
+    "Path": "client/SAAIA.Client.WinUI/Controls/SetupWizardDialog.LocalLlm.cs",
+    "Line": 118,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/Controls/SetupWizardDialog.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Controls.SetupWizardDialog",
+    "Name": "WizardApplyButton_Click",
+    "Path": "client/SAAIA.Client.WinUI/Controls/SetupWizardDialog.xaml.cs",
+    "Line": 66,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/Controls/SetupWizardDialog.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Controls.SetupWizardDialog",
+    "Name": "WizardCancelButton_Click",
+    "Path": "client/SAAIA.Client.WinUI/Controls/SetupWizardDialog.xaml.cs",
+    "Line": 91,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/Controls/SetupWizardDialog.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Controls.SourcesCardsControl",
+    "Name": "Open_Click",
+    "Path": "client/SAAIA.Client.WinUI/Controls/SourcesCardsControl.xaml.cs",
+    "Line": 66,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/Controls/SourcesCardsControl.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Controls.SourcesCardsControl",
+    "Name": "OpenButton_Loaded",
+    "Path": "client/SAAIA.Client.WinUI/Controls/SourcesCardsControl.xaml.cs",
+    "Line": 108,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/Controls/SourcesCardsControl.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Controls.UserSettingsDialog",
+    "Name": "FindDescendantByName",
+    "Path": "client/SAAIA.Client.WinUI/Controls/UserSettingsDialog.DialogChrome.cs",
+    "Line": 123,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Controls.UserSettingsDialog",
+    "Name": "RepairAssistant_Click",
+    "Path": "client/SAAIA.Client.WinUI/Controls/UserSettingsDialog.xaml.cs",
+    "Line": 92,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/Controls/UserSettingsDialog.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Controls.UserSettingsDialog",
+    "Name": "ExportSupport_Click",
+    "Path": "client/SAAIA.Client.WinUI/Controls/UserSettingsDialog.xaml.cs",
+    "Line": 181,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/Controls/UserSettingsDialog.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Controls.UserSettingsDialog",
+    "Name": "OpenSupportFolder_Click",
+    "Path": "client/SAAIA.Client.WinUI/Controls/UserSettingsDialog.xaml.cs",
+    "Line": 202,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/Controls/UserSettingsDialog.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "ChatsSecretHotzone_PointerPressed",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminAndSettings.cs",
+    "Line": 5,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "FindDialogChild",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminAndSettings.cs",
+    "Line": 194,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "UserSettings_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminAndSettings.cs",
+    "Line": 229,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "HeaderAdminConsoleButton_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminJobsPanel.cs",
+    "Line": 39,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "CloseAdminJobsOverlay",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminJobsPanel.cs",
+    "Line": 843,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "ShowAdminRuntimeOverlayAsync",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+    "Line": 78,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "WrapDialogContent",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/DialogUi.cs",
+    "Line": 387,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "BuildAdminWorkspaceDialogShell",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/DialogUi.cs",
+    "Line": 586,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "PersistTrackedJobTerminalSnapshotAsync",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/HelpAndLocalization.TrackedJobs.cs",
+    "Line": 822,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "CopyButton_Loaded",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/HelpAndLocalization.cs",
+    "Line": 83,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "StreamingStatusText_Loaded",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/HelpAndLocalization.cs",
+    "Line": 89,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "HasAny",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/HelpAndLocalization.cs",
+    "Line": 774,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "LocalLlmStart_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/LocalLlm.cs",
+    "Line": 658,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "LocalLlmStop_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/LocalLlm.cs",
+    "Line": 671,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "LocalLlmSave_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/LocalLlm.cs",
+    "Line": 685,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "LocalLlmBrowseExe_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/LocalLlm.cs",
+    "Line": 766,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "LocalLlmBrowseModel_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/LocalLlm.cs",
+    "Line": 781,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "LocalLlmImportModel_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/LocalLlm.cs",
+    "Line": 802,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "LocalLlmOpenModelsFolder_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/LocalLlm.cs",
+    "Line": 845,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "LocalLlmRuntimeDiagnostics_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/LocalLlmRuntimeDiagnostics.cs",
+    "Line": 12,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "SendCancel_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+    "Line": 5,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "InputBox_TextChanged",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+    "Line": 22,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "InputBox_KeyDown",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+    "Line": 35,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "MessagesScroll_ViewChanged",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+    "Line": 294,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "JumpBottom_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+    "Line": 311,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "CopyAssistant_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+    "Line": 319,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "Root_SizeChanged",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+    "Line": 379,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "SourcesToggle_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+    "Line": 386,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "CopyMessage_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+    "Line": 443,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "Bubble_PointerEntered",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+    "Line": 460,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "Bubble_PointerExited",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+    "Line": 472,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "MessagesList_SelectionChanged",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+    "Line": 737,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "ShowOverlayPage",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Overlays.cs",
+    "Line": 434,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "SessionMenu_Opening",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Sessions.cs",
+    "Line": 90,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "SessionsList_SelectionChanged",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Sessions.cs",
+    "Line": 165,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "NewChat_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Sessions.cs",
+    "Line": 182,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "SessionRename_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Sessions.cs",
+    "Line": 217,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "SessionDelete_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Sessions.cs",
+    "Line": 280,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "ChatsToggle_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/Sessions.cs",
+    "Line": 336,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "SetupWizard_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/SetupLifecycle.cs",
+    "Line": 674,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "Connect_Click",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/SetupLifecycle.cs",
+    "Line": 679,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": [
+      "client/SAAIA.Client.WinUI/MainWindow.xaml"
+    ]
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "StageOutboundMessage",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/StartupSetup.cs",
+    "Line": 74,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.MainWindow",
+    "Name": "FindDescendantByName",
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/ThemeChrome.cs",
+    "Line": 417,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag.SourceBackedAgentV2Runner",
+    "Name": "BuildCandidateBatchDirectLabelAuditSchema",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentCandidateAuditContract.cs",
+    "Line": 60,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag.SourceBackedAgentV2Runner",
+    "Name": "SelectGroupDiverseEvidenceIds",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentCompactEvidenceSelection.cs",
+    "Line": 5,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag.SourceBackedAgentV2Runner",
+    "Name": "TryValidateCompactResearchActionSubmission",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentCompactFollowUp.cs",
+    "Line": 138,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag.SourceBackedAgentV2Runner",
+    "Name": "FindEmbeddedLayoutCoordinate",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentSemanticCandidateStrategyValidation.cs",
+    "Line": 5,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "WaitForAdminIngestionJobAsync",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.AdminOperations.cs",
+    "Line": 14,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "TryExpandBackendGuidanceClarificationRetrievalAsync",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.BackendGuidanceExpansion.cs",
+    "Line": 14,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "StagePendingDirectCommand",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.CatalogContext.cs",
+    "Line": 121,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "BuildStatsFallbackAnswerFromResults",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DeterministicToolAnswers.cs",
+    "Line": 25,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "BuildSourceResolveAnswer",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DeterministicToolAnswers.cs",
+    "Line": 55,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "TryBuildDocumentsCountAnswer",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DeterministicToolAnswers.cs",
+    "Line": 139,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "TryBuildEmptyFoldersCountAnswer",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DeterministicToolAnswers.cs",
+    "Line": 149,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "TryBuildEmptyFoldersListAnswer",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DeterministicToolAnswers.cs",
+    "Line": 159,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "TryBuildSummaryStatusCountAnswer",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DeterministicToolAnswers.cs",
+    "Line": 191,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "TryBuildSummaryStatusListAnswer",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DeterministicToolAnswers.cs",
+    "Line": 220,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "ExecDocumentsGetAsync",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DocumentToolExecution.cs",
+    "Line": 70,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "TryReplayLastInventoryAnswerWithWriterAsync",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.InventoryReplayRendering.cs",
+    "Line": 19,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "BuildDocumentsListAnswer",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.InventoryTextAnswers.cs",
+    "Line": 12,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "BuildDocumentsTreeAnswer",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.InventoryTextAnswers.cs",
+    "Line": 37,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "TryExtractFinalAnswerFromRaw",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.JsonObjectRepair.cs",
+    "Line": 217,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "BuildJsonEnvelopeError",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.JsonObjectRepair.cs",
+    "Line": 248,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "L",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.Localization.cs",
+    "Line": 7,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "LF",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.Localization.cs",
+    "Line": 8,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "FindEmbeddedNativeLayoutCoordinate",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+    "Line": 2040,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "TryGetRagMultiSearchResultCategoryPath",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagSearchExecution.cs",
+    "Line": 552,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "ChooseCommittedSourceBackedCategoryScope",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagSearchExecution.cs",
+    "Line": 566,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "EmitSourceBackedResearchInventoryTrace",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagTrace.cs",
+    "Line": 197,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "RememberSourceBackedEvidenceExplorationPass",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagTrace.cs",
+    "Line": 394,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "BuildRouterMemoryContext",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RouterPromptsAndMemory.cs",
+    "Line": 126,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [
+      "client/SAAIA.Client.ToolAgent.Tests/MemoryCdcAlignmentTests.cs"
+    ],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "LooksLikeDirectAdminReindexRequest",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ShortcutIntentDetection.cs",
+    "Line": 487,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [
+      "client/SAAIA.Client.ToolAgent.Tests/DeterministicShortcutRegressionTests.cs"
+    ],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "TryExtractExactAdminReindexDocumentRef",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ShortcutIntentDetection.cs",
+    "Line": 500,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "BuildRagNeighborFallbackAnswer",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedBackendGuidanceFallbacks.cs",
+    "Line": 16,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "ShouldAttemptSourceBackedContextReadFollowup",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceExplorationContext.cs",
+    "Line": 123,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "TrySeedSourceBackedDocumentNavigationFromEvidenceAsync",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceExplorationNavigationSeeding.cs",
+    "Line": 11,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "ShouldSeedSourceBackedNavigationStructure",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceExplorationNavigationSeeding.cs",
+    "Line": 191,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "TrySeedSourceBackedNavigationStructureAsync",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceExplorationNavigationSeeding.cs",
+    "Line": 242,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "ContainsProcedureEvidenceCue",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceFacts.cs",
+    "Line": 208,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "EmitPlanningFinalizerDecisionTrace",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedFallbackRouting.cs",
+    "Line": 25,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "BuildSourceBackedRequestedAxes",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPartialAnswerPolicy.cs",
+    "Line": 8,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "TryGetSupportedStructuredPlanningSources",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningAnswerVerifier.cs",
+    "Line": 35,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "BuildFinalSourceBackedPlanningProofText",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningCandidateEvidence.cs",
+    "Line": 280,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "HasConcreteStructuredPlanningCandidateProof",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningLocalProof.cs",
+    "Line": 10,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "HasConcreteStructuredPlanningCardProof",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningLocalProof.cs",
+    "Line": 185,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "PlanningAnswerItemIsSupportedByAnyCandidate",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningSupportAnalysis.cs",
+    "Line": 448,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "ShouldUseFallbackForBroadMethodOptionRequest",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedReadableFallbacks.cs",
+    "Line": 117,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "LooksLikeMissingPairingAnchorAnswer",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedReadableFallbacks.cs",
+    "Line": 368,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "ResolveSourceBackedPlanningInventoryCaps",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRetrievalCaps.cs",
+    "Line": 40,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "BuildStructuredPlanningInventoryRetrievalQueries",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRetrievalDiscoveryQueries.cs",
+    "Line": 99,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "ResolveSourceBackedAnchorFollowupRoundLimit",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRetrievalNavigationQueries.cs",
+    "Line": 47,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "BuildConcreteStructuredPlanningInventoryTermsForRetrieval",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRetrievalPlanningQueries.cs",
+    "Line": 405,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "BuildDocumentCandidateListDiscoveryQueries",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRetrievalPlanningQueries.cs",
+    "Line": 410,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "BuildShortTechnicalEvidenceRetrievalQueries",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRetrievalPlanningQueriesSupport.cs",
+    "Line": 139,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "LooksLikeExplicitSourceBypassOrUnsupportedInventionRequest",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedSourcePolicyGuards.cs",
+    "Line": 248,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "BuildUsefulPartialStructuredPlanningAnswerBeforeWriter",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedStructuredPlanningPreWriterFallback.cs",
+    "Line": 50,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "ReconcileVisibleSourcesWithFinalAnswer",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceCitationReconciliation.cs",
+    "Line": 12,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "HasDocumentContextItems",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceRefs.cs",
+    "Line": 38,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "BuildQuestionsListAnswer",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.Summaries.cs",
+    "Line": 86,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "ResolveDocumentSummaryRequestKind",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.Summaries.cs",
+    "Line": 546,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "TryGetStoredSummaryAnswerAsync",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.Summaries.cs",
+    "Line": 837,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "PrefixSummaryMessage",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.Summaries.cs",
+    "Line": 950,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "ExecAdminSummarySubmitAsync",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ToolExecution.cs",
+    "Line": 320,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [
+      "client/SAAIA.Client.ToolAgent.Tests/ApiClientDocumentsTransitionTests.cs"
+    ],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "ExecAdminIngestionReindexAsync",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ToolExecution.cs",
+    "Line": 377,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+    "Name": "BuildOverflowRetryWriterToolResults",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.WriterPromptBudget.cs",
+    "Line": 132,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolManifest",
+    "Name": "BuildRouterToolDescription",
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolManifest.cs",
+    "Line": 196,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  },
+  {
+    "Type": "SAAIA.ValidationTools.JobGuardCli",
+    "Name": "Main",
+    "Path": "tools/SAAIA.AdvancedValidationJobGuard/Program.cs",
+    "Line": 9,
+    "identifierReferenceFiles": [],
+    "exactStringReferenceFiles": [],
+    "xamlReferenceFiles": []
+  }
+]

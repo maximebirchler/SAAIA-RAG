@@ -1,0 +1,985 @@
+{
+  "sourceRevision": "5131dee30131c1206f6a2881d615ce53a0764682",
+  "sourceFiles": 1267,
+  "csharpFiles": 1159,
+  "typeParts": 2579,
+  "methods": 14022,
+  "privateIdentifierCandidates": 129,
+  "candidatesWithXamlReferences": 43,
+  "candidatesWithExactStringReferences": 3,
+  "largestFiles": [
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.cs",
+      "lines": 36839,
+      "area": "backend",
+      "test": false
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SourceBackedAgentV2Tests.cs",
+      "lines": 16140,
+      "area": "client",
+      "test": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.cs",
+      "lines": 13328,
+      "area": "backend",
+      "test": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.cs",
+      "lines": 9952,
+      "area": "backend",
+      "test": true
+    },
+    {
+      "path": "tools/run-llm-validation.ps1",
+      "lines": 8388,
+      "area": "tools",
+      "test": false
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/SummaryBackofficeGovernanceTests.cs",
+      "lines": 4949,
+      "area": "backend",
+      "test": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/ApiClientDocumentsTransitionTests.cs",
+      "lines": 4497,
+      "area": "client",
+      "test": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.cs",
+      "lines": 4116,
+      "area": "backend",
+      "test": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/AdminRuntimeEndpointsTests.cs",
+      "lines": 3889,
+      "area": "backend",
+      "test": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/DocumentProfileProjector.cs",
+      "lines": 3482,
+      "area": "backend",
+      "test": false
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/DocumentProfileProjectorTests.cs",
+      "lines": 3232,
+      "area": "backend",
+      "test": true
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/LiveSourceBackedSemanticGranularityMicroprobeTests.cs",
+      "lines": 3127,
+      "area": "client",
+      "test": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/RetrievalChunkProjectorTests.cs",
+      "lines": 2797,
+      "area": "backend",
+      "test": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.cs",
+      "lines": 2619,
+      "area": "backend",
+      "test": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/DocumentFoundationRepo.cs",
+      "lines": 2531,
+      "area": "backend",
+      "test": false
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.cs",
+      "lines": 2496,
+      "area": "client",
+      "test": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/PdfOcrTextExtractor.cs",
+      "lines": 2407,
+      "area": "backend",
+      "test": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Ingestion/IngestionWorker.cs",
+      "lines": 2359,
+      "area": "backend",
+      "test": false
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/LiveSemanticResolutionWriterReviewV2CanaryTests.cs",
+      "lines": 2334,
+      "area": "client",
+      "test": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "lines": 2176,
+      "area": "client",
+      "test": false
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/UiLocalizationSafetyNetTests.cs",
+      "lines": 2124,
+      "area": "client",
+      "test": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/MainWindow/AdminConsoleWindow.cs",
+      "lines": 2096,
+      "area": "client",
+      "test": false
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/LiveCandidateAuditCompatibilityBenchmarkTests.cs",
+      "lines": 2020,
+      "area": "client",
+      "test": true
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/Localization/LocalizedStrings.cs",
+      "lines": 1997,
+      "area": "client",
+      "test": false
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/NativeRouterPromptBudgetTests.cs",
+      "lines": 1958,
+      "area": "client",
+      "test": true
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/PdfOcrTextExtractorTests.cs",
+      "lines": 1869,
+      "area": "backend",
+      "test": true
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/RetrievalChunkProjector.cs",
+      "lines": 1867,
+      "area": "backend",
+      "test": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/SummaryEndpoints.cs",
+      "lines": 1829,
+      "area": "backend",
+      "test": false
+    },
+    {
+      "path": "backend/SAAIA.Backend/Pdf/OcrNoiseFilter.cs",
+      "lines": 1749,
+      "area": "backend",
+      "test": false
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/DoclingCanonicalDocumentAdapterTests.cs",
+      "lines": 1749,
+      "area": "backend",
+      "test": true
+    }
+  ],
+  "largestProductionTypes": [
+    {
+      "name": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+      "parts": 246,
+      "files": 246,
+      "lines": 80864,
+      "methods": 2532
+    },
+    {
+      "name": "SAAIA.Backend.Endpoints.RagEndpoints",
+      "parts": 5,
+      "files": 5,
+      "lines": 37401,
+      "methods": 982
+    },
+    {
+      "name": "SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag.SourceBackedAgentV2Runner",
+      "parts": 137,
+      "files": 137,
+      "lines": 31506,
+      "methods": 567
+    },
+    {
+      "name": "SAAIA.Client.WinUI.MainWindow",
+      "parts": 29,
+      "files": 29,
+      "lines": 16153,
+      "methods": 440
+    },
+    {
+      "name": "SAAIA.Backend.AdvancedAnalysis.OpenAiCompatibleAdvancedAnalysisProvider",
+      "parts": 22,
+      "files": 22,
+      "lines": 8702,
+      "methods": 183
+    },
+    {
+      "name": "SAAIA.Backend.Endpoints.DocumentsEndpoints",
+      "parts": 7,
+      "files": 7,
+      "lines": 4332,
+      "methods": 69
+    },
+    {
+      "name": "DocumentProfileProjector",
+      "parts": 2,
+      "files": 2,
+      "lines": 3623,
+      "methods": 180
+    },
+    {
+      "name": "SAAIA.Backend.Endpoints.SummaryEndpoints",
+      "parts": 5,
+      "files": 5,
+      "lines": 3161,
+      "methods": 55
+    },
+    {
+      "name": "SAAIA.Client.WinUI.Services.ApiClient",
+      "parts": 8,
+      "files": 8,
+      "lines": 2673,
+      "methods": 127
+    },
+    {
+      "name": "DocumentFoundationRepo",
+      "parts": 1,
+      "files": 1,
+      "lines": 2473,
+      "methods": 50
+    },
+    {
+      "name": "IngestionWorker",
+      "parts": 2,
+      "files": 2,
+      "lines": 2414,
+      "methods": 65
+    },
+    {
+      "name": "PdfOcrTextExtractor",
+      "parts": 1,
+      "files": 1,
+      "lines": 2397,
+      "methods": 106
+    },
+    {
+      "name": "SAAIA.Client.WinUI.Localization.LocalizedStrings",
+      "parts": 1,
+      "files": 1,
+      "lines": 1988,
+      "methods": 47
+    },
+    {
+      "name": "RetrievalChunkProjector",
+      "parts": 1,
+      "files": 1,
+      "lines": 1823,
+      "methods": 118
+    },
+    {
+      "name": "OcrNoiseFilter",
+      "parts": 1,
+      "files": 1,
+      "lines": 1747,
+      "methods": 98
+    },
+    {
+      "name": "DocumentUnitExtractor",
+      "parts": 1,
+      "files": 1,
+      "lines": 1549,
+      "methods": 90
+    },
+    {
+      "name": "RetrievalContentClassifier",
+      "parts": 1,
+      "files": 1,
+      "lines": 1514,
+      "methods": 86
+    },
+    {
+      "name": "SAAIA.Client.WinUI.Services.OpenAiLlmClient",
+      "parts": 1,
+      "files": 1,
+      "lines": 1484,
+      "methods": 40
+    },
+    {
+      "name": "SAAIA.Client.WinUI.Localization.DeterministicAgentText",
+      "parts": 1,
+      "files": 1,
+      "lines": 1437,
+      "methods": 167
+    },
+    {
+      "name": "JobRepo",
+      "parts": 3,
+      "files": 3,
+      "lines": 1390,
+      "methods": 21
+    },
+    {
+      "name": "SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag.EvidenceBundleBuilder",
+      "parts": 7,
+      "files": 7,
+      "lines": 1352,
+      "methods": 32
+    },
+    {
+      "name": "SAAIA.Backend.Endpoints.AdminRuntimeEndpoints",
+      "parts": 1,
+      "files": 1,
+      "lines": 1351,
+      "methods": 67
+    },
+    {
+      "name": "SAAIA.Client.WinUI.Services.SourceCardParser",
+      "parts": 1,
+      "files": 1,
+      "lines": 1344,
+      "methods": 57
+    },
+    {
+      "name": "DocumentSectionExtractor",
+      "parts": 1,
+      "files": 1,
+      "lines": 1294,
+      "methods": 82
+    },
+    {
+      "name": "SAAIA.Client.WinUI.Services.ToolAgent.ToolMemory",
+      "parts": 2,
+      "files": 2,
+      "lines": 1276,
+      "methods": 20
+    }
+  ],
+  "largestProductionMethods": [
+    {
+      "Type": "SAAIA.Backend.Endpoints.RagEndpoints",
+      "Name": "SearchCoreAsync",
+      "Path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.cs",
+      "Line": 1863,
+      "Lines": 3377,
+      "DecisionNodes": 389,
+      "Modifiers": "internal static async",
+      "Parameters": 5,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag.SourceBackedAgentV2Runner",
+      "Name": "RunAsync",
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.cs",
+      "Line": 6,
+      "Lines": 2490,
+      "DecisionNodes": 268,
+      "Modifiers": "public async",
+      "Parameters": 2,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+      "Name": "ExecRagMultiSearchAsync",
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagMultiSearchExecution.cs",
+      "Line": 16,
+      "Lines": 1411,
+      "DecisionNodes": 170,
+      "Modifiers": "private async",
+      "Parameters": 2,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+      "Name": "RunAsync",
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RunPipeline.cs",
+      "Line": 30,
+      "Lines": 1272,
+      "DecisionNodes": 175,
+      "Modifiers": "public async",
+      "Parameters": 6,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Backend.Endpoints.RagEndpoints",
+      "Name": "AddConstraintSemanticVariants",
+      "Path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.cs",
+      "Line": 32852,
+      "Lines": 1196,
+      "DecisionNodes": 80,
+      "Modifiers": "private static",
+      "Parameters": 2,
+      "Test": false
+    },
+    {
+      "Type": "IngestionWorker",
+      "Name": "ProcessUpsertAsync",
+      "Path": "backend/SAAIA.Backend/Ingestion/IngestionWorker.cs",
+      "Line": 1019,
+      "Lines": 985,
+      "DecisionNodes": 73,
+      "Modifiers": "private async",
+      "Parameters": 9,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+      "Name": "RouterAsync",
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RouterCore.cs",
+      "Line": 26,
+      "Lines": 946,
+      "DecisionNodes": 112,
+      "Modifiers": "private async",
+      "Parameters": 4,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Backend.Endpoints.RagEndpoints",
+      "Name": "SearchTitleAnchorRouteMatchesAsync",
+      "Path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.cs",
+      "Line": 12725,
+      "Lines": 896,
+      "DecisionNodes": 32,
+      "Modifiers": "internal static async",
+      "Parameters": 12,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.MainWindow",
+      "Name": "ShowAdminRuntimeOverlayAsync",
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Line": 78,
+      "Lines": 706,
+      "DecisionNodes": 78,
+      "Modifiers": "private async",
+      "Parameters": 0,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Backend.Endpoints.RagEndpoints",
+      "Name": "CalibrateFusedMatches",
+      "Path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.cs",
+      "Line": 22140,
+      "Lines": 702,
+      "DecisionNodes": 171,
+      "Modifiers": "internal static",
+      "Parameters": 3,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+      "Name": "TryBuildNativeSourceBackedRouterPlan",
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "Line": 1039,
+      "Lines": 670,
+      "DecisionNodes": 144,
+      "Modifiers": "private",
+      "Parameters": 9,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.MainWindow",
+      "Name": "ShowAdminJobsOverlayAsync",
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminJobsPanel.cs",
+      "Line": 109,
+      "Lines": 655,
+      "DecisionNodes": 37,
+      "Modifiers": "private async",
+      "Parameters": 2,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Backend.Endpoints.DocumentsEndpoints",
+      "Name": "ExtractionQualityAsync",
+      "Path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.cs",
+      "Line": 1244,
+      "Lines": 622,
+      "DecisionNodes": 0,
+      "Modifiers": "private static async",
+      "Parameters": 5,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+      "Name": "TryHandleDeterministicShortcutAsync",
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ShortcutExecution.cs",
+      "Line": 18,
+      "Lines": 582,
+      "DecisionNodes": 80,
+      "Modifiers": "private async",
+      "Parameters": 10,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+      "Name": "ExecRagEvidenceOverviewSummaryAsync",
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.EvidenceOverviewSummary.cs",
+      "Line": 16,
+      "Lines": 576,
+      "DecisionNodes": 31,
+      "Modifiers": "private async",
+      "Parameters": 6,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.MainWindow",
+      "Name": "ShowCapabilityAKpiOverlayAsync",
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeCapabilityAKpiPanel.cs",
+      "Line": 53,
+      "Lines": 542,
+      "DecisionNodes": 46,
+      "Modifiers": "private async",
+      "Parameters": 0,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.MainWindow",
+      "Name": "ShowCapabilityBQualityReviewOverlayAsync",
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeQualityPanel.cs",
+      "Line": 59,
+      "Lines": 542,
+      "DecisionNodes": 57,
+      "Modifiers": "private async",
+      "Parameters": 0,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag.SourceBackedAgentV2Runner",
+      "Name": "ExecuteDocumentaryToolBatchAsync",
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentDocumentaryToolBatch.cs",
+      "Line": 19,
+      "Lines": 481,
+      "DecisionNodes": 29,
+      "Modifiers": "private async",
+      "Parameters": 33,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Backend.Endpoints.RagEndpoints",
+      "Name": "SearchLinkedMatchesAsync",
+      "Path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.cs",
+      "Line": 21277,
+      "Lines": 478,
+      "DecisionNodes": 19,
+      "Modifiers": "internal static async",
+      "Parameters": 11,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+      "Name": "LooksLikeNoisyStructuredPlanningCandidateTitleUncached",
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningTitleQuality.cs",
+      "Line": 209,
+      "Lines": 471,
+      "DecisionNodes": 86,
+      "Modifiers": "private static",
+      "Parameters": 1,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag.SourceBackedAgentV2Runner",
+      "Name": "ReviewInitialEvidenceAsync",
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentFastEvidenceReviewPrompt.cs",
+      "Line": 27,
+      "Lines": 457,
+      "DecisionNodes": 77,
+      "Modifiers": "private async",
+      "Parameters": 7,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag.SourceBackedAgentV2Runner",
+      "Name": "ReviewFlatEvidenceAdequacyRoundAsync",
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentFlatEvidenceAdequacy.cs",
+      "Line": 28,
+      "Lines": 455,
+      "DecisionNodes": 29,
+      "Modifiers": "private async",
+      "Parameters": 9,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag.SourceBackedAgentV2Runner",
+      "Name": "CompactWorkingMessages",
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentWorkingStatePrompt.cs",
+      "Line": 8,
+      "Lines": 454,
+      "DecisionNodes": 80,
+      "Modifiers": "private",
+      "Parameters": 10,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.MainWindow",
+      "Name": "HelpButton_Click",
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/HelpAndLocalization.cs",
+      "Line": 106,
+      "Lines": 453,
+      "DecisionNodes": 38,
+      "Modifiers": "private async",
+      "Parameters": 2,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.MainWindow",
+      "Name": "ShowLocalLlmRuntimeDiagnosticsAsync",
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/LocalLlmRuntimeDiagnostics.cs",
+      "Line": 32,
+      "Lines": 447,
+      "DecisionNodes": 24,
+      "Modifiers": "private async",
+      "Parameters": 0,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Backend.Endpoints.RagEndpoints",
+      "Name": "LoadRagExtractionQualityAsync",
+      "Path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.cs",
+      "Line": 460,
+      "Lines": 427,
+      "DecisionNodes": 7,
+      "Modifiers": "internal static async",
+      "Parameters": 4,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Backend.Endpoints.RagEndpoints",
+      "Name": "PrioritizeFinalSelections",
+      "Path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.cs",
+      "Line": 25012,
+      "Lines": 421,
+      "DecisionNodes": 170,
+      "Modifiers": "internal static",
+      "Parameters": 2,
+      "Test": false
+    },
+    {
+      "Type": "DoclingIngestionStageManifestFactory",
+      "Name": "Create",
+      "Path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingIngestionStageManifestFactory.cs",
+      "Line": 12,
+      "Lines": 407,
+      "DecisionNodes": 5,
+      "Modifiers": "public static",
+      "Parameters": 8,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Backend.AdvancedAnalysis.OpenAiCompatibleAdvancedAnalysisProvider",
+      "Name": "ExecuteAsync",
+      "Path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.cs",
+      "Line": 83,
+      "Lines": 397,
+      "DecisionNodes": 45,
+      "Modifiers": "public async",
+      "Parameters": 3,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Backend.AdvancedAnalysis.OpenAiCompatibleAdvancedAnalysisProvider",
+      "Name": "RunStagedCandidateExplorerAsync",
+      "Path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.StagedCandidateExplorer.cs",
+      "Line": 7,
+      "Lines": 389,
+      "DecisionNodes": 76,
+      "Modifiers": "private async",
+      "Parameters": 5,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Backend.Endpoints.RagEndpoints",
+      "Name": "SearchQuotedTitleMatchesAsync",
+      "Path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.cs",
+      "Line": 11291,
+      "Lines": 389,
+      "DecisionNodes": 5,
+      "Modifiers": "internal static async",
+      "Parameters": 9,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Backend.Endpoints.SummaryEndpoints",
+      "Name": "HandleAdminJobControlAsync",
+      "Path": "backend/SAAIA.Backend/Endpoints/SummaryEndpoints.AdminJobs.Control.cs",
+      "Line": 17,
+      "Lines": 381,
+      "DecisionNodes": 33,
+      "Modifiers": "private static async",
+      "Parameters": 5,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Backend.Endpoints.RagEndpoints",
+      "Name": "SearchDocumentStatusOperandContentMatchesAsync",
+      "Path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.cs",
+      "Line": 15981,
+      "Lines": 380,
+      "DecisionNodes": 7,
+      "Modifiers": "private static async",
+      "Parameters": 11,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Backend.AdvancedAnalysis.OpenAiCompatibleAdvancedAnalysisProvider",
+      "Name": "CompleteWithCorpusResearchAsync",
+      "Path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.ResearchContinuation.cs",
+      "Line": 145,
+      "Lines": 378,
+      "DecisionNodes": 105,
+      "Modifiers": "private async",
+      "Parameters": 10,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Backend.AdvancedAnalysis.OpenAiCompatibleAdvancedAnalysisProvider",
+      "Name": "CompleteJsonAsync",
+      "Path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.cs",
+      "Line": 696,
+      "Lines": 365,
+      "DecisionNodes": 82,
+      "Modifiers": "private async",
+      "Parameters": 8,
+      "Test": false
+    },
+    {
+      "Type": "IngestionScanner",
+      "Name": "ScanOnceAsync",
+      "Path": "backend/SAAIA.Backend/IngestionScanner.cs",
+      "Line": 71,
+      "Lines": 360,
+      "DecisionNodes": 50,
+      "Modifiers": "private async",
+      "Parameters": 6,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Backend.Endpoints.DocumentsEndpoints",
+      "Name": "ExtractionQualityPagesAsync",
+      "Path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.ExtractionQualityPages.cs",
+      "Line": 13,
+      "Lines": 357,
+      "DecisionNodes": 10,
+      "Modifiers": "private static async",
+      "Parameters": 3,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Backend.Endpoints.DocumentsEndpoints",
+      "Name": "ContentCardsAsync",
+      "Path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.ContentCards.cs",
+      "Line": 10,
+      "Lines": 356,
+      "DecisionNodes": 6,
+      "Modifiers": "private static async",
+      "Parameters": 10,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+      "Name": "TryRepairSourceBackedSynthesisAnswerWithWriterAsync",
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRepairWriter.cs",
+      "Line": 14,
+      "Lines": 344,
+      "DecisionNodes": 43,
+      "Modifiers": "private async",
+      "Parameters": 7,
+      "Test": false
+    },
+    {
+      "Type": "SAAIA.Client.WinUI.Services.ToolAgent.ToolAgentOrchestrator",
+      "Name": "ExecuteDirectCommandCoreAsync",
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DirectCommands.cs",
+      "Line": 28,
+      "Lines": 340,
+      "DecisionNodes": 54,
+      "Modifiers": "private async",
+      "Parameters": 5,
+      "Test": false
+    }
+  ],
+  "largestTestMethods": [
+    {
+      "Type": "SAAIA.Client.ToolAgent.Tests.LiveCandidateAuditCompatibilityBenchmarkTests",
+      "Name": "Live_qwen3_measures_frozen_phase2_baseline_a_when_enabled",
+      "Path": "client/SAAIA.Client.ToolAgent.Tests/LiveCandidateAuditCompatibilityBenchmarkTests.cs",
+      "Line": 52,
+      "Lines": 1231,
+      "DecisionNodes": 88,
+      "Modifiers": "public async",
+      "Parameters": 0,
+      "Test": true
+    },
+    {
+      "Type": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests",
+      "Name": "CapabilityA_candidates_and_enqueue_flow_use_runtime_governance_and_ingestion_queue",
+      "Path": "backend/SAAIA.Backend.Tests/AdminRuntimeEndpointsTests.cs",
+      "Line": 854,
+      "Lines": 443,
+      "DecisionNodes": 59,
+      "Modifiers": "public async",
+      "Parameters": 0,
+      "Test": true
+    },
+    {
+      "Type": "SAAIA.Backend.Tests.LiveStructuralAnchorSelectionBenchmarkTests",
+      "Name": "Live_qwen3_selects_primary_structural_anchor_when_enabled",
+      "Path": "backend/SAAIA.Backend.Tests/LiveStructuralAnchorSelectionBenchmarkTests.cs",
+      "Line": 50,
+      "Lines": 440,
+      "DecisionNodes": 38,
+      "Modifiers": "public async",
+      "Parameters": 0,
+      "Test": true
+    },
+    {
+      "Type": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests",
+      "Name": "CapabilityB_candidates_and_enqueue_flow_use_runtime_governance_and_summary_jobs",
+      "Path": "backend/SAAIA.Backend.Tests/AdminRuntimeEndpointsTests.cs",
+      "Line": 1298,
+      "Lines": 406,
+      "DecisionNodes": 36,
+      "Modifiers": "public async",
+      "Parameters": 0,
+      "Test": true
+    },
+    {
+      "Type": "SAAIA.Backend.Tests.LiveIndependentStructuralAnchorLegitimacyBenchmarkTests",
+      "Name": "Live_qwen3_judges_each_structural_anchor_independently_when_enabled",
+      "Path": "backend/SAAIA.Backend.Tests/LiveIndependentStructuralAnchorLegitimacyBenchmarkTests.cs",
+      "Line": 34,
+      "Lines": 342,
+      "DecisionNodes": 14,
+      "Modifiers": "public async",
+      "Parameters": 0,
+      "Test": true
+    },
+    {
+      "Type": "SAAIA.Backend.Tests.RuntimeGovernanceTelemetryTests",
+      "Name": "Warmup_and_selection_emit_runtime_governance_metrics_and_spans",
+      "Path": "backend/SAAIA.Backend.Tests/RuntimeGovernanceTelemetryTests.cs",
+      "Line": 11,
+      "Lines": 326,
+      "DecisionNodes": 20,
+      "Modifiers": "public",
+      "Parameters": 0,
+      "Test": true
+    },
+    {
+      "Type": "SAAIA.Client.ToolAgent.Tests.LiveSourceBackedSemanticGranularityMicroprobeTests",
+      "Name": "Live_qwen3_reviews_structured_assignments_globally_when_enabled",
+      "Path": "client/SAAIA.Client.ToolAgent.Tests/LiveSourceBackedSemanticGranularityMicroprobeTests.cs",
+      "Line": 1899,
+      "Lines": 306,
+      "DecisionNodes": 4,
+      "Modifiers": "public async",
+      "Parameters": 0,
+      "Test": true
+    },
+    {
+      "Type": "SAAIA.Client.ToolAgent.Tests.LiveCompactSemanticEnvelopeNativeTokenMeasurementTests",
+      "Name": "A648_measures_all_compact_envelopes_with_native_tokenizer_only",
+      "Path": "client/SAAIA.Client.ToolAgent.Tests/LiveCompactSemanticEnvelopeNativeTokenMeasurementTests.cs",
+      "Line": 29,
+      "Lines": 274,
+      "DecisionNodes": 4,
+      "Modifiers": "public async",
+      "Parameters": 0,
+      "Test": true
+    },
+    {
+      "Type": "SAAIA.Client.ToolAgent.Tests.LiveSemanticResolutionWriterReviewV2CanaryTests",
+      "Name": "RunLiveCanaryAsync",
+      "Path": "client/SAAIA.Client.ToolAgent.Tests/LiveSemanticResolutionWriterReviewV2CanaryTests.cs",
+      "Line": 465,
+      "Lines": 262,
+      "DecisionNodes": 17,
+      "Modifiers": "private async",
+      "Parameters": 1,
+      "Test": true
+    },
+    {
+      "Type": "SAAIA.Client.ToolAgent.Tests.LiveSourceBackedSemanticGranularityMicroprobeTests",
+      "Name": "Live_qwen3_writes_the_structured_plan_directly_from_candidates_when_enabled",
+      "Path": "client/SAAIA.Client.ToolAgent.Tests/LiveSourceBackedSemanticGranularityMicroprobeTests.cs",
+      "Line": 1637,
+      "Lines": 261,
+      "DecisionNodes": 15,
+      "Modifiers": "public async",
+      "Parameters": 0,
+      "Test": true
+    }
+  ],
+  "areaCounts": [
+    {
+      "group": "artifacts, False",
+      "files": 3,
+      "lines": 224.0
+    },
+    {
+      "group": "backend, False",
+      "files": 231,
+      "lines": 119991.0
+    },
+    {
+      "group": "backend, True",
+      "files": 129,
+      "lines": 80670.0
+    },
+    {
+      "group": "client, False",
+      "files": 598,
+      "lines": 179309.0
+    },
+    {
+      "group": "client, True",
+      "files": 185,
+      "lines": 91617.0
+    },
+    {
+      "group": "contracts, False",
+      "files": 14,
+      "lines": 2914.0
+    },
+    {
+      "group": "contracts, True",
+      "files": 5,
+      "lines": 503.0
+    },
+    {
+      "group": "infra, False",
+      "files": 23,
+      "lines": 3798.0
+    },
+    {
+      "group": "infra, True",
+      "files": 2,
+      "lines": 269.0
+    },
+    {
+      "group": "Test Bench, False",
+      "files": 1,
+      "lines": 466.0
+    },
+    {
+      "group": "tools, False",
+      "files": 73,
+      "lines": 28997.0
+    },
+    {
+      "group": "tools, True",
+      "files": 3,
+      "lines": 536.0
+    }
+  ]
+}
