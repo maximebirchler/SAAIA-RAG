@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "saaia-architecture-delivery-seal-v1",
+  "sealedAtUtc": "2026-10-24T21:25:43.9962192+00:00",
+  "branch": "SAAIA_V3.1",
+  "implementationCommit": "90e890fa799b79f7e5a2dc0f83150e6a35dfa8cc",
+  "implementationTree": "a91681873a038cd2ea0239b580c3b010540b338e",
+  "baseline": "89912f9dece71bdfd1a6bf78e1287dd2ac38c8d8",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "deliveredAuditPoints": 37,
+  "evidenceFilesVerifiedAsIdenticalRawGitBlobs": 71,
+  "sourceAndDocumentationWhitespaceCheck": "passed",
+  "rawEvidenceWhitespaceCheck": "passed with cr-at-eol, preserving original evidence bytes",
+  "secretPatternScan": "No known provider key, Telegram token or private-key marker found in staged additions/changes; not a mathematical proof of absence",
+  "forbiddenGeneratedOrCredentialPaths": [],
+  "files": [
+    {
+      "path": "artifacts/assainissement-20261024/validation-final.json",
+      "sha256": "6E4C674C69C6EE9C8F79351CBB12EAE31809740423AE09263FB66B387C59F63E"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/versionable-evidence.json",
+      "sha256": "39D2E89D1B541D5B4E849D7FF0396846D9E6D5C787DF287C4E1ACE2C4355149E"
+    },
+    {
+      "path": "documents/agent/rapport-assainissement-2026-10-24.md",
+      "sha256": "405624078E8A845653ACA4473EB7412F04A16F12A1BDF23C11E7C2AC8D4D78FA"
+    },
+    {
+      "path": "documents/agent/suivi-assainissement-2026-10-24.json",
+      "sha256": "C1319D3FB635B15F5575779100D82E580EFE19040A304A9CAC76C8E29385525F"
+    }
+  ],
+  "provenance": "Test manifests intentionally retain the pre-commit dirty source state of their execution. The implementation commit above contains the validated final sources and selected raw evidence. This seal is metadata only and does not claim a post-commit rerun or bit-reproducible build.",
+  "externalEffects": "No paid calls, corpus transmission or server deployment in this task."
+}
