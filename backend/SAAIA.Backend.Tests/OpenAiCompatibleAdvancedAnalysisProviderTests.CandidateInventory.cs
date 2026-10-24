@@ -704,6 +704,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 ("save_candidate_inventory", update),
                 ("search_corpus", WorkspaceSearch)));
         var options = WorkspaceOptions();
+        options.ExternalMaximumCallsPerJob = 3;
         var content = mutation == "navigation_body"
             ? "SOMMAIRE\nOmelette ........ 12\nPorridge ........ 14\nCrêpes ........ 16"
             : "OMELETTE\nINGRÉDIENTS\n4 œufs. PRÉPARATION\nBattre puis cuire.";
@@ -722,7 +723,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                     gateway,
                     CancellationToken.None));
 
-        Assert.Equal("advanced_native_tool_protocol_invalid", error.ErrorCode);
+        Assert.Equal("advanced_synthesis_research_protocol_invalid", error.ErrorCode);
         Assert.Single(gateway.Searches);
     }
 

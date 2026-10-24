@@ -21,7 +21,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             .ExecuteAsync(BuildDirectRequest(), new RecordingToolGateway(BuildEvidence("E1", "Le seuil est 17 bar.")), CancellationToken.None);
         Assert.Equal("answered", result.Outcome); Assert.Equal(4, result.ProviderCallCount);
         using var planner = JsonDocument.Parse(factory.Requests[0].Body);
-        Assert.Equal("low", planner.RootElement.GetProperty("reasoning_effort").GetString());
+        Assert.Equal("low", planner.RootElement.GetProperty("reasoning").GetProperty("effort").GetString());
         for (var i = 1; i < factory.Requests.Count; i++)
         {
             using var request = JsonDocument.Parse(factory.Requests[i].Body);

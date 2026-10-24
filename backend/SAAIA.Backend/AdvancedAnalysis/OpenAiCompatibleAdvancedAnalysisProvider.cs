@@ -34,7 +34,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         AdvancedAnalysisLlmUsage Usage,
         decimal? EstimatedCostUsd,
         string? NativeToolCallsJson = null,
-        string? NativeResponseOutputJson = null);
+        string? NativeResponseOutputJson = null,
+        AdvancedAnalysisResearchArgumentFeedback? NativeArgumentFeedback = null);
 
     internal OpenAiCompatibleAdvancedAnalysisProvider(
         IHttpClientFactory httpClientFactory,
@@ -460,10 +461,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 parsed,
                 promptEvidence,
                 synthesisRecoveryErrorCode);
-            if (FindIdentityOnlyCandidateClaims(parsed, evidence, request).Count > 0)
+            if (FindIdentityOnlyCandidateClaims(parsed, promptEvidence, request).Count > 0)
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_candidate_body_not_supported");
-            EnsureVisibleClaimCitations(parsed, promptEvidence.Where(e => e.EvidenceId is not null)
+            EnsureVisibleClaimCitations(parsed, promptEvidence.Where(e => e.EvidenceId is not null
+                    && GetVisibleEvidenceContents(e).Any(content => !string.IsNullOrWhiteSpace(content)))
                 .Select(e => e.EvidenceId!).ToArray());
+            EnsureNamedSelectionIdentityBindings(parsed, request, promptEvidence);
             return WithMetrics(
                 parsed,
                 completions,
@@ -702,7 +705,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
     {
         var nativeFunctions = allowNativeResearch && _options.NativeResearchToolsEnabled
             ? BuildNativeResearchFunctions(userPrompt) : null;
-        var nativeResponses = allowNativeResearch && _options.NativeResearchToolsEnabled && UsesNativeResponses;
+        // The configured wire protocol applies to every role. Tool permission
+        // remains role-specific, but Planner and Judge must use the same
+        // stateless endpoint and response envelope as Navigator and Writer.
+        var nativeResponses = _options.NativeResearchToolsEnabled && UsesNativeResponses;
         if (nativeFunctions is not null)
             systemPrompt = systemPrompt.Replace(BuildSynthesisResearchContract(), NativeResearchContract, StringComparison.Ordinal);
         if (nativeResponses
@@ -874,16 +880,19 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     string? completionContent = null;
                     string? nativeCallsJson = null;
                     string? nativeOutputJson = null;
+                    AdvancedAnalysisResearchArgumentFeedback? nativeArgumentFeedback = null;
                     string? normalizationError = null;
                     var completionOrigin = "message.content";
                     if (nativeResponses)
                     {
-                        (completionContent, nativeCallsJson, nativeOutputJson, completionOrigin, normalizationError) =
+                        (completionContent, nativeCallsJson, nativeOutputJson, completionOrigin, normalizationError, nativeArgumentFeedback) =
                             ReadNativeResponsesCompletion(document.RootElement, userPrompt, nativeFunctions is not null);
                     }
                     else if (answer.ValueKind == JsonValueKind.Object)
                     {
-                        if (answer.TryGetProperty("tool_calls", out var calls)
+                        if (!string.IsNullOrEmpty(ReadString(answer, "refusal")))
+                            normalizationError = "advanced_llm_content_filtered";
+                        else if (answer.TryGetProperty("tool_calls", out var calls)
                             && calls.ValueKind != JsonValueKind.Null && !(calls.ValueKind == JsonValueKind.Array && calls.GetArrayLength() == 0))
                         {
                             if (nativeFunctions is null) normalizationError = "advanced_native_tool_not_available";
@@ -895,14 +904,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                                     nativeCallsJson = calls.GetRawText();
                                 }
                                 catch (Exception error) when (error is JsonException or AdvancedAnalysisProviderException or InvalidOperationException)
-                                { normalizationError = "advanced_native_tool_protocol_invalid"; }
+                                {
+                                    if (TryBuildNativeArgumentRejection(calls, userPrompt, error, out nativeArgumentFeedback))
+                                    {
+                                        completionContent = "{\"outcome\":\"research_required\",\"queries\":[]}";
+                                        nativeCallsJson = calls.GetRawText();
+                                    }
+                                    else normalizationError = "advanced_native_tool_protocol_invalid";
+                                }
                             }
                         }
                         else if (answer.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.String)
                             completionContent = content.GetString();
                     }
                     if (string.IsNullOrWhiteSpace(completionContent) || normalizationError is not null
-                        || (!nativeResponses && nativeCallsJson is not null && ReadString(choices[0], "finish_reason") == "length"))
+                        || (!nativeResponses && hasAnswer && ReadString(choices[0], "finish_reason") is "length" or "content_filter"))
                     {
                         var errorCode = choices.ValueKind == JsonValueKind.Array
                                         && choices.GetArrayLength() > 0
@@ -911,7 +927,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                                             "length",
                                             StringComparison.OrdinalIgnoreCase)
                             ? "advanced_llm_output_limit"
-                            : normalizationError ?? "advanced_llm_content_missing";
+                            : hasAnswer && ReadString(choices[0], "finish_reason") == "content_filter"
+                                ? "advanced_llm_content_filtered"
+                                : normalizationError ?? "advanced_llm_content_missing";
                         if (reservation is not null)
                         {
                             _budget!.Fail(
@@ -957,7 +975,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                         usage,
                         charge?.CostUsd,
                         nativeCallsJson,
-                        nativeOutputJson);
+                        nativeOutputJson,
+                        nativeArgumentFeedback);
                 }
                 catch (JsonException)
                 {

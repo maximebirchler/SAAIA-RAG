@@ -73,7 +73,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var selectedSources = selected.Select(item => item.SourceKey).ToHashSet(StringComparer.Ordinal);
         // Keep every remembered source callable without presenting its omitted body as proof.
         selected.AddRange(sourceAnchors.Where(item => !selectedSources.Contains(item.SourceKey))
-            .Select(item => item with { Content = string.Empty, ContentTruncated = true }));
+            .Select(item => item with
+            {
+                Content = string.Empty, ContentTruncated = true,
+                SupportingContentWindows = [], SupportingContentWindowsOmittedCount = 0
+            }));
         return selected;
     }
 
@@ -190,7 +194,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             },
             researchTools = new
             {
-                tools = BuildResearchToolsForPrompt(),
+                tools = BuildResearchToolsForPrompt(includeEvidenceReading: true),
                 researchAllowed = documentaryResearchAllowed,
                 evidenceReadingAllowed = true,
                 instruction = capacityRepairOnly
@@ -234,7 +238,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            {"outcome":"navigation_bounded","reason":"short operational reason"}.
            The backend executes and paginates the chosen operations mechanically;
            a separate Candidate Judge will assess returned bodies.
-           """ + "\n" + NativeResearchContract;
+           """ + "\n" + NativeResearchContract + "\n" + DocumentaryDataBoundary;
 
     private static string ParseCandidateNavigatorTerminal(string raw)
     {

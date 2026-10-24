@@ -74,7 +74,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var navigation = BuildEvidence("TOC", contents, docId: documentId,
             revisionId: revisionId, exactTitle: "TABLE DES MATIÈRES");
         // These untitled canonical prose chunks displace the TOC from the ordinary
-        // body-focused view. They do not create synthetic named-item candidates.
+        // body-focused view. The Judge must inspect and reject their provisional
+        // seeds instead of the code silently deciding that they contain no items.
         var bodies = Enumerable.Range(1, 40).Select(index => BuildEvidence(
             "BODY-" + index, "Documentary discussion "
                             + string.Join(" ", Enumerable.Repeat("Canonical explanatory sentence.", 80)),
@@ -84,7 +85,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         const string bounded = """{"outcome":"navigation_bounded","reason":"All observed routes were attempted."}""";
         HttpResponseMessage Terminal(string content) => protocol == "responses"
             ? NativeResponseAnswer(content) : Completion(content);
-        using var factory = new QueuedHttpClientFactory(
+        using var factory = new NavigationContinuityHttpClientFactory(
             Completion(CandidatePlanner),
             NavigatorFunction(protocol, "nav-first", first, reasoningCharacters),
             NavigatorFunction(protocol, "nav-second", second, reasoningCharacters),
@@ -96,7 +97,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         options.StagedCandidateExplorerEnabled = true;
         options.NativeResearchMaximumHistoryCharacters = 32_768;
         options.SemanticCriticEnabled = false;
-        options.ExternalMaximumCallsPerJob = 6;
+        options.ExternalMaximumCallsPerJob = 20;
         var gateway = new SequencedToolGateway([navigation], bodies, bodies);
 
         var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null)
@@ -105,15 +106,19 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 
         Assert.Equal("insufficient_documentation", result.Outcome);
         Assert.Equal(3, gateway.Searches.Count);
-        Assert.InRange(factory.Requests.Count, 5, 6);
-        foreach (var index in new[] { 1, 2, 3 })
+        Assert.True(factory.JudgeRequestCount > 0);
+        Assert.InRange(factory.Requests.Count - factory.JudgeRequestCount, 5, 6);
+        var navigationRequests = factory.Requests.Where(item => item.Body.Contains(
+            "You are the SAAIA Candidate Navigator", StringComparison.Ordinal)).ToArray();
+        Assert.Equal(3, navigationRequests.Length);
+        foreach (var call in navigationRequests)
         {
-            var user = WorkspaceUser(factory.Requests[index].Body);
+            var user = WorkspaceUser(call.Body);
             var retainedContents = user.GetProperty("evidence").EnumerateArray()
                 .Single(item => item.GetProperty("evidenceId").GetString() == "TOC");
             Assert.Contains("R2 ........ 24", retainedContents.GetProperty("content").GetString());
         }
-        using var next = JsonDocument.Parse(factory.Requests[3].Body);
+        using var next = JsonDocument.Parse(navigationRequests[2].Body);
         var input = next.RootElement.GetProperty(protocol == "responses" ? "input" : "messages");
         var outputs = input.EnumerateArray().Where(item => protocol == "responses"
             ? item.TryGetProperty("type", out var type) && type.GetString() == "function_call_output"
@@ -135,8 +140,61 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 .Where(item => item.TryGetProperty("type", out var type) && type.GetString() == "reasoning")
                 .Select(item => item.GetProperty("encrypted_content").GetString()));
         Assert.Equal(reasoningCharacters == 0 ? 0 : reasoningCharacters < 32_768 ? 1 : 2,
-            WorkspaceUser(factory.Requests[3].Body).GetProperty("projection")
+            WorkspaceUser(navigationRequests[2].Body).GetProperty("projection")
                 .GetProperty("nativeHistoryOmittedTurnCount").GetInt32());
+    }
+
+    private sealed class NavigationContinuityHttpClientFactory : IHttpClientFactory, IDisposable
+    {
+        private readonly HttpClient _client;
+        public List<CapturedRequest> Requests { get; } = [];
+        public int JudgeRequestCount { get; private set; }
+
+        public NavigationContinuityHttpClientFactory(params HttpResponseMessage[] responses)
+            => _client = new HttpClient(new Handler(this, responses));
+
+        public HttpClient CreateClient(string name)
+        {
+            Assert.Equal("advanced-analysis-llm", name);
+            return _client;
+        }
+
+        public void Dispose() => _client.Dispose();
+
+        private sealed class Handler(NavigationContinuityHttpClientFactory owner,
+            IEnumerable<HttpResponseMessage> responses) : HttpMessageHandler
+        {
+            private readonly Queue<HttpResponseMessage> _responses = new(responses);
+
+            protected override async Task<HttpResponseMessage> SendAsync(
+                HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                var body = await request.Content!.ReadAsStringAsync(cancellationToken);
+                owner.Requests.Add(new(request.RequestUri!, request.Headers.Authorization, body));
+                if (!body.Contains("You are the SAAIA Candidate Judge", StringComparison.Ordinal))
+                    return await AdaptProtocolAgnosticFixtureAsync(request, _responses.Dequeue(), cancellationToken);
+
+                owner.JudgeRequestCount++;
+                var prompt = WorkspaceUser(body);
+                Assert.All(prompt.GetProperty("evidence").EnumerateArray(), item =>
+                    Assert.Contains("Documentary discussion", item.GetProperty("content").GetString()));
+                var rejection = Completion(JsonSerializer.Serialize(new
+                {
+                    items = prompt.GetProperty("candidateInventory").GetProperty("items").EnumerateArray()
+                        .Select(item => new
+                        {
+                            key = item.GetProperty("key").GetString(),
+                            exactTitle = item.GetProperty("exactTitle").GetString(),
+                            sourceKey = item.GetProperty("sourceKey").GetString(),
+                            targetRoles = Array.Empty<string>(), selectedRoles = Array.Empty<string>(),
+                            status = "rejected", note = "Explanatory prose contains no requested usable named item.",
+                            locatorEvidenceIds = Array.Empty<string>(),
+                            bodyEvidenceIds = item.GetProperty("bodyEvidenceIds").Clone()
+                        }).ToArray()
+                }));
+                return await AdaptProtocolAgnosticFixtureAsync(request, rejection, cancellationToken);
+            }
+        }
     }
 
     [Theory]
@@ -346,7 +404,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var responses = new List<HttpResponseMessage>
             { Completion(CandidatePlanner), Completion(needsBody), operation };
         if (!invalidMixedBatch) responses.Add(Completion(NavigationJudgeUpdate(1)));
-        if (!retrievalBudgetExhausted) responses.Add(Completion(bounded));
+        // Even after the final tail window, a gap can remain between the
+        // retained prefix and that tail. A read-only Navigator may inspect it.
+        responses.Add(Completion(bounded));
         responses.Add(Completion(CandidateTerminal));
         responses.Add(Completion(CandidateTerminal));
         using var factory = new QueuedHttpClientFactory(responses.ToArray());

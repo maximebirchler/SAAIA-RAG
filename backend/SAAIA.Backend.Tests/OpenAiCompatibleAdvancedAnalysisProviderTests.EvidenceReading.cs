@@ -116,13 +116,22 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var canonical = BuildEvidence("E1", new string('x', 3_000));
         using var factory = new QueuedHttpClientFactory(
             Completion("""{"queries":[{"query":"overview","topK":12}]}"""),
-            NativeCompletion(("search_corpus", WorkspaceSearch), ("read_evidence", arguments)));
+            NativeCompletion(("search_corpus", WorkspaceSearch), ("read_evidence", arguments)),
+            Completion("""{"outcome":"insufficient_documentation","answerText":"La preuve est insuffisante.","claims":[]}"""));
         var gateway = new RecordingToolGateway(canonical);
-        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
-            new OpenAiCompatibleAdvancedAnalysisProvider(factory, WorkspaceOptions(), null)
-                .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None));
-        Assert.Equal("advanced_native_tool_protocol_invalid", error.ErrorCode);
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, WorkspaceOptions(), null)
+            .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+        Assert.Equal("insufficient_documentation", result.Outcome);
         Assert.Single(gateway.Searches);
-        Assert.Equal(2, factory.Requests.Count);
+        Assert.Equal(3, factory.Requests.Count);
+        using var correction = JsonDocument.Parse(factory.Requests[2].Body);
+        var outputs = correction.RootElement.GetProperty("messages").EnumerateArray()
+            .Where(item => item.GetProperty("role").GetString() == "tool").ToArray();
+        Assert.Equal(2, outputs.Length);
+        foreach (var output in outputs)
+        {
+            using var rejection = JsonDocument.Parse(output.GetProperty("content").GetString()!);
+            Assert.Equal("batch_rejected_before_execution", rejection.RootElement.GetProperty("status").GetString());
+        }
     }
 }

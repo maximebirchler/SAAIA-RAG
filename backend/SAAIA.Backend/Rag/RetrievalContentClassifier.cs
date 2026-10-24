@@ -77,7 +77,7 @@ internal static partial class RetrievalContentClassifier
         if (!headingOnly && locatorLines == 0 && !layoutIndex)
             return signal;
         var residual = NamedPageLocatorLineRegex().Replace(text, string.Empty);
-        var hasProse = Regex.IsMatch(residual, @"\p{L}[.!?](?:\s|$)", RegexOptions.CultureInvariant)
+        var hasProse = Regex.IsMatch(residual, @"[\p{L}\p{N}][.!?](?:\s|$)", RegexOptions.CultureInvariant)
             || CountMeasurementOrSpecificationTokens(residual) >= 2;
         return new RetrievalNavigationSignal(
             hasProse && !headingOnly ? MixedNavigationContentRole : NavigationRole,

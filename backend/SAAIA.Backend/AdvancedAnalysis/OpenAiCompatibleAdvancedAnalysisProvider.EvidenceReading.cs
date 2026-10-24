@@ -4,7 +4,10 @@ namespace SAAIA.Backend.AdvancedAnalysis;
 
 internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 {
-    private sealed record EvidenceReadWindow(int Offset, int Length);
+    private sealed record EvidenceReadWindow(
+        int Offset,
+        int Length,
+        IReadOnlyList<EvidenceReadWindow>? PreviousWindows = null);
 
     private static EvidenceReadWindow ParseEvidenceReadArguments(
         JsonElement arguments, JsonElement prompt, out string evidenceId)
@@ -82,12 +85,23 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var changedIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var (id, window) in updates)
         {
-            if (!context.EvidenceReadWindows.TryGetValue(id, out var prior) || prior != window)
+            context.EvidenceReadWindows.TryGetValue(id, out var prior);
+            if (prior is not null && SameEvidenceReadProjection(id, prior, window, context))
+                continue;
+
+            var previous = prior is null ? [] : new[] { new EvidenceReadWindow(prior.Offset, prior.Length) }
+                .Concat(prior.PreviousWindows ?? [])
+                .Where(item => !SameEvidenceReadProjection(id, item, window, context))
+                .DistinctBy(item => (item.Offset, item.Length))
+                .Take(3)
+                .Select(item => new EvidenceReadWindow(item.Offset, item.Length))
+                .ToArray();
+            context.EvidenceReadWindows[id] = window with
             {
-                changed++;
-                changedIds.Add(id);
-            }
-            context.EvidenceReadWindows[id] = window;
+                PreviousWindows = previous.Length == 0 ? null : previous
+            };
+            changed++;
+            changedIds.Add(id);
         }
         if (changedIds.Count > 0)
             context.CandidateInventory = context.CandidateInventory.Select(candidate =>
@@ -95,6 +109,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     ? candidate with { Status = "awaiting_review", TargetRoles = [], SelectedRoles = [] }
                     : candidate).ToArray();
         return changed;
+    }
+
+    private static bool SameEvidenceReadProjection(
+        string evidenceId,
+        EvidenceReadWindow first,
+        EvidenceReadWindow second,
+        SynthesisResearchContext context)
+    {
+        if (first.Offset != second.Offset) return false;
+        if (first.Length == second.Length) return true;
+        var canonical = context.Tools.Evidence.FirstOrDefault(item =>
+            string.Equals(item.Reference.EvidenceId, evidenceId, StringComparison.Ordinal));
+        if (canonical is null) return false;
+        var remaining = Math.Max(0, canonical.Content.Length - first.Offset);
+        return Math.Min(first.Length, remaining) == Math.Min(second.Length, remaining);
     }
 
     private static IReadOnlyList<AdvancedAnalysisResolvedEvidence> PrioritizeEvidenceReadWindows(

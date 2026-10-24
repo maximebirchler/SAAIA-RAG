@@ -61,16 +61,16 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
 
     [Theory]
     [InlineData("web_search", "{}", "advanced_native_tool_protocol_invalid")]
-    [InlineData("search_corpus", "{\"query\":\"17 bar\",\"sourceKey\":\"internal-source-1\",\"category\":\"\",\"documentHint\":\"\",\"topK\":20,\"operation\":\"read_source\"}", "advanced_native_tool_protocol_invalid")]
+    [InlineData("search_corpus", "{\"query\":\"17 bar\",\"sourceKey\":\"internal-source-1\",\"category\":\"\",\"documentHint\":\"\",\"topK\":20,\"operation\":\"read_source\"}", "advanced_synthesis_research_protocol_invalid")]
     [InlineData("read_source", "{\"sourceKey\":\"unknown-source\",\"pageStart\":1,\"pageEnd\":4,\"topK\":20}", "advanced_synthesis_research_protocol_invalid")]
-    [InlineData("read_source", "[]", "advanced_native_tool_protocol_invalid")]
-    [InlineData("read_source", "{\"sourceKey\":\"internal-source-1\"}", "advanced_native_tool_protocol_invalid")]
+    [InlineData("read_source", "[]", "advanced_synthesis_research_protocol_invalid")]
+    [InlineData("read_source", "{\"sourceKey\":\"internal-source-1\"}", "advanced_synthesis_research_protocol_invalid")]
     public async Task Native_unknown_operations_scopes_and_malformed_arguments_never_execute(string operation, string arguments, string errorCode)
     {
         using var factory = new QueuedHttpClientFactory(Completion("""{"queries":[{"query":"overview","topK":12}]}"""),
             Completion("""{"decision":"ready","queries":[]}"""), NativeCompletion((operation, arguments)));
         var options = CreateOptions(); options.AdaptiveResearchEnabled = true; options.NativeResearchToolsEnabled = true;
-        options.ExternalMaximumCallsPerJob = 5;
+        options.ExternalMaximumCallsPerJob = 4;
         var gateway = new RecordingToolGateway(BuildEvidence("E1", "Le seuil est 17 bar."));
         var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
             new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null).ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None));
@@ -138,11 +138,11 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         using var factory = new QueuedHttpClientFactory(Completion("""{"queries":[{"query":"overview","topK":12}]}"""),
             Completion("""{"decision":"ready","queries":[]}"""), NativeCompletion(calls));
         var options = CreateOptions(); options.AdaptiveResearchEnabled = true; options.NativeResearchToolsEnabled = true;
-        options.MaximumPlanQueries = 8; options.ExternalMaximumCallsPerJob = 5;
+        options.MaximumPlanQueries = 8; options.ExternalMaximumCallsPerJob = 4;
         var gateway = new RecordingToolGateway(BuildEvidence("E1", "Le seuil est 17 bar."));
         var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
             new OpenAiCompatibleAdvancedAnalysisProvider(factory, options, null).ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None));
-        Assert.Equal("advanced_native_tool_protocol_invalid", error.ErrorCode); Assert.Single(gateway.Searches);
+        Assert.Equal("advanced_synthesis_research_protocol_invalid", error.ErrorCode); Assert.Single(gateway.Searches);
     }
 
     [Fact]

@@ -257,6 +257,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                  AND sa.projection_id=rc.retrieval_chunk_id::text
                 WHERE rc.tenant_id=@tenant
                   AND rc.retrieval_chunk_id=@chunk_id
+                  AND d.status='indexed' AND d.indexed_version>0
                 LIMIT 1;
                 """,
                 new { tenant = tenantId, chunk_id = chunkId },
@@ -295,6 +296,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                 {{CanonicalContentCardSourceJoin}}
                 WHERE cc.tenant_id=@tenant
                   AND cc.content_card_id=@content_card_id
+                  AND d.status='indexed' AND d.indexed_version>0
                 LIMIT 1;
                 """,
                 new { tenant = tenantId, content_card_id = contentCardId },
@@ -344,6 +346,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                 {{CanonicalContentCardSourceJoin}}
                 WHERE sa.tenant_id=@tenant
                   AND sa.anchor_id=@anchor_id
+                  AND d.status='indexed' AND d.indexed_version>0
                 LIMIT 2;
                 """,
                 new { tenant = tenantId, anchor_id = anchorId },
@@ -389,6 +392,7 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                  AND sa.projection_id=rc.retrieval_chunk_id::text
                 WHERE dr.tenant_id=@tenant
                   AND dr.revision_id=@revision_id
+                  AND d.status='indexed' AND d.indexed_version>0
                   AND rc.page_end >= @page_start
                   AND rc.page_start <= @page_end
                 ORDER BY rc.chunk_index;
@@ -407,8 +411,11 @@ internal sealed class AdvancedAnalysisEvidenceResolver
         var first = rows[0];
         return first with
         {
-            PageStart = pageStart,
-            PageEnd = pageEnd,
+            // Canonical chunks can cross the requested page boundaries. The
+            // returned citation must describe all text actually projected, not
+            // assign an entire multi-page chunk to the requested inner page.
+            PageStart = rows.Min(static row => row.PageStart),
+            PageEnd = rows.Max(static row => row.PageEnd),
             ChunkId = null,
             AnchorId = null,
             Content = string.Join(
@@ -433,6 +440,14 @@ internal sealed class AdvancedAnalysisEvidenceResolver
         {
             return false;
         }
+
+        var revisionPageWindow = string.IsNullOrWhiteSpace(expected.ChunkId)
+            && string.IsNullOrWhiteSpace(expected.ContentCardId)
+            && string.IsNullOrWhiteSpace(expected.AnchorId)
+            && Guid.TryParse(expected.RevisionId, out _)
+            && expected.PageStart > 0 && expected.PageEnd >= expected.PageStart;
+        if (revisionPageWindow)
+            return actual.PageStart <= expected.PageStart && actual.PageEnd >= expected.PageEnd;
 
         return (expected.PageStart <= 0 || expected.PageStart == actual.PageStart)
                && (expected.PageEnd <= 0 || expected.PageEnd == actual.PageEnd);

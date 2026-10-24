@@ -27,6 +27,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         read_evidence with that evidenceId and character offset to inspect another
         exact window of its already revalidated canonical text. This does not
         retrieve another document or establish the missing text without reading it.
+        The current evidence.content window and explicitly offset
+        supportingContentWindows are the only visible text for that evidence ID.
+        They can be cited together, but separate windows do not establish text
+        in the gaps between them. An earlier window absent from the current
+        evidence projection is not documentary proof retained by tool history.
         sourceStructure contains ingested section/heading and neighboring-chunk
         locators. Use them to orient research; they are metadata, not substantive
         body proof or model-approved item identities.
@@ -70,7 +75,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             .Select(item => ReadString(item, "evidenceId"))
             .Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToArray();
         if (readableIds.Length > 0)
-            functions.Add(Function("read_evidence", "Read an exact character window of an already revalidated canonical excerpt. Use nextContentOffset to inspect text omitted from its current projection. Evidence identity, source revision and original text remain unchanged. This consumes a model turn but no additional corpus retrieval.", new()
+            functions.Add(Function("read_evidence", "Read an exact character window of an already revalidated canonical excerpt. Use nextContentOffset to inspect text omitted from its current projection. At most one requested window per evidenceId in a batch. Evidence identity, source revision and original text remain unchanged. Earlier windows are proof only when explicitly present in the current supportingContentWindows; never infer the gaps between windows. This consumes a model turn but no additional corpus retrieval.", new()
             {
                 ["evidenceId"] = Choice(readableIds), ["offset"] = Count(0, int.MaxValue),
                 ["length"] = Count(256, 8_000)
@@ -96,7 +101,43 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             && inventory.TryGetProperty("enabled", out var inventoryEnabled)
             && inventoryEnabled.ValueKind == JsonValueKind.True)
             functions.Add(BuildCandidateInventoryFunction(root));
-        return functions.ToArray();
+        return functions.Count == 0 ? null : functions.ToArray();
+    }
+
+    private HashSet<string> OfferedNativeResearchFunctionNames(string userPrompt)
+    {
+        var functions = BuildNativeResearchFunctions(userPrompt);
+        if (functions is null) return new(StringComparer.Ordinal);
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(functions, JsonOptions));
+        return document.RootElement.EnumerateArray()
+            .Select(item => ReadString(item.GetProperty("function"), "name"))
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
+    private bool TryBuildNativeArgumentRejection(JsonElement calls, string userPrompt,
+        Exception error, out AdvancedAnalysisResearchArgumentFeedback? feedback)
+    {
+        feedback = null;
+        // Only arguments of a genuine, offered call can be corrected. An unknown
+        // operation or malformed call identity must never become an executable turn.
+        if (calls.ValueKind != JsonValueKind.Array || calls.GetArrayLength() is < 1 or > 64
+            || calls.GetRawText().Length > _options.NativeResearchMaximumHistoryCharacters)
+            return false;
+        var offered = OfferedNativeResearchFunctionNames(userPrompt);
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var call in calls.EnumerateArray())
+        {
+            var id = ReadString(call, "id");
+            if (ReadString(call, "type") != "function" || id.Length is < 1 or > 200 || !ids.Add(id)
+                || !call.TryGetProperty("function", out var function) || function.ValueKind != JsonValueKind.Object
+                || !offered.Contains(ReadString(function, "name"))
+                || !function.TryGetProperty("arguments", out var arguments) || arguments.ValueKind != JsonValueKind.String)
+                return false;
+        }
+        var reason = error is AdvancedAnalysisProviderException providerError
+            ? providerError.ErrorCode : "native_function_arguments_json_invalid";
+        feedback = new(reason, "native_function_batch", string.Empty, null, null, 4);
+        return true;
     }
 
     private string NormalizeNativeResearchCalls(JsonElement calls, string userPrompt)
@@ -108,6 +149,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             || calls.GetRawText().Length > _options.NativeResearchMaximumHistoryCharacters)
             throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
         var ids = new HashSet<string>(StringComparer.Ordinal);
+        var offered = OfferedNativeResearchFunctionNames(userPrompt);
         var queries = new JsonArray();
         JsonNode? state = null;
         JsonNode? candidateInventoryUpdates = null;
@@ -119,6 +161,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 || !call.TryGetProperty("function", out var function) || function.ValueKind != JsonValueKind.Object)
                 throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
             var name = ReadString(function, "name");
+            if (name is not ("search_corpus" or "read_source" or "find_source_text"
+                or "read_evidence" or "save_research_state" or "save_candidate_inventory"))
+                throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
+            if (!offered.Contains(name))
+                throw new AdvancedAnalysisProviderException("advanced_native_tool_not_available");
             if (name == "read_evidence")
             {
                 using var value = JsonDocument.Parse(ReadString(function, "arguments"));
@@ -191,6 +238,20 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var documentaryInstructionWritten = false;
         foreach (var call in calls.RootElement.EnumerateArray())
         {
+            if (turn.Rejection is not null)
+            {
+                var rejected = JsonSerializer.Serialize(new
+                {
+                    status = "batch_rejected_before_execution",
+                    operation = ReadString(call.GetProperty("function"), "name"),
+                    argumentFeedback = turn.Rejection,
+                    visibleEvidenceIds = Array.Empty<string>(),
+                    instruction = "No call in this batch executed and no state or evidence window changed. Correct the complete batch using the currently declared function schemas and current visible evidence."
+                }, JsonOptions);
+                messages.Add(responses ? new { type = "function_call_output", call_id = ReadString(call, "id"), output = rejected }
+                    : (object)new { role = "tool", tool_call_id = ReadString(call, "id"), content = rejected });
+                continue;
+            }
             if (ReadString(call.GetProperty("function"), "name") == "read_evidence")
             {
                 using var arguments = JsonDocument.Parse(ReadString(call.GetProperty("function"), "arguments"));
@@ -204,8 +265,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     requestedWindow = arguments.RootElement.Clone(),
                     currentContentOffset = excerpt?.ContentOffset,
                     nextContentOffset = excerpt?.NextContentOffset,
+                    supportingWindowOffsets = excerpt?.SupportingContentWindows
+                        .Select(window => window.ContentOffset).ToArray() ?? [],
                     argumentFeedback = turn.Rejection,
-                    instruction = "Exact canonical text is in current user.evidence under this unchanged evidence ID. Only its current visible window is proof."
+                    instruction = "Exact canonical text is in current user.evidence under this unchanged evidence ID. Only current content and explicitly offset supportingContentWindows are proof; separate windows do not establish the text in their gaps."
                 }, JsonOptions);
                 messages.Add(responses ? new { type = "function_call_output", call_id = ReadString(call, "id"), output }
                     : (object)new { role = "tool", tool_call_id = ReadString(call, "id"), content = output });

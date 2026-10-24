@@ -51,38 +51,63 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         return new(Number(usage, "input_tokens"), Number(usage, "output_tokens"), cached, writes);
     }
 
-    private (string? Content, string? CallsJson, string? OutputItemsJson, string Origin, string? Error)
+    private (string? Content, string? CallsJson, string? OutputItemsJson, string Origin, string? Error,
+        AdvancedAnalysisResearchArgumentFeedback? ArgumentFeedback)
         ReadNativeResponsesCompletion(JsonElement root, string userPrompt, bool toolsAvailable)
     {
         if (ReadString(root, "status") == "incomplete")
-            return (null, null, null, "response.output.rejected", "advanced_llm_output_limit");
+            return (null, null, null, "response.output.rejected",
+                root.TryGetProperty("incomplete_details", out var incomplete)
+                    && ReadString(incomplete, "reason") == "content_filter"
+                    ? "advanced_llm_content_filtered" : "advanced_llm_output_limit", null);
         if (ReadString(root, "status") != "completed")
-            return (null, null, null, "response.output.rejected", "advanced_llm_response_invalid");
+            return (null, null, null, "response.output.rejected", "advanced_llm_response_invalid", null);
         if (!root.TryGetProperty("output", out var output) || output.ValueKind != JsonValueKind.Array)
-            return (null, null, null, "response.output.rejected", "advanced_llm_content_missing");
+            return (null, null, null, "response.output.rejected", "advanced_llm_content_missing", null);
         var calls = new JsonArray();
         var text = new List<string>();
         foreach (var item in output.EnumerateArray())
         {
             var type = ReadString(item, "type");
-            if (type == "function_call") calls.Add(JsonSerializer.SerializeToNode(new
+            if (type is "function_call" or "message"
+                && item.TryGetProperty("status", out var itemStatus)
+                && (itemStatus.ValueKind != JsonValueKind.String || itemStatus.GetString() != "completed"))
+                return (null, null, null, "response.output.rejected", "advanced_llm_response_invalid", null);
+            if (type == "function_call")
             {
-                id = ReadString(item, "call_id"), type = "function",
-                function = new { name = ReadString(item, "name"), arguments = ReadString(item, "arguments") }
-            }, JsonOptions));
+                // Preserve the provider's original output items only when they
+                // can be replayed as valid Responses input. Do not coerce a
+                // malformed non-string argument field into an empty string.
+                if (!item.TryGetProperty("arguments", out var arguments) || arguments.ValueKind != JsonValueKind.String)
+                    return (null, null, null, "response.output.rejected", "advanced_native_tool_protocol_invalid", null);
+                calls.Add(JsonSerializer.SerializeToNode(new
+                {
+                    id = ReadString(item, "call_id"), type = "function",
+                    function = new { name = ReadString(item, "name"), arguments = arguments.GetString() }
+                }, JsonOptions));
+            }
             else if (type == "message" && item.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.Array)
+            {
+                if (content.EnumerateArray().Any(part => ReadString(part, "type") == "refusal"))
+                    return (null, null, null, "response.output.rejected", "advanced_llm_content_filtered", null);
                 text.AddRange(content.EnumerateArray().Where(c => ReadString(c, "type") == "output_text")
                     .Select(c => ReadString(c, "text")));
+            }
         }
-        if (calls.Count == 0) return (string.Concat(text), null, null, "response.output_text", null);
-        if (!toolsAvailable) return (null, null, null, "response.output.rejected", "advanced_native_tool_not_available");
+        if (calls.Count == 0) return (string.Concat(text), null, null, "response.output_text", null, null);
+        if (!toolsAvailable) return (null, null, null, "response.output.rejected", "advanced_native_tool_not_available", null);
+        using var document = JsonDocument.Parse(calls.ToJsonString(JsonOptions));
         try
         {
-            using var document = JsonDocument.Parse(calls.ToJsonString(JsonOptions));
             return (NormalizeNativeResearchCalls(document.RootElement, userPrompt), calls.ToJsonString(JsonOptions),
-                output.GetRawText(), "response.output.function_calls.normalized", null);
+                output.GetRawText(), "response.output.function_calls.normalized", null, null);
         }
         catch (Exception error) when (error is JsonException or AdvancedAnalysisProviderException or InvalidOperationException)
-        { return (null, null, null, "response.output.rejected", "advanced_native_tool_protocol_invalid"); }
+        {
+            if (TryBuildNativeArgumentRejection(document.RootElement, userPrompt, error, out var feedback))
+                return ("{\"outcome\":\"research_required\",\"queries\":[]}", calls.ToJsonString(JsonOptions),
+                    output.GetRawText(), "response.output.function_calls.arguments_rejected", null, feedback);
+            return (null, null, null, "response.output.rejected", "advanced_native_tool_protocol_invalid", null);
+        }
     }
 }

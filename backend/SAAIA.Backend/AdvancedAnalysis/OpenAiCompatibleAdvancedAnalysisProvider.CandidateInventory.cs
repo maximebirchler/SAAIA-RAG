@@ -303,11 +303,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 || selectedRoles.Any(role => !targetRoles.Contains(role, StringComparer.Ordinal)))
                 Reject();
             var normalizedTitle = NormalizeClaimText(title);
-            if (normalizedTitle.Length == 0 || !references.Any(id =>
-                EvidenceBodySupportsSelectedIdentity(
-                    title,
-                    ReadString(visible[id], "candidateTitle"),
-                    ReadString(visible[id], "content"))))
+            var knownProvisionalLabel = status is "needs_body" or "rejected"
+                && prompt.TryGetProperty("candidateInventory", out var priorInventory)
+                && priorInventory.TryGetProperty("items", out var priorItems)
+                && priorItems.ValueKind == JsonValueKind.Array
+                && priorItems.EnumerateArray().Any(prior => ReadString(prior, "key") == key
+                    && ReadString(prior, "sourceKey") == sourceKey
+                    && ReadString(prior, "exactTitle") == title)
+                && references.Any(id => GetVisibleEvidenceContents(visible[id])
+                    .Any(content => content.TrimStart().StartsWith(title, StringComparison.Ordinal)));
+            if (normalizedTitle.Length == 0 || !knownProvisionalLabel && !references.Any(id =>
+                GetVisibleEvidenceContents(visible[id]).Any(content =>
+                    EvidenceBodySupportsSelectedIdentity(
+                        title,
+                        ReadString(visible[id], "candidateTitle"),
+                        content))))
                 Reject();
             result.Add(new CandidateInventoryItem(
                 key,
@@ -512,18 +522,28 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyList<CandidateInventoryItem> current,
         IReadOnlyList<PromptEvidenceItem> observations,
         out int blockedDiscoveryCount,
-        IReadOnlySet<string>? suppressedEvidenceIds = null)
+        IReadOnlySet<string>? suppressedEvidenceIds = null,
+        bool observeUntitledBodies = false)
     {
         blockedDiscoveryCount = 0;
         if (!CandidateInventoryEnabled(request)) return current;
         var merged = current.ToDictionary(item => item.Key, StringComparer.Ordinal);
         foreach (var evidence in observations.Where(item =>
-                     item.CandidateTitleIsSourceExact
-                     && !string.IsNullOrWhiteSpace(item.CandidateTitle)
+                     (item.CandidateTitleIsSourceExact
+                      && !string.IsNullOrWhiteSpace(item.CandidateTitle)
+                      || observeUntitledBodies && !string.IsNullOrWhiteSpace(item.Content)
+                      && item.ContentRole != RetrievalContentClassifier.NavigationRole)
                      && !string.IsNullOrWhiteSpace(item.EvidenceId)
                      && !string.IsNullOrWhiteSpace(item.SourceKey)))
         {
-            var title = evidence.CandidateTitle!;
+            var hasSourceTitle = evidence.CandidateTitleIsSourceExact
+                                 && !string.IsNullOrWhiteSpace(evidence.CandidateTitle);
+            // The staged Navigator cannot qualify objects. Feed an untitled
+            // substantive observation to the Judge as well; a literal visible
+            // prefix is only a seed label, never a mechanically approved entity.
+            var title = hasSourceTitle ? evidence.CandidateTitle!
+                : BuildProvisionalCandidateObservationTitle(evidence.Content);
+            if (title.Length < 2) continue;
             // A displayed heading is an observation, not yet an entity identity.
             // Repeated labels on disjoint pages must first be judged separately.
             // Existing semantic needs_body records can, however, receive an exact
@@ -566,7 +586,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     roles,
                     [],
                     navigation ? "navigation_only" : "awaiting_review",
-                    "Observed source heading only; entity identity and suitability await semantic review.",
+                    hasSourceTitle
+                        ? "Observed source heading only; entity identity and suitability await semantic review."
+                        : "Provisional visible text prefix, not an item title. Identify the documented objects and assess suitability from this body.",
                     navigation ? [evidence.EvidenceId!] : [],
                     navigation ? [] : [evidence.EvidenceId!]);
                 merged.Add(observed.Key, observed);
@@ -594,6 +616,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             };
         }
         return BoundCandidateInventory(merged.Values);
+    }
+
+    private static string BuildProvisionalCandidateObservationTitle(string content)
+    {
+        var firstLine = content.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.Trim()).FirstOrDefault(line => line.Length >= 2) ?? content.Trim();
+        if (firstLine.Length <= 240) return firstLine;
+        var prefix = firstLine[..240];
+        var boundary = prefix.LastIndexOfAny([' ', '\t']);
+        return (boundary >= 2 ? prefix[..boundary] : prefix).Trim();
     }
 
     private static IReadOnlyList<AdvancedAnalysisResolvedEvidence> PrioritizeCandidateInventoryEvidence(
@@ -915,7 +947,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 || window is null || window.Offset < 0 || window.Offset >= body.Content.Length
                 || window.Length is < 256 or > 8_000)
                 Reject();
-            restoredReadWindows.Add(id, new EvidenceReadWindow(window.Offset, window.Length));
+            var previous = window.PreviousWindows ?? [];
+            if (previous.Count > 3 || previous.Any(prior => prior is null
+                    || prior.PreviousWindows is { Count: > 0 }
+                    || prior.Offset < 0 || prior.Offset >= body.Content.Length
+                    || prior.Length is < 256 or > 8_000)
+                || previous.Select(prior => (prior.Offset,
+                        Length: Math.Min(prior.Length, body.Content.Length - prior.Offset)))
+                    .Append((window.Offset, Math.Min(window.Length, body.Content.Length - window.Offset)))
+                    .Distinct().Count() != previous.Count + 1)
+                Reject();
+            restoredReadWindows.Add(id, new EvidenceReadWindow(window.Offset, window.Length,
+                previous.Select(prior => new EvidenceReadWindow(prior.Offset, prior.Length)).ToArray()));
         }
         var sourceKeys = new HashSet<string>(StringComparer.Ordinal);
         foreach (var pair in checkpoint.PromptSourceKeys)
@@ -1049,7 +1092,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 "advanced_research_checkpoint_capacity_reached");
         var readWindows = context.EvidenceReadWindows.ToDictionary(
             pair => pair.Key,
-            pair => new AdvancedAnalysisEvidenceReadCheckpoint(pair.Value.Offset, pair.Value.Length),
+            pair => new AdvancedAnalysisEvidenceReadCheckpoint(pair.Value.Offset, pair.Value.Length,
+                pair.Value.PreviousWindows?.Select(prior =>
+                    new AdvancedAnalysisEvidenceReadCheckpoint(prior.Offset, prior.Length)).ToArray()),
             StringComparer.Ordinal);
         var windowSourceIdentities = context.Tools.Evidence
             .Where(item => item.Reference.EvidenceId is { } id && readWindows.ContainsKey(id))

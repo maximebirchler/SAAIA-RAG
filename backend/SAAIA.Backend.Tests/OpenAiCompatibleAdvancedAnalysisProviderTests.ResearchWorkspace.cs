@@ -103,12 +103,24 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var arguments = state.ToJsonString();
         if (mutation == "duplicate_property") arguments = arguments.Replace("\"label\":", "\"label\":\"duplicate\",\"label\":");
         using var factory = new QueuedHttpClientFactory(Completion("""{"queries":[{"query":"overview","topK":12}]}"""),
-            NativeCompletion(("read_source", """{"sourceKey":"internal-source-1","pageStart":1,"pageEnd":4,"topK":20}"""), ("save_research_state", arguments)));
+            NativeCompletion(("read_source", """{"sourceKey":"internal-source-1","pageStart":1,"pageEnd":4,"topK":20}"""), ("save_research_state", arguments)),
+            Completion(NativeAnswered));
         var gateway = new RecordingToolGateway(BuildEvidence("E1", "Le seuil est 17 bar."));
-        var error = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
-            new OpenAiCompatibleAdvancedAnalysisProvider(factory, WorkspaceOptions(), null).ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None));
-        Assert.Equal("advanced_native_tool_protocol_invalid", error.ErrorCode);
-        Assert.Single(gateway.Searches); Assert.Equal(2, factory.Requests.Count);
+        if (mutation == "serialized_size")
+        {
+            var oversized = await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(() =>
+                new OpenAiCompatibleAdvancedAnalysisProvider(factory, WorkspaceOptions(), null)
+                    .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None));
+            Assert.Equal("advanced_native_tool_protocol_invalid", oversized.ErrorCode);
+            Assert.Single(gateway.Searches);
+            Assert.Equal(2, factory.Requests.Count);
+            return;
+        }
+        var result = await new OpenAiCompatibleAdvancedAnalysisProvider(factory, WorkspaceOptions(), null)
+            .ExecuteAsync(BuildDirectRequest(), gateway, CancellationToken.None);
+        Assert.Equal("answered", result.Outcome);
+        Assert.Single(gateway.Searches); Assert.Equal(3, factory.Requests.Count);
+        Assert.Empty(WorkspaceUser(factory.Requests[2].Body).GetProperty("researchWorkspace").GetProperty("items").EnumerateArray());
     }
 
     [Theory]

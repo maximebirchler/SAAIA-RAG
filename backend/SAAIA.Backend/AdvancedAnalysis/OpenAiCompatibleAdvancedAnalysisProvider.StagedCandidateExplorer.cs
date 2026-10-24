@@ -70,11 +70,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var canNavigate = remainingModelCalls >= 2
                               && navigatorBoundedReason is null
                               && (documentaryHeadroom
-                                  || observations.Any(item => item.NextContentOffset is not null));
+                                  || observations.Any(HasUnprojectedCanonicalContent));
             var needsBodyIds = context.CandidateInventory.Where(item => item.Status == "needs_body")
                 .SelectMany(item => item.BodyEvidenceIds).ToHashSet(StringComparer.Ordinal);
             var capacityRepairEvidence = observations.Where(item => item.EvidenceId is { } id
-                && needsBodyIds.Contains(id) && item.NextContentOffset is not null).ToArray();
+                && needsBodyIds.Contains(id) && HasUnprojectedCanonicalContent(item)).ToArray();
             var requestCapacityRepair = context.CandidateInventoryAdmissionBlockedCount > 0
                                         && !capacityRepairAttempted && canNavigate
                                         && capacityRepairEvidence.Length > 0;
@@ -248,6 +248,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var evidenceReadCount = 0;
             try
             {
+                if (navigator.NativeArgumentFeedback is { } nativeFeedback)
+                    throw new AdvancedAnalysisProviderException("advanced_native_tool_arguments_invalid",
+                        researchArgumentFeedback: nativeFeedback);
                 using var document = JsonDocument.Parse(UnwrapJson(navigator.Content));
                 if (!document.RootElement.TryGetProperty("queries", out var values)
                     || values.ValueKind != JsonValueKind.Array)
@@ -274,6 +277,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     context.Tools,
                     queries,
                     context.PreviouslyExecuted);
+                if (document.RootElement.TryGetProperty("evidenceReads", out _)
+                    && navigator.NativeToolCallsJson is null)
+                    throw new JsonException();
                 evidenceReadCount = ApplyEvidenceReadRequests(
                     navigator.Content, navigatorEvidence, context);
                 if (queries.Count == 0 && !document.RootElement.TryGetProperty("evidenceReads", out _))
@@ -431,7 +437,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 : observations.Where(item => item.EvidenceId is { } id
                     && candidateEvidenceAllowlist.Contains(id)).ToArray(),
             out var blockedDiscoveryCount,
-            context.ObservedCandidateEvidenceIds);
+            context.ObservedCandidateEvidenceIds,
+            observeUntitledBodies: true);
         context.CandidateInventoryAdmissionBlockedCount = blockedDiscoveryCount;
         if (JsonSerializer.Serialize(observedInventory, JsonOptions)
             != JsonSerializer.Serialize(context.CandidateInventory, JsonOptions))

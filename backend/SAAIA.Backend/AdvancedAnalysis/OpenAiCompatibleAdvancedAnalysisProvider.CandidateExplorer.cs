@@ -42,6 +42,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            && _options.NativeResearchToolsEnabled
            && _options.NativeResearchWorkspaceEnabled
            && _options.NativeResearchTopology == "agent"
+           && (!request.Handoff.Load.StructuredLayout
+               || RequiresDistinctStructuredSelection(request.Handoff.Load))
            && CandidateInventoryEnabled(request);
 
     private CandidateExplorerCoverage BuildCandidateExplorerCoverage(

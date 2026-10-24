@@ -2052,20 +2052,20 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
-    public async Task Structured_duplicate_writer_result_is_repaired_with_full_evidence_before_critic()
+    public async Task Structured_duplicate_content_claim_is_repaired_with_full_evidence_before_critic()
     {
         const string correctedResult = """
             {"outcome":"answered","answerText":"R1 [C1], R2 [C2], R3 [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"R1 est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R2","text":"R2 est documentée.","evidenceIds":["E2"]},{"claimId":"C3","selectedItem":"R3","text":"R3 est documentée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"R4 est documentée.","evidenceIds":["E4"]}]}
             """;
         using var factory = new QueuedHttpClientFactory(
             Completion("""
-                {"selectionMode":"repeatable_named_items","queries":[{"query":"recettes","category":"","topK":20}]}
+                {"selectionMode":"content_claims","queries":[{"query":"recettes","category":"","topK":20}]}
                 """),
             Completion("""
                 {"decision":"ready","queries":[]}
                 """),
             Completion("""
-                {"outcome":"answered","answerText":"R1 [C1], R1 [C2], R3 [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"R1 est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R1","text":"R1 est répétée.","evidenceIds":["E1"]},{"claimId":"C3","selectedItem":"R3","text":"R3 est documentée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"R4 est documentée.","evidenceIds":["E4"]}]}
+                {"outcome":"answered","answerText":"R1 [C1], R1 [C2], R3 [C3], R4 [C4].","claims":[{"claimId":"C1","selectedItem":"R1","text":"R1 est documentée.","evidenceIds":["E1"]},{"claimId":"C2","selectedItem":"R1","text":"R1 est documentée.","evidenceIds":["E1"]},{"claimId":"C3","selectedItem":"R3","text":"R3 est documentée.","evidenceIds":["E3"]},{"claimId":"C4","selectedItem":"R4","text":"R4 est documentée.","evidenceIds":["E4"]}]}
                 """),
             Completion(correctedResult),
             Completion(correctedResult));
@@ -2086,8 +2086,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var result = await provider.ExecuteAsync(
             BuildRequest(
                 answerUnitCount: 4,
-                atomicEvidenceMode: "named_item",
-                selectionPolicy: "structured_layout"),
+                atomicEvidenceMode: "content_claim",
+                selectionPolicy: "structured_layout",
+                atomicEvidenceType: "documented_fact"),
             gateway,
             CancellationToken.None);
 
@@ -3874,7 +3875,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         string content,
         string? model = null,
         int? cacheWriteTokens = 0)
-        => new(HttpStatusCode.OK)
+    {
+        var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = JsonContent.Create(new
             {
@@ -3891,6 +3893,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 }
             })
         };
+        response.Headers.TryAddWithoutValidation(ProtocolAgnosticFixtureHeader, "true");
+        return response;
+    }
 
     private static HttpResponseMessage CompletionStream(Exception exception)
         => new(HttpStatusCode.OK)
@@ -4058,7 +4063,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                     body));
                 if (_responses.Count == 0)
                     throw new InvalidOperationException("No fake response remains.");
-                return _responses.Dequeue();
+                return await AdaptProtocolAgnosticFixtureAsync(request, _responses.Dequeue(), cancellationToken);
             }
         }
     }

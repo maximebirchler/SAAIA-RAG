@@ -110,24 +110,6 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         return selected;
     }
 
-    private static IReadOnlyList<CandidateSupportCorrection> FindIdentityOnlyCandidateClaims(
-        AdvancedAnalysisProviderResult result, IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
-        AdvancedAnalysisProviderRequest request)
-    {
-        if (!request.Handoff.Load.StructuredLayout
-            || !request.Handoff.Load.AtomicEvidenceMode.Contains("named_item", StringComparison.OrdinalIgnoreCase))
-            return [];
-        if (result.Outcome != "answered")
-            return [];
-        var byId = evidence.ToDictionary(item => item.Reference.EvidenceId!, StringComparer.Ordinal);
-        return result.Claims.Where(claim => !string.IsNullOrWhiteSpace(claim.SelectedItem)
-                && claim.EvidenceIds.All(id => RetrievalContentClassifier.IsIdentityOnlyCandidateEvidence(
-                    byId[id].Content, byId[id].ExactTitle, claim.SelectedItem!)))
-            .Select(claim => new CandidateSupportCorrection(claim.ClaimId, claim.SelectedItem!,
-                claim.EvidenceIds, "The bound evidence only locates or names this selected item. Cite its substantive canonical content; retain a locator as additional same-source scope only. Use search_corpus if that content is missing. Do not infer corpus absence from this correction."))
-            .ToArray();
-    }
-
     private string BuildSynthesisResearchContract()
         => !_options.AdaptiveResearchEnabled ? string.Empty : """
            You may request new documentary research before your final result.
@@ -152,6 +134,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            operation consumes one call; an open model-call budget does not grant
            additional documentary calls. Keep complete batches within the remainder.
            A limit on further research does not prove absence from the corpus.
+           When native read_evidence is declared, evidenceReadingAllowed separately
+           controls reading another window of already revalidated canonical text.
+           It may remain available after the documentary search budget is spent.
+           Read only through the declared function; do not publish evidenceReads
+           directly in a text JSON result. Each returned window is separate and
+           gaps between windows do not establish continuous source wording.
            """ + "\n" + CanonicalSourceReadContract;
 
     private async Task<SynthesisCompletion> CompleteWithCorpusResearchAsync(
@@ -203,7 +191,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 var priorityInventory = !candidateExplorer
                     && context.CandidateExplorerDossier is not null
                     ? context.CandidateInventory.Where(item =>
-                            item.TargetRoles.Count > 0
+                            (request.Handoff.Load.Columns.Count == 0 || item.TargetRoles.Count > 0)
                             && item.Status is "body_verified" or "selected")
                         .ToArray()
                     : context.CandidateInventory;
@@ -266,7 +254,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     var promptInventory = !candidateExplorer
                         && context.CandidateExplorerDossier is not null
                         ? context.CandidateInventory.Where(item =>
-                                item.TargetRoles.Count > 0
+                                (request.Handoff.Load.Columns.Count == 0 || item.TargetRoles.Count > 0)
                                 && item.Status is "body_verified" or "selected")
                             .ToArray()
                         : context.CandidateInventory;
@@ -309,7 +297,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 if (_options.AdaptiveResearchEnabled)
                     payload["researchTools"] = JsonSerializer.SerializeToNode(new
                 {
-                    tools = BuildResearchToolsForPrompt(),
+                        tools = BuildResearchToolsForPrompt(includeEvidenceReading: _options.NativeResearchToolsEnabled),
                     researchAllowed = maximumCalls - completions.Count - 1 - reservedFinalCalls > 0
                         && context.ResourceLimit is null
                         && (toolBudget is null || toolBudget.RemainingCalls > 0
@@ -419,6 +407,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var blockedCandidateAdmissions = 0;
             try
             {
+                if (completion.NativeArgumentFeedback is { } nativeFeedback)
+                    throw new AdvancedAnalysisProviderException("advanced_native_tool_arguments_invalid",
+                        researchArgumentFeedback: nativeFeedback);
                 using var document = JsonDocument.Parse(UnwrapJson(completion.Content));
                 evidenceReadUpdates = ParseEvidenceReadRequests(document.RootElement, observations, context);
                 if (evidenceReadUpdates.Count > 0 && completion.NativeToolCallsJson is null)
@@ -483,7 +474,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 && JsonSerializer.Serialize(mergedCandidateInventory, JsonOptions)
                 != JsonSerializer.Serialize(context.CandidateInventory, JsonOptions);
             var evidenceReadsChanged = evidenceReadUpdates is not null && evidenceReadUpdates.Any(pair =>
-                !context.EvidenceReadWindows.TryGetValue(pair.Key, out var priorWindow) || priorWindow != pair.Value);
+                !context.EvidenceReadWindows.TryGetValue(pair.Key, out var priorWindow)
+                || !SameEvidenceReadProjection(pair.Key, priorWindow, pair.Value, context));
             var rememberedFocus = RememberFocusedSearches(context.FocusSearches, queries);
             context.FocusSearches.Clear();
             context.FocusSearches.AddRange(rememberedFocus);

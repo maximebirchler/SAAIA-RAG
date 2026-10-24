@@ -16,7 +16,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private static void RememberActiveProposalEvidence(AdvancedAnalysisProviderResult proposal,
         IReadOnlyList<PromptEvidenceItem> observations, SynthesisResearchContext context)
     {
-        var visible = observations.Select(e => e.EvidenceId).ToHashSet(StringComparer.Ordinal);
+        var visible = observations.Where(e => GetVisibleEvidenceContents(e)
+                .Any(content => !string.IsNullOrWhiteSpace(content)))
+            .Select(e => e.EvidenceId).ToHashSet(StringComparer.Ordinal);
         var chosen = proposal.Claims.SelectMany(c => c.EvidenceIds)
             .Where(visible.Contains).Distinct(StringComparer.Ordinal).ToArray();
         context.ActiveProposalEvidenceIds = chosen.Take(256).ToArray();

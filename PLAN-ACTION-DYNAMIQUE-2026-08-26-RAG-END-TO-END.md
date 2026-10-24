@@ -14451,3 +14451,44 @@ inchangé et non rempli.
 
 Détail : `documents/agent/corrections-causales-hors-ligne-a898-2026-10-24.md`.
 Preuves locales : `artifacts/reprise-pc-20260908/a898-offline-causal-remediation-20261024/`.
+
+## 2026-10-24 — A899 : seconde analyse complète des entrées modèle
+
+La seconde analyse demandée par l'utilisateur trouve puis corrige des défauts
+supplémentaires : consignes du style contract encore contradictoires, corps
+canoniques sans titre absents du Judge, métadonnées capables d'évincer les
+preuves, perte des fenêtres lues, validations fondées sur du contenu caché,
+identités uniques non contrôlées, fonctions connues mais non offertes acceptées,
+absence de correction liée après arguments invalides, transport Responses limité
+aux rôles avec outils, diversité imposée malgré répétitions autorisées, révisions
+et pages de preuve insuffisamment vérifiées.
+
+Les fenêtres visibles restent séparées et bornées : fenêtre courante exacte,
+préfixe et trois fenêtres précédentes, sans collage lexical des intervalles.
+Le checkpoint les conserve. Une fin déjà atteinte ne ferme pas la lecture d'un
+intervalle restant ; une longueur différente donnant les mêmes caractères ne
+compte pas comme progrès. Les préfixes provisoires peuvent être rejetés sans
+être assimilés à des identités qualifiées. Les titres longs littéraux restent
+acceptables sans étendre la recherche approximative. Un signal de prose se
+terminant par un nombre est également corrigé sans règle de domaine.
+
+L'inspection de quatorze requêtes HTTP synthétiques, sept par protocole, révèle
+aussi un inventaire vide malgré un dossier plat complet ; le filtre de rôles
+est corrigé. Le jeu public utilise le profil Terra avec clé factice et faux
+HTTP, une demande technique, une correction d'appel natif invalide, une
+lecture complémentaire, Writer et Critic. Aucun appel LLM réel ni coût API.
+Pas de déploiement serveur et pas de changement du fournisseur, modèle,
+effort de référence ou plafond d'appels pour compenser les défauts.
+
+État final de la solution Release : 4 968 réussites, aucun échec, quatre ignorés,
+dont 434 cas fournisseur. Intégration PostgreSQL 16.14 isolée : 68 cas réussis ;
+la répétition sur les binaires finaux et l'arrêt du cluster sont consignés dans
+les artefacts. Les tests PostgreSQL recouvrent une partie du total global.
+
+Le Goal produit reste non rempli et `TESTE_NON_APPROUVE` est conservé. Le contenu
+des messages et les mécanismes sont vérifiés sur les cas reproduits ; la qualité
+sémantique, le coût et la latence réels, les vingt propositions distinctes et
+leurs cartes WinUI restent à démontrer avec Terra. Aucun essai Terra automatique.
+
+Rapport : `documents/agent/audit-complet-des-entrees-modele-a899-2026-10-24.md`.
+Preuves : `artifacts/reprise-pc-20260908/a899-complete-payload-audit-20261024/`.

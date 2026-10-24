@@ -52,9 +52,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (normalizedSelectedItem.Length == 0
                 || claim.EvidenceIds.Any(evidenceId => evidence.Any(item =>
                     string.Equals(item.EvidenceId, evidenceId, StringComparison.Ordinal)
-                    && (NormalizeClaimText(item.Content).Contains(
+                    && (GetVisibleEvidenceContents(item).Any(content => NormalizeClaimText(content).Contains(
                             normalizedSelectedItem,
-                            StringComparison.Ordinal)
+                            StringComparison.Ordinal))
                         || NormalizeClaimText(item.CandidateTitle ?? string.Empty)
                             .Contains(
                                 normalizedSelectedItem,
@@ -307,7 +307,21 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }
         }
 
-        var contentPhrase = FindNearContentPhrase(selectedItem, evidence.Content);
+        // Each projected window is an independent canonical substring. Do not
+        // join disjoint windows before lexical identity matching: adjacent words
+        // in the projection might never be adjacent in the document itself.
+        var phrases = GetVisibleEvidenceContents(evidence)
+            .Select(content => FindNearContentPhrase(selectedItem, content))
+            .Where(phrase => phrase is not null)
+            .Select(phrase => phrase!.Value)
+            .OrderByDescending(phrase => phrase.IsExact)
+            .ThenByDescending(phrase => phrase.Similarity)
+            .ToArray();
+        ContentPhraseMatch? contentPhrase = phrases.Length == 0 ? null : phrases[0];
+        if (contentPhrase is { IsExact: false } bestPhrase
+            && phrases.Skip(1).Any(other => bestPhrase.Similarity - other.Similarity < 0.08
+                && NormalizeClaimText(bestPhrase.Text) != NormalizeClaimText(other.Text)))
+            contentPhrase = null;
         return contentPhrase is null
                || (!string.IsNullOrWhiteSpace(evidence.CandidateTitle)
                    && !contentPhrase.Value.IsExact)
@@ -330,8 +344,23 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             safeSelectedItem,
             @"[\p{L}\p{N}]+",
             RegexOptions.CultureInvariant);
-        if (selectedTokens.Count == 0 || selectedTokens.Count > 24)
+        if (selectedTokens.Count == 0)
             return null;
+        if (selectedTokens.Count > 24)
+        {
+            // Bound fuzzy matching work without rejecting a literal long source
+            // heading. Exact whole-line identities need no approximate search.
+            if (safeSelectedItem.Length <= 240)
+            {
+                var expected = NormalizeClaimText(safeSelectedItem);
+                foreach (var line in safeContent.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (NormalizeClaimText(line) == expected)
+                        return new ContentPhraseMatch(NormalizeDisplayWhitespace(line.Trim()), true, 1);
+                }
+            }
+            return null;
+        }
         var contentTokens = Regex.Matches(
             safeContent,
             @"[\p{L}\p{N}]+",

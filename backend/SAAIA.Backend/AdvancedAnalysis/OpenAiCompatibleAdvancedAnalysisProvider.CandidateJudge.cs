@@ -71,7 +71,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             {
                 enabled = true,
                 items = batch.Candidates,
-                instruction = "Return one updated item for every supplied key, preserving its key and sourceKey. An observed heading is provisional: if its body contains multiple distinct named items, additionally return one item per extra documentary identity using a new unique key. At most 32 items total. Every item must cite supplied same-source body evidence."
+                instruction = "Return one updated item for every supplied key, preserving its key and sourceKey. An observed heading or provisional text prefix is a locator, not an approved identity. Inspect its body and replace the prefix with the complete exact documented identity when present. If its body contains multiple distinct named items, additionally return one item per extra documentary identity using a new unique key. At most 32 items total. Every item must cite supplied same-source body evidence."
             },
             evidence = batch.Evidence,
             allowedTargetRoles = request.Handoff.Load.Columns,
@@ -101,8 +101,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            substantive canonical bodies in the user JSON. For every supplied
            candidate key, decide whether the evidence identifies one named item
            and supports its suitability for the user's actual requested use.
-           Preserve the opaque key and sourceKey. Keep the source-exact title, or
-           refine a subordinate title only to the complete identity displayed as
+           Preserve the opaque key and sourceKey. A seed's exactTitle may be an
+           observed heading or provisional text prefix; neither proves that the
+           text names a complete item. Keep a valid source-exact identity, or
+           replace a provisional prefix or subordinate title with the complete identity displayed as
            an exact line in that same body. Repeated headings on separate pages
            are provisional observations and must not be treated as one entity
            merely because their strings match. Reject non-entity headings and
@@ -115,6 +117,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            opaque keys. A new item must have a source-exact identity supported by
            supplied same-source body evidence. Do not invent keys already present
            in the inventory. Return at most 32 items, including seed updates.
+           When a body contains more additional identities than fit, prioritize
+           those relevant to assignmentGap missing roles. The gap is an operational
+           priority, never evidence that an item is suitable for a role.
 
            Require only the evidence needed for the requested answer: a documented
            named proposal does not require the full procedure unless the user asks
@@ -140,7 +145,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            any additional distinct documented identities discovered in that batch,
            and only this JSON object: {"items":[...]}. Do not research, draft the
            user answer, count the whole dossier or invent missing evidence.
-           """;
+           """ + "\n" + DocumentaryDataBoundary;
 
     private static JsonDocument NormalizeCandidateJudgeOptionalNotes(
         JsonElement root)

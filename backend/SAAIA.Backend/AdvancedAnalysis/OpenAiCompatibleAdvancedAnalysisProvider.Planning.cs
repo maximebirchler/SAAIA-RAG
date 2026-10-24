@@ -117,7 +117,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     DocPath: observedSource?.SourceReference.DocPath,
                     PageStart: pageStart, PageEnd: pageEnd,
                     DocumentHint: documentHint.Length == 0 ? null : documentHint,
-                    Operation: operation, RevisionId: isRead || isFind ? observedSource!.SourceReference.RevisionId : null,
+                    Operation: operation, RevisionId: observedSource?.SourceReference.RevisionId,
                     Offset: offset);
                 if (dedupe.Add(BuildSearchIdentity(search)))
                     result.Add(search);

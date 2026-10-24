@@ -42,7 +42,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal("answered", result.Outcome); Assert.Equal(4, result.ProviderCallCount);
         Assert.Equal(400, result.InputTokens); Assert.Equal(200, result.OutputTokens); Assert.Equal(40, result.CachedInputTokens);
         Assert.Equal(operation, gateway.Searches[1].Operation);
-        Assert.Equal("/v1/chat/completions", factory.Requests[1].Uri.AbsolutePath);
+        Assert.All(factory.Requests, request => Assert.Equal("/v1/responses", request.Uri.AbsolutePath));
         Assert.Equal("/v1/responses", factory.Requests[2].Uri.AbsolutePath);
         using var first = JsonDocument.Parse(factory.Requests[2].Body);
         Assert.False(first.RootElement.GetProperty("store").GetBoolean());

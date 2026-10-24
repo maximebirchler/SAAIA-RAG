@@ -98,7 +98,9 @@ internal sealed record AdvancedAnalysisResearchCheckpoint(
         "saaia.advanced-analysis-research-checkpoint.v2";
 }
 
-internal sealed record AdvancedAnalysisEvidenceReadCheckpoint(int Offset, int Length);
+internal sealed record AdvancedAnalysisEvidenceReadCheckpoint(
+    int Offset, int Length,
+    IReadOnlyList<AdvancedAnalysisEvidenceReadCheckpoint>? PreviousWindows = null);
 
 internal interface IAdvancedAnalysisToolGateway
 {
@@ -438,6 +440,12 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             }
             else
             {
+                if (!string.IsNullOrWhiteSpace(request.RevisionId))
+                {
+                    ValidateObservedReadScope(requestForTrace);
+                    await ValidateCanonicalSearchSourceAsync(requestForTrace, cancellationToken)
+                        .ConfigureAwait(false);
+                }
                 var response = await RagEndpoints.SearchCoreAsync(
                     context,
                     _dataSource,
@@ -482,6 +490,13 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             {
                 throw new AdvancedAnalysisToolException(
                     revalidated.ErrorCode ?? "retrieval_evidence_revalidation_failed");
+            }
+            if (request.Operation == "search_corpus" && !string.IsNullOrWhiteSpace(request.RevisionId)
+                && revalidated.Evidence.Any(item =>
+                    !string.Equals(item.Reference.DocId, request.DocId, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(item.Reference.RevisionId, request.RevisionId, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new AdvancedAnalysisToolException("canonical_search_source_identity_changed");
             }
 
             var resolvedEvidence = request.Operation switch
@@ -599,6 +614,30 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             throw new AdvancedAnalysisToolException("canonical_read_source_not_observed");
     }
 
+    private async Task ValidateCanonicalSearchSourceAsync(
+        AdvancedAnalysisSearchRequest request, CancellationToken cancellationToken)
+    {
+        var observed = _evidence.First(item =>
+            string.Equals(item.Reference.DocId, request.DocId, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(item.Reference.RevisionId, request.RevisionId, StringComparison.OrdinalIgnoreCase));
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        var identity = await connection.QuerySingleOrDefaultAsync<CanonicalReadSourceIdentity>(
+            new CommandDefinition("""
+                SELECT encode(dr.source_hash, 'hex') AS "SourceHash", d.doc_path AS "DocPath"
+                FROM document_revisions dr
+                JOIN documents d ON d.tenant_id=dr.tenant_id AND d.doc_id=dr.doc_id
+                WHERE dr.tenant_id=@tenant AND d.doc_id=@doc_id AND dr.revision_id=@revision_id
+                  AND d.status='indexed' AND d.indexed_version>0
+                  AND dr.indexed_version=d.indexed_version;
+                """, new { tenant = _tenantId, doc_id = Guid.Parse(request.DocId!),
+                    revision_id = Guid.Parse(request.RevisionId!) },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        if (identity is null || string.IsNullOrWhiteSpace(identity.SourceHash)
+            || !string.Equals(identity.SourceHash, observed.Reference.SourceHash, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(NormalizePath(identity.DocPath), NormalizePath(request.DocPath), StringComparison.Ordinal))
+            throw new AdvancedAnalysisToolException("canonical_search_source_identity_changed");
+    }
+
     private async Task<IReadOnlyList<AdvancedAnalysisEvidenceReference>> ReadCanonicalPagesAsync(
         AdvancedAnalysisSearchRequest request, CancellationToken cancellationToken)
     {
@@ -618,13 +657,34 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             LIMIT @row_limit;
             """;
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        var references = (await connection.QueryAsync<AdvancedAnalysisEvidenceReference>(new CommandDefinition(sql,
-            new { tenant = _tenantId, doc_id = Guid.Parse(request.DocId!), revision_id = Guid.Parse(request.RevisionId!),
-                page_start = request.PageStart, page_end = request.PageEnd, row_limit = request.TopK + 1 },
-            cancellationToken: cancellationToken))).ToArray();
+        await using var transaction = await connection.BeginTransactionAsync(
+            System.Data.IsolationLevel.RepeatableRead, cancellationToken).ConfigureAwait(false);
+        await connection.ExecuteAsync(new CommandDefinition("SET TRANSACTION READ ONLY",
+            transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
         var observed = _evidence.First(item =>
             string.Equals(item.Reference.DocId, request.DocId, StringComparison.OrdinalIgnoreCase)
             && string.Equals(item.Reference.RevisionId, request.RevisionId, StringComparison.OrdinalIgnoreCase));
+        // An empty page window is still an observation about this exact source.
+        // Revalidate the source before querying chunks so an absent result cannot
+        // conceal a removed revision, changed hash or relocated document.
+        var identity = await connection.QuerySingleOrDefaultAsync<CanonicalReadSourceIdentity>(
+            new CommandDefinition("""
+                SELECT encode(dr.source_hash, 'hex') AS "SourceHash", d.doc_path AS "DocPath"
+                FROM document_revisions dr
+                JOIN documents d ON d.tenant_id=dr.tenant_id AND d.doc_id=dr.doc_id
+                WHERE dr.tenant_id=@tenant AND d.doc_id=@doc_id AND dr.revision_id=@revision_id
+                  AND d.status='indexed' AND d.indexed_version>0;
+                """, new { tenant = _tenantId, doc_id = Guid.Parse(request.DocId!),
+                    revision_id = Guid.Parse(request.RevisionId!) }, transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        if (identity is null || string.IsNullOrWhiteSpace(identity.SourceHash)
+            || !string.Equals(identity.SourceHash, observed.Reference.SourceHash, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(NormalizePath(identity.DocPath), NormalizePath(request.DocPath), StringComparison.Ordinal))
+            throw new AdvancedAnalysisToolException("canonical_read_source_identity_changed");
+        var references = (await connection.QueryAsync<AdvancedAnalysisEvidenceReference>(new CommandDefinition(sql,
+            new { tenant = _tenantId, doc_id = Guid.Parse(request.DocId!), revision_id = Guid.Parse(request.RevisionId!),
+                page_start = request.PageStart, page_end = request.PageEnd, row_limit = request.TopK + 1 },
+            transaction, cancellationToken: cancellationToken))).ToArray();
         if (references.Any(reference =>
                 !string.Equals(NormalizePath(reference.DocPath), NormalizePath(request.DocPath), StringComparison.Ordinal)
                 || !string.Equals(reference.SourceHash, observed.Reference.SourceHash, StringComparison.OrdinalIgnoreCase)))
@@ -634,8 +694,11 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                 "canonical_read_window_result_limit_exceeded",
                 new("canonical_read_window_result_limit_exceeded", null, null, null,
                     request.TopK, references.Length, StopsResearch: false));
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         return references;
     }
+
+    private sealed record CanonicalReadSourceIdentity(string SourceHash, string DocPath);
 
     internal static IReadOnlyList<AdvancedAnalysisEvidenceReference>
         BuildEvidenceReferences(IReadOnlyList<RagMatch> matches)
@@ -815,6 +878,10 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             throw new AdvancedAnalysisToolException("search_top_k_invalid");
         if (request.Operation is not "search_corpus" and not "read_source" and not "find_source_text")
             throw new AdvancedAnalysisToolException("research_operation_invalid");
+        if (request.Operation == "search_corpus" && !string.IsNullOrWhiteSpace(request.RevisionId)
+            && (!Guid.TryParse(request.RevisionId, out _) || !Guid.TryParse(request.DocId, out _)
+                || string.IsNullOrWhiteSpace(request.DocPath)))
+            throw new AdvancedAnalysisToolException("canonical_search_scope_invalid");
         if (request.Operation == "find_source_text"
             && (!Guid.TryParse(request.DocId, out _) || !Guid.TryParse(request.RevisionId, out _)
                 || string.IsNullOrWhiteSpace(request.DocPath)

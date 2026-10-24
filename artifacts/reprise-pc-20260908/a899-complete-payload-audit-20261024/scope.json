@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "saaia.payload-audit-scope.v1",
+  "baselineCommit": "3c24c380f8aed735df5c40706c7cbcdfa2e02e27",
+  "branch": "SAAIA_V3.1",
+  "clientContextDate": "2026-10-24",
+  "paidProviderCalls": 0,
+  "externalCorpusTransmission": false,
+  "providerHttp": "Synthetic queued handlers only; credentials are dummy test values",
+  "liveTerra": "NOT_EXECUTED",
+  "productStatus": "TESTE_NON_APPROUVE"
+}

@@ -95,7 +95,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         request.Handoff.Load))
                     .GroupBy(static text => text, StringComparer.Ordinal)
                     .Any(static group => group.Count() > 1)
-                && !RequiresDistinctStructuredSelection(request.Handoff.Load))
+                && !RequiresDistinctStructuredSelection(request.Handoff.Load)
+                // The Planner can preserve an explicitly repeatable named grid.
+                // Its coordinates remain unique even when several units select
+                // the same supported item. Flat lists and repeated content
+                // claims still use the ordinary duplicate guard.
+                && !(request.Handoff.Load.StructuredLayout
+                    && string.Equals(request.Handoff.Load.AtomicEvidenceMode,
+                        "named_item", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(request.Handoff.Load.SelectionPolicy,
+                        "structured_layout", StringComparison.OrdinalIgnoreCase)))
             {
                 throw new AdvancedAnalysisProviderException(
                     "advanced_writer_duplicate_claims");
