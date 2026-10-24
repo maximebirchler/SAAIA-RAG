@@ -68,7 +68,8 @@ public sealed record LlmCallMetrics(
     decimal? EstimatedCostUsd,
     bool Success,
     int RetryCount,
-    string? ErrorCode);
+    string? ErrorCode,
+    string? TurnId = null);
 
 public sealed class LlmProviderRequestTimeoutException(
     string provider,

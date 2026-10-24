@@ -36,7 +36,9 @@ internal sealed class ApiClientBackendBusyException : HttpRequestException
 /// </summary>
 public sealed partial class ApiClient
 {
-    private readonly HttpClient _http = new() { Timeout = Timeout.InfiniteTimeSpan };
+    private readonly HttpClient _http;
+    public ApiClient() : this(new HttpClient { Timeout = Timeout.InfiniteTimeSpan }) { }
+    public ApiClient(HttpClient httpClient) => _http = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
     private readonly object _configGate = new();
     private string _uiLanguage = ClientUiText.NormalizeLanguage(AppSettings.Load().UiLanguage);
     private string _baseUrl = "http://localhost:5122";
@@ -128,6 +130,7 @@ public sealed partial class ApiClient
     {
         var req = new HttpRequestMessage(method, $"{snapshot.BaseUrl}{path}");
         req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        ClientDiagnostics.Propagate(req);
 
         if (!string.IsNullOrWhiteSpace(snapshot.ApiKey))
             req.Headers.Add("X-Api-Key", snapshot.ApiKey);
@@ -145,6 +148,7 @@ public sealed partial class ApiClient
     {
         var req = new HttpRequestMessage(method, $"{snapshot.BaseUrl}{path}");
         req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        ClientDiagnostics.Propagate(req);
 
         if (!string.IsNullOrWhiteSpace(snapshot.AdminKey))
             req.Headers.Add("X-Admin-Key", snapshot.AdminKey);

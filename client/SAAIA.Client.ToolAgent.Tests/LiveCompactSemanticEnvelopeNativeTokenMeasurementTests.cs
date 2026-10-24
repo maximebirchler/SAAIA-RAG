@@ -26,7 +26,8 @@ public sealed class LiveCompactSemanticEnvelopeNativeTokenMeasurementTests
         WriteIndented = false
     };
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     [Trait("Category", "Live")]
     public async Task A648_measures_all_compact_envelopes_with_native_tokenizer_only()
     {
@@ -35,7 +36,7 @@ public sealed class LiveCompactSemanticEnvelopeNativeTokenMeasurementTests
                 "1",
                 StringComparison.Ordinal))
         {
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var outputDirectory = RequiredEnvironment("SAAIA_A648_OUTPUT_DIR");

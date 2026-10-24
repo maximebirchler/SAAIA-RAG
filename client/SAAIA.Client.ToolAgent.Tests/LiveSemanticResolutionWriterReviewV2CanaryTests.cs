@@ -45,6 +45,7 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
     private const string WriterContract = "source_backed_flat_writer_v1";
     private const string ReviewerTool = "submit_semantic_review";
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void V2_a482_canary_fixtures_match_the_frozen_fifth_v3_cases()
     {
@@ -78,6 +79,7 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
             JsonSerializer.Serialize(v2Cases));
     }
 
+    [Trait("Profile", "Unit")]
     [Theory]
     [InlineData("answer", "requested_information_present", true, false, "NONE", "E1", "E1")]
     [InlineData("research", "requested_information_missing", false, false, "NONE", "", "NONE")]
@@ -117,6 +119,7 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
         Assert.Equal(expectedLead, observed.LeadEvidenceId);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void V5_raw_resolution_observation_rejects_redundant_alias()
     {
@@ -131,6 +134,7 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
         Assert.False(ParseResolution(raw).ShapeValid);
     }
 
+    [Trait("Profile", "Unit")]
     [Theory]
     [InlineData("answer", new string[0])]
     [InlineData("context", new[] { "E1", "E2" })]
@@ -150,6 +154,7 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
         Assert.False(ParseResolution(raw).ShapeValid);
     }
 
+    [Trait("Profile", "Unit")]
     [Theory]
     [InlineData("answer", new[] { "E1", "E2" }, new[] { "E2" },
         "requested_information_present", "NONE", new[] { "E2", "E1" })]
@@ -187,6 +192,7 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
         Assert.Equal(expectedResolvedSelection, observed.SelectedEvidenceIds);
     }
 
+    [Trait("Profile", "Unit")]
     [Theory]
     [InlineData("answer", new[] { "E1", "E2" }, new string[0])]
     [InlineData("answer", new[] { "E1" }, new[] { "E2" })]
@@ -209,6 +215,7 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
         Assert.False(ParseResolution(raw).ShapeValid);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public async Task Frozen_evidence_executor_accepts_normalized_internal_search_once()
     {
@@ -231,6 +238,7 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
         Assert.Equal(1, executor.CallCount);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public async Task Frozen_evidence_executor_rejects_external_name_after_normalization_boundary()
     {
@@ -253,6 +261,7 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
         Assert.Equal(1, executor.CallCount);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public async Task Frozen_evidence_executor_rejects_second_internal_search_call()
     {
@@ -280,7 +289,8 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
         Assert.Equal(2, executor.CallCount);
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public Task Live_qwen_semantic_resolution_writer_review_v2_matches_five_a482_cases_when_enabled()
         => RunLiveCanaryAsync(new CanaryProfile(
             LiveFlag,
@@ -292,7 +302,8 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
             "semantic-resolution-writer-review-v2-calls.jsonl",
             "a498"));
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public Task Live_qwen_semantic_resolution_writer_review_v5_matches_five_frozen_a482_cases_when_enabled()
         => RunLiveCanaryAsync(new CanaryProfile(
             LiveFlagV5,
@@ -304,6 +315,7 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
             "semantic-resolution-writer-review-v5-calls.jsonl",
             "a513"));
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void A531_semantic_writer_handoff_fixtures_match_the_three_pre_registered_transactions()
     {
@@ -326,6 +338,7 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
         Assert.Equal(new[] { "E1" }, cases[2].ExpectedLeadEvidenceIds);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void A531_recorded_prompt_is_complete_counted_and_sha256_authenticated()
     {
@@ -344,7 +357,8 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
             ComputeSha256(prompt));
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public Task Live_qwen_semantic_writer_handoff_a531_matches_three_pre_registered_transactions_when_enabled()
         => RunLiveCanaryAsync(new CanaryProfile(
             LiveFlagA531,
@@ -361,6 +375,7 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
             RequireSemanticWriterHandoff: true,
             MaximumTotalTokens: 12_000));
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void A537_neutral_fixtures_match_the_four_pre_registered_transactions()
     {
@@ -383,6 +398,7 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
             cases.Select(canaryCase => canaryCase.SourceIdentities?.Count ?? 0));
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void A537_source_identities_are_unique_and_oracle_neutral()
     {
@@ -420,7 +436,8 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
         }
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public Task Live_qwen_resolution_policy_a537_matches_four_neutral_transactions_when_enabled()
         => RunLiveCanaryAsync(new CanaryProfile(
             LiveFlagA537,
@@ -437,6 +454,7 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
             RequireSemanticWriterHandoff: true,
             MaximumTotalTokens: 10_000));
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void A545_v6_fixtures_are_byte_for_byte_equivalent_to_a537_semantic_cases()
     {
@@ -445,7 +463,8 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
             JsonSerializer.Serialize(BuildA545Cases()));
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public Task Live_qwen_semantic_resolution_v6_a545_closes_bug133_when_enabled()
         => RunLiveCanaryAsync(new CanaryProfile(
             LiveFlagA545,
@@ -470,7 +489,7 @@ public sealed class LiveSemanticResolutionWriterReviewV2CanaryTests(
                 StringComparison.Ordinal))
         {
             output.WriteLine($"Skipped: set {profile.LiveFlag}=1 to run the canary.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

@@ -47,7 +47,8 @@ structural anchor options.
         WriteIndented = true
     };
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_selects_primary_structural_anchor_when_enabled()
     {
         var cuisineEnabled = string.Equals(
@@ -69,7 +70,7 @@ structural anchor options.
         {
             output.WriteLine(
                 "Skipped: enable the EXP-036/N.4, EXP-037/O.0, or EXP-038/O.1 live structural-anchor benchmark.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
         Assert.Equal(
             1,

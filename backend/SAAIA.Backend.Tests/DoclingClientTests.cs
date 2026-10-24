@@ -212,14 +212,14 @@ public sealed class DoclingClientTests
     [Fact]
     public void ProviderSwitch_IsExplicitAndRejectsUnknownProviders()
     {
-        Assert.False(IngestionWorker.ResolveUseDocling(new() { Enabled = false }));
-        Assert.True(IngestionWorker.ResolveUseDocling(new()
+        Assert.False(DocumentExtractionPolicy.ResolveUseDocling(new() { Enabled = false }));
+        Assert.True(DocumentExtractionPolicy.ResolveUseDocling(new()
         {
             Enabled = true,
             Provider = "DOCLING"
         }));
         Assert.Throws<InvalidOperationException>(
-            () => IngestionWorker.ResolveUseDocling(new()
+            () => DocumentExtractionPolicy.ResolveUseDocling(new()
             {
                 Enabled = true,
                 Provider = "unknown"
@@ -246,10 +246,10 @@ public sealed class DoclingClientTests
             [page],
             PdfExtractionQualitySummary.FromPages([page]));
 
-        Assert.True(IngestionWorker.ResolveDoclingForceOcr(
+        Assert.True(DocumentExtractionPolicy.ResolveDoclingForceOcr(
             new() { DoOcr = true },
             native));
-        Assert.False(IngestionWorker.ResolveDoclingForceOcr(
+        Assert.False(DocumentExtractionPolicy.ResolveDoclingForceOcr(
             new() { DoOcr = false },
             native));
     }
@@ -276,7 +276,7 @@ public sealed class DoclingClientTests
             PdfExtractionQualitySummary.FromPages([page]),
             "docling");
 
-        var diagnostics = IngestionWorker.BuildDoclingOcrDiagnostics(
+        var diagnostics = DocumentExtractionPolicy.BuildDoclingOcrDiagnostics(
             new() { DoOcr = true },
             response,
             extraction);
@@ -286,7 +286,7 @@ public sealed class DoclingClientTests
         Assert.Empty(diagnostics.AttemptedPages);
         Assert.Empty(diagnostics.PagesWithOcrText);
         Assert.Equal("engine_managed", diagnostics.CoverageStatus);
-        Assert.Equal(750, IngestionWorker.ResolveDoclingTimingMs(response, "ocr"));
+        Assert.Equal(750, DocumentExtractionPolicy.ResolveDoclingTimingMs(response, "ocr"));
     }
 
     [Fact]

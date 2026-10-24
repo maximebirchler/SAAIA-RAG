@@ -9,7 +9,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class LiveDocumentStructuralOverviewProbeTests(
     ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LiveLocal")]
+    [ProfileFact("LiveLocal")]
     public async Task Live_document_structural_overview_is_captured_when_enabled()
     {
         if (!string.Equals(
@@ -20,7 +21,7 @@ public sealed class LiveDocumentStructuralOverviewProbeTests(
         {
             output.WriteLine(
                 "Skipped: enable SAAIA_LIVE_DOCUMENT_STRUCTURAL_OVERVIEW_PROBE to sample exact document anchors.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

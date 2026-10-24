@@ -1,0 +1,38 @@
+name: Offline validation
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      SAAIA_TEST_PROFILE: Unit
+      DOTNET_NOLOGO: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Architecture budgets
+        shell: pwsh
+        run: ./tools/check-architecture.ps1 -OutputPath artifacts/ci/architecture.json
+      - name: Behavioral tests for runtime probes
+        shell: pwsh
+        run: ./tools/testing/Test-RuntimeProbes.ps1 -OutputPath artifacts/ci/runtime-probe-tests.json
+      - name: Offline project suites
+        shell: pwsh
+        run: ./tools/test-project.ps1 -Profile Unit -OutputPath artifacts/ci/tests/manifest.json
+      - name: Test-profile execution and discovery contracts
+        shell: pwsh
+        run: ./tools/testing/Test-TestProfiles.ps1 -OutputDirectory artifacts/ci/profile-checks
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: offline-validation
+          path: artifacts/ci/

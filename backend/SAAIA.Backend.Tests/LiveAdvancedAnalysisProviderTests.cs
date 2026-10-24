@@ -10,7 +10,8 @@ namespace SAAIA.Backend.Tests;
 
 public sealed class LiveAdvancedAnalysisProviderTests(ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Advanced_provider_builds_complete_synthetic_meal_grid_when_explicitly_enabled()
     {
         if (!string.Equals(
@@ -21,7 +22,7 @@ public sealed class LiveAdvancedAnalysisProviderTests(ITestOutputHelper output)
         {
             output.WriteLine(
                 "Skipped: set SAAIA_RUN_ADVANCED_PROVIDER_TEST=1 for the explicitly paid provider probe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var providerMode = Require("SAAIA_ADVANCED_ANALYSIS_PROVIDER");

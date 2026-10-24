@@ -6,16 +6,26 @@ internal static class SourceBackedTelemetryContext
 {
     private sealed record State(
         string TraceId,
+        CollectorHealth Health,
         State? Parent);
+
+    internal sealed class CollectorHealth
+    {
+        private long _traceSinkFailures;
+        internal long TraceSinkFailures => Interlocked.Read(ref _traceSinkFailures);
+        internal long RecordTraceSinkFailure() => Interlocked.Increment(ref _traceSinkFailures);
+    }
 
     private static readonly AsyncLocal<State?> CurrentState = new();
 
-    public static string? TraceId => CurrentState.Value?.TraceId;
+    public static string? TraceId => ClientDiagnostics.Journal.CurrentTraceId ?? CurrentState.Value?.TraceId;
 
-    public static IDisposable Push(string traceId)
+    internal static long RecordTraceSinkFailure() => CurrentState.Value?.Health.RecordTraceSinkFailure() ?? 0;
+
+    public static IDisposable Push(string traceId, CollectorHealth? collectorHealth = null)
     {
         var previous = CurrentState.Value;
-        CurrentState.Value = new State(traceId, previous);
+        CurrentState.Value = new State(traceId, collectorHealth ?? new(), previous);
         return new Scope(previous);
     }
 

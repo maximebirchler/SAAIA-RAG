@@ -1,266 +1,617 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "baseline": "89912f9dece71bdfd1a6bf78e1287dd2ac38c8d8",
-  "status": "IN_PROGRESS",
+  "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+  "acceptanceScope": "Architecture, diagnostics and validation integrity; semantic product acceptance remains TESTE_NON_APPROUVE.",
   "points": [
     {
       "id": "A01",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Moteur de recherche et responsabilités",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "backend/SAAIA.Backend/Retrieval/RetrievalEngine.cs",
+        "backend/SAAIA.Backend/Retrieval/Interactive/",
+        "backend/SAAIA.Backend/Endpoints/RagEndpoints.cs",
+        "artifacts/extract-interactive-pipeline-20261024/statement-coverage.json"
+      ],
+      "tests": [
+        "InteractiveRetrievalPipelineTests",
+        "RetrievalRuntimeSwitchTests",
+        "DocumentFoundationIntegrationTests"
+      ],
+      "limitations": [
+        "Les politiques historiques de sélection sont préservées, leur qualité sémantique n'est pas réévaluée ici."
+      ]
     },
     {
       "id": "A02",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
+      "title": "Dépendances HTTP inversées",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "backend/SAAIA.Backend/Retrieval/RetrievalExecutionContext.cs",
+        "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisToolGateway.cs",
+        "backend/SAAIA.Backend/Catalog/DocumentsCategoryScopeResolver.cs"
+      ],
+      "tests": [
+        "SourceBackedCanonicalRetrievalTests",
+        "CanonicalRetrievalDiagnosticsTests"
+      ],
       "limitations": []
     },
     {
       "id": "A03",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "État et transitions du client",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "client/SAAIA.Client.Core/Execution/",
+        "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/",
+        "client/SAAIA.Client.Core/Conversation/ConversationActivityGate.cs",
+        "client/SAAIA.Client.WinUI/ToolAgent/NativeRouting/",
+        "client/SAAIA.Client.Core/NativeRouting/",
+        "artifacts/assainissement-20261024/a03-closure-criteria.json",
+        "artifacts/session-state-audit-20261024/findings.md",
+        "artifacts/client-cleanup-20261024/runner-phase-extraction-proof.json"
+      ],
+      "tests": [
+        "AgentRunLifecycleTests",
+        "AgentIterationPlanningTests",
+        "SourceBackedAgentV2Tests",
+        "ConversationActivityGateTests",
+        "SourceBackedBudgetContextIsolationTests",
+        "LlmCallDiagnosticsTests"
+      ],
+      "limitations": [
+        "Les agrégats hérités restent grands : Orchestrator 79515, Runner 31918 et MainWindow 15120 lignes physiques de fichiers. Les états par requête/itération, frontières de session et transitions nommées sont vérifiés ; les helpers historiques demandent un entretien progressif.",
+        "Les phases acquisition/outils/vérification restent sur le runner et certaines dépassent 700 lignes ; aucun état mutable courant ne réside sur le runner réutilisable.",
+        "Les tests de gate et la revue des appels UI ne remplacent pas un pilotage visuel de WinUI installé."
+      ]
     },
     {
       "id": "A04",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Noyau client portable et transport autonome",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "client/SAAIA.Client.Core/",
+        "client/SAAIA.Client.WinUI/Services/AdvancedAnalysisClientService.cs",
+        "client/SAAIA.Client.WinUI/MainWindow/AdvancedAnalysisTracking.cs"
+      ],
+      "tests": [
+        "AdvancedAnalysisJobPollerTests",
+        "ClientProductionDiagnosticsTests"
+      ],
+      "limitations": [
+        "La migration de toute l'application historique hors WinUI n'est pas nécessaire à ces frontières ; les composants extraits sont portables."
+      ]
     },
     {
       "id": "A05",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
+      "title": "Ingestion par étapes",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "backend/SAAIA.Backend/Ingestion/IngestionExtractionStage.cs",
+        "backend/SAAIA.Backend/Ingestion/IngestionProjectionStage.cs",
+        "backend/SAAIA.Backend/Ingestion/IngestionPublicationStage.cs"
+      ],
+      "tests": [
+        "IngestionStageDiagnosticsTests",
+        "DocumentFoundationIntegrationTests"
+      ],
       "limitations": []
     },
     {
       "id": "A06",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Ouverture documentaire cohérente",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "client/SAAIA.Client.Core/Sources/SourceLocator.cs",
+        "client/SAAIA.Client.WinUI/Services/DocumentLauncher.cs"
+      ],
+      "tests": [
+        "SourceLocatorAndRedactionTests",
+        "ClientProductionDiagnosticsTests"
+      ],
+      "limitations": [
+        "L'acceptation du lancement par Windows ne prouve pas que le lecteur PDF affiche la page ; cette limite est déclarée."
+      ]
     },
     {
       "id": "A07",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Coordination et intégrité des migrations",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "backend/SAAIA.Backend/Db/DbMigrator.cs"
+      ],
+      "tests": [
+        "DbMigratorDiagnosticIntegrationTests"
+      ],
+      "limitations": [
+        "Les migrations historiques sans empreinte gardent une origine de checksum explicitement baselinée ; leur contenu ancien ne peut pas être certifié rétroactivement."
+      ]
     },
     {
       "id": "V01",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Tests non exécutés distingués",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "tools/testing/TestProfiles.cs",
+        "tools/test-project.ps1"
+      ],
+      "tests": [
+        "tools/testing/TestProfileCoverageTests.cs",
+        "tools/testing/Test-TestProfiles.ps1"
+      ],
+      "limitations": [
+        "Les profils LiveLocal et LivePaid ne sont pas exécutés dans ce chantier."
+      ]
     },
     {
       "id": "V02",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Mesures runtime honnêtes",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "tools/testing/RuntimeProbes.psm1",
+        "tools/runtime-ci-harness.ps1"
+      ],
+      "tests": [
+        "tools/testing/Test-RuntimeProbes.ps1"
+      ],
+      "limitations": [
+        "La sonde de disponibilité ne prétend plus démontrer une reprise après panne."
+      ]
     },
     {
       "id": "V03",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Contrats au lieu de mise en forme du code",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "tools/testing/CompiledArchitectureContract.cs",
+        "backend/SAAIA.Backend.Tests/SourceBackedCanonicalRetrievalTests.cs"
+      ],
+      "tests": [
+        "SourceBackedCanonicalRetrievalTests",
+        "RagEvidenceIdentityContractTests",
+        "ProjectStructureSafetyNetTests"
+      ],
+      "limitations": [
+        "Les contrôles d'architecture légitimes restent présents ; ce chantier ne remplace pas tous les tests historiques par réflexion."
+      ]
     },
     {
       "id": "V04",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Banc historique et runtime distingués",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "tools/LLM_VALIDATION.md",
+        "config/validation-profiles.json",
+        "tools/test-openai-terra-campaign-profile.ps1"
+      ],
+      "tests": [
+        "tools/testing/Test-TestProfiles.ps1",
+        "artifacts/validation-refactor/dead-function-proof.json"
+      ],
+      "limitations": [
+        "Le comparateur historique reste accessible explicitement pour reproduire les anciennes campagnes."
+      ]
     },
     {
       "id": "V05",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Validation commune et garde-fous",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "tools/test-project.ps1",
+        "tools/test-postgres-isolated.ps1",
+        ".github/workflows/offline-validation.yml",
+        "Directory.Build.props",
+        ".editorconfig",
+        "tools/check-architecture.ps1"
+      ],
+      "tests": [
+        "tools/testing/Test-TestProfiles.ps1",
+        "tools/testing/Test-RuntimeProbes.ps1"
+      ],
+      "limitations": [
+        "Le workflow GitHub est livré ; une exécution distante ne peut pas être déduite des validations locales."
+      ]
     },
     {
       "id": "S01",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Historique des performances client",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "client/SAAIA.Client.Core/Diagnostics/ClientDiagnosticJournal.cs"
+      ],
+      "tests": [
+        "ClientDiagnosticJournalTests",
+        "ClientProductionDiagnosticsTests"
+      ],
+      "limitations": [
+        "Historique mémoire borné à 64 tours par défaut ; événements limités avec omissions déclarées."
+      ]
     },
     {
       "id": "S02",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
+      "title": "Temps du parcours complet",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+        "client/SAAIA.Client.WinUI/Services/RagChatAgent.cs"
+      ],
+      "tests": [
+        "ClientProductionDiagnosticsTests"
+      ],
       "limitations": []
     },
     {
       "id": "S03",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Intégrité du banc de performance",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "tools/testing/RuntimeProbes.psm1"
+      ],
+      "tests": [
+        "tools/testing/Test-RuntimeProbes.ps1"
+      ],
+      "limitations": [
+        "Pas de mesure de vitesse matérielle ou d'un modèle réel pendant ce chantier."
+      ]
     },
     {
       "id": "S04",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
+      "title": "Corrélation UI/API/jobs",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "client/SAAIA.Client.WinUI/Services/ClientDiagnostics.cs",
+        "backend/SAAIA.Backend/Middleware/RequestIdMiddleware.cs",
+        "backend/SAAIA.Backend/Db/Migrations/069_advanced_analysis_diagnostic_events.sql",
+        "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisWorker.cs"
+      ],
+      "tests": [
+        "ClientProductionDiagnosticsTests",
+        "RequestIdCollectorFailureTests",
+        "AdvancedAnalysisWorkerTests"
+      ],
       "limitations": []
     },
     {
       "id": "S05",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
+      "title": "Finalisation HTTP systématique",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "backend/SAAIA.Backend/Middleware/RequestIdMiddleware.cs",
+        "backend/SAAIA.Backend/Extensions/WebApplicationExtensions.cs"
+      ],
+      "tests": [
+        "BackendDiagnosticsTests",
+        "RequestIdCollectorFailureTests"
+      ],
       "limitations": []
     },
     {
       "id": "S06",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Candidats et rejets retrieval",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "backend/SAAIA.Backend/Retrieval/RetrievalDiagnosticsBuilder.cs",
+        "backend/SAAIA.Backend/Retrieval/RetrievalSelection.cs",
+        "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisToolGateway.cs"
+      ],
+      "tests": [
+        "CanonicalRetrievalDiagnosticsTests",
+        "InteractiveRetrievalPipelineTests"
+      ],
+      "limitations": [
+        "Échantillons plafonnés, nombres de rejets et omissions déclarés ; aucune copie illimitée du corpus dans les logs."
+      ]
     },
     {
       "id": "S07",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
+      "title": "Recherches échouées ou annulées",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "backend/SAAIA.Backend/Retrieval/RetrievalEngine.Entry.cs",
+        "backend/SAAIA.Backend/Observability/RetrievalTelemetry.cs"
+      ],
+      "tests": [
+        "CanonicalRetrievalDiagnosticsTests",
+        "RetrievalTelemetryTests"
+      ],
       "limitations": []
     },
     {
       "id": "S08",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
+      "title": "Nom réel des outils avancés",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisToolGateway.cs",
+        "backend/SAAIA.Backend/Db/Migrations/069_advanced_analysis_diagnostic_events.sql"
+      ],
+      "tests": [
+        "AdvancedAnalysisWorkerTests",
+        "AdvancedAnalysisEventHistoryIntegrationTests"
+      ],
       "limitations": []
     },
     {
       "id": "S09",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Historique SQL des reprises et transitions",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "backend/SAAIA.Backend/Db/Migrations/069_advanced_analysis_diagnostic_events.sql",
+        "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisJobStore.cs"
+      ],
+      "tests": [
+        "AdvancedAnalysisEventHistoryIntegrationTests"
+      ],
+      "limitations": [
+        "Historique lié à la rétention des jobs ; les heartbeats répétitifs ne créent pas une histoire SQL sans limite."
+      ]
     },
     {
       "id": "S10",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Disponibilité réelle de la capacité avancée",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisRuntimeState.cs",
+        "backend/SAAIA.Backend/Endpoints/ReadyEndpoints.cs"
+      ],
+      "tests": [
+        "BackendDiagnosticsTests",
+        "AdvancedAnalysisWorkerTests"
+      ],
+      "limitations": [
+        "Un heartbeat et une configuration prête ne prouvent pas la réussite future d'une génération."
+      ]
     },
     {
       "id": "S11",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Composition réellement visible au modèle",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "backend/SAAIA.Backend/AdvancedAnalysis/LlmPayloadDiagnostics.cs",
+        "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.DevelopmentTrace.cs"
+      ],
+      "tests": [
+        "LlmPayloadDiagnosticsTests",
+        "OpenAiCompatibleAdvancedAnalysisProviderTests"
+      ],
+      "limitations": [
+        "Contenu exact opt-in ; mode courant limité aux tailles, outils, identifiants et empreintes."
+      ]
     },
     {
       "id": "S12",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Journal LLM indépendant du budget",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.cs",
+        "client/SAAIA.Client.WinUI/Services/OpenAiLlmClient.cs",
+        "client/SAAIA.Client.WinUI/Services/LlmCallDiagnosticSubscription.cs",
+        "client/SAAIA.Client.WinUI/ToolAgent/OpenAiCompatibleLlmProvider.cs"
+      ],
+      "tests": [
+        "OpenAiCompatibleAdvancedAnalysisProviderTests",
+        "ClientProductionDiagnosticsTests",
+        "LlmCallDiagnosticsTests"
+      ],
+      "limitations": [
+        "Les transports externes sont simulés ; aucune performance réelle fournisseur n'est certifiée."
+      ]
     },
     {
       "id": "S13",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
+      "title": "Chronologie des transitions d'agent",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "client/SAAIA.Client.Core/Execution/AgentRunLifecycle.cs",
+        "client/SAAIA.Client.Core/Diagnostics/ClientDiagnosticJournal.cs"
+      ],
+      "tests": [
+        "AgentRunLifecycleTests",
+        "SourceBackedAgentV2Tests"
+      ],
       "limitations": []
     },
     {
       "id": "S14",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
+      "title": "Tentatives de polling visibles",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "client/SAAIA.Client.Core/AdvancedAnalysis/AdvancedAnalysisJobPoller.cs",
+        "client/SAAIA.Client.WinUI/Services/AdvancedAnalysisClientService.cs"
+      ],
+      "tests": [
+        "AdvancedAnalysisJobPollerTests",
+        "ClientProductionDiagnosticsTests"
+      ],
       "limitations": []
     },
     {
       "id": "S15",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
+      "title": "Finalisation ingestion/OCR et compteurs partiels",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "backend/SAAIA.Backend/Ingestion/IngestionWorker.cs",
+        "backend/SAAIA.Backend/Ingestion/IngestionExtractionStage.cs",
+        "backend/SAAIA.Backend/Ingestion/IngestionProjectionStage.cs"
+      ],
+      "tests": [
+        "IngestionStageDiagnosticsTests"
+      ],
       "limitations": []
     },
     {
       "id": "S16",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Bilan de réception et d'affichage des preuves",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "client/SAAIA.Client.WinUI/Controls/SourcesCardsControl.xaml.cs",
+        "client/SAAIA.Client.WinUI/MainWindow/Messages.cs"
+      ],
+      "tests": [
+        "ClientProductionDiagnosticsTests"
+      ],
+      "limitations": [
+        "Les compteurs ne constituent pas une preuve visuelle d'un lecteur de document externe."
+      ]
     },
     {
       "id": "S17",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Diagnostic de résolution et lancement source",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "client/SAAIA.Client.Core/Sources/SourceLocator.cs",
+        "client/SAAIA.Client.WinUI/Services/DocumentLauncher.cs"
+      ],
+      "tests": [
+        "SourceLocatorAndRedactionTests",
+        "ClientProductionDiagnosticsTests"
+      ],
+      "limitations": [
+        "Les références ambiguës sont refusées ; lancement accepté et page visuellement vérifiée sont séparés."
+      ]
     },
     {
       "id": "S18",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Export support commun et manifeste",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "client/SAAIA.Client.WinUI/Services/SupportBundleBuilder.cs",
+        "client/SAAIA.Client.Core/Diagnostics/SupportDiagnosticRedactor.cs"
+      ],
+      "tests": [
+        "SupportBundleMemoryDiagnosticsTests",
+        "SourceLocatorAndRedactionTests",
+        "ClientProductionDiagnosticsTests"
+      ],
+      "limitations": [
+        "Pièces manquantes et erreurs déclarées dans le manifeste ; contenus sensibles exclus par défaut."
+      ]
     },
     {
       "id": "S19",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Configuration et provenance effectives",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "client/SAAIA.Client.WinUI/Services/ClientDiagnostics.cs",
+        "tools/test-project.ps1",
+        "config/validation-profiles.json"
+      ],
+      "tests": [
+        "ClientProductionDiagnosticsTests",
+        "tools/testing/Test-TestProfiles.ps1"
+      ],
+      "limitations": [
+        "Les empreintes de sources ne prouvent pas seules l'origine d'une compilation NoBuild ; manifestes incluent les DLL et TRX réellement testés."
+      ]
     },
     {
       "id": "S20",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
+      "title": "Progression des migrations",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "backend/SAAIA.Backend/Db/DbMigrator.cs"
+      ],
+      "tests": [
+        "DbMigratorDiagnosticIntegrationTests"
+      ],
       "limitations": []
     },
     {
       "id": "S21",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Cache readiness daté et corrélé",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "backend/SAAIA.Backend/Endpoints/ReadyEndpoints.cs"
+      ],
+      "tests": [
+        "BackendDiagnosticsTests",
+        "ReadyEndpointOcrReadinessTests"
+      ],
+      "limitations": [
+        "Horodatage de l'échantillon distinct de l'horodatage de réponse."
+      ]
     },
     {
       "id": "S22",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Frontières métier et dépendances observables",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "backend/SAAIA.Backend/Observability/BackendDiagnostics.cs",
+        "backend/SAAIA.Backend/Extensions/OpenTelemetryServiceCollectionExtensions.cs"
+      ],
+      "tests": [
+        "BackendDiagnosticsTests",
+        "DiagnosticCollectorFailureTests",
+        "IngestionStageDiagnosticsTests"
+      ],
+      "limitations": [
+        "Export OTLP optionnel ; instrumentation métier locale toujours disponible."
+      ]
     },
     {
       "id": "S23",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Manifeste des scénarios exécutés",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "tools/test-project.ps1",
+        "tools/testing/TestProfiles.cs"
+      ],
+      "tests": [
+        "tools/testing/Test-TestProfiles.ps1"
+      ],
+      "limitations": [
+        "Les anciens scénarios explicitement désactivés restent comptés NotExecuted."
+      ]
     },
     {
       "id": "S24",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Collecte non bloquante, bornée et saine",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "backend/SAAIA.Backend/Observability/BackendDiagnostics.cs",
+        "backend/SAAIA.Backend/Observability/DiagnosticActivityScope.cs",
+        "backend/SAAIA.Backend/Observability/DiagnosticLogScope.cs",
+        "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.DevelopmentTrace.cs",
+        "client/SAAIA.Client.Core/Diagnostics/ClientDiagnosticJournal.cs"
+      ],
+      "tests": [
+        "DiagnosticCollectorFailureTests",
+        "RequestIdCollectorFailureTests",
+        "OpenAiCompatibleAdvancedAnalysisProviderTests",
+        "ClientDiagnosticJournalTests",
+        "ClientProductionDiagnosticsTests",
+        "LlmCallDiagnosticsTests"
+      ],
+      "limitations": [
+        "Le mode de capture strict peut refuser une campagne explicitement ; le mode produit continue avec une collecte dégradée déclarée."
+      ]
     },
     {
       "id": "S25",
-      "status": "IN_PROGRESS",
-      "evidence": [],
-      "tests": [],
-      "limitations": []
+      "title": "Présence documentaire ciblée dans l'index canonique",
+      "status": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+      "evidence": [
+        "backend/SAAIA.Backend/Retrieval/CanonicalIndexProbe.cs",
+        "backend/SAAIA.Backend/Endpoints/RagEndpoints.cs"
+      ],
+      "tests": [
+        "CanonicalIndexProbeIntegrationTests",
+        "CanonicalRetrievalDiagnosticsTests"
+      ],
+      "limitations": [
+        "La sonde vérifie PostgreSQL canonique ; elle annonce explicitement ne pas vérifier la parité vectorielle Qdrant."
+      ]
     }
+  ],
+  "validatedAtUtc": "2026-10-24T21:21:45.7751228+00:00",
+  "codeFreeze": "Final ClientCore/Client campaign includes build with unchanged source fingerprint; Backend/Contracts/PG execute identical frozen assemblies, with current relevant source hashes separately reconciled.",
+  "validationManifests": [
+    "artifacts/assainissement-20261024/unit-backend-contracts-freeze/manifest.json",
+    "artifacts/assainissement-20261024/postgres-freeze/tests/manifest.json",
+    "artifacts/client-cleanup-20261024/full-unit-session-final-freeze/manifest.json",
+    "artifacts/client-cleanup-20261024/production-release-proof.json",
+    "artifacts/assainissement-20261024/profile-gates-host-parsing-accepted/checks.json",
+    "artifacts/validation-refactor/runtime-probes-final.json",
+    "artifacts/assainissement-20261024/architecture-final.json"
   ]
 }

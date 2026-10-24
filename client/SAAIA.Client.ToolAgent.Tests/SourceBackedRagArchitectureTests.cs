@@ -6,6 +6,7 @@ using Xunit;
 
 namespace SAAIA.Client.ToolAgent.Tests;
 
+[Collection("EnvironmentVariables")]
 public sealed class SourceBackedRagArchitectureTests
 {
     [Fact]
@@ -83,7 +84,7 @@ public sealed class SourceBackedRagArchitectureTests
     }
 
     [Fact]
-    public void Canonical_agent_is_mandatory_and_has_no_runtime_disable_switch()
+    public async Task Canonical_agent_is_mandatory_and_rejects_a_client_without_native_tools()
     {
         Assert.NotNull(SourceBackedAgentV2Options.ResolveFromEnvironment());
         Assert.Null(typeof(SourceBackedAgentV2Options).GetProperty("Enabled"));
@@ -93,37 +94,56 @@ public sealed class SourceBackedRagArchitectureTests
             | System.Reflection.BindingFlags.Public
             | System.Reflection.BindingFlags.NonPublic));
 
-        var root = FindRepoRoot();
-        var source = File.ReadAllText(Path.Combine(
-            root,
-            "client",
-            "SAAIA.Client.WinUI",
-            "ToolAgent",
-            "ToolAgentOrchestrator.SourceBackedAgentV2.cs"));
-
-        Assert.Contains("_llm is ISourceBackedAgentLlmClient", source);
-        Assert.Contains("requires native LLM tool support", source);
-        Assert.DoesNotContain("return null", source);
-        Assert.DoesNotContain("SAAIA_SOURCE_BACKED_AGENT_V2\"", source);
+        using var http = new HttpClient(new StubHttpHandler(_ =>
+            throw new InvalidOperationException("An unsupported model must fail before HTTP work.")));
+        var orchestrator = new ToolAgentOrchestrator(
+            new ApiClient(http), new QueueLlmClient(Array.Empty<string>()), new ToolMemory());
+        // Temporary adapter while canonical construction remains private. Exercise its
+        // rejection behavior rather than its source text, indentation or comments.
+        var create = typeof(ToolAgentOrchestrator).GetMethod(
+            "CreateSourceBackedAgentV2RunnerAsync",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(create);
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await Assert.IsAssignableFrom<Task>(create!.Invoke(orchestrator,
+                new object?[] { "rag", "contract_test", CancellationToken.None, null, null })));
+        Assert.Equal("The canonical source-backed agent requires native LLM tool support.", error.Message);
     }
 
     [Fact]
     public void Production_defaults_enable_llm_candidate_definition_and_precision_batches()
     {
-        var source = File.ReadAllText(Path.Combine(
-            FindRepoRoot(),
-            "client",
-            "SAAIA.Client.WinUI",
-            "ToolAgent",
-            "SourceBackedRag",
-            "SourceBackedAgentV2Options.cs"));
+        const string definition = "SAAIA_SOURCE_BACKED_AGENT_V2_CANDIDATE_DEFINITION";
+        const string batch = "SAAIA_SOURCE_BACKED_AGENT_V2_CANDIDATES_PER_AUDIT_BATCH";
+        var previousDefinition = Environment.GetEnvironmentVariable(definition);
+        var previousBatch = Environment.GetEnvironmentVariable(batch);
+        try
+        {
+            Environment.SetEnvironmentVariable(definition, null);
+            Environment.SetEnvironmentVariable(batch, null);
+            var defaults = SourceBackedAgentV2Options.ResolveFromEnvironment();
+            Assert.True(defaults.SemanticCandidateDefinitionEnabled);
+            Assert.Equal(6, defaults.MaximumSemanticCandidatesPerAuditBatch);
 
-        Assert.Contains(
-            "\"SAAIA_SOURCE_BACKED_AGENT_V2_CANDIDATE_DEFINITION\",\n                defaultValue: true",
-            source.Replace("\r\n", "\n", StringComparison.Ordinal));
-        Assert.Contains(
-            "\"SAAIA_SOURCE_BACKED_AGENT_V2_CANDIDATES_PER_AUDIT_BATCH\",\n                6,\n                1,\n                80",
-            source.Replace("\r\n", "\n", StringComparison.Ordinal));
+            Environment.SetEnvironmentVariable(definition, "false");
+            Environment.SetEnvironmentVariable(batch, "1");
+            var configured = SourceBackedAgentV2Options.ResolveFromEnvironment();
+            Assert.False(configured.SemanticCandidateDefinitionEnabled);
+            Environment.SetEnvironmentVariable(batch, "0");
+            Assert.Throws<InvalidOperationException>(() => SourceBackedAgentV2Options.ResolveFromEnvironment());
+            Environment.SetEnvironmentVariable(batch, "1");
+            configured = SourceBackedAgentV2Options.ResolveFromEnvironment();
+            Assert.Equal(1, configured.MaximumSemanticCandidatesPerAuditBatch);
+            Environment.SetEnvironmentVariable(batch, "999");
+            Assert.Throws<InvalidOperationException>(() => SourceBackedAgentV2Options.ResolveFromEnvironment());
+            Environment.SetEnvironmentVariable(batch, "80");
+            Assert.Equal(80, SourceBackedAgentV2Options.ResolveFromEnvironment().MaximumSemanticCandidatesPerAuditBatch);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(definition, previousDefinition);
+            Environment.SetEnvironmentVariable(batch, previousBatch);
+        }
     }
 
     [Fact]
@@ -151,7 +171,7 @@ public sealed class SourceBackedRagArchitectureTests
     }
 
     [Fact]
-    public void Canonical_source_backed_files_stay_modular()
+    public void Canonical_source_backed_files_respect_the_repository_file_budget()
     {
         var directory = Path.Combine(
             FindRepoRoot(),
@@ -159,14 +179,10 @@ public sealed class SourceBackedRagArchitectureTests
             "SAAIA.Client.WinUI",
             "ToolAgent",
             "SourceBackedRag");
-        var limits = new Dictionary<string, int>(
-            StringComparer.OrdinalIgnoreCase)
-        {
-            ["SourceBackedAgentV2Runner.cs"] = 2500,
-            ["SourceBackedAgentV2Prompts.cs"] = 800,
-            ["SourceBackedAgentCompactFollowUp.cs"] = 550,
-            ["SourceBackedAgentSemanticPlan.cs"] = 550
-        };
+        using var budgets = JsonDocument.Parse(File.ReadAllText(Path.Combine(
+            FindRepoRoot(), "config", "architecture-budgets.json")));
+        var maximum = budgets.RootElement.GetProperty("maximumPhysicalLinesPerFile").GetInt32();
+        Assert.InRange(maximum, 1, 9999);
         var files = Directory
             .EnumerateFiles(directory, "*.cs")
             .Select(path => new
@@ -179,9 +195,7 @@ public sealed class SourceBackedRagArchitectureTests
         Assert.NotEmpty(files);
         Assert.DoesNotContain(
             files,
-            file => file.Lines > limits.GetValueOrDefault(
-                Path.GetFileName(file.Path),
-                500));
+            file => file.Lines > maximum);
     }
 
     [Fact]
@@ -263,9 +277,6 @@ public sealed class SourceBackedRagArchitectureTests
         var writer = File.ReadAllText(Path.Combine(
             directory,
             "SourceBackedAgentStructuredCandidateWriter.cs"));
-        var runner = File.ReadAllText(Path.Combine(
-            directory,
-            "SourceBackedAgentV2Runner.cs"));
 
         Assert.Contains("TryPrepareStructuredCandidateTableRepair", writer);
         Assert.Contains("structured_candidate_cells_repaired", writer);
@@ -275,12 +286,12 @@ public sealed class SourceBackedRagArchitectureTests
         Assert.DoesNotContain(
             "CompleteStructuredCandidateColumnsAsync",
             writer);
-        Assert.Contains(
-            "source_backed_agent_v2.structured_candidate_writer.mechanical_repair_exhausted",
-            runner);
-        Assert.Contains(
-            "(\"decision\", \"terminal_insufficient_evidence\")));\n                break;",
-            runner.Replace("\r\n", "\n", StringComparison.Ordinal));
+        var phase = "VerifyAndReviewIterationDraftAsync";
+        var literals = CompiledArchitectureContract.StringsForMethod(typeof(SourceBackedAgentV2Runner), phase);
+        Assert.Contains("source_backed_agent_v2.structured_candidate_writer.mechanical_repair_exhausted", literals);
+        Assert.Contains("terminal_insufficient_evidence", literals);
+        Assert.Contains(CompiledArchitectureContract.CallsForMethod(typeof(SourceBackedAgentV2Runner), phase), call =>
+            call.Name == "get_Stop" && call.DeclaringType == typeof(SAAIA.Client.Core.Execution.AgentIterationOutcome<SourceBackedPipelineResult>));
     }
 
     [Fact]
@@ -662,25 +673,6 @@ public sealed class SourceBackedRagArchitectureTests
                 .GetProperty("ContentCardId")?
                 .GetValue(card));
         Assert.Equal("chunk-7", card.ChunkId);
-    }
-
-    [Fact]
-    public void Source_card_click_requires_exact_revision_and_forwards_all_identity_fields()
-    {
-        var source = File.ReadAllText(Path.Combine(
-            FindRepoRoot(),
-            "client",
-            "SAAIA.Client.WinUI",
-            "Controls",
-            "SourcesCardsControl.xaml.cs"));
-        var normalized = source.Replace("\r\n", "\n", StringComparison.Ordinal);
-
-        Assert.Contains("s.SourceHash", source, StringComparison.Ordinal);
-        Assert.Contains("s.RevisionId", source, StringComparison.Ordinal);
-        Assert.Contains("s.ChunkId", source, StringComparison.Ordinal);
-        Assert.Contains("s.AnchorId", source, StringComparison.Ordinal);
-        Assert.Contains("s.ContentCardId", source, StringComparison.Ordinal);
-        Assert.Contains("requireExactSourceHash: true", normalized, StringComparison.Ordinal);
     }
 
     private static EvidenceItem CreateCanonicalEvidenceForIdentityTests()

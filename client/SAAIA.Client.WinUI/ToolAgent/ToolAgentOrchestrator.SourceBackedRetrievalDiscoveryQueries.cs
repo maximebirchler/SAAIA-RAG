@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -94,16 +94,6 @@ public sealed partial class ToolAgentOrchestrator
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(18)
             .ToArray();
-    }
-
-    private static IEnumerable<string> BuildStructuredPlanningInventoryRetrievalQueries(string query)
-    {
-        var language = DetectRetrievalExpansionLanguage(query);
-        foreach (var queryVariant in BuildStructuredPlanningInventoryTermsForRetrieval(language, query))
-        {
-            yield return queryVariant;
-        }
-
     }
 
     private static string[] BuildSourceBackedAnchorDiscoveryRetrievalQueries(string query)

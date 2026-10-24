@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -495,11 +495,4 @@ public sealed partial class ToolAgentOrchestrator
 
     private static bool TryExtractExactDocumentSearchQuery(string? message, out string query)
         => TryMatchCanonicalDynamicPrompt(message, ClientUiText.BuildPromptSearchDocuments, out query);
-
-
-    private static bool TryExtractExactAdminReindexDocumentRef(string? message, out string documentRef)
-    {
-        documentRef = string.Empty;
-        return false;
-    }
 }

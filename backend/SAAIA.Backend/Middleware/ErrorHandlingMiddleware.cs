@@ -6,7 +6,7 @@ namespace SAAIA.Backend;
 
 /// <summary>
 /// Exception handling middleware qui formatte les erreurs en { error, requestId }.
-/// Doit être placé AVANT les autres middlewares pour capturer toutes les exceptions.
+/// Placé après la corrélation et avant les middlewares applicatifs pour conserver le même RequestId sur erreur.
 /// </summary>
 public sealed class ErrorHandlingMiddleware
 {
@@ -34,15 +34,20 @@ public sealed class ErrorHandlingMiddleware
                 await HandleErrorResponseAsync(ctx);
             }
         }
+        catch (OperationCanceledException) when (ctx.RequestAborted.IsCancellationRequested)
+        {
+            if (!ctx.Response.HasStarted) ctx.Response.StatusCode = 499;
+            _logger.LogInformation("HTTP request cancelled request_id={RequestId}", ctx.GetRequestId());
+        }
         catch (BadHttpRequestException ex)
         {
             var requestId = ctx.Items.TryGetValue(RequestIdMiddleware.RequestIdItemKey, out var val) && val is string s
                 ? s
                 : ctx.TraceIdentifier;
 
-            _logger.LogWarning(ex, "BadHttpRequestException: {Message}", ex.Message);
+            _logger.LogWarning("HTTP request rejected exception_type={ExceptionType} request_id={RequestId}", ex.GetType().Name, requestId);
 
-            await WriteErrorResponseAsync(ctx, StatusCodes.Status400BadRequest, ex.Message, requestId);
+            await WriteErrorResponseAsync(ctx, StatusCodes.Status400BadRequest, "Bad request", requestId);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -50,9 +55,9 @@ public sealed class ErrorHandlingMiddleware
                 ? s
                 : ctx.TraceIdentifier;
 
-            _logger.LogWarning(ex, "UnauthorizedAccessException: {Message}", ex.Message);
+            _logger.LogWarning("HTTP authorization rejected exception_type={ExceptionType} request_id={RequestId}", ex.GetType().Name, requestId);
 
-            await WriteErrorResponseAsync(ctx, StatusCodes.Status403Forbidden, ex.Message, requestId);
+            await WriteErrorResponseAsync(ctx, StatusCodes.Status403Forbidden, "Forbidden", requestId);
         }
         catch (Exception ex)
         {
@@ -60,7 +65,8 @@ public sealed class ErrorHandlingMiddleware
                 ? s
                 : ctx.TraceIdentifier;
 
-            _logger.LogError(ex, "Unhandled exception: {Message}", ex.Message);
+            _logger.LogError("Unhandled HTTP exception exception_type={ExceptionType} request_id={RequestId} stack_trace={StackTrace}",
+                ex.GetType().FullName, requestId, ex.StackTrace);
 
             // Ne pas exposer les détails techniques en prod
             var message = ctx.RequestServices.GetService<IHostEnvironment>()?.IsDevelopment() ?? false

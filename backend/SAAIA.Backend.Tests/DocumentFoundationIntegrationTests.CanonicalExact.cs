@@ -12,7 +12,8 @@ namespace SAAIA.Backend.Tests;
 
 public sealed partial class DocumentFoundationIntegrationTests
 {
-    [Theory]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileTheory("IntegrationPg")]
     [InlineData("direct", true)]
     [InlineData("composed", true)]
     [InlineData("unlinked", false)]
@@ -21,7 +22,7 @@ public sealed partial class DocumentFoundationIntegrationTests
         string linkage, bool expectedMatch)
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
-        if (db is null) return;
+        if (db is null) throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         var tenant = Guid.NewGuid();
         var doc = Guid.NewGuid();
         const string path = "Knowledge/ZX-71.pdf";

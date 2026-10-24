@@ -12,7 +12,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class LiveStructuralAnchorSemanticSelectionProbeTests(
     ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_structural_facet_anchor_selection_is_captured_when_enabled()
     {
         if (!string.Equals(
@@ -23,7 +24,7 @@ public sealed class LiveStructuralAnchorSemanticSelectionProbeTests(
         {
             output.WriteLine(
                 "Skipped: enable SAAIA_LIVE_STRUCTURAL_FACET_SELECTION_PROBE to map explicit overview facets to canonical navigation anchors.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var inputArtifact = Require(
@@ -223,7 +224,8 @@ public sealed class LiveStructuralAnchorSemanticSelectionProbeTests(
         }
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_structural_anchor_semantic_selection_is_captured_when_enabled()
     {
         if (!string.Equals(
@@ -234,7 +236,7 @@ public sealed class LiveStructuralAnchorSemanticSelectionProbeTests(
         {
             output.WriteLine(
                 "Skipped: enable SAAIA_LIVE_STRUCTURAL_ANCHOR_SELECTION_PROBE to let Qwen select from canonical navigation anchors.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var inputArtifact = Require(

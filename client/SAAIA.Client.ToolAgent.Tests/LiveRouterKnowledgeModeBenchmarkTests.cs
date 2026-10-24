@@ -27,7 +27,8 @@ public sealed class LiveRouterKnowledgeModeBenchmarkTests(
         inventory, export or diagnostics.
         """;
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Knowledge_mode_is_measured_across_three_frozen_orders_when_enabled()
     {
         if (!string.Equals(
@@ -37,7 +38,7 @@ public sealed class LiveRouterKnowledgeModeBenchmarkTests(
         {
             output.WriteLine(
                 $"Skipped: set {EnableVariable}=1 to run EXP-043/S.1.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

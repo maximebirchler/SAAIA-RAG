@@ -1,0 +1,11 @@
+{
+  "function": "Test-ValidationPromptSourcesHaveCompetingRecipeTitle",
+  "sourceGitBlob": "264d2b57fe932bec1cefb24f964e3aec2e3356be",
+  "definitions": 1,
+  "namedInvocationCount": 0,
+  "repositoryRuntimeReferences": [
+    "HEAD:tools/run-llm-validation.ps1:2977:function Test-ValidationPromptSourcesHaveCompetingRecipeTitle {"
+  ],
+  "dynamicCommandLookup": "Get-Command is used only for dotnet; no Invoke-Expression, function enumeration or function export exists in this standalone script.",
+  "decision": "Removed after reference and AST inspection; active historical answer policies retained."
+}

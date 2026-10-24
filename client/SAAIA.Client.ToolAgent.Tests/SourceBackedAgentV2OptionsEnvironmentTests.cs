@@ -3,6 +3,7 @@ using Xunit;
 
 namespace SAAIA.Client.ToolAgent.Tests;
 
+[Collection("EnvironmentVariables")]
 public sealed class SourceBackedAgentV2OptionsEnvironmentTests
 {
     private const string Variable =

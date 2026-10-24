@@ -1,0 +1,95 @@
+{
+  "schemaVersion": "saaia-ui-conversation-independent-review-v1",
+  "reviewedAtUtc": "2026-10-24T21:18:47.2914253+00:00",
+  "reviewer": "implement_validation_tooling",
+  "scope": "Read-only review of conversation gate, admission/cancellation, session load/create/rename/delete/connect and settings reload. SetupLifecycle reviewed for ConnectAsync/RefreshSessionsAsync plus actual LoadSettings call sites discovered during identity assignment check.",
+  "providerCalls": 0,
+  "buildsExecutedByReviewer": 0,
+  "productFilesModifiedByReviewer": 0,
+  "result": "No further concrete blocking defect identified on the frozen reviewed scope after the two identity-rebinding corrections. Final global test gate is still required.",
+  "findings": [
+    {
+      "problem": "RefreshSessionsAsync could choose a fallback session from its bounded200-item list and reassign active _sessionId without loading its messages or memory. Turn/session lease prevented SelectionChanged from repairing that state.",
+      "id": "UI-SESSION-01",
+      "status": "corrected_by_owner_and_rechecked",
+      "fix": "Owner removed selection mutation from RefreshSessionsAsync and all eight call sites. Connect selects a candidate explicitly; only LoadSessionCore activates ID/messages/memory after successful read.",
+      "concreteCases": [
+        "Active session missing from the bounded result",
+        "Active session removed elsewhere",
+        "Refresh during Send, auto-title or rename"
+      ],
+      "priority": "P1"
+    },
+    {
+      "fix": "Owner permits restoring persisted LastSessionId only while _agent is null; connected memory keeps its identity.",
+      "id": "UI-SESSION-02",
+      "status": "corrected_by_owner_and_rechecked",
+      "priority": "P1",
+      "problem": "LoadSettings was also called after setup/repair, not only construction, and could reload a persisted session hint over a connected conversation without rehydrating memory."
+    }
+  ],
+  "reviewedInvariants": [
+    "One exclusive lease prevents simultaneous turn and session mutation.",
+    "Turn cancellation source/token exist from admission, including the durable-message preparation period.",
+    "Cancellation does not release a running owner; disposing an old lease cannot release a later owner.",
+    "Send and direct command retain the admitted session identity across awaits and persistence.",
+    "Session loading fetches messages and tracked state before resetting conversation memory.",
+    "Failed/cancelled reads release admission while keeping the previously loaded identity/memory.",
+    "Create/rename/delete/connect own their lease through awaits and release in finally.",
+    "Deleting current session clears identity/memory before an attempted next-session load can fail.",
+    "Deferred selection synchronization ignores an old target after actual session identity changes.",
+    "Only LoadSessionCore activation, explicit deletion invalidation and preconnection settings hint assign _sessionId."
+  ],
+  "testsInspected": [
+    "ConversationActivityGateTests.A_session_load_blocks_sends_and_another_load_until_its_owner_finishes",
+    "ConversationActivityGateTests.Cancellation_of_a_turn_does_not_allow_resetting_memory_before_that_turn_finishes",
+    "ConversationActivityGateTests.Completion_of_an_old_owner_cannot_release_a_later_session_or_turn",
+    "ConversationActivityGateTests.A_failed_session_read_releases_admission_without_rebinding_the_turn_session",
+    "ConversationActivityGateTests.Concurrent_admission_has_exactly_one_owner",
+    "ConversationActivityGateTests.Cancelling_during_durable_message_preparation_preserves_the_write_and_prevents_model_start",
+    "ConversationActivityGateTests.Cancelling_the_current_owner_never_cancels_a_completed_turn_token"
+  ],
+  "limitations": [
+    "Reviewer inspected tests but did not execute a concurrent build or test campaign.",
+    "Portable gate tests establish its concurrency/ownership contract; they do not instantiate MainWindow or prove native XAML behavior.",
+    "Normal installed-client success/error/cancellation/resume and visual selection smoke remain separate acceptance evidence."
+  ],
+  "sourceHashes": [
+    {
+      "sha256": "AAD4692C2043963E2E3B6513BD868018A80290AAD31592B6E4D08374E6533F5A",
+      "path": "client/SAAIA.Client.Core/Conversation/ConversationActivityGate.cs"
+    },
+    {
+      "sha256": "5BBE1AC6F7D94B29B6235148ED9E6D08BC92B42AB1EF51F66F799BE37950173A",
+      "path": "client/SAAIA.Client.Core.Tests/ConversationActivityGateTests.cs"
+    },
+    {
+      "sha256": "61292F66E85CDF402C7D5C7715D2825086D69305F20D43D9AF2ADB70803776B5",
+      "path": "client/SAAIA.Client.WinUI/MainWindow/State.cs"
+    },
+    {
+      "sha256": "3ADC2F57522A8A976AB5DECCE296BE03D557D5A6A9B320BC6C6F0EC740C8863A",
+      "path": "client/SAAIA.Client.WinUI/MainWindow/Sessions.cs"
+    },
+    {
+      "sha256": "D17DC2C657B308A1D4AFD0544BC864D97B2521C98EFDE3F19527ABA74DD887E1",
+      "path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs"
+    },
+    {
+      "sha256": "51427C1A0F15F1C307C8E03650B2AE5C5A640889695AE3EE681237B5C775A276",
+      "path": "client/SAAIA.Client.WinUI/MainWindow/StartupSetup.cs"
+    },
+    {
+      "sha256": "164CF444E479393464A13FFAEA1461F4F72BFAEF94FC25BE9C0D990FE02A21C0",
+      "path": "client/SAAIA.Client.WinUI/MainWindow/ThemeChrome.cs"
+    },
+    {
+      "sha256": "5F4A5D6FB38FC7996BA4F7A89772605988B77B457AF6EDAA4D2F6DFC2CD5C332",
+      "path": "client/SAAIA.Client.WinUI/MainWindow/HelpAndLocalization.cs"
+    },
+    {
+      "sha256": "43F1F9C8C92527F14971478EEE19C7BE3580D0671010C3BF12A0FF501EF6D227",
+      "path": "client/SAAIA.Client.WinUI/MainWindow/SetupLifecycle.cs"
+    }
+  ]
+}

@@ -6,7 +6,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class LiveLocalLlmQualificationRefinementTests
 {
-    [Fact]
+    [Trait("Profile", "LiveLocal")]
+    [ProfileFact("LiveLocal")]
     [Trait("Category", "LiveHardware")]
     public async Task Refine_the_best_measured_topologies_across_control_and_writer_workloads()
     {
@@ -15,7 +16,7 @@ public sealed class LiveLocalLlmQualificationRefinementTests
                 "1",
                 StringComparison.Ordinal))
         {
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var modelPath = Environment.GetEnvironmentVariable("SAAIA_LIVE_MODEL_PATH");

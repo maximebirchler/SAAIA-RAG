@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Reflection;
 using SAAIA.Client.WinUI.Services.ToolAgent;
+using SAAIA.Client.WinUI.Services.ToolAgent.NativeRouting;
 using SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag;
 using Xunit;
 
@@ -9,12 +10,31 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class NativeRouterPromptBudgetTests
 {
     [Fact]
+    public void Pure_native_routing_builders_have_one_owner_outside_the_orchestrator()
+    {
+        var owners = new[]
+        {
+            (Type: typeof(NativeRouterPrompts), Method: "BuildNativeRouterClassifierSystemPrompt"),
+            (Type: typeof(NativeRouterPrompts), Method: "BuildNativeRouterSpecializedSystemPrompt"),
+            (Type: typeof(NativeRouterPrompts), Method: "BuildNativeRouterSystemPrompt"),
+            (Type: typeof(NativeRouterToolCatalog), Method: "BuildNativeRouterTools"),
+            (Type: typeof(NativeRouterToolCatalog), Method: "BuildNativeRouterSecondStageTools")
+        };
+        foreach (var owner in owners)
+        {
+            const BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
+            Assert.NotNull(owner.Type.GetMethod(owner.Method, flags));
+            Assert.Null(typeof(ToolAgentOrchestrator).GetMethod(owner.Method, flags));
+        }
+    }
+
+    [Fact]
     public void Native_router_classifier_uses_semantic_labels_without_retrieval_arguments()
     {
         var prompt =
-            ToolAgentOrchestrator.BuildNativeRouterClassifierSystemPromptForTests();
+            NativeRouterPrompts.BuildNativeRouterClassifierSystemPrompt();
         var tools =
-            ToolAgentOrchestrator.BuildNativeRouterClassifierToolsForTests();
+            NativeRouterToolCatalog.BuildNativeRouterClassifierTools();
 
         Assert.True(
             prompt.Length < 1_200,
@@ -57,11 +77,11 @@ public sealed class NativeRouterPromptBudgetTests
     public void Native_router_classifier_distinguishes_source_resolvable_answers_from_user_preferences()
     {
         var prompt =
-            ToolAgentOrchestrator.BuildNativeRouterClassifierSystemPromptForTests();
+            NativeRouterPrompts.BuildNativeRouterClassifierSystemPrompt();
         var classifierTools =
-            ToolAgentOrchestrator.BuildNativeRouterClassifierToolsForTests();
+            NativeRouterToolCatalog.BuildNativeRouterClassifierTools();
         var routerTools =
-            ToolAgentOrchestrator.BuildNativeRouterToolsForTests();
+            NativeRouterToolCatalog.BuildNativeRouterTools();
 
         Assert.Contains(
             "answer candidates, not user choices",
@@ -104,7 +124,7 @@ public sealed class NativeRouterPromptBudgetTests
         bool expected)
     {
         var accepted =
-            ToolAgentOrchestrator.TryResolveNativeRouterClassifierSelectionForTests(
+            NativeRouterToolCatalog.TryResolveNativeRouterClassifierSelection(
                 toolName,
                 out var selected);
 
@@ -123,7 +143,7 @@ public sealed class NativeRouterPromptBudgetTests
             selectedRouteToolName == "submit_source_backed_route"
                 ? new[] { selectedRouteToolName }
                 : new[] { selectedRouteToolName, "request_missing_user_input" },
-            ToolAgentOrchestrator.BuildNativeRouterSecondStageToolNamesForTests(
+            NativeRoutingContractFixtures.SecondStageToolNames(
                 selectedRouteToolName,
                 classifierAccepted: true));
     }
@@ -137,7 +157,7 @@ public sealed class NativeRouterPromptBudgetTests
                 "submit_operational_route",
                 "request_user_clarification"
             },
-            ToolAgentOrchestrator.BuildNativeRouterSecondStageToolNamesForTests(
+            NativeRoutingContractFixtures.SecondStageToolNames(
                 "submit_operational_route",
                 classifierAccepted: true));
     }
@@ -155,7 +175,7 @@ public sealed class NativeRouterPromptBudgetTests
                 "request_user_clarification",
                 "submit_operational_route"
             },
-            ToolAgentOrchestrator.BuildNativeRouterSecondStageToolNamesForTests(
+            NativeRoutingContractFixtures.SecondStageToolNames(
                 string.Empty,
                 classifierAccepted: false));
     }
@@ -169,7 +189,7 @@ public sealed class NativeRouterPromptBudgetTests
         string requiredMarker)
     {
         var prompt =
-            ToolAgentOrchestrator.BuildNativeRouterSpecializedSystemPromptForTests(
+            NativeRoutingContractFixtures.SpecializedPrompt(
                 routeToolName);
 
         Assert.True(
@@ -202,7 +222,7 @@ public sealed class NativeRouterPromptBudgetTests
     public void Native_router_operational_prompt_keeps_pre_tool_clarification_guard()
     {
         var prompt =
-            ToolAgentOrchestrator.BuildNativeRouterSpecializedSystemPromptForTests(
+            NativeRoutingContractFixtures.SpecializedPrompt(
                 "submit_operational_route");
 
         Assert.True(prompt.Length < 1_800);
@@ -231,7 +251,7 @@ public sealed class NativeRouterPromptBudgetTests
     public void Native_router_grid_prompt_excludes_row_header_from_value_columns_and_count()
     {
         var prompt =
-            ToolAgentOrchestrator.BuildNativeRouterSystemPromptForTests();
+            NativeRouterPrompts.BuildNativeRouterSystemPrompt("fr", disallowMetaSetLanguage: false);
 
         Assert.Contains(
             "rowHeader names only",
@@ -248,7 +268,7 @@ public sealed class NativeRouterPromptBudgetTests
     public void Native_router_grid_prompt_requests_a_native_source_object_before_placement()
     {
         var prompt =
-            ToolAgentOrchestrator.BuildNativeRouterSystemPromptForTests();
+            NativeRouterPrompts.BuildNativeRouterSystemPrompt("fr", disallowMetaSetLanguage: false);
 
         Assert.Contains(
             "answer-bearing item class inside source documents",
@@ -280,7 +300,7 @@ public sealed class NativeRouterPromptBudgetTests
     public void Native_router_non_grid_prompt_preserves_open_plural_as_a_comparison_set()
     {
         var prompt =
-            ToolAgentOrchestrator.BuildNativeRouterSpecializedSystemPromptForTests(
+            NativeRoutingContractFixtures.SpecializedPrompt(
                 "submit_source_backed_route");
 
         Assert.Contains(
@@ -303,10 +323,10 @@ public sealed class NativeRouterPromptBudgetTests
     public void Native_router_named_target_content_contract_separates_target_from_answer_units()
     {
         var specializedPrompt =
-            ToolAgentOrchestrator.BuildNativeRouterSpecializedSystemPromptForTests(
+            NativeRoutingContractFixtures.SpecializedPrompt(
                 "submit_source_backed_route");
         var generalPrompt =
-            ToolAgentOrchestrator.BuildNativeRouterSystemPromptForTests();
+            NativeRouterPrompts.BuildNativeRouterSystemPrompt("fr", disallowMetaSetLanguage: false);
 
         foreach (var prompt in new[] { specializedPrompt, generalPrompt })
         {
@@ -343,8 +363,8 @@ public sealed class NativeRouterPromptBudgetTests
     public void Native_router_exposes_distinct_compact_semantic_route_contracts()
     {
         var prompt =
-            ToolAgentOrchestrator.BuildNativeRouterSystemPromptForTests();
-        var tools = ToolAgentOrchestrator.BuildNativeRouterToolsForTests();
+            NativeRouterPrompts.BuildNativeRouterSystemPrompt("fr", disallowMetaSetLanguage: false);
+        var tools = NativeRouterToolCatalog.BuildNativeRouterTools();
 
         Assert.Equal(
             new[]
@@ -508,12 +528,12 @@ public sealed class NativeRouterPromptBudgetTests
     public void Native_router_clarification_contract_excludes_candidate_answers_resolved_by_evidence()
     {
         var generalPrompt =
-            ToolAgentOrchestrator.BuildNativeRouterSystemPromptForTests();
+            NativeRouterPrompts.BuildNativeRouterSystemPrompt("fr", disallowMetaSetLanguage: false);
         var clarificationPrompt =
-            ToolAgentOrchestrator.BuildNativeRouterSpecializedSystemPromptForTests(
+            NativeRoutingContractFixtures.SpecializedPrompt(
                 "request_user_clarification");
         var clarificationTool = Assert.Single(
-            ToolAgentOrchestrator.BuildNativeRouterToolsForTests(),
+            NativeRouterToolCatalog.BuildNativeRouterTools(),
             static tool => tool.Name == "request_user_clarification");
 
         Assert.Contains(
@@ -1020,7 +1040,7 @@ public sealed class NativeRouterPromptBudgetTests
                 "submit_operational_route",
                 "request_user_clarification"
             },
-            ToolAgentOrchestrator.BuildNativeRouterSecondStageToolNamesForTests(
+            NativeRoutingContractFixtures.SecondStageToolNames(
                 "submit_operational_route",
                 classifierAccepted: true));
 
@@ -1165,7 +1185,7 @@ public sealed class NativeRouterPromptBudgetTests
     public void Native_router_grid_contract_preserves_exact_axes_and_product()
     {
         var valid =
-            ToolAgentOrchestrator.TryReadNativeRouterLayoutForTests(
+            NativeRoutingContractFixtures.TryReadLayout(
                 """
                 {
                   "rowHeader": "Jour",
@@ -1524,7 +1544,7 @@ public sealed class NativeRouterPromptBudgetTests
     public void Native_router_format_repair_preserves_the_llm_chosen_route_function()
     {
         var repairTools =
-            ToolAgentOrchestrator.BuildNativeRouterRepairToolsForTests(
+            NativeRoutingContractFixtures.RepairTools(
                 "submit_source_backed_grid_route");
 
         Assert.Equal(
@@ -1535,8 +1555,7 @@ public sealed class NativeRouterPromptBudgetTests
     [Fact]
     public void Native_router_invalid_clarification_releases_all_clarification_routes()
     {
-        var alternatives = ToolAgentOrchestrator
-            .BuildNativeRouterAlternativesAfterInvalidClarificationForTests();
+        var alternatives = NativeRouterToolCatalog.BuildNativeRouterAlternativesAfterInvalidClarification(NativeRouterToolCatalog.BuildNativeRouterTools());
 
         Assert.Equal(
             new[]
@@ -1563,7 +1582,7 @@ public sealed class NativeRouterPromptBudgetTests
         int atomicEvidenceCount)
     {
         var valid =
-            ToolAgentOrchestrator.TryReadNativeRouterLayoutForTests(
+            NativeRoutingContractFixtures.TryReadLayout(
                 """
                 {
                   "rowHeader": "Jour",
@@ -1589,7 +1608,7 @@ public sealed class NativeRouterPromptBudgetTests
     public void Native_router_grid_contract_rejects_row_header_repeated_as_a_value_column()
     {
         var valid =
-            ToolAgentOrchestrator.TryReadNativeRouterLayoutForTests(
+            NativeRoutingContractFixtures.TryReadLayout(
                 """
                 {
                   "rowHeader": "Period",
@@ -1610,7 +1629,7 @@ public sealed class NativeRouterPromptBudgetTests
     public void Native_router_grid_contract_rejects_structurally_corrupted_axis_labels()
     {
         var valid =
-            ToolAgentOrchestrator.TryReadNativeRouterLayoutForTests(
+            NativeRoutingContractFixtures.TryReadLayout(
                 """
                 {
                   "rowHeader": "Jour",

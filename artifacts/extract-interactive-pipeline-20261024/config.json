@@ -1,0 +1,448 @@
+{
+  "groups": {
+    "Scope": [
+      "requestedCategory",
+      "categoryPath",
+      "category",
+      "categoryQueryHint",
+      "hasDocScope",
+      "hasExplicitFileDocumentHint",
+      "requestedPageStart",
+      "requestedPageEnd",
+      "hasRequestedPageWindow",
+      "hasCategoryFilter"
+    ],
+    "Query": [
+      "retrievalQuery",
+      "lexicalRetrievalSurface",
+      "usesDelimitedLexicalSurface",
+      "queryNorm",
+      "retrievalQueryNorm",
+      "selectionQuery"
+    ],
+    "Selection": [
+      "topK",
+      "requestedTopK",
+      "minScore",
+      "selectionMinScore",
+      "candidates",
+      "maxPerDoc",
+      "maxPerPage",
+      "preferItemInventory",
+      "preferDocumentDiversity"
+    ],
+    "Routes": [
+      "useBareVsComparativeOperandRoute",
+      "useChoiceBetweenLexicalRoute",
+      "includeResearchSurfaces",
+      "mode",
+      "skipPreciseTitleLookupForDocumentOverview",
+      "skipChunkRetrieversForDocumentOverview",
+      "hasQuotedLookupPhrases",
+      "skipUnquotedPreciseTitleScans",
+      "useScopedProfileFallback",
+      "useScopedCatalogDocumentOverviewFallback",
+      "allowSparseAssistForScopedProfileFallback",
+      "allowSparseAssistForBroadDiversity",
+      "allowNavigationCatalogRouteForBroadExploration",
+      "skipUnanchoredTitleAnchorRouteForBroadDiversity",
+      "skipSparseRetrieverForBroadDiversity",
+      "skipSparseProfileCardAssist",
+      "requireDocumentOverviewProfileMatch",
+      "skipLocalTitleTokenRoute",
+      "skipQuotedTitleFullScan"
+    ]
+  },
+  "mapping": {
+    "context": "resources.Context",
+    "ds": "resources.DataSource",
+    "rag": "resources.Options",
+    "httpFactory": "resources.HttpClients",
+    "tenantId": "resources.Context.TenantId",
+    "ct": "resources.Context.CancellationToken",
+    "teiGovernor": "resources.Context.TeiGovernor",
+    "req": "plan.Request",
+    "catalogOverviewFallbackQuery": "InteractiveRetrievalPlan.CatalogOverviewFallbackQuery",
+    "selectionRankingQuery": "plan.Query.RankingQuery",
+    "sparseCommandTimeoutSeconds": "plan.SparseCommandTimeoutSeconds",
+    "sqlHeavyCandidateLimit": "plan.SqlHeavyCandidateLimit",
+    "dateDocumentBackfillPhrases": "plan.Backfills.DateDocumentTitles",
+    "compactDocumentCodeLookupPhrases": "plan.Backfills.CompactDocumentCodes",
+    "documentStatusOperandTerms": "plan.Backfills.DocumentStatusOperands",
+    "diagnostics": "flow.Session.Diagnostics",
+    "phases": "flow.Session.Phases",
+    "degradation": "flow.Session.Degradation",
+    "degradedRetrievers": "flow.Session.Degradation.Retrievers",
+    "degradedRetrieverErrors": "flow.Session.Degradation.Errors",
+    "selected": "flow.Selection.Matches",
+    "selectedKeys": "flow.Selection.Keys",
+    "broadDiversityCandidateBackfillPool": "flow.Selection.BroadDiversityCandidates",
+    "preciseTitleRouteReuseMatches": "flow.Selection.ReusablePreciseTitleCandidates",
+    "documentStatusOperandSelectionPool": "flow.Selection.DocumentStatusOperandCandidates",
+    "swTotal": "flow.Session.Timings.Total",
+    "finalOrderingSw": "flow.Session.Timings.OrderingWatch",
+    "skipBroadRetrieversForExplicitFileHint": "plan.Scope.HasExplicitFileDocumentHint",
+    "requestedCategory": "plan.Scope.RequestedCategory",
+    "categoryPath": "plan.Scope.CategoryPath",
+    "category": "plan.Scope.Category",
+    "categoryQueryHint": "plan.Scope.CategoryQueryHint",
+    "hasDocScope": "plan.Scope.HasDocScope",
+    "hasExplicitFileDocumentHint": "plan.Scope.HasExplicitFileDocumentHint",
+    "requestedPageStart": "plan.Scope.RequestedPageStart",
+    "requestedPageEnd": "plan.Scope.RequestedPageEnd",
+    "hasRequestedPageWindow": "plan.Scope.HasRequestedPageWindow",
+    "hasCategoryFilter": "plan.Scope.HasCategoryFilter",
+    "retrievalQuery": "plan.Query.RetrievalQuery",
+    "lexicalRetrievalSurface": "plan.Query.LexicalRetrievalSurface",
+    "usesDelimitedLexicalSurface": "plan.Query.UsesDelimitedLexicalSurface",
+    "queryNorm": "plan.Query.QueryNorm",
+    "retrievalQueryNorm": "plan.Query.RetrievalQueryNorm",
+    "selectionQuery": "plan.Query.SelectionQuery",
+    "topK": "plan.Selection.TopK",
+    "requestedTopK": "plan.Selection.RequestedTopK",
+    "minScore": "plan.Selection.MinScore",
+    "selectionMinScore": "plan.Selection.SelectionMinScore",
+    "candidates": "plan.Selection.Candidates",
+    "maxPerDoc": "plan.Selection.MaxPerDoc",
+    "maxPerPage": "plan.Selection.MaxPerPage",
+    "preferItemInventory": "plan.Selection.PreferItemInventory",
+    "preferDocumentDiversity": "plan.Selection.PreferDocumentDiversity",
+    "useBareVsComparativeOperandRoute": "plan.Routes.UseBareVsComparativeOperandRoute",
+    "useChoiceBetweenLexicalRoute": "plan.Routes.UseChoiceBetweenLexicalRoute",
+    "includeResearchSurfaces": "plan.Routes.IncludeResearchSurfaces",
+    "mode": "plan.Routes.Mode",
+    "skipPreciseTitleLookupForDocumentOverview": "plan.Routes.SkipPreciseTitleLookupForDocumentOverview",
+    "skipChunkRetrieversForDocumentOverview": "plan.Routes.SkipChunkRetrieversForDocumentOverview",
+    "hasQuotedLookupPhrases": "plan.Routes.HasQuotedLookupPhrases",
+    "skipUnquotedPreciseTitleScans": "plan.Routes.SkipUnquotedPreciseTitleScans",
+    "useScopedProfileFallback": "plan.Routes.UseScopedProfileFallback",
+    "useScopedCatalogDocumentOverviewFallback": "plan.Routes.UseScopedCatalogDocumentOverviewFallback",
+    "allowSparseAssistForScopedProfileFallback": "plan.Routes.AllowSparseAssistForScopedProfileFallback",
+    "allowSparseAssistForBroadDiversity": "plan.Routes.AllowSparseAssistForBroadDiversity",
+    "allowNavigationCatalogRouteForBroadExploration": "plan.Routes.AllowNavigationCatalogRouteForBroadExploration",
+    "skipUnanchoredTitleAnchorRouteForBroadDiversity": "plan.Routes.SkipUnanchoredTitleAnchorRouteForBroadDiversity",
+    "skipSparseRetrieverForBroadDiversity": "plan.Routes.SkipSparseRetrieverForBroadDiversity",
+    "skipSparseProfileCardAssist": "plan.Routes.SkipSparseProfileCardAssist",
+    "requireDocumentOverviewProfileMatch": "plan.Routes.RequireDocumentOverviewProfileMatch",
+    "skipLocalTitleTokenRoute": "plan.Routes.SkipLocalTitleTokenRoute",
+    "skipQuotedTitleFullScan": "plan.Routes.SkipQuotedTitleFullScan",
+    "exactMs": "flow.Session.Timings.ExactMs",
+    "quotedTitleMs": "flow.Session.Timings.QuotedTitleMs",
+    "localTitleTokenMs": "flow.Session.Timings.LocalTitleTokenMs",
+    "titleAnchorRoutePhaseMs": "flow.Session.Timings.TitleAnchorRoutePhaseMs",
+    "teiMs": "flow.Session.Timings.TeiMs",
+    "rerankMs": "flow.Session.Timings.RerankMs",
+    "sparseMs": "flow.Session.Timings.SparseMs",
+    "qdrantMs": "flow.Session.Timings.QdrantMs",
+    "sparsePhaseMs": "flow.Session.Timings.SparsePhaseMs",
+    "densePhaseMs": "flow.Session.Timings.DensePhaseMs",
+    "linkedPhaseMs": "flow.Session.Timings.LinkedPhaseMs",
+    "profilePhaseMs": "flow.Session.Timings.ProfilePhaseMs",
+    "fusionMs": "flow.Session.Timings.FusionMs",
+    "rerankPhaseMs": "flow.Session.Timings.RerankPhaseMs",
+    "selectionMs": "flow.Session.Timings.SelectionMs",
+    "qdrantStatus": "flow.Session.Timings.QdrantStatus",
+    "exactMatches": "flow.Seeds.ExactMatches",
+    "quotedTitleAnchorMatches": "flow.Seeds.QuotedTitleAnchorMatches",
+    "titleLookupMatches": "flow.Seeds.TitleLookupMatches",
+    "explicitDocumentScopedBackfillQuery": "flow.Seeds.ExplicitDocumentScopedBackfillQuery",
+    "useExplicitDocumentScopedBackfill": "flow.Seeds.UseExplicitDocumentScopedBackfill",
+    "shortCircuitAfterExact": "flow.Seeds.ShortCircuitAfterExact",
+    "shortCircuitAfterQuotedTitle": "flow.Seeds.ShortCircuitAfterQuotedTitle",
+    "earlyTitleAnchorRouteMatches": "flow.Seeds.EarlyTitleAnchorRouteMatches",
+    "earlyTitleAnchorRouteMs": "flow.Seeds.EarlyTitleAnchorRouteMs",
+    "shortCircuitAfterTitleAnchorRoute": "flow.Seeds.ShortCircuitAfterTitleAnchorRoute",
+    "effectiveSparseMatches": "channels.EffectiveSparseMatches",
+    "effectiveDenseMatches": "channels.EffectiveDenseMatches",
+    "profileMatches": "channels.ProfileMatches",
+    "combinedTitleAnchorRouteMatches": "channels.CombinedTitleAnchorRouteMatches",
+    "deferDocumentProfileSearch": "channels.DeferDocumentProfileSearch",
+    "documentProfileCandidateCount": "channels.DocumentProfileCandidateCount",
+    "allowComparativeDocumentProfileAssist": "channels.AllowComparativeDocumentProfileAssist",
+    "prioritizeDocumentProfilesForSelection": "channels.PrioritizeDocumentProfilesForSelection"
+  },
+  "timingNames": [
+    "exactMs",
+    "quotedTitleMs",
+    "localTitleTokenMs",
+    "titleAnchorRoutePhaseMs",
+    "teiMs",
+    "rerankMs",
+    "sparseMs",
+    "qdrantMs",
+    "sparsePhaseMs",
+    "densePhaseMs",
+    "linkedPhaseMs",
+    "profilePhaseMs",
+    "fusionMs",
+    "rerankPhaseMs",
+    "selectionMs",
+    "qdrantStatus"
+  ],
+  "seedNames": [
+    "exactMatches",
+    "quotedTitleAnchorMatches",
+    "titleLookupMatches",
+    "explicitDocumentScopedBackfillQuery",
+    "useExplicitDocumentScopedBackfill",
+    "shortCircuitAfterExact",
+    "shortCircuitAfterQuotedTitle",
+    "earlyTitleAnchorRouteMatches",
+    "earlyTitleAnchorRouteMs",
+    "shortCircuitAfterTitleAnchorRoute"
+  ],
+  "phases": [
+    {
+      "name": "DocumentHintBackfill",
+      "start": 1277,
+      "end": 1368,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "InitialSelectionCleanup",
+      "start": 1369,
+      "end": 1391,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "DirectTechnicalPhrase",
+      "start": 1393,
+      "end": 1443,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "DirectTechnicalLinkedEvidence",
+      "start": 1444,
+      "end": 1555,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "FuzzyTitleLead",
+      "start": 1556,
+      "end": 1600,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "EnumerativeLookup",
+      "start": 1601,
+      "end": 1648,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "ScopedProfileFallback",
+      "start": 1649,
+      "end": 1685,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "EmptyCatalogAndLexicalFallback",
+      "start": 1686,
+      "end": 1815,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "EarlyDateTitleBackfill",
+      "start": 1816,
+      "end": 1859,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "EarlyReferenceVersionBackfill",
+      "start": 1860,
+      "end": 1918,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "FinalPreciseTitleBackfill",
+      "start": 1919,
+      "end": 2055,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "FinalDocumentHintEvidence",
+      "start": 2056,
+      "end": 2108,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "FocusedOrdering",
+      "start": 2109,
+      "end": 2113,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "ComparativeDiversityBackfill",
+      "start": 2114,
+      "end": 2176,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "DiversityCoverageAndContinuation",
+      "start": 2177,
+      "end": 2259,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "FocusedEmptyRecovery",
+      "start": 2260,
+      "end": 2380,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "EarlyCompactCodeRecovery",
+      "start": 2381,
+      "end": 2460,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "FileAndCompanionRecovery",
+      "start": 2461,
+      "end": 2549,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "DocumentStatusOperands",
+      "start": 2550,
+      "end": 2742,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "LateStandardReferenceBackfill",
+      "start": 2743,
+      "end": 2805,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "LateOrdering",
+      "start": 2807,
+      "end": 2829,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "LateDateTitleRecovery",
+      "start": 2830,
+      "end": 2873,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "LateReferenceVersionRecovery",
+      "start": 2874,
+      "end": 2939,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "EmptyTitleAndProfileRecovery",
+      "start": 2940,
+      "end": 3065,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "FinalStandardReferenceProfiles",
+      "start": 3066,
+      "end": 3115,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "AmbiguousSourceSuppression",
+      "start": 3116,
+      "end": 3121,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "FinalCompactCodeRecovery",
+      "start": 3122,
+      "end": 3201,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "FinalCompactCodeProfiles",
+      "start": 3202,
+      "end": 3257,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "FinalLexicalProfiles",
+      "start": 3258,
+      "end": 3302,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "RequestedPageWindow",
+      "start": 3303,
+      "end": 3312,
+      "broad": false,
+      "prelude": ""
+    },
+    {
+      "name": "ComparativeSubjects",
+      "start": 774,
+      "end": 868,
+      "broad": true,
+      "prelude": "var selectionSw = new Stopwatch();"
+    },
+    {
+      "name": "ComparativeTitles",
+      "start": 870,
+      "end": 967,
+      "broad": true,
+      "prelude": "var selectionSw = new Stopwatch();"
+    },
+    {
+      "name": "ComparativeOperandProfiles",
+      "start": 969,
+      "end": 1028,
+      "broad": true,
+      "prelude": "var selectionSw = new Stopwatch();"
+    },
+    {
+      "name": "PreciseTitleContent",
+      "start": 1030,
+      "end": 1172,
+      "broad": true,
+      "prelude": ""
+    },
+    {
+      "name": "DeferredProfileSearch",
+      "start": 1174,
+      "end": 1200,
+      "broad": true,
+      "prelude": ""
+    },
+    {
+      "name": "InitialLinkedContext",
+      "start": 1202,
+      "end": 1269,
+      "broad": true,
+      "prelude": ""
+    }
+  ]
+}

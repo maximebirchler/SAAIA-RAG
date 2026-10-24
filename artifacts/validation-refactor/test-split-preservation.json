@@ -1,0 +1,30 @@
+[
+  {
+    "type": "RetrievalRuntimeSwitchTests",
+    "beforeMethodCount": 553,
+    "afterMethodCount": 553,
+    "removed": [
+      "ResolveDocumentSourceHash_uses_doc_path_when_doc_id_is_not_usable()"
+    ],
+    "added": [
+      "ResolveDocumentSourceIdentity_uses_doc_path_when_doc_id_is_not_usable()"
+    ],
+    "unchangedMethodSet": false
+  },
+  {
+    "type": "DocumentFoundationIntegrationTests",
+    "beforeMethodCount": 108,
+    "afterMethodCount": 108,
+    "removed": [],
+    "added": [],
+    "unchangedMethodSet": true
+  },
+  {
+    "type": "SourceBackedAgentV2Tests",
+    "beforeMethodCount": 314,
+    "afterMethodCount": 314,
+    "removed": [],
+    "added": [],
+    "unchangedMethodSet": true
+  }
+]

@@ -10,11 +10,12 @@ namespace SAAIA.Backend.Tests;
 
 public sealed partial class AdvancedAnalysisWorkerTests
 {
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Page_only_reference_cites_actual_chunk_page_union_without_relabeling_outer_page_text()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
-        if (database is null) return;
+        if (database is null) throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         const string body = "First-page introduction.\nMiddle-page procedure.\nLast-page conditions.";
         var seed = await database.SeedEvidenceAsync("cross-page-reference", body);
         await using (var connection = await database.DataSource.OpenConnectionAsync())
@@ -44,7 +45,8 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.False(differentDocument.IsValid);
     }
 
-    [Theory]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileTheory("IntegrationPg")]
     [InlineData("hash")]
     [InlineData("path")]
     [InlineData("status")]
@@ -52,7 +54,7 @@ public sealed partial class AdvancedAnalysisWorkerTests
     public async Task Empty_canonical_page_window_revalidates_source_before_reporting_no_chunks(string mutation)
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
-        if (database is null) return;
+        if (database is null) throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         var seed = await database.SeedEvidenceAsync("empty-window-identity", "Canonical source body.");
         var settings = BuildAdvancedOptions();
         var resolver = new AdvancedAnalysisEvidenceResolver(database.DataSource, Options.Create(settings));
@@ -86,7 +88,8 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.Single(gateway.Evidence);
     }
 
-    [Theory]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileTheory("IntegrationPg")]
     [InlineData("pending", 1, false)]
     [InlineData("indexed", 0, false)]
     [InlineData("indexed", 1, true)]
@@ -94,7 +97,7 @@ public sealed partial class AdvancedAnalysisWorkerTests
         string status, int indexedVersion, bool expectedValid)
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
-        if (database is null) return;
+        if (database is null) throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         var seed = await database.SeedEvidenceAsync("availability", "Documented source body.");
         await using (var connection = await database.DataSource.OpenConnectionAsync())
             await connection.ExecuteAsync("UPDATE documents SET status=@status,indexed_version=@indexedVersion WHERE doc_id=@doc;",
@@ -112,11 +115,12 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.False(otherTenant.IsValid);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Scoped_search_rejects_stale_revision_handle_but_explicit_page_read_can_inspect_it()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
-        if (database is null) return;
+        if (database is null) throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         var seed = await database.SeedEvidenceAsync("revision-scope", "Canonical source body.");
         var settings = BuildAdvancedOptions();
         var resolver = new AdvancedAnalysisEvidenceResolver(database.DataSource, Options.Create(settings));

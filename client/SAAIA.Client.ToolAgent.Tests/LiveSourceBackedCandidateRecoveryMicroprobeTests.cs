@@ -12,7 +12,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class LiveSourceBackedCandidateRecoveryMicroprobeTests(
     ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_uses_role_and_anchor_memory_to_avoid_invalid_navigation_when_enabled()
     {
         if (!string.Equals(
@@ -24,7 +25,7 @@ public sealed class LiveSourceBackedCandidateRecoveryMicroprobeTests(
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_SOURCE_BACKED_CANDIDATE_RECOVERY_PROBE=1 "
                 + "to run the candidate-recovery microprobe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

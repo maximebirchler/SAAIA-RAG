@@ -16,7 +16,8 @@ public sealed class LiveAdvancedAnalysisCriticReplayTests(ITestOutputHelper outp
     private static readonly JsonSerializerOptions JsonOptions =
         new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Terra_critic_audits_captured_a849_meal_candidate_when_explicitly_enabled()
     {
         if (!string.Equals(
@@ -26,7 +27,7 @@ public sealed class LiveAdvancedAnalysisCriticReplayTests(ITestOutputHelper outp
         {
             output.WriteLine(
                 "Skipped: set SAAIA_RUN_ADVANCED_CRITIC_REPLAY=1 for the explicitly paid Critic replay.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var fixturePath = Path.GetFullPath(Require("SAAIA_ADVANCED_CRITIC_REPLAY_FIXTURE"));

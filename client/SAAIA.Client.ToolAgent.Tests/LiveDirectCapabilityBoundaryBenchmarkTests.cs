@@ -62,6 +62,7 @@ public sealed class LiveDirectCapabilityBoundaryBenchmarkTests(
         "Tableaux complexes", "Voyages"
     ];
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Frozen_boundary_contains_only_the_six_registered_shadow_capabilities()
     {
@@ -89,7 +90,8 @@ public sealed class LiveDirectCapabilityBoundaryBenchmarkTests(
         });
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Direct_capability_is_measured_on_the_frozen_matrix_when_enabled()
     {
         if (!string.Equals(
@@ -99,7 +101,7 @@ public sealed class LiveDirectCapabilityBoundaryBenchmarkTests(
         {
             output.WriteLine(
                 $"Skipped: set {EnableVariable}=1 to run EXP-046/V.0.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

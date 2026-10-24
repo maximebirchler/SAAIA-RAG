@@ -49,7 +49,8 @@ public sealed class LiveCandidateAuditCompatibilityBenchmarkTests(
         "Petit-déjeuner", "Déjeuner", "Collation", "Souper"
     };
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_measures_frozen_phase2_baseline_a_when_enabled()
     {
         if (!string.Equals(
@@ -60,7 +61,7 @@ public sealed class LiveCandidateAuditCompatibilityBenchmarkTests(
         {
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_PHASE2_CANDIDATE_AUDIT_BENCHMARK=1 to run EXP-019.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var configuredVariant = Environment.GetEnvironmentVariable(

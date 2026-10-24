@@ -24,8 +24,7 @@
     <WindowsAppSdkDeploymentManagerInitialize>false</WindowsAppSdkDeploymentManagerInitialize>
     <WindowsAppSdkUndockedRegFreeWinRTInitialize>false</WindowsAppSdkUndockedRegFreeWinRTInitialize>
 
-    <!-- Avoid MSIX tooling interfering with CLI builds; keep it enabled in VS if you need it.
-         If you still want it in VS, you can switch this back to true. -->
+    <!-- Keep MSIX tooling available for Visual Studio; packaging remains disabled above. -->
     <EnableMsixTooling>true</EnableMsixTooling>
 
     <Nullable>enable</Nullable>
@@ -76,25 +75,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SAAIA.Client.Core\SAAIA.Client.Core.csproj" />
     <ProjectReference Include="..\..\contracts\SAAIA.Contracts\SAAIA.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="..\..\config\llm-providers.dev.json" Link="config\llm-providers.dev.json" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-
-  <!--
-    UserSettingsDialog source of truth:
-    - The compiled dialog implementation is Controls\UserSettingsDialog.cs.
-    - The legacy XAML files are intentionally kept on disk for reference only.
-    - They must not participate in WinUI XAML compilation, otherwise XamlCompiler becomes fragile again.
-    - Keep this configuration here in the project file as the single source of truth.
-  -->
-  <ItemGroup>
-    <Page Remove="Controls\UserSettingsDialog.xaml" />
-    <Compile Remove="Controls\UserSettingsDialog.xaml.cs" />
-    <None Include="Controls\UserSettingsDialog.xaml" />
-    <None Include="Controls\UserSettingsDialog.xaml.cs" />
   </ItemGroup>
 
 </Project>

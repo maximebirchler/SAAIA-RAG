@@ -11,7 +11,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class LiveNamedDocumentSummaryComparisonProbeTests(
     ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_named_document_summary_path_is_captured_when_enabled()
     {
         if (!string.Equals(
@@ -22,7 +23,7 @@ public sealed class LiveNamedDocumentSummaryComparisonProbeTests(
         {
             output.WriteLine(
                 "Skipped: enable SAAIA_LIVE_NAMED_DOCUMENT_SUMMARY_PROBE to measure rag.summarize_live directly.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

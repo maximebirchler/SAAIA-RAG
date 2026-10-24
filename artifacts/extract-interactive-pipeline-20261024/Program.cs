@@ -1,0 +1,23 @@
+using System.Text.Json;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+var repo=Path.GetFullPath(args[0]);
+var folder=Path.Combine(repo,"artifacts/extract-interactive-pipeline-20261024");
+var tree=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(folder,"RetrievalEngine.before.cs.txt")));
+var method=tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(node=>node.Identifier.ValueText=="SearchInteractiveAsync");
+int Line(SyntaxNode node)=>tree.GetLineSpan(node.Span).StartLinePosition.Line+1;
+var config=JsonDocument.Parse(File.ReadAllText(Path.Combine(folder,"config.json"))).RootElement;
+var ranges=config.GetProperty("phases").EnumerateArray().Select(item=>new Scope(item.GetProperty("name").GetString()!,item.GetProperty("start").GetInt32(),item.GetProperty("end").GetInt32(),item.GetProperty("broad").GetBoolean())).ToList();
+ranges.AddRange([new("Planner",41,233,false),new("SessionInfrastructure",234,238,false),new("Seeds",239,360,false),new("CandidateBuffersAndTimers",361,378,false),new("PreciseLookupRouteHelper",380,414,false),new("EarlyTitleProbe",416,444,false),new("InitialRouting",445,1271,false),new("RankingQueryMovedToPlan",1273,1276,false),new("Response",3314,3359,false),new("ParallelChannels",479,692,true),new("Fusion",694,772,true)]);
+var branch=method.Body!.Statements.OfType<IfStatementSyntax>().Single(node=>Line(node)==445);
+var broad=(BlockSyntax)((IfStatementSyntax)((IfStatementSyntax)branch.Else!.Statement).Else!.Statement).Else!.Statement;
+object Row(StatementSyntax statement,bool insideBroad)=>new{line=Line(statement),end=tree.GetLineSpan(statement.Span).EndLinePosition.Line+1,kind=statement.Kind().ToString(),owners=ranges.Where(range=>range.Broad==insideBroad&&Line(statement)>=range.Start&&Line(statement)<=range.End).Select(range=>range.Name).ToArray()};
+var rootRows=method.Body.Statements.Select(statement=>Row(statement,false)).ToArray();
+var broadRows=broad.Statements.Select(statement=>Row(statement,true)).ToArray();
+var missing=method.Body.Statements.Where(statement=>!ranges.Any(range=>!range.Broad&&Line(statement)>=range.Start&&Line(statement)<=range.End)).Concat(broad.Statements.Where(statement=>!ranges.Any(range=>range.Broad&&Line(statement)>=range.Start&&Line(statement)<=range.End))).Select(Line).ToArray();
+File.WriteAllText(Path.Combine(folder,"statement-coverage.json"),JsonSerializer.Serialize(new{schema="saaia-interactive-extraction-provenance.v1",rootRows,broadRows,missing,limits="Checks structural ownership of every original top-level statement and every broad-route statement. Runtime behavior is validated separately with Unit and IntegrationPg. The provably constant-false quoted-title short circuit was removed; query-derived date/code/status lists moved into the immutable plan; all remaining stage order is explicit."},new JsonSerializerOptions{WriteIndented=true}));
+Console.WriteLine($"Covered {rootRows.Length} top-level and {broadRows.Length} broad-route statements; missing={missing.Length}: {string.Join(',',missing)}");
+if(missing.Length>0)Environment.ExitCode=1;
+sealed record Scope(string Name,int Start,int End,bool Broad);

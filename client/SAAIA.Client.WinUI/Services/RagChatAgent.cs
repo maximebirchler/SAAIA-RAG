@@ -104,8 +104,49 @@ public sealed class RagChatAgent
         Func<AdvancedAnalysisJobDto, string, string?, object?, CancellationToken, Task>?
             onAdvancedAnalysisSnapshot = null)
     {
+        using var diagnosticTurn = ClientDiagnostics.Journal.BeginTurn(sessionId);
+        ClientDiagnostics.ConfigureTurn(_effectiveSettings, _llm);
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        using var modelCallDiagnostics = new LlmCallDiagnosticSubscription(_llm, diagnosticTurn);
+        try
+        {
+            var result = await RunCoreAsync(userText, category, conversationTail, onDelta, ct,
+                onPhase, onProgress, sessionId, onAdvancedAnalysisSnapshot).ConfigureAwait(false);
+            ClientDiagnostics.Journal.Configuration(new Dictionary<string, string>
+                { ["answerSource"] = _mem.LastAnswerSource ?? "unknown" });
+            diagnosticTurn.Complete();
+            return (result.finalAnswer, ClientDiagnostics.AttachContext(result.sourcesPayload));
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            diagnosticTurn.Complete("cancelled", "user_cancelled");
+            throw;
+        }
+        catch (Exception exception)
+        {
+            diagnosticTurn.Complete("failed", exception.GetType().Name);
+            throw;
+        }
+        finally
+        {
+            ClientDiagnostics.Journal.Phase("agent", clock.ElapsedMilliseconds);
+        }
+    }
+
+    private async Task<(string finalAnswer, object? sourcesPayload)> RunCoreAsync(
+        string userText,
+        string category,
+        IReadOnlyList<ChatMessageItem> conversationTail,
+        Action<string> onDelta,
+        CancellationToken ct,
+        Action<string>? onPhase = null,
+        Action<string>? onProgress = null,
+        string? sessionId = null,
+        Func<AdvancedAnalysisJobDto, string, string?, object?, CancellationToken, Task>?
+            onAdvancedAnalysisSnapshot = null)
+    {
         userText ??= string.Empty;
-        using var llmTurnScope = _llmEnabled ? _llm.BeginTurn() : null;
+        using var llmTurnScope = _llmEnabled ? _llm.BeginTurn(ClientDiagnostics.Journal.CurrentTraceId) : null;
         ClientLog.Info(
             "RagChatAgent turn start: " +
             $"llm={_llmEnabled}|" +
@@ -241,6 +282,7 @@ public sealed class RagChatAgent
             if (Guid.TryParse(sessionId, out var advancedSessionId)
                 && advancedSessionId != Guid.Empty)
             {
+                var advancedClock = System.Diagnostics.Stopwatch.StartNew();
                 var advanced = await orch.ExecuteAdvancedAnalysisHandoffAsync(
                         advancedSessionId,
                         advancedHandoff,
@@ -257,6 +299,7 @@ public sealed class RagChatAgent
                                     snapshot.SourcesPayload,
                                     token))
                     .ConfigureAwait(false);
+                ClientDiagnostics.Journal.Phase("advanced", advancedClock.ElapsedMilliseconds);
                 if (advanced.Handled)
                 {
                     result = (
@@ -286,15 +329,31 @@ public sealed class RagChatAgent
     public async Task<DirectCommandExecutionResult> ExecuteDirectCommandAsync(DirectCommandRequest request, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
-
-        using var llmTurnScope = _llm.BeginTurn();
-        var orchSettings = _effectiveSettings.Clone();
-        orchSettings.ActiveMode = _activeMode;
-        var orch = new ToolAgentOrchestrator(_api, _llm, _mem, orchSettings);
-        var result = await orch.ExecuteDirectCommandAsync(request, ct).ConfigureAwait(false);
-        _activeMode = AppSettings.NormalizeActiveMode(orchSettings.ActiveMode);
-        _mem.LastMode = _activeMode;
-        return result;
+        using var diagnosticTurn = ClientDiagnostics.Journal.BeginTurn(operation: "direct_command");
+        ClientDiagnostics.ConfigureTurn(_effectiveSettings, _llm);
+        using var modelCallDiagnostics = new LlmCallDiagnosticSubscription(_llm, diagnosticTurn);
+        using var llmTurnScope = _llm.BeginTurn(ClientDiagnostics.Journal.CurrentTraceId);
+        try
+        {
+            var orchSettings = _effectiveSettings.Clone();
+            orchSettings.ActiveMode = _activeMode;
+            var orch = new ToolAgentOrchestrator(_api, _llm, _mem, orchSettings);
+            var result = await orch.ExecuteDirectCommandAsync(request, ct).ConfigureAwait(false);
+            _activeMode = AppSettings.NormalizeActiveMode(orchSettings.ActiveMode);
+            _mem.LastMode = _activeMode;
+            diagnosticTurn.Complete();
+            return result;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            diagnosticTurn.Complete("cancelled", "user_cancelled");
+            throw;
+        }
+        catch (Exception exception)
+        {
+            diagnosticTurn.Complete("failed", exception.GetType().Name);
+            throw;
+        }
     }
 
     private async Task<(string finalAnswer, object? sourcesPayload)> RunSearchOnlyFallbackAsync(

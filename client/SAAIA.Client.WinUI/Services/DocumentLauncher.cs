@@ -5,6 +5,7 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
+using SAAIA.Client.Core.Sources;
 using Windows.Storage;
 using Windows.System;
 
@@ -18,7 +19,59 @@ internal static class DocumentLauncher
         string? ErrorTitle,
         string? ErrorMessage);
 
-    public static async Task<OpenDocumentResult> TryOpenAsync(
+    public static Task<OpenDocumentResult> TryOpenAsync(
+        string? docPath,
+        int? page = null,
+        string? sourceHash = null,
+        string? revisionId = null,
+        string? chunkId = null,
+        string? anchorId = null,
+        string? contentCardId = null,
+        bool requireExactSourceHash = false)
+        => TryOpenAsync(new SourceLocator(docPath, page, sourceHash, revisionId, chunkId,
+            anchorId, contentCardId, requireExactSourceHash));
+
+    public static async Task<OpenDocumentResult> TryOpenAsync(SourceLocator locator)
+    {
+        using var diagnosticTurn = ClientDiagnostics.Journal.BeginTurn(operation: "source_open", independent: true);
+        ClientDiagnostics.Journal.Configuration(new System.Collections.Generic.Dictionary<string, string>
+        {
+            ["operation"] = "source_open", ["originTraceId"] = locator.OriginTraceId ?? "unavailable",
+            ["identityAssurance"] = locator.IdentityAssurance
+        });
+        var clock = Stopwatch.StartNew();
+        var outcome = "failed";
+        try
+        {
+            if (locator.ResolutionIssue is not null)
+            {
+                diagnosticTurn.Complete("failed", locator.ResolutionIssue);
+                return new(false, null,
+                    DT("Référence ambiguë", "Ambiguous reference", "Referencia ambigua", "Referencia ambigua", "Mehrdeutige Referenz", "Riferimento ambiguo"),
+                    DT("Plusieurs révisions correspondent à ce lien. Ouvre la carte source de la réponse.", "Several revisions match this link. Open the response's source card.", "Varias revisiones coinciden con este enlace. Abre la tarjeta de fuente de la respuesta.", "Várias revisões correspondem a esta ligação. Abre o cartão de fonte da resposta.", "Mehrere Revisionen passen zu diesem Link. Öffne die Quellenkarte der Antwort.", "Più revisioni corrispondono a questo collegamento. Apri la scheda della fonte della risposta."));
+            }
+            var result = await TryOpenCoreAsync(locator.DocumentPath, locator.Page, locator.SourceHash,
+                locator.RevisionId, locator.ChunkId, locator.AnchorId, locator.ContentCardId,
+                locator.RequireExactSourceHash).ConfigureAwait(false);
+            outcome = result.Success ? "success" : "failed";
+            diagnosticTurn.Complete(outcome, result.Success ? "launch_accepted_page_unverified" : "resolution_or_launch_failed");
+            return result;
+        }
+        catch (Exception exception)
+        {
+            diagnosticTurn.Complete("failed", exception.GetType().Name);
+            return new(false, null, DT("Impossible d'ouvrir le fichier", "Could not open the file", "No se pudo abrir el archivo", "Nao foi possivel abrir o ficheiro", "Datei konnte nicht geoeffnet werden", "Impossibile aprire il file"), BuildOpenFailureUserMessage());
+        }
+        finally
+        {
+            ClientDiagnostics.Journal.Emit("source.open", outcome,
+                locator.ResolutionIssue ?? (outcome == "success" ? "launch_accepted_page_unverified" : "resolution_or_launch_failed"),
+                new System.Collections.Generic.Dictionary<string, long?> { ["durationMs"] = clock.ElapsedMilliseconds,
+                    ["requestedPage"] = locator.Page, ["exactHashRequired"] = locator.RequireExactSourceHash ? 1 : 0 });
+        }
+    }
+
+    private static async Task<OpenDocumentResult> TryOpenCoreAsync(
         string? docPath,
         int? page = null,
         string? sourceHash = null,
@@ -50,9 +103,14 @@ internal static class DocumentLauncher
             + $"; anchor={anchorId ?? "(none)"}"
             + $"; contentCard={contentCardId ?? "(none)"}"
             + $"; exactHashRequired={requireExactSourceHash}");
+        var resolutionClock = Stopwatch.StartNew();
         var resolved = await Task.Run(() => requireExactSourceHash
             ? DocumentPathResolver.ResolveExactRevision(docPath, sourceHash)
             : DocumentPathResolver.Resolve(docPath, sourceHash));
+        ClientDiagnostics.Journal.Emit("source.resolve", string.IsNullOrWhiteSpace(resolved) ? "failed" : "success",
+            string.IsNullOrWhiteSpace(resolved) ? "matching_local_file_not_found"
+                : requireExactSourceHash ? "source_hash_verified" : "identity_unverified",
+            new System.Collections.Generic.Dictionary<string, long?> { ["durationMs"] = resolutionClock.ElapsedMilliseconds });
         if (string.IsNullOrWhiteSpace(resolved))
         {
             var documentsRoot = await Task.Run(DocumentPathResolver.GetDocumentsRoot);
@@ -128,11 +186,14 @@ internal static class DocumentLauncher
         string? revisionId,
         string? chunkId,
         bool requireExactSourceHash)
-        => ClientLog.Info(
+    {
+        ClientDiagnostics.Journal.Emit("source.launch", "success", "launch_accepted_page_unverified");
+        ClientLog.Info(
             "DocumentLauncher.Open succeeded"
             + $"; revision={revisionId ?? "(none)"}"
             + $"; chunk={chunkId ?? "(none)"}"
             + $"; exactHashRequired={requireExactSourceHash}");
+    }
 
     private static string BuildOpenFailureUserMessage()
         => DT(
@@ -180,7 +241,7 @@ internal static class DocumentLauncher
     {
         var uriWithPage = BuildPdfPageUri(resolvedPath, page);
 
-        // Edge honors PDF page fragments reliably; the default Windows file association often ignores them.
+        // Request the page fragment; launch acceptance cannot prove the page rendered by the external viewer.
         if (TryLaunchKnownEdge(uriWithPage))
             return true;
 

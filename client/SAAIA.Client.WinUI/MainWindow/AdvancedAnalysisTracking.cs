@@ -14,6 +14,7 @@ public sealed partial class MainWindow
         object? sources,
         CancellationToken cancellationToken)
     {
+        var persistenceClock = System.Diagnostics.Stopwatch.StartNew();
         await _advancedAnalysisPersistenceGate.WaitAsync(cancellationToken)
             .ConfigureAwait(false);
         try
@@ -59,6 +60,7 @@ public sealed partial class MainWindow
         finally
         {
             _advancedAnalysisPersistenceGate.Release();
+            ClientDiagnostics.Journal.Phase("uiPersistence", persistenceClock.ElapsedMilliseconds);
         }
     }
 
@@ -157,18 +159,20 @@ public sealed partial class MainWindow
         AdvancedAnalysisPersistedState initialState,
         CancellationTokenSource cancellation)
     {
+        using var diagnosticTurn = ClientDiagnostics.Journal.BeginTurn(initialState.SessionId.ToString("D"), "advanced_resume", independent: true);
         try
         {
             var minimumRevision = initialState.Revision;
-            var orchestrator = new ToolAgentOrchestrator(
-                _api,
-                null!,
-                new ToolMemory(),
-                _appSettings.Clone());
+            ClientDiagnostics.Journal.Configuration(new Dictionary<string, string>
+            {
+                ["originTraceId"] = initialState.OriginTraceId ?? "unavailable",
+                ["jobId"] = initialState.JobId.ToString("D"), ["operation"] = "advanced_resume"
+            });
+            var analysisClient = new AdvancedAnalysisClientService(_api);
 
             while (!cancellation.IsCancellationRequested)
             {
-                var result = await orchestrator.ResumeAdvancedAnalysisJobAsync(
+                var result = await analysisClient.ResumeAdvancedAnalysisJobAsync(
                         initialState.SessionId,
                         initialState.HandoffId,
                         initialState.JobId,
@@ -195,20 +199,30 @@ public sealed partial class MainWindow
                     .ConfigureAwait(false);
 
                 if (result.Job is { Status: "succeeded" or "failed" or "canceled" })
+                {
+                    diagnosticTurn.Complete(result.Job.Status == "succeeded" ? "success" : result.Job.Status);
                     break;
+                }
                 if (string.Equals(result.Outcome, "server_rejected", StringComparison.Ordinal))
+                {
+                    diagnosticTurn.Complete("failed", "server_rejected");
                     break;
+                }
 
                 await Task.Delay(TimeSpan.FromSeconds(3), cancellation.Token)
                     .ConfigureAwait(false);
             }
+            if (cancellation.IsCancellationRequested)
+                diagnosticTurn.Complete("cancelled", "window_tracker_stopped");
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
+            diagnosticTurn.Complete("cancelled", "window_tracker_stopped");
             // Window shutdown only stops local polling. The server job remains durable.
         }
         catch (Exception exception)
         {
+            diagnosticTurn.Complete("failed", exception.GetType().Name);
             ClientLog.Exception("AdvancedAnalysis.RestartTracker", exception);
         }
         finally

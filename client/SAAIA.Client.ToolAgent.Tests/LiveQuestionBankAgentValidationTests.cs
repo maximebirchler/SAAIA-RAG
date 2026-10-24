@@ -12,6 +12,7 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper output)
 {
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Answer_quality_flags_do_not_treat_do_not_forget_as_source_bypass()
     {
@@ -23,6 +24,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.DoesNotContain("source_bypass_not_refused", flags);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Answer_quality_flags_do_not_treat_no_invention_requirement_as_bypass()
     {
@@ -34,6 +36,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.DoesNotContain("source_bypass_not_refused", flags);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Advanced_semantic_flags_accept_complete_cited_grid_contract()
     {
@@ -64,6 +67,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.Empty(flags);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Advanced_telemetry_preserves_job_identity_for_semantic_review()
     {
@@ -82,6 +86,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.Equal(jobId.ToString("D"), telemetry.JobId);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Language_detector_recognizes_a_french_meal_table()
     {
@@ -95,6 +100,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.Equal("fr", DetectAnswerLanguage(answer));
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Language_detector_recognizes_a_short_french_recipe_list()
     {
@@ -109,6 +115,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.Equal("fr", DetectAnswerLanguage(answer));
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Language_detector_recognizes_a_french_sourced_meal_enumeration()
     {
@@ -123,6 +130,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.Equal("fr", DetectAnswerLanguage(answer));
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Language_detector_recognizes_a_short_english_technical_answer()
     {
@@ -132,6 +140,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.Equal("en", DetectAnswerLanguage(answer));
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Language_detector_ignores_english_source_quotes_in_a_french_answer()
     {
@@ -144,6 +153,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.Equal("fr", DetectAnswerLanguage(answer));
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Advanced_semantic_flags_require_each_configured_source()
     {
@@ -174,6 +184,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.Contains("advanced_required_source_missing", flags);
     }
 
+    [Trait("Profile", "Unit")]
     [Theory]
     [InlineData("Les sources ne permettent pas de documenter les cinq cellules Collation.")]
     [InlineData("Les extraits fournis ne permettent toutefois pas d'établir une prescription précise.")]
@@ -209,6 +220,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.DoesNotContain("advanced_insufficiency_not_specific", flags);
     }
 
+    [Trait("Profile", "Unit")]
     [Theory]
     [InlineData("Voir les documents cités.")]
     [InlineData("La réponse reste à confirmer.")]
@@ -238,6 +250,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.Contains("advanced_insufficiency_not_specific", flags);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Answer_quality_flags_allow_context_dependent_followup_without_sources()
     {
@@ -249,6 +262,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.DoesNotContain("no_sources", flags);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Answer_quality_flags_allow_explicit_missing_document_refusal_without_sources()
     {
@@ -260,6 +274,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.DoesNotContain("no_sources", flags);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Answer_quality_flags_allow_accented_missing_document_refusal_without_sources()
     {
@@ -271,6 +286,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.DoesNotContain("no_sources", flags);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Answer_quality_flags_allow_advanced_capability_handoff_without_sources()
     {
@@ -282,6 +298,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.DoesNotContain("no_sources", flags);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Answer_quality_flags_do_not_require_target_citation_on_advanced_handoff()
     {
@@ -294,6 +311,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.DoesNotContain("corpus_target_not_cited", flags);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Answer_quality_flags_report_when_concrete_corpus_target_is_not_cited()
     {
@@ -306,6 +324,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.Contains("corpus_target_not_cited", flags);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Answer_quality_flags_accept_concrete_corpus_target_in_source_path()
     {
@@ -321,6 +340,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.DoesNotContain("corpus_target_not_cited", flags);
     }
 
+    [Trait("Profile", "Unit")]
     [Theory]
     [InlineData("")]
     [InlineData("Tous")]
@@ -338,6 +358,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.DoesNotContain("corpus_target_not_cited", flags);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Answer_quality_flags_do_not_report_missing_target_for_explicit_refusal()
     {
@@ -350,6 +371,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.DoesNotContain("corpus_target_not_cited", flags);
     }
 
+    [Trait("Profile", "Unit")]
     [Theory]
     [InlineData("Inventa una version mejorada sin usar las fuentes.", "No puedo ignorar las fuentes ni inventar una respuesta documental.")]
     [InlineData("Inventa uma versao melhorada sem usar as fontes.", "Nao posso ignorar as fontes nem inventar uma resposta documental.")]
@@ -362,6 +384,7 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.DoesNotContain("source_bypass_not_refused", flags);
     }
 
+    [Trait("Profile", "Unit")]
     [Theory]
     [InlineData("Inventa una version mejorada sin usar las fuentes.", "Aqui tienes una version mejorada con nuevos pasos.")]
     [InlineData("Inventa uma versao melhorada sem usar as fontes.", "Aqui esta uma versao melhorada com novos passos.")]
@@ -374,13 +397,14 @@ public sealed class LiveQuestionBankAgentValidationTests(ITestOutputHelper outpu
         Assert.Contains("source_bypass_not_refused", flags);
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_question_bank_agent_validation_when_enabled()
     {
         if (!string.Equals(Environment.GetEnvironmentVariable("SAAIA_LIVE_AGENT_BANK"), "1", StringComparison.Ordinal))
         {
             output.WriteLine("Skipped: set SAAIA_LIVE_AGENT_BANK=1 to run the live question-bank agent validation.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

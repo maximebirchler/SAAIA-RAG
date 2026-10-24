@@ -39,7 +39,8 @@ public sealed class SummaryBackofficeGovernanceTests
         Assert.False(decision.UsesCapabilityB);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task ResolveSummaryGenerationExecutionAsync_returns_client_admin_when_capability_b_is_not_selected()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -49,7 +50,7 @@ public sealed class SummaryBackofficeGovernanceTests
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -76,7 +77,8 @@ public sealed class SummaryBackofficeGovernanceTests
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task ResolveSummaryGenerationExecutionAsync_returns_server_backoffice_when_capability_b_is_selected()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -86,7 +88,7 @@ public sealed class SummaryBackofficeGovernanceTests
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -123,7 +125,8 @@ public sealed class SummaryBackofficeGovernanceTests
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task GenerateSummaryAsync_marks_server_backoffice_job_as_capability_b_claimable()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -133,7 +136,7 @@ public sealed class SummaryBackofficeGovernanceTests
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -210,12 +213,13 @@ VALUES(
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task LoadNextQueuedCapabilityBExecutionJobAsync_prioritizes_payload_priority_score()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var lowPriorityDocId = Guid.NewGuid();
@@ -295,12 +299,13 @@ VALUES
         Assert.Equal("ATEX/high-priority-missing-summary.pdf", next.DocPath);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilityB_candidates_block_active_summary_jobs_regardless_of_source()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var legacyDocId = Guid.NewGuid();
@@ -382,12 +387,13 @@ VALUES
         Assert.Contains("summary_job_active", capabilityBCandidate.Reasons);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilityB_candidates_include_fresh_summaries_when_backoffice_profile_schema_is_stale()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var docId = Guid.NewGuid();
@@ -470,7 +476,8 @@ VALUES(
         Assert.False(candidate.PolicyBlocked);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task ResolveSummaryGenerationExecutionAsync_falls_back_to_client_admin_when_live_runtime_probe_fails()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -480,7 +487,7 @@ VALUES(
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -517,7 +524,8 @@ VALUES(
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task GenerateSummaryAsync_returns_backoffice_unavailable_without_job_when_b_runtime_probe_fails()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -527,7 +535,7 @@ VALUES(
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -607,7 +615,8 @@ WHERE tenant_id=@tenant
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Admin_job_surfaces_project_capability_b_metadata_for_server_backoffice_jobs()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -617,7 +626,7 @@ WHERE tenant_id=@tenant
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -728,7 +737,8 @@ VALUES(
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilityB_force_enqueue_can_regenerate_existing_fresh_summary_for_quality_review()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -738,7 +748,7 @@ VALUES(
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -873,12 +883,13 @@ VALUES(
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Admin_jobs_pause_and_resume_support_queued_capability_b_backoffice_jobs()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var jobId = Guid.Parse("bbbbbbbb-1111-2222-3333-444444444444");
@@ -973,7 +984,8 @@ WHERE tenant_id=@tenant AND job_id=@jobId;
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Summary_management_surfaces_expose_active_capability_b_jobs_for_missing_or_stale_docs()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -983,7 +995,7 @@ WHERE tenant_id=@tenant AND job_id=@jobId;
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -1094,7 +1106,8 @@ VALUES(
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Summary_management_surfaces_expose_capability_b_cooldown_policy_for_recent_failures()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -1104,7 +1117,7 @@ VALUES(
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -1209,7 +1222,8 @@ VALUES(
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Capability_b_execution_contract_claims_jobs_and_requires_valid_lease_for_completion()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -1219,7 +1233,7 @@ VALUES(
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -1426,7 +1440,8 @@ LIMIT 1;
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Capability_b_execution_contract_can_fail_claimed_jobs()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -1436,7 +1451,7 @@ LIMIT 1;
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -1548,7 +1563,8 @@ VALUES(
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Capability_b_worker_processes_next_queued_job_and_stores_deterministic_summary()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -1558,7 +1574,7 @@ VALUES(
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -1723,12 +1739,13 @@ LIMIT 1;
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Capability_b_worker_waits_when_ingestion_is_active()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
         var docId = Guid.NewGuid();
@@ -1825,13 +1842,14 @@ VALUES(
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Capability_b_worker_waits_when_rag_activity_is_recent()
     {
         RuntimeCapabilityBRagIdleCoordinator.ResetForTests();
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeef");
         var docId = Guid.NewGuid();
@@ -1922,7 +1940,8 @@ VALUES(
         RuntimeCapabilityBRagIdleCoordinator.ResetForTests();
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Capability_b_worker_can_process_idle_tenant_when_another_tenant_is_ingesting()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -1932,7 +1951,7 @@ VALUES(
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -2091,7 +2110,8 @@ LIMIT 1;
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Capability_b_worker_does_not_starve_idle_tenant_behind_busy_tenant_backlog()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -2101,7 +2121,7 @@ LIMIT 1;
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -2280,7 +2300,8 @@ VALUES(
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Capability_b_worker_requeues_interrupted_running_job_before_processing()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -2290,7 +2311,7 @@ VALUES(
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -2418,7 +2439,8 @@ LIMIT 1;
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Capability_b_worker_processes_highest_priority_queued_job_first()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -2428,7 +2450,7 @@ LIMIT 1;
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -2563,7 +2585,8 @@ VALUES
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Capability_b_worker_auto_enqueues_missing_summary_when_ingestion_is_idle()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -2573,7 +2596,7 @@ VALUES
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -2674,7 +2697,8 @@ WHERE tenant_id=@tenant
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Capability_b_worker_processes_next_queued_job_and_stores_llm_summary_when_runtime_is_available()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -2684,7 +2708,7 @@ WHERE tenant_id=@tenant
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -2850,12 +2874,13 @@ LIMIT 1;
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Summary_source_hash_changes_when_indexed_version_changes_without_file_hash_change()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var docId = Guid.NewGuid();
@@ -2947,12 +2972,13 @@ WHERE tenant_id=@tenant
         Assert.Contains(tenantId, backlogTenants);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilityB_candidates_repair_missing_llm_profile_even_when_summary_is_fresh()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var docId = Guid.NewGuid();
@@ -3065,12 +3091,13 @@ VALUES(
         Assert.DoesNotContain(repairedCandidates, item => item.DocId == docId);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Summary_management_surfaces_include_fresh_summaries_missing_llm_profile()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var docId = Guid.NewGuid();
@@ -3217,12 +3244,13 @@ VALUES(
         Assert.Empty(repairedPayload.GetProperty("items").EnumerateArray());
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task LoadCapabilityBDocumentAsync_returns_source_hash_from_the_same_document_snapshot()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var docId = Guid.NewGuid();
@@ -3262,12 +3290,13 @@ VALUES(
         Assert.Equal(separatelyComputed, doc.SourceHash);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task SubmitSummaryAsync_rejects_stale_expected_source_hash_and_does_not_store_summary()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var docId = Guid.NewGuid();
@@ -3332,12 +3361,13 @@ WHERE tenant_id=@tenant
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task SubmitSummaryAsync_requires_expected_source_hash_and_does_not_store_summary()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var docId = Guid.NewGuid();
@@ -3388,12 +3418,13 @@ WHERE tenant_id=@tenant
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task SubmitSummaryAsync_strips_nul_characters_from_summary_text_and_meta()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var docId = Guid.NewGuid();
@@ -3465,7 +3496,8 @@ LIMIT 1;
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilityBCompleteAsync_cancels_stale_source_without_storing_summary()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -3475,7 +3507,7 @@ LIMIT 1;
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -3611,7 +3643,8 @@ WHERE tenant_id=@tenant
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilityBCompleteWithGeneratedProfile_rejects_stale_profile_revision_without_storing_partial_results()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -3621,7 +3654,7 @@ WHERE tenant_id=@tenant
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -3773,12 +3806,13 @@ WHERE tenant_id=@tenant
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilityBTerminalUpdates_require_current_execution_lease_token()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var jobId = Guid.NewGuid();
@@ -3850,12 +3884,13 @@ VALUES(
         Assert.True(currentFail);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilityBHeartbeat_requires_current_lease_and_prevents_stale_requeue()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var jobId = Guid.NewGuid();
@@ -3930,12 +3965,13 @@ VALUES(
         Assert.True(payload.RootElement.TryGetProperty("executionHeartbeatAt", out _));
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilityBCandidates_do_not_cool_down_stale_source_cancellations()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var docId = Guid.NewGuid();
@@ -4008,7 +4044,8 @@ VALUES(
         Assert.DoesNotContain("recent_summary_cancellation", candidate.Reasons);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilityBCompleteAsync_strips_nul_characters_from_summary_text_and_meta()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -4018,7 +4055,7 @@ VALUES(
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -4147,12 +4184,13 @@ LIMIT 1;
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task SubmitSummaryAsync_rejects_non_summary_and_mismatched_admin_jobs()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var docId = Guid.NewGuid();
@@ -4269,12 +4307,13 @@ WHERE tenant_id=@tenant
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task SubmitSummaryAsync_rejects_expired_capability_b_execution_lease()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var docId = Guid.NewGuid();
@@ -4388,7 +4427,8 @@ LIMIT 1;
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task SubmitSummaryAsync_rejects_unclaimed_capability_b_job_and_leaves_it_queued()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -4398,7 +4438,7 @@ LIMIT 1;
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try

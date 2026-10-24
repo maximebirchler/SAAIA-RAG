@@ -54,6 +54,11 @@ public sealed partial class ToolAgentOrchestrator
         RememberTurnState(rememberedUserMessage, finalAnswer, routerIntent, toolNameList, reasoningTracePublic);
         swTotalPipeline.Stop();
         _lastTotalMs = swTotalPipeline.ElapsedMilliseconds;
+        ClientDiagnostics.Journal.Phase("localPipeline", _lastTotalMs);
+        ClientDiagnostics.Journal.Phase("router", _lastRouterMs);
+        ClientDiagnostics.Journal.Phase("tools", _lastToolsMs);
+        ClientDiagnostics.Journal.Phase("writer", _lastWriterMs);
+        ClientDiagnostics.Journal.Phase("critic", _lastCriticMs);
         EmitRagTrace(
             "turn.final",
             ("planning", LooksLikeAnyDocumentaryPlanningRequest(rememberedUserMessage)),
@@ -73,8 +78,7 @@ public sealed partial class ToolAgentOrchestrator
             $"sourcesPayload={(sourcesPayload is null ? "none" : sourcesPayload.GetType().Name)}|" +
             $"toolCount={toolNameList.Length}|" +
             $"tools={TruncateForPrompt(string.Join(',', toolNameList.Take(12)), 180)}|" +
-            $"totalMs={_lastTotalMs}|" +
-            $"answerPreview={TruncateForPrompt(finalAnswer, 220)}");
+            $"localPipelineMs={_lastTotalMs}");
         return (finalAnswer ?? string.Empty, sourcesPayload);
     }
 }

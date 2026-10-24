@@ -1,0 +1,684 @@
+{
+  "privateMethodsRemoved": 94,
+  "methodLinesRemoved": 3276,
+  "methods": [
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminJobsPanel.cs",
+      "Name": "CloseAdminJobsOverlay",
+      "startLine": 843,
+      "lines": 1,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Name": "ShowAdminRuntimeOverlayAsync",
+      "startLine": 78,
+      "lines": 706,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/DialogUi.cs",
+      "Name": "WrapDialogContent",
+      "startLine": 387,
+      "lines": 30,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/DialogUi.cs",
+      "Name": "BuildAdminWorkspaceDialogShell",
+      "startLine": 586,
+      "lines": 57,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/HelpAndLocalization.TrackedJobs.cs",
+      "Name": "PersistTrackedJobTerminalSnapshotAsync",
+      "startLine": 822,
+      "lines": 8,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/HelpAndLocalization.cs",
+      "Name": "HasAny",
+      "startLine": 774,
+      "lines": 2,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+      "Name": "CopyAssistant_Click",
+      "startLine": 319,
+      "lines": 21,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/Messages.cs",
+      "Name": "MessagesList_SelectionChanged",
+      "startLine": 741,
+      "lines": 8,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/StartupSetup.cs",
+      "Name": "StageOutboundMessage",
+      "startLine": 74,
+      "lines": 7,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentCandidateAuditContract.cs",
+      "Name": "BuildCandidateBatchDirectLabelAuditSchema",
+      "startLine": 60,
+      "lines": 42,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentCompactEvidenceSelection.cs",
+      "Name": "SelectGroupDiverseEvidenceIds",
+      "startLine": 5,
+      "lines": 20,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentCompactFollowUp.cs",
+      "Name": "TryValidateCompactResearchActionSubmission",
+      "startLine": 138,
+      "lines": 99,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentSemanticCandidateStrategyValidation.cs",
+      "Name": "FindEmbeddedLayoutCoordinate",
+      "startLine": 5,
+      "lines": 34,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.AdminOperations.cs",
+      "Name": "WaitForAdminIngestionJobAsync",
+      "startLine": 14,
+      "lines": 52,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.BackendGuidanceExpansion.cs",
+      "Name": "TryExpandBackendGuidanceClarificationRetrievalAsync",
+      "startLine": 14,
+      "lines": 114,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.CatalogContext.cs",
+      "Name": "StagePendingDirectCommand",
+      "startLine": 121,
+      "lines": 12,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DeterministicToolAnswers.cs",
+      "Name": "BuildStatsFallbackAnswerFromResults",
+      "startLine": 25,
+      "lines": 8,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DeterministicToolAnswers.cs",
+      "Name": "BuildSourceResolveAnswer",
+      "startLine": 55,
+      "lines": 54,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DeterministicToolAnswers.cs",
+      "Name": "TryBuildDocumentsCountAnswer",
+      "startLine": 139,
+      "lines": 9,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DeterministicToolAnswers.cs",
+      "Name": "TryBuildEmptyFoldersCountAnswer",
+      "startLine": 149,
+      "lines": 9,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DeterministicToolAnswers.cs",
+      "Name": "TryBuildEmptyFoldersListAnswer",
+      "startLine": 159,
+      "lines": 31,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DeterministicToolAnswers.cs",
+      "Name": "TryBuildSummaryStatusCountAnswer",
+      "startLine": 191,
+      "lines": 28,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DeterministicToolAnswers.cs",
+      "Name": "TryBuildSummaryStatusListAnswer",
+      "startLine": 220,
+      "lines": 50,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DocumentToolExecution.cs",
+      "Name": "ExecDocumentsGetAsync",
+      "startLine": 70,
+      "lines": 4,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.InventoryReplayRendering.cs",
+      "Name": "TryReplayLastInventoryAnswerWithWriterAsync",
+      "startLine": 19,
+      "lines": 36,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.InventoryTextAnswers.cs",
+      "Name": "BuildDocumentsListAnswer",
+      "startLine": 12,
+      "lines": 24,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.InventoryTextAnswers.cs",
+      "Name": "BuildDocumentsTreeAnswer",
+      "startLine": 37,
+      "lines": 48,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.JsonObjectRepair.cs",
+      "Name": "TryExtractFinalAnswerFromRaw",
+      "startLine": 217,
+      "lines": 30,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.JsonObjectRepair.cs",
+      "Name": "BuildJsonEnvelopeError",
+      "startLine": 248,
+      "lines": 2,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.Localization.cs",
+      "Name": "LF",
+      "startLine": 8,
+      "lines": 1,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "Name": "FindEmbeddedNativeLayoutCoordinate",
+      "startLine": 2040,
+      "lines": 40,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagSearchExecution.cs",
+      "Name": "TryGetRagMultiSearchResultCategoryPath",
+      "startLine": 552,
+      "lines": 13,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagSearchExecution.cs",
+      "Name": "ChooseCommittedSourceBackedCategoryScope",
+      "startLine": 566,
+      "lines": 16,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagTrace.cs",
+      "Name": "EmitSourceBackedResearchInventoryTrace",
+      "startLine": 228,
+      "lines": 68,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagTrace.cs",
+      "Name": "RememberSourceBackedEvidenceExplorationPass",
+      "startLine": 425,
+      "lines": 78,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ShortcutIntentDetection.cs",
+      "Name": "TryExtractExactAdminReindexDocumentRef",
+      "startLine": 500,
+      "lines": 5,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedBackendGuidanceFallbacks.cs",
+      "Name": "BuildRagNeighborFallbackAnswer",
+      "startLine": 16,
+      "lines": 48,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceExplorationContext.cs",
+      "Name": "ShouldAttemptSourceBackedContextReadFollowup",
+      "startLine": 123,
+      "lines": 22,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceExplorationNavigationSeeding.cs",
+      "Name": "TrySeedSourceBackedDocumentNavigationFromEvidenceAsync",
+      "startLine": 11,
+      "lines": 68,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceExplorationNavigationSeeding.cs",
+      "Name": "ShouldSeedSourceBackedNavigationStructure",
+      "startLine": 191,
+      "lines": 13,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceExplorationNavigationSeeding.cs",
+      "Name": "TrySeedSourceBackedNavigationStructureAsync",
+      "startLine": 242,
+      "lines": 157,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceFacts.cs",
+      "Name": "ContainsProcedureEvidenceCue",
+      "startLine": 208,
+      "lines": 9,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedFallbackRouting.cs",
+      "Name": "EmitPlanningFinalizerDecisionTrace",
+      "startLine": 25,
+      "lines": 19,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPartialAnswerPolicy.cs",
+      "Name": "BuildSourceBackedRequestedAxes",
+      "startLine": 8,
+      "lines": 14,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningAnswerVerifier.cs",
+      "Name": "TryGetSupportedStructuredPlanningSources",
+      "startLine": 35,
+      "lines": 27,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningCandidateEvidence.cs",
+      "Name": "BuildFinalSourceBackedPlanningProofText",
+      "startLine": 280,
+      "lines": 36,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningLocalProof.cs",
+      "Name": "HasConcreteStructuredPlanningCandidateProof",
+      "startLine": 10,
+      "lines": 20,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningLocalProof.cs",
+      "Name": "HasConcreteStructuredPlanningCardProof",
+      "startLine": 185,
+      "lines": 36,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningSupportAnalysis.cs",
+      "Name": "PlanningAnswerItemIsSupportedByAnyCandidate",
+      "startLine": 448,
+      "lines": 20,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedReadableFallbacks.cs",
+      "Name": "ShouldUseFallbackForBroadMethodOptionRequest",
+      "startLine": 117,
+      "lines": 16,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedReadableFallbacks.cs",
+      "Name": "LooksLikeMissingPairingAnchorAnswer",
+      "startLine": 368,
+      "lines": 11,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRetrievalCaps.cs",
+      "Name": "ResolveSourceBackedPlanningInventoryCaps",
+      "startLine": 40,
+      "lines": 7,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRetrievalDiscoveryQueries.cs",
+      "Name": "BuildStructuredPlanningInventoryRetrievalQueries",
+      "startLine": 99,
+      "lines": 9,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRetrievalNavigationQueries.cs",
+      "Name": "ResolveSourceBackedAnchorFollowupRoundLimit",
+      "startLine": 47,
+      "lines": 11,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRetrievalPlanningQueries.cs",
+      "Name": "BuildConcreteStructuredPlanningInventoryTermsForRetrieval",
+      "startLine": 405,
+      "lines": 4,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRetrievalPlanningQueries.cs",
+      "Name": "BuildDocumentCandidateListDiscoveryQueries",
+      "startLine": 410,
+      "lines": 23,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRetrievalPlanningQueriesSupport.cs",
+      "Name": "BuildShortTechnicalEvidenceRetrievalQueries",
+      "startLine": 139,
+      "lines": 38,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedSourcePolicyGuards.cs",
+      "Name": "LooksLikeExplicitSourceBypassOrUnsupportedInventionRequest",
+      "startLine": 248,
+      "lines": 34,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedStructuredPlanningPreWriterFallback.cs",
+      "Name": "BuildUsefulPartialStructuredPlanningAnswerBeforeWriter",
+      "startLine": 50,
+      "lines": 26,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceCitationReconciliation.cs",
+      "Name": "ReconcileVisibleSourcesWithFinalAnswer",
+      "startLine": 12,
+      "lines": 21,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceRefs.cs",
+      "Name": "HasDocumentContextItems",
+      "startLine": 38,
+      "lines": 8,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.Summaries.cs",
+      "Name": "BuildQuestionsListAnswer",
+      "startLine": 86,
+      "lines": 28,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.Summaries.cs",
+      "Name": "ResolveDocumentSummaryRequestKind",
+      "startLine": 546,
+      "lines": 16,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.Summaries.cs",
+      "Name": "TryGetStoredSummaryAnswerAsync",
+      "startLine": 837,
+      "lines": 7,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.Summaries.cs",
+      "Name": "PrefixSummaryMessage",
+      "startLine": 950,
+      "lines": 8,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.ToolExecution.cs",
+      "Name": "ExecAdminIngestionReindexAsync",
+      "startLine": 377,
+      "lines": 20,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.WriterPromptBudget.cs",
+      "Name": "BuildOverflowRetryWriterToolResults",
+      "startLine": 132,
+      "lines": 25,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolManifest.cs",
+      "Name": "BuildRouterToolDescription",
+      "startLine": 196,
+      "lines": 25,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Name": "BuildLlmFailureCountsText",
+      "startLine": 266,
+      "lines": 21,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Name": "BuildCapabilityBIdleSchedulerText",
+      "startLine": 440,
+      "lines": 75,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Name": "GetAdminRuntimeRequalifyLoadingMessage",
+      "startLine": 552,
+      "lines": 10,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Name": "GetAdminRuntimeRequalifyFailedMessage",
+      "startLine": 563,
+      "lines": 10,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Name": "BuildAdminRuntimeReconcileStaleSummaryMessage",
+      "startLine": 574,
+      "lines": 26,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Name": "GetAdminRuntimeReconcileStaleButtonLabel",
+      "startLine": 601,
+      "lines": 10,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Name": "GetAdminRuntimeReconcileStaleLoadingMessage",
+      "startLine": 612,
+      "lines": 10,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Name": "GetAdminRuntimeReconcileStaleFailedMessage",
+      "startLine": 623,
+      "lines": 10,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Name": "BuildAdminRuntimeBlacklistSummaryMessage",
+      "startLine": 634,
+      "lines": 41,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Name": "GetAdminRuntimeBlacklistLoadingMessage",
+      "startLine": 676,
+      "lines": 10,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Name": "GetAdminRuntimeBlacklistReadFailedMessage",
+      "startLine": 709,
+      "lines": 10,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DocumentReferenceResolution.cs",
+      "Name": "ResolveExplicitDocumentReferenceAsync",
+      "startLine": 478,
+      "lines": 115,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DocumentaryProbe.cs",
+      "Name": "ResolveDocumentaryProbeTopK",
+      "startLine": 72,
+      "lines": 10,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.BackendGuidanceExpansion.cs",
+      "Name": "HasBackendGuidanceClarification",
+      "startLine": 15,
+      "lines": 22,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagTrace.cs",
+      "Name": "RememberSourceBackedResearchWorkingNote",
+      "startLine": 356,
+      "lines": 80,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceExplorationNavigationSeeding.cs",
+      "Name": "DocumentNavigationHasItems",
+      "startLine": 19,
+      "lines": 5,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedEvidenceExplorationNavigationSeeding.cs",
+      "Name": "SummarySearchHasItems",
+      "startLine": 286,
+      "lines": 5,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceRefDerivation.cs",
+      "Name": "TryParseAnswerEnvelope",
+      "startLine": 23,
+      "lines": 37,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedPlanningAnswerRepair.cs",
+      "Name": "HasTrustedPartialSourceBackedPlanningDraftCoverage",
+      "startLine": 401,
+      "lines": 22,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Name": "ResolveLlmFailureCategoryLabel",
+      "startLine": 266,
+      "lines": 15,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Name": "GetAdminRuntimeBlacklistMissingMessage",
+      "startLine": 454,
+      "lines": 10,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Name": "GetAdminRuntimeBlacklistInvalidMessage",
+      "startLine": 465,
+      "lines": 10,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagTrace.cs",
+      "Name": "ResolveSourceBackedResearchWorkingNoteOutcome",
+      "startLine": 356,
+      "lines": 15,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Name": "BuildCapabilityBCampaignOperationalText",
+      "startLine": 159,
+      "lines": 18,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Name": "BuildLatestCampaignText",
+      "startLine": 178,
+      "lines": 65,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    },
+    {
+      "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+      "Name": "BuildCapabilityBReasonCountsText",
+      "startLine": 244,
+      "lines": 21,
+      "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+    }
+  ],
+  "remainingCandidates": [],
+  "limitations": "Private method proof combines syntax inventory, whole-source text search, no XAML/string reference, no production reflection dispatch and sequential compilation/tests. No claim of whole-program reachability for all project code.",
+  "removedFiles": [
+    "client/SAAIA.Client.WinUI/Controls/UserSettingsDialog.xaml",
+    "client/SAAIA.Client.WinUI/Controls/UserSettingsDialog.xaml.cs",
+    "client/SAAIA.Client.WinUI/MainWindow.xaml.cs",
+    "client/SAAIA.Client.WinUI/MainWindow/WindowingTheme.cs",
+    "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.BackendGuidanceExpansion.cs",
+    "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.InventoryTextAnswers.cs",
+    "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentSemanticCandidateStrategyValidation.cs"
+  ],
+  "removedFields": [
+    {
+      "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagTrace.cs",
+      "Name": "MaxStoredResearchWorkingNotes",
+      "reason": "private_constant_no_reference_after_dead_working_note_writer_removal"
+    }
+  ],
+  "basedOnCommit": "1b0200624b48ba836c4d2fba7e19dcfee0f1d870",
+  "retainedFalsePositives": "XAML event handlers, test hooks and methods called via GenericName were kept; no whole-program reachability claim."
+}

@@ -4,16 +4,17 @@ using Microsoft.Extensions.Options;
 using Npgsql;
 using SAAIA.Backend.Middleware;
 using SAAIA.Backend.Security;
+using SAAIA.Backend.AdvancedAnalysis;
 
 namespace SAAIA.Backend.Endpoints;
 
 public static class ReadyEndpoints
 {
     private static readonly SemaphoreSlim _gate = new(1, 1);
-    private const string ReadyCacheKey = "ready:v10";
+    private const string ReadyCacheKey = "ready:v11";
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(10);
 
-    private sealed record ReadinessPayload(
+    internal sealed record ReadinessPayload(
         bool Ok,
         DateTimeOffset Ts,
         string RequestId,
@@ -35,6 +36,11 @@ public static class ReadyEndpoints
         IOptions<ChatOptions> chatOpt,
         IOptions<IngestionOptions> ingestionOpt,
         IOptions<DocumentIntelligenceOptions> documentIntelligenceOpt,
+        IOptions<AdvancedAnalysisOptions> advancedOpt,
+        IOptions<LicenseOptions> licenseOpt,
+        IOptions<OpenTelemetryOptions> telemetryOpt,
+        IAdvancedAnalysisProvider advancedProvider,
+        AdvancedAnalysisRuntimeState advancedState,
         SignedConfigStatus? cfgStatus,
         IMemoryCache cache,
         RagSearchBulkhead ragSearchBulkhead,
@@ -46,8 +52,9 @@ public static class ReadyEndpoints
         // 1) Cache rapide
         if (cache.TryGetValue(ReadyCacheKey, out ReadinessSnapshot? cached) && cached is not null)
         {
-            var freshPayload = WithFreshRagSearchReadiness(cached.Payload, ragOpt.Value, ingestionOpt.Value, ragSearchBulkhead, teiGovernor);
-            return cached.Ok
+            var freshPayload = WithFreshRagSearchReadiness(cached.Payload, ragOpt.Value, ingestionOpt.Value, ragSearchBulkhead, teiGovernor,
+                requestId, advancedOpt.Value, advancedState, cached.Ok);
+            return freshPayload.Ok
                 ? Results.Ok(freshPayload)
                 : Results.Json(freshPayload, statusCode: 503);
         }
@@ -58,13 +65,19 @@ public static class ReadyEndpoints
         {
             if (cache.TryGetValue(ReadyCacheKey, out cached) && cached is not null)
             {
-                var freshPayload = WithFreshRagSearchReadiness(cached.Payload, ragOpt.Value, ingestionOpt.Value, ragSearchBulkhead, teiGovernor);
-                return cached.Ok
+                var freshPayload = WithFreshRagSearchReadiness(cached.Payload, ragOpt.Value, ingestionOpt.Value, ragSearchBulkhead, teiGovernor,
+                    requestId, advancedOpt.Value, advancedState, cached.Ok);
+                return freshPayload.Ok
                     ? Results.Ok(freshPayload)
                     : Results.Json(freshPayload, statusCode: 503);
             }
 
             var details = new Dictionary<string, object?>();
+            details["diagnostic_schema"] = "operation.v1";
+            details["diagnostic_structured_logs_enabled"] = true;
+            details["diagnostic_otlp_export_enabled"] = telemetryOpt.Value.Enabled;
+            details["diagnostic_default_content_mode"] = "identifiers_counts_reason_codes";
+            details["diagnostic_collection_failures"] = BackendDiagnostics.CollectionFailures;
             var ok = true;
 
             // DB check
@@ -75,11 +88,12 @@ public static class ReadyEndpoints
                 await cmd.ExecuteScalarAsync(ct);
                 details["db"] = true;
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 ok = false;
                 details["db"] = false;
-                details["db_error"] = ex.Message;
+                details["db_error"] = ex is PostgresException postgres ? postgres.SqlState : ex.GetType().Name;
             }
 
             // TEI check (embedding ping, timeout court) => donne aussi la dimension (utile pour bootstrap Qdrant)
@@ -105,11 +119,12 @@ public static class ReadyEndpoints
                 details["tei_dim"] = teiDim;
                 if (teiDim <= 0) ok = false;
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 ok = false;
                 details["tei"] = false;
-                details["tei_error"] = ex.Message;
+                details["tei_error"] = ex.GetType().Name;
             }
 
             // Qdrant check (+ auto-create collection if missing and TEI is OK)
@@ -151,16 +166,16 @@ public static class ReadyEndpoints
 
                 if (!resp.IsSuccessStatusCode) ok = false;
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 ok = false;
                 details["qdrant"] = false;
-                details["qdrant_error"] = ex.Message;
+                details["qdrant_error"] = ex.GetType().Name;
             }
 
-            // Backend LLM is an optional server capability for backoffice jobs/corpus enrichment.
-            // It is deliberately not part of user chat readiness: the nominal chat writer runs
-            // on the client-side LLM per CDC v3.1.
+            // ChatOptions describes the optional backoffice LLM. Advanced user jobs have their own
+            // provider/model and live worker checks below; do not infer their readiness from this probe.
             var llmReady = await ProbeLlmReadinessAsync(httpFactory, chatOpt.Value, details, ct);
             ApplyBackofficeLlmReadinessPolicy(chatOpt.Value, llmReady, details);
             ProbeIngestionReadiness(ingestionOpt.Value, details);
@@ -200,8 +215,13 @@ public static class ReadyEndpoints
                 details["config_signature_verified"] = cfgStatus.Verified;
             }
 
+            var dependenciesOk = ok;
+            details["dependency_sampled_at_utc"] = DateTimeOffset.UtcNow;
+            await AdvancedAnalysisReadiness.ProbeProviderAsync(advancedOpt.Value, licenseOpt.Value,
+                advancedProvider, httpFactory, env, details, ct);
+            ok &= AdvancedAnalysisReadiness.ApplyRuntime(advancedOpt.Value, advancedState, details);
             var payload = new ReadinessPayload(ok, DateTimeOffset.UtcNow, requestId, details);
-            var snap = new ReadinessSnapshot(ok, payload);
+            var snap = new ReadinessSnapshot(dependenciesOk, payload);
 
             cache.Set(ReadyCacheKey, snap, CacheTtl);
 
@@ -269,13 +289,22 @@ public static class ReadyEndpoints
         RagOptions rag,
         IngestionOptions ingestion,
         RagSearchBulkhead ragSearchBulkhead,
-        TeiWorkloadGovernor teiGovernor)
+        TeiWorkloadGovernor teiGovernor,
+        string requestId,
+        AdvancedAnalysisOptions advanced,
+        AdvancedAnalysisRuntimeState advancedState,
+        bool dependenciesOk)
     {
         var details = new Dictionary<string, object?>(payload.Details, StringComparer.OrdinalIgnoreCase);
         ProbeRagSearchReadiness(rag, ragSearchBulkhead, details);
         ProbeTeiWorkloadReadiness(ingestion, teiGovernor, details);
-        return payload with { Details = details };
+        details["diagnostic_collection_failures"] = BackendDiagnostics.CollectionFailures;
+        var advancedReady = AdvancedAnalysisReadiness.ApplyRuntime(advanced, advancedState, details);
+        return RefreshIdentity(payload with { Ok = dependenciesOk && advancedReady, Details = details }, requestId, DateTimeOffset.UtcNow);
     }
+
+    internal static ReadinessPayload RefreshIdentity(ReadinessPayload payload, string requestId, DateTimeOffset now)
+        => payload with { RequestId = requestId, Ts = now };
 
     internal static bool ApplyBackofficeLlmReadinessPolicy(
         ChatOptions chat,
@@ -344,10 +373,11 @@ public static class ReadyEndpoints
             details["llm_error"] = "timeout";
             return false;
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             details["llm"] = "server-unavailable";
-            details["llm_error"] = ex.Message;
+            details["llm_error"] = ex.GetType().Name;
             return false;
         }
     }
@@ -416,11 +446,12 @@ public static class ReadyEndpoints
             details["document_intelligence_ready"] = false;
             return false;
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             details["document_intelligence_status"] = "unavailable";
             details["document_intelligence_ready"] = false;
-            details["document_intelligence_error"] = ex.Message;
+            details["document_intelligence_error"] = ex.GetType().Name;
             return false;
         }
     }

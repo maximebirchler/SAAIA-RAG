@@ -1,0 +1,187 @@
+{
+  "schemaVersion": "saaia-adversarial-validation-review-v1",
+  "reviewedAtUtc": "2026-10-24T22:35:38.7937278+02:00",
+  "reviewer": "implement_validation_tooling",
+  "gitCommit": "1b0200624b48ba836c4d2fba7e19dcfee0f1d870",
+  "gitDirty": true,
+  "scope": "Offline adversarial review of diagnostic collectors, client core, source/job identity, test profiles, metrics and provenance. Pipeline extraction owned by another agent was not independently re-audited during concurrent edits.",
+  "providerCalls": 0,
+  "paidSpendUsd": 0,
+  "findingCount": 9,
+  "status": "Fixes inspected; final rebuilt global Unit and complete isolated PostgreSQL evidence are owned by root and must be checked before acceptance.",
+  "findings": [
+    {
+      "proof": "BCL reproduction observed currentIsChild=True/currentIsParent=False after a throwing ActivityStopped callback. DiagnosticCollectorFailureTests covers actual callbacks, result42 and parent restoration.",
+      "priority": "P1",
+      "fix": "Root protected activity start and disposal, restored the nearest live parent and counted collector failures; RetrievalTelemetry uses DiagnosticActivityScope.",
+      "status": "fixed_in_source_tests_added_global_run_pending",
+      "id": "R01",
+      "problem": "Activity sampling/start/stop callbacks could block the business path or leave a stopped child as the current parent."
+    },
+    {
+      "proof": "OpenAiCompatibleAdvancedAnalysisProviderDiagnosticsTests exercises 400/429, strict/non-strict, unreadable/timeout, caller cancellation, quota and a real5-second linked deadline with Retry-After.",
+      "priority": "P1",
+      "fix": "Root added one bounded 64001-byte read, strict/non-strict handling, caller cancellation separation, quota classification from the same body and break before retry on elapsed deadline.",
+      "status": "fixed_in_source_tests_added_global_run_pending",
+      "id": "R02",
+      "problem": "Unreadable HTTP rejection capture could replace provider status; body deadline could start a retry with an already-cancelled timeout token."
+    },
+    {
+      "proof": "ClientDiagnosticJournalTests.Parent_disposed_before_child_records_each_terminal_event_in_the_correct_turn checks actual events.",
+      "priority": "P1",
+      "fix": "Client journal emits terminal events using their explicit owning state and restores live Activity parent.",
+      "status": "fixed_by_client_agent_final_client_run_owned_by_that_agent",
+      "id": "R03",
+      "problem": "Disposing a parent turn before its independent child emitted the parent terminal event into the child."
+    },
+    {
+      "proof": "SourceLocatorAndRedactionTests.Alternate_document_keys_numeric_credentials_and_generic_string_arrays_are_redacted plus credential/content-mode tests.",
+      "priority": "P1",
+      "fix": "Client redactor covers documentPath/documentName, numeric credentials and string arrays while preserving numeric diagnosis.",
+      "status": "fixed_by_client_agent_final_client_run_owned_by_that_agent",
+      "id": "R04",
+      "problem": "Alternate document keys, numeric secrets and generic string arrays could leak into metadata support exports."
+    },
+    {
+      "proof": "Production tracker source inspected; journal cancellation/history tests cover records. Final normal-binary cancellation smoke remains distinct.",
+      "priority": "P1",
+      "fix": "Client agent moved the diagnostic owner outside the try block and completes explicit cancelled/failed outcomes in catches.",
+      "status": "fixed_by_client_agent_normal_binary_smoke_not_executed",
+      "id": "R05",
+      "problem": "Tracker scope disposal occurred before cancellation/failure handling and could record the default failure outcome."
+    },
+    {
+      "proof": "ClientProductionDiagnosticsTests.Source_card_locator_forwards_the_complete_identity_and_exact_hash_policy plus history exclusion/source locator core tests.",
+      "priority": "P1",
+      "fix": "Source-open operation has independent ownership; typed SourceCard.ToSourceLocator is used by real cards and message links.",
+      "status": "fixed_by_client_agent_final_client_run_owned_by_that_agent",
+      "id": "R06",
+      "problem": "Opening a source during an active turn could borrow its ownership and mix source configuration/outcome into the question."
+    },
+    {
+      "proof": "AdvancedAnalysisWorkerTests.Correlation and AdvancedAnalysisEventHistoryIntegrationTests cover absent/matching/mismatched header; RequestIdCollectorFailureTests checks actual activity, scope and measurements.",
+      "priority": "P1",
+      "fix": "Worker scopes/probes and new migration069 use actual job SessionId, retain client_session_id separately and flag mismatch. HTTP labels its unverified header client_session_id only.",
+      "status": "fixed_in_source_tests_added_root_rebuild_and_complete_pg_pending",
+      "id": "R07",
+      "problem": "Worker and durable SQL job events used an optional client header as authoritative session_id."
+    },
+    {
+      "proof": "RequestIdCollectorFailureTests checks six begin/log/dispose by success/failure combinations, original exception identity and one business invocation.",
+      "priority": "P1",
+      "fix": "DiagnosticLogScope protects begin/write/dispose and reports BackendDiagnostics.CollectionFailures; worker uses the same adapter.",
+      "status": "fixed_in_source_tests_added_global_run_pending",
+      "id": "R08",
+      "problem": "RequestIdMiddleware legacy BeginScope, completion LogInformation and scope Dispose could replace success or the original business exception."
+    },
+    {
+      "proof": "Exact_capture_retention_is_bounded_without_deleting_unrelated_files now includes old UUID-notes.json and full legacy-looking unrelated filenames.",
+      "priority": "P1",
+      "fix": "Root added saaia-exact-v1 ownership marker and complete name/schema/job identity validation for legacy captures.",
+      "status": "fixed_in_source_tests_added_global_run_pending",
+      "id": "R09",
+      "problem": "Capture retention treated any GUID-prefixed JSON as collector-owned and could delete an unrelated operator file."
+    }
+  ],
+  "executedEvidence": [
+    {
+      "purpose": "Profiles, real xUnit skips, prerequisites, paid-before-body rejection, actual binary/TRX hashes and existing manifest preservation",
+      "result": "11/11 checks passed",
+      "path": "artifacts/validation-refactor/profile-checks-final-provenance-202910/checks.json",
+      "limitation": "Subsequent whitespace-only cleanup parsed; no provider call"
+    },
+    {
+      "purpose": "Loopback SSE fixture, actual elapsed/TTFT, missing metrics and insufficient samples, timeout and incomplete stream",
+      "result": "17/17 checks passed",
+      "path": "artifacts/validation-refactor/runtime-probes-final.json",
+      "limitation": "Synthetic runtime, no RAG corpus, no paid model"
+    },
+    {
+      "purpose": "Executed manifest with test/dependency/TRX SHA256 and source fingerprints",
+      "result": "20 Contracts tests passed no-build/no-restore",
+      "path": "artifacts/validation-refactor/hash-smoke/manifest.json",
+      "limitation": "SourceChangedDuringRun=true honestly records concurrent edits; not proof of source-to-binary correspondence"
+    },
+    {
+      "result": "1509 source files, no hard-file-budget violation, 21 files require size review",
+      "path": "artifacts/assainissement-20261024/architecture-validation-review.json",
+      "limitation": "Physical size guard, not a semantic architecture quality proof"
+    }
+  ],
+  "architecture": {
+    "realBoundaries": [
+      "Client.Core advanced polling transport and bounded deadlines",
+      "SourceLocator typed card/link identity and ambiguity refusal",
+      "Agent lifecycle ownership and terminal transitions",
+      "Mechanical iteration gates and exposed tool menu",
+      "Stateful evidence adequacy checkpoint"
+    ],
+    "residualDebt": [
+      "ToolAgentOrchestrator aggregate remains about80536 physical lines",
+      "SourceBackedAgentV2Runner aggregate remains about31669 physical lines",
+      "MainWindow aggregate remains about15051 physical lines",
+      "Partial budgets are explicit ceilings with ratchet; these counts do not close A03 by themselves",
+      "Normal installed-binary success/failure/cancel/resume correlated smoke and paid semantic acceptance remain unexecuted"
+    ]
+  },
+  "provenance": {
+    "preservation": "Existing manifest path refused; per-run unique TRX/log/inventory names",
+    "binaryOrigin": "Actual TRX TestMethod.codeBase and local SAAIA.*.dll beside each test assembly, hashes captured after execution",
+    "source": "Before/after SHA256 inventories excluding artifacts/bin/obj/env files; concurrent changes declared",
+    "trx": "SHA256 plus cases/outcomes/duration",
+    "noBuildLimit": "No-build does not prove an earlier compilation used the inventoried sources",
+    "manifest": "tools/test-project.ps1"
+  },
+  "acceptance": {
+    "productStatus": "TESTE_NON_APPROUVE",
+    "remoteCiExecution": "not_observed",
+    "paidModelAcceptance": "not_executed",
+    "normalBinarySmoke": "not_executed"
+  },
+  "reviewedFileHashes": [
+    {
+      "sha256": "91304D615BECCD02FEFDB4E2D57DEB6CACB7CF39F5C5C2DC28B729629389F1CD",
+      "path": "backend/SAAIA.Backend/Observability/BackendDiagnostics.cs"
+    },
+    {
+      "sha256": "4551651257254343088F22FF0FCFF548BC6E9A95DDF39EACE13A758958CF9D1A",
+      "path": "backend/SAAIA.Backend/Observability/DiagnosticActivityScope.cs"
+    },
+    {
+      "sha256": "62735404449B1A855CAC3B36FB2ADF06B4C34F34CCB84DE195C6241347D19567",
+      "path": "backend/SAAIA.Backend/Observability/DiagnosticLogScope.cs"
+    },
+    {
+      "sha256": "2557D236BB32BAE773BD09429AF5F74978FB93AD1F8CFCEF98C35ACBF8FF9028",
+      "path": "backend/SAAIA.Backend/Middleware/RequestIdMiddleware.cs"
+    },
+    {
+      "sha256": "68929268A3287E9A71071B084EE8CA8A36D768ECF5B80AB1EA237C078F0EBA2D",
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.HttpErrors.cs"
+    },
+    {
+      "sha256": "AB84917DF11B7C31684CBBBC79E0ABFD8C58347CC0C2BD958743C0FA94A92030",
+      "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.DevelopmentTrace.cs"
+    },
+    {
+      "sha256": "CB063F784CFBE8CBEC8AE81A54313B3A8E1E5D1667BBD3DEF613B36EC65DE39E",
+      "path": "tools/test-project.ps1"
+    },
+    {
+      "sha256": "4A9F6D543643C343671160106CB0CFDB2F4EBF0DDD0AAE6DDDE28B31C8BB9CED",
+      "path": "tools/testing/RuntimeProbes.psm1"
+    },
+    {
+      "sha256": "B1C9E29647929032009042510E3CF572BCC98673B67D475390B1BC47BAA98B4E",
+      "path": "client/SAAIA.Client.Core/Diagnostics/ClientDiagnosticJournal.cs"
+    },
+    {
+      "sha256": "5FD6FFDBE75054C016DECB73A04EC08491F3C1C961B12CBDF9E7BB3D7C6F6B97",
+      "path": "client/SAAIA.Client.Core/Diagnostics/SupportDiagnosticRedactor.cs"
+    },
+    {
+      "sha256": "B15CBEFC3C0481B5F14F17453597F758599FD995FD663CF8A41305B32F05514D",
+      "path": "client/SAAIA.Client.Core/AdvancedAnalysis/AdvancedAnalysisJobPoller.cs"
+    }
+  ]
+}

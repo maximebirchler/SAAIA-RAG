@@ -102,7 +102,7 @@ public sealed class RetrievalEvaluationQuestionBankTests
         foreach (var testCase in corpus.QuestionCases)
         {
             var syntheticMatches = BuildSyntheticMatches(testCase.SourceDocHints);
-            var guidance = RagEndpoints.BuildAnswerGuidance(testCase.Query, syntheticMatches);
+            var guidance = RetrievalAnswerGuidance.BuildAnswerGuidance(testCase.Query, syntheticMatches);
 
             if (!string.Equals(testCase.ExpectedBehavior, guidance.Behavior, StringComparison.Ordinal))
             {

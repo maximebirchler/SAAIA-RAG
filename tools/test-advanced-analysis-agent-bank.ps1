@@ -23,6 +23,12 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
+if ($env:SAAIA_TEST_PROFILE -ne "LivePaid" -or
+    $env:SAAIA_TEST_PAID_AUTHORIZED -ne "1" -or
+    $env:SAAIA_TEST_TRANSMISSION_AUTHORIZED -ne "1") {
+    throw "The advanced bank requires an explicitly authorized guarded LivePaid campaign. This entry point never enables a paid profile from inherited live flags."
+}
+
 $repositoryRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 $repositoryCommit = (& git -C $repositoryRoot rev-parse HEAD 2>$null).Trim()
 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($repositoryCommit)) {

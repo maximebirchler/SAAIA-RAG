@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -21,26 +21,6 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
 public sealed partial class ToolAgentOrchestrator
 {
-
-    private void EmitPlanningFinalizerDecisionTrace(
-        string context,
-        string intent,
-        string resolution,
-        PlanningAnswerSupportAnalysis analysis,
-        int sourceCount,
-        string answerSource)
-        => EmitRagTrace(
-            "planning.finalizer.decision",
-            ("context", context),
-            ("intent", intent),
-            ("handled", true),
-            ("resolution", resolution),
-            ("items", analysis.ItemCount),
-            ("supported", analysis.SupportedItemCount),
-            ("unsupported", analysis.UnsupportedItemCount),
-            ("candidates", analysis.CandidateCount),
-            ("sources", sourceCount),
-            ("answer_source", answerSource));
 
     private static bool ShouldTreatStructuredPlanningRejectionAsTerminal(string? answerSource, string? query)
     {

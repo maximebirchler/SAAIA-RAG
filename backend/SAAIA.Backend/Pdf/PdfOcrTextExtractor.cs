@@ -2293,9 +2293,6 @@ internal static class PdfOcrTextExtractor
     private static IEnumerable<string> SplitWords(string value)
         => value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
 
-    private static async Task<bool> RunProcessAsync(string fileName, string arguments, TimeSpan timeout, CancellationToken ct)
-        => (await RunProcessWithDiagnosticsAsync(fileName, arguments, timeout, ct).ConfigureAwait(false)).Succeeded;
-
     private static async Task<OcrProcessResult> RunProcessWithDiagnosticsAsync(string fileName, string arguments, TimeSpan timeout, CancellationToken ct)
     {
         var startInfo = new ProcessStartInfo

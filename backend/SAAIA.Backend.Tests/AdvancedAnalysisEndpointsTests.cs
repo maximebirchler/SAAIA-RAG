@@ -75,11 +75,12 @@ public sealed class AdvancedAnalysisEndpointsTests
             await ExecuteStatusCodeAsync(result, context));
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Validation_job_guard_uses_recorded_random_owners_and_preserves_other_jobs()
     {
         await using var database=await PostgresIntegrationDb.CreateAsync();
-        if(database is null)return;
+        if(database is null)throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         await using var dataSource=NpgsqlDataSource.Create(database.ConnectionString);
         var tenant=Guid.NewGuid();
         var otherTenant=Guid.NewGuid();
@@ -125,11 +126,12 @@ public sealed class AdvancedAnalysisEndpointsTests
         finally { File.Delete(manifest); }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Validation_job_guard_empty_scope_is_explicit_and_does_not_cancel_unrelated_queue()
     {
         await using var database=await PostgresIntegrationDb.CreateAsync();
-        if(database is null)return;
+        if(database is null)throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         await using var dataSource=NpgsqlDataSource.Create(database.ConnectionString);
         var tenant=Guid.NewGuid(); var session=Guid.NewGuid(); var owner=Guid.NewGuid().ToString("D"); var id=Guid.NewGuid();
         await SeedSessionAsync(dataSource,tenant,session,owner);
@@ -153,12 +155,13 @@ public sealed class AdvancedAnalysisEndpointsTests
             ValidationJobGuardRunner.RunAsync(connection,["automated-validation"],true));
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Durable_job_is_idempotent_user_scoped_and_cancelable()
     {
         await using var database = await PostgresIntegrationDb.CreateAsync();
         if (database is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var otherTenantId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
@@ -265,12 +268,13 @@ public sealed class AdvancedAnalysisEndpointsTests
         Assert.True(stored.audits >= 2);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Http_pipeline_authenticates_advanced_jobs_and_enforces_tenant_isolation()
     {
         await using var database = await PostgresIntegrationDb.CreateAsync();
         if (database is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var firstTenant = Guid.NewGuid();
         var secondTenant = Guid.NewGuid();
@@ -488,11 +492,12 @@ public sealed class AdvancedAnalysisEndpointsTests
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Validation_job_audit_exports_only_recorded_owners_with_checkpoint_and_tool_events()
     {
         await using var database = await PostgresIntegrationDb.CreateAsync();
-        if (database is null) return;
+        if (database is null) throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         await using var dataSource = NpgsqlDataSource.Create(database.ConnectionString);
         var tenant = Guid.NewGuid();
         var owner = Guid.NewGuid().ToString("D");
@@ -571,7 +576,7 @@ public sealed class AdvancedAnalysisEndpointsTests
     }
 
     [Fact]
-    public void Durable_job_migration_is_last_and_contains_the_isolation_constraints()
+    public void Durable_job_migrations_preserve_order_and_contain_the_isolation_constraints()
     {
         var migrationsDirectory = Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
@@ -584,7 +589,10 @@ public sealed class AdvancedAnalysisEndpointsTests
             "Migrations"));
         var versions = DbMigrator.GetOrderedMigrationVersions(
             migrationsDirectory);
-        Assert.Equal("068_advanced_analysis_research_checkpoint.sql", versions[^1]);
+        Assert.Equal(versions.OrderBy(static version => version, StringComparer.OrdinalIgnoreCase), versions);
+        Assert.True(versions.ToList().IndexOf("065_advanced_analysis_jobs.sql")
+                    < versions.ToList().IndexOf("068_advanced_analysis_research_checkpoint.sql"));
+        Assert.Contains("068_advanced_analysis_research_checkpoint.sql", versions);
 
         var sql = File.ReadAllText(Path.Combine(
             migrationsDirectory,

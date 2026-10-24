@@ -7,7 +7,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 [Collection("RuntimeRootSerial")]
 public sealed class LiveLocalLlmQualificationPromotionTests
 {
-    [Fact]
+    [Trait("Profile", "LiveLocal")]
+    [ProfileFact("LiveLocal")]
     [Trait("Category", "LiveHardware")]
     public async Task Promote_successful_final_validation_into_real_governance_and_settings()
     {
@@ -16,7 +17,7 @@ public sealed class LiveLocalLlmQualificationPromotionTests
                 "1",
                 StringComparison.Ordinal))
         {
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var inputArtifactPath =

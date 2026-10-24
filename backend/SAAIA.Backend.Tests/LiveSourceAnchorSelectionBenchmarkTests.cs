@@ -34,7 +34,8 @@ the source window and anchor options.
         WriteIndented = true
     };
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_selects_existing_primary_source_anchor_when_enabled()
     {
         if (!string.Equals(
@@ -45,7 +46,7 @@ the source window and anchor options.
         {
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_PHASE2_SOURCE_ANCHOR_SELECTION_BENCHMARK=1 to run EXP-035/N.3.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var inputPath = Path.GetFullPath(RequireEnvironment(

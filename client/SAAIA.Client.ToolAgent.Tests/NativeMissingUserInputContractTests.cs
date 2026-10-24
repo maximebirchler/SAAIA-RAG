@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using SAAIA.Client.WinUI.Services;
 using SAAIA.Client.WinUI.Services.ToolAgent;
+using SAAIA.Client.WinUI.Services.ToolAgent.NativeRouting;
 using SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag;
 using Xunit;
 
@@ -19,7 +20,7 @@ public sealed class NativeMissingUserInputContractTests
     [InlineData("submit_source_backed_grid_route")]
     public void Documentary_router_can_request_essential_missing_input(string family)
         => Assert.Equal(family == "submit_source_backed_route" ? new[] { family } : new[] { family, ToolName },
-            ToolAgentOrchestrator.BuildNativeRouterSecondStageToolNamesForTests(family, true));
+            NativeRoutingContractFixtures.SecondStageToolNames(family, true));
 
     [Fact]
     public void Open_question_has_no_invented_choices_and_schedules_no_retrieval()

@@ -1,4 +1,5 @@
 using SAAIA.Backend.Models;
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace SAAIA.Backend.Tests;
@@ -14,32 +15,13 @@ public sealed class RagEvidenceIdentityContractTests
     [Fact]
     public void Rag_source_identity_is_loaded_from_the_active_document_revision()
     {
-        var source = File.ReadAllText(ResolveBackendSourceFile(
-            "Endpoints",
-            "RagEndpoints.cs"));
-
-        Assert.Contains("JOIN document_revisions", source, StringComparison.Ordinal);
-        Assert.Contains("r.revision_id", source, StringComparison.Ordinal);
-        Assert.Contains("encode(r.source_hash, 'hex')", source, StringComparison.Ordinal);
-        Assert.DoesNotContain(
-            "saaia_document_summary_source_hash(d.content_hash, d.doc_path, d.file_size, d.file_mtime, d.indexed_version) AS \"SourceHash\"",
-            source,
-            StringComparison.Ordinal);
-    }
-
-    private static string ResolveBackendSourceFile(params string[] segments)
-    {
-        var current = AppContext.BaseDirectory;
-        while (!string.IsNullOrWhiteSpace(current))
-        {
-            var candidate = Path.Combine(
-                new[] { current, "backend", "SAAIA.Backend" }.Concat(segments).ToArray());
-            if (File.Exists(candidate))
-                return candidate;
-
-            current = Directory.GetParent(current)?.FullName ?? string.Empty;
-        }
-
-        throw new InvalidOperationException("Repository root not found.");
+        var literals = CompiledArchitectureContract.StringsForMethod(
+            typeof(RetrievalResultProjector), "LoadRagDocumentSourceIdentitiesAsync");
+        var sql = Assert.Single(literals, static text =>
+            Regex.IsMatch(text, @"(?i)\bJOIN\s+document_revisions\b"));
+        Assert.Matches(@"(?i)\br\.revision_id\s*::\s*text\s+AS\s+""RevisionId""", sql);
+        Assert.Matches(@"(?i)encode\s*\(\s*r\.source_hash\s*,\s*'hex'\s*\)", sql);
+        Assert.Matches(@"(?i)r\.indexed_version\s*=\s*d\.indexed_version", sql);
+        Assert.DoesNotContain("saaia_document_summary_source_hash", sql, StringComparison.OrdinalIgnoreCase);
     }
 }

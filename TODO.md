@@ -1,3 +1,5 @@
+> État actuel au 24 octobre 2026 : le dialogue paramètres actif est `Controls/UserSettingsDialog.cs` et ses parties C#. L'ancien doublon XAML, auparavant exclu de compilation et conservé comme référence, a été supprimé après vérification de ses exclusions, de ses références et de l'implémentation active. Les notes historiques ci-dessous qui demandent de le conserver ne décrivent plus l'état courant.
+
 # SAAIA - TODO Produit Client + Backend
 
 > Derniere mise a jour : 2026-04-24

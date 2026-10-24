@@ -11,58 +11,6 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
 public sealed partial class ToolAgentOrchestrator
 {
-    private async Task<string> WaitForAdminIngestionJobAsync(string? jobId, string documentLabel, string language, CancellationToken ct, Action<string>? onProgress)
-    {
-        if (string.IsNullOrWhiteSpace(jobId))
-        {
-            UpdateRecentAdminOperationStatus("queued", completed: false, success: false, error: null);
-            return DeterministicAgentText.AdminReindexQueued(language, documentLabel, null);
-        }
-
-        var startedAtUtc = _mem.LastAdminOperation?.CreatedAtUtc ?? DateTimeOffset.UtcNow;
-        string? lastStatus = null;
-
-        for (var attempt = 0; attempt < 180; attempt++)
-        {
-            ct.ThrowIfCancellationRequested();
-            var snapshot = await TryLoadAdminIngestionJobAsync(jobId, ct).ConfigureAwait(false);
-            var status = (ReadAdminJobStatus(snapshot) ?? string.Empty).Trim().ToLowerInvariant();
-            var elapsedSeconds = Math.Max(1, (int)Math.Round((DateTimeOffset.UtcNow - startedAtUtc).TotalSeconds));
-            if (status.Length == 0)
-                status = "running";
-
-            if (status is "done" or "completed" or "succeeded" or "success")
-            {
-                UpdateRecentAdminOperationStatus("done", completed: true, success: true, error: null);
-                return DeterministicAgentText.AdminReindexCompleted(language, documentLabel);
-            }
-
-            if (status is "failed" or "error" or "canceled" or "cancelled")
-            {
-                var error = ReadAdminJobLastError(snapshot);
-                UpdateRecentAdminOperationStatus(status, completed: true, success: false, error: error);
-                return DeterministicAgentText.AdminReindexFailed(language, documentLabel, error);
-            }
-
-            UpdateRecentAdminOperationStatus(status, completed: false, success: false, error: null);
-            if (!string.Equals(lastStatus, status, StringComparison.OrdinalIgnoreCase) || attempt == 0 || attempt % 5 == 0)
-            {
-                onProgress?.Invoke(status switch
-                {
-                    "queued" => DeterministicAgentText.AdminJobQueued(language, documentLabel, elapsedSeconds),
-                    "running" => DeterministicAgentText.AdminJobRunning(language, documentLabel, elapsedSeconds),
-                    _ => DeterministicAgentText.AdminReindexRunning(language, documentLabel, elapsedSeconds)
-                });
-                lastStatus = status;
-            }
-
-            await Task.Delay(TimeSpan.FromSeconds(1), ct).ConfigureAwait(false);
-        }
-
-        var finalElapsed = Math.Max(1, (int)Math.Round((DateTimeOffset.UtcNow - startedAtUtc).TotalSeconds));
-        UpdateRecentAdminOperationStatus("running", completed: false, success: false, error: null);
-        return DeterministicAgentText.AdminReindexRunning(language, documentLabel, finalElapsed);
-    }
 
     private async Task<JsonElement> TryLoadAdminIngestionJobAsync(string jobId, CancellationToken ct)
     {

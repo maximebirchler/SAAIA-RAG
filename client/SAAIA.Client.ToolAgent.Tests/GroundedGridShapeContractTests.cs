@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text.Json;
 using SAAIA.Client.WinUI.Services;
 using SAAIA.Client.WinUI.Services.ToolAgent;
+using SAAIA.Client.WinUI.Services.ToolAgent.NativeRouting;
 using SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag;
 using Xunit;
 
@@ -121,13 +122,8 @@ public sealed class GroundedGridShapeContractTests
         var method = typeof(ToolAgentOrchestrator).GetMethod(
             "BindGroundedGridShape",
             BindingFlags.NonPublic | BindingFlags.Static);
-        var toolsMethod = typeof(ToolAgentOrchestrator).GetMethod(
-            "BuildNativeRouterTools",
-            BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(method);
-        Assert.NotNull(toolsMethod);
-        var tools = Assert.IsAssignableFrom<IReadOnlyList<SourceBackedAgentToolDefinition>>(
-            toolsMethod!.Invoke(null, null));
+        var tools = NativeRouterToolCatalog.BuildNativeRouterTools();
         var bound = Assert.IsAssignableFrom<IReadOnlyList<SourceBackedAgentToolDefinition>>(
             method!.Invoke(null, [tools, shape]));
         var schema = Assert.Single(

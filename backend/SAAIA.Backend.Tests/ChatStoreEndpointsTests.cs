@@ -17,12 +17,13 @@ namespace SAAIA.Backend.Tests;
 
 public sealed class ChatStoreEndpointsTests
 {
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Session_lifecycle_routes_preserve_user_scope_and_emit_audit()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var actorApiKeyId = Guid.NewGuid();
@@ -101,12 +102,13 @@ ORDER BY ts ASC;
         Assert.Contains("chat.session.delete", auditActions);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Message_routes_and_cdc_alias_preserve_tracking_fields_and_emit_audit()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var actorApiKeyId = Guid.NewGuid();
@@ -224,12 +226,13 @@ ORDER BY ts ASC;
         Assert.Contains("chat.message.patch", auditActions);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Tracking_route_projects_live_ingestion_job_state()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var actorApiKeyId = Guid.NewGuid();
@@ -334,12 +337,13 @@ VALUES(
         Assert.False(trackingJson.RootElement.GetProperty("isTerminal").GetBoolean());
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Tracking_route_falls_back_to_message_metadata_when_job_is_gone()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var actorApiKeyId = Guid.NewGuid();

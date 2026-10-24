@@ -69,15 +69,9 @@ public sealed partial class SourcesCardsControl : UserControl
             return;
 
         var page = s.PageStart ?? s.PageEnd;
-        var result = await DocumentLauncher.TryOpenAsync(
-            s.DocPath,
-            page,
-            s.SourceHash,
-            s.RevisionId,
-            s.ChunkId,
-            s.AnchorId,
-            s.ContentCardId,
-            requireExactSourceHash: true);
+        var origin = ClientDiagnostics.Sources.Resolve(s.DocPath ?? string.Empty, page);
+        var result = await DocumentLauncher.TryOpenAsync(s.ToSourceLocator() with
+            { OriginTraceId = s.OriginTraceId ?? origin.OriginTraceId });
         if (result.Success)
             return;
 
@@ -99,9 +93,10 @@ public sealed partial class SourcesCardsControl : UserControl
             };
             await dlg.ShowAsync();
         }
-        catch
+        catch (Exception exception)
         {
-            // Edge case: no XamlRoot available. Avoid crashing while keeping the UI responsive.
+            ClientDiagnostics.Report("source.error_dialog", "failed", exception.GetType().Name);
+            ClientLog.Warn("Source error dialog unavailable: " + exception.GetType().Name);
         }
     }
 

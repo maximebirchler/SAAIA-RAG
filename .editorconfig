@@ -1,0 +1,16 @@
+root = true
+
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{cs,csproj,props}]
+indent_style = space
+indent_size = 4
+
+[*.cs]
+dotnet_diagnostic.CA2000.severity = suggestion
+dotnet_diagnostic.CA2016.severity = suggestion
+dotnet_diagnostic.CA2254.severity = suggestion
+# Existing warnings remain visible. Tighten severities after the baseline is reduced.

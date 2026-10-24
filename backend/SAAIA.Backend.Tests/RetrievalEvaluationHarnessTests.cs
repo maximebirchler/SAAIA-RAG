@@ -59,7 +59,7 @@ public sealed class RetrievalEvaluationHarnessTests
 
         foreach (var testCase in cases)
         {
-            var linkedScore = RagEndpoints.ComputeLinkedMatchScore(
+            var linkedScore = RetrievalNavigation.ComputeLinkedMatchScore(
                 testCase.AnchorScore,
                 testCase.LinkType,
                 testCase.AnchorRetriever);
@@ -111,12 +111,12 @@ public sealed class RetrievalEvaluationHarnessTests
 
         foreach (var testCase in cases)
         {
-            var exactScore = RagEndpoints.ComputeExactMatchScore(testCase.ExactKind, testCase.MatchedTerm, testCase.ExactText);
-            var denseRanked = RagEndpoints.RerankDenseMatches([
+            var exactScore = RetrievalNavigation.ComputeExactMatchScore(testCase.ExactKind, testCase.MatchedTerm, testCase.ExactText);
+            var denseRanked = RetrievalCandidateSignals.RerankDenseMatches([
                 new RagMatch(testCase.DenseLegacyScore, "doc", "ATEX/CEN.pdf", "CEN.pdf", 2, 2, "dense-legacy", 1, "legacy", 1, "hash", "legacy", "chunk_text", 1, 1, "Safety", null, "legacy_word_window_v1", null, null, null),
                 new RagMatch(testCase.DensePreciseScore, "doc", "ATEX/CEN.pdf", "CEN.pdf", 2, 2, "dense-precise", 2, "precise", 1, "hash", "context", "contextual_text_v1", 1, 2, "Safety", "Chapter 1 > Safety", "unit_exact_v1", null, null, null)
             ]);
-            var linkedScore = RagEndpoints.ComputeLinkedMatchScore(denseRanked[0].Score, testCase.LinkedType, "dense_qdrant");
+            var linkedScore = RetrievalNavigation.ComputeLinkedMatchScore(denseRanked[0].Score, testCase.LinkedType, "dense_qdrant");
 
             var orderedChannels = new[]
             {
@@ -150,8 +150,8 @@ public sealed class RetrievalEvaluationHarnessTests
                 testCase.AllowExactNoise,
                 testCase.ExpectedLexicalTerms));
 
-            var linkedScore = RagEndpoints.ComputeLinkedMatchScore(0.82, "same_section", "dense_qdrant");
-            var linkedFromLinkedScore = RagEndpoints.ComputeLinkedMatchScore(0.82, "same_section", "linked_context");
+            var linkedScore = RetrievalNavigation.ComputeLinkedMatchScore(0.82, "same_section", "dense_qdrant");
+            var linkedFromLinkedScore = RetrievalNavigation.ComputeLinkedMatchScore(0.82, "same_section", "linked_context");
 
             if (string.Equals(testCase.LinkedExpectation, "helpful", StringComparison.Ordinal))
             {
@@ -203,9 +203,9 @@ public sealed class RetrievalEvaluationHarnessTests
                     SameSectionChunkId: null))
                 .ToArray();
 
-            var calibrated = RagEndpoints.CalibrateFusedMatches(testCase.Query, candidates);
+            var calibrated = RetrievalSelection.CalibrateFusedMatches(testCase.Query, candidates);
             var final = testCase.RerankItems is { Count: > 0 }
-                ? RagEndpoints.ApplyRerankScores(
+                ? RetrievalCandidateSignals.ApplyRerankScores(
                     calibrated,
                     testCase.RerankItems.Select(item => new TeiClient.RerankItem(item.Index, item.Score)).ToArray(),
                     Math.Min(testCase.RerankPrefixCount ?? calibrated.Count, calibrated.Count))
@@ -265,8 +265,8 @@ public sealed class RetrievalEvaluationHarnessTests
                 testCase.AllowExactNoise,
                 testCase.ExpectedLexicalTerms));
 
-            var linkedScore = RagEndpoints.ComputeLinkedMatchScore(0.82, "same_section", "dense_qdrant");
-            var linkedFromLinkedScore = RagEndpoints.ComputeLinkedMatchScore(0.82, "same_section", "linked_context");
+            var linkedScore = RetrievalNavigation.ComputeLinkedMatchScore(0.82, "same_section", "dense_qdrant");
+            var linkedFromLinkedScore = RetrievalNavigation.ComputeLinkedMatchScore(0.82, "same_section", "linked_context");
 
             if (string.Equals(testCase.LinkedExpectation, "helpful", StringComparison.Ordinal))
             {
@@ -318,9 +318,9 @@ public sealed class RetrievalEvaluationHarnessTests
                     SameSectionChunkId: null))
                 .ToArray();
 
-            var calibrated = RagEndpoints.CalibrateFusedMatches(testCase.Query, candidates);
+            var calibrated = RetrievalSelection.CalibrateFusedMatches(testCase.Query, candidates);
             var final = testCase.RerankItems is { Count: > 0 }
-                ? RagEndpoints.ApplyRerankScores(
+                ? RetrievalCandidateSignals.ApplyRerankScores(
                     calibrated,
                     testCase.RerankItems.Select(item => new TeiClient.RerankItem(item.Index, item.Score)).ToArray(),
                     Math.Min(testCase.RerankPrefixCount ?? calibrated.Count, calibrated.Count))
@@ -380,8 +380,8 @@ public sealed class RetrievalEvaluationHarnessTests
                 testCase.AllowExactNoise,
                 testCase.ExpectedLexicalTerms));
 
-            var linkedScore = RagEndpoints.ComputeLinkedMatchScore(0.82, "same_section", "dense_qdrant");
-            var linkedFromLinkedScore = RagEndpoints.ComputeLinkedMatchScore(0.82, "same_section", "linked_context");
+            var linkedScore = RetrievalNavigation.ComputeLinkedMatchScore(0.82, "same_section", "dense_qdrant");
+            var linkedFromLinkedScore = RetrievalNavigation.ComputeLinkedMatchScore(0.82, "same_section", "linked_context");
 
             if (string.Equals(testCase.LinkedExpectation, "helpful", StringComparison.Ordinal))
             {
@@ -433,9 +433,9 @@ public sealed class RetrievalEvaluationHarnessTests
                     SameSectionChunkId: null))
                 .ToArray();
 
-            var calibrated = RagEndpoints.CalibrateFusedMatches(testCase.Query, candidates);
+            var calibrated = RetrievalSelection.CalibrateFusedMatches(testCase.Query, candidates);
             var final = testCase.RerankItems is { Count: > 0 }
-                ? RagEndpoints.ApplyRerankScores(
+                ? RetrievalCandidateSignals.ApplyRerankScores(
                     calibrated,
                     testCase.RerankItems.Select(item => new TeiClient.RerankItem(item.Index, item.Score)).ToArray(),
                     Math.Min(testCase.RerankPrefixCount ?? calibrated.Count, calibrated.Count))
@@ -503,7 +503,7 @@ public sealed class RetrievalEvaluationHarnessTests
     public void Retrieval_v3_channel_harness_prefers_exact_then_precise_dense_then_linked()
     {
         var exact = new RagMatch(
-            Score: RagEndpoints.ComputeExactMatchScore("standard_ref", "en 15281", "EN 15281"),
+            Score: RetrievalNavigation.ComputeExactMatchScore("standard_ref", "en 15281", "EN 15281"),
             DocId: "doc",
             DocPath: "ATEX/CEN.pdf",
             DocName: "CEN.pdf",
@@ -525,13 +525,13 @@ public sealed class RetrievalEvaluationHarnessTests
             NextChunkId: null,
             SameSectionChunkId: null);
 
-        var denseCandidates = RagEndpoints.RerankDenseMatches([
+        var denseCandidates = RetrievalCandidateSignals.RerankDenseMatches([
             new RagMatch(0.50, "doc", "ATEX/CEN.pdf", "CEN.pdf", 2, 2, "dense-legacy", 1, "legacy", 1, "hash", "legacy", "chunk_text", 1, 1, "Safety", null, "legacy_word_window_v1", null, null, null),
             new RagMatch(0.49, "doc", "ATEX/CEN.pdf", "CEN.pdf", 2, 2, "dense-precise", 2, "precise", 1, "hash", "context", "contextual_text_v1", 1, 2, "Safety", "Chapter 1 > Safety", "unit_exact_v1", null, null, null)
         ]);
 
         var linked = new RagMatch(
-            Score: RagEndpoints.ComputeLinkedMatchScore(denseCandidates[0].Score, "same_section"),
+            Score: RetrievalNavigation.ComputeLinkedMatchScore(denseCandidates[0].Score, "same_section"),
             DocId: "doc",
             DocPath: "ATEX/CEN.pdf",
             DocName: "CEN.pdf",
@@ -621,7 +621,7 @@ public sealed class RetrievalEvaluationHarnessTests
         var targetedTerms = extracted
             .Where(term => !string.Equals(term, normalizedWhole, StringComparison.Ordinal))
             .ToArray();
-        var lexicalTokens = RagEndpoints.ExtractLexicalQueryTokens(testCase.Query);
+        var lexicalTokens = RetrievalLexicalExpansion.ExtractLexicalQueryTokens(testCase.Query);
 
         if (string.Equals(testCase.ExpectedDominantRetriever, "exact_match", StringComparison.Ordinal))
         {
@@ -659,7 +659,7 @@ public sealed class RetrievalEvaluationHarnessTests
 
     private static void AssertLinkedContextCase(LinkedContextCase testCase)
     {
-        var linkedScore = RagEndpoints.ComputeLinkedMatchScore(
+        var linkedScore = RetrievalNavigation.ComputeLinkedMatchScore(
             testCase.AnchorScore,
             testCase.LinkType,
             testCase.AnchorRetriever);

@@ -2,7 +2,7 @@ sealed class OpenTelemetryOptions
 {
     /// <summary>
     /// Active/désactive OpenTelemetry (traces + métriques).
-    /// Par défaut: false (aucun overhead).
+    /// Par défaut: false pour l'export OTLP. Les chronométrages et logs applicatifs restent actifs.
     /// </summary>
     public bool Enabled { get; set; } = false;
 

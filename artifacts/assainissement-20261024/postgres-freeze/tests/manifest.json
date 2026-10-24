@@ -1,0 +1,1435 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "4e5c140d8624401890cc444973dad0e9",
+  "startedAtUtc": "2026-10-24T21:01:08.1016790+00:00",
+  "finishedAtUtc": "2026-10-24T21:05:28.9750726+00:00",
+  "gitCommit": "1b0200624b48ba836c4d2fba7e19dcfee0f1d870",
+  "gitDirty": true,
+  "profile": "IntegrationPg",
+  "filter": "Profile=IntegrationPg",
+  "requestedProjects": [
+    "Backend"
+  ],
+  "configuration": "Release",
+  "buildRequested": false,
+  "restoreRequested": false,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-24T21:01:08.9782058+00:00",
+    "sha256": "C175E7D79CA4A9241D2F04BDD88187B510D49F8C46E18FC91819FD55E6662B8F",
+    "fileCount": 1598,
+    "inventory": "source-files-4e5c140d8624401890cc444973dad0e9-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-24T21:05:29.6401104+00:00",
+    "sha256": "5E8E0B75172E41DEC22773778EA3BD7CF9A267E33ADD4EDD806C4D035D10A8C7",
+    "fileCount": 1598,
+    "inventory": "source-files-4e5c140d8624401890cc444973dad0e9-after.json"
+  },
+  "sourceChangedDuringRun": true,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "passed",
+  "prerequisites": [
+    {
+      "name": "isolated_postgresql",
+      "connectionStringRecorded": false,
+      "state": "configured"
+    }
+  ],
+  "environment": {
+    "neutralizedVariableNames": []
+  },
+  "results": [
+    {
+      "project": "Backend",
+      "path": "backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj",
+      "status": "passed",
+      "exitCode": 0,
+      "trx": "Backend-4e5c140d8624401890cc444973dad0e9.trx",
+      "trxSha256": "3F2F56A81AE5AA7CB56D1C6F7F6289D46087651BFFC7759B1CA322C7F6F7934E",
+      "assemblies": [
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.AdvancedValidationJobGuard.dll",
+          "role": "local_product_dependency",
+          "sha256": "75262F13FD2F4A0E86439CF26020840DF13CF707057705CD1EF062E83A5EA3B4",
+          "sizeBytes": 62464,
+          "lastWriteTimeUtc": "2026-10-24T21:01:01.1703726Z",
+          "capturedAtUtc": "2026-10-24T21:05:28.9388608+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.dll",
+          "role": "local_product_dependency",
+          "sha256": "2AFEF1F1B375FFBF3643B1EE2A71F15036FFC947487EAAEB0F8D7CDEA4D09A61",
+          "sizeBytes": 7762944,
+          "lastWriteTimeUtc": "2026-10-24T21:01:00.9369940Z",
+          "capturedAtUtc": "2026-10-24T21:05:28.9471821+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "E93DAE6DDD34B0BAAA0ECCFFBF775DAB72DB08F24E92A850CF8B5E484CFB8493",
+          "sizeBytes": 4653056,
+          "lastWriteTimeUtc": "2026-10-24T21:01:02.5960826Z",
+          "capturedAtUtc": "2026-10-24T21:05:28.9521785+00:00"
+        },
+        {
+          "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "6F2AC6D13263A693CB911CF37DC01E5DA7DF072EDC86DD39A1D1C96815827011",
+          "sizeBytes": 152064,
+          "lastWriteTimeUtc": "2026-10-24T20:48:47.7037058Z",
+          "capturedAtUtc": "2026-10-24T21:05:28.9529955+00:00"
+        }
+      ],
+      "counts": {
+        "executed": 263,
+        "total": 265,
+        "adapterReportedExecuted": 263,
+        "notExecuted": 2,
+        "failed": 0,
+        "passed": 263
+      },
+      "cases": [
+        {
+          "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Tracking_route_projects_live_ingestion_job_state",
+          "duration": "00:00:00.7509800",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_worker_processes_next_queued_job_and_stores_deterministic_summary",
+          "duration": "00:00:01.1202970",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchAsync_merges_hyp_questions_from_all_current_profiles",
+          "duration": "00:00:01.0528974",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEventHistoryIntegrationTests.Queued_history_uses_the_real_session_even_when_client_header_is_missing_or_wrong(claimedHeader: \"matching_compact_guid\", expectedMismatch: False)",
+          "duration": "00:00:00.8970944",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.RuntimeGovernance_batch_loaders_return_per_doc_titles_and_excerpts_without_cross_mix",
+          "duration": "00:00:00.9342341",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_runtime_ready_v5_cases_match_expected_behavior_and_primary_document",
+          "duration": "00:00:00.0010000",
+          "outcome": "NotExecuted"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchDocumentProfileMatchesAsync_ignores_pruned_cards_left_only_in_profile_search_text",
+          "duration": "00:00:00.9597249",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Resolve_source_endpoint_exposes_compact_ocr_diagnostics_without_raw_payload",
+          "duration": "00:00:01.0849126",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_requeues_stale_running_job_without_marking_failed",
+          "duration": "00:00:00.9177875",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_keeps_profile_content_cards_active_per_document_profile",
+          "duration": "00:00:00.9000859",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_rejects_provider_result_with_forged_citation",
+          "duration": "00:00:00.8553302",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchTitleAnchorRouteMatchesAsync_prefers_content_card_full_title_lead_over_dense_partial_page_chunk(topK: 3)",
+          "duration": "00:00:00.9583308",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Canonical_read_limit_is_atomic_correctable_and_does_not_hide_changed_identity",
+          "duration": "00:00:00.9717561",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_returns_exact_ind570_document_for_manual_lookup",
+          "duration": "00:00:01.0259050",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchLinkedMatchesAsync_accepts_sparse_bm25_anchor_for_same_page_expansion",
+          "duration": "00:00:00.8598372",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_honors_category_path_scope",
+          "duration": "00:00:01.4770365",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Admin_job_surfaces_project_capability_b_metadata_for_server_backoffice_jobs",
+          "duration": "00:00:00.8388352",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityB_candidates_repair_missing_llm_profile_even_when_summary_is_fresh",
+          "duration": "00:00:00.7222267",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.DiagnosticsAsync_surfaces_live_runtime_blocker_for_capability_b_when_probe_fails",
+          "duration": "00:00:00.7726269",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchAsync_does_not_return_admin_diagnostics_from_public_endpoint",
+          "duration": "00:00:00.9787260",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Tracking_route_falls_back_to_message_metadata_when_job_is_gone",
+          "duration": "00:00:00.7540043",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Search_summary_endpoint_exposes_enriched_source_projection_for_items",
+          "duration": "00:00:01.0937467",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.MarkCanceledAsync_does_not_publish_document_foundation",
+          "duration": "00:00:00.7531572",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.PublishFailedOcrExtractionAsync_persists_diagnostics_and_non_indexable_document_state",
+          "duration": "00:00:00.8296688",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Validation_job_guard_empty_scope_is_explicit_and_does_not_cancel_unrelated_queue",
+          "duration": "00:00:00.8020244",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.RequalifyAsync_blocks_qualification_when_profile_requires_rerank_but_rerank_is_disabled",
+          "duration": "00:00:00.7902555",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.DiagnosticsAsync_surfaces_blockers_for_runtime_gate_failure",
+          "duration": "00:00:00.7548032",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_logs_the_authoritative_job_session_and_separates_client_claims(clientHeader: null, mismatch: False)",
+          "duration": "00:00:00.8899194",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.SubmitSummaryAsync_rejects_non_summary_and_mismatched_admin_jobs",
+          "duration": "00:00:00.8666689",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEventHistoryIntegrationTests.Job_retention_removes_its_content_free_event_history_with_the_job",
+          "duration": "00:00:00.8335931",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_publishes_canonical_bundle_and_queryable_source_anchor_atomically",
+          "duration": "00:00:01.0243735",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Http_pipeline_authenticates_advanced_jobs_and_enforces_tenant_isolation",
+          "duration": "00:00:01.1941388",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.DiagnosticsAsync_surfaces_blockers_for_expired_qualification",
+          "duration": "00:00:00.7648698",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_enqueues_upsert_when_only_root_category_changes",
+          "duration": "00:00:00.9324629",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.EventsAsync_records_rejected_selection_and_stale_reconciliation_actions",
+          "duration": "00:00:00.8059573",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.RequalifyAsync_marks_capability_b_not_qualified_when_llm_runtime_probe_fails",
+          "duration": "00:00:00.7615335",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentsEndpointFilteringTests.Catalog_documents_respects_category_path_query",
+          "duration": "00:00:00.7949268",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Session_lifecycle_routes_preserve_user_scope_and_emit_audit",
+          "duration": "00:00:00.8397673",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.AdminRuntime_core_endpoints_and_artifacts_preserve_expected_top_level_json_shape",
+          "duration": "00:00:01.1308480",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_merges_capability_a_seed_without_unproved_content_cards",
+          "duration": "00:00:00.9924357",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilityBQualityReviewAsync_returns_only_low_quality_capability_b_summaries",
+          "duration": "00:00:00.7351548",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_exact_search_returns_only_current_chunks_linked_to_the_matched_source_unit(linkage: \"composed\", expectedMatch: True)",
+          "duration": "00:00:01.2413876",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_worker_processes_next_queued_job_and_stores_llm_summary_when_runtime_is_available",
+          "duration": "00:00:01.0049926",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Resolver_never_reintroduces_withdrawn_or_unindexed_document_proof(status: \"indexed\", indexedVersion: 1, expectedValid: True)",
+          "duration": "00:00:00.7690399",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityB_candidates_block_active_summary_jobs_regardless_of_source",
+          "duration": "00:00:00.7090437",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_publishes_job_version_when_indexed_version_has_gap",
+          "duration": "00:00:01.1118762",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilityBQualityReviewAsync_ignores_malformed_quality_scores_without_500",
+          "duration": "00:00:00.7598395",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchExactMatchesAsync_honors_category_and_document_filters",
+          "duration": "00:00:01.0227382",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityBCompleteAsync_cancels_stale_source_without_storing_summary",
+          "duration": "00:00:00.9650239",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_worker_can_process_idle_tenant_when_another_tenant_is_ingesting",
+          "duration": "00:00:00.9019982",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Validation_job_audit_exports_only_recorded_owners_with_checkpoint_and_tool_events",
+          "duration": "00:00:00.8751090",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Catalog_cache_endpoints_return_304_when_if_none_match_matches_etag(endpoint: \"catalog_categories\", expectedBodyToken: \"value\")",
+          "duration": "00:00:01.0712559",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Rag_categories_merges_dynamic_indexed_categories_when_snapshot_is_partial",
+          "duration": "00:00:01.2260926",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_execution_contract_can_fail_claimed_jobs",
+          "duration": "00:00:00.9261673",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SnapshotAsync_returns_304_when_if_none_match_matches_snapshot_etag",
+          "duration": "00:00:01.1628349",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_search_preserves_current_source_identity_and_explicit_scope_without_server_guidance",
+          "duration": "00:00:01.5783846",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchExactMatchesAsync_falls_back_to_document_metadata_for_reference_visible_in_filename",
+          "duration": "00:00:00.8418425",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Extraction_quality_admin_endpoints_include_failed_non_indexable_ocr_documents",
+          "duration": "00:00:00.9420972",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_does_not_publish_when_no_searchable_chunks_exist(initialPayload: \"{\\\"quality\\\":null}\")",
+          "duration": "00:00:00.8535852",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_emits_retrieval_metrics_and_phase_activities",
+          "duration": "00:00:01.3252235",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_http_authentication_scopes_search_and_context_to_the_key_tenant",
+          "duration": "00:00:01.5849899",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_does_not_publish_when_no_searchable_chunks_exist(initialPayload: \"{\\\"quality\\\":{\\\"existing\\\":\\\"preserved\\\"},\\\"traceT\"···)",
+          "duration": "00:00:01.1157999",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteDeleteAsync_publishes_processing_run_without_revision",
+          "duration": "00:00:00.7578783",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.ResolveSummaryGenerationExecutionAsync_returns_client_admin_when_capability_b_is_not_selected",
+          "duration": "00:00:00.7028588",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchLinkedMatchesAsync_recovers_inverse_same_section_companion",
+          "duration": "00:00:00.9573732",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchDocumentProfileMatchesAsync_uses_fresh_stored_summary_when_profile_search_text_is_stale",
+          "duration": "00:00:00.8257109",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEventHistoryIntegrationTests.Job_state_history_preserves_retry_recovery_lease_correlation_and_previous_errors",
+          "duration": "00:00:00.9817309",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_uses_sparse_matches_for_cross_document_customer_selection_question",
+          "duration": "00:00:01.2291468",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Durable_tool_trace_is_revalidated_after_expired_lease_retry",
+          "duration": "00:00:02.1236121",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchTitleAnchorRouteMatchesAsync_prefers_anchor_page_over_adjacent_partial_token_hit",
+          "duration": "00:00:00.9586411",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEventHistoryIntegrationTests.Queued_history_uses_the_real_session_even_when_client_header_is_missing_or_wrong(claimedHeader: \"not-a-session-guid\", expectedMismatch: True)",
+          "duration": "00:00:00.8717765",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Catalog_cache_endpoints_return_304_when_if_none_match_matches_etag(endpoint: \"catalog_stats\", expectedBodyToken: \"totalDocuments\")",
+          "duration": "00:00:01.1068075",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityBTerminalUpdates_require_current_execution_lease_token",
+          "duration": "00:00:00.7179877",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Canonical_find_promotes_a_leading_title_even_when_the_chunk_was_already_observed",
+          "duration": "00:00:00.8399147",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.SubmitSummaryAsync_strips_nul_characters_from_summary_text_and_meta",
+          "duration": "00:00:00.8791930",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchLinkedMatchesAsync_supports_real_second_wave_expansion_from_linked_results",
+          "duration": "00:00:01.1142734",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Canonical_resolver_preserves_ingested_section_locators_without_changing_proof_identity",
+          "duration": "00:00:00.7521603",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.CanonicalIndexProbeIntegrationTests.Presence_is_scoped_to_tenant_current_revision_and_exact_page_or_chunk",
+          "duration": "00:00:00.9813857",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_publishes_revision_foundation_and_artifact_summaries",
+          "duration": "00:00:00.9829602",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_preserves_previous_indexed_version_when_new_run_has_no_searchable_chunks",
+          "duration": "00:00:00.8028821",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.SupportBundleAsync_returns_zip_with_generated_backend_artifacts_and_optional_missing_companions",
+          "duration": "00:00:01.1095010",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Empty_canonical_page_window_revalidates_source_before_reporting_no_chunks(mutation: \"hash\")",
+          "duration": "00:00:00.7757893",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.RuntimeCapabilityBExtractionQualitySnapshotTests.LoadCapabilityBDocumentAsync_loads_revision_extraction_quality_snapshot",
+          "duration": "00:00:00.7636496",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchTitleAnchorRouteMatchesAsync_direct_route_handles_accents_and_ignores_navigation_chunks",
+          "duration": "00:00:00.9106420",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Expired_job_fails_closed_when_provider_or_model_changes",
+          "duration": "00:00:00.8315075",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.PublishFailedOcrExtractionAsync_keeps_existing_indexed_source_metadata",
+          "duration": "00:00:01.0100383",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_exact_search_returns_only_current_chunks_linked_to_the_matched_source_unit(linkage: \"direct\", expectedMatch: True)",
+          "duration": "00:00:01.3452485",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.RequalifyAsync_blocks_qualification_when_runtime_specific_gate_fails",
+          "duration": "00:00:00.7112441",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Validation_job_guard_uses_recorded_random_owners_and_preserves_other_jobs",
+          "duration": "00:00:01.1124383",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchExactMatchesAsync_matches_short_heading_inside_glued_extraction_excerpt",
+          "duration": "00:00:01.0584622",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.MarkFailedAsync_when_superseded_current_version_is_already_indexed_does_not_queue_redundant_follow_up",
+          "duration": "00:00:00.8335230",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchDocumentProfileMatchesAsync_uses_hypothetical_questions_as_candidates",
+          "duration": "00:00:00.8521483",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Get_summary_endpoint_keeps_stale_summary_behavior_before_source_projection",
+          "duration": "00:00:01.1129201",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_does_not_publish_when_version_is_superseded",
+          "duration": "00:00:00.7556718",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_publishes_only_searchable_retrieval_chunks_and_contextual_entries",
+          "duration": "00:00:00.8458534",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.EnqueueUpsertAsync_while_running_job_is_superseded_queues_current_version_after_commit",
+          "duration": "00:00:00.7531576",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.DiagnosticsArtifactAsync_returns_runtime_diagnostic_snapshot",
+          "duration": "00:00:00.7589379",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_context_exposes_revision_change_after_search_without_relabeling_the_old_anchor",
+          "duration": "00:00:01.3057691",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilitiesAsync_marks_core_retrieval_as_stale_when_qualification_has_expired",
+          "duration": "00:00:00.7579051",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Research_checkpoint_survives_expired_lease_retry_and_remains_tenant_scoped",
+          "duration": "00:00:00.8733902",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Empty_canonical_page_window_revalidates_source_before_reporting_no_chunks(mutation: \"index\")",
+          "duration": "00:00:00.7730534",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Canonical_find_rejects_changed_identity_even_for_an_absent_literal",
+          "duration": "00:00:00.7395472",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityBCompleteAsync_strips_nul_characters_from_summary_text_and_meta",
+          "duration": "00:00:00.8538547",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.LoadCapabilityBRepresentativeUnitExcerptsAsync_prefers_content_over_low_value_long_units",
+          "duration": "00:00:00.8833193",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.RequalifyAsync_can_qualify_and_select_capability_a",
+          "duration": "00:00:00.8317507",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchDocumentProfileMatchesAsync_uses_content_cards_beyond_legacy_projection_limit",
+          "duration": "00:00:01.0208860",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Empty_canonical_page_window_revalidates_source_before_reporting_no_chunks(mutation: \"path\")",
+          "duration": "00:00:00.8932928",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.UpdateSelectionAsync_rejects_authorizing_capability_when_desired_enabled_is_false",
+          "duration": "00:00:00.7421920",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEventHistoryIntegrationTests.Queued_history_uses_the_real_session_even_when_client_header_is_missing_or_wrong(claimedHeader: null, expectedMismatch: False)",
+          "duration": "00:00:00.9018894",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.RuntimeGovernance_excerpt_loaders_prefer_content_chunks_over_navigation_units",
+          "duration": "00:00:00.8402339",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchSparseMatchesAsync_lexical_fallback_matches_accents_and_ligatures",
+          "duration": "00:00:00.8752277",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.DeferTransientAsync_requeues_running_job_without_publishing_document_foundation",
+          "duration": "00:00:00.7422696",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.RefreshDocumentProfileSearchEntryAsync_filters_unsafe_legacy_profile_cards",
+          "duration": "00:00:00.8817120",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.RequalifyAsync_qualifies_core_retrieval_and_persists_state_and_warmup",
+          "duration": "00:00:00.7524007",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.DiagnosticsAsync_returns_summary_and_recommendations_for_runtime_state",
+          "duration": "00:00:00.7906135",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Evidence_capacity_rejection_preserves_admitted_corpus_and_failed_durable_trace",
+          "duration": "00:00:02.9897647",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_logs_the_authoritative_job_session_and_separates_client_claims(clientHeader: \"mismatched\", mismatch: True)",
+          "duration": "00:00:00.8888761",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.MarkFailedAsync_when_running_upsert_payload_version_is_superseded_queues_current_version",
+          "duration": "00:00:00.8607138",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.UpdateSelectionAsync_disabling_capability_clears_authorization_and_selection",
+          "duration": "00:00:00.7352724",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Admin_extraction_quality_uses_processing_run_from_current_revision_only",
+          "duration": "00:00:01.1137227",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.LoadHypQuestionsMatchedByDocPathAsync_normalizes_legacy_match_paths",
+          "duration": "00:00:00.8539707",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchLinkedMatchesAsync_accepts_direct_title_token_route_anchor_for_same_page_expansion",
+          "duration": "00:00:01.0225376",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_with_admin_diagnostics_captures_bounded_retrieval_phases(query: \"recorded gauge inspection\", canonical: False, retrievalPhase: \"sparse_bm25\", finalPhase: \"final_selected\", fusionPhase: \"fusion_rrf\")",
+          "duration": "00:00:01.1158566",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Resume_checkpoint_round_trips_embedding_model_and_input_format",
+          "duration": "00:00:00.9420191",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityBHeartbeat_requires_current_lease_and_prevents_stale_requeue",
+          "duration": "00:00:00.9056499",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminKeysAndAuditEndpointsTests.Create_key_list_keys_and_admin_audit_surfaces_stay_consistent",
+          "duration": "00:00:00.7828971",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_with_admin_diagnostics_captures_bounded_retrieval_phases(query: \"hydraulic accumulator pressure verification\", canonical: False, retrievalPhase: \"title_lookup_combined\", finalPhase: \"final_selected\", fusionPhase: null)",
+          "duration": "00:00:00.9498797",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.RequalifyAsync_blocks_qualification_when_performance_budget_fails",
+          "duration": "00:00:00.8093186",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_worker_does_not_starve_idle_tenant_behind_busy_tenant_backlog",
+          "duration": "00:00:00.9747856",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.RequalifyAsync_blocks_qualification_when_profile_specific_hardware_gate_fails",
+          "duration": "00:00:00.7229111",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Document_language_falls_back_to_ingestion_run_when_profiles_are_temporarily_missing",
+          "duration": "00:00:01.1367998",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_exact_search_returns_only_current_chunks_linked_to_the_matched_source_unit(linkage: \"unlinked\", expectedMatch: False)",
+          "duration": "00:00:01.1350683",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Tool_gateway_matches_shared_canonical_retrieval_and_deduplicates",
+          "duration": "00:00:03.8316793",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Scoped_search_rejects_stale_revision_handle_but_explicit_page_read_can_inspect_it",
+          "duration": "00:00:00.8087650",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Extraction_quality_admin_endpoints_tolerate_malformed_processing_payload_values",
+          "duration": "00:00:00.9399709",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Resolve_source_endpoint_uses_extraction_quality_from_current_revision_only",
+          "duration": "00:00:01.0888415",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_runtime_ready_writer_cases_keep_prudent_guidance_shape",
+          "duration": "00:00:00.0010000",
+          "outcome": "NotExecuted"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.UpsertDocumentProfileAsync_purges_legacy_cards_with_stale_profile_version",
+          "duration": "00:00:00.9393486",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Resolve_source_endpoint_infers_quality_from_native_status_and_page_counters",
+          "duration": "00:00:01.1829578",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.RagLiveSummaryMultilingualBackendTests.LoadRagDocumentLanguagesAsync_keeps_profile_language_and_uses_summary_language_only_when_profile_unknown",
+          "duration": "00:00:00.8261728",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_strips_nul_characters_before_publishing_text_artifacts",
+          "duration": "00:00:00.9114245",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Delete_summary_endpoint_refreshes_profile_search_projection",
+          "duration": "00:00:00.9576295",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilitiesAsync_returns_persisted_core_state_and_default_optional_capabilities",
+          "duration": "00:00:00.7275428",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchAsync_sets_hyp_questions_matched_when_query_overlaps_capability_a_questions",
+          "duration": "00:00:01.9722060",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Resolver_never_reintroduces_withdrawn_or_unindexed_document_proof(status: \"indexed\", indexedVersion: 0, expectedValid: False)",
+          "duration": "00:00:00.7745262",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_logs_the_authoritative_job_session_and_separates_client_claims(clientHeader: \"matching_compact_guid\", mismatch: False)",
+          "duration": "00:00:00.8949123",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchLinkedMatchesAsync_supports_exact_match_anchor_when_it_resolves_to_a_retrieval_chunk",
+          "duration": "00:00:01.0878252",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchLinkedMatchesAsync_falls_back_to_same_page_chunks_for_exact_heading_anchor",
+          "duration": "00:00:01.1583761",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilityBQualityReviewSummaryAsync_returns_aggregate_snapshot_for_low_quality_summaries",
+          "duration": "00:00:00.7328734",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Summary_management_surfaces_expose_capability_b_cooldown_policy_for_recent_failures",
+          "duration": "00:00:00.7778808",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchTitleAnchorRouteMatchesAsync_prefers_same_page_section_title_hit_over_adjacent_dense_chunk(topK: 1)",
+          "duration": "00:00:01.6772194",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityBCompleteWithGeneratedProfile_rejects_stale_profile_revision_without_storing_partial_results",
+          "duration": "00:00:00.8745070",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_exact_search_returns_only_current_chunks_linked_to_the_matched_source_unit(linkage: \"different_text\", expectedMatch: False)",
+          "duration": "00:00:01.2379387",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.PublishFailedOcrExtractionAsync_does_not_publish_when_version_is_superseded",
+          "duration": "00:00:00.7820791",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_worker_auto_enqueues_missing_summary_when_ingestion_is_idle",
+          "duration": "00:00:01.0106584",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchExactMatchesAsync_returns_active_exact_match_hits_before_dense_search",
+          "duration": "00:00:00.8676879",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityBCandidates_do_not_cool_down_stale_source_cancellations",
+          "duration": "00:00:00.7274244",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Exclusive_claim_and_expired_lease_recovery_are_deterministic",
+          "duration": "00:00:00.8748256",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_suppresses_duplicate_pdf_content_and_queues_delete_for_known_duplicate",
+          "duration": "00:00:00.9497452",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilityStateArtifactAsync_returns_persisted_runtime_state_snapshot",
+          "duration": "00:00:00.7995006",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentsEndpointFilteringTests.Admin_documents_default_excludes_tombstones_but_status_filters_can_include_them",
+          "duration": "00:00:00.8018799",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Admin_jobs_pause_and_resume_support_queued_capability_b_backoffice_jobs",
+          "duration": "00:00:00.8330769",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DbMigratorDiagnosticIntegrationTests.Concurrent_startups_apply_each_migration_once_under_a_global_lock",
+          "duration": "00:00:00.5156366",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchSparseMatchesAsync_uses_profile_cards_from_non_preferred_profiles_as_recall_anchors",
+          "duration": "00:00:00.9367671",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchAsync_populates_category_ref_and_category_path_from_matched_document",
+          "duration": "00:00:01.3787054",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.DiagnosticsAsync_surfaces_blockers_for_stale_qualification",
+          "duration": "00:00:00.7824219",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_search_preserves_real_pdf_hash_pages_and_extracted_text_for_client_citations",
+          "duration": "00:00:01.2277629",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.DiagnosticsAsync_surfaces_blockers_for_profile_policy_failure",
+          "duration": "00:00:00.7507062",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Rag_query_legacy_endpoint_returns_enriched_match_payload",
+          "duration": "00:00:01.3275469",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.LoadNextQueuedCapabilityBExecutionJobAsync_prioritizes_payload_priority_score",
+          "duration": "00:00:00.7528345",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilityBQualityReviewSummaryArtifactAsync_returns_named_artifact_snapshot",
+          "duration": "00:00:00.7034439",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_worker_waits_when_rag_activity_is_recent",
+          "duration": "00:00:00.7766910",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchTitleAnchorRouteMatchesAsync_prefers_content_card_full_title_lead_over_dense_partial_page_chunk(topK: 1)",
+          "duration": "00:00:01.0317538",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Summary_source_hash_changes_when_indexed_version_changes_without_file_hash_change",
+          "duration": "00:00:00.7407279",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_does_not_publish_when_no_searchable_chunks_exist(initialPayload: \"{}\")",
+          "duration": "00:00:00.9717209",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.SubmitSummaryAsync_rejects_expired_capability_b_execution_lease",
+          "duration": "00:00:00.8037690",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilityBQualityReviewArtifactAsync_returns_named_artifact_snapshot",
+          "duration": "00:00:00.7478458",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Unified_documents_route_returns_user_safe_catalog_for_user_and_legacy_shape_for_admin",
+          "duration": "00:00:01.1479229",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchAsync_returns_extraction_quality_for_rag_items",
+          "duration": "00:00:01.1277950",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.WarmupResultsAsync_returns_recent_runtime_warmup_rows",
+          "duration": "00:00:00.7391702",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.GenerateSummaryAsync_marks_server_backoffice_job_as_capability_b_claimable",
+          "duration": "00:00:00.9528722",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchDocumentProfileMatchesAsync_uses_llm_profile_terms_and_cards_as_candidates",
+          "duration": "00:00:01.4328640",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchTitleAnchorRouteMatchesAsync_prefers_same_page_section_title_hit_over_adjacent_dense_chunk(topK: 3)",
+          "duration": "00:00:01.0062039",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_returns_ask_clarification_for_placeholder_standard_question",
+          "duration": "00:00:00.9136817",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Extraction_quality_pages_endpoint_reports_page_level_review_signals",
+          "duration": "00:00:01.2319349",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.UpdateSelectionAsync_rejects_selecting_unqualified_capability",
+          "duration": "00:00:00.7026357",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.UpdateSelectionAsync_can_deselect_qualified_core_retrieval",
+          "duration": "00:00:00.7588655",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Message_routes_and_cdc_alias_preserve_tracking_fields_and_emit_audit",
+          "duration": "00:00:00.8202313",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DbMigratorDiagnosticIntegrationTests.Legacy_migration_hash_is_explicitly_baselined_instead_of_claiming_historical_verification",
+          "duration": "00:00:00.2769658",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilityB_candidates_and_enqueue_flow_use_runtime_governance_and_summary_jobs",
+          "duration": "00:00:01.3198677",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilityA_candidates_and_enqueue_flow_use_runtime_governance_and_ingestion_queue",
+          "duration": "00:00:01.2268155",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminKeysAndAuditEndpointsTests.Rotate_key_rolls_back_when_audit_write_fails",
+          "duration": "00:00:00.7545868",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_runtime_ready_customer_questions_keep_valid_sources_through_late_selection",
+          "duration": "00:00:01.4242740",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DynamicRootCategoryRegressionTests.Scanner_suppresses_duplicate_pdf_content_without_delete_when_duplicate_is_already_clean",
+          "duration": "00:00:00.8854706",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_rate_limit_retry_stops_at_the_job_attempt_cap",
+          "duration": "00:00:00.9664216",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchDocumentProfileMatchesAsync_refreshes_stale_scoped_profile_search_projection",
+          "duration": "00:00:00.9739616",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.UpdateSelectionAsync_rejects_stale_capability_until_it_is_requalified",
+          "duration": "00:00:00.7335545",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.MarkFailedAsync_does_not_publish_document_foundation",
+          "duration": "00:00:00.7613232",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Empty_canonical_page_window_revalidates_source_before_reporting_no_chunks(mutation: \"status\")",
+          "duration": "00:00:00.7749224",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.SubmitSummaryAsync_requires_expected_source_hash_and_does_not_store_summary",
+          "duration": "00:00:00.7410036",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_worker_processes_highest_priority_queued_job_first",
+          "duration": "00:00:00.8750634",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityB_force_enqueue_can_regenerate_existing_fresh_summary_for_quality_review",
+          "duration": "00:00:00.9238997",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchAsync_does_not_call_capability_a_llm_questions_during_interactive_search",
+          "duration": "00:00:01.2543190",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Cancellation_during_execution_stops_provider_and_prevents_late_result",
+          "duration": "00:00:00.8623882",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminKeysAndAuditEndpointsTests.Rotate_key_revokes_old_key_creates_new_key_and_records_audit_event",
+          "duration": "00:00:00.7222147",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.SubmitSummaryAsync_rejects_stale_expected_source_hash_and_does_not_store_summary",
+          "duration": "00:00:00.7409757",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchDocumentOverviewProfileMatchesAsync_repairs_missing_scoped_profile_search_projection",
+          "duration": "00:00:01.6248164",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.RequalifyAsync_keeps_capability_a_unselected_when_retrieval_runtime_is_unavailable",
+          "duration": "00:00:00.7468466",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.EnqueueUpsertAsync_preserves_capability_a_seed_until_dequeue",
+          "duration": "00:00:00.7329360",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Get_summary_endpoint_exposes_same_enriched_source_as_sources_resolve",
+          "duration": "00:00:01.1423111",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_with_admin_diagnostics_captures_bounded_retrieval_phases(query: \"hydraulic accumulator pressure verification\", canonical: True, retrievalPhase: \"canonical_sparse\", finalPhase: \"canonical_selected\", fusionPhase: \"canonical_fusion\")",
+          "duration": "00:00:00.8305483",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.ResolveSummaryGenerationExecutionAsync_falls_back_to_client_admin_when_live_runtime_probe_fails",
+          "duration": "00:00:00.7437279",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchDocumentProfileMatchesAsync_repairs_missing_scoped_profile_search_projection",
+          "duration": "00:00:00.8949337",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_worker_requeues_interrupted_running_job_before_processing",
+          "duration": "00:00:00.9968940",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Resolver_never_reintroduces_withdrawn_or_unindexed_document_proof(status: \"pending\", indexedVersion: 1, expectedValid: False)",
+          "duration": "00:00:00.8898522",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_degrades_dense_retriever_when_embedding_service_fails",
+          "duration": "00:00:01.0418691",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchDocumentProfileMatchesAsync_uses_materialized_content_cards_when_profile_search_text_is_stale",
+          "duration": "00:00:00.9118537",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.GenerateSummaryAsync_returns_backoffice_unavailable_without_job_when_b_runtime_probe_fails",
+          "duration": "00:00:00.9296857",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_revalidates_tenant_evidence_and_persists_cited_result",
+          "duration": "00:00:00.8770160",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.SubmitSummaryAsync_rejects_unclaimed_capability_b_job_and_leaves_it_queued",
+          "duration": "00:00:00.9672908",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.CapabilitiesAsync_marks_core_retrieval_as_stale_when_qualification_inputs_change",
+          "duration": "00:00:00.7554328",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.WarmupResultsArtifactAsync_returns_recent_runtime_warmup_artifact_snapshot",
+          "duration": "00:00:00.7264807",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Unified_document_detail_route_returns_user_safe_detail_for_user_and_admin_detail_for_admin",
+          "duration": "00:00:01.1637453",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchSparseMatchesAsync_returns_contextual_chunk_hits_for_business_query",
+          "duration": "00:00:00.9321716",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.ResolveSummaryGenerationExecutionAsync_returns_server_backoffice_when_capability_b_is_selected",
+          "duration": "00:00:00.7296169",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.StabilizeDocumentAfterCancelAsync_reverts_indexed_document_to_published_version",
+          "duration": "00:00:00.8965161",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.EventsAsync_and_artifact_return_runtime_audit_trail_for_requalification_and_selection_updates",
+          "duration": "00:00:00.7714625",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DbMigratorDiagnosticIntegrationTests.Applied_migration_modification_is_rejected_before_the_changed_sql_runs",
+          "duration": "00:00:00.3283325",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_response_reports_revision_change_instead_of_publishing_stale_chunks_with_new_identity",
+          "duration": "00:00:01.5078932",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_worker_waits_when_ingestion_is_active",
+          "duration": "00:00:00.8225247",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_schedules_rate_limit_retry_at_provider_delay",
+          "duration": "00:00:00.8912062",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Summary_management_surfaces_include_fresh_summaries_missing_llm_profile",
+          "duration": "00:00:00.8058438",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DbMigratorDiagnosticIntegrationTests.Failed_migration_rolls_back_ddl_and_never_records_a_successful_version",
+          "duration": "00:00:00.2806133",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Page_only_reference_cites_actual_chunk_page_union_without_relabeling_outer_page_text",
+          "duration": "00:00:00.7707426",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Catalog_cache_endpoints_return_304_when_if_none_match_matches_etag(endpoint: \"catalog_documents\", expectedBodyToken: \"value\")",
+          "duration": "00:00:01.1304708",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Canonical_source_identity_does_not_reassign_an_observed_chunk_after_reindexing",
+          "duration": "00:00:01.1262960",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Resolve_category_endpoint_resolves_category_ref_and_returns_aliases",
+          "duration": "00:00:01.2310306",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Canonical_find_locates_literal_text_paginates_and_excludes_other_documents_and_tenants",
+          "duration": "00:00:00.9911299",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Retention_purges_expired_payloads_and_traces_after_active_leases_end",
+          "duration": "00:00:01.0282242",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_publishes_ocr_diagnostics_in_processing_payload",
+          "duration": "00:00:00.9023976",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Resolve_source_endpoint_keeps_profile_identity_when_profile_lists_are_empty",
+          "duration": "00:00:01.1737914",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchExactMatchesAsync_matches_quoted_heading_when_extraction_glues_following_text",
+          "duration": "00:00:00.8682084",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Resolve_source_endpoint_matches_filename_reference_to_indexed_document",
+          "duration": "00:00:01.6391422",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Rag_search_uses_extraction_quality_from_current_revision_only",
+          "duration": "00:00:01.3340834",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.DiagnosticsAsync_surfaces_blockers_for_performance_budget_failure",
+          "duration": "00:00:00.8714409",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_refuses_unsafe_persisted_or_external_execution(mutation: \"external_provider\", expectedError: \"external_provider_not_authorized\")",
+          "duration": "00:00:00.8517763",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchLinkedMatchesAsync_returns_enriched_results_and_accepts_linked_context_anchor",
+          "duration": "00:00:00.9318388",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Unadmitted_tool_call_preserves_limit_error_and_existing_durable_events",
+          "duration": "00:00:03.0634505",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.LoadCapabilityBDocumentAsync_returns_source_hash_from_the_same_document_snapshot",
+          "duration": "00:00:00.7317162",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.RequalifyAsync_blocks_qualification_when_hardware_gate_fails",
+          "duration": "00:00:00.7164230",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisEndpointsTests.Durable_job_is_idempotent_user_scoped_and_cancelable",
+          "duration": "00:00:00.9785027",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_does_not_publish_when_no_searchable_chunks_exist(initialPayload: \"{\\\"quality\\\":7}\")",
+          "duration": "00:00:00.8738905",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.CapabilityB_candidates_include_fresh_summaries_when_backoffice_profile_schema_is_stale",
+          "duration": "00:00:00.7111977",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Provider_driven_shared_retrieval_publishes_twenty_cited_claims",
+          "duration": "00:00:05.6696796",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Summary_management_surfaces_expose_active_capability_b_jobs_for_missing_or_stale_docs",
+          "duration": "00:00:00.8585899",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Extraction_quality_admin_endpoint_reports_llm_enrichment_pending_counters",
+          "duration": "00:00:01.6061188",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.RagLiveSummaryMultilingualBackendTests.Rag_search_response_preserves_document_and_profile_language_for_live_summary_consumers",
+          "duration": "00:00:00.9201463",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_rejects_cross_tenant_evidence_before_provider_call",
+          "duration": "00:00:00.8594089",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.OperationalSummaryArtifactAsync_returns_runtime_operational_snapshot",
+          "duration": "00:00:00.7910530",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdvancedAnalysisWorkerTests.Worker_refuses_unsafe_persisted_or_external_execution(mutation: \"persisted_handoff\", expectedError: \"handoff_revalidation_failed\")",
+          "duration": "00:00:00.8528811",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.AdminRuntimeEndpointsTests.ReconcileStaleAsync_persists_stale_invalidation_for_changed_runtime_inputs",
+          "duration": "00:00:00.7722410",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.SearchCoreAsync_returns_answer_with_caveat_for_customer_compliance_question_on_en_15281",
+          "duration": "00:00:01.1187597",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.CompleteUpsertAsync_publishes_retrieval_chunk_links_for_adjacent_chunks",
+          "duration": "00:00:00.7983625",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.DocumentFoundationIntegrationTests.Catalog_cache_endpoints_return_304_when_if_none_match_matches_etag(endpoint: \"documents_stats\", expectedBodyToken: \"totalDocuments\")",
+          "duration": "00:00:01.0927620",
+          "outcome": "Passed"
+        },
+        {
+          "name": "SAAIA.Backend.Tests.SummaryBackofficeGovernanceTests.Capability_b_execution_contract_claims_jobs_and_requires_valid_lease_for_completion",
+          "duration": "00:00:01.0092261",
+          "outcome": "Passed"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "state": "not_applicable",
+    "reason": "Unit and PostgreSQL profiles do not invoke a model."
+  },
+  "corpus": {
+    "state": "synthetic_fixtures",
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed."
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "Unit",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

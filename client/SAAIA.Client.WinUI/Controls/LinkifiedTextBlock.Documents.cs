@@ -14,7 +14,17 @@ public sealed partial class LinkifiedTextBlock
     {
         try
         {
-            var result = await DocumentLauncher.TryOpenAsync(docPath, page);
+            var registry = ClientDiagnostics.Sources;
+            if (DataContext is SAAIA.Client.WinUI.Models.ChatMessageItem message && !string.IsNullOrWhiteSpace(message.SourcesJson))
+            {
+                // Resolve within the clicked message, so another response's revision cannot replace its identity.
+                var messageRegistry = new SAAIA.Client.Core.Sources.SourceLocatorRegistry();
+                var sources = SourceCardParser.Parse(message.SourcesJson);
+                foreach (var source in sources)
+                    messageRegistry.Register(source.ToSourceLocator());
+                if (sources.Count > 0) registry = messageRegistry;
+            }
+            var result = await DocumentLauncher.TryOpenAsync(registry.Resolve(docPath, page));
             if (result.Success)
                 return;
 
@@ -54,9 +64,10 @@ public sealed partial class LinkifiedTextBlock
             };
             await dlg.ShowAsync();
         }
-        catch
+        catch (System.Exception exception)
         {
-            // In rare early-render cases XamlRoot is unavailable. The launcher failure is non-fatal.
+            ClientDiagnostics.Report("source.error_dialog", "failed", exception.GetType().Name);
+            ClientLog.Warn("Source error dialog unavailable: " + exception.GetType().Name);
         }
     }
 

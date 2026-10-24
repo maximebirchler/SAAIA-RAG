@@ -15,7 +15,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class LiveStructuralEvidenceSynthesisWriterProbeTests(
     ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_structural_facet_evidence_judges_are_captured_when_enabled()
     {
         if (!string.Equals(
@@ -26,7 +27,7 @@ public sealed class LiveStructuralEvidenceSynthesisWriterProbeTests(
         {
             output.WriteLine(
                 "Skipped: enable SAAIA_LIVE_STRUCTURAL_FACET_JUDGE_PROBE to review each structured facet answer against its isolated canonical evidence.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var inputArtifact = Require(
@@ -196,7 +197,8 @@ public sealed class LiveStructuralEvidenceSynthesisWriterProbeTests(
         }
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_structural_isolated_facet_tool_writers_are_captured_when_enabled()
     {
         if (!string.Equals(
@@ -207,7 +209,7 @@ public sealed class LiveStructuralEvidenceSynthesisWriterProbeTests(
         {
             output.WriteLine(
                 "Skipped: enable SAAIA_LIVE_STRUCTURAL_FACET_TOOL_WRITER_PROBE to submit each isolated facet answer through a native tool contract.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var inputArtifact = Require(
@@ -363,7 +365,8 @@ public sealed class LiveStructuralEvidenceSynthesisWriterProbeTests(
         }
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_structural_isolated_facet_writers_are_captured_when_enabled()
     {
         if (!string.Equals(
@@ -374,7 +377,7 @@ public sealed class LiveStructuralEvidenceSynthesisWriterProbeTests(
         {
             output.WriteLine(
                 "Skipped: enable SAAIA_LIVE_STRUCTURAL_ISOLATED_FACET_WRITER_PROBE to write each overview facet from its isolated canonical evidence.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var inputArtifact = Require(
@@ -517,7 +520,8 @@ public sealed class LiveStructuralEvidenceSynthesisWriterProbeTests(
         }
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_structural_facet_evidence_writer_is_captured_when_enabled()
     {
         if (!string.Equals(
@@ -528,7 +532,7 @@ public sealed class LiveStructuralEvidenceSynthesisWriterProbeTests(
         {
             output.WriteLine(
                 "Skipped: enable SAAIA_LIVE_STRUCTURAL_FACET_EVIDENCE_WRITER_PROBE to write one cited answer per explicit overview facet.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var inputArtifact = Require(
@@ -656,7 +660,8 @@ public sealed class LiveStructuralEvidenceSynthesisWriterProbeTests(
         }
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_structural_evidence_synthesis_writer_is_captured_when_enabled()
     {
         if (!string.Equals(
@@ -667,7 +672,7 @@ public sealed class LiveStructuralEvidenceSynthesisWriterProbeTests(
         {
             output.WriteLine(
                 "Skipped: enable SAAIA_LIVE_STRUCTURAL_EVIDENCE_SYNTHESIS_WRITER_PROBE to write one cited synthesis from selected canonical anchors.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var inputArtifact = Require(

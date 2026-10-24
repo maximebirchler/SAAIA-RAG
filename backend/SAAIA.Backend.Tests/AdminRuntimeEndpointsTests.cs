@@ -101,12 +101,13 @@ public sealed class AdminRuntimeEndpointsTests
         Assert.Contains(payload.WarmupProfiles, item => item.Key == "strict-rerank" && item.RuntimeRequirements!.RequireRerank);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task SupportBundleAsync_returns_zip_with_generated_backend_artifacts_and_optional_missing_companions()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tempRoot = Path.Combine(Path.GetTempPath(), "saaia-support-bundle-test-" + Guid.NewGuid().ToString("N"));
         try
@@ -469,12 +470,13 @@ public sealed class AdminRuntimeEndpointsTests
         Assert.Empty(rerank.MissingSettingKeys!);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task RequalifyAsync_qualifies_core_retrieval_and_persists_state_and_warmup()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var ctx = BuildAdminContext();
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -533,12 +535,13 @@ public sealed class AdminRuntimeEndpointsTests
         Assert.Equal(1, warmupCount);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilitiesAsync_returns_persisted_core_state_and_default_optional_capabilities()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         await RuntimeGovernanceCommandService.RequalifyAsync(
@@ -566,12 +569,13 @@ public sealed class AdminRuntimeEndpointsTests
         Assert.Contains(payload.WarmupResults, item => item.CapabilityKey == "core.retrieval" && item.Passed);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task DiagnosticsAsync_returns_summary_and_recommendations_for_runtime_state()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         await RuntimeGovernanceCommandService.RequalifyAsync(
@@ -621,12 +625,13 @@ public sealed class AdminRuntimeEndpointsTests
         Assert.Contains(operational.Items, item => item.Key == "capability_b.backoffice_generation");
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task EventsAsync_and_artifact_return_runtime_audit_trail_for_requalification_and_selection_updates()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         await RuntimeGovernanceCommandService.RequalifyAsync(
@@ -682,12 +687,13 @@ public sealed class AdminRuntimeEndpointsTests
         Assert.Equal(payload.Items.Count, artifact.Items.Count);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task EventsAsync_records_rejected_selection_and_stale_reconciliation_actions()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         await RuntimeGovernanceCommandService.RequalifyAsync(
@@ -745,12 +751,13 @@ public sealed class AdminRuntimeEndpointsTests
         Assert.True(JsonSerializer.SerializeToElement(rejected.Details).GetProperty("requestedAuthorized").GetBoolean());
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task RequalifyAsync_can_qualify_and_select_capability_a()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var ctx = BuildAdminContext();
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -807,12 +814,13 @@ public sealed class AdminRuntimeEndpointsTests
             item => item.Contains("review capability A semantic previews", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task RequalifyAsync_keeps_capability_a_unselected_when_retrieval_runtime_is_unavailable()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var ctx = BuildAdminContext();
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -851,12 +859,13 @@ public sealed class AdminRuntimeEndpointsTests
         Assert.False(checks[0].GetProperty("checksSummary").GetProperty("qdrantPassed").GetBoolean());
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilityA_candidates_and_enqueue_flow_use_runtime_governance_and_ingestion_queue()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var tempRoot = Path.Combine(Path.GetTempPath(), $"saaia-cap-a-{Guid.NewGuid():N}");
@@ -1295,7 +1304,8 @@ VALUES(
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilityB_candidates_and_enqueue_flow_use_runtime_governance_and_summary_jobs()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -1305,7 +1315,7 @@ VALUES(
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -1702,7 +1712,8 @@ ORDER BY doc_path;
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task RequalifyAsync_marks_capability_b_not_qualified_when_llm_runtime_probe_fails()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -1712,7 +1723,7 @@ ORDER BY doc_path;
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try
@@ -1755,12 +1766,13 @@ ORDER BY doc_path;
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilitiesAsync_marks_core_retrieval_as_stale_when_qualification_inputs_change()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         await RuntimeGovernanceCommandService.RequalifyAsync(
@@ -1802,12 +1814,13 @@ ORDER BY doc_path;
         Assert.True(details.GetProperty("persistedSelected").GetBoolean());
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilitiesAsync_marks_core_retrieval_as_stale_when_qualification_has_expired()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var options = new RuntimeGovernanceOptions
         {
@@ -1853,12 +1866,13 @@ ORDER BY doc_path;
         Assert.True(details.TryGetProperty("qualificationExpiresAt", out _));
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task UpdateSelectionAsync_can_deselect_qualified_core_retrieval()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         await RuntimeGovernanceCommandService.RequalifyAsync(
@@ -1890,12 +1904,13 @@ ORDER BY doc_path;
         Assert.False(persistedSelected);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task UpdateSelectionAsync_disabling_capability_clears_authorization_and_selection()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         await RuntimeGovernanceCommandService.RequalifyAsync(
@@ -1928,12 +1943,13 @@ ORDER BY doc_path;
         Assert.False(selectionPolicy.GetProperty("selected").GetBoolean());
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task UpdateSelectionAsync_rejects_selecting_unqualified_capability()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var ctx = BuildAdminContext();
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -1950,12 +1966,13 @@ ORDER BY doc_path;
         Assert.Equal("capability must be qualified before it can be authorized", payload.RootElement.GetProperty("error").GetString());
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task UpdateSelectionAsync_rejects_authorizing_capability_when_desired_enabled_is_false()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         await RuntimeGovernanceCommandService.RequalifyAsync(
@@ -1980,12 +1997,13 @@ ORDER BY doc_path;
         Assert.Equal("capability must be desired-enabled before it can be authorized", payload.RootElement.GetProperty("error").GetString());
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task UpdateSelectionAsync_rejects_stale_capability_until_it_is_requalified()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         await RuntimeGovernanceCommandService.RequalifyAsync(
@@ -2013,12 +2031,13 @@ ORDER BY doc_path;
         Assert.Equal("capability must be requalified because its qualification is stale", payload.RootElement.GetProperty("error").GetString());
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task WarmupResultsAsync_returns_recent_runtime_warmup_rows()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         await RuntimeGovernanceCommandService.RequalifyAsync(
@@ -2044,12 +2063,13 @@ ORDER BY doc_path;
         Assert.True(payload.Items[0].Passed);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilityStateArtifactAsync_returns_persisted_runtime_state_snapshot()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         await RuntimeGovernanceCommandService.RequalifyAsync(
@@ -2074,12 +2094,13 @@ ORDER BY doc_path;
         Assert.Contains(payload.Items, item => item.Key == "core.retrieval" && item.Qualified && item.Details is not null);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task WarmupResultsArtifactAsync_returns_recent_runtime_warmup_artifact_snapshot()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         await RuntimeGovernanceCommandService.RequalifyAsync(
@@ -2105,12 +2126,13 @@ ORDER BY doc_path;
         Assert.Equal("core.retrieval", payload.Items[0].CapabilityKey);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task DiagnosticsArtifactAsync_returns_runtime_diagnostic_snapshot()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         await RuntimeGovernanceCommandService.RequalifyAsync(
@@ -2298,12 +2320,13 @@ ORDER BY doc_path;
         Assert.Contains(payload.Alerts, item => item.Key == "capability_b_quality_score_regression");
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilityBQualityReviewAsync_returns_only_low_quality_capability_b_summaries()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var lowDocId = Guid.NewGuid();
@@ -2415,12 +2438,13 @@ VALUES
         Assert.Equal(0.25, item.Signals.SectionCoverageScore);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilityBQualityReviewAsync_ignores_malformed_quality_scores_without_500()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var validLowDocId = Guid.NewGuid();
@@ -2543,12 +2567,13 @@ VALUES
         Assert.Equal(0.41, summary.Summary.LowestQualityScore);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilityBQualityReviewArtifactAsync_returns_named_artifact_snapshot()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var docId = Guid.NewGuid();
@@ -2621,12 +2646,13 @@ VALUES(
         Assert.Contains(item.Recommendations, recommendation => recommendation.Contains("fallback", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilityBQualityReviewSummaryAsync_returns_aggregate_snapshot_for_low_quality_summaries()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var docA = Guid.NewGuid();
@@ -2715,12 +2741,13 @@ VALUES
         Assert.Contains(payload.Summary.Recommendations, item => item.Contains("runtime availability", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task CapabilityBQualityReviewSummaryArtifactAsync_returns_named_artifact_snapshot()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         var ctx = BuildAdminContext();
@@ -2736,12 +2763,13 @@ VALUES
         Assert.NotNull(payload.Summary);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task OperationalSummaryArtifactAsync_returns_runtime_operational_snapshot()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         await RuntimeGovernanceCommandService.RequalifyAsync(
@@ -2820,12 +2848,13 @@ VALUES
         AssertDtoJsonPropertyNames<AdminRuntimeOperationalSummaryArtifactDto>("artifact", "cdcAlignment", "environment", "generatedAt", "summary", "items");
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task AdminRuntime_core_endpoints_and_artifacts_preserve_expected_top_level_json_shape()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         await RuntimeGovernanceCommandService.RequalifyAsync(
@@ -3038,12 +3067,13 @@ VALUES
         await AssertTopLevelJsonContractAsync(operationalArtifactResult, operationalArtifactCtx, "artifact", "cdcAlignment", "environment", "generatedAt", "summary", "items");
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task RequalifyAsync_blocks_qualification_when_hardware_gate_fails()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var ctx = BuildAdminContext();
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -3076,12 +3106,13 @@ VALUES
         Assert.True(details.GetProperty("hardware").TryGetProperty("reasons", out _));
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task RequalifyAsync_blocks_qualification_when_profile_specific_hardware_gate_fails()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var ctx = BuildAdminContext();
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -3113,12 +3144,13 @@ VALUES
         Assert.Equal("profile", details.GetProperty("hardware").GetProperty("source").GetString());
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task RequalifyAsync_blocks_qualification_when_runtime_specific_gate_fails()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var ctx = BuildAdminContext();
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -3150,12 +3182,13 @@ VALUES
         Assert.True(qdrantGate.TryGetProperty("reasons", out _));
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task RequalifyAsync_blocks_qualification_when_performance_budget_fails()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var ctx = BuildAdminContext();
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -3188,12 +3221,13 @@ VALUES
         Assert.True(checks[0].GetProperty("performanceBudgetViolations").GetArrayLength() > 0);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task RequalifyAsync_blocks_qualification_when_profile_requires_rerank_but_rerank_is_disabled()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var ctx = BuildAdminContext();
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -3220,12 +3254,13 @@ VALUES
         Assert.True(runtimeRequirements.GetProperty("requireRerank").GetBoolean());
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task DiagnosticsAsync_surfaces_blockers_for_performance_budget_failure()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var ctx = BuildAdminContext();
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -3260,12 +3295,13 @@ VALUES
         Assert.Contains(retrieval.Recommendations, item => item.Contains("less strict profile", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task DiagnosticsAsync_surfaces_blockers_for_runtime_gate_failure()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var ctx = BuildAdminContext();
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -3299,12 +3335,13 @@ VALUES
         Assert.Contains(retrieval.Recommendations, item => item.Contains("runtime-specific hardware thresholds", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task DiagnosticsAsync_surfaces_blockers_for_stale_qualification()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         await RuntimeGovernanceCommandService.RequalifyAsync(
@@ -3342,12 +3379,13 @@ VALUES
         Assert.True(payload.Summary.PersistedSelectedCapabilities >= 1);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task DiagnosticsAsync_surfaces_blockers_for_expired_qualification()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var options = new RuntimeGovernanceOptions
         {
@@ -3391,12 +3429,13 @@ VALUES
         Assert.Contains(retrieval.Recommendations, item => item.Contains("requalify this capability", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task ReconcileStaleAsync_persists_stale_invalidation_for_changed_runtime_inputs()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
         await RuntimeGovernanceCommandService.RequalifyAsync(
@@ -3441,12 +3480,13 @@ VALUES
         Assert.Equal("qualification stale: requalify required", persisted.last_error);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task DiagnosticsAsync_surfaces_blockers_for_profile_policy_failure()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var ctx = BuildAdminContext();
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -3473,7 +3513,8 @@ VALUES
         Assert.Contains(retrieval.Recommendations, item => item.Contains("enable the required runtime features", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task DiagnosticsAsync_surfaces_live_runtime_blocker_for_capability_b_when_probe_fails()
     {
         var previousBackoffice = Environment.GetEnvironmentVariable("BACKOFFICE_LLM_ENABLED");
@@ -3483,7 +3524,7 @@ VALUES
         if (db is null)
         {
             Environment.SetEnvironmentVariable("BACKOFFICE_LLM_ENABLED", previousBackoffice);
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         }
 
         try

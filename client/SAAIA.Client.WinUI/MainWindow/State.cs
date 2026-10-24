@@ -16,9 +16,9 @@ public sealed partial class MainWindow
 
     private string? _sessionId;
     private string _userId = "";
-    private CancellationTokenSource? _cts;
     private bool _isGenerating;
-    private bool _isLoadingSession;
+    private readonly SAAIA.Client.Core.Conversation.ConversationActivityGate _conversationActivity = new();
+    private bool _isLoadingSession => _conversationActivity.IsChangingSession;
     private bool _suppressSessionSelectionChanged;
     private bool _isCancellingGeneration;
     private bool _autoFollow = true;          // si true: on suit le bas pendant streaming

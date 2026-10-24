@@ -117,17 +117,4 @@ public sealed partial class ToolAgentOrchestrator
 
         return list;
     }
-
-    private void StagePendingDirectCommand(string commandId, object args, string source, ToolMemory.CategorySnapshot? category = null)
-    {
-        _mem.StagedDirectCommand = new ToolMemory.PendingDirectCommand
-        {
-            CommandId = commandId,
-            ArgsJson = JsonSerializer.Serialize(args),
-            CategoryRef = category?.CategoryRef,
-            CategoryPath = category?.CategoryPath,
-            Source = source,
-            CreatedAtUtc = DateTimeOffset.UtcNow
-        };
-    }
 }

@@ -76,6 +76,13 @@ sealed class AdvancedAnalysisOptions
 
     public string DevelopmentTraceDirectory { get; set; } = string.Empty;
 
+    // Exact content capture is opt-in. Production collection must not change the model outcome.
+    public bool DevelopmentTraceStrict { get; set; }
+    public int DevelopmentTraceMaximumCharacters { get; set; } = 3_000_000;
+    public int DevelopmentTraceRetentionDays { get; set; } = 7;
+    public int DevelopmentTraceMaximumFiles { get; set; } = 1_000;
+    public long DevelopmentTraceMaximumDirectoryBytes { get; set; } = 64 * 1024 * 1024;
+
     public int RetentionDays { get; set; } = 30;
 
     public int RetentionSweepMilliseconds { get; set; } = 300_000;

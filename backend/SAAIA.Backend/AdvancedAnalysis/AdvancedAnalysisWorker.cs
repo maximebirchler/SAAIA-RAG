@@ -17,6 +17,7 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
     private readonly LicenseOptions _license;
     private readonly AdvancedAnalysisOptions _options;
     private readonly ILogger<AdvancedAnalysisWorker> _logger;
+    private readonly AdvancedAnalysisRuntimeState _runtimeState;
     private readonly string _workerId =
         $"{Environment.MachineName}:{Guid.NewGuid():N}";
 
@@ -27,7 +28,8 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
         IAdvancedAnalysisProvider provider,
         IOptions<LicenseOptions> license,
         IOptions<AdvancedAnalysisOptions> options,
-        ILogger<AdvancedAnalysisWorker> logger)
+        ILogger<AdvancedAnalysisWorker> logger,
+        AdvancedAnalysisRuntimeState? runtimeState = null)
     {
         _store = store;
         _resolver = resolver;
@@ -36,18 +38,21 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
         _license = license.Value;
         _options = options.Value;
         _logger = logger;
+        _runtimeState = runtimeState ?? new AdvancedAnalysisRuntimeState();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (!_license.AdvancedAnalysisEnabled)
         {
+            _runtimeState.WorkerHeartbeat("not_entitled");
             _logger.LogInformation(
                 "Advanced analysis worker is disabled by the current license");
             return;
         }
         if (!_options.WorkerEnabled)
         {
+            _runtimeState.WorkerHeartbeat("disabled");
             _logger.LogInformation("Advanced analysis worker is disabled");
             return;
         }
@@ -56,25 +61,31 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
             _options.PollDelayMilliseconds,
             100,
             60_000);
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            try
+            while (!stoppingToken.IsCancellationRequested)
             {
-                var processed = await ProcessOnceAsync(stoppingToken)
-                    .ConfigureAwait(false);
-                if (!processed)
+                try
+                {
+                    _runtimeState.WorkerHeartbeat("idle");
+                    var processed = await ProcessOnceAsync(stoppingToken)
+                        .ConfigureAwait(false);
+                    if (!processed)
+                        await Task.Delay(pollDelay, stoppingToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _runtimeState.WorkerHeartbeat("cycle_failed");
+                    _logger.LogError(ex, "Advanced analysis worker cycle failed");
                     await Task.Delay(pollDelay, stoppingToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Advanced analysis worker cycle failed");
-                await Task.Delay(pollDelay, stoppingToken).ConfigureAwait(false);
+                }
             }
         }
+        finally { _runtimeState.WorkerHeartbeat("stopped"); }
     }
 
     internal async Task<bool> ProcessOnceAsync(CancellationToken cancellationToken)
@@ -88,10 +99,12 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
             0,
             3_600_000);
         var leaseSeconds = Math.Clamp(_options.LeaseSeconds, 5, 3_600);
-        await _store.RecoverExpiredAsync(
+        var recovered = await _store.RecoverExpiredAsync(
             maximumAttempts,
             retryDelay,
             cancellationToken).ConfigureAwait(false);
+        if (recovered > 0)
+            _logger.LogWarning("Recovered {JobCount} expired advanced-analysis leases/jobs worker_id={WorkerId}", recovered, _workerId);
 
         var incompatibleJobs = await _store.FailQueuedProviderMismatchesAsync(
             _provider.ProviderKey,
@@ -114,6 +127,49 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
         if (lease is null)
             return false;
 
+        _runtimeState.WorkerHeartbeat("executing");
+        var parent = ActivityContext.TryParse(lease.ParentTraceparent, null, out var parentContext)
+            ? parentContext : (ActivityContext?)null;
+        using var probe = BackendDiagnostics.Start("advanced.job_attempt", _logger, parent);
+        probe.Set("job_id", lease.JobId);
+        probe.Set("tenant_id", lease.TenantId);
+        probe.Set("attempt", lease.AttemptCount);
+        probe.Set("worker_id", _workerId);
+        probe.Set("request_id", lease.RequestId);
+        probe.Set("turn_id", lease.TurnId);
+        probe.Set("session_id", lease.SessionId);
+        probe.Set("client_session_id", lease.DiagnosticSessionId);
+        probe.Set("client_session_id_mismatch", lease.DiagnosticSessionId is not null
+            && (!Guid.TryParse(lease.DiagnosticSessionId, out var claimedSession) || claimedSession != lease.SessionId));
+        probe.Set("queue_age_ms", lease.QueueAgeMilliseconds);
+        using var logScope = DiagnosticLogScope.Begin(_logger, new Dictionary<string, object?>
+        {
+            ["job_id"] = lease.JobId, ["tenant_id"] = lease.TenantId, ["attempt"] = lease.AttemptCount,
+            ["worker_id"] = _workerId, ["request_id"] = lease.RequestId,
+            ["turn_id"] = lease.TurnId, ["trace_id"] = probe.TraceId,
+            ["session_id"] = lease.SessionId, ["client_session_id"] = lease.DiagnosticSessionId
+        });
+        try
+        {
+            return await ProcessClaimedAsync(lease, leaseSeconds, maximumAttempts, probe, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            probe.Fail(ex);
+            throw;
+        }
+        finally { _runtimeState.WorkerHeartbeat("idle"); }
+    }
+
+    private async Task<bool> ProcessClaimedAsync(AdvancedAnalysisJobLease lease, int leaseSeconds,
+        int maximumAttempts, BackendDiagnostics.Operation probe, CancellationToken cancellationToken)
+    {
+        async Task FailClaimedAsync(string errorCode, CancellationToken token)
+        {
+            probe.Complete("failed", errorCode);
+            await FailAsync(lease.JobId, errorCode, token).ConfigureAwait(false);
+        }
+
         AdvancedAnalysisHandoffEnvelope? handoff;
         try
         {
@@ -123,8 +179,7 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
         }
         catch (JsonException)
         {
-            await FailAsync(
-                lease.JobId,
+            await FailClaimedAsync(
                 "handoff_deserialization_failed",
                 cancellationToken).ConfigureAwait(false);
             return true;
@@ -139,8 +194,7 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
             });
         if (!handoffValidation.IsValid || handoff is null)
         {
-            await FailAsync(
-                lease.JobId,
+            await FailClaimedAsync(
                 "handoff_revalidation_failed",
                 cancellationToken).ConfigureAwait(false);
             return true;
@@ -150,8 +204,7 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
             && (!_options.AllowExternalProviderContent
                 || !_options.AllowExternalProviderMetadata))
         {
-            await FailAsync(
-                lease.JobId,
+            await FailClaimedAsync(
                 "external_provider_not_authorized",
                 cancellationToken).ConfigureAwait(false);
             return true;
@@ -171,8 +224,7 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
                 ex,
                 "Advanced analysis tool history could not be loaded for job {JobId}",
                 lease.JobId);
-            await FailAsync(
-                lease.JobId,
+            await FailClaimedAsync(
                 "tool_trace_revalidation_failed",
                 cancellationToken).ConfigureAwait(false);
             return true;
@@ -187,8 +239,7 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
             cancellationToken).ConfigureAwait(false);
         if (!evidenceResolution.IsValid)
         {
-            await FailAsync(
-                lease.JobId,
+            await FailClaimedAsync(
                 evidenceResolution.ErrorCode ?? "evidence_revalidation_failed",
                 cancellationToken).ConfigureAwait(false);
             return true;
@@ -237,18 +288,19 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
                         ex.ErrorCode,
                         lease.JobId);
                 }
+                probe.Complete(retryStored ? "retry_scheduled" : "lease_lost", ex.ErrorCode);
+                _logger.LogInformation("Advanced-analysis retry outcome job_id={JobId} attempt={Attempt} stored={Stored} reason={ReasonCode} retry_delay_ms={RetryDelayMs}",
+                    lease.JobId, lease.AttemptCount, retryStored, ex.ErrorCode, retryDelayMilliseconds);
                 return true;
             }
-            await FailAsync(
-                lease.JobId,
+            await FailClaimedAsync(
                 ex.ErrorCode,
                 cancellationToken).ConfigureAwait(false);
             return true;
         }
         catch (AdvancedAnalysisToolException ex)
         {
-            await FailAsync(
-                lease.JobId,
+            await FailClaimedAsync(
                 ex.ErrorCode,
                 cancellationToken).ConfigureAwait(false);
             return true;
@@ -263,8 +315,7 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
                 ex,
                 "Advanced analysis provider failed for job {JobId}",
                 lease.JobId);
-            await FailAsync(
-                lease.JobId,
+            await FailClaimedAsync(
                 "provider_execution_failed",
                 cancellationToken).ConfigureAwait(false);
             return true;
@@ -277,6 +328,7 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
         if (execution.State != AdvancedAnalysisLeaseState.Active
             || execution.Result is null)
         {
+            probe.Complete(execution.State == AdvancedAnalysisLeaseState.Canceled ? "cancelled" : "lease_lost");
             return true;
         }
 
@@ -288,8 +340,7 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
             DateTimeOffset.UtcNow);
         if (!validated.IsValid || validated.Result is null)
         {
-            await FailAsync(
-                lease.JobId,
+            await FailClaimedAsync(
                 validated.ErrorCode ?? "advanced_result_invalid",
                 cancellationToken).ConfigureAwait(false);
             return true;
@@ -306,6 +357,7 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
                 "Advanced analysis result was not published because job {JobId} no longer owns its lease",
                 lease.JobId);
         }
+        probe.Complete(stored ? "success" : "lease_lost");
         return true;
     }
 
@@ -356,11 +408,19 @@ internal sealed class AdvancedAnalysisWorker : BackgroundService
                 break;
             }
 
-            var state = await _store.RenewAndReadStateAsync(
-                jobId,
-                _workerId,
-                leaseSeconds,
-                stoppingToken).ConfigureAwait(false);
+            AdvancedAnalysisLeaseState state;
+            using (var heartbeatProbe = BackendDiagnostics.Start("advanced.lease_renew", _logger))
+            {
+                heartbeatProbe.Set("job_id", jobId);
+                try
+                {
+                    state = await _store.RenewAndReadStateAsync(jobId, _workerId, leaseSeconds, stoppingToken).ConfigureAwait(false);
+                    _runtimeState.WorkerHeartbeat("executing");
+                    heartbeatProbe.Complete(state == AdvancedAnalysisLeaseState.Active ? "success"
+                        : state == AdvancedAnalysisLeaseState.Canceled ? "cancelled" : "lease_lost");
+                }
+                catch (Exception ex) { heartbeatProbe.Fail(ex); throw; }
+            }
             if (state == AdvancedAnalysisLeaseState.Active)
                 continue;
 

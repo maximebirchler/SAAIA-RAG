@@ -1,3 +1,6 @@
+using static SAAIA.Client.Core.NativeRouting.NativeRouterResponseReader;
+using static SAAIA.Client.Core.NativeRouting.NativeRouterRouteNames;
+using static SAAIA.Client.WinUI.Services.ToolAgent.NativeRouting.NativeRouterToolCatalog;
 using System.Text.Json;
 using SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag;
 
@@ -5,63 +8,7 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
 public sealed partial class ToolAgentOrchestrator
 {
-    private const string SubmitDocumentOverviewRouteToolName =
-        "submit_document_overview_route";
     private const int NativeDocumentOverviewRouteMaximumOutputTokens = 160;
-
-    private static SourceBackedAgentToolDefinition
-        BuildNativeDocumentOverviewRouteTool()
-        => new(
-            SubmitDocumentOverviewRouteToolName,
-            "One explicitly named document overview with two to five cumulative content facets preserved in user order.",
-            JsonSerializer.SerializeToElement(new
-            {
-                type = "object",
-                properties = new
-                {
-                    document = new
-                    {
-                        type = "string",
-                        minLength = 1,
-                        maxLength = 260
-                    },
-                    facets = new
-                    {
-                        type = "array",
-                        items = new
-                        {
-                            type = "string",
-                            minLength = 1,
-                            maxLength = 180
-                        },
-                        minItems = 2,
-                        maxItems = 5
-                    },
-                    requestedPointCount = new
-                    {
-                        type = "integer",
-                        minimum = 2,
-                        maximum = 10
-                    },
-                    sampleCount = new
-                    {
-                        type = "integer",
-                        minimum = 2,
-                        maximum = 11
-                    },
-                    questionFocus = new
-                    {
-                        type = "string",
-                        @enum = new[] { "content" }
-                    }
-                },
-                required = new[]
-                {
-                    "document", "facets", "requestedPointCount",
-                    "sampleCount", "questionFocus"
-                },
-                additionalProperties = false
-            }, ClientJson.CamelCase));
 
     private bool TryBuildNativeDocumentOverviewRouterPlan(
         JsonElement arguments,

@@ -1,0 +1,396 @@
+{
+  "schema": "saaia-native-routing-preservation.v1",
+  "originalMemberCount": 59,
+  "movedMemberCount": 42,
+  "covered": 59,
+  "missing": [],
+  "results": [
+    {
+      "name": "SubmitDocumentOverviewRouteToolName",
+      "owner": "NativeRouterRouteNames",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "NativeDocumentOverviewRouteMaximumOutputTokens",
+      "owner": "ToolAgentOrchestrator",
+      "state": "retained_unchanged",
+      "allTokensEquivalent": true
+    },
+    {
+      "name": "BuildNativeDocumentOverviewRouteTool",
+      "owner": "NativeRouterToolCatalog",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "TryBuildNativeDocumentOverviewRouterPlan",
+      "owner": "ToolAgentOrchestrator",
+      "state": "retained_unchanged",
+      "allTokensEquivalent": true
+    },
+    {
+      "name": "ResolveNativeRouterRepairRouteToolName",
+      "owner": "ToolAgentOrchestrator",
+      "state": "retained_unchanged",
+      "allTokensEquivalent": true
+    },
+    {
+      "name": "BuildNativeDocumentOverviewRouteToolForTests",
+      "owner": "ToolAgentOrchestrator",
+      "state": "retained_unchanged",
+      "allTokensEquivalent": true
+    },
+    {
+      "name": "ResolveNativeRouterRepairRouteToolNameForTests",
+      "owner": "ToolAgentOrchestrator",
+      "state": "retained_unchanged",
+      "allTokensEquivalent": true
+    },
+    {
+      "name": "RequestMissingUserInputToolName",
+      "owner": "NativeRouterRouteNames",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "ExplicitDocumentIdentityAlreadySuppliedFailure",
+      "owner": "ToolAgentOrchestrator",
+      "state": "retained_unchanged",
+      "allTokensEquivalent": true
+    },
+    {
+      "name": "BuildNativeMissingUserInputTool",
+      "owner": "NativeRouterToolCatalog",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "TryBuildNativeMissingUserInputPlan",
+      "owner": "ToolAgentOrchestrator",
+      "state": "retained_unchanged",
+      "allTokensEquivalent": true
+    },
+    {
+      "name": "RedundantlyRequestsExplicitDocumentIdentity",
+      "owner": "ToolAgentOrchestrator",
+      "state": "retained_unchanged",
+      "allTokensEquivalent": true
+    },
+    {
+      "name": "SubmitSourceBackedRouteToolName",
+      "owner": "NativeRouterRouteNames",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "SubmitSourceBackedGridRouteToolName",
+      "owner": "NativeRouterRouteNames",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "RequestUserClarificationToolName",
+      "owner": "NativeRouterRouteNames",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "SubmitOperationalRouteToolName",
+      "owner": "NativeRouterRouteNames",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "SubmitApplicationDecisionRouteToolName",
+      "owner": "NativeRouterRouteNames",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "RequestUnboundUserReferenceRouteToolName",
+      "owner": "NativeRouterRouteNames",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "UnadvertisedNativeRouteFailure",
+      "owner": "NativeRouterRouteNames",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterRuntimePolicy",
+      "owner": "ToolAgentOrchestrator",
+      "state": "retained_unchanged",
+      "allTokensEquivalent": true
+    },
+    {
+      "name": "BuildNativeRouterClassifierSystemPrompt",
+      "owner": "NativeRouterPrompts",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterClassifierSystemPromptForTests",
+      "owner": "NativeRouterPrompts",
+      "state": "test_adapter_removed",
+      "reason": "Tests call real owners or adapt arguments within test code"
+    },
+    {
+      "name": "BuildNativeRouterSpecializedSystemPromptForTests",
+      "owner": "NativeRouterPrompts",
+      "state": "test_adapter_removed",
+      "reason": "Tests call real owners or adapt arguments within test code"
+    },
+    {
+      "name": "BuildNativeRouterClassifierToolsForTests",
+      "owner": "NativeRouterToolCatalog",
+      "state": "test_adapter_removed",
+      "reason": "Tests call real owners or adapt arguments within test code"
+    },
+    {
+      "name": "BuildNativeRouterSecondStageToolNamesForTests",
+      "owner": "NativeRouterToolCatalog",
+      "state": "test_adapter_removed",
+      "reason": "Tests call real owners or adapt arguments within test code"
+    },
+    {
+      "name": "BuildNativeRouterSecondStageTools",
+      "owner": "NativeRouterToolCatalog",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "TryResolveNativeRouterClassifierSelectionForTests",
+      "owner": "NativeRouterToolCatalog",
+      "state": "test_adapter_removed",
+      "reason": "Tests call real owners or adapt arguments within test code"
+    },
+    {
+      "name": "BuildNativeRouterClassifierTools",
+      "owner": "NativeRouterToolCatalog",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "TryResolveNativeRouterClassifierSelection",
+      "owner": "NativeRouterToolCatalog",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterSpecializedSystemPrompt",
+      "owner": "NativeRouterPrompts",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "ResolveClassifierPlanningToolName",
+      "owner": "NativeRouterToolCatalog",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "ValidateAdvertisedNativeRoute",
+      "owner": "NativeRouterToolCatalog",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterSystemPrompt",
+      "owner": "NativeRouterPrompts",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterSystemPromptForTests",
+      "owner": "NativeRouterPrompts",
+      "state": "test_adapter_removed",
+      "reason": "Tests call real owners or adapt arguments within test code"
+    },
+    {
+      "name": "BuildNativeRouterToolsForTests",
+      "owner": "NativeRouterToolCatalog",
+      "state": "test_adapter_removed",
+      "reason": "Tests call real owners or adapt arguments within test code"
+    },
+    {
+      "name": "BuildNativeRouterRepairToolsForTests",
+      "owner": "NativeRouterToolCatalog",
+      "state": "test_adapter_removed",
+      "reason": "Tests call real owners or adapt arguments within test code"
+    },
+    {
+      "name": "BuildNativeRouterAlternativesAfterInvalidClarificationForTests",
+      "owner": "NativeRouterToolCatalog",
+      "state": "test_adapter_removed",
+      "reason": "Tests call real owners or adapt arguments within test code"
+    },
+    {
+      "name": "BuildNativeRouterRepairTools",
+      "owner": "NativeRouterToolCatalog",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterAlternativesAfterInvalidClarification",
+      "owner": "NativeRouterToolCatalog",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterTools",
+      "owner": "NativeRouterToolCatalog",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "BoundedNativeRouterString",
+      "owner": "NativeRouterToolCatalog",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "TryBuildNativeRouterPlan",
+      "owner": "ToolAgentOrchestrator",
+      "state": "retained_unchanged",
+      "allTokensEquivalent": true
+    },
+    {
+      "name": "TryCoalesceHomogeneousNativeOverviewCalls",
+      "owner": "ToolAgentOrchestrator",
+      "state": "retained_unchanged",
+      "allTokensEquivalent": true
+    },
+    {
+      "name": "TryBuildNativeSourceBackedRouterPlan",
+      "owner": "ToolAgentOrchestrator",
+      "state": "retained_unchanged",
+      "allTokensEquivalent": true
+    },
+    {
+      "name": "TryBuildNativeClarificationRouterPlan",
+      "owner": "ToolAgentOrchestrator",
+      "state": "retained_unchanged",
+      "allTokensEquivalent": true
+    },
+    {
+      "name": "TryResolveNativeRouterCategoryScope",
+      "owner": "ToolAgentOrchestrator",
+      "state": "retained_unchanged",
+      "allTokensEquivalent": true
+    },
+    {
+      "name": "ResolveFocusedDocumentRouteIdentity",
+      "owner": "ToolAgentOrchestrator",
+      "state": "retained_unchanged",
+      "allTokensEquivalent": true
+    },
+    {
+      "name": "TryBuildNativeOperationalRouterPlan",
+      "owner": "ToolAgentOrchestrator",
+      "state": "retained_unchanged",
+      "allTokensEquivalent": true
+    },
+    {
+      "name": "ReadNativeRouterString",
+      "owner": "NativeRouterResponseReader",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "NormalizeNativeRouterOptionalReference",
+      "owner": "NativeRouterResponseReader",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "TryReadNativeRouterLayout",
+      "owner": "NativeRouterResponseReader",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "IsStructurallyValidNativeRouterLabel",
+      "owner": "NativeRouterResponseReader",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "AreNativeRouterGridAxesGrounded",
+      "owner": "ToolAgentOrchestrator",
+      "state": "retained_unchanged",
+      "allTokensEquivalent": true
+    },
+    {
+      "name": "HasBalancedNativeRouterDelimiters",
+      "owner": "NativeRouterResponseReader",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "ReadNativeRouterStringArray",
+      "owner": "NativeRouterResponseReader",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "TryReadNativeRouterLayoutForTests",
+      "owner": "NativeRouterResponseReader",
+      "state": "test_adapter_removed",
+      "reason": "Tests call real owners or adapt arguments within test code"
+    },
+    {
+      "name": "TryReadNativeRouterInteger",
+      "owner": "NativeRouterResponseReader",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "TryReadNativeRouterBoolean",
+      "owner": "NativeRouterResponseReader",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    },
+    {
+      "name": "TryReadNativeRouterProperty",
+      "owner": "NativeRouterResponseReader",
+      "state": "moved",
+      "bodyTokensEquivalent": true,
+      "allLiteralTokensPreserved": true
+    }
+  ],
+  "limits": "AST token equality for all retained members and moved production bodies; the only normalized call is NormalizeLanguageCode -\u003E LocalizedStrings.NormalizeLanguage, whose original wrapper delegates directly. Test adapters may be removed. Runtime tests remain independently required."
+}

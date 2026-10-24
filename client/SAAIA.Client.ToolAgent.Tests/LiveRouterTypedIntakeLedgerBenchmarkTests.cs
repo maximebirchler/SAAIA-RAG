@@ -44,7 +44,8 @@ public sealed class LiveRouterTypedIntakeLedgerBenchmarkTests(
         decision.
         """;
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Typed_intake_ledger_is_measured_on_frozen_cross_domain_matrix_when_enabled()
     {
         if (!string.Equals(
@@ -54,7 +55,7 @@ public sealed class LiveRouterTypedIntakeLedgerBenchmarkTests(
         {
             output.WriteLine(
                 $"Skipped: set {EnableVariable}=1 to run EXP-042/S.0.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

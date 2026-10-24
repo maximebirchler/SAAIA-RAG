@@ -1,0 +1,414 @@
+{
+  "schemaVersion": "saaia-versionable-evidence-v1",
+  "createdAtUtc": "2026-10-24T21:23:43.6938347+00:00",
+  "state": "selected_existing_files_not_staged",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "finalAccepted": [
+    {
+      "path": "artifacts/assainissement-20261024/architecture-final.json",
+      "sizeBytes": 252379,
+      "sha256": "8CAF21E21DC5FEBD4F1125F4269CC79612E6C75BB94A10B8FFE9881532665AA8"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/backend-shared-contract-build.log",
+      "sizeBytes": 674,
+      "sha256": "C2DC26D5C54F69BD8AA8AF6CC1AE72AA9F40A7B79FDC6776638343802A78F8D1"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/contracts-shared-contract-build.log",
+      "sizeBytes": 381,
+      "sha256": "3866ED790DC57F10599E11056437C6A339F71AFAA4EECDD6E27276F51B275C08"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/postgres-freeze/manifest.json",
+      "sizeBytes": 853,
+      "sha256": "8E06457EC55FA0E507C8A109240B37BFDB3791D52A67B6507CDC301F1ADC0E07"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/postgres-freeze/tests/Backend-4e5c140d8624401890cc444973dad0e9.trx",
+      "sizeBytes": 404176,
+      "sha256": "3F2F56A81AE5AA7CB56D1C6F7F6289D46087651BFFC7759B1CA322C7F6F7934E"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/postgres-freeze/tests/manifest.json",
+      "sizeBytes": 71501,
+      "sha256": "CCE477A516460E7AED4581B1090C18FF1458E112EDB746AC2D52D39DB2155279"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/postgres-freeze/tests/source-files-4e5c140d8624401890cc444973dad0e9-after.json",
+      "sizeBytes": 290525,
+      "sha256": "8B6870C643FFAA10CAEB42E1BF93B8EB6D74F96C76EC23E15D8E4665B4F54C15"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/postgres-freeze/tests/source-files-4e5c140d8624401890cc444973dad0e9-before.json",
+      "sizeBytes": 290525,
+      "sha256": "3CF508929872F1218C88E1C313D44E4DA15A30B5369DACE5AEB9F17C187D711E"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/profile-gates-host-parsing-accepted/checks.json",
+      "sizeBytes": 2560,
+      "sha256": "82837D109667F28B9B0649A13687BB9B22CE0783F15ED78EAF8693DE3AD3A4E6"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/unit-backend-contracts-freeze/Backend-d21ff1de064d4cfcb9a04aeef970372e.trx",
+      "sizeBytes": 3759942,
+      "sha256": "A5776ADFF51CE24D40D1DB637CDDF1BEAF2FD55EFC3EF22B876A3CE1A6F1D441"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/unit-backend-contracts-freeze/Contracts-d21ff1de064d4cfcb9a04aeef970372e.trx",
+      "sizeBytes": 31009,
+      "sha256": "18A277A78B8EDEF841A0CC1A0FE1B878D24DE48D2CA93B693332642DB173611B"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/unit-backend-contracts-freeze/manifest.json",
+      "sizeBytes": 663907,
+      "sha256": "E110D0E09B8701E8991E1FC9BB13FE510741465F652ED8D36E1A9CAB5C81D7BF"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/unit-backend-contracts-freeze/source-files-d21ff1de064d4cfcb9a04aeef970372e-after.json",
+      "sizeBytes": 290525,
+      "sha256": "3ACC38C3530E2C588F87DD4B17771F155E83DC364A432FA640CE5C159B52D6D2"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/unit-backend-contracts-freeze/source-files-d21ff1de064d4cfcb9a04aeef970372e-before.json",
+      "sizeBytes": 290525,
+      "sha256": "3CF508929872F1218C88E1C313D44E4DA15A30B5369DACE5AEB9F17C187D711E"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/validation-final.json",
+      "sizeBytes": 136441,
+      "sha256": "6E4C674C69C6EE9C8F79351CBB12EAE31809740423AE09263FB66B387C59F63E"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/architecture-final-accepted.json",
+      "sizeBytes": 252379,
+      "sha256": "B17097061917EB4B0F6704AF11C00F42C87620BAEB40A16943B51309174BAFFA"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/full-unit-session-final-freeze/Client-27c6a30807d84df6a48ab508b7a18d27.trx",
+      "sizeBytes": 3737316,
+      "sha256": "4934E167CF6677B090BDCF3E511E95EED690DD59012793C2BD9001D8513BC538"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/full-unit-session-final-freeze/ClientCore-27c6a30807d84df6a48ab508b7a18d27.trx",
+      "sizeBytes": 107870,
+      "sha256": "89309999219F18C1C2DBCEB9AC91C863EF71F1595373D72A47EE2024280DEE81"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/full-unit-session-final-freeze/manifest.json",
+      "sizeBytes": 653307,
+      "sha256": "F3C0586222827F84981C12D77A130642108A4EE53C73A632560EFA184CCBA24E"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/full-unit-session-final-freeze/source-files-27c6a30807d84df6a48ab508b7a18d27-after.json",
+      "sizeBytes": 290525,
+      "sha256": "CD1B1D3D91FC3B35A2DF1EF981263EF9A4C9D358DAA4383EF4659B12B97EEB50"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/full-unit-session-final-freeze/source-files-27c6a30807d84df6a48ab508b7a18d27-before.json",
+      "sizeBytes": 290525,
+      "sha256": "CD1B1D3D91FC3B35A2DF1EF981263EF9A4C9D358DAA4383EF4659B12B97EEB50"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/production-release-build.log",
+      "sizeBytes": 543,
+      "sha256": "2FBF2AD9A0D7594C01B03717DC654F9890BB44558FB41996120337A6A0000EFA"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/production-release-proof.json",
+      "sizeBytes": 2271,
+      "sha256": "D088A9ED0DE6562C6F2FE921156BAE2A2E6975E10564647CB41FFAAC6FF4D850"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/README.md",
+      "sizeBytes": 4393,
+      "sha256": "736E0F731FE292F70EFBB49CD1F28B78E09B372ABE806A8D985B79D8CC39CC47"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/validation-summary.json",
+      "sizeBytes": 4351,
+      "sha256": "C0B7B46ED96F0E0F07D2A8C3457EDE72776AAF8322309B88226A3F25F073C787"
+    },
+    {
+      "path": "artifacts/validation-refactor/runtime-probes-final.json",
+      "sizeBytes": 1644,
+      "sha256": "041BA649BDB1E2967EA6123EF3408BB59C1ADE2F84AF284E500C0218175EA042"
+    }
+  ],
+  "historicalNecessary": [
+    {
+      "path": "artifacts/assainissement-20261024/a03-closure-criteria.json",
+      "sizeBytes": 7104,
+      "sha256": "20C91908EA21CFF7506B53733FDA65170FF1406306E6FC31FE861D56982A3399"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/adversarial-validation-review.json",
+      "sizeBytes": 11267,
+      "sha256": "80E79C42A05829AF0592966C7EA591EE7B796377517A16D03485AD296D8F4885"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/backend-independent-review.json",
+      "sizeBytes": 14740,
+      "sha256": "CACED47A498CF7FB94E9DCF7A4C9D9A86B99BD24B746BD730033164FC1C07085"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/client-phase-independent-review.json",
+      "sizeBytes": 7269,
+      "sha256": "8514A5A3CD273DFCBD426890E28ED310B15A6890749FABD460752734328DC08D"
+    },
+    {
+      "path": "artifacts/assainissement-20261024/ui-conversation-independent-review.json",
+      "sizeBytes": 5776,
+      "sha256": "C5D4C7BF52DDA90DD42977F0716ECDBCD28FE057A5C5C1CB14E480B5F6A081B8"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/ExtractRun/ExtractRun.csproj",
+      "sizeBytes": 547,
+      "sha256": "DDB22C1182974DA536CE6B814270D9C64B825DABE8D48D7BB3996E15CAB3A10A"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/ExtractRun/Program.cs",
+      "sizeBytes": 20997,
+      "sha256": "86C79D184AD6B1140F45026C7FC0FE335FA838081C84FD5A80F3B5B0D830BA33"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/ExtractRun/runner-before.cs.txt",
+      "sizeBytes": 141150,
+      "sha256": "AC867C4734DEDFEC3052E4F880A30D75FF0A0B08F738230688ACE51B0F457E91"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/Program.cs",
+      "sizeBytes": 7670,
+      "sha256": "4C7A46F8E58AFE91AD83CF2DBACBC8BECEE05EB8D17E6DEEB28A20B5F3F3223A"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/removal-manifest.json",
+      "sizeBytes": 33029,
+      "sha256": "C7305D252ED405FAA20CBDB5E5F332641DB0D0CE169124CD89E033A3C14C9A3F"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/removed-private-methods-final-pass.json",
+      "sizeBytes": 907,
+      "sha256": "62EF2FD5738E974CC29591557669D3D93BDBE7EB4F83FAAB1D13F45873CF2A21"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/removed-private-methods-second-pass.json",
+      "sizeBytes": 6033,
+      "sha256": "05D57F1C3044335980B89843EE8F87BBDD080794943D8BB7232AC3F4D85D29DB"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/removed-private-methods-third-pass.json",
+      "sizeBytes": 1243,
+      "sha256": "1479C044C9B9F363E6F245360123A92B775B16089F79D8147542266442F8F269"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/removed-private-methods.json",
+      "sizeBytes": 22119,
+      "sha256": "790F827E43EFBB737FE13E660D8D7E959B2BAD6A35A521204EA38DBF938A37D4"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/RemoveMethods.csproj",
+      "sizeBytes": 665,
+      "sha256": "5F12C960EEBE7C8B362AF5D3FA11C7E3AC492CD251F5E8B092AA36B83DC2AD06"
+    },
+    {
+      "path": "artifacts/client-cleanup-20261024/runner-phase-extraction-proof.json",
+      "sizeBytes": 12944,
+      "sha256": "DAC1341289E975A1DAF9A5467F7BE99C54069497A0949AE193FAEF4CF37502D6"
+    },
+    {
+      "path": "artifacts/extract-interactive-pipeline-20261024/Analyze.csproj",
+      "sizeBytes": 611,
+      "sha256": "EC93E78D53FAFF1FFE68F8C5D8C1B23829D8E60507A4C5003A2179F87903EF30"
+    },
+    {
+      "path": "artifacts/extract-interactive-pipeline-20261024/config.json",
+      "sizeBytes": 14136,
+      "sha256": "2C8A339F7CED1DE5D07F10DA2C110E4DB2CACAC92C083C2FEBD5084C5290B2D1"
+    },
+    {
+      "path": "artifacts/extract-interactive-pipeline-20261024/extraction-notes.md",
+      "sizeBytes": 5790,
+      "sha256": "26DDA71E41773905767941B36DB85531B124E09A28A8E91B731076F418D1AC30"
+    },
+    {
+      "path": "artifacts/extract-interactive-pipeline-20261024/Program.cs",
+      "sizeBytes": 3203,
+      "sha256": "5698B622317B9880A4EBC9B15182F643CBAE59F2024D64F94201F6781287D6B1"
+    },
+    {
+      "path": "artifacts/extract-interactive-pipeline-20261024/RetrievalEngine.before.cs.txt",
+      "sizeBytes": 167925,
+      "sha256": "00B8F934E3BC5D5F2B69A8A687C458192C90B5766A58AC7A8EF8C2FF58E5787E"
+    },
+    {
+      "path": "artifacts/extract-interactive-pipeline-20261024/statement-coverage.json",
+      "sizeBytes": 41256,
+      "sha256": "7773C690B7B4D68DB10F3117AEBD17363D2380A75773ADEF42E27F609024AC3C"
+    },
+    {
+      "path": "artifacts/extract-native-routing-20261024/Extract.csproj",
+      "sizeBytes": 547,
+      "sha256": "DDB22C1182974DA536CE6B814270D9C64B825DABE8D48D7BB3996E15CAB3A10A"
+    },
+    {
+      "path": "artifacts/extract-native-routing-20261024/extraction-notes.md",
+      "sizeBytes": 4962,
+      "sha256": "D4FBBA9C874702401C546365BFAC6BCFE8378DEC57590E94D39C4DEF432ABC64"
+    },
+    {
+      "path": "artifacts/extract-native-routing-20261024/member-mapping.json",
+      "sizeBytes": 13791,
+      "sha256": "53427E8A3E0166EAA808E77151336D981CBD546F26A70E9022BF561104000CDD"
+    },
+    {
+      "path": "artifacts/extract-native-routing-20261024/Program.cs",
+      "sizeBytes": 5312,
+      "sha256": "80469E2733280C367ECF05EA3E482603B7F23CA2A96C1C285BCD9AFEFDDACA03"
+    },
+    {
+      "path": "artifacts/extract-native-routing-20261024/removed-test-adapters.json",
+      "sizeBytes": 1385,
+      "sha256": "76D02925E1DCE4269EFF9E7083FEBE5372AF4FE72735C802EB0F0D17777956BF"
+    },
+    {
+      "path": "artifacts/extract-native-routing-20261024/semantic-preservation.json",
+      "sizeBytes": 12796,
+      "sha256": "9C2EB9D4C24A88F0E8EF6F8EC5C5839A91063605FE97DCDAA53FFA0A395BD2F3"
+    },
+    {
+      "path": "artifacts/extract-native-routing-20261024/ToolAgentOrchestrator.NativeDocumentOverviewRouter.cs.before.txt",
+      "sizeBytes": 6401,
+      "sha256": "EBE4F9A11681A20E81E0AE1EC59214E1576379E43FC718B1556847907F4024C8"
+    },
+    {
+      "path": "artifacts/extract-native-routing-20261024/ToolAgentOrchestrator.NativeMissingUserInputProtocol.cs.before.txt",
+      "sizeBytes": 7012,
+      "sha256": "15B32728070018E3EE3860ECF259CC2EADBD6B0F25DEB336FE02761A1DE374C6"
+    },
+    {
+      "path": "artifacts/extract-native-routing-20261024/ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs.before.txt",
+      "sizeBytes": 92577,
+      "sha256": "47C9FDB9122084272413C25C2FA28CE7A6F81C4304470F0FF9019578960DDC5B"
+    },
+    {
+      "path": "artifacts/refactor-retrieval-20261024/dead-code-removal-proof.json",
+      "sizeBytes": 5233,
+      "sha256": "89342A52B1ADFEACE471808E40565F621D7249B9DAC4C1CC2D307455F2231A9B"
+    },
+    {
+      "path": "artifacts/refactor-retrieval-20261024/member-owners.json",
+      "sizeBytes": 69752,
+      "sha256": "6D209391A96DC50CF218F0829EA05E4D2E8A05C8909AABD5D306AD9D780E2B3F"
+    },
+    {
+      "path": "artifacts/refactor-retrieval-20261024/Program.cs",
+      "sizeBytes": 11920,
+      "sha256": "949FAF7DA8B37124CD6759BC24AD361D1EDD338C21E61133868A7BDCF4AB9634"
+    },
+    {
+      "path": "artifacts/refactor-retrieval-20261024/Refactor.csproj",
+      "sizeBytes": 547,
+      "sha256": "DDB22C1182974DA536CE6B814270D9C64B825DABE8D48D7BB3996E15CAB3A10A"
+    },
+    {
+      "path": "artifacts/session-state-audit-20261024/Analyze.csproj",
+      "sizeBytes": 547,
+      "sha256": "DDB22C1182974DA536CE6B814270D9C64B825DABE8D48D7BB3996E15CAB3A10A"
+    },
+    {
+      "path": "artifacts/session-state-audit-20261024/findings.md",
+      "sizeBytes": 8365,
+      "sha256": "8931D45EEAEF0E92889E944EC7D75C4AF39149DF6AA15B3F4A1B9D8EE7634151"
+    },
+    {
+      "path": "artifacts/session-state-audit-20261024/orchestrator-state-inventory.json",
+      "sizeBytes": 54919,
+      "sha256": "2F1B6B32F243A0D61896DF0ACF2AC337D52EAFE7D25B500BF846164908C20082"
+    },
+    {
+      "path": "artifacts/session-state-audit-20261024/Program.cs",
+      "sizeBytes": 4678,
+      "sha256": "C5C3648CAFA1D8AC308464E227D47939B26B6AC5C427C7F9E0C23FDEF873BAF8"
+    },
+    {
+      "path": "artifacts/validation-refactor/dead-function-proof.json",
+      "sizeBytes": 612,
+      "sha256": "BADDEB838BED2EA334B7FFBBEBCB279A0DDA3E9A486D6A857150EEB97530EC07"
+    },
+    {
+      "path": "artifacts/validation-refactor/test-split-preservation.json",
+      "sizeBytes": 736,
+      "sha256": "3FC12DF99C7007BACF4C8B9C53664830E6A558C69CE079B140FF1B3F1C9D4613"
+    },
+    {
+      "path": "artifacts/validation-refactor/transform/Program.cs",
+      "sizeBytes": 7427,
+      "sha256": "AB03CAB9247F1CC379839D98D6B03879E2CA83B4612E9B08EF0698FB615FD297"
+    },
+    {
+      "path": "artifacts/validation-refactor/transform/SplitTests.cs",
+      "sizeBytes": 5510,
+      "sha256": "A16C4A80A3981AD053569D698D3117404E5E8457E57CA4E590DBED7DF83DF466"
+    },
+    {
+      "path": "artifacts/validation-refactor/transform/Transform.csproj",
+      "sizeBytes": 500,
+      "sha256": "D54729A7544B715BEE3014EC3323936010132D9D06A1C3CC8AE97B6397D87B9E"
+    }
+  ],
+  "campaignChecks": [
+    {
+      "runId": "d21ff1de064d4cfcb9a04aeef970372e",
+      "manifest": "artifacts/assainissement-20261024/unit-backend-contracts-freeze/manifest.json",
+      "sourceChangedDuringRun": true,
+      "notExecuted": 0.0,
+      "trxHashesVerified": true,
+      "passed": 2450.0
+    },
+    {
+      "runId": "4e5c140d8624401890cc444973dad0e9",
+      "manifest": "artifacts/assainissement-20261024/postgres-freeze/tests/manifest.json",
+      "sourceChangedDuringRun": true,
+      "notExecuted": 2.0,
+      "trxHashesVerified": true,
+      "passed": 263.0
+    },
+    {
+      "runId": "27c6a30807d84df6a48ab508b7a18d27",
+      "manifest": "artifacts/client-cleanup-20261024/full-unit-session-final-freeze/manifest.json",
+      "sourceChangedDuringRun": false,
+      "notExecuted": 0.0,
+      "trxHashesVerified": true,
+      "passed": 2346.0
+    }
+  ],
+  "summary": {
+    "historicalNecessaryCount": 44,
+    "totalBytes": 12672957.0,
+    "finalAcceptedCount": 26,
+    "fileCount": 70
+  },
+  "integrity": {
+    "forbiddenPaths": [],
+    "sensitivePatternMatches": [],
+    "missingRequiredPaths": [],
+    "nonBytePreservedAttributes": []
+  },
+  "historicalInterpretation": "Independent reviews and A03 criteria record their review-time pending states. Final accepted campaigns and validation-final.json are authoritative for subsequent execution. Historical method counts describe the extraction operation, not final suite size.",
+  "reproductionSources": [
+    "tools/test-project.ps1",
+    "tools/test-postgres-isolated.ps1",
+    "tools/testing/Test-TestProfiles.ps1",
+    "tools/testing/Test-RuntimeProbes.ps1",
+    "tools/testing/fixtures/runtime-probe-server.py",
+    "tools/check-architecture.ps1"
+  ],
+  "reproductionLimits": [
+    "Historical mutation tools describe the audited operation and may deliberately fail on an already cleaned tree. Preserve the recorded baseline and snapshots; do not rerun their write modes against the final checkout.",
+    "Legacy intermediate logs/TRX/campaigns and synthetic PG fixture PDFs/JSON are intentionally omitted; final campaign manifests, TRX and source inventories supersede them.",
+    "Artifacts reference binary hashes but binaries are intentionally not selected. Restore/build from repository and compare hashes where reproducible; no-build manifests do not establish prior source-to-binary correspondence alone.",
+    "Native UI/PDF visual and paid semantic acceptance were not executed."
+  ],
+  "self": "Include this index itself; its own SHA is intentionally not recursive."
+}

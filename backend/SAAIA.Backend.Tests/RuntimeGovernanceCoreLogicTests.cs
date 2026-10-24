@@ -258,7 +258,7 @@ public sealed class RuntimeGovernanceCoreLogicTests
     [Fact]
     public void BuildLexicalContentFallbackTerms_keeps_query_terms_without_domain_translation()
     {
-        var terms = RagEndpoints.BuildLexicalContentFallbackTerms("Je veux les documents qui parlent d'inertage");
+        var terms = RetrievalLexicalExpansion.BuildLexicalContentFallbackTerms("Je veux les documents qui parlent d'inertage");
 
         Assert.Contains("inertage", terms);
         Assert.DoesNotContain("inerting", terms);
@@ -269,7 +269,7 @@ public sealed class RuntimeGovernanceCoreLogicTests
     [Fact]
     public void BuildLexicalContentFallbackTerms_bridges_generic_surface_treatment_terms()
     {
-        var terms = RagEndpoints.BuildLexicalContentFallbackTerms(
+        var terms = RetrievalLexicalExpansion.BuildLexicalContentFallbackTerms(
             "Retrouve les documents qui parlent de poudrage et donne les passages utiles.");
 
         Assert.Contains("poudrage", terms);
@@ -282,8 +282,8 @@ public sealed class RuntimeGovernanceCoreLogicTests
     [Fact]
     public void ExpandRetrievalQuery_bridges_surface_treatment_terms_without_category_dependency()
     {
-        var expanded = RagEndpoints.ExpandRetrievalQuery("poudrage", "construction");
-        var expandedOtherCategory = RagEndpoints.ExpandRetrievalQuery("poudrage", "catalogue commercial");
+        var expanded = RetrievalLexicalExpansion.ExpandRetrievalQuery("poudrage", "construction");
+        var expandedOtherCategory = RetrievalLexicalExpansion.ExpandRetrievalQuery("poudrage", "catalogue commercial");
 
         Assert.Contains("powder coating", expanded, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(expanded, expandedOtherCategory);
@@ -292,7 +292,7 @@ public sealed class RuntimeGovernanceCoreLogicTests
     [Fact]
     public void BuildLexicalContentFallbackTerms_extracts_generic_singular_phrases()
     {
-        var terms = RagEndpoints.BuildLexicalContentFallbackTerms(
+        var terms = RetrievalLexicalExpansion.BuildLexicalContentFallbackTerms(
             "Compare les deux rapports techniques du corpus : differences de methode et style.");
 
         Assert.Contains("rapport", terms);
@@ -305,7 +305,7 @@ public sealed class RuntimeGovernanceCoreLogicTests
     [Fact]
     public void BuildLexicalContentFallbackTerms_folds_accents_and_common_ligatures()
     {
-        var terms = RagEndpoints.BuildLexicalContentFallbackTerms(
+        var terms = RetrievalLexicalExpansion.BuildLexicalContentFallbackTerms(
             "Tu peux me faire une fiche claire pour « Bœuf à l'aïoli épicé » ?");
 
         Assert.Contains("boeuf", terms);
@@ -316,7 +316,7 @@ public sealed class RuntimeGovernanceCoreLogicTests
         Assert.Contains("boeuf aioli", terms);
         Assert.Contains("bœuf aïoli", terms);
 
-        var accentTerms = RagEndpoints.BuildLexicalContentFallbackTerms(
+        var accentTerms = RetrievalLexicalExpansion.BuildLexicalContentFallbackTerms(
             "Sauce bearnaise, bechamel, eclairs et entrecote");
         Assert.Contains("bearnaise", accentTerms);
         Assert.Contains("bechamel", accentTerms);
@@ -328,7 +328,7 @@ public sealed class RuntimeGovernanceCoreLogicTests
     [Fact]
     public void BuildLexicalContentFallbackTerms_keeps_adjacent_word_number_document_cues()
     {
-        var terms = RagEndpoints.BuildLexicalContentFallbackTerms(
+        var terms = RetrievalLexicalExpansion.BuildLexicalContentFallbackTerms(
             "Compare la paella francaise/top 30 et celle du livre international.");
 
         Assert.Contains("paella", terms);
@@ -336,7 +336,7 @@ public sealed class RuntimeGovernanceCoreLogicTests
         Assert.DoesNotContain("30", terms);
         Assert.DoesNotContain("30 et", terms);
 
-        var technicalTerms = RagEndpoints.BuildLexicalContentFallbackTerms(
+        var technicalTerms = RetrievalLexicalExpansion.BuildLexicalContentFallbackTerms(
             "Compare ISO 27001 avec API v2 dans les notes de migration.");
 
         Assert.Contains("iso 27001", technicalTerms);
@@ -348,8 +348,8 @@ public sealed class RuntimeGovernanceCoreLogicTests
     public void ExpandRetrievalQuery_uses_query_terms_not_category_name()
     {
         var query = "Quelle sauce avec une entrec\u00f4te ?";
-        var expanded = RagEndpoints.ExpandRetrievalQuery(query, "cuisine");
-        var expandedOtherCategory = RagEndpoints.ExpandRetrievalQuery(query, "atex");
+        var expanded = RetrievalLexicalExpansion.ExpandRetrievalQuery(query, "cuisine");
+        var expandedOtherCategory = RetrievalLexicalExpansion.ExpandRetrievalQuery(query, "atex");
 
         Assert.Contains("entrecote", expanded);
         Assert.DoesNotContain("steak", expanded);
@@ -358,52 +358,52 @@ public sealed class RuntimeGovernanceCoreLogicTests
         Assert.DoesNotContain("sauces trempettes", expanded);
         Assert.Equal(expanded, expandedOtherCategory);
 
-        var unchanged = RagEndpoints.ExpandRetrievalQuery("procedure onboarding fournisseur", "hr");
+        var unchanged = RetrievalLexicalExpansion.ExpandRetrievalQuery("procedure onboarding fournisseur", "hr");
         Assert.Equal("procedure onboarding fournisseur", unchanged);
     }
 
     [Fact]
     public void ShouldSupplementSparseWithLexicalFallback_uses_generic_query_signal()
     {
-        Assert.True(RagEndpoints.ShouldSupplementSparseWithLexicalFallback("cuisine", "activité cuisine avec des enfants"));
-        Assert.True(RagEndpoints.ShouldSupplementSparseWithLexicalFallback("atex", "quelle sauce avec une entrecôte"));
-        Assert.True(RagEndpoints.ShouldSupplementSparseWithLexicalFallback("hr", "procedure onboarding fournisseur"));
-        Assert.True(RagEndpoints.ShouldSupplementSparseWithLexicalFallback(null, "manual ABC-123 pressure valve"));
-        Assert.False(RagEndpoints.ShouldSupplementSparseWithLexicalFallback(null, "ok merci"));
+        Assert.True(RetrievalCandidateSignals.ShouldSupplementSparseWithLexicalFallback("cuisine", "activité cuisine avec des enfants"));
+        Assert.True(RetrievalCandidateSignals.ShouldSupplementSparseWithLexicalFallback("atex", "quelle sauce avec une entrecôte"));
+        Assert.True(RetrievalCandidateSignals.ShouldSupplementSparseWithLexicalFallback("hr", "procedure onboarding fournisseur"));
+        Assert.True(RetrievalCandidateSignals.ShouldSupplementSparseWithLexicalFallback(null, "manual ABC-123 pressure valve"));
+        Assert.False(RetrievalCandidateSignals.ShouldSupplementSparseWithLexicalFallback(null, "ok merci"));
     }
 
     [Fact]
     public void ResolveEffectiveSearchMode_infers_broad_for_comparative_intent_without_domain_hardcoding()
     {
-        Assert.Equal("broad", RagEndpoints.ResolveEffectiveSearchMode(null, "Compare trois procedures et dis laquelle choisir."));
-        Assert.Equal("broad", RagEndpoints.ResolveEffectiveSearchMode(null, "Quel document est le plus technique ?"));
-        Assert.Equal("broad", RagEndpoints.ResolveEffectiveSearchMode(null, "Quels documents sont disponibles dans la base ?"));
-        Assert.Equal("broad", RagEndpoints.ResolveEffectiveSearchMode(null, "Tu peux me faire une vue d'ensemble des documents par grands themes ?"));
-        Assert.Equal("broad", RagEndpoints.ResolveEffectiveSearchMode(null, "Which manuals are available in the knowledge base?"));
-        Assert.Equal("broad", RagEndpoints.ResolveEffectiveSearchMode("", "Which report is the most relevant?"));
-        Assert.Equal("focused", RagEndpoints.ResolveEffectiveSearchMode("focused", "Compare les options."));
-        Assert.Equal("balanced", RagEndpoints.ResolveEffectiveSearchMode(null, "Donne-moi la procedure d'installation."));
+        Assert.Equal("broad", RetrievalQueryPolicy.ResolveEffectiveSearchMode(null, "Compare trois procedures et dis laquelle choisir."));
+        Assert.Equal("broad", RetrievalQueryPolicy.ResolveEffectiveSearchMode(null, "Quel document est le plus technique ?"));
+        Assert.Equal("broad", RetrievalQueryPolicy.ResolveEffectiveSearchMode(null, "Quels documents sont disponibles dans la base ?"));
+        Assert.Equal("broad", RetrievalQueryPolicy.ResolveEffectiveSearchMode(null, "Tu peux me faire une vue d'ensemble des documents par grands themes ?"));
+        Assert.Equal("broad", RetrievalQueryPolicy.ResolveEffectiveSearchMode(null, "Which manuals are available in the knowledge base?"));
+        Assert.Equal("broad", RetrievalQueryPolicy.ResolveEffectiveSearchMode("", "Which report is the most relevant?"));
+        Assert.Equal("focused", RetrievalQueryPolicy.ResolveEffectiveSearchMode("focused", "Compare les options."));
+        Assert.Equal("balanced", RetrievalQueryPolicy.ResolveEffectiveSearchMode(null, "Donne-moi la procedure d'installation."));
     }
 
     [Fact]
     public void Comparative_document_diversity_uses_wider_candidates_and_one_chunk_per_doc()
     {
-        Assert.True(RagEndpoints.ShouldPreferComparativeDocumentDiversity("Compare les options disponibles."));
-        Assert.True(RagEndpoints.ShouldPreferComparativeDocumentDiversity("Qual documento e o mais tecnico?"));
-        Assert.True(RagEndpoints.ShouldPreferDocumentDiversity("Quels livres vois-tu dans cette base documentaire ?"));
-        Assert.True(RagEndpoints.ShouldPreferDocumentDiversity("Fammi una panoramica dei documenti disponibili."));
-        Assert.False(RagEndpoints.ShouldPreferDocumentDiversity("Donne-moi la procedure d'installation."));
-        Assert.True(RagEndpoints.ShouldSkipChunkRetrieversForDocumentOverview("Quels documents sont disponibles dans la base ?", hasDocScope: false, mode: "balanced"));
-        Assert.False(RagEndpoints.ShouldSkipChunkRetrieversForDocumentOverview("Quels documents sont disponibles dans la base ?", hasDocScope: true, mode: "balanced"));
-        Assert.False(RagEndpoints.ShouldSkipChunkRetrieversForDocumentOverview("Quels documents sont disponibles dans la base ?", hasDocScope: false, mode: "focused"));
-        Assert.True(RagEndpoints.ShouldRequireDocumentOverviewProfileMatch("Quels documents parlent d'inertage ?"));
-        Assert.True(RagEndpoints.ShouldRequireDocumentOverviewProfileMatch("Which documents mention nitrogen blanketing?"));
-        Assert.False(RagEndpoints.ShouldRequireDocumentOverviewProfileMatch("Quels documents sont disponibles dans la base ?"));
-        Assert.False(RagEndpoints.ShouldRequireDocumentOverviewProfileMatch("Quels livres de recettes tu vois dans la base et a quoi ils servent chacun ?"));
-        Assert.Equal(120, RagEndpoints.ResolveDefaultCandidateCount("broad", preferComparativeDiversity: true, topK: 8));
-        Assert.Equal(96, RagEndpoints.ResolveDefaultCandidateCount("broad", preferComparativeDiversity: false, topK: 8));
-        Assert.Equal(1, RagEndpoints.ResolveDefaultMaxPerDoc("broad", preferComparativeDiversity: true, topK: 8));
-        Assert.Equal(2, RagEndpoints.ResolveDefaultMaxPerDoc("broad", preferComparativeDiversity: false, topK: 8));
+        Assert.True(RetrievalQueryPolicy.ShouldPreferComparativeDocumentDiversity("Compare les options disponibles."));
+        Assert.True(RetrievalQueryPolicy.ShouldPreferComparativeDocumentDiversity("Qual documento e o mais tecnico?"));
+        Assert.True(RetrievalQueryPolicy.ShouldPreferDocumentDiversity("Quels livres vois-tu dans cette base documentaire ?"));
+        Assert.True(RetrievalQueryPolicy.ShouldPreferDocumentDiversity("Fammi una panoramica dei documenti disponibili."));
+        Assert.False(RetrievalQueryPolicy.ShouldPreferDocumentDiversity("Donne-moi la procedure d'installation."));
+        Assert.True(RetrievalQueryPolicy.ShouldSkipChunkRetrieversForDocumentOverview("Quels documents sont disponibles dans la base ?", hasDocScope: false, mode: "balanced"));
+        Assert.False(RetrievalQueryPolicy.ShouldSkipChunkRetrieversForDocumentOverview("Quels documents sont disponibles dans la base ?", hasDocScope: true, mode: "balanced"));
+        Assert.False(RetrievalQueryPolicy.ShouldSkipChunkRetrieversForDocumentOverview("Quels documents sont disponibles dans la base ?", hasDocScope: false, mode: "focused"));
+        Assert.True(RetrievalQueryPolicy.ShouldRequireDocumentOverviewProfileMatch("Quels documents parlent d'inertage ?"));
+        Assert.True(RetrievalQueryPolicy.ShouldRequireDocumentOverviewProfileMatch("Which documents mention nitrogen blanketing?"));
+        Assert.False(RetrievalQueryPolicy.ShouldRequireDocumentOverviewProfileMatch("Quels documents sont disponibles dans la base ?"));
+        Assert.False(RetrievalQueryPolicy.ShouldRequireDocumentOverviewProfileMatch("Quels livres de recettes tu vois dans la base et a quoi ils servent chacun ?"));
+        Assert.Equal(120, RetrievalQueryPolicy.ResolveDefaultCandidateCount("broad", preferComparativeDiversity: true, topK: 8));
+        Assert.Equal(96, RetrievalQueryPolicy.ResolveDefaultCandidateCount("broad", preferComparativeDiversity: false, topK: 8));
+        Assert.Equal(1, RetrievalQueryPolicy.ResolveDefaultMaxPerDoc("broad", preferComparativeDiversity: true, topK: 8));
+        Assert.Equal(2, RetrievalQueryPolicy.ResolveDefaultMaxPerDoc("broad", preferComparativeDiversity: false, topK: 8));
     }
 
     [Fact]
@@ -413,8 +413,8 @@ public sealed class RuntimeGovernanceCoreLogicTests
         var profile = CreateRetrievalMatch("profile", "Knowledge/manual.pdf", "document_profile", 0.86);
         var ranked = new[] { profile, chunk };
 
-        Assert.Equal(["chunk", "profile"], RagEndpoints.OrderMatchesForSelection(ranked, prioritizeDocumentProfiles: false).Select(static match => match.ChunkId));
-        Assert.Equal(["profile", "chunk"], RagEndpoints.OrderMatchesForSelection(ranked, prioritizeDocumentProfiles: true).Select(static match => match.ChunkId));
+        Assert.Equal(["chunk", "profile"], RetrievalSelection.OrderMatchesForSelection(ranked, prioritizeDocumentProfiles: false).Select(static match => match.ChunkId));
+        Assert.Equal(["profile", "chunk"], RetrievalSelection.OrderMatchesForSelection(ranked, prioritizeDocumentProfiles: true).Select(static match => match.ChunkId));
     }
 
     [Fact]
@@ -425,19 +425,19 @@ public sealed class RuntimeGovernanceCoreLogicTests
             Text = "Ce document comprend une liste de contenus disponibles et un apercu des sujets traites."
         };
 
-        Assert.False(RagEndpoints.LooksLikeNavigationalChunk(profile));
-        Assert.False(RagEndpoints.LooksLikeGlossaryChunk(profile));
+        Assert.False(RetrievalCandidateSignals.LooksLikeNavigationalChunk(profile));
+        Assert.False(RetrievalCandidateSignals.LooksLikeGlossaryChunk(profile));
     }
 
     [Fact]
     public void Comparative_subject_anchor_uses_requested_subject_not_the_criterion()
     {
-        var tokens = RagEndpoints.ExtractComparativeSubjectAnchorTokens("Quel dessert est le plus technique ?");
+        var tokens = RetrievalCandidateSignals.ExtractComparativeSubjectAnchorTokens("Quel dessert est le plus technique ?");
 
         Assert.Contains("dessert", tokens);
         Assert.DoesNotContain("technique", tokens);
-        Assert.True(RagEndpoints.ContainsComparativeSubjectAnchor(tokens, "Desserts et patisserie."));
-        Assert.False(RagEndpoints.ContainsComparativeSubjectAnchor(tokens, "Technique très simple pour une procedure."));
+        Assert.True(RetrievalCandidateSignals.ContainsComparativeSubjectAnchor(tokens, "Desserts et patisserie."));
+        Assert.False(RetrievalCandidateSignals.ContainsComparativeSubjectAnchor(tokens, "Technique très simple pour une procedure."));
     }
 
     [Fact]
@@ -488,7 +488,7 @@ public sealed class RuntimeGovernanceCoreLogicTests
             null,
             null);
 
-        var ranked = RagEndpoints.CalibrateFusedMatches(
+        var ranked = RetrievalSelection.CalibrateFusedMatches(
             "Quel dessert est le plus technique ?",
             [criterionOnly, subjectMatch]);
 
@@ -543,14 +543,14 @@ public sealed class RuntimeGovernanceCoreLogicTests
             null,
             null);
 
-        var filtered = RagEndpoints.SuppressNavigationalNoise(
+        var filtered = RetrievalSelection.SuppressNavigationalNoise(
             "Quel dessert est le plus technique ?",
             [glossary, content]);
-        var definition = RagEndpoints.SuppressNavigationalNoise(
+        var definition = RetrievalSelection.SuppressNavigationalNoise(
             "Que veut dire pocher ?",
             [glossary, content]);
 
-        Assert.True(RagEndpoints.LooksLikeGlossaryChunk(glossary));
+        Assert.True(RetrievalCandidateSignals.LooksLikeGlossaryChunk(glossary));
         Assert.DoesNotContain(filtered, match => match.DocId == "doc-glossary");
         Assert.Contains(definition, match => match.DocId == "doc-glossary");
     }

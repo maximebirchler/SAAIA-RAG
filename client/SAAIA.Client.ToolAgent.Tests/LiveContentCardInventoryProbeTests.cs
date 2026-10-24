@@ -10,7 +10,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class LiveContentCardInventoryProbeTests(ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LiveLocal")]
+    [ProfileFact("LiveLocal")]
     public async Task Live_cuisine_content_card_inventory_is_paged_citable_and_materialized()
     {
         if (!string.Equals(
@@ -20,7 +21,7 @@ public sealed class LiveContentCardInventoryProbeTests(ITestOutputHelper output)
         {
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_CONTENT_CARD_INVENTORY_PROBE=1 to inspect the live inventory.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

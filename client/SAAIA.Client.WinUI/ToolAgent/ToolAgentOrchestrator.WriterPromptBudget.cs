@@ -129,32 +129,6 @@ Rules:
 ";
     }
 
-    private static ToolResults BuildOverflowRetryWriterToolResults(ToolResults writerToolResults, string userMessage)
-    {
-        var retry = new ToolResults();
-        var ragItems = writerToolResults.Items
-            .Where(static item => item.ToolName is "rag.search" or "rag.multi_search"
-                                  && string.IsNullOrWhiteSpace(item.Error)
-                                  && item.Result.ValueKind == JsonValueKind.Object)
-            .ToList();
-        if (ragItems.Count == 0)
-            return retry;
-
-        retry.Items.Add(new ToolResults.Item
-        {
-            ToolName = ragItems.Any(static item => item.ToolName == "rag.multi_search") ? "rag.multi_search" : "rag.search",
-            Error = null,
-            DurationMs = ragItems.Sum(static item => Math.Max(0, item.DurationMs)),
-            Result = CompactMergedRagResultsForWriter(
-                ragItems.Select(static item => item.Result).ToList(),
-                userMessage,
-                precise: false,
-                maxHitsOverride: LooksLikeAnyDocumentaryPlanningRequest(userMessage) ? 6 : 5)
-        });
-
-        return retry;
-    }
-
     private static bool HasMergedOrMultipleRagEvidence(ToolResults toolResults)
     {
         var ragItems = toolResults.Items

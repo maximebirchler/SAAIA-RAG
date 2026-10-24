@@ -970,14 +970,6 @@ internal static partial class DocumentTitleNavigationProjector
             || string.Equals(reason, "explicit_index_marker", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool ContainsNormalizedPhrase(string haystack, string needle)
-        => !string.IsNullOrWhiteSpace(haystack)
-            && !string.IsNullOrWhiteSpace(needle)
-            && (string.Equals(haystack, needle, StringComparison.Ordinal)
-                || haystack.StartsWith(needle + " ", StringComparison.Ordinal)
-                || haystack.EndsWith(" " + needle, StringComparison.Ordinal)
-                || haystack.Contains(" " + needle + " ", StringComparison.Ordinal));
-
     private static bool EndsWithNormalizedPhrase(string haystack, string needle)
         => !string.IsNullOrWhiteSpace(haystack)
             && !string.IsNullOrWhiteSpace(needle)

@@ -374,27 +374,6 @@ public sealed partial class ToolAgentOrchestrator
     private Task<JsonElement> ExecAdminCatalogRescanNowAsync(CancellationToken ct)
         => _api.AdminCatalogRescanNowAsync(ct);
 
-    private async Task<JsonElement> ExecAdminIngestionReindexAsync(JsonElement args, CancellationToken ct)
-    {
-        var docRef = GetPreferredDocRef(args);
-        if (docRef is null)
-            return JsonDocument.Parse("{\"error\":\"missing_doc_ref\"}").RootElement;
-
-        var strict = await ResolveExplicitDocumentReferenceAsync(docRef, ct).ConfigureAwait(false);
-        if (!strict.IsResolved || strict.Document is null)
-        {
-            var error = strict.IsCategoryReference
-                ? "doc_target_is_category"
-                : strict.IsAmbiguous
-                    ? "doc_ref_ambiguous"
-                    : "doc_not_found";
-            using var errorDoc = JsonDocument.Parse($"{{\"error\":\"{error}\"}}");
-            return errorDoc.RootElement.Clone();
-        }
-
-        return await _api.AdminIngestionReindexAsync(strict.Document.DocPath, ct).ConfigureAwait(false);
-    }
-
     private async Task<JsonElement> ExecAdminJobsListAsync(JsonElement args, CancellationToken ct)
     {
         var type = GetStringArg(args, "type");
@@ -426,6 +405,17 @@ public sealed partial class ToolAgentOrchestrator
     private JsonElement ExecDiagnosticPerformance(JsonElement args)
     {
         var payload = BuildAgentRuntimeSnapshot();
+        var lastN = Math.Clamp(GetIntArg(args, "lastN") ?? 1, 1, 64);
+        var turns = ClientDiagnostics.Journal.Last(lastN, "chat_turn");
+        var previous = turns.LastOrDefault();
+        payload["requestedLastN"] = lastN;
+        payload["returnedTurns"] = turns.Count;
+        payload["completedTurns"] = turns;
+        payload["measurementScope"] = "completed_end_to_end_turns";
+        payload["available"] = previous is not null;
+        payload["totalMs"] = previous?.TotalMilliseconds;
+        foreach (var phase in new[] { "router", "tools", "writer", "critic", "localPipeline", "advanced", "uiPersistence" })
+            payload[phase + "Ms"] = previous is not null && previous.Phases.TryGetValue(phase, out var value) ? value : null;
         return JsonDocument.Parse(JsonSerializer.Serialize(payload)).RootElement;
     }
 

@@ -9,7 +9,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class LiveFocusedDocumentRetrievalComparisonProbeTests(
     ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_focused_document_routes_are_captured_when_enabled()
     {
         if (!string.Equals(
@@ -20,7 +21,7 @@ public sealed class LiveFocusedDocumentRetrievalComparisonProbeTests(
         {
             output.WriteLine(
                 "Skipped: enable SAAIA_LIVE_FOCUSED_DOCUMENT_RETRIEVAL_PROBE to compare focused routes.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

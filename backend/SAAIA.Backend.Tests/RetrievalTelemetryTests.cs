@@ -117,7 +117,7 @@ public sealed class RetrievalTelemetryTests
 
         ActivitySource.AddActivityListener(listener);
 
-        using (var search = RetrievalTelemetry.StartSearchActivity(
+        using (var search = RetrievalTelemetry.StartSearchScope(
             mode: "broad",
             hasCategoryFilter: true,
             hasDocScope: true,
@@ -125,9 +125,9 @@ public sealed class RetrievalTelemetryTests
             candidates: 48,
             query: "Ou trouve-t-on EN 15281 ?"))
         {
-            using (var phase = RetrievalTelemetry.StartPhaseActivity("retrieval_exact_match"))
+            using (var phase = RetrievalTelemetry.StartPhaseScope("retrieval_exact_match"))
             {
-                RetrievalTelemetry.CompletePhase(phase, returned: 1, durationMs: 12, retriever: "exact_match");
+                RetrievalTelemetry.CompletePhase(phase.Activity, returned: 1, durationMs: 12, retriever: "exact_match");
             }
 
             var response = new RagSearchResponse(
@@ -147,7 +147,7 @@ public sealed class RetrievalTelemetryTests
                     new RagMatch(1.0, "doc-1", "ATEX/CEN.pdf", "CEN.pdf", 1, 1, "chunk-1", 0, "EN 15281", 1, "hash", "EN 15281", "exact_match_v1", null, null, null, null, "document_metadata_ref", null, null, null)
                 ]);
 
-            RetrievalTelemetry.CompleteSearch(search, response, "broad", hasCategoryFilter: true, hasDocScope: true);
+            RetrievalTelemetry.CompleteSearch(search.Activity, response, "broad", hasCategoryFilter: true, hasDocScope: true);
         }
 
         Assert.Contains(started, activity => activity.OperationName == "rag.search");
@@ -183,7 +183,7 @@ public sealed class RetrievalTelemetryTests
 
         ActivitySource.AddActivityListener(activityListener);
 
-        using (RetrievalTelemetry.StartSearchActivity(
+        using (RetrievalTelemetry.StartSearchScope(
             mode: "balanced",
             hasCategoryFilter: false,
             hasDocScope: false,

@@ -48,6 +48,8 @@ public sealed partial class MainWindow
         {
             DispatcherQueue.TryEnqueue(() =>
             {
+                if (!string.Equals(_sessionId, targetSessionId, StringComparison.OrdinalIgnoreCase))
+                    return;
                 TrySoftUi("SyncSessionSelectionVisual.DispatcherQueue.ApplySelectionState", () => ApplySessionContainerSelectionState(targetSessionId));
                 TrySoftUi("SyncSessionSelectionVisual.DispatcherQueue.SelectedItem", () =>
                 {
@@ -100,65 +102,76 @@ public sealed partial class MainWindow
 
     private async Task LoadSessionAsync(ChatSessionItem session, CancellationToken ct)
     {
-        if (_isLoadingSession) return;
-
-        _isLoadingSession = true;
+        if (_isGenerating) return;
+        using var sessionChange = _conversationActivity.TryBeginSessionChange(session.SessionId);
+        if (sessionChange is null) return;
+        UpdateUiState(_isGenerating);
         try
         {
-            _sessionId = session.SessionId;
-            SaveSettings();
-            SyncSessionSelectionVisual(_sessionId);
-            try
-            {
-                DispatcherQueue.TryEnqueue(() =>
-                {
-                    try { SyncSessionSelectionVisual(_sessionId); } catch { }
-                });
-            }
-            catch { }
-
-            Status(ClientUiText.Get("status.loading_chat", _appSettings.UiLanguage));
-
-            _agent?.ResetConversationState();
-            ClearStagedOutboundMessage();
-            _messages.Clear();
-            var msgs = await _api.ListMessagesAsync(_sessionId!, ct);
-            await PreRefreshTrackedMessagesAsync(msgs, _sessionId, ct);
-            foreach (var m in msgs) _messages.Add(m);
-            _agent?.RehydrateConversationState(_messages);
-            await RehydrateTrackedJobsForCurrentSessionAsync(refreshBeforeLoop: false);
-            RebindDirectCommandTrackersForCurrentSession();
-            StartAdvancedAnalysisTrackersForCurrentSession();
-
-            // reset
-            SourcesCards.Items = new List<SourceCard>();
-            SourcesBox.Text = "";
-
-            // ✅ toujours reset auto-follow au chargement
-            _autoFollow = true;
-            _userScrolledUp = false;
-            UpdateJumpButton();
-
-            if (_messages.Count > 0)
-            {
-                var lastWithSources = _messages.LastOrDefault(m => !string.IsNullOrWhiteSpace(m.SourcesJson));
-                MessagesList.SelectedItem = lastWithSources ?? _messages[^1];
-                ScrollToBottom(force: true);
-            }
-            else
-            {
-                ScrollToBottom(force: true);
-            }
-
-
-            Status(ClientUiText.Format("status.loaded_session", _appSettings.UiLanguage, _sessionId ?? string.Empty));
-            SyncSessionSelectionVisual(_sessionId);
-            UpdateUiState(_isGenerating);
+            await LoadSessionCoreAsync(session, ct, sessionChange);
         }
         finally
         {
-            _isLoadingSession = false;
+            sessionChange.Dispose();
+            UpdateUiState(_isGenerating);
         }
+    }
+
+    private async Task LoadSessionCoreAsync(ChatSessionItem session, CancellationToken ct,
+        SAAIA.Client.Core.Conversation.ConversationActivityGate.ActivityLease sessionChange)
+    {
+        var requestedSessionId = session.SessionId;
+        Status(ClientUiText.Get("status.loading_chat", _appSettings.UiLanguage));
+        var msgs = await _api.ListMessagesAsync(requestedSessionId, ct);
+        await PreRefreshTrackedMessagesAsync(msgs, requestedSessionId, ct);
+        ct.ThrowIfCancellationRequested();
+        if (!sessionChange.IsCurrent) return;
+
+        // Replace the selected session and its memory together after a successful read.
+        _sessionId = requestedSessionId;
+        SaveSettings();
+        SyncSessionSelectionVisual(_sessionId);
+        try
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                try { SyncSessionSelectionVisual(_sessionId); } catch { }
+            });
+        }
+        catch { }
+
+        _agent?.ResetConversationState();
+        ClearStagedOutboundMessage();
+        _messages.Clear();
+        foreach (var m in msgs) _messages.Add(m);
+        _agent?.RehydrateConversationState(_messages);
+        await RehydrateTrackedJobsForCurrentSessionAsync(refreshBeforeLoop: false);
+        RebindDirectCommandTrackersForCurrentSession();
+        StartAdvancedAnalysisTrackersForCurrentSession();
+
+        // reset
+        SourcesCards.Items = new List<SourceCard>();
+        SourcesBox.Text = "";
+
+        // ✅ toujours reset auto-follow au chargement
+        _autoFollow = true;
+        _userScrolledUp = false;
+        UpdateJumpButton();
+
+        if (_messages.Count > 0)
+        {
+            var lastWithSources = _messages.LastOrDefault(m => !string.IsNullOrWhiteSpace(m.SourcesJson));
+            MessagesList.SelectedItem = lastWithSources ?? _messages[^1];
+            ScrollToBottom(force: true);
+        }
+        else
+        {
+            ScrollToBottom(force: true);
+        }
+
+
+        Status(ClientUiText.Format("status.loaded_session", _appSettings.UiLanguage, _sessionId ?? string.Empty));
+        SyncSessionSelectionVisual(_sessionId);
     }
 
 
@@ -172,9 +185,13 @@ public sealed partial class MainWindow
         {
             if (!string.Equals(_sessionId, sel.SessionId, StringComparison.OrdinalIgnoreCase))
             {
-                _sessionId = sel.SessionId;
-                SyncSessionSelectionVisual(sel.SessionId);
-                await LoadSessionAsync(sel, CancellationToken.None);
+                try { await LoadSessionAsync(sel, CancellationToken.None); }
+                catch (Exception exception)
+                {
+                    ClientLog.Exception("Session.Load", exception);
+                    SyncSessionSelectionVisual(_sessionId);
+                    Status(exception.Message);
+                }
             }
         }
     }
@@ -188,6 +205,9 @@ public sealed partial class MainWindow
         }
 
         if (_isGenerating) return;
+        using var sessionChange = _conversationActivity.TryBeginSessionChange();
+        if (sessionChange is null) return;
+        UpdateUiState(_isGenerating);
 
         try
         {
@@ -196,11 +216,11 @@ public sealed partial class MainWindow
             var res = await _api.CreateSessionAsync(GetDefaultSessionTitle(), Environment.UserName, CancellationToken.None);
 
             // refresh pour ordre correct (backend ORDER BY updated_at desc)
-            await RefreshSessionsAsync(preferSessionId: res.SessionId, CancellationToken.None);
+            await RefreshSessionsAsync(CancellationToken.None);
 
             var selectedNewSession = FindSessionById(res.SessionId ?? _sessionId);
             if (selectedNewSession is not null)
-                await LoadSessionAsync(selectedNewSession, CancellationToken.None);
+                await LoadSessionCoreAsync(selectedNewSession, CancellationToken.None, sessionChange);
 
             Status(ClientUiText.Format("status.new_session", _appSettings.UiLanguage, _sessionId ?? string.Empty));
         }
@@ -210,6 +230,7 @@ public sealed partial class MainWindow
         }
         finally
         {
+            sessionChange.Dispose();
             UpdateUiState(isGenerating: false);
         }
     }
@@ -220,6 +241,10 @@ public sealed partial class MainWindow
 
         if (sender is not MenuFlyoutItem mi) return;
         if (mi.CommandParameter is not ChatSessionItem s) return;
+
+        using var sessionChange = _conversationActivity.TryBeginSessionChange();
+        if (sessionChange is null) return;
+        UpdateUiState(_isGenerating);
 
         try
         {
@@ -267,13 +292,18 @@ public sealed partial class MainWindow
 
             await _api.UpdateSessionTitleAsync(s.SessionId, newTitle, CancellationToken.None);
 
-            await RefreshSessionsAsync(preferSessionId: s.SessionId, CancellationToken.None);
-            SyncSessionSelectionVisual(s.SessionId);
+            await RefreshSessionsAsync(CancellationToken.None);
+            SyncSessionSelectionVisual(_sessionId);
             Status(ClientUiText.Get("session.rename.done", lang));
         }
         catch (Exception ex)
         {
             Status(ClientUiText.Get("session.rename.failed", _appSettings.UiLanguage) + ex.Message);
+        }
+        finally
+        {
+            sessionChange.Dispose();
+            UpdateUiState(_isGenerating);
         }
     }
 
@@ -283,6 +313,10 @@ public sealed partial class MainWindow
 
         if (sender is not MenuFlyoutItem mi) return;
         if (mi.CommandParameter is not ChatSessionItem s) return;
+
+        using var sessionChange = _conversationActivity.TryBeginSessionChange();
+        if (sessionChange is null) return;
+        UpdateUiState(_isGenerating);
 
         try
         {
@@ -317,19 +351,38 @@ public sealed partial class MainWindow
 
             await _api.DeleteSessionAsync(s.SessionId, CancellationToken.None);
 
-            var next = _sessions.FirstOrDefault(x => !string.Equals(x.SessionId, s.SessionId, StringComparison.OrdinalIgnoreCase));
-            await RefreshSessionsAsync(preferSessionId: next?.SessionId, CancellationToken.None);
-            var selectedAfterDelete = FindSessionById(next?.SessionId ?? _sessionId);
-            SyncSessionSelectionVisual(selectedAfterDelete?.SessionId ?? _sessionId);
+            var deletedCurrentSession = string.Equals(_sessionId, s.SessionId, StringComparison.OrdinalIgnoreCase);
+            var preferredSessionId = deletedCurrentSession
+                ? _sessions.FirstOrDefault(x => !string.Equals(x.SessionId, s.SessionId, StringComparison.OrdinalIgnoreCase))?.SessionId
+                : _sessionId;
+            if (deletedCurrentSession)
+            {
+                _sessionId = null;
+                _agent?.ResetConversationState();
+                ClearStagedOutboundMessage();
+                _messages.Clear();
+                SourcesCards.Items = new List<SourceCard>();
+                SourcesBox.Text = string.Empty;
+                SaveSettings();
+            }
+            await RefreshSessionsAsync(CancellationToken.None);
+            var selectedAfterDelete = FindSessionById(preferredSessionId) ?? _sessions.FirstOrDefault();
 
-            if (selectedAfterDelete is not null)
-                await LoadSessionAsync(selectedAfterDelete, CancellationToken.None);
+            if (deletedCurrentSession && selectedAfterDelete is not null)
+                await LoadSessionCoreAsync(selectedAfterDelete, CancellationToken.None, sessionChange);
+            else
+                SyncSessionSelectionVisual(_sessionId);
 
             Status(ClientUiText.Get("session.delete.done", lang));
         }
         catch (Exception ex)
         {
             Status(ClientUiText.Get("session.delete.failed", _appSettings.UiLanguage) + ex.Message);
+        }
+        finally
+        {
+            sessionChange.Dispose();
+            UpdateUiState(_isGenerating);
         }
     }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -12,55 +12,6 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
 public sealed partial class ToolAgentOrchestrator
 {
-
-    private static string BuildRagNeighborFallbackAnswer(IReadOnlyList<RagHitSummary> hits, string language)
-    {
-        var labels = NormalizeLanguageCode(language) switch
-        {
-            "en" => (
-                Header: "I did not find a direct source for the request. These are only nearby leads to check:",
-                Caveat: "I prefer not to turn these leads into a final answer without a clearer source."),
-            "es" => (
-                Header: "No he encontrado una fuente directa para la solicitud. Estas son solo pistas cercanas que hay que comprobar:",
-                Caveat: "Prefiero no convertir estas pistas en una respuesta final sin una fuente mÃƒÂ¡s clara."),
-            "pt" => (
-                Header: "NÃƒÂ£o encontrei uma fonte direta para o pedido. Estas sÃƒÂ£o apenas pistas prÃƒÂ³ximas a verificar:",
-                Caveat: "Prefiro nÃƒÂ£o transformar estas pistas numa resposta final sem uma fonte mais clara."),
-            "de" => (
-                Header: "Ich habe keine direkte Quelle fÃƒÂ¼r die Anfrage gefunden. Das sind nur nahe Hinweise zum PrÃƒÂ¼fen:",
-                Caveat: "Ich mache daraus lieber keine endgÃƒÂ¼ltige Antwort ohne eine klarere Quelle."),
-            "it" => (
-                Header: "Non ho trovato una fonte diretta per la richiesta. Questi sono solo spunti vicini da verificare:",
-                Caveat: "Preferisco non trasformarli in una risposta finale senza una fonte piÃƒÂ¹ chiara."),
-            _ => (
-                Header: "Je n'ai pas trouvÃƒÂ© de source directe pour la demande. Voici seulement des pistes proches ÃƒÂ  vÃƒÂ©rifier :",
-                Caveat: "Je prÃƒÂ©fÃƒÂ¨re ne pas transformer ces pistes en rÃƒÂ©ponse dÃƒÂ©finitive sans source plus claire.")
-        };
-
-        var sb = new StringBuilder();
-        sb.AppendLine(labels.Header);
-        foreach (var hit in hits.Take(3))
-        {
-            var docLabel = string.IsNullOrWhiteSpace(hit.DocName) ? hit.DocPath : hit.DocName;
-            var evidenceCue = BuildWriterEvidenceCueForPrompt(hit, query: null, maxLength: 220);
-            if (string.IsNullOrWhiteSpace(evidenceCue))
-                evidenceCue = CleanReadableProcedureArtifacts(FormatReadableEvidenceExcerpt(GetBestRagEvidenceText(hit), maxLength: 180));
-            if (string.IsNullOrWhiteSpace(evidenceCue))
-                continue;
-
-            sb.Append("- ");
-            sb.Append(evidenceCue);
-            sb.Append(" (");
-            sb.Append(docLabel);
-            sb.Append(' ');
-            sb.Append(SourceBackedPagePrefix(language));
-            sb.Append(hit.PageStart);
-            sb.AppendLine(").");
-        }
-
-        sb.Append(labels.Caveat);
-        return sb.ToString().TrimEnd();
-    }
 
     private static bool RagFallbackHasAtLeastOneQueryAnchor(IReadOnlyList<RagHitSummary> hits, string query)
     {

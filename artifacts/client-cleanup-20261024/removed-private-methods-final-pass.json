@@ -1,0 +1,23 @@
+[
+  {
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+    "Name": "BuildCapabilityBCampaignOperationalText",
+    "startLine": 159,
+    "lines": 18,
+    "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+  },
+  {
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+    "Name": "BuildLatestCampaignText",
+    "startLine": 178,
+    "lines": 65,
+    "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+  },
+  {
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+    "Name": "BuildCapabilityBReasonCountsText",
+    "startLine": 244,
+    "lines": 21,
+    "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+  }
+]

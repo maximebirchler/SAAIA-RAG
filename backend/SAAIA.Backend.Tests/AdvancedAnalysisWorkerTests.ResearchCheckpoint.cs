@@ -5,12 +5,13 @@ namespace SAAIA.Backend.Tests;
 
 public sealed partial class AdvancedAnalysisWorkerTests
 {
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Research_checkpoint_survives_expired_lease_retry_and_remains_tenant_scoped()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
         if (database is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var seed = await database.SeedEvidenceAsync(
             "checkpoint-tenant",

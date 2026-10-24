@@ -1,0 +1,32 @@
+{
+  "schema": "saaia-retired-native-routing-adapters.v1",
+  "retiredAdapters": [
+    "BuildNativeRouterClassifierSystemPromptForTests",
+    "BuildNativeRouterSpecializedSystemPromptForTests",
+    "BuildNativeRouterSystemPromptForTests",
+    "TryReadNativeRouterLayoutForTests",
+    "BuildNativeRouterClassifierToolsForTests",
+    "BuildNativeRouterSecondStageToolNamesForTests",
+    "TryResolveNativeRouterClassifierSelectionForTests",
+    "BuildNativeRouterToolsForTests",
+    "BuildNativeRouterRepairToolsForTests",
+    "BuildNativeRouterAlternativesAfterInvalidClarificationForTests"
+  ],
+  "retiredCount": 10,
+  "sourceUsageEvidence": {
+    "scannedAtUtc": "2026-10-24T20:46:12.3553545Z",
+    "searchRoot": "client",
+    "sourceGlobs": [
+      "*.cs",
+      "!**/bin/**",
+      "!**/obj/**"
+    ],
+    "sourceFileCount": 846,
+    "commandKind": "ripgrep fixed-string search for every retired adapter, production and test sources",
+    "exitCode": 1,
+    "matches": [],
+    "result": "no_remaining_source_reference_or_declaration"
+  },
+  "replacement": "Tests call the actual owners directly; JSON/string-list input adaptation lives in NativeRoutingContractFixtures.cs under the test project.",
+  "runtimeEvidence": "targeted-tests-corrected/manifest.json: Release, ClientCore 10/10, Client 113/113, no skipped cases, sourceChangedDuringRun=false"
+}

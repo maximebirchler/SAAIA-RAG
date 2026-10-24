@@ -30,7 +30,8 @@ public sealed class LiveSourceBackedIntakeFirstActionBenchmarkTests(
     private const string ExecuteFirstObservationVariable =
         "SAAIA_PHASE1_EXECUTE_FIRST_OBSERVATION";
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_router_to_first_tool_boundary_is_fully_instrumented_when_enabled()
     {
         if (!string.Equals(
@@ -39,7 +40,7 @@ public sealed class LiveSourceBackedIntakeFirstActionBenchmarkTests(
                 StringComparison.Ordinal))
         {
             output.WriteLine($"Skipped: set {EnableVariable}=1 to run the phase-1 benchmark.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

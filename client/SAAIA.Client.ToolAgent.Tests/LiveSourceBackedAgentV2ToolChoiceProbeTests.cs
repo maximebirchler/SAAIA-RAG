@@ -10,7 +10,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class LiveSourceBackedAgentV2ToolChoiceProbeTests(ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_chooses_the_first_observation_from_the_interpreted_mission_when_enabled()
     {
         if (!string.Equals(
@@ -20,7 +21,7 @@ public sealed class LiveSourceBackedAgentV2ToolChoiceProbeTests(ITestOutputHelpe
         {
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_SOURCE_BACKED_AGENT_V2_TOOL_CHOICE_PROBE=1 to run the native navigation-materialization probe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

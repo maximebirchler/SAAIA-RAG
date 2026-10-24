@@ -13,11 +13,12 @@ namespace SAAIA.Backend.Tests;
 
 public sealed partial class AdvancedAnalysisWorkerTests
 {
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Canonical_read_limit_is_atomic_correctable_and_does_not_hide_changed_identity()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
-        if (database is null) return;
+        if (database is null) throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         var seed = await database.SeedEvidenceAsync("window-kept", "windowkept first documented section.");
         const string secondContent = "windowkept second documented section.";
         await using (var connection = await database.DataSource.OpenConnectionAsync())
@@ -81,11 +82,12 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.Equal("[]", events[2].EvidenceJson);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Evidence_capacity_rejection_preserves_admitted_corpus_and_failed_durable_trace()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
-        if (database is null) return;
+        if (database is null) throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         var seed = await database.SeedEvidenceAsync("capacity-kept", "capacityretained inspection is documented.");
         var extra = await database.SeedAdditionalEvidenceAsync(seed, "capacity-extra", "capacitynew replacement is documented.");
         var jobId = await database.InsertJobAsync(seed, BuildEmptyHandoff());
@@ -122,12 +124,13 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.Equal("[]", events[1].EvidenceJson);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Unadmitted_tool_call_preserves_limit_error_and_existing_durable_events()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
         if (database is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var seed = await database.SeedEvidenceAsync("quota-frontier", "frontierquota inspection is documented.");
         var jobId = await database.InsertJobAsync(seed, BuildEmptyHandoff());

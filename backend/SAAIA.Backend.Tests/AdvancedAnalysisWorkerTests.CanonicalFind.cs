@@ -66,11 +66,12 @@ public sealed partial class AdvancedAnalysisWorkerTests
             AdvancedAnalysisToolGateway.ResolveLeadingCanonicalReadTitle(content));
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Canonical_find_locates_literal_text_paginates_and_excludes_other_documents_and_tenants()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
-        if (database is null) return;
+        if (database is null) throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         var seed = await database.SeedEvidenceAsync("literal-source", "ISO %_\n17\nHold below 17 bar.");
         await database.SeedAdditionalEvidenceAsync(seed, "other-document", "ISO %_ 17\nUnrelated content.");
         await database.SeedEvidenceAsync("other-tenant", "ISO %_ 17\nOther tenant content.");
@@ -124,11 +125,12 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.Equal("canonical_read_source_not_observed", unseen.ErrorCode);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Canonical_find_promotes_a_leading_title_even_when_the_chunk_was_already_observed()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
-        if (database is null) return;
+        if (database is null) throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         const string title = "Scones au babeurre";
         var seed = await database.SeedEvidenceAsync(
             "canonical-leading-title",
@@ -177,11 +179,12 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.Single(gateway.Evidence);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Canonical_find_rejects_changed_identity_even_for_an_absent_literal()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
-        if (database is null) return;
+        if (database is null) throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         var seed = await database.SeedEvidenceAsync("changed-literal-source", "A documented source body.");
         var settings = BuildAdvancedOptions();
         var resolver = new AdvancedAnalysisEvidenceResolver(database.DataSource, Options.Create(settings));

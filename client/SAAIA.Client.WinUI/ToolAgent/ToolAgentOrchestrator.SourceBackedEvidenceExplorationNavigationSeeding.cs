@@ -8,74 +8,6 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
 public sealed partial class ToolAgentOrchestrator
 {
-    private async Task<bool> TrySeedSourceBackedDocumentNavigationFromEvidenceAsync(
-        ToolResults toolResults,
-        string language,
-        CancellationToken ct,
-        Action<string>? onProgress,
-        ISet<string>? seededNavigationScopes,
-        int maxDocuments = 3)
-    {
-        var seeds = SelectSourceBackedDocumentNavigationSeeds(toolResults, maxDocuments);
-        if (seeds.Count == 0)
-            return false;
-
-        var acceptedAny = false;
-        foreach (var seed in seeds)
-        {
-            var scopeKey = BuildSourceBackedDocumentNavigationSeedScopeKey(seed);
-            if (string.IsNullOrWhiteSpace(scopeKey))
-                continue;
-            if (seededNavigationScopes is not null && !seededNavigationScopes.Add(scopeKey))
-                continue;
-
-            var args = string.IsNullOrWhiteSpace(seed.DocId)
-                ? CreateJsonArgs(new
-                {
-                    docPath = seed.DocPath,
-                    limit = 180,
-                    offset = 0
-                })
-                : CreateJsonArgs(new
-                {
-                    docRef = seed.DocId,
-                    limit = 180,
-                    offset = 0
-                });
-
-            var sw = Stopwatch.StartNew();
-            try
-            {
-                onProgress?.Invoke(DeterministicAgentText.ProgressInspectDocumentStructure(language));
-                var navigation = await ExecDocumentsNavigationAsync(args, ct).ConfigureAwait(false);
-                sw.Stop();
-                _lastToolDurations.Add(("documents.navigation", sw.ElapsedMilliseconds, true));
-                if (!DocumentNavigationHasItems(navigation))
-                    continue;
-
-                toolResults.Items.Add(new ToolResults.Item
-                {
-                    ToolName = "documents.navigation",
-                    Result = navigation,
-                    DurationMs = sw.ElapsedMilliseconds
-                });
-                if (!_mem.LastToolNames.Contains("documents.navigation", StringComparer.OrdinalIgnoreCase))
-                    _mem.LastToolNames.Add("documents.navigation");
-                acceptedAny = true;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch
-            {
-                sw.Stop();
-                _lastToolDurations.Add(("documents.navigation", sw.ElapsedMilliseconds, false));
-            }
-        }
-
-        return acceptedAny;
-    }
 
     private static bool ShouldRespectLlmRouterGeneralWithoutTools(RouterPlan? plan)
         => plan is not null
@@ -83,12 +15,6 @@ public sealed partial class ToolAgentOrchestrator
            && string.Equals(plan.Intent, "chat.general", StringComparison.OrdinalIgnoreCase)
            && !plan.NeedClarification
            && (plan.ToolCalls is null || plan.ToolCalls.Count == 0);
-
-    private static bool DocumentNavigationHasItems(JsonElement result)
-        => result.ValueKind == JsonValueKind.Object
-           && result.TryGetProperty("items", out var items)
-           && items.ValueKind == JsonValueKind.Array
-           && items.GetArrayLength() > 0;
 
     private static int ResolveSourceBackedEvidenceExplorationRagCallBudget(
         string? effectiveUserMessage,
@@ -188,20 +114,6 @@ public sealed partial class ToolAgentOrchestrator
         return Math.Clamp((int)Math.Ceiling(targetSlots * 0.55d), 6, 12);
     }
 
-    private static bool ShouldSeedSourceBackedNavigationStructure(
-        string effectiveUserMessage,
-        SourceBackedEvidenceSufficiency currentAnalysis,
-        bool forceBroadenedExploration)
-    {
-        if (forceBroadenedExploration)
-            return true;
-
-        return ShouldAllowSourceBackedBroadResearchPass(
-            effectiveUserMessage,
-            currentAnalysis,
-            forceBroadenedExploration);
-    }
-
     private static bool LooksLikeSourceBackedBroadResearchRequest(string? effectiveUserMessage)
         => LooksLikeGenericCollectionOrListRequest(effectiveUserMessage)
            || LooksLikeAnyDocumentaryPlanningRequest(effectiveUserMessage)
@@ -237,164 +149,6 @@ public sealed partial class ToolAgentOrchestrator
         return currentAnalysis.ShouldExplore
                || currentAnalysis.CandidateCount < currentAnalysis.MinimumCandidateCount
                || currentAnalysis.DistinctSourcePageCount < Math.Min(3, Math.Max(1, currentAnalysis.MinimumCandidateCount));
-    }
-
-    private async Task<bool> TrySeedSourceBackedNavigationStructureAsync(
-        ToolResults toolResults,
-        string? categoryScope,
-        string effectiveUserMessage,
-        string language,
-        CancellationToken ct,
-        Action<string>? onProgress,
-        ISet<string>? seededNavigationScopes = null)
-    {
-        var scopeKey = string.IsNullOrWhiteSpace(categoryScope)
-            ? "__global__"
-            : NormalizeLooseLookup(categoryScope);
-        if (seededNavigationScopes is not null && !seededNavigationScopes.Add(scopeKey))
-            return false;
-
-        var hasExistingTree = string.IsNullOrWhiteSpace(categoryScope)
-                              && toolResults.Items.Any(static item => item.ToolName == "documents.tree" && string.IsNullOrWhiteSpace(item.Error));
-
-        var acceptedAny = false;
-        var args = string.IsNullOrWhiteSpace(categoryScope)
-            ? CreateJsonArgs(new { depth = 2, format = "json" })
-            : CreateJsonArgs(new { path = categoryScope, depth = 3, format = "json" });
-
-        var sw = new Stopwatch();
-        if (!hasExistingTree)
-        {
-            sw.Start();
-            try
-            {
-                onProgress?.Invoke(DeterministicAgentText.ProgressInspectDocumentStructure(language));
-                var result = await ExecDocumentsTreeAsync(args, ct).ConfigureAwait(false);
-                sw.Stop();
-                toolResults.Items.Add(new ToolResults.Item
-                {
-                    ToolName = "documents.tree",
-                    Result = result,
-                    DurationMs = sw.ElapsedMilliseconds
-                });
-                _lastToolDurations.Add(("documents.tree", sw.ElapsedMilliseconds, true));
-                if (!_mem.LastToolNames.Contains("documents.tree", StringComparer.OrdinalIgnoreCase))
-                    _mem.LastToolNames.Add("documents.tree");
-                acceptedAny = true;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch
-            {
-                sw.Stop();
-                _lastToolDurations.Add(("documents.tree", sw.ElapsedMilliseconds, false));
-            }
-        }
-
-        var orientationQueryLimit = UsesSourceBackedPlanningCoverage(effectiveUserMessage)
-                                    || LooksLikeGenericCollectionOrListRequest(effectiveUserMessage)
-                                    || LooksLikeBroadSourceBackedCompositionRequest(effectiveUserMessage)
-            ? Math.Max(MaxSourceBackedNavigationOrientationQueries, 8)
-            : MaxSourceBackedNavigationOrientationQueries;
-        foreach (var navigationQuery in BuildSourceBackedNavigationOrientationQueries(effectiveUserMessage, categoryScope)
-                     .Take(orientationQueryLimit))
-        {
-            var navigationArgs = string.IsNullOrWhiteSpace(categoryScope)
-                ? CreateJsonArgs(new
-                {
-                    q = navigationQuery,
-                    limit = 120,
-                    offset = 0
-                })
-                : CreateJsonArgs(new
-                {
-                    path = categoryScope,
-                    q = navigationQuery,
-                    limit = 120,
-                    offset = 0
-                });
-
-            sw.Restart();
-            try
-            {
-                onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(language));
-                var navigation = await ExecDocumentsNavigationAsync(navigationArgs, ct).ConfigureAwait(false);
-                sw.Stop();
-                _lastToolDurations.Add(("documents.navigation", sw.ElapsedMilliseconds, true));
-                if (!DocumentNavigationHasItems(navigation))
-                    continue;
-
-                toolResults.Items.Add(new ToolResults.Item
-                {
-                    ToolName = "documents.navigation",
-                    Result = navigation,
-                    DurationMs = sw.ElapsedMilliseconds
-                });
-                if (!_mem.LastToolNames.Contains("documents.navigation", StringComparer.OrdinalIgnoreCase))
-                    _mem.LastToolNames.Add("documents.navigation");
-                acceptedAny = true;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch
-            {
-                sw.Stop();
-                _lastToolDurations.Add(("documents.navigation", sw.ElapsedMilliseconds, false));
-            }
-        }
-
-        var summaryOrientationQueryLimit = UsesSourceBackedPlanningCoverage(effectiveUserMessage)
-                                           || LooksLikeGenericCollectionOrListRequest(effectiveUserMessage)
-                                           || LooksLikeBroadSourceBackedCompositionRequest(effectiveUserMessage)
-            ? Math.Max(MaxSourceBackedSummaryOrientationQueries, 8)
-            : MaxSourceBackedSummaryOrientationQueries;
-        foreach (var summaryQuery in BuildSourceBackedSummaryOrientationQueries(effectiveUserMessage, categoryScope)
-                     .Take(summaryOrientationQueryLimit))
-        {
-            sw.Restart();
-            try
-            {
-                onProgress?.Invoke(DeterministicAgentText.ProgressCollectInformation(language));
-                var summary = await ExecSummarySearchAsync(
-                        CreateJsonArgs(new
-                        {
-                            q = summaryQuery,
-                            limit = 12,
-                            offset = 0
-                        }),
-                        ct)
-                    .ConfigureAwait(false);
-                sw.Stop();
-                _lastToolDurations.Add(("summary.search", sw.ElapsedMilliseconds, true));
-                if (!SummarySearchHasItems(summary))
-                    continue;
-
-                toolResults.Items.Add(new ToolResults.Item
-                {
-                    ToolName = "summary.search",
-                    Result = summary,
-                    DurationMs = sw.ElapsedMilliseconds
-                });
-                if (!_mem.LastToolNames.Contains("summary.search", StringComparer.OrdinalIgnoreCase))
-                    _mem.LastToolNames.Add("summary.search");
-                acceptedAny = true;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch
-            {
-                sw.Stop();
-                _lastToolDurations.Add(("summary.search", sw.ElapsedMilliseconds, false));
-            }
-        }
-
-        return acceptedAny;
     }
 
     private static string[] BuildSourceBackedNavigationOrientationQueries(string effectiveUserMessage, string? categoryScope)
@@ -522,10 +276,4 @@ public sealed partial class ToolAgentOrchestrator
 
         return queries.Take(10).ToArray();
     }
-
-    private static bool SummarySearchHasItems(JsonElement result)
-        => result.ValueKind == JsonValueKind.Object
-           && result.TryGetProperty("items", out var items)
-           && items.ValueKind == JsonValueKind.Array
-           && items.GetArrayLength() > 0;
 }

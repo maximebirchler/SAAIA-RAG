@@ -49,6 +49,8 @@ public static class OpenTelemetryServiceCollectionExtensions
                 t.SetResourceBuilder(resource)
                 .AddSource(RetrievalTelemetry.ActivitySourceName)
                 .AddSource(RuntimeGovernanceTelemetry.ActivitySourceName)
+                .AddSource(BackendDiagnostics.ActivitySourceName)
+                .AddSource("Npgsql")
                 .AddAspNetCoreInstrumentation(o =>
                 {
                     o.RecordException = true;
@@ -87,6 +89,7 @@ public static class OpenTelemetryServiceCollectionExtensions
                 m.SetResourceBuilder(resource)
                 .AddMeter(RetrievalTelemetry.MeterName)
                 .AddMeter(RuntimeGovernanceTelemetry.MeterName)
+                .AddMeter(BackendDiagnostics.MeterName)
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()
                 .AddRuntimeInstrumentation()

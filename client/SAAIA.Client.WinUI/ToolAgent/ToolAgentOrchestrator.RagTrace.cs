@@ -16,7 +16,6 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent;
 public sealed partial class ToolAgentOrchestrator
 {
     private const int MaxStoredRagTraceEvents = 240;
-    private const int MaxStoredResearchWorkingNotes = 32;
     private const int DefaultRagTraceValueChars = 180;
     private readonly object _ragTraceLock = new();
     private readonly Stopwatch _ragTraceTurnStopwatch = new();
@@ -40,7 +39,7 @@ public sealed partial class ToolAgentOrchestrator
     {
         lock (_ragTraceLock)
         {
-            _ragTraceId = "rag-" + DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture)
+            _ragTraceId = ClientDiagnostics.Journal.CurrentTraceId ?? "rag-" + DateTimeOffset.UtcNow.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture)
                 + "-" + Guid.NewGuid().ToString("N")[..8];
             _ragTraceSequence = 0;
             _ragTraceTurnStopwatch.Restart();
@@ -57,6 +56,18 @@ public sealed partial class ToolAgentOrchestrator
 
     private void EmitRagTrace(string eventName, params (string Key, object? Value)[] fields)
     {
+        var explicitOutcome = fields.FirstOrDefault(field => field.Key is "outcome" or "status").Value as string;
+        var outcome = explicitOutcome is "failed" or "error" or "invalid_result" ? "failed"
+            : explicitOutcome is "cancelled" or "canceled" ? "cancelled"
+            : fields.Any(field => (field.Key is "ok" or "success") && field.Value is false)
+                || eventName.Contains(".error", StringComparison.OrdinalIgnoreCase)
+                || eventName.Contains(".failed", StringComparison.OrdinalIgnoreCase) ? "failed"
+            : eventName.Contains(".cancel", StringComparison.OrdinalIgnoreCase) ? "cancelled"
+            : eventName.Contains(".retry", StringComparison.OrdinalIgnoreCase)
+                || eventName.Contains(".reject", StringComparison.OrdinalIgnoreCase) ? "degraded" : "success";
+        ClientDiagnostics.Journal.Emit("agent." + eventName, outcome, measurements: fields
+            .Where(field => field.Value is int or long)
+            .GroupBy(field => field.Key).ToDictionary(group => group.Key, group => (long?)Convert.ToInt64(group.Last().Value)));
         var traceId = EnsureRagTraceId();
         var seq = Interlocked.Increment(ref _ragTraceSequence);
         var elapsedMs = _ragTraceTurnStopwatch.IsRunning
@@ -114,6 +125,10 @@ public sealed partial class ToolAgentOrchestrator
             if (string.IsNullOrWhiteSpace(safeKey))
                 continue;
 
+            if (!ClientDiagnostics.IncludeContent && value is not (null or bool or int or long or double or float or decimal or TimeSpan)
+                && (!IsMetadataTraceField(safeKey) || !IsSafeMetadataTraceValue(value)))
+                continue;
+
             sb.Append(' ');
             sb.Append(safeKey);
             sb.Append('=');
@@ -134,6 +149,21 @@ public sealed partial class ToolAgentOrchestrator
         sb.Append(']');
         return sb.ToString();
     }
+
+    private static bool IsMetadataTraceField(string key)
+        => key.EndsWith("_id", StringComparison.OrdinalIgnoreCase)
+           || key is "intent" or "kind" or "outcome" or "status" or "reason" or "reject_reason"
+               or "reason_before" or "reason_after" or "answer_source" or "sources_payload"
+               or "trace_path" or "trace_step" or "tool" or "tools" or "route" or "mode";
+
+    private static bool IsSafeMetadataTraceValue(object? value)
+        => value switch
+        {
+            null => true,
+            string text => Regex.IsMatch(text, @"^[A-Za-z0-9_.:\-]{1,120}$"),
+            IEnumerable<string> values => values.All(static text => Regex.IsMatch(text, @"^[A-Za-z0-9_.:\-]{1,120}$")),
+            _ => false
+        };
 
     private static string SanitizeRagTraceKey(string? key)
     {
@@ -192,75 +222,6 @@ public sealed partial class ToolAgentOrchestrator
         }
 
         return values.ToArray();
-    }
-
-    private void EmitSourceBackedResearchInventoryTrace(
-        ToolResults toolResults,
-        string query,
-        string language,
-        SourceBackedEvidenceSufficiency analysis,
-        int ragCallBudget,
-        int remainingRagCalls)
-    {
-        var inventorySw = Stopwatch.StartNew();
-        var ragItemCount = CountRagRetrievalToolCalls(toolResults);
-        var explorationTraces = _mem.Execution.LastRagEvidenceExploration ?? new List<ToolMemory.RagEvidenceExplorationTrace>();
-        EmitRagTrace(
-            "research.inventory.start",
-            ("trace_path", "rag.research.inventory"),
-            ("trace_step", "start"),
-            ("query", query),
-            ("kind", analysis.Kind),
-            ("reason", analysis.Reason),
-            ("candidates", analysis.CandidateCount),
-            ("minimum_candidates", analysis.MinimumCandidateCount),
-            ("target_slots", analysis.TargetSlotCount),
-            ("distinct_pages", analysis.DistinctSourcePageCount),
-            ("rag_items", ragItemCount),
-            ("remaining_rag_calls", remainingRagCalls));
-
-        var snapshot = BuildSourceBackedResearchInventorySnapshot(
-            toolResults,
-            query,
-            language,
-            analysis);
-        EmitRagTrace(
-            "research.inventory.snapshot",
-            ("trace_path", "rag.research.inventory"),
-            ("trace_step", "snapshot"),
-            ("candidate_count", snapshot.CandidateCount),
-            ("candidate_titles", snapshot.CandidateTitles),
-            ("distinct_candidate_pages", snapshot.DistinctCandidatePageCount),
-            ("preview_count", snapshot.InventoryPreview.Length),
-            ("candidate_ms", snapshot.CandidateMs),
-            ("preview_ms", snapshot.PreviewMs),
-            ("ms", inventorySw.ElapsedMilliseconds));
-
-        EmitRagTrace(
-            "research.inventory",
-            ("trace_path", "rag.research.inventory"),
-            ("trace_step", "end"),
-            ("query", query),
-            ("kind", analysis.Kind),
-            ("reason", analysis.Reason),
-            ("score", analysis.Score),
-            ("usable_hits", analysis.UsableHitCount),
-            ("candidates", analysis.CandidateCount),
-            ("minimum_candidates", analysis.MinimumCandidateCount),
-            ("target_slots", analysis.TargetSlotCount),
-            ("distinct_docs", analysis.DistinctDocumentCount),
-            ("distinct_pages", analysis.DistinctSourcePageCount),
-            ("rag_items", ragItemCount),
-            ("rag_call_budget", ragCallBudget),
-            ("remaining_rag_calls", remainingRagCalls),
-            ("exploration_passes", explorationTraces.Count),
-            ("accepted_exploration_passes", explorationTraces.Count(static pass => pass.Accepted)),
-            ("rejected_exploration_passes", explorationTraces.Count(static pass => !pass.Accepted)),
-            ("planner_passes", explorationTraces.Count(static pass => string.Equals(pass.Origin, "llm_planner", StringComparison.OrdinalIgnoreCase))),
-            ("distinct_candidate_pages", snapshot.DistinctCandidatePageCount),
-            ("candidate_titles", snapshot.CandidateTitles),
-            ("inventory_preview", snapshot.InventoryPreview),
-            ("ms", inventorySw.ElapsedMilliseconds));
     }
 
     private sealed record SourceBackedResearchInventorySnapshot(
@@ -389,181 +350,5 @@ public sealed partial class ToolAgentOrchestrator
         return string.IsNullOrWhiteSpace(title)
             ? "source-backed context"
             : title;
-    }
-
-    private void RememberSourceBackedEvidenceExplorationPass(
-        SourceBackedEvidenceExplorationPass pass,
-        SourceBackedEvidenceSufficiency before,
-        SourceBackedEvidenceSufficiency? after,
-        long elapsedMs,
-        bool accepted,
-        string? rejectReason,
-        string? effectiveUserMessage = null,
-        string? language = null)
-    {
-        var traces = _mem.Execution.LastRagEvidenceExploration;
-        if (traces.Count >= 16)
-            traces.RemoveAt(0);
-
-        traces.Add(new ToolMemory.RagEvidenceExplorationTrace
-        {
-            Label = TruncateForPrompt(pass.Label, 80),
-            Origin = TruncateForPrompt(pass.Origin ?? "unknown", 48),
-            Purpose = TruncateForPrompt(pass.Purpose, 180),
-            Queries = pass.Queries
-                .Where(static query => !string.IsNullOrWhiteSpace(query))
-                .Select(query => TruncateForPrompt(query, 180))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Take(8)
-                .ToList(),
-            CategoryScope = TruncateForPrompt(pass.CategoryScope ?? string.Empty, 160),
-            DocId = TruncateForPrompt(pass.DocId ?? string.Empty, 120),
-            DocPath = TruncateForPrompt(pass.DocPath ?? string.Empty, 240),
-            PageStart = pass.PageStart,
-            PageEnd = pass.PageEnd,
-            KindBefore = before.Kind,
-            ReasonBefore = before.Reason,
-            ScoreBefore = before.Score,
-            UsableHitsBefore = before.UsableHitCount,
-            CandidateCountBefore = before.CandidateCount,
-            DistinctDocumentsBefore = before.DistinctDocumentCount,
-            DistinctPagesBefore = before.DistinctSourcePageCount,
-            MinimumCandidates = before.MinimumCandidateCount,
-            TargetSlots = before.TargetSlotCount,
-            ElapsedMs = Math.Max(0, elapsedMs),
-            Accepted = accepted,
-            RejectReason = rejectReason,
-            ReasonAfter = after?.Reason,
-            ScoreAfter = after?.Score,
-            UsableHitsAfter = after?.UsableHitCount,
-            CandidateCountAfter = after?.CandidateCount,
-            DistinctDocumentsAfter = after?.DistinctDocumentCount,
-            DistinctPagesAfter = after?.DistinctSourcePageCount
-        });
-        RememberSourceBackedResearchWorkingNote(pass, before, after, elapsedMs, accepted, rejectReason, effectiveUserMessage, language);
-        EmitRagTrace(
-            "evidence.exploration.pass",
-            ("label", pass.Label),
-            ("origin", pass.Origin),
-            ("purpose", pass.Purpose),
-            ("category_scope", pass.CategoryScope),
-            ("doc_id", pass.DocId),
-            ("doc_path", pass.DocPath),
-            ("page_start", pass.PageStart),
-            ("page_end", pass.PageEnd),
-            ("accepted", accepted),
-            ("reject_reason", rejectReason),
-            ("elapsed_ms", elapsedMs),
-            ("queries", pass.Queries),
-            ("kind_before", before.Kind),
-            ("reason_before", before.Reason),
-            ("score_before", before.Score),
-            ("usable_hits_before", before.UsableHitCount),
-            ("candidates_before", before.CandidateCount),
-            ("distinct_docs_before", before.DistinctDocumentCount),
-            ("distinct_pages_before", before.DistinctSourcePageCount),
-            ("reason_after", after?.Reason),
-            ("score_after", after?.Score),
-            ("usable_hits_after", after?.UsableHitCount),
-            ("candidates_after", after?.CandidateCount),
-            ("distinct_docs_after", after?.DistinctDocumentCount),
-            ("distinct_pages_after", after?.DistinctSourcePageCount));
-    }
-
-    private void RememberSourceBackedResearchWorkingNote(
-        SourceBackedEvidenceExplorationPass pass,
-        SourceBackedEvidenceSufficiency before,
-        SourceBackedEvidenceSufficiency? after,
-        long elapsedMs,
-        bool accepted,
-        string? rejectReason,
-        string? effectiveUserMessage,
-        string? language)
-    {
-        if (string.IsNullOrWhiteSpace(effectiveUserMessage)
-            || pass.Queries is null
-            || pass.Queries.Length == 0)
-        {
-            return;
-        }
-
-        var topicKey = BuildSourceBackedResearchTopicKey(effectiveUserMessage, language);
-        if (string.IsNullOrWhiteSpace(topicKey))
-            return;
-
-        var queries = pass.Queries
-            .Where(static query => !string.IsNullOrWhiteSpace(query))
-            .Select(query => TruncateForPrompt(CollapseWhitespace(query), 180))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(8)
-            .ToList();
-        if (queries.Count == 0)
-            return;
-
-        var outcome = ResolveSourceBackedResearchWorkingNoteOutcome(accepted, rejectReason);
-        var note = new ToolMemory.ResearchWorkingNote
-        {
-            CreatedAtUtc = DateTimeOffset.UtcNow,
-            TopicKey = topicKey,
-            RequestShape = BuildSourceBackedResearchShapeKey(effectiveUserMessage),
-            Label = TruncateForPrompt(pass.Label, 80),
-            Origin = TruncateForPrompt(pass.Origin ?? "unknown", 48),
-            Purpose = TruncateForPrompt(pass.Purpose, 180),
-            Queries = queries,
-            CategoryScope = TruncateForPrompt(pass.CategoryScope ?? string.Empty, 160),
-            DocPath = TruncateForPrompt(pass.DocPath ?? string.Empty, 240),
-            PageStart = pass.PageStart,
-            PageEnd = pass.PageEnd,
-            Outcome = outcome,
-            Accepted = accepted,
-            RejectReason = rejectReason,
-            ReasonBefore = before.Reason,
-            ReasonAfter = after?.Reason,
-            CandidateCountBefore = before.CandidateCount,
-            CandidateCountAfter = after?.CandidateCount,
-            CandidateDelta = after is null ? null : after.CandidateCount - before.CandidateCount,
-            DistinctPagesBefore = before.DistinctSourcePageCount,
-            DistinctPagesAfter = after?.DistinctSourcePageCount,
-            DistinctPageDelta = after is null ? null : after.DistinctSourcePageCount - before.DistinctSourcePageCount,
-            UsableHitsBefore = before.UsableHitCount,
-            UsableHitsAfter = after?.UsableHitCount,
-            UsableHitDelta = after is null ? null : after.UsableHitCount - before.UsableHitCount,
-            ElapsedMs = Math.Max(0, elapsedMs)
-        };
-
-        var notes = _mem.ResearchWorkingNotes;
-        notes.RemoveAll(existing =>
-            string.Equals(existing.TopicKey, note.TopicKey, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(existing.Label, note.Label, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(string.Join("\n", existing.Queries), string.Join("\n", note.Queries), StringComparison.OrdinalIgnoreCase));
-        notes.Add(note);
-        if (notes.Count > MaxStoredResearchWorkingNotes)
-            notes.RemoveRange(0, notes.Count - MaxStoredResearchWorkingNotes);
-
-        EmitRagTrace(
-            "research.working_note",
-            ("label", note.Label),
-            ("outcome", note.Outcome),
-            ("accepted", note.Accepted),
-            ("query_count", note.Queries.Count),
-            ("candidate_delta", note.CandidateDelta),
-            ("distinct_page_delta", note.DistinctPageDelta),
-            ("reject_reason", note.RejectReason));
-    }
-
-    private static string ResolveSourceBackedResearchWorkingNoteOutcome(bool accepted, string? rejectReason)
-    {
-        if (accepted)
-            return "accepted";
-
-        return NormalizeLexicalLookup(rejectReason) switch
-        {
-            "no_hits" => "rejected_no_hits",
-            "no_coverage_gain" => "rejected_no_gain",
-            "planning_coverage_regression" => "rejected_regression",
-            "error" => "error",
-            "" => "rejected",
-            _ => "rejected_" + NormalizeLexicalLookup(rejectReason).Replace(' ', '_')
-        };
     }
 }

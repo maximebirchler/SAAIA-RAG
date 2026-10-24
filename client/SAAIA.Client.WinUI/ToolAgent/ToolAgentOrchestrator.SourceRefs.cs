@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -33,15 +33,6 @@ public sealed partial class ToolAgentOrchestrator
             && result.TryGetProperty("hits", out var hits)
             && hits.ValueKind == JsonValueKind.Array
             && hits.GetArrayLength() > 0;
-    }
-
-    private static bool HasDocumentContextItems(JsonElement result)
-    {
-        return result.ValueKind == JsonValueKind.Object
-            && (TryGetBool(result, "found") ?? true)
-            && result.TryGetProperty("items", out var items)
-            && items.ValueKind == JsonValueKind.Array
-            && items.GetArrayLength() > 0;
     }
 
     private static int CountRagHits(JsonElement result)

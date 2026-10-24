@@ -47,33 +47,6 @@ public sealed partial class ToolAgentOrchestrator
                 searchWasExpanded);
     }
 
-    private static string? BuildUsefulPartialStructuredPlanningAnswerBeforeWriter(
-        ToolResults toolResults,
-        string? intentQuery,
-        string language,
-        SourceBackedPlanningCoverage coverage,
-        bool searchWasBroadened,
-        bool searchWasExpanded)
-    {
-        if (!HasUsefulPartialSourceBackedPlanningCoverage(coverage, searchWasBroadened, searchWasExpanded))
-            return null;
-
-        var draft = BuildSourceBackedPlanningDraft(
-            toolResults,
-            language,
-            minItems: 1,
-            query: intentQuery,
-            allowPartialStructuredPlanningDraft: true);
-        return HasTrustedPartialSourceBackedPlanningDraftCoverage(
-                draft,
-                coverage,
-                intentQuery,
-                searchWasBroadened,
-                searchWasExpanded)
-            ? draft.Answer
-            : null;
-    }
-
     private static (ToolResults ToolResults, SourceBackedPlanningCoverage? RawCoverage, SourceBackedPlanningCoverage? WriterCoverage, string Basis) ResolveStructuredPlanningWriterGuardToolResults(
         ToolResults rawToolResults,
         ToolResults writerToolResults,

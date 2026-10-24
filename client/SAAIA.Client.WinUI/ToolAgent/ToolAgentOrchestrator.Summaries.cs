@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -81,35 +81,6 @@ Rules:
         }
 
         return streamed.ToString().Replace("**", string.Empty).Trim();
-    }
-
-    private string BuildQuestionsListAnswer(ToolResults toolResults)
-    {
-        try
-        {
-            var item = toolResults.Items.LastOrDefault(x => x.ToolName == "meta.list_questions");
-            if (item is null) return string.Empty;
-
-            if (item.Result.ValueKind != JsonValueKind.Object || !item.Result.TryGetProperty("questions", out var arr) || arr.ValueKind != JsonValueKind.Array)
-                return string.Empty;
-
-            var i = 1;
-            var sb = new StringBuilder();
-            foreach (var q in arr.EnumerateArray())
-            {
-                if (q.ValueKind != JsonValueKind.String) continue;
-                var s = (q.GetString() ?? "").Trim();
-                if (s.Length == 0) continue;
-                sb.AppendLine($"{i}. {s}");
-                i++;
-            }
-
-            return sb.ToString().TrimEnd();
-        }
-        catch
-        {
-            return string.Empty;
-        }
     }
 
     private (string answer, object? sourcesPayload, string? docLanguage, string? sourceHash, string? updatedAt) TryBuildSummaryAnswer(ToolResults toolResults)
@@ -543,23 +514,6 @@ Rules:
         };
     }
 
-    private DocumentSummaryRequestKind ResolveDocumentSummaryRequestKind(string userMessage, DocumentRefResolver.AnalysisResult analysis)
-    {
-        if (analysis.WantsStoredSummaryStore)
-            return DocumentSummaryRequestKind.SummaryStore;
-
-        if (IsExplicitStoredSummaryReadRequest(userMessage, analysis))
-            return DocumentSummaryRequestKind.SummaryReadStoredExact;
-
-        if (analysis.WantsStoredSummaryCheck)
-            return DocumentSummaryRequestKind.SummaryCheckOnly;
-
-        if (analysis.WantsAbout && !analysis.WantsSummary)
-            return DocumentSummaryRequestKind.About;
-
-        return DocumentSummaryRequestKind.SummaryReadOrLive;
-    }
-
     private static bool IsStoredSummaryAvailabilityQuestion(string userMessage)
     {
         var s = (userMessage ?? string.Empty).Trim();
@@ -834,14 +788,6 @@ Rules:
         return (failed, null);
     }
 
-    private async Task<(string finalAnswer, object? sourcesPayload)> TryGetStoredSummaryAnswerAsync(string docRef, CancellationToken ct)
-    {
-        var hit = await TryGetStoredSummaryHitAsync(docRef, ct).ConfigureAwait(false);
-        return hit is null || string.IsNullOrWhiteSpace(hit.SummaryText)
-            ? (string.Empty, null)
-            : (hit.SummaryText, hit.SourcesPayload);
-    }
-
     private async Task<StoredSummaryHit?> TryGetStoredSummaryHitAsync(string docRef, CancellationToken ct)
     {
         try
@@ -945,14 +891,5 @@ Rules:
 
         return Regex.IsMatch(s, @"\b(?:refresh|regenerate|rebuild|update)\b", RegexOptions.IgnoreCase)
                || Regex.IsMatch(s, @"\b(?:regenere|regénère|met\s+a\s+jour|mise\s+a\s+jour|recr[eé]e)\b", RegexOptions.IgnoreCase);
-    }
-
-    private static string PrefixSummaryMessage(string prefix, string summaryText)
-    {
-        if (string.IsNullOrWhiteSpace(summaryText))
-            return prefix;
-        if (string.IsNullOrWhiteSpace(prefix))
-            return summaryText;
-        return $"{prefix.Trim()}\n\n{summaryText.Trim()}";
     }
 }

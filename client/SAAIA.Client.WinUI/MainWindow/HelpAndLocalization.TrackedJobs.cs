@@ -819,15 +819,6 @@ public sealed partial class MainWindow
         return DateTimeOffset.TryParse(property.GetString(), out var value) ? value : null;
     }
 
-    private async Task PersistTrackedJobTerminalSnapshotAsync(ChatMessageItem message, ActiveDirectCommandTrackerState state, CancellationToken ct)
-    {
-        if (!string.IsNullOrWhiteSpace(message.MessageId))
-            state.MessageId = message.MessageId;
-        state.Message = message;
-        state.IsTerminal = true;
-        await MaybePersistTrackedJobSnapshotAsync(state, ct).ConfigureAwait(false);
-    }
-
     private Task RunOnUiThreadAsync(Action action)
     {
         var tcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);

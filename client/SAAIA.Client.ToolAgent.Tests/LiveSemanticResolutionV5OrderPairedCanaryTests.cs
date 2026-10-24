@@ -27,6 +27,7 @@ public sealed class LiveSemanticResolutionV5OrderPairedCanaryTests(
     private const string SchemaVersion =
         "semantic_resolution_v5_order_paired_a524_v1";
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Paired_cases_match_the_frozen_a482_multidomain_cases()
     {
@@ -47,6 +48,7 @@ public sealed class LiveSemanticResolutionV5OrderPairedCanaryTests(
             JsonSerializer.Serialize(pairedCases));
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Paired_schedule_alternates_the_first_arm_for_each_case()
     {
@@ -71,6 +73,7 @@ public sealed class LiveSemanticResolutionV5OrderPairedCanaryTests(
                 $"{item.Case.Id}:{item.Arm}:{item.Position}").ToArray());
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Paired_contract_invariant_hash_is_identical_across_arms()
     {
@@ -88,6 +91,7 @@ public sealed class LiveSemanticResolutionV5OrderPairedCanaryTests(
             ContractInvariantHash(reasonFirst));
     }
 
+    [Trait("Profile", "Unit")]
     [Theory]
     [InlineData(4, 5, 0, "reason_first_initial_support")]
     [InlineData(5, 5, 0, "paired_equal_inconclusive")]
@@ -105,6 +109,7 @@ public sealed class LiveSemanticResolutionV5OrderPairedCanaryTests(
                 reasonFirstExact,
                 reasonFirstFalseAnswers));
 
+    [Trait("Profile", "Unit")]
     [Theory]
     [InlineData("DecisionFirst", 0, 0, 1, 0)]
     [InlineData("ReasonFirst", 0, 0, 1, 1)]
@@ -126,6 +131,7 @@ public sealed class LiveSemanticResolutionV5OrderPairedCanaryTests(
         Assert.Equal(expectedBlockingCount, blocking.Count);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void V5_parser_preserves_reason_first_raw_property_order()
     {
@@ -146,6 +152,7 @@ public sealed class LiveSemanticResolutionV5OrderPairedCanaryTests(
         Assert.Equal(new[] { "E3" }, observed.RawEvidenceIds);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public async Task Frozen_executor_accepts_exactly_one_internal_search()
     {
@@ -173,7 +180,8 @@ public sealed class LiveSemanticResolutionV5OrderPairedCanaryTests(
         Assert.Equal(2, executor.CallCount);
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public Task Live_qwen_semantic_resolution_v5_paired_order_matches_preregistered_gates_when_enabled()
         => RunLivePairedCanaryAsync();
 
@@ -185,7 +193,7 @@ public sealed class LiveSemanticResolutionV5OrderPairedCanaryTests(
                 StringComparison.Ordinal))
         {
             output.WriteLine($"Skipped: set {LiveFlag}=1 to run the paired canary.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

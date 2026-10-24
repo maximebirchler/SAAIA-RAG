@@ -37,12 +37,13 @@ public sealed class RagLiveSummaryMultilingualBackendTests
         Assert.NotEqual("en", resolved.DocLanguage);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Rag_search_response_preserves_document_and_profile_language_for_live_summary_consumers()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("f8b1e3aa-7700-4d1c-8e21-dc83b5adf001");
         var docId = Guid.Parse("f8b1e3aa-7700-4d1c-8e21-dc83b5adf101");
@@ -77,12 +78,13 @@ public sealed class RagLiveSummaryMultilingualBackendTests
         Assert.NotEqual("en", item.GetProperty("docLanguage").GetString());
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task LoadRagDocumentLanguagesAsync_keeps_profile_language_and_uses_summary_language_only_when_profile_unknown()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("f8b1e3aa-7700-4d1c-8e21-dc83b5adf002");
         var profileDocId = Guid.Parse("f8b1e3aa-7700-4d1c-8e21-dc83b5adf201");
@@ -104,7 +106,7 @@ public sealed class RagLiveSummaryMultilingualBackendTests
             profileLanguage: "und",
             summaryLanguage: "IT_it");
 
-        var languages = await RagEndpoints.LoadRagDocumentLanguagesAsync(
+        var languages = await RetrievalResultProjector.LoadRagDocumentLanguagesAsync(
             ds,
             tenantId,
             [
@@ -135,7 +137,7 @@ public sealed class RagLiveSummaryMultilingualBackendTests
     public void ExpandRetrievalQuery_preserves_non_english_live_summary_queries_without_english_translation(
         string query)
     {
-        var expanded = RagEndpoints.ExpandRetrievalQuery(query, category: null);
+        var expanded = RetrievalLexicalExpansion.ExpandRetrievalQuery(query, category: null);
 
         Assert.StartsWith(query, expanded, StringComparison.Ordinal);
         Assert.DoesNotContain("summary purpose main sections", expanded, StringComparison.OrdinalIgnoreCase);
@@ -174,7 +176,7 @@ public sealed class RagLiveSummaryMultilingualBackendTests
         RagMatch match,
         IReadOnlyDictionary<string, RagDocumentLanguageInfo> languagesByDocId)
     {
-        var method = typeof(RagEndpoints).GetMethod(
+        var method = typeof(RetrievalResultProjector).GetMethod(
             "ResolveDocumentLanguageInfo",
             BindingFlags.Static | BindingFlags.NonPublic);
         Assert.NotNull(method);

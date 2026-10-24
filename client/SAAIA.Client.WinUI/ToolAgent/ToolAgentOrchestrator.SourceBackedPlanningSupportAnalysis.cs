@@ -445,26 +445,6 @@ public sealed partial class ToolAgentOrchestrator
         return !string.IsNullOrWhiteSpace(normalized)
             && Regex.IsMatch(normalized, @"^(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday|lunes|martes|miercoles|jueves|viernes|sabado|domingo|segunda|terca|quarta|quinta|sexta|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|lunedi|martedi|mercoledi|giovedi|venerdi|sabato|domenica)$", RegexOptions.CultureInvariant);
     }
-    private static bool PlanningAnswerItemIsSupportedByAnyCandidate(
-        string item,
-        IReadOnlyList<SourceBackedOptionCandidate> candidates)
-    {
-        var normalizedItem = NormalizeLexicalLookup(item);
-        if (string.IsNullOrWhiteSpace(normalizedItem))
-            return false;
-
-        var itemTerms = ExtractPlanningAnswerSupportTerms(normalizedItem).ToArray();
-        if (itemTerms.Length == 0)
-            return false;
-
-        foreach (var candidate in candidates)
-        {
-            if (PlanningAnswerItemIsSupportedByCandidate(normalizedItem, itemTerms, candidate))
-                return true;
-        }
-
-        return false;
-    }
 
     private static bool PlanningAnswerItemIsSupportedByCandidate(
         string normalizedItem,

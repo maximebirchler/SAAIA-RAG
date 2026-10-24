@@ -17,10 +17,10 @@ public sealed class SourceBackedCanonicalRetrievalTests
             with
         { EmbeddingBasis = "contextual_text_v1" };
         var legacyLexical = lexical with { EmbeddingBasis = "sparse_bm25_v1" };
-        var expected = RagEndpoints.FuseWithRrf([], [legacyLexical], [dense, other]);
-        var actual = RagEndpoints.FuseWithRrf([], [lexical], [dense, other]);
+        var expected = RetrievalSelection.FuseWithRrf([], [legacyLexical], [dense, other]);
+        var actual = RetrievalSelection.FuseWithRrf([], [lexical], [dense, other]);
         Assert.Equal(expected.Select(match => (match.ChunkId, match.Score)), actual.Select(match => (match.ChunkId, match.Score)));
-        Assert.Equal("sparse_bm25", RagEndpoints.ResolveRetriever(actual[0]));
+        Assert.Equal("sparse_bm25", RetrievalNavigation.ResolveRetriever(actual[0]));
         Assert.Equal("source_backed_sparse_fts_v1", actual[0].EmbeddingBasis);
     }
 
@@ -50,7 +50,7 @@ public sealed class SourceBackedCanonicalRetrievalTests
             page: 4,
             chunkId: "other-1");
 
-        var selected = RagEndpoints.SelectCanonicalMatches(
+        var selected = CanonicalRetrieval.SelectCanonicalMatches(
             [navigation, firstContent, duplicateIdentity, samePage, otherDocument],
             topK: 4,
             minScore: 0,
@@ -83,7 +83,7 @@ public sealed class SourceBackedCanonicalRetrievalTests
                 chunkType: "content")
         };
 
-        var selected = RagEndpoints.SelectCanonicalMatches(
+        var selected = CanonicalRetrieval.SelectCanonicalMatches(
             candidates,
             topK: 2,
             minScore: 0,
@@ -98,44 +98,22 @@ public sealed class SourceBackedCanonicalRetrievalTests
     [Fact]
     public void Canonical_retrieval_source_contains_no_legacy_semantic_route_predicates()
     {
-        var source = File.ReadAllText(ResolveBackendSourceFile(
-            "Endpoints",
-            "RagEndpoints.SourceBackedCanonical.cs"));
-
-        Assert.DoesNotMatch(
-            new Regex(@"\bShould[A-Z][A-Za-z0-9_]*\s*\(", RegexOptions.CultureInvariant),
-            source);
-        Assert.DoesNotContain("BuildAnswerGuidance(", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("BuildSelectionHints(", source, StringComparison.Ordinal);
-        Assert.Contains("attachContentCards: false", source, StringComparison.Ordinal);
-        Assert.Contains(
-            "SearchSourceBackedCanonicalSparseMatchesAsync(",
-            source,
-            StringComparison.Ordinal);
-        Assert.DoesNotContain("SearchSparseMatchesAsync(", source, StringComparison.Ordinal);
-
-        var sparseSource = File.ReadAllText(ResolveBackendSourceFile(
-            "Endpoints",
-            "RagEndpoints.SourceBackedCanonicalSparse.cs"));
-        Assert.Contains("cte.search_tsv @@ sparse_query.q", sparseSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("LexicalContentFallbackSql", sparseSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("AttachDocumentProfileContentCardsAsync", sparseSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("document_profile_content_cards", sparseSource, StringComparison.Ordinal);
-        Assert.DoesNotMatch(
-            new Regex(@"\bShould[A-Z][A-Za-z0-9_]*\s*\(", RegexOptions.CultureInvariant),
-            sparseSource);
-
-        var legacyEntryPoint = File.ReadAllText(ResolveBackendSourceFile(
-            "Endpoints",
-            "RagEndpoints.cs"));
-        Assert.Contains(
-            "if (req.SourceBackedCanonical == true)",
-            legacyEntryPoint,
-            StringComparison.Ordinal);
-        Assert.Contains(
-            "SearchSourceBackedCanonicalCoreAsync(",
-            legacyEntryPoint,
-            StringComparison.Ordinal);
+        var calls = CompiledArchitectureContract.Calls(typeof(CanonicalRetrieval));
+        Assert.DoesNotContain(calls, static call => call.Name.StartsWith("Should", StringComparison.Ordinal));
+        Assert.DoesNotContain(calls, static call => call.Name is "BuildAnswerGuidance" or "BuildSelectionHints"
+            or "SearchSparseMatchesAsync");
+        Assert.Contains(calls, static call => call.Name == "SearchSourceBackedCanonicalSparseMatchesAsync");
+        var sparseSql = CompiledArchitectureContract.StringsForMethod(
+            typeof(CanonicalRetrieval), "SearchSourceBackedCanonicalSparseMatchesAsync");
+        // IncludeResearchSurfaces intentionally enriches selected results after
+        // canonical ranking; the sparse channel itself must not expand cards.
+        Assert.DoesNotContain(CompiledArchitectureContract.CallsForMethod(
+            typeof(CanonicalRetrieval), "SearchSourceBackedCanonicalSparseMatchesAsync"),
+            static call => call.Name is "AttachDocumentProfileContentCardsAsync" or "SearchSparseMatchesAsync");
+        Assert.Contains(sparseSql, static text => Regex.IsMatch(text, @"cte\.search_tsv\s*@@\s*sparse_query\.q"));
+        Assert.DoesNotContain(sparseSql, static text => text.Contains("document_profile_content_cards", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(CompiledArchitectureContract.Calls(typeof(RetrievalEngine)),
+            static call => call.Name == "SearchSourceBackedCanonicalCoreAsync");
     }
 
     private static RagMatch Match(
@@ -168,17 +146,4 @@ public sealed class SourceBackedCanonicalRetrievalTests
             NextChunkId: null,
             SameSectionChunkId: null);
 
-    private static string ResolveBackendSourceFile(params string[] relativeParts)
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            var backend = Path.Combine(directory.FullName, "backend", "SAAIA.Backend");
-            if (Directory.Exists(backend))
-                return Path.Combine([backend, .. relativeParts]);
-            directory = directory.Parent;
-        }
-
-        throw new DirectoryNotFoundException("Repository root not found.");
-    }
 }

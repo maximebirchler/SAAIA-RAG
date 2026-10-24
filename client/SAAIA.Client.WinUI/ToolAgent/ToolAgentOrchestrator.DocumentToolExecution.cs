@@ -66,9 +66,4 @@ public sealed partial class ToolAgentOrchestrator
 
         return res;
     }
-
-    private async Task<JsonElement> ExecDocumentsGetAsync(JsonElement args, CancellationToken ct)
-    {
-        return await ExecDocumentsGetResolvedAsync(args, ct);
-    }
 }

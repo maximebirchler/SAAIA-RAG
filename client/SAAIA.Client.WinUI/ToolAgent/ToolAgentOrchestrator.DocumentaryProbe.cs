@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -68,17 +68,6 @@ public sealed partial class ToolAgentOrchestrator
                || IsBroadenedSourceSearchConfirmationEnvelope(effectiveUserMessage)
                || ShouldRequireWriterForBroadDocumentaryFinal(probeToolResults, effectiveUserMessage, language);
     }
-
-    private static int ResolveDocumentaryProbeTopK(string query)
-        => LooksLikeAnyDocumentaryPlanningRequest(query)
-            ? NormalizeSourceBackedPlanningTopK(null, query)
-            : LooksLikeBroadSynthesisRequestShape(query)
-              || LooksLikeUserNeedsSynthesizedDecisionOrPlan(query)
-              || LooksLikeMultipleCandidateSynthesisRequest(query)
-              || LooksLikeSoftChoiceRecommendationRequest(query)
-              || LooksLikeSourceBackedPairingRecommendationRequest(query)
-                ? 12
-                : 8;
 
     private static bool ShouldExpandDocumentaryProbeRetrieval(ToolResults toolResults, string? query, string language)
     {

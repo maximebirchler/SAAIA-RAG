@@ -1,0 +1,91 @@
+{
+  "providerCalls": 0,
+  "executedAtUtc": "2026-10-24T20:41:56.1706502+00:00",
+  "checks": [
+    {
+      "passed": true,
+      "name": "unit plan is prepared, never executed"
+    },
+    {
+      "passed": true,
+      "name": "inherited provider flags are neutralized"
+    },
+    {
+      "passed": true,
+      "name": "requested PG profile fails without prerequisite"
+    },
+    {
+      "passed": true,
+      "name": "standard isolated loopback connection prepares without network access"
+    },
+    {
+      "passed": true,
+      "name": "PG connection conflicting-datasource-alias is rejected before execution"
+    },
+    {
+      "passed": true,
+      "name": "PG connection duplicate-case-insensitive-host is rejected before execution"
+    },
+    {
+      "passed": true,
+      "name": "PG connection malformed-connection is rejected before execution"
+    },
+    {
+      "passed": true,
+      "name": "PG connection multi-host-list is rejected before execution"
+    },
+    {
+      "passed": true,
+      "name": "PG connection missing-host is rejected before execution"
+    },
+    {
+      "passed": true,
+      "name": "PG connection conflicting-host-alias is rejected before execution"
+    },
+    {
+      "passed": true,
+      "name": "PG connection duplicate-host is rejected before execution"
+    },
+    {
+      "passed": true,
+      "name": "PG connection conflicting-data-source-alias is rejected before execution"
+    },
+    {
+      "passed": true,
+      "name": "quoted loopback fixture connection prepares without network access"
+    },
+    {
+      "passed": true,
+      "name": "paid profile requires current explicit authorization"
+    },
+    {
+      "passed": true,
+      "name": "local profile rejects remote endpoint before execution"
+    },
+    {
+      "passed": true,
+      "name": "empty selection does not report a successful suite"
+    },
+    {
+      "passed": true,
+      "name": "executed suite identifies actual TRX binaries and working-tree inventories"
+    },
+    {
+      "passed": true,
+      "name": "existing campaign evidence is never overwritten"
+    },
+    {
+      "passed": true,
+      "name": "xUnit discovery reports true skips despite inherited live flags"
+    },
+    {
+      "passed": true,
+      "name": "selected profile does not swallow missing prerequisites"
+    },
+    {
+      "passed": true,
+      "name": "missing paid authorization fails before the live test body"
+    }
+  ],
+  "schemaVersion": "saaia-test-profile-checks-v1"
+}

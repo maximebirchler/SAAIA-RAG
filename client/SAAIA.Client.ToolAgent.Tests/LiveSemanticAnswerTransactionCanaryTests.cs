@@ -35,7 +35,8 @@ public sealed class LiveSemanticAnswerTransactionCanaryTests(ITestOutputHelper o
     private const string ContractName =
         "source_backed_semantic_answer_transaction_v3";
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen_semantic_answer_transaction_passes_five_frozen_domains_when_enabled()
         => await RunCanaryWhenEnabledAsync(
             LiveFlag,
@@ -44,7 +45,8 @@ public sealed class LiveSemanticAnswerTransactionCanaryTests(ITestOutputHelper o
             "semantic_answer_transaction_canary_v1",
             BuildCases());
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen_corrected_semantic_answer_transaction_passes_five_unseen_domains_when_enabled()
         => await RunCanaryWhenEnabledAsync(
             CorrectedLiveFlag,
@@ -53,7 +55,8 @@ public sealed class LiveSemanticAnswerTransactionCanaryTests(ITestOutputHelper o
             "corrected_semantic_answer_transaction_canary_v1",
             BuildCorrectedCases());
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen_semantic_answer_transaction_v3_covers_four_decisions_and_full_pool_when_enabled()
         => await RunCanaryWhenEnabledAsync(
             CoverageV3LiveFlag,
@@ -62,7 +65,8 @@ public sealed class LiveSemanticAnswerTransactionCanaryTests(ITestOutputHelper o
             "semantic_answer_transaction_v3_decision_coverage_canary_v1",
             BuildCoverageV3Cases());
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen_semantic_answer_transaction_v3_fourth_canary_passes_five_distinct_domains_when_enabled()
         => await RunCanaryWhenEnabledAsync(
             FourthV3LiveFlag,
@@ -71,7 +75,8 @@ public sealed class LiveSemanticAnswerTransactionCanaryTests(ITestOutputHelper o
             "semantic_answer_transaction_v3_fourth_canary_v1",
             BuildFourthV3Cases());
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen_semantic_answer_transaction_v3_fifth_scope_canary_passes_five_distinct_domains_when_enabled()
         => await RunCanaryWhenEnabledAsync(
             FifthV3LiveFlag,
@@ -93,7 +98,7 @@ public sealed class LiveSemanticAnswerTransactionCanaryTests(ITestOutputHelper o
                 StringComparison.Ordinal))
         {
             output.WriteLine($"Skipped: set {liveFlag}=1 to run the canary.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

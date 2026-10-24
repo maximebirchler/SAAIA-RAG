@@ -1,0 +1,30 @@
+[
+  {
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+    "Name": "ResolveLlmFailureCategoryLabel",
+    "startLine": 266,
+    "lines": 15,
+    "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+  },
+  {
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+    "Name": "GetAdminRuntimeBlacklistMissingMessage",
+    "startLine": 454,
+    "lines": 10,
+    "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+  },
+  {
+    "Path": "client/SAAIA.Client.WinUI/MainWindow/AdminRuntimeOpsPanel.cs",
+    "Name": "GetAdminRuntimeBlacklistInvalidMessage",
+    "startLine": 465,
+    "lines": 10,
+    "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+  },
+  {
+    "Path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.RagTrace.cs",
+    "Name": "ResolveSourceBackedResearchWorkingNoteOutcome",
+    "startLine": 356,
+    "lines": 15,
+    "reason": "private_method_one_declaration_no_identifier_or_string_or_xaml_reference_no_production_reflection_dispatch"
+  }
+]

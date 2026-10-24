@@ -6,7 +6,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class LiveHardwareInventoryProbeTests
 {
-    [Fact]
+    [Trait("Profile", "LiveLocal")]
+    [ProfileFact("LiveLocal")]
     [Trait("Category", "LiveHardware")]
     public async Task Capture_reports_every_expected_local_gpu()
     {
@@ -15,7 +16,7 @@ public sealed class LiveHardwareInventoryProbeTests
                 "1",
                 StringComparison.Ordinal))
         {
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var adapters = await GpuDetector.TryGetGpusAsync(CancellationToken.None);

@@ -395,9 +395,6 @@ ORDER BY chunk_index;";
             static pair => pair.Value.ToArray());
     }
 
-    private static bool RangesOverlap(int leftStart, int leftEnd, int rightStart, int rightEnd)
-        => leftStart <= rightEnd && rightStart <= leftEnd;
-
     private static bool ShouldIncludeExtractionPagePreviews(ExtractionPageReview review)
         => review.ManualReviewRecommended
            || review.TextEmpty

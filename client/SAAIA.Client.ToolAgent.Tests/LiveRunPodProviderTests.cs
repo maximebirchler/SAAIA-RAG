@@ -10,7 +10,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class LiveRunPodProviderTests(ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task RunPod_supports_model_listing_strict_router_json_and_streamed_writer_when_explicitly_enabled()
     {
         if (!string.Equals(
@@ -20,7 +21,7 @@ public sealed class LiveRunPodProviderTests(ITestOutputHelper output)
         {
             output.WriteLine(
                 "Skipped: set SAAIA_RUN_RUNPOD_PROVIDER_TEST=1 for an explicitly paid RunPod probe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var configuration = LlmProviderConfiguration.Load();

@@ -13,7 +13,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class LivePageStratifiedSummaryWriterProbeTests(
     ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_page_stratified_summary_writer_is_captured_when_enabled()
     {
         if (!string.Equals(
@@ -24,7 +25,7 @@ public sealed class LivePageStratifiedSummaryWriterProbeTests(
         {
             output.WriteLine(
                 "Skipped: enable SAAIA_LIVE_PAGE_STRATIFIED_SUMMARY_WRITER_PROBE to run one compact semantic writer call.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

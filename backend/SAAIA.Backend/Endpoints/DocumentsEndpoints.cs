@@ -545,7 +545,7 @@ WHERE tenant_id=@tenant AND status='indexed';";
         var normalizedQ = NormalizeNavigationLookupQuery(q);
         var queryTokens = q is null
             ? Array.Empty<string>()
-            : RagEndpoints.ExtractLexicalQueryTokens(q).ToArray();
+            : RetrievalLexicalExpansion.ExtractLexicalQueryTokens(q).ToArray();
         var requiredTokenMatches = queryTokens.Length <= 1 ? queryTokens.Length : Math.Min(2, queryTokens.Length);
         var lim = Math.Clamp(limit ?? 120, 1, 200);
         var off = Math.Max(offset ?? 0, 0);
@@ -2362,7 +2362,7 @@ WHERE d.tenant_id=@tenant
     private static string? NormalizeNavigationLookupQuery(string? value)
     {
         var normalized = ExactMatchEntryExtractor.NormalizeForLookup(value ?? string.Empty);
-        normalized = RagEndpoints.FoldDiacritics(normalized).ToLowerInvariant().Trim();
+        normalized = RetrievalLexicalExpansion.FoldDiacritics(normalized).ToLowerInvariant().Trim();
         return normalized.Length == 0 ? null : normalized;
     }
 

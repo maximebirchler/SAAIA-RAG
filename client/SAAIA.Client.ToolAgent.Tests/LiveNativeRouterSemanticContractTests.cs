@@ -11,7 +11,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class LiveNativeRouterSemanticContractTests(ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_native_router_scope_hints_are_captured_when_enabled()
     {
         if (!string.Equals(
@@ -22,7 +23,7 @@ public sealed class LiveNativeRouterSemanticContractTests(ITestOutputHelper outp
         {
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_NATIVE_ROUTER_SCOPE_DIAGNOSTIC=1 to run the scope-hint diagnostic.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -114,7 +115,8 @@ public sealed class LiveNativeRouterSemanticContractTests(ITestOutputHelper outp
                 StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_clarifies_only_the_materially_ambiguous_request_when_enabled()
     {
         if (!string.Equals(
@@ -125,7 +127,7 @@ public sealed class LiveNativeRouterSemanticContractTests(ITestOutputHelper outp
         {
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_NATIVE_ROUTER_CLARIFICATION=1 to run the clarification probe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -243,7 +245,8 @@ public sealed class LiveNativeRouterSemanticContractTests(ITestOutputHelper outp
         Assert.Equal(precise, mission.Deliverable);
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_chooses_an_atomic_initial_action_after_grid_axes()
     {
         if (!string.Equals(
@@ -254,7 +257,7 @@ public sealed class LiveNativeRouterSemanticContractTests(ITestOutputHelper outp
         {
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_INITIAL_GRID_ACTION=1 to run the compact initial-action probe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -414,7 +417,8 @@ public sealed class LiveNativeRouterSemanticContractTests(ITestOutputHelper outp
                 == "llm_initial_research_action");
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_chooses_clean_initial_actions_for_generic_grids()
     {
         if (!string.Equals(
@@ -425,7 +429,7 @@ public sealed class LiveNativeRouterSemanticContractTests(ITestOutputHelper outp
         {
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_INITIAL_GRID_MATRIX=1 to run the generic initial-action matrix.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -619,7 +623,8 @@ public sealed class LiveNativeRouterSemanticContractTests(ITestOutputHelper outp
         }
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_preserves_a_two_axis_request_in_the_native_route_when_enabled()
     {
         if (!string.Equals(
@@ -629,7 +634,7 @@ public sealed class LiveNativeRouterSemanticContractTests(ITestOutputHelper outp
         {
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_NATIVE_ROUTER_GRID=1 to run the native semantic-route probe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

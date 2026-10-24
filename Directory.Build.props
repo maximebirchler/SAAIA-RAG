@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'SAAIA.Backend.Tests' Or '$(MSBuildProjectName)' == 'SAAIA.Client.ToolAgent.Tests' Or '$(MSBuildProjectName)' == 'SAAIA.Contracts.Tests'">
+    <Compile Include="$(MSBuildThisFileDirectory)tools/testing/TestProfiles.cs" Link="Testing/TestProfiles.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)tools/testing/TestProfileCoverageTests.cs" Link="Testing/TestProfileCoverageTests.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)tools/testing/CompiledArchitectureContract.cs" Link="Testing/CompiledArchitectureContract.cs" />
+  </ItemGroup>
+</Project>

@@ -76,7 +76,8 @@ from the immutable source window. Use the source document language.
         }
         """).RootElement.Clone();
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_extracts_grounded_cards_from_source_windows_when_enabled()
     {
         if (!string.Equals(
@@ -87,7 +88,7 @@ from the immutable source window. Use the source document language.
         {
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_PHASE2_WINDOWED_SOURCE_CARD_BENCHMARK=1 to run EXP-033/N.1.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var inputPath = Path.GetFullPath(RequireEnvironment(

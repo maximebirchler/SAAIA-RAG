@@ -16,42 +16,6 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
 public sealed partial class ToolAgentOrchestrator
 {
-    private async Task<(bool ok, string answer, object? sourcesPayload)> TryReplayLastInventoryAnswerWithWriterAsync(
-        IReadOnlyList<(string role, string content)> chatHistory,
-        string userMessage,
-        string language,
-        CancellationToken ct,
-        Action<string>? onPhase,
-        Action<string>? onDelta,
-        Action<string>? onProgress)
-    {
-        _ = chatHistory;
-        _ = userMessage;
-
-        if (_mem.LastDeterministicRender is null
-            || string.IsNullOrWhiteSpace(_mem.LastDeterministicRender.Kind)
-            || string.IsNullOrWhiteSpace(_mem.LastDeterministicRender.DataJson)
-            || !IsInventoryIntent(_mem.LastDeterministicRender.RouterIntent ?? _mem.LastRouterIntent))
-        {
-            return (false, string.Empty, null);
-        }
-
-        try
-        {
-            var answer = TryRenderLastDeterministicAnswer(language);
-            if (string.IsNullOrWhiteSpace(answer))
-                return (false, string.Empty, null);
-
-            onPhase?.Invoke(DeterministicAgentText.PhaseWriting(language));
-            onProgress?.Invoke(DeterministicAgentText.ProgressDraftFinalAnswer(language));
-            await EmitDeterministicTextAsync(answer, onDelta, ct).ConfigureAwait(false);
-            return (true, answer.Trim(), null);
-        }
-        catch
-        {
-            return (false, string.Empty, null);
-        }
-    }
 
     internal static string RenderDeterministicInventoryFromData(string kind, JsonElement data, string language)
     {

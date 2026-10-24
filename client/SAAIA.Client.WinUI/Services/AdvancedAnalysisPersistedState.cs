@@ -10,6 +10,7 @@ internal sealed record AdvancedAnalysisPersistedState(
     int Revision)
 {
     public bool IsTerminal => Status is "succeeded" or "failed" or "canceled";
+    public string? OriginTraceId { get; init; }
 }
 
 internal static class AdvancedAnalysisPersistedStateParser
@@ -61,13 +62,23 @@ internal static class AdvancedAnalysisPersistedStateParser
                 handoffId,
                 sessionId,
                 status,
-                revision);
+                revision)
+            {
+                OriginTraceId = ReadTraceId(advanced)
+            };
             return true;
         }
         catch (JsonException)
         {
             return false;
         }
+    }
+
+    private static string? ReadTraceId(JsonElement advanced)
+    {
+        var value = TryReadString(advanced, "originTraceId", out var original) ? original
+            : TryReadString(advanced, "traceId", out var current) ? current : null;
+        return Guid.TryParseExact(value, "N", out var parsed) && parsed != Guid.Empty ? parsed.ToString("N") : null;
     }
 
     private static bool TryReadGuid(

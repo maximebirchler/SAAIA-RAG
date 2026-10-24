@@ -63,7 +63,7 @@ public sealed class RetrievalCdcV3AlignmentTests
             MakeMatch(0.80)
         };
 
-        RagEndpoints.ApplyAutocut(matches, 0.25);
+        RetrievalSelection.ApplyAutocut(matches, 0.25);
 
         Assert.Equal(4, matches.Count);
     }
@@ -85,7 +85,7 @@ public sealed class RetrievalCdcV3AlignmentTests
             MakeMatch(0.35)
         };
 
-        RagEndpoints.ApplyAutocut(matches, 0.25);
+        RetrievalSelection.ApplyAutocut(matches, 0.25);
 
         Assert.Equal(8, matches.Count);
         Assert.Equal(0.80, matches[^1].Score);
@@ -102,7 +102,7 @@ public sealed class RetrievalCdcV3AlignmentTests
             MakeMatch(0.65)
         };
 
-        RagEndpoints.ApplyAutocut(matches, 0.25);
+        RetrievalSelection.ApplyAutocut(matches, 0.25);
 
         Assert.Equal(4, matches.Count);
     }
@@ -112,7 +112,7 @@ public sealed class RetrievalCdcV3AlignmentTests
     {
         var matches = new List<RagMatch> { MakeMatch(0.90) };
 
-        RagEndpoints.ApplyAutocut(matches, 0.25);
+        RetrievalSelection.ApplyAutocut(matches, 0.25);
 
         Assert.Single(matches);
     }
@@ -126,7 +126,7 @@ public sealed class RetrievalCdcV3AlignmentTests
             MakeMatch(0.10)
         };
 
-        RagEndpoints.ApplyAutocut(matches, 0.0);
+        RetrievalSelection.ApplyAutocut(matches, 0.0);
 
         Assert.Equal(2, matches.Count);
     }
@@ -142,7 +142,7 @@ public sealed class RetrievalCdcV3AlignmentTests
         };
 
         // The gap cut removes the 0.10 item; then absolute min at 0.50 keeps exact but removes nothing else
-        RagEndpoints.ApplyAutocut(matches, 0.50);
+        RetrievalSelection.ApplyAutocut(matches, 0.50);
 
         Assert.Equal(2, matches.Count);
         Assert.Equal("exact_match_v1", matches[0].EmbeddingBasis);
@@ -159,7 +159,7 @@ public sealed class RetrievalCdcV3AlignmentTests
             MakeMatch(0.15), // large gap from 0.48
         };
 
-        RagEndpoints.ApplyAutocut(matches, 0.25);
+        RetrievalSelection.ApplyAutocut(matches, 0.25);
 
         Assert.Equal(2, matches.Count);
     }
@@ -171,23 +171,23 @@ public sealed class RetrievalCdcV3AlignmentTests
     [Fact]
     public void BuildSnippet_returns_null_for_empty_text()
     {
-        Assert.Null(RagEndpoints.BuildSnippet(null));
-        Assert.Null(RagEndpoints.BuildSnippet(""));
-        Assert.Null(RagEndpoints.BuildSnippet("   "));
+        Assert.Null(RetrievalAnswerGuidance.BuildSnippet(null));
+        Assert.Null(RetrievalAnswerGuidance.BuildSnippet(""));
+        Assert.Null(RetrievalAnswerGuidance.BuildSnippet("   "));
     }
 
     [Fact]
     public void BuildSnippet_returns_full_text_when_short()
     {
         var text = "This is a short chunk.";
-        Assert.Equal(text, RagEndpoints.BuildSnippet(text));
+        Assert.Equal(text, RetrievalAnswerGuidance.BuildSnippet(text));
     }
 
     [Fact]
     public void BuildSnippet_truncates_at_sentence_boundary()
     {
         var text = new string('A', 200) + ". " + new string('B', 200) + ". " + new string('C', 200);
-        var snippet = RagEndpoints.BuildSnippet(text, maxLength: 450);
+        var snippet = RetrievalAnswerGuidance.BuildSnippet(text, maxLength: 450);
 
         Assert.NotNull(snippet);
         Assert.True(snippet!.Length <= 450);
@@ -198,7 +198,7 @@ public sealed class RetrievalCdcV3AlignmentTests
     public void BuildSnippet_truncates_at_word_boundary_if_no_sentence()
     {
         var text = string.Join(" ", Enumerable.Repeat("word", 200));
-        var snippet = RagEndpoints.BuildSnippet(text, maxLength: 50);
+        var snippet = RetrievalAnswerGuidance.BuildSnippet(text, maxLength: 50);
 
         Assert.NotNull(snippet);
         Assert.True(snippet!.Length <= 50);
@@ -213,7 +213,7 @@ public sealed class RetrievalCdcV3AlignmentTests
             + "SAUCE B\u00c9ARNAISE 2 echalotes, estragon, vin blanc, vinaigre. "
             + new string('B', 260);
 
-        var snippet = RagEndpoints.BuildSnippet(text, maxLength: 180, query: "Sauce bearnaise ingredients etapes");
+        var snippet = RetrievalAnswerGuidance.BuildSnippet(text, maxLength: 180, query: "Sauce bearnaise ingredients etapes");
 
         Assert.NotNull(snippet);
         Assert.Contains("SAUCE B\u00c9ARNAISE", snippet);
@@ -227,23 +227,23 @@ public sealed class RetrievalCdcV3AlignmentTests
     [Fact]
     public void DetectHasTable_returns_false_for_plain_text()
     {
-        Assert.False(RagEndpoints.DetectHasTable("This is plain text without any table."));
-        Assert.False(RagEndpoints.DetectHasTable(null));
-        Assert.False(RagEndpoints.DetectHasTable(""));
+        Assert.False(RetrievalAnswerGuidance.DetectHasTable("This is plain text without any table."));
+        Assert.False(RetrievalAnswerGuidance.DetectHasTable(null));
+        Assert.False(RetrievalAnswerGuidance.DetectHasTable(""));
     }
 
     [Fact]
     public void DetectHasTable_returns_true_for_pipe_delimited_table()
     {
         var table = "| Header1 | Header2 | Header3 |\n| val1 | val2 | val3 |\n| val4 | val5 | val6 |";
-        Assert.True(RagEndpoints.DetectHasTable(table));
+        Assert.True(RetrievalAnswerGuidance.DetectHasTable(table));
     }
 
     [Fact]
     public void DetectHasTable_returns_false_for_single_pipe_line()
     {
         var text = "This has one | pipe character\nBut nothing else";
-        Assert.False(RagEndpoints.DetectHasTable(text));
+        Assert.False(RetrievalAnswerGuidance.DetectHasTable(text));
     }
 
     #endregion
@@ -253,26 +253,26 @@ public sealed class RetrievalCdcV3AlignmentTests
     [Fact]
     public void DetectHasWarning_returns_true_for_warning_chunk_type()
     {
-        Assert.True(RagEndpoints.DetectHasWarning("some text", "warning"));
-        Assert.True(RagEndpoints.DetectHasWarning("some text", "WARNING"));
+        Assert.True(RetrievalAnswerGuidance.DetectHasWarning("some text", "warning"));
+        Assert.True(RetrievalAnswerGuidance.DetectHasWarning("some text", "WARNING"));
     }
 
     [Fact]
     public void DetectHasWarning_returns_true_for_warning_keywords()
     {
-        Assert.True(RagEndpoints.DetectHasWarning("WARNING: Do not operate without guard.", null));
-        Assert.True(RagEndpoints.DetectHasWarning("DANGER: High voltage area.", null));
-        Assert.True(RagEndpoints.DetectHasWarning("CAUTION: Wear protective equipment.", null));
-        Assert.True(RagEndpoints.DetectHasWarning("AVERTISSEMENT: Zone dangereuse.", null));
-        Assert.True(RagEndpoints.DetectHasWarning("ATTENTION: Risque electrique.", null));
+        Assert.True(RetrievalAnswerGuidance.DetectHasWarning("WARNING: Do not operate without guard.", null));
+        Assert.True(RetrievalAnswerGuidance.DetectHasWarning("DANGER: High voltage area.", null));
+        Assert.True(RetrievalAnswerGuidance.DetectHasWarning("CAUTION: Wear protective equipment.", null));
+        Assert.True(RetrievalAnswerGuidance.DetectHasWarning("AVERTISSEMENT: Zone dangereuse.", null));
+        Assert.True(RetrievalAnswerGuidance.DetectHasWarning("ATTENTION: Risque electrique.", null));
     }
 
     [Fact]
     public void DetectHasWarning_returns_false_for_normal_text()
     {
-        Assert.False(RagEndpoints.DetectHasWarning("The procedure describes step 1 and step 2.", null));
-        Assert.False(RagEndpoints.DetectHasWarning(null, null));
-        Assert.False(RagEndpoints.DetectHasWarning("", null));
+        Assert.False(RetrievalAnswerGuidance.DetectHasWarning("The procedure describes step 1 and step 2.", null));
+        Assert.False(RetrievalAnswerGuidance.DetectHasWarning(null, null));
+        Assert.False(RetrievalAnswerGuidance.DetectHasWarning("", null));
     }
 
     #endregion

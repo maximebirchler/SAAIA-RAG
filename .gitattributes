@@ -33,3 +33,12 @@
 *.zip       binary
 *.tgz       binary
 *.tar.gz    binary
+
+# Preserve evidence bytes: manifests reference SHA256 of their JSON/TRX/snapshot inputs.
+artifacts/assainissement-20261024/** -text
+artifacts/client-cleanup-20261024/** -text
+artifacts/refactor-retrieval-20261024/** -text
+artifacts/extract-interactive-pipeline-20261024/** -text
+artifacts/extract-native-routing-20261024/** -text
+artifacts/session-state-audit-20261024/** -text
+artifacts/validation-refactor/** -text

@@ -1,0 +1,277 @@
+{
+  "schema": "saaia-independent-backend-review.v1",
+  "reviewedAtUtc": "2026-10-24T20:34:00.7207194Z",
+  "reviewer": "implement_backend_diagnostics",
+  "mode": "read_only_no_build_no_new_test_execution",
+  "sources": [
+    {
+      "path": "backend/SAAIA.Backend/Observability/BackendDiagnostics.cs",
+      "sha256": "91304D615BECCD02FEFDB4E2D57DEB6CACB7CF39F5C5C2DC28B729629389F1CD"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Observability/DiagnosticActivityScope.cs",
+      "sha256": "4551651257254343088F22FF0FCFF548BC6E9A95DDF39EACE13A758958CF9D1A"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/CanonicalIndexProbe.cs",
+      "sha256": "03FEDF7D996CE1B769350C6DD86820F948935932470037054384A42E405380D0"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalDiagnosticsBuilder.cs",
+      "sha256": "EEAB35F3A0D2CB0F176F79B9F71D196D3731D1939C009B83C2224411C28BD8D6"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Retrieval/RetrievalSelection.cs",
+      "sha256": "4B95972FD95ED92195478A5F9758D01512A70DFAD3D5E88BF6A137162163693F"
+    },
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.IndexPresence.cs",
+      "sha256": "40FBC70B1DD0FFCFB569AD6C20CCE935D6D7CC3661A57E524728A2DCE4D45FBE"
+    }
+  ],
+  "confirmedBugs": [],
+  "checkedPoints": [
+    {
+      "point": "Collector start, metric, logging and stop failures preserve business execution and restore Activity.Current",
+      "sourceEvidence": "BackendDiagnostics catches source/fallback start, metric and sink errors; both scopes restore a live previous Activity after failed stop; terminal disposal is guarded with Interlocked",
+      "passingEvidence": [
+        "A_sampling_listener_failure_is_visible_and_does_not_prevent_the_operation",
+        "A_current_activity_callback_failure_is_isolated_from_business_execution",
+        "A_failing_stop_observer_cannot_leave_a_stopped_operation_as_the_parent_of_the_next_one",
+        "Concurrent_disposal_emits_one_terminal_record_and_late_updates_are_ignored"
+      ]
+    },
+    {
+      "point": "Canonical presence is tenant-scoped and unambiguous for a current revision",
+      "sourceEvidence": "document_revisions has UNIQUE(tenant_id, doc_id, indexed_version) in migration 016; query joins tenant_id at documents/revisions/chunks; explicit revision remains restricted to requested document; physical page and chunk are intersected with AND",
+      "passingEvidence": [
+        "Presence_distinguishes_missing_document_revision_and_requested_locator"
+      ],
+      "runtimeSqlEvidence": "Separate root IntegrationPg campaign is in progress; no final outcome inferred here"
+    },
+    {
+      "point": "Bounded candidate sampling declares omissions and leaves complete rejection counts",
+      "sourceEvidence": "MaxPhaseCount=128; phase sample max12; global phase candidates=192; rejection samples96 with complete reason counters; Build copies snapshots without adding phases",
+      "passingEvidence": [
+        "Bounded_collection_reports_omissions_instead_of_claiming_completeness",
+        "Selection_explains_each_rejection_without_exposing_document_text"
+      ]
+    },
+    {
+      "point": "Interactive diagnosed selection retains original selected/key/quota mutations",
+      "sourceEvidence": "Diagnostics-null wrapper and diagnosed selection share one implementation; rejection branches remove dedup key as before; after topK only metadata is processed, without adding selection; quotas count only CountsAgainstChunkQuota candidates",
+      "passingEvidence": [
+        "Backend Unit Release campaign: all 2429 cases passed, including existing selection semantic regressions"
+      ]
+    },
+    {
+      "point": "Ordinary HTTP requests cannot enable content diagnostics",
+      "sourceEvidence": "SearchAsync and QueryAsync force IncludeDiagnostics=false; admin retrieval endpoint requires admin key and enables it explicitly; both engine constructors disable content for advanced_analysis",
+      "passingEvidence": [
+        "Selection_explains_each_rejection_without_exposing_document_text"
+      ]
+    }
+  ],
+  "existingExecutionEvidence": {
+    "manifest": "artifacts/assainissement-20261024/unit-backend-contracts/manifest.json",
+    "configuration": "Release",
+    "sourceChangedDuringRun": false,
+    "backendCounts": {
+      "total": 2429,
+      "adapterReportedExecuted": 2429,
+      "failed": 0,
+      "notExecuted": 0,
+      "executed": 2429,
+      "passed": 2429
+    },
+    "relevantCaseCount": 36,
+    "relevantCases": [
+      {
+        "duration": "00:00:00.0001313",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.CanonicalRetrievalDiagnosticsTests.Presence_distinguishes_missing_document_revision_and_requested_locator(status: \"indexed\", indexedVersion: 2, hasRevision: True, revisionVersion: 2, chunks: 0, matching: 0, expected: \"no_canonical_chunks\")"
+      },
+      {
+        "duration": "00:00:00.0007225",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.CanonicalRetrievalDiagnosticsTests.Selection_explains_each_rejection_without_exposing_document_text"
+      },
+      {
+        "duration": "00:00:00.0000024",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.CanonicalRetrievalDiagnosticsTests.Presence_distinguishes_missing_document_revision_and_requested_locator(status: null, indexedVersion: 0, hasRevision: False, revisionVersion: 0, chunks: 0, matching: 0, expected: \"document_not_found\")"
+      },
+      {
+        "duration": "00:00:00.0001208",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.BackendDiagnosticsTests.Operation_emits_exactly_one_correlated_terminal_record_on_success_or_failure(fail: True)"
+      },
+      {
+        "duration": "00:00:00.0001236",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.DiagnosticCollectorFailureTests.A_broken_sink_cannot_replace_the_business_result_or_leave_its_activity_current"
+      },
+      {
+        "duration": "00:00:00.0000007",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.CanonicalRetrievalDiagnosticsTests.Presence_distinguishes_missing_document_revision_and_requested_locator(status: \"indexed\", indexedVersion: 2, hasRevision: True, revisionVersion: 2, chunks: 5, matching: 0, expected: \"requested_locator_not_present\")"
+      },
+      {
+        "duration": "00:00:00.0001619",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.DiagnosticCollectorFailureTests.Retrieval_collectors_cannot_prevent_or_replace_a_real_phase_result(failingCallback: \"stopped\")"
+      },
+      {
+        "duration": "00:00:00.0000017",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.BackendDiagnosticsTests.Tool_history_names_describe_the_operation_actually_executed(operation: \"search_corpus\", expected: \"source_backed_canonical_search\")"
+      },
+      {
+        "duration": "00:00:00.0008717",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.CanonicalRetrievalDiagnosticsTests.Bounded_collection_reports_omissions_instead_of_claiming_completeness"
+      },
+      {
+        "duration": "00:00:00.0011982",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.InteractiveRetrievalPipelineTests.Planner_preserves_explicit_diversity_caps_and_normalizes_the_scoped_page_window"
+      },
+      {
+        "duration": "00:00:00.0001027",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.BackendDiagnosticsTests.An_unfinished_operation_never_claims_success"
+      },
+      {
+        "duration": "00:00:00.0017659",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.CanonicalRetrievalDiagnosticsTests.Failed_search_is_counted_once_and_terminated_even_before_network(cancelled: False, outcome: \"failed\")"
+      },
+      {
+        "duration": "00:00:00.0002312",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.DiagnosticCollectorFailureTests.A_failing_retrieval_metric_listener_is_visible_and_preserves_the_business_exception"
+      },
+      {
+        "duration": "00:00:00.0002104",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.CanonicalRetrievalDiagnosticsTests.Failed_search_is_counted_once_and_terminated_even_before_network(cancelled: True, outcome: \"cancelled\")"
+      },
+      {
+        "duration": "00:00:00.0000008",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.CanonicalRetrievalDiagnosticsTests.Presence_distinguishes_missing_document_revision_and_requested_locator(status: \"indexed\", indexedVersion: 2, hasRevision: True, revisionVersion: 1, chunks: 1, matching: 1, expected: \"revision_not_current\")"
+      },
+      {
+        "duration": "00:00:00.0015456",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.DiagnosticCollectorFailureTests.A_failing_stop_observer_cannot_leave_a_stopped_operation_as_the_parent_of_the_next_one"
+      },
+      {
+        "duration": "00:00:00.0001548",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.CanonicalRetrievalDiagnosticsTests.Presence_distinguishes_missing_document_revision_and_requested_locator(status: \"indexed\", indexedVersion: 2, hasRevision: True, revisionVersion: 2, chunks: 5, matching: 2, expected: \"canonical_present\")"
+      },
+      {
+        "duration": "00:00:00.0000288",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.DiagnosticCollectorFailureTests.Retrieval_collectors_cannot_prevent_or_replace_a_real_phase_result(failingCallback: \"sampler\")"
+      },
+      {
+        "duration": "00:00:00.0000628",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.BackendDiagnosticsTests.Untrusted_correlation_headers_cannot_inject_multiline_logs(supplied: \"one,two\", expected: null)"
+      },
+      {
+        "duration": "00:00:00.0000278",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.BackendDiagnosticsTests.Untrusted_correlation_headers_cannot_inject_multiline_logs(supplied: \"request-17\", expected: \"request-17\")"
+      },
+      {
+        "duration": "00:00:00.0001977",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.DiagnosticCollectorFailureTests.Concurrent_disposal_emits_one_terminal_record_and_late_updates_are_ignored"
+      },
+      {
+        "duration": "00:00:00.0000015",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.BackendDiagnosticsTests.Untrusted_correlation_headers_cannot_inject_multiline_logs(supplied: \"line\\nbreak\", expected: null)"
+      },
+      {
+        "duration": "00:00:00.0000012",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.CanonicalRetrievalDiagnosticsTests.Presence_distinguishes_missing_document_revision_and_requested_locator(status: \"indexed\", indexedVersion: 1, hasRevision: False, revisionVersion: 0, chunks: 0, matching: 0, expected: \"revision_not_found\")"
+      },
+      {
+        "duration": "00:00:00.0000006",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.CanonicalRetrievalDiagnosticsTests.Presence_distinguishes_missing_document_revision_and_requested_locator(status: \"pending\", indexedVersion: 0, hasRevision: False, revisionVersion: 0, chunks: 0, matching: 0, expected: \"index_not_published\")"
+      },
+      {
+        "duration": "00:00:00.0021733",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.InteractiveRetrievalPipelineTests.Stage_diagnostics_detect_order_changes_even_if_the_candidate_key_set_is_unchanged"
+      },
+      {
+        "duration": "00:00:00.0003862",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.DiagnosticCollectorFailureTests.Oversize_metadata_and_field_overflow_are_bounded_and_declared"
+      },
+      {
+        "duration": "00:00:00.0014901",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.CanonicalRetrievalDiagnosticsTests.Disabled_channel_is_reported_as_skipped_without_executing_the_action"
+      },
+      {
+        "duration": "00:00:00.0005057",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.BackendDiagnosticsTests.Http_cancellation_has_a_terminal_cancelled_diagnostic"
+      },
+      {
+        "duration": "00:00:00.0015155",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.BackendDiagnosticsTests.Http_exception_has_final_status_correlation_and_completion_diagnostic"
+      },
+      {
+        "duration": "00:00:00.0006022",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.DiagnosticCollectorFailureTests.A_sampling_listener_failure_is_visible_and_does_not_prevent_the_operation"
+      },
+      {
+        "duration": "00:00:00.0009834",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.BackendDiagnosticsTests.Operation_emits_exactly_one_correlated_terminal_record_on_success_or_failure(fail: False)"
+      },
+      {
+        "duration": "00:00:00.0004207",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.DiagnosticCollectorFailureTests.A_current_activity_callback_failure_is_isolated_from_business_execution"
+      },
+      {
+        "duration": "00:00:00.0000538",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.BackendDiagnosticsTests.Tool_history_names_describe_the_operation_actually_executed(operation: \"find_source_text\", expected: \"source_backed_canonical_find\")"
+      },
+      {
+        "duration": "00:00:00.0000542",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.BackendDiagnosticsTests.Tool_history_names_describe_the_operation_actually_executed(operation: \"read_source\", expected: \"source_backed_canonical_read\")"
+      },
+      {
+        "duration": "00:00:00.0111448",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.InteractiveRetrievalPipelineTests.A_failed_stage_retains_its_partial_selection_and_one_terminal_diagnostic"
+      },
+      {
+        "duration": "00:00:00.0014471",
+        "outcome": "Passed",
+        "name": "SAAIA.Backend.Tests.DiagnosticCollectorFailureTests.Retrieval_collectors_cannot_prevent_or_replace_a_real_phase_result(failingCallback: \"started\")"
+      }
+    ]
+  },
+  "limitations": [
+    "Targeted source review, not a proof that arbitrary faults cannot exist",
+    "No files under backend or client changed by this independent review",
+    "No build and no new test execution; named passing outcomes were read from the completed root campaign manifest",
+    "No provider spend, installed corpus or production server touched"
+  ]
+}

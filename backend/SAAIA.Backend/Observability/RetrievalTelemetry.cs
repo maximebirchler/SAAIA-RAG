@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using SAAIA.Backend.Endpoints;
+using SAAIA.Backend.Retrieval;
+using SAAIA.Backend.Models;
 
 namespace SAAIA.Backend;
 
@@ -21,6 +22,10 @@ internal static class RetrievalTelemetry
         "saaia.retrieval.zero_results",
         unit: "{request}",
         description: "Number of retrieval searches returning zero results.");
+
+    private static readonly Counter<long> SearchOutcomes = Meter.CreateCounter<long>(
+        "saaia.retrieval.outcomes", unit: "{request}",
+        description: "Search outcomes, including failures and cancellation before a result exists.");
 
     private static readonly Counter<long> RetrieverDegraded = Meter.CreateCounter<long>(
         "saaia.retrieval.retriever_degraded",
@@ -77,31 +82,22 @@ internal static class RetrievalTelemetry
         unit: "{candidate}",
         description: "Number of retrieval candidates evaluated before final selection.");
 
-    internal static Activity? StartSearchActivity(
-        string mode,
-        bool hasCategoryFilter,
-        bool hasDocScope,
-        int topK,
-        int candidates,
-        string query)
+    internal static DiagnosticActivityScope StartSearchScope(string mode, bool hasCategoryFilter,
+        bool hasDocScope, int topK, int candidates, string query)
     {
-        var activity = ActivitySource.StartActivity("rag.search", ActivityKind.Internal);
-        if (activity is null)
-            return null;
-
-        activity.SetTag("saaia.retrieval.mode", NormalizeMode(mode));
-        activity.SetTag("saaia.retrieval.has_category_filter", hasCategoryFilter);
-        activity.SetTag("saaia.retrieval.has_doc_scope", hasDocScope);
-        activity.SetTag("saaia.retrieval.top_k", topK);
-        activity.SetTag("saaia.retrieval.candidates", candidates);
-        activity.SetTag("saaia.retrieval.query_length", query?.Length ?? 0);
-        activity.SetTag("saaia.retrieval.has_reference_hint", HasReferenceHint(query));
-
-        return activity;
+        var scope = new DiagnosticActivityScope(ActivitySource, "rag.search");
+        var activity = scope.Activity;
+        activity?.SetTag("saaia.retrieval.mode", NormalizeMode(mode));
+        activity?.SetTag("saaia.retrieval.has_category_filter", hasCategoryFilter);
+        activity?.SetTag("saaia.retrieval.has_doc_scope", hasDocScope);
+        activity?.SetTag("saaia.retrieval.top_k", topK);
+        activity?.SetTag("saaia.retrieval.candidates", candidates);
+        activity?.SetTag("saaia.retrieval.query_length", query?.Length ?? 0);
+        activity?.SetTag("saaia.retrieval.has_reference_hint", HasReferenceHint(query));
+        return scope;
     }
 
-    internal static Activity? StartPhaseActivity(string phaseName)
-        => ActivitySource.StartActivity(phaseName, ActivityKind.Internal);
+    internal static DiagnosticActivityScope StartPhaseScope(string phaseName) => new(ActivitySource, phaseName);
 
     internal static void CompletePhase(Activity? activity, int returned, long durationMs, string? retriever = null)
     {
@@ -119,7 +115,7 @@ internal static class RetrievalTelemetry
         if (activity is null)
             return;
 
-        activity.SetStatus(ActivityStatusCode.Error, ex.Message);
+        activity.SetStatus(ActivityStatusCode.Error, ex.GetType().Name);
         activity.SetTag("exception.type", ex.GetType().FullName);
     }
 
@@ -134,17 +130,15 @@ internal static class RetrievalTelemetry
         if (ex is Npgsql.PostgresException pg)
             tags.Add("db.postgresql.sql_state", pg.SqlState);
 
-        RetrieverDegraded.Add(1, tags);
+        Collect(() => RetrieverDegraded.Add(1, tags));
         var activityTags = new ActivityTagsCollection
         {
             { "saaia.retrieval.retriever", normalizedRetriever },
-            { "exception.type", ex.GetType().FullName ?? ex.GetType().Name },
-            { "exception.message", ex.Message }
+            { "exception.type", ex.GetType().FullName ?? ex.GetType().Name }
         };
         if (ex is Npgsql.PostgresException pgActivity)
         {
             activityTags.Add("db.postgresql.sql_state", pgActivity.SqlState);
-            activityTags.Add("db.postgresql.message_text", pgActivity.MessageText);
         }
 
         Activity.Current?.AddEvent(new ActivityEvent("retriever.degraded", tags: activityTags));
@@ -181,28 +175,52 @@ internal static class RetrievalTelemetry
     {
         var tags = BuildMetricTags(response, mode, hasCategoryFilter, hasDocScope);
 
-        SearchRequests.Add(1, tags);
-        ReturnedResults.Record(response.Matches.Count, tags);
-        CandidatesEvaluated.Record(response.Candidates, tags);
-        SearchDurationMs.Record(response.Timings.TotalMs, tags);
+        Collect(() => SearchRequests.Add(1, tags));
+        var outcomeTags = tags;
+        outcomeTags.Add("saaia.retrieval.outcome", response.DegradedRetrievers?.Count > 0 ? "degraded" : "success");
+        Collect(() => SearchOutcomes.Add(1, outcomeTags));
+        Collect(() => ReturnedResults.Record(response.Matches.Count, tags));
+        Collect(() => CandidatesEvaluated.Record(response.Candidates, tags));
+        Collect(() => SearchDurationMs.Record(response.Timings.TotalMs, tags));
 
         if (response.Matches.Count == 0)
-            ZeroResultRequests.Add(1, tags);
+            Collect(() => ZeroResultRequests.Add(1, tags));
 
         if (exactMs > 0)
-            ExactDurationMs.Record(exactMs, tags);
+            Collect(() => ExactDurationMs.Record(exactMs, tags));
         if (sparsePhaseMs > 0)
-            SparseDurationMs.Record(sparsePhaseMs, tags);
+            Collect(() => SparseDurationMs.Record(sparsePhaseMs, tags));
         if (densePhaseMs > 0)
-            DenseDurationMs.Record(densePhaseMs, tags);
+            Collect(() => DenseDurationMs.Record(densePhaseMs, tags));
         if (linkedPhaseMs > 0)
-            LinkedDurationMs.Record(linkedPhaseMs, tags);
+            Collect(() => LinkedDurationMs.Record(linkedPhaseMs, tags));
         if (response.Timings.RerankMs > 0)
-            RerankDurationMs.Record(response.Timings.RerankMs, tags);
+            Collect(() => RerankDurationMs.Record(response.Timings.RerankMs, tags));
         if (response.Timings.TeiMs > 0)
-            TeiDurationMs.Record(response.Timings.TeiMs, tags);
+            Collect(() => TeiDurationMs.Record(response.Timings.TeiMs, tags));
         if (response.Timings.QdrantMs > 0)
-            QdrantDurationMs.Record(response.Timings.QdrantMs, tags);
+            Collect(() => QdrantDurationMs.Record(response.Timings.QdrantMs, tags));
+    }
+
+    internal static void RecordFailedSearch(string mode, bool hasCategoryFilter, bool hasDocScope,
+        double elapsedMilliseconds, Exception error)
+    {
+        var tags = new TagList
+        {
+            { "saaia.retrieval.mode", NormalizeMode(mode) },
+            { "saaia.retrieval.has_category_filter", hasCategoryFilter },
+            { "saaia.retrieval.has_doc_scope", hasDocScope },
+            { "saaia.retrieval.outcome", error is OperationCanceledException ? "cancelled" : "failed" }
+        };
+        Collect(() => SearchRequests.Add(1, tags));
+        Collect(() => SearchOutcomes.Add(1, tags));
+        Collect(() => SearchDurationMs.Record(Math.Max(0, elapsedMilliseconds), tags));
+    }
+
+    private static void Collect(Action action)
+    {
+        try { action(); }
+        catch (Exception) { BackendDiagnostics.RecordCollectionFailure(); }
     }
 
     internal static TagList BuildMetricTags(
@@ -224,7 +242,7 @@ internal static class RetrievalTelemetry
     internal static string BuildRetrieverSetTag(IReadOnlyList<RagMatch> matches)
     {
         var retrievers = matches
-            .Select(RagEndpoints.ResolveRetriever)
+            .Select(RetrievalNavigation.ResolveRetriever)
             .Where(static value => !string.IsNullOrWhiteSpace(value))
             .Distinct(StringComparer.Ordinal)
             .OrderBy(static value => value, StringComparer.Ordinal)
@@ -242,7 +260,14 @@ internal static class RetrievalTelemetry
     }
 
     private static string NormalizeMode(string? mode)
-        => string.IsNullOrWhiteSpace(mode) ? "balanced" : mode.Trim().ToLowerInvariant();
+        => mode?.Trim().ToLowerInvariant() switch
+        {
+            null or "" or "balanced" => "balanced",
+            "focused" => "focused",
+            "broad" => "broad",
+            "source_backed_canonical" => "source_backed_canonical",
+            _ => "other"
+        };
 
     private static bool HasReferenceHint(string? query)
         => ExactMatchEntryExtractor.ExtractReferenceKeys(query ?? string.Empty).Count > 0;

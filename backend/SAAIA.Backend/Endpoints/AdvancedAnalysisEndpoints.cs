@@ -1,10 +1,12 @@
 using System.Text.Json;
+using System.Diagnostics;
 using Dapper;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using SAAIA.Backend.Audit;
 using SAAIA.Backend.Auth;
 using SAAIA.Contracts;
+using SAAIA.Backend.Middleware;
 
 namespace SAAIA.Backend.Endpoints;
 
@@ -133,11 +135,12 @@ public static class AdvancedAnalysisEndpoints
               job_id, tenant_id, user_id, session_id, handoff_id,
               schema_version, status, revision, attempt_count, handoff,
               requested_by_api_key_id, available_at, created_at, updated_at,
-              expires_at)
+              expires_at, parent_traceparent, diagnostic_request_id, diagnostic_turn_id, diagnostic_session_id)
             VALUES(
               @job_id, @tenant, @user_id, @session, @handoff_id,
               @schema_version, 'queued', 1, 0, CAST(@handoff AS jsonb),
-              @api_key_id, now(), now(), now(), now() + (@retention_days * interval '1 day'))
+              @api_key_id, now(), now(), now(), now() + (@retention_days * interval '1 day'),
+              @parent_traceparent, @diagnostic_request_id, @diagnostic_turn_id, @diagnostic_session_id)
             ON CONFLICT (tenant_id, user_id, handoff_id) DO NOTHING
             RETURNING
               job_id AS "JobId", handoff_id AS "HandoffId",
@@ -165,7 +168,11 @@ public static class AdvancedAnalysisEndpoints
                     schema_version = request.Handoff.SchemaVersion,
                     handoff = handoffJson,
                     api_key_id = actorApiKeyId,
-                    retention_days = retentionDays
+                    retention_days = retentionDays,
+                    parent_traceparent = Activity.Current?.IdFormat == ActivityIdFormat.W3C ? Activity.Current.Id : null,
+                    diagnostic_request_id = RequestIdMiddleware.ReadSafeIdentifier(context.GetRequestId()),
+                    diagnostic_turn_id = RequestIdMiddleware.ReadSafeIdentifier(context.Request.Headers["X-SAAIA-Turn-Id"].ToString()),
+                    diagnostic_session_id = RequestIdMiddleware.ReadSafeIdentifier(context.Request.Headers["X-SAAIA-Session-Id"].ToString())
                 },
                 cancellationToken: cancellationToken));
 

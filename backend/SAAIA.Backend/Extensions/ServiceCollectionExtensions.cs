@@ -220,6 +220,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<RuntimeCapabilityAKpiService>();
         services.AddSingleton<RuntimeCapabilityBKpiService>();
         services.AddSingleton<AdvancedAnalysisJobStore>();
+        services.AddSingleton<AdvancedAnalysisRuntimeState>();
         services.AddSingleton<AdvancedAnalysisEvidenceResolver>();
         services.AddSingleton<IAdvancedAnalysisToolGatewayFactory, AdvancedAnalysisToolGatewayFactory>();
         services.AddSingleton<IAdvancedAnalysisProvider>(sp =>
@@ -255,7 +256,9 @@ public static class ServiceCollectionExtensions
             return new OpenAiCompatibleAdvancedAnalysisProvider(
                 sp.GetRequiredService<IHttpClientFactory>(),
                 options,
-                apiKey);
+                apiKey,
+                sp.GetRequiredService<ILogger<OpenAiCompatibleAdvancedAnalysisProvider>>(),
+                sp.GetRequiredService<AdvancedAnalysisRuntimeState>());
         });
 
         // ---------- Worker ----------

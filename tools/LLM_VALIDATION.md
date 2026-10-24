@@ -1,160 +1,26 @@
-# LLM validation campaigns
+# Banc historique et validation du produit
 
-`run-llm-validation.ps1` runs large question banks against the SAAIA retrieval and/or local LLM stack.
+La commande de validation courante est décrite dans [VALIDATION.md](VALIDATION.md). Aucun ancien profil « final » n'est sélectionné automatiquement : `config/validation-profiles.json` déclare les profils disponibles et ne désigne actuellement aucune campagne payante active.
 
-The default bank is:
+`run-llm-validation.ps1` est conservé pour reproduire et comparer les anciennes campagnes. Ses modes ont des garanties différentes :
 
-```text
-backend/SAAIA.Backend.Tests/Fixtures/retrieval_cuisine_validation.v1.json
-```
+| Mode | Ce qui est exécuté | Limite de la preuve |
+|---|---|---|
+| `plan` | Sélection d'une banque, préparation des questions et fichiers | Aucun backend ni modèle interrogé. |
+| `retrieval` | Recherche HTTP réelle avec le profil de retrieval déclaré | Ne valide ni raisonnement du modèle, ni parcours UI. |
+| `llm` | Comparateur historique, récupération et modèle compatible OpenAI sur loopback | Des branches déterministes de réponse et faits ajoutés sont actifs. Ce n'est pas l'oracle d'acceptation du produit actuel. |
+| `agent` | Adaptateur vers le test du vrai `RagChatAgent` | Exige le profil de campagne explicite et ses prérequis. Une banque réussie ne constitue pas une approbation sémantique automatique. |
 
-It currently contains 294 cuisine questions covering corpus inventory, single-recipe extraction, sourcing, ambiguity, weekly menu planning, substitutions, multi-turn memory, multi-document synthesis, and anti-hallucination/refusal behavior.
+Le mode `llm` conserve notamment ses anciens calculs de quantités, exclusions et réponses `deterministic_*`. Ce code est encore appelé ; il n'a pas été supprimé comme « mort ». Les décisions sémantiques du produit actuel ne doivent pas être évaluées à partir de ces réponses du comparateur.
 
-## Modes
-
-```powershell
-# Prepare a TSV/JSON/JSONL campaign without calling backend or LLM.
-powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 -Mode plan
-
-# Exercise backend retrieval only.
-$env:SAAIA_API_KEY = "<saaia_api_key>"
-powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 `
-  -Mode retrieval `
-  -BackendBaseUrl "https://saaia-server.taila2196b.ts.net"
-
-# Exercise retrieval + local OpenAI-compatible LLM.
-$env:SAAIA_API_KEY = "<saaia_api_key>"
-powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 `
-  -Mode llm `
-  -BackendBaseUrl "https://saaia-server.taila2196b.ts.net" `
-  -LlmBaseUrl "http://127.0.0.1:1234" `
-  -LlmModel "local"
-
-# Exercise the real client agent pipeline: router, tools, RAG safeguards,
-# deterministic source-backed answers, and local OpenAI-compatible LLM.
-$env:SAAIA_API_KEY = "<saaia_api_key>"
-powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 `
-  -Mode agent `
-  -BackendBaseUrl "https://saaia-server.taila2196b.ts.net" `
-  -LlmBaseUrl "http://127.0.0.1:1234" `
-  -LlmModel "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf" `
-  -Category "Cuisine"
-```
-
-Use `agent` mode for product-quality validation. It runs each selected question through `RagChatAgent`, so it catches routing, category scope, memory/source repair, deterministic fallbacks, and writer behavior. Use `llm` mode only as a lower-level model probe; it does not represent the full client behavior.
-
-Outputs are written under `artifacts/llm-validation/`:
-
-- `.json`: full summary plus rows
-- `.jsonl`: one complete record per question, including sources and answer
-- `.tsv`: spreadsheet-friendly review sheet
-
-The TSV includes `answerFlags` for quick triage. Current automatic flags catch internal validation leaks, invented web links for local documents, repetitive loops, suspicious scaling answers, explicit exclusion terms that reappear, and likely degenerate output. These flags are conservative review aids, not a final quality grade.
-
-The TSV/JSON also includes retrieval diagnostics for the selected sources:
-
-- `top1DocHit` / `top3DocHit`: whether the first/top-three sources match a single expected document target when the question declares one.
-- `distinctDocCount`: number of distinct documents returned.
-- `navigationTop1` / `navigationReturned`: whether table-of-contents/index-like chunks are dominating retrieval.
-- `top1ContentRole`, `top1NavigationScore`, `top1ContentDensityScore`: backend content-shape signals propagated into the validation output.
-- `queryExpansionUsed` and `retrievalQueryCount`: whether the validation harness used extra diagnostic queries. A high success rate that depends heavily on expansions is a warning that the product runtime still needs improvement.
-
-In LLM mode, the runner also injects deterministic helper facts when it can derive them from retrieved sources:
-
-- quantity scaling facts, for example `Pour 4 personnes -> 12 personnes`, factor `x3`, and scaled numeric quantities
-- exclusion facts, for example `sans fromage` when all retrieved excerpts still contain `fromage`
-
-This mirrors the product direction: let deterministic code handle fragile arithmetic and hard constraints, then let the LLM phrase the answer.
-
-## Useful slices
+Préparation sans aucun appel :
 
 ```powershell
-# Quick smoke.
-powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 -Mode plan -Limit 30
-
-# Retrieval campaign in parallel, useful for the full 294-question cuisine bank.
-$env:SAAIA_API_KEY = "<saaia_api_key>"
-powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 `
-  -Mode retrieval `
-  -BackendBaseUrl "https://saaia-server.taila2196b.ts.net" `
-  -Parallelism 8
-
-# Runtime-like retrieval: no diagnostic title/ingredient/step query expansion.
-powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 `
-  -Mode retrieval `
-  -BackendBaseUrl "https://saaia-server.taila2196b.ts.net" `
-  -Category "Cuisine" `
-  -DisableDiagnosticQueryExpansion `
-  -Parallelism 8
-
-# Resume a slice without changing the bank.
-powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 `
-  -Mode plan `
-  -Offset 100 `
-  -Limit 50
-
-# Weekly/menu planning style prompts.
-powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 `
-  -Mode plan `
-  -Axis "Composition de menu / fusion contrôlée;Raisonnement multi-doc complexe;Quantités / liste de courses / planning"
-
-# Anti-hallucination and refusal cases.
-powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 `
-  -Mode plan `
-  -Axis "Robustesse / refus / hallucination"
-
-# Hard cases only.
-powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 `
-  -Mode plan `
-  -Difficulty "Difficile;Très difficile"
-
-# Specific questions.
-powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 `
-  -Mode plan `
-  -Ids Q207,Q219,Q220
-
-# Product smoke through the real client agent.
-$env:SAAIA_API_KEY = "<saaia_api_key>"
-powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 `
-  -Mode agent `
-  -BackendBaseUrl "https://saaia-server.taila2196b.ts.net" `
-  -LlmBaseUrl "http://127.0.0.1:1234" `
-  -LlmModel "Qwen_Qwen3-4B-Instruct-2507-Q5_K_M.gguf" `
-  -Category "Cuisine" `
-  -Ids Q030,Q078,Q123,Q159,Q181,Q292 `
-  -TimeoutSeconds 300 `
-  -MaxLlmTokens 900
+pwsh -NoProfile -File tools/run-llm-validation.ps1 -Mode plan -Limit 10
 ```
 
-## Adding another category
+Les sorties du comparateur identifient `validationEngine`, le commit, l'empreinte de la banque et `currentProductAcceptanceEvidence=false`. Les rapports distinguent les recherches supplémentaires de diagnostic (`queryExpansionUsed`, `retrievalQueryCount`) du profil de retrieval demandé. Les drapeaux de qualité sont des aides à la revue ; ils ne constituent pas une note de qualité certaine.
 
-Create another fixture with the same shape:
+Les anciens fichiers `config/openai-*.json` restent des preuves immuables de campagnes. Pour en reproduire une, passer explicitement `-ProfilePath` au vérificateur approprié, ou `-CampaignProfilePath` au lanceur commun. Une préparation de profil, un compteur de tests vert ou un ancien nom « final » n'autorise pas une nouvelle dépense et n'approuve pas le produit.
 
-```json
-{
-  "version": "category-v1",
-  "generatedAt": "2026-04-30",
-  "sourceFile": "source-file-name.csv",
-  "description": "What this pack validates.",
-  "validationCases": [
-    {
-      "id": "Q001",
-      "axis": "Inventory",
-      "difficulty": "Easy",
-      "corpusTarget": "All",
-      "theme": "Corpus overview",
-      "question": "User-style question.",
-      "expectedAnswerKind": "Expected behavior, not a fixed answer.",
-      "validationPoints": "Manual/automatic checks."
-    }
-  ]
-}
-```
-
-Then run:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File tools\run-llm-validation.ps1 `
-  -QuestionBankPath path\to\new_category_validation.v1.json `
-  -Mode plan
-```
+Le profil courant `Unit` désactive les drapeaux live hérités et n'utilise pas de clé API. Le profil `LivePaid` passe par le runner gardé, avec autorisation, plafond et transmission explicites. Les endpoints dont la gratuité ne peut pas être prouvée sont classés conservativement dans ce dernier profil ; ce classement concerne le banc de tests, pas la licence ou la topologie commerciale du produit.

@@ -1,4 +1,4 @@
-﻿namespace SAAIA.Client.WinUI;
+namespace SAAIA.Client.WinUI;
 
 public sealed partial class MainWindow
 {
@@ -683,6 +683,10 @@ public sealed partial class MainWindow
 
     private async Task ConnectAsync()
     {
+        if (_isGenerating) return;
+        using var sessionChange = _conversationActivity.TryBeginSessionChange();
+        if (sessionChange is null) return;
+        UpdateUiState(_isGenerating);
         _lastConnectErrorMessage = null;
         // Declared outside the try so the catch can include "(192.168.1.75:5122)" in the
         // localized error message — context that's invaluable for debugging which URL failed.
@@ -776,11 +780,11 @@ public sealed partial class MainWindow
 
             Status(LocalRuntimeText("Connexion...", "Connecting...", "Conectando...", "A ligar...", "Verbinden...", "Connessione...", UiLang));
 
-            await RefreshSessionsAsync(preferSessionId: _sessionId, CancellationToken.None);
+            await RefreshSessionsAsync(CancellationToken.None);
 
-            var selectedSession = FindSessionById(_sessionId);
+            var selectedSession = FindSessionById(_sessionId) ?? _sessions.FirstOrDefault();
             if (selectedSession is not null)
-                await LoadSessionAsync(selectedSession, CancellationToken.None);
+                await LoadSessionCoreAsync(selectedSession, CancellationToken.None, sessionChange);
 
             Status(LocalRuntimeText($"Connecte. Session : {_sessionId}", $"Connected. Session: {_sessionId}", $"Conectado. Sesion: {_sessionId}", $"Ligado. Sessao: {_sessionId}", $"Verbunden. Sitzung: {_sessionId}", $"Connesso. Sessione: {_sessionId}", UiLang));
             ClientLog.Info($"Backend connect succeeded: {backendUrl}; session={_sessionId ?? "(none)"}.");
@@ -801,6 +805,11 @@ public sealed partial class MainWindow
             Status(LocalRuntimeText("Connexion en échec : ", "Connect failed: ", "Error de conexión: ", "Falha na ligação: ", "Verbindung fehlgeschlagen: ", "Connessione non riuscita: ", UiLang) + _lastConnectErrorMessage);
             UpdateUiState(isGenerating: false);
             ApplyResponsiveLayout(Root.ActualWidth);
+        }
+        finally
+        {
+            sessionChange.Dispose();
+            UpdateUiState(_isGenerating);
         }
     }
 
@@ -924,7 +933,7 @@ public sealed partial class MainWindow
         return string.IsNullOrEmpty(host) ? raw : $"{raw}{host}";
     }
 
-    private async Task RefreshSessionsAsync(string? preferSessionId, CancellationToken ct)
+    private async Task RefreshSessionsAsync(CancellationToken ct)
     {
         var list = await _api.ListSessionsAsync(ct, limit: 200, offset: 0);
 
@@ -947,13 +956,8 @@ public sealed partial class MainWindow
         foreach (var s in list) _sessions.Add(s);
         ApplyLocalizedDefaultSessionTitles();
 
-        ChatSessionItem? toSelect = null;
-
-        if (!string.IsNullOrWhiteSpace(preferSessionId))
-            toSelect = _sessions.FirstOrDefault(x => string.Equals(x.SessionId, preferSessionId, StringComparison.OrdinalIgnoreCase));
-
-        toSelect ??= _sessions.FirstOrDefault();
-        _sessionId = toSelect?.SessionId;
+        // Refreshing a bounded list cannot change the identity of the loaded conversation.
+        // LoadSessionCoreAsync owns the ID, messages and memory commit together.
 
         TrySoftUi("RefreshSessionsAsync.RebindItemsSource", () =>
         {
@@ -961,16 +965,13 @@ public sealed partial class MainWindow
             SessionsList.ItemsSource = _sessions;
         });
 
-        if (toSelect is not null)
-            SyncSessionSelectionVisual(toSelect.SessionId);
-        else
-            SyncSessionSelectionVisual(null);
+        SyncSessionSelectionVisual(_sessionId);
 
         TrySoftUi("RefreshSessionsAsync.DispatcherQueue", () =>
         {
             DispatcherQueue.TryEnqueue(() =>
             {
-                TrySoftUi("RefreshSessionsAsync.DeferredSyncSelection", () => SyncSessionSelectionVisual(toSelect?.SessionId));
+                TrySoftUi("RefreshSessionsAsync.DeferredSyncSelection", () => SyncSessionSelectionVisual(_sessionId));
             });
         });
     }

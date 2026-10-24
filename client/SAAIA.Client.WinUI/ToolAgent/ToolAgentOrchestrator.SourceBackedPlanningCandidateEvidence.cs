@@ -277,43 +277,6 @@ public sealed partial class ToolAgentOrchestrator
             normalizedPageEvidence));
     }
 
-    private static string BuildFinalSourceBackedPlanningProofText(RagHitSummary hit)
-    {
-        if (LooksLikeNavigationOnlyHit(hit) && !LooksLikeResolvedRouteTargetHit(hit))
-            return string.Empty;
-
-        var parts = new List<string>();
-        var excerpt = CollapseWhitespace(hit.Excerpt ?? string.Empty);
-        var fullText = CollapseWhitespace(hit.FullText ?? string.Empty);
-
-        if (LooksLikeFinalSourceBackedPlanningProofFragment(excerpt))
-            parts.Add(excerpt);
-        if (!string.Equals(fullText, excerpt, StringComparison.OrdinalIgnoreCase)
-            && LooksLikeFinalSourceBackedPlanningProofFragment(fullText))
-        {
-            parts.Add(fullText);
-        }
-
-        foreach (var card in hit.MatchedContentCards ?? Array.Empty<RagHitContentCardSummary>())
-        {
-            var cardEvidence = BuildSourceBackedCardStrictEvidenceSnippet(card);
-            if (LooksLikeFinalSourceBackedPlanningProofFragment(cardEvidence))
-                parts.Add(cardEvidence);
-        }
-
-        if (parts.Count == 0
-            && !LooksLikeFinalSourceBackedPlanningOrientationSurface(hit)
-            && BackendSelectionHintsPreferUsableEvidence(hit)
-            && !LooksLikeStructuredPlanningNavigationOrIndexNoise(BuildPrimarySourceBackedPlanningEvidenceText(hit)))
-        {
-            var primaryEvidence = BuildPrimarySourceBackedPlanningEvidenceText(hit);
-            if (!string.IsNullOrWhiteSpace(primaryEvidence))
-                parts.Add(primaryEvidence);
-        }
-
-        return CollapseWhitespace(string.Join(' ', parts.Where(static value => !string.IsNullOrWhiteSpace(value))));
-    }
-
     private static bool ShouldRejectSourceBackedPlanningOrientationSurfaceCandidate(SourceBackedOptionCandidate candidate)
         => LooksLikeFinalSourceBackedPlanningOrientationSurface(candidate.Hit)
            && !HasStrictStructuredPlanningCandidateEvidence(candidate)

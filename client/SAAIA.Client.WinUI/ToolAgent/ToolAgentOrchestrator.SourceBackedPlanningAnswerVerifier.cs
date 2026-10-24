@@ -32,34 +32,6 @@ public sealed partial class ToolAgentOrchestrator
         string language)
         => AnalyzeSourceBackedPlanningAnswerSupport(answer, toolResults, query, language).Sources.ToList();
 
-    private static bool TryGetSupportedStructuredPlanningSources(
-        string? answer,
-        ToolResults toolResults,
-        string? query,
-        string language,
-        out List<ToolMemory.SourceRef> sources,
-        out PlanningAnswerSupportAnalysis analysis)
-    {
-        sources = new List<ToolMemory.SourceRef>();
-        analysis = PlanningAnswerSupportAnalysis.Empty;
-
-        if (!ShouldGateStructuredSourceBackedPlanningCoverage(query)
-            || string.IsNullOrWhiteSpace(answer))
-        {
-            return false;
-        }
-
-        analysis = AnalyzeSourceBackedPlanningAnswerSupport(answer, toolResults, query, language);
-        if (ShouldRejectUnsupportedPlanningAnswerForFinal(analysis, query)
-            || analysis.Sources.Count == 0)
-        {
-            return false;
-        }
-
-        sources = analysis.Sources.ToList();
-        return true;
-    }
-
     private static bool TryGetVisibleSourceCitedStructuredPlanningSources(
         string? answer,
         ToolResults toolResults,

@@ -12,7 +12,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class LiveDocumentOverviewQuoteGroundedWriterProbeTests(
     ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_document_overview_quote_grounded_writer_is_captured_when_enabled()
     {
         if (!string.Equals(
@@ -23,7 +24,7 @@ public sealed class LiveDocumentOverviewQuoteGroundedWriterProbeTests(
         {
             output.WriteLine(
                 "Skipped: enable SAAIA_LIVE_DOCUMENT_OVERVIEW_QUOTE_GROUNDED_PROBE to run the one-pass exact-quote writer probe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var inputArtifact = Require(

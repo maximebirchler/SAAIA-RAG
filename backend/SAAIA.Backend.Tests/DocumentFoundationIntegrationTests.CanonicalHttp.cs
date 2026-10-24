@@ -22,12 +22,13 @@ namespace SAAIA.Backend.Tests;
 
 public sealed partial class DocumentFoundationIntegrationTests
 {
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Canonical_http_authentication_scopes_search_and_context_to_the_key_tenant()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         var firstTenant = Guid.NewGuid();
         var secondTenant = Guid.NewGuid();
         var firstDoc = Guid.NewGuid();

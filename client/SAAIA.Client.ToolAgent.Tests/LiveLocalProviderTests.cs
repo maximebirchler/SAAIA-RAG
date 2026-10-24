@@ -10,7 +10,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class LiveLocalProviderTests(ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LiveLocal")]
+    [ProfileFact("LiveLocal")]
     public async Task Frozen_local_runtime_supports_common_provider_contract_when_explicitly_enabled()
     {
         if (!string.Equals(
@@ -20,7 +21,7 @@ public sealed class LiveLocalProviderTests(ITestOutputHelper output)
         {
             output.WriteLine(
                 "Skipped: set SAAIA_RUN_LOCAL_PROVIDER_TEST=1 with the qualified local runtime already listening.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var host = Environment.GetEnvironmentVariable("SAAIA_LOCAL_PROVIDER_HOST") ?? "127.0.0.1";

@@ -8,12 +8,13 @@ namespace SAAIA.Backend.Tests;
 
 public sealed class RuntimeCapabilityBExtractionQualitySnapshotTests
 {
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task LoadCapabilityBDocumentAsync_loads_revision_extraction_quality_snapshot()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var docId = Guid.NewGuid();

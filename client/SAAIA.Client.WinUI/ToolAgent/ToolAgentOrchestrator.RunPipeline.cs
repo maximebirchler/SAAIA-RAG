@@ -24,9 +24,9 @@ public sealed partial class ToolAgentOrchestrator
 {
 
     /// <summary>
-    /// ExÃƒÂ©cute le pipeline Router Ã¢â€ â€™ Tools Ã¢â€ â€™ Answer.
+    /// Exécute le pipeline routeur, outils et réponse.
     /// </summary>
-    /// <param name="onPhase">Callback UX (status bar) : "RouteurÃ¢â‚¬Â¦", "Recherche documentsÃ¢â‚¬Â¦", "RÃƒÂ©dactionÃ¢â‚¬Â¦", etc.</param>
+    /// <param name="onPhase">Signale à l'interface la phase en cours : routage, recherche ou rédaction.</param>
     public async Task<(string finalAnswer, object? sourcesPayload)> RunAsync(
         IReadOnlyList<(string role, string content)> chatHistory,
         string userMessage,

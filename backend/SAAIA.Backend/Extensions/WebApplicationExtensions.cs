@@ -12,6 +12,10 @@ public static class WebApplicationExtensions
 {
     public static WebApplication UseSaaiaPipeline(this WebApplication app)
     {
+        // Correlation surrounds every downstream response, including errors, static files and Swagger.
+        app.UseMiddleware<RequestIdMiddleware>();
+        app.UseMiddleware<ErrorHandlingMiddleware>();
+
         // Swagger
         app.UseSwagger();
         app.UseSwaggerUI();
@@ -22,12 +26,6 @@ public static class WebApplicationExtensions
             app.UseDefaultFiles(new DefaultFilesOptions { RequestPath = "/ui" });
             app.UseStaticFiles(new StaticFileOptions { RequestPath = "/ui" });
         }
-
-        // Error handling must run first so every downstream failure gets a consistent API envelope.
-        app.UseMiddleware<ErrorHandlingMiddleware>();
-
-        // Request IDs are established early so logs and responses share the same correlation id.
-        app.UseMiddleware<RequestIdMiddleware>();
 
         // Rate limiting (global)
         app.UseRateLimiter();
@@ -47,11 +45,23 @@ public static class WebApplicationExtensions
         var env = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
         var bootstrap = scope.ServiceProvider.GetRequiredService<IOptions<BootstrapOptions>>();
         var auth = scope.ServiceProvider.GetRequiredService<IOptions<ApiKeyAuthOptions>>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("SAAIA.Startup");
+        using var startup = BackendDiagnostics.Start("startup.database_bootstrap", logger);
 
-        var migrationsDir = Path.Combine(env.ContentRootPath, "Db", "Migrations");
-        await DbMigrator.ApplyMigrationsAsync(db.ConnectionString, migrationsDir, ct);
-
-        await Bootstrapper.EnsureBootstrapAsync(ds, bootstrap, auth, ct);
+        try
+        {
+            var migrationsDir = Path.Combine(env.ContentRootPath, "Db", "Migrations");
+            await DbMigrator.ApplyMigrationsAsync(db.ConnectionString, migrationsDir, ct, logger);
+            using var bootstrapProbe = BackendDiagnostics.Start("startup.bootstrap", logger);
+            try
+            {
+                await Bootstrapper.EnsureBootstrapAsync(ds, bootstrap, auth, ct);
+                bootstrapProbe.Complete();
+            }
+            catch (Exception ex) { bootstrapProbe.Fail(ex); throw; }
+            startup.Complete();
+        }
+        catch (Exception ex) { startup.Fail(ex); throw; }
     }
 
     public static WebApplication MapSaaiaEndpoints(this WebApplication app)

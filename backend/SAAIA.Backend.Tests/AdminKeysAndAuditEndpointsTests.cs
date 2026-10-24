@@ -17,12 +17,13 @@ namespace SAAIA.Backend.Tests;
 
 public sealed class AdminKeysAndAuditEndpointsTests
 {
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Create_key_list_keys_and_admin_audit_surfaces_stay_consistent()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var actorApiKeyId = Guid.NewGuid();
@@ -112,12 +113,13 @@ WHERE tenant_id=@tenant AND api_key_id=@id;
         Assert.Contains("Ops Admin", auditGetJson.RootElement.GetProperty("payloadJson").GetString(), StringComparison.Ordinal);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Rotate_key_revokes_old_key_creates_new_key_and_records_audit_event()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var actorApiKeyId = Guid.NewGuid();
@@ -179,12 +181,13 @@ LIMIT 1;
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Rotate_key_rolls_back_when_audit_write_fails()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         var actorApiKeyId = Guid.NewGuid();

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -118,29 +118,6 @@ public sealed partial class ToolAgentOrchestrator
             .Select(static item => item.Seed)
             .Take(maxDocuments)
             .ToArray();
-    }
-
-    private static bool ShouldAttemptSourceBackedContextReadFollowup(
-        SourceBackedEvidenceSufficiency analysis,
-        string? query,
-        ToolResults toolResults)
-    {
-        if (!UsesSourceBackedPlanningCoverage(query)
-            && !LooksLikeGenericCollectionOrListRequest(query)
-            && !LooksLikeBroadSourceBackedCompositionRequest(query)
-            && !LooksLikeMultipleCandidateSynthesisRequest(query)
-            && !LooksLikeUserNeedsSynthesizedDecisionOrPlan(query))
-        {
-            return false;
-        }
-
-        if (analysis.CandidateCount >= Math.Max(1, analysis.MinimumCandidateCount)
-            && analysis.UsableHitCount > 0)
-        {
-            return false;
-        }
-
-        return BuildSourceBackedContextReadExplorationPasses(toolResults, query ?? string.Empty, "fr", maxPasses: 1).Count > 0;
     }
 
     private static IReadOnlyList<SourceBackedEvidenceExplorationPass> BuildSourceBackedContextReadExplorationPasses(

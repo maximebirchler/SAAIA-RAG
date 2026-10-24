@@ -1831,27 +1831,20 @@ public sealed class UiLocalizationSafetyNetTests
     }
 
     [Fact]
-    public void Legacy_user_settings_dialog_reference_uses_client_ui_text_for_visible_labels()
+    public void Active_user_settings_labels_are_available_and_valid_in_every_supported_language()
     {
-        var repoRoot = FindRepoRoot();
-        var xaml = File.ReadAllText(Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "Controls", "UserSettingsDialog.xaml"));
-        var code = File.ReadAllText(Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "Controls", "UserSettingsDialog.xaml.cs"));
-        var combined = xaml + "\n" + code;
-
-        foreach (var mojibake in new[] { "Param\u00C3", "r\u00C3", "s\u00C3", "l\u00E2", "\u00C3\u2030", "diagnostic\u00E2" })
-            Assert.DoesNotContain(mojibake, combined, StringComparison.Ordinal);
-
-        Assert.Contains("Title = T(\"settings.title\")", code);
-        Assert.Contains("PrimaryButtonText = T(\"settings.apply\")", code);
-        Assert.Contains("CloseButtonText = ClientUiText.Get(\"dialog.close\", _uiLanguage)", code);
-        Assert.Contains("SafeSettingsNoteText.Text = T(\"settings.safe_note\")", code);
-        Assert.Contains("AssistantEnabledToggle.Header = T(\"settings.toggle.assistant\")", code);
-        Assert.Contains("StrictModeToggle.Header = T(\"settings.toggle.strict\")", code);
-        Assert.Contains("RagQualityLabelText.Text = T(\"settings.rag_quality\")", code);
-        Assert.Contains("StyleLabelText.Text = T(\"settings.style\")", code);
-        Assert.Contains("AnswerLengthLabelText.Text = T(\"settings.length\")", code);
-        Assert.Contains("AssistantRepairNoteText.Text = T(\"settings.repair.note\")", code);
-        Assert.Contains("OpenSupportFolderButton.Content = T(\"settings.support.open_folder\")", code);
+        var keys = new[] { "settings.title", "settings.apply", "dialog.close", "settings.subtitle",
+            "settings.toggle.assistant", "settings.rag_quality", "settings.style", "settings.length",
+            "settings.repair.button", "settings.support.button" };
+        foreach (var language in new[] { "fr", "en", "es", "pt", "de", "it" })
+        foreach (var key in keys)
+        {
+            var text = ClientUiText.Get(key, language);
+            Assert.False(string.IsNullOrWhiteSpace(text));
+            Assert.NotEqual(key, text);
+            Assert.DoesNotContain("\uFFFD", text);
+            Assert.DoesNotContain("\u00C3", text);
+        }
     }
 
     [Fact]
@@ -2031,23 +2024,20 @@ public sealed class UiLocalizationSafetyNetTests
     }
 
     [Fact]
-    public void Admin_runtime_overlay_uses_localized_runtime_summary_labels()
+    public void Active_admin_runtime_console_labels_are_available_in_every_supported_language()
     {
-        var repoRoot = FindRepoRoot();
-        var file = Path.Combine(repoRoot, "client", "SAAIA.Client.WinUI", "MainWindow", "AdminRuntimeOpsPanel.cs");
-        var source = File.ReadAllText(file);
-
-        Assert.Contains("LocalRuntimeText(\"Evenements runtime recents :\"", source);
-        Assert.Contains("LocalRuntimeText(\"Evenements runtime recents : aucun\"", source);
-        Assert.Contains("ResolveRuntimeStateLabel(diagnostics.ActiveState, lang)", source);
-        Assert.Contains("ResolveWarmupStateLabel(diagnostics.LatestWarmupStatus, lang)", source);
-        Assert.Contains("ResolveFlashAttnPolicyLabel(diagnostics.ForcedFlashAttn, lang)", source);
-        Assert.Contains("ReasonCounts: ReadIntDictionary(itemSummaryElement, \"reasonCounts\")", source);
-        Assert.Contains("LatestCampaignStatus: TryGetString(itemSummaryElement, \"latestCampaignStatus\")", source);
-        Assert.Contains("LatestCampaignOccurredAt: TryGetDateTimeOffset(itemSummaryElement, \"latestCampaignOccurredAt\")", source);
-        Assert.Contains("BuildCapabilityBCampaignOperationalText(item.Summary, lang)", source);
-        Assert.Contains("BuildLatestCampaignText(item.Summary, lang)", source);
-        Assert.Contains("BuildCapabilityBReasonCountsText(item.Summary.ReasonCounts, lang)", source);
+        var keys = new[] { "admin.console.local.state", "admin.console.local.failed",
+            "admin.runtime.quality.title", "admin.runtime.quality.load_failed", "admin.runtime.field.status",
+            "admin.runtime.fact.backlog", "admin.runtime.fact.ready", "admin.runtime.action.requalify.loading" };
+        foreach (var language in new[] { "fr", "en", "es", "pt", "de", "it" })
+        foreach (var key in keys)
+        {
+            var text = ClientUiText.Get(key, language);
+            Assert.False(string.IsNullOrWhiteSpace(text));
+            Assert.NotEqual(key, text);
+            Assert.DoesNotContain("\uFFFD", text);
+            Assert.DoesNotContain("\u00C3", text);
+        }
     }
 
     private static string FindRepoRoot()

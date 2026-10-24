@@ -33,7 +33,7 @@ function Get-OptionalProfileValue {
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 if ([string]::IsNullOrWhiteSpace($ProfilePath)) {
-    $ProfilePath = Join-Path $repositoryRoot "config\openai-terra-final-campaign.a763.json"
+    throw "ProfilePath is required. Historical campaign profiles are immutable evidence, not an implicit active configuration."
 }
 $ProfilePath = [System.IO.Path]::GetFullPath($ProfilePath)
 if (-not (Test-Path -LiteralPath $ProfilePath -PathType Leaf)) {

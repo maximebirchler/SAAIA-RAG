@@ -16,7 +16,8 @@ public sealed class LiveBackofficeProfileEnrichmentBenchmarkTests(
         WriteIndented = true
     };
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_enriches_current_backoffice_profile_when_enabled()
     {
         if (!string.Equals(
@@ -27,7 +28,7 @@ public sealed class LiveBackofficeProfileEnrichmentBenchmarkTests(
         {
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_PHASE2_BACKOFFICE_PROFILE_BENCHMARK=1 to run EXP-032/N.0.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var inputPath = Path.GetFullPath(RequireEnvironment(

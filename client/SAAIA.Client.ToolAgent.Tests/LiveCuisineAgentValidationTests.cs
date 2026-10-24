@@ -13,6 +13,7 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class LiveCuisineAgentValidationTests(ITestOutputHelper output)
 {
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Weekly_meal_cell_parser_preserves_escaped_markdown_pipes_inside_cells()
     {
@@ -31,13 +32,14 @@ public sealed class LiveCuisineAgentValidationTests(ITestOutputHelper output)
             cells.SelectMany(SourceContractVerifier.ExtractEvidenceIds));
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_final_weekly_meal_plan_question_runs_through_real_client_agent_when_enabled()
     {
         if (!string.Equals(Environment.GetEnvironmentVariable("SAAIA_LIVE_VALIDATION"), "1", StringComparison.Ordinal))
         {
             output.WriteLine("Skipped: set SAAIA_LIVE_VALIDATION=1 to run the live client-agent validation.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var artifact = CreateReadableArtifactPath("client-live-final-weekly-meal-plan");
@@ -222,13 +224,14 @@ public sealed class LiveCuisineAgentValidationTests(ITestOutputHelper output)
         Assert.DoesNotContain("aucune donnee", rendered, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_cuisine_questions_run_through_real_client_agent_when_enabled()
     {
         if (!string.Equals(Environment.GetEnvironmentVariable("SAAIA_LIVE_VALIDATION"), "1", StringComparison.Ordinal))
         {
             output.WriteLine("Skipped: set SAAIA_LIVE_VALIDATION=1 to run the live client-agent validation.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var backendUrl = RequireEnv("SAAIA_VALIDATION_BACKEND_URL");
@@ -328,7 +331,8 @@ public sealed class LiveCuisineAgentValidationTests(ITestOutputHelper output)
         }
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_named_document_follow_up_uses_memory_as_context_but_refreshes_proof_when_enabled()
     {
         if (!string.Equals(
@@ -338,7 +342,7 @@ public sealed class LiveCuisineAgentValidationTests(ITestOutputHelper output)
         {
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_MEMORY_VALIDATION=1 to run the live memory validation.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var artifact = CreateReadableArtifactPath("client-live-named-document-memory");
@@ -422,13 +426,14 @@ public sealed class LiveCuisineAgentValidationTests(ITestOutputHelper output)
         output.WriteLine("Artifact: " + artifact);
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_cuisine_guardrail_questions_do_not_fabricate_exact_recipes_when_enabled()
     {
         if (!string.Equals(Environment.GetEnvironmentVariable("SAAIA_LIVE_VALIDATION"), "1", StringComparison.Ordinal))
         {
             output.WriteLine("Skipped: set SAAIA_LIVE_VALIDATION=1 to run the live client-agent validation.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var agent = CreateLiveAgent();
@@ -464,13 +469,14 @@ public sealed class LiveCuisineAgentValidationTests(ITestOutputHelper output)
         }
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_cuisine_hard_questions_stay_grounded_when_enabled()
     {
         if (!string.Equals(Environment.GetEnvironmentVariable("SAAIA_LIVE_VALIDATION"), "1", StringComparison.Ordinal))
         {
             output.WriteLine("Skipped: set SAAIA_LIVE_VALIDATION=1 to run the live client-agent validation.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var agent = CreateLiveAgent();

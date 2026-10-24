@@ -10,7 +10,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class LiveRagRetrievalInventoryProbeTests(ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LiveLocal")]
+    [ProfileFact("LiveLocal")]
     public async Task Live_meal_plan_queries_capture_raw_hits_and_content_cards_when_enabled()
     {
         if (!string.Equals(
@@ -20,7 +21,7 @@ public sealed class LiveRagRetrievalInventoryProbeTests(ITestOutputHelper output
         {
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_RETRIEVAL_INVENTORY_PROBE=1 to capture the live retrieval inventory.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

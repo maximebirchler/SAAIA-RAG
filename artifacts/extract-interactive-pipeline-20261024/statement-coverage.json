@@ -1,0 +1,2209 @@
+{
+  "schema": "saaia-interactive-extraction-provenance.v1",
+  "rootRows": [
+    {
+      "line": 41,
+      "end": 41,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 42,
+      "end": 42,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 43,
+      "end": 43,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 45,
+      "end": 45,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 47,
+      "end": 47,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 48,
+      "end": 49,
+      "kind": "IfStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 51,
+      "end": 51,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 52,
+      "end": 52,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 53,
+      "end": 53,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 55,
+      "end": 57,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 58,
+      "end": 58,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 59,
+      "end": 61,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 62,
+      "end": 63,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 65,
+      "end": 65,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 66,
+      "end": 66,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 67,
+      "end": 67,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 68,
+      "end": 70,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 71,
+      "end": 73,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 74,
+      "end": 74,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 75,
+      "end": 75,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 76,
+      "end": 76,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 77,
+      "end": 77,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 78,
+      "end": 78,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 80,
+      "end": 80,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 81,
+      "end": 81,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 82,
+      "end": 83,
+      "kind": "IfStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 84,
+      "end": 90,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 91,
+      "end": 92,
+      "kind": "IfStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 93,
+      "end": 93,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 94,
+      "end": 96,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 97,
+      "end": 102,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 103,
+      "end": 103,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 105,
+      "end": 105,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 107,
+      "end": 107,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 108,
+      "end": 110,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 111,
+      "end": 111,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 112,
+      "end": 112,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 113,
+      "end": 113,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 114,
+      "end": 114,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 115,
+      "end": 115,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 116,
+      "end": 118,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 119,
+      "end": 121,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 122,
+      "end": 122,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 124,
+      "end": 136,
+      "kind": "IfStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 138,
+      "end": 139,
+      "kind": "IfStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 140,
+      "end": 141,
+      "kind": "IfStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 142,
+      "end": 143,
+      "kind": "IfStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 144,
+      "end": 145,
+      "kind": "IfStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 146,
+      "end": 147,
+      "kind": "IfStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 149,
+      "end": 149,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 150,
+      "end": 150,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 151,
+      "end": 154,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 155,
+      "end": 155,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 156,
+      "end": 159,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 160,
+      "end": 165,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 166,
+      "end": 166,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 167,
+      "end": 168,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 169,
+      "end": 170,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 171,
+      "end": 174,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 175,
+      "end": 177,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 178,
+      "end": 182,
+      "kind": "IfStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 183,
+      "end": 187,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 188,
+      "end": 200,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 201,
+      "end": 202,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 203,
+      "end": 204,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 205,
+      "end": 207,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 208,
+      "end": 211,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 212,
+      "end": 216,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 217,
+      "end": 219,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 220,
+      "end": 221,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 222,
+      "end": 222,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 223,
+      "end": 231,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 232,
+      "end": 232,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Planner"
+      ]
+    },
+    {
+      "line": 234,
+      "end": 234,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "SessionInfrastructure"
+      ]
+    },
+    {
+      "line": 235,
+      "end": 235,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "SessionInfrastructure"
+      ]
+    },
+    {
+      "line": 236,
+      "end": 236,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "SessionInfrastructure"
+      ]
+    },
+    {
+      "line": 237,
+      "end": 237,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "SessionInfrastructure"
+      ]
+    },
+    {
+      "line": 239,
+      "end": 243,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 244,
+      "end": 244,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 245,
+      "end": 252,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 253,
+      "end": 290,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 291,
+      "end": 291,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 292,
+      "end": 308,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 309,
+      "end": 309,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 310,
+      "end": 327,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 328,
+      "end": 341,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 342,
+      "end": 342,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 343,
+      "end": 343,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 344,
+      "end": 344,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 345,
+      "end": 345,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 346,
+      "end": 346,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 347,
+      "end": 347,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 348,
+      "end": 348,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 349,
+      "end": 351,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 352,
+      "end": 353,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 354,
+      "end": 357,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 358,
+      "end": 358,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 359,
+      "end": 359,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 360,
+      "end": 360,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Seeds"
+      ]
+    },
+    {
+      "line": 361,
+      "end": 361,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "CandidateBuffersAndTimers"
+      ]
+    },
+    {
+      "line": 362,
+      "end": 362,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "CandidateBuffersAndTimers"
+      ]
+    },
+    {
+      "line": 363,
+      "end": 363,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "CandidateBuffersAndTimers"
+      ]
+    },
+    {
+      "line": 365,
+      "end": 365,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "CandidateBuffersAndTimers"
+      ]
+    },
+    {
+      "line": 366,
+      "end": 366,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "CandidateBuffersAndTimers"
+      ]
+    },
+    {
+      "line": 367,
+      "end": 367,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "CandidateBuffersAndTimers"
+      ]
+    },
+    {
+      "line": 368,
+      "end": 368,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "CandidateBuffersAndTimers"
+      ]
+    },
+    {
+      "line": 369,
+      "end": 369,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "CandidateBuffersAndTimers"
+      ]
+    },
+    {
+      "line": 370,
+      "end": 370,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "CandidateBuffersAndTimers"
+      ]
+    },
+    {
+      "line": 371,
+      "end": 371,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "CandidateBuffersAndTimers"
+      ]
+    },
+    {
+      "line": 372,
+      "end": 372,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "CandidateBuffersAndTimers"
+      ]
+    },
+    {
+      "line": 373,
+      "end": 373,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "CandidateBuffersAndTimers"
+      ]
+    },
+    {
+      "line": 374,
+      "end": 374,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "CandidateBuffersAndTimers"
+      ]
+    },
+    {
+      "line": 375,
+      "end": 375,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "CandidateBuffersAndTimers"
+      ]
+    },
+    {
+      "line": 376,
+      "end": 376,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "CandidateBuffersAndTimers"
+      ]
+    },
+    {
+      "line": 377,
+      "end": 377,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "CandidateBuffersAndTimers"
+      ]
+    },
+    {
+      "line": 378,
+      "end": 378,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "CandidateBuffersAndTimers"
+      ]
+    },
+    {
+      "line": 380,
+      "end": 414,
+      "kind": "LocalFunctionStatement",
+      "owners": [
+        "PreciseLookupRouteHelper"
+      ]
+    },
+    {
+      "line": 416,
+      "end": 416,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "EarlyTitleProbe"
+      ]
+    },
+    {
+      "line": 417,
+      "end": 417,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "EarlyTitleProbe"
+      ]
+    },
+    {
+      "line": 418,
+      "end": 418,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "EarlyTitleProbe"
+      ]
+    },
+    {
+      "line": 419,
+      "end": 419,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "EarlyTitleProbe"
+      ]
+    },
+    {
+      "line": 420,
+      "end": 443,
+      "kind": "IfStatement",
+      "owners": [
+        "EarlyTitleProbe"
+      ]
+    },
+    {
+      "line": 445,
+      "end": 1270,
+      "kind": "IfStatement",
+      "owners": [
+        "InitialRouting"
+      ]
+    },
+    {
+      "line": 1273,
+      "end": 1275,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "RankingQueryMovedToPlan"
+      ]
+    },
+    {
+      "line": 1277,
+      "end": 1367,
+      "kind": "IfStatement",
+      "owners": [
+        "DocumentHintBackfill"
+      ]
+    },
+    {
+      "line": 1369,
+      "end": 1369,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "InitialSelectionCleanup"
+      ]
+    },
+    {
+      "line": 1370,
+      "end": 1370,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "InitialSelectionCleanup"
+      ]
+    },
+    {
+      "line": 1371,
+      "end": 1371,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "InitialSelectionCleanup"
+      ]
+    },
+    {
+      "line": 1372,
+      "end": 1372,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "InitialSelectionCleanup"
+      ]
+    },
+    {
+      "line": 1373,
+      "end": 1383,
+      "kind": "IfStatement",
+      "owners": [
+        "InitialSelectionCleanup"
+      ]
+    },
+    {
+      "line": 1384,
+      "end": 1384,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "InitialSelectionCleanup"
+      ]
+    },
+    {
+      "line": 1385,
+      "end": 1385,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "InitialSelectionCleanup"
+      ]
+    },
+    {
+      "line": 1386,
+      "end": 1386,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "InitialSelectionCleanup"
+      ]
+    },
+    {
+      "line": 1387,
+      "end": 1388,
+      "kind": "IfStatement",
+      "owners": [
+        "InitialSelectionCleanup"
+      ]
+    },
+    {
+      "line": 1389,
+      "end": 1389,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "InitialSelectionCleanup"
+      ]
+    },
+    {
+      "line": 1390,
+      "end": 1390,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "InitialSelectionCleanup"
+      ]
+    },
+    {
+      "line": 1391,
+      "end": 1391,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "InitialSelectionCleanup"
+      ]
+    },
+    {
+      "line": 1393,
+      "end": 1442,
+      "kind": "IfStatement",
+      "owners": [
+        "DirectTechnicalPhrase"
+      ]
+    },
+    {
+      "line": 1444,
+      "end": 1554,
+      "kind": "IfStatement",
+      "owners": [
+        "DirectTechnicalLinkedEvidence"
+      ]
+    },
+    {
+      "line": 1556,
+      "end": 1599,
+      "kind": "IfStatement",
+      "owners": [
+        "FuzzyTitleLead"
+      ]
+    },
+    {
+      "line": 1601,
+      "end": 1647,
+      "kind": "IfStatement",
+      "owners": [
+        "EnumerativeLookup"
+      ]
+    },
+    {
+      "line": 1649,
+      "end": 1684,
+      "kind": "IfStatement",
+      "owners": [
+        "ScopedProfileFallback"
+      ]
+    },
+    {
+      "line": 1686,
+      "end": 1686,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "EmptyCatalogAndLexicalFallback"
+      ]
+    },
+    {
+      "line": 1687,
+      "end": 1731,
+      "kind": "IfStatement",
+      "owners": [
+        "EmptyCatalogAndLexicalFallback"
+      ]
+    },
+    {
+      "line": 1733,
+      "end": 1814,
+      "kind": "IfStatement",
+      "owners": [
+        "EmptyCatalogAndLexicalFallback"
+      ]
+    },
+    {
+      "line": 1816,
+      "end": 1816,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "EarlyDateTitleBackfill"
+      ]
+    },
+    {
+      "line": 1817,
+      "end": 1858,
+      "kind": "IfStatement",
+      "owners": [
+        "EarlyDateTitleBackfill"
+      ]
+    },
+    {
+      "line": 1860,
+      "end": 1917,
+      "kind": "IfStatement",
+      "owners": [
+        "EarlyReferenceVersionBackfill"
+      ]
+    },
+    {
+      "line": 1919,
+      "end": 1921,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "FinalPreciseTitleBackfill"
+      ]
+    },
+    {
+      "line": 1922,
+      "end": 1923,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "FinalPreciseTitleBackfill"
+      ]
+    },
+    {
+      "line": 1924,
+      "end": 2054,
+      "kind": "IfStatement",
+      "owners": [
+        "FinalPreciseTitleBackfill"
+      ]
+    },
+    {
+      "line": 2056,
+      "end": 2056,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "FinalDocumentHintEvidence"
+      ]
+    },
+    {
+      "line": 2057,
+      "end": 2107,
+      "kind": "IfStatement",
+      "owners": [
+        "FinalDocumentHintEvidence"
+      ]
+    },
+    {
+      "line": 2109,
+      "end": 2109,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "FocusedOrdering"
+      ]
+    },
+    {
+      "line": 2110,
+      "end": 2110,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "FocusedOrdering"
+      ]
+    },
+    {
+      "line": 2111,
+      "end": 2111,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "FocusedOrdering"
+      ]
+    },
+    {
+      "line": 2112,
+      "end": 2112,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "FocusedOrdering"
+      ]
+    },
+    {
+      "line": 2114,
+      "end": 2175,
+      "kind": "IfStatement",
+      "owners": [
+        "ComparativeDiversityBackfill"
+      ]
+    },
+    {
+      "line": 2177,
+      "end": 2197,
+      "kind": "IfStatement",
+      "owners": [
+        "DiversityCoverageAndContinuation"
+      ]
+    },
+    {
+      "line": 2199,
+      "end": 2217,
+      "kind": "IfStatement",
+      "owners": [
+        "DiversityCoverageAndContinuation"
+      ]
+    },
+    {
+      "line": 2219,
+      "end": 2258,
+      "kind": "IfStatement",
+      "owners": [
+        "DiversityCoverageAndContinuation"
+      ]
+    },
+    {
+      "line": 2260,
+      "end": 2379,
+      "kind": "IfStatement",
+      "owners": [
+        "FocusedEmptyRecovery"
+      ]
+    },
+    {
+      "line": 2381,
+      "end": 2381,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "EarlyCompactCodeRecovery"
+      ]
+    },
+    {
+      "line": 2382,
+      "end": 2459,
+      "kind": "IfStatement",
+      "owners": [
+        "EarlyCompactCodeRecovery"
+      ]
+    },
+    {
+      "line": 2461,
+      "end": 2461,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "FileAndCompanionRecovery"
+      ]
+    },
+    {
+      "line": 2462,
+      "end": 2505,
+      "kind": "IfStatement",
+      "owners": [
+        "FileAndCompanionRecovery"
+      ]
+    },
+    {
+      "line": 2507,
+      "end": 2548,
+      "kind": "IfStatement",
+      "owners": [
+        "FileAndCompanionRecovery"
+      ]
+    },
+    {
+      "line": 2550,
+      "end": 2550,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "DocumentStatusOperands"
+      ]
+    },
+    {
+      "line": 2551,
+      "end": 2551,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "DocumentStatusOperands"
+      ]
+    },
+    {
+      "line": 2552,
+      "end": 2741,
+      "kind": "IfStatement",
+      "owners": [
+        "DocumentStatusOperands"
+      ]
+    },
+    {
+      "line": 2743,
+      "end": 2743,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "LateStandardReferenceBackfill"
+      ]
+    },
+    {
+      "line": 2744,
+      "end": 2805,
+      "kind": "IfStatement",
+      "owners": [
+        "LateStandardReferenceBackfill"
+      ]
+    },
+    {
+      "line": 2807,
+      "end": 2807,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "LateOrdering"
+      ]
+    },
+    {
+      "line": 2808,
+      "end": 2808,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "LateOrdering"
+      ]
+    },
+    {
+      "line": 2809,
+      "end": 2809,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "LateOrdering"
+      ]
+    },
+    {
+      "line": 2810,
+      "end": 2810,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "LateOrdering"
+      ]
+    },
+    {
+      "line": 2811,
+      "end": 2811,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "LateOrdering"
+      ]
+    },
+    {
+      "line": 2812,
+      "end": 2812,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "LateOrdering"
+      ]
+    },
+    {
+      "line": 2813,
+      "end": 2813,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "LateOrdering"
+      ]
+    },
+    {
+      "line": 2814,
+      "end": 2814,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "LateOrdering"
+      ]
+    },
+    {
+      "line": 2815,
+      "end": 2815,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "LateOrdering"
+      ]
+    },
+    {
+      "line": 2816,
+      "end": 2816,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "LateOrdering"
+      ]
+    },
+    {
+      "line": 2817,
+      "end": 2817,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "LateOrdering"
+      ]
+    },
+    {
+      "line": 2818,
+      "end": 2818,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "LateOrdering"
+      ]
+    },
+    {
+      "line": 2819,
+      "end": 2825,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "LateOrdering"
+      ]
+    },
+    {
+      "line": 2826,
+      "end": 2826,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "LateOrdering"
+      ]
+    },
+    {
+      "line": 2827,
+      "end": 2827,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "LateOrdering"
+      ]
+    },
+    {
+      "line": 2828,
+      "end": 2828,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "LateOrdering"
+      ]
+    },
+    {
+      "line": 2830,
+      "end": 2872,
+      "kind": "IfStatement",
+      "owners": [
+        "LateDateTitleRecovery"
+      ]
+    },
+    {
+      "line": 2874,
+      "end": 2938,
+      "kind": "IfStatement",
+      "owners": [
+        "LateReferenceVersionRecovery"
+      ]
+    },
+    {
+      "line": 2940,
+      "end": 2984,
+      "kind": "IfStatement",
+      "owners": [
+        "EmptyTitleAndProfileRecovery"
+      ]
+    },
+    {
+      "line": 2986,
+      "end": 3025,
+      "kind": "IfStatement",
+      "owners": [
+        "EmptyTitleAndProfileRecovery"
+      ]
+    },
+    {
+      "line": 3027,
+      "end": 3064,
+      "kind": "IfStatement",
+      "owners": [
+        "EmptyTitleAndProfileRecovery"
+      ]
+    },
+    {
+      "line": 3066,
+      "end": 3066,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "FinalStandardReferenceProfiles"
+      ]
+    },
+    {
+      "line": 3067,
+      "end": 3108,
+      "kind": "IfStatement",
+      "owners": [
+        "FinalStandardReferenceProfiles"
+      ]
+    },
+    {
+      "line": 3110,
+      "end": 3110,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "FinalStandardReferenceProfiles"
+      ]
+    },
+    {
+      "line": 3111,
+      "end": 3111,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "FinalStandardReferenceProfiles"
+      ]
+    },
+    {
+      "line": 3113,
+      "end": 3113,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "FinalStandardReferenceProfiles"
+      ]
+    },
+    {
+      "line": 3114,
+      "end": 3114,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "FinalStandardReferenceProfiles"
+      ]
+    },
+    {
+      "line": 3116,
+      "end": 3120,
+      "kind": "IfStatement",
+      "owners": [
+        "AmbiguousSourceSuppression"
+      ]
+    },
+    {
+      "line": 3122,
+      "end": 3200,
+      "kind": "IfStatement",
+      "owners": [
+        "FinalCompactCodeRecovery"
+      ]
+    },
+    {
+      "line": 3202,
+      "end": 3204,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "FinalCompactCodeProfiles"
+      ]
+    },
+    {
+      "line": 3205,
+      "end": 3256,
+      "kind": "IfStatement",
+      "owners": [
+        "FinalCompactCodeProfiles"
+      ]
+    },
+    {
+      "line": 3258,
+      "end": 3301,
+      "kind": "IfStatement",
+      "owners": [
+        "FinalLexicalProfiles"
+      ]
+    },
+    {
+      "line": 3303,
+      "end": 3312,
+      "kind": "IfStatement",
+      "owners": [
+        "RequestedPageWindow"
+      ]
+    },
+    {
+      "line": 3314,
+      "end": 3314,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Response"
+      ]
+    },
+    {
+      "line": 3315,
+      "end": 3315,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Response"
+      ]
+    },
+    {
+      "line": 3317,
+      "end": 3354,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Response"
+      ]
+    },
+    {
+      "line": 3356,
+      "end": 3356,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Response"
+      ]
+    },
+    {
+      "line": 3357,
+      "end": 3357,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Response"
+      ]
+    },
+    {
+      "line": 3359,
+      "end": 3359,
+      "kind": "ReturnStatement",
+      "owners": [
+        "Response"
+      ]
+    }
+  ],
+  "broadRows": [
+    {
+      "line": 479,
+      "end": 501,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 502,
+      "end": 527,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 528,
+      "end": 552,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 553,
+      "end": 561,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 562,
+      "end": 562,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 563,
+      "end": 563,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 564,
+      "end": 568,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 569,
+      "end": 575,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 576,
+      "end": 580,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 581,
+      "end": 584,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 585,
+      "end": 602,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 604,
+      "end": 634,
+      "kind": "LocalFunctionStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 636,
+      "end": 641,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 643,
+      "end": 643,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 644,
+      "end": 644,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 645,
+      "end": 645,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 646,
+      "end": 646,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 647,
+      "end": 647,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 648,
+      "end": 650,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 651,
+      "end": 651,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 652,
+      "end": 656,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 657,
+      "end": 678,
+      "kind": "IfStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 679,
+      "end": 679,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 680,
+      "end": 682,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 683,
+      "end": 683,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 684,
+      "end": 684,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 685,
+      "end": 685,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 686,
+      "end": 686,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 687,
+      "end": 687,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 688,
+      "end": 688,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 689,
+      "end": 689,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 690,
+      "end": 690,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 691,
+      "end": 691,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 692,
+      "end": 692,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "ParallelChannels"
+      ]
+    },
+    {
+      "line": 694,
+      "end": 694,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Fusion"
+      ]
+    },
+    {
+      "line": 695,
+      "end": 697,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Fusion"
+      ]
+    },
+    {
+      "line": 698,
+      "end": 698,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Fusion"
+      ]
+    },
+    {
+      "line": 699,
+      "end": 699,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Fusion"
+      ]
+    },
+    {
+      "line": 700,
+      "end": 700,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Fusion"
+      ]
+    },
+    {
+      "line": 701,
+      "end": 701,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Fusion"
+      ]
+    },
+    {
+      "line": 702,
+      "end": 704,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Fusion"
+      ]
+    },
+    {
+      "line": 705,
+      "end": 705,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Fusion"
+      ]
+    },
+    {
+      "line": 706,
+      "end": 706,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Fusion"
+      ]
+    },
+    {
+      "line": 707,
+      "end": 707,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Fusion"
+      ]
+    },
+    {
+      "line": 709,
+      "end": 751,
+      "kind": "IfStatement",
+      "owners": [
+        "Fusion"
+      ]
+    },
+    {
+      "line": 753,
+      "end": 753,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Fusion"
+      ]
+    },
+    {
+      "line": 754,
+      "end": 757,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "Fusion"
+      ]
+    },
+    {
+      "line": 758,
+      "end": 759,
+      "kind": "IfStatement",
+      "owners": [
+        "Fusion"
+      ]
+    },
+    {
+      "line": 760,
+      "end": 769,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Fusion"
+      ]
+    },
+    {
+      "line": 770,
+      "end": 770,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Fusion"
+      ]
+    },
+    {
+      "line": 771,
+      "end": 771,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Fusion"
+      ]
+    },
+    {
+      "line": 772,
+      "end": 772,
+      "kind": "ExpressionStatement",
+      "owners": [
+        "Fusion"
+      ]
+    },
+    {
+      "line": 774,
+      "end": 868,
+      "kind": "IfStatement",
+      "owners": [
+        "ComparativeSubjects"
+      ]
+    },
+    {
+      "line": 870,
+      "end": 967,
+      "kind": "IfStatement",
+      "owners": [
+        "ComparativeTitles"
+      ]
+    },
+    {
+      "line": 969,
+      "end": 1028,
+      "kind": "IfStatement",
+      "owners": [
+        "ComparativeOperandProfiles"
+      ]
+    },
+    {
+      "line": 1030,
+      "end": 1032,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "PreciseTitleContent"
+      ]
+    },
+    {
+      "line": 1033,
+      "end": 1035,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "PreciseTitleContent"
+      ]
+    },
+    {
+      "line": 1036,
+      "end": 1037,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "PreciseTitleContent"
+      ]
+    },
+    {
+      "line": 1038,
+      "end": 1041,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "PreciseTitleContent"
+      ]
+    },
+    {
+      "line": 1042,
+      "end": 1172,
+      "kind": "IfStatement",
+      "owners": [
+        "PreciseTitleContent"
+      ]
+    },
+    {
+      "line": 1174,
+      "end": 1200,
+      "kind": "IfStatement",
+      "owners": [
+        "DeferredProfileSearch"
+      ]
+    },
+    {
+      "line": 1202,
+      "end": 1203,
+      "kind": "LocalDeclarationStatement",
+      "owners": [
+        "InitialLinkedContext"
+      ]
+    },
+    {
+      "line": 1204,
+      "end": 1248,
+      "kind": "IfStatement",
+      "owners": [
+        "InitialLinkedContext"
+      ]
+    },
+    {
+      "line": 1250,
+      "end": 1269,
+      "kind": "IfStatement",
+      "owners": [
+        "InitialLinkedContext"
+      ]
+    }
+  ],
+  "missing": [],
+  "limits": "Checks structural ownership of every original top-level statement and every broad-route statement. Runtime behavior is validated separately with Unit and IntegrationPg. The provably constant-false quoted-title short circuit was removed; query-derived date/code/status lists moved into the immutable plan; all remaining stage order is explicit."
+}

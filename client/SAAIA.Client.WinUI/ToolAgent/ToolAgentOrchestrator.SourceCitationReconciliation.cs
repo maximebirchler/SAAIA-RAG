@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -9,27 +9,6 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
 public sealed partial class ToolAgentOrchestrator
 {
-    private static List<ToolMemory.SourceRef> ReconcileVisibleSourcesWithFinalAnswer(
-        string answer,
-        IEnumerable<ToolMemory.SourceRef>? sources)
-    {
-        var visibleSources = NormalizeVisibleSourceRefsForMemory(sources);
-        if (visibleSources.Count == 0 || string.IsNullOrWhiteSpace(answer))
-            return visibleSources;
-
-        var citedSources = visibleSources
-            .Where(source => IsSourceRefCitedInAnswer(answer, source))
-            .GroupBy(BuildVisibleSourceCitationDiversityKey, StringComparer.OrdinalIgnoreCase)
-            .Select(static group => group.First())
-            .ToList();
-
-        return citedSources.Count > 0
-            ? citedSources
-            : visibleSources
-                .GroupBy(BuildVisibleSourceRefDedupeKey, StringComparer.OrdinalIgnoreCase)
-                .Select(static group => group.First())
-                .ToList();
-    }
 
     private static bool ShouldRequireVisibleSourcesToBeCited(string answer, string? query)
     {

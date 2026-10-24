@@ -6,7 +6,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class LiveRuntimeProvisioningProbeTests
 {
-    [Fact]
+    [Trait("Profile", "LiveLocal")]
+    [ProfileFact("LiveLocal")]
     [Trait("Category", "LiveHardware")]
     public async Task Provision_requested_backends_at_one_build_and_probe_their_devices()
     {
@@ -15,7 +16,7 @@ public sealed class LiveRuntimeProvisioningProbeTests
                 "1",
                 StringComparison.Ordinal))
         {
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var requestedBackends = (Environment.GetEnvironmentVariable("SAAIA_RUNTIME_BACKENDS") ?? "vulkan")

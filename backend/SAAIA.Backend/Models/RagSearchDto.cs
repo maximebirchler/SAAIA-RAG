@@ -285,7 +285,14 @@ public sealed record RagRetrievalDiagnosticsDto(
     int MaxPerDoc,
     int MaxPerPage,
     IReadOnlyList<RagRetrievalPhaseDiagnosticsDto> Phases,
-    RagRetrievalSelectionDiagnosticsDto Selection
+    RagRetrievalSelectionDiagnosticsDto Selection,
+    string CaptureMode = "content",
+    int DroppedPhases = 0,
+    IReadOnlyList<RagRetrievalRejectionDiagnosticsDto>? Rejections = null,
+    int DroppedRejections = 0,
+    IReadOnlyDictionary<string, int>? RejectionCounts = null,
+    int CandidateSampleBudget = 192,
+    int CapturedPhaseCandidates = 0
 );
 
 public sealed record RagRetrievalPhaseDiagnosticsDto(
@@ -293,8 +300,12 @@ public sealed record RagRetrievalPhaseDiagnosticsDto(
     string Retriever,
     int Returned,
     long? DurationMs,
-    IReadOnlyList<RagRetrievalCandidateDiagnosticsDto> TopCandidates
+    IReadOnlyList<RagRetrievalCandidateDiagnosticsDto> TopCandidates,
+    int OmittedCandidates = 0
 );
+
+public sealed record RagRetrievalRejectionDiagnosticsDto(
+    string Phase, string ReasonCode, string? DocId, string? ChunkId, int? PageStart, int? PageEnd);
 
 public sealed record RagRetrievalCandidateDiagnosticsDto(
     int Rank,

@@ -6,7 +6,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class LiveLocalLlmQualificationFinalValidationTests
 {
-    [Fact]
+    [Trait("Profile", "LiveLocal")]
+    [ProfileFact("LiveLocal")]
     [Trait("Category", "LiveHardware")]
     public async Task Validate_refined_finalists_with_rotated_server_and_structured_rounds()
     {
@@ -15,7 +16,7 @@ public sealed class LiveLocalLlmQualificationFinalValidationTests
                 "1",
                 StringComparison.Ordinal))
         {
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var refinementArtifactPath =

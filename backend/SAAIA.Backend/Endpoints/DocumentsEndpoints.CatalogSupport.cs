@@ -99,44 +99,4 @@ public static partial class DocumentsEndpoints
 
     private static bool CursorMatches(int cursorValue, int requestValue)
         => requestValue <= 0 || cursorValue == requestValue;
-
-    private static JsonElement ParseJsonOrEmptyObject(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            using var doc = JsonDocument.Parse("{}");
-            return doc.RootElement.Clone();
-        }
-
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.ValueKind == JsonValueKind.Object)
-                return doc.RootElement.Clone();
-        }
-        catch { }
-
-        using (var doc = JsonDocument.Parse("{}"))
-            return doc.RootElement.Clone();
-    }
-
-    private static JsonElement ParseJsonOrEmptyArray(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            using var doc = JsonDocument.Parse("[]");
-            return doc.RootElement.Clone();
-        }
-
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.ValueKind == JsonValueKind.Array)
-                return doc.RootElement.Clone();
-        }
-        catch { }
-
-        using (var doc = JsonDocument.Parse("[]"))
-            return doc.RootElement.Clone();
-    }
 }

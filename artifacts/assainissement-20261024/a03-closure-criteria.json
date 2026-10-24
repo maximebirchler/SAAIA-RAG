@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "saaia-a03-closure-criteria-v1",
+  "proposedAtUtc": "2026-10-24T22:56:00.6286711+02:00",
+  "source": "Audit A03 targets explicit per-request ownership, named transitions and separation of session/execution/diagnostics; it does not require every stateless helper to move to a different class.",
+  "decision": "Keeping partial classes and four private phase methods is not independently blocking when state ownership and dependencies are proved. Do not replace this assessment by file-size budgets.",
+  "runnerAssessment": {
+    "dependencies": [
+      "_llm: native ISourceBackedAgentLlmClient port",
+      "_toolExecutor: documentary operation port",
+      "_options: immutable options record snapshot",
+      "_traceSink: diagnostic callback; protection must be verified",
+      "_namedDocumentResolver: exact-identity resolution port"
+    ],
+    "currentIssue": "Trace-sink guard corrected and statically re-reviewed, with per-run CollectorHealth and aggregated finally event; real RunAsync observer tests await the next full gate. Session-ownership bug is being handled separately by the assigned agent.",
+    "fields": "Only five readonly instance dependency fields on reusable runner; mutable execution/evidence/iteration values allocated per invocation."
+  },
+  "criteria": [
+    {
+      "id": "A03-C1",
+      "criterion": "Run ownership",
+      "proof": "Compiled readonly field contract and real overlapping ExecuteAsync budget contexts added in SourceBackedBudgetContextIsolationTests.cs; one request is rejected before simulated I/O, the other completes with exact usage and parent context restored. Tests written, not executed by reviewer; next client gate required.",
+      "required": "No current-run question, evidence, counters, selections, budget or terminal state stored on reusable runner. Scoped contexts restore parent on success, failure and cancellation."
+    },
+    {
+      "id": "A03-C2",
+      "criterion": "Session ownership",
+      "proof": "Barrier-based test through real RagChatAgent: session A pending, load B, complete A; assert B state unchanged and A result/diagnostics remain A. Include cancellation/error and preference reset semantics.",
+      "required": "The actual session identity selects or owns memory. Loading/resetting another session during an old pending request cannot change its snapshot, and an old completion cannot write mode/evidence/trace into the newly active session."
+    },
+    {
+      "id": "A03-C3",
+      "criterion": "Typed control and terminal transitions",
+      "proof": "AgentIterationPipelineTests + AgentRunLifecycleTests; static preservation of original 83 ordered statements and control targets; actual caller behavior tests.",
+      "required": "The four ordered phases return Advance/Continue/Stop/Complete; only the first non-Advance result controls the outer loop; exact one terminal lifecycle outcome and no phase after completion/failure/cancellation."
+    },
+    {
+      "id": "A03-C4",
+      "criterion": "Diagnostic observer isolation",
+      "proof": "Throwing phase observer, event sink and trace-sink tests; actual success, business exception and cancellation keep their outcomes; no current-run counter placed on shared runner.",
+      "required": "Trace/progress diagnostic failures preserve the original answer/exception and are counted visibly for the correct request. A collector failure is not a model failure."
+    },
+    {
+      "id": "A03-C5",
+      "criterion": "Real production boundary",
+      "proof": "Actual factory and compiled call graph; complete normal Release and offline suites.",
+      "required": "Production composes the same portable lifecycle/pipeline/planners and typed source/job contracts tested offline; no empty Owner wrapper is counted as an extraction."
+    },
+    {
+      "id": "A03-C6",
+      "criterion": "Dependencies and remaining aggregate",
+      "proof": "Real documentary adapter tests through captured HTTP handlers; no independent memory selection, no implicit session from active UI when processing an old request.",
+      "required": "Mutable data is owned by request/session explicitly. Readonly dependency fields alone are not a thread-safety guarantee: adapter ownership and lifetimes must be documented/tested."
+    }
+  ],
+  "adapters": {
+    "namedResolver": "Readonly catalog/identity-hydrator ports backed by ApiClient; dictionaries/counts are local to ResolveAsync.",
+    "documentaryExecutor": {
+      "optionalLaterExtraction": "Extract a stable documentary operations port implemented by current legacy code and inject it together with request-scoped observation/progress and immutable limits. Move search/docRef policy families with causal tests; do not create a class that only forwards to an Owner.",
+      "actualResponsibilities": [
+        "Allowed documentary tool set",
+        "Document locator normalization and named reference completion",
+        "Canonical/research scope flags",
+        "Content-card limit normalization",
+        "Parallel context-batch execution and lineage",
+        "Error/result/time observations"
+      ],
+      "acceptableCondition": "Owner lifetime is per run and memory is a captured session owner/snapshot. Explicitly retain this as a legacy transport adapter until search/docRef policy families migrate.",
+      "type": "OrchestratorSourceBackedRagToolExecutor",
+      "ownerDependency": "Broad _owner exists, but this adapter has real behavior and is not an empty facade.",
+      "whyNotApiOnly": "Calling ApiClient directly now would bypass existing search/multi-search scope, identity resolution and normalization policies."
+    },
+    "llm": "Factory passes native ISourceBackedAgentLlmClient directly; no Orchestrator forwarding wrapper."
+  },
+  "nonBlockingDebt": [
+    "Large aggregate of stateless helpers remains a maintainability concentration; track it under structural migration with measured downward budgets.",
+    "Four private phase methods can be the internal implementation of one run service when their state/inputs/control are explicit. Separate classes are warranted when they own an independent policy or mutable lifecycle, not merely to reduce the nameplate line count.",
+    "Further candidates include candidate/audit checkpoint state, semantic selection/repair state and documentary transport, migrated one bounded behavior at a time if independent contracts emerge."
+  ],
+  "closureRule": "Close A03 after C1-C6 evidence is present and the two concrete trace/session bugs are corrected. Report remaining stateless aggregation explicitly as inherited maintainability debt; do not claim overall architectural perfection or semantic/model acceptance.",
+  "latestTestContribution": {
+    "path": "client/SAAIA.Client.ToolAgent.Tests/SourceBackedBudgetContextIsolationTests.cs",
+    "testCount": 2,
+    "sha256": "79B99435ED3B6E3C54C48C8A6A7447E4E5A32F4DDE21844648A16B662D58618E",
+    "state": "written_not_executed_by_reviewer",
+    "reviewedAtUtc": "2026-10-24T20:59:37.8830234+00:00"
+  }
+}

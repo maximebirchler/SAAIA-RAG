@@ -6,7 +6,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class LiveLocalLlmQualificationScreeningTests
 {
-    [Fact]
+    [Trait("Profile", "LiveLocal")]
+    [ProfileFact("LiveLocal")]
     [Trait("Category", "LiveHardware")]
     public async Task Screen_installed_runtime_topologies_with_the_governed_local_model()
     {
@@ -15,7 +16,7 @@ public sealed class LiveLocalLlmQualificationScreeningTests
                 "1",
                 StringComparison.Ordinal))
         {
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var modelPath = Environment.GetEnvironmentVariable("SAAIA_LIVE_MODEL_PATH");

@@ -1,0 +1,112 @@
+[
+  {
+    "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.CatalogSupport.cs",
+    "method": "ParseJsonOrEmptyObject",
+    "productionAndTestOccurrencesBefore": 1,
+    "attributes": 0,
+    "checkedSourceFiles": 1273,
+    "removedLines": 21,
+    "removedBodySha256": "33AA3368FB9F8CF84605C587A3521444B7C9F3AD625509C9EB075832F29AFAC0",
+    "decision": "No C#/XAML reference or exact method-name string, no attribute; removed explicit audited helper only."
+  },
+  {
+    "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.CatalogSupport.cs",
+    "method": "ParseJsonOrEmptyArray",
+    "productionAndTestOccurrencesBefore": 1,
+    "attributes": 0,
+    "checkedSourceFiles": 1273,
+    "removedLines": 21,
+    "removedBodySha256": "DA135C1688A1350C901CB4C375436FB5C0BE0CB4F07DDC95962A27A1F163FC6D",
+    "decision": "No C#/XAML reference or exact method-name string, no attribute; removed explicit audited helper only."
+  },
+  {
+    "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.ExtractionQualityPages.cs",
+    "method": "RangesOverlap",
+    "productionAndTestOccurrencesBefore": 1,
+    "attributes": 0,
+    "checkedSourceFiles": 1273,
+    "removedLines": 4,
+    "removedBodySha256": "D211ED475DB5CB42EB842B94BC44A2BCE7D76060C2FB3F27335D970222D8443E",
+    "decision": "No C#/XAML reference or exact method-name string, no attribute; removed explicit audited helper only."
+  },
+  {
+    "path": "backend/SAAIA.Backend/Retrieval/RetrievalCandidateSignals.cs",
+    "method": "ContainsPrimarySpecificSelectionAnchor",
+    "productionAndTestOccurrencesBefore": 1,
+    "attributes": 0,
+    "checkedSourceFiles": 1273,
+    "removedLines": 10,
+    "removedBodySha256": "68FAE10AAF19E695574E56640AE0865C739962FEBD5AE43D56CBB895E89C6988",
+    "decision": "No C#/XAML reference or exact method-name string, no attribute; removed explicit audited helper only."
+  },
+  {
+    "path": "backend/SAAIA.Backend/Retrieval/RetrievalCandidateSignals.cs",
+    "method": "BuildMatchedContentCardCalibrationSignal",
+    "productionAndTestOccurrencesBefore": 1,
+    "attributes": 0,
+    "checkedSourceFiles": 1273,
+    "removedLines": 28,
+    "removedBodySha256": "47729FA8559D157BE8DCEB1F1E8CB2D4254C0F92A10902579A006309F32B67A8",
+    "decision": "No C#/XAML reference or exact method-name string, no attribute; removed explicit audited helper only."
+  },
+  {
+    "path": "backend/SAAIA.Backend/Retrieval/RetrievalCandidateSignals.cs",
+    "method": "ComputeRawOrderedTitleScore",
+    "productionAndTestOccurrencesBefore": 1,
+    "attributes": 0,
+    "checkedSourceFiles": 1273,
+    "removedLines": 25,
+    "removedBodySha256": "AE26BC70C76DEE7E0A4E7B48478B0CDFF07C97450FA6B31C635DE0D058BA3318",
+    "decision": "No C#/XAML reference or exact method-name string, no attribute; removed explicit audited helper only."
+  },
+  {
+    "path": "backend/SAAIA.Backend/Llm/CapabilityBBackofficeSummaryService.cs",
+    "method": "NormalizePreferredLanguage",
+    "productionAndTestOccurrencesBefore": 1,
+    "attributes": 0,
+    "checkedSourceFiles": 1273,
+    "removedLines": 4,
+    "removedBodySha256": "B3F8FFE368E9C1F968B86A1B393F0E7D97D38E1A5A806B9BB0EDFA494505472B",
+    "decision": "No C#/XAML reference or exact method-name string, no attribute; removed explicit audited helper only."
+  },
+  {
+    "path": "backend/SAAIA.Backend/Pdf/DocumentTitleNavigationProjector.cs",
+    "method": "ContainsNormalizedPhrase",
+    "productionAndTestOccurrencesBefore": 1,
+    "attributes": 0,
+    "checkedSourceFiles": 1273,
+    "removedLines": 9,
+    "removedBodySha256": "33A9615C0477BB04DA92991D98F9C4AED448C4F78A06FBEF110F35D4969EEC53",
+    "decision": "No C#/XAML reference or exact method-name string, no attribute; removed explicit audited helper only."
+  },
+  {
+    "path": "backend/SAAIA.Backend/Pdf/PdfOcrTextExtractor.cs",
+    "method": "RunProcessAsync",
+    "productionAndTestOccurrencesBefore": 1,
+    "attributes": 0,
+    "checkedSourceFiles": 1273,
+    "removedLines": 4,
+    "removedBodySha256": "52AF7105E90DF34FD964B8ABA3B12EE83FB8A9ECF3124850F0AA0F1596709D5B",
+    "decision": "No C#/XAML reference or exact method-name string, no attribute; removed explicit audited helper only."
+  },
+  {
+    "path": "backend/SAAIA.Backend/Retrieval/RetrievalResultProjector.cs",
+    "method": "LoadRagDocumentSourceHashesAsync",
+    "productionAndTestOccurrencesBefore": 1,
+    "attributes": 0,
+    "checkedSourceFiles": 1273,
+    "removedLines": 13,
+    "removedBodySha256": "92D1AC663967DA55E7B96FE222C9FDD141AB6F78A5592E466CFDC16894CCF4EE",
+    "decision": "No C#/XAML reference or exact method-name string, no attribute; removed explicit audited helper only."
+  },
+  {
+    "path": "backend/SAAIA.Backend/Retrieval/RetrievalResultProjector.cs",
+    "method": "ResolveDocumentSourceHash",
+    "productionAndTestOccurrencesBefore": 1,
+    "attributes": 0,
+    "checkedSourceFiles": 1273,
+    "removedLines": 19,
+    "removedBodySha256": "FFEC1C868C1E7B219AA094552AD2BC45EEEE17D40041DE28A4E1908B51516B9D",
+    "decision": "No C#/XAML reference or exact method-name string, no attribute; removed explicit audited helper only."
+  }
+]

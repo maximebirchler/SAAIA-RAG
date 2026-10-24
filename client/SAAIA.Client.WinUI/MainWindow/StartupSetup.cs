@@ -71,14 +71,6 @@ public sealed partial class MainWindow
         }
     }
 
-    private void StageOutboundMessage(string wireText, string? displayText = null)
-    {
-        _pendingOutboundWireText = string.IsNullOrWhiteSpace(wireText) ? null : wireText.Trim();
-        _pendingOutboundDisplayText = string.IsNullOrWhiteSpace(displayText) ? null : displayText.Trim();
-        if (InputBox is not null)
-            InputBox.Text = _pendingOutboundDisplayText ?? _pendingOutboundWireText ?? string.Empty;
-    }
-
     private void ClearStagedOutboundMessage()
     {
         _pendingOutboundWireText = null;
@@ -115,16 +107,17 @@ public sealed partial class MainWindow
         if (!isGenerating)
             _isCancellingGeneration = false;
 
-        InputBox.IsEnabled = IsConnected && !_isGenerating && !string.IsNullOrWhiteSpace(_sessionId);
+        var conversationBusy = _isGenerating || _isLoadingSession;
+        InputBox.IsEnabled = IsConnected && !conversationBusy && !string.IsNullOrWhiteSpace(_sessionId);
         if (HeaderHelpButton is not null)
-            HeaderHelpButton.IsEnabled = !_isGenerating;
-        if (HeaderAdminConsoleButton is not null)
-            HeaderAdminConsoleButton.IsEnabled = !_isGenerating && _api.HasAdminKey;
+            HeaderHelpButton.IsEnabled = !conversationBusy;
         RefreshAdminJobsUiVisibility();
+        if (HeaderAdminConsoleButton is not null)
+            HeaderAdminConsoleButton.IsEnabled = !conversationBusy && _api.HasAdminKey;
 
-        SessionsList.IsEnabled = IsConnected && !_isGenerating;
-        NewChatButton.IsEnabled = IsConnected && !_isGenerating;
-        ConnectButton.IsEnabled = !_isGenerating;
+        SessionsList.IsEnabled = IsConnected && !conversationBusy;
+        NewChatButton.IsEnabled = IsConnected && !conversationBusy;
+        ConnectButton.IsEnabled = !conversationBusy;
 
         UpdateSendCancelButtonVisualState();
     }
@@ -141,7 +134,9 @@ public sealed partial class MainWindow
         LlmUrlBox.Text = _appSettings.LlmBaseUrl;
         LlmModelBox.Text = string.IsNullOrWhiteSpace(_appSettings.ModelId) ? ClientDefaults.LlmModel : _appSettings.ModelId;
 
-        _sessionId = string.IsNullOrWhiteSpace(_appSettings.LastSessionId) ? null : _appSettings.LastSessionId;
+        // Settings may be reloaded by setup/repair after connection; only restore this hint before memory is owned.
+        if (_agent is null)
+            _sessionId = string.IsNullOrWhiteSpace(_appSettings.LastSessionId) ? null : _appSettings.LastSessionId;
         ApplyAppearanceTheme();
         ApplyUiLanguage();
     }

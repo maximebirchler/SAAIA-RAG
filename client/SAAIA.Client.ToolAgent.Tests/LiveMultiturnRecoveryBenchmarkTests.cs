@@ -56,6 +56,7 @@ public sealed class LiveMultiturnRecoveryBenchmarkTests(
             MaximumWorkingExcerptCharacters:
                 MaximumObservationExcerptCharacters);
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Frozen_replay_and_feedback_controller_are_mechanically_valid()
     {
@@ -99,7 +100,8 @@ public sealed class LiveMultiturnRecoveryBenchmarkTests(
         Assert.Empty(classifications["p1"]);
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Q5_recovers_the_five_frozen_first_actions_when_enabled()
     {
         if (!string.Equals(
@@ -109,7 +111,7 @@ public sealed class LiveMultiturnRecoveryBenchmarkTests(
         {
             output.WriteLine(
                 $"Skipped: set {EnableVariable}=1 to run EXP-047/W.0.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var replay = LoadReplay();

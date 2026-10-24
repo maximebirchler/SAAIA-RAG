@@ -193,32 +193,6 @@ public static class ToolManifest
             _ => Array.Empty<string>()
         };
 
-    private static string BuildRouterToolDescription(ToolDefinition tool)
-        => tool.Name switch
-        {
-            "documents.list" => "List catalog documents for inventory/browse requests.",
-            "documents.search" => "Find documents by name, path or reference.",
-            "documents.get" => "Resolve one document reference to metadata.",
-            "documents.count" => "Count indexed documents.",
-            "documents.categories" => "List catalog categories for corpus scoping.",
-            "documents.tree" => "Get category tree as a navigation map, not final evidence.",
-            "documents.navigation" => "Get headings/table-of-contents anchors as search pointers, not final evidence.",
-            "documents.content_cards" => "Enumerate citable named content items with stable document/page anchors.",
-            "documents.context" => "Read indexed page/chunk context around a doc, page or RAG hit.",
-            "documents.stats" => "Get catalog statistics.",
-            "sources.resolve" => "Resolve an explicit source/document/link/opening reference.",
-            "rag.search" => "Single-query RAG for factual corpus answers; supports category, doc/page scope and source_exploration.",
-            "rag.multi_search" => "Multi-query RAG for broad source-backed synthesis; initial broad-plan calls should use 1-4 subject/candidate queries.",
-            "rag.summarize_live" => "Live one-document summary/about answer when stored summary is not available.",
-            "summary.get" => "Read a stored summary for one document.",
-            "summary.exists" => "Check whether a stored summary exists.",
-            "summary.search" => "Search stored summaries.",
-            "export.create" => "Create a user export artifact.",
-            "support.bundle" => "Create a support bundle only when explicitly requested.",
-            "diagnostic.performance" => "Return recent router/tools/writer timings for explicit performance questions.",
-            _ => BuildCompactDescription(tool.Description)
-        };
-
     private static string BuildCompactDescription(string description)
     {
         var value = (description ?? string.Empty).Trim();

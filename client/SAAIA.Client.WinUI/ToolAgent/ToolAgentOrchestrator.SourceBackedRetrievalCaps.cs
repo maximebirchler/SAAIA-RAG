@@ -37,14 +37,6 @@ public sealed partial class ToolAgentOrchestrator
         return targetSlots >= 10 ? Math.Min(maxTopK, Math.Max(defaultTopK, topK)) : Math.Max(8, topK);
     }
 
-    private static (int TopK, int MaxPerDoc, int MaxPerPage) ResolveSourceBackedPlanningInventoryCaps(int? requestedTopK, string effectiveUserMessage)
-    {
-        var topK = NormalizeSourceBackedPlanningTopK(requestedTopK, effectiveUserMessage);
-        var targetSlots = ResolveSourceBackedPlanningTargetItemCount(effectiveUserMessage);
-        var maxPerPage = Math.Min(topK, Math.Clamp(targetSlots, 8, 24));
-        return (topK, topK, maxPerPage);
-    }
-
     private static int NormalizeComparativeTopK(int? requestedTopK, string effectiveUserMessage)
     {
         if (CountExplicitDocumentFileReferences(effectiveUserMessage) > 1)

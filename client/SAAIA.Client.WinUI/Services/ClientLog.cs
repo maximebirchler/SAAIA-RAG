@@ -18,6 +18,8 @@ internal static class ClientLog
     private static readonly object _lock = new();
     private static string? _logDir;
     private static int _handlersRegistered;
+    private static long _failedWrites;
+    public static long FailedWrites => Interlocked.Read(ref _failedWrites);
 
     public static string LogDirectory
     {
@@ -60,6 +62,7 @@ internal static class ClientLog
         }
         catch
         {
+            Interlocked.Increment(ref _failedWrites);
             // Never throw from logger.
         }
     }

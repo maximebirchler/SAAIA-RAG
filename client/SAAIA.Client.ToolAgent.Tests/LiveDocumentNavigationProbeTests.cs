@@ -8,7 +8,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class LiveDocumentNavigationProbeTests(ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LiveLocal")]
+    [ProfileFact("LiveLocal")]
     public async Task Live_cuisine_navigation_exposes_named_recipe_anchors_when_enabled()
     {
         if (!string.Equals(
@@ -18,7 +19,7 @@ public sealed class LiveDocumentNavigationProbeTests(ITestOutputHelper output)
         {
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_DOCUMENT_NAVIGATION_PROBE=1 to inspect real document navigation.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

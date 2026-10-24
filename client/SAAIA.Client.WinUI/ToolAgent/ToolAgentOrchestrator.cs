@@ -56,7 +56,8 @@ public sealed partial class ToolAgentOrchestrator
     private List<(string tool, long durationMs, bool ok)> _lastToolDurations = new();
     private string _lastAnswerSource = "unknown";
 
-    // limite securite perf (spec : max 5 RAG/calls par requete)
+    // Budgets du parcours interactif historique : huit outils, cinq appels RAG ordinaires.
+    // L'exploration documentaire large possède son propre budget ci-dessous ; le runner V2 utilise ses options.
     private const int MaxToolCalls = 8;
     private const int MaxRagToolCalls = 5;
     private const int MaxBroadExplorationRagToolCalls = 16;

@@ -1,0 +1,3362 @@
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Net;
+using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using System.Security.Cryptography;
+using Dapper;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Npgsql;
+using SAAIA.Backend.Auth;
+using SAAIA.Backend.Middleware;
+using SAAIA.Backend.Models;
+using SAAIA.Backend.Retrieval;
+using static SAAIA.Backend.Retrieval.CanonicalRetrieval;
+using static SAAIA.Backend.Retrieval.RetrievalAnswerGuidance;
+using static SAAIA.Backend.Retrieval.RetrievalCandidateSignals;
+using static SAAIA.Backend.Retrieval.RetrievalChannels;
+using static SAAIA.Backend.Retrieval.RetrievalLexicalExpansion;
+using static SAAIA.Backend.Retrieval.RetrievalMetadata;
+using static SAAIA.Backend.Retrieval.RetrievalNavigation;
+using static SAAIA.Backend.Retrieval.RetrievalQueryPolicy;
+using static SAAIA.Backend.Retrieval.RetrievalResultProjector;
+using static SAAIA.Backend.Retrieval.RetrievalSelection;
+using static SAAIA.Backend.Retrieval.RetrievalTitleSelection;
+
+namespace SAAIA.Backend.Retrieval;
+
+internal static partial class RetrievalEngine
+{
+
+    private static async Task<RagSearchResponse> SearchInteractiveAsync(
+        RetrievalExecutionContext context,
+        NpgsqlDataSource ds,
+        RagOptions rag,
+        IHttpClientFactory httpFactory,
+        RagSearchRequestDto req)
+    {
+        var tenantId = context.TenantId;
+        var ct = context.CancellationToken;
+        var teiGovernor = context.TeiGovernor;
+
+        const string catalogOverviewFallbackQuery = "Which documents are available in this category?";
+
+        var repairedQuery = RepairLikelyMojibakeText(req.Query);
+        if (!string.Equals(repairedQuery, req.Query, StringComparison.Ordinal))
+            req = req with { Query = repairedQuery };
+
+        var topK = req.TopK ?? rag.DefaultTopK;
+        topK = Math.Clamp(topK, 1, rag.MaxTopK);
+        var requestedTopK = topK;
+
+        var requestedCategory = string.IsNullOrWhiteSpace(req.Category)
+            ? null
+            : req.Category.Trim().ToLowerInvariant();
+        var categoryPath = await ResolveRagCategoryPathAsync(ds, tenantId, req.CategoryPath, req.CategoryRef, ct);
+        var category = string.IsNullOrWhiteSpace(categoryPath)
+            ? requestedCategory
+            : null;
+        var categoryQueryHint = requestedCategory
+                                ?? NormalizeRagCategory(ExtractTopLevelCategoryPath(categoryPath));
+
+        var hasDocScope = !string.IsNullOrWhiteSpace(req.DocId) || !string.IsNullOrWhiteSpace(req.DocPath);
+        var hasExplicitFileDocumentHint = HasExplicitFileLookupIntent(req.Query);
+        var useBareVsComparativeOperandRoute = ShouldUseBareVsComparativeOperandRoute(req.Query);
+        var useChoiceBetweenLexicalRoute = ShouldUseChoiceBetweenLexicalRoute(req.Query)
+            && !hasDocScope
+            && !hasExplicitFileDocumentHint;
+        var retrievalQuery = useChoiceBetweenLexicalRoute
+            ? BuildChoiceBetweenRetrievalQuery(req.Query)
+            : ResolvePrimaryRetrievalQuery(req.Query, categoryQueryHint);
+        retrievalQuery = ExpandGenericTechnicalRetrievalQuery(req.Query, retrievalQuery);
+        var lexicalRetrievalSurface = ResolveLexicalRetrievalSurface(req.Query, retrievalQuery);
+        var usesDelimitedLexicalSurface = !string.Equals(lexicalRetrievalSurface, req.Query, StringComparison.Ordinal);
+        var queryNorm = NormalizeQuery(req.Query);
+        var retrievalQueryNorm = NormalizeQuery(retrievalQuery);
+
+        var includeResearchSurfaces = ShouldUseResearchSurfaces(req);
+        var mode = ResolveEffectiveSearchMode(req.Mode, req.Query);
+        if (includeResearchSurfaces && !string.Equals(mode, "focused", StringComparison.Ordinal))
+            mode = "broad";
+        topK = ResolveInternalSelectionTopK(
+            req.Query,
+            requestedTopK,
+            rag.MaxTopK,
+            hasDocScope,
+            hasExplicitFileDocumentHint,
+            mode);
+        if (usesDelimitedLexicalSurface)
+            topK = Math.Min(Math.Max(topK, 16), rag.MaxTopK);
+        var preferItemInventory = ShouldPreferItemInventorySelection(req, mode, includeResearchSurfaces);
+        var preferDocumentDiversity = (ShouldPreferDocumentDiversity(req.Query) || includeResearchSurfaces)
+            && mode != "focused"
+            && !preferItemInventory;
+        double defMinScore = mode switch
+        {
+            "focused" => 0.35,
+            "broad" => 0.15,
+            _ => 0.25
+        };
+        int defCandidates = ResolveDefaultCandidateCount(mode, preferDocumentDiversity, topK);
+        // CDC v3.1 §11.3: max 3 chunks per document default
+        int defMaxPerDoc = ResolveDefaultMaxPerDoc(mode, preferDocumentDiversity, topK);
+
+        var minScore = Math.Clamp(req.MinScore ?? defMinScore, 0.0, 1.0);
+        var selectionMinScore = !req.MinScore.HasValue && ShouldRelaxDefaultScoreFloorForFocusedStructuredLookup(req.Query)
+            ? 0.0
+            : minScore;
+        var candidates = Math.Clamp(req.Candidates ?? defCandidates, topK, Math.Max(topK, rag.MaxTopK * 20));
+        var maxPerDoc = Math.Clamp(req.MaxPerDoc ?? (preferItemInventory ? topK : defMaxPerDoc), 1, topK);
+        var maxPerPage = Math.Clamp(req.MaxPerPage ?? (preferItemInventory ? Math.Min(topK, 16) : 1), 1, topK);
+        var hasExplicitMaxPerDoc = req.MaxPerDoc.HasValue;
+        var hasExplicitMaxPerPage = req.MaxPerPage.HasValue;
+        var requestedPageStart = hasDocScope && req.PageStart is > 0
+            ? req.PageStart.Value
+            : (int?)null;
+        var requestedPageEnd = requestedPageStart.HasValue
+            ? Math.Max(requestedPageStart.Value, req.PageEnd is > 0 ? req.PageEnd.Value : requestedPageStart.Value)
+            : (int?)null;
+        var hasRequestedPageWindow = requestedPageStart.HasValue && requestedPageEnd.HasValue;
+
+        if (req.Diversity != null)
+        {
+            if (req.Diversity.MaxChunksPerDoc.HasValue)
+            {
+                maxPerDoc = Math.Clamp(req.Diversity.MaxChunksPerDoc.Value, 1, topK);
+                hasExplicitMaxPerDoc = true;
+            }
+            if (req.Diversity.PreferDistinctPages == true)
+            {
+                maxPerPage = 1;
+                hasExplicitMaxPerPage = true;
+            }
+        }
+
+        if (!hasExplicitMaxPerDoc && ShouldConstrainPreciseTitleLookup(req.Query))
+            maxPerDoc = Math.Min(topK, Math.Max(maxPerDoc, 2));
+        if (!hasExplicitMaxPerDoc && ShouldAllowMultipleChunksForComparativeSubject(req.Query))
+            maxPerDoc = Math.Min(topK, Math.Max(maxPerDoc, 2));
+        if (!hasExplicitMaxPerPage && ShouldConstrainPreciseTitleLookup(req.Query))
+            maxPerPage = Math.Min(topK, Math.Max(maxPerPage, 2));
+        if (hasRequestedPageWindow && !hasExplicitMaxPerDoc)
+            maxPerDoc = Math.Min(topK, Math.Max(maxPerDoc, Math.Min(topK, 4)));
+        if (hasRequestedPageWindow && !hasExplicitMaxPerPage)
+            maxPerPage = Math.Min(topK, Math.Max(maxPerPage, 2));
+
+        var swTotal = Stopwatch.StartNew();
+        var hasCategoryFilter = !string.IsNullOrWhiteSpace(category) || !string.IsNullOrWhiteSpace(categoryPath);
+        var skipPreciseTitleLookupForDocumentOverview = ShouldSkipPreciseTitleLookupForDocumentOverview(
+            req.Query,
+            hasDocScope,
+            mode);
+        var skipChunkRetrieversForDocumentOverview = ShouldSkipChunkRetrieversForDocumentOverview(req.Query, hasDocScope, mode);
+        var forceDocumentRoleProfileFallback = !hasDocScope
+            && hasCategoryFilter
+            && (ContainsDocumentRoleClassificationSurface(req.Query)
+                || ContainsDelimitedDocumentRoleClassificationSurface(req.Query));
+        var preferUnquotedTitleAnchorRoute = !hasDocScope
+            && !forceDocumentRoleProfileFallback
+            && ShouldProbeUnquotedTitleAnchorRoute(
+                req.Query,
+                skipChunkRetrieversForDocumentOverview,
+                useScopedProfileFallback: false);
+        var hasQuotedLookupPhrases = ExtractQuotedLookupPhrases(req.Query).Count > 0;
+        var skipUnquotedPreciseTitleScans = preferUnquotedTitleAnchorRoute
+            && !hasQuotedLookupPhrases;
+        var skipUnquotedCategoryTitleScans = hasCategoryFilter
+            && skipUnquotedPreciseTitleScans;
+        var useScopedProfileFallback = !hasDocScope
+            && (forceDocumentRoleProfileFallback
+                || (!preferUnquotedTitleAnchorRoute
+                    && ShouldUseScopedProfileFallback(req.Query, hasCategoryFilter, mode)));
+        var useScopedCatalogDocumentOverviewFallback = !hasDocScope
+            && hasCategoryFilter
+            && ShouldUseScopedCatalogDocumentOverviewFallback(req.Query, mode);
+        if (useScopedCatalogDocumentOverviewFallback)
+        {
+            retrievalQuery = catalogOverviewFallbackQuery;
+            retrievalQueryNorm = NormalizeQuery(retrievalQuery);
+        }
+        var selectionQuery = useScopedCatalogDocumentOverviewFallback
+            ? catalogOverviewFallbackQuery
+            : usesDelimitedLexicalSurface
+                ? lexicalRetrievalSurface
+            : req.Query;
+        var diagnostics = req.IncludeDiagnostics == true
+            ? new RagRetrievalDiagnosticsBuilder(
+                query: req.Query,
+                retrievalQuery: retrievalQuery,
+                selectionQuery: selectionQuery,
+                mode: mode,
+                category: requestedCategory ?? categoryQueryHint,
+                categoryPath: categoryPath,
+                topK: requestedTopK,
+                candidates: candidates,
+                maxPerDoc: maxPerDoc,
+                maxPerPage: maxPerPage)
+            : null;
+        var allowSparseAssistForScopedProfileFallback =
+            useScopedProfileFallback && ShouldAllowSparseAssistForScopedProfileFallback(req.Query);
+        var allowSparseAssistForBroadDiversity =
+            !hasDocScope && (includeResearchSurfaces || ShouldAllowSparseAssistForBroadDiversity(req.Query));
+        var allowNavigationCatalogRouteForBroadExploration =
+            includeResearchSurfaces
+            || ShouldAllowNavigationCatalogRouteForBroadExploration(req.Query, hasCategoryFilter || hasDocScope);
+        var skipUnanchoredTitleAnchorRouteForBroadDiversity =
+            !includeResearchSurfaces
+            && (useChoiceBetweenLexicalRoute
+                || ShouldSkipUnanchoredTitleAnchorRouteForBroadDiversity(req.Query));
+        var skipSparseRetrieverForBroadDiversity = !hasDocScope
+            && !includeResearchSurfaces
+            && !allowSparseAssistForBroadDiversity
+            && (ShouldSkipSparseRetrieverForBroadDiversity(req.Query, mode)
+                || ShouldSkipSparseRetrieverForQuantityLookup(req.Query, mode));
+        var skipSparseProfileCardAssist = !hasDocScope
+            && !includeResearchSurfaces
+            && ShouldSkipSparseProfileCardAssist(req.Query, mode);
+        var requireDocumentOverviewProfileMatch = skipChunkRetrieversForDocumentOverview
+            && ShouldRequireDocumentOverviewProfileMatch(req.Query);
+        using var searchActivity = RetrievalTelemetry.StartSearchActivity(mode, hasCategoryFilter, hasDocScope, topK, candidates, req.Query);
+        var skipLocalTitleTokenRoute = forceDocumentRoleProfileFallback
+            || skipUnquotedCategoryTitleScans
+            || skipUnquotedPreciseTitleScans
+            || ShouldSkipLocalTitleTokenRouteForIndexedTitleAnchors(
+            req.Query,
+            hasCategoryScope: hasCategoryFilter,
+            hasDocScope: hasDocScope,
+            skipChunkRetrieversForDocumentOverview: skipChunkRetrieversForDocumentOverview,
+            useScopedProfileFallback: useScopedProfileFallback);
+        var skipQuotedTitleFullScan = ShouldSkipQuotedTitleFullScan(req.Query, hasDocScope);
+
+        var phases = new RetrievalPhaseDiagnostics(context.Logger);
+        var degradation = new RetrievalDegradationTracker();
+        var degradedRetrievers = degradation.Retrievers;
+        var degradedRetrieverErrors = degradation.Errors;
+
+        var (exactMatches, exactMs) = await phases.MeasureAsync(
+            phaseName: "retrieval_exact_match",
+            retriever: "exact_match",
+            action: () => SearchSourceBackedCanonicalExactMatchesAsync(ds, tenantId, req.Query, category, req.DocId, req.DocPath, ResolveExactMatchCandidateLimit(topK), ct, categoryPath),
+            getReturnedCount: static matches => matches.Count);
+        long titleAnchorRoutePhaseMs = 0;
+        var (quotedTitleMatches, quotedTitleMs) = await phases.MeasureAsync(
+            phaseName: "retrieval_quoted_title",
+            retriever: "quoted_title",
+            action: () => skipPreciseTitleLookupForDocumentOverview || skipUnquotedPreciseTitleScans
+                || skipQuotedTitleFullScan
+                ? Task.FromResult(new List<RagMatch>())
+                : SearchQuotedTitleMatchesAsync(ds, tenantId, req.Query, category, req.DocId, req.DocPath, topK, ct, categoryPath),
+            getReturnedCount: static matches => matches.Count);
+        var (quotedTitleAnchorMatches, quotedTitleAnchorMs) = await phases.MeasureAsync(
+            phaseName: "retrieval_quoted_title_anchor_route",
+            retriever: "title_anchor_route",
+            action: async () =>
+            {
+                if (skipPreciseTitleLookupForDocumentOverview
+                    || !hasQuotedLookupPhrases
+                    || !hasCategoryFilter
+                    || hasDocScope)
+                {
+                    return new List<RagMatch>();
+                }
+
+                var anchorMatches = new List<RagMatch>();
+                foreach (var phrase in ExtractTitleLookupPhrases(req.Query).Take(3))
+                {
+                    var titleAnchorQuery = phrase.Contains('"', StringComparison.Ordinal)
+                        ? phrase
+                        : $"\"{phrase}\"";
+                    anchorMatches.AddRange(await SearchTitleAnchorRouteMatchesAsync(
+                        ds,
+                        tenantId,
+                        titleAnchorQuery,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        Math.Min(candidates, Math.Max(topK, 16)),
+                        ct,
+                        categoryPath,
+                        degradedRetrieverRef: degradation.Mark,
+                        allowDirectChunkRoute: false));
+                }
+
+                return DeduplicatePreciseTitleBackfillMatches(anchorMatches)
+                    .Take(Math.Min(candidates, Math.Max(topK, 16)))
+                    .ToList();
+            },
+            getReturnedCount: static matches => matches.Count);
+        titleAnchorRoutePhaseMs += quotedTitleAnchorMs;
+        var (explicitDocumentTitleMatches, explicitDocumentTitleMs) = await phases.MeasureAsync(
+            phaseName: "retrieval_explicit_document_title",
+            retriever: "explicit_document_title_route",
+            action: () => hasExplicitFileDocumentHint
+                ? SearchExplicitDocumentTitleMatchesAsync(
+                    ds,
+                    tenantId,
+                    req.Query,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    Math.Min(candidates, Math.Max(topK, 16)),
+                    ct,
+                    categoryPath,
+                    degradedRetrieverRef: degradation.Mark)
+                : Task.FromResult(new List<RagMatch>()),
+            getReturnedCount: static matches => matches.Count);
+        titleAnchorRoutePhaseMs += explicitDocumentTitleMs;
+        var (localTitleTokenMatches, localTitleTokenMs) = await phases.MeasureAsync(
+            phaseName: "retrieval_local_title_token",
+            retriever: "local_title_token_route",
+            action: () => skipPreciseTitleLookupForDocumentOverview
+                || skipLocalTitleTokenRoute
+                ? Task.FromResult(new List<RagMatch>())
+                : SearchLocalTitleTokenRouteMatchesAsync(
+                ds,
+                tenantId,
+                req.Query,
+                category,
+                req.DocId,
+                req.DocPath,
+                ResolveLocalTitleTokenCandidateLimit(topK, hasDocScope),
+                ct,
+                categoryPath,
+                degradedRetrieverRef: degradation.Mark),
+            getReturnedCount: static matches => matches.Count);
+        var titleLookupMatches = explicitDocumentTitleMatches
+            .Concat(quotedTitleMatches)
+            .Concat(quotedTitleAnchorMatches)
+            .Concat(localTitleTokenMatches)
+            .GroupBy(BuildMatchDedupKey, StringComparer.OrdinalIgnoreCase)
+            .Select(static group => group
+                .OrderByDescending(match => match.Score)
+                .ThenBy(match => match.DocPath, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(match => match.ChunkIndex)
+                .First())
+            .OrderByDescending(static match => match.Score)
+            .ThenBy(static match => match.DocPath, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(static match => match.ChunkIndex)
+            .ToList();
+        titleLookupMatches = PreferRequestedPageWindowMatches(titleLookupMatches, requestedPageStart, requestedPageEnd);
+        diagnostics?.CapturePhase("exact_match", "exact_match", exactMs, exactMatches);
+        diagnostics?.CapturePhase("quoted_title", "quoted_title", quotedTitleMs, quotedTitleMatches);
+        diagnostics?.CapturePhase("quoted_title_anchor", "title_anchor_route", quotedTitleAnchorMs, quotedTitleAnchorMatches);
+        diagnostics?.CapturePhase("explicit_document_title", "explicit_document_title_route", explicitDocumentTitleMs, explicitDocumentTitleMatches);
+        diagnostics?.CapturePhase("local_title_token", "local_title_token_route", localTitleTokenMs, localTitleTokenMatches);
+        diagnostics?.CapturePhase("title_lookup_combined", "title_lookup", null, titleLookupMatches);
+        var explicitDocumentScopedBackfillQuery = hasExplicitFileDocumentHint
+            ? BuildDocumentHintScopedBackfillQuery(req.Query, retrievalQuery)
+            : string.Empty;
+        var explicitDocumentTitleRouteReturnedContent = hasExplicitFileDocumentHint
+            && explicitDocumentTitleMatches.Count > 0;
+        var useExplicitDocumentScopedBackfill = ShouldUseExplicitDocumentScopedBackfillRoute(
+            req.Query,
+            explicitDocumentScopedBackfillQuery)
+            && !explicitDocumentTitleRouteReturnedContent;
+        var skipBroadRetrieversForExplicitFileHint = hasExplicitFileDocumentHint;
+        var shortCircuitAfterExact = ShouldShortCircuitAfterExact(req.Query, exactMatches);
+        var shortCircuitAfterQuotedTitle = false;
+        var selected = new List<RagMatch>(capacity: topK);
+        var selectedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        List<RagMatch>? broadDiversityCandidateBackfillPool = null;
+
+        long teiMs = 0;
+        long rerankMs = 0;
+        long sparseMs = 0;
+        long qdrantMs = 0;
+        long sparsePhaseMs = 0;
+        long densePhaseMs = 0;
+        long linkedPhaseMs = 0;
+        long profilePhaseMs = 0;
+        long fusionMs = 0;
+        long rerankPhaseMs = 0;
+        long selectionMs = 0;
+        int qdrantStatus = 0;
+        var sparseCommandTimeoutSeconds = RagOptions.ResolveSearchSparseCommandTimeoutSeconds(rag.SearchSparseCommandTimeoutSeconds);
+        var sqlHeavyCandidateLimit = ResolveSqlHeavyRetrieverCandidateLimit(candidates, topK);
+
+        Task<List<RagMatch>> SearchPreciseTitleRouteBackfillAsync(string titleBackfillQuery, int limit)
+        {
+            if (ShouldSkipLocalTitleTokenRouteForIndexedTitleAnchors(
+                    titleBackfillQuery,
+                    hasCategoryScope: hasCategoryFilter,
+                    hasDocScope: hasDocScope,
+                    skipChunkRetrieversForDocumentOverview: skipChunkRetrieversForDocumentOverview,
+                    useScopedProfileFallback: useScopedProfileFallback))
+            {
+                return SearchTitleAnchorRouteMatchesAsync(
+                    ds,
+                    tenantId,
+                    titleBackfillQuery,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    limit,
+                    ct,
+                    categoryPath,
+                    degradedRetrieverRef: degradation.Mark,
+                    allowDirectChunkRoute: false);
+            }
+
+            return SearchLocalTitleTokenRouteMatchesAsync(
+                ds,
+                tenantId,
+                titleBackfillQuery,
+                category,
+                req.DocId,
+                req.DocPath,
+                limit,
+                ct,
+                categoryPath,
+                degradedRetrieverRef: degradation.Mark);
+        }
+
+        List<RagMatch>? earlyTitleAnchorRouteMatches = null;
+        List<RagMatch> preciseTitleRouteReuseMatches = [];
+        long earlyTitleAnchorRouteMs = 0;
+        var shortCircuitAfterTitleAnchorRoute = false;
+        if (!shortCircuitAfterExact
+            && !shortCircuitAfterQuotedTitle
+            && ShouldProbeUnquotedTitleAnchorRoute(req.Query, skipChunkRetrieversForDocumentOverview, useScopedProfileFallback))
+        {
+            var (probedTitleAnchorRouteMatches, measuredTitleAnchorRouteMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_title_anchor_route",
+                retriever: "title_anchor_route",
+                action: () => SearchTitleAnchorRouteMatchesAsync(
+                    ds,
+                    tenantId,
+                    req.Query,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    Math.Min(candidates, Math.Max(topK, 16)),
+                    ct,
+                    categoryPath,
+                    degradedRetrieverRef: degradation.Mark,
+                    allowNavigationCatalogRoute: allowNavigationCatalogRouteForBroadExploration),
+                getReturnedCount: static matches => matches.Count);
+            earlyTitleAnchorRouteMatches = probedTitleAnchorRouteMatches;
+            earlyTitleAnchorRouteMs = measuredTitleAnchorRouteMs;
+            shortCircuitAfterTitleAnchorRoute = ShouldShortCircuitAfterTitleAnchorRoute(req.Query, probedTitleAnchorRouteMatches);
+        }
+
+        if (shortCircuitAfterExact)
+        {
+            AddRankedMatches(selected, selectedKeys, exactMatches, topK, minScore: 0.0, maxPerDoc, maxPerPage);
+        }
+        else if (shortCircuitAfterQuotedTitle)
+        {
+            AddRankedMatches(
+                selected,
+                selectedKeys,
+                exactMatches.Concat(titleLookupMatches),
+                topK,
+                minScore: 0.0,
+                maxPerDoc,
+                maxPerPage,
+                query: req.Query);
+        }
+        else if (shortCircuitAfterTitleAnchorRoute && earlyTitleAnchorRouteMatches is not null)
+        {
+            titleAnchorRoutePhaseMs = earlyTitleAnchorRouteMs;
+            preciseTitleRouteReuseMatches = BuildReusablePreciseTitleRouteMatches(earlyTitleAnchorRouteMatches);
+            AddRankedMatches(
+                selected,
+                selectedKeys,
+                exactMatches
+                    .Concat(titleLookupMatches)
+                    .Concat(RankTitleAnchorRouteShortCircuitMatches(earlyTitleAnchorRouteMatches)),
+                topK,
+                minScore: 0.0,
+                maxPerDoc,
+                maxPerPage,
+                query: req.Query);
+        }
+        else
+        {
+            Task<(List<RagMatch> Result, long DurationMs)> titleAnchorRouteMatchesTask = earlyTitleAnchorRouteMatches is not null
+                ? Task.FromResult((earlyTitleAnchorRouteMatches, earlyTitleAnchorRouteMs))
+                : skipChunkRetrieversForDocumentOverview
+                  || useScopedProfileFallback
+                  || skipBroadRetrieversForExplicitFileHint
+                  || (skipUnanchoredTitleAnchorRouteForBroadDiversity && !allowNavigationCatalogRouteForBroadExploration)
+                ? Task.FromResult((new List<RagMatch>(), 0L))
+                : phases.MeasureAsync(
+                    phaseName: "retrieval_title_anchor_route",
+                    retriever: "title_anchor_route",
+                    action: () => SearchTitleAnchorRouteMatchesAsync(
+                        ds,
+                        tenantId,
+                        req.Query,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        Math.Min(candidates, Math.Max(topK, 16)),
+                        ct,
+                        categoryPath,
+                        degradedRetrieverRef: degradation.Mark,
+                        allowNavigationCatalogRoute: allowNavigationCatalogRouteForBroadExploration),
+                    getReturnedCount: static matches => matches.Count);
+            Task<(List<RagMatch> Result, long DurationMs)> sparseMatchesTask = skipChunkRetrieversForDocumentOverview
+                || (useScopedProfileFallback && !allowSparseAssistForScopedProfileFallback)
+                || (skipSparseRetrieverForBroadDiversity && !allowSparseAssistForScopedProfileFallback)
+                || skipBroadRetrieversForExplicitFileHint
+                || useChoiceBetweenLexicalRoute
+                || useBareVsComparativeOperandRoute
+                ? Task.FromResult((new List<RagMatch>(), 0L))
+                : phases.MeasureAsync(
+                    phaseName: "retrieval_sparse",
+                    retriever: "sparse_bm25",
+                    action: () => SearchSparseMatchesAsync(
+                        ds,
+                        tenantId,
+                        lexicalRetrievalSurface,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        sqlHeavyCandidateLimit,
+                        ct,
+                        sparseMsRef: value => sparseMs = value,
+                        lexicalExpansionQuery: retrievalQuery,
+                        categoryPath: categoryPath,
+                        includeProfileCardMatches: !skipSparseProfileCardAssist && !usesDelimitedLexicalSurface,
+                        degradedRetrieverRef: degradation.Mark,
+                        commandTimeoutSeconds: sparseCommandTimeoutSeconds),
+                    getReturnedCount: static matches => matches.Count);
+            Task<(List<RagMatch> Result, long DurationMs)> denseMatchesTask = skipChunkRetrieversForDocumentOverview
+                || useScopedProfileFallback
+                || skipBroadRetrieversForExplicitFileHint
+                ? Task.FromResult((new List<RagMatch>(), 0L))
+                : phases.MeasureAsync(
+                    phaseName: "retrieval_dense",
+                    retriever: "dense_qdrant",
+                    action: () => SearchDenseMatchesAsync(
+                        ds,
+                        httpFactory,
+                        rag,
+                        tenantId,
+                        retrievalQueryNorm,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        candidates,
+                        ct,
+                        teiMsRef: value => teiMs = value,
+                        qdrantMsRef: value => qdrantMs = value,
+                        qdrantStatusRef: value => qdrantStatus = value,
+                        categoryPath: categoryPath,
+                        degradedRetrieverRef: degradation.Mark,
+                        teiGovernor: teiGovernor),
+                    getReturnedCount: static matches => matches.Count);
+            var skipDocumentProfileSearchForPreciseLookup =
+                !includeResearchSurfaces
+                &&
+                !skipChunkRetrieversForDocumentOverview
+                && !useScopedProfileFallback
+                && !useChoiceBetweenLexicalRoute
+                && (useBareVsComparativeOperandRoute
+                    || ShouldSkipDocumentProfileSearchForPreciseLookup(req.Query)
+                    || ShouldSkipDocumentProfileSearchForComparativeLookup(req.Query));
+            var allowComparativeDocumentProfileAssist = ShouldAllowDocumentProfileAssistForComparativeLookup(req.Query);
+            var allowResearchDocumentProfileAssist = includeResearchSurfaces || allowComparativeDocumentProfileAssist;
+            var documentProfileCandidateCount = ResolveDocumentProfileCandidateCount(
+                candidates,
+                topK,
+                skipChunkRetrieversForDocumentOverview || useScopedProfileFallback,
+                allowResearchDocumentProfileAssist);
+            var canSearchDocumentProfiles = includeResearchSurfaces
+                || (!skipDocumentProfileSearchForPreciseLookup
+                && (allowComparativeDocumentProfileAssist || !ShouldSkipDocumentProfileSearchForQuantityLookup(req.Query))
+                && (skipChunkRetrieversForDocumentOverview
+                    || useScopedProfileFallback
+                    || useChoiceBetweenLexicalRoute
+                    || !ShouldSkipDocumentProfileSearchForLowCostBroadQuery(req.Query, mode)));
+            var deferDocumentProfileSearch = !includeResearchSurfaces && !allowComparativeDocumentProfileAssist && ShouldDeferDocumentProfileSearch(
+                canSearchDocumentProfiles,
+                skipChunkRetrieversForDocumentOverview,
+                useScopedProfileFallback,
+                allowSparseAssistForScopedProfileFallback);
+            Task<(List<RagMatch> Result, long DurationMs)> profileMatchesTask = !canSearchDocumentProfiles || deferDocumentProfileSearch
+                || skipBroadRetrieversForExplicitFileHint
+                ? Task.FromResult((new List<RagMatch>(), 0L))
+                : SearchDocumentProfilesMeasuredAsync();
+            Task<(List<RagMatch> Result, long DurationMs)> explicitDocumentScopedMatchesTask = !useExplicitDocumentScopedBackfill
+                ? Task.FromResult((new List<RagMatch>(), 0L))
+                : phases.MeasureAsync(
+                    phaseName: "retrieval_explicit_document_scoped_backfill",
+                    retriever: "document_hint_scoped_backfill",
+                    action: () => SearchDocumentHintScopedBackfillMatchesAsync(
+                        ds,
+                        tenantId,
+                        req.Query,
+                        explicitDocumentScopedBackfillQuery,
+                        category,
+                        categoryPath,
+                        Math.Max(topK, 8),
+                        ct,
+                        degradedRetrieverRef: degradation.Mark,
+                        includeProfileCardMatches: false,
+                        commandTimeoutSeconds: sparseCommandTimeoutSeconds),
+                    getReturnedCount: static matches => matches.Count);
+
+            Task<(List<RagMatch> Result, long DurationMs)> SearchDocumentProfilesMeasuredAsync()
+                => phases.MeasureAsync(
+                    phaseName: "retrieval_document_profile",
+                    retriever: "document_profile",
+                    action: () => skipChunkRetrieversForDocumentOverview || useScopedProfileFallback
+                        ? SearchDocumentOverviewProfileMatchesAsync(
+                            ds,
+                            tenantId,
+                            retrievalQuery,
+                            category,
+                            req.DocId,
+                            req.DocPath,
+                            documentProfileCandidateCount,
+                            ct,
+                            categoryPath,
+                            requireDocumentOverviewProfileMatch,
+                            degradedRetrieverRef: degradation.Mark,
+                            commandTimeoutSeconds: sparseCommandTimeoutSeconds)
+                        : SearchDocumentProfileMatchesAsync(
+                            ds,
+                            tenantId,
+                            retrievalQuery,
+                            category,
+                            req.DocId,
+                            req.DocPath,
+                            documentProfileCandidateCount,
+                            ct,
+                            categoryPath,
+                            degradedRetrieverRef: degradation.Mark,
+                            commandTimeoutSeconds: sparseCommandTimeoutSeconds),
+                    getReturnedCount: static matches => matches.Count);
+
+            await Task.WhenAll(
+                titleAnchorRouteMatchesTask,
+                sparseMatchesTask,
+                denseMatchesTask,
+                profileMatchesTask,
+                explicitDocumentScopedMatchesTask);
+
+            var (titleAnchorRouteMatches, measuredTitleAnchorRoutePhaseMs) = await titleAnchorRouteMatchesTask;
+            var (sparseMatches, measuredSparsePhaseMs) = await sparseMatchesTask;
+            var (denseMatches, measuredDensePhaseMs) = await denseMatchesTask;
+            var (profileMatches, measuredProfilePhaseMs) = await profileMatchesTask;
+            var (explicitDocumentScopedMatches, measuredExplicitDocumentScopedMs) = await explicitDocumentScopedMatchesTask;
+            var effectiveSparseMatches = explicitDocumentScopedMatches.Count == 0
+                ? sparseMatches
+                : sparseMatches.Concat(explicitDocumentScopedMatches).ToList();
+            effectiveSparseMatches = PreferRequestedPageWindowMatches(effectiveSparseMatches, requestedPageStart, requestedPageEnd);
+            var profileTitleOnlySparseMatches = !canSearchDocumentProfiles
+                ? effectiveSparseMatches
+                    .Where(match => ShouldRecoverDocumentProfileForProfileTitleOnlySparseMatch(req.Query, match))
+                    .ToList()
+                : [];
+            if (profileTitleOnlySparseMatches.Count > 0)
+            {
+                var (recoveredProfileMatches, recoveredProfileMs) = await SearchDocumentProfilesMeasuredAsync();
+                measuredProfilePhaseMs += recoveredProfileMs;
+                recoveredProfileMatches = recoveredProfileMatches
+                    .Where(profile => profileTitleOnlySparseMatches.Any(sparse => IsSameDocument(profile, sparse)))
+                    .ToList();
+
+                if (recoveredProfileMatches.Count > 0)
+                {
+                    profileMatches = recoveredProfileMatches;
+                    effectiveSparseMatches = effectiveSparseMatches
+                        .Where(match => !ShouldRecoverDocumentProfileForProfileTitleOnlySparseMatch(req.Query, match)
+                            || !recoveredProfileMatches.Any(profile => IsSameDocument(profile, match)))
+                        .ToList();
+                    diagnostics?.CapturePhase(
+                        "profile_title_only_recovery",
+                        "document_profile",
+                        recoveredProfileMs,
+                        recoveredProfileMatches);
+                }
+            }
+            var effectiveDenseMatches = PreferRequestedPageWindowMatches(denseMatches, requestedPageStart, requestedPageEnd);
+            var combinedTitleAnchorRouteMatches = quotedTitleAnchorMatches.Count == 0
+                ? titleAnchorRouteMatches
+                : DeduplicatePreciseTitleBackfillMatches(quotedTitleAnchorMatches.Concat(titleAnchorRouteMatches)).ToList();
+            combinedTitleAnchorRouteMatches = PreferRequestedPageWindowMatches(combinedTitleAnchorRouteMatches, requestedPageStart, requestedPageEnd);
+            preciseTitleRouteReuseMatches = BuildReusablePreciseTitleRouteMatches(combinedTitleAnchorRouteMatches);
+            titleAnchorRoutePhaseMs += measuredTitleAnchorRoutePhaseMs;
+            sparsePhaseMs = measuredSparsePhaseMs + measuredExplicitDocumentScopedMs;
+            densePhaseMs = measuredDensePhaseMs;
+            profilePhaseMs = measuredProfilePhaseMs;
+            diagnostics?.CapturePhase("title_anchor_route_broad", "title_anchor_route", measuredTitleAnchorRoutePhaseMs, titleAnchorRouteMatches);
+            diagnostics?.CapturePhase("sparse_bm25", "sparse_bm25", sparsePhaseMs, effectiveSparseMatches);
+            diagnostics?.CapturePhase("dense_qdrant", "dense_qdrant", densePhaseMs, effectiveDenseMatches);
+            diagnostics?.CapturePhase("document_profile", "document_profile", profilePhaseMs, profileMatches);
+
+            var fusionSw = Stopwatch.StartNew();
+            var exactAndQuotedMatches = titleLookupMatches.Count == 0
+                ? exactMatches
+                : exactMatches.Concat(titleLookupMatches).ToList();
+            var fusedMatches = FuseWithRrf(exactAndQuotedMatches, effectiveSparseMatches, effectiveDenseMatches, profileMatches, combinedTitleAnchorRouteMatches);
+            fusedMatches = CalibrateFusedMatches(retrievalQuery, fusedMatches, req.Query);
+            fusedMatches = SuppressNavigationalNoise(req.Query, fusedMatches);
+            fusedMatches = PreferRequestedPageWindowMatches(fusedMatches, requestedPageStart, requestedPageEnd);
+            var suppressUnanchoredSpecificResults = !useScopedProfileFallback
+                && !useChoiceBetweenLexicalRoute
+                && ShouldSuppressUnanchoredSpecificResults(retrievalQuery, fusedMatches);
+            fusionSw.Stop();
+            fusionMs += fusionSw.ElapsedMilliseconds;
+            diagnostics?.CapturePhase("fusion_rrf", "rrf_fusion", fusionMs, fusedMatches);
+
+            if (suppressUnanchoredSpecificResults)
+            {
+                diagnostics?.CapturePhase("fusion_suppressed", "selection_guard", null, fusedMatches);
+                fusedMatches = [];
+            }
+            else
+            {
+                var preRerankMatches = fusedMatches.ToList();
+                var (rerankAttempt, measuredRerankPhaseMs) = await phases.MeasureAsync(
+                    phaseName: "retrieval_rerank",
+                    retriever: "tei_rerank",
+                    action: () => TryRerankWithTeiAsync(
+                        httpFactory,
+                        rag,
+                        retrievalQuery,
+                        fusedMatches,
+                        ct,
+                        rerankMsRef: value => rerankMs = value,
+                        teiGovernor: teiGovernor,
+                        degradedRetrieverRef: degradation.Mark),
+                    getReturnedCount: static attempt => attempt.Matches.Count);
+                rerankPhaseMs += measuredRerankPhaseMs;
+                diagnostics?.CapturePhase("rerank_input", "tei_rerank", null, preRerankMatches);
+                if (rerankAttempt.Applied)
+                {
+                    fusionSw.Restart();
+                    fusedMatches = rerankAttempt.Matches;
+                    fusedMatches = CalibrateFusedMatches(retrievalQuery, fusedMatches, selectionQuery);
+                    fusedMatches = SuppressNavigationalNoise(selectionQuery, fusedMatches);
+                    fusedMatches = PreferRequestedPageWindowMatches(fusedMatches, requestedPageStart, requestedPageEnd);
+                    fusionSw.Stop();
+                    fusionMs += fusionSw.ElapsedMilliseconds;
+                }
+                else
+                {
+                    fusedMatches = PreferRequestedPageWindowMatches(rerankAttempt.Matches, requestedPageStart, requestedPageEnd);
+                }
+                diagnostics?.CapturePhase(
+                    rerankAttempt.Applied ? "rerank_output" : "rerank_skipped",
+                    "tei_rerank",
+                    measuredRerankPhaseMs,
+                    fusedMatches);
+            }
+
+            var selectionSw = Stopwatch.StartNew();
+            var prioritizeDocumentProfilesForSelection = ShouldPrioritizeDocumentProfilesForSelection(
+                preferDocumentDiversity,
+                allowSparseAssistForScopedProfileFallback || allowSparseAssistForBroadDiversity,
+                allowComparativeDocumentProfileAssist);
+            if (ShouldRunBroadDiversityCandidateBackfill(req.Query, selected.Count, topK))
+                broadDiversityCandidateBackfillPool = fusedMatches.ToList();
+            AddRankedMatches(
+                selected,
+                selectedKeys,
+                fusedMatches,
+                topK,
+                useScopedProfileFallback ? 0.0 : selectionMinScore,
+                maxPerDoc,
+                maxPerPage,
+                prioritizeDocumentProfiles: prioritizeDocumentProfilesForSelection,
+                query: selectionQuery);
+            selectionSw.Stop();
+            selectionMs += selectionSw.ElapsedMilliseconds;
+            diagnostics?.CapturePhase("selection_after_fusion", "final_selection", selectionSw.ElapsedMilliseconds, selected);
+
+            if (!skipChunkRetrieversForDocumentOverview
+                && !hasExplicitFileDocumentHint
+                && ShouldAllowMultipleChunksForComparativeSubject(req.Query))
+            {
+                var comparativeSubjectBackfillQueries = BuildComparativeSubjectBackfillQueries(req.Query);
+                if (comparativeSubjectBackfillQueries.Count > 0)
+                {
+                    var (comparativeSubjectBackfillMatches, comparativeSubjectBackfillMs) = await phases.MeasureAsync(
+                        phaseName: "retrieval_comparative_subject_backfill",
+                        retriever: "title_anchor_route",
+                        action: async () =>
+                        {
+                            var backfill = new List<RagMatch>();
+                            foreach (var focusedQuery in comparativeSubjectBackfillQueries)
+                            {
+                                if (!skipUnanchoredTitleAnchorRouteForBroadDiversity)
+                                {
+                                    backfill.AddRange(await SearchTitleAnchorRouteMatchesAsync(
+                                        ds,
+                                        tenantId,
+                                        focusedQuery,
+                                        category,
+                                        req.DocId,
+                                        req.DocPath,
+                                        Math.Min(Math.Max(topK, 12), 32),
+                                        ct,
+                                        categoryPath,
+                                        degradedRetrieverRef: degradation.Mark));
+                                }
+                                if (!useBareVsComparativeOperandRoute)
+                                {
+                                    backfill.AddRange(await SearchLexicalContentFallbackMatchesAsync(
+                                        ds,
+                                        tenantId,
+                                        focusedQuery,
+                                        category,
+                                        req.DocId,
+                                        req.DocPath,
+                                        Math.Min(Math.Max(topK, 12), 32),
+                                        ct,
+                                        categoryPath: categoryPath,
+                                        degradedRetrieverRef: degradation.Mark,
+                                        commandTimeoutSeconds: sparseCommandTimeoutSeconds));
+                                    if (!skipUnanchoredTitleAnchorRouteForBroadDiversity)
+                                    {
+                                        backfill.AddRange(await SearchSparseMatchesAsync(
+                                            ds,
+                                            tenantId,
+                                            focusedQuery,
+                                            category,
+                                            req.DocId,
+                                            req.DocPath,
+                                            Math.Min(Math.Max(topK, 12), 32),
+                                            ct,
+                                            sparseMsRef: value => sparseMs += value,
+                                            lexicalExpansionQuery: focusedQuery,
+                                            categoryPath: categoryPath,
+                                            includeProfileCardMatches: false,
+                                            degradedRetrieverRef: degradation.Mark,
+                                            commandTimeoutSeconds: sparseCommandTimeoutSeconds));
+                                    }
+                                }
+                            }
+
+                            return backfill
+                                .GroupBy(BuildMatchDedupKey, StringComparer.OrdinalIgnoreCase)
+                                .Select(static group => group
+                                    .OrderByDescending(match => match.Score)
+                                    .ThenBy(match => match.ChunkIndex)
+                                    .First())
+                                .ToList();
+                        },
+                        getReturnedCount: static matches => matches.Count);
+                    titleAnchorRoutePhaseMs += comparativeSubjectBackfillMs;
+
+                    if (comparativeSubjectBackfillMatches.Count > 0)
+                    {
+                        selectionSw.Restart();
+                        MergeComparativeSubjectBackfillMatches(
+                            selected,
+                            selectedKeys,
+                            comparativeSubjectBackfillMatches,
+                            topK,
+                            minScore: 0.0,
+                            maxPerDoc: Math.Max(maxPerDoc, 2),
+                            maxPerPage: Math.Max(maxPerPage, 2),
+                            prioritizeDocumentProfiles: prioritizeDocumentProfilesForSelection,
+                            query: req.Query);
+                        PromoteActionableSameDocumentEvidence(selected);
+                        RebuildSelectedKeys(selected, selectedKeys);
+                        selectionSw.Stop();
+                        selectionMs += selectionSw.ElapsedMilliseconds;
+                    }
+                }
+            }
+
+            if (!skipChunkRetrieversForDocumentOverview
+                && !hasExplicitFileDocumentHint
+                && ShouldRunComparativeTitleBackfill(req.Query, selected))
+            {
+                var comparativeTitleBackfillQueries = BuildComparativeTitleBackfillQueries(
+                    req.Query,
+                    allowProfileAssistBackfill: allowComparativeDocumentProfileAssist);
+                if (comparativeTitleBackfillQueries.Count > 0)
+                {
+                    var (comparativeTitleBackfillMatches, comparativeTitleBackfillMs) = await phases.MeasureAsync(
+                        phaseName: "retrieval_comparative_title_backfill",
+                        retriever: "title_anchor_route",
+                        action: async () =>
+                        {
+                            var backfill = new List<RagMatch>();
+                            foreach (var focusedQuery in comparativeTitleBackfillQueries)
+                            {
+                                var focusedTopK = useBareVsComparativeOperandRoute
+                                    ? Math.Min(Math.Max(topK, 8), 12)
+                                    : Math.Min(Math.Max(topK, 12), 32);
+                                if (!skipUnanchoredTitleAnchorRouteForBroadDiversity)
+                                {
+                                    backfill.AddRange(await SearchTitleAnchorRouteMatchesAsync(
+                                        ds,
+                                        tenantId,
+                                        focusedQuery,
+                                        category,
+                                        req.DocId,
+                                        req.DocPath,
+                                        focusedTopK,
+                                        ct,
+                                        categoryPath,
+                                        degradedRetrieverRef: degradation.Mark));
+                                }
+                                backfill.AddRange(await SearchLexicalContentFallbackMatchesAsync(
+                                    ds,
+                                    tenantId,
+                                    focusedQuery,
+                                    category,
+                                    req.DocId,
+                                    req.DocPath,
+                                    focusedTopK,
+                                    ct,
+                                    categoryPath: categoryPath,
+                                    degradedRetrieverRef: degradation.Mark,
+                                    commandTimeoutSeconds: sparseCommandTimeoutSeconds));
+                                if (!skipUnanchoredTitleAnchorRouteForBroadDiversity
+                                    && !useBareVsComparativeOperandRoute)
+                                {
+                                    backfill.AddRange(await SearchSparseMatchesAsync(
+                                        ds,
+                                        tenantId,
+                                        focusedQuery,
+                                        category,
+                                        req.DocId,
+                                        req.DocPath,
+                                        focusedTopK,
+                                        ct,
+                                        sparseMsRef: value => sparseMs += value,
+                                        lexicalExpansionQuery: focusedQuery,
+                                        categoryPath: categoryPath,
+                                        includeProfileCardMatches: false,
+                                        degradedRetrieverRef: degradation.Mark,
+                                        commandTimeoutSeconds: sparseCommandTimeoutSeconds));
+                                }
+                            }
+
+                            return backfill
+                                .GroupBy(BuildMatchDedupKey, StringComparer.OrdinalIgnoreCase)
+                                .Select(static group => group
+                                    .OrderByDescending(match => match.Score)
+                                    .ThenBy(match => match.ChunkIndex)
+                                    .First())
+                                .ToList();
+                        },
+                        getReturnedCount: static matches => matches.Count);
+                    titleAnchorRoutePhaseMs += comparativeTitleBackfillMs;
+
+                    if (comparativeTitleBackfillMatches.Count > 0)
+                    {
+                        selectionSw.Restart();
+                        MergeComparativeSubjectBackfillMatches(
+                            selected,
+                            selectedKeys,
+                            comparativeTitleBackfillMatches,
+                            topK,
+                            minScore: 0.0,
+                            maxPerDoc: Math.Max(maxPerDoc, 2),
+                            maxPerPage: Math.Max(maxPerPage, 2),
+                            prioritizeDocumentProfiles: prioritizeDocumentProfilesForSelection,
+                            query: req.Query);
+                        PromoteActionableSameDocumentEvidence(selected);
+                        RebuildSelectedKeys(selected, selectedKeys);
+                        selectionSw.Stop();
+                        selectionMs += selectionSw.ElapsedMilliseconds;
+                    }
+                }
+            }
+
+            if (!skipChunkRetrieversForDocumentOverview
+                && !hasExplicitFileDocumentHint
+                && ShouldRunComparativeOperandProfileBackfill(req.Query, selected))
+            {
+                var comparativeOperandProfileQueries = BuildComparativeOperandProfileBackfillQueries(req.Query);
+                if (comparativeOperandProfileQueries.Count > 0)
+                {
+                    var (comparativeOperandProfileMatches, comparativeOperandProfileMs) = await phases.MeasureAsync(
+                        phaseName: "retrieval_comparative_operand_profile_backfill",
+                        retriever: "document_profile",
+                        action: async () =>
+                        {
+                            var backfill = new List<RagMatch>();
+                            foreach (var focusedQuery in comparativeOperandProfileQueries)
+                            {
+                                backfill.AddRange(await SearchDocumentProfileMatchesAsync(
+                                    ds,
+                                    tenantId,
+                                    focusedQuery,
+                                    category,
+                                    req.DocId,
+                                    req.DocPath,
+                                    Math.Min(Math.Max(topK, 12), 32),
+                                    ct,
+                                    categoryPath,
+                                    degradedRetrieverRef: degradation.Mark,
+                                    commandTimeoutSeconds: sparseCommandTimeoutSeconds));
+                            }
+
+                            return backfill
+                                .GroupBy(BuildMatchDedupKey, StringComparer.OrdinalIgnoreCase)
+                                .Select(static group => group
+                                    .OrderByDescending(match => match.Score)
+                                    .ThenBy(match => match.ChunkIndex)
+                                    .First())
+                                .ToList();
+                        },
+                        getReturnedCount: static matches => matches.Count);
+                    profilePhaseMs += comparativeOperandProfileMs;
+
+                    if (comparativeOperandProfileMatches.Count > 0)
+                    {
+                        selectionSw.Restart();
+                        MergeComparativeSubjectBackfillMatches(
+                            selected,
+                            selectedKeys,
+                            comparativeOperandProfileMatches,
+                            topK,
+                            minScore: 0.0,
+                            maxPerDoc: Math.Max(maxPerDoc, 2),
+                            maxPerPage: Math.Max(maxPerPage, 2),
+                            prioritizeDocumentProfiles: true,
+                            query: req.Query);
+                        PromoteActionableSameDocumentEvidence(selected);
+                        RebuildSelectedKeys(selected, selectedKeys);
+                        selectionSw.Stop();
+                        selectionMs += selectionSw.ElapsedMilliseconds;
+                    }
+                }
+            }
+
+            IReadOnlyList<string> preciseBackfillPhrases = skipPreciseTitleLookupForDocumentOverview
+                ? Array.Empty<string>()
+                : ExtractTitleLookupPhrases(req.Query);
+            var hasResolvedQuotedTitleSelection = preciseBackfillPhrases.Count > 0
+                && selected.Any(match =>
+                    HasResolvedPreciseTitleSelection(preciseBackfillPhrases, match));
+            var hasSufficientPreciseContentSelection = preciseBackfillPhrases.Count > 0
+                && HasSufficientPreciseContentSelection(req.Query, preciseBackfillPhrases, selected);
+            var forcePreciseTitleBackfill = !useScopedProfileFallback
+                && preciseBackfillPhrases.Count > 0
+                && selected.Count > 0
+                && !hasSufficientPreciseContentSelection;
+            if (forcePreciseTitleBackfill)
+            {
+                async Task<List<RagMatch>> SearchPreciseTitleBackfillMatchesAsync()
+                {
+                    var backfill = BuildReusablePreciseTitleBackfillMatches(
+                        req.Query,
+                        preciseBackfillPhrases,
+                        preciseTitleRouteReuseMatches);
+                    var reusableBackfillIsSufficient = HasReusablePreciseTitleBackfillSelection(
+                            req.Query,
+                            preciseBackfillPhrases,
+                            selected,
+                            backfill);
+                    if (reusableBackfillIsSufficient
+                        && !ShouldContinuePreciseTitleBackfillAfterReusableSelection(
+                            req.Query,
+                            preciseBackfillPhrases,
+                            backfill))
+                    {
+                        return DeduplicatePreciseTitleBackfillMatches(backfill);
+                    }
+
+                    var scopedDocCandidates = selected
+                        .Take(8)
+                        .Where(match =>
+                            IsPreciseTitleBackfillScopeCandidate(preciseBackfillPhrases, match)
+                            || (!hasResolvedQuotedTitleSelection
+                                && !IsDocumentProfileMatch(match)
+                                && match.Score >= 0.65
+                                && IsContentSelectionCandidate(match)))
+                        .Where(static match => !string.IsNullOrWhiteSpace(match.DocPath))
+                        .GroupBy(static match => NormalizeRagDocPath(match.DocPath), StringComparer.OrdinalIgnoreCase)
+                        .Select(static group => group.First())
+                        .Take(3)
+                        .ToList();
+                    foreach (var phrase in ExtractTitleLookupPhrases(req.Query).Take(3))
+                    {
+                        var titleBackfillQuery = phrase.Contains('"', StringComparison.Ordinal)
+                            ? phrase
+                            : $"\"{phrase}\"";
+                        var preferIndexedTitleBackfill = ShouldSkipLocalTitleTokenRouteForIndexedTitleAnchors(
+                            titleBackfillQuery,
+                            hasCategoryScope: hasCategoryFilter,
+                            hasDocScope: false,
+                            skipChunkRetrieversForDocumentOverview: skipChunkRetrieversForDocumentOverview,
+                            useScopedProfileFallback);
+
+                        var scopedSearchTasks = scopedDocCandidates
+                            .Select(scopedDoc => preferIndexedTitleBackfill
+                                ? SearchTitleAnchorRouteMatchesAsync(
+                                    ds,
+                                    tenantId,
+                                    titleBackfillQuery,
+                                    category,
+                                    docId: null,
+                                    scopedDoc.DocPath,
+                                    Math.Min(topK, 8),
+                                    ct,
+                                    categoryPath,
+                                    degradedRetrieverRef: degradation.Mark)
+                                : SearchLocalTitleTokenRouteMatchesAsync(
+                                    ds,
+                                    tenantId,
+                                    titleBackfillQuery,
+                                    category,
+                                    docId: null,
+                                    scopedDoc.DocPath,
+                                    Math.Min(topK, 8),
+                                    ct,
+                                    categoryPath,
+                                    degradedRetrieverRef: degradation.Mark))
+                            .ToArray();
+                        foreach (var scopedMatches in await Task.WhenAll(scopedSearchTasks))
+                        {
+                            backfill.AddRange(scopedMatches);
+                        }
+
+                        reusableBackfillIsSufficient = HasReusablePreciseTitleBackfillSelection(
+                                req.Query,
+                                preciseBackfillPhrases,
+                                selected,
+                                backfill);
+                        if (reusableBackfillIsSufficient
+                            && !ShouldContinuePreciseTitleBackfillAfterReusableSelection(
+                                req.Query,
+                                preciseBackfillPhrases,
+                                backfill))
+                        {
+                            continue;
+                        }
+
+                        var matches = await SearchPreciseTitleRouteBackfillAsync(
+                            titleBackfillQuery,
+                            Math.Min(topK, 8));
+                        backfill.AddRange(matches);
+                    }
+
+                    return DeduplicatePreciseTitleBackfillMatches(backfill);
+                }
+
+                var (preciseTitleBackfillMatches, preciseTitleBackfillMs) = await phases.MeasureAsync(
+                    phaseName: "retrieval_precise_title_backfill",
+                    retriever: "local_title_token_route",
+                    action: SearchPreciseTitleBackfillMatchesAsync,
+                    getReturnedCount: static matches => matches.Count);
+                localTitleTokenMs += preciseTitleBackfillMs;
+
+                if (preciseTitleBackfillMatches.Count > 0)
+                {
+                    var mergedTitleSelections = CalibrateFusedMatches(
+                        retrievalQuery,
+                        selected.Concat(preciseTitleBackfillMatches).ToList(),
+                        req.Query);
+                    mergedTitleSelections = PrioritizePreciseTitleBackfillSelections(
+                        req.Query,
+                        mergedTitleSelections,
+                        preciseTitleBackfillMatches);
+                    mergedTitleSelections = SuppressNavigationalNoise(req.Query, mergedTitleSelections);
+                    selected.Clear();
+                    selectedKeys.Clear();
+                    AddRankedMatches(
+                        selected,
+                        selectedKeys,
+                        mergedTitleSelections,
+                        topK,
+                        minScore: 0.0,
+                        Math.Max(maxPerDoc, 2),
+                        Math.Max(maxPerPage, 2),
+                        query: req.Query);
+                }
+            }
+
+            if (deferDocumentProfileSearch
+                && ShouldRunDeferredDocumentProfileSearch(
+                    selected,
+                    topK,
+                    preferDocumentDiversity,
+                    useScopedProfileFallback,
+                    allowSparseAssistForScopedProfileFallback))
+            {
+                var (deferredProfileMatches, deferredProfileMs) = await SearchDocumentProfilesMeasuredAsync();
+                profilePhaseMs += deferredProfileMs;
+
+                var selectionSwDeferred = Stopwatch.StartNew();
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    RankDeferredDocumentProfileMatches(deferredProfileMatches),
+                    topK,
+                    minScore: 0.0,
+                    maxPerDoc,
+                        maxPerPage,
+                        prioritizeDocumentProfiles: ShouldPrioritizeDocumentProfilesForSelection(
+                            preferDocumentDiversity,
+                            allowSparseAssistForScopedProfileFallback || allowSparseAssistForBroadDiversity,
+                            allowComparativeDocumentProfileAssist));
+                selectionSwDeferred.Stop();
+                selectionMs += selectionSwDeferred.ElapsedMilliseconds;
+            }
+
+            var forcePreciseTitleLinkedBackfill = !useScopedProfileFallback
+                && ShouldRunPreciseTitleLinkedBackfill(req.Query, selected);
+            if (!useScopedProfileFallback && (selected.Count < topK || forcePreciseTitleLinkedBackfill))
+            {
+                var linkedLimit = selected.Count < topK
+                    ? topK - selected.Count
+                    : Math.Min(topK, 6);
+                var (linkedMatches, linkedDurationMs) = await phases.MeasureAsync(
+                    phaseName: "retrieval_linked_context",
+                    retriever: "linked_context",
+                    action: () => SearchLinkedMatchesAsync(
+                        ds,
+                        tenantId,
+                        selected,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        linkedLimit,
+                        ct,
+                        categoryPath),
+                    getReturnedCount: static matches => matches.Count);
+                linkedPhaseMs += linkedDurationMs;
+
+                if (forcePreciseTitleLinkedBackfill && selected.Count >= topK && linkedMatches.Count > 0)
+                {
+                    var mergedLinkedSelections = CalibrateFusedMatches(
+                        retrievalQuery,
+                        selected.Concat(linkedMatches).ToList(),
+                        req.Query);
+                    mergedLinkedSelections = SuppressNavigationalNoise(req.Query, mergedLinkedSelections);
+                    selected.Clear();
+                    selectedKeys.Clear();
+                    AddRankedMatches(
+                        selected,
+                        selectedKeys,
+                        mergedLinkedSelections,
+                        topK,
+                        minScore: 0.0,
+                        Math.Max(maxPerDoc, 2),
+                        Math.Max(maxPerPage, 2),
+                        query: req.Query);
+                }
+                else
+                {
+                    AddRankedMatches(selected, selectedKeys, linkedMatches, topK, minScore: 0.0, Math.Max(maxPerDoc, 2), Math.Max(maxPerPage, 2));
+                }
+            }
+
+            if (!useScopedProfileFallback && selected.Count < topK)
+            {
+                var (secondWaveLinkedMatches, secondWaveLinkedMs) = await phases.MeasureAsync(
+                    phaseName: "retrieval_linked_context",
+                    retriever: "linked_context",
+                    action: () => SearchLinkedMatchesAsync(
+                        ds,
+                        tenantId,
+                        selected,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        topK - selected.Count,
+                        ct,
+                        categoryPath),
+                    getReturnedCount: static matches => matches.Count);
+                linkedPhaseMs += secondWaveLinkedMs;
+
+                AddRankedMatches(selected, selectedKeys, secondWaveLinkedMatches, topK, minScore: 0.0, Math.Max(maxPerDoc, 2), Math.Max(maxPerPage, 2));
+            }
+        }
+
+        // CDC v3.1 §11.3: autocut - remove trailing results after largest relative score drop
+        var selectionRankingQuery = string.Equals(retrievalQuery.Trim(), req.Query.Trim(), StringComparison.OrdinalIgnoreCase)
+            ? req.Query
+            : retrievalQuery;
+
+        if (!hasDocScope
+            && !hasExplicitFileDocumentHint
+            && !useScopedProfileFallback
+            && !skipChunkRetrieversForDocumentOverview
+            && ShouldRunDocumentHintScopedBackfill(req.Query, selected))
+        {
+            var documentHintBackfillQuery = BuildDocumentHintScopedBackfillQuery(req.Query, retrievalQuery);
+            if (!string.IsNullOrWhiteSpace(documentHintBackfillQuery))
+            {
+                var (documentHintBackfillMatches, documentHintBackfillMs) = await phases.MeasureAsync(
+                    phaseName: "retrieval_document_hint_scoped_backfill",
+                    retriever: "document_hint_scoped_backfill",
+                    action: () => SearchDocumentHintScopedBackfillMatchesAsync(
+                        ds,
+                        tenantId,
+                        req.Query,
+                        documentHintBackfillQuery,
+                        category,
+                        categoryPath,
+                        Math.Max(topK, 8),
+                        ct,
+                        degradedRetrieverRef: degradation.Mark,
+                        commandTimeoutSeconds: sparseCommandTimeoutSeconds),
+                    getReturnedCount: static matches => matches.Count);
+                sparsePhaseMs += documentHintBackfillMs;
+
+                if (documentHintBackfillMatches.Count > 0)
+                {
+                    var mergedDocumentHintSelections = CalibrateFusedMatches(
+                        documentHintBackfillQuery,
+                        selected.Concat(documentHintBackfillMatches).ToList(),
+                        req.Query);
+                    mergedDocumentHintSelections = SuppressNavigationalNoise(req.Query, mergedDocumentHintSelections);
+                    selected.Clear();
+                    selectedKeys.Clear();
+                    AddRankedMatches(
+                        selected,
+                        selectedKeys,
+                        mergedDocumentHintSelections,
+                        topK,
+                        minScore: 0.0,
+                        Math.Max(maxPerDoc, 2),
+                        Math.Max(maxPerPage, 2),
+                        query: req.Query);
+
+                    var documentHintTokens = ExtractDocumentHintTokens(req.Query);
+                    var documentHintLinkedAnchors = documentHintBackfillMatches
+                        .Where(match => DocumentMatchesHint(documentHintTokens, match))
+                        .Take(3)
+                        .ToList();
+                    if (documentHintLinkedAnchors.Count > 0)
+                    {
+                        var (documentHintLinkedMatches, documentHintLinkedMs) = await phases.MeasureAsync(
+                            phaseName: "retrieval_document_hint_linked_context",
+                            retriever: "linked_context",
+                            action: () => SearchLinkedMatchesAsync(
+                                ds,
+                                tenantId,
+                                documentHintLinkedAnchors,
+                                category,
+                                docId: null,
+                                docPath: null,
+                                Math.Min(topK, 6),
+                                ct,
+                                categoryPath),
+                            getReturnedCount: static matches => matches.Count);
+                        linkedPhaseMs += documentHintLinkedMs;
+
+                        if (documentHintLinkedMatches.Count > 0)
+                        {
+                            var mergedLinkedDocumentHintSelections = CalibrateFusedMatches(
+                                documentHintBackfillQuery,
+                                selected.Concat(documentHintLinkedMatches).ToList(),
+                                req.Query);
+                            mergedLinkedDocumentHintSelections = SuppressNavigationalNoise(req.Query, mergedLinkedDocumentHintSelections);
+                            selected.Clear();
+                            selectedKeys.Clear();
+                            AddRankedMatches(
+                                selected,
+                                selectedKeys,
+                                mergedLinkedDocumentHintSelections,
+                                topK,
+                                minScore: 0.0,
+                                Math.Max(maxPerDoc, 2),
+                                Math.Max(maxPerPage, 2),
+                                query: req.Query);
+                        }
+                    }
+                }
+            }
+        }
+
+        PrioritizeExactTitleSelections(selectionRankingQuery, selected);
+        PrioritizeQuotedTitleSelections(req.Query, selected);
+        PrioritizeDocumentHintSelections(req.Query, selected);
+        PrioritizeOperationalSettingSelections(req.Query, selected);
+        if (!useScopedProfileFallback)
+        {
+            var selectionSw = Stopwatch.StartNew();
+            PruneWeakTitleExpansionSelections(selectionRankingQuery, selected);
+            PruneWeakAdjacentSiblingSelections(selectionRankingQuery, selected);
+            PrunePreciseTitleTailSelections(selectionRankingQuery, selected);
+            PruneUnmatchedPreciseTitleSelections(selectionRankingQuery, selected);
+            PruneUnpagedProfileSelectionsForPreciseLookup(selectionRankingQuery, selected);
+            selectionSw.Stop();
+            selectionMs += selectionSw.ElapsedMilliseconds;
+        }
+        var finalSelectionSw = Stopwatch.StartNew();
+        PruneNavigationalSelections(req.Query, selected);
+        PromoteActionableSameDocumentEvidence(selected);
+        if (!skipChunkRetrieversForDocumentOverview)
+            ApplyAutocut(selected, selectionMinScore, req.Query);
+        RebuildSelectedKeys(selected, selectedKeys);
+        finalSelectionSw.Stop();
+        selectionMs += finalSelectionSw.ElapsedMilliseconds;
+
+        if (!skipChunkRetrieversForDocumentOverview
+            && !hasExplicitFileDocumentHint
+            && ShouldRunShortTechnicalDirectPhraseBackfill(selectionRankingQuery, selected))
+        {
+            var (shortTechnicalPhraseMatches, shortTechnicalPhraseMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_short_technical_direct_phrase",
+                retriever: "sparse_bm25",
+                action: () => SearchShortTechnicalDirectPhraseMatchesAsync(
+                    ds,
+                    tenantId,
+                    selectionRankingQuery,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    Math.Max(topK * 2, 12),
+                    ct,
+                    categoryPath,
+                    degradedRetrieverRef: degradation.Mark),
+                getReturnedCount: static matches => matches.Count);
+            sparsePhaseMs += shortTechnicalPhraseMs;
+
+            if (shortTechnicalPhraseMatches.Count > 0)
+            {
+                var calibratedShortTechnicalSelections = CalibrateFusedMatches(
+                    selectionRankingQuery,
+                    selected.Concat(shortTechnicalPhraseMatches).DistinctBy(BuildRagMatchIdentityKey).ToList(),
+                    req.Query);
+                calibratedShortTechnicalSelections = SuppressNavigationalNoise(req.Query, calibratedShortTechnicalSelections);
+
+                var selectionSw = Stopwatch.StartNew();
+                selected.Clear();
+                selectedKeys.Clear();
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    calibratedShortTechnicalSelections,
+                    topK,
+                    minScore: 0.0,
+                    Math.Max(maxPerDoc, 2),
+                    Math.Max(maxPerPage, 2),
+                    query: req.Query);
+                PruneNavigationalSelections(req.Query, selected);
+                PromoteActionableSameDocumentEvidence(selected);
+                if (!skipChunkRetrieversForDocumentOverview)
+                    ApplyAutocut(selected, selectionMinScore, req.Query);
+                RebuildSelectedKeys(selected, selectedKeys);
+                selectionSw.Stop();
+                selectionMs += selectionSw.ElapsedMilliseconds;
+            }
+        }
+
+        if (!skipChunkRetrieversForDocumentOverview
+            && !hasExplicitFileDocumentHint
+            && ShouldRunShortTechnicalDirectEvidenceLinkedBackfill(selectionRankingQuery, selected))
+        {
+            var (shortTechnicalLinkedMatches, shortTechnicalLinkedMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_short_technical_linked_context",
+                retriever: "linked_context",
+                action: () => SearchLinkedMatchesAsync(
+                    ds,
+                    tenantId,
+                    selected,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    Math.Max(topK, 8),
+                    ct,
+                    categoryPath,
+                    includeSamePageForLinkedAnchors: true,
+                    maxAnchorCandidates: 12),
+                getReturnedCount: static matches => matches.Count);
+            linkedPhaseMs += shortTechnicalLinkedMs;
+
+            var directEvidenceLinkedMatches = shortTechnicalLinkedMatches
+                .Where(match => ComputeShortTechnicalDirectEvidencePriority(selectionRankingQuery, match, string.Empty, string.Empty) > 0)
+                .ToList();
+            if (directEvidenceLinkedMatches.Count == 0 && shortTechnicalLinkedMatches.Count > 0)
+            {
+                var (deepShortTechnicalLinkedMatches, deepShortTechnicalLinkedMs) = await phases.MeasureAsync(
+                    phaseName: "retrieval_short_technical_deep_linked_context",
+                    retriever: "linked_context",
+                    action: () => SearchLinkedMatchesAsync(
+                        ds,
+                        tenantId,
+                        shortTechnicalLinkedMatches,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        Math.Max(topK * 2, 12),
+                        ct,
+                        categoryPath,
+                        includeSamePageForLinkedAnchors: true,
+                        maxAnchorCandidates: 16),
+                    getReturnedCount: static matches => matches.Count);
+                linkedPhaseMs += deepShortTechnicalLinkedMs;
+
+                shortTechnicalLinkedMatches = shortTechnicalLinkedMatches
+                    .Concat(deepShortTechnicalLinkedMatches)
+                    .DistinctBy(BuildRagMatchIdentityKey)
+                    .ToList();
+                directEvidenceLinkedMatches = shortTechnicalLinkedMatches
+                    .Where(match => ComputeShortTechnicalDirectEvidencePriority(selectionRankingQuery, match, string.Empty, string.Empty) > 0)
+                    .ToList();
+            }
+            if (directEvidenceLinkedMatches.Count == 0 && shortTechnicalLinkedMatches.Count > 0)
+            {
+                var (thirdWaveShortTechnicalLinkedMatches, thirdWaveShortTechnicalLinkedMs) = await phases.MeasureAsync(
+                    phaseName: "retrieval_short_technical_third_linked_context",
+                    retriever: "linked_context",
+                    action: () => SearchLinkedMatchesAsync(
+                        ds,
+                        tenantId,
+                        shortTechnicalLinkedMatches,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        Math.Max(topK * 3, 16),
+                        ct,
+                        categoryPath,
+                        includeSamePageForLinkedAnchors: true,
+                        maxAnchorCandidates: 24),
+                    getReturnedCount: static matches => matches.Count);
+                linkedPhaseMs += thirdWaveShortTechnicalLinkedMs;
+
+                shortTechnicalLinkedMatches = shortTechnicalLinkedMatches
+                    .Concat(thirdWaveShortTechnicalLinkedMatches)
+                    .DistinctBy(BuildRagMatchIdentityKey)
+                    .ToList();
+                directEvidenceLinkedMatches = shortTechnicalLinkedMatches
+                    .Where(match => ComputeShortTechnicalDirectEvidencePriority(selectionRankingQuery, match, string.Empty, string.Empty) > 0)
+                    .ToList();
+            }
+
+            if (directEvidenceLinkedMatches.Count > 0)
+            {
+                var calibratedShortTechnicalSelections = CalibrateFusedMatches(
+                    selectionRankingQuery,
+                    selected.Concat(directEvidenceLinkedMatches).ToList(),
+                    req.Query);
+                calibratedShortTechnicalSelections = SuppressNavigationalNoise(req.Query, calibratedShortTechnicalSelections);
+
+                var selectionSw = Stopwatch.StartNew();
+                selected.Clear();
+                selectedKeys.Clear();
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    calibratedShortTechnicalSelections,
+                    topK,
+                    minScore: 0.0,
+                    Math.Max(maxPerDoc, 2),
+                    Math.Max(maxPerPage, 2),
+                    query: req.Query);
+                PruneNavigationalSelections(req.Query, selected);
+                PromoteActionableSameDocumentEvidence(selected);
+                if (!skipChunkRetrieversForDocumentOverview)
+                    ApplyAutocut(selected, selectionMinScore, req.Query);
+                RebuildSelectedKeys(selected, selectedKeys);
+                selectionSw.Stop();
+                selectionMs += selectionSw.ElapsedMilliseconds;
+            }
+        }
+
+        if (!skipChunkRetrieversForDocumentOverview
+            && !hasExplicitFileDocumentHint
+            && ShouldBackfillFuzzyTitleLead(req.Query, selected))
+        {
+            var focusedFuzzyQuery = BuildFocusedLexicalBackfillQuery(req.Query);
+            if (!string.IsNullOrWhiteSpace(focusedFuzzyQuery))
+            {
+                var (fuzzyTitleLeadMatches, fuzzyTitleLeadMs) = await phases.MeasureAsync(
+                    phaseName: "retrieval_fuzzy_title_lead",
+                    retriever: "fuzzy_title_lead",
+                    action: () => SearchFuzzyTitleLeadMatchesAsync(
+                        ds,
+                        tenantId,
+                        focusedFuzzyQuery,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        Math.Max(topK, 8),
+                        ct,
+                        categoryPath,
+                        degradedRetrieverRef: degradation.Mark),
+                    getReturnedCount: static matches => matches.Count);
+                sparsePhaseMs += fuzzyTitleLeadMs;
+
+                var calibratedFuzzyMatches = CalibrateFusedMatches(focusedFuzzyQuery, fuzzyTitleLeadMatches, req.Query);
+                calibratedFuzzyMatches = SuppressNavigationalNoise(req.Query, calibratedFuzzyMatches);
+                var selectionSw = Stopwatch.StartNew();
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    calibratedFuzzyMatches,
+                    topK,
+                    minScore: 0.0,
+                    maxPerDoc,
+                    Math.Max(maxPerPage, 2));
+                PruneNavigationalSelections(req.Query, selected);
+                PromoteActionableSameDocumentEvidence(selected);
+                if (!skipChunkRetrieversForDocumentOverview)
+                    ApplyAutocut(selected, selectionMinScore, req.Query);
+                RebuildSelectedKeys(selected, selectedKeys);
+                selectionSw.Stop();
+                selectionMs += selectionSw.ElapsedMilliseconds;
+            }
+        }
+
+        if (!skipChunkRetrieversForDocumentOverview
+            && !hasExplicitFileDocumentHint
+            && ShouldBackfillEnumerativeSearch(req.Query, selected.Count, topK))
+        {
+            var focusedLexicalQuery = BuildFocusedLexicalBackfillQuery(req.Query);
+            if (!string.IsNullOrWhiteSpace(focusedLexicalQuery)
+                && !string.Equals(focusedLexicalQuery.Trim(), req.Query.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                var (backfillMatches, backfillDurationMs) = await phases.MeasureAsync(
+                    phaseName: "retrieval_lexical_backfill",
+                    retriever: "lexical_backfill",
+                    action: () => SearchSparseMatchesAsync(
+                        ds,
+                        tenantId,
+                        focusedLexicalQuery,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        sqlHeavyCandidateLimit,
+                        ct,
+                        sparseMsRef: value => sparseMs += value,
+                        lexicalExpansionQuery: focusedLexicalQuery,
+                        categoryPath: categoryPath,
+                        includeProfileCardMatches: false,
+                        degradedRetrieverRef: degradation.Mark,
+                        commandTimeoutSeconds: sparseCommandTimeoutSeconds),
+                    getReturnedCount: static matches => matches.Count);
+                sparsePhaseMs += backfillDurationMs;
+
+                var calibratedBackfill = CalibrateFusedMatches(focusedLexicalQuery, backfillMatches, req.Query);
+                calibratedBackfill = SuppressNavigationalNoise(req.Query, calibratedBackfill);
+                var selectionSw = Stopwatch.StartNew();
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    calibratedBackfill,
+                    topK,
+                    minScore: 0.0,
+                    maxPerDoc,
+                    Math.Max(maxPerPage, 2));
+                PruneNavigationalSelections(req.Query, selected);
+                PromoteActionableSameDocumentEvidence(selected);
+                RebuildSelectedKeys(selected, selectedKeys);
+                selectionSw.Stop();
+                selectionMs += selectionSw.ElapsedMilliseconds;
+            }
+        }
+
+        if (!skipChunkRetrieversForDocumentOverview
+            && selected.Count == 0
+            && ShouldUseScopedProfileFallback(req.Query, hasCategoryFilter, mode))
+        {
+            var (fallbackProfiles, fallbackProfilesMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_scoped_profile_fallback",
+                retriever: "document_profile_fallback",
+                action: () => SearchDocumentOverviewProfileMatchesAsync(
+                    ds,
+                    tenantId,
+                    req.Query,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    Math.Min(Math.Max(topK * 2, 12), 24),
+                    ct,
+                    categoryPath,
+                    requireLexicalMatch: false,
+                    degradedRetrieverRef: degradation.Mark,
+                    commandTimeoutSeconds: sparseCommandTimeoutSeconds),
+                getReturnedCount: static matches => matches.Count);
+            profilePhaseMs += fallbackProfilesMs;
+
+            var selectionSw = Stopwatch.StartNew();
+            AddRankedMatches(
+                selected,
+                selectedKeys,
+                fallbackProfiles,
+                topK,
+                minScore: 0.0,
+                maxPerDoc: 1,
+                maxPerPage: Math.Max(maxPerPage, 1),
+                query: req.Query);
+            selectionSw.Stop();
+            selectionMs += selectionSw.ElapsedMilliseconds;
+        }
+
+        var useScopedCatalogEmptySelectionRecovery = ShouldRunScopedCatalogEmptySelectionRecovery(req.Query, hasCategoryFilter, mode);
+        if (selected.Count == 0
+            && ((skipChunkRetrieversForDocumentOverview && ShouldUseCatalogDocumentOverviewFallback(req.Query))
+                || useScopedCatalogDocumentOverviewFallback
+                || useScopedCatalogEmptySelectionRecovery))
+        {
+            var (catalogProfiles, catalogProfilesMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_catalog_document_overview_fallback",
+                retriever: "document_profile_catalog",
+                action: () => SearchDocumentOverviewProfileMatchesAsync(
+                    ds,
+                    tenantId,
+                    catalogOverviewFallbackQuery,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    Math.Min(Math.Max(topK * 2, 12), 24),
+                    ct,
+                    categoryPath,
+                    requireLexicalMatch: false,
+                    degradedRetrieverRef: degradation.Mark,
+                    commandTimeoutSeconds: sparseCommandTimeoutSeconds),
+                getReturnedCount: static matches => matches.Count);
+            profilePhaseMs += catalogProfilesMs;
+
+            var calibratedCatalogProfiles = CalibrateFusedMatches(
+                catalogOverviewFallbackQuery,
+                catalogProfiles,
+                req.Query);
+            var catalogProfileSelections = useScopedCatalogEmptySelectionRecovery
+                ? catalogProfiles
+                : calibratedCatalogProfiles;
+            var selectionSw = Stopwatch.StartNew();
+            AddRankedMatches(
+                selected,
+                selectedKeys,
+                catalogProfileSelections,
+                topK,
+                minScore: 0.0,
+                maxPerDoc: 1,
+                maxPerPage: Math.Max(maxPerPage, 1),
+                prioritizeDocumentProfiles: true,
+                query: selectionQuery);
+            selectionSw.Stop();
+            selectionMs += selectionSw.ElapsedMilliseconds;
+        }
+
+        if (selected.Count == 0)
+        {
+            var standardReferenceBackfillPhrases = ExtractStandardReferenceTitleLookupPhrases(req.Query);
+            if (standardReferenceBackfillPhrases.Count > 0)
+            {
+                async Task<List<RagMatch>> SearchStandardReferenceTitleBackfillMatchesAsync()
+                {
+                    var backfill = new List<RagMatch>();
+                    foreach (var phrase in standardReferenceBackfillPhrases.Take(4))
+                    {
+                        var titleAnchorQuery = phrase.Contains('"', StringComparison.Ordinal)
+                            ? phrase
+                            : $"\"{phrase}\"";
+                        backfill.AddRange(await SearchTitleAnchorRouteMatchesAsync(
+                            ds,
+                            tenantId,
+                            titleAnchorQuery,
+                            category,
+                            req.DocId,
+                            req.DocPath,
+                            Math.Min(candidates, Math.Max(topK, 16)),
+                            ct,
+                            categoryPath,
+                            degradedRetrieverRef: degradation.Mark));
+                    }
+
+                    backfill.AddRange(await SearchStandardReferenceDocumentNameContentMatchesAsync(
+                        ds,
+                        tenantId,
+                        req.Query,
+                        standardReferenceBackfillPhrases,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        Math.Min(candidates, Math.Max(topK, 16)),
+                        ct,
+                        categoryPath,
+                        degradedRetrieverRef: degradation.Mark));
+                    backfill.AddRange(await SearchStandardReferenceDocumentNameProfileMatchesAsync(
+                        ds,
+                        tenantId,
+                        req.Query,
+                        standardReferenceBackfillPhrases,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        Math.Min(candidates, Math.Max(topK, 16)),
+                        ct,
+                        categoryPath,
+                        degradedRetrieverRef: degradation.Mark,
+                        commandTimeoutSeconds: sparseCommandTimeoutSeconds));
+
+                    return DeduplicatePreciseTitleBackfillMatches(backfill);
+                }
+
+                var (standardReferenceTitleBackfillMatches, standardReferenceTitleBackfillMs) = await phases.MeasureAsync(
+                    phaseName: "retrieval_standard_reference_title_backfill",
+                    retriever: "title_anchor_route",
+                    action: SearchStandardReferenceTitleBackfillMatchesAsync,
+                    getReturnedCount: static matches => matches.Count);
+                titleAnchorRoutePhaseMs += standardReferenceTitleBackfillMs;
+
+                if (standardReferenceTitleBackfillMatches.Count > 0)
+                {
+                    var calibratedStandardReferenceBackfill = SuppressNavigationalNoise(
+                        req.Query,
+                        CalibrateFusedMatches(req.Query, standardReferenceTitleBackfillMatches, req.Query));
+                    var selectionSw = Stopwatch.StartNew();
+                    AddRankedMatches(
+                        selected,
+                        selectedKeys,
+                        calibratedStandardReferenceBackfill,
+                        topK,
+                        minScore: 0.0,
+                        Math.Max(maxPerDoc, 2),
+                        Math.Max(maxPerPage, 2),
+                        query: selectionQuery);
+                    selectionSw.Stop();
+                    selectionMs += selectionSw.ElapsedMilliseconds;
+                }
+            }
+        }
+
+        var dateDocumentBackfillPhrases = ExtractDateAnchoredTitleLookupPhrases(req.Query);
+        if (dateDocumentBackfillPhrases.Count > 0 && !SelectionsCoverDateAnchoredDocument(req.Query, selected))
+        {
+            var (dateDocumentBackfillMatches, dateDocumentBackfillMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_date_document_name_backfill",
+                retriever: "date_document_name",
+                action: () => SearchDateAnchoredDocumentNameContentMatchesAsync(
+                    ds,
+                    tenantId,
+                    req.Query,
+                    dateDocumentBackfillPhrases,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    Math.Min(candidates, Math.Max(topK, 16)),
+                    ct,
+                    categoryPath,
+                    degradedRetrieverRef: degradation.Mark),
+                getReturnedCount: static matches => matches.Count);
+            titleAnchorRoutePhaseMs += dateDocumentBackfillMs;
+
+            if (dateDocumentBackfillMatches.Count > 0)
+            {
+                var dateSelectionSw = Stopwatch.StartNew();
+                var calibratedDateDocumentBackfill = SuppressNavigationalNoise(
+                    req.Query,
+                    CalibrateFusedMatches(req.Query, dateDocumentBackfillMatches, req.Query));
+                RebuildSelectedKeys(selected, selectedKeys);
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    calibratedDateDocumentBackfill,
+                    topK,
+                    minScore: 0.0,
+                    maxPerDoc: Math.Max(maxPerDoc, 3),
+                    maxPerPage: Math.Max(maxPerPage, 2),
+                    query: req.Query);
+                CleanupLateSelectionBackfills(req.Query, selected);
+                RebuildSelectedKeys(selected, selectedKeys);
+                dateSelectionSw.Stop();
+                selectionMs += dateSelectionSw.ElapsedMilliseconds;
+            }
+        }
+
+        if (selected.Count > 0 && ShouldUseReferenceVersionOperandRoute(req.Query))
+        {
+            var referenceVersionGroupKeys = InferReferenceVersionOperandGroupKeys(req.Query, selected);
+            if (referenceVersionGroupKeys.Count > 0)
+            {
+                var (referenceVersionOperandBackfillMatches, referenceVersionOperandBackfillMs) = await phases.MeasureAsync(
+                    phaseName: "retrieval_reference_version_operand_backfill",
+                    retriever: "reference_version_operand_document_name",
+                    action: () => SearchReferenceVersionOperandDocumentNameContentMatchesAsync(
+                        ds,
+                        tenantId,
+                        req.Query,
+                        referenceVersionGroupKeys,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        Math.Min(candidates, Math.Max(topK, 16)),
+                        ct,
+                        categoryPath,
+                        degradedRetrieverRef: degradation.Mark),
+                    getReturnedCount: static matches => matches.Count);
+                titleAnchorRoutePhaseMs += referenceVersionOperandBackfillMs;
+
+                if (referenceVersionOperandBackfillMatches.Count > 0)
+                {
+                    var referenceVersionSelectionSw = Stopwatch.StartNew();
+                    var calibratedReferenceVersionBackfill = SuppressNavigationalNoise(
+                        req.Query,
+                        CalibrateFusedMatches(req.Query, referenceVersionOperandBackfillMatches, req.Query));
+                    RebuildSelectedKeys(selected, selectedKeys);
+                    if (selected.Count < topK)
+                    {
+                        AddRankedMatches(
+                            selected,
+                            selectedKeys,
+                            calibratedReferenceVersionBackfill,
+                            topK,
+                            minScore: 0.0,
+                            maxPerDoc: Math.Max(maxPerDoc, 2),
+                            maxPerPage: Math.Max(maxPerPage, 2),
+                            query: req.Query);
+                    }
+
+                    EnsureComparativeBackfillDocumentDiversity(
+                        selected,
+                        selectedKeys,
+                        calibratedReferenceVersionBackfill,
+                        topK,
+                        minScore: 0.0,
+                        maxPerPage: Math.Max(maxPerPage, 2),
+                        query: req.Query);
+                    CleanupLateSelectionBackfills(req.Query, selected);
+                    RebuildSelectedKeys(selected, selectedKeys);
+                    referenceVersionSelectionSw.Stop();
+                    selectionMs += referenceVersionSelectionSw.ElapsedMilliseconds;
+                }
+            }
+        }
+
+        IReadOnlyList<string> finalPreciseBackfillPhrases = skipPreciseTitleLookupForDocumentOverview
+            ? Array.Empty<string>()
+            : ExtractTitleLookupPhrases(req.Query);
+        var finalHasSufficientPreciseContentSelection = finalPreciseBackfillPhrases.Count > 0
+            && HasSufficientPreciseContentSelection(req.Query, finalPreciseBackfillPhrases, selected);
+        if (!useScopedProfileFallback
+            && finalPreciseBackfillPhrases.Count > 0
+            && selected.Count > 0
+            && !finalHasSufficientPreciseContentSelection)
+        {
+            async Task<List<RagMatch>> SearchFinalPreciseTitleBackfillMatchesAsync()
+            {
+                var backfill = BuildReusablePreciseTitleBackfillMatches(
+                    req.Query,
+                    finalPreciseBackfillPhrases,
+                    preciseTitleRouteReuseMatches);
+                var reusableBackfillIsSufficient = HasReusablePreciseTitleBackfillSelection(
+                        req.Query,
+                        finalPreciseBackfillPhrases,
+                        selected,
+                        backfill);
+                if (reusableBackfillIsSufficient
+                    && !ShouldContinuePreciseTitleBackfillAfterReusableSelection(
+                        req.Query,
+                        finalPreciseBackfillPhrases,
+                        backfill))
+                {
+                    return DeduplicatePreciseTitleBackfillMatches(backfill);
+                }
+
+                var scopedDocCandidates = selected
+                    .Take(8)
+                    .Where(static match => !IsDocumentProfileMatch(match))
+                    .Where(static match => IsContentSelectionCandidate(match))
+                    .Where(static match => !string.IsNullOrWhiteSpace(match.DocPath))
+                    .GroupBy(static match => NormalizeRagDocPath(match.DocPath), StringComparer.OrdinalIgnoreCase)
+                    .Select(static group => group.First())
+                    .Take(3)
+                    .ToList();
+
+                foreach (var phrase in finalPreciseBackfillPhrases.Take(3))
+                {
+                    var titleBackfillQuery = phrase.Contains('"', StringComparison.Ordinal)
+                        ? phrase
+                        : $"\"{phrase}\"";
+                    var preferIndexedTitleBackfill = ShouldSkipLocalTitleTokenRouteForIndexedTitleAnchors(
+                        titleBackfillQuery,
+                        hasCategoryScope: hasCategoryFilter,
+                        hasDocScope: false,
+                        skipChunkRetrieversForDocumentOverview: skipChunkRetrieversForDocumentOverview,
+                        useScopedProfileFallback);
+
+                    var scopedSearchTasks = scopedDocCandidates
+                        .Select(scopedDoc => preferIndexedTitleBackfill
+                            ? SearchTitleAnchorRouteMatchesAsync(
+                                ds,
+                                tenantId,
+                                titleBackfillQuery,
+                                category,
+                                docId: null,
+                                scopedDoc.DocPath,
+                                Math.Min(topK, 8),
+                                ct,
+                                categoryPath,
+                                degradedRetrieverRef: degradation.Mark)
+                            : SearchLocalTitleTokenRouteMatchesAsync(
+                                ds,
+                                tenantId,
+                                titleBackfillQuery,
+                                category,
+                                docId: null,
+                                scopedDoc.DocPath,
+                                Math.Min(topK, 8),
+                                ct,
+                                categoryPath,
+                                degradedRetrieverRef: degradation.Mark))
+                        .ToArray();
+                    foreach (var scopedMatches in await Task.WhenAll(scopedSearchTasks))
+                    {
+                        backfill.AddRange(scopedMatches);
+                    }
+
+                    reusableBackfillIsSufficient = HasReusablePreciseTitleBackfillSelection(
+                            req.Query,
+                            finalPreciseBackfillPhrases,
+                            selected,
+                            backfill);
+                    if (reusableBackfillIsSufficient
+                        && !ShouldContinuePreciseTitleBackfillAfterReusableSelection(
+                            req.Query,
+                            finalPreciseBackfillPhrases,
+                            backfill))
+                    {
+                        continue;
+                    }
+
+                    var globalMatches = await SearchPreciseTitleRouteBackfillAsync(
+                        titleBackfillQuery,
+                        Math.Min(Math.Max(topK, 12), 24));
+                    backfill.AddRange(globalMatches);
+                }
+
+                return DeduplicatePreciseTitleBackfillMatches(backfill);
+            }
+
+            var (finalPreciseTitleBackfillMatches, finalPreciseTitleBackfillMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_final_precise_title_backfill",
+                retriever: "local_title_token_route",
+                action: SearchFinalPreciseTitleBackfillMatchesAsync,
+                getReturnedCount: static matches => matches.Count);
+            localTitleTokenMs += finalPreciseTitleBackfillMs;
+
+            if (finalPreciseTitleBackfillMatches.Count > 0)
+            {
+                var mergedFinalSelections = CalibrateFusedMatches(
+                    retrievalQuery,
+                    selected.Concat(finalPreciseTitleBackfillMatches).ToList(),
+                    req.Query);
+                mergedFinalSelections = PrioritizePreciseTitleBackfillSelections(
+                    req.Query,
+                    mergedFinalSelections,
+                    finalPreciseTitleBackfillMatches);
+                mergedFinalSelections = SuppressNavigationalNoise(req.Query, mergedFinalSelections);
+                selected.Clear();
+                selectedKeys.Clear();
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    mergedFinalSelections,
+                    topK,
+                    minScore: 0.0,
+                    Math.Max(maxPerDoc, 2),
+                    Math.Max(maxPerPage, 2),
+                    query: req.Query);
+            }
+        }
+
+        var finalDocumentHintTokens = ExtractDocumentHintTokens(req.Query);
+        if (!hasDocScope
+            && !useScopedProfileFallback
+            && !skipChunkRetrieversForDocumentOverview
+            && finalDocumentHintTokens.Count > 0)
+        {
+            var finalDocumentHintLinkedAnchors = selected
+                .Where(match =>
+                    !IsDocumentProfileMatch(match)
+                    && IsContentSelectionCandidate(match)
+                    && DocumentMatchesHint(finalDocumentHintTokens, match))
+                .Take(3)
+                .ToList();
+            if (finalDocumentHintLinkedAnchors.Count > 0)
+            {
+                var (finalDocumentHintLinkedMatches, finalDocumentHintLinkedMs) = await phases.MeasureAsync(
+                    phaseName: "retrieval_final_document_hint_linked_context",
+                    retriever: "linked_context",
+                    action: () => SearchLinkedMatchesAsync(
+                        ds,
+                        tenantId,
+                        finalDocumentHintLinkedAnchors,
+                        category,
+                        docId: null,
+                        docPath: null,
+                        Math.Min(topK, 6),
+                        ct,
+                        categoryPath),
+                    getReturnedCount: static matches => matches.Count);
+                linkedPhaseMs += finalDocumentHintLinkedMs;
+
+                if (finalDocumentHintLinkedMatches.Count > 0)
+                {
+                    var mergedFinalLinkedSelections = CalibrateFusedMatches(
+                        retrievalQuery,
+                        selected.Concat(finalDocumentHintLinkedMatches).ToList(),
+                        req.Query);
+                    mergedFinalLinkedSelections = SuppressNavigationalNoise(req.Query, mergedFinalLinkedSelections);
+                    selected.Clear();
+                    selectedKeys.Clear();
+                    AddRankedMatches(
+                        selected,
+                        selectedKeys,
+                        mergedFinalLinkedSelections,
+                        topK,
+                        minScore: 0.0,
+                        Math.Max(maxPerDoc, 2),
+                        Math.Max(maxPerPage, 2),
+                        query: req.Query);
+                }
+            }
+        }
+
+        var finalOrderingSw = Stopwatch.StartNew();
+        PruneUnanchoredFocusedLookupSelections(selectionQuery, selected);
+        finalOrderingSw.Stop();
+        selectionMs += finalOrderingSw.ElapsedMilliseconds;
+
+        if (!skipChunkRetrieversForDocumentOverview
+            && !hasExplicitFileDocumentHint
+            && !skipUnanchoredTitleAnchorRouteForBroadDiversity
+            && ShouldRunFinalComparativeSparseDiversityBackfill(req.Query, selected))
+        {
+            var comparativeSubjectBackfillQueries = BuildComparativeSubjectBackfillQueries(req.Query);
+            var (comparativeSparseBackfillMatches, comparativeSparseBackfillMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_final_comparative_sparse_backfill",
+                retriever: "sparse_bm25",
+                action: async () =>
+                {
+                    var backfill = new List<RagMatch>();
+                    foreach (var focusedQuery in comparativeSubjectBackfillQueries)
+                    {
+                        backfill.AddRange(await SearchSparseMatchesAsync(
+                            ds,
+                            tenantId,
+                            focusedQuery,
+                            category,
+                            req.DocId,
+                            req.DocPath,
+                            Math.Min(Math.Max(topK, 12), 32),
+                            ct,
+                            sparseMsRef: value => sparseMs += value,
+                            lexicalExpansionQuery: focusedQuery,
+                            categoryPath: categoryPath,
+                            includeProfileCardMatches: false,
+                            degradedRetrieverRef: degradation.Mark,
+                            commandTimeoutSeconds: sparseCommandTimeoutSeconds));
+                    }
+
+                    return backfill
+                        .GroupBy(BuildMatchDedupKey, StringComparer.OrdinalIgnoreCase)
+                        .Select(static group => group
+                            .OrderByDescending(match => match.Score)
+                            .ThenBy(match => match.DocPath, StringComparer.OrdinalIgnoreCase)
+                            .ThenBy(match => match.ChunkIndex)
+                            .First())
+                        .ToList();
+                },
+                getReturnedCount: static matches => matches.Count);
+            sparsePhaseMs += comparativeSparseBackfillMs;
+
+            if (comparativeSparseBackfillMatches.Count > 0)
+            {
+                finalOrderingSw.Restart();
+                RebuildSelectedKeys(selected, selectedKeys);
+                EnsureComparativeBackfillDocumentDiversity(
+                    selected,
+                    selectedKeys,
+                    comparativeSparseBackfillMatches,
+                    topK,
+                    minScore: 0.0,
+                    maxPerPage: Math.Max(maxPerPage, 2),
+                    query: req.Query);
+                PruneNavigationalSelections(req.Query, selected);
+                PromoteActionableSameDocumentEvidence(selected);
+                RebuildSelectedKeys(selected, selectedKeys);
+                finalOrderingSw.Stop();
+                selectionMs += finalOrderingSw.ElapsedMilliseconds;
+            }
+        }
+
+        if (broadDiversityCandidateBackfillPool is { Count: > 0 }
+            && ShouldRunBroadDiversityCandidateBackfill(req.Query, selected.Count, topK))
+        {
+            finalOrderingSw.Restart();
+            RebuildSelectedKeys(selected, selectedKeys);
+            AddRankedMatches(
+                selected,
+                selectedKeys,
+                broadDiversityCandidateBackfillPool,
+                topK,
+                minScore: 0.0,
+                maxPerDoc,
+                maxPerPage,
+                prioritizeDocumentProfiles: true,
+                query: req.Query);
+            PruneNavigationalSelections(req.Query, selected);
+            PromoteActionableSameDocumentEvidence(selected);
+            RebuildSelectedKeys(selected, selectedKeys);
+            finalOrderingSw.Stop();
+            selectionMs += finalOrderingSw.ElapsedMilliseconds;
+        }
+
+        if (broadDiversityCandidateBackfillPool is { Count: > 0 }
+            && ShouldRunBroadDiversityCandidateCoverage(req.Query, topK))
+        {
+            finalOrderingSw.Restart();
+            RebuildSelectedKeys(selected, selectedKeys);
+            EnsureBroadDiversityCandidateCoverage(
+                selected,
+                selectedKeys,
+                broadDiversityCandidateBackfillPool,
+                topK,
+                minScore: 0.0,
+                maxPerPage: Math.Max(maxPerPage, 2),
+                query: req.Query);
+            PruneNavigationalSelections(req.Query, selected);
+            PromoteActionableSameDocumentEvidence(selected);
+            RebuildSelectedKeys(selected, selectedKeys);
+            finalOrderingSw.Stop();
+            selectionMs += finalOrderingSw.ElapsedMilliseconds;
+        }
+
+        if (!useScopedProfileFallback && ShouldRunStructuredContinuationBackfill(req.Query, selected))
+        {
+            var structuredContinuationAnchors = SelectStructuredContinuationAnchors(
+                req.Query,
+                selected,
+                Math.Min(topK, 4));
+            if (structuredContinuationAnchors.Count > 0)
+            {
+                var structuredContinuationLimit = Math.Min(topK, Math.Max(4, structuredContinuationAnchors.Count * 2));
+                var (structuredContinuationMatches, structuredContinuationMs) = await phases.MeasureAsync(
+                    phaseName: "retrieval_structured_continuation",
+                    retriever: "linked_context",
+                    action: () => SearchLinkedMatchesAsync(
+                        ds,
+                        tenantId,
+                        structuredContinuationAnchors,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        structuredContinuationLimit,
+                        ct,
+                        categoryPath,
+                        includeSamePageForLinkedAnchors: true),
+                    getReturnedCount: static matches => matches.Count);
+                linkedPhaseMs += structuredContinuationMs;
+
+                var structuredContinuations = FilterStructuredContinuationMatches(
+                    req.Query,
+                    structuredContinuationAnchors,
+                    structuredContinuationMatches,
+                    structuredContinuationLimit);
+                if (structuredContinuations.Count > 0)
+                {
+                    var structuredContinuationSelectionSw = Stopwatch.StartNew();
+                    MergeStructuredContinuationSelections(req.Query, selected, structuredContinuations, topK);
+                    structuredContinuationSelectionSw.Stop();
+                    selectionMs += structuredContinuationSelectionSw.ElapsedMilliseconds;
+                }
+            }
+        }
+
+        if (!skipChunkRetrieversForDocumentOverview
+            && !hasExplicitFileDocumentHint
+            && selected.Count == 0
+            && ShouldRunFocusedLookupEmptySelectionRecovery(req.Query))
+        {
+            var focusedRecoveryQuery = BuildFocusedLexicalBackfillQuery(req.Query);
+            var focusedRecoveryLimit = Math.Min(candidates, Math.Max(topK * 4, 24));
+            var (focusedRecoveryMatches, focusedRecoveryMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_focused_empty_recovery",
+                retriever: "focused_lookup_recovery",
+                action: async () =>
+                {
+                    var recovery = new List<RagMatch>();
+                    recovery.AddRange(await SearchTitleAnchorRouteMatchesAsync(
+                        ds,
+                        tenantId,
+                        focusedRecoveryQuery,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        focusedRecoveryLimit,
+                        ct,
+                        categoryPath,
+                        degradedRetrieverRef: degradation.Mark));
+                    recovery.AddRange(await SearchSparseMatchesAsync(
+                        ds,
+                        tenantId,
+                        focusedRecoveryQuery,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        focusedRecoveryLimit,
+                        ct,
+                        sparseMsRef: value => sparseMs += value,
+                        lexicalExpansionQuery: focusedRecoveryQuery,
+                        categoryPath: categoryPath,
+                        includeProfileCardMatches: true,
+                        degradedRetrieverRef: degradation.Mark,
+                        commandTimeoutSeconds: sparseCommandTimeoutSeconds));
+                    recovery.AddRange(await SearchDenseMatchesAsync(
+                        ds,
+                        httpFactory,
+                        rag,
+                        tenantId,
+                        NormalizeQuery(focusedRecoveryQuery),
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        focusedRecoveryLimit,
+                        ct,
+                        teiMsRef: value => teiMs += value,
+                        qdrantMsRef: value => qdrantMs += value,
+                        qdrantStatusRef: value => qdrantStatus = value,
+                        categoryPath: categoryPath,
+                        degradedRetrieverRef: degradation.Mark,
+                        teiGovernor: teiGovernor));
+
+                    return recovery
+                        .GroupBy(BuildMatchDedupKey, StringComparer.OrdinalIgnoreCase)
+                        .Select(static group => group
+                            .OrderByDescending(match => match.Score)
+                            .ThenBy(match => match.DocPath, StringComparer.OrdinalIgnoreCase)
+                            .ThenBy(match => match.ChunkIndex)
+                            .First())
+                        .ToList();
+                },
+                getReturnedCount: static matches => matches.Count);
+            selectionMs += focusedRecoveryMs;
+
+            if (focusedRecoveryMatches.Count > 0)
+            {
+                var focusedRecoverySelectionSw = Stopwatch.StartNew();
+                var calibratedRecovery = CalibrateFusedMatches(focusedRecoveryQuery, focusedRecoveryMatches, req.Query);
+                calibratedRecovery = SuppressNavigationalNoise(req.Query, calibratedRecovery);
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    calibratedRecovery,
+                    topK,
+                    minScore: 0.0,
+                    Math.Max(maxPerDoc, 2),
+                    Math.Max(maxPerPage, 2),
+                    query: req.Query);
+                if (selected.Count > 0 && selected.Count < topK)
+                {
+                    var (focusedRecoveryLinkedMatches, focusedRecoveryLinkedMs) = await phases.MeasureAsync(
+                        phaseName: "retrieval_focused_empty_recovery_linked_context",
+                        retriever: "linked_context",
+                        action: () => SearchLinkedMatchesAsync(
+                            ds,
+                            tenantId,
+                            selected,
+                            category,
+                            req.DocId,
+                            req.DocPath,
+                            topK - selected.Count,
+                            ct,
+                            categoryPath,
+                            includeSamePageForLinkedAnchors: true),
+                        getReturnedCount: static matches => matches.Count);
+                    linkedPhaseMs += focusedRecoveryLinkedMs;
+                    AddRankedMatches(
+                        selected,
+                        selectedKeys,
+                        focusedRecoveryLinkedMatches,
+                        topK,
+                        minScore: 0.0,
+                        Math.Max(maxPerDoc, 2),
+                        Math.Max(maxPerPage, 2),
+                        query: req.Query);
+                }
+
+                PruneNavigationalSelections(req.Query, selected);
+                PromoteActionableSameDocumentEvidence(selected);
+                PruneUnanchoredFocusedLookupSelections(req.Query, selected);
+                RebuildSelectedKeys(selected, selectedKeys);
+                focusedRecoverySelectionSw.Stop();
+                selectionMs += focusedRecoverySelectionSw.ElapsedMilliseconds;
+            }
+        }
+
+        var compactDocumentCodeLookupPhrases = ExtractCompactDocumentCodeLookupPhrases(req.Query);
+        if (!skipChunkRetrieversForDocumentOverview
+            && ShouldAllowCompactDocumentCodeEmptyRecovery(req.Query, hasExplicitFileDocumentHint)
+            && selected.Count == 0
+            && compactDocumentCodeLookupPhrases.Count > 0)
+        {
+            var compactCodeRecoveryLimit = Math.Min(candidates, Math.Max(topK * 4, 24));
+            var (compactCodeRecoveryMatches, compactCodeRecoveryMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_compact_document_code_empty_recovery",
+                retriever: "compact_document_code_recovery",
+                action: async () =>
+                {
+                    var recovery = new List<RagMatch>();
+                    foreach (var compactCode in compactDocumentCodeLookupPhrases.Take(3))
+                    {
+                        recovery.AddRange(await SearchTitleAnchorRouteMatchesAsync(
+                            ds,
+                            tenantId,
+                            compactCode,
+                            category,
+                            req.DocId,
+                            req.DocPath,
+                            compactCodeRecoveryLimit,
+                            ct,
+                            categoryPath,
+                            degradedRetrieverRef: degradation.Mark));
+                        recovery.AddRange(await SearchDenseMatchesAsync(
+                            ds,
+                            httpFactory,
+                            rag,
+                            tenantId,
+                            NormalizeQuery(compactCode),
+                            category,
+                            req.DocId,
+                            req.DocPath,
+                            compactCodeRecoveryLimit,
+                            ct,
+                            teiMsRef: value => teiMs += value,
+                            qdrantMsRef: value => qdrantMs += value,
+                            qdrantStatusRef: value => qdrantStatus = value,
+                            categoryPath: categoryPath,
+                            degradedRetrieverRef: degradation.Mark,
+                            teiGovernor: teiGovernor));
+                    }
+
+                    return recovery
+                        .GroupBy(BuildMatchDedupKey, StringComparer.OrdinalIgnoreCase)
+                        .Select(static group => group
+                            .OrderByDescending(match => match.Score)
+                            .ThenBy(match => match.DocPath, StringComparer.OrdinalIgnoreCase)
+                            .ThenBy(match => match.ChunkIndex)
+                            .First())
+                        .ToList();
+                },
+                getReturnedCount: static matches => matches.Count);
+            titleAnchorRoutePhaseMs += compactCodeRecoveryMs;
+
+            if (compactCodeRecoveryMatches.Count > 0)
+            {
+                var compactCodeRecoverySelectionSw = Stopwatch.StartNew();
+                var calibratedRecovery = CalibrateFusedMatches(
+                    string.Join(' ', compactDocumentCodeLookupPhrases),
+                    compactCodeRecoveryMatches,
+                    req.Query);
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    SuppressNavigationalNoise(req.Query, calibratedRecovery),
+                    topK,
+                    minScore: 0.0,
+                    Math.Max(maxPerDoc, 2),
+                    Math.Max(maxPerPage, 2),
+                    query: string.Join(' ', compactDocumentCodeLookupPhrases));
+                PruneNavigationalSelections(req.Query, selected);
+                RebuildSelectedKeys(selected, selectedKeys);
+                compactCodeRecoverySelectionSw.Stop();
+                selectionMs += compactCodeRecoverySelectionSw.ElapsedMilliseconds;
+            }
+        }
+
+        var explicitFileLookupTokens = ExtractExplicitFileLookupPhrases(req.Query);
+        if (!ContainsDocumentOverviewIntent(req.Query)
+            && explicitFileLookupTokens.Count > 0
+            && !SelectionsCoverExplicitFileLookupGroups(req.Query, selected))
+        {
+            var (explicitDocumentRecoveryMatches, explicitDocumentRecoveryMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_explicit_document_title_recovery",
+                retriever: "explicit_document_title_route",
+                action: () => SearchExplicitDocumentTitleMatchesAsync(
+                    ds,
+                    tenantId,
+                    req.Query,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    Math.Min(candidates, Math.Max(topK, 16)),
+                    ct,
+                    categoryPath,
+                    degradedRetrieverRef: degradation.Mark),
+                getReturnedCount: static matches => matches.Count);
+            titleAnchorRoutePhaseMs += explicitDocumentRecoveryMs;
+            if (explicitDocumentRecoveryMatches.Count > 0)
+            {
+                var mergedExplicitSelections = CalibrateFusedMatches(
+                    req.Query,
+                    explicitDocumentRecoveryMatches.Concat(selected).ToList(),
+                    req.Query);
+                selected.Clear();
+                selectedKeys.Clear();
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    mergedExplicitSelections,
+                    topK,
+                    minScore: 0.0,
+                    Math.Min(topK, Math.Max(maxPerDoc, 3)),
+                    Math.Min(topK, Math.Max(maxPerPage, 2)),
+                    query: req.Query);
+            }
+            else
+            {
+                selected.Clear();
+                selectedKeys.Clear();
+            }
+        }
+
+        if (ContainsDocumentCompanionRelationIntent(req.Query)
+            && ExtractStandardReferenceTitleLookupPhrases(req.Query).Count > 0)
+        {
+            var companionBackfill = new List<RagMatch>();
+            foreach (var phrase in ExtractStandardReferenceTitleLookupPhrases(req.Query).Take(2))
+            {
+                var titleAnchorQuery = phrase.Contains('"', StringComparison.Ordinal)
+                    ? phrase
+                    : $"\"{phrase}\"";
+                var (referenceCompanionMatches, referenceCompanionMs) = await phases.MeasureAsync(
+                    phaseName: "retrieval_reference_companion_title_anchor",
+                    retriever: "title_anchor_route",
+                    action: () => SearchTitleAnchorRouteMatchesAsync(
+                        ds,
+                        tenantId,
+                        titleAnchorQuery,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        Math.Min(candidates, Math.Max(topK, 16)),
+                        ct,
+                        categoryPath,
+                        degradedRetrieverRef: degradation.Mark,
+                        allowDirectChunkRoute: false),
+                    getReturnedCount: static matches => matches.Count);
+                titleAnchorRoutePhaseMs += referenceCompanionMs;
+                companionBackfill.AddRange(referenceCompanionMatches);
+            }
+
+            if (companionBackfill.Count > 0)
+            {
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    CalibrateFusedMatches(req.Query, companionBackfill, req.Query),
+                    topK,
+                    minScore: 0.0,
+                    Math.Max(maxPerDoc, 3),
+                    Math.Max(maxPerPage, 2),
+                    query: req.Query);
+            }
+        }
+
+        List<RagMatch>? documentStatusOperandSelectionPool = null;
+        var documentStatusOperandTerms = ExtractDocumentStatusOperandLookupTerms(req.Query);
+        if (documentStatusOperandTerms.Count > 0 && !hasExplicitFileDocumentHint)
+        {
+            var (documentStatusOperandMatches, documentStatusOperandMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_document_status_operand",
+                retriever: "document_status_operand",
+                action: () => SearchDocumentStatusOperandContentMatchesAsync(
+                    ds,
+                    tenantId,
+                    req.Query,
+                    documentStatusOperandTerms,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    Math.Min(candidates, Math.Max(topK, 16)),
+                    ct,
+                    categoryPath,
+                    degradedRetrieverRef: degradation.Mark),
+                getReturnedCount: static matches => matches.Count);
+            titleAnchorRoutePhaseMs += documentStatusOperandMs;
+
+            if (documentStatusOperandMatches.Count > 0)
+            {
+                var hasStatusCompanionBackfillMatches = false;
+                var statusCompanionBackfillQueries = BuildDocumentStatusOperandCompanionBackfillQueries(
+                    req.Query,
+                    documentStatusOperandTerms,
+                    documentStatusOperandMatches);
+                if (statusCompanionBackfillQueries.Count > 0)
+                {
+                    var (statusCompanionBackfillMatches, statusCompanionBackfillMs) = await phases.MeasureAsync(
+                        phaseName: "retrieval_document_status_companion_backfill",
+                        retriever: "document_status_companion_backfill",
+                        action: async () =>
+                        {
+                            var backfill = new List<RagMatch>();
+                            foreach (var focusedQuery in statusCompanionBackfillQueries)
+                            {
+                                backfill.AddRange(await SearchTitleAnchorRouteMatchesAsync(
+                                    ds,
+                                    tenantId,
+                                    focusedQuery,
+                                    category,
+                                    req.DocId,
+                                    req.DocPath,
+                                    Math.Min(candidates, Math.Max(topK, 16)),
+                                    ct,
+                                    categoryPath,
+                                    degradedRetrieverRef: degradation.Mark));
+                                backfill.AddRange(await SearchDenseMatchesAsync(
+                                    ds,
+                                    httpFactory,
+                                    rag,
+                                    tenantId,
+                                    NormalizeQuery(focusedQuery),
+                                    category,
+                                    req.DocId,
+                                    req.DocPath,
+                                    Math.Min(candidates, Math.Max(topK, 16)),
+                                    ct,
+                                    teiMsRef: value => teiMs += value,
+                                    qdrantMsRef: value => qdrantMs += value,
+                                    qdrantStatusRef: value => qdrantStatus = value,
+                                    categoryPath: categoryPath,
+                                    degradedRetrieverRef: degradation.Mark,
+                                    teiGovernor: teiGovernor));
+                            }
+
+                            return backfill
+                                .GroupBy(BuildMatchDedupKey, StringComparer.OrdinalIgnoreCase)
+                                .Select(static group => group
+                                    .OrderByDescending(match => match.Score)
+                                    .ThenBy(match => match.DocPath, StringComparer.OrdinalIgnoreCase)
+                                    .ThenBy(match => match.ChunkIndex)
+                                    .First())
+                                .ToList();
+                        },
+                        getReturnedCount: static matches => matches.Count);
+                    titleAnchorRoutePhaseMs += statusCompanionBackfillMs;
+                    if (statusCompanionBackfillMatches.Count > 0)
+                    {
+                        hasStatusCompanionBackfillMatches = true;
+                        documentStatusOperandMatches.AddRange(statusCompanionBackfillMatches);
+                        documentStatusOperandMatches = DeduplicatePreciseTitleBackfillMatches(documentStatusOperandMatches);
+                    }
+                }
+
+                var shouldMergeDocumentStatusOperandSelections = ShouldMergeDocumentStatusOperandSelectionsForComparativeVersionRoute(
+                    req.Query,
+                    documentStatusOperandTerms);
+                if (shouldMergeDocumentStatusOperandSelections)
+                {
+                    var counterpartBackfillQueries = BuildComparativeVersionCounterpartBackfillQueries(req.Query);
+                    if (counterpartBackfillQueries.Count > 0)
+                    {
+                        var (counterpartBackfillMatches, counterpartBackfillMs) = await phases.MeasureAsync(
+                            phaseName: "retrieval_comparative_version_counterpart_sparse",
+                            retriever: "sparse_bm25",
+                            action: async () =>
+                            {
+                                var backfill = new List<RagMatch>();
+                                foreach (var focusedQuery in counterpartBackfillQueries)
+                                {
+                                    backfill.AddRange(await SearchSparseMatchesAsync(
+                                        ds,
+                                        tenantId,
+                                        focusedQuery,
+                                        category,
+                                        req.DocId,
+                                        req.DocPath,
+                                        Math.Min(Math.Max(topK, 12), 32),
+                                        ct,
+                                        sparseMsRef: value => sparseMs += value,
+                                        lexicalExpansionQuery: focusedQuery,
+                                        categoryPath: categoryPath,
+                                        includeProfileCardMatches: false,
+                                        degradedRetrieverRef: degradation.Mark,
+                                        commandTimeoutSeconds: sparseCommandTimeoutSeconds));
+                                }
+
+                                return backfill
+                                    .GroupBy(BuildMatchDedupKey, StringComparer.OrdinalIgnoreCase)
+                                    .Select(static group => group
+                                        .OrderByDescending(match => match.Score)
+                                        .ThenBy(match => match.DocPath, StringComparer.OrdinalIgnoreCase)
+                                        .ThenBy(match => match.ChunkIndex)
+                                        .First())
+                                    .ToList();
+                            },
+                            getReturnedCount: static matches => matches.Count);
+                        sparsePhaseMs += counterpartBackfillMs;
+                        documentStatusOperandMatches.AddRange(counterpartBackfillMatches);
+                    }
+                }
+
+                var mergedStatusSelections = CalibrateFusedMatches(
+                    req.Query,
+                    documentStatusOperandMatches.Concat(selected).ToList(),
+                    req.Query);
+                mergedStatusSelections = PrioritizeDocumentStatusOperandSelections(
+                    req.Query,
+                    documentStatusOperandTerms,
+                    mergedStatusSelections);
+                documentStatusOperandSelectionPool = mergedStatusSelections;
+                if (!shouldMergeDocumentStatusOperandSelections && !hasStatusCompanionBackfillMatches)
+                {
+                    mergedStatusSelections = mergedStatusSelections
+                        .Where(static match => string.Equals(
+                            ResolveRetriever(match),
+                            "document_status_operand",
+                            StringComparison.Ordinal))
+                        .ToList();
+                }
+
+                if (shouldMergeDocumentStatusOperandSelections)
+                {
+                    RebuildSelectedKeys(selected, selectedKeys);
+                    AddRankedMatches(
+                        selected,
+                        selectedKeys,
+                        mergedStatusSelections,
+                        topK,
+                        minScore: 0.0,
+                        Math.Max(maxPerDoc, 3),
+                        Math.Max(maxPerPage, 2),
+                        query: req.Query);
+                    EnsureComparativeBackfillDocumentDiversity(
+                        selected,
+                        selectedKeys,
+                        mergedStatusSelections,
+                        topK,
+                        minScore: 0.0,
+                        maxPerPage: Math.Max(maxPerPage, 2),
+                        query: req.Query);
+                }
+                else
+                {
+                    selected.Clear();
+                    selectedKeys.Clear();
+                    AddRankedMatches(
+                        selected,
+                        selectedKeys,
+                        mergedStatusSelections,
+                        topK,
+                        minScore: 0.0,
+                        Math.Max(maxPerDoc, 3),
+                        Math.Max(maxPerPage, 2),
+                        query: req.Query);
+                }
+            }
+        }
+
+        var lateStandardReferencePhrases = ExtractStandardReferenceTitleLookupPhrases(req.Query);
+        if (lateStandardReferencePhrases.Count > 1
+            && !SelectionsCoverStandardReferencePhrases(lateStandardReferencePhrases, selected))
+        {
+            var (lateStandardReferenceMatches, lateStandardReferenceMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_standard_reference_late_recovery",
+                retriever: "standard_reference_document_name",
+                action: () => SearchStandardReferenceDocumentNameContentMatchesAsync(
+                    ds,
+                    tenantId,
+                    req.Query,
+                    lateStandardReferencePhrases,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    Math.Min(candidates, Math.Max(topK, 16)),
+                    ct,
+                    categoryPath,
+                    degradedRetrieverRef: degradation.Mark),
+                getReturnedCount: static matches => matches.Count);
+            if (!SelectionsCoverStandardReferencePhrases(lateStandardReferencePhrases, lateStandardReferenceMatches))
+            {
+                lateStandardReferenceMatches.AddRange(await SearchStandardReferenceDocumentNameProfileMatchesAsync(
+                    ds,
+                    tenantId,
+                    req.Query,
+                    lateStandardReferencePhrases,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    Math.Min(candidates, Math.Max(topK, 16)),
+                    ct,
+                    categoryPath,
+                    degradedRetrieverRef: degradation.Mark,
+                    commandTimeoutSeconds: sparseCommandTimeoutSeconds));
+                lateStandardReferenceMatches = DeduplicatePreciseTitleBackfillMatches(lateStandardReferenceMatches);
+            }
+            titleAnchorRoutePhaseMs += lateStandardReferenceMs;
+
+            if (lateStandardReferenceMatches.Count > 0)
+            {
+                var lateStandardReferenceSelectionPool = SelectionsCoverStandardReferencePhrases(
+                    lateStandardReferencePhrases,
+                    lateStandardReferenceMatches)
+                    ? lateStandardReferenceMatches
+                    : lateStandardReferenceMatches.Concat(selected).ToList();
+                var mergedStandardReferenceSelections = CalibrateFusedMatches(
+                    req.Query,
+                    lateStandardReferenceSelectionPool,
+                    req.Query);
+                selected.Clear();
+                selectedKeys.Clear();
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    mergedStandardReferenceSelections,
+                    topK,
+                    minScore: 0.0,
+                    Math.Max(maxPerDoc, 3),
+                    Math.Max(maxPerPage, 2),
+                    query: req.Query);
+            }
+        }
+
+        finalOrderingSw = Stopwatch.StartNew();
+        CleanupLateSelectionBackfills(req.Query, selected);
+        PruneUnrelatedReferenceVersionGroupSelections(req.Query, selected);
+        PruneCurrentReferenceVersionSelectionsWhenHistoricalVersionRequested(req.Query, selected);
+        PruneUnrequestedReferenceVersionYearSelections(req.Query, selected);
+        PruneSupersededReferenceVersionSelections(req.Query, selected);
+        PrioritizeFinalSelections(req.Query, selected);
+        PrioritizeResponseDiversityCoverage(req.Query, selected, requestedTopK);
+        ReattachStructuredContinuationCompanions(req.Query, selected, topK);
+        PruneQualifiedQuotedTitleCompetitorDocuments(req.Query, selected);
+        PrunePreciseTitleLocalNeighborhoodSelections(req.Query, selected);
+        RebuildSelectedKeys(selected, selectedKeys);
+        ReattachDocumentStatusOperandCompanions(
+            req.Query,
+            documentStatusOperandTerms,
+            documentStatusOperandSelectionPool,
+            selected,
+            selectedKeys,
+            topK);
+        RebuildSelectedKeys(selected, selectedKeys);
+        finalOrderingSw.Stop();
+        selectionMs += finalOrderingSw.ElapsedMilliseconds;
+
+        if (dateDocumentBackfillPhrases.Count > 0 && !SelectionsCoverDateAnchoredDocument(req.Query, selected))
+        {
+            var (lateDateDocumentBackfillMatches, lateDateDocumentBackfillMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_date_document_name_late_recovery",
+                retriever: "date_document_name",
+                action: () => SearchDateAnchoredDocumentNameContentMatchesAsync(
+                    ds,
+                    tenantId,
+                    req.Query,
+                    dateDocumentBackfillPhrases,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    Math.Min(candidates, Math.Max(topK, 16)),
+                    ct,
+                    categoryPath,
+                    degradedRetrieverRef: degradation.Mark),
+                getReturnedCount: static matches => matches.Count);
+            titleAnchorRoutePhaseMs += lateDateDocumentBackfillMs;
+
+            if (lateDateDocumentBackfillMatches.Count > 0)
+            {
+                finalOrderingSw.Restart();
+                selected.Clear();
+                selectedKeys.Clear();
+                var calibratedLateDateDocumentBackfill = SuppressNavigationalNoise(
+                    req.Query,
+                    CalibrateFusedMatches(req.Query, lateDateDocumentBackfillMatches, req.Query));
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    calibratedLateDateDocumentBackfill,
+                    topK,
+                    minScore: 0.0,
+                    maxPerDoc: Math.Max(maxPerDoc, 3),
+                    maxPerPage: Math.Max(maxPerPage, 2),
+                    query: req.Query);
+                PrioritizeFinalSelections(req.Query, selected);
+                RebuildSelectedKeys(selected, selectedKeys);
+                finalOrderingSw.Stop();
+                selectionMs += finalOrderingSw.ElapsedMilliseconds;
+            }
+        }
+
+        if (ShouldUseReferenceVersionOperandRoute(req.Query)
+            && !SelectionsCoverReferenceVersionOperandContent(req.Query, selected))
+        {
+            var lateReferenceVersionGroupKeys = ExtractReferenceVersionGroupKeysFromQuery(req.Query).ToList();
+            if (lateReferenceVersionGroupKeys.Count == 0)
+                lateReferenceVersionGroupKeys.AddRange(InferReferenceVersionOperandGroupKeys(req.Query, selected));
+            lateReferenceVersionGroupKeys = lateReferenceVersionGroupKeys
+                .Where(static key => !string.IsNullOrWhiteSpace(key))
+                .Distinct(StringComparer.Ordinal)
+                .Take(6)
+                .ToList();
+
+            if (lateReferenceVersionGroupKeys.Count > 0)
+            {
+                var (lateReferenceVersionOperandMatches, lateReferenceVersionOperandMs) = await phases.MeasureAsync(
+                    phaseName: "retrieval_reference_version_operand_late_recovery",
+                    retriever: "reference_version_operand_document_name",
+                    action: () => SearchReferenceVersionOperandDocumentNameContentMatchesAsync(
+                        ds,
+                        tenantId,
+                        req.Query,
+                        lateReferenceVersionGroupKeys,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        Math.Min(candidates, Math.Max(topK, 16)),
+                        ct,
+                        categoryPath,
+                        degradedRetrieverRef: degradation.Mark),
+                    getReturnedCount: static matches => matches.Count);
+                titleAnchorRoutePhaseMs += lateReferenceVersionOperandMs;
+
+                if (lateReferenceVersionOperandMatches.Count > 0)
+                {
+                    finalOrderingSw.Restart();
+                    RebuildSelectedKeys(selected, selectedKeys);
+                    var calibratedLateReferenceVersionOperand = SuppressNavigationalNoise(
+                        req.Query,
+                        CalibrateFusedMatches(req.Query, lateReferenceVersionOperandMatches, req.Query));
+                    AddRankedMatches(
+                        selected,
+                        selectedKeys,
+                        calibratedLateReferenceVersionOperand,
+                        topK,
+                        minScore: 0.0,
+                        maxPerDoc: Math.Max(maxPerDoc, 2),
+                        maxPerPage: Math.Max(maxPerPage, 2),
+                        query: req.Query);
+                    EnsureComparativeBackfillDocumentDiversity(
+                        selected,
+                        selectedKeys,
+                        calibratedLateReferenceVersionOperand,
+                        topK,
+                        minScore: 0.0,
+                        maxPerPage: Math.Max(maxPerPage, 2),
+                        query: req.Query);
+                    PruneUnrelatedReferenceVersionGroupSelections(req.Query, selected);
+                    PruneCurrentReferenceVersionSelectionsWhenHistoricalVersionRequested(req.Query, selected);
+                    PrioritizeFinalSelections(req.Query, selected);
+                    RebuildSelectedKeys(selected, selectedKeys);
+                    finalOrderingSw.Stop();
+                    selectionMs += finalOrderingSw.ElapsedMilliseconds;
+                }
+            }
+        }
+
+        if (selected.Count == 0 && !hasExplicitFileDocumentHint)
+        {
+            var lateDocumentStatusOperandTerms = ExtractDocumentStatusOperandLookupTerms(req.Query);
+            if (lateDocumentStatusOperandTerms.Count > 0)
+            {
+                var (lateDocumentStatusRecoveryMatches, lateDocumentStatusRecoveryMs) = await phases.MeasureAsync(
+                    phaseName: "retrieval_document_status_operand_empty_recovery",
+                    retriever: "document_status_operand",
+                    action: () => SearchDocumentStatusOperandContentMatchesAsync(
+                        ds,
+                        tenantId,
+                        req.Query,
+                        lateDocumentStatusOperandTerms,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        Math.Min(candidates, Math.Max(topK, 16)),
+                        ct,
+                        categoryPath,
+                        degradedRetrieverRef: degradation.Mark),
+                    getReturnedCount: static matches => matches.Count);
+                titleAnchorRoutePhaseMs += lateDocumentStatusRecoveryMs;
+
+                if (lateDocumentStatusRecoveryMatches.Count > 0)
+                {
+                    finalOrderingSw.Restart();
+                    var calibratedLateDocumentStatusRecovery = SuppressNavigationalNoise(
+                        req.Query,
+                        CalibrateFusedMatches(req.Query, lateDocumentStatusRecoveryMatches, req.Query));
+                    AddRankedMatches(
+                        selected,
+                        selectedKeys,
+                        calibratedLateDocumentStatusRecovery,
+                        topK,
+                        minScore: 0.0,
+                        maxPerDoc: Math.Max(maxPerDoc, 2),
+                        maxPerPage: Math.Max(maxPerPage, 2),
+                        query: req.Query);
+                    PrioritizeFinalSelections(req.Query, selected);
+                    RebuildSelectedKeys(selected, selectedKeys);
+                    finalOrderingSw.Stop();
+                    selectionMs += finalOrderingSw.ElapsedMilliseconds;
+                }
+            }
+        }
+
+        if (selected.Count == 0
+            && hasCategoryFilter
+            && ShouldUseGenericVersionConflictOverviewRecovery(req.Query))
+        {
+            var (genericVersionOverviewMatches, genericVersionOverviewMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_generic_version_conflict_overview_recovery",
+                retriever: "document_profile",
+                action: () => SearchDocumentOverviewProfileMatchesAsync(
+                    ds,
+                    tenantId,
+                    catalogOverviewFallbackQuery,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    Math.Min(Math.Max(topK * 2, 12), 24),
+                    ct,
+                    categoryPath,
+                    requireLexicalMatch: false,
+                    degradedRetrieverRef: degradation.Mark,
+                    commandTimeoutSeconds: sparseCommandTimeoutSeconds),
+                getReturnedCount: static matches => matches.Count);
+            profilePhaseMs += genericVersionOverviewMs;
+
+            if (genericVersionOverviewMatches.Count > 0)
+            {
+                finalOrderingSw.Restart();
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    CalibrateFusedMatches(catalogOverviewFallbackQuery, genericVersionOverviewMatches, req.Query),
+                    topK,
+                    minScore: 0.0,
+                    maxPerDoc: 1,
+                    maxPerPage: Math.Max(maxPerPage, 1),
+                    query: req.Query);
+                RebuildSelectedKeys(selected, selectedKeys);
+                finalOrderingSw.Stop();
+                selectionMs += finalOrderingSw.ElapsedMilliseconds;
+            }
+        }
+
+        if (hasExplicitFileDocumentHint
+            && !SelectionsCoverExplicitFileLookupGroups(req.Query, selected))
+        {
+            var (lateExplicitFileProfileMatches, lateExplicitFileProfileMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_explicit_file_profile_late_recovery",
+                retriever: "document_hint_profile_recovery",
+                action: () => SearchExplicitFileHintProfileRecoveryMatchesAsync(
+                    ds,
+                    tenantId,
+                    req.Query,
+                    category,
+                    categoryPath,
+                    Math.Min(Math.Max(topK, 8), 16),
+                    ct,
+                    degradedRetrieverRef: degradation.Mark,
+                    commandTimeoutSeconds: sparseCommandTimeoutSeconds),
+                getReturnedCount: static matches => matches.Count);
+            profilePhaseMs += lateExplicitFileProfileMs;
+
+            if (lateExplicitFileProfileMatches.Count > 0)
+            {
+                finalOrderingSw.Restart();
+                selected.Clear();
+                selectedKeys.Clear();
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    CalibrateFusedMatches(req.Query, lateExplicitFileProfileMatches, req.Query),
+                    topK,
+                    minScore: 0.0,
+                    maxPerDoc: Math.Max(maxPerDoc, 2),
+                    maxPerPage: Math.Max(maxPerPage, 1),
+                    query: req.Query);
+                RebuildSelectedKeys(selected, selectedKeys);
+                finalOrderingSw.Stop();
+                selectionMs += finalOrderingSw.ElapsedMilliseconds;
+            }
+        }
+
+        var finalStandardReferencePhrases = ExtractStandardReferenceTitleLookupPhrases(req.Query);
+        if (finalStandardReferencePhrases.Count > 1
+            && !SelectionsCoverStandardReferencePhrases(finalStandardReferencePhrases, selected))
+        {
+            var (finalStandardReferenceProfileMatches, finalStandardReferenceProfileMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_standard_reference_profile_final_recovery",
+                retriever: "standard_reference_document_name_profile",
+                action: () => SearchStandardReferenceDocumentNameProfileMatchesAsync(
+                    ds,
+                    tenantId,
+                    req.Query,
+                    finalStandardReferencePhrases,
+                    category,
+                    req.DocId,
+                    req.DocPath,
+                    Math.Min(candidates, Math.Max(topK, 16)),
+                    ct,
+                    categoryPath,
+                    degradedRetrieverRef: degradation.Mark,
+                    commandTimeoutSeconds: sparseCommandTimeoutSeconds),
+                getReturnedCount: static matches => matches.Count);
+            profilePhaseMs += finalStandardReferenceProfileMs;
+
+            if (SelectionsCoverStandardReferencePhrases(finalStandardReferencePhrases, finalStandardReferenceProfileMatches))
+            {
+                finalOrderingSw.Restart();
+                selected.Clear();
+                selectedKeys.Clear();
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    CalibrateFusedMatches(req.Query, finalStandardReferenceProfileMatches, req.Query),
+                    topK,
+                    minScore: 0.0,
+                    maxPerDoc: Math.Max(maxPerDoc, 2),
+                    maxPerPage: Math.Max(maxPerPage, 1),
+                    query: req.Query);
+                PrioritizeFinalSelections(req.Query, selected);
+                RebuildSelectedKeys(selected, selectedKeys);
+                finalOrderingSw.Stop();
+                selectionMs += finalOrderingSw.ElapsedMilliseconds;
+            }
+        }
+
+        PruneUnrequestedStandardReferenceSelections(req.Query, selected);
+        RebuildSelectedKeys(selected, selectedKeys);
+
+        PrioritizeShortTechnicalDirectEvidenceSelections(req.Query, selected);
+        RebuildSelectedKeys(selected, selectedKeys);
+
+        if (ShouldSuppressUnscopedAmbiguousDocumentReferenceSources(req.Query, req.DocId, req.DocPath))
+        {
+            selected.Clear();
+            selectedKeys.Clear();
+        }
+
+        if (selected.Count == 0
+            && !skipChunkRetrieversForDocumentOverview
+            && ShouldAllowCompactDocumentCodeEmptyRecovery(req.Query, hasExplicitFileDocumentHint)
+            && compactDocumentCodeLookupPhrases.Count > 0)
+        {
+            var finalCompactCodeRecoveryLimit = Math.Min(candidates, Math.Max(topK * 4, 24));
+            var (finalCompactCodeRecoveryMatches, finalCompactCodeRecoveryMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_compact_document_code_final_empty_recovery",
+                retriever: "compact_document_code_recovery",
+                action: async () =>
+                {
+                    var recovery = new List<RagMatch>();
+                    foreach (var compactCode in compactDocumentCodeLookupPhrases.Take(3))
+                    {
+                        recovery.AddRange(await SearchTitleAnchorRouteMatchesAsync(
+                            ds,
+                            tenantId,
+                            compactCode,
+                            category,
+                            req.DocId,
+                            req.DocPath,
+                            finalCompactCodeRecoveryLimit,
+                            ct,
+                            categoryPath,
+                            degradedRetrieverRef: degradation.Mark));
+                        recovery.AddRange(await SearchDenseMatchesAsync(
+                            ds,
+                            httpFactory,
+                            rag,
+                            tenantId,
+                            NormalizeQuery(compactCode),
+                            category,
+                            req.DocId,
+                            req.DocPath,
+                            finalCompactCodeRecoveryLimit,
+                            ct,
+                            teiMsRef: value => teiMs += value,
+                            qdrantMsRef: value => qdrantMs += value,
+                            qdrantStatusRef: value => qdrantStatus = value,
+                            categoryPath: categoryPath,
+                            degradedRetrieverRef: degradation.Mark,
+                            teiGovernor: teiGovernor));
+                    }
+
+                    return recovery
+                        .GroupBy(BuildMatchDedupKey, StringComparer.OrdinalIgnoreCase)
+                        .Select(static group => group
+                            .OrderByDescending(match => match.Score)
+                            .ThenBy(match => match.DocPath, StringComparer.OrdinalIgnoreCase)
+                            .ThenBy(match => match.ChunkIndex)
+                            .First())
+                        .ToList();
+                },
+                getReturnedCount: static matches => matches.Count);
+            titleAnchorRoutePhaseMs += finalCompactCodeRecoveryMs;
+
+            if (finalCompactCodeRecoveryMatches.Count > 0)
+            {
+                finalOrderingSw.Restart();
+                var compactRecoveryQuery = string.Join(' ', compactDocumentCodeLookupPhrases);
+                var calibratedRecovery = CalibrateFusedMatches(
+                    compactRecoveryQuery,
+                    finalCompactCodeRecoveryMatches,
+                    req.Query);
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    SuppressNavigationalNoise(req.Query, calibratedRecovery),
+                    topK,
+                    minScore: 0.0,
+                    Math.Max(maxPerDoc, 2),
+                    Math.Max(maxPerPage, 2),
+                    query: compactRecoveryQuery);
+                PruneNavigationalSelections(req.Query, selected);
+                RebuildSelectedKeys(selected, selectedKeys);
+                finalOrderingSw.Stop();
+                selectionMs += finalOrderingSw.ElapsedMilliseconds;
+            }
+        }
+
+        var finalCompactDocumentCodeProfilePhrases = ExtractCompactDocumentCodeProfileRecoveryPhrases(req.Query)
+            .Where(phrase => !SelectionsCoverCompactDocumentCodePhrase(phrase, selected))
+            .ToArray();
+        if (finalCompactDocumentCodeProfilePhrases.Length > 0
+            && !skipChunkRetrieversForDocumentOverview
+            && ShouldAllowCompactDocumentCodeEmptyRecovery(req.Query, hasExplicitFileDocumentHint)
+            && (selected.Count == 0 || ShouldPreferComparativeDocumentDiversity(req.Query)))
+        {
+            var (finalCompactProfileMatches, finalCompactProfileMs) = await phases.MeasureAsync(
+                phaseName: "retrieval_compact_document_code_profile_final_recovery",
+                retriever: "compact_document_code_profile",
+                action: async () =>
+                {
+                    var backfill = new List<RagMatch>();
+                    foreach (var phrase in finalCompactDocumentCodeProfilePhrases.Take(4))
+                    {
+                        backfill.AddRange(await SearchDocumentOverviewProfileMatchesAsync(
+                            ds,
+                            tenantId,
+                            phrase,
+                            category,
+                            req.DocId,
+                            req.DocPath,
+                            Math.Min(Math.Max(topK, 8), 16),
+                            ct,
+                            categoryPath,
+                            requireLexicalMatch: true,
+                            degradedRetrieverRef: degradation.Mark,
+                            commandTimeoutSeconds: sparseCommandTimeoutSeconds));
+                    }
+
+                    return DeduplicatePreciseTitleBackfillMatches(backfill);
+                },
+                getReturnedCount: static matches => matches.Count);
+            profilePhaseMs += finalCompactProfileMs;
+
+            if (finalCompactProfileMatches.Count > 0)
+            {
+                finalOrderingSw.Restart();
+                var compactProfileQuery = string.Join(' ', finalCompactDocumentCodeProfilePhrases);
+                AddRankedMatches(
+                    selected,
+                    selectedKeys,
+                    CalibrateFusedMatches(compactProfileQuery, finalCompactProfileMatches, req.Query),
+                    topK,
+                    minScore: 0.0,
+                    Math.Max(maxPerDoc, 2),
+                    Math.Max(maxPerPage, 1),
+                    query: compactProfileQuery);
+                PrioritizeFinalSelections(req.Query, selected);
+                RebuildSelectedKeys(selected, selectedKeys);
+                finalOrderingSw.Stop();
+                selectionMs += finalOrderingSw.ElapsedMilliseconds;
+            }
+        }
+
+        if (selected.Count == 0
+            && ShouldAllowLexicalProfileEmptyRecovery(req.Query, hasExplicitFileDocumentHint))
+        {
+            var lexicalProfileRecoveryQuery = BuildLexicalProfileEmptyRecoveryQuery(req.Query, categoryQueryHint);
+            if (!string.IsNullOrWhiteSpace(lexicalProfileRecoveryQuery))
+            {
+                var (lexicalProfileRecoveryMatches, lexicalProfileRecoveryMs) = await phases.MeasureAsync(
+                    phaseName: "retrieval_lexical_profile_empty_recovery",
+                    retriever: "lexical_profile_recovery",
+                    action: () => SearchDocumentOverviewProfileMatchesAsync(
+                        ds,
+                        tenantId,
+                        lexicalProfileRecoveryQuery,
+                        category,
+                        req.DocId,
+                        req.DocPath,
+                        Math.Min(Math.Max(topK, 8), 16),
+                        ct,
+                        categoryPath,
+                        requireLexicalMatch: true,
+                        degradedRetrieverRef: degradation.Mark,
+                        commandTimeoutSeconds: sparseCommandTimeoutSeconds),
+                    getReturnedCount: static matches => matches.Count);
+                profilePhaseMs += lexicalProfileRecoveryMs;
+
+                if (lexicalProfileRecoveryMatches.Count > 0)
+                {
+                    finalOrderingSw.Restart();
+                    AddRankedMatches(
+                        selected,
+                        selectedKeys,
+                        CalibrateFusedMatches(lexicalProfileRecoveryQuery, lexicalProfileRecoveryMatches, req.Query),
+                        topK,
+                        minScore: 0.0,
+                        Math.Max(maxPerDoc, 2),
+                        Math.Max(maxPerPage, 1),
+                        query: lexicalProfileRecoveryQuery);
+                    PrioritizeFinalSelections(req.Query, selected);
+                    RebuildSelectedKeys(selected, selectedKeys);
+                    finalOrderingSw.Stop();
+                    selectionMs += finalOrderingSw.ElapsedMilliseconds;
+                }
+            }
+        }
+
+        if (hasRequestedPageWindow && selected.Count > 0)
+        {
+            finalOrderingSw.Restart();
+            var preferredSelections = PreferRequestedPageWindowMatches(selected, requestedPageStart, requestedPageEnd);
+            selected.Clear();
+            selected.AddRange(preferredSelections.Take(topK));
+            RebuildSelectedKeys(selected, selectedKeys);
+            finalOrderingSw.Stop();
+            selectionMs += finalOrderingSw.ElapsedMilliseconds;
+        }
+
+        swTotal.Stop();
+        diagnostics?.CapturePhase("final_selected", "final_selection", selectionMs, selected);
+
+        var response = new RagSearchResponse(
+            RequestId: context.RequestId,
+            Query: req.Query,
+            QueryNormalized: queryNorm,
+            Category: requestedCategory ?? categoryQueryHint,
+            TopK: requestedTopK,
+            MinScore: selectionMinScore,
+            Candidates: candidates,
+            MaxPerDoc: maxPerDoc,
+            MaxPerPage: maxPerPage,
+            QdrantStatus: qdrantStatus,
+            Timings: new RagSearchTimings(
+                TotalMs: swTotal.ElapsedMilliseconds,
+                TeiMs: teiMs,
+                RerankMs: rerankMs,
+                SparseMs: sparseMs,
+                QdrantMs: qdrantMs,
+                ExactMs: exactMs,
+                QuotedTitleMs: quotedTitleMs,
+                LocalTitleTokenMs: localTitleTokenMs,
+                TitleAnchorRouteMs: titleAnchorRoutePhaseMs,
+                SparsePhaseMs: sparsePhaseMs,
+                DenseMs: densePhaseMs,
+                ProfileMs: profilePhaseMs,
+                LinkedMs: linkedPhaseMs,
+                FusionMs: fusionMs,
+                RerankPhaseMs: rerankPhaseMs,
+                SelectionMs: selectionMs),
+            Matches: selected.Take(requestedTopK).ToList(),
+            DegradedRetrievers: degradedRetrievers.Count == 0
+                ? null
+                : degradedRetrievers.OrderBy(static retriever => retriever, StringComparer.Ordinal).ToArray(),
+            DegradedRetrieverErrors: degradedRetrieverErrors.Count == 0
+                ? null
+                : degradedRetrieverErrors
+                    .OrderBy(static pair => pair.Key, StringComparer.Ordinal)
+                    .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal),
+            Diagnostics: diagnostics?.Build(selected));
+
+        RetrievalTelemetry.CompleteSearch(searchActivity, response, mode, hasCategoryFilter, hasDocScope);
+        RetrievalTelemetry.RecordSearch(response, mode, hasCategoryFilter, hasDocScope, exactMs, sparsePhaseMs + titleAnchorRoutePhaseMs + profilePhaseMs, densePhaseMs, linkedPhaseMs);
+
+        return response;
+    }
+
+}

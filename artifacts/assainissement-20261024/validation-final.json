@@ -1,0 +1,3067 @@
+{
+  "schemaVersion": "saaia-architecture-validation-final-v1",
+  "validatedAtUtc": "2026-10-24T23:21:46.1080898+02:00",
+  "baseline": "89912f9dece71bdfd1a6bf78e1287dd2ac38c8d8",
+  "state": "VALIDATED_WITH_DOCUMENTED_LIMITS",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "auditPoints": 37,
+  "campaigns": [
+    {
+      "manifest": "artifacts/assainissement-20261024/unit-backend-contracts-freeze/manifest.json",
+      "sha256": "E110D0E09B8701E8991E1FC9BB13FE510741465F652ED8D36E1A9CAB5C81D7BF",
+      "runId": "d21ff1de064d4cfcb9a04aeef970372e",
+      "state": "passed",
+      "buildRequested": false,
+      "sourceChangedDuringRun": true,
+      "results": [
+        {
+          "project": "Backend",
+          "status": "passed",
+          "counts": {
+            "failed": 0,
+            "total": 2430,
+            "adapterReportedExecuted": 2430,
+            "executed": 2430,
+            "passed": 2430,
+            "notExecuted": 0
+          }
+        },
+        {
+          "project": "Contracts",
+          "status": "passed",
+          "counts": {
+            "failed": 0,
+            "total": 20,
+            "adapterReportedExecuted": 20,
+            "executed": 20,
+            "passed": 20,
+            "notExecuted": 0
+          }
+        }
+      ]
+    },
+    {
+      "manifest": "artifacts/assainissement-20261024/postgres-freeze/tests/manifest.json",
+      "sha256": "CCE477A516460E7AED4581B1090C18FF1458E112EDB746AC2D52D39DB2155279",
+      "runId": "4e5c140d8624401890cc444973dad0e9",
+      "state": "passed",
+      "buildRequested": false,
+      "sourceChangedDuringRun": true,
+      "results": [
+        {
+          "project": "Backend",
+          "status": "passed",
+          "counts": {
+            "executed": 263,
+            "total": 265,
+            "adapterReportedExecuted": 263,
+            "notExecuted": 2,
+            "failed": 0,
+            "passed": 263
+          }
+        }
+      ]
+    },
+    {
+      "manifest": "artifacts/client-cleanup-20261024/full-unit-session-final-freeze/manifest.json",
+      "sha256": "F3C0586222827F84981C12D77A130642108A4EE53C73A632560EFA184CCBA24E",
+      "runId": "27c6a30807d84df6a48ab508b7a18d27",
+      "state": "passed",
+      "buildRequested": true,
+      "sourceChangedDuringRun": false,
+      "results": [
+        {
+          "project": "ClientCore",
+          "status": "passed",
+          "counts": {
+            "notExecuted": 0,
+            "adapterReportedExecuted": 69,
+            "total": 69,
+            "passed": 69,
+            "executed": 69,
+            "failed": 0
+          }
+        },
+        {
+          "project": "Client",
+          "status": "passed",
+          "counts": {
+            "notExecuted": 0,
+            "adapterReportedExecuted": 2277,
+            "total": 2277,
+            "passed": 2277,
+            "executed": 2277,
+            "failed": 0
+          }
+        }
+      ]
+    }
+  ],
+  "passedTests": 5059,
+  "failedTests": 0,
+  "notExecutedTests": 2,
+  "backendUnitAndPostgresAssemblyIdentity": [
+    {
+      "assembly": "SAAIA.AdvancedValidationJobGuard.dll",
+      "sha256": "75262F13FD2F4A0E86439CF26020840DF13CF707057705CD1EF062E83A5EA3B4",
+      "unitAndPostgresIdentical": true
+    },
+    {
+      "assembly": "SAAIA.Backend.dll",
+      "sha256": "2AFEF1F1B375FFBF3643B1EE2A71F15036FFC947487EAAEB0F8D7CDEA4D09A61",
+      "unitAndPostgresIdentical": true
+    },
+    {
+      "assembly": "SAAIA.Backend.Tests.dll",
+      "sha256": "E93DAE6DDD34B0BAAA0ECCFFBF775DAB72DB08F24E92A850CF8B5E484CFB8493",
+      "unitAndPostgresIdentical": true
+    },
+    {
+      "assembly": "SAAIA.Contracts.dll",
+      "sha256": "6F2AC6D13263A693CB911CF37DC01E5DA7DF072EDC86DD39A1D1C96815827011",
+      "unitAndPostgresIdentical": true
+    }
+  ],
+  "backendCurrentSourceReconciliation": {
+    "allMatch": true,
+    "scope": "backend, contracts, shared test contracts and Directory.Build.props when included by original source inventory",
+    "files": [
+      {
+        "path": "backend/SAAIA.Backend.Tests/AdminJobsQuerySupportTests.cs",
+        "sha256": "44418F3836DF96A5D3AEB5BCFAED91767E03DC72B653A6474E91D42584F60A01",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/AdminKeysAndAuditEndpointsTests.cs",
+        "sha256": "73774CCF2F8D9E8B11B41848B222C56E25F141E78A2CE857C7389970E895F4CB",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/AdminReindexEndpointTests.cs",
+        "sha256": "BC9C1544BB29284C42C8C88AE32CA270EB8FC4FE5B3EF9AC104E1ADF2458A2BA",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/AdminRuntimeArtifactBaselineTests.cs",
+        "sha256": "A09E3304109BDA593A22AE577FF1E8A36AFE51D74D526D6E1898CE647EF9940A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/AdminRuntimeEndpointsTests.cs",
+        "sha256": "3855F951AA8B7B063BA50AA0D3E771A311CB678CE534E6B230E47468B4D6EB5E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/AdvancedAnalysisCanonicalPageReadTests.cs",
+        "sha256": "94E730A8C9DEDE6E66AA223E7614B4EDCAE50412FD896635A690052062A3ED78",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/AdvancedAnalysisEndpointsTests.cs",
+        "sha256": "1A16E556E0617490EC4A6E4DAE12CAEF19C06665838D76452B33C984A5164860",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/AdvancedAnalysisEventHistoryIntegrationTests.cs",
+        "sha256": "12D0FB12A918D938AE3035903C1B0C06A035F93599EC60F8566446AD94A2989C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/AdvancedAnalysisReadinessTests.cs",
+        "sha256": "098A6929BAE44B15868CFF780B14E2C8450A4914ACABB41C644AC50FDA0B4AF4",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/AdvancedAnalysisSourceMaterialTests.cs",
+        "sha256": "753588DE83DD167B2F172AF19DBB10F8B6D4CCE063133B5E377811824EE589BF",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/AdvancedAnalysisWorkerTests.CanonicalFind.cs",
+        "sha256": "C936800CC0518D318713F2CA5BCA8A077B02F7E129EE526C4C2D73866236B918",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/AdvancedAnalysisWorkerTests.Correlation.cs",
+        "sha256": "F4493184B3B3349A9A94C26255B7359E8D8E89AFE2306572A9C9426D09AD836A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/AdvancedAnalysisWorkerTests.cs",
+        "sha256": "D73D4D2843BFD2F99CD895FCC70EE1D8C9BDE81D6EF6E5B542FBCBD6AD24EB05",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/AdvancedAnalysisWorkerTests.EvidenceAudit.cs",
+        "sha256": "69FE99B051245097D32B009996693908AA3A70E45A9FA3C3A2B11E20CC57E08B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/AdvancedAnalysisWorkerTests.ResearchCheckpoint.cs",
+        "sha256": "EF2735EFECE48170B10F9D3EA6D66668285C64B9A94B6263A34AC7DA55A5436D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/AdvancedAnalysisWorkerTests.SourceStructure.cs",
+        "sha256": "6088E7A48C00DCE1AE89C2EBA9B384DC7AEBF23C464EBBB98ED749E3D5583D70",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/AdvancedAnalysisWorkerTests.ToolBudget.cs",
+        "sha256": "28D013FEE2EEF31D827ADB64466B6B7CD715B947C144514A285B86D8934F7B8F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/AssemblyInfo.cs",
+        "sha256": "3F7EDD72EAC91614FCF49F709DD4E560C74EBEF8DA68A53A02947E5611CD1869",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/BackendDiagnosticsTests.cs",
+        "sha256": "2BCD99132AC86687A35B975EC2E23A27EE8BE5A268C20AE1DC4813B4D3B92D18",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/CandidateCoverageReplayTests.cs",
+        "sha256": "CC82DF6A863EDCB6EE6B7FB84FFD5C39913623C2A1BCC7260E05DF85F4DC7279",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/CandidateCoverageSolverTests.cs",
+        "sha256": "EA3182645FEFE9C56DE7BDA656148C0DF9F7C83C91328F44A741064915ED9770",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/CanonicalArtifactRepoTests.cs",
+        "sha256": "232646EB607FB11765EE80058CD74E0B2C408008855E729837B19D60CE5C1EF1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/CanonicalIndexProbeIntegrationTests.cs",
+        "sha256": "D658D23A734C27E72BA5042B62B74D8268ED18609F5AD2FB9AE0CAE306141CE8",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/CanonicalNativeLayoutReconcilerTests.cs",
+        "sha256": "CECAFFC673E1FCD4094EA53E1DC1C09747C3C715C241D7706A7551C340916A8D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/CanonicalNativePdfImageInventoryReconcilerTests.cs",
+        "sha256": "D890CE9D3AB3A2B66BDB6A05598ED8D6AA1EECB312E9B547DDAA799B3F756A2E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/CanonicalRetrievalDiagnosticsTests.cs",
+        "sha256": "9338150177D5821D5A67D81C3DE40D2780E6F127281BF04FF7846DE0267354EB",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/CapabilityAHypotheticalQuestionServiceTests.cs",
+        "sha256": "51B78AE312928082438E0741A381B92243F5906DA84F630BDB6F7A3FBAA0D48B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/CapabilityBBackofficeSummaryServiceTests.cs",
+        "sha256": "8C8B3F12687441A43CD40E7DDCC843FA38B6C5A5A98A4D55076F55EBABAC5FB1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/CapabilityBBackofficeWorkerProfileTests.cs",
+        "sha256": "F559CADFF653FD8A7ADF6411A810B311F2934C80112CC6422785F0405D1551AB",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/ChatStoreEndpointsTests.cs",
+        "sha256": "44483F2C96C9902F038831C02DEA274AA1120165315D6209F6E7C20A698DFAEA",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/ContextualTextProjectorTests.cs",
+        "sha256": "8EE11549B60AA164D6AA940B8E413647318F7C822E3894C1408C2DD71D6FC91E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/CuisineLlmQuestionBankTests.cs",
+        "sha256": "5FBB209B788A3AB47098C5A5D38D31A722F3B7AEC1FCFD77ACB32C6679C6E345",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DbMigratorDiagnosticIntegrationTests.cs",
+        "sha256": "147F7A9D5684F538F27BC822EFF9741D2FC5A932B55E34A6E62D027C1CC73857",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DbMigratorTests.cs",
+        "sha256": "5B2A63950641EDA93F11DA88AAEAB26B7A3CC41F09B3A28EFCD18B3BABBFFDF7",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DiagnosticCollectorFailureTests.cs",
+        "sha256": "12715195BFD0CC20CFD6D0F763482DE0A0F944EF22C861DA109F6F39C6F51511",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DiagnosticRecordingLogger.cs",
+        "sha256": "717D673745C04A274945D36241FD35F9B20BC8E43ED91FBEE041639FF10F727F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DoclingCanonicalDocumentAdapterTests.cs",
+        "sha256": "D66C46B058EA052A9323AA97F3248ED458737034DD6D6AAC98883A8A4790507F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DoclingClientTests.cs",
+        "sha256": "39CD952EC858284B01D1859F8515EE6B5CA5BBA9D69D28833B511209F51257E2",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.CanonicalExact.cs",
+        "sha256": "DD530BD20C09C3FFD14BA5354F2C8311A022EBAAD1B3F6DFC4D682FBA6273F53",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.CanonicalHttp.cs",
+        "sha256": "F56E8EB35EC548B61C91C79B7A9A4C46DC2A2DBA3EAAF043EB83B29FBF09B779",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.CanonicalSearchContracts.cs",
+        "sha256": "235C0ED4F567934A82B39116E7AA4BABB632C8A52B17D64114FDD366E670A408",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.Fixtures.cs",
+        "sha256": "E835D13DAF26ED689F6B947792DC640FA7BA687624E1012CC044CDC3FB7E3899",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.IngestionContracts.cs",
+        "sha256": "39A6B65A87E3B6B6FB65E4C45584B515DA19A03359835F2EC6049F57E26D869A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.InteractiveSearchContracts.cs",
+        "sha256": "701A6664CCF6AA9283888AD74713B78C4ABABAD45CB9F98A7355D705D2F126F3",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.InteractiveSearchContracts2.cs",
+        "sha256": "473052C13BA75CF0E09A3190DE110D598EF086B1B994982CC2CA0F5DD2B5B28A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.LocalVertical.cs",
+        "sha256": "4391DE72162AE742E80104B9F03CECC5106C661E076904AAB412A790BF690D5A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.ProfilesAndSummaries.cs",
+        "sha256": "BDC17F0E9239FD35BE0913952C4396CD901721803D25E46BCD71DF4E971CE430",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.RetrievalDiagnostics.cs",
+        "sha256": "79BEC3FB1DF37D6DF8CDB78DCDE4C23AC5F5C6FB4A797B2ACA01054C807161A6",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentFoundationIntegrationTests.SourceContextContracts.cs",
+        "sha256": "3ACC4C1F4494C3174AF34B8D5714FC08445AA0C49171FC6BA671820C9DF641EB",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentFoundationRepoTests.cs",
+        "sha256": "6C600C0E4C2CD10A964A13BC004DA692F9F6F915CF6FBA2EF9B42E9507534319",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentLanguageResolverTests.cs",
+        "sha256": "B1F63F3CBCE4BA345632591A8ACA31B75FB8314F02753C551BE486871AB9E525",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentProfileEnrichmentServiceTests.cs",
+        "sha256": "1F80597A1C43C1F80BB4186AF8A056A9179B7DFD5CB5E4A2DD475D563FF22520",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentProfileProjectorTests.cs",
+        "sha256": "8D8B38892709D89F2090CD3049BEC3D61DF5DDC90234FA662154D50A18356982",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentSectionExtractorTests.cs",
+        "sha256": "9F25E116D14D193FB0591D4C973E3FF2601260579F4E09A7222EB1D06C125B06",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentsEndpointFilteringTests.cs",
+        "sha256": "E25B557C1BBE72B03809F85D6C679DF05FB65A9A55445AFBCD181481FB147082",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentsTreeCacheContractTests.cs",
+        "sha256": "09026E598429E2FFFD393FF1B17FA68CF483563DEEB718033A5B87995D3A1FE5",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentTitleNavigationProjectorTests.cs",
+        "sha256": "A3C77FEAEB5ECB0C31E8240D10CAF5DDCB9A0E2F9190ABA5497FF6161099B19D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DocumentUnitExtractorTests.cs",
+        "sha256": "BEF7E09B03A4F7ACE2786A82BDB61C0EC6283607E59F5EA0274E42EAD5C70B4B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/DynamicRootCategoryRegressionTests.cs",
+        "sha256": "2D3642DC87704DACC4DE96F0DED209B8F124DFD323EF3108483603BDD30F7CDF",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/ErrorHandlingMiddlewareTests.cs",
+        "sha256": "39631DD2B4882E93EF856CA398804AD9C22FA8DA6E54A9E9EFDC0910659E4973",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/ExactMatchBugDiagnosticTests.cs",
+        "sha256": "A489AD7B181ECD5C05340B50922D1264576FC9696E7673DBF6A1B827933294DE",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/ExactMatchEntryExtractorTests.cs",
+        "sha256": "355AB47B8CE9800CBAFC2EA6665B4368BB1D26CA5426AA941A02DD39D87146FF",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/ExtractionQualityDiagnosticsTests.cs",
+        "sha256": "ACD7AFB2FDB990C125311657B9FB7AEB121E38FF55D477C84F16987094D56DA9",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/GlobalUsings.Retrieval.cs",
+        "sha256": "DEC724FB74CBE777D5ED1D1630928698A07F93FAE459F6B596A7FB6655D24A35",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/IngestionAdminStatePoliciesTests.cs",
+        "sha256": "BD4435FC22813F4FFD69164E16F0155B1D329EC1ADAFF401C3DBD0CE425D136B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/IngestionBulkheadsTests.cs",
+        "sha256": "3A3D9666C7251A3FCF10DCB9C77465E33FBF5BBFCF1356DFD21B965C4BE98FEB",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/IngestionCategoryResolverTests.cs",
+        "sha256": "13AFB2FE3E2C22B154D5A5C0DFFCE806E4C75BF291C7F8E74E4181D3690B4DFB",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/IngestionDuplicateFilePlannerTests.cs",
+        "sha256": "EDB69E6EEE88B7AF094669D4C00E118EA58BFD1F7775F5E30EE0A4532CFE4A98",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/IngestionHardwareProfilerTests.cs",
+        "sha256": "5C88CABDEAD8211C3A40F4D7FD6CB95CA8011F342CA0ADD5A602CDF05ABEFC69",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/IngestionJobPayloadJsonTests.cs",
+        "sha256": "4C9481FA1D6BBDA4A596DA8DFD7362B8D1E0002A4BE986502DE2FAD085503F6E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/IngestionStageDiagnosticsTests.cs",
+        "sha256": "D5F8C1480A99CBA142B9272A0606D9CDED15B85F1A9E3FE3364A4CD82C6E72F3",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/IngestionWorkerQdrantTests.cs",
+        "sha256": "9DD0AF92BF128CBBB15B9E5E5DA11B1F84A707BE22B0C92E20E1DC8FD765DA7E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/InteractiveRetrievalPipelineTests.cs",
+        "sha256": "5D583BED7806A3BFED83990493A4EC79EFBD2434467A0D22608B928168BDFC48",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/LegacyCanonicalBundleFactoryTests.cs",
+        "sha256": "DF8787067BEA94A378D875E3AF7AB795ABACC15837E372527FA85F06D5DEEB2A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/LegacyIngestionStageManifestFactoryTests.cs",
+        "sha256": "548FD41B419B2CA3E24B016FABAC70C6768AE8AD28371D704DD3F8237F03DEF2",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/LegacyPdfCanonicalDocumentAdapterTests.cs",
+        "sha256": "DFC7D5C9AA934E0B795DF3F96B7206F8F2F95DFCC07792178DD002439FFCE478",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/LiveAdvancedAnalysisCriticReplayTests.cs",
+        "sha256": "7E1C99206572A10817F35F938CB526A0CB543EBD0870620CC8A9ADB45F0920D7",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/LiveAdvancedAnalysisProviderTests.cs",
+        "sha256": "3EAEF7DBC4AF0BD6869DC726A9B7AD27D3D776CA0E19D1F5F20928EE307E7655",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/LiveAdvancedRetrievalPacketTests.cs",
+        "sha256": "3F05B682BFE8E95AE8956062F248BA923B493EA4C557618E13C5920B9DC99889",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/LiveBackofficeProfileEnrichmentBenchmarkTests.cs",
+        "sha256": "5186DCB4004A3A0DC39F77855BFD439DA330214978D75E31C5E1F322DFCA9BF4",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/LiveIndependentStructuralAnchorLegitimacyBenchmarkTests.cs",
+        "sha256": "1AB4AA7D4D5C0CC96C8BDE8E4BE58DF5582C29E572B7585119CFD9F89FA7060E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/LivePrimaryWindowIdentityBenchmarkTests.cs",
+        "sha256": "06BAE0CACAEA5CC7515CBE3AE0BB397882BF41B62242F55B8968C12D5F32F039",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/LiveSourceAnchorSelectionBenchmarkTests.cs",
+        "sha256": "67F4F8FCCA6CD3F5A205F27ED6801E8AD59B629B0BC0FCC404632203C0BB253C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/LiveStructuralAnchorSelectionBenchmarkTests.cs",
+        "sha256": "A4293EF4903E9E305020B8D2EEBE0F797D67F37F696726F2C80E092C47FB16C1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/LiveWindowedSourceCardExtractionBenchmarkTests.cs",
+        "sha256": "E3B28BEC415D76854ED5ED067BD3A0FB52068E2CF09D07308959B1D828D5FEE0",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/LlmPayloadDiagnosticsTests.cs",
+        "sha256": "2B72C23B6DA2B3511EF712AF7BE1EC52DE8DA9DF4AC9BDEC0270CB29E8690275",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/LlmTextEncodingSanitizerTests.cs",
+        "sha256": "BC5ABE586418599BE322FCE5192B2E26F14D15E9213D146DFECD6F387921BC1A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/LocalLlmChatClientTests.cs",
+        "sha256": "9CD1DD884DB8B3681EF0E2C66F330AB613913B2CB9421EEF56DCF303BECE0FF6",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/LocalPostgresDiagnosticFixture.cs",
+        "sha256": "62AE036718DF45A576E62D359D8C3167596D9063EFBF075EF815758AFDFCF818",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderDiagnosticsTests.cs",
+        "sha256": "1D502CF7A975322189D72C4A7B741D0FF13CE07FE648D61EBEEDE257B32BA176",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.ActiveProposal.cs",
+        "sha256": "90D9E740D0890A8237F2639E3B28C9952E6410BC92730897D48DA4EF3ED0563A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.BindingFeedback.cs",
+        "sha256": "D4D1439A0D4463968E3D34B8E8F8DF7971D4233B1543AECE1194D5A588C1691D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.CandidateExplorer.cs",
+        "sha256": "067FB7ED0EB69892F57217E85D0515CB2C208352DFAC99F37B1DB8C3F8386CC6",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.CandidateInventory.cs",
+        "sha256": "3FED55A16BC5A46738D624E32172A2A8553BC8FD6B27396776DD8D5A900026A9",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.CandidateLifecycle.cs",
+        "sha256": "36C0BED3A496AA629C289A9C21B3866CF50DEE924CBF52682A321CA63A1E4EBE",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.cs",
+        "sha256": "094A7CB7E0547DE9DE8EE70D2479EFC47A19DADC0EA342517E07C7CD6E7A8B24",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.EvidenceAudit.cs",
+        "sha256": "C7F719FDCDD130C1DD2333728A8DAE4151CBC9617A433159A227DB0E03BBC21A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.EvidenceCapacity.cs",
+        "sha256": "F6B43BAC6E418D493A3041128EF0952790C6E0D04929E6E1F892AFAB2FC9AA48",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.EvidenceReading.cs",
+        "sha256": "293018A4534568D32CF662655EB6DF1824D88F17FC690A2ECBF0271ECD70FBCC",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.FixtureProtocol.cs",
+        "sha256": "8CD3F45F419D0EB8438EFAE07AF3DA1D30F8D6E4BF267215BAAB771D58173DEC",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.MixedState.cs",
+        "sha256": "18FCC8DCF245BB2FBE74DBB1EA07C5D8DE09FFAB1C8C1992D708C241835E49C9",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.MultiEvidenceBinding.cs",
+        "sha256": "0A199319736DFF3CEECA8A525FED80F0A592C3679B220CF2C4E95C0402D59215",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.NativeResearchTools.cs",
+        "sha256": "1F66F30826AF667633A52EF726FA23BCCA88542F620ABE29FC24F4CF0C23A181",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.NativeResponses.cs",
+        "sha256": "C980DFC1EF1C7D3D3810A896C4682F654BBE6D9BDFAAD0D219417F0913861AA2",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.NativeTopology.cs",
+        "sha256": "8EEE965AC21003541355CB3207AEC87DA43AA755004F52665A1CB02E51E10BEA",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.NavigationContinuity.cs",
+        "sha256": "5B9F602EBCB867E96D9982DBD59ED76AE93FF24EFBA5601D365CE95F2371EEAB",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.PayloadAudit.cs",
+        "sha256": "0E55A8ED82F1FBDD4DAA79EA9BD18E70C9099999CF3901DF7E678A11317F4ABC",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.PipelineAudit.cs",
+        "sha256": "35C9FB9F0C71268750549184F37A6D359349F550EC3C4E0AF5E92E1BCB4D071F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.ResearchAgentPrompt.cs",
+        "sha256": "C5726290CE3956EF4ED883AB2B2E002BBEB04AA83E0F963BFFD25418A5A96A1B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.ResearchWorkspace.cs",
+        "sha256": "14FE4A90CB95152463AB4E65D70891E9B45B1E95C13F8461FD0323DD1FFF0974",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.ResponsesCacheWrite.cs",
+        "sha256": "1D68D15584C27BEC34D960FD30FFF1D3CDE58FF3B692C9520F69930A1918D515",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.ResultCoordinates.cs",
+        "sha256": "3271CF95B6663F8239BFCF3D968C7E3704E0132C9FEEB6EA2C2B5F4CD5534031",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.ScopedDiscovery.cs",
+        "sha256": "073FB66F9CB66CB49FD3B99D4D566E7B8973475DDF0F4834AC13C27F255537F1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.SynthesisReasoning.cs",
+        "sha256": "01EED01BD4263118ACA813AA296A8B1C5B592EA4A52004EB9D40B0B28A26940D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.ToolBudget.cs",
+        "sha256": "E71628401D78BF84F4FCAA0274D11B1E01371D0F36C8F5AE4B14BAAA163C30C6",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.ToolHistory.cs",
+        "sha256": "9265DDAB0C3C8AEADAAFF7A373D1951DFF9BDD1AB3CFD41A1AAA5924ED6378FB",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/OpenAiCompatibleAdvancedAnalysisProviderTests.WireAudit.cs",
+        "sha256": "9354CFCD06CAC30898125851A526F4E2E59EEE8F9EB246D7F67631567F2857F1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/PdfExtractionQualityTests.cs",
+        "sha256": "9F4460412E9127D52044057879C8857B813B8F9A22097003D3AA071DB36CB71F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/PdfExtractorBoilerplateTests.cs",
+        "sha256": "7E360B49FAEE936C0B94C36E09B2FCBA32B40EE726B8C429DFAE20DC56171B78",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/PdfNativeLayoutExtractorTests.cs",
+        "sha256": "7CD27DFEC4D9F6974C79DE7F9D615D35E4DBCD0E5B06C765806CD2B21E1A0B14",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/PdfOcrTextExtractorTests.cs",
+        "sha256": "3CF5260B6ED6DC8BD7050B630B9099673F9C004F284BD1C7249BC4201DD53BAB",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/ProductRuntimeDomainNeutralityTests.cs",
+        "sha256": "0F7B7FDF31D8BC5BC5E4304208C191569833CF680C99F3979EDB981FAD617485",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/QdrantClientTests.cs",
+        "sha256": "7278893B234C83EEBDC33EE1524D602A8C54BFBC830FB8B275759C68DE21AD7B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RagAdminDiagnosticsEndpointTests.cs",
+        "sha256": "8F0339289340A45591AA451F6930D21BDF56F12CA0EF1839D11188DD4D4F872E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RagEvidenceIdentityContractTests.cs",
+        "sha256": "8A4B6BB9D4E81C5B5442F5CF4D2F13FC937B2118A1E216AB2352AA15582C4107",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RagExtractionQualityScoringTests.cs",
+        "sha256": "53AB19C6CF6F017A29D6D5271DEDCCA067DF600D6177BE2A1D497B7B5242DB95",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RagLiveSummaryMultilingualBackendTests.cs",
+        "sha256": "257961D82B5D764605DA3A6FB026CF0C70175954C6C1710538736332389C2435",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RagMatchedContentCardsTests.cs",
+        "sha256": "DB6BDB73E373C228D0FC2175F34EED6AC6804C26852CBF277AAD67B840C03D83",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RagSearchBulkheadTests.cs",
+        "sha256": "8D9F23374795055019ED85414C7576D34B010D10883C797128CD56FFB9A8F1A7",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/ReadyEndpointOcrReadinessTests.cs",
+        "sha256": "3DBEC03FC533C31C5DF1A1D73C3FDB57322F118206E03C941C528B5C19FFD69C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RequestIdCollectorFailureTests.cs",
+        "sha256": "B913D2185AB6A7238706D188F1100094B496654D550CC4B5BC9F95C500DB4990",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalCdcV3AlignmentTests.cs",
+        "sha256": "A6A6C6A7216BA31D6D18E5210284DF878353758501C1985261DDB57312153F8F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalChunkProjectorTests.cs",
+        "sha256": "7C1B9376A5282EA51E0412E9A6B23AB9B512C98A5B1F088E60B11332FB81B73E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalContentClassifierTests.cs",
+        "sha256": "2D28FF332BAF1FC9BD91AB5DFDDE87332F0ED0DC04DF87F66A4CAEE57D12760C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalContentClassifierTests.NumericProse.cs",
+        "sha256": "11AC05EEFE94F1E3C66630D790F17FF997029CFB981A804967C1BFADF4BDD13B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalEvaluationCorpusTests.cs",
+        "sha256": "9CB332BE938AAAE30A34C74F0CD323DD1158BD2E3875C821E8BE0D4E51AAF465",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalEvaluationHarnessTests.cs",
+        "sha256": "06CF09C4C81DFE2486C24E9B579E89041152BDC034FC3E41B0222ABB47C21E6C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalEvaluationQuestionBankTests.cs",
+        "sha256": "7F51A0ABCDF1616C4DA2BE9A7B05E691C3DF8E3C99A7ECF2D86B42998BCF50A5",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalProductValidationPackTests.cs",
+        "sha256": "B6D94E199AE9C7F5F5D2F0A3A4A51B01DD83A39A18A50B48BDFD7FFB14BD99F6",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalQuestionBankFixture.cs",
+        "sha256": "4F0D01821B9273A3BD86AE1013DC8987A3C2A43ADC4C3D5FD8A5D0849EB78A6F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.AnswerGuidance.cs",
+        "sha256": "E47B292069A6E191C68E70B42F92FDCAB92CD13C0E2B26D32BB4C7BD993DB526",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.DocumentProfiles.cs",
+        "sha256": "A54D72F95F0523998E54FB7F66BE9E6C33D796697B980FE22EC993944480CB4D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.EvidenceSelection.cs",
+        "sha256": "FF2A5C97BC547C05E0427B94D90FBC490B2C25B0555D9B17896B0B87A5814D34",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.EvidenceSelection2.cs",
+        "sha256": "040E5723787F9960882D884476BAE9C87444C4F993C85066145F29C4304C7C02",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.ExactLookup.cs",
+        "sha256": "3708D3B732245D566425A779E8FC3E38E06E4047ACCD3FDF8E31181ED318E4D4",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.Fixtures.cs",
+        "sha256": "D91519DD01EA222A158D3362D2FAFF257A3D8946FEF1DC726917C517FEEEA9E7",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.PageWindows.cs",
+        "sha256": "1D25FC298C2591D64F5ABA2C1ADEB57366A702EE0763C90CBAF4904A77463A67",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.QueryPolicy.cs",
+        "sha256": "109AF238809BAC76462C9F0099C4239E25B9C4F8A3DFA2AE0BF618848F3ADF11",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.Ranking.cs",
+        "sha256": "15C6552C60FC2745D6293780B4CE9A991D94DADCA111E6A2398766D22E6A64DD",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.RuntimeSelection.cs",
+        "sha256": "2FA99B34E0640DA2A7E54055319EBA504FBF76B767A8AB40F9A44FD8CD6F440D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalRuntimeSwitchTests.SourceRouting.cs",
+        "sha256": "094B746A8FC0C743982F1CE2093EE745392BD63A9C0C8B3B617AABDD876E7A3F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalTelemetryTests.cs",
+        "sha256": "47B39F8F344F3C3B9723835A7697D20D54098A6BA768BD5EDA12E7B390F86330",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RetrievalUiMultilingualValidationTests.cs",
+        "sha256": "796BB4EACC9C2B1DEA80AB58B9A606F09D3BF25BAF4C601990F30B52EA996B2F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RuntimeCapabilityBExtractionQualitySnapshotTests.cs",
+        "sha256": "FB2D02BA07198940CC1AD83853CAA6C20E2E03BCC2CD3C9F957935703B4F2DD4",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RuntimeGovernanceCoreLogicTests.cs",
+        "sha256": "67026442CDB973157B322E35C07697655C49D1F9E4917F6FCB37A18AEC49ED2D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/RuntimeGovernanceTelemetryTests.cs",
+        "sha256": "35B2E9B40C90925B7C814B038A169A179DCBE0A24C0E7BBAEDF158D1F81AEFA4",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/SAAIA.Backend.Tests.csproj",
+        "sha256": "6CA0212B66B3DC3686B76937F14DFB8A4C79E5B567B1CB45778AEA785D888670",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/SourceBackedCanonicalRetrievalTests.cs",
+        "sha256": "1E57DF991D1FF80C4640122A46CAFA1253FDB77B5F997E89D086A70441D5DE30",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/StructuredContentLexiconTests.cs",
+        "sha256": "63A02880612F2D188040850E2990446FEBF38EA7389264C878595B7A4245A622",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/SummaryBackofficeGovernanceTests.cs",
+        "sha256": "B6829D35DF71E6E18844B5C5E6E477C497CC5B40FE60F28B0E8316509582275F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/TeiWorkloadGovernorTests.cs",
+        "sha256": "296FF68D1D45374D270D8C3D85283800E2A3CB22204D5244E50B9322C2EEA6E4",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/TextEncodingSanitizerTests.cs",
+        "sha256": "0810B931754F25918BD1196CDE30D285C334307A5B5DB2B28DBC93C5B4305E23",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisEvidenceResolver.cs",
+        "sha256": "72E48EAB3344B46AFA202DC355BE275B5B3130973DF391FC9297A008DE3AE0D1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisExternalBudgetGuard.cs",
+        "sha256": "D26B9BFB5B1519769945E1593917AE11578F4F6D470FF7898DC1F704794F66F3",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisJobStore.cs",
+        "sha256": "1DE674E6BD617E29C47F8A066F6597AA3A27C8E80CADA069E33D8670EAEA2906",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisProvider.cs",
+        "sha256": "E6C09C6A125FA675CB5C243DBB4E930BFC34E9943EA7ECD2DE0553828F095CA0",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisReadiness.cs",
+        "sha256": "6558F035AE70E773FC062851D3D7205442C50908EE6C2389595809CE96748AD3",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisResultValidator.cs",
+        "sha256": "882294B9C509F85F79C3CB5FB6126E1760B8C52C0E5B2868C6E1DF5C585A4B64",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisRetentionWorker.cs",
+        "sha256": "5A7A68F00755D51A1CA62E98805C43278B028CB5C93389FB315CF6D2B1BF8941",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisRuntimeState.cs",
+        "sha256": "F841E4C18DF489A516004D02C9B6E11A4708629B1DE4095917F43F5DA7B84624",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisToolGateway.CanonicalFind.cs",
+        "sha256": "734CDADCA4497BC1B042E7EF54189007349507B21AFFDAA9611801F645A9C09C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisToolGateway.cs",
+        "sha256": "218B8AA7F666459255469467D7C9E245C4098B37CC571049214899CCD056B461",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/AdvancedAnalysisWorker.cs",
+        "sha256": "01747203F350110FB66DAC3EF6C13829C858F05295F87D76231E32928F81AE5D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/CandidateCoverageSolver.cs",
+        "sha256": "8C3649C5367D61619227885696D07AD2660240F051EAF3B909B3AB99C511E3CE",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/LlmPayloadDiagnostics.cs",
+        "sha256": "39020ABB82D7E735AC54E1F4ADC0E89BAF089135461290AC1A41CD41BEBEE497",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.ActiveProposal.cs",
+        "sha256": "B34AB5C7FF98C8F22AF40763F861E5A715CBCFDB39677AC7BDBB9C0E3926AF7B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.BindingFeedback.cs",
+        "sha256": "5D377D841943815558AFD74C1945D604C07E1D82A785834AE2E8C053EA28069F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.CandidateExplorer.cs",
+        "sha256": "072F971EAE46F5647DB90E24DB7A010ED55B5710B52211A07F7CBFD227C1DAAD",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.CandidateInventory.cs",
+        "sha256": "20A831E0A2A0F1D21F4FC262CD0076E2EE665D2E9B74A68BA0DCD652CD271797",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.CandidateJudge.cs",
+        "sha256": "993B893DB14501856CEA1B04306419E9C11A13A0A8E9D43A81454DBDFE45FBA5",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.CandidateNavigator.cs",
+        "sha256": "A36CEED4E95406201AC82D1259955DF43AA13104C09518DE6433AC0C8F48738D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.cs",
+        "sha256": "3C287D5B92C2DDF90683A726AABCD10FC03285FD2C52BA8DE9D31528B04D9CAF",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.DevelopmentTrace.cs",
+        "sha256": "AB84917DF11B7C31684CBBBC79E0ABFD8C58347CC0C2BD958743C0FA94A92030",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.EvidenceReading.cs",
+        "sha256": "89B4AF7BA44C9FD890C16ED7F1550BD27D48EE592D5A8F39BCE0279FB9904276",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.EvidenceVisibility.cs",
+        "sha256": "F297E6A6345770C5C5541B556EFF8F46FFA341F1658540DB2484764F2CC77C86",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.HttpErrors.cs",
+        "sha256": "68929268A3287E9A71071B084EE8CA8A36D768ECF5B80AB1EA237C078F0EBA2D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.NativeResearchTools.cs",
+        "sha256": "A4559F7D0CF979386CFCDADC1E8FEAFEB46B94AEA078AEAE49103193553ACA32",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.NativeResponses.cs",
+        "sha256": "6342BA98E00CF65EB9926D3A04FE6239B9AB4D4C505E00FE3C36F8D8F9DDA466",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.Planning.cs",
+        "sha256": "430BAB19FFE9B3BAAA888CA6DBB6BA84B901D30B1ECD5F279508E5141189EFDE",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.PromptsAndEvidence.cs",
+        "sha256": "4764869241461B333B203C6ADF6E8AF03AB076EACDEE8282F27842BE9D3E137E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.Protocol.cs",
+        "sha256": "06D3889008E14D41B066D02014C2411EED4623F51C7297D801237C0D4386F632",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.QuotaErrors.cs",
+        "sha256": "18E53F91EBB9ECC9017A43CFFD096FB936C3E2DF9938728EBA35514CC66AB759",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.ResearchAgentPrompt.cs",
+        "sha256": "3CDAB5F96FF2E41FD3B673319EBB3CEF4120E1CF1D9BFD960F16937EEFF24B9D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.ResearchContinuation.cs",
+        "sha256": "092422618AD2E9F71798C8C76787CE40CD83E0330575B2C1E65491D72410EE4B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.ResearchWorkspace.cs",
+        "sha256": "69FF8ED5E524B3C764CCFDF51B427152BAC57C001932C0A16578CCC6879787EF",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.ResultCoordinates.cs",
+        "sha256": "8B38B95EB3566C8FAD4F800C5792354EA6A0AB67F56658EFC7F1771191852250",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.Selection.cs",
+        "sha256": "ED3809A461BE4847256E013916C8699711D6382C0CA6F8A4B3D5F38152AE85ED",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/AdvancedAnalysis/OpenAiCompatibleAdvancedAnalysisProvider.StagedCandidateExplorer.cs",
+        "sha256": "1355D71029481A44432676E67BACE1615F765F61CEFBBEAEA99CB9C94C099ABE",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Audit/AuditWriter.cs",
+        "sha256": "3D63D9A0C2844B2518BE683F77441B7C30D07E56BA232ABC76EF1299A4AB1942",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Auth/AdminAuth.cs",
+        "sha256": "52AC2C6479FF57E8A16D2E580BE4B84D6AC1F690809DB233AF01BD46A4FA1BE8",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Auth/AllowApiKeyOrAdminKeyMetadata.cs",
+        "sha256": "42D958E4A650FC8F8AD96C2E2E351C7A29D8E9D863210229057456A89CF7B06B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Auth/ApiKeyAuth.cs",
+        "sha256": "9040CB3936E9DA10D201F2F9D3B23564ED936E02BF8837FDEB4306A3C1895241",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Auth/ApiKeyAuthMiddleware.cs",
+        "sha256": "A7154C210B7BF924CA5BFD86631C540D7FBBB99E4BB3FC0E1C5C6FF23284A22A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Auth/RequireAdminKeyMetadata.cs",
+        "sha256": "2F2F930B4F70651FF711B9D6B98715F5F94F37FF9C0BA8BE35268AB10BDB82FF",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Bootstrap/Bootstrapper.cs",
+        "sha256": "E4BA11914C2CDBA8FA23BB87B8A761B66FDFC5CF8BABEBFD7D5ADFED1539F907",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/CapabilityBBackofficeWorker.cs",
+        "sha256": "876F5537C3B8D959AC1A8A69D08E0F43D796848605E771C497BD1B2034612A97",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Catalog/DocumentsCategoryScopeResolver.cs",
+        "sha256": "50483D427B129069414A3022496CBE997B3F98C25F23E11E6E1ED869905519D1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/CatalogSnapshot/CatalogCategoryAliasRegistry.cs",
+        "sha256": "9CE43AFC58C816231DE7615F486663A4329273DF47F3766BB99ACE616D5A7FA4",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/CatalogSnapshot/CatalogSnapshotBuilder.cs",
+        "sha256": "720A78ACA973C7D025A34663AC560920BA808BC08347C5751996E6D98116AE39",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/CatalogSnapshot/CatalogSnapshotOptions.cs",
+        "sha256": "78234DA0287F1E03FBB24F97E868F3081D6C37B55D65D17134F09F7524C184F1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/CatalogSnapshot/CatalogSnapshotService.cs",
+        "sha256": "EC235F0403C521FB762318778632FF39823805A5979BE84844AD6BF525097FA2",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/DbMigrator.cs",
+        "sha256": "2BDCAC816019E19A92962106A2CCB66440AFA066D3484DD7E91FF6AB13A7E032",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/001_init.sql",
+        "sha256": "CB94CD7FE51E8603AE0C4FD176B5C85597E0A47403E54008803C2CC863DB9356",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/002_documents_file_mtime.sql",
+        "sha256": "9852D3D78058AC20032DEB0497E9327D38486159E629027731324F3C5ABB7DB5",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/003_documents_missing_version_jobs_index.sql",
+        "sha256": "F9143A089B6C23826CA1DFA14211EA779EBB876A75A36E4C2E2D7D0D14D2C847",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/004_documents_indexed_version_and_jobs_refactor.sql",
+        "sha256": "4E146402853FC630A5BA56993EC7D4137D05FE946107CFA7EB61A552568C1EBB",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/004_phase1_security.sql",
+        "sha256": "F3EC3B758E38F5CED2542FC3FBF16EEDEA7969E55F9875AD2BC70EBF4138923D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/005_chat_store.sql",
+        "sha256": "9A84E298AEB0CAC826DAE9DDC6F30BC6A163A713394CD3CFC11173EC95421E59",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/006_add_user_id_to_chat_sessions.sql",
+        "sha256": "64CC8642F14D2A39067490C9457DB346CDCE0C2DA2CC7AB7368B68A2F7A20BF3",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/007_chat_messages_status_note.sql",
+        "sha256": "1FF7ACD8F8CBBDBCECED1A27B6363ABC572F4B90F7C7766A495DB63463ED623B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/008_chat_messages_tracking.sql",
+        "sha256": "BCF9C8404AA24AA0C833726C571596F1A94EF80717D820D14244AC8A81660BC8",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/008_documents_catalog_index.sql",
+        "sha256": "1FA339B8227ACCA4ABFF399D37D989F4BF07F5554A54BD009FCF9F20B54D6463",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/009_catalog_snapshot.sql",
+        "sha256": "0682B46FBA950C1D406F3FAA6556FE8933CD486B4781DE36F4696D373F915F3A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/010_summary_tools.sql",
+        "sha256": "04CEFAFEC3C64F3BF29F587AE3FC6F8EC42258797292A871D3C81F52B4D96154",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/011_summary_schema_alignment.sql",
+        "sha256": "01F14259358BB30B82B0C5CA8863B67D28426DF94984AC1B7B1979DD3DD7C64F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/012_catalog_categories.sql",
+        "sha256": "279F09A55CD0E761C450ED605D088FCC40207850921F2B5B5C01EB3EFF34EE44",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/013_catalog_category_aliases.sql",
+        "sha256": "E3F73DEE2BB5C29964CE0BFC25DAE5616912523B29B9A3C920B590DFA2DD2957",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/014_documents_auto_ingest_pause.sql",
+        "sha256": "777F6D1D6E1FDFA0B1D7877371DEF4FF1B15032806FA47CCD1329466249494DD",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/015_ingestion_jobs_paused_status.sql",
+        "sha256": "A107CC676171F402CDCD420C48DD9EC2BC89D9EC6D0D15D96C57C5073441BBF9",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/016_document_foundation.sql",
+        "sha256": "C6AF4C498B5919A1C8AD99F86C41204379DEDADA17CEA8B3E5827DA91A6EE068",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/017_document_sections.sql",
+        "sha256": "CEA1891A2703963D6657E4CDB1352CB49F40DCBECA53D9C50CEF6AAB7D1A6047",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/018_document_units.sql",
+        "sha256": "86BC5730F67EF1E835479B1D180E4F27F683854F10D0EFAB70B9BB10462F21B2",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/019_retrieval_chunks.sql",
+        "sha256": "6CB520DD9611B9FCA95F092F8AC0E532168AA32A4B810140A394033B0BD96AE8",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/020_exact_match_entries.sql",
+        "sha256": "3949CBE0F3A08ABCFB64699EE074BD239D06C8B3A2FCBE0E6341FEB2C8CA22FE",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/021_contextual_text_entries.sql",
+        "sha256": "184BE9B607EDF0A368E9F3B46DBD71B6049421891F9B72CFB8E756B525DB3D09",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/022_document_foundation_hardening.sql",
+        "sha256": "647F6B686AB6C66364E141D4608382C6BEBAE07E5BBA7D4A75D88A9016BF744E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/023_retrieval_chunk_links.sql",
+        "sha256": "6E24B6B2D3ADB423025F128A0E824347FB23E074F1FC0CD887DEBFECE9DD04C4",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/024_retrieval_sparse_indexes.sql",
+        "sha256": "622EF55230BB0D2C4E10786AC29C9A9F1D4973304652F636E7B7364D20FCC6EC",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/025_runtime_governance.sql",
+        "sha256": "C6D4392C92373E7DBB65552F00C3E0C5DB3F751E47DA1642C7210FCC58A9268D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/026_runtime_governance_events.sql",
+        "sha256": "E2B5C048E2203F4CD0E3D72BC287A766D5EC768F92614113F95AE4DC6196CBDF",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/027_document_profiles.sql",
+        "sha256": "4B908E0F96BC41D159549D7B691F439DD5F1E312225311ADE973965CB6C2406C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/028_retrieval_chunk_trigram_index.sql",
+        "sha256": "4F60D18FECBB0B7A1BD71E1CB7BD5AED21D80791AF2053E96BFAF2F365489C1C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/029_document_profile_content_cards.sql",
+        "sha256": "5CE6BF15F91DF50771B3B5F5AAE97CABEDFC3A4E9C077C606A94C3736A2B82F1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/030_backfill_llm_profile_content_cards.sql",
+        "sha256": "7F06D095656E15F9D2963A97D0CD08782980576A681598DA860EC1F4137EC341",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/031_backfill_missing_profile_cards_from_sections.sql",
+        "sha256": "1B86677E6E8521EAB46E82357E13D50DA38F72BCD4B57ECDFF43B8F2639A28B8",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/032_prune_stale_profile_content_cards.sql",
+        "sha256": "A77C63926AB9BC2348497FE7C02C8788420D3845DCD2EA219A7A192BD2168121",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/033_prune_noisy_profile_content_cards.sql",
+        "sha256": "DA7442FB6C4B05829DD75B18BDA04B872838FF5C16F0045CE60316A5892F62A9",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/034_prune_more_noisy_profile_content_cards.sql",
+        "sha256": "DA7442FB6C4B05829DD75B18BDA04B872838FF5C16F0045CE60316A5892F62A9",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/035_prune_remaining_sentence_profile_content_cards.sql",
+        "sha256": "C3E880260FF2F24AB955E5A808D73E0BBCFF4A553BFC05103D50A66BA8360F74",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/036_prune_procedural_profile_content_cards.sql",
+        "sha256": "99D8D74EC6CAD5AABED61E0FF230A76D69A6582CB86944CE3950C48F75BEAB10",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/037_prune_layout_fragment_profile_content_cards.sql",
+        "sha256": "4AA90909BB0F76E503380D4699E6F848E7223323B10E3254B6C97C44606E35E6",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/038_prune_remaining_action_profile_content_cards.sql",
+        "sha256": "8B1288CB34C5E24B1E30BC50829BCF3EB4FD3ABD55F7F5DDC76A4DA707014F3C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/039_backfill_compact_numeric_suffix_profile_cards.sql",
+        "sha256": "61CFA9D2B543F58C1B60FD747F38A92DAC159EFE4B432B2BAB1E8CE7F2A1FF18",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/040_prune_low_signal_profile_content_cards.sql",
+        "sha256": "880C684B5AB2C0B590C7EACA2A03DC3A1BEAECABD690DD11F61DF07FF8E09F36",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/041_prune_action_sentence_profile_content_cards.sql",
+        "sha256": "DA7442FB6C4B05829DD75B18BDA04B872838FF5C16F0045CE60316A5892F62A9",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/042_prune_ocr_noise_profile_content_cards.sql",
+        "sha256": "5B90D22190AAD9E7135B249228E3414F95FBE9A69E064A7385BB4A2B9402D87D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/043_revision_aware_summary_source_hash.sql",
+        "sha256": "ABBD0E31BCFDDFE5B93EF1CE0E2B920463F7312FB49BBC6CB6D20BAF9DA60F1D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/044_source_resolution_projection_indexes.sql",
+        "sha256": "E4380EFE27D0B260CF696F23F8F7F0DE05A61BDBAD7F46CC5485E3640416F30E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/045_runtime_query_indexes.sql",
+        "sha256": "BA1874C9A394FE7C6E66E2F35EB272C5596BC3340E3A50A97333797A8B82ED54",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/046_compensate_profile_card_backfills.sql",
+        "sha256": "DF41CC3878B0031A31093A50FB67B67D3F054D6CCE4F386FA624FE0ADFD3A975",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/047_allow_paused_admin_jobs.sql",
+        "sha256": "C47670037BC41BA2922FB2C7CB4DD6CAC6D2C7D5B23256317991B1BE714CD910",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/048_content_card_evidence_indexes.sql",
+        "sha256": "57453963340C83D90A807D4513E95A65F920682E9E3155B3A2FAF03BF53FDBCD",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/049_backfill_content_card_evidence_from_profile_metadata.sql",
+        "sha256": "2E8580A9D4715A922DABFE79DD20710A4A8D2806EBA6E4CDDFCB90EA06FB3DF1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/050_content_card_evidence_profile_schema_index.sql",
+        "sha256": "DE03529267C9DBC5B70B37BECE99AAC8DD96A03CBC65C807BD771A54CE3C8CF8",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/051_backfill_capability_b_admin_job_doc_path.sql",
+        "sha256": "00480D3D51B7BBC1D5AF3BFFBFE0E1D546D06702B6876C40565D87F8144926FD",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/052_backfill_content_card_page_ranges_from_evidence.sql",
+        "sha256": "FF88CC2EA4B166534C3565094E8A0DDAB7A0B3995AE4C3BEAE146668D8A3B97C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/053_fix_profile_content_card_order_index.sql",
+        "sha256": "574C8F76E52EB2C8968FBAC88083C6B984685F1D25A4F5DE8CE94F07A315E9B7",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/054_document_title_navigation_anchors.sql",
+        "sha256": "6A1B1974C61FF83CA31B81DC2A8467E004B4F1C61769069C4B15631CD5556E8C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/055_retrieval_chunk_folded_text_trigram_index.sql",
+        "sha256": "0C9F65C5D28CC3E4F626A27FBD4E4EF5C5B2CBFDA59C8B4B8B012430931C3DB6",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/056_contextual_text_search_tsv.sql",
+        "sha256": "C10CC316D40F8FB9A42FFAAF888CD2042E098306E08FAC84431CF5CD66D902AB",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/057_document_profile_search_entries.sql",
+        "sha256": "877BFE7B5443AE4391D2C37C4D04855D6BFC223BB38058E597F881D6956960BB",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/058_exact_match_lookup_index_hardening.sql",
+        "sha256": "BDFE7DF3376886B3937336C849C20567F49C8E204EDC30A4824A246901AEBC0A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/059_document_profile_search_entries_full_card_recall.sql",
+        "sha256": "F206F7FB929074FE97F8E4F3A3FAEBC3176B8EB26ADDF5AC9CB23A49F097C938",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/060_safe_profile_content_cards.sql",
+        "sha256": "4F9FBE09BC6FC05EC5284897E63113202493EB0D0DA16D070BC2C559C91996D8",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/061_require_grounding_for_technical_profile_cards.sql",
+        "sha256": "8460E3427D096838F9F5FA540D05DF3CF749CC90F5302B4320DE21D8D55240C9",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/062_backfill_image_ocr_page_metadata.sql",
+        "sha256": "AC8A7E309A798BC41F82F5FDF20C190CE68331974B60D473C5BC259E6AB23C25",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/063_filter_noisy_profile_content_card_titles.sql",
+        "sha256": "E218BA23374F53A7FBCDE7D6C9CF99EF4943D728D3FE9D9E0AEBEF66EAF52AA5",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/064_canonical_ingestion_artifacts.sql",
+        "sha256": "3FD245FC9E2850447020A9C7B7C46B0E1D1EEB025F21A69A1AA79D8C4BF29F11",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/065_advanced_analysis_jobs.sql",
+        "sha256": "071732E8DD8EA0F61FC624C68DF3AC22312B15D66EFEAF965136F4C9E1A99543",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/066_advanced_analysis_tool_events.sql",
+        "sha256": "78E28B90F1462EE92A569650E0747D0E27E4C3007D19C425D8E98B51F1BEF5F1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/067_advanced_analysis_provider_affinity.sql",
+        "sha256": "E34FAE62EC1759CC19ACE7107EA4D1FC6B84D926D68C0A2392681727264DD4A7",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/068_advanced_analysis_research_checkpoint.sql",
+        "sha256": "DF03C0F411609C77392F4D25AE86F21A6F539AE508D4BCEF333021CF0260A588",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Db/Migrations/069_advanced_analysis_diagnostic_events.sql",
+        "sha256": "32F010135145A3D65A0357B7A9E710E20C8E07E7C59D41199FCE268400907968",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/DocumentIntelligence/CanonicalNativeLayoutReconciler.cs",
+        "sha256": "CCE7D9C679005B49C794809F276B09A9076BB6BB9145D26A753E37FEB4D9DF03",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/DocumentIntelligence/CanonicalNativePdfImageInventoryReconciler.cs",
+        "sha256": "524095B86EC4E38854D8D51F704532652BEFC03B7A1EE6BBC515598DDAFC109A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/DocumentIntelligence/CanonicalNativeTextCoverageReconciler.cs",
+        "sha256": "1932AFE53743366C95431DC3309F6DB2BCBCA3DAC9B776F2DE3EC48EC49639AE",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/DocumentIntelligence/CanonicalProfileInputProjector.cs",
+        "sha256": "820AE5CA63CE4EC4FA8076CD79CFD2CF7AE2C4624FB8CBABA47642735FED5DD1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/DocumentIntelligence/CanonicalRepeatedPageFurnitureClassifier.cs",
+        "sha256": "AED82AC81CAE1586AB7A1CAD49100181F0953AA251CCD3E77B82BB36071A0A5B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingCanonicalBundleFactory.cs",
+        "sha256": "FAAE662EF15583C7B762CF26686930FCB65E89EC33154E82D471D4CE52A7180D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingCanonicalDocumentAdapter.cs",
+        "sha256": "A443F010E3DFB8476E64447434A9819DC12764977ACD2E4A61ACA83EA77691F8",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingCanonicalRetrievalProjector.cs",
+        "sha256": "D9FFCD6809EB2B6817AAD6DD800DFEB18D720F9AE0E803FC46826ADBEF7CABA9",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingCanonicalSourceAnchorProjector.cs",
+        "sha256": "E77AF27E6B017E933C830F2BA36B4889B88E3C2BA5F1D5058DAF945472CB01BE",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingClient.cs",
+        "sha256": "12774B5772587470F9F127581F4368887CCEDB90517495A7CEB10DB7C43941B7",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingDocumentTraversal.cs",
+        "sha256": "21CD88CDE36DB26392BA8E81831EC84BC2D6F8ED94EEEC53DAF1579FB66E1CA5",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingIngestionStageManifestFactory.cs",
+        "sha256": "5FB9656FB9061B93FA203B45230634BC38A99F9140E664EE15052811DB9C97A1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingLegacyExtractionAdapter.cs",
+        "sha256": "4E996F9756C2286E33CFE87EEADA33969C1B8A47056C90FF3739DBD0662D902E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/DocumentIntelligence/Docling/DoclingModels.cs",
+        "sha256": "27B7B0D0292294179320D9451B5C96DA21F62BA5CDCCC0DC1F0687338C9689FB",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/DocumentIntelligence/RetrievalTextHygiene.cs",
+        "sha256": "A0C1F9D4DBC9A538BC80B28DB72172166409D39E092098C7A4A14675D3A6AF99",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/AdminAuditEndpoints.cs",
+        "sha256": "3CD629BCCB1E7E89A43F557CBC541614FDA8023935B8315820920E87B64D199E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/AdminCatalogEndpoints.cs",
+        "sha256": "91AF34871BA3C36247FF0E0DC71B9B69FC935FFC5FC58913D2E88244F2E73F0D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/AdminEndpoints.cs",
+        "sha256": "BA8D9D67A40968BE1336F531C8547A6A1E6D712FB5F5382568E3142BC709396B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/AdminJobsQuerySupport.cs",
+        "sha256": "07CCC4B97E6D2A5CF3AFAD2908ABE91264EC3EF4ECC1EFEF46800451838208F6",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/AdminKeysEndpoints.cs",
+        "sha256": "7309FAA8493D604AB5415A51186983DFE7CF28D8EC9F546EEE8EB42D9BF5E2D8",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/AdminRuntimeEndpoints.cs",
+        "sha256": "D8024B768D03707EAD30F1D2BBCBA85A7DAA5E88CCC7D795A175D4D7D9551E86",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/AdvancedAnalysisEndpoints.cs",
+        "sha256": "26202046E53EE4D821697E33ECA177A6A0B15153FE7355BCAF9614DB025C87A9",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/AuthCapabilitiesEndpoints.cs",
+        "sha256": "D135C555ED107F78155E610600A958DE9342B07EC8E26E0B3E0B1560F55D4715",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/ChatStoreEndpoints.cs",
+        "sha256": "9165DF5B869220DCFE699605F5A3CF732AFE0638CFCA004E5BC46B53DE02F4E6",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.AdminLegacy.cs",
+        "sha256": "62CB3A731E49AE4DAAF1EC99EFE8B08FFF27C1D10F7FAAADBBAD755BB6194086",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.CatalogSupport.cs",
+        "sha256": "2535965671874CAAFC1C22FA6CD2642FD81DFE8C6618732F7F45FD28C4B1F1A6",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.ContentCards.cs",
+        "sha256": "8C198D292D715C9B5978ED71F6073A096D68A640A1A23389FE52F00F48B58748",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.cs",
+        "sha256": "64FEAF7334998522DB45716FAD48EB76C8DD8FCC486FE07E5E3512457D3F0A6B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.ExtractionQualityPages.cs",
+        "sha256": "15CAEEC8AFCFA30F7E6D5CBBCED9CBDCAF4BB1513CE0BF4A86BA2B5368045AA3",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.ResolveCategory.cs",
+        "sha256": "566A17219589A28A3D45F7EB6A081CE3278EFF9D6DDA974C2477A43D39731962",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/DocumentsEndpoints.TreeSupport.cs",
+        "sha256": "FD59BB59F448CFC178D0BE757D1F97E7986CF1E473E6217C31627BE93E52B3DB",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/HealthEndpoints.cs",
+        "sha256": "7B512B33975876E110600A964B6FF297015B651F6AD300879F34A17C581DF96C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/IngestionAdminEndpoints.cs",
+        "sha256": "405A43877B3190F81BD1CD25D792D1411F22998879F209BDE4CF803AAFE4738B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/IngestionEndpoints.cs",
+        "sha256": "17BD55AAE1A10CDF377E8E615038FDDE923FB445905F398061C594DE1286079F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.cs",
+        "sha256": "9F43D7864D45F2A7D2B276D99F9BE8F1EA2AC77400443DFE06BA1CA884BF1F64",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.IndexPresence.cs",
+        "sha256": "40FBC70B1DD0FFCFB569AD6C20CCE935D6D7CC3661A57E524728A2DCE4D45FBE",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/RagEndpoints.SearchExecution.cs",
+        "sha256": "3B008FE345407CD9FEC4F3C86CCEE49093CAE9FD3B39F13446C1F066D3F61C73",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/ReadyEndpoints.cs",
+        "sha256": "71AA58E3D42AF38A4BC401777D6F4A36C8DBF58C65DFDE7BD04BC6E297F8F70A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/ResolvedSourceProjection.cs",
+        "sha256": "EB7C9909EEA01EB0F19054F5C9C0667E0A0C59375DD57252DAC6D7ACF551ED12",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/SourcesEndpoints.cs",
+        "sha256": "E35DA93403EF93C49F4753C72B63B2BABD0AE1D78F87B37C786B8B92D2E1A7D4",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/SummaryCategoryScopeResolver.cs",
+        "sha256": "7F237FEB61A6FBEA0A6FE24F06352A79C43C52CC50117BA0A97D0EFFD4E529A3",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/SummaryEndpoints.AdminJobs.Control.cs",
+        "sha256": "4FB1B44B73FACFC52326AB58343C0824FEFE9AD8E89A1BD84B760B0738447697",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/SummaryEndpoints.AdminJobs.History.cs",
+        "sha256": "341A8233181B3EB903527AF47161ECB59E8B15796A691560EBEEE46D587CD215",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/SummaryEndpoints.AdminJobs.Query.cs",
+        "sha256": "D2DDDD0103744DC209E8185E1222E3D9E2C21E002A3F03BD711C3DDD1BD33F9B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/SummaryEndpoints.AdminJobs.Reindex.cs",
+        "sha256": "157CCA09267B31D5BC3DDF1062CDD04B7EDEA1690F0649A007E2777CC824B9E6",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Endpoints/SummaryEndpoints.cs",
+        "sha256": "6CB6EAF501FBD99DA29E60A63E6A4D3B018E89345C401B5BF25A0DD451F4D4EE",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Extensions/OpenTelemetryServiceCollectionExtensions.cs",
+        "sha256": "E2ACFF13505B4004782DBE010A8F8401DEC327A10E60D4B865B70CFFA52126A9",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Extensions/ServiceCollectionExtensions.cs",
+        "sha256": "4750671C42A92754B0BD3905E228A8C7A78D6758777B61284144B26FF05AD35C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Extensions/WebApplicationExtensions.cs",
+        "sha256": "689AE594F298FFED2C5A373AC8EAE9F7FF6FEADD666085A24BBA19D7180BB57E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/GlobalUsings.Retrieval.cs",
+        "sha256": "DEC724FB74CBE777D5ED1D1630928698A07F93FAE459F6B596A7FB6655D24A35",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/CanonicalArtifactRepo.cs",
+        "sha256": "B284E4F82C3FE832A820D0E592919A581DFC645F1514B3EED10F933A0D5BBDB0",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/DocumentExtractionPolicy.cs",
+        "sha256": "0C6D87BE6BA9358A5811C84EF965D2682BCD0EE5FA579532B61B53CAEBF57917",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/DocumentFoundationRepo.cs",
+        "sha256": "7772713D82EC37FB481F6A3489C5ECFF0DFB9DD794D72D20431FAFFC1FC9A329",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/FileWatcherService.cs",
+        "sha256": "05A8770C76DDEE64AB7E2AA2FF3D2985D2F931A7711FF013DFB545E7EBFEC319",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionAdminStatePolicies.cs",
+        "sha256": "847F845FA7C745125AEFE8AA1D34A3D282FAB2D3EFF7C5BA68D489D4AF01613D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionAttemptDiagnostics.cs",
+        "sha256": "0BDD6E3BBC27437D094AE990AE1ACA898820F1535CCFEE4484C490F2BEFECCF5",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionAutoUpsertGuard.cs",
+        "sha256": "191D7A2C783E26194705BBF93CBE98796929F97BE99060EF67042F4B45CCB507",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionBulkheads.cs",
+        "sha256": "502C97D8A6B7DF80914304F392CEB93E35387DA615F0E1D504717F42119AF12F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionCategoryResolver.cs",
+        "sha256": "9EF306922692240B47F4913EA149888CC807DDB1A30E30FE9A8950C38C28C1B5",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionDuplicateFilePlanner.cs",
+        "sha256": "075FB88ABEFFCF738A71F5222799EE9F1A2C6A5E021276DF0F8B999FCD2CE87E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionEnqueue.cs",
+        "sha256": "25ECDFD1961A1F44DCD1892EE31B01C6E6CCC20E9430B4E8C123D3D0FE65D6BF",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionEnqueue.Delete.cs",
+        "sha256": "E8D90DC63C3900D1F8C837C49FF9A00CFFA769DB50F98DD0C01941FFE8A12A72",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionEnqueue.StateTransitions.cs",
+        "sha256": "8A00BA5A9649A74072B0999E14793D3AF27A3BA31BE783F3D6E2A76AA2E56A02",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionExtractionStage.cs",
+        "sha256": "939B3A0CE98FF4F77FDAD7E266E74F7B2DE380DAE0C4088B94E29ABAC646BD9A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionFileContentHashCache.cs",
+        "sha256": "7262A355F2CD86A49838096EA025ADC1B6044C83A84B9E13AE0C775085251BA4",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionHardwareProfiler.cs",
+        "sha256": "9E02EF2F65655672C0F2CE83C3E3700666A1D2463949A0B045DC5850D51AC96F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionJobCancellationRegistry.cs",
+        "sha256": "5FA53023C7F4187F63A497845A998B48DD79A977D3500E2D838CD2CCEF2D4C33",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionJobPayloadJson.cs",
+        "sha256": "B6991879DD041AF7FB22792D5931A412217CE005118B7411DC88ECA2448F6100",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionJobSnapshotStore.cs",
+        "sha256": "E96845D673CC6E0CD2EE70D47E3506FC6D819F1D1E8B17F0472918E17794BA9D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionPathFilter.cs",
+        "sha256": "9B0213A6BA9A1D6A2EB05F83C0FA316134427DFDE11F0AB4F8C0D364AAC5EFF1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionProjectionStage.cs",
+        "sha256": "B993F912310DCC46041E85F25D06565DD96D9D6619CAD08C43D81D36860BA00C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionProvenanceConfiguration.cs",
+        "sha256": "D64EB574AC57A3BF21F96595D4E7CB93F9543501B2E6E4AA05160C2ADFFD7145",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionPublicationStage.cs",
+        "sha256": "50BD00F8BDC4387462790E9189DB5C00E306D012902F8D9434E5219012BFD258",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionRetrievalChunkQualitySummary.cs",
+        "sha256": "55D9FB63267AEA903E358BD7520FB584D3EEF19CFA773CF5244F05770C7BB10B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/IngestionWorker.cs",
+        "sha256": "1AD48C3D4F684E921ADEB54FC045A09E8B874054BD08E4F2BC4519A4F482EEE8",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/JobRepo.Completion.cs",
+        "sha256": "3D9C4409CC4C94C8F0E175DF89D5575616A47AAF1302DCCD9B78D04C997B4DE7",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/JobRepo.cs",
+        "sha256": "5A7DCF8C3620D30A8F5FB5113593DC07C6DC83C62FABB9E86FFE41332ECBCADA",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/JobRepo.DocumentState.cs",
+        "sha256": "66C01E1DA23CFB48496C2EAAA7CA6572BFB00B44110636EB7F1AB0C0A70C2E2A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/LegacyCanonicalBundleFactory.cs",
+        "sha256": "DA936A208B610A29FD9F084083C4A31444F3FD3FBD14BA024015781042E593AB",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/LegacyIngestionStageManifestFactory.cs",
+        "sha256": "BE84D43DA20E2C38BAB480E8FFB24C033D8B47C6E3E920503A13B7BC9514099F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Ingestion/RuntimeToolVersionProbe.cs",
+        "sha256": "2A39BA8C8D172D32064508E67DDF7C2F09EA3F31C4C95A3EE8CDB4A7DCE29283",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/IngestionScanner.cs",
+        "sha256": "E1881F1D737B429BABE93E2F513D5D637538DBF788157FDE1663178234B262C0",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Llm/CapabilityAHypotheticalQuestionService.cs",
+        "sha256": "8711A1E6C3C95445D8641D7FF8E47C4568D0ED6808CD455F212E9D6AB04312FB",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Llm/CapabilityBBackofficeSummaryService.cs",
+        "sha256": "1407473169A4EDE36BD41BA87DC05B32A42E8F8EB26C167F15F3F128B2D66EF1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Llm/CapabilityBExtractionQualityPrompting.cs",
+        "sha256": "B5DD778BC43B384DF7FE5E955B4E30491600EA47352B41A89814EDFFEE44A38F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Llm/DocumentProfileEnrichmentService.cs",
+        "sha256": "0CE20EA13ACA2F86248E2ED0EC4FB66B322654CF1C44043F078D2943CBDD0773",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Llm/LocalLlmChatClient.cs",
+        "sha256": "7F253217D9618E2FBB70C41278838B22129A01A33BAF7011B9452D023B2F8F4A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Llm/LocalLlmRequestFactory.cs",
+        "sha256": "658F036D3A1D9524CD3B8FF3001EEAA5894AD72838E18FF6636C3057181139E7",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Middleware/ErrorHandlingMiddleware.cs",
+        "sha256": "94589434E587126F1F8319D7DAF3AD9095FC5E7D58F930CBEAF97325A5374CE1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Middleware/RequestIdMiddleware.cs",
+        "sha256": "2557D236BB32BAE773BD09429AF5F74978FB93AD1F8CFCEF98C35ACBF8FF9028",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Models/AdminRuntimeDto.cs",
+        "sha256": "6913C1E08129F0ACCCA98C376EC373FD71959448D0ABAEC7E8E149F672A9A9D9",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Models/ChatStoreDto.cs",
+        "sha256": "664D44F16E152C1CEE53DE16AFA579742EBD518965B5DB86EA9A0D65B295EE1D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Models/ErrorResponse.cs",
+        "sha256": "38EE4F953477F81E7F7D5D4728AF277C0AAB7C4C29AF8618DB006AF9C803BA8B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Models/RagSearchDto.cs",
+        "sha256": "D94F238D4EA06893F98C25E11E7194CA827AADAB6EE1E31005A118B2FCFF8BCC",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Models/RetrievalModels.cs",
+        "sha256": "F7970E4B93F2330AB950D1D254F636E159BE927C7E7CFFAA717122103B5584B0",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Observability/BackendDiagnostics.cs",
+        "sha256": "91304D615BECCD02FEFDB4E2D57DEB6CACB7CF39F5C5C2DC28B729629389F1CD",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Observability/DiagnosticActivityScope.cs",
+        "sha256": "4551651257254343088F22FF0FCFF548BC6E9A95DDF39EACE13A758958CF9D1A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Observability/DiagnosticLogScope.cs",
+        "sha256": "62735404449B1A855CAC3B36FB2ADF06B4C34F34CCB84DE195C6241347D19567",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Observability/RetrievalTelemetry.cs",
+        "sha256": "84E00B8CB08FA876E7E9FC8EF7F13A5ECF6BC563E435EE7B11D312D9BF5F116F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Observability/RuntimeGovernanceTelemetry.cs",
+        "sha256": "A94A5F874CDA23A9BD38810ABE2E76DCB55B6DEBD169AE9B61C3201BE36C0664",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Options/AdvancedAnalysisOptions.cs",
+        "sha256": "EE2F62D553B3DFDF84E4E0C79616DFE405DF4DC4CA9236DDD83734BD81EFFE2C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Options/ChatOptions.cs",
+        "sha256": "D7D61AE4DF80F6FFAC03682AE0B77DF29FE2CBE324ACB750470B6B9A6D4EAD90",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Options/DatabaseOptions.cs",
+        "sha256": "189A05DF98C9FC1430269A44E63D4E9DA4C820C190B927118BFDEA1112853D7F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Options/DocumentIntelligenceOptions.cs",
+        "sha256": "9E5F1770080BFC0FEDE1A3F5EF1FBF88F2EFDE114139F1A6B0274C1DB247267A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Options/IngestionOptions.cs",
+        "sha256": "EBBB64B90C33FE4A1FD642F65926B22F4B5449551BDFA1C2F5AC96E168517431",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Options/LicenseOptions.cs",
+        "sha256": "3FA43CEE74550D6083F23C04B40F8CA1C1403191DA012BC93573C79402207EE4",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Options/OpenTelemetryOptions.cs",
+        "sha256": "8A90BDBE03350CCD8E9D78E2337D90946A93BFA90C99EDB80F8B7E11E0CD3CFA",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Options/RagOptions.cs",
+        "sha256": "5DA8D0565C35BB93EBD63EC735E051D1264F715C2E610F7535C781096FAA686F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Options/RateLimitOptions.cs",
+        "sha256": "13F1BCA917039ED8E2C4943274EB281951C32A33324BCD956F418B07C2FECFED",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Options/RuntimeGovernanceOptions.cs",
+        "sha256": "A99C29A56B9DF485A81AEEBC0579CE984FD0B35C68AD24B0B1998ADAFE00C774",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/Canonical/CanonicalDocumentSectionProjector.cs",
+        "sha256": "3B82B20CF607B30FA1C3AC5744F9C8F141133E2E4F425B6CE4843AF2F795A540",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/Canonical/LegacyCanonicalSourceAnchorProjector.cs",
+        "sha256": "525321473A526829ECB6E3A248E5B6754594FBEB7E92D362F27D334544643590",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/Canonical/LegacyPdfCanonicalDocumentAdapter.cs",
+        "sha256": "E1C3EBA9718CECC73F8D93527659AF9E66F2A463D44865E4B4C7A96194132A10",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/Chunker.cs",
+        "sha256": "E63B1E926A79CDFD415BD4DD6DFD9CBC36F39F64DC20C60AD7231CA0C644F36B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/ContextualTextProjector.cs",
+        "sha256": "0B0FE7F73972FEE63FF74A5F17E9FF5A136681D63DF7B4D6911A42EC81D0E5F5",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/DocumentLanguageResolver.cs",
+        "sha256": "F99AF7A42B58BBF6D272E32D708BEFD9ADEF4A2C2F599B28CC432449C14061CF",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/DocumentProfileProjector.CanonicalContentCards.cs",
+        "sha256": "58CECC81497A9334CDFA9AF7ECB0BF5912EE15D82884AF3F8FA10FF9698C8042",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/DocumentProfileProjector.cs",
+        "sha256": "34D0C96EA616234EA6FA48988AF657B5C5DDF632D3ABEAEEAD7C2DF34A93A299",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/DocumentSectionExtractor.cs",
+        "sha256": "7B44400736FA6C7D8C60BF0A594205CFB68C2D60466D263F9E81AB57B2FFC679",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/DocumentTitleNavigationProjector.cs",
+        "sha256": "2D06D9D53C68F847D34A56082BBE3BBE9C0B2ADB28B07193B0C0A86B277C4632",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/DocumentUnitExtractor.cs",
+        "sha256": "1678854042CECA88E1CEEFAC459435126863E1858801F05CA34BDE5029C4FA94",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/ExactMatchEntryExtractor.cs",
+        "sha256": "6099A7A50D1BEC28D3A137B96E00D6C12967239A74ECB8FC443CCE3C883B9973",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/ExtractionQualityDiagnostics.cs",
+        "sha256": "2B8C825AB4F9466E4B73C2DCA4738DE78BFD98F4502C3FF6DD984101468BD47F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/ExtractionQualityPolicy.cs",
+        "sha256": "7C7FE3C69CBC65C6FD12F6C95C21D8B0FD1B94A443DFCBE2DF8D61038F814217",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/OcrNoiseFilter.cs",
+        "sha256": "1F57A67CD0493347F75CFB176DD5C313F6A36BD8C80574C2A321DCE3F5D58A18",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/PdfExtractor.cs",
+        "sha256": "87F96793AA36D45DA34899227096F0ED5D48A5B334E76C64798C34EFA5AD2AE4",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/PdfNativeLayoutExtractor.cs",
+        "sha256": "F15BB8A57121D29C66E66D93AE6C5CBDB1266C4A43355F6025F2D8208392ADB3",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/PdfOcrTextExtractor.cs",
+        "sha256": "47E5C5EA8BCFD0638AAC46E5C8DCFFB11D51E43213B779E9C453971F527CE56E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/PdfTextSanitizer.cs",
+        "sha256": "FFBE2AF2FE622A76D6C35FD10CABAA6C762329205EFCCE44FCBB1AA6A281B448",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/RetrievalChunkProjector.cs",
+        "sha256": "A90C2CCD9CCFE65DF63C73784FA3C5FDAF53A91174447484ABF2B1CD9D9B9B7D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Pdf/StructuredContentLexicon.cs",
+        "sha256": "AF4382339780E3428C155086553620E8504071B0BB72E99E00D0F671226FC7A3",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Program.cs",
+        "sha256": "C01B4AA797E443110C09C6117341AD4109C9FCD7E7EF6B9A0DE8830A0E33942C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Properties/AssemblyInfo.cs",
+        "sha256": "D5E41D5D5605AFC136A4B7EB54AC3AFE15C18B31A553CBB1A0D75321DD4A60F4",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Rag/QdrantClient.cs",
+        "sha256": "47A84DA542FA792625C027C3FD4BB25D3A2902A5C1E489F7E174D7C9257A5AA8",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Rag/RagSearchBulkhead.cs",
+        "sha256": "A746C4E51C3D35A034D6E3E82BEFC790EFD3BE64E4A6C4C95E122D9C794FE020",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Rag/RetrievalContentClassifier.cs",
+        "sha256": "ECED3D3244108DA811C1C62ED6950CF3D851B6D207ED941642748D12B00219F7",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Rag/TeiClient.cs",
+        "sha256": "5E0A12E5BEEC1E56FF19E0676BB798DB46C0524F2BFE4F3A4FDB5D5EAAED4BBE",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Rag/TeiWorkloadGovernor.cs",
+        "sha256": "95A971ADB72B00BD57B9A2F7746F09152A91BCE9D69BA8F4F699AE26CB99C637",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Rag/TitleAnchorNormalizer.cs",
+        "sha256": "AB076D95F40BFFEB8AFF0C613B69C540D0A9DFF7282A5C35D0F3517E02CD8173",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/CanonicalIndexProbe.cs",
+        "sha256": "03FEDF7D996CE1B769350C6DD86820F948935932470037054384A42E405380D0",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/CanonicalRetrieval.cs",
+        "sha256": "B8F08A95CD2CE86D811BB076B8FB730EE1D7F98B783785036F2DEBD91AA64560",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveAmbiguousSourceSuppression.cs",
+        "sha256": "87FAB95AB06310C1ABE28973F9519CA0B083A71102DF08527FB00BD59236855B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveComparativeDiversityBackfill.cs",
+        "sha256": "8BA62E9CDD0428A9F5C0208804DA90F6EA6981DF45D855C467D76297DFED5B98",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveComparativeOperandProfiles.cs",
+        "sha256": "A4AB6395080D2D7A0470E9FC3A59488E2C2B8A1338975A2DEC97C9BA1D411006",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveComparativeSubjects.cs",
+        "sha256": "89972B32327F28D207AB4EFEA7C65C05A6E7038CB57D2FB78AAAB72BBC4E3CBA",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveComparativeTitles.cs",
+        "sha256": "5F02A75AA75D2E5F62D987AB66BB0DA54DC5782D29AD19A971A4A7CA17A46D7F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveDeferredProfileSearch.cs",
+        "sha256": "DAC4292271D7F5817E26FFF0A670E513D14F70C2CDC20024ADE8F6580D7D5E65",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveDirectTechnicalLinkedEvidence.cs",
+        "sha256": "01CE77AFE954079BDC5DEB722E94F709B754433F83623247373C74AD57DE885F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveDirectTechnicalPhrase.cs",
+        "sha256": "FF541031DD2FB8D713ABC0BAF132626AC5A872894166F1F25CE682A220D772F8",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveDiversityCoverageAndContinuation.cs",
+        "sha256": "C6985599651F33377DBC103B40956699B789DF4B88B9E571D686787A30AAC81C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveDocumentHintBackfill.cs",
+        "sha256": "E3A40D81E5C851CC3D30964C1F43571D40A0515F8C954FB30CE9C4C2A44C3BAD",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveDocumentStatusOperands.cs",
+        "sha256": "B26825AA6589A068A86AE77A459F226A4C91B741D12E62EA51CB2B83283F15DD",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveEarlyCompactCodeRecovery.cs",
+        "sha256": "87CF5EA71F00E4971923D96BF565B81E98AFF1066089299D4767403A43A517E0",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveEarlyDateTitleBackfill.cs",
+        "sha256": "E6D6FDEA485115CBD559F7CB14CFCC6A34E8A00B4EE1B83D37B27ADBE19EF4A1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveEarlyReferenceVersionBackfill.cs",
+        "sha256": "A4C472E8A029A7CFF9698C9C062573C22A1B5AF2CBA068D668AED6A1DC271084",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveEmptyCatalogAndLexicalFallback.cs",
+        "sha256": "9426D0636DE13E48D2A001CF90C90DE21FA9F009BF5FCD26B00B11E4E549C5F4",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveEmptyTitleAndProfileRecovery.cs",
+        "sha256": "3FD8B0D304DCFBC3D71BBCEFEAF275FB16025B6BC17DFE2ABD6B337750CD3390",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveEnumerativeLookup.cs",
+        "sha256": "E0F414407BD3709E843C35AF83A1FF3B07BDA43D7947BFF8614B4C0EDD4DB9DF",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFileAndCompanionRecovery.cs",
+        "sha256": "7D96F9A4B965139204BB3C3AC6402FC6E6061F2366F37EE04DD529CF6EA60507",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFinalCompactCodeProfiles.cs",
+        "sha256": "4DE1ABAB3D4BC16DC6BE837F1FD18BAC35A8EC2FF479EC06734205EFBCE328A9",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFinalCompactCodeRecovery.cs",
+        "sha256": "CD383492FB40484A287DC9D1673BFF113CB8A8BD33777F0011407A56145ED25C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFinalDocumentHintEvidence.cs",
+        "sha256": "7BD024FC5E403979CF38931735AC2EC4D32C255F3E2A1CF6F2E23717086DE07F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFinalLexicalProfiles.cs",
+        "sha256": "A1CAEF864209D5313C465A2A5FEFBB4ACA1469B13E670334EE6C207DB9328FB6",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFinalPreciseTitleBackfill.cs",
+        "sha256": "86ADB9667CD8E461E6B3580E587C0DD5DD5FBCE5D9FC9C6D11B90FC3D3F4B76A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFinalStandardReferenceProfiles.cs",
+        "sha256": "DB3130B030C2DD465090F1D39E5F5D7F5DF6D2FEC419CC26BD980A151FB6EDDC",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFocusedEmptyRecovery.cs",
+        "sha256": "81395F77D40DE7353CB28E3F16BF392D401C029550ED17AD39DF9E632F0A65D2",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFocusedOrdering.cs",
+        "sha256": "5B635927D73424DFE9B17717E29F0A00CB41BE758746B3365076DC34BB833F43",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveFuzzyTitleLead.cs",
+        "sha256": "3C18D3B9235DF3FB261A85B145686CE2AF685181658B885B594EBDE0A31930D0",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveInitialLinkedContext.cs",
+        "sha256": "B3B943A17069BBB49F7E979588CF92AF43B396E3EE1EC0D8AC0889F703F0E9BF",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveInitialSelection.cs",
+        "sha256": "F3D6F9C475C46CC2DE2758D206C880EB3AB646C9B6701D76534BB0613EC7F52F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveInitialSelectionCleanup.cs",
+        "sha256": "E4F1B7BEB9023BBF26D449DEC40FF4DEAEA9A41CE0F7EE53F48AFA763B11CDCF",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveLateDateTitleRecovery.cs",
+        "sha256": "84A593B6E128C19F9C882A3C71080D5848D2FEA4190C984DFEB076B04BB6CE1C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveLateOrdering.cs",
+        "sha256": "AC5A7930FBA0977D9E24DE0A39C78C3F5E67596FDF6CC4F396C82FE8BAF4E4CF",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveLateReferenceVersionRecovery.cs",
+        "sha256": "89C798D23ECC64B9430273F34889A51344D3ED3792D07B22EB4CD6EC45252559",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveLateStandardReferenceBackfill.cs",
+        "sha256": "E6EC088BCCB33F24C1E935A5CF6B85A84D2AE8114FCD406768C7FBE109ECFC9B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveLookupRoutes.cs",
+        "sha256": "CB3243147D6880D17D2C7D65C67C8AF3D143D40E50D0AA14584455ED89E8B9D5",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractivePreciseTitleContent.cs",
+        "sha256": "FA77A848CE9213984CB0D4D45055655F198FD91F83536EADE9F32713E0EC2DFA",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractivePrimaryFusion.cs",
+        "sha256": "5A5708B2842707D02A7494D4BBB2BCB0E4341224A07EB33CBEB3A95BC96DF6D5",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractivePrimaryLookup.cs",
+        "sha256": "489FF036859416CD8630A09F83DA64082430289E631228DBA7579CC539B7DCB1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveRequestedPageWindow.cs",
+        "sha256": "0A3D8440F3A49CB780A6651B23509CA590697449FBCFA7D6D78BDEAB5016749E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveResponseProjection.cs",
+        "sha256": "AC9D6C93550D7ACDDCD7ADC011F5F367780CD64C5A6B99803382445A9B340425",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveRetrievalModels.cs",
+        "sha256": "AB9CCE3BCA615807AD72B037A13BB9CFDEC3C40939D9F8F9F470C223C4594D24",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveRetrievalPlanner.cs",
+        "sha256": "B038A5D10257B00EF6DEC9D4E751BBABC261342033519203D949AA8256BD0C8F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveScopedProfileFallback.cs",
+        "sha256": "4F139F70DA67098E1B188D7A46FF86F42CEA8BD91AC56BB6036A55F44A0E1B32",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveSeedLookup.cs",
+        "sha256": "E42E559DE850123A4CCC95498AEB6A6B3394C0BB65E1E00C23326EDF744CD5FF",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/Interactive/InteractiveStepDiagnostics.cs",
+        "sha256": "9C53100D8444C1CEF94EDE887DF09A8CC0F7642BB6596D18F6FAF2793354D5E3",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/RetrievalAnswerGuidance.cs",
+        "sha256": "4D4AAEA9A9BF905AC3B58C64110501E7A3991D1E2BBF6158D6899E66D1DFC9FE",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/RetrievalCandidateSignals.cs",
+        "sha256": "2EC1DCEE879DCC2DE437A1020B6839A83028A1005CAB1A88929B0A95A43D53CF",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/RetrievalChannels.cs",
+        "sha256": "ABE025127B66C7C98C7F2DB79562CC20AB7C80E21A787D4750E7BBAF5CCB99BD",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/RetrievalDiagnosticsBuilder.cs",
+        "sha256": "EEAB35F3A0D2CB0F176F79B9F71D196D3731D1939C009B83C2224411C28BD8D6",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/RetrievalEngine.cs",
+        "sha256": "D4DF5DAC69D30CC5379A23ED1FF66BE07A412A4C4ECA26A2CAEBC6AE2DEB1D74",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/RetrievalEngine.Entry.cs",
+        "sha256": "5B1CCFD897977BA68C287FC76C36E6424DCB43D1888CD29E7FB6E1634F3BBDD6",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/RetrievalExecutionContext.cs",
+        "sha256": "BDB6A35E750D420459C6E472C585E9BB7044B87D9BD5ECF60607ABDAD4A4E0EE",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/RetrievalLexicalExpansion.cs",
+        "sha256": "33350FB836AB42F04962FAEDE372E61A2DF7F2D31B7C34C343C986569304402B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/RetrievalMetadata.cs",
+        "sha256": "C4FDCC2FD48EDE081AA4B3BA1BA9A9574B700139624EE1838DC2966D861C8064",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/RetrievalNavigation.cs",
+        "sha256": "CBE8681E5389FBDCA3C184ADB12DEE6AE84ADD1D8355822B713ECB585B731420",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/RetrievalPhaseDiagnostics.cs",
+        "sha256": "B0A63E0C9BB2625BC9A435E5F37AA2195180F0435CF52E9C8B0777736ABD8D75",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/RetrievalQueryPolicy.cs",
+        "sha256": "E721155498FEB32BB6408058058CB421042496B059EB968A3AB896E77D0A2F8B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/RetrievalResultProjector.cs",
+        "sha256": "B071B5652676DEF1CC5E3D8F5267E7F2B52290606393ED12E9F4EA87950CA121",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/RetrievalRows.cs",
+        "sha256": "04CDECFF474CEEDEC2B513BE475421024031210B064DF38F7B90664D2F57476A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/RetrievalSelection.cs",
+        "sha256": "4B95972FD95ED92195478A5F9758D01512A70DFAD3D5E88BF6A137162163693F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/RetrievalText.cs",
+        "sha256": "D9B0BC99FBACD05C6E1EB8CE1D05632C43AC61F00387DF4ED3C49D2F7B9187B4",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Retrieval/RetrievalTitleSelection.cs",
+        "sha256": "D3CB8EB9A8441E3F7964722C93F46DC5B04C1EFA2FEFCDB49B797518D3C2712F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/CapabilityBLiveRuntimeProbe.cs",
+        "sha256": "8D041D6C01358FE916F1EED28C49D21F7162E169B7FD90ABB7DC59C99EFB548B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityAdminEvaluators.cs",
+        "sha256": "54D86E105F606E31038CE22356E69DFD0E9D8D642CDA2E9781BB16B5C3F704F8",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityAdminReadService.cs",
+        "sha256": "2DE84FE3214FED45A77CFE81384B073ABB609D354D50320E09B59AE5067AC24D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityAEnrichmentCommandService.cs",
+        "sha256": "FF1167453B7E0A89801690E9B1622DD24A9E1F48F0966DBB6083E766605537CD",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityAEnrichmentCoordinator.cs",
+        "sha256": "704B3419175D52AFE1F4959C3BB13FAA64FDBD7D4B767CEDCE06BBADE1AD5365",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityAEnrichmentStore.cs",
+        "sha256": "8E5F8E86A974180604C3594B4D7AF17B7D8AE8A6E70D306382E8F44E6136FB1F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityAKpiService.cs",
+        "sha256": "9E79BF7F3CCA56593765E1093CE1082490CBE48ACB473A6460CF9C12D2E2AD1D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityBBackofficeCommandService.cs",
+        "sha256": "8605318A017CEC35A228E9813B89C08433CCC63671BEC9606FBD3660B37E5D85",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityBBackofficeStore.cs",
+        "sha256": "32A4CB3D6A677532AE7E399F0606D796E294B7C0E20B5BE65AEB2B6F750F135E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityBExecutionCommandService.cs",
+        "sha256": "7BEA30BCAB36999D828172EDA454D6F6AFB585FAA051EFF2659D5162F8FF5159",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityBExecutionCoordinator.cs",
+        "sha256": "19328091952E339B61339F49F8F6721B95534B91785F8DB881E11DD7A432655C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityBExecutionStore.cs",
+        "sha256": "3ECE14DF5060E04BEDBEF45DA188A8D4B9B1C0B2E1193A6D61BDACDD4CC7A069",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityBIngestionIdleCoordinator.cs",
+        "sha256": "5E779663503ECCCEF6CEBB5A8B8AEFB67ABF6A60B049F5DBEFAF9DC167B95BFF",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityBKpiService.cs",
+        "sha256": "EDF16F889DD2E9D5FD16658BD91C28962AE6A6DA1E1C5F4AF2341E82BF308DAF",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityBQualityReviewStore.cs",
+        "sha256": "79882070BD0659259F1E498B1759123933DE6AAE5970BD1DAF7D58A9489779F5",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityBRagIdleCoordinator.cs",
+        "sha256": "483271E7241EA953C5FBBF9CB2252018C5EFFAAC1C677045D78F346753B6B485",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityCampaignStore.cs",
+        "sha256": "75462EA7B67C1CC1E25FCD13EE0B74CCB50CCAD521880C57FA2877EC57097F14",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityDiagnosticsBuilder.cs",
+        "sha256": "2370C3461518ED93B85ABCD1D0A1EC9CF8367ABDFCA65FDCE6D743BC530A74DD",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityGateService.cs",
+        "sha256": "57134E8115BBDF3FD55C9CFFA26D850D56B0A4EEBA4231FFAD07AC983E80243B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityHistoryStore.cs",
+        "sha256": "650F2CF06516FAC6F1619E09F1BAC96CF7400BA432874561A5E1FA22B7651452",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityLifecycleCoordinator.cs",
+        "sha256": "7A39D666C7D4959918FA779601635A5E0CE2DE2206D3F8DC4F9F25322A1E0B32",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityPersistenceStore.cs",
+        "sha256": "35AE761E7355343D8895AD6A2E618FBA841933CB417C4572294D071CF87F484F",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityRegistry.cs",
+        "sha256": "10B754621D669D6C0169B186EDDE08A6B80A55D5FF6CC4893811C6E028BE8255",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilitySelectionCoordinator.cs",
+        "sha256": "2C2B8B5BA2B9A2F132978BDDF2EF74ED3390FB2C454AE3FDD3CC3622C023E259",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilitySelectionOrchestrator.cs",
+        "sha256": "B5FC801183A66F36C27B7131D77E6247CB27FAA64260C1103C239AB4F23E4574",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityStateProjector.cs",
+        "sha256": "50C94DD01CA35A9BDFFCF0B0095ABD96FBC7FDDC0B90A8CB04EC37E5087121D0",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityStateResolver.cs",
+        "sha256": "CA78FBE811401583011B3CC7C501982A69DE1E3D1734EEBF5FFC328777FBEDD5",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCapabilityStateStore.cs",
+        "sha256": "B949C5818973C4C15AF45F2576170B76B0135B8F7C60B884C08CF8DDC5D04315",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCatalogBuilder.cs",
+        "sha256": "CEFF2D8977C5C9D5E8BE6EEA2140B85D601DB0B8DA323D5DD6F4F090493BC7A3",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeCoreRetrievalWarmupEvaluator.cs",
+        "sha256": "C1BD6883DC379D8783E866CFB4030DAB52106D3561659D68F525B327C063DA3D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeDiagnosticsService.cs",
+        "sha256": "28279D615BF2D035765398E4036401D2CF1E11C0460134EBDD36181640E69E50",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeGovernanceCatalogService.cs",
+        "sha256": "A1FFF3C6A00BAF1C8B0BC1B95654B8FECD80F215525E9569B40CD6778FB55659",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeGovernanceCommandService.cs",
+        "sha256": "0969E01C9BBE6BFB229545800AFC640EB8A517614E937880986587EEB15E3031",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeGovernanceGateModels.cs",
+        "sha256": "4078CBE52C975D5100A9AAA788F7F0DDCB7A5C59BF7B4BBF49C37BC988517C13",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeGovernanceJson.cs",
+        "sha256": "39FAEAA9F36E26F9395816614AD54970BE1D4030053FFB3622C1AF31352FD9E1",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeGovernanceOperationModels.cs",
+        "sha256": "D28A3705185C7999736F10B75C8094B7A6383963F2457D54EA419D94A6A107C9",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeGovernanceReadService.cs",
+        "sha256": "F976252CAB1EA4061EAE431C5A887FA9A82B0E8303BC969969F881D22877709B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeGovernanceService.cs",
+        "sha256": "D15C26629695CC35797F85960EBA0D2AC2CFDDFA08B7BE2D0D07E134F4DC4B7A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeLlmCapacityPlanService.cs",
+        "sha256": "87012C082668E31FEA0FA5E1E3519DD905066750ACBA4D79EDF70B039CAFD5F2",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeLlmQueueManager.cs",
+        "sha256": "CD2AE178770E280B29A6AECD6DFD13C7C2CE9A883E9C610E1E34A19942D2C0A5",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/RuntimeGovernance/RuntimeRetrievalKpiService.cs",
+        "sha256": "45B85794DDE4597F55EED2EAA3D2A403F4F1A6309AE2F09AFBF317A138E1E2F4",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/SAAIA.Backend.csproj",
+        "sha256": "F6525B694D54151286B19B94BAFE8F8689FC345D240D5F2C859CD29EF8DA679D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Security/ConfigSignatureOptions.cs",
+        "sha256": "F231845072F1A963DAB24B678728BD14610EF7CD9D70AAAD4E9613AFF1ECD625",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Security/SecretRefResolver.cs",
+        "sha256": "4CDA2DD21CCC50B4B93036757A1BABF25EFF8326E289AC3739923C407161624B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Security/SignedConfigLoader.cs",
+        "sha256": "DEF129AB17D36C511B304620DE992ADD292CA779FD7394B14BA157998071C6C5",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Security/SignedConfigStatus.cs",
+        "sha256": "77E691DC65A8201E7B3D307923D43249581353BD5D523AD9B90D8CF09C093053",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Security/TrustedKeyring.cs",
+        "sha256": "CFFADBD772D584CBE10B9D49A0EFDB419EBB7A68E39FF51E396030CCAF1B0F9E",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Shared/DocPathNormalizer.cs",
+        "sha256": "B8ED6166E8256F9EC9C7F548235E9ED47798C92226C0C533B909122CBB4A55E2",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Shared/IdUtil.cs",
+        "sha256": "24C78C235A11763A8F01551C07C613DAAC7CCBCC8F855C15130755D1FEA0ACF3",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Shared/OpaqueCursor.cs",
+        "sha256": "A52B60E1E55D6C93075EE5C6B4AC0583A68DBC41A8EDE14FFE7BC844F07DCE25",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Shared/PathUtil.cs",
+        "sha256": "3159C3C135E6EB9E3BFBA7646C9898178F79E07EEE5F69F48DFF7DFC95DB565D",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Shared/PostgresTextSanitizer.cs",
+        "sha256": "1B8141EF9CF5EDAAFBB1B63DE2662A9431BEA1FE8A76BDE476491A8401F2C627",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Shared/TextEncodingSanitizer.cs",
+        "sha256": "8BFD19072597535F1E57981FA79745A78621E8D5740EEDD9B5F88100064155F0",
+        "matchesFreeze": true
+      },
+      {
+        "path": "backend/SAAIA.Backend/Tenancy/TenantResolver.cs",
+        "sha256": "A7EDB276522FBE02F3277AAC3B5B702F7F1A3C6C85440D43F56239BF8CE9FB79",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts.Tests/CanonicalContractFixture.cs",
+        "sha256": "079789756DFFFA2713DB6572B1B6FB661D1EE311C86C99FED8E1C0DD628929B8",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts.Tests/CanonicalDocumentContractTests.cs",
+        "sha256": "40E42BFDB3A611FEAFEFCDC40DFA0FBF3D4561BD05042CF86193DDE9F4A383BE",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts.Tests/CanonicalIngestionBundleTests.cs",
+        "sha256": "B7DEA3E42D150A42ACC714AB3494E9B8D2ADD4CF8E85A41DE0B7953C95B056AE",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts.Tests/IngestionManifestContractTests.cs",
+        "sha256": "2083FBF97DB7B0672A4AB4B317DB9B7FDD3497DF848E4ADE37BBBC81FA98A92A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts.Tests/SAAIA.Contracts.Tests.csproj",
+        "sha256": "6FF40F15250A5F7B1E8219FF038CC907072DD9C0E152EA459A9D5C6D62457199",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts.Tests/SourceAnchorContractTests.cs",
+        "sha256": "9A02C6512FE270BD7636DEF9A45EBFD2C19FACD4990C507F83F6CEBFE2A95BC0",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts.Tests/TestProfilePolicyTests.cs",
+        "sha256": "4FE0CC9E8E6C39E89B1553DF5F1EF169C8C90C393CC4232E72EFCD5F57BC0DC0",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts/AdvancedAnalysisContracts.cs",
+        "sha256": "D2C20BA4714ED3674E8FDD22DF73503CA5B90421300C5498635F45BBF7EA782C",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts/ApiContracts.cs",
+        "sha256": "87C11C7BCCCE120BF69000A7CA25CD2DD31A9098A90D3AD80A872813E11BC8E2",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts/DocumentFoundationContracts.cs",
+        "sha256": "27407187130428497F32B41BE7CDDD6CDF192B3C6D0FFEEF49F2C53717E0EB37",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts/DocumentIntelligence/CanonicalContent.cs",
+        "sha256": "0E5B8875FEAC1651312A1FBE2F3CE3111B73B20E212819312CC2D005FCD7F754",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts/DocumentIntelligence/CanonicalContractJson.cs",
+        "sha256": "1E214FBC4FEFAC4FF6F24FC2CE05EAAD7A5C0344CBFF01AF2490A76A3394C47B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts/DocumentIntelligence/CanonicalContractValidator.cs",
+        "sha256": "67559B5A836C376B146BC43349BB9DF5E0CCE8B697441EC4ABB583ADF36BFF44",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts/DocumentIntelligence/CanonicalDocument.cs",
+        "sha256": "A8A1FF236DE4377276E1C99631599FF0F4C4E6C4FA1EA4CEAC34C0C3646BD06B",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts/DocumentIntelligence/CanonicalEvidenceResolver.cs",
+        "sha256": "3D5176D54B6D615A41E8EFD3979E36F3E702EB88E3D3A751FE348DCDBF4CE0D9",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts/DocumentIntelligence/CanonicalGeometry.cs",
+        "sha256": "1CC4CC953B3D87963BC44EAA02DBBC914F05F4F4214A3315EBEB6B268F2F36E4",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts/DocumentIntelligence/CanonicalIngestionBundle.cs",
+        "sha256": "89261A42A1CBDB10E6F7A8E0132ACEA3B54C81D0190AB3CA99A2CD4E2B3446B2",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts/DocumentIntelligence/CanonicalStructuredContent.cs",
+        "sha256": "54A1792FD5DD481729DA17B818210D9A644745B7CED1F1AD56078AF1FE1AFB33",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts/DocumentIntelligence/IngestionManifest.cs",
+        "sha256": "702A118E380280A42F7A4879A4AA65BFD0809F942D47FC66E2D3D19E100FD750",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts/DocumentIntelligence/IngestionManifestValidator.cs",
+        "sha256": "3BAFAF9653FDE96AF3B067341D66195E4F701FF32DB0611717288C35F29D2E03",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts/DocumentIntelligence/SourceAnchor.cs",
+        "sha256": "AC528B8E4914345CC93BCF2DF4AF9B0554C40B0116460246BECC64642AEDB186",
+        "matchesFreeze": true
+      },
+      {
+        "path": "contracts/SAAIA.Contracts/SAAIA.Contracts.csproj",
+        "sha256": "753B6BAE7CC0E384041D9C9D0284D8E75F9CAA0568F74D170B3BE9E743CF406A",
+        "matchesFreeze": true
+      },
+      {
+        "path": "Directory.Build.props",
+        "sha256": "6B6D3B3269E57815BF59B9FA0F61A6B4F60969396D552F21F3741CADD558A137",
+        "matchesFreeze": true
+      },
+      {
+        "path": "tools/testing/CompiledArchitectureContract.cs",
+        "sha256": "0E1EEE1A6A612A545258B7B23854ED11200C27E6896ABB8741AB465F9A9A0887",
+        "matchesFreeze": true
+      },
+      {
+        "path": "tools/testing/fixtures/runtime-probe-server.py",
+        "sha256": "FE554C4000127C02A40BA217BEAAE501E62F6AA6D21FEB622B9A76981DB86EBB",
+        "matchesFreeze": true
+      },
+      {
+        "path": "tools/testing/RuntimeProbes.psm1",
+        "sha256": "4A9F6D543643C343671160106CB0CFDB2F4EBF0DDD0AAE6DDDE28B31C8BB9CED",
+        "matchesFreeze": true
+      },
+      {
+        "path": "tools/testing/Test-RuntimeProbes.ps1",
+        "sha256": "6B5D32433D547824E57F4A9EFFD000F267B1B313397CA35453E02789CFC61E78",
+        "matchesFreeze": true
+      },
+      {
+        "path": "tools/testing/Test-TestProfiles.ps1",
+        "sha256": "87FF2AB6024F26A37D58ACDE8DDA29245350B94D8E2EED2B1603BD122FDF5F49",
+        "matchesFreeze": true
+      },
+      {
+        "path": "tools/testing/TestProfileCoverageTests.cs",
+        "sha256": "C3DCAE57D6C2EF49F5D44CCF2610F6C5B8DA652A38160682D4B85A7F993D6787",
+        "matchesFreeze": true
+      },
+      {
+        "path": "tools/testing/TestProfiles.cs",
+        "sha256": "16EB4CB7B318A14B5E4980EF1ACBD73453E87C0B29D02F4AB666071E4ABC6597",
+        "matchesFreeze": true
+      }
+    ],
+    "checkedFiles": 570
+  },
+  "clientProduction": {
+    "assembly": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.dll",
+    "inspectedAtUtc": "2026-10-24T23:20:35.9887456+02:00",
+    "assemblySha256": "c413454f43e61ccb06643a547e49bb8286c1e87aba3d1c73e58ce7993b9061b5",
+    "clientDiagnosticsPresent": true,
+    "portableCoreReferenced": true,
+    "conditionalTestHookPresent": false,
+    "runnerPhysicalLines": 114,
+    "partialTypeFilesInspected": 142,
+    "reusableRunnerFieldsAreReadonly": true,
+    "methods": [
+      {
+        "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.AcquireIterationCompletion.cs",
+        "name": "AcquireIterationCompletionAsync",
+        "lines": 894
+      },
+      {
+        "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.cs",
+        "name": "RunAsync",
+        "lines": 25
+      },
+      {
+        "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.cs",
+        "name": "RunCoreAsync",
+        "lines": 55
+      },
+      {
+        "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.cs",
+        "name": "ExecuteIterationAsync",
+        "lines": 26
+      },
+      {
+        "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.InitializeExecution.cs",
+        "name": "InitializeExecutionAsync",
+        "lines": 124
+      },
+      {
+        "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.PrepareIteration.cs",
+        "name": "PrepareIterationAsync",
+        "lines": 140
+      },
+      {
+        "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.ProcessIterationSubmissionsAndTools.cs",
+        "name": "ProcessIterationSubmissionsAndToolsAsync",
+        "lines": 702
+      },
+      {
+        "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.VerifyAndReviewIterationDraft.cs",
+        "name": "VerifyAndReviewIterationDraftAsync",
+        "lines": 474
+      }
+    ],
+    "limitation": "Metadata inspection and compilation, no UI or model execution. Other intentionally unconditional legacy ForTests members may still exist."
+  },
+  "profileChecks": {
+    "path": "artifacts/assainissement-20261024/profile-gates-host-parsing-accepted/checks.json",
+    "total": 21,
+    "passed": 21
+  },
+  "runtimeProbeChecks": {
+    "path": "artifacts/validation-refactor/runtime-probes-final.json",
+    "total": 17,
+    "passed": 17
+  },
+  "architecture": {
+    "violations": 0,
+    "sources": 1531,
+    "path": "artifacts/assainissement-20261024/architecture-final.json",
+    "reviewFiles": 21
+  },
+  "effects": {
+    "paidProviderCalls": 0,
+    "serverDeployment": false,
+    "externalCorpusTransmission": false,
+    "newMigration": "069 tested in owned isolated PostgreSQL only",
+    "existingPostgresModified": false
+  },
+  "limits": [
+    "Semantic product acceptance and meal-planning not executed",
+    "Native WinUI/PDF visual flow not executed",
+    "Vector index parity not tested by canonical presence probe",
+    "Backend/PG sourceChangedDuringRun reflects concurrent client edits; relevant frozen source and executed assembly identities are reconciled above",
+    "Large inherited partial aggregates and 894/702-line phase methods remain documented maintenance debt",
+    "Remote CI workflow delivered, remote execution not observed"
+  ]
+}

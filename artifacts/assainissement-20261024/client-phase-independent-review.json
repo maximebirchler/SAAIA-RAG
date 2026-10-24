@@ -1,0 +1,115 @@
+{
+  "schemaVersion": "saaia-client-phase-independent-review-v1",
+  "reviewedAtUtc": "2026-10-24T20:49:43.2698098+00:00",
+  "gitCommit": "1b0200624b48ba836c4d2fba7e19dcfee0f1d870",
+  "gitDirty": true,
+  "reviewer": "implement_validation_tooling",
+  "providerCalls": 0,
+  "buildsExecutedByReviewer": 0,
+  "scope": "Read-only independent review of frozen client run/iteration state, initialization, four ordered phases, generic portable pipeline and typed control outcomes.",
+  "result": "No introduced control-flow or cross-run state defect identified. One silent observer-health defect found and corrected by owning agent. Final rebuilt global test gate remains required.",
+  "findings": [
+    {
+      "id": "CLIENT-PHASE-01",
+      "problem": "Initial pipeline swallowed observer exceptions without any failure count or health event.",
+      "tests": [
+        "AgentIterationPipelineTests.Observer_failure_cannot_replace_the_completed_result",
+        "AgentIterationPipelineTests.Failed_or_cancelled_phase_is_observed_and_never_reaches_later_phases"
+      ],
+      "priority": "P1",
+      "status": "fixed_in_frozen_sources_final_global_run_pending",
+      "fix": "Per-run AgentIterationObserverHealth uses Interlocked counter, passed explicitly to pipeline; runner finally emits collector_health. Probe iteration uses lifecycle.Iteration after budget retry decrements turn."
+    }
+  ],
+  "casesReviewed": [
+    "Continue short-circuits phases and preserves the outer increment and inherited retry turn--.",
+    "Stop exits the pipeline, then the switch and outer loop, reaching the existing safe-result builder.",
+    "Complete requires a non-null result, skips remaining phases and returns the exact result.",
+    "Rewriter converts only exits targeting the original outer loop; nearest inner loop/switch and lambda/local-function exits remain local.",
+    "Run state is allocated within each RunCore call; iteration state is freshly allocated per turn. No new execution state is stored on reusable runner.",
+    "Existing candidate/evidence/selection/budget gate inputs and instruction order are preserved; extraction adds no semantic decision by code.",
+    "Caller token still reaches stages. Pipeline records caller cancellation, then rethrows; outer lifecycle records failed/cancelled outcome.",
+    "Telemetry scope still covers initialization and all turns; terminal-review budget scope stays within its semantic-review block."
+  ],
+  "staticPreservation": {
+    "runReturns": 6.0,
+    "outerBreaks": 9.0,
+    "partitionedInstructions": 83,
+    "orderPreserved": true,
+    "providedProof": "artifacts/client-cleanup-20261024/runner-phase-extraction-proof.json",
+    "proofReviewed": true,
+    "allSevenActualOutputHashesMatchProvidedProof": true,
+    "limitation": "Implementing agent supplied the static transformation proof. Reviewer checked its target-detection algorithm and actual output hashes independently. This does not establish model semantic quality.",
+    "reviewerReexecutedTransformation": false,
+    "outerContinues": 23.0
+  },
+  "behavioralEvidence": {
+    "testsReviewed": [
+      "AgentIterationPipelineTests.Ordered_phases_share_only_their_run_and_iteration_and_short_circuit",
+      "AgentIterationPipelineTests.Failed_or_cancelled_phase_is_observed_and_never_reaches_later_phases",
+      "SourceBackedAgentV2Tests.Reused_runner_keeps_overlapping_requests_evidence_and_iteration_budgets_separate"
+    ],
+    "nativeRoutingManifest": "artifacts/extract-native-routing-20261024/targeted-tests-corrected/manifest.json",
+    "profileGateChecksPassed": 21,
+    "nativeRoutingObserved": {
+      "ClientCorePassed": 10,
+      "ClientPassed": 113
+    },
+    "profileRegression": "New PG parsing initially rejected valid local Host strings because PowerShell adapted .ConnectionString assignment as a dictionary entry. Corrected with CLR setter/getter and positive tests matching the isolated fixture plus quoted values; duplicate/alias/multi-host counterexamples are rejected.",
+    "profileGateEvidence": "artifacts/assainissement-20261024/profile-gates-host-parsing-accepted/checks.json"
+  },
+  "testContractChanges": {
+    "sharedInspector": "tools/testing/CompiledArchitectureContract.cs",
+    "limitation": "Architecture guards do not replace execution of every branch end to end.",
+    "method": "Compiled calls/literals and typed Outcome.Stop replace stale source path and exact whitespace.",
+    "files": [
+      "Bug137CumulativeLlmBudgetContractTests.cs",
+      "SourceBackedRagArchitectureTests.cs"
+    ]
+  },
+  "residualDebt": [
+    "Four phases remain private methods on the same runner; substantial documentary policies have not become independent domain services.",
+    "State ownership is explicit, but the per-run state is broad: 80 lifted run locals and 25 iteration locals, plus its root identifiers/lifecycle.",
+    "Native routing now has real portable reader/wire-identifier owners and separate pure prompt/tool-catalog owners, with no compatibility facade left only for old tests.",
+    "Physical size ceilings and successful extraction alone do not close all of A03 or establish perfection.",
+    "Normal installed-binary success/error/cancel/resume smoke and paid semantic acceptance remain separate unexecuted gates."
+  ],
+  "reviewedFileHashes": [
+    {
+      "sha256": "D8B0E947290D464C14FF715DC4FA268F02B1333F3FC5C4B6BCA64B8B8A23817D",
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.PrepareIteration.cs"
+    },
+    {
+      "sha256": "2C5CF5340CC8AEC8CA355ACD3D61B4F8A0F29D7CDF236BF7E1069BC58D8EA98E",
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.AcquireIterationCompletion.cs"
+    },
+    {
+      "sha256": "B9088F3BAE923D2C54EA7CCA54EF5A5A2C5337DA9C7A11AB164362A0237C90D7",
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.ProcessIterationSubmissionsAndTools.cs"
+    },
+    {
+      "sha256": "2A72AC0DBE953D43B00F4A1D2F3EA67408BD90A81FFAE1E405E317BE7C635BEA",
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.VerifyAndReviewIterationDraft.cs"
+    },
+    {
+      "sha256": "3122B8AB379E1F4FA279654D880A208C05B8E8D76F1AAA2D1DED2878922133AA",
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.InitializeExecution.cs"
+    },
+    {
+      "sha256": "ADDB6E7D29E24EF94781C5A406E204E232C387D7AD89CD69581FAC4BE3CAB50C",
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.ExecutionState.cs"
+    },
+    {
+      "sha256": "F8693608C9D0C68C0A355D7A354F4E3AB8AB9827B637367AB7B73E2F5729E5BE",
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.cs"
+    },
+    {
+      "sha256": "4F4F42A7E166810D79C0ED6095EB3AE37072C42A4FC650F7FB7A83192857FD51",
+      "path": "client/SAAIA.Client.Core/Execution/AgentIterationOutcome.cs"
+    },
+    {
+      "sha256": "AA77FDE00555CE40C92118420FE9A5A57B98E988EA1329F8F9472BEAE39DFAA2",
+      "path": "client/SAAIA.Client.Core/Execution/AgentIterationPipeline.cs"
+    }
+  ]
+}

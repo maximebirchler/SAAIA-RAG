@@ -10,11 +10,17 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using SAAIA.Client.WinUI.Services.ToolAgent;
+using SAAIA.Client.Core.Diagnostics;
+using System.Threading;
 
 namespace SAAIA.Client.WinUI.Services;
 
 internal static class SupportBundleBuilder
 {
+    private sealed record BundlePiece(string Path, string Status, string? Reason = null);
+    private sealed record BundleCollection(string Root, List<BundlePiece> Pieces);
+    private static readonly AsyncLocal<BundleCollection?> Collection = new();
+
     public static string SupportDir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "support");
 
@@ -22,7 +28,8 @@ internal static class SupportBundleBuilder
         AppSettings settings,
         object? agentRuntimeSnapshot = null,
         IReadOnlyCollection<string>? include = null,
-        string? localAppDataRoot = null)
+        string? localAppDataRoot = null,
+        Func<string, Uri, Task>? probeWriter = null)
     {
         Directory.CreateDirectory(SupportDir);
 
@@ -31,8 +38,12 @@ internal static class SupportBundleBuilder
 
         var staging = Path.Combine(SupportDir, $"staging_{Guid.NewGuid():N}");
         Directory.CreateDirectory(staging);
+        var previousCollection = Collection.Value;
+        var pieces = new List<BundlePiece>();
+        Collection.Value = new(staging, pieces);
 
         var includes = new HashSet<string>((include ?? Array.Empty<string>()).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()), StringComparer.OrdinalIgnoreCase);
+        var writeProbe = probeWriter ?? WriteProbeAsync;
         var includeAgentRuntime = includes.Count == 0
             || includes.Contains("diagnostics")
             || includes.Contains("diagnostics/agent-runtime")
@@ -44,7 +55,9 @@ internal static class SupportBundleBuilder
             File.WriteAllText(Path.Combine(staging, "README.txt"),
                 "SAAIA support bundle (redacted)\r\n" +
                 "- No API key is included.\r\n" +
-                "- Contains logs, settings (non-sensitive), environment info, and readiness probes.\r\n");
+                "- Legacy log content is omitted unless SAAIA_DIAGNOSTIC_CONTENT=true.\r\n" +
+                "- Content-free turn records, collection status, settings and readiness probes are included.\r\n" +
+                "- A successful Windows launch does not prove PDF page rendering.\r\n");
 
             // 2) Settings (non-sensitive)
             CopyIfExists(Path.Combine(LocalClientDir(localAppDataRoot), "settings.json"), Path.Combine(staging, "settings.json"));
@@ -104,13 +117,13 @@ internal static class SupportBundleBuilder
                     if (runtimeEvents.Count > 0)
                     {
                         var lines = runtimeEvents.Select(item =>
-                            $"{item.At.ToLocalTime():g} | {item.RuntimeId} | {item.EventKind} | build={item.Build ?? "-"} | previous={item.PreviousBuild ?? "-"} | model={item.ModelId ?? "-"} | detail={item.Detail ?? "-"}");
+                            $"{item.At.ToLocalTime():g} | {item.RuntimeId} | {item.EventKind} | build={item.Build ?? "-"} | previous={item.PreviousBuild ?? "-"} | model={item.ModelId ?? "-"} | detail={(ClientDiagnostics.IncludeContent ? item.Detail ?? "-" : "[REDACTED]")}");
                         File.WriteAllLines(Path.Combine(llmDir, "runtime_event_log.txt"), lines, Encoding.UTF8);
                     }
                 }
-                catch
+                catch (Exception exception)
                 {
-                    // ignore
+                    pieces.Add(new("llm/runtime_event_log.txt", "failed", exception.GetType().Name));
                 }
                 var rtTag = Path.Combine(LlamaCppReleaseDownloader.CpuRuntimeDir, "runtime.tag");
                 CopyIfExists(rtTag, Path.Combine(llmDir, "embedded.runtime.tag"));
@@ -130,7 +143,10 @@ internal static class SupportBundleBuilder
                 File.WriteAllText(Path.Combine(llmDir, "embedded.runtime.json"),
                     JsonSerializer.Serialize(rtInfo, new JsonSerializerOptions { WriteIndented = true }));
             }
-            catch { /* ignore */ }
+            catch (Exception exception)
+            {
+                pieces.Add(new("llm/embedded.runtime.json", "failed", exception.GetType().Name));
+            }
 
 
             // 6) Logs (last 40)
@@ -142,7 +158,10 @@ internal static class SupportBundleBuilder
 
                 foreach (var f in GetLatestFiles(logsDir, 40))
                 {
-                    CopyIfExists(f, Path.Combine(outLogs, Path.GetFileName(f)));
+                    if (ClientDiagnostics.IncludeContent)
+                        CopyIfExists(f, Path.Combine(outLogs, Path.GetFileName(f)));
+                    else
+                        WriteMetadataLog(f, Path.Combine(outLogs, Path.GetFileName(f)));
                 }
             }
 
@@ -173,11 +192,13 @@ internal static class SupportBundleBuilder
                 JsonSerializer.Serialize(runtimeInfo, new JsonSerializerOptions { WriteIndented = true }));
 
             // 8) Probes (no auth)
-            await WriteProbeAsync(Path.Combine(staging, "backend_ready.json"),
-                new Uri(new Uri(settings.BackendUrl.TrimEnd('/')), "/ready")).ConfigureAwait(false);
+            await WriteCollectedProbeAsync(Path.Combine(staging, "backend_ready.json"),
+                () => new Uri(new Uri(settings.BackendUrl.TrimEnd('/')), "/ready"), writeProbe,
+                injected: probeWriter is not null).ConfigureAwait(false);
 
-            await WriteProbeAsync(Path.Combine(staging, "llm_models.json"),
-                new Uri(new Uri(settings.LlmBaseUrl.TrimEnd('/')), "models")).ConfigureAwait(false);
+            await WriteCollectedProbeAsync(Path.Combine(staging, "llm_models.json"),
+                () => new Uri(new Uri(settings.LlmBaseUrl.TrimEnd('/')), "models"), writeProbe,
+                injected: probeWriter is not null).ConfigureAwait(false);
 
             // 8b) Agent runtime diagnostics (optional but enabled by default)
             if (includeAgentRuntime && agentRuntimeSnapshot is not null)
@@ -202,8 +223,29 @@ internal static class SupportBundleBuilder
                 }
             }
 
+            // Every entry point exports the same bounded production history, even without an orchestrator instance.
+            var commonDiagnostics = Path.Combine(staging, "diagnostics");
+            Directory.CreateDirectory(commonDiagnostics);
+            File.WriteAllText(Path.Combine(commonDiagnostics, "client-turns.json"), JsonSerializer.Serialize(
+                ClientDiagnostics.Snapshot(), new JsonSerializerOptions { WriteIndented = true }));
+            pieces.Add(new("diagnostics/client-turns.json", "present"));
+            if (!includeAgentRuntime || agentRuntimeSnapshot is null)
+                pieces.Add(new("diagnostics/agent-runtime.json", "unavailable", "no_live_orchestrator_snapshot"));
+            RedactStructuredContent(staging);
             // 9) Create zip
             RedactExternalLlmSecrets(staging);
+            File.WriteAllText(Path.Combine(staging, "collection-manifest.json"), JsonSerializer.Serialize(new
+            {
+                schemaVersion = "saaia.support-collection.v1", capturedAtUtc = DateTimeOffset.UtcNow,
+                probeImplementation = probeWriter is null ? "http" : "injected",
+                contentMode = ClientDiagnostics.IncludeContent ? "explicit_content" : "metadata_only",
+                collectorFailures = ClientDiagnostics.Journal.CollectorFailures,
+                collectionComplete = pieces.All(piece => piece.Status != "failed")
+                    && ClientDiagnostics.Journal.CollectorFailures == 0 && ClientLog.FailedWrites == 0,
+                pieces,
+                files = Directory.EnumerateFiles(staging, "*", SearchOption.AllDirectories)
+                    .Select(path => Path.GetRelativePath(staging, path).Replace('\\', '/')).OrderBy(path => path).ToArray()
+            }, new JsonSerializerOptions { WriteIndented = true }));
             if (File.Exists(zipPath)) File.Delete(zipPath);
             ZipFile.CreateFromDirectory(staging, zipPath, CompressionLevel.Fastest, includeBaseDirectory: false);
 
@@ -211,8 +253,59 @@ internal static class SupportBundleBuilder
         }
         finally
         {
+            Collection.Value = previousCollection;
             try { Directory.Delete(staging, recursive: true); } catch { }
         }
+    }
+
+    private static void WriteMetadataLog(string source, string destination)
+    {
+        try
+        {
+            var structured = File.ReadLines(source).Where(line => line.Contains("CLIENT_PROBE ", StringComparison.Ordinal)).ToList();
+            structured.Insert(0, "[REDACTED] Legacy log content omitted by metadata-only export policy.");
+            File.WriteAllLines(destination, structured, Encoding.UTF8);
+            RecordPiece(destination, "present", "metadata_filtered");
+        }
+        catch (Exception exception)
+        {
+            RecordPiece(destination, "failed", exception.GetType().Name);
+        }
+    }
+
+    private static void RedactStructuredContent(string staging)
+    {
+        foreach (var path in Directory.EnumerateFiles(staging, "*.json", SearchOption.AllDirectories))
+        {
+            try
+            {
+                var original = File.ReadAllText(path);
+                var redacted = SupportDiagnosticRedactor.RedactJson(original, ClientDiagnostics.IncludeContent);
+                if (!System.Text.Json.Nodes.JsonNode.DeepEquals(System.Text.Json.Nodes.JsonNode.Parse(original),
+                        System.Text.Json.Nodes.JsonNode.Parse(redacted)))
+                {
+                    File.WriteAllText(path, redacted);
+                    RefreshExportChecksum(path);
+                    RecordPiece(path, "present", "redacted_copy");
+                }
+            }
+            catch (Exception exception)
+            {
+                // Never ship an unreadable JSON file which could contain unredacted secrets or text.
+                File.WriteAllText(path, "{\"status\":\"unavailable\",\"reason\":\"redaction_failed\"}");
+                RefreshExportChecksum(path);
+                RecordPiece(path, "failed", exception.GetType().Name);
+            }
+        }
+    }
+
+    private static void RefreshExportChecksum(string path)
+    {
+        var sidecar = path + ".sha256";
+        if (!File.Exists(sidecar)) return;
+        if (!File.Exists(sidecar + ".source")) File.Copy(sidecar, sidecar + ".source");
+        File.WriteAllText(sidecar, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant());
+        RecordPiece(sidecar, "present", "checksum_of_redacted_export_original_in_source_sidecar");
     }
 
     private static void RedactExternalLlmSecrets(string stagingDirectory)
@@ -226,9 +319,6 @@ internal static class SupportBundleBuilder
             .Select(static value => value!.Trim())
             .Distinct(StringComparer.Ordinal)
             .ToArray();
-        if (secrets.Length == 0)
-            return;
-
         var textExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             ".json", ".jsonl", ".log", ".txt", ".yaml", ".yml"
@@ -237,10 +327,15 @@ internal static class SupportBundleBuilder
         {
             if (!textExtensions.Contains(Path.GetExtension(path)))
                 continue;
-            var content = File.ReadAllText(path);
+            var original = File.ReadAllText(path);
+            var content = SupportDiagnosticRedactor.RedactText(original);
             foreach (var secret in secrets)
                 content = content.Replace(secret, "[REDACTED]", StringComparison.Ordinal);
-            File.WriteAllText(path, content, Encoding.UTF8);
+            if (!string.Equals(original, content, StringComparison.Ordinal))
+            {
+                File.WriteAllText(path, content, Encoding.UTF8);
+                RefreshExportChecksum(path);
+            }
         }
     }
 
@@ -291,11 +386,24 @@ internal static class SupportBundleBuilder
     {
         try
         {
-            if (!File.Exists(src)) return;
+            if (!File.Exists(src))
+            {
+                RecordPiece(dst, "unavailable", "optional_file_missing");
+                return;
+            }
             Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+            if (!ClientDiagnostics.IncludeContent && Path.GetExtension(src) is ".log" or ".txt")
+            {
+                WriteMetadataLog(src, dst);
+                return;
+            }
             File.Copy(src, dst, overwrite: true);
+            RecordPiece(dst, "present");
         }
-        catch { }
+        catch (Exception exception)
+        {
+            RecordPiece(dst, "failed", exception.GetType().Name);
+        }
     }
 
     private static IEnumerable<string> GetLatestFiles(string dir, int max)
@@ -313,9 +421,35 @@ internal static class SupportBundleBuilder
                 list.Add(files[i]);
             return list;
         }
-        catch
+        catch (Exception exception)
         {
+            if (Collection.Value is { } collection)
+                RecordPiece(Path.Combine(collection.Root, "logs"), "failed", exception.GetType().Name);
             return Array.Empty<string>();
+        }
+    }
+
+    private static void RecordPiece(string destination, string status, string? reason = null)
+    {
+        if (Collection.Value is not { } collection) return;
+        collection.Pieces.Add(new(Path.GetRelativePath(collection.Root, destination).Replace('\\', '/'), status, reason));
+    }
+
+    private static async Task WriteCollectedProbeAsync(string outputPath, Func<Uri> resolveUri,
+        Func<string, Uri, Task> writeProbe, bool injected)
+    {
+        try
+        {
+            await writeProbe(outputPath, resolveUri()).ConfigureAwait(false);
+            if (injected) RecordPiece(outputPath, File.Exists(outputPath) ? "present" : "failed",
+                File.Exists(outputPath) ? "injected_probe" : "probe_output_missing");
+        }
+        catch (Exception exception)
+        {
+            RecordPiece(outputPath, "failed", exception.GetType().Name);
+            // A failed optional readiness capture must not discard the rest of the support archive.
+            try { File.WriteAllText(outputPath, "{\"status\":\"unavailable\",\"reason\":\"probe_collection_failed\"}"); }
+            catch (Exception writeException) { RecordPiece(outputPath, "failed", "fallback_" + writeException.GetType().Name); }
         }
     }
 
@@ -332,10 +466,11 @@ internal static class SupportBundleBuilder
                 ["url"] = uri.ToString(),
                 ["status"] = (int)resp.StatusCode,
                 ["ok"] = resp.IsSuccessStatusCode,
-                ["body"] = TryParseJson(body) ?? body
+                ["body"] = TryParseJson(body) ?? (ClientDiagnostics.IncludeContent ? body : "[REDACTED non-JSON response]")
             };
 
             File.WriteAllText(outputPath, JsonSerializer.Serialize(obj, new JsonSerializerOptions { WriteIndented = true }));
+            RecordPiece(outputPath, resp.IsSuccessStatusCode ? "present" : "failed", resp.IsSuccessStatusCode ? null : "http_unsuccessful");
         }
         catch (Exception ex)
         {
@@ -343,9 +478,10 @@ internal static class SupportBundleBuilder
             {
                 ["url"] = uri.ToString(),
                 ["ok"] = false,
-                ["error"] = ex.GetType().Name + ": " + ex.Message
+                ["error"] = ex.GetType().Name
             };
             File.WriteAllText(outputPath, JsonSerializer.Serialize(obj, new JsonSerializerOptions { WriteIndented = true }));
+            RecordPiece(outputPath, "failed", ex.GetType().Name);
         }
     }
 

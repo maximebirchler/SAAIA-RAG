@@ -12,7 +12,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 public sealed class LiveDocumentOverviewTwoPassWriterProbeTests(
     ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_document_overview_two_pass_writer_is_captured_when_enabled()
     {
         if (!string.Equals(
@@ -23,7 +24,7 @@ public sealed class LiveDocumentOverviewTwoPassWriterProbeTests(
         {
             output.WriteLine(
                 "Skipped: enable SAAIA_LIVE_DOCUMENT_OVERVIEW_TWO_PASS_PROBE to run source-language normalization followed by target-language translation.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var inputArtifact = Require(
@@ -183,7 +184,8 @@ public sealed class LiveDocumentOverviewTwoPassWriterProbeTests(
         }
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_document_overview_structurally_readable_pool_writer_is_captured_when_enabled()
     {
         if (!string.Equals(
@@ -194,7 +196,7 @@ public sealed class LiveDocumentOverviewTwoPassWriterProbeTests(
         {
             output.WriteLine(
                 "Skipped: enable SAAIA_LIVE_DOCUMENT_OVERVIEW_READABLE_POOL_PROBE to run the one-pass writer over mechanically readable evidence.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var inputArtifact = Require(

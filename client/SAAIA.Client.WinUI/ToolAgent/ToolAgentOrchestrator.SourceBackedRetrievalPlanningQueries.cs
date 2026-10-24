@@ -402,35 +402,6 @@ public sealed partial class ToolAgentOrchestrator
             yield return term;
     }
 
-    private static IEnumerable<string> BuildConcreteStructuredPlanningInventoryTermsForRetrieval(string language, string? query = null)
-    {
-        yield break;
-    }
-
-    private static IEnumerable<string> BuildDocumentCandidateListDiscoveryQueries(string candidateNoun, string language)
-    {
-        candidateNoun = CollapseWhitespace(candidateNoun);
-        if (string.IsNullOrWhiteSpace(candidateNoun))
-            yield break;
-
-        language = NormalizeLanguageCode(language);
-        var listTerms = language switch
-        {
-            "en" => new[] { "index", "list", "contents", "table of contents", "catalog" },
-            "es" => new[] { "indice", "lista", "contenido", "tabla de contenido", "catalogo" },
-            "pt" => new[] { "indice", "lista", "conteudo", "sumario", "catalogo" },
-            "de" => new[] { "index", "liste", "inhalt", "inhaltsverzeichnis", "katalog" },
-            "it" => new[] { "indice", "lista", "contenuto", "sommario", "catalogo" },
-            _ => new[] { "index", "liste", "sommaire", "table des matieres", "catalogue" }
-        };
-
-        foreach (var listTerm in listTerms)
-        {
-            yield return $"{listTerm} {candidateNoun}";
-            yield return $"{candidateNoun} {listTerm}";
-        }
-    }
-
     private static IEnumerable<string> ExpandPlanningSlotRetrievalTermVariants(string? term)
     {
         var normalized = NormalizeLexicalLookup(term);

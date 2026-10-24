@@ -559,7 +559,7 @@ public sealed partial class MainWindow
 
     private async Task<bool> TryExecuteHelpDirectCommandAsync(string commandId, object args, string displayText)
     {
-        if (_isGenerating)
+        if (_isGenerating || _isLoadingSession)
         {
             Status(ClientUiText.Get("status.help_busy", UiLang));
             return false;
@@ -571,6 +571,10 @@ public sealed partial class MainWindow
             return false;
         }
 
+        using var conversationTurn = _conversationActivity.TryBeginTurn(_sessionId!);
+        if (conversationTurn is null) return false;
+        var turnSessionId = conversationTurn.SessionId!;
+        var turnCancellationToken = conversationTurn.CancellationToken;
         ChatMessageItem? assistantMsg = null;
 
         try
@@ -581,9 +585,6 @@ public sealed partial class MainWindow
             UpdateUiState(isGenerating: true);
             InputBox.Text = string.Empty;
             ClearStagedOutboundMessage();
-
-            _cts?.Cancel();
-            _cts = new CancellationTokenSource();
 
             assistantMsg = new ChatMessageItem
             {
@@ -608,7 +609,7 @@ public sealed partial class MainWindow
                     DisplayText = displayText,
                     Language = UiLang
                 },
-                _cts.Token).ConfigureAwait(true);
+                turnCancellationToken).ConfigureAwait(true);
 
             assistantMsg.ProgressText = null;
             assistantMsg.Content = string.IsNullOrWhiteSpace(result.FinalAnswer)
@@ -643,16 +644,16 @@ public sealed partial class MainWindow
                 }
             }
 
-            var persistedAssistantMsg = await _api.AddMessageAsync(_sessionId!, "assistant", assistantMsg.Content, result.SourcesPayload, CancellationToken.None, assistantMsg.StatusNote, assistantMsg.ProgressText, assistantMsg.TrackingMeta);
+            var persistedAssistantMsg = await _api.AddMessageAsync(turnSessionId, "assistant", assistantMsg.Content, result.SourcesPayload, CancellationToken.None, assistantMsg.StatusNote, assistantMsg.ProgressText, assistantMsg.TrackingMeta);
             if (!string.IsNullOrWhiteSpace(persistedAssistantMsg?.MessageId))
                 assistantMsg.MessageId = persistedAssistantMsg!.MessageId;
 
             if (!detachTrackedJobToAdminPanel && result.TrackedJob is not null && !string.IsNullOrWhiteSpace(result.TrackedJob.JobId))
-                await StartAndRefreshDirectCommandJobTrackerAsync(result.TrackedJob, assistantMsg, _sessionId).ConfigureAwait(true);
+                await StartAndRefreshDirectCommandJobTrackerAsync(result.TrackedJob, assistantMsg, turnSessionId).ConfigureAwait(true);
 
             try
             {
-                await RefreshSessionsAsync(preferSessionId: _sessionId, CancellationToken.None);
+                await RefreshSessionsAsync(CancellationToken.None);
             }
             catch
             {
@@ -680,6 +681,7 @@ public sealed partial class MainWindow
         }
         finally
         {
+            conversationTurn.Dispose();
             UpdateUiState(isGenerating: false);
             SetTyping(false);
             UpdateJumpButton();
@@ -770,9 +772,6 @@ public sealed partial class MainWindow
         button.Click += async (_, __) => await onClick().ConfigureAwait(true);
         return button;
     }
-
-    private static bool HasAny(HashSet<string> values, params string[] ids)
-        => ids.Any(values.Contains);
 
     private static string GetExactDocumentFileLabel(HelpDocument doc)
     {

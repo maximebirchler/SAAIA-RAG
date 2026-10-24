@@ -14,7 +14,8 @@ namespace SAAIA.Backend.Tests;
 
 public sealed class LiveAdvancedRetrievalPacketTests(ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LiveLocal")]
+    [ProfileFact("LiveLocal")]
     public async Task Advanced_meal_searches_expose_revalidated_content_cards_when_explicitly_enabled()
     {
         if (!string.Equals(
@@ -25,7 +26,7 @@ public sealed class LiveAdvancedRetrievalPacketTests(ITestOutputHelper output)
         {
             output.WriteLine(
                 "Skipped: set SAAIA_RUN_ADVANCED_RETRIEVAL_PACKET_TEST=1 for the read-only live retrieval probe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var artifactDirectory = Require(
@@ -141,7 +142,8 @@ public sealed class LiveAdvancedRetrievalPacketTests(ITestOutputHelper output)
         output.WriteLine("Artifact: " + artifactPath);
     }
 
-    [Fact]
+    [Trait("Profile", "LiveLocal")]
+    [ProfileFact("LiveLocal")]
     public async Task Advanced_job_audit_exports_revalidated_tool_history_when_explicitly_enabled()
     {
         if (!string.Equals(
@@ -152,7 +154,7 @@ public sealed class LiveAdvancedRetrievalPacketTests(ITestOutputHelper output)
         {
             output.WriteLine(
                 "Skipped: set SAAIA_RUN_ADVANCED_JOB_AUDIT_TEST=1 for the read-only live job audit.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var artifactDirectory = Require(

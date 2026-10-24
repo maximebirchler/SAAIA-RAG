@@ -57,49 +57,6 @@ public sealed partial class SourceBackedAgentV2Runner
             ClientJson.CamelCase);
     }
 
-    private static JsonElement BuildCandidateBatchDirectLabelAuditSchema(
-        IReadOnlyList<EvidenceItem> candidates)
-    {
-        var labelProperties = new Dictionary<string, object?>(
-            StringComparer.Ordinal);
-        for (var index = 0; index < candidates.Count; index++)
-        {
-            labelProperties[CandidateAuditKey(index)] =
-                new Dictionary<string, object?>
-                {
-                    ["type"] = "string",
-                    ["enum"] = new[] { string.Empty }
-                        .Concat(BuildCandidateBatchDisplayValueOptions(
-                            candidates[index]))
-                        .ToArray()
-                };
-        }
-
-        return JsonSerializer.SerializeToElement(
-            new Dictionary<string, object?>
-            {
-                ["type"] = "object",
-                ["properties"] = new Dictionary<string, object?>
-                {
-                    ["selectedLabelsByCandidateKey"] =
-                        new Dictionary<string, object?>
-                        {
-                            ["type"] = "object",
-                            ["description"] =
-                                "Une decision par cle courte c1, c2, etc. Chaine vide rejette; sinon le libelle exact est recopie.",
-                            ["properties"] = labelProperties,
-                            ["required"] = Enumerable.Range(0, candidates.Count)
-                                .Select(CandidateAuditKey)
-                                .ToArray(),
-                            ["additionalProperties"] = false
-                        }
-                },
-                ["required"] = new[] { "selectedLabelsByCandidateKey" },
-                ["additionalProperties"] = false
-            },
-            ClientJson.CamelCase);
-    }
-
     private static JsonElement BuildCandidateBatchAuditSchema(
         IReadOnlyList<EvidenceItem> candidates)
     {

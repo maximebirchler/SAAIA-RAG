@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -19,44 +19,6 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
 public sealed partial class ToolAgentOrchestrator
 {
-
-    private static bool TryParseAnswerEnvelope(string json, out string? finalAnswer, out List<ToolMemory.SourceRef>? sources)
-    {
-        finalAnswer = null;
-        sources = null;
-
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            if (root.TryGetProperty("finalAnswer", out var a) && a.ValueKind == JsonValueKind.String)
-                finalAnswer = a.GetString();
-            else
-                finalAnswer = "";
-
-            if (root.TryGetProperty("sources", out var sArr) && sArr.ValueKind == JsonValueKind.Array)
-            {
-                var list = new List<ToolMemory.SourceRef>();
-                foreach (var s in sArr.EnumerateArray())
-                {
-                    if (s.ValueKind != JsonValueKind.Object) continue;
-
-                    var source = TryBuildSourceRefFromJsonElement(s);
-                    if (source is not null)
-                        list.Add(source);
-                }
-
-                sources = list;
-            }
-
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
 
     private static ToolMemory.SourceRef? TryBuildSourceFromResolveResult(ToolResults toolResults)
     {

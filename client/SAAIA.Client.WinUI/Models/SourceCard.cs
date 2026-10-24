@@ -5,6 +5,10 @@ namespace SAAIA.Client.WinUI.Models;
 
 public sealed class SourceCard
 {
+    public string? OriginTraceId { get; set; }
+    internal SAAIA.Client.Core.Sources.SourceLocator ToSourceLocator()
+        => new(DocPath, PageStart ?? PageEnd, SourceHash, RevisionId, ChunkId, AnchorId, ContentCardId,
+            RequireExactSourceHash: true, OriginTraceId: OriginTraceId, PageEnd: PageEnd);
     public string? EvidenceId { get; set; }
     public string? DocId { get; set; }
     public string DocPath { get; set; } = "";

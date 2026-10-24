@@ -32,7 +32,7 @@ public sealed class RequestIdMiddleware
             ? headerValue.ToString()
             : null;
 
-        if (string.IsNullOrWhiteSpace(requestId))
+        if (!IsSafeIdentifier(requestId))
         {
             requestId = Activity.Current?.Id ?? ctx.TraceIdentifier ?? Guid.NewGuid().ToString();
         }
@@ -40,6 +40,10 @@ public sealed class RequestIdMiddleware
         // OpenTelemetry: enrichit l'Activity courante avec notre request_id
         Activity.Current?.SetTag("saaia.request_id", requestId);
         Activity.Current?.SetTag("http.request_id", requestId);
+        var turnId = ReadSafeIdentifier(ctx.Request.Headers["X-SAAIA-Turn-Id"].ToString());
+        var clientSessionId = ReadSafeIdentifier(ctx.Request.Headers["X-SAAIA-Session-Id"].ToString());
+        Activity.Current?.SetTag("saaia.turn_id", turnId);
+        Activity.Current?.SetTag("saaia.client_session_id", clientSessionId);
 
         // 2. Ajoute à Items pour accès dans les endpoints
         ctx.Items[RequestIdItemKey] = requestId;
@@ -55,23 +59,48 @@ public sealed class RequestIdMiddleware
         });
 
         // 4. Configure les log scopes (tenant_id, user_id si présents après auth)
-        using (_logger.BeginScope(new Dictionary<string, object>
+        using (DiagnosticLogScope.Begin(_logger, new Dictionary<string, object>
         {
-            { "request_id", requestId },
+            { "request_id", requestId! },
             { "path", ctx.Request.Path.Value ?? "/" },
-            { "method", ctx.Request.Method }
+            { "method", ctx.Request.Method },
+            { "turn_id", turnId ?? string.Empty },
+            { "client_session_id", clientSessionId ?? string.Empty }
         }))
         {
-            await _next(ctx);
-
-            // 5. Log après traitement (optional, pour observabilité)
-            _logger.LogInformation(
-                "Request completed: {Method} {Path} {StatusCode}",
-                ctx.Request.Method,
-                ctx.Request.Path.Value,
-                ctx.Response.StatusCode);
+            using var probe = BackendDiagnostics.Start("http.request", _logger);
+            probe.Set("request_id", requestId);
+            probe.Set("turn_id", turnId);
+            probe.Set("client_session_id", clientSessionId);
+            try
+            {
+                await _next(ctx);
+                probe.Complete(ctx.RequestAborted.IsCancellationRequested ? "cancelled"
+                    : ctx.Response.StatusCode >= 500 ? "failed"
+                    : ctx.Response.StatusCode >= 400 ? "rejected" : "success");
+            }
+            catch (Exception ex)
+            {
+                probe.Fail(ex);
+                throw;
+            }
+            finally
+            {
+                probe.Set("http_status", ctx.Response.StatusCode);
+                probe.Set("response_started", ctx.Response.HasStarted);
+                DiagnosticLogScope.Write(() => _logger.LogInformation(
+                    "Request completed: {Method} {Path} {StatusCode} request_id={RequestId} duration_ms={DurationMs}",
+                    ctx.Request.Method, ctx.Request.Path.Value, ctx.Response.StatusCode, requestId,
+                    probe.ElapsedMilliseconds));
+            }
         }
     }
+
+    internal static string? ReadSafeIdentifier(string? value) => IsSafeIdentifier(value) ? value : null;
+
+    private static bool IsSafeIdentifier(string? value)
+        => !string.IsNullOrWhiteSpace(value) && value.Length <= 256
+           && value.All(static character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.' or ':');
 }
 
 public static class RequestIdExtensions

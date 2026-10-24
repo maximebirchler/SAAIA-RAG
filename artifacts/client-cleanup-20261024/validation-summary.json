@@ -1,0 +1,119 @@
+{
+  "schemaVersion": "saaia-client-cleanup-validation-v1",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "unitState": "passed",
+  "runId": "27c6a30807d84df6a48ab508b7a18d27",
+  "campaign": "full-unit-session-final-freeze/manifest.json",
+  "sourceFingerprint": "252C9DDCB3F95E3E861CF824D2D6DA2AB51DE6A8AF64F9941E5F00C4A675A242",
+  "sourceChangedDuringRun": false,
+  "tests": [
+    {
+      "project": "ClientCore",
+      "counts": {
+        "notExecuted": 0,
+        "adapterReportedExecuted": 69,
+        "total": 69,
+        "passed": 69,
+        "executed": 69,
+        "failed": 0
+      },
+      "trx": "ClientCore-27c6a30807d84df6a48ab508b7a18d27.trx",
+      "trxSha256": "89309999219F18C1C2DBCEB9AC91C863EF71F1595373D72A47EE2024280DEE81"
+    },
+    {
+      "project": "Client",
+      "counts": {
+        "notExecuted": 0,
+        "adapterReportedExecuted": 2277,
+        "total": 2277,
+        "passed": 2277,
+        "executed": 2277,
+        "failed": 0
+      },
+      "trx": "Client-27c6a30807d84df6a48ab508b7a18d27.trx",
+      "trxSha256": "4934E167CF6677B090BDCF3E511E95EED690DD59012793C2BD9001D8513BC538"
+    }
+  ],
+  "production": {
+    "assembly": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.dll",
+    "inspectedAtUtc": "2026-10-24T23:20:35.9887456+02:00",
+    "assemblySha256": "c413454f43e61ccb06643a547e49bb8286c1e87aba3d1c73e58ce7993b9061b5",
+    "clientDiagnosticsPresent": true,
+    "portableCoreReferenced": true,
+    "conditionalTestHookPresent": false,
+    "runnerPhysicalLines": 114,
+    "partialTypeFilesInspected": 142,
+    "reusableRunnerFieldsAreReadonly": true,
+    "methods": [
+      {
+        "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.AcquireIterationCompletion.cs",
+        "name": "AcquireIterationCompletionAsync",
+        "lines": 894
+      },
+      {
+        "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.cs",
+        "name": "RunAsync",
+        "lines": 25
+      },
+      {
+        "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.cs",
+        "name": "RunCoreAsync",
+        "lines": 55
+      },
+      {
+        "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.cs",
+        "name": "ExecuteIterationAsync",
+        "lines": 26
+      },
+      {
+        "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.InitializeExecution.cs",
+        "name": "InitializeExecutionAsync",
+        "lines": 124
+      },
+      {
+        "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.PrepareIteration.cs",
+        "name": "PrepareIterationAsync",
+        "lines": 140
+      },
+      {
+        "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.ProcessIterationSubmissionsAndTools.cs",
+        "name": "ProcessIterationSubmissionsAndToolsAsync",
+        "lines": 702
+      },
+      {
+        "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.VerifyAndReviewIterationDraft.cs",
+        "name": "VerifyAndReviewIterationDraftAsync",
+        "lines": 474
+      }
+    ],
+    "limitation": "Metadata inspection and compilation, no UI or model execution. Other intentionally unconditional legacy ForTests members may still exist."
+  },
+  "architecture": {
+    "status": "passed",
+    "reviewRequiredCount": 21,
+    "partialTypes": [
+      {
+        "name": "ToolAgentOrchestrator",
+        "physicalLines": 79515,
+        "ceiling": 79771
+      },
+      {
+        "name": "SourceBackedAgentV2Runner",
+        "physicalLines": 31918,
+        "ceiling": 32174
+      },
+      {
+        "name": "MainWindow",
+        "physicalLines": 15120,
+        "ceiling": 15376
+      }
+    ]
+  },
+  "coveredFinalUiCorrections": [
+    "turn_lease_owns_cancellation_before_first_await",
+    "refresh_never_rebinds_session_identity",
+    "settings_restore_session_only_before_connection"
+  ],
+  "noPaidModelOrServerCallsInThisLot": true,
+  "report": "documents/agent/validation-client-structure-et-sondes-2026-10-24.md"
+}

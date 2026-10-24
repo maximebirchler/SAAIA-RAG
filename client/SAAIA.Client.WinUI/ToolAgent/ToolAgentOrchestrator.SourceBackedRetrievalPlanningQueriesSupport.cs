@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -134,45 +134,6 @@ public sealed partial class ToolAgentOrchestrator
             return 14;
 
         return 8;
-    }
-
-    private static string[] BuildShortTechnicalEvidenceRetrievalQueries(string query)
-    {
-        var normalized = NormalizeRagQueryForRetrieval(query);
-        if (string.IsNullOrWhiteSpace(normalized))
-            normalized = CollapseWhitespace(query);
-
-        var queries = new List<string>();
-        if (!string.IsNullOrWhiteSpace(normalized))
-            AddDistinctQuery(queries, normalized);
-
-        if (TryExtractDelimitedUserDemandTopic(query, out _))
-        {
-            var raw = CollapseWhitespace(query);
-            if (!string.IsNullOrWhiteSpace(raw))
-                AddDistinctQuery(queries, raw);
-        }
-
-        foreach (var variant in BuildTypoTolerantQueryVariants(normalized))
-            AddDistinctQuery(queries, variant);
-        foreach (var variant in BuildGenericRetrievalSemanticQueries(normalized))
-            AddDistinctQuery(queries, variant);
-
-        var terms = ExtractQuerySignalTerms(NormalizeLexicalLookup(normalized))
-            .Where(static term => !IsSourceBackedActionRetrievalNoiseTerm(term))
-            .SelectMany(BuildRetrievalTermVariants)
-            .Distinct(StringComparer.Ordinal)
-            .Take(12)
-            .ToArray();
-        if (terms.Length > 0)
-            AddDistinctQuery(queries, string.Join(' ', terms));
-
-        return queries
-            .Where(static q => !string.IsNullOrWhiteSpace(q))
-            .Select(CollapseWhitespace)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(12)
-            .ToArray();
     }
 
     private static int ResolveComparativeRetrievalQueryLimit(string? query)

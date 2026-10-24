@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using SAAIA.Backend.Endpoints;
 using Xunit;
 
@@ -10,16 +11,23 @@ public sealed class RagMatchedContentCardsTests
     [Fact]
     public void Profile_content_card_sql_candidates_filter_unsafe_cards_before_ranking()
     {
-        var ragEndpointsSource = File.ReadAllText(ResolveBackendSourceFile("Endpoints", "RagEndpoints.cs"));
-        var resolvedSourceProjection = File.ReadAllText(ResolveBackendSourceFile("Endpoints", "ResolvedSourceProjection.cs"));
-
-        Assert.True(
-            CountOccurrences(ragEndpointsSource, "saaia_is_safe_profile_content_card(") >= 5,
-            "RAG SQL paths that read document_profile_content_cards should filter unsafe cards before matching/ranking.");
-        Assert.Contains(
-            "AND saaia_is_safe_profile_content_card(kind, title, page_start, page_end, metadata)",
-            resolvedSourceProjection,
-            StringComparison.Ordinal);
+        var sqlLiterals = new[] { typeof(RetrievalChannels), typeof(RetrievalCandidateSignals), typeof(ResolvedSourceProjection) }
+            .SelectMany(CompiledArchitectureContract.Strings);
+        var candidates = new List<string>();
+        foreach (var sql in sqlLiterals)
+        {
+            // Inspect each candidate-reading SELECT before ORDER BY; metadata-only
+            // MAX(updated_at) reads do not expose/rank content cards and are excluded.
+            foreach (Match query in Regex.Matches(sql,
+                         @"\bSELECT\s+(?<projection>(?:(?!\bSELECT\b).)*?)\bFROM\s+document_profile_content_cards(?:\s+(?!(?:WHERE)\b)(?<alias>\w+))?\s+WHERE(?<filter>.*?)(?:\bORDER\s+BY\b|\bLIMIT\b|\n\s*\))",
+                         RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            {
+                if (Regex.IsMatch(query.Groups["projection"].Value, @"\b(?:MAX|COUNT)\s*\(", RegexOptions.IgnoreCase)) continue;
+                candidates.Add(query.Value);
+                Assert.Matches(@"(?i)\bAND\s+saaia_is_safe_profile_content_card\s*\(", query.Groups["filter"].Value);
+            }
+        }
+        Assert.True(candidates.Count >= 5, "Expected all candidate-reading SQL channels plus the source projection to be inspected.");
     }
 
     [Fact]
@@ -72,29 +80,6 @@ public sealed class RagMatchedContentCardsTests
         Assert.Contains(cards, card => string.Equals(card.Title, "ISO 13849-1", StringComparison.Ordinal));
     }
 
-    private static int CountOccurrences(string value, string needle)
-    {
-        var count = 0;
-        var index = 0;
-        while ((index = value.IndexOf(needle, index, StringComparison.Ordinal)) >= 0)
-        {
-            count++;
-            index += needle.Length;
-        }
-
-        return count;
-    }
-
-    private static string ResolveBackendSourceFile(params string[] segments)
-        => Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory,
-            "..",
-            "..",
-            "..",
-            "..",
-            "SAAIA.Backend",
-            Path.Combine(segments)));
-
     [Fact]
     public void BuildMatchedContentCards_returns_structured_profile_cards_in_query_order()
     {
@@ -119,7 +104,7 @@ public sealed class RagMatchedContentCardsTests
         }
         """;
 
-        var cards = RagEndpoints.BuildMatchedContentCards(metadataJson, "alpha safety", limit: 1);
+        var cards = RetrievalChannels.BuildMatchedContentCards(metadataJson, "alpha safety", limit: 1);
 
         var card = Assert.Single(cards);
         Assert.Equal("Alpha safety checklist", card.Title);
@@ -153,7 +138,7 @@ public sealed class RagMatchedContentCardsTests
         }
         """;
 
-        var cards = RagEndpoints.BuildMatchedContentCards(metadataJson, "control safety ISO 13849-1", limit: 2);
+        var cards = RetrievalChannels.BuildMatchedContentCards(metadataJson, "control safety ISO 13849-1", limit: 2);
 
         var card = Assert.Single(cards);
         Assert.Equal("ISO 13849-1", card.Title);
@@ -164,7 +149,7 @@ public sealed class RagMatchedContentCardsTests
     [Fact]
     public void BuildMatchedContentCards_returns_empty_for_missing_profile_metadata()
     {
-        var cards = RagEndpoints.BuildMatchedContentCards(null, "alpha safety");
+        var cards = RetrievalChannels.BuildMatchedContentCards(null, "alpha safety");
 
         Assert.Empty(cards);
     }
@@ -193,7 +178,7 @@ public sealed class RagMatchedContentCardsTests
         }
         """;
 
-        var cards = RagEndpoints.BuildMatchedContentCards(
+        var cards = RetrievalChannels.BuildMatchedContentCards(
             metadataJson,
             "Quel dessert francais choisir pour un repas chic ? Recettes preferees des francais avec desserts.",
             limit: 3,
@@ -228,7 +213,7 @@ public sealed class RagMatchedContentCardsTests
         }
         """;
 
-        var cards = RagEndpoints.BuildMatchedContentCards(metadataJson, "alpha safety", limit: 2);
+        var cards = RetrievalChannels.BuildMatchedContentCards(metadataJson, "alpha safety", limit: 2);
 
         var card = Assert.Single(cards);
         Assert.Equal("Alpha safety checklist", card.Title);
@@ -251,7 +236,7 @@ public sealed class RagMatchedContentCardsTests
         }
         """;
 
-        var cards = RagEndpoints.BuildMatchedContentCards(metadataJson, "alpha safety", limit: 2);
+        var cards = RetrievalChannels.BuildMatchedContentCards(metadataJson, "alpha safety", limit: 2);
 
         Assert.Empty(cards);
     }
@@ -280,7 +265,7 @@ public sealed class RagMatchedContentCardsTests
         }
         """;
 
-        var cards = RagEndpoints.BuildMatchedContentCards(metadataJson, "alpha safety", limit: 2);
+        var cards = RetrievalChannels.BuildMatchedContentCards(metadataJson, "alpha safety", limit: 2);
 
         Assert.Equal(["Alpha safety", "Operations appendix"], cards.Select(static card => card.Title));
     }
@@ -400,7 +385,7 @@ public sealed class RagMatchedContentCardsTests
         }
         """;
 
-        var cards = RagEndpoints.BuildMatchedContentCards(
+        var cards = RetrievalChannels.BuildMatchedContentCards(
             metadataJson,
             "Compare three trainee exercises: time, materials, risk of failure.",
             limit: 5);
@@ -447,7 +432,7 @@ public sealed class RagMatchedContentCardsTests
         }
         """;
 
-        var cards = RagEndpoints.BuildMatchedContentCards(metadataJson, "control points checks validation basis", limit: 2);
+        var cards = RetrievalChannels.BuildMatchedContentCards(metadataJson, "control points checks validation basis", limit: 2);
 
         var card = Assert.Single(cards);
         Assert.Equal("Operational appendix", card.Title);
@@ -480,7 +465,7 @@ public sealed class RagMatchedContentCardsTests
         }
         """;
 
-        var cards = RagEndpoints.BuildMatchedContentCards(metadataJson, "alpha safety", limit: 2);
+        var cards = RetrievalChannels.BuildMatchedContentCards(metadataJson, "alpha safety", limit: 2);
 
         Assert.Empty(cards);
     }
@@ -518,7 +503,7 @@ public sealed class RagMatchedContentCardsTests
         }
         """;
 
-        var cards = RagEndpoints.BuildMatchedContentCards(metadataJson, "release gate inspection checks", limit: 2);
+        var cards = RetrievalChannels.BuildMatchedContentCards(metadataJson, "release gate inspection checks", limit: 2);
 
         var card = Assert.Single(cards);
         Assert.True(card.Evidence.HasValue);
@@ -541,7 +526,7 @@ public sealed class RagMatchedContentCardsTests
         string language,
         string expected)
     {
-        var method = typeof(RagEndpoints).GetMethod(
+        var method = typeof(RetrievalCandidateSignals).GetMethod(
             "BuildContentCuesLabel",
             BindingFlags.NonPublic | BindingFlags.Static);
 
@@ -561,7 +546,7 @@ public sealed class RagMatchedContentCardsTests
         string language,
         string expected)
     {
-        var method = typeof(RagEndpoints).GetMethod(
+        var method = typeof(RetrievalCandidateSignals).GetMethod(
             "BuildDocumentProfileSectionTitle",
             BindingFlags.NonPublic | BindingFlags.Static);
 
@@ -614,7 +599,7 @@ public sealed class RagMatchedContentCardsTests
         }
         """;
 
-        var cards = RagEndpoints.BuildMatchedContentCards(
+        var cards = RetrievalChannels.BuildMatchedContentCards(
             metadataJson,
             "release gate follow-up",
             limit: 4,
@@ -652,7 +637,7 @@ public sealed class RagMatchedContentCardsTests
         }
         """;
 
-        var cards = RagEndpoints.BuildMatchedContentCards(
+        var cards = RetrievalChannels.BuildMatchedContentCards(
             metadataJson,
             "release validation approval",
             limit: 4,
@@ -686,7 +671,7 @@ public sealed class RagMatchedContentCardsTests
         }
         """;
 
-        var cards = RagEndpoints.BuildMatchedContentCards(
+        var cards = RetrievalChannels.BuildMatchedContentCards(
             metadataJson,
             "release glossary",
             limit: 4);
@@ -711,7 +696,7 @@ public sealed class RagMatchedContentCardsTests
         }
         """;
 
-        var cards = RagEndpoints.BuildMatchedContentCards(
+        var cards = RetrievalChannels.BuildMatchedContentCards(
             metadataJson,
             "release glossary",
             limit: 4);
@@ -749,7 +734,7 @@ public sealed class RagMatchedContentCardsTests
         }
         """;
 
-        var cards = RagEndpoints.BuildMatchedContentCards(
+        var cards = RetrievalChannels.BuildMatchedContentCards(
             metadataJson,
             "release validation glossary",
             limit: 4,

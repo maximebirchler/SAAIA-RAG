@@ -1,0 +1,75 @@
+{
+  "executedAtUtc": "2026-10-24T20:33:07.8191328+00:00",
+  "schemaVersion": "saaia-probe-tests-v1",
+  "providerCalls": 0,
+  "checks": [
+    {
+      "passed": true,
+      "name": "zero samples never pass"
+    },
+    {
+      "passed": true,
+      "name": "one sample never passes"
+    },
+    {
+      "passed": true,
+      "name": "missing throughput never passes"
+    },
+    {
+      "passed": true,
+      "name": "absent metric is explicitly unavailable"
+    },
+    {
+      "passed": true,
+      "name": "NaN is not a measured sample"
+    },
+    {
+      "passed": true,
+      "name": "zero duration is not stable performance"
+    },
+    {
+      "passed": true,
+      "name": "failed request never passes"
+    },
+    {
+      "passed": true,
+      "name": "stable measured samples pass"
+    },
+    {
+      "passed": true,
+      "name": "outlier exceeds tolerance"
+    },
+    {
+      "passed": true,
+      "name": "stream finished with content"
+    },
+    {
+      "passed": true,
+      "name": "first content precedes stream completion"
+    },
+    {
+      "passed": true,
+      "name": "throughput identifies actual token usage"
+    },
+    {
+      "passed": true,
+      "name": "actual response model is preserved"
+    },
+    {
+      "passed": true,
+      "name": "buffered total duration is not TTFT"
+    },
+    {
+      "passed": true,
+      "name": "missing usage stays unavailable"
+    },
+    {
+      "passed": true,
+      "name": "truncated stream is not successful"
+    },
+    {
+      "passed": true,
+      "name": "timeout includes reading streamed body"
+    }
+  ]
+}

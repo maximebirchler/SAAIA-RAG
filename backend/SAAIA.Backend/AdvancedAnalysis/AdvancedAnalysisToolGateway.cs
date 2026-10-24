@@ -27,7 +27,8 @@ internal sealed record AdvancedAnalysisSearchRequest(
     string? RevisionId = null,
     AdvancedAnalysisReadDiagnostic? ReadDiagnostic = null,
     int Offset = 0,
-    AdvancedAnalysisFindDiagnostic? FindDiagnostic = null);
+    AdvancedAnalysisFindDiagnostic? FindDiagnostic = null,
+    RagRetrievalDiagnosticsDto? RetrievalDiagnostic = null);
 
 internal sealed record AdvancedAnalysisFindDiagnostic(
     string Status, int ReturnedChunkCount, int? NextOffset);
@@ -386,15 +387,10 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             if (admission is null)
                 throw new AdvancedAnalysisToolException("retrieval_capacity_busy");
 
-            var context = new DefaultHttpContext
-            {
-                RequestServices = _services
-            };
-            context.RequestAborted = cancellationToken;
-            context.TraceIdentifier = $"advanced:{_jobId:N}:{callNumber}";
-            context.Items[ApiKeyAuth.TenantIdItemKey] = _tenantId;
-            context.Items[RequestIdMiddleware.RequestIdItemKey] =
-                context.TraceIdentifier;
+            var context = new RetrievalExecutionContext(_tenantId,
+                $"advanced:{_jobId:N}:{callNumber}", cancellationToken,
+                _services?.GetService<TeiWorkloadGovernor>(),
+                _services?.GetService<ILoggerFactory>()?.CreateLogger("SAAIA.Backend.Retrieval"));
             var effectiveDocPath = request.DocPath;
             if (string.IsNullOrWhiteSpace(effectiveDocPath)
                 && !string.IsNullOrWhiteSpace(request.DocumentHint))
@@ -446,7 +442,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                     await ValidateCanonicalSearchSourceAsync(requestForTrace, cancellationToken)
                         .ConfigureAwait(false);
                 }
-                var response = await RagEndpoints.SearchCoreAsync(
+                var response = await RetrievalEngine.SearchAsync(
                     context,
                     _dataSource,
                     _ragOptions,
@@ -466,7 +462,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                         IncludeContextualSnippet: false,
                         CategoryPath: null,
                         CategoryRef: null,
-                        IncludeDiagnostics: false,
+                        IncludeDiagnostics: true,
                         PageStart: request.PageStart,
                         PageEnd: request.PageEnd,
                         ResearchMode: "advanced_analysis",
@@ -475,6 +471,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                     .ConfigureAwait(false);
                 references = BuildEvidenceReferences(response.Matches);
                 degraded = response.DegradedRetrievers ?? [];
+                requestForTrace = requestForTrace with { RetrievalDiagnostic = response.Diagnostics };
             }
             stopwatch.Stop();
             _elapsedMilliseconds = checked(

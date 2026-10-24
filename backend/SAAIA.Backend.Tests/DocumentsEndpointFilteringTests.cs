@@ -15,12 +15,13 @@ namespace SAAIA.Backend.Tests;
 
 public sealed class DocumentsEndpointFilteringTests
 {
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Admin_documents_default_excludes_tombstones_but_status_filters_can_include_them()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
@@ -51,12 +52,13 @@ public sealed class DocumentsEndpointFilteringTests
         Assert.Equal(["deleted", "indexed", "missing", "pending"], allStatuses);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Catalog_documents_respects_category_path_query()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var tenantId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
         await using var ds = NpgsqlDataSource.Create(db.ConnectionString);

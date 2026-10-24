@@ -24,7 +24,7 @@ public sealed class StructuredContentLexiconTests
     public void Structured_answer_cues_preserve_existing_multilingual_markers(string cue)
     {
         Assert.True(StructuredContentLexicon.ContainsStructuredAnswerCue($"Section: {cue}"));
-        Assert.True(RagEndpoints.LooksLikeStructuredAnswerChunk(Match($"Section: {cue}")));
+        Assert.True(RetrievalCandidateSignals.LooksLikeStructuredAnswerChunk(Match($"Section: {cue}")));
     }
 
     [Theory]
@@ -101,7 +101,7 @@ public sealed class StructuredContentLexiconTests
         """;
 
         Assert.True(StructuredContentLexicon.LooksLikeStructuredQuantityList(text));
-        Assert.True(RagEndpoints.LooksLikeStructuredQuantityList(text));
+        Assert.True(RetrievalCandidateSignals.LooksLikeStructuredQuantityList(text));
     }
 
     [Fact]
@@ -110,8 +110,8 @@ public sealed class StructuredContentLexiconTests
         const string text = "Quarterly roadmap overview and ownership notes.";
 
         Assert.False(StructuredContentLexicon.ContainsStructuredAnswerCue(text));
-        Assert.False(RagEndpoints.LooksLikeStructuredQuantityList(text));
-        Assert.False(RagEndpoints.LooksLikeStructuredAnswerChunk(Match(text)));
+        Assert.False(RetrievalCandidateSignals.LooksLikeStructuredQuantityList(text));
+        Assert.False(RetrievalCandidateSignals.LooksLikeStructuredAnswerChunk(Match(text)));
     }
 
     private static RagMatch Match(string text)

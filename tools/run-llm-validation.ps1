@@ -31,6 +31,21 @@
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Net.Http
 
+# Compatibility comparator retained for replaying old campaigns. Its llm mode
+# includes deterministic answer policies and is not a product acceptance oracle.
+$validationEngine = if ($Mode -eq "llm") { "historical-deterministic-comparator" }
+    elseif ($Mode -eq "agent") { "product-client-agent" }
+    else { "retrieval-or-plan" }
+if ($Mode -eq "llm") {
+    Write-Warning "Historical comparator: deterministic answer branches are active. Do not use this mode as proof of current product quality."
+    if (-not [string]::IsNullOrWhiteSpace($LlmBaseUrl) -and -not ([Uri]$LlmBaseUrl).IsLoopback) {
+        throw "The historical comparator accepts a loopback model only. External providers require the guarded paid campaign runner."
+    }
+}
+if ($Mode -eq "agent" -and $env:SAAIA_TEST_PROFILE -ne "LivePaid") {
+    throw "The generic agent bank can reach external providers. Use the guarded explicit LivePaid campaign profile; inherited live flags do not select it."
+}
+
 function ConvertTo-ValidationLongPath {
     param([string]$Path)
 
@@ -2972,26 +2987,6 @@ function Test-ValidationFocusedRecipeSourceStraddlesTitle {
     }
 
     return $beforeActionCount -ge 2 -and $afterHasIngredientBlock -and -not $afterHasSubstantialProcedure
-}
-
-function Test-ValidationPromptSourcesHaveCompetingRecipeTitle {
-    param(
-        [object[]]$Sources,
-        [string]$Title
-    )
-
-    if ([string]::IsNullOrWhiteSpace($Title)) {
-        return $false
-    }
-
-    foreach ($source in @($Sources)) {
-        $text = "$($source.text)`n$($source.contextualSnippet)"
-        if (Test-ValidationTextHasCompetingRecipeTitle -Text $text -FocusedTitle $Title) {
-            return $true
-        }
-    }
-
-    return $false
 }
 
 function Test-ValidationStrongTitleRouteSource {
@@ -7962,6 +7957,11 @@ if ($Parallelism -gt 1 -and $Mode -eq "retrieval") {
     }
 
     $summary = [ordered]@{
+        schemaVersion = "saaia-legacy-validation-comparator-v2"
+        validationEngine = $validationEngine
+        currentProductAcceptanceEvidence = $false
+        repositoryCommit = (& git -C $repoRoot rev-parse HEAD)
+        questionBankSha256 = (Get-FileHash -LiteralPath $bankPath -Algorithm SHA256).Hash
         generatedAt = (Get-Date).ToString("o")
         questionBankPath = $bankPath
         bankVersion = $bank.version
@@ -8315,6 +8315,11 @@ if ($jsonlLineCount -ne $cases.Count) {
 Write-ValidationProgressMarker -Path $progressPath -Status "completed" -SelectedCount $cases.Count -RowCount $rows.Count -CurrentId "" -LastCompletedId $lastCompletedId -JsonlPath $jsonlPath
 
 $summary = [ordered]@{
+    schemaVersion = "saaia-legacy-validation-comparator-v2"
+    validationEngine = $validationEngine
+    currentProductAcceptanceEvidence = $false
+    repositoryCommit = (& git -C $repoRoot rev-parse HEAD)
+    questionBankSha256 = (Get-FileHash -LiteralPath $bankPath -Algorithm SHA256).Hash
     generatedAt = (Get-Date).ToString("o")
     questionBankPath = $bankPath
     bankVersion = $bank.version

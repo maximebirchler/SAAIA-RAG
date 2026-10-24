@@ -163,9 +163,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
-    public async Task Relative_development_trace_directory_is_rejected_before_any_model_call()
+    public async Task Strict_relative_development_trace_directory_is_rejected_before_any_model_call()
     {
-        var options=CreateOptions();options.DevelopmentTraceDirectory="relative-trace-directory";
+        var options=CreateOptions();options.DevelopmentTraceDirectory="relative-trace-directory";options.DevelopmentTraceStrict=true;
         using var factory=new QueuedHttpClientFactory();
         var error=await Assert.ThrowsAsync<AdvancedAnalysisProviderException>(()=>new OpenAiCompatibleAdvancedAnalysisProvider(factory,options,null)
             .ExecuteAsync(BuildDirectRequest(),new RecordingToolGateway(BuildEvidence("E1","Le seuil est 17 bar.")),CancellationToken.None));

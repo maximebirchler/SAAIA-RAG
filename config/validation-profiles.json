@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "saaia-validation-profiles-v1",
+  "defaultProfile": "Unit",
+  "activePaidCampaign": null,
+  "profiles": {
+    "Unit": { "modelCalls": false, "database": "none", "entryPoint": "tools/test-project.ps1 -Profile Unit" },
+    "IntegrationPg": { "modelCalls": false, "database": "isolated_loopback", "entryPoint": "tools/test-postgres-isolated.ps1" },
+    "LiveLocal": { "modelCalls": true, "filterRequired": true, "loopbackOnly": true, "entryPoint": "tools/test-project.ps1 -Profile LiveLocal -Filter <explicit test>" },
+    "LivePaid": { "modelCalls": true, "implicitActivation": false, "guardedCampaignRequired": true, "authorizationAndCapRequired": true, "transmissionAuthorizationRequired": true, "entryPoint": "tools/test-project.ps1 -Profile LivePaid -CampaignProfilePath <explicit immutable profile>" }
+  },
+  "historicalComparator": {
+    "path": "tools/run-llm-validation.ps1",
+    "mode": "llm",
+    "semanticDecisions": "includes historical deterministic policies",
+    "productAcceptanceOracle": false
+  }
+}

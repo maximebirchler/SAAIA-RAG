@@ -389,10 +389,11 @@ internal abstract class OpenAiCompatibleLlmProviderBase : ILlmProvider
             cost,
             success,
             retryCount,
-            errorCode);
+            errorCode,
+            ClientDiagnostics.Journal.CurrentTurnId);
         ClientLog.Info(
             "[LLM_PROVIDER event=call.end" +
-            $" trace_id={metrics.TraceId} request_id={metrics.RequestId}" +
+            $" trace_id={metrics.TraceId} turn_id={metrics.TurnId ?? "unscoped"} request_id={metrics.RequestId}" +
             $" provider={metrics.Provider} mode={metrics.Mode} model={metrics.ModelId}" +
             $" role={metrics.Role} success={metrics.Success}" +
             $" elapsed_ms={metrics.ElapsedMilliseconds}" +
@@ -404,7 +405,15 @@ internal abstract class OpenAiCompatibleLlmProviderBase : ILlmProvider
             $" reasoning_tokens={metrics.Usage.ReasoningTokens?.ToString() ?? "unknown"}" +
             $" cost_usd={metrics.EstimatedCostUsd?.ToString("0.00000000", System.Globalization.CultureInfo.InvariantCulture) ?? "unknown"}" +
             $" retries={metrics.RetryCount} error_code={metrics.ErrorCode ?? "none"}]");
-        CallCompleted?.Invoke(metrics);
+        foreach (var observer in CallCompleted?.GetInvocationList() ?? Array.Empty<Delegate>())
+        {
+            try { ((Action<LlmCallMetrics>)observer)(metrics); }
+            catch (Exception)
+            {
+                ClientDiagnostics.Journal.RecordCollectorFailure();
+                ClientDiagnostics.Journal.Emit("model.observer", "unavailable", "observer_failed");
+            }
+        }
     }
 
     private static LlmTokenUsage ToUsage(SourceBackedAgentCompletion completion)

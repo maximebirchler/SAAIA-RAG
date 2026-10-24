@@ -245,41 +245,6 @@ public sealed partial class ToolAgentOrchestrator
             RegexOptions.CultureInvariant);
     }
 
-    private static bool LooksLikeExplicitSourceBypassOrUnsupportedInventionRequest(string? query)
-    {
-        var normalized = NormalizeLexicalLookup(query);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return false;
-
-        normalized = Regex.Replace(
-            normalized,
-            @"\b(?:sans\s+oublier|n\s*oublie\s+pas|ne\s+pas\s+oublier|without\s+forgetting|do\s+not\s+forget|don\s*t\s+forget|sin\s+olvidar|sem\s+esquecer|ohne\s+zu\s+vergessen|senza\s+dimenticare)\b",
-            " ",
-            RegexOptions.CultureInvariant);
-        normalized = RemoveNegatedInventionPolicyPhrases(normalized);
-
-        var asksToIgnoreSources =
-            Regex.IsMatch(
-                normalized,
-                @"\b(?:ignore|ignorer|ignorez|oublie|oublier|disregard|ignora|ignorar|ignori|ignorare|ignoriere|ignorieren)\b.{0,60}\b(?:sources?|documents?|pdf|pages?|citations?|references?|fuentes?|fontes?|quellen?|fonti)\b",
-                RegexOptions.CultureInvariant)
-            || Regex.IsMatch(
-                normalized,
-                @"\b(?:sources?|documents?|pdf|pages?|citations?|references?|fuentes?|fontes?|quellen?|fonti)\b.{0,60}\b(?:ignore|ignorer|ignorez|oublie|oublier|disregard|ignora|ignorar|ignori|ignorare|ignoriere|ignorieren)\b",
-                RegexOptions.CultureInvariant)
-            || Regex.IsMatch(
-                normalized,
-                @"\b(?:sans|without|sin|sem|ohne|senza)\b.{0,60}\b(?:sources?|documents?|pdf|pages?|citations?|references?|fuentes?|fontes?|quellen?|fonti)\b",
-                RegexOptions.CultureInvariant);
-
-        var asksToInvent = Regex.IsMatch(
-            normalized,
-            @"\b(?:invente|inventer|inventez|invent|invented|make\s+up|hallucinate|inventa|inventar|inventare|erfinde|erfinden|erfunden)\b",
-            RegexOptions.CultureInvariant);
-
-        return asksToIgnoreSources || asksToInvent;
-    }
-
     private static bool LooksLikeHardSourceBypassOrUnsupportedInventionRequest(string? query)
     {
         var normalized = NormalizeLexicalLookup(query);

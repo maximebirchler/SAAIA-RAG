@@ -42,12 +42,13 @@ public sealed class DynamicRootCategoryRegressionTests
         Assert.Equal("topfolder", category);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Scanner_enqueues_upsert_when_only_root_category_changes()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var root = Path.Combine(Path.GetTempPath(), $"saaia-category-regression-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -114,12 +115,13 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Scanner_requeues_stale_running_job_without_marking_failed()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var root = Path.Combine(Path.GetTempPath(), $"saaia-stale-running-regression-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -175,12 +177,13 @@ WHERE tenant_id=@tenant_id AND job_id=@job_id;
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Scanner_suppresses_duplicate_pdf_content_and_queues_delete_for_known_duplicate()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var root = Path.Combine(Path.GetTempPath(), $"saaia-duplicate-scan-regression-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(root, "Alpha", "PDF"));
@@ -262,12 +265,13 @@ WHERE tenant_id=@tenant_id AND doc_path=@doc_path;
         }
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Scanner_suppresses_duplicate_pdf_content_without_delete_when_duplicate_is_already_clean()
     {
         await using var db = await PostgresIntegrationDb.CreateAsync();
         if (db is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var root = Path.Combine(Path.GetTempPath(), $"saaia-duplicate-clean-regression-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(root, "Alpha", "PDF"));

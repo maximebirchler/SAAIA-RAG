@@ -28,6 +28,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
     private readonly AdvancedAnalysisOptions _options;
     private readonly string? _apiKey;
     private readonly AdvancedAnalysisExternalBudgetGuard? _budget;
+    private readonly AdvancedAnalysisRuntimeState _runtimeState;
+    private readonly ILogger _logger;
+    private readonly SemaphoreSlim _traceWriteGate = new(1, 1);
 
     private sealed record CompletionResult(
         string Content,
@@ -40,11 +43,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
     internal OpenAiCompatibleAdvancedAnalysisProvider(
         IHttpClientFactory httpClientFactory,
         AdvancedAnalysisOptions options,
-        string? apiKey)
+        string? apiKey,
+        ILogger<OpenAiCompatibleAdvancedAnalysisProvider>? logger = null,
+        AdvancedAnalysisRuntimeState? runtimeState = null)
     {
         _httpClientFactory = httpClientFactory;
         _options = options;
         _apiKey = string.IsNullOrWhiteSpace(apiKey) ? null : apiKey.Trim();
+        _logger = logger is null ? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance : logger;
+        _runtimeState = runtimeState ?? new AdvancedAnalysisRuntimeState();
         if (IsExternalProvider)
         {
             _budget = new AdvancedAnalysisExternalBudgetGuard(
@@ -703,6 +710,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         bool allowNativeResearch = false,
         IReadOnlyList<object>? nativeToolTurnMessages = null)
     {
+        using var callProbe = BackendDiagnostics.Start("llm.call", _logger);
+        callProbe.Set("call_id", Guid.NewGuid().ToString("N"));
+        callProbe.Set("job_id", jobId);
+        callProbe.Set("role", role);
+        callProbe.Set("provider", ProviderKey);
+        callProbe.Set("requested_model", ModelId);
+        callProbe.Set("maximum_output_tokens", maximumOutputTokens);
+        callProbe.Set("content_capture_enabled", !string.IsNullOrWhiteSpace(_options.DevelopmentTraceDirectory));
         var nativeFunctions = allowNativeResearch && _options.NativeResearchToolsEnabled
             ? BuildNativeResearchFunctions(userPrompt) : null;
         // The configured wire protocol applies to every role. Tool permission
@@ -746,24 +761,31 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             payload["temperature"] = 0;
         }
         if (nativeResponses) ConvertNativePayloadToResponses(payload);
+        var serializedPayload = JsonSerializer.Serialize(payload, JsonOptions);
+        callProbe.Set("wire_protocol", nativeResponses ? "responses" : "chat-completions");
+        callProbe.Set("request_sha256", Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(serializedPayload))));
+        callProbe.Set("request_characters", serializedPayload.Length);
+        callProbe.Set("system_characters", systemPrompt.Length);
+        callProbe.Set("user_characters", userPrompt.Length);
+        callProbe.Set("history_characters", nativeToolTurnMessages is null ? 0 : JsonSerializer.Serialize(nativeToolTurnMessages, JsonOptions).Length);
+        callProbe.Set("history_messages", nativeToolTurnMessages?.Count ?? 0);
+        callProbe.Set("contract_version", "advanced-analysis.v1");
+        LlmPayloadDiagnostics.AnnotateRequest(callProbe, userPrompt, serializedPayload);
         AdvancedAnalysisExternalBudgetGuard.Reservation? reservation = null;
         string? rejectedErrorCode = null;
         AdvancedAnalysisRateLimitTelemetry? responseRateLimit = null;
         var stopwatch = Stopwatch.StartNew();
         var httpAttemptCount = 0;
-        if (_budget is not null)
-        {
-            reservation = _budget.Reserve(
-                jobId,
-                role,
-                nativeResponses || nativeFunctions is not null || nativeToolTurnMessages is { Count: > 0 }
-                    ? JsonSerializer.Serialize(payload, JsonOptions).Length
-                    : systemPrompt.Length + userPrompt.Length,
-                maximumOutputTokens);
-        }
-
         try
         {
+            if (_budget is not null)
+            {
+                reservation = _budget.Reserve(jobId, role,
+                    nativeResponses || nativeFunctions is not null || nativeToolTurnMessages is { Count: > 0 }
+                        ? serializedPayload.Length : systemPrompt.Length + userPrompt.Length,
+                    maximumOutputTokens);
+                callProbe.Set("budget_request_id", reservation.RequestId);
+            }
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(
@@ -773,6 +795,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 1,
                 5);
             HttpResponseMessage? response = null;
+            ProviderErrorBody? responseErrorBody = null;
             for (var attempt = 1; attempt <= maximumHttpAttempts; attempt++)
             {
                 httpAttemptCount = attempt;
@@ -781,7 +804,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     nativeResponses ? ResolveNativeResponsesUri() : ResolveChatCompletionsUri())
                 {
                     Content = new StringContent(
-                        JsonSerializer.Serialize(payload, JsonOptions),
+                        serializedPayload,
                         Encoding.UTF8,
                         "application/json")
                 };
@@ -812,14 +835,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                         "advanced_llm_transport_error");
                 }
 
-                if ((int)response.StatusCode == 429
-                    && IsTerminalProviderQuotaError(await response.Content
-                        .ReadAsStringAsync(timeout.Token).ConfigureAwait(false)))
+                responseErrorBody = (int)response.StatusCode == 429
+                    ? await ReadProviderErrorBodyAsync(response, timeout.Token, cancellationToken).ConfigureAwait(false)
+                    : null;
+                if (responseErrorBody is { Text: not null, Truncated: false }
+                    && IsTerminalProviderQuotaError(responseErrorBody.Text))
                 {
                     break;
                 }
 
                 if ((int)response.StatusCode != 429
+                    || timeout.IsCancellationRequested
                     || attempt >= maximumHttpAttempts
                     || !TryResolveRateLimitRetryDelay(
                         response,
@@ -840,16 +866,24 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             using (response)
             {
                 responseRateLimit = ReadRateLimitTelemetry(response);
+                callProbe.Set("http_status", (int)response.StatusCode);
+                callProbe.Set("provider_request_id", responseRateLimit.ProviderRequestId);
                 if (!response.IsSuccessStatusCode)
                 {
                     var terminalQuotaError = (int)response.StatusCode == 429
-                        && IsTerminalProviderQuotaError(await response.Content
-                            .ReadAsStringAsync(timeout.Token).ConfigureAwait(false));
+                        && responseErrorBody is { Text: not null, Truncated: false }
+                        && IsTerminalProviderQuotaError(responseErrorBody.Text);
+                    if (responseErrorBody is not null)
+                    {
+                        callProbe.Set("error_body_read_failed", responseErrorBody.ReadFailed);
+                        callProbe.Set("error_body_truncated", responseErrorBody.Truncated);
+                    }
                     rejectedErrorCode = terminalQuotaError
                         ? "advanced_llm_quota_exhausted"
                         : $"advanced_llm_http_{(int)response.StatusCode}";
                     await WriteDevelopmentHttpRejectionAsync(jobId, role, payload, response,
-                        rejectedErrorCode, httpAttemptCount, stopwatch.ElapsedMilliseconds, timeout.Token).ConfigureAwait(false);
+                        rejectedErrorCode, httpAttemptCount, stopwatch.ElapsedMilliseconds, timeout.Token, cancellationToken,
+                        responseErrorBody).ConfigureAwait(false);
                     throw new AdvancedAnalysisProviderException(
                         rejectedErrorCode,
                         isRetryable: (int)response.StatusCode == 429 && !terminalQuotaError,
@@ -870,6 +904,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     var usage = nativeResponses ? ReadNativeResponsesUsage(document.RootElement) : ReadUsage(document.RootElement);
                     var observedModelId = ReadObservedModelId(
                         document.RootElement);
+                    callProbe.Set("observed_model", observedModelId);
+                    callProbe.Set("input_tokens", usage.InputTokens);
+                    callProbe.Set("output_tokens", usage.OutputTokens);
+                    callProbe.Set("cached_input_tokens", usage.CachedInputTokens);
+                    callProbe.Set("cache_write_tokens", usage.CacheWriteTokens);
                     var hasAnswer = document.RootElement.TryGetProperty(
                             "choices",
                             out var choices)
@@ -966,10 +1005,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                             reservation = null;
                         }
                     }
+                    callProbe.Set("provider_elapsed_ms", stopwatch.ElapsedMilliseconds);
                     await WriteDevelopmentTraceAsync(jobId, role, payload, document.RootElement,
                         completionContent!, observedModelId, charge?.CostUsd,
                         httpAttemptCount, stopwatch.ElapsedMilliseconds, cancellationToken,
                         nativeResponses ? completionOrigin : nativeCallsJson is null ? "message.content" : "tool_calls.normalized").ConfigureAwait(false);
+                    callProbe.Set("charged_cost_usd", charge?.CostUsd);
+                    callProbe.Set("provider_and_capture_elapsed_ms", stopwatch.ElapsedMilliseconds);
+                    callProbe.Set("completion_characters", completionContent!.Length);
+                    callProbe.Set("completion_origin", nativeResponses ? completionOrigin : nativeCallsJson is null ? "message.content" : "tool_calls.normalized");
+                    callProbe.Set("normalization_outcome", nativeArgumentFeedback is null ? "accepted" : "tool_argument_rejected");
+                    LlmPayloadDiagnostics.AnnotateSelectedTools(callProbe, nativeCallsJson);
+                    callProbe.Complete();
                     return new CompletionResult(
                         completionContent!.Trim(),
                         usage,
@@ -988,6 +1035,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         catch (OperationCanceledException) when (
             !cancellationToken.IsCancellationRequested)
         {
+            callProbe.Complete("failed", "advanced_llm_timeout");
             if (reservation is not null)
             {
                 _budget!.Fail(
@@ -1002,6 +1050,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         catch (OperationCanceledException) when (
             cancellationToken.IsCancellationRequested)
         {
+            callProbe.Complete("cancelled", "advanced_llm_canceled");
             if (reservation is not null)
             {
                 _budget!.Fail(
@@ -1014,6 +1063,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         }
         catch (Exception ex) when (ex is HttpRequestException or IOException)
         {
+            callProbe.Fail(ex, "advanced_llm_transport_error");
             if (reservation is not null)
             {
                 _budget!.Fail(
@@ -1027,6 +1077,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         }
         catch (AdvancedAnalysisProviderException ex)
         {
+            callProbe.Fail(ex, ex.ErrorCode);
             if (reservation is not null)
             {
                 if (rejectedErrorCode is not null)
@@ -1045,8 +1096,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             }
             throw;
         }
-        catch
+        catch (Exception ex)
         {
+            callProbe.Fail(ex, "advanced_llm_call_failed");
             if (reservation is not null)
             {
                 _budget!.Fail(
@@ -1056,6 +1108,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     httpAttemptCount);
             }
             throw;
+        }
+        finally
+        {
+            callProbe.Set("http_attempt_count", httpAttemptCount);
         }
     }
 

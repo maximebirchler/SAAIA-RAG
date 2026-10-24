@@ -242,27 +242,15 @@ public sealed class Bug137CumulativeLlmBudgetContractTests
     [Fact]
     public void Bug137_RunnerHasMechanicalCumulativeFinalizationTransition()
     {
-        var source = ReadProductSource(
-            "ToolAgent", "SourceBackedRag", "SourceBackedAgentV2Runner.cs");
-        var partial = ReadProductSource(
-            "ToolAgent", "SourceBackedRag", "SourceBackedAgentCumulativeBudgetTransition.cs");
-
-        Assert.Contains(
-            "TryActivateCumulativeBudgetFinalization",
-            source,
-            StringComparison.Ordinal);
-        Assert.Contains(
-            "terminal_budget_only",
-            partial,
-            StringComparison.Ordinal);
-        Assert.Contains(
-            "BuildSemanticYieldTerminalDecisionTools",
-            partial,
-            StringComparison.Ordinal);
-        Assert.DoesNotContain(
-            "selectedEvidenceIds = bundle.Items",
-            partial,
-            StringComparison.OrdinalIgnoreCase);
+        var runner = typeof(SourceBackedAgentV2Runner);
+        foreach (var phase in new[] { "PrepareIterationAsync", "AcquireIterationCompletionAsync", "ProcessIterationSubmissionsAndToolsAsync" })
+            Assert.Contains(CompiledArchitectureContract.CallsForMethod(runner, phase), call =>
+                call.DeclaringType == runner && call.Name == "TryActivateCumulativeBudgetFinalization");
+        var transitionStrings = CompiledArchitectureContract.StringsForMethod(runner, "TryActivateCumulativeBudgetFinalization");
+        Assert.Contains("terminal_budget_only", transitionStrings);
+        Assert.Contains("mechanical_budget_contract", transitionStrings);
+        Assert.Contains(CompiledArchitectureContract.CallsForMethod(runner, "TryActivateCumulativeBudgetFinalization"), call =>
+            call.DeclaringType == runner && call.Name == "BuildSemanticYieldTerminalDecisionTools");
     }
 
     [Fact]

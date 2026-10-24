@@ -7,26 +7,6 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
 public sealed partial class ToolAgentOrchestrator
 {
-    private static bool HasConcreteStructuredPlanningCandidateProof(SourceBackedOptionCandidate candidate)
-    {
-        var normalizedTitle = NormalizeLexicalLookup(candidate.Title);
-        if (string.IsNullOrWhiteSpace(normalizedTitle))
-            return false;
-
-        var finalEvidence = CollapseWhitespace(BuildPageLocalSourceBackedPlanningProofText(candidate.Hit));
-        var normalizedFinalEvidence = NormalizeLexicalLookup(finalEvidence);
-        if (normalizedFinalEvidence.Length < 24)
-            return false;
-
-        if (!normalizedFinalEvidence.Contains(normalizedTitle, StringComparison.Ordinal))
-            return false;
-
-        if (LooksLikeGenericCadenceOrTimingStatement(normalizedTitle))
-            return false;
-
-        return PrimaryEvidenceContainsLocalStructuredPlanningProof(candidate.Hit, normalizedTitle, finalEvidence)
-            || PrimaryEvidenceContainsRelaxedLocalStructuredPlanningProof(candidate.Hit, normalizedTitle, finalEvidence);
-    }
 
     private static bool HasPageLocalStructuredPlanningCandidateSupport(SourceBackedOptionCandidate candidate)
     {
@@ -180,43 +160,6 @@ public sealed partial class ToolAgentOrchestrator
         }
 
         return families.Count;
-    }
-
-    private static bool HasConcreteStructuredPlanningCardProof(
-        SourceBackedOptionCandidate candidate,
-        string normalizedTitle)
-    {
-        if (string.IsNullOrWhiteSpace(normalizedTitle)
-            || LooksLikeGenericCadenceOrTimingStatement(normalizedTitle))
-        {
-            return false;
-        }
-
-        foreach (var card in candidate.Hit.MatchedContentCards ?? Array.Empty<RagHitContentCardSummary>())
-        {
-            if (HasPageAnchoredContentCardStructuredPlanningProof(candidate.Hit, card, normalizedTitle))
-                return true;
-
-            if (!HasConcreteContentCardEvidenceForTitle(card, normalizedTitle, requireExactTitle: true))
-                continue;
-            if (!ContentCardEvidenceIsSupportedByPrimaryPageText(candidate.Hit, card, normalizedTitle))
-                continue;
-
-            var strictEvidence = BuildSourceBackedCardStrictEvidenceSnippet(card);
-            var normalizedEvidence = NormalizeLexicalLookup(strictEvidence);
-            if (normalizedEvidence.Length < 16)
-                continue;
-
-            if (!normalizedEvidence.Contains(normalizedTitle, StringComparison.Ordinal))
-                continue;
-
-            if (PrimaryEvidenceContainsLocalStructuredPlanningProof(candidate.Hit, normalizedTitle, strictEvidence))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static bool PrimaryContentTermsTightlySupportPlanningTitle(string normalizedTitle, string normalizedPrimaryEvidence)

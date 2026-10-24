@@ -52,6 +52,7 @@ public sealed class LiveDocumentOverviewSpecializedRouterProbeTests(
         requestedPointCount plus one. questionFocus must be content.
         """;
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void Specialized_overview_route_contract_is_single_bounded_and_semantic()
     {
@@ -92,7 +93,8 @@ public sealed class LiveDocumentOverviewSpecializedRouterProbeTests(
             StringComparison.Ordinal);
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Specialized_overview_route_is_measured_once_when_enabled()
     {
         if (!string.Equals(
@@ -101,7 +103,7 @@ public sealed class LiveDocumentOverviewSpecializedRouterProbeTests(
                 StringComparison.Ordinal))
         {
             output.WriteLine($"Skipped: set {EnableVariable}=1 to run A206.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var artifact = Environment.GetEnvironmentVariable(ArtifactVariable);

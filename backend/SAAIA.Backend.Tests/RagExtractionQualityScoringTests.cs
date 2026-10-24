@@ -17,7 +17,7 @@ public sealed class RagExtractionQualityScoringTests
             PageExtractionConfidence: 0.94,
             PageManualReviewRecommended: false);
 
-        var adjusted = RagEndpoints.ApplyExtractionQualityScorePenalty(0.91, quality);
+        var adjusted = RetrievalResultProjector.ApplyExtractionQualityScorePenalty(0.91, quality);
 
         Assert.Equal(0.91, adjusted);
     }
@@ -34,7 +34,7 @@ public sealed class RagExtractionQualityScoringTests
             PageManualReviewRecommended: true,
             OcrApplied: true);
 
-        var adjusted = RagEndpoints.ApplyExtractionQualityScorePenalty(0.91, quality);
+        var adjusted = RetrievalResultProjector.ApplyExtractionQualityScorePenalty(0.91, quality);
 
         Assert.InRange(adjusted, 0.52, 0.53);
     }
@@ -56,7 +56,7 @@ public sealed class RagExtractionQualityScoringTests
             ChunkOcrCandidate: true,
             ChunkQualitySignals: ["sparse_text_on_page", "ocr_candidate_text"]);
 
-        var adjusted = RagEndpoints.ApplyExtractionQualityScorePenalty(0.91, quality);
+        var adjusted = RetrievalResultProjector.ApplyExtractionQualityScorePenalty(0.91, quality);
 
         Assert.InRange(adjusted, 0.49, 0.82);
         Assert.True(adjusted < 0.91);
@@ -83,8 +83,8 @@ public sealed class RagExtractionQualityScoringTests
                         ["sparse_text"] = 10
                     })));
 
-        var score = RagEndpoints.ComputeRetrievalQualityScore(quality);
-        var adjusted = RagEndpoints.ApplyExtractionQualityScorePenalty(0.91, quality);
+        var score = RetrievalResultProjector.ComputeRetrievalQualityScore(quality);
+        var adjusted = RetrievalResultProjector.ApplyExtractionQualityScorePenalty(0.91, quality);
 
         Assert.True(score.ManualReviewRecommended);
         Assert.Equal(3, score.SelectionPenalty);
@@ -109,7 +109,7 @@ public sealed class RagExtractionQualityScoringTests
             ChunkOcrCandidate: true,
             ChunkQualitySignals: ["replacement_chars_remaining"]);
 
-        var score = RagEndpoints.ComputeRetrievalQualityScore(quality);
+        var score = RetrievalResultProjector.ComputeRetrievalQualityScore(quality);
 
         Assert.Equal(22, score.ChunkPenalty);
         Assert.Equal(24, score.SelectionPenalty);
@@ -132,7 +132,7 @@ public sealed class RagExtractionQualityScoringTests
             extractionOcrCandidate: true,
             extractionQualitySignals: ["replacement_chars_remaining"]);
 
-        var score = RagEndpoints.ComputeRetrievalQualityScore(match);
+        var score = RetrievalResultProjector.ComputeRetrievalQualityScore(match);
 
         Assert.Equal(22, score.ChunkPenalty);
         Assert.Equal(10, score.SelectionPenalty);
@@ -182,11 +182,11 @@ public sealed class RagExtractionQualityScoringTests
             Signals: ["text_extraction_ok"]);
         var qualityByMatch = new Dictionary<string, RagItemExtractionQualityDto>(StringComparer.OrdinalIgnoreCase)
         {
-            [RagEndpoints.BuildExtractionQualityMatchKey(match)] = quality
+            [RetrievalResultProjector.BuildExtractionQualityMatchKey(match)] = quality
         };
 
-        var effective = RagEndpoints.BuildEffectiveExtractionQualityByMatch([match], qualityByMatch)
-            [RagEndpoints.BuildExtractionQualityMatchKey(match)];
+        var effective = RetrievalResultProjector.BuildEffectiveExtractionQualityByMatch([match], qualityByMatch)
+            [RetrievalResultProjector.BuildExtractionQualityMatchKey(match)];
 
         Assert.Equal("ok", effective.TextStatus);
         Assert.Equal("low_text", effective.ChunkTextStatus);
@@ -240,7 +240,7 @@ public sealed class RagExtractionQualityScoringTests
             ExtractionQualitySignals = ["text_extraction_ok"]
         };
 
-        var ranked = RagEndpoints.RerankDenseMatches([noisy, clean]);
+        var ranked = RetrievalCandidateSignals.RerankDenseMatches([noisy, clean]);
 
         Assert.Equal("clean", ranked[0].ChunkId);
         Assert.Equal("noisy", ranked[1].ChunkId);
@@ -259,7 +259,7 @@ public sealed class RagExtractionQualityScoringTests
             extractionOcrCandidate: true,
             extractionQualitySignals: ["replacement_chars_remaining", "probable_ocr_noise"]);
 
-        var ranked = RagEndpoints.RerankDenseMatches([noisy]);
+        var ranked = RetrievalCandidateSignals.RerankDenseMatches([noisy]);
 
         var result = Assert.Single(ranked);
         Assert.Equal("noisy", result.ChunkId);
@@ -277,8 +277,8 @@ public sealed class RagExtractionQualityScoringTests
             chunkType: "document_profile",
             embeddingBasis: "document_profile");
 
-        Assert.Equal(0, RagEndpoints.ComputeChunkExtractionQualityPenalty(profile));
-        Assert.Equal(0.62, RagEndpoints.ApplyChunkExtractionQualityScorePenalty(profile.Score, profile));
+        Assert.Equal(0, RetrievalResultProjector.ComputeChunkExtractionQualityPenalty(profile));
+        Assert.Equal(0.62, RetrievalResultProjector.ApplyChunkExtractionQualityScorePenalty(profile.Score, profile));
     }
 
     [Fact]
@@ -338,10 +338,10 @@ public sealed class RagExtractionQualityScoringTests
             OcrApplied: true);
         var qualityByMatch = new Dictionary<string, RagItemExtractionQualityDto>(StringComparer.Ordinal)
         {
-            [RagEndpoints.BuildExtractionQualityMatchKey(selected)] = lowQuality
+            [RetrievalResultProjector.BuildExtractionQualityMatchKey(selected)] = lowQuality
         };
 
-        var adjusted = RagEndpoints.BuildQualityAdjustedMatchesPreservingRank(
+        var adjusted = RetrievalResultProjector.BuildQualityAdjustedMatchesPreservingRank(
             [selected, highRawScoreNeighbor],
             qualityByMatch);
 

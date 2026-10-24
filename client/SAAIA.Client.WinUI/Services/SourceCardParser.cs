@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using SAAIA.Client.WinUI.Models;
+using SAAIA.Client.Core.Sources;
 
 namespace SAAIA.Client.WinUI.Services;
 
@@ -10,13 +11,28 @@ public static class SourceCardParser
 {
     public static List<SourceCard> Parse(string? sourcesJson)
     {
+        using var parseScope = ClientDiagnostics.Journal.BeginTurn(operation: "source_parse");
         var result = new List<SourceCard>();
-        if (string.IsNullOrWhiteSpace(sourcesJson)) return result;
+        if (string.IsNullOrWhiteSpace(sourcesJson))
+        {
+            ClientDiagnostics.Journal.Emit("sources.parse", "skipped", "empty_payload");
+            parseScope.Complete("skipped", "empty_payload");
+            return result;
+        }
+        var received = 0;
+        var originTraceId = ClientDiagnostics.Journal.CurrentTraceId;
 
         try
         {
             using var doc = JsonDocument.Parse(sourcesJson);
             var root = doc.RootElement;
+            var context = TryGetObjectAny(root, "clientDiagnostics") ?? TryGetObjectAny(root, "advancedAnalysis");
+            if (context is { } diagnosticContext)
+            {
+                var origin = GetStringAny(diagnosticContext, "originTraceId", "traceId");
+                if (System.Guid.TryParseExact(origin, "N", out var parsed) && parsed != System.Guid.Empty)
+                    originTraceId = parsed.ToString("N");
+            }
 
             // ✅ Priorité : notre payload client contient "merged" (voir RagChatAgent.cs)
             var arr =
@@ -29,10 +45,12 @@ public static class SourceCardParser
 
             if (arr is not null)
             {
+                received += arr.Value.GetArrayLength();
                 AddFromArray(result, arr.Value);
             }
             else if (TryGetObjectAny(root, "source", "Source") is { } source)
             {
+                received++;
                 AddFromObject(result, source);
             }
             else
@@ -46,24 +64,53 @@ public static class SourceCardParser
                     {
                         var items = TryGetArray(s, "items", "Items", "hits", "Hits", "matches", "Matches");
                         if (items is not null)
+                        {
+                            received += items.Value.GetArrayLength();
                             AddFromArray(result, items.Value);
+                        }
                     }
                 }
             }
         }
-        catch
+        catch (System.Exception exception)
         {
+            ClientDiagnostics.Journal.Emit("sources.parse", "failed", exception.GetType().Name,
+                new Dictionary<string, long?> { ["received"] = received, ["accepted"] = 0 });
+            parseScope.Complete("failed", exception.GetType().Name);
             return new List<SourceCard>();
         }
 
         CanonicalizeFilenameOnlySourceAliases(result);
+        var withoutIdentity = result.Count(source => string.IsNullOrWhiteSpace(source.DocName) && string.IsNullOrWhiteSpace(source.DocPath));
 
         // micro-dedup
-        return result
+        var merged = result
             .Where(s => !string.IsNullOrWhiteSpace(s.DocName) || !string.IsNullOrWhiteSpace(s.DocPath))
             .GroupBy(BuildSourceCardVisiblePageMergeKey, StringComparer.OrdinalIgnoreCase)
             .Select(MergeSourceCardGroup)
             .ToList();
+        ClientDiagnostics.Journal.Emit("sources.parse", "success", measurements:
+            new Dictionary<string, long?> { ["received"] = received, ["parsed"] = result.Count,
+                ["visible"] = merged.Count, ["unparsed"] = System.Math.Max(0, received - result.Count),
+                ["missingIdentity"] = withoutIdentity,
+                ["duplicatesMerged"] = System.Math.Max(0, result.Count - withoutIdentity - merged.Count),
+                ["unknownPage"] = merged.Count(source => source.PageStart is not > 0),
+                ["unknownSourceHash"] = merged.Count(source => string.IsNullOrWhiteSpace(source.SourceHash)) });
+        if (received > result.Count)
+            ClientDiagnostics.Journal.Emit("sources.rejected", "degraded", "source_item_not_object",
+                new Dictionary<string, long?> { ["count"] = received - result.Count });
+        if (withoutIdentity > 0)
+            ClientDiagnostics.Journal.Emit("sources.rejected", "degraded", "document_identity_missing",
+                new Dictionary<string, long?> { ["count"] = withoutIdentity });
+        foreach (var card in merged)
+        {
+            card.OriginTraceId = originTraceId;
+            ClientDiagnostics.Sources.Register(new SourceLocator(card.DocPath, card.PageStart ?? card.PageEnd,
+                card.SourceHash, card.RevisionId, card.ChunkId, card.AnchorId, card.ContentCardId,
+                RequireExactSourceHash: true, OriginTraceId: originTraceId, PageEnd: card.PageEnd));
+        }
+        parseScope.Complete();
+        return merged;
     }
 
     private static void CanonicalizeFilenameOnlySourceAliases(List<SourceCard> sources)

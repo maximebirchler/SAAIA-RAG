@@ -840,8 +840,6 @@ public sealed partial class MainWindow
         }
     }
 
-    private void CloseAdminJobsOverlay() => CloseAdminJobsWindow();
-
     private void CloseAdminJobsWindow()
     {
         try

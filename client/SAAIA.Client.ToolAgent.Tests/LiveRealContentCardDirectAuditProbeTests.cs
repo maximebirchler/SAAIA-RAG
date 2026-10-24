@@ -12,7 +12,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class LiveRealContentCardDirectAuditProbeTests(ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_audits_real_content_card_titles_in_adaptive_batches_when_enabled()
     {
         if (!string.Equals(
@@ -23,7 +24,7 @@ public sealed class LiveRealContentCardDirectAuditProbeTests(ITestOutputHelper o
         {
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_REAL_CONTENT_CARD_DIRECT_AUDIT_PROBE=1 to run the live probe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

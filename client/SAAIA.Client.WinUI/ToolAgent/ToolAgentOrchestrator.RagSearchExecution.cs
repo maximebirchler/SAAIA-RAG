@@ -549,37 +549,6 @@ public sealed partial class ToolAgentOrchestrator
             ("reason", reason));
     }
 
-    private static string? TryGetRagMultiSearchResultCategoryPath(JsonElement result)
-    {
-        var meta = TryGetObject(result, "meta")
-                   ?? TryGetObject(result, "Meta");
-        if (!meta.HasValue)
-            return null;
-
-        return NormalizeCategoryPathArg(
-            TryGetString(meta.Value, "categoryPath")
-            ?? TryGetString(meta.Value, "CategoryPath")
-            ?? TryGetString(meta.Value, "category")
-            ?? TryGetString(meta.Value, "Category"));
-    }
-
-    private static string? ChooseCommittedSourceBackedCategoryScope(string? plannedScope, string? executedScope)
-    {
-        var planned = NormalizeCategoryPathArg(plannedScope);
-        var executed = NormalizeCategoryPathArg(executedScope);
-        if (string.IsNullOrWhiteSpace(executed))
-            return planned;
-        if (string.IsNullOrWhiteSpace(planned))
-            return executed;
-        if (string.Equals(planned, executed, StringComparison.OrdinalIgnoreCase)
-            || executed.StartsWith(planned + "/", StringComparison.OrdinalIgnoreCase))
-        {
-            return executed;
-        }
-
-        return planned;
-    }
-
     private async Task<JsonElement> TryExecRagSearchOrEmptyAsync(JsonElement args, CancellationToken ct)
     {
         try

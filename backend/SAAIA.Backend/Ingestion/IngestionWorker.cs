@@ -15,6 +15,7 @@ using Dapper;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using SAAIA.Contracts.DocumentIntelligence;
+using SAAIA.Backend;
 
 sealed class JobCanceledException : Exception
 {
@@ -1027,246 +1028,165 @@ WHERE job_id=@job_id
         string workerId,
         CancellationToken ct)
     {
-        var tenantId = job.TenantId;
-        var docId = job.DocId;
-        var canonicalCodeRevision = ingest.CanonicalArtifactsEnabled
-            ? IngestionProvenanceConfiguration.Validate(
-                rag,
-                Environment.GetEnvironmentVariable("SAAIA_CODE_REVISION"))
-            : null;
-        var swTotal = Stopwatch.StartNew();
-        long hashMs = 0;
-        long extractMs = 0;
-        long ocrMs = 0;
-        long sectionMs = 0;
-        long unitMs = 0;
-        long canonicalProjectionMs = 0;
-        long nativeTextExtractionMs = 0;
-        long chunkingMs = 0;
-        long exactMatchMs = 0;
-        long contextualMs = 0;
-        long teiWarmupMs = 0;
-        long qdrantEnsureMs = 0;
-        long embeddingTotalMs = 0;
-        long qdrantUpsertTotalMs = 0;
-        long publishMs = 0;
-        long cleanupMs = 0;
-
-        var relDocPath = DocPathNormalizer.NormalizeToRelative(job.DocPath, ingest.DocumentsRoot);
-        var absPath = DocPathNormalizer.ToAbsoluteFromRelative(relDocPath, ingest.DocumentsRoot);
-        var checkpoint = await JobRepo.GetResumeCheckpointAsync(ds, job.JobId, ct);
-        var savedProgressCurrent = checkpoint?.ProgressCurrent;
-        var savedProgressTotal = checkpoint?.ProgressTotal ?? checkpoint?.ChunkTotal;
-        var hasSavedProgress =
-            savedProgressCurrent.HasValue
-            && savedProgressCurrent.Value > 0
-            && savedProgressTotal.HasValue
-            && savedProgressTotal.Value > 0;
-
-        if (hasSavedProgress)
-            await JobRepo.UpdateProgressAsync(ds, job.JobId, "resuming", savedProgressCurrent, savedProgressTotal, ct);
-        else
-            await JobRepo.UpdateProgressAsync(ds, job.JobId, "preparing", null, null, ct);
-        await ThrowIfJobCanceledAsync(ds, job, ct);
-        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-
-        if (job.Version > 0)
+        using var diagnostics = new IngestionAttemptDiagnostics(job, workerId, _log);
+        try
         {
-            var ok = await IsCurrentDocVersionAsync(ds, tenantId, relDocPath, job.Version, ct);
-            if (!ok)
+            var tenantId = job.TenantId;
+            var docId = job.DocId;
+            var canonicalCodeRevision = ingest.CanonicalArtifactsEnabled
+                ? IngestionProvenanceConfiguration.Validate(
+                    rag,
+                    Environment.GetEnvironmentVariable("SAAIA_CODE_REVISION"))
+                : null;
+            var swTotal = Stopwatch.StartNew();
+            long hashMs = 0;
+            long extractMs = 0;
+            long ocrMs = 0;
+            long sectionMs = 0;
+            long unitMs = 0;
+            long canonicalProjectionMs = 0;
+            long nativeTextExtractionMs = 0;
+            long chunkingMs = 0;
+            long exactMatchMs = 0;
+            long contextualMs = 0;
+            long teiWarmupMs = 0;
+            long qdrantEnsureMs = 0;
+            long embeddingTotalMs = 0;
+            long qdrantUpsertTotalMs = 0;
+            long publishMs = 0;
+            long cleanupMs = 0;
+
+            var relDocPath = DocPathNormalizer.NormalizeToRelative(job.DocPath, ingest.DocumentsRoot);
+            var absPath = DocPathNormalizer.ToAbsoluteFromRelative(relDocPath, ingest.DocumentsRoot);
+            var checkpoint = await JobRepo.GetResumeCheckpointAsync(ds, job.JobId, ct);
+            var savedProgressCurrent = checkpoint?.ProgressCurrent;
+            var savedProgressTotal = checkpoint?.ProgressTotal ?? checkpoint?.ChunkTotal;
+            var hasSavedProgress =
+                savedProgressCurrent.HasValue
+                && savedProgressCurrent.Value > 0
+                && savedProgressTotal.HasValue
+                && savedProgressTotal.Value > 0;
+
+            if (hasSavedProgress)
+                await JobRepo.UpdateProgressAsync(ds, job.JobId, "resuming", savedProgressCurrent, savedProgressTotal, ct);
+            else
+                await JobRepo.UpdateProgressAsync(ds, job.JobId, "preparing", null, null, ct);
+            await ThrowIfJobCanceledAsync(ds, job, ct);
+            await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+
+            if (job.Version > 0)
             {
-                await JobRepo.MarkSupersededAndQueueCurrentAsync(ds, tenantId, job.JobId, relDocPath, job.Version, ct);
-                return false;
+                var ok = await IsCurrentDocVersionAsync(ds, tenantId, relDocPath, job.Version, ct);
+                if (!ok)
+                {
+                    await JobRepo.MarkSupersededAndQueueCurrentAsync(ds, tenantId, job.JobId, relDocPath, job.Version, ct);
+                    return false;
+                }
             }
-        }
 
-        if (!File.Exists(absPath))
-            throw new Exception("file_missing");
+            if (!File.Exists(absPath))
+                throw new Exception("file_missing");
 
-        await ThrowIfJobCanceledAsync(ds, job, ct);
+            await ThrowIfJobCanceledAsync(ds, job, ct);
 
-        // Hash + size
-        byte[] hash;
-        long size;
-        var swHash = Stopwatch.StartNew();
-        await using (var fs = File.OpenRead(absPath))
-        {
-            size = fs.Length;
-            hash = await SHA256.HashDataAsync(fs, ct);
-        }
-        swHash.Stop();
-        hashMs = swHash.ElapsedMilliseconds;
-        var hashHex = Convert.ToHexString(hash).ToLowerInvariant();
-        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-        await ThrowIfJobCanceledAsync(ds, job, ct);
+            // Hash + size
+            diagnostics.Begin("hash");
+            byte[] hash;
+            long size;
+            var swHash = Stopwatch.StartNew();
+            await using (var fs = File.OpenRead(absPath))
+            {
+                size = fs.Length;
+                hash = await SHA256.HashDataAsync(fs, ct);
+            }
+            swHash.Stop();
+            hashMs = swHash.ElapsedMilliseconds;
+            var hashHex = Convert.ToHexString(hash).ToLowerInvariant();
+            await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+            await ThrowIfJobCanceledAsync(ds, job, ct);
 
-        // PDF -> tokens -> chunks
-        if (!hasSavedProgress)
-            await JobRepo.UpdateProgressAsync(ds, job.JobId, "extracting", null, null, ct);
-        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-        var useDocling = ResolveUseDocling(documentIntelligence);
-        DoclingConvertResponse? doclingConversion = null;
-        PdfExtractionResult? nativeTextLayerExtraction = null;
-        var doclingForceOcr = false;
-        var swExtract = Stopwatch.StartNew();
-        PdfExtractionResult extraction;
-        if (useDocling)
-        {
-            await JobRepo.UpdateProgressAsync(
-                ds,
+            // PDF -> tokens -> chunks
+            diagnostics.Begin("extraction");
+            if (!hasSavedProgress)
+                await JobRepo.UpdateProgressAsync(ds, job.JobId, "extracting", null, null, ct);
+            await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+            var swExtract = Stopwatch.StartNew();
+            var sourceExtraction = await IngestionExtractionStage.ExtractAsync(absPath, documentIntelligence,
+                async (forceOcr, stageToken) =>
+                {
+                    await JobRepo.UpdateProgressAsync(ds, job.JobId, "document_intelligence", null, null, stageToken);
+                    return await RunWithJobHeartbeatAsync(ds, job, workerId, async operationToken =>
+                    {
+                        using (await _bulkheads.AcquireOcrAsync(operationToken))
+                            return await doclingClient.ConvertPdfAsync(absPath, operationToken, forceOcr);
+                    }, stageToken);
+                }, _log, ct);
+            var useDocling = sourceExtraction.UsesDocling;
+            var doclingConversion = sourceExtraction.Conversion;
+            var nativeTextLayerExtraction = sourceExtraction.NativeTextLayer;
+            var doclingForceOcr = sourceExtraction.ForceOcr;
+            var extraction = sourceExtraction.Extraction;
+            nativeTextExtractionMs = sourceExtraction.NativeTextExtractionMilliseconds;
+            swExtract.Stop();
+            extractMs = swExtract.ElapsedMilliseconds;
+            var nativeExtractionQuality =
+                nativeTextLayerExtraction?.Quality
+                ?? extraction.Quality;
+            var ocrAttempted = useDocling && documentIntelligence.DoOcr;
+            var ocrApplied = useDocling
+                && documentIntelligence.DoOcr
+                && DocumentExtractionPolicy.ResolveDoclingTimingCount(doclingConversion, "ocr") > 0;
+            string? ocrLanguages = null;
+            PdfOcrDiagnostics? ocrDiagnostics = useDocling
+                ? DocumentExtractionPolicy.BuildDoclingOcrDiagnostics(
+                    documentIntelligence,
+                    doclingConversion!,
+                    extraction,
+                    doclingForceOcr)
+                : null;
+            if (useDocling)
+                ocrMs = DocumentExtractionPolicy.ResolveDoclingTimingMs(doclingConversion!, "ocr");
+            diagnostics.Begin("ocr");
+            var nativeExtraction = nativeTextLayerExtraction ?? extraction;
+            var fullDocumentOcrRecommended =
+                !useDocling && nativeExtraction.Quality.OcrRecommended;
+            var imagePageOcrRecommended =
+                !useDocling && ShouldAttemptImagePageOcr(ingest, nativeExtraction);
+            var ocrRequiredButDisabled = useDocling
+                ? nativeExtraction.Quality.OcrRecommended && !documentIntelligence.DoOcr
+                : IsOcrRequiredButDisabled(
+                    ingest,
+                    fullDocumentOcrRecommended,
+                    imagePageOcrRecommended);
+            _log.LogInformation(
+                "Ingestion native extraction summary job={JobId} doc={DocPath} pages={Pages} tokens={Tokens} text_status={TextStatus} text_pages={TextPages} empty_pages={EmptyPages} sparse_pages={SparsePages} image_pages={ImagePages} ocr_recommended={OcrRecommended} image_ocr_recommended={ImageOcrRecommended} ocr_required_but_disabled={OcrRequiredButDisabled}",
                 job.JobId,
-                "document_intelligence",
-                null,
-                null,
-                ct);
-            if (documentIntelligence
-                    .NativeTextCoverageReconciliationEnabled
-                || documentIntelligence.NativePdfImageInventoryEnabled)
-            {
-                var nativeTextStopwatch =
-                    Stopwatch.StartNew();
-                try
-                {
-                    nativeTextLayerExtraction =
-                        PdfExtractor.Extract(absPath, ct);
-                }
-                catch (OperationCanceledException)
-                    when (ct.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _log.LogWarning(
-                        ex,
-                        "Native PDF text coverage audit failed open job={JobId} doc={DocPath}",
-                        job.JobId,
-                        relDocPath);
-                }
-                finally
-                {
-                    nativeTextStopwatch.Stop();
-                    nativeTextExtractionMs =
-                        nativeTextStopwatch.ElapsedMilliseconds;
-                }
-            }
-            doclingForceOcr = ResolveDoclingForceOcr(
-                documentIntelligence,
-                nativeTextLayerExtraction);
-            if (doclingForceOcr && !documentIntelligence.ForceOcr)
-            {
-                _log.LogInformation(
-                    "Docling adaptive force OCR enabled job={JobId} doc={DocPath} native_signals={NativeSignals}",
-                    job.JobId,
-                    relDocPath,
-                    string.Join(
-                        ',',
-                        nativeTextLayerExtraction?.Quality.Signals
-                        ?? Array.Empty<string>()));
-            }
-            doclingConversion = await RunWithJobHeartbeatAsync(
-                ds,
-                job,
-                workerId,
-                async operationCt =>
-                {
-                    using (await _bulkheads.AcquireOcrAsync(operationCt))
-                        return await doclingClient.ConvertPdfAsync(
-                            absPath,
-                            operationCt,
-                            doclingForceOcr);
-                },
-                ct);
-            extraction = DoclingLegacyExtractionAdapter.Project(doclingConversion);
-        }
-        else
-        {
-            extraction = PdfExtractor.Extract(absPath, ct);
-        }
-        swExtract.Stop();
-        extractMs = swExtract.ElapsedMilliseconds;
-        var nativeExtractionQuality =
-            nativeTextLayerExtraction?.Quality
-            ?? extraction.Quality;
-        var ocrAttempted = useDocling && documentIntelligence.DoOcr;
-        var ocrApplied = useDocling
-            && documentIntelligence.DoOcr
-            && ResolveDoclingTimingCount(doclingConversion, "ocr") > 0;
-        string? ocrLanguages = null;
-        PdfOcrDiagnostics? ocrDiagnostics = useDocling
-            ? BuildDoclingOcrDiagnostics(
-                documentIntelligence,
-                doclingConversion!,
-                extraction,
-                doclingForceOcr)
-            : null;
-        if (useDocling)
-            ocrMs = ResolveDoclingTimingMs(doclingConversion!, "ocr");
-        var nativeExtraction = nativeTextLayerExtraction ?? extraction;
-        var fullDocumentOcrRecommended =
-            !useDocling && nativeExtraction.Quality.OcrRecommended;
-        var imagePageOcrRecommended =
-            !useDocling && ShouldAttemptImagePageOcr(ingest, nativeExtraction);
-        var ocrRequiredButDisabled = useDocling
-            ? nativeExtraction.Quality.OcrRecommended && !documentIntelligence.DoOcr
-            : IsOcrRequiredButDisabled(
-                ingest,
-                fullDocumentOcrRecommended,
-                imagePageOcrRecommended);
-        _log.LogInformation(
-            "Ingestion native extraction summary job={JobId} doc={DocPath} pages={Pages} tokens={Tokens} text_status={TextStatus} text_pages={TextPages} empty_pages={EmptyPages} sparse_pages={SparsePages} image_pages={ImagePages} ocr_recommended={OcrRecommended} image_ocr_recommended={ImageOcrRecommended} ocr_required_but_disabled={OcrRequiredButDisabled}",
-            job.JobId,
-            relDocPath,
-            nativeExtraction.Pages.Count,
-            nativeExtraction.Tokens.Count,
-            nativeExtraction.Quality.TextStatus,
-            nativeExtraction.Quality.TextPageCount,
-            nativeExtraction.Quality.EmptyPageCount,
-            nativeExtraction.Quality.SparsePageCount,
-            nativeExtraction.Pages.Count(static page => page.ImageCount > 0),
-            fullDocumentOcrRecommended,
-            imagePageOcrRecommended,
-            ocrRequiredButDisabled);
-        if (ocrRequiredButDisabled && !useDocling)
-        {
-            ocrDiagnostics = PdfOcrTextExtractor.BuildOcrDisabledDiagnostics(
-                ingest,
-                nativeExtraction,
-                imagePageOcrRecommended);
-        }
-
-        if (!useDocling
-            && ingest.OcrEnabled
-            && (fullDocumentOcrRecommended || imagePageOcrRecommended))
-        {
-            ocrAttempted = true;
-            var forceFullDocumentOcr = fullDocumentOcrRecommended && PdfOcrTextExtractor.ShouldForceOcrNativeText(nativeExtraction);
-            await ReportOcrWaitingForSlotHeartbeatAsync(
-                ds,
-                job.JobId,
-                workerId,
+                relDocPath,
+                nativeExtraction.Pages.Count,
+                nativeExtraction.Tokens.Count,
+                nativeExtraction.Quality.TextStatus,
+                nativeExtraction.Quality.TextPageCount,
+                nativeExtraction.Quality.EmptyPageCount,
+                nativeExtraction.Quality.SparsePageCount,
+                nativeExtraction.Pages.Count(static page => page.ImageCount > 0),
                 fullDocumentOcrRecommended,
                 imagePageOcrRecommended,
-                nativeExtraction.Pages.Count,
-                forceFullDocumentOcr,
-                0,
-                TimeSpan.Zero,
-                ct);
-            var swOcr = Stopwatch.StartNew();
-            PdfExtractionResult? fullOcrExtraction = null;
-            PdfExtractionResult? imageOcrExtraction = null;
-            PdfExtractionResult? ocrExtraction = null;
-            PdfOcrDiagnostics? fullOcrDiagnostics = null;
-            PdfOcrDiagnostics? imageOcrDiagnostics = null;
-            var fullOcrApplied = false;
-            var imageOcrApplied = false;
-            using (await RunWithJobHeartbeatAsync(
-                ds,
-                job,
-                workerId,
-                operationCt => _bulkheads.AcquireOcrAsync(operationCt),
-                ct,
-                onHeartbeatAsync: (heartbeat, elapsed, operationCt) => ReportOcrWaitingForSlotHeartbeatAsync(
+                ocrRequiredButDisabled);
+            if (ocrRequiredButDisabled && !useDocling)
+            {
+                ocrDiagnostics = PdfOcrTextExtractor.BuildOcrDisabledDiagnostics(
+                    ingest,
+                    nativeExtraction,
+                    imagePageOcrRecommended);
+            }
+
+            if (!useDocling
+                && ingest.OcrEnabled
+                && (fullDocumentOcrRecommended || imagePageOcrRecommended))
+            {
+                ocrAttempted = true;
+                var forceFullDocumentOcr = fullDocumentOcrRecommended && PdfOcrTextExtractor.ShouldForceOcrNativeText(nativeExtraction);
+                await ReportOcrWaitingForSlotHeartbeatAsync(
                     ds,
                     job.JobId,
                     workerId,
@@ -1274,228 +1194,274 @@ WHERE job_id=@job_id
                     imagePageOcrRecommended,
                     nativeExtraction.Pages.Count,
                     forceFullDocumentOcr,
-                    heartbeat,
-                    elapsed,
-                    operationCt)))
-            {
-                ocrLanguages = PdfOcrTextExtractor.ResolveLanguagesForDocument(absPath, ingest, nativeExtraction);
-                if (fullDocumentOcrRecommended)
-                {
-                    await ReportFullDocumentOcrHeartbeatAsync(
+                    0,
+                    TimeSpan.Zero,
+                    ct);
+                var swOcr = Stopwatch.StartNew();
+                PdfExtractionResult? fullOcrExtraction = null;
+                PdfExtractionResult? imageOcrExtraction = null;
+                PdfExtractionResult? ocrExtraction = null;
+                PdfOcrDiagnostics? fullOcrDiagnostics = null;
+                PdfOcrDiagnostics? imageOcrDiagnostics = null;
+                var fullOcrApplied = false;
+                var imageOcrApplied = false;
+                using (await RunWithJobHeartbeatAsync(
+                    ds,
+                    job,
+                    workerId,
+                    operationCt => _bulkheads.AcquireOcrAsync(operationCt),
+                    ct,
+                    onHeartbeatAsync: (heartbeat, elapsed, operationCt) => ReportOcrWaitingForSlotHeartbeatAsync(
                         ds,
                         job.JobId,
                         workerId,
+                        fullDocumentOcrRecommended,
+                        imagePageOcrRecommended,
                         nativeExtraction.Pages.Count,
-                        ocrLanguages,
                         forceFullDocumentOcr,
-                        0,
-                        TimeSpan.Zero,
-                        ct);
-                    var fullOcrResult = await RunWithJobHeartbeatAsync(
-                        ds,
-                        job,
-                        workerId,
-                        operationCt => PdfOcrTextExtractor.TryExtractWithDiagnosticsAsync(absPath, ingest, operationCt, ocrLanguages, forceFullDocumentOcr),
-                        ct,
-                        onHeartbeatAsync: (heartbeat, elapsed, operationCt) => ReportFullDocumentOcrHeartbeatAsync(
+                        heartbeat,
+                        elapsed,
+                        operationCt)))
+                {
+                    ocrLanguages = PdfOcrTextExtractor.ResolveLanguagesForDocument(absPath, ingest, nativeExtraction);
+                    if (fullDocumentOcrRecommended)
+                    {
+                        await ReportFullDocumentOcrHeartbeatAsync(
                             ds,
                             job.JobId,
                             workerId,
                             nativeExtraction.Pages.Count,
                             ocrLanguages,
                             forceFullDocumentOcr,
-                            heartbeat,
-                            elapsed,
-                            operationCt));
-                    fullOcrDiagnostics = fullOcrResult?.Diagnostics;
-                    fullOcrExtraction = fullOcrResult?.Extraction;
-                    fullOcrApplied = fullOcrExtraction is not null
-                        && PdfOcrTextExtractor.ShouldApplyOcrExtraction(
-                            nativeExtraction,
-                            fullOcrExtraction,
-                            fullDocumentOcrRecommended,
-                            forceFullDocumentOcr);
-                    if (fullOcrApplied)
-                        ocrExtraction = PdfOcrTextExtractor.WithImageCountsFromNative(fullOcrExtraction!, nativeExtraction);
-                }
-
-                if (imagePageOcrRecommended)
-                {
-                    if (fullDocumentOcrRecommended)
-                    {
-                        await JobRepo.UpdateProgressAsync(ds, job.JobId, "image_ocr", null, null, ct);
-                        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+                            0,
+                            TimeSpan.Zero,
+                            ct);
+                        var fullOcrResult = await RunWithJobHeartbeatAsync(
+                            ds,
+                            job,
+                            workerId,
+                            operationCt => PdfOcrTextExtractor.TryExtractWithDiagnosticsAsync(absPath, ingest, operationCt, ocrLanguages, forceFullDocumentOcr),
+                            ct,
+                            onHeartbeatAsync: (heartbeat, elapsed, operationCt) => ReportFullDocumentOcrHeartbeatAsync(
+                                ds,
+                                job.JobId,
+                                workerId,
+                                nativeExtraction.Pages.Count,
+                                ocrLanguages,
+                                forceFullDocumentOcr,
+                                heartbeat,
+                                elapsed,
+                                operationCt));
+                        fullOcrDiagnostics = fullOcrResult?.Diagnostics;
+                        fullOcrExtraction = fullOcrResult?.Extraction;
+                        fullOcrApplied = fullOcrExtraction is not null
+                            && PdfOcrTextExtractor.ShouldApplyOcrExtraction(
+                                nativeExtraction,
+                                fullOcrExtraction,
+                                fullDocumentOcrRecommended,
+                                forceFullDocumentOcr);
+                        if (fullOcrApplied)
+                            ocrExtraction = PdfOcrTextExtractor.WithImageCountsFromNative(fullOcrExtraction!, nativeExtraction);
                     }
 
-                    var imageMergeBase = ResolveImageOcrMergeBase(nativeExtraction, ocrExtraction, fullOcrApplied);
-                    var imageOcrPlan = PdfOcrTextExtractor.BuildImagePageOcrPlan(imageMergeBase, ingest);
-                    await JobRepo.UpdateProgressAsync(ds, job.JobId, "image_ocr", 0, imageOcrPlan.AttemptedPageCount, ct);
-                    await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-                    var imageOcrCallbacks = new PdfImagePageOcrCallbacks(
-                        ReportProgressAsync: (current, total, operationCt) => ReportImageOcrProgressAsync(ds, job.JobId, workerId, current, total, operationCt),
-                        IsCancellationRequestedAsync: operationCt => IsJobCancellationRequestedAsync(ds, job, operationCt));
-                    var imageOcrResult = await RunWithJobHeartbeatAsync(
-                        ds,
-                        job,
-                        workerId,
-                        operationCt => PdfOcrTextExtractor.TryMergeImagePageOcrAsync(absPath, ingest, imageMergeBase, operationCt, ocrLanguages, imageOcrCallbacks),
-                        ct);
-                    imageOcrDiagnostics = imageOcrResult?.Diagnostics;
-                    imageOcrExtraction = imageOcrResult?.Extraction;
-                    imageOcrApplied = imageOcrExtraction is not null
-                        && PdfOcrTextExtractor.ShouldApplyOcrExtraction(
-                            imageMergeBase,
-                            imageOcrExtraction,
-                            fullDocumentOcrRecommended: false,
-                            forceFullDocumentOcr: false);
-                    if (imageOcrApplied)
-                        ocrExtraction = imageOcrExtraction;
+                    if (imagePageOcrRecommended)
+                    {
+                        if (fullDocumentOcrRecommended)
+                        {
+                            await JobRepo.UpdateProgressAsync(ds, job.JobId, "image_ocr", null, null, ct);
+                            await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+                        }
+
+                        var imageMergeBase = ResolveImageOcrMergeBase(nativeExtraction, ocrExtraction, fullOcrApplied);
+                        var imageOcrPlan = PdfOcrTextExtractor.BuildImagePageOcrPlan(imageMergeBase, ingest);
+                        await JobRepo.UpdateProgressAsync(ds, job.JobId, "image_ocr", 0, imageOcrPlan.AttemptedPageCount, ct);
+                        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+                        var imageOcrCallbacks = new PdfImagePageOcrCallbacks(
+                            ReportProgressAsync: (current, total, operationCt) => ReportImageOcrProgressAsync(ds, job.JobId, workerId, current, total, operationCt),
+                            IsCancellationRequestedAsync: operationCt => IsJobCancellationRequestedAsync(ds, job, operationCt));
+                        var imageOcrResult = await RunWithJobHeartbeatAsync(
+                            ds,
+                            job,
+                            workerId,
+                            operationCt => PdfOcrTextExtractor.TryMergeImagePageOcrAsync(absPath, ingest, imageMergeBase, operationCt, ocrLanguages, imageOcrCallbacks),
+                            ct);
+                        imageOcrDiagnostics = imageOcrResult?.Diagnostics;
+                        imageOcrExtraction = imageOcrResult?.Extraction;
+                        imageOcrApplied = imageOcrExtraction is not null
+                            && PdfOcrTextExtractor.ShouldApplyOcrExtraction(
+                                imageMergeBase,
+                                imageOcrExtraction,
+                                fullDocumentOcrRecommended: false,
+                                forceFullDocumentOcr: false);
+                        if (imageOcrApplied)
+                            ocrExtraction = imageOcrExtraction;
+                    }
+                }
+                swOcr.Stop();
+                ocrMs = swOcr.ElapsedMilliseconds;
+                var shouldApplyOcrExtraction = fullOcrApplied || imageOcrApplied;
+                var appliedReason = ResolveOcrAppliedReason(
+                    fullDocumentOcrRecommended,
+                    forceFullDocumentOcr,
+                    fullDocumentOcrRecommended ? fullOcrExtraction : imageOcrExtraction,
+                    shouldApplyOcrExtraction,
+                    imagePageOcrRecommended,
+                    imageOcrApplied,
+                    fullOcrApplied);
+                ocrDiagnostics = PdfOcrTextExtractor.CombineOcrDiagnostics(fullOcrDiagnostics, imageOcrDiagnostics);
+                ocrDiagnostics = PdfOcrTextExtractor.WithAppliedReason(ocrDiagnostics, appliedReason);
+                if (shouldApplyOcrExtraction && ocrExtraction is not null)
+                {
+                    extraction = ocrExtraction with { OcrDiagnostics = ocrDiagnostics };
+                    ocrApplied = true;
                 }
             }
-            swOcr.Stop();
-            ocrMs = swOcr.ElapsedMilliseconds;
-            var shouldApplyOcrExtraction = fullOcrApplied || imageOcrApplied;
-            var appliedReason = ResolveOcrAppliedReason(
-                fullDocumentOcrRecommended,
-                forceFullDocumentOcr,
-                fullDocumentOcrRecommended ? fullOcrExtraction : imageOcrExtraction,
-                shouldApplyOcrExtraction,
-                imagePageOcrRecommended,
-                imageOcrApplied,
-                fullOcrApplied);
-            ocrDiagnostics = PdfOcrTextExtractor.CombineOcrDiagnostics(fullOcrDiagnostics, imageOcrDiagnostics);
-            ocrDiagnostics = PdfOcrTextExtractor.WithAppliedReason(ocrDiagnostics, appliedReason);
-            if (shouldApplyOcrExtraction && ocrExtraction is not null)
-            {
-                extraction = ocrExtraction with { OcrDiagnostics = ocrDiagnostics };
-                ocrApplied = true;
-            }
-        }
-        var tokens = extraction.Tokens;
-        var pages = extraction.Pages;
-        var extractionQuality = extraction.Quality;
-        _log.LogInformation(
-            "Ingestion OCR decision summary job={JobId} doc={DocPath} source={ExtractionSource} attempted={OcrAttempted} applied={OcrApplied} languages={OcrLanguages} candidate_pages={OcrCandidatePages} attempted_pages={OcrAttemptedPages} pages_with_text={OcrPagesWithText} pages_with_novel_text={OcrPagesWithNovelText} coverage={OcrCoverage} failure={OcrFailure}",
-            job.JobId,
-            relDocPath,
-            extraction.Source,
-            ocrAttempted,
-            ocrApplied,
-            ocrLanguages ?? "",
-            ocrDiagnostics?.CandidatePageCount ?? 0,
-            ocrDiagnostics?.AttemptedPageCount ?? 0,
-            ocrDiagnostics?.PagesWithOcrText.Length ?? 0,
-            ocrDiagnostics?.PagesWithNovelText.Length ?? 0,
-            ocrDiagnostics?.CoverageStatus ?? "",
-            ocrDiagnostics?.FailureReason ?? "");
-        await JobRepo.UpdateProgressAsync(ds, job.JobId, "structuring", null, null, ct);
-        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-        CanonicalDocument? canonicalRetrievalDocument = null;
-        NativeTextCoverageReconciliationSummary?
-            nativeTextReconciliation = null;
-        NativePdfImageInventorySummary?
-            nativePdfImageInventory = null;
-        if (doclingConversion?.Document.JsonContent is { } doclingDocument)
-        {
-            var swCanonicalProjection = Stopwatch.StartNew();
-            canonicalRetrievalDocument =
-                DoclingCanonicalDocumentAdapter.Project(
-                    new(
-                        docId,
-                        DocumentFoundationRepo.BuildStableRevisionId(
-                            tenantId,
-                            docId,
-                            job.Version),
-                        hashHex,
-                        size,
-                        Path.GetFileName(
-                            relDocPath.Replace('\\', '/')),
-                        hashHex,
-                        "canonical_projection",
-                        documentIntelligence.EngineVersion,
-                        documentIntelligence.DeploymentRevision,
-                        doclingConversion.Confidence?.MeanScore),
-                    doclingDocument);
-            nativeTextReconciliation =
-                CanonicalNativeTextCoverageReconciler.Apply(
-                    canonicalRetrievalDocument,
-                    nativeTextLayerExtraction,
-                    documentIntelligence
-                        .NativeTextCoverageReconciliationEnabled,
-                    documentIntelligence
-                        .NativeTextCoverageMinimumLineCoverage);
-            nativePdfImageInventory =
-                CanonicalNativePdfImageInventoryReconciler.Apply(
-                    canonicalRetrievalDocument,
-                    nativeTextLayerExtraction,
-                    documentIntelligence.NativePdfImageInventoryEnabled);
-            swCanonicalProjection.Stop();
-            canonicalProjectionMs =
-                swCanonicalProjection.ElapsedMilliseconds;
+            var tokens = extraction.Tokens;
+            var pages = extraction.Pages;
+            diagnostics.Set("pages", pages.Count);
+            diagnostics.Set("tokens", tokens.Count);
+            diagnostics.Set("ocr_attempted", ocrAttempted);
+            diagnostics.Set("ocr_applied", ocrApplied);
+            diagnostics.Begin("structure_projection");
+            var extractionQuality = extraction.Quality;
             _log.LogInformation(
-                "Native text coverage reconciliation job={JobId} doc={DocPath} enabled={Enabled} native_pages={NativePages} audited_pages={AuditedPages} candidate_lines={CandidateLines} recovered_lines={RecoveredLines} recovered_blocks={RecoveredBlocks} recovered_chars={RecoveredChars} skipped_low_quality_pages={SkippedLowQualityPages} minimum_coverage={MinimumCoverage} native_extract_ms={NativeExtractMs} reconcile_ms={ReconcileMs}",
+                "Ingestion OCR decision summary job={JobId} doc={DocPath} source={ExtractionSource} attempted={OcrAttempted} applied={OcrApplied} languages={OcrLanguages} candidate_pages={OcrCandidatePages} attempted_pages={OcrAttemptedPages} pages_with_text={OcrPagesWithText} pages_with_novel_text={OcrPagesWithNovelText} coverage={OcrCoverage} failure={OcrFailure}",
                 job.JobId,
                 relDocPath,
-                nativeTextReconciliation.Enabled,
-                nativeTextReconciliation.NativePageCount,
-                nativeTextReconciliation.AuditedPageCount,
-                nativeTextReconciliation.CandidateLineCount,
-                nativeTextReconciliation.RecoveredLineCount,
-                nativeTextReconciliation.RecoveredBlockCount,
-                nativeTextReconciliation.RecoveredCharacterCount,
-                nativeTextReconciliation.SkippedLowQualityPageCount,
-                nativeTextReconciliation.MinimumLineCoverage,
-                nativeTextExtractionMs,
-                nativeTextReconciliation.DurationMs);
-            _log.LogInformation(
-                "Native PDF image inventory job={JobId} doc={DocPath} enabled={Enabled} native_pages={NativePages} candidate_images={CandidateImages} added_figures={AddedFigures} enriched_pages={EnrichedPages} duration_ms={DurationMs}",
-                job.JobId,
-                relDocPath,
-                nativePdfImageInventory.Enabled,
-                nativePdfImageInventory.NativePageCount,
-                nativePdfImageInventory.CandidateImageCount,
-                nativePdfImageInventory.AddedFigureCount,
-                nativePdfImageInventory.EnrichedPageCount,
-                nativePdfImageInventory.DurationMs);
-        }
-        var swSections = Stopwatch.StartNew();
-        var sections = canonicalRetrievalDocument is null
-            ? DocumentSectionExtractor.Extract(pages)
-            : CanonicalDocumentSectionProjector.Project(
-                canonicalRetrievalDocument);
-        swSections.Stop();
-        sectionMs = swSections.ElapsedMilliseconds;
-        var swUnits = Stopwatch.StartNew();
-        var units = DocumentUnitExtractor.Extract(pages, sections);
-        swUnits.Stop();
-        unitMs = swUnits.ElapsedMilliseconds;
-        _log.LogInformation(
-            "Ingestion structure summary job={JobId} doc={DocPath} pages={Pages} sections={Sections} units={Units} section_ms={SectionMs} unit_ms={UnitMs} text_status={TextStatus}",
-            job.JobId,
-            relDocPath,
-            pages.Count,
-            sections.Count,
-            units.Count,
-            sectionMs,
-            unitMs,
-            extractionQuality.TextStatus);
-        await ThrowIfJobCanceledAsync(ds, job, ct);
-        if (job.Version > 0)
-        {
-            var ok = await IsCurrentDocVersionAsync(ds, tenantId, relDocPath, job.Version, ct);
-            if (!ok)
+                extraction.Source,
+                ocrAttempted,
+                ocrApplied,
+                ocrLanguages ?? "",
+                ocrDiagnostics?.CandidatePageCount ?? 0,
+                ocrDiagnostics?.AttemptedPageCount ?? 0,
+                ocrDiagnostics?.PagesWithOcrText.Length ?? 0,
+                ocrDiagnostics?.PagesWithNovelText.Length ?? 0,
+                ocrDiagnostics?.CoverageStatus ?? "",
+                ocrDiagnostics?.FailureReason ?? "");
+            await JobRepo.UpdateProgressAsync(ds, job.JobId, "structuring", null, null, ct);
+            await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+            var structure = IngestionProjectionStage.ProjectStructure(new(tenantId, docId, job.Version,
+                hashHex, size, Path.GetFileName(relDocPath.Replace('\\', '/')), documentIntelligence,
+                doclingConversion, nativeTextLayerExtraction, extraction), _log);
+            var canonicalRetrievalDocument = structure.CanonicalDocument;
+            var nativeTextReconciliation = structure.NativeTextReconciliation;
+            var nativePdfImageInventory = structure.NativeImageInventory;
+            var sections = structure.Sections;
+            var units = structure.Units;
+            canonicalProjectionMs = structure.CanonicalMilliseconds;
+            sectionMs = structure.SectionMilliseconds;
+            unitMs = structure.UnitMilliseconds;
+            diagnostics.Set("sections", sections.Count);
+            diagnostics.Set("units", units.Count);
+            await ThrowIfJobCanceledAsync(ds, job, ct);
+            if (job.Version > 0)
             {
-                await JobRepo.MarkSupersededAndQueueCurrentAsync(ds, tenantId, job.JobId, relDocPath, job.Version, ct);
-                return false;
+                var ok = await IsCurrentDocVersionAsync(ds, tenantId, relDocPath, job.Version, ct);
+                if (!ok)
+                {
+                    await JobRepo.MarkSupersededAndQueueCurrentAsync(ds, tenantId, job.JobId, relDocPath, job.Version, ct);
+                    return false;
+                }
             }
-        }
 
-        if (tokens.Count == 0)
-        {
-            var failureReason = ResolveNoTextFailureReason(ocrAttempted, ocrRequiredButDisabled);
-            try
+            if (tokens.Count == 0)
             {
-                var failureDiagnosticsPublished = await DocumentFoundationRepo.PublishFailedOcrExtractionAsync(
+                var failureReason = ResolveNoTextFailureReason(ocrAttempted, ocrRequiredButDisabled);
+                try
+                {
+                    var failureDiagnosticsPublished = await DocumentFoundationRepo.PublishFailedOcrExtractionAsync(
+                        ds,
+                        tenantId,
+                        docId,
+                        job.JobId,
+                        relDocPath,
+                        hash,
+                        size,
+                        File.GetLastWriteTimeUtc(absPath),
+                        job.Version,
+                        extraction.Source,
+                        ocrAttempted,
+                        ocrLanguages,
+                        ocrAttempted ? ocrMs : null,
+                        ocrDiagnostics,
+                        extractionQuality,
+                        nativeExtractionQuality,
+                        failureReason,
+                        ct,
+                        extractedPages: pages);
+                    if (!failureDiagnosticsPublished)
+                        return false;
+                }
+                catch (Exception persistEx)
+                {
+                    _log.LogWarning(persistEx, "Failed to persist OCR failure diagnostics job={JobId} doc={DocPath}", job.JobId, relDocPath);
+                }
+
+                throw new Exception($"No text extracted from PDF; text_status={extractionQuality.TextStatus}; ocr_recommended={extractionQuality.OcrRecommended}; failure_reason={failureReason}; ocr_failure={ocrDiagnostics?.FailureReason ?? "none"}");
+            }
+
+            await JobRepo.UpdateProgressAsync(ds, job.JobId, "chunking", null, null, ct);
+            diagnostics.Begin("chunk_projection");
+            await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+            var swChunking = Stopwatch.StartNew();
+            IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks;
+            if (doclingConversion?.Document.JsonContent is { } canonicalSource
+                && canonicalRetrievalDocument is not null)
+            {
+                retrievalChunks = DoclingCanonicalRetrievalProjector.Project(
+                    canonicalRetrievalDocument,
+                    canonicalSource,
+                    ingest.ChunkMaxWords,
+                    ingest.ChunkMinWords);
+            }
+            else
+            {
+                retrievalChunks = RetrievalChunkProjector.ProjectStructureAware(
+                    sections,
+                    units,
+                    ingest.ChunkMaxWords,
+                    ingest.ChunkOverlapWords,
+                    ingest.ChunkMinWords);
+            }
+            IReadOnlyList<ExtractedDocumentUnit>? structuredProfileUnits =
+                doclingConversion?.Document.JsonContent is not null
+                && canonicalRetrievalDocument is not null
+                    ? CanonicalProfileInputProjector.Project(
+                        retrievalChunks
+                            .Where(ShouldPublishRetrievalChunk)
+                            .ToArray())
+                    : null;
+            var retrievalChunkQuality = BuildRetrievalChunkQualitySummary(retrievalChunks);
+            diagnostics.Set("retrieval_chunks", retrievalChunks.Count);
+            diagnostics.Set("searchable_chunks", retrievalChunkQuality.SearchableChunkCount);
+            diagnostics.Set("rejected_chunks", retrievalChunkQuality.RejectedChunkCount);
+            var chunks = retrievalChunks
+                .Where(ShouldEmbedRetrievalChunk)
+                .Select(chunk => new Chunk(chunk.ChunkIndex, chunk.PageStart, chunk.PageEnd, chunk.Text))
+                .ToList();
+            swChunking.Stop();
+            chunkingMs = swChunking.ElapsedMilliseconds;
+            _log.LogInformation(
+                "Ingestion chunking summary job={JobId} doc={DocPath} retrieval_chunks={RetrievalChunks} searchable_chunks={SearchableChunks} embedding_chunks={EmbeddingChunks} rejected_chunks={RejectedChunks} navigation_chunks={NavigationChunks} sparse_rejected={SparseRejected} replacement_rejected={ReplacementRejected} empty_rejected={EmptyRejected} ocr_noise_rejected={OcrNoiseRejected} other_rejected={OtherRejected} manual_review={ManualReview} canonical_projection_ms={CanonicalProjectionMs} chunking_ms={ChunkingMs}",
+                job.JobId,
+                relDocPath,
+                retrievalChunks.Count,
+                retrievalChunkQuality.SearchableChunkCount,
+                chunks.Count,
+                retrievalChunkQuality.RejectedChunkCount,
+                retrievalChunkQuality.NavigationChunkCount,
+                retrievalChunkQuality.SparseRejectedChunkCount,
+                retrievalChunkQuality.ReplacementCharRejectedChunkCount,
+                retrievalChunkQuality.EmptyTextRejectedChunkCount,
+                retrievalChunkQuality.OcrNoiseRejectedChunkCount,
+                retrievalChunkQuality.OtherRejectedChunkCount,
+                retrievalChunkQuality.ManualReviewRecommended,
+                canonicalProjectionMs,
+                chunkingMs);
+            if (retrievalChunkQuality.SearchableChunkCount == 0)
+            {
+                const string failureReason = "manual_review_no_searchable_chunks";
+                var failureDiagnosticsPublished = await DocumentFoundationRepo.PublishUnsearchableRetrievalDiagnosticsAsync(
                     ds,
                     tenantId,
                     docId,
@@ -1505,501 +1471,421 @@ WHERE job_id=@job_id
                     size,
                     File.GetLastWriteTimeUtc(absPath),
                     job.Version,
+                    pages,
+                    units,
+                    retrievalChunks,
+                    retrievalChunkQuality,
                     extraction.Source,
                     ocrAttempted,
+                    ocrApplied,
                     ocrLanguages,
                     ocrAttempted ? ocrMs : null,
                     ocrDiagnostics,
                     extractionQuality,
                     nativeExtractionQuality,
                     failureReason,
-                    ct,
-                    extractedPages: pages);
+                    ct);
                 if (!failureDiagnosticsPublished)
                     return false;
-            }
-            catch (Exception persistEx)
-            {
-                _log.LogWarning(persistEx, "Failed to persist OCR failure diagnostics job={JobId} doc={DocPath}", job.JobId, relDocPath);
-            }
 
-            throw new Exception($"No text extracted from PDF; text_status={extractionQuality.TextStatus}; ocr_recommended={extractionQuality.OcrRecommended}; failure_reason={failureReason}; ocr_failure={ocrDiagnostics?.FailureReason ?? "none"}");
-        }
-
-        await JobRepo.UpdateProgressAsync(ds, job.JobId, "chunking", null, null, ct);
-        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-        var swChunking = Stopwatch.StartNew();
-        IReadOnlyList<ProjectedRetrievalChunk> retrievalChunks;
-        if (doclingConversion?.Document.JsonContent is { } canonicalSource
-            && canonicalRetrievalDocument is not null)
-        {
-            retrievalChunks = DoclingCanonicalRetrievalProjector.Project(
-                canonicalRetrievalDocument,
-                canonicalSource,
-                ingest.ChunkMaxWords,
-                ingest.ChunkMinWords);
-        }
-        else
-        {
-            retrievalChunks = RetrievalChunkProjector.ProjectStructureAware(
-                sections,
-                units,
-                ingest.ChunkMaxWords,
-                ingest.ChunkOverlapWords,
-                ingest.ChunkMinWords);
-        }
-        IReadOnlyList<ExtractedDocumentUnit>? structuredProfileUnits =
-            doclingConversion?.Document.JsonContent is not null
-            && canonicalRetrievalDocument is not null
-                ? CanonicalProfileInputProjector.Project(
-                    retrievalChunks
-                        .Where(ShouldPublishRetrievalChunk)
-                        .ToArray())
-                : null;
-        var retrievalChunkQuality = BuildRetrievalChunkQualitySummary(retrievalChunks);
-        var chunks = retrievalChunks
-            .Where(ShouldEmbedRetrievalChunk)
-            .Select(chunk => new Chunk(chunk.ChunkIndex, chunk.PageStart, chunk.PageEnd, chunk.Text))
-            .ToList();
-        swChunking.Stop();
-        chunkingMs = swChunking.ElapsedMilliseconds;
-        _log.LogInformation(
-            "Ingestion chunking summary job={JobId} doc={DocPath} retrieval_chunks={RetrievalChunks} searchable_chunks={SearchableChunks} embedding_chunks={EmbeddingChunks} rejected_chunks={RejectedChunks} navigation_chunks={NavigationChunks} sparse_rejected={SparseRejected} replacement_rejected={ReplacementRejected} empty_rejected={EmptyRejected} ocr_noise_rejected={OcrNoiseRejected} other_rejected={OtherRejected} manual_review={ManualReview} canonical_projection_ms={CanonicalProjectionMs} chunking_ms={ChunkingMs}",
-            job.JobId,
-            relDocPath,
-            retrievalChunks.Count,
-            retrievalChunkQuality.SearchableChunkCount,
-            chunks.Count,
-            retrievalChunkQuality.RejectedChunkCount,
-            retrievalChunkQuality.NavigationChunkCount,
-            retrievalChunkQuality.SparseRejectedChunkCount,
-            retrievalChunkQuality.ReplacementCharRejectedChunkCount,
-            retrievalChunkQuality.EmptyTextRejectedChunkCount,
-            retrievalChunkQuality.OcrNoiseRejectedChunkCount,
-            retrievalChunkQuality.OtherRejectedChunkCount,
-            retrievalChunkQuality.ManualReviewRecommended,
-            canonicalProjectionMs,
-            chunkingMs);
-        if (retrievalChunkQuality.SearchableChunkCount == 0)
-        {
-            const string failureReason = "manual_review_no_searchable_chunks";
-            var failureDiagnosticsPublished = await DocumentFoundationRepo.PublishUnsearchableRetrievalDiagnosticsAsync(
-                ds,
-                tenantId,
-                docId,
-                job.JobId,
-                relDocPath,
-                hash,
-                size,
-                File.GetLastWriteTimeUtc(absPath),
-                job.Version,
-                pages,
-                units,
-                retrievalChunks,
-                retrievalChunkQuality,
-                extraction.Source,
-                ocrAttempted,
-                ocrApplied,
-                ocrLanguages,
-                ocrAttempted ? ocrMs : null,
-                ocrDiagnostics,
-                extractionQuality,
-                nativeExtractionQuality,
-                failureReason,
-                ct);
-            if (!failureDiagnosticsPublished)
+                diagnostics.Complete("degraded", "manual_review_no_searchable_chunks");
                 return false;
-
-            return false;
-        }
-
-        await JobRepo.UpdateProgressAsync(ds, job.JobId, "projecting", null, null, ct);
-        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-        var swExact = Stopwatch.StartNew();
-        var exactMatchEntries = ExactMatchEntryExtractor.Extract(
-            structuredProfileUnits ?? units);
-        swExact.Stop();
-        exactMatchMs = swExact.ElapsedMilliseconds;
-        var swContextual = Stopwatch.StartNew();
-        var contextualTextEntries = ContextualTextProjector.Project(relDocPath, sections, units, retrievalChunks);
-        swContextual.Stop();
-        contextualMs = swContextual.ElapsedMilliseconds;
-        var retrievalChunksByIndex = retrievalChunks.ToDictionary(chunk => chunk.ChunkIndex);
-        var contextualTextByChunkIndex = BuildContextualTextMap(contextualTextEntries);
-        var sectionTitleByOrdinal = sections.ToDictionary(section => section.Ordinal, section => section.Title);
-        var headingPathBySectionOrdinal = ContextualTextProjector.BuildHeadingPathMap(sections);
-        var chunkLinkMap = BuildChunkLinkMap(docId, job.Version, retrievalChunks);
-        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-        var embeddingInputFormat = ResolveEmbeddingInputFormat(rag.EmbeddingsModel);
-        var canResumeFromCheckpoint = IsResumeCheckpointCompatible(
-            checkpoint,
-            hashHex,
-            chunks.Count,
-            rag.EmbeddingsModel,
-            embeddingInputFormat);
-        var resumeFromChunk = canResumeFromCheckpoint
-            ? Math.Clamp(checkpoint!.ProgressCurrent!.Value, 0, chunks.Count)
-            : 0;
-
-        await JobRepo.UpdateProgressAsync(ds, job.JobId, "embedding", resumeFromChunk, chunks.Count, ct);
-        await JobRepo.StoreResumeCheckpointAsync(ds, job.JobId, hashHex, size, chunks.Count, rag.EmbeddingsModel, embeddingInputFormat, ct);
-        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-
-        if (resumeFromChunk > 0)
-        {
-            _log.LogInformation(
-                "Resuming ingestion job={JobId} doc={DocPath} from chunk {ResumeFrom}/{Total}",
-                job.JobId, relDocPath, resumeFromChunk, chunks.Count);
-        }
-        else if (checkpoint?.ProgressCurrent is > 0)
-        {
-            _log.LogWarning(
-                "Resume checkpoint mismatch job={JobId} doc={DocPath}; restarting from chunk 0 (saved={Saved}, total={Total})",
-                job.JobId, relDocPath, checkpoint.ProgressCurrent, chunks.Count);
-        }
-
-        // TEI
-        var tei = httpFactory.CreateClient("tei");
-        tei.BaseAddress = new Uri(rag.EmbeddingsBaseUrl);
-
-        int dim;
-        var swTeiWarmup = Stopwatch.StartNew();
-        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-        await ThrowIfJobCanceledAsync(ds, job, ct);
-        dim = await RunWithJobHeartbeatAsync(
-            ds,
-            job,
-            workerId,
-            async operationCt =>
-            {
-                using (await _bulkheads.AcquireHeavyComputeAsync(operationCt))
-                using (await _teiGovernor.AcquireIngestionAsync(
-                    ingest.TeiInteractiveQuietPeriodMs,
-                    operationCt))
-                using (await _bulkheads.AcquireTeiAsync(operationCt))
-                {
-                    using var teiCts = CreateTimeoutCts(
-                        operationCt,
-                        ingest.TeiTimeoutSeconds);
-                    var teiToken = teiCts?.Token ?? operationCt;
-                    return await TeiClient.GetVectorDimAsync(
-                        tei,
-                        rag.EmbeddingsModel,
-                        teiToken);
-                }
-            },
-            ct);
-        swTeiWarmup.Stop();
-        teiWarmupMs = swTeiWarmup.ElapsedMilliseconds;
-        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-
-        // Qdrant
-        var qdrant = httpFactory.CreateClient("qdrant");
-        qdrant.BaseAddress = new Uri(rag.QdrantBaseUrl);
-
-        using var qdrantCts = CreateTimeoutCts(ct, ingest.QdrantTimeoutSeconds);
-        var qdrantToken = qdrantCts?.Token ?? ct;
-
-        // ✅ EnsureCollection sous bulkhead Qdrant
-        var swEnsureCollection = Stopwatch.StartNew();
-        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-        await ThrowIfJobCanceledAsync(ds, job, ct);
-        using (await _bulkheads.AcquireQdrantAsync(qdrantToken))
-        {
-            await QdrantClient.EnsureCollectionAsync(qdrant, rag.QdrantCollection, dim, qdrantToken);
-        }
-        swEnsureCollection.Stop();
-        qdrantEnsureMs = swEnsureCollection.ElapsedMilliseconds;
-        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-
-        var indexedVersionBeforeEmbedding = await GetIndexedDocVersionAsync(ds, tenantId, relDocPath, ct);
-        if (ShouldPurgeQdrantVersionBeforeFullEmbedding(resumeFromChunk, indexedVersionBeforeEmbedding, job.Version))
-        {
-            await ThrowIfJobCanceledAsync(ds, job, ct);
-            using (await _bulkheads.AcquireQdrantAsync(qdrantToken))
-            {
-                await QdrantClient.DeleteVersionByDocAsync(
-                    qdrant,
-                    rag.QdrantCollection,
-                    tenantId,
-                    docId,
-                    job.Version,
-                    qdrantToken);
             }
+
+            await JobRepo.UpdateProgressAsync(ds, job.JobId, "projecting", null, null, ct);
+            diagnostics.Begin("index_projection");
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-        }
-        else if (resumeFromChunk == 0 && indexedVersionBeforeEmbedding == job.Version)
-        {
-            _log.LogWarning(
-                "Skipping Qdrant version pre-cleanup for already published version job={JobId} doc={DocPath} version={Version}",
-                job.JobId,
-                relDocPath,
-                job.Version);
-        }
+            var indexProjection = IngestionProjectionStage.ProjectIndex(relDocPath, sections, units,
+                retrievalChunks, structuredProfileUnits, _log);
+            var exactMatchEntries = indexProjection.ExactEntries;
+            var contextualTextEntries = indexProjection.ContextualEntries;
+            exactMatchMs = indexProjection.ExactMilliseconds;
+            contextualMs = indexProjection.ContextualMilliseconds;
+            diagnostics.Set("exact_entries", exactMatchEntries.Count);
+            diagnostics.Set("contextual_entries", contextualTextEntries.Count);
+            var retrievalChunksByIndex = retrievalChunks.ToDictionary(chunk => chunk.ChunkIndex);
+            var contextualTextByChunkIndex = BuildContextualTextMap(contextualTextEntries);
+            var sectionTitleByOrdinal = sections.ToDictionary(section => section.Ordinal, section => section.Title);
+            var headingPathBySectionOrdinal = ContextualTextProjector.BuildHeadingPathMap(sections);
+            var chunkLinkMap = BuildChunkLinkMap(docId, job.Version, retrievalChunks);
+            await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+            var embeddingInputFormat = ResolveEmbeddingInputFormat(rag.EmbeddingsModel);
+            var canResumeFromCheckpoint = IsResumeCheckpointCompatible(
+                checkpoint,
+                hashHex,
+                chunks.Count,
+                rag.EmbeddingsModel,
+                embeddingInputFormat);
+            var resumeFromChunk = canResumeFromCheckpoint
+                ? Math.Clamp(checkpoint!.ProgressCurrent!.Value, 0, chunks.Count)
+                : 0;
 
-        // embed + upsert by batches
-        var batchSize = IngestionOptions.ResolveEmbeddingsBatchSize(ingest.EmbeddingsBatchSize);
+            await JobRepo.UpdateProgressAsync(ds, job.JobId, "embedding", resumeFromChunk, chunks.Count, ct);
+            await JobRepo.StoreResumeCheckpointAsync(ds, job.JobId, hashHex, size, chunks.Count, rag.EmbeddingsModel, embeddingInputFormat, ct);
+            await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
-        var nowIso = DateTimeOffset.UtcNow.ToString("O");
-        var category = IngestionCategoryResolver.Normalize(job.Category ?? ingest.DefaultCategory);
+            if (resumeFromChunk > 0)
+            {
+                _log.LogInformation(
+                    "Resuming ingestion job={JobId} doc={DocPath} from chunk {ResumeFrom}/{Total}",
+                    job.JobId, relDocPath, resumeFromChunk, chunks.Count);
+            }
+            else if (checkpoint?.ProgressCurrent is > 0)
+            {
+                _log.LogWarning(
+                    "Resume checkpoint mismatch job={JobId} doc={DocPath}; restarting from chunk 0 (saved={Saved}, total={Total})",
+                    job.JobId, relDocPath, checkpoint.ProgressCurrent, chunks.Count);
+            }
 
-        for (int i = resumeFromChunk; i < chunks.Count; i += batchSize)
-        {
+            // TEI
+            diagnostics.Begin("dependency_warmup");
+            var tei = httpFactory.CreateClient("tei");
+            tei.BaseAddress = new Uri(rag.EmbeddingsBaseUrl);
+
+            int dim;
+            var swTeiWarmup = Stopwatch.StartNew();
+            await TouchJobLockAsync(ds, job.JobId, workerId, ct);
             await ThrowIfJobCanceledAsync(ds, job, ct);
-            if (!File.Exists(absPath))
-                throw new Exception("source_removed_during_ingestion");
-            var slice = chunks.Skip(i).Take(batchSize).ToList();
-            var workItems = slice
-                .Select(chunk =>
-                {
-                    var projectedChunk = ResolveProjectedRetrievalChunk(chunk, retrievalChunksByIndex);
-                    var embeddingText = CleanTextForIndexing(ResolveEmbeddingText(projectedChunk.ChunkIndex, projectedChunk.Text, contextualTextByChunkIndex));
-                    var sectionTitle = CleanOptionalTextForIndexing(
-                        projectedChunk.SectionTitle
-                        ?? ResolveSectionTitle(
-                            projectedChunk.SectionOrdinal,
-                            sectionTitleByOrdinal));
-                    var headingPath = CleanOptionalTextForIndexing(
-                        projectedChunk.HeadingPath
-                        ?? ContextualTextProjector.ResolveHeadingPath(
-                            projectedChunk.SectionOrdinal,
-                            headingPathBySectionOrdinal));
-                    chunkLinkMap.TryGetValue(projectedChunk.ChunkIndex, out var chunkLinks);
-                    return new EmbeddingChunkWorkItem(projectedChunk, embeddingText, sectionTitle, headingPath, chunkLinks);
-                })
-                .ToList();
-            var inputs = workItems
-                .Select(item => TeiClient.FormatEmbeddingInput(
-                    rag.EmbeddingsModel,
-                    item.EmbeddingText,
-                    TeiClient.EmbeddingInputKind.Passage))
-                .ToArray();
-
-            var swTei = Stopwatch.StartNew();
-            var vectors = await EmbedBatchWithAdaptiveRetryAsync(
+            dim = await RunWithJobHeartbeatAsync(
                 ds,
                 job,
                 workerId,
-                tei,
-                rag.EmbeddingsModel,
-                inputs,
-                ingest,
-                configuredBatchSize: batchSize,
+                async operationCt =>
+                {
+                    using (await _bulkheads.AcquireHeavyComputeAsync(operationCt))
+                    using (await _teiGovernor.AcquireIngestionAsync(
+                        ingest.TeiInteractiveQuietPeriodMs,
+                        operationCt))
+                    using (await _bulkheads.AcquireTeiAsync(operationCt))
+                    {
+                        using var teiCts = CreateTimeoutCts(
+                            operationCt,
+                            ingest.TeiTimeoutSeconds);
+                        var teiToken = teiCts?.Token ?? operationCt;
+                        return await TeiClient.GetVectorDimAsync(
+                            tei,
+                            rag.EmbeddingsModel,
+                            teiToken);
+                    }
+                },
                 ct);
-            swTei.Stop();
-            embeddingTotalMs += swTei.ElapsedMilliseconds;
+            swTeiWarmup.Stop();
+            teiWarmupMs = swTeiWarmup.ElapsedMilliseconds;
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
-            var points = new List<object>(slice.Count);
-            for (int j = 0; j < slice.Count; j++)
-            {
-                var item = workItems[j];
-                var chunkId = DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, job.Version, item.ProjectedChunk.ChunkIndex);
+            // Qdrant
+            var qdrant = httpFactory.CreateClient("qdrant");
+            qdrant.BaseAddress = new Uri(rag.QdrantBaseUrl);
 
-                points.Add(new
+            using var qdrantCts = CreateTimeoutCts(ct, ingest.QdrantTimeoutSeconds);
+            var qdrantToken = qdrantCts?.Token ?? ct;
+
+            // ✅ EnsureCollection sous bulkhead Qdrant
+            var swEnsureCollection = Stopwatch.StartNew();
+            await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+            await ThrowIfJobCanceledAsync(ds, job, ct);
+            using (await _bulkheads.AcquireQdrantAsync(qdrantToken))
+            {
+                await QdrantClient.EnsureCollectionAsync(qdrant, rag.QdrantCollection, dim, qdrantToken);
+            }
+            swEnsureCollection.Stop();
+            qdrantEnsureMs = swEnsureCollection.ElapsedMilliseconds;
+            await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+
+            var indexedVersionBeforeEmbedding = await GetIndexedDocVersionAsync(ds, tenantId, relDocPath, ct);
+            if (ShouldPurgeQdrantVersionBeforeFullEmbedding(resumeFromChunk, indexedVersionBeforeEmbedding, job.Version))
+            {
+                await ThrowIfJobCanceledAsync(ds, job, ct);
+                using (await _bulkheads.AcquireQdrantAsync(qdrantToken))
                 {
-                    id = chunkId.ToString(),
-                    vector = vectors[j],
-                    payload = BuildQdrantChunkPayload(
+                    await QdrantClient.DeleteVersionByDocAsync(
+                        qdrant,
+                        rag.QdrantCollection,
                         tenantId,
                         docId,
-                        relDocPath,
-                        category,
-                        hashHex,
-                        nowIso,
                         job.Version,
-                        item.ProjectedChunk,
-                        item.EmbeddingText,
-                        item.SectionTitle,
-                        item.HeadingPath,
-                        item.ChunkLinks,
-                        rag.EmbeddingsModel,
-                        embeddingInputFormat)
-                });
+                        qdrantToken);
+                }
+                await TouchJobLockAsync(ds, job.JobId, workerId, ct);
             }
-
-            // Qdrant upsert
-            var swQ = Stopwatch.StartNew();
-            using var bQdrantCts = CreateTimeoutCts(ct, ingest.QdrantTimeoutSeconds);
-            var bQToken = bQdrantCts?.Token ?? ct;
-
-            await ThrowIfJobCanceledAsync(ds, job, ct);
-            using (await _bulkheads.AcquireQdrantAsync(bQToken))
+            else if (resumeFromChunk == 0 && indexedVersionBeforeEmbedding == job.Version)
             {
-                await QdrantClient.UpsertPointsAsync(qdrant, rag.QdrantCollection, points, bQToken);
+                _log.LogWarning(
+                    "Skipping Qdrant version pre-cleanup for already published version job={JobId} doc={DocPath} version={Version}",
+                    job.JobId,
+                    relDocPath,
+                    job.Version);
             }
-            swQ.Stop();
-            qdrantUpsertTotalMs += swQ.ElapsedMilliseconds;
 
-            // Heartbeat + progression
+            // embed + upsert by batches
+            diagnostics.Begin("embedding_and_index_write");
+            var batchSize = IngestionOptions.ResolveEmbeddingsBatchSize(ingest.EmbeddingsBatchSize);
+
+            var nowIso = DateTimeOffset.UtcNow.ToString("O");
+            var category = IngestionCategoryResolver.Normalize(job.Category ?? ingest.DefaultCategory);
+
+            for (int i = resumeFromChunk; i < chunks.Count; i += batchSize)
+            {
+                await ThrowIfJobCanceledAsync(ds, job, ct);
+                if (!File.Exists(absPath))
+                    throw new Exception("source_removed_during_ingestion");
+                var slice = chunks.Skip(i).Take(batchSize).ToList();
+                var workItems = slice
+                    .Select(chunk =>
+                    {
+                        var projectedChunk = ResolveProjectedRetrievalChunk(chunk, retrievalChunksByIndex);
+                        var embeddingText = CleanTextForIndexing(ResolveEmbeddingText(projectedChunk.ChunkIndex, projectedChunk.Text, contextualTextByChunkIndex));
+                        var sectionTitle = CleanOptionalTextForIndexing(
+                            projectedChunk.SectionTitle
+                            ?? ResolveSectionTitle(
+                                projectedChunk.SectionOrdinal,
+                                sectionTitleByOrdinal));
+                        var headingPath = CleanOptionalTextForIndexing(
+                            projectedChunk.HeadingPath
+                            ?? ContextualTextProjector.ResolveHeadingPath(
+                                projectedChunk.SectionOrdinal,
+                                headingPathBySectionOrdinal));
+                        chunkLinkMap.TryGetValue(projectedChunk.ChunkIndex, out var chunkLinks);
+                        return new EmbeddingChunkWorkItem(projectedChunk, embeddingText, sectionTitle, headingPath, chunkLinks);
+                    })
+                    .ToList();
+                var inputs = workItems
+                    .Select(item => TeiClient.FormatEmbeddingInput(
+                        rag.EmbeddingsModel,
+                        item.EmbeddingText,
+                        TeiClient.EmbeddingInputKind.Passage))
+                    .ToArray();
+
+                var swTei = Stopwatch.StartNew();
+                var vectors = await EmbedBatchWithAdaptiveRetryAsync(
+                    ds,
+                    job,
+                    workerId,
+                    tei,
+                    rag.EmbeddingsModel,
+                    inputs,
+                    ingest,
+                    configuredBatchSize: batchSize,
+                    ct);
+                swTei.Stop();
+                embeddingTotalMs += swTei.ElapsedMilliseconds;
+                await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+
+                var points = new List<object>(slice.Count);
+                for (int j = 0; j < slice.Count; j++)
+                {
+                    var item = workItems[j];
+                    var chunkId = DocumentFoundationRepo.BuildStableRetrievalChunkId(docId, job.Version, item.ProjectedChunk.ChunkIndex);
+
+                    points.Add(new
+                    {
+                        id = chunkId.ToString(),
+                        vector = vectors[j],
+                        payload = BuildQdrantChunkPayload(
+                            tenantId,
+                            docId,
+                            relDocPath,
+                            category,
+                            hashHex,
+                            nowIso,
+                            job.Version,
+                            item.ProjectedChunk,
+                            item.EmbeddingText,
+                            item.SectionTitle,
+                            item.HeadingPath,
+                            item.ChunkLinks,
+                            rag.EmbeddingsModel,
+                            embeddingInputFormat)
+                    });
+                }
+
+                // Qdrant upsert
+                var swQ = Stopwatch.StartNew();
+                using var bQdrantCts = CreateTimeoutCts(ct, ingest.QdrantTimeoutSeconds);
+                var bQToken = bQdrantCts?.Token ?? ct;
+
+                await ThrowIfJobCanceledAsync(ds, job, ct);
+                using (await _bulkheads.AcquireQdrantAsync(bQToken))
+                {
+                    await QdrantClient.UpsertPointsAsync(qdrant, rag.QdrantCollection, points, bQToken);
+                }
+                swQ.Stop();
+                qdrantUpsertTotalMs += swQ.ElapsedMilliseconds;
+
+                // Heartbeat + progression
+                await TouchJobLockAsync(ds, job.JobId, workerId, ct);
+
+                var done = Math.Min(i + slice.Count, chunks.Count);
+                await JobRepo.UpdateProgressAsync(ds, job.JobId, "embedding", done, chunks.Count, ct);
+                _log.LogInformation(
+                    "Ingestion progress job={JobId} doc={DocPath} chunks={Done}/{Total} tei_ms={TeiMs} qdrant_ms={QdrantMs}",
+                    job.JobId, relDocPath, done, chunks.Count, swTei.ElapsedMilliseconds, swQ.ElapsedMilliseconds
+                );
+            }
+
+            await JobRepo.UpdateProgressAsync(ds, job.JobId, "finalizing", chunks.Count, chunks.Count, ct);
+            await ThrowIfJobCanceledAsync(ds, job, ct);
             await TouchJobLockAsync(ds, job.JobId, workerId, ct);
 
-            var done = Math.Min(i + slice.Count, chunks.Count);
-            await JobRepo.UpdateProgressAsync(ds, job.JobId, "embedding", done, chunks.Count, ct);
+            if (!File.Exists(absPath))
+                throw new Exception("source_removed_during_ingestion");
+
+            var mtime = File.GetLastWriteTimeUtc(absPath);
+            diagnostics.Begin("canonical_manifest");
+            CanonicalIngestionBundle? canonicalBundle = null;
+            if (ingest.CanonicalArtifactsEnabled)
+            {
+                var codeRevision = canonicalCodeRevision!;
+
+                var revisionId = DocumentFoundationRepo.BuildStableRevisionId(tenantId, docId, job.Version);
+                if (doclingConversion is not null)
+                {
+                    var stages = DoclingIngestionStageManifestFactory.Create(
+                        documentIntelligence,
+                        ingest,
+                        rag,
+                        doclingConversion,
+                        new(
+                            canonicalProjectionMs,
+                            chunkingMs,
+                            embeddingTotalMs,
+                            qdrantUpsertTotalMs),
+                        codeRevision,
+                        nativeTextReconciliation,
+                        nativePdfImageInventory);
+                    canonicalBundle = DoclingCanonicalBundleFactory.Create(new(
+                        docId,
+                        revisionId,
+                        DocumentFoundationRepo.BuildStableProcessingRunId(job.JobId),
+                        job.Version,
+                        hashHex,
+                        size,
+                        Path.GetFileName(relDocPath.Replace('\\', '/')),
+                        codeRevision,
+                        DateTimeOffset.UtcNow,
+                        IngestionHardwareProfiler.Capture(),
+                        documentIntelligence,
+                        stages,
+                        canonicalRetrievalDocument
+                        ?? throw new InvalidOperationException(
+                            "The reconciled canonical document is unavailable."),
+                        doclingConversion,
+                        retrievalChunks.Where(ShouldPublishRetrievalChunk).ToArray()));
+                }
+                else
+                {
+                    var stages = LegacyIngestionStageManifestFactory.Create(
+                        ingest,
+                        rag,
+                        extraction,
+                        ocrAttempted,
+                        ocrApplied,
+                        ocrLanguages,
+                        ocrDiagnostics,
+                        new(
+                            extractMs,
+                            ocrMs,
+                            sectionMs,
+                            unitMs,
+                            chunkingMs,
+                            embeddingTotalMs,
+                            qdrantUpsertTotalMs),
+                        codeRevision);
+                    canonicalBundle = LegacyCanonicalBundleFactory.Create(new(
+                        docId,
+                        revisionId,
+                        DocumentFoundationRepo.BuildStableProcessingRunId(job.JobId),
+                        job.Version,
+                        hashHex,
+                        size,
+                        Path.GetFileName(relDocPath.Replace('\\', '/')),
+                        codeRevision,
+                        DateTimeOffset.UtcNow,
+                        IngestionHardwareProfiler.Capture(),
+                        stages,
+                        extraction,
+                        sections,
+                        retrievalChunks.Where(ShouldPublishRetrievalChunk).ToArray()));
+                }
+            }
+            var swPublish = Stopwatch.StartNew();
+            diagnostics.Begin("publication");
+            var committed = await IngestionPublicationStage.PublishAsync(ds,
+                new(tenantId, job.JobId, relDocPath, hash, size, mtime, job.Version),
+                new(pages, sections, units, retrievalChunks, exactMatchEntries, contextualTextEntries,
+                    canonicalBundle, structuredProfileUnits),
+                new(extraction.Source, ocrAttempted, ocrApplied, ocrLanguages, ocrAttempted ? ocrMs : null,
+                    ocrDiagnostics, nativeExtractionQuality, job.CapabilityAProfileSeed), _log, ct);
+            swPublish.Stop();
+            publishMs = swPublish.ElapsedMilliseconds;
+
+
+            if (!committed)
+                return false;
+
+            diagnostics.Set("published", true);
+            diagnostics.Begin("cleanup");
+            try
+            {
+                var swCleanup = Stopwatch.StartNew();
+                using var cleanupQdrantCts = CreateTimeoutCts(ct, ingest.QdrantTimeoutSeconds);
+                var cleanupQdrantToken = cleanupQdrantCts?.Token ?? ct;
+                using (await _bulkheads.AcquireQdrantAsync(cleanupQdrantToken))
+                {
+                    await QdrantClient.DeleteOtherVersionsByDocAsync(
+                        qdrant, rag.QdrantCollection,
+                        tenantId, docId, job.Version, cleanupQdrantToken);
+                }
+                swCleanup.Stop();
+                cleanupMs = swCleanup.ElapsedMilliseconds;
+            }
+            catch (Exception ex)
+            {
+                diagnostics.Set("cleanup_incomplete", true);
+                _log.LogWarning(ex,
+                    "Failed to cleanup old Qdrant versions job={JobId} doc={DocPath}. Old points filtered by RAG version check.",
+                    job.JobId, job.DocPath);
+            }
+
+            swTotal.Stop();
             _log.LogInformation(
-                "Ingestion progress job={JobId} doc={DocPath} chunks={Done}/{Total} tei_ms={TeiMs} qdrant_ms={QdrantMs}",
-                job.JobId, relDocPath, done, chunks.Count, swTei.ElapsedMilliseconds, swQ.ElapsedMilliseconds
-            );
+                "Ingestion stage timings job={JobId} doc={DocPath} total_ms={TotalMs} hash_ms={HashMs} extract_ms={ExtractMs} native_text_extract_ms={NativeTextExtractMs} ocr_ms={OcrMs} extraction_source={ExtractionSource} sections_ms={SectionsMs} units_ms={UnitsMs} chunking_ms={ChunkingMs} exact_ms={ExactMs} contextual_ms={ContextualMs} tei_warmup_ms={TeiWarmupMs} qdrant_ensure_ms={QdrantEnsureMs} embedding_ms={EmbeddingMs} qdrant_upsert_ms={QdrantUpsertMs} publish_ms={PublishMs} cleanup_ms={CleanupMs} pages={Pages} sections={Sections} units={Units} chunks={Chunks} exact_entries={ExactEntries} contextual_entries={ContextualEntries} extraction_quality={ExtractionQuality} ocr_recommended={OcrRecommended}",
+                job.JobId,
+                relDocPath,
+                swTotal.ElapsedMilliseconds,
+                hashMs,
+                extractMs,
+                nativeTextExtractionMs,
+                ocrMs,
+                extraction.Source,
+                sectionMs,
+                unitMs,
+                chunkingMs,
+                exactMatchMs,
+                contextualMs,
+                teiWarmupMs,
+                qdrantEnsureMs,
+                embeddingTotalMs,
+                qdrantUpsertTotalMs,
+                publishMs,
+                cleanupMs,
+                pages.Count,
+                sections.Count,
+                units.Count,
+                retrievalChunks.Count,
+                exactMatchEntries.Count,
+                contextualTextEntries.Count,
+                extractionQuality.TextStatus,
+                extractionQuality.OcrRecommended);
+
+            diagnostics.Complete();
+            return true;
         }
-
-        await JobRepo.UpdateProgressAsync(ds, job.JobId, "finalizing", chunks.Count, chunks.Count, ct);
-        await ThrowIfJobCanceledAsync(ds, job, ct);
-        await TouchJobLockAsync(ds, job.JobId, workerId, ct);
-
-        if (!File.Exists(absPath))
-            throw new Exception("source_removed_during_ingestion");
-
-        var mtime = File.GetLastWriteTimeUtc(absPath);
-        CanonicalIngestionBundle? canonicalBundle = null;
-        if (ingest.CanonicalArtifactsEnabled)
+        catch (Exception exception)
         {
-            var codeRevision = canonicalCodeRevision!;
-
-            var revisionId = DocumentFoundationRepo.BuildStableRevisionId(tenantId, docId, job.Version);
-            if (doclingConversion is not null)
-            {
-                var stages = DoclingIngestionStageManifestFactory.Create(
-                    documentIntelligence,
-                    ingest,
-                    rag,
-                    doclingConversion,
-                    new(
-                        canonicalProjectionMs,
-                        chunkingMs,
-                        embeddingTotalMs,
-                        qdrantUpsertTotalMs),
-                    codeRevision,
-                    nativeTextReconciliation,
-                    nativePdfImageInventory);
-                canonicalBundle = DoclingCanonicalBundleFactory.Create(new(
-                    docId,
-                    revisionId,
-                    DocumentFoundationRepo.BuildStableProcessingRunId(job.JobId),
-                    job.Version,
-                    hashHex,
-                    size,
-                    Path.GetFileName(relDocPath.Replace('\\', '/')),
-                    codeRevision,
-                    DateTimeOffset.UtcNow,
-                    IngestionHardwareProfiler.Capture(),
-                    documentIntelligence,
-                    stages,
-                    canonicalRetrievalDocument
-                    ?? throw new InvalidOperationException(
-                        "The reconciled canonical document is unavailable."),
-                    doclingConversion,
-                    retrievalChunks.Where(ShouldPublishRetrievalChunk).ToArray()));
-            }
-            else
-            {
-                var stages = LegacyIngestionStageManifestFactory.Create(
-                    ingest,
-                    rag,
-                    extraction,
-                    ocrAttempted,
-                    ocrApplied,
-                    ocrLanguages,
-                    ocrDiagnostics,
-                    new(
-                        extractMs,
-                        ocrMs,
-                        sectionMs,
-                        unitMs,
-                        chunkingMs,
-                        embeddingTotalMs,
-                        qdrantUpsertTotalMs),
-                    codeRevision);
-                canonicalBundle = LegacyCanonicalBundleFactory.Create(new(
-                    docId,
-                    revisionId,
-                    DocumentFoundationRepo.BuildStableProcessingRunId(job.JobId),
-                    job.Version,
-                    hashHex,
-                    size,
-                    Path.GetFileName(relDocPath.Replace('\\', '/')),
-                    codeRevision,
-                    DateTimeOffset.UtcNow,
-                    IngestionHardwareProfiler.Capture(),
-                    stages,
-                    extraction,
-                    sections,
-                    retrievalChunks.Where(ShouldPublishRetrievalChunk).ToArray()));
-            }
+            diagnostics.Fail(exception);
+            throw;
         }
-        var swPublish = Stopwatch.StartNew();
-        var committed = await JobRepo.CompleteUpsertAsync(
-            ds, tenantId, job.JobId, relDocPath,
-            hash, size, mtime, job.Version, pages, sections, units, retrievalChunks, exactMatchEntries, contextualTextEntries, ct,
-            extractionSource: extraction.Source,
-            ocrAttempted: ocrAttempted,
-            ocrApplied: ocrApplied,
-            ocrLanguages: ocrLanguages,
-            ocrDurationMs: ocrAttempted ? ocrMs : null,
-            ocrDiagnostics: ocrDiagnostics,
-            nativeExtractionQuality: nativeExtractionQuality,
-            capabilityAProfileSeed: job.CapabilityAProfileSeed,
-            canonicalBundle: canonicalBundle,
-            structuredProfileUnits: structuredProfileUnits);
-        swPublish.Stop();
-        publishMs = swPublish.ElapsedMilliseconds;
-
-
-        if (!committed)
-            return false;
-
-        try
-        {
-            var swCleanup = Stopwatch.StartNew();
-            using var cleanupQdrantCts = CreateTimeoutCts(ct, ingest.QdrantTimeoutSeconds);
-            var cleanupQdrantToken = cleanupQdrantCts?.Token ?? ct;
-            using (await _bulkheads.AcquireQdrantAsync(cleanupQdrantToken))
-            {
-                await QdrantClient.DeleteOtherVersionsByDocAsync(
-                    qdrant, rag.QdrantCollection,
-                    tenantId, docId, job.Version, cleanupQdrantToken);
-            }
-            swCleanup.Stop();
-            cleanupMs = swCleanup.ElapsedMilliseconds;
-        }
-        catch (Exception ex)
-        {
-            _log.LogWarning(ex,
-                "Failed to cleanup old Qdrant versions job={JobId} doc={DocPath}. Old points filtered by RAG version check.",
-                job.JobId, job.DocPath);
-        }
-
-        swTotal.Stop();
-        _log.LogInformation(
-            "Ingestion stage timings job={JobId} doc={DocPath} total_ms={TotalMs} hash_ms={HashMs} extract_ms={ExtractMs} native_text_extract_ms={NativeTextExtractMs} ocr_ms={OcrMs} extraction_source={ExtractionSource} sections_ms={SectionsMs} units_ms={UnitsMs} chunking_ms={ChunkingMs} exact_ms={ExactMs} contextual_ms={ContextualMs} tei_warmup_ms={TeiWarmupMs} qdrant_ensure_ms={QdrantEnsureMs} embedding_ms={EmbeddingMs} qdrant_upsert_ms={QdrantUpsertMs} publish_ms={PublishMs} cleanup_ms={CleanupMs} pages={Pages} sections={Sections} units={Units} chunks={Chunks} exact_entries={ExactEntries} contextual_entries={ContextualEntries} extraction_quality={ExtractionQuality} ocr_recommended={OcrRecommended}",
-            job.JobId,
-            relDocPath,
-            swTotal.ElapsedMilliseconds,
-            hashMs,
-            extractMs,
-            nativeTextExtractionMs,
-            ocrMs,
-            extraction.Source,
-            sectionMs,
-            unitMs,
-            chunkingMs,
-            exactMatchMs,
-            contextualMs,
-            teiWarmupMs,
-            qdrantEnsureMs,
-            embeddingTotalMs,
-            qdrantUpsertTotalMs,
-            publishMs,
-            cleanupMs,
-            pages.Count,
-            sections.Count,
-            units.Count,
-            retrievalChunks.Count,
-            exactMatchEntries.Count,
-            contextualTextEntries.Count,
-            extractionQuality.TextStatus,
-            extractionQuality.OcrRecommended);
-
-        return true;
     }
 
     internal static IReadOnlyDictionary<int, ProjectedContextualTextEntry> BuildContextualTextMap(

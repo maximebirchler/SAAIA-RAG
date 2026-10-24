@@ -213,38 +213,4 @@ public sealed partial class ToolAgentOrchestrator
 
         return sb.ToString().Trim();
     }
-
-    private static bool TryExtractFinalAnswerFromRaw(string raw, out string finalAnswer)
-    {
-        finalAnswer = string.Empty;
-        raw ??= string.Empty;
-
-        if (TryExtractJsonObject(raw, out var json) && TryParseAnswerEnvelope(json, out var parsedFinalAnswer, out _))
-        {
-            finalAnswer = (parsedFinalAnswer ?? string.Empty).Trim();
-            return !string.IsNullOrWhiteSpace(finalAnswer);
-        }
-
-        var match = Regex.Match(raw, "\\\"finalAnswer\\\"\\s*:\\s*\\\"(?<v>(?:\\\\.|[^\\\"\\\\])*)\\\"", RegexOptions.Singleline);
-        if (match.Success)
-        {
-            var value = match.Groups["v"].Value;
-            try
-            {
-                finalAnswer = JsonSerializer.Deserialize<string>("\"" + value + "\"") ?? string.Empty;
-                finalAnswer = finalAnswer.Trim();
-                return !string.IsNullOrWhiteSpace(finalAnswer);
-            }
-            catch
-            {
-                finalAnswer = value.Replace("\\n", "\n").Replace("\\t", "\t").Trim();
-                return !string.IsNullOrWhiteSpace(finalAnswer);
-            }
-        }
-
-        return false;
-    }
-
-    private static string BuildJsonEnvelopeError(string? lang)
-        => DeterministicAgentText.JsonEnvelopeError(lang);
 }

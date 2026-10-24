@@ -119,7 +119,14 @@ public sealed partial class SourceBackedAgentV2Runner
         SourceBackedTraceEvent trace)
     {
         traces.Add(trace);
-        _traceSink?.Invoke(trace);
+        try { _traceSink?.Invoke(trace); }
+        catch
+        {
+            var failures = SourceBackedTelemetryContext.RecordTraceSinkFailure();
+            if (failures <= 1)
+                ClientDiagnostics.Journal.Emit("agent.trace.collector_failure", "degraded", "observer_failed",
+                    new Dictionary<string, long?> { ["trace_sink_failures"] = failures });
+        }
     }
 
     private void TraceStructuredRendererCompletion(

@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using SAAIA.Backend.AdvancedAnalysis;
@@ -159,12 +160,13 @@ public sealed partial class AdvancedAnalysisWorkerTests
             validation.Result!.Evidence).EvidenceId);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Worker_revalidates_tenant_evidence_and_persists_cited_result()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
         if (database is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var seed = await database.SeedEvidenceAsync("tenant-a", "Procedure alpha");
         var handoff = BuildHandoff(seed, "evidence-alpha");
@@ -202,12 +204,13 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.Single(provider.Requests);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Worker_rejects_cross_tenant_evidence_before_provider_call()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
         if (database is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var owner = await database.SeedEvidenceAsync("tenant-owner", "Owner evidence");
         var foreign = await database.SeedEvidenceAsync("tenant-foreign", "Foreign evidence");
@@ -226,12 +229,13 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.Empty(provider.Requests);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Worker_schedules_rate_limit_retry_at_provider_delay()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
         if (database is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var seed = await database.SeedEvidenceAsync(
             "rate-limit-delay-tenant",
@@ -258,12 +262,13 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.Single(provider.Requests);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Worker_rate_limit_retry_stops_at_the_job_attempt_cap()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
         if (database is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var seed = await database.SeedEvidenceAsync(
             "rate-limit-cap-tenant",
@@ -292,12 +297,13 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.Equal(2, provider.Requests.Count);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Exclusive_claim_and_expired_lease_recovery_are_deterministic()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
         if (database is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var seed = await database.SeedEvidenceAsync("lease-tenant", "Lease evidence");
         var jobId = await database.InsertJobAsync(
@@ -333,12 +339,13 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.Equal("lease_retry_exhausted", exhausted.LastErrorCode);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Retention_purges_expired_payloads_and_traces_after_active_leases_end()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
         if (database is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var seed = await database.SeedEvidenceAsync(
             "retention-tenant",
@@ -399,12 +406,13 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.True(await database.JobExistsAsync(futureJobId));
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Expired_job_fails_closed_when_provider_or_model_changes()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
         if (database is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var seed = await database.SeedEvidenceAsync(
             "provider-affinity-tenant",
@@ -439,12 +447,13 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.Empty(replacement.Requests);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Cancellation_during_execution_stops_provider_and_prevents_late_result()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
         if (database is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var seed = await database.SeedEvidenceAsync("cancel-tenant", "Cancel evidence");
         var handoff = BuildHandoff(seed, "cancel-evidence");
@@ -471,12 +480,13 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.Null(row.ResultJson);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Worker_rejects_provider_result_with_forged_citation()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
         if (database is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var seed = await database.SeedEvidenceAsync("citation-tenant", "Citation evidence");
         var jobId = await database.InsertJobAsync(
@@ -494,7 +504,8 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.Null(row.ResultJson);
     }
 
-    [Theory]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileTheory("IntegrationPg")]
     [InlineData("persisted_handoff", "handoff_revalidation_failed")]
     [InlineData("external_provider", "external_provider_not_authorized")]
     public async Task Worker_refuses_unsafe_persisted_or_external_execution(
@@ -503,7 +514,7 @@ public sealed partial class AdvancedAnalysisWorkerTests
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
         if (database is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var seed = await database.SeedEvidenceAsync("policy-tenant", "Policy evidence");
         var jobId = await database.InsertJobAsync(
@@ -528,12 +539,13 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.Empty(provider.Requests);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Tool_gateway_matches_shared_canonical_retrieval_and_deduplicates()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
         if (database is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var seed = await database.SeedEvidenceAsync(
             "shared-retrieval",
@@ -603,12 +615,13 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.Equal("tool_call_limit_exceeded", exhausted.ErrorCode);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Provider_driven_shared_retrieval_publishes_twenty_cited_claims()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
         if (database is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var groups = new[] { "alphaunique", "betaunique", "gammaunique", "deltaunique" };
         var owner = await database.SeedEvidenceAsync(
@@ -687,12 +700,13 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.Equal(7, row.Revision);
     }
 
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Durable_tool_trace_is_revalidated_after_expired_lease_retry()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
         if (database is null)
-            return;
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
 
         var owner = await database.SeedEvidenceAsync(
             "resume-tenant",
@@ -812,7 +826,8 @@ public sealed partial class AdvancedAnalysisWorkerTests
         NpgsqlDataSource dataSource,
         IAdvancedAnalysisProvider provider,
         int heartbeatMilliseconds = 50,
-        bool advancedAnalysisEnabled = true)
+        bool advancedAnalysisEnabled = true,
+        ILogger<AdvancedAnalysisWorker>? logger = null)
     {
         var options = Options.Create(new AdvancedAnalysisOptions
         {
@@ -834,7 +849,7 @@ public sealed partial class AdvancedAnalysisWorkerTests
                 AdvancedAnalysisEnabled = advancedAnalysisEnabled
             }),
             options,
-            NullLogger<AdvancedAnalysisWorker>.Instance);
+            logger ?? NullLogger<AdvancedAnalysisWorker>.Instance);
     }
 
     private static AdvancedAnalysisOptions BuildAdvancedOptions()

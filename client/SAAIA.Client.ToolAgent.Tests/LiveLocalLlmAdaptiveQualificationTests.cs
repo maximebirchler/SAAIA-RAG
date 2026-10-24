@@ -8,7 +8,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 [Collection("RuntimeRootSerial")]
 public sealed class LiveLocalLlmAdaptiveQualificationTests
 {
-    [Fact]
+    [Trait("Profile", "LiveLocal")]
+    [ProfileFact("LiveLocal")]
     [Trait("Category", "LiveHardware")]
     public async Task Requalify_all_applicable_backends_and_promote_the_measured_winner()
     {
@@ -17,7 +18,7 @@ public sealed class LiveLocalLlmAdaptiveQualificationTests
                 "1",
                 StringComparison.Ordinal))
         {
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -85,7 +86,8 @@ public sealed class LiveLocalLlmAdaptiveQualificationTests
             qualification.Promotion!.Profiles[0].Profile.HardGateRefs);
     }
 
-    [Fact]
+    [Trait("Profile", "LiveLocal")]
+    [ProfileFact("LiveLocal")]
     [Trait("Category", "LiveHardware")]
     public async Task Current_qualified_machine_reuses_measured_profile_without_benchmarking()
     {
@@ -94,7 +96,7 @@ public sealed class LiveLocalLlmAdaptiveQualificationTests
                 "1",
                 StringComparison.Ordinal))
         {
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

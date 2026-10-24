@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -204,15 +204,5 @@ public sealed partial class ToolAgentOrchestrator
             .Any(static card => card.Evidence?.ScaleBasis is { Count: > 0 }
                                 && card.Evidence.NonScalableReasons.Count == 0
                                 && card.Evidence.QuantityFacts.Count >= 2) == true;
-
-    private static bool ContainsProcedureEvidenceCue(string text)
-    {
-        var normalized = NormalizeLexicalLookup(text);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return false;
-
-        return Regex.IsMatch(normalized, @"\b(?:" + ProcedureSectionHeadingPattern + @")\b", RegexOptions.CultureInvariant)
-            || Regex.IsMatch(text, @"(?:^|\s)(?:[1-9][\.)]\s+|[\u2022\u00b7]\s+\p{L})", RegexOptions.CultureInvariant);
-    }
 
 }

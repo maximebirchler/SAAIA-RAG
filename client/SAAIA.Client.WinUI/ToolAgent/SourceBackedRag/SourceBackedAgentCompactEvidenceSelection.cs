@@ -2,26 +2,6 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag;
 
 public sealed partial class SourceBackedAgentV2Runner
 {
-    private static IReadOnlyList<string> SelectGroupDiverseEvidenceIds(
-        IEnumerable<string> evidenceIds,
-        EvidenceBundle bundle,
-        int capacity)
-    {
-        if (capacity <= 0)
-            return Array.Empty<string>();
-
-        var candidates = evidenceIds
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Select(id => bundle.ById.TryGetValue(id, out var item)
-                ? item
-                : null)
-            .Where(static item => item is not null)
-            .Cast<EvidenceItem>()
-            .ToArray();
-        return SelectGroupDiverseEvidenceItems(candidates, capacity)
-            .Select(static item => item.EvidenceId)
-            .ToArray();
-    }
 
     private static IReadOnlyList<EvidenceItem> SelectCompactEvidenceItems(
         IReadOnlyList<EvidenceItem> retainedEvidence,

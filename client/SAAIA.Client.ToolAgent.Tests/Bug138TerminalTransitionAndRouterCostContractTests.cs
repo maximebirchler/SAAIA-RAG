@@ -330,12 +330,11 @@ public sealed class Bug138TerminalTransitionAndRouterCostContractTests
     [Fact]
     public void Bug138_ProductionBudgetsAndDomainNeutralityRemainFrozen()
     {
-        var options = ReadProductSource(
-            "ToolAgent", "SourceBackedRag", "SourceBackedAgentV2Options.cs");
-        Assert.Contains("MaximumCumulativeLlmTokens = 12_000", options, StringComparison.Ordinal);
-        Assert.Contains("MaximumCumulativeLlmElapsedMilliseconds = 240_000", options, StringComparison.Ordinal);
-        Assert.Contains("CumulativeLlmTerminalReserveTokens = 4_800", options, StringComparison.Ordinal);
-        Assert.Contains("CumulativeLlmTerminalReserveMilliseconds = 60_000", options, StringComparison.Ordinal);
+        var options = Options();
+        Assert.Equal(12_000, options.MaximumCumulativeLlmTokens);
+        Assert.Equal(240_000, options.MaximumCumulativeLlmElapsedMilliseconds);
+        Assert.Equal(4_800, options.CumulativeLlmTerminalReserveTokens);
+        Assert.Equal(60_000, options.CumulativeLlmTerminalReserveMilliseconds);
 
         var product = string.Join(
             "\n",
@@ -353,11 +352,8 @@ public sealed class Bug138TerminalTransitionAndRouterCostContractTests
         {
             Assert.DoesNotContain(forbidden, product, StringComparison.OrdinalIgnoreCase);
         }
-        Assert.True(
-            ReadProductSource(
-                    "ToolAgent", "SourceBackedRag", "SourceBackedAgentV2Runner.cs")
-                .TrimEnd('\r', '\n')
-                .Split('\n').Length <= 2_500);
+        // Source-size budgets are enforced once by check-architecture.ps1. A
+        // line count is not a production token/time budget or a semantic contract.
     }
 
     private static SourceBackedAgentV2Options Options()

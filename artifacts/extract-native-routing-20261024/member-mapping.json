@@ -1,0 +1,404 @@
+{
+  "schema": "saaia-native-routing-extraction.v1",
+  "members": [
+    {
+      "name": "SubmitSourceBackedRouteToolName",
+      "owner": "NativeRouterRouteNames",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 10,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "SubmitSourceBackedGridRouteToolName",
+      "owner": "NativeRouterRouteNames",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 12,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "RequestUserClarificationToolName",
+      "owner": "NativeRouterRouteNames",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 14,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "SubmitOperationalRouteToolName",
+      "owner": "NativeRouterRouteNames",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 16,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "SubmitApplicationDecisionRouteToolName",
+      "owner": "NativeRouterRouteNames",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 18,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "RequestUnboundUserReferenceRouteToolName",
+      "owner": "NativeRouterRouteNames",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 19,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "UnadvertisedNativeRouteFailure",
+      "owner": "NativeRouterRouteNames",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 20,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterClassifierSystemPrompt",
+      "owner": "NativeRouterPrompts",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 30,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterClassifierSystemPromptForTests",
+      "owner": "NativeRouterPrompts",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 46,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterSpecializedSystemPromptForTests",
+      "owner": "NativeRouterPrompts",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 49,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterClassifierToolsForTests",
+      "owner": "NativeRouterToolCatalog",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 56,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterSecondStageToolNamesForTests",
+      "owner": "NativeRouterToolCatalog",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 60,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterSecondStageTools",
+      "owner": "NativeRouterToolCatalog",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 74,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "TryResolveNativeRouterClassifierSelectionForTests",
+      "owner": "NativeRouterToolCatalog",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 111,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterClassifierTools",
+      "owner": "NativeRouterToolCatalog",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 118,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "TryResolveNativeRouterClassifierSelection",
+      "owner": "NativeRouterToolCatalog",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 157,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterSpecializedSystemPrompt",
+      "owner": "NativeRouterPrompts",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 174,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "ResolveClassifierPlanningToolName",
+      "owner": "NativeRouterToolCatalog",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 310,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "ValidateAdvertisedNativeRoute",
+      "owner": "NativeRouterToolCatalog",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 318,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterSystemPrompt",
+      "owner": "NativeRouterPrompts",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 330,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterSystemPromptForTests",
+      "owner": "NativeRouterPrompts",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 408,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterToolsForTests",
+      "owner": "NativeRouterToolCatalog",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 411,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterRepairToolsForTests",
+      "owner": "NativeRouterToolCatalog",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 415,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterAlternativesAfterInvalidClarificationForTests",
+      "owner": "NativeRouterToolCatalog",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 421,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterRepairTools",
+      "owner": "NativeRouterToolCatalog",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 426,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterAlternativesAfterInvalidClarification",
+      "owner": "NativeRouterToolCatalog",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 440,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BuildNativeRouterTools",
+      "owner": "NativeRouterToolCatalog",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 454,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BoundedNativeRouterString",
+      "owner": "NativeRouterToolCatalog",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 775,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "ReadNativeRouterString",
+      "owner": "NativeRouterResponseReader",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 1934,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "NormalizeNativeRouterOptionalReference",
+      "owner": "NativeRouterResponseReader",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 1942,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "TryReadNativeRouterLayout",
+      "owner": "NativeRouterResponseReader",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 1949,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "IsStructurallyValidNativeRouterLabel",
+      "owner": "NativeRouterResponseReader",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 1989,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "HasBalancedNativeRouterDelimiters",
+      "owner": "NativeRouterResponseReader",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 2018,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "ReadNativeRouterStringArray",
+      "owner": "NativeRouterResponseReader",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 2040,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "TryReadNativeRouterLayoutForTests",
+      "owner": "NativeRouterResponseReader",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 2057,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "TryReadNativeRouterInteger",
+      "owner": "NativeRouterResponseReader",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 2078,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "TryReadNativeRouterBoolean",
+      "owner": "NativeRouterResponseReader",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 2092,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "TryReadNativeRouterProperty",
+      "owner": "NativeRouterResponseReader",
+      "source": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "originalLine": 2112,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "SubmitDocumentOverviewRouteToolName",
+      "owner": "NativeRouterRouteNames",
+      "source": "ToolAgentOrchestrator.NativeDocumentOverviewRouter.cs",
+      "originalLine": 8,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BuildNativeDocumentOverviewRouteTool",
+      "owner": "NativeRouterToolCatalog",
+      "source": "ToolAgentOrchestrator.NativeDocumentOverviewRouter.cs",
+      "originalLine": 12,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "RequestMissingUserInputToolName",
+      "owner": "NativeRouterRouteNames",
+      "source": "ToolAgentOrchestrator.NativeMissingUserInputProtocol.cs",
+      "originalLine": 10,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    },
+    {
+      "name": "BuildNativeMissingUserInputTool",
+      "owner": "NativeRouterToolCatalog",
+      "source": "ToolAgentOrchestrator.NativeMissingUserInputProtocol.cs",
+      "originalLine": 14,
+      "bodyTokensEquivalent": true,
+      "literalValuesPreserved": true
+    }
+  ],
+  "imports": [
+    {
+      "file": "ToolAgentOrchestrator.AnswerUnitContract.cs",
+      "owners": [
+        "NativeRouterRouteNames"
+      ]
+    },
+    {
+      "file": "ToolAgentOrchestrator.GroundedGridCategoryScope.cs",
+      "owners": [
+        "NativeRouterRouteNames"
+      ]
+    },
+    {
+      "file": "ToolAgentOrchestrator.GroundedGridFamily.cs",
+      "owners": [
+        "NativeRouterRouteNames"
+      ]
+    },
+    {
+      "file": "ToolAgentOrchestrator.GroundedGridShapeContract.cs",
+      "owners": [
+        "NativeRouterRouteNames"
+      ]
+    },
+    {
+      "file": "ToolAgentOrchestrator.NativeDocumentOverviewRouter.cs",
+      "owners": [
+        "NativeRouterResponseReader",
+        "NativeRouterRouteNames",
+        "NativeRouterToolCatalog"
+      ]
+    },
+    {
+      "file": "ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "owners": [
+        "NativeRouterResponseReader",
+        "NativeRouterRouteNames"
+      ]
+    },
+    {
+      "file": "ToolAgentOrchestrator.NativeRouterRepairContinuity.cs",
+      "owners": [
+        "NativeRouterRouteNames",
+        "NativeRouterResponseReader"
+      ]
+    },
+    {
+      "file": "ToolAgentOrchestrator.RouterCore.cs",
+      "owners": [
+        "NativeRouterPrompts",
+        "NativeRouterToolCatalog",
+        "NativeRouterRouteNames"
+      ]
+    },
+    {
+      "file": "ToolAgentOrchestrator.StructuredFamilyClassifier.cs",
+      "owners": [
+        "NativeRouterRouteNames"
+      ]
+    }
+  ],
+  "missing": []
+}

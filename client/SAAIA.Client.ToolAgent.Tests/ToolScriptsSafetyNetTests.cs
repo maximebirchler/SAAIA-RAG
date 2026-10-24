@@ -1,4 +1,6 @@
 using System.IO;
+using System.Diagnostics;
+using System.Text.Json;
 using Xunit;
 
 namespace SAAIA.Client.ToolAgent.Tests;
@@ -18,18 +20,40 @@ public sealed class ToolScriptsSafetyNetTests
         Assert.True(File.Exists(Path.Combine(toolsRoot, "verify-governance-artifacts.ps1")));
     }
 
-    [Fact]
-    public void Runtime_ci_harness_exposes_smoke_and_runtime_probe_controls()
+    [Theory]
+    [InlineData(false, 0, "not_executed")]
+    [InlineData(true, 1, "failed")]
+    public async Task Runtime_ci_harness_reports_unavailable_runtime_and_honors_strict_mode(
+        bool strict, int expectedExitCode, string expectedStatus)
     {
         var repoRoot = FindRepoRoot();
-        var file = Path.Combine(repoRoot, "tools", "runtime-ci-harness.ps1");
-        var source = File.ReadAllText(file);
-
-        Assert.Contains("[string]$RuntimeBaseUrl = $env:SAAIA_RUNTIME_CI_BASE_URL", source);
-        Assert.Contains("[switch]$SkipDotnet", source);
-        Assert.Contains("[switch]$StrictRuntime", source);
-        Assert.Contains("SAAIA_RUNTIME_CI_BASE_URL not set", source);
-        Assert.Contains("runtime_probes", source);
+        var report = Path.Combine(Path.GetTempPath(), "saaia-harness-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            var start = new ProcessStartInfo("pwsh")
+            {
+                UseShellExecute = false, CreateNoWindow = true,
+                RedirectStandardOutput = true, RedirectStandardError = true,
+                WorkingDirectory = repoRoot
+            };
+            foreach (var argument in new[] { "-NoProfile", "-File", Path.Combine(repoRoot, "tools", "runtime-ci-harness.ps1"),
+                         "-SkipDotnet", "-RuntimeBaseUrl", "", "-OutputPath", report })
+                start.ArgumentList.Add(argument);
+            if (strict) start.ArgumentList.Add("-StrictRuntime");
+            using var process = Process.Start(start)!;
+            var stdout = process.StandardOutput.ReadToEndAsync();
+            var stderr = process.StandardError.ReadToEndAsync();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            try { await process.WaitForExitAsync(timeout.Token); }
+            catch (OperationCanceledException) { process.Kill(entireProcessTree: true); throw; }
+            Assert.True(process.ExitCode == expectedExitCode, (await stdout) + (await stderr));
+            using var manifest = JsonDocument.Parse(await File.ReadAllTextAsync(report));
+            Assert.Equal(expectedStatus, manifest.RootElement.GetProperty("summary").GetProperty("status").GetString());
+            var probe = Assert.Single(manifest.RootElement.GetProperty("steps").EnumerateArray());
+            Assert.Equal("runtime_probes", probe.GetProperty("name").GetString());
+            Assert.Equal("skipped", probe.GetProperty("status").GetString());
+        }
+        finally { if (File.Exists(report)) File.Delete(report); }
     }
 
     [Fact]

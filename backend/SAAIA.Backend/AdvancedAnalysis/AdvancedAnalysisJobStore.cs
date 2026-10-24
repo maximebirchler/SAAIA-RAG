@@ -176,7 +176,12 @@ internal sealed class AdvancedAnalysisJobStore
               j.session_id AS "SessionId",
               j.handoff_id AS "HandoffId",
               j.attempt_count AS "AttemptCount",
-              j.handoff::text AS "HandoffJson";
+              j.handoff::text AS "HandoffJson",
+              j.parent_traceparent AS "ParentTraceparent",
+              j.diagnostic_request_id AS "RequestId",
+              j.diagnostic_turn_id AS "TurnId",
+              j.diagnostic_session_id AS "DiagnosticSessionId",
+              greatest(0, extract(epoch FROM (now() - j.created_at)) * 1000)::double precision AS "QueueAgeMilliseconds";
             """;
         var row = await connection.QuerySingleOrDefaultAsync<LeaseRow>(
             new CommandDefinition(
@@ -198,7 +203,12 @@ internal sealed class AdvancedAnalysisJobStore
                 row.SessionId,
                 row.HandoffId,
                 row.AttemptCount,
-                row.HandoffJson);
+                row.HandoffJson,
+                row.ParentTraceparent,
+                row.RequestId,
+                row.TurnId,
+                row.DiagnosticSessionId,
+                row.QueueAgeMilliseconds);
     }
 
     public Task<AdvancedAnalysisJobLease?> TryClaimAsync(
@@ -369,7 +379,7 @@ internal sealed class AdvancedAnalysisJobStore
               degraded_retrievers, elapsed_milliseconds, error_code)
             VALUES(
               @tenant, @job_id, @event_sequence, @attempt_count, @worker_id,
-              'source_backed_canonical_search', @status,
+              @tool_name, @status,
               CAST(@request AS jsonb), CAST(@evidence AS jsonb),
               @degraded_retrievers, @elapsed_ms, @error_code);
             """;
@@ -382,6 +392,7 @@ internal sealed class AdvancedAnalysisJobStore
                 event_sequence = sequence.Value,
                 attempt_count = attemptCount,
                 worker_id = workerId,
+                tool_name = ResolveToolName(request.Operation),
                 status,
                 request = JsonSerializer.Serialize(request, JsonOptions),
                 evidence = JsonSerializer.Serialize(evidence, JsonOptions),
@@ -674,6 +685,14 @@ internal sealed class AdvancedAnalysisJobStore
         return changed == 1;
     }
 
+    internal static string ResolveToolName(string operation) => operation switch
+    {
+        "read_source" => "source_backed_canonical_read",
+        "find_source_text" => "source_backed_canonical_find",
+        "search_corpus" => "source_backed_canonical_search",
+        _ => throw new ArgumentOutOfRangeException(nameof(operation), "Unsupported canonical tool operation.")
+    };
+
     private static string NormalizeErrorCode(string? errorCode)
     {
         var normalized = errorCode?.Trim();
@@ -691,6 +710,11 @@ internal sealed class AdvancedAnalysisJobStore
         public Guid HandoffId { get; init; }
         public int AttemptCount { get; init; }
         public string HandoffJson { get; init; } = string.Empty;
+        public string? ParentTraceparent { get; init; }
+        public string? RequestId { get; init; }
+        public string? TurnId { get; init; }
+        public string? DiagnosticSessionId { get; init; }
+        public double QueueAgeMilliseconds { get; init; }
     }
 
     private sealed class ToolEventRow
@@ -714,7 +738,12 @@ internal sealed record AdvancedAnalysisJobLease(
     Guid SessionId,
     Guid HandoffId,
     int AttemptCount,
-    string HandoffJson);
+    string HandoffJson,
+    string? ParentTraceparent = null,
+    string? RequestId = null,
+    string? TurnId = null,
+    string? DiagnosticSessionId = null,
+    double QueueAgeMilliseconds = 0);
 
 internal enum AdvancedAnalysisLeaseState
 {

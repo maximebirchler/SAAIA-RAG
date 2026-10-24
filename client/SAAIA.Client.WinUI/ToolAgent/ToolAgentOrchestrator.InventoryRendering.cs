@@ -744,10 +744,13 @@ public sealed partial class ToolAgentOrchestrator
                 profile = TryGetString(summary, "profile") ?? "unknown",
                 schemaVersion = TryGetInt(summary, "schemaVersion") ?? 0,
                 cdcAlignment = TryGetString(summary, "cdcAlignment") ?? "v3.1",
-                routerMs = TryGetInt(item.Result, "routerMs") ?? 0,
-                toolsMs = TryGetInt(item.Result, "toolsMs") ?? 0,
-                writerMs = TryGetInt(item.Result, "writerMs") ?? 0,
-                totalMs = TryGetInt(item.Result, "totalMs") ?? 0,
+                routerMs = TryGetInt(item.Result, "routerMs"),
+                toolsMs = TryGetInt(item.Result, "toolsMs"),
+                writerMs = TryGetInt(item.Result, "writerMs"),
+                totalMs = TryGetInt(item.Result, "totalMs"),
+                performanceAvailable = TryGetBoolProp(item.Result, "available"),
+                measurementScope = TryGetString(item.Result, "measurementScope"),
+                completedTurns = item.Result.TryGetProperty("completedTurns", out var completed) ? (object)completed : null,
                 workspace = new
                 {
                     catalogCategoriesCount = TryGetInt(workspace, "catalogCategoriesCount") ?? 0,

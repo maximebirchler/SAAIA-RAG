@@ -3,6 +3,7 @@ using Xunit;
 
 namespace SAAIA.Client.ToolAgent.Tests;
 
+[Trait("Profile", "Unit")]
 public sealed class LiveAdvancedValidationOwnershipTests
 {
     [Fact]

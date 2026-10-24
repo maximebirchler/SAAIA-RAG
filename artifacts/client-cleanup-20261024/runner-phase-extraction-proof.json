@@ -1,0 +1,499 @@
+{
+  "originalSourceSha256": "ac867c4734dedfec3052e4f880a30d75ff0a0b08f738230688ace51b0f457e91",
+  "transformation": "Semantic-symbol local runState lifting; outer-loop exits become typed outcomes; inner loops/switch/local-function exits remain unchanged.",
+  "originalLoopTopLevelStatements": 83,
+  "partitionedExactlyOnceInOriginalOrder": true,
+  "runStateFields": [
+    {
+      "Name": "traceId",
+      "Type": "string"
+    },
+    {
+      "Name": "traceSequence",
+      "Type": "int"
+    },
+    {
+      "Name": "traces",
+      "Type": "List\u003CSourceBackedTraceEvent\u003E"
+    },
+    {
+      "Name": "semanticPlan",
+      "Type": "string"
+    },
+    {
+      "Name": "requiredAtomicEvidenceCount",
+      "Type": "int?"
+    },
+    {
+      "Name": "requireEvidenceSelection",
+      "Type": "bool"
+    },
+    {
+      "Name": "semanticLayoutDimensions",
+      "Type": "SemanticLayoutDimensions?"
+    },
+    {
+      "Name": "enableWorkspaceWriterHandoff",
+      "Type": "bool"
+    },
+    {
+      "Name": "semanticColumnRoles",
+      "Type": "IReadOnlyDictionary\u003Cstring, string\u003E"
+    },
+    {
+      "Name": "semanticColumnLabels",
+      "Type": "string[]"
+    },
+    {
+      "Name": "semanticRowHeader",
+      "Type": "string"
+    },
+    {
+      "Name": "semanticRowLabels",
+      "Type": "IReadOnlyList\u003Cstring\u003E"
+    },
+    {
+      "Name": "canonicalWorkspaceSelectionLayout",
+      "Type": "SemanticSelectionLayout?"
+    },
+    {
+      "Name": "semanticCandidateStrategyOutcome",
+      "Type": "SemanticCandidateStrategyOutcome"
+    },
+    {
+      "Name": "semanticCandidateObjectType",
+      "Type": "string"
+    },
+    {
+      "Name": "semanticCandidateEligibilityRule",
+      "Type": "string"
+    },
+    {
+      "Name": "messages",
+      "Type": "List\u003CSourceBackedAgentMessage\u003E"
+    },
+    {
+      "Name": "evidenceWorkspace",
+      "Type": "LlmEvidenceWorkspace"
+    },
+    {
+      "Name": "tools",
+      "Type": "IReadOnlyList\u003CSourceBackedAgentToolDefinition\u003E"
+    },
+    {
+      "Name": "namedDocumentTerminalCompletion",
+      "Type": "SourceBackedAgentCompletion?"
+    },
+    {
+      "Name": "routerInitialActions",
+      "Type": "SourceBackedAgentToolCall[]"
+    },
+    {
+      "Name": "plannedFirstAction",
+      "Type": "SourceBackedAgentToolCall?"
+    },
+    {
+      "Name": "initialActionDecisionSource",
+      "Type": "string?"
+    },
+    {
+      "Name": "evidenceState",
+      "Type": "SourceBackedEvidenceExecutionState"
+    },
+    {
+      "Name": "totalToolCalls",
+      "Type": "int"
+    },
+    {
+      "Name": "repaired",
+      "Type": "bool"
+    },
+    {
+      "Name": "firstDraft",
+      "Type": "WriterDraft?"
+    },
+    {
+      "Name": "latestDraft",
+      "Type": "WriterDraft?"
+    },
+    {
+      "Name": "verification",
+      "Type": "SourceVerificationResult?"
+    },
+    {
+      "Name": "bundle",
+      "Type": "EvidenceBundle"
+    },
+    {
+      "Name": "semanticAccepted",
+      "Type": "bool"
+    },
+    {
+      "Name": "semanticReviewFeedback",
+      "Type": "string?"
+    },
+    {
+      "Name": "transientProtocolFeedback",
+      "Type": "string?"
+    },
+    {
+      "Name": "semanticReviewDecision",
+      "Type": "string?"
+    },
+    {
+      "Name": "semanticReviewReasons",
+      "Type": "IReadOnlyList\u003Cstring\u003E"
+    },
+    {
+      "Name": "activeSemanticSelectionIds",
+      "Type": "IReadOnlyList\u003Cstring\u003E?"
+    },
+    {
+      "Name": "activeSemanticSelectionLayout",
+      "Type": "SemanticSelectionLayout?"
+    },
+    {
+      "Name": "directWriterRevisionInstruction",
+      "Type": "string?"
+    },
+    {
+      "Name": "atomicEvidenceMode",
+      "Type": "string"
+    },
+    {
+      "Name": "boundedNamedDocumentExtraction",
+      "Type": "bool"
+    },
+    {
+      "Name": "useGlobalStructuredCandidateSelection",
+      "Type": "bool"
+    },
+    {
+      "Name": "useFlatContentClaimAdequacy",
+      "Type": "bool"
+    },
+    {
+      "Name": "candidateAuditEnabled",
+      "Type": "bool"
+    },
+    {
+      "Name": "candidateCollectionEnabled",
+      "Type": "bool"
+    },
+    {
+      "Name": "candidatePoolTargetCount",
+      "Type": "int"
+    },
+    {
+      "Name": "candidateCollectionOpen",
+      "Type": "bool"
+    },
+    {
+      "Name": "directWriterRequested",
+      "Type": "bool"
+    },
+    {
+      "Name": "commitNextVerifiedReviewDirectedRevision",
+      "Type": "bool"
+    },
+    {
+      "Name": "reviewDirectedRevisionRequiredClaimCount",
+      "Type": "int?"
+    },
+    {
+      "Name": "explicitSemanticSelectionActive",
+      "Type": "bool"
+    },
+    {
+      "Name": "inlineFastAnswerRequiresIndependentSemanticReview",
+      "Type": "bool"
+    },
+    {
+      "Name": "inlineFastAnswerDirectRevisionSignatures",
+      "Type": "HashSet\u003Cstring\u003E"
+    },
+    {
+      "Name": "semanticResolutionWriterReviewActive",
+      "Type": "bool"
+    },
+    {
+      "Name": "noCitableActionDecisionProgress",
+      "Type": "NoCitableActionDecisionProgress"
+    },
+    {
+      "Name": "lastFastEvidenceReviewSignature",
+      "Type": "string"
+    },
+    {
+      "Name": "fastEvidenceReviewCarryForwardCandidateIds",
+      "Type": "IReadOnlyList\u003Cstring\u003E"
+    },
+    {
+      "Name": "consecutiveFastEvidenceResearchZeroYieldReviews",
+      "Type": "int"
+    },
+    {
+      "Name": "adequacyCheckpoint",
+      "Type": "EvidenceAdequacyCheckpoint\u003CSourceBackedAgentCompletion\u003E"
+    },
+    {
+      "Name": "flatEvidenceGapTerminalDecisionNextTurn",
+      "Type": "bool"
+    },
+    {
+      "Name": "semanticallyRejectedDraftSignatures",
+      "Type": "HashSet\u003Cstring\u003E"
+    },
+    {
+      "Name": "contentClaimDirectRevisionSelectionSignatures",
+      "Type": "HashSet\u003Cstring\u003E"
+    },
+    {
+      "Name": "pendingStructuredAssignmentReview",
+      "Type": "SemanticReview?"
+    },
+    {
+      "Name": "pendingStructuredAssignmentDraft",
+      "Type": "WriterDraft?"
+    },
+    {
+      "Name": "consecutiveDocumentaryNoProgressTurns",
+      "Type": "int"
+    },
+    {
+      "Name": "selectionOnlyNextTurn",
+      "Type": "bool"
+    },
+    {
+      "Name": "decisionOnlyNextTurn",
+      "Type": "bool"
+    },
+    {
+      "Name": "compactSingleFollowUpNextTurn",
+      "Type": "bool"
+    },
+    {
+      "Name": "yieldResolutionNextTurn",
+      "Type": "bool"
+    },
+    {
+      "Name": "semanticYieldResolutionPending",
+      "Type": "bool"
+    },
+    {
+      "Name": "semanticYieldResolutionContinuationCount",
+      "Type": "int"
+    },
+    {
+      "Name": "semanticYieldResolutionContinuationLimit",
+      "Type": "int"
+    },
+    {
+      "Name": "semanticYieldTerminalProtocolAttemptCount",
+      "Type": "int"
+    },
+    {
+      "Name": "compactFollowUpLeadEvidenceIds",
+      "Type": "IReadOnlyList\u003Cstring\u003E"
+    },
+    {
+      "Name": "maximumRunTurns",
+      "Type": "int"
+    },
+    {
+      "Name": "maximumRunTurnCeiling",
+      "Type": "int"
+    },
+    {
+      "Name": "selectionProtocolRepairTurns",
+      "Type": "int"
+    },
+    {
+      "Name": "lastInvalidSelectionProtocolKey",
+      "Type": "string?"
+    },
+    {
+      "Name": "consecutiveIdenticalInvalidSelections",
+      "Type": "int"
+    },
+    {
+      "Name": "lastMechanicalFailureSignature",
+      "Type": "string?"
+    },
+    {
+      "Name": "structuredRejectedEvidenceByCell",
+      "Type": "Dictionary\u003Cint, HashSet\u003Cstring\u003E\u003E"
+    }
+  ],
+  "iterationStateFields": [
+    {
+      "Name": "freshWriterOutputNeedsSemanticReview",
+      "Type": "bool"
+    },
+    {
+      "Name": "collectionCandidates",
+      "Type": "IReadOnlyList\u003CEvidenceItem\u003E"
+    },
+    {
+      "Name": "dedicatedCandidateAuditTurn",
+      "Type": "bool"
+    },
+    {
+      "Name": "selectionEligibleObservedEvidenceIds",
+      "Type": "string[]"
+    },
+    {
+      "Name": "hasCitableEvidence",
+      "Type": "bool"
+    },
+    {
+      "Name": "observedCitableSourceCount",
+      "Type": "int"
+    },
+    {
+      "Name": "hasMechanicallyFinalizableEvidence",
+      "Type": "bool"
+    },
+    {
+      "Name": "requiredEvidenceCount",
+      "Type": "int"
+    },
+    {
+      "Name": "semanticNeedsMoreEvidence",
+      "Type": "bool"
+    },
+    {
+      "Name": "finalizationTurn",
+      "Type": "bool"
+    },
+    {
+      "Name": "selectionDecisionTurn",
+      "Type": "bool"
+    },
+    {
+      "Name": "allowAdaptiveFlatSelection",
+      "Type": "bool"
+    },
+    {
+      "Name": "flatEvidenceAdequacyCompletion",
+      "Type": "SourceBackedAgentCompletion?"
+    },
+    {
+      "Name": "semanticSelectionDecisionTurn",
+      "Type": "bool"
+    },
+    {
+      "Name": "workspaceWriterDecisionTurn",
+      "Type": "bool"
+    },
+    {
+      "Name": "semanticYieldTerminalDecisionTurn",
+      "Type": "bool"
+    },
+    {
+      "Name": "completion",
+      "Type": "SourceBackedAgentCompletion"
+    },
+    {
+      "Name": "structuredCandidateWriterTurn",
+      "Type": "bool"
+    },
+    {
+      "Name": "structuredCandidateWriterProtocolError",
+      "Type": "string?"
+    },
+    {
+      "Name": "compactSingleFollowUpTurn",
+      "Type": "bool"
+    },
+    {
+      "Name": "yieldResolutionTurn",
+      "Type": "bool"
+    },
+    {
+      "Name": "completedByFastEvidenceWriter",
+      "Type": "bool"
+    },
+    {
+      "Name": "reviewDirectedRevisionCompletedThisTurn",
+      "Type": "bool"
+    },
+    {
+      "Name": "reviewDirectedRevisionExactClaimCountSatisfied",
+      "Type": "bool"
+    },
+    {
+      "Name": "selectableEvidenceIds",
+      "Type": "IReadOnlyList\u003Cstring\u003E"
+    }
+  ],
+  "phases": [
+    {
+      "phase": "PrepareIterationAsync",
+      "originalTopLevelStatements": 30,
+      "originalStatementsIncludingNested": 56,
+      "outerContinues": 1,
+      "outerBreaks": 0,
+      "runReturns": 0,
+      "canonicalSha256": "16cbe1f9972cffb3172ded4f09336bce6f198c490141fcde3f78eea507edb617"
+    },
+    {
+      "phase": "AcquireIterationCompletionAsync",
+      "originalTopLevelStatements": 12,
+      "originalStatementsIncludingNested": 218,
+      "outerContinues": 8,
+      "outerBreaks": 2,
+      "runReturns": 0,
+      "canonicalSha256": "67818b4b13710b7ef91b0cd3305990866b3d2e6ce076e68c83ea7594292af6ee"
+    },
+    {
+      "phase": "ProcessIterationSubmissionsAndToolsAsync",
+      "originalTopLevelStatements": 23,
+      "originalStatementsIncludingNested": 222,
+      "outerContinues": 6,
+      "outerBreaks": 2,
+      "runReturns": 4,
+      "canonicalSha256": "c1cdbcadd8cf9b1909a00a0413cce6cf0872cfff2867aa130873a7ac92f7ca18"
+    },
+    {
+      "phase": "VerifyAndReviewIterationDraftAsync",
+      "originalTopLevelStatements": 18,
+      "originalStatementsIncludingNested": 154,
+      "outerContinues": 8,
+      "outerBreaks": 5,
+      "runReturns": 2,
+      "canonicalSha256": "65420e77347b4738ef7571b217eceea08fd37339d75d61ad68c24a43deefb259"
+    }
+  ],
+  "output": [
+    {
+      "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.PrepareIteration.cs",
+      "sha256": "d8b0e947290d464c14ff715dc4fa268f02b1333f3fc5c4b6bca64b8b8a23817d"
+    },
+    {
+      "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.AcquireIterationCompletion.cs",
+      "sha256": "2c5cf5340cc8aec8ca355acd3d61b4f8a0f29d7cdf236bf7e1069bc58d8ea98e"
+    },
+    {
+      "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.ProcessIterationSubmissionsAndTools.cs",
+      "sha256": "b9088f3bae923d2c54ea7cca54ef5a5a2c5337da9c7a11ab164362a0237c90d7"
+    },
+    {
+      "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.VerifyAndReviewIterationDraft.cs",
+      "sha256": "2a72ac0dbe953d43b00f4a1d2f3ea67408bd90a81ffae1e405e317be7c635bea"
+    },
+    {
+      "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.InitializeExecution.cs",
+      "sha256": "967ac6d74a83dc30456123aef9ebb382a42f6d4d05a6da17e6ca162ee936fc28"
+    },
+    {
+      "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.ExecutionState.cs",
+      "sha256": "8e1f054eee90f2cf81e9ecef510d52e06f29cdd37934c4436c7f3270c8967eea"
+    },
+    {
+      "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.cs",
+      "sha256": "c6a14d1ea6c93f0459f3cfeb453727c1db5e4a7534e5f978f6d107a50fbd3325"
+    }
+  ],
+  "limitations": "Static preservation proof of one extraction, not semantic acceptance of the inherited policies or a model/UI test."
+}

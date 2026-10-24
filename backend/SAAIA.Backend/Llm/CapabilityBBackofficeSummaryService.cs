@@ -770,9 +770,6 @@ Write a short documentary summary of what this document contains. Keep separate 
         builder.Append(pageCount.Value == 1 ? singular : plural);
     }
 
-    private static string? NormalizePreferredLanguage(string? preferredLanguage)
-        => DocumentLanguageResolver.FirstKnownLanguage(preferredLanguage);
-
     private static string? ResolveOutputLanguage(
         string? preferredLanguage,
         CapabilityBDocumentRow doc,

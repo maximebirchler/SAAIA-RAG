@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -42,18 +42,6 @@ public sealed partial class ToolAgentOrchestrator
         return ShouldUseBroadSourceBackedDiscoveryQueries(query)
             ? BroadSourceBackedDocumentScopedAnchorFollowupLimit
             : DefaultSourceBackedDocumentScopedAnchorFollowupLimit;
-    }
-
-    private static int ResolveSourceBackedAnchorFollowupRoundLimit(string? query)
-    {
-        if (!UsesSourceBackedPlanningCoverage(query))
-            return MaxSourceBackedAnchorFollowupRounds;
-
-        var targetSlots = ResolveSourceBackedPlanningTargetItemCount(query);
-        return Math.Clamp(
-            (int)Math.Ceiling(targetSlots / 10d) + 1,
-            2,
-            3);
     }
 
     private static int ResolveSourceBackedDocumentScopedExplorationMaxPerPage(string? query, string passLabel)

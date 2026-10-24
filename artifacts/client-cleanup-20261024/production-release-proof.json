@@ -1,0 +1,54 @@
+{
+  "assembly": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.dll",
+  "inspectedAtUtc": "2026-10-24T21:20:35.9887456+00:00",
+  "assemblySha256": "c413454f43e61ccb06643a547e49bb8286c1e87aba3d1c73e58ce7993b9061b5",
+  "clientDiagnosticsPresent": true,
+  "portableCoreReferenced": true,
+  "conditionalTestHookPresent": false,
+  "runnerPhysicalLines": 114,
+  "partialTypeFilesInspected": 142,
+  "reusableRunnerFieldsAreReadonly": true,
+  "methods": [
+    {
+      "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.AcquireIterationCompletion.cs",
+      "name": "AcquireIterationCompletionAsync",
+      "lines": 894
+    },
+    {
+      "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.cs",
+      "name": "RunAsync",
+      "lines": 25
+    },
+    {
+      "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.cs",
+      "name": "RunCoreAsync",
+      "lines": 55
+    },
+    {
+      "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.cs",
+      "name": "ExecuteIterationAsync",
+      "lines": 26
+    },
+    {
+      "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.InitializeExecution.cs",
+      "name": "InitializeExecutionAsync",
+      "lines": 124
+    },
+    {
+      "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.PrepareIteration.cs",
+      "name": "PrepareIterationAsync",
+      "lines": 140
+    },
+    {
+      "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.ProcessIterationSubmissionsAndTools.cs",
+      "name": "ProcessIterationSubmissionsAndToolsAsync",
+      "lines": 702
+    },
+    {
+      "file": "client/SAAIA.Client.WinUI/ToolAgent/SourceBackedRag/SourceBackedAgentV2Runner.VerifyAndReviewIterationDraft.cs",
+      "name": "VerifyAndReviewIterationDraftAsync",
+      "lines": 474
+    }
+  ],
+  "limitation": "Metadata inspection and compilation, no UI or model execution. Other intentionally unconditional legacy ForTests members may still exist."
+}

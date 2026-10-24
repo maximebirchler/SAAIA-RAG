@@ -31,7 +31,8 @@ anchor against the supplied source window.
         WriteIndented = true
     };
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_judges_each_structural_anchor_independently_when_enabled()
     {
         if (!string.Equals(
@@ -42,7 +43,7 @@ anchor against the supplied source window.
         {
             output.WriteLine(
                 "Skipped: enable EXP-039/P.0 independent structural-anchor legitimacy benchmark.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var inputPath = Path.GetFullPath(RequireEnvironment(

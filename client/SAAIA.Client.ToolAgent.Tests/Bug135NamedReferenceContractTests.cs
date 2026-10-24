@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 using SAAIA.Client.WinUI.Services.ToolAgent;
+using SAAIA.Client.WinUI.Services.ToolAgent.NativeRouting;
 using SAAIA.Client.WinUI.Services.ToolAgent.SourceBackedRag;
 using Xunit;
 
@@ -11,7 +12,7 @@ public sealed class Bug135NamedReferenceRouterContractTests
     [Fact]
     public void Bug135_source_route_schemas_require_an_explicit_named_reference_kind()
     {
-        var sourceTools = ToolAgentOrchestrator.BuildNativeRouterToolsForTests()
+        var sourceTools = NativeRouterToolCatalog.BuildNativeRouterTools()
             .Where(static tool => tool.Name is
                 "submit_source_backed_route" or
                 "submit_source_backed_grid_route")
@@ -44,10 +45,10 @@ public sealed class Bug135NamedReferenceRouterContractTests
 
         var prompts = new[]
         {
-            ToolAgentOrchestrator.BuildNativeRouterSystemPromptForTests(),
-            ToolAgentOrchestrator.BuildNativeRouterSpecializedSystemPromptForTests(
+            NativeRouterPrompts.BuildNativeRouterSystemPrompt("fr", disallowMetaSetLanguage: false),
+            NativeRoutingContractFixtures.SpecializedPrompt(
                 "submit_source_backed_route"),
-            ToolAgentOrchestrator.BuildNativeRouterSpecializedSystemPromptForTests(
+            NativeRoutingContractFixtures.SpecializedPrompt(
                 "submit_source_backed_grid_route")
         };
         Assert.All(prompts, static prompt =>

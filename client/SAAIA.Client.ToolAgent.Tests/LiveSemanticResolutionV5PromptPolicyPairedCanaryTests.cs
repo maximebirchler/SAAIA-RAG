@@ -32,6 +32,7 @@ public sealed class LiveSemanticResolutionV5PromptPolicyPairedCanaryTests(
     private const int MaximumTotalTokens = 12_000;
     private const long MaximumCampaignMilliseconds = 360_000;
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void A539_cases_match_the_four_preregistered_transactions()
     {
@@ -52,6 +53,7 @@ public sealed class LiveSemanticResolutionV5PromptPolicyPairedCanaryTests(
             cases.Select(static item => item.Excerpts.Count));
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void A539_schedule_matches_the_eight_preregistered_positions()
     {
@@ -75,6 +77,7 @@ public sealed class LiveSemanticResolutionV5PromptPolicyPairedCanaryTests(
             observed);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void A539_source_identities_are_unique_and_oracle_neutral()
     {
@@ -105,6 +108,7 @@ public sealed class LiveSemanticResolutionV5PromptPolicyPairedCanaryTests(
         }
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public async Task A539_candidate_changes_only_three_clauses_of_the_real_runner_prompt()
     {
@@ -188,6 +192,7 @@ public sealed class LiveSemanticResolutionV5PromptPolicyPairedCanaryTests(
             new string('a', 240) + "."));
     }
 
+    [Trait("Profile", "Unit")]
     [Theory]
     [InlineData(false, 4, 4, 4, 4, 2, "campaign_invalid")]
     [InlineData(true, 4, 4, 4, 4, 1, "candidate_rejected_safety")]
@@ -213,6 +218,7 @@ public sealed class LiveSemanticResolutionV5PromptPolicyPairedCanaryTests(
                  candidateReasons,
                  candidateSafety));
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public void A542_campaign_outcome_keeps_integrity_and_candidate_gates_separate()
     {
@@ -236,6 +242,7 @@ public sealed class LiveSemanticResolutionV5PromptPolicyPairedCanaryTests(
             outcome.FailureReasons);
     }
 
+    [Trait("Profile", "Unit")]
     [Fact]
     public async Task A542_prompt_capture_serializes_named_messages()
     {
@@ -262,7 +269,8 @@ public sealed class LiveSemanticResolutionV5PromptPolicyPairedCanaryTests(
             HashText(BuildRecordedPrompt(capture.Messages)));
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public Task Live_qwen_a539_paired_prompt_policy_matches_preregistered_gates_when_enabled()
         => RunLivePairedCanaryAsync();
 
@@ -274,7 +282,7 @@ public sealed class LiveSemanticResolutionV5PromptPolicyPairedCanaryTests(
                 StringComparison.Ordinal))
         {
             output.WriteLine($"Skipped: set {LiveFlag}=1 to run the paired canary.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

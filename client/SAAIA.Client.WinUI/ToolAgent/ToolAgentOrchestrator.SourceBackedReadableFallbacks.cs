@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -112,23 +112,6 @@ public sealed partial class ToolAgentOrchestrator
         return EnumerateRagHitSummaries(toolResults)
             .Where(static hit => !LooksLikeNavigationOnlyHit(hit))
             .Any(hit => ComputeRagHitLexicalRelevance(query, GetRagHitLookupText(hit)) >= 4);
-    }
-
-    private static bool ShouldUseFallbackForBroadMethodOptionRequest(string? query)
-    {
-        var normalized = NormalizeLexicalLookup(query);
-        if (string.IsNullOrWhiteSpace(normalized)
-            || LooksLikeSourceBackedPairingRecommendationRequest(query)
-            || LooksLikeSourceBackedCountdownPlanningRequest(query)
-            || LooksLikeWeeklyPlanningRequest(query))
-        {
-            return false;
-        }
-
-        return Regex.IsMatch(
-            normalized,
-            @"\b(?:idee|idees|ideas?|technique|methode|method|approche|approach|organisation|organization|strategie|strategy|planning|parallele|parallel)\b",
-            RegexOptions.CultureInvariant);
     }
 
     private static bool LooksLikeOverPromotedSourceBackedOptionAnswer(string? answer)
@@ -364,18 +347,6 @@ public sealed partial class ToolAgentOrchestrator
 
     private static bool PairingTargetAnchorMatchesHit(IReadOnlyList<string> targetTerms, RagHitSummary hit)
         => targetTerms.Count > 0 && targetTerms.All(term => RequiredEvidenceTermMatchesHit(term, hit));
-
-    private static bool LooksLikeMissingPairingAnchorAnswer(string? answer)
-    {
-        var normalized = NormalizeLexicalLookup(answer);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return false;
-
-        return Regex.IsMatch(
-            normalized,
-            @"\b(?:pas\s+trouve\s+de\s+passage\s+qui\s+relie|did\s+not\s+find\s+a\s+passage\s+that\s+explicitly\s+connects|no\s+he\s+encontrado\s+un\s+pasaje\s+que\s+conecte|nao\s+encontrei\s+uma\s+passagem\s+que\s+ligue|keine\s+stelle\s+gefunden.*verbindet|non\s+ho\s+trovato\s+un\s+passaggio\s+che\s+colleghi)\b",
-            RegexOptions.CultureInvariant);
-    }
 
     private static string[] ExtractBroadCompositionAnchorTerms(string? query)
     {

@@ -6,7 +6,8 @@ public sealed partial class MainWindow
     {
         var hasSession = !string.IsNullOrWhiteSpace(_sessionId);
         var hasText = !string.IsNullOrWhiteSpace(InputBox?.Text);
-        var canInvoke = IsConnected && hasSession && ((_isGenerating && !_isCancellingGeneration) || hasText);
+        var canInvoke = IsConnected && hasSession && !_isLoadingSession
+            && ((_isGenerating && !_isCancellingGeneration) || (!_isGenerating && hasText));
         if (!canInvoke)
             return;
 
@@ -34,6 +35,7 @@ public sealed partial class MainWindow
 
     private void InputBox_KeyDown(object sender, KeyRoutedEventArgs e)
     {
+        if (_isGenerating || _isLoadingSession) return;
         if (e.Key != Windows.System.VirtualKey.Enter || e.KeyStatus.IsMenuKeyDown)
             return;
 
@@ -91,11 +93,11 @@ public sealed partial class MainWindow
         Services.ClientLog.Info(
             "Chat cancel generation requested: " +
             $"session={_sessionId ?? ""}|" +
-            $"tokenAlreadyCancelled={_cts?.IsCancellationRequested == true}");
+            $"tokenAlreadyCancelled={_conversationActivity.IsTurnCancellationRequested}");
         _isCancellingGeneration = true;
         UpdateSendCancelButtonVisualState();
         Status(LocalRuntimeText("Annulation...", "Cancelling...", "Cancelando...", "A cancelar...", "Abbrechen...", "Annullamento...", UiLang));
-        TrySoftUi("CancelGeneration.CancelToken", () => _cts?.Cancel());
+        TrySoftUi("CancelGeneration.CancelToken", _conversationActivity.CancelActiveTurn);
     }
 
     private void MarkInterrupted(ChatMessageItem? assistantMsg)
@@ -230,7 +232,7 @@ public sealed partial class MainWindow
         try
         {
             await _api.UpdateSessionTitleAsync(s.SessionId, title, CancellationToken.None);
-            await RefreshSessionsAsync(preferSessionId: s.SessionId, CancellationToken.None);
+            await RefreshSessionsAsync(CancellationToken.None);
         }
         catch { /* non bloquant */ }
     }
@@ -314,28 +316,6 @@ public sealed partial class MainWindow
         _userScrolledUp = false;
         UpdateJumpButton();
         ScrollToBottom(force: true);
-    }
-
-    private void CopyAssistant_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            if (sender is not Button b) return;
-            if (b.CommandParameter is not ChatMessageItem m) return;
-
-            var text = (m.Content ?? "").Trim();
-            if (text.Length == 0) return;
-
-            var dp = new DataPackage();
-            dp.SetText(text);
-            Clipboard.SetContent(dp);
-
-            Status(LocalRuntimeText("Copie.", "Copied.", "Copiado.", "Copiado.", "Kopiert.", "Copiato.", UiLang));
-        }
-        catch (Exception ex)
-        {
-            Status(LocalRuntimeText("Echec de la copie : ", "Copy failed: ", "Error al copiar: ", "Falha ao copiar: ", "Kopieren fehlgeschlagen: ", "Copia non riuscita: ", UiLang) + ex.Message);
-        }
     }
 
     private void ApplyResponsiveLayout(double width)
@@ -482,6 +462,7 @@ public sealed partial class MainWindow
 
     private async Task SendAsync()
     {
+        if (_isGenerating || _isLoadingSession) return;
         if (string.IsNullOrWhiteSpace(_sessionId))
         {
             Status(LocalRuntimeText("Selectionne une discussion (ou Nouveau).", "Select a chat (or New).", "Selecciona un chat (o Nuevo).", "Seleciona uma conversa (ou Novo).", "Waehle einen Chat (oder Neu).", "Seleziona una chat (o Nuovo).", UiLang));
@@ -501,7 +482,13 @@ public sealed partial class MainWindow
         var shownText = stagedResolution.EffectiveDisplayText;
         if (text.Length == 0) return;
 
+        using var conversationTurn = _conversationActivity.TryBeginTurn(_sessionId!);
+        if (conversationTurn is null) return;
+        var turnSessionId = conversationTurn.SessionId!;
+        var turnCancellationToken = conversationTurn.CancellationToken;
+
         ChatMessageItem? assistantMsg = null;
+        using var diagnosticTurn = ClientDiagnostics.Journal.BeginTurn(turnSessionId);
 
         try
         {
@@ -516,7 +503,7 @@ public sealed partial class MainWindow
             var tailBefore = _messages.ToList();
             Services.ClientLog.Info(
                 "Chat send begin: " +
-                $"session={_sessionId}|" +
+                $"session={turnSessionId}|" +
                 $"wireChars={text.Length}|" +
                 $"displayChars={shownText.Length}|" +
                 $"tail={tailBefore.Count}");
@@ -524,12 +511,11 @@ public sealed partial class MainWindow
             var userMsg = new ChatMessageItem { Role = "user", Content = shownText, CreatedAt = DateTime.UtcNow };
             _messages.Add(userMsg);
             ScrollToBottom(force: true);
-            await _api.AddMessageAsync(_sessionId!, "user", shownText, null, CancellationToken.None);
+            await _api.AddMessageAsync(turnSessionId, "user", shownText, null, CancellationToken.None);
+            turnCancellationToken.ThrowIfCancellationRequested();
 
             await MaybeAutoTitleAsync(shownText);
-
-            _cts?.Cancel();
-            _cts = new CancellationTokenSource();
+            turnCancellationToken.ThrowIfCancellationRequested();
 
             assistantMsg = new ChatMessageItem
             {
@@ -554,7 +540,9 @@ public sealed partial class MainWindow
             var finalAnswerCommitted = 0;
             var replyStarted = 0;
 
-            if (!await EnsureLocalLlmAwakeForRequestAsync(assistantMsg, _cts.Token))
+            var localLlmReady = await EnsureLocalLlmAwakeForRequestAsync(assistantMsg, turnCancellationToken);
+            turnCancellationToken.ThrowIfCancellationRequested();
+            if (!localLlmReady)
             {
                 var startupFailure = string.IsNullOrWhiteSpace(_lastLocalLlmStartupFailure)
                     ? LocalRuntimeText("Assistant temporairement indisponible : le modele local n'a pas pu demarrer.", "Assistant temporarily unavailable: the local model could not start.", "Asistente temporalmente no disponible: el modelo local no pudo iniciarse.", "Assistente temporariamente indisponivel: nao foi possivel iniciar o modelo local.", "Assistent voruebergehend nicht verfuegbar: das lokale Modell konnte nicht gestartet werden.", "Assistente temporaneamente non disponibile: il modello locale non e riuscito ad avviarsi.", UiLang)
@@ -596,13 +584,13 @@ public sealed partial class MainWindow
                             ScrollToBottom(force: true);
                     });
                 },
-                ct: _cts.Token,
-                sessionId: _sessionId,
+                ct: turnCancellationToken,
+                sessionId: turnSessionId,
                 onAdvancedAnalysisSnapshot: async (job, outcome, answer, sources, token) =>
                 {
                     System.Threading.Interlocked.Exchange(ref finalAnswerCommitted, 1);
                     await PersistAdvancedAnalysisSnapshotAsync(
-                            _sessionId!,
+                            turnSessionId,
                             assistantMsg,
                             job,
                             outcome,
@@ -613,11 +601,11 @@ public sealed partial class MainWindow
                 });
             Services.ClientLog.Info(
                 "Chat send agent result: " +
-                $"cancelled={_cts.Token.IsCancellationRequested}|" +
+                $"cancelled={turnCancellationToken.IsCancellationRequested}|" +
                 $"answerChars={finalAnswer?.Length ?? 0}|" +
                 $"sourcesPayload={(sourcesObj is null ? "none" : sourcesObj.GetType().Name)}");
 
-            var wasCancelled = _cts.Token.IsCancellationRequested;
+            var wasCancelled = turnCancellationToken.IsCancellationRequested;
 
             if (!wasCancelled)
             {
@@ -660,7 +648,7 @@ public sealed partial class MainWindow
             SourcesBox.Text = pretty;
 
             await PersistAssistantMessageWithSourcesAsync(
-                _sessionId!,
+                turnSessionId,
                 assistantMsg,
                 sourcesObj,
                 CancellationToken.None);
@@ -668,7 +656,7 @@ public sealed partial class MainWindow
 
             try
             {
-                await RefreshSessionsAsync(preferSessionId: _sessionId, CancellationToken.None);
+                await RefreshSessionsAsync(CancellationToken.None);
             }
             catch
             {
@@ -677,14 +665,16 @@ public sealed partial class MainWindow
             if (_autoFollow && !_userScrolledUp)
                 ScrollToBottom(force: true);
 
+            diagnosticTurn.Complete(wasCancelled ? "cancelled" : "success", wasCancelled ? "user_cancelled" : null);
             ClearStatus();
         }
         catch (OperationCanceledException)
         {
+            diagnosticTurn.Complete("cancelled", "user_cancelled");
             Services.ClientLog.Info(
                 "Chat send cancelled: " +
-                $"session={_sessionId ?? ""}|" +
-                $"tokenCancelled={_cts?.IsCancellationRequested == true}|" +
+                $"session={turnSessionId}|" +
+                $"tokenCancelled={turnCancellationToken.IsCancellationRequested}|" +
                 $"assistantChars={assistantMsg?.Content?.Length ?? 0}");
             SetTyping(false);
             UpdateJumpButton();
@@ -694,15 +684,15 @@ public sealed partial class MainWindow
 
             try
             {
-                if (!string.IsNullOrWhiteSpace(_sessionId) && assistantMsg is not null)
+                if (assistantMsg is not null)
                 {
                     await PersistAssistantMessageWithSourcesAsync(
-                        _sessionId!,
+                        turnSessionId,
                         assistantMsg,
                         assistantMsg.SourcesJson,
                         CancellationToken.None);
 
-                    try { await RefreshSessionsAsync(preferSessionId: _sessionId, CancellationToken.None); } catch { }
+                    try { await RefreshSessionsAsync(CancellationToken.None); } catch { }
                 }
             }
             catch
@@ -716,6 +706,7 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
+            diagnosticTurn.Complete("failed", ex.GetType().Name);
             Services.ClientLog.Exception("Chat.SendAsync", ex);
             if (assistantMsg is not null)
                 assistantMsg.IsStreaming = false;
@@ -728,18 +719,10 @@ public sealed partial class MainWindow
         {
             if (assistantMsg is not null)
                 assistantMsg.IsStreaming = false;
+            conversationTurn.Dispose();
             UpdateUiState(isGenerating: false);
             SetTyping(false);
             UpdateJumpButton();
-        }
-    }
-
-    private void MessagesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (MessagesList.SelectedItem is ChatMessageItem m)
-        {
-            SourcesCards.Items = SourceCardParser.Parse(m.SourcesJson);
-            SourcesBox.Text = m.SourcesJson ?? "";
         }
     }
 

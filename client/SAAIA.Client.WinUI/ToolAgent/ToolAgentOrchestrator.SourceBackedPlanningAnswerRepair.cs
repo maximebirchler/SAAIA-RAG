@@ -398,29 +398,6 @@ public sealed partial class ToolAgentOrchestrator
             && draft.Sources.Count >= targetItemCount;
     }
 
-    private static bool HasTrustedPartialSourceBackedPlanningDraftCoverage(
-        SourceBackedPlanningDraft draft,
-        SourceBackedPlanningCoverage coverage,
-        string? query,
-        bool searchWasBroadened,
-        bool searchWasExpanded)
-    {
-        if (!ShouldGateStructuredSourceBackedPlanningCoverage(query)
-            || coverage.IsAdequate
-            || string.IsNullOrWhiteSpace(draft.Answer)
-            || draft.Items.Count <= 0
-            || draft.Sources.Count <= 0
-            || draft.Sources.Count < Math.Min(3, draft.Items.Count))
-        {
-            return false;
-        }
-
-        return HasUsefulPartialSourceBackedPlanningCoverage(
-            coverage,
-            searchWasBroadened,
-            searchWasExpanded);
-    }
-
     private static bool HasEnoughPostRepairPartialStructuredPlanningDraftCoverage(
         SourceBackedPlanningDraft draft,
         string? query)

@@ -12,7 +12,8 @@ namespace SAAIA.Client.ToolAgent.Tests;
 
 public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutputHelper output)
 {
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_independent_candidate_audit_is_invariant_to_candidate_order_when_enabled()
     {
         if (!string.Equals(
@@ -24,7 +25,7 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_SOURCE_BACKED_INDEPENDENT_AUDIT_PROBE=1 "
                 + "to run the independent candidate-audit microprobe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -155,7 +156,8 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
         output.WriteLine("Artifact: " + artifact);
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_independent_candidate_audit_selects_the_standalone_parent_label_when_enabled()
     {
         if (!string.Equals(
@@ -167,7 +169,7 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_SOURCE_BACKED_INDEPENDENT_AUDIT_PROBE=1 "
                 + "to run the difficult-label candidate-audit microprobe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -265,7 +267,8 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
         output.WriteLine("Artifact: " + artifact);
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_candidate_label_resolution_recovers_named_parents_when_enabled()
     {
         if (!string.Equals(
@@ -277,7 +280,7 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_SOURCE_BACKED_PARENT_REVIEW_PROBE=1 "
                 + "to run the candidate label-resolution microprobe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -364,7 +367,8 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
         Assert.Equal(candidates.Count, approved.Count);
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_role_audit_separates_placement_labels_from_source_content_when_enabled()
     {
         if (!string.Equals(
@@ -376,7 +380,7 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_SOURCE_BACKED_ROLE_AUDIT_PROBE=1 "
                 + "to run the placement-role audit microprobe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -501,7 +505,8 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             id => Assert.Contains(id, rejectedIds));
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_resolved_candidate_audit_accepts_named_items_and_rejects_layout_labels_when_enabled()
     {
         if (!string.Equals(
@@ -513,7 +518,7 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_SOURCE_BACKED_RESOLVED_AUDIT_PROBE=1 "
                 + "to run the resolved-label candidate-audit microprobe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -661,7 +666,8 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
                 static match => match.Groups[2].Value.Trim(),
                 StringComparer.OrdinalIgnoreCase);
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_grouped_resolved_candidate_audit_separates_recipes_from_non_recipes_when_enabled()
     {
         if (!string.Equals(
@@ -673,7 +679,7 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_SOURCE_BACKED_GROUPED_RESOLVED_AUDIT_PROBE=1 "
                 + "to run the grouped resolved-label audit microprobe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -781,7 +787,8 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
         Assert.Equal(expectedApprovedIds, approvedIds);
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_typed_candidate_audit_separates_target_items_from_layout_labels_when_enabled()
     {
         if (!string.Equals(
@@ -793,7 +800,7 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_SOURCE_BACKED_TYPED_AUDIT_PROBE=1 "
                 + "to run the typed candidate-audit microprobe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -905,7 +912,8 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             approvedIds);
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_batched_candidate_audit_compares_wide_and_small_batches_when_enabled()
     {
         if (!string.Equals(
@@ -917,7 +925,7 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_SOURCE_BACKED_BATCHED_AUDIT_PROBE=1 "
                 + "to compare wide and small candidate-audit batches.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -1110,7 +1118,8 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
         Assert.Equal(expectedIds, wideApprovedIds);
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_reviews_visible_navigation_anchors_before_pivoting_when_enabled()
     {
         if (!string.Equals(
@@ -1122,7 +1131,7 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_SOURCE_BACKED_NAVIGATION_TRANSITION_PROBE=1 "
                 + "to run the navigation-transition microprobe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -1207,7 +1216,8 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             executor.Arguments[1].GetProperty("targets").GetArrayLength());
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_defines_the_atomic_candidate_without_choosing_retrieval_tools()
     {
         if (!string.Equals(
@@ -1219,7 +1229,7 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_SOURCE_BACKED_CANDIDATE_DEFINITION_PROBE=1 "
                 + "to run the candidate-definition microprobe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -1308,7 +1318,8 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
         Assert.True(candidateEligibilityRule.Length >= 8);
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_refines_the_concrete_source_type_and_chooses_the_first_observation_when_enabled()
     {
         if (!string.Equals(
@@ -1320,7 +1331,7 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_SOURCE_BACKED_EVIDENCE_STRATEGY_PROBE=1 "
                 + "to run the evidence-strategy microprobe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -1516,7 +1527,8 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             ReadStringList(strategy, "CandidateScopePaths"));
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_selects_atomic_objects_during_global_assignment_when_enabled()
     {
         if (!string.Equals(
@@ -1528,7 +1540,7 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_SOURCE_BACKED_GLOBAL_ASSIGNMENT_PROBE=1 "
                 + "to run the mixed-candidate global-assignment probe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -1634,7 +1646,8 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
         Assert.Equal(expectedIds, selectedIds.OrderBy(static id => id).ToArray());
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_writes_the_structured_plan_directly_from_candidates_when_enabled()
     {
         if (!string.Equals(
@@ -1646,7 +1659,7 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_SOURCE_BACKED_STRUCTURED_WRITER_PROBE=1 "
                 + "to run the direct structured-writer microprobe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -1896,7 +1909,8 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
         }
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_reviews_structured_assignments_globally_when_enabled()
     {
         if (!string.Equals(
@@ -1908,7 +1922,7 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_SOURCE_BACKED_STRUCTURED_ASSIGNMENT_REVIEW_PROBE=1 "
                 + "to run the structured-assignment review microprobe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();
@@ -2203,7 +2217,8 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
         output.WriteLine("Artifact: " + artifact);
     }
 
-    [Fact]
+    [Trait("Profile", "LivePaid")]
+    [ProfileFact("LivePaid")]
     public async Task Live_qwen3_distinguishes_named_items_from_requested_details_when_enabled()
     {
         if (!string.Equals(
@@ -2215,7 +2230,7 @@ public sealed class LiveSourceBackedSemanticGranularityMicroprobeTests(ITestOutp
             output.WriteLine(
                 "Skipped: set SAAIA_LIVE_SOURCE_BACKED_SEMANTIC_GRANULARITY_PROBE=1 "
                 + "to run the semantic-granularity microprobe.");
-            return;
+            throw new InvalidOperationException("Selected live test requires its explicit enable flag and configuration. See validation manifest.");
         }
 
         var settings = AppSettings.Load();

@@ -161,7 +161,7 @@ public sealed partial class MainWindow
         var hasText = !string.IsNullOrWhiteSpace(InputBox?.Text);
 
         var showCancelState = _isGenerating && !_isCancellingGeneration;
-        var canInvoke = IsConnected && hasSession && (showCancelState || hasText);
+        var canInvoke = IsConnected && hasSession && !_isLoadingSession && (showCancelState || (!_isGenerating && hasText));
         SendCancelButton.IsEnabled = true;
         SendCancelButton.IsHitTestVisible = canInvoke;
         SendCancelButton.Opacity = canInvoke ? 1d : 0.96d;

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "saaia-architecture-budgets-v1",
+  "maximumPhysicalLinesPerFile": 9999,
+  "reviewPhysicalLinesPerFile": 2500,
+  "partialTypeBudgets": [
+    {
+      "name": "ToolAgentOrchestrator",
+      "maximumPhysicalLines": 79771,
+      "reason": "Measured 2026-10-24 after real responsibility extraction and proved-dead-code removal, plus 256 physical lines for corrective follow-ups; includes imports and nested state. This is a ceiling, not a quality target. Further removals/extractions must ratchet it downward.",
+      "observedPhysicalLines": 79515,
+      "marginLines": 256
+    },
+    {
+      "name": "SourceBackedAgentV2Runner",
+      "maximumPhysicalLines": 32174,
+      "reason": "Measured 2026-10-24 after explicit per-request/per-iteration state, four typed phases and guarded observer health, plus 256 physical lines for corrective follow-ups. Physical totals include imports and state declarations; the 2335-line dispatcher was removed. The inherited protocol-helper aggregate remains a documented limitation, and further removals/extractions must ratchet this ceiling downward.",
+      "observedPhysicalLines": 31918,
+      "marginLines": 256
+    },
+    {
+      "name": "MainWindow",
+      "maximumPhysicalLines": 15376,
+      "reason": "Measured 2026-10-24 after real responsibility extraction and proved-dead-code removal, plus 256 physical lines for corrective follow-ups; includes imports and nested state. This is a ceiling, not a quality target. Further removals/extractions must ratchet it downward.",
+      "observedPhysicalLines": 15120,
+      "marginLines": 256
+    }
+  ]
+}

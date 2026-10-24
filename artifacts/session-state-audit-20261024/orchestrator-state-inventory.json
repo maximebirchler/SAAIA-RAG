@@ -1,0 +1,1632 @@
+{
+  "schema": "saaia-orchestrator-state-inventory.v1",
+  "capturedAtUtc": "2026-10-24T21:00:49.8501109+00:00",
+  "productionParseSymbols": [],
+  "fileCount": 239,
+  "inactiveConditionalFileCount": 5,
+  "physicalLines": 77343,
+  "methods": 2148,
+  "staticMethods": 1892,
+  "staticPercentage": 88.08,
+  "instanceMethods": 256,
+  "instanceMethodsDirectlyReadingOrWritingFields": 165,
+  "instanceMethodsTransitivelyDependingOnFields": 237,
+  "instanceFields": [
+    {
+      "name": "_lastAdvancedAnalysisHandoff",
+      "type": "AdvancedAnalysisHandoffEnvelope?",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.AdvancedAnalysisHandoff.cs"
+    },
+    {
+      "name": "_api",
+      "type": "ApiClient",
+      "readOnlyReference": true,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_llm",
+      "type": "ILlmClient",
+      "readOnlyReference": true,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_mem",
+      "type": "ToolMemory",
+      "readOnlyReference": true,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_settings",
+      "type": "AppSettings?",
+      "readOnlyReference": true,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_lastRouterMs",
+      "type": "long",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_lastToolsMs",
+      "type": "long",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_lastWriterMs",
+      "type": "long",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_lastTotalMs",
+      "type": "long",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_lastCriticMs",
+      "type": "long",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_lastCriticStatus",
+      "type": "string?",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_lastCriticWarning",
+      "type": "string?",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_lastCriticRevisedAnswer",
+      "type": "bool",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_lastCriticEligible",
+      "type": "bool",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_lastCriticSkipReason",
+      "type": "string?",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_lastUsedGeneralChatPrompt",
+      "type": "bool",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_lastUsedInventoryRendered",
+      "type": "bool",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_lastUsedSummaryFlow",
+      "type": "bool",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_lastResponseFormat",
+      "type": "string",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_lastEffectiveMode",
+      "type": "string",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_lastWriterToolNames",
+      "type": "List\u003Cstring\u003E",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_lastToolDurations",
+      "type": "List\u003C(string tool, long durationMs, bool ok)\u003E",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_lastAnswerSource",
+      "type": "string",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs"
+    },
+    {
+      "name": "_ragDebugScrollAccessDenied",
+      "type": "bool",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.LiveSummaryExecution.cs"
+    },
+    {
+      "name": "_ragTraceLock",
+      "type": "object",
+      "readOnlyReference": true,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RagTrace.cs"
+    },
+    {
+      "name": "_ragTraceTurnStopwatch",
+      "type": "Stopwatch",
+      "readOnlyReference": true,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RagTrace.cs"
+    },
+    {
+      "name": "_ragTraceId",
+      "type": "string",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RagTrace.cs"
+    },
+    {
+      "name": "_ragTraceSequence",
+      "type": "int",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RagTrace.cs"
+    },
+    {
+      "name": "_toolHandlers",
+      "type": "IReadOnlyDictionary\u003Cstring, ToolHandler\u003E?",
+      "readOnlyReference": false,
+      "file": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RuntimeCatalog.cs"
+    }
+  ],
+  "files": [
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RagMultiSearchExecution.cs",
+      "physicalLines": 1427,
+      "methods": 1,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.EvidenceOverviewSummary.cs",
+      "physicalLines": 1309,
+      "methods": 31,
+      "staticMethods": 30
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RunPipeline.cs",
+      "physicalLines": 1303,
+      "methods": 1,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.NativeRouterPromptAndProtocol.cs",
+      "physicalLines": 1182,
+      "methods": 9,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningTitleQuality.cs",
+      "physicalLines": 1098,
+      "methods": 21,
+      "staticMethods": 21
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedOptionTitleCleaning.cs",
+      "physicalLines": 1018,
+      "methods": 32,
+      "staticMethods": 32
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RouterCore.cs",
+      "physicalLines": 976,
+      "methods": 1,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedQuantityScaling.cs",
+      "physicalLines": 963,
+      "methods": 39,
+      "staticMethods": 39
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedWriterEvidenceInventory.cs",
+      "physicalLines": 945,
+      "methods": 29,
+      "staticMethods": 29
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedExactItemTitleExtraction.cs",
+      "physicalLines": 940,
+      "methods": 23,
+      "staticMethods": 23
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.Summaries.cs",
+      "physicalLines": 895,
+      "methods": 23,
+      "staticMethods": 11
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.ToolExecution.cs",
+      "physicalLines": 859,
+      "methods": 46,
+      "staticMethods": 13
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningLocalProof.cs",
+      "physicalLines": 839,
+      "methods": 26,
+      "staticMethods": 26
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedExactItemCardAnswer.cs",
+      "physicalLines": 837,
+      "methods": 27,
+      "staticMethods": 27
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRankingAnswer.cs",
+      "physicalLines": 823,
+      "methods": 38,
+      "staticMethods": 38
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRetrievalPlanningQueries.cs",
+      "physicalLines": 823,
+      "methods": 17,
+      "staticMethods": 17
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.InventoryRendering.cs",
+      "physicalLines": 798,
+      "methods": 13,
+      "staticMethods": 11
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedContentCardEvidence.cs",
+      "physicalLines": 784,
+      "methods": 23,
+      "staticMethods": 23
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.WriterRagCompaction.cs",
+      "physicalLines": 758,
+      "methods": 17,
+      "staticMethods": 17
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRagHitSummaryParsing.cs",
+      "physicalLines": 724,
+      "methods": 10,
+      "staticMethods": 10
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourcePayload.cs",
+      "physicalLines": 723,
+      "methods": 38,
+      "staticMethods": 38
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedEvidenceExplorationNavigation.cs",
+      "physicalLines": 721,
+      "methods": 24,
+      "staticMethods": 24
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedBroadSynthesisGates.cs",
+      "physicalLines": 715,
+      "methods": 28,
+      "staticMethods": 28
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedEvidenceExplorationPasses.cs",
+      "physicalLines": 708,
+      "methods": 16,
+      "staticMethods": 16
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedEvidenceTextFormatting.cs",
+      "physicalLines": 697,
+      "methods": 42,
+      "staticMethods": 42
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningAnswerRepair.cs",
+      "physicalLines": 697,
+      "methods": 17,
+      "staticMethods": 17
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.EvidenceOverviewFacets.cs",
+      "physicalLines": 675,
+      "methods": 14,
+      "staticMethods": 12
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RouterRepair.cs",
+      "physicalLines": 662,
+      "methods": 19,
+      "staticMethods": 15
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedExactItemTitleMatching.cs",
+      "physicalLines": 658,
+      "methods": 33,
+      "staticMethods": 33
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRagHitRelevanceAndProfile.cs",
+      "physicalLines": 657,
+      "methods": 28,
+      "staticMethods": 28
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedStructuredAxisPlanner.cs",
+      "physicalLines": 652,
+      "methods": 23,
+      "staticMethods": 23
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.DocumentReferenceResolution.cs",
+      "physicalLines": 637,
+      "methods": 18,
+      "staticMethods": 10
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.InventoryReplayRendering.cs",
+      "physicalLines": 612,
+      "methods": 20,
+      "staticMethods": 20
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.DocumentContentSearchShortcut.cs",
+      "physicalLines": 609,
+      "methods": 24,
+      "staticMethods": 23
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceCitationReconciliation.cs",
+      "physicalLines": 606,
+      "methods": 27,
+      "staticMethods": 27
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningCandidateSelection.cs",
+      "physicalLines": 603,
+      "methods": 9,
+      "staticMethods": 9
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.ShortcutExecution.cs",
+      "physicalLines": 600,
+      "methods": 1,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedFallbackAnswers.cs",
+      "physicalLines": 594,
+      "methods": 11,
+      "staticMethods": 11
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RagSearchExecution.cs",
+      "physicalLines": 588,
+      "methods": 17,
+      "staticMethods": 7
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningFieldValueOwnership.cs",
+      "physicalLines": 581,
+      "methods": 16,
+      "staticMethods": 16
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.WriterPromptBudget.cs",
+      "physicalLines": 575,
+      "methods": 20,
+      "staticMethods": 17
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedWriterEvidenceCitations.cs",
+      "physicalLines": 571,
+      "methods": 23,
+      "staticMethods": 23
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningSupportAnalysis.cs",
+      "physicalLines": 541,
+      "methods": 11,
+      "staticMethods": 11
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRequestClassification.cs",
+      "physicalLines": 536,
+      "methods": 22,
+      "staticMethods": 22
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedEvidenceExplorationContext.cs",
+      "physicalLines": 520,
+      "methods": 12,
+      "staticMethods": 12
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.ShortcutIntentDetection.cs",
+      "physicalLines": 498,
+      "methods": 32,
+      "staticMethods": 29
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedContentCardProof.cs",
+      "physicalLines": 495,
+      "methods": 14,
+      "staticMethods": 14
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedWriterGuidance.cs",
+      "physicalLines": 490,
+      "methods": 15,
+      "staticMethods": 15
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedExactItemDisplayTitle.cs",
+      "physicalLines": 481,
+      "methods": 15,
+      "staticMethods": 15
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningRuntimeTrace.cs",
+      "physicalLines": 481,
+      "methods": 7,
+      "staticMethods": 6
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceRefDerivation.cs",
+      "physicalLines": 480,
+      "methods": 5,
+      "staticMethods": 5
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.LiveSummaryRetrievalQueries.cs",
+      "physicalLines": 472,
+      "methods": 11,
+      "staticMethods": 11
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.LiveSummaryPromptFormatting.cs",
+      "physicalLines": 471,
+      "methods": 13,
+      "staticMethods": 13
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.ShortcutConversationState.cs",
+      "physicalLines": 470,
+      "methods": 17,
+      "staticMethods": 8
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedReadableFallbacks.cs",
+      "physicalLines": 464,
+      "methods": 18,
+      "staticMethods": 18
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.GroundedGridShapeContract.cs",
+      "physicalLines": 459,
+      "methods": 10,
+      "staticMethods": 9
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningCoverageInventory.cs",
+      "physicalLines": 456,
+      "methods": 13,
+      "staticMethods": 13
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.WriterRagRanking.cs",
+      "physicalLines": 455,
+      "methods": 12,
+      "staticMethods": 12
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRagJsonNormalization.cs",
+      "physicalLines": 447,
+      "methods": 6,
+      "staticMethods": 6
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedOptionCandidateExtraction.cs",
+      "physicalLines": 441,
+      "methods": 10,
+      "staticMethods": 10
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.DirectCommands.cs",
+      "physicalLines": 433,
+      "methods": 9,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningDraft.cs",
+      "physicalLines": 420,
+      "methods": 6,
+      "staticMethods": 6
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedSourcePolicyGuards.cs",
+      "physicalLines": 414,
+      "methods": 17,
+      "staticMethods": 17
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.ClarificationState.cs",
+      "physicalLines": 406,
+      "methods": 14,
+      "staticMethods": 11
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.ToolPlanNormalization.cs",
+      "physicalLines": 405,
+      "methods": 19,
+      "staticMethods": 19
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRagToolExecutor.cs",
+      "physicalLines": 403,
+      "methods": 0,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedOptionCandidateSelection.cs",
+      "physicalLines": 398,
+      "methods": 5,
+      "staticMethods": 5
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedAdaptationAnswer.cs",
+      "physicalLines": 395,
+      "methods": 12,
+      "staticMethods": 12
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedLlmEvidencePlannerStructureHints.cs",
+      "physicalLines": 392,
+      "methods": 11,
+      "staticMethods": 11
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningFieldValueCandidates.cs",
+      "physicalLines": 383,
+      "methods": 9,
+      "staticMethods": 9
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedExtractiveAnswerCore.cs",
+      "physicalLines": 382,
+      "methods": 7,
+      "staticMethods": 7
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedLlmEvidencePlanner.cs",
+      "physicalLines": 373,
+      "methods": 5,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedDocumentVersionTraceabilityHitSelection.cs",
+      "physicalLines": 372,
+      "methods": 7,
+      "staticMethods": 7
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningWriterGates.cs",
+      "physicalLines": 371,
+      "methods": 11,
+      "staticMethods": 11
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedStructuredPlanningGrid.cs",
+      "physicalLines": 368,
+      "methods": 11,
+      "staticMethods": 11
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedOptionCandidateQuality.cs",
+      "physicalLines": 364,
+      "methods": 13,
+      "staticMethods": 13
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningCandidateEvidence.cs",
+      "physicalLines": 362,
+      "methods": 14,
+      "staticMethods": 14
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedInitialPlanningProbeQueries.cs",
+      "physicalLines": 360,
+      "methods": 9,
+      "staticMethods": 9
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningContextCandidates.cs",
+      "physicalLines": 360,
+      "methods": 9,
+      "staticMethods": 9
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRepairWriter.cs",
+      "physicalLines": 358,
+      "methods": 1,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RagTrace.cs",
+      "physicalLines": 354,
+      "methods": 13,
+      "staticMethods": 9
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedCandidateAdjudicationSignal.cs",
+      "physicalLines": 352,
+      "methods": 14,
+      "staticMethods": 14
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedCanonicalMultiSearch.cs",
+      "physicalLines": 351,
+      "methods": 4,
+      "staticMethods": 3
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedWriterAnswerQuality.cs",
+      "physicalLines": 347,
+      "methods": 9,
+      "staticMethods": 9
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningFieldValueRejectionKinds.cs",
+      "physicalLines": 343,
+      "methods": 6,
+      "staticMethods": 6
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.AnswerPipeline.cs",
+      "physicalLines": 336,
+      "methods": 1,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedExtractionDiagnosticsRefs.cs",
+      "physicalLines": 332,
+      "methods": 16,
+      "staticMethods": 16
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedDocumentVersionTraceabilityRanking.cs",
+      "physicalLines": 331,
+      "methods": 18,
+      "staticMethods": 18
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedInitialLlmCategoryScope.cs",
+      "physicalLines": 326,
+      "methods": 7,
+      "staticMethods": 5
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedLlmEvidencePlannerCoveragePrompt.cs",
+      "physicalLines": 326,
+      "methods": 6,
+      "staticMethods": 6
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningCandidateEligibility.cs",
+      "physicalLines": 318,
+      "methods": 9,
+      "staticMethods": 9
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceRefs.cs",
+      "physicalLines": 316,
+      "methods": 12,
+      "staticMethods": 12
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRagTerminal.cs",
+      "physicalLines": 313,
+      "methods": 7,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RagMultiSearchSupport.cs",
+      "physicalLines": 311,
+      "methods": 11,
+      "staticMethods": 11
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RouterPromptsAndMemory.cs",
+      "physicalLines": 308,
+      "methods": 8,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.LiveSummaryExecution.cs",
+      "physicalLines": 307,
+      "methods": 5,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedLlmEvidencePlannerParsing.cs",
+      "physicalLines": 306,
+      "methods": 9,
+      "staticMethods": 9
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.LiveSummarySourceMaterial.cs",
+      "physicalLines": 304,
+      "methods": 9,
+      "staticMethods": 7
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RuntimeSnapshot.cs",
+      "physicalLines": 291,
+      "methods": 2,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningAnswerVerifier.cs",
+      "physicalLines": 291,
+      "methods": 14,
+      "staticMethods": 14
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRetrievalDiscoveryQueries.cs",
+      "physicalLines": 291,
+      "methods": 9,
+      "staticMethods": 9
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanItemTitleExtractionV2.cs",
+      "physicalLines": 290,
+      "methods": 11,
+      "staticMethods": 11
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.GroundedGridCategoryScope.cs",
+      "physicalLines": 289,
+      "methods": 8,
+      "staticMethods": 7
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedFallbackRouting.cs",
+      "physicalLines": 288,
+      "methods": 8,
+      "staticMethods": 7
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.AnswerPostWriterRag.cs",
+      "physicalLines": 286,
+      "methods": 1,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedSoftChoiceComparativeRetrieval.cs",
+      "physicalLines": 286,
+      "methods": 9,
+      "staticMethods": 9
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedOptionKind.cs",
+      "physicalLines": 284,
+      "methods": 13,
+      "staticMethods": 13
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.AnswerPostWriterStructuredGate.cs",
+      "physicalLines": 281,
+      "methods": 1,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRetrievalNavigationQueries.cs",
+      "physicalLines": 280,
+      "methods": 9,
+      "staticMethods": 9
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedEvidenceExplorationNavigationSeeding.cs",
+      "physicalLines": 279,
+      "methods": 12,
+      "staticMethods": 12
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningCandidateDiagnostics.cs",
+      "physicalLines": 272,
+      "methods": 13,
+      "staticMethods": 13
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.AnswerPostCriticSourceAlignment.cs",
+      "physicalLines": 268,
+      "methods": 1,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.DocumentaryProbe.cs",
+      "physicalLines": 266,
+      "methods": 8,
+      "staticMethods": 7
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRag.cs",
+      "physicalLines": 266,
+      "methods": 6,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedExtractiveHitSelection.cs",
+      "physicalLines": 264,
+      "methods": 4,
+      "staticMethods": 4
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedOptionAnswer.cs",
+      "physicalLines": 263,
+      "methods": 5,
+      "staticMethods": 5
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.AdvancedAnalysisHandoff.cs",
+      "physicalLines": 258,
+      "methods": 10,
+      "staticMethods": 6
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedLlmEvidencePlannerCategoryPrompt.cs",
+      "physicalLines": 258,
+      "methods": 6,
+      "staticMethods": 5
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedComparativeHitSelection.cs",
+      "physicalLines": 250,
+      "methods": 7,
+      "staticMethods": 7
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedCountdownPlanning.cs",
+      "physicalLines": 246,
+      "methods": 6,
+      "staticMethods": 6
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedLlmEvidencePlannerQuerySeeds.cs",
+      "physicalLines": 243,
+      "methods": 10,
+      "staticMethods": 8
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedEvidenceExpansion.cs",
+      "physicalLines": 240,
+      "methods": 9,
+      "staticMethods": 9
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.AnswerUnitContract.cs",
+      "physicalLines": 234,
+      "methods": 8,
+      "staticMethods": 6
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedEvidenceWindowEnrichment.cs",
+      "physicalLines": 234,
+      "methods": 3,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RouterStructuredContract.cs",
+      "physicalLines": 233,
+      "methods": 1,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedEvidenceSufficiency.cs",
+      "physicalLines": 230,
+      "methods": 6,
+      "staticMethods": 6
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedExtractiveHitQuality.cs",
+      "physicalLines": 229,
+      "methods": 7,
+      "staticMethods": 7
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedMissingExactItemAnswers.cs",
+      "physicalLines": 229,
+      "methods": 3,
+      "staticMethods": 3
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRepairWriterPrompts.cs",
+      "physicalLines": 228,
+      "methods": 7,
+      "staticMethods": 7
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.AnswerWriterLlm.cs",
+      "physicalLines": 227,
+      "methods": 2,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RouterPlanPolicy.cs",
+      "physicalLines": 221,
+      "methods": 7,
+      "staticMethods": 6
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedCandidateAdjudication.cs",
+      "physicalLines": 221,
+      "methods": 2,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.DocumentSummaryFlow.cs",
+      "physicalLines": 220,
+      "methods": 3,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningCandidateRanking.cs",
+      "physicalLines": 220,
+      "methods": 13,
+      "staticMethods": 13
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.JsonObjectRepair.cs",
+      "physicalLines": 216,
+      "methods": 5,
+      "staticMethods": 5
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.NativeRouterNamedReferenceRepair.cs",
+      "physicalLines": 214,
+      "methods": 8,
+      "staticMethods": 7
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedLlmEvidencePlannerWorkingNotes.cs",
+      "physicalLines": 212,
+      "methods": 10,
+      "staticMethods": 9
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.ShortcutTranslation.cs",
+      "physicalLines": 209,
+      "methods": 7,
+      "staticMethods": 4
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningCandidateRendering.cs",
+      "physicalLines": 209,
+      "methods": 9,
+      "staticMethods": 9
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.AdminOperations.cs",
+      "physicalLines": 208,
+      "methods": 9,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedEvidenceFacts.cs",
+      "physicalLines": 208,
+      "methods": 15,
+      "staticMethods": 15
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedDurationParsing.cs",
+      "physicalLines": 207,
+      "methods": 9,
+      "staticMethods": 9
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedFallbackIntentPolicy.cs",
+      "physicalLines": 202,
+      "methods": 6,
+      "staticMethods": 6
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RagQueryTextNormalization.cs",
+      "physicalLines": 201,
+      "methods": 8,
+      "staticMethods": 8
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourcePolicyShortcut.cs",
+      "physicalLines": 196,
+      "methods": 3,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.DocumentaryRagSearchDefaults.cs",
+      "physicalLines": 192,
+      "methods": 2,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.ResponseRepairAndCompletion.cs",
+      "physicalLines": 191,
+      "methods": 4,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.LiveSummaryAnchors.cs",
+      "physicalLines": 190,
+      "methods": 4,
+      "staticMethods": 4
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRagRouting.cs",
+      "physicalLines": 187,
+      "methods": 7,
+      "staticMethods": 7
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.DocumentaryRagMultiSearchDefaults.cs",
+      "physicalLines": 186,
+      "methods": 2,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.AnswerWriterContext.cs",
+      "physicalLines": 182,
+      "methods": 1,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedDocumentVersionTraceabilityQueries.cs",
+      "physicalLines": 180,
+      "methods": 7,
+      "staticMethods": 7
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.InlineSourceInjection.cs",
+      "physicalLines": 179,
+      "methods": 3,
+      "staticMethods": 3
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedLlmEvidencePlannerPrompts.cs",
+      "physicalLines": 177,
+      "methods": 2,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.ToolArgumentAccessors.cs",
+      "physicalLines": 175,
+      "methods": 20,
+      "staticMethods": 19
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedGenericRetrievalQueries.cs",
+      "physicalLines": 172,
+      "methods": 2,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedBackendGuidanceFallbacks.cs",
+      "physicalLines": 171,
+      "methods": 3,
+      "staticMethods": 3
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.LlmCompletion.cs",
+      "physicalLines": 167,
+      "methods": 3,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.LocalCapabilityBoundary.cs",
+      "physicalLines": 167,
+      "methods": 6,
+      "staticMethods": 6
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.ToolExecutionPipeline.cs",
+      "physicalLines": 165,
+      "methods": 1,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.Language.cs",
+      "physicalLines": 162,
+      "methods": 7,
+      "staticMethods": 4
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRepairWriterCitationIds.cs",
+      "physicalLines": 162,
+      "methods": 1,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RagDiagnostics.cs",
+      "physicalLines": 161,
+      "methods": 9,
+      "staticMethods": 8
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedDocumentVersionTraceabilityAnswer.cs",
+      "physicalLines": 160,
+      "methods": 5,
+      "staticMethods": 5
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedContextualSnippetCompaction.cs",
+      "physicalLines": 158,
+      "methods": 8,
+      "staticMethods": 8
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRetrievalPlanningQueriesSupport.cs",
+      "physicalLines": 158,
+      "methods": 10,
+      "staticMethods": 10
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.GroundedGridFamily.cs",
+      "physicalLines": 156,
+      "methods": 4,
+      "staticMethods": 3
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.ShortcutPromptMatching.cs",
+      "physicalLines": 156,
+      "methods": 5,
+      "staticMethods": 5
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPreciseRetrieval.cs",
+      "physicalLines": 149,
+      "methods": 6,
+      "staticMethods": 6
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.DeterministicToolAnswers.cs",
+      "physicalLines": 148,
+      "methods": 5,
+      "staticMethods": 5
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceReferenceResolution.cs",
+      "physicalLines": 148,
+      "methods": 2,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.AnswerCriticPass.cs",
+      "physicalLines": 145,
+      "methods": 2,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RagCategoryScopeLexical.cs",
+      "physicalLines": 143,
+      "methods": 5,
+      "staticMethods": 4
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.ToolCategoryScopeResolution.cs",
+      "physicalLines": 139,
+      "methods": 3,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.JsonElementAccessors.cs",
+      "physicalLines": 134,
+      "methods": 11,
+      "staticMethods": 11
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedInsufficientEvidenceFallbacks.cs",
+      "physicalLines": 134,
+      "methods": 5,
+      "staticMethods": 5
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedCandidateAdjudicationPrompts.cs",
+      "physicalLines": 132,
+      "methods": 3,
+      "staticMethods": 3
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRagFallbacks.cs",
+      "physicalLines": 132,
+      "methods": 5,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRagModels.cs",
+      "physicalLines": 132,
+      "methods": 0,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RuntimeCatalog.cs",
+      "physicalLines": 130,
+      "methods": 4,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.NativeDocumentOverviewRouter.cs",
+      "physicalLines": 125,
+      "methods": 4,
+      "staticMethods": 3
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.CatalogContext.cs",
+      "physicalLines": 120,
+      "methods": 5,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.LiveSummarySelection.cs",
+      "physicalLines": 118,
+      "methods": 3,
+      "staticMethods": 3
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RagArgumentHelpers.cs",
+      "physicalLines": 117,
+      "methods": 7,
+      "staticMethods": 7
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedSafeFallbackAnswers.cs",
+      "physicalLines": 117,
+      "methods": 3,
+      "staticMethods": 3
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedAgentV2.cs",
+      "physicalLines": 116,
+      "methods": 6,
+      "staticMethods": 3
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedFocusedDocumentMemory.cs",
+      "physicalLines": 116,
+      "methods": 6,
+      "staticMethods": 5
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.DocumentaryRagDefaultsMissingCall.cs",
+      "physicalLines": 115,
+      "methods": 4,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRouterInitialActions.cs",
+      "physicalLines": 115,
+      "methods": 4,
+      "staticMethods": 4
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.NativeMissingUserInputProtocol.cs",
+      "physicalLines": 112,
+      "methods": 2,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedLlmEvidenceToolCalls.cs",
+      "physicalLines": 112,
+      "methods": 1,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SpecificDocumentQueryGuard.cs",
+      "physicalLines": 112,
+      "methods": 3,
+      "staticMethods": 3
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.InventoryMemoryState.cs",
+      "physicalLines": 110,
+      "methods": 4,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RagCategoryScopeResolution.cs",
+      "physicalLines": 108,
+      "methods": 2,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.cs",
+      "physicalLines": 105,
+      "methods": 1,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedOptionScoring.cs",
+      "physicalLines": 105,
+      "methods": 3,
+      "staticMethods": 3
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.ToolExecutionErrors.cs",
+      "physicalLines": 103,
+      "methods": 4,
+      "staticMethods": 4
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.AnswerWriterBypasses.cs",
+      "physicalLines": 100,
+      "methods": 1,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.InventoryHelpers.cs",
+      "physicalLines": 100,
+      "methods": 7,
+      "staticMethods": 7
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.AdvancedAnalysisExecution.cs",
+      "physicalLines": 98,
+      "methods": 5,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedDocumentTypeRetrievalSignals.cs",
+      "physicalLines": 96,
+      "methods": 6,
+      "staticMethods": 6
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.UserDocumentBinding.cs",
+      "physicalLines": 92,
+      "methods": 3,
+      "staticMethods": 3
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.EvidenceOverviewSemanticRevision.cs",
+      "physicalLines": 91,
+      "methods": 2,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.NativeRouterRepairContinuity.cs",
+      "physicalLines": 90,
+      "methods": 2,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedStructuredPlanningPreWriterFallback.cs",
+      "physicalLines": 87,
+      "methods": 2,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RouterPlanHelpers.cs",
+      "physicalLines": 86,
+      "methods": 8,
+      "staticMethods": 8
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRagCatalogContext.cs",
+      "physicalLines": 85,
+      "methods": 2,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.StatsFallback.cs",
+      "physicalLines": 85,
+      "methods": 2,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.DocumentaryRagDefaults.cs",
+      "physicalLines": 84,
+      "methods": 2,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.DocumentaryRagDefaultsContext.cs",
+      "physicalLines": 84,
+      "methods": 1,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedExactItemAnswerRendering.cs",
+      "physicalLines": 84,
+      "methods": 1,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.TurnFinalization.cs",
+      "physicalLines": 84,
+      "methods": 1,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.ExportSupportAndDebugTools.cs",
+      "physicalLines": 83,
+      "methods": 3,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.ToolReferenceModels.cs",
+      "physicalLines": 81,
+      "methods": 0,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedMemoryContext.cs",
+      "physicalLines": 79,
+      "methods": 2,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.ClassifiedWorkContract.cs",
+      "physicalLines": 73,
+      "methods": 4,
+      "staticMethods": 4
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.DocumentToolExecution.cs",
+      "physicalLines": 69,
+      "methods": 3,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.StructuredFamilyClassifier.cs",
+      "physicalLines": 68,
+      "methods": 3,
+      "staticMethods": 3
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedSoftChoiceHitMatching.cs",
+      "physicalLines": 64,
+      "methods": 2,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPlanningModels.cs",
+      "physicalLines": 62,
+      "methods": 1,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.TurnMemoryState.cs",
+      "physicalLines": 58,
+      "methods": 1,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.RouterRagCategoryScope.cs",
+      "physicalLines": 52,
+      "methods": 2,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRetrievalCaps.cs",
+      "physicalLines": 51,
+      "methods": 4,
+      "staticMethods": 4
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedActionRequestClassification.cs",
+      "physicalLines": 47,
+      "methods": 1,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRagTraceMemory.cs",
+      "physicalLines": 45,
+      "methods": 3,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.PromptSerialization.cs",
+      "physicalLines": 44,
+      "methods": 3,
+      "staticMethods": 3
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.Critic.cs",
+      "physicalLines": 41,
+      "methods": 1,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.GroundedGridFamilyPrompt.cs",
+      "physicalLines": 39,
+      "methods": 2,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.NativeRouterTimeout.cs",
+      "physicalLines": 39,
+      "methods": 2,
+      "staticMethods": 2
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.LocalMetaTools.cs",
+      "physicalLines": 34,
+      "methods": 1,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.State.cs",
+      "physicalLines": 34,
+      "methods": 1,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.EvidenceOverviewFinalReview.cs",
+      "physicalLines": 31,
+      "methods": 1,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.JsonHelpers.cs",
+      "physicalLines": 27,
+      "methods": 1,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedRagHitPageKeys.cs",
+      "physicalLines": 27,
+      "methods": 1,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedEvidenceSelectionQuery.cs",
+      "physicalLines": 26,
+      "methods": 1,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.Localization.cs",
+      "physicalLines": 12,
+      "methods": 5,
+      "staticMethods": 4
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPartialPlanningEvidenceLead.cs",
+      "physicalLines": 12,
+      "methods": 0,
+      "staticMethods": 0
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.ToolPhaseLabels.cs",
+      "physicalLines": 9,
+      "methods": 1,
+      "staticMethods": 1
+    },
+    {
+      "path": "client\\SAAIA.Client.WinUI\\ToolAgent\\ToolAgentOrchestrator.SourceBackedPartialAnswerPolicy.cs",
+      "physicalLines": 7,
+      "methods": 1,
+      "staticMethods": 1
+    }
+  ],
+  "limits": [
+    "Static does not prove pure: these methods can read static caches or call external services/loggers.",
+    "Field dependency closure is conservative syntax-name reachability, not semantic dataflow; overloads share names.",
+    "Production preprocessor symbols only; test-only conditional helpers are not activated.",
+    "Inventory measures concentration; it does not by itself justify extraction or prove an absence of races."
+  ]
+}

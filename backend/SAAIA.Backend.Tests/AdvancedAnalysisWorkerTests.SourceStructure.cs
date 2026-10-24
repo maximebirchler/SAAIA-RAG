@@ -8,11 +8,12 @@ namespace SAAIA.Backend.Tests;
 
 public sealed partial class AdvancedAnalysisWorkerTests
 {
-    [Fact]
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
     public async Task Canonical_resolver_preserves_ingested_section_locators_without_changing_proof_identity()
     {
         await using var database = await PostgresWorkerDatabase.CreateAsync();
-        if (database is null) return;
+        if (database is null) throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
         var seed = await database.SeedEvidenceAsync("section-locators", "Stage two\nHold below 17 bar.");
         var previous = Guid.NewGuid().ToString();
         var next = Guid.NewGuid().ToString();

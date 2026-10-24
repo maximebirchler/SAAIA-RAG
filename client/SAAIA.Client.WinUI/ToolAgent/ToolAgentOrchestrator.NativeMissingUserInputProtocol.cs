@@ -7,33 +7,8 @@ namespace SAAIA.Client.WinUI.Services.ToolAgent;
 
 public sealed partial class ToolAgentOrchestrator
 {
-    private const string RequestMissingUserInputToolName = "request_missing_user_input";
     private const string ExplicitDocumentIdentityAlreadySuppliedFailure =
         "native_missing_user_input_explicit_document_identity_already_supplied";
-
-    private static SourceBackedAgentToolDefinition BuildNativeMissingUserInputTool()
-        => new(RequestMissingUserInputToolName,
-            "Ask one open question for essential user input absent from request and conversation. A decision about the user's actual configuration, state or project phase needs instance facts that general rules cannot establish. Optional preferences do not block a request permitting documented candidates or defaults. Document contents and indexed availability require investigation, not user input. Do not ask users to choose answers evidence can establish. Do not invent options.",
-            JsonSerializer.SerializeToElement(new
-            {
-                type = "object",
-                properties = new
-                {
-                    question = BoundedNativeRouterString(2, 300,
-                        "One direct question in the user language. Ask for the missing information without suggesting invented values."),
-                    userTextAnchor = BoundedNativeRouterString(2, 180,
-                        "Exact span copied from the current request containing the unbound reference or the need for the missing input."),
-                    missingInformation = BoundedNativeRouterString(2, 240,
-                        "What essential user-provided information is missing and why the corpus cannot supply it."),
-                    resumeRoute = new
-                    {
-                        type = "string",
-                        @enum = new[] { "source_backed", "source_backed_grid", "operational" }
-                    }
-                },
-                required = new[] { "question", "userTextAnchor", "missingInformation", "resumeRoute" },
-                additionalProperties = false
-            }, ClientJson.CamelCase));
 
     private bool TryBuildNativeMissingUserInputPlan(
         JsonElement arguments, string sourceRequest, string detectedLanguage,
