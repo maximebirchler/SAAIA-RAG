@@ -18,8 +18,51 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyList<string> LocatorEvidenceIds,
         IReadOnlyList<string> BodyEvidenceIds);
 
+    private const int CandidateInventoryMaximumActiveItems = 64;
+    private const int CandidateInventoryMaximumRejectedItems = 32;
+    private const int CandidateInventoryMaximumItems =
+        CandidateInventoryMaximumActiveItems + CandidateInventoryMaximumRejectedItems;
+
     private static readonly string[] CandidateInventoryStates =
-        ["navigation_only", "body_requested", "body_verified", "selected", "rejected"];
+        ["navigation_only", "body_requested", "awaiting_review", "needs_body",
+            "body_verified", "selected", "rejected"];
+
+    private static bool IsSemanticallyVerifiedCandidate(CandidateInventoryItem item)
+        => item.Status is "body_verified" or "selected";
+
+    private static bool SharesCandidateEvidence(
+        CandidateInventoryItem first,
+        CandidateInventoryItem second)
+        => first.LocatorEvidenceIds.Concat(first.BodyEvidenceIds)
+            .Intersect(second.LocatorEvidenceIds.Concat(second.BodyEvidenceIds),
+                StringComparer.Ordinal).Any();
+
+    private static IReadOnlyList<string> RetainRecentCandidateEvidence(
+        IEnumerable<string> prior,
+        IEnumerable<string> added)
+        => added.Reverse().Concat(prior.Reverse())
+            .Distinct(StringComparer.Ordinal).Take(4).Reverse().ToArray();
+
+    private static IReadOnlyList<CandidateInventoryItem> BoundCandidateInventory(
+        IEnumerable<CandidateInventoryItem> values,
+        bool pruneRejectedHistory = false)
+    {
+        var items = values.ToArray();
+        if (items.Count(item => item.Status != "rejected")
+            > CandidateInventoryMaximumActiveItems)
+            throw new AdvancedAnalysisProviderException(
+                "advanced_candidate_inventory_active_capacity_reached");
+        // Defer history trimming until checkpoint save has captured tombstones
+        // for every rejection, including newly rejected items in this batch.
+        if (!pruneRejectedHistory)
+            return items.OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
+        var retainedRejected = items.Where(item => item.Status == "rejected")
+            .TakeLast(CandidateInventoryMaximumRejectedItems)
+            .Select(item => item.Key).ToHashSet(StringComparer.Ordinal);
+        return items.Where(item => item.Status != "rejected"
+                                   || retainedRejected.Contains(item.Key))
+            .OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
+    }
 
     private static string BuildCandidateInventoryKey(string sourceKey, string title)
     {
@@ -215,16 +258,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (!keys.Add(key)
                 || !sourceKeys.Contains(sourceKey)
                 || !CandidateInventoryStates.Contains(status, StringComparer.Ordinal)
-                || !allowConvergedIdentities
+                || !allowConvergedIdentities && status is "body_verified" or "selected"
                 && !identities.Add(sourceKey + "\n" + NormalizeClaimText(title)))
                 Reject();
-            identities.Add(sourceKey + "\n" + NormalizeClaimText(title));
+            if (status is "body_verified" or "selected")
+                identities.Add(sourceKey + "\n" + NormalizeClaimText(title));
             var targetRoles = TextArray(
                 item,
                 "targetRoles",
                 8,
                 roles,
-                required: roles.Count > 0 && status != "rejected");
+                required: roles.Count > 0 && status is "body_verified" or "selected");
             var selectedRoles = TextArray(item, "selectedRoles", 8, roles, required: false);
             var locatorIds = TextArray(
                 item,
@@ -252,8 +296,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var references = locatorIds.Concat(bodyIds).Distinct(StringComparer.Ordinal).ToArray();
             if (references.Length == 0
                 || status is "navigation_only" or "body_requested" && locatorIds.Count == 0
-                || status is "body_verified" or "selected" && bodyIds.Count == 0
-                || status == "selected" && selectedRoles.Count == 0
+                || status is "awaiting_review" or "needs_body" or "body_verified" or "selected"
+                    && bodyIds.Count == 0
+                || status == "selected" && roles.Count > 0 && selectedRoles.Count == 0
                 || status != "selected" && selectedRoles.Count > 0
                 || selectedRoles.Any(role => !targetRoles.Contains(role, StringComparer.Ordinal)))
                 Reject();
@@ -281,18 +326,37 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
     private static IReadOnlyList<CandidateInventoryItem> MergeCandidateInventory(
         IReadOnlyList<CandidateInventoryItem> current,
         IReadOnlyList<CandidateInventoryItem> updates)
+        => MergeCandidateInventoryCore(current, updates, allowBlockedAdmissions: false, out _);
+
+    private static IReadOnlyList<CandidateInventoryItem> MergeCandidateInventory(
+        IReadOnlyList<CandidateInventoryItem> current,
+        IReadOnlyList<CandidateInventoryItem> updates,
+        out int blockedDiscoveryCount)
+        => MergeCandidateInventoryCore(current, updates, allowBlockedAdmissions: true,
+            out blockedDiscoveryCount);
+
+    private static IReadOnlyList<CandidateInventoryItem> MergeCandidateInventoryCore(
+        IReadOnlyList<CandidateInventoryItem> current,
+        IReadOnlyList<CandidateInventoryItem> updates,
+        bool allowBlockedAdmissions,
+        out int blockedDiscoveryCount)
     {
+        blockedDiscoveryCount = 0;
         static int Rank(string status) => status switch
         {
             "navigation_only" => 0,
             "body_requested" => 1,
-            "body_verified" => 2,
-            "selected" => 3,
-            "rejected" => 4,
+            "awaiting_review" => 2,
+            "needs_body" => 3,
+            "body_verified" => 4,
+            "selected" => 5,
             _ => -1
         };
         var merged = current.ToDictionary(item => item.Key, StringComparer.Ordinal);
-        foreach (var update in updates)
+        var existingKeys = merged.Keys.ToHashSet(StringComparer.Ordinal);
+        // Apply seed assessments first, so rejections can free capacity for new
+        // discoveries regardless of the order of items in the model's JSON.
+        foreach (var update in updates.OrderBy(update => existingKeys.Contains(update.Key) ? 0 : 1))
         {
             var canonicalUpdate = update;
             if (!merged.TryGetValue(update.Key, out var prior))
@@ -302,9 +366,20 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     && string.Equals(
                         NormalizeClaimText(item.ExactTitle),
                         NormalizeClaimText(update.ExactTitle),
-                        StringComparison.Ordinal));
+                        StringComparison.Ordinal)
+                    && (SharesCandidateEvidence(item, update)
+                        || IsSemanticallyVerifiedCandidate(item)
+                        && IsSemanticallyVerifiedCandidate(update)));
                 if (matchingIdentity is null)
                 {
+                    if (update.Status != "rejected"
+                        && merged.Values.Count(item => item.Status != "rejected")
+                        >= CandidateInventoryMaximumActiveItems
+                        && allowBlockedAdmissions)
+                    {
+                        blockedDiscoveryCount++;
+                        continue;
+                    }
                     merged.Add(update.Key, update);
                     continue;
                 }
@@ -336,16 +411,30 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     : update.ExactTitle,
                 SourceKey = prior.SourceKey
             };
-            var status = canonicalUpdate.Status == "rejected" || prior.Status == "rejected"
+            var status = canonicalUpdate.Status is "rejected" or "needs_body"
+                         || prior.Status is "rejected" or "needs_body"
                 ? canonicalUpdate.Status
                 : Rank(canonicalUpdate.Status) >= Rank(prior.Status)
                     ? canonicalUpdate.Status
                     : prior.Status;
+            if (prior.Status == "rejected" && status != "rejected"
+                && merged.Values.Count(item => item.Status != "rejected")
+                >= CandidateInventoryMaximumActiveItems && allowBlockedAdmissions)
+            {
+                // Reactivating history also needs an active slot. Retain the
+                // prior record and report the admission bound rather than lose
+                // an already active candidate or silently exceed the bound.
+                blockedDiscoveryCount++;
+                continue;
+            }
             var updated = prior with
             {
+                Key = update.Key,
                 ExactTitle = canonicalUpdate.ExactTitle,
-                TargetRoles = prior.TargetRoles.Concat(canonicalUpdate.TargetRoles)
-                    .Distinct(StringComparer.Ordinal).Take(8).ToArray(),
+                TargetRoles = status is "rejected" or "needs_body" or "awaiting_review"
+                    ? []
+                    : prior.TargetRoles.Concat(canonicalUpdate.TargetRoles)
+                        .Distinct(StringComparer.Ordinal).Take(8).ToArray(),
                 SelectedRoles = status == "selected"
                     ? prior.SelectedRoles.Concat(canonicalUpdate.SelectedRoles)
                         .Distinct(StringComparer.Ordinal).Take(8).ToArray()
@@ -354,13 +443,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 Note = string.IsNullOrWhiteSpace(canonicalUpdate.Note)
                     ? prior.Note
                     : canonicalUpdate.Note,
-                LocatorEvidenceIds = prior.LocatorEvidenceIds.Concat(canonicalUpdate.LocatorEvidenceIds)
-                    .Distinct(StringComparer.Ordinal).Take(4).ToArray(),
-                BodyEvidenceIds = prior.BodyEvidenceIds.Concat(canonicalUpdate.BodyEvidenceIds)
-                    .Distinct(StringComparer.Ordinal).Take(4).ToArray()
+                LocatorEvidenceIds = RetainRecentCandidateEvidence(
+                    prior.LocatorEvidenceIds, canonicalUpdate.LocatorEvidenceIds),
+                BodyEvidenceIds = RetainRecentCandidateEvidence(
+                    prior.BodyEvidenceIds, canonicalUpdate.BodyEvidenceIds)
             };
             var duplicate = merged.Values.FirstOrDefault(item =>
                 !string.Equals(item.Key, prior.Key, StringComparison.Ordinal)
+                && (SharesCandidateEvidence(item, updated)
+                    || IsSemanticallyVerifiedCandidate(item)
+                    && IsSemanticallyVerifiedCandidate(updated))
                 && string.Equals(item.SourceKey, updated.SourceKey, StringComparison.Ordinal)
                 && string.Equals(
                     NormalizeClaimText(item.ExactTitle),
@@ -368,13 +460,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     StringComparison.Ordinal));
             if (duplicate is null)
             {
-                merged[prior.Key] = updated;
+                merged.Remove(prior.Key);
+                merged[updated.Key] = updated;
                 continue;
             }
-            if (duplicate.Status == "rejected" || updated.Status == "rejected")
-                throw new AdvancedAnalysisProviderException(
-                    "advanced_native_candidate_inventory_invalid");
-
             var consolidatedStatus = Rank(duplicate.Status) >= Rank(updated.Status)
                 ? duplicate.Status
                 : updated.Status;
@@ -394,32 +483,38 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 Note = !string.IsNullOrWhiteSpace(updated.Note)
                     ? updated.Note
                     : duplicate.Note,
-                LocatorEvidenceIds = duplicate.LocatorEvidenceIds
-                    .Concat(updated.LocatorEvidenceIds)
-                    .Distinct(StringComparer.Ordinal).Take(4).ToArray(),
-                BodyEvidenceIds = duplicate.BodyEvidenceIds
-                    .Concat(updated.BodyEvidenceIds)
-                    .Distinct(StringComparer.Ordinal).Take(4).ToArray()
+                LocatorEvidenceIds = RetainRecentCandidateEvidence(
+                    duplicate.LocatorEvidenceIds, updated.LocatorEvidenceIds),
+                BodyEvidenceIds = RetainRecentCandidateEvidence(
+                    duplicate.BodyEvidenceIds, updated.BodyEvidenceIds)
             };
             merged.Remove(prior.Key);
             merged.Remove(duplicate.Key);
             merged[consolidated.Key] = consolidated;
         }
-        if (merged.Count > 64
-            || merged.Values.GroupBy(
+        if (merged.Values.Where(IsSemanticallyVerifiedCandidate).GroupBy(
                     item => item.SourceKey + "\n" + NormalizeClaimText(item.ExactTitle),
                     StringComparer.OrdinalIgnoreCase)
                 .Any(group => group.Count() > 1))
             throw new AdvancedAnalysisProviderException(
                 "advanced_native_candidate_inventory_invalid");
-        return merged.Values.OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
+        return BoundCandidateInventory(merged.Values);
     }
 
     private static IReadOnlyList<CandidateInventoryItem> ObserveCandidateInventory(
         AdvancedAnalysisProviderRequest request,
         IReadOnlyList<CandidateInventoryItem> current,
         IReadOnlyList<PromptEvidenceItem> observations)
+        => ObserveCandidateInventory(request, current, observations, out _);
+
+    private static IReadOnlyList<CandidateInventoryItem> ObserveCandidateInventory(
+        AdvancedAnalysisProviderRequest request,
+        IReadOnlyList<CandidateInventoryItem> current,
+        IReadOnlyList<PromptEvidenceItem> observations,
+        out int blockedDiscoveryCount,
+        IReadOnlySet<string>? suppressedEvidenceIds = null)
     {
+        blockedDiscoveryCount = 0;
         if (!CandidateInventoryEnabled(request)) return current;
         var merged = current.ToDictionary(item => item.Key, StringComparer.Ordinal);
         foreach (var evidence in observations.Where(item =>
@@ -429,27 +524,19 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                      && !string.IsNullOrWhiteSpace(item.SourceKey)))
         {
             var title = evidence.CandidateTitle!;
-            var identity = evidence.SourceKey + "\n" + NormalizeClaimText(title);
+            // A displayed heading is an observation, not yet an entity identity.
+            // Repeated labels on disjoint pages must first be judged separately.
+            // Existing semantic needs_body records can, however, receive an exact
+            // newly observed body for their already identified item.
             var existing = merged.Values.FirstOrDefault(item =>
-                string.Equals(
-                    item.SourceKey + "\n" + NormalizeClaimText(item.ExactTitle),
-                    identity,
-                    StringComparison.OrdinalIgnoreCase));
+                string.Equals(item.SourceKey, evidence.SourceKey, StringComparison.Ordinal)
+                && item.LocatorEvidenceIds.Concat(item.BodyEvidenceIds)
+                    .Contains(evidence.EvidenceId!, StringComparer.Ordinal));
+            existing ??= merged.Values.FirstOrDefault(item =>
+                item.Status is "needs_body"
+                && string.Equals(item.SourceKey, evidence.SourceKey, StringComparison.Ordinal)
+                && NormalizeClaimText(item.ExactTitle) == NormalizeClaimText(title));
             var observedKey = BuildCandidateInventoryKey(evidence.SourceKey, title);
-            if (existing is null
-                && merged.TryGetValue(observedKey, out var refinedIdentity)
-                && string.Equals(
-                    refinedIdentity.SourceKey,
-                    evidence.SourceKey,
-                    StringComparison.Ordinal))
-            {
-                // The Judge may replace an automatically observed subordinate
-                // title with the complete identity from the same body. The key
-                // remains tied to the original observation, so seeing that
-                // observation again must enrich the refined candidate instead
-                // of attempting to insert its key a second time.
-                existing = refinedIdentity;
-            }
             // Retrieval target columns describe why an excerpt was fetched; they
             // do not establish that the named candidate is semantically suitable
             // for those roles. Only the model's inventory update or final Writer
@@ -461,39 +548,52 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 StringComparison.Ordinal);
             if (existing is null)
             {
-                if (merged.Count >= 64) continue;
+                if (suppressedEvidenceIds?.Contains(evidence.EvidenceId!) == true)
+                    continue;
+                if (merged.ContainsKey(observedKey))
+                    observedKey = BuildCandidateInventoryKey(
+                        evidence.SourceKey, title + "\n" + evidence.EvidenceId);
+                if (merged.Values.Count(item => item.Status != "rejected")
+                    >= CandidateInventoryMaximumActiveItems)
+                {
+                    blockedDiscoveryCount++;
+                    continue;
+                }
                 var observed = new CandidateInventoryItem(
                     observedKey,
                     title,
                     evidence.SourceKey,
                     roles,
                     [],
-                    navigation ? "navigation_only" : "body_verified",
-                    "Automatically retained exact source title; suitability remains a model decision.",
+                    navigation ? "navigation_only" : "awaiting_review",
+                    "Observed source heading only; entity identity and suitability await semantic review.",
                     navigation ? [evidence.EvidenceId!] : [],
                     navigation ? [] : [evidence.EvidenceId!]);
                 merged.Add(observed.Key, observed);
                 continue;
             }
-            var status = existing.Status is "selected" or "rejected"
-                ? existing.Status
-                : navigation ? existing.Status : "body_verified";
+            var newBody = !navigation
+                          && !existing.BodyEvidenceIds.Contains(
+                              evidence.EvidenceId!, StringComparer.Ordinal);
+            var status = newBody && existing.Status is not ("body_verified" or "selected")
+                ? "awaiting_review"
+                : existing.Status;
             merged[existing.Key] = existing with
             {
-                TargetRoles = existing.TargetRoles.Concat(roles)
-                    .Distinct(StringComparer.Ordinal).Take(8).ToArray(),
+                TargetRoles = status == "awaiting_review" ? [] : existing.TargetRoles,
+                SelectedRoles = status == "awaiting_review" ? [] : existing.SelectedRoles,
                 Status = status,
                 LocatorEvidenceIds = navigation
-                    ? existing.LocatorEvidenceIds.Append(evidence.EvidenceId!)
-                        .Distinct(StringComparer.Ordinal).Take(4).ToArray()
+                    ? RetainRecentCandidateEvidence(
+                        existing.LocatorEvidenceIds, [evidence.EvidenceId!])
                     : existing.LocatorEvidenceIds,
                 BodyEvidenceIds = navigation
                     ? existing.BodyEvidenceIds
-                    : existing.BodyEvidenceIds.Append(evidence.EvidenceId!)
-                        .Distinct(StringComparer.Ordinal).Take(4).ToArray()
+                    : RetainRecentCandidateEvidence(
+                        existing.BodyEvidenceIds, [evidence.EvidenceId!])
             };
         }
-        return merged.Values.OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
+        return BoundCandidateInventory(merged.Values);
     }
 
     private static IReadOnlyList<AdvancedAnalysisResolvedEvidence> PrioritizeCandidateInventoryEvidence(
@@ -560,6 +660,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             version = "candidate-inventory.v2",
             updateMode = "upsert",
             items = inventory,
+            capacity = new
+            {
+                maximumActiveItems = CandidateInventoryMaximumActiveItems,
+                maximumRejectedHistoryItems = CandidateInventoryMaximumRejectedItems,
+                activeCount = inventory.Count(item => item.Status != "rejected"),
+                rejectedHistoryCount = inventory.Count(item => item.Status == "rejected"),
+                activeCapacityReached = inventory.Count(item => item.Status != "rejected")
+                                        >= CandidateInventoryMaximumActiveItems,
+                instruction = "Rejected history has a separate bounded capacity. At the active limit, assess pending candidates or explicitly reject unsuitable discoveries before admitting more; never interpret admission capacity as corpus absence."
+            },
             coverage,
             requiredDistinctCount = request.Handoff.Load.AnswerUnitCount,
             bodyVerifiedDistinctCount = eligibleBodyVerified.Length,
@@ -572,7 +682,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 .Distinct(StringComparer.Ordinal)
                 .Where(visible.Contains)
                 .ToArray(),
-            instruction = "Operational candidate memory, not proof. bodyVerifiedDistinctCount counts distinct body-verified candidates assigned to at least one requested role; totalBodyVerifiedDistinctCount also includes unassigned items. Never sum per-role coverage counts because one candidate can occur in several roles. For a structured layout, maximumAssignableCount is the maximum number of distinct coordinates fillable at once from your semantic targetRoles; missingByRole is the remaining global assignment gap. proposedAssignments is mechanical and does not add semantic roles. Use save_candidate_inventory to retain exact observed titles across focus changes. A navigation locator discovers an item; body_verified and selected require current substantive body evidence. Omitted candidates remain stored. Continue research from measured assignment gaps, and do not turn a bounded search limit into corpus absence."
+            instruction = "Operational candidate memory, not proof. awaiting_review means observed substantive text without semantic approval; needs_body means an identifiable potentially suitable item needs complementary evidence. bodyVerifiedDistinctCount counts distinct semantically body-verified candidates assigned to a requested role, or suitable for the whole request when there are no roles. Never sum per-role coverage counts because one candidate can occur in several roles. For a structured layout, maximumAssignableCount is the maximum number of distinct coordinates fillable at once from your semantic targetRoles; missingByRole is the remaining global assignment gap. proposedAssignments is mechanical and does not add semantic roles. Use save_candidate_inventory to retain exact observed titles across focus changes. A navigation locator discovers an item; body_verified and selected require current substantive evidence and your semantic assessment, not necessarily an entire procedure unless requested. Same-heading observations remain separate until their identities are judged. Omitted active candidates remain stored, while rejected history is bounded separately. Continue research from measured assignment gaps, and do not turn a bounded search limit into corpus absence."
         };
     }
 
@@ -622,7 +732,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 .ToArray();
             if (matches.Length == 0)
             {
-                if (inventory.Length >= 64)
+                if (inventory.Count(item => item.Status != "rejected")
+                    >= CandidateInventoryMaximumActiveItems)
                     continue;
                 Array.Resize(ref inventory, inventory.Length + 1);
                 inventory[^1] = new CandidateInventoryItem(
@@ -649,13 +760,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 TargetRoles = roles.Distinct(StringComparer.Ordinal).Take(8).ToArray(),
                 SelectedRoles = selectedRoles
                     .Distinct(StringComparer.Ordinal).Take(8).ToArray(),
-                BodyEvidenceIds = match.Item.BodyEvidenceIds.Concat(bodyIds)
-                    .Distinct(StringComparer.Ordinal).Take(4).ToArray()
+                BodyEvidenceIds = RetainRecentCandidateEvidence(
+                    match.Item.BodyEvidenceIds, bodyIds)
             };
         }
-        context.CandidateInventory = inventory
-            .OrderBy(item => item.Key, StringComparer.Ordinal)
-            .ToArray();
+        context.CandidateInventory = BoundCandidateInventory(inventory);
         return original != JsonSerializer.Serialize(context.CandidateInventory, JsonOptions);
     }
 
@@ -715,7 +824,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 .ToArray();
             if (matches.Length == 0)
             {
-                if (inventory.Count >= 64)
+                if (inventory.Count(item => item.Status != "rejected")
+                    >= CandidateInventoryMaximumActiveItems)
                     continue;
                 inventory.Add(new CandidateInventoryItem(
                     BuildCandidateInventoryKey(sourceKeys[0], claim.SelectedItem!),
@@ -740,14 +850,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 Status = "selected",
                 TargetRoles = [role],
                 SelectedRoles = [role],
-                BodyEvidenceIds = match.Item.BodyEvidenceIds.Concat(bodyIds)
-                    .Distinct(StringComparer.Ordinal).Take(4).ToArray(),
+                BodyEvidenceIds = RetainRecentCandidateEvidence(
+                    match.Item.BodyEvidenceIds, bodyIds),
                 Note = "Retained from the final Writer after bounded dossier research, with an exact identity line and current substantive body evidence."
             };
         }
-        context.CandidateInventory = inventory
-            .OrderBy(item => item.Key, StringComparer.Ordinal)
-            .ToArray();
+        context.CandidateInventory = BoundCandidateInventory(inventory);
         return original != JsonSerializer.Serialize(context.CandidateInventory, JsonOptions);
     }
 
@@ -765,12 +873,22 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         [DoesNotReturn]
         void Reject() => throw new AdvancedAnalysisProviderException(
             "advanced_research_checkpoint_invalid");
+        var legacyCheckpoint = checkpoint.SchemaVersion
+                               == "saaia.advanced-analysis-research-checkpoint.v1";
         if (checkpoint.SchemaVersion
-                != AdvancedAnalysisResearchCheckpoint.CurrentSchemaVersion
+                != AdvancedAnalysisResearchCheckpoint.CurrentSchemaVersion && !legacyCheckpoint
             || checkpoint.Candidates is null
             || checkpoint.PromptSourceKeys is null
-            || checkpoint.Candidates.Count > 64
-            || checkpoint.PromptSourceKeys.Count > 64)
+            || checkpoint.Candidates.Count > (legacyCheckpoint
+                ? CandidateInventoryMaximumActiveItems
+                : CandidateInventoryMaximumItems)
+            || checkpoint.Candidates.Count(item => item.Status != "rejected")
+                > CandidateInventoryMaximumActiveItems
+            || !legacyCheckpoint && checkpoint.Candidates.Count(item => item.Status == "rejected")
+                > CandidateInventoryMaximumRejectedItems
+            || checkpoint.ObservedCandidateEvidenceIds is { Count: > 256 }
+            || checkpoint.EvidenceReadWindows is { Count: > 256 }
+            || checkpoint.PromptSourceKeys.Count > CandidateInventoryMaximumItems + 256)
             Reject();
 
         var columns = request.Handoff.Load.Columns.ToHashSet(StringComparer.Ordinal);
@@ -782,6 +900,23 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 item,
                 item.Reference.EvidenceId ?? index.ToString()))
             .ToHashSet(StringComparer.Ordinal);
+        var observedCandidateEvidenceIds = checkpoint.ObservedCandidateEvidenceIds ?? [];
+        if (observedCandidateEvidenceIds.Any(id => string.IsNullOrWhiteSpace(id)
+                                          || !evidenceById.ContainsKey(id))
+            || observedCandidateEvidenceIds.Distinct(StringComparer.Ordinal).Count()
+                != observedCandidateEvidenceIds.Count)
+            Reject();
+        var restoredReadWindows = new Dictionary<string, EvidenceReadWindow>(StringComparer.Ordinal);
+        foreach (var (id, window) in checkpoint.EvidenceReadWindows
+                     ?? new Dictionary<string, AdvancedAnalysisEvidenceReadCheckpoint>())
+        {
+            if (string.IsNullOrWhiteSpace(id)
+                || !evidenceById.TryGetValue(id, out var body)
+                || window is null || window.Offset < 0 || window.Offset >= body.Content.Length
+                || window.Length is < 256 or > 8_000)
+                Reject();
+            restoredReadWindows.Add(id, new EvidenceReadWindow(window.Offset, window.Length));
+        }
         var sourceKeys = new HashSet<string>(StringComparer.Ordinal);
         foreach (var pair in checkpoint.PromptSourceKeys)
         {
@@ -829,7 +964,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     != candidate.LocatorEvidenceIds.Count
                 || candidate.BodyEvidenceIds.Distinct(StringComparer.Ordinal).Count()
                     != candidate.BodyEvidenceIds.Count
-                || !identities.Add(candidate.SourceKey + "\n"
+                || candidate.Status is "body_verified" or "selected"
+                && !identities.Add(candidate.SourceKey + "\n"
                     + NormalizeClaimText(candidate.ExactTitle)))
                 Reject();
 
@@ -840,9 +976,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (referencedIds.Length == 0
                 || candidate.Status is "navigation_only" or "body_requested"
                     && candidate.LocatorEvidenceIds.Count == 0
-                || candidate.Status is "body_verified" or "selected"
+                || candidate.Status is "awaiting_review" or "needs_body" or "body_verified" or "selected"
                     && candidate.BodyEvidenceIds.Count == 0
-                || candidate.Status == "selected" && candidate.SelectedRoles.Count == 0
+                || candidate.Status == "selected" && columns.Count > 0
+                    && candidate.SelectedRoles.Count == 0
                 || candidate.Status != "selected" && candidate.SelectedRoles.Count > 0)
                 Reject();
 
@@ -874,7 +1011,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 candidate.SourceKey,
                 candidate.TargetRoles,
                 candidate.SelectedRoles,
-                candidate.Status,
+                legacyCheckpoint && candidate.Status == "body_verified"
+                    && candidate.TargetRoles.Count == 0
+                    ? "awaiting_review"
+                    : candidate.Status,
                 candidate.Note,
                 candidate.LocatorEvidenceIds,
                 candidate.BodyEvidenceIds));
@@ -882,36 +1022,70 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         context.PromptSourceKeys.Clear();
         foreach (var pair in checkpoint.PromptSourceKeys)
             context.PromptSourceKeys.Add(pair.Key, pair.Value);
-        context.CandidateInventory = restored
-            .OrderBy(item => item.Key, StringComparer.Ordinal)
-            .ToArray();
+        context.CandidateInventory = BoundCandidateInventory(
+            restored, pruneRejectedHistory: true);
+        context.ObservedCandidateEvidenceIds.Clear();
+        context.ObservedCandidateEvidenceIds.UnionWith(observedCandidateEvidenceIds
+            .Concat(restored.SelectMany(item => item.LocatorEvidenceIds.Concat(item.BodyEvidenceIds)))
+            .Distinct(StringComparer.Ordinal).TakeLast(256));
+        context.EvidenceReadWindows.Clear();
+        foreach (var (id, window) in restoredReadWindows)
+            context.EvidenceReadWindows.Add(id, window);
     }
 
     private static Task SaveCandidateInventoryCheckpointAsync(
         SynthesisResearchContext context,
         CancellationToken cancellationToken)
     {
-        var retainedSourceKeys = context.CandidateInventory
-            .Select(item => item.SourceKey)
+        var retained = BoundCandidateInventory(
+            context.CandidateInventory, pruneRejectedHistory: true).ToList();
+        var checkpointJsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var observedEvidenceIds = context.ObservedCandidateEvidenceIds
+            .Concat(context.CandidateInventory
+                .SelectMany(item => item.LocatorEvidenceIds.Concat(item.BodyEvidenceIds)))
+            .Distinct(StringComparer.Ordinal).TakeLast(256).ToArray();
+        if (context.EvidenceReadWindows.Count > 256)
+            throw new AdvancedAnalysisProviderException(
+                "advanced_research_checkpoint_capacity_reached");
+        var readWindows = context.EvidenceReadWindows.ToDictionary(
+            pair => pair.Key,
+            pair => new AdvancedAnalysisEvidenceReadCheckpoint(pair.Value.Offset, pair.Value.Length),
+            StringComparer.Ordinal);
+        var windowSourceIdentities = context.Tools.Evidence
+            .Where(item => item.Reference.EvidenceId is { } id && readWindows.ContainsKey(id))
+            .Select(item => BuildCanonicalSourceIdentity(item, item.Reference.EvidenceId!))
             .ToHashSet(StringComparer.Ordinal);
-        var sourceKeys = context.PromptSourceKeys
-            .Where(pair => retainedSourceKeys.Contains(pair.Value))
-            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
-        var checkpoint = new AdvancedAnalysisResearchCheckpoint(
-            AdvancedAnalysisResearchCheckpoint.CurrentSchemaVersion,
-            context.CandidateInventory.Select(item => new AdvancedAnalysisCandidateCheckpoint(
-                item.Key,
-                item.ExactTitle,
-                item.SourceKey,
-                item.TargetRoles,
-                item.SelectedRoles,
-                item.Status,
-                item.Note,
-                item.LocatorEvidenceIds,
-                item.BodyEvidenceIds)).ToArray(),
-            sourceKeys);
-        return context.Tools.SaveResearchCheckpointAsync(
-            checkpoint,
-            cancellationToken);
+        while (true)
+        {
+            var retainedSourceKeys = retained.Select(item => item.SourceKey)
+                .ToHashSet(StringComparer.Ordinal);
+            var sourceKeys = context.PromptSourceKeys
+                .Where(pair => retainedSourceKeys.Contains(pair.Value)
+                               || windowSourceIdentities.Contains(pair.Key))
+                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+            var checkpoint = new AdvancedAnalysisResearchCheckpoint(
+                AdvancedAnalysisResearchCheckpoint.CurrentSchemaVersion,
+                retained.Select(item => new AdvancedAnalysisCandidateCheckpoint(
+                    item.Key, item.ExactTitle, item.SourceKey, item.TargetRoles,
+                    item.SelectedRoles, item.Status, item.Note,
+                    item.LocatorEvidenceIds, item.BodyEvidenceIds)).ToArray(),
+                sourceKeys,
+                observedEvidenceIds,
+                readWindows);
+            // The persistent store has an independent UTF-8 bound. History is
+            // expendable; active identities and their documentary proofs are not.
+            if (Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(checkpoint, checkpointJsonOptions)) <= 131_072)
+            {
+                context.CandidateInventory = retained;
+                context.ObservedCandidateEvidenceIds.Clear();
+                context.ObservedCandidateEvidenceIds.UnionWith(observedEvidenceIds);
+                return context.Tools.SaveResearchCheckpointAsync(checkpoint, cancellationToken);
+            }
+            var expendable = retained.FindIndex(item => item.Status == "rejected");
+            if (expendable < 0)
+                throw new AdvancedAnalysisProviderException(
+                    "advanced_research_checkpoint_capacity_reached");
+            retained.RemoveAt(expendable);
+        }
     }
 }

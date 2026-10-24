@@ -42,6 +42,11 @@ public sealed partial class AdvancedAnalysisWorkerTests
             {
                 [$"{seed.DocId:D}|{seed.RevisionId:D}|sha256:test"] =
                     "internal-source-1"
+            },
+            ObservedCandidateEvidenceIds: ["E1"],
+            EvidenceReadWindows: new Dictionary<string, AdvancedAnalysisEvidenceReadCheckpoint>
+            {
+                ["E1"] = new(4, 512)
             });
 
         Assert.True(await store.TrySaveResearchCheckpointAsync(
@@ -84,5 +89,9 @@ public sealed partial class AdvancedAnalysisWorkerTests
         Assert.Equal(
             "internal-source-1",
             Assert.Single(resumed.PromptSourceKeys).Value);
+        Assert.Equal("E1", Assert.Single(resumed.ObservedCandidateEvidenceIds!));
+        var window = Assert.Single(resumed.EvidenceReadWindows!);
+        Assert.Equal("E1", window.Key);
+        Assert.Equal(new AdvancedAnalysisEvidenceReadCheckpoint(4, 512), window.Value);
     }
 }

@@ -253,9 +253,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            component or stage rather than the complete candidate identity. Inspect
            its content before assigning a role. When that same body contains the
            complete item name as an exact displayed line, save that complete phrase
-           as exactTitle. Otherwise reject section labels, component headings,
-           ingredient groups, schedules, example-menu categories and other open
-           templates; they cannot fill a distinct named-item coordinate.
+           as exactTitle. Otherwise reject non-entity labels. Assess components,
+           stages, groups or templates against the actual request: they cannot
+           fill a coordinate requiring a standalone named item, but do not apply
+           a domain-specific ban when the request itself asks for such objects.
+           Treat every automatically observed heading as provisional. A body in
+           awaiting_review has not been semantically approved. Use needs_body,
+           with a note describing the missing evidence or continuation, for an
+           identifiable potentially suitable item whose fragment is insufficient.
+           Do not permanently reject an item merely because a procedure is
+           incomplete, and do not require a full procedure for a documented named
+           proposal unless the user's request needs that procedure. New substantive
+           evidence can return a prior needs_body or rejected observation to review.
 
            candidateInventory.coverage gives both raw body-verified counts and
            globally distinct assignment counts. candidateInventory also exposes

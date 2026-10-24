@@ -275,6 +275,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     or "advanced_writer_protocol_invalid"
                     or "advanced_writer_evidence_id_invalid"
                     or "advanced_writer_claim_count_invalid"
+                    or "advanced_writer_claim_coordinates_invalid"
                 || (ex.ErrorCode == "advanced_writer_duplicate_claims"
                     && request.Handoff.Load.StructuredLayout))
                 && completions.Count < Math.Clamp(_options.ExternalMaximumCallsPerJob, 1, 1_024)
@@ -344,6 +345,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     1_024))
             {
                 var writerResultBeforeCritic = parsed;
+                var evidenceBeforeCritic = evidence;
+                var promptEvidenceBeforeCritic = promptEvidence;
                 try
                 {
                     var criticRound = await CompleteWithCorpusResearchAsync(
@@ -427,6 +430,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     // and evidence guards. A final Critic substitution must not
                     // replace that valid answer when no correction call remains.
                     parsed = writerResultBeforeCritic;
+                    evidence = evidenceBeforeCritic;
+                    promptEvidence = promptEvidenceBeforeCritic;
                 }
             }
             if (runSemanticCritic
@@ -801,6 +806,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                         "advanced_llm_transport_error");
                 }
 
+                if ((int)response.StatusCode == 429
+                    && IsTerminalProviderQuotaError(await response.Content
+                        .ReadAsStringAsync(timeout.Token).ConfigureAwait(false)))
+                {
+                    break;
+                }
+
                 if ((int)response.StatusCode != 429
                     || attempt >= maximumHttpAttempts
                     || !TryResolveRateLimitRetryDelay(
@@ -824,15 +836,20 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 responseRateLimit = ReadRateLimitTelemetry(response);
                 if (!response.IsSuccessStatusCode)
                 {
-                    rejectedErrorCode =
-                        $"advanced_llm_http_{(int)response.StatusCode}";
+                    var terminalQuotaError = (int)response.StatusCode == 429
+                        && IsTerminalProviderQuotaError(await response.Content
+                            .ReadAsStringAsync(timeout.Token).ConfigureAwait(false));
+                    rejectedErrorCode = terminalQuotaError
+                        ? "advanced_llm_quota_exhausted"
+                        : $"advanced_llm_http_{(int)response.StatusCode}";
                     await WriteDevelopmentHttpRejectionAsync(jobId, role, payload, response,
                         rejectedErrorCode, httpAttemptCount, stopwatch.ElapsedMilliseconds, timeout.Token).ConfigureAwait(false);
                     throw new AdvancedAnalysisProviderException(
                         rejectedErrorCode,
-                        isRetryable: (int)response.StatusCode == 429,
-                        retryAfterMilliseconds:
-                            responseRateLimit?.RetryAfterMilliseconds);
+                        isRetryable: (int)response.StatusCode == 429 && !terminalQuotaError,
+                        retryAfterMilliseconds: terminalQuotaError
+                            ? null
+                            : responseRateLimit?.RetryAfterMilliseconds);
                 }
 
                 try

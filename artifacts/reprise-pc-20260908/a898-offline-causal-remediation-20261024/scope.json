@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "saaia.offline-remediation.v1",
+  "clientContextDate": "2026-10-24",
+  "baselineCommit": "12ccb0b22824883cf01a3bdebbd28006672965ca",
+  "branch": "SAAIA_V3.1",
+  "paidProviderCalls": 0,
+  "externalCorpusTransmission": false,
+  "productStatus": "TESTE_NON_APPROUVE",
+  "scope": "Offline causal remediation; live Terra explicitly deferred by user",
+  "postgresPort": 55439
+}

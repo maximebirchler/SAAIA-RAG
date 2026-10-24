@@ -486,7 +486,7 @@ internal sealed class AdvancedAnalysisJobStore
                 cancellationToken: cancellationToken));
         if (string.IsNullOrWhiteSpace(json))
             return null;
-        if (System.Text.Encoding.UTF8.GetByteCount(json) > 65_536)
+        if (System.Text.Encoding.UTF8.GetByteCount(json) > 131_072)
             throw new InvalidDataException(
                 "Advanced analysis research checkpoint exceeds its bound.");
         return JsonSerializer.Deserialize<AdvancedAnalysisResearchCheckpoint>(
@@ -506,7 +506,7 @@ internal sealed class AdvancedAnalysisJobStore
         ArgumentException.ThrowIfNullOrWhiteSpace(workerId);
         ArgumentNullException.ThrowIfNull(checkpoint);
         var json = JsonSerializer.Serialize(checkpoint, JsonOptions);
-        if (System.Text.Encoding.UTF8.GetByteCount(json) > 65_536)
+        if (System.Text.Encoding.UTF8.GetByteCount(json) > 131_072)
             return false;
         await using var connection = await _dataSource
             .OpenConnectionAsync(cancellationToken)

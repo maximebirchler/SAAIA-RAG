@@ -161,7 +161,10 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var inventory = WorkspaceUser(factory.Requests[2].Body)
             .GetProperty("candidateInventory");
         Assert.Equal(1, inventory.GetProperty("bodyVerifiedDistinctCount").GetInt32());
-        Assert.Equal(2, inventory.GetProperty("totalBodyVerifiedDistinctCount").GetInt32());
+        Assert.Equal(1, inventory.GetProperty("totalBodyVerifiedDistinctCount").GetInt32());
+        Assert.Contains(inventory.GetProperty("items").EnumerateArray(), item =>
+            item.GetProperty("exactTitle").GetString() == "Unassigned item"
+            && item.GetProperty("status").GetString() == "awaiting_review");
         Assert.Equal(
             1,
             inventory.GetProperty("coverage").EnumerateArray()
@@ -249,7 +252,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
     }
 
     [Fact]
-    public async Task Exact_source_title_is_automatically_retained_and_advanced_without_inventory_tool_call()
+    public async Task Exact_source_title_is_retained_as_an_observation_without_semantic_approval()
     {
         using var factory = new QueuedHttpClientFactory(
             Completion(CandidatePlanner),
@@ -280,14 +283,15 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 new SequencedToolGateway([locator], [body]),
                 CancellationToken.None);
 
-        var item = WorkspaceUser(factory.Requests[2].Body)
-            .GetProperty("candidateInventory")
-            .GetProperty("items")[0];
+        var items = WorkspaceUser(factory.Requests[2].Body)
+            .GetProperty("candidateInventory").GetProperty("items").EnumerateArray().ToArray();
+        var item = items.Single(candidate => candidate.GetProperty("status").GetString() == "awaiting_review");
         Assert.StartsWith("candidate-", item.GetProperty("key").GetString());
         Assert.Equal("Omelette", item.GetProperty("exactTitle").GetString());
         Assert.Equal("internal-source-1", item.GetProperty("sourceKey").GetString());
-        Assert.Equal("body_verified", item.GetProperty("status").GetString());
-        Assert.Equal("E-NAV", item.GetProperty("locatorEvidenceIds")[0].GetString());
+        Assert.Equal("awaiting_review", item.GetProperty("status").GetString());
+        Assert.Contains(items, candidate => candidate.GetProperty("locatorEvidenceIds")
+            .EnumerateArray().Any(id => id.GetString() == "E-NAV"));
         Assert.Equal("E-BODY", item.GetProperty("bodyEvidenceIds")[0].GetString());
     }
 

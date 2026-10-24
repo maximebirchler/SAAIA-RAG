@@ -12,7 +12,14 @@ internal sealed record AdvancedAnalysisResolvedEvidence(
     AdvancedAnalysisResultEvidence Reference,
     string Content,
     string? ExactTitle = null,
-    AdvancedAnalysisSourceOverview? SourceOverview = null);
+    AdvancedAnalysisSourceOverview? SourceOverview = null,
+    AdvancedAnalysisEvidenceStructure? SourceStructure = null);
+
+internal sealed record AdvancedAnalysisEvidenceStructure(
+    string? SectionTitle,
+    string? HeadingPath,
+    string? PreviousChunkId,
+    string? NextChunkId);
 
 internal sealed record AdvancedAnalysisSourceOverview(
     int FirstIndexedPhysicalPage,

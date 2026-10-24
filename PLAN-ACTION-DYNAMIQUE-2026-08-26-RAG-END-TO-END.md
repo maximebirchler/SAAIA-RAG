@@ -14415,3 +14415,39 @@ seul meal-grid. Aucun appel ni coût Runpod. Produit `TESTE_NON_APPROUVE`.
 
 Détail :
 `documents/agent/cloture-openai-et-transition-runpod-a895-a897-2026-09-29.md`.
+
+## 2026-10-24 — A898 : corrections causales hors ligne, arrêt avant Terra
+
+La demande actuelle autorise les corrections puis impose l'arrêt avant les
+nouveaux essais Terra. Les problèmes mécaniques relevés par l'audit sont traités :
+observations distinctes avant qualification, états `awaiting_review`/`needs_body`,
+réexamen après complément, qualification multiobjet, conservation des sommaires
+et des appels/résultats natifs, lecture explicite des suites d'extraits canoniques,
+regroupement borné des petits lots Judge et recherche facultative de réserves.
+Les recherches ciblées ne reçoivent plus les plafonds de diversité de la
+découverte globale. Les repères de section ingérés parviennent au modèle sans
+devenir des preuves ni exposer les identifiants des chunks voisins.
+
+Les rejets historiques ne consomment plus les 64 places actives ; la saturation
+est explicite et autorise une seule réparation locale bornée d'un corps déjà
+connu. Checkpoints v1 migrés après validation de toutes leurs preuves ; v2 conserve
+les observations traitées et les fenêtres. Les coordonnées des claims structurés
+sont validées avant l'affectation aux rôles. Les refus explicites de quota ne
+sont plus réessayés comme des limitations de débit temporaires. La relecture a
+également corrigé l'ordre d'application des lots mixtes lecture/inventaire et
+l'éviction entière d'un tour Responses trop volumineux.
+
+Validation : solution Release 4 907 réussites, zéro échec, quatre ignorés ;
+régression fournisseur/checkpoint finale 384 réussites ; PostgreSQL 16.14 isolé
+59 réussites, puis test de reprise v2 renforcé réussi. Les tests PostgreSQL
+recouvrent une partie du total de la solution. Les clusters temporaires sont
+arrêtés et le port libéré. Aucun appel LLM, aucun coût API et aucun déploiement.
+
+Statut : corrections vérifiées mécaniquement, qualité Terra/WinUI non réévaluée,
+produit `TESTE_NON_APPROUVE`. Aucun essai Terra automatique. Prochaine porte :
+un essai instrumenté sur état figé, inspection de la première rupture éventuelle,
+puis régressions générales et répétitions d'acceptation. Le Goal produit reste
+inchangé et non rempli.
+
+Détail : `documents/agent/corrections-causales-hors-ligne-a898-2026-10-24.md`.
+Preuves locales : `artifacts/reprise-pc-20260908/a898-offline-causal-remediation-20261024/`.

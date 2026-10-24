@@ -28,9 +28,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var messages = criticRequest.RootElement.GetProperty(
             protocol == "responses" ? "input" : "messages");
         var criticSystemPrompt = messages[0].GetProperty("content").GetString()!;
-        Assert.Contains("a sauce, coulis,", criticSystemPrompt,
+        Assert.Contains("component, auxiliary part, generic heading or open template", criticSystemPrompt,
             StringComparison.Ordinal);
-        Assert.Contains("a dessert is not an", criticSystemPrompt,
+        Assert.Contains("You may judge ordinary role", criticSystemPrompt,
             StringComparison.Ordinal);
         Assert.Contains("Preserve substantive body citations", criticSystemPrompt,
             StringComparison.Ordinal);

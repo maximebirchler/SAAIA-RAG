@@ -18,8 +18,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             .ToDictionary(item => item.EvidenceId!, StringComparer.Ordinal);
         var visibleEvidenceIds = visible.Keys.ToHashSet(StringComparer.Ordinal);
         var candidates = inventory.Where(item =>
-                item.Status == "body_verified"
-                && item.TargetRoles.Count == 0
+                item.Status == "awaiting_review"
                 && item.BodyEvidenceIds.Any(visible.ContainsKey))
             .OrderBy(item => item.Key, StringComparer.Ordinal)
             .Take(CandidateJudgeMaximumBatchSize)
@@ -72,7 +71,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             {
                 enabled = true,
                 items = batch.Candidates,
-                instruction = "Return exactly one updated item for every supplied key. Preserve key and sourceKey. Use only the supplied body evidence."
+                instruction = "Return one updated item for every supplied key, preserving its key and sourceKey. An observed heading is provisional: if its body contains multiple distinct named items, additionally return one item per extra documentary identity using a new unique key. At most 32 items total. Every item must cite supplied same-source body evidence."
             },
             evidence = batch.Evidence,
             allowedTargetRoles = request.Handoff.Load.Columns,
@@ -85,12 +84,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     "selectedRoles", "status", "note", "locatorEvidenceIds",
                     "bodyEvidenceIds"
                 },
-                allowedStatus = new[] { "body_verified", "rejected" },
-                instruction = "A body_verified item needs at least one semantically justified targetRole. A rejected item uses an empty targetRoles array. Always include note as a JSON string; use an empty string when no note is needed."
+                allowedStatus = new[] { "body_verified", "needs_body", "rejected" },
+                instruction = "For a structured request, body_verified needs at least one semantically justified targetRole. For a flat request with no allowedTargetRoles, body_verified has empty targetRoles and means suitable for the request as a whole. needs_body retains a potentially suitable identifiable item whose evidence is incomplete; explain the missing evidence or physical continuation in note. rejected is for substantively unsuitable items or non-entity headings. needs_body and rejected use empty targetRoles. Always include note as a JSON string; use an empty string when no note is needed."
             },
             currentEligibleCandidateKeys = inventory.Where(item =>
                     item.Status is "body_verified" or "selected"
-                    && item.TargetRoles.Count > 0)
+                    && (request.Handoff.Load.Columns.Count == 0
+                        || item.TargetRoles.Count > 0))
                 .Select(item => item.Key)
                 .ToArray()
         }, JsonOptions);
@@ -99,22 +99,45 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         => """
            You are the SAAIA Candidate Judge. Assess only the small batch of
            substantive canonical bodies in the user JSON. For every supplied
-           candidate key, decide whether the body represents one complete,
-           standalone named item suitable for one or more requested target roles.
+           candidate key, decide whether the evidence identifies one named item
+           and supports its suitability for the user's actual requested use.
            Preserve the opaque key and sourceKey. Keep the source-exact title, or
            refine a subordinate title only to the complete identity displayed as
-           an exact line in that same body. Reject components, ingredient groups,
-           schedules, menu templates, category headings and incomplete fragments.
+           an exact line in that same body. Repeated headings on separate pages
+           are provisional observations and must not be treated as one entity
+           merely because their strings match. Reject non-entity headings and
+           items demonstrably unsuitable for the request. Components or templates
+           are unsuitable when the user needs complete named items, but judge this
+           from the actual request rather than a domain-specific blanket rule.
+           A provisional body may contain several distinct named items. Update
+           every supplied key once and, when additional complete exact identities
+           are visibly documented in that same body, add candidates with new unique
+           opaque keys. A new item must have a source-exact identity supported by
+           supplied same-source body evidence. Do not invent keys already present
+           in the inventory. Return at most 32 items, including seed updates.
+
+           Require only the evidence needed for the requested answer: a documented
+           named proposal does not require the full procedure unless the user asks
+           for that procedure. Do not infer unseen details. When the identity is
+           meaningful and potentially suitable but the supplied fragment does not
+           establish suitability, use needs_body and describe exactly what should
+           be retrieved or read next in note; do not mark missing evidence as a
+           permanent rejection. Rejected means substantive unsuitability or a
+           non-entity observation, not merely a clipped beginning or continuation.
 
            Assign targetRoles by semantic judgment from the body and request. The
            application performs only identity validation and assignment counting;
-           it does not decide suitability. Use body_verified with one or more
-           roles, or rejected with no roles. selectedRoles is always empty. Cite
+           it does not decide suitability. For structured roles use body_verified
+           with one or more roles. For a flat collection with no allowed roles,
+           body_verified has empty targetRoles and means suitable for the request
+           as a whole. needs_body and rejected have no roles. selectedRoles is
+           always empty. Cite
            only supplied evidence IDs in bodyEvidenceIds; locatorEvidenceIds is
            empty for this body batch. Every returned item must contain key,
            exactTitle, sourceKey, targetRoles, selectedRoles, status, note,
            locatorEvidenceIds and bodyEvidenceIds. note is always a JSON string;
-           use "" when no note is needed. Return exactly one item per supplied key
+           use "" when no note is needed. Return one item per supplied key, plus
+           any additional distinct documented identities discovered in that batch,
            and only this JSON object: {"items":[...]}. Do not research, draft the
            user answer, count the whole dossier or invent missing evidence.
            """;
@@ -192,10 +215,17 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 .ToHashSet(StringComparer.Ordinal);
             var actualKeys = updates.Select(item => item.Key)
                 .ToHashSet(StringComparer.Ordinal);
-            if (!expectedKeys.SetEquals(actualKeys)
-                || updates.Any(item => item.Status is not ("body_verified" or "rejected")
+            var expectedSources = batch.Candidates.ToDictionary(
+                item => item.Key, item => item.SourceKey, StringComparer.Ordinal);
+            var existingKeys = inventory.Select(item => item.Key).ToHashSet(StringComparer.Ordinal);
+            if (!expectedKeys.IsSubsetOf(actualKeys)
+                || updates.Any(item => expectedSources.TryGetValue(item.Key, out var sourceKey)
+                    ? !string.Equals(item.SourceKey, sourceKey, StringComparison.Ordinal)
+                    : existingKeys.Contains(item.Key))
+                || updates.Any(item => item.Status is not ("body_verified" or "needs_body" or "rejected")
                                        || item.SelectedRoles.Count > 0
-                                       || item.Status == "rejected" && item.TargetRoles.Count > 0))
+                                       || item.Status is "needs_body" or "rejected"
+                                       && item.TargetRoles.Count > 0))
             {
                 throw new JsonException();
             }

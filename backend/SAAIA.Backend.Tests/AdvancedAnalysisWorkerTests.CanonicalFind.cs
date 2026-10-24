@@ -17,6 +17,10 @@ public sealed partial class AdvancedAnalysisWorkerTests
         "Scones au babeurre\nINGRÉDIENTS\nFarine et babeurre.",
         "Scones au babeurre")]
     [InlineData(
+        "scones au babeurre",
+        "Scones au babeurre\nINGRÉDIENTS\nFarine et babeurre.",
+        "Scones au babeurre")]
+    [InlineData(
         "Titre canonique sur deux lignes",
         "Titre canonique\nsur deux lignes\nContenu documenté.",
         "Titre canonique sur deux lignes")]
@@ -103,7 +107,7 @@ public sealed partial class AdvancedAnalysisWorkerTests
             DocId: seed.DocId.ToString(), DocPath: seed.DocPath, RevisionId: seed.RevisionId.ToString(), Operation: "find_source_text");
         var first = await gateway.SearchAsync(request, CancellationToken.None);
         Assert.Equal(seed.ChunkId.ToString(), Assert.Single(first.Evidence).Reference.ChunkId);
-        Assert.Null(first.Evidence[0].ExactTitle); // Query casing is not source-exact.
+        Assert.Equal("ISO %_ 17", first.Evidence[0].ExactTitle); // Recover the canonical source spelling.
         Assert.Equal("canonical_text_matches_more_available", first.FindDiagnostic!.Status);
         Assert.Equal(1, first.FindDiagnostic.NextOffset);
         var second = await gateway.SearchAsync(request with { Offset = 1 }, CancellationToken.None);

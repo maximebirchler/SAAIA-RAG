@@ -1,0 +1,26 @@
+[
+  {
+    "file": "maxim_MAXBI_2026-10-24_19_16_11.trx",
+    "total": 10,
+    "executed": 10,
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0
+  },
+  {
+    "file": "maxim_MAXBI_2026-10-24_19_16_14.trx",
+    "total": 2562,
+    "executed": 2559,
+    "passed": 2559,
+    "failed": 0,
+    "skipped": 3
+  },
+  {
+    "file": "maxim_MAXBI_2026-10-24_19_16_38.trx",
+    "total": 2339,
+    "executed": 2338,
+    "passed": 2338,
+    "failed": 0,
+    "skipped": 1
+  }
+]

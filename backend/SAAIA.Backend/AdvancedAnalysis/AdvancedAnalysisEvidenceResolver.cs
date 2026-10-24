@@ -97,7 +97,11 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                     ContentCardId = NullIfBlank(row.ContentCardId)
                 },
                 content,
-                NullIfBlank(row.ExactTitle)));
+                NullIfBlank(row.ExactTitle),
+                SourceStructure: row.SectionTitle is not null || row.HeadingPath is not null
+                    || row.PreviousChunkId is not null || row.NextChunkId is not null
+                    ? new AdvancedAnalysisEvidenceStructure(row.SectionTitle, row.HeadingPath,
+                        row.PreviousChunkId, row.NextChunkId) : null));
         }
 
         if (resolved.Count > 0)
@@ -234,7 +238,11 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                   sa.anchor_id AS "AnchorId",
                   NULL::text AS "ContentCardId",
                   NULL::text AS "ExactTitle",
-                  rc.text_content AS "Content"
+                  rc.text_content AS "Content",
+                  rc.metadata->>'sectionTitle' AS "SectionTitle",
+                  rc.metadata->>'headingPath' AS "HeadingPath",
+                  rc.metadata->>'prevChunkId' AS "PreviousChunkId",
+                  rc.metadata->>'nextChunkId' AS "NextChunkId"
                 FROM retrieval_chunks rc
                 JOIN document_revisions dr
                   ON dr.tenant_id=rc.tenant_id
@@ -484,6 +492,10 @@ internal sealed class AdvancedAnalysisEvidenceResolver
         public string Content { get; init; } = string.Empty;
         public string? EvidenceJson { get; init; }
         public string? CardCanonicalContent { get; init; }
+        public string? SectionTitle { get; init; }
+        public string? HeadingPath { get; init; }
+        public string? PreviousChunkId { get; init; }
+        public string? NextChunkId { get; init; }
     }
 }
 

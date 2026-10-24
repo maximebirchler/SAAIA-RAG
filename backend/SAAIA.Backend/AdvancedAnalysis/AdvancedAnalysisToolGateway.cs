@@ -90,11 +90,15 @@ internal sealed record AdvancedAnalysisCandidateCheckpoint(
 internal sealed record AdvancedAnalysisResearchCheckpoint(
     string SchemaVersion,
     IReadOnlyList<AdvancedAnalysisCandidateCheckpoint> Candidates,
-    IReadOnlyDictionary<string, string> PromptSourceKeys)
+    IReadOnlyDictionary<string, string> PromptSourceKeys,
+    IReadOnlyList<string>? ObservedCandidateEvidenceIds = null,
+    IReadOnlyDictionary<string, AdvancedAnalysisEvidenceReadCheckpoint>? EvidenceReadWindows = null)
 {
     public const string CurrentSchemaVersion =
-        "saaia.advanced-analysis-research-checkpoint.v1";
+        "saaia.advanced-analysis-research-checkpoint.v2";
 }
+
+internal sealed record AdvancedAnalysisEvidenceReadCheckpoint(int Offset, int Length);
 
 internal interface IAdvancedAnalysisToolGateway
 {
@@ -864,14 +868,16 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
         if (title.Length is < 2 or > 240)
             return null;
         var normalizedContent = CollapseCanonicalWhitespace(content);
-        if (!normalizedContent.StartsWith(title, StringComparison.Ordinal))
+        if (!normalizedContent.StartsWith(title, StringComparison.OrdinalIgnoreCase))
             return null;
         if (normalizedContent.Length > title.Length
             && char.IsLetterOrDigit(normalizedContent[title.Length]))
         {
             return null;
         }
-        return title;
+        // The literal lookup is case-insensitive. Recover the source spelling
+        // rather than treating the caller's casing as a documentary title.
+        return normalizedContent[..title.Length];
     }
 
     private static AdvancedAnalysisResolvedEvidence PromoteLeadingCanonicalFindTitle(
@@ -918,6 +924,8 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             return evidence;
         }
         var title = ResolveLeadingCanonicalReadTitle(evidence.Content);
+        // This is an observed heading, not a semantic object identity. Candidate
+        // observation keeps it awaiting review until the model assesses its body.
         return title is null ? evidence : evidence with { ExactTitle = title };
     }
 

@@ -17,6 +17,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         public NativeResearchTurn? NativeTurn { get; set; }
         public IReadOnlyList<ResearchWorkspaceItem> Workspace { get; set; } = [];
         public IReadOnlyList<CandidateInventoryItem> CandidateInventory { get; set; } = [];
+        public int CandidateInventoryAdmissionBlockedCount { get; set; }
+        public HashSet<string> ObservedCandidateEvidenceIds { get; } = new(StringComparer.Ordinal);
+        public Dictionary<string, EvidenceReadWindow> EvidenceReadWindows { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, string> PromptSourceKeys { get; } = new(StringComparer.Ordinal);
         public bool CandidateInventoryCheckpointLoaded { get; set; }
         public CandidateExplorerDossier? CandidateExplorerDossier { get; set; }
@@ -172,8 +175,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyList<AdvancedAnalysisSearchRequest>? repeatedSearches = null;
         var nextPhase = phase;
         object? candidateSupportFeedback = null;
-        if (_options.NativeResearchToolsEnabled && _options.NativeResearchWorkspaceEnabled
-            && CandidateInventoryEnabled(request)
+        var blockedCandidateAdmissionsForFeedback = 0;
+        if (_options.NativeResearchToolsEnabled
             && !context.CandidateInventoryCheckpointLoaded)
         {
             await RestoreCandidateInventoryCheckpointAsync(
@@ -211,16 +214,20 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }
             if (_options.NativeResearchToolsEnabled && _options.NativeResearchActiveProposalEnabled)
                 focusedEvidence = PrioritizeActiveProposalEvidence(evidence, context.ActiveProposalEvidenceIds, focusedEvidence);
+            focusedEvidence = PrioritizeEvidenceReadWindows(evidence, focusedEvidence, context.EvidenceReadWindows);
             var observations = BuildPromptEvidenceWithPersistentSourceKeys(
                 request, evidence, context.RetrievalQueriesByEvidenceId,
-                focusedEvidence, context.PromptSourceKeys);
+                focusedEvidence, context.PromptSourceKeys, context.EvidenceReadWindows);
             if (_options.NativeResearchToolsEnabled && _options.NativeResearchWorkspaceEnabled
                 && CandidateInventoryEnabled(request))
             {
                 var observedInventory = ObserveCandidateInventory(
                     request,
                     context.CandidateInventory,
-                    observations);
+                    observations,
+                    out var blockedDiscoveries,
+                    context.ObservedCandidateEvidenceIds);
+                context.CandidateInventoryAdmissionBlockedCount = blockedDiscoveries;
                 if (JsonSerializer.Serialize(observedInventory, JsonOptions)
                     != JsonSerializer.Serialize(context.CandidateInventory, JsonOptions))
                 {
@@ -269,6 +276,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                             promptInventory,
                             observations),
                         JsonOptions);
+                    if (Math.Max(context.CandidateInventoryAdmissionBlockedCount,
+                            blockedCandidateAdmissionsForFeedback) > 0)
+                        payload["candidateInventoryAdmissionFeedback"] = JsonSerializer.SerializeToNode(new
+                        {
+                            blockedDiscoveryCount = Math.Max(context.CandidateInventoryAdmissionBlockedCount,
+                                blockedCandidateAdmissionsForFeedback),
+                            instruction = "Some proposed identities could not enter the bounded active inventory. Existing candidates and their evidence remain available. Assess or reject unsuitable pending items before admitting more; this operational limit does not establish corpus absence."
+                        }, JsonOptions);
                     if (candidateExplorer)
                     {
                         var assignmentGap = BuildCandidateExplorerCoverage(
@@ -301,6 +316,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                             && toolBudget.RemainingElapsedMilliseconds > 0
                             && toolBudget.RemainingEvidenceItems is not 0),
                     remainingModelCalls = Math.Max(0, maximumCalls - completions.Count - 1 - reservedFinalCalls),
+                    evidenceReadingAllowed = maximumCalls - completions.Count - 1 - reservedFinalCalls > 0,
                     documentaryBudget = toolBudget,
                     maximumQueries = ResolveMaximumPlanQueries(request),
                     availableCategories = context.AvailableCategories,
@@ -392,8 +408,6 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             completions.Add(completion);
             if (!_options.AdaptiveResearchEnabled)
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_research_disabled");
-            if (context.ResourceLimit is not null)
-                throw new AdvancedAnalysisProviderException("advanced_synthesis_research_after_resource_limit");
             if (completions.Count >= maximumCalls - reservedFinalCalls)
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_research_call_budget_exhausted");
 
@@ -401,9 +415,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             IReadOnlyList<ResearchWorkspaceItem>? workspaceUpdate = null;
             IReadOnlyList<CandidateInventoryItem>? candidateInventoryUpdates = null;
             IReadOnlyList<CandidateInventoryItem>? mergedCandidateInventory = null;
+            IReadOnlyDictionary<string, EvidenceReadWindow>? evidenceReadUpdates = null;
+            var blockedCandidateAdmissions = 0;
             try
             {
                 using var document = JsonDocument.Parse(UnwrapJson(completion.Content));
+                evidenceReadUpdates = ParseEvidenceReadRequests(document.RootElement, observations, context);
+                if (evidenceReadUpdates.Count > 0 && completion.NativeToolCallsJson is null)
+                    throw new JsonException();
                 if (document.RootElement.TryGetProperty("researchState", out var state))
                 {
                     if (completion.NativeToolCallsJson is null) throw new JsonException();
@@ -421,18 +440,22 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                         current.RootElement);
                     mergedCandidateInventory = MergeCandidateInventory(
                         context.CandidateInventory,
-                        candidateInventoryUpdates);
+                        candidateInventoryUpdates,
+                        out blockedCandidateAdmissions);
                 }
                 if (!document.RootElement.TryGetProperty("queries", out var values)
                     || values.ValueKind != JsonValueKind.Array
                     || values.GetArrayLength() == 0
                     && workspaceUpdate is null
-                    && candidateInventoryUpdates is null)
+                    && candidateInventoryUpdates is null
+                    && evidenceReadUpdates.Count == 0)
                     throw new JsonException();
                 queries = values.GetArrayLength() == 0 ? [] : ParseResearchReview(JsonSerializer.Serialize(new
                 {
                     decision = "search_more", queries = values
                 }, JsonOptions), request, context.AvailableCategories, observations);
+                if (queries.Count > 0 && context.ResourceLimit is not null)
+                    throw new AdvancedAnalysisProviderException("advanced_synthesis_research_after_resource_limit");
                 EnsureResearchBatchFitsToolBudget(context.Tools, queries, context.PreviouslyExecuted);
             }
             catch (Exception error) when (error is JsonException or AdvancedAnalysisProviderException)
@@ -453,15 +476,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 throw new AdvancedAnalysisProviderException("advanced_synthesis_research_protocol_invalid");
             }
             argumentFeedback = null;
+            blockedCandidateAdmissionsForFeedback = blockedCandidateAdmissions;
             var workspaceChanged = workspaceUpdate is not null
                 && JsonSerializer.Serialize(workspaceUpdate, JsonOptions) != JsonSerializer.Serialize(context.Workspace, JsonOptions);
             var candidateInventoryChanged = mergedCandidateInventory is not null
                 && JsonSerializer.Serialize(mergedCandidateInventory, JsonOptions)
                 != JsonSerializer.Serialize(context.CandidateInventory, JsonOptions);
+            var evidenceReadsChanged = evidenceReadUpdates is not null && evidenceReadUpdates.Any(pair =>
+                !context.EvidenceReadWindows.TryGetValue(pair.Key, out var priorWindow) || priorWindow != pair.Value);
             var rememberedFocus = RememberFocusedSearches(context.FocusSearches, queries);
             context.FocusSearches.Clear();
             context.FocusSearches.AddRange(rememberedFocus);
-            if (!workspaceChanged && !candidateInventoryChanged
+            if (!workspaceChanged && !candidateInventoryChanged && !evidenceReadsChanged
                 && !queries.Any(query => !context.PreviouslyExecuted.Contains(BuildSearchIdentity(query))))
             {
                 if (++noProgressRecovery > 1)
@@ -477,12 +503,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (mergedCandidateInventory is not null)
             {
                 context.CandidateInventory = mergedCandidateInventory;
-                if (candidateInventoryChanged)
-                    await SaveCandidateInventoryCheckpointAsync(
-                            context,
-                            cancellationToken)
-                        .ConfigureAwait(false);
+                context.CandidateInventoryAdmissionBlockedCount = blockedCandidateAdmissions;
             }
+            // Apply a validated batch atomically: window reads reopen needs_body
+            // items from the just-merged inventory, never a stale pre-merge copy.
+            if (evidenceReadUpdates is not null)
+                ApplyEvidenceReadWindows(evidenceReadUpdates, context);
+            if (evidenceReadsChanged
+                || candidateInventoryChanged && CandidateInventoryEnabled(request))
+                await SaveCandidateInventoryCheckpointAsync(context, cancellationToken).ConfigureAwait(false);
             var nativeResults = completion.NativeToolCallsJson is null ? null
                 : new Dictionary<string, AdvancedAnalysisSearchObservation>(StringComparer.OrdinalIgnoreCase);
             var resourceLimit = await ExecuteSearchBatchAsync(context.Tools, queries, context.PreviouslyExecuted,
@@ -493,7 +522,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (completion.NativeToolCallsJson is { } executedCalls)
                 context.NativeTurn = new(executedCalls, queries, nativeResults!, ResponseOutputItemsJson: completion.NativeResponseOutputJson,
                     WorkspaceStored: workspaceChanged,
-                    CandidateInventoryStored: candidateInventoryChanged);
+                    CandidateInventoryStored: candidateInventoryChanged,
+                    EvidenceReadsStored: evidenceReadUpdates?.Count > 0);
             followup++;
             nextPhase = $"{phase}-research-followup-{followup}";
         }

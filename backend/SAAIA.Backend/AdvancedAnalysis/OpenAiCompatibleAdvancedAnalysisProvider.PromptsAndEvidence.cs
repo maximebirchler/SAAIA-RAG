@@ -670,7 +670,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         int PhysicalPageStart,
         int PhysicalPageEnd,
         AdvancedAnalysisSourceOverview? SourceOverview,
-        [property: JsonIgnore] AdvancedAnalysisResultEvidence SourceReference);
+        [property: JsonIgnore] AdvancedAnalysisResultEvidence SourceReference)
+    {
+        public int ContentOffset { get; init; }
+        public int? NextContentOffset { get; init; }
+        public PromptEvidenceStructure? SourceStructure { get; init; }
+    }
+
+    private sealed record PromptEvidenceStructure(
+        string? SectionTitle, string? HeadingPath, bool HasPreviousChunk, bool HasNextChunk);
 
     private sealed record StructuredClaimCoordinate(
         string ClaimId,
@@ -894,7 +902,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         IReadOnlyList<AdvancedAnalysisResolvedEvidence> evidence,
         IReadOnlyDictionary<string, HashSet<string>> retrievalQueriesByEvidenceId,
         IReadOnlyList<AdvancedAnalysisResolvedEvidence>? focusedEvidence,
-        IDictionary<string, string>? persistentSourceKeys)
+        IDictionary<string, string>? persistentSourceKeys,
+        IReadOnlyDictionary<string, EvidenceReadWindow>? evidenceReadWindows = null)
     {
         var configuredMaximum = Math.Clamp(
             _options.MaximumEvidencePromptCharacters,
@@ -939,8 +948,18 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var content = item.Content ?? string.Empty;
             var originalContentLength = content.Length;
             var contentSignal = RetrievalContentClassifier.AnalyzeEvidenceContent(content, item.ExactTitle);
-            if (content.Length > maximumCharactersPerPromptEvidence)
-                content = content[..maximumCharactersPerPromptEvidence];
+            var contentOffset = 0;
+            var maximumContentCharacters = maximumCharactersPerPromptEvidence;
+            if (item.Reference.EvidenceId is { } windowId
+                && evidenceReadWindows is not null
+                && evidenceReadWindows.TryGetValue(windowId, out var window))
+            {
+                contentOffset = Math.Clamp(window.Offset, 0, Math.Max(0, content.Length - 1));
+                maximumContentCharacters = window.Length;
+                content = content[contentOffset..];
+            }
+            if (content.Length > maximumContentCharacters)
+                content = content[..maximumContentCharacters];
             var evidenceId = item.Reference.EvidenceId;
             var retrievedFor = evidenceId is not null
                                && retrievalQueriesByEvidenceId.TryGetValue(
@@ -979,13 +998,22 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 !string.IsNullOrWhiteSpace(item.ExactTitle),
                 content,
                 originalContentLength,
-                content.Length < originalContentLength,
+                contentOffset > 0 || content.Length < originalContentLength,
                 contentSignal.ContentRole,
                 contentSignal.NavigationReason,
                 item.Reference.PageStart,
                 item.Reference.PageEnd,
                 item.SourceOverview,
-                item.Reference);
+                item.Reference)
+            {
+                ContentOffset = contentOffset,
+                SourceStructure = item.SourceStructure is { } structure
+                    ? new PromptEvidenceStructure(structure.SectionTitle, structure.HeadingPath,
+                        !string.IsNullOrWhiteSpace(structure.PreviousChunkId),
+                        !string.IsNullOrWhiteSpace(structure.NextChunkId)) : null,
+                NextContentOffset = contentOffset + content.Length < originalContentLength
+                    ? contentOffset + content.Length : null
+            };
             var separatorCharacters = promptEvidence.Count == 0 ? 0 : 1;
             var serializedCharacters = JsonSerializer.Serialize(observation, JsonOptions).Length
                 + separatorCharacters;
@@ -999,7 +1027,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     var bounded = observation with
                     {
                         Content = content[..middle],
-                        ContentTruncated = middle < originalContentLength
+                        ContentTruncated = contentOffset > 0 || middle < originalContentLength,
+                        NextContentOffset = contentOffset + middle < originalContentLength
+                            ? contentOffset + middle : null
                     };
                     if (JsonSerializer.Serialize(bounded, JsonOptions).Length + separatorCharacters <= remaining)
                         lower = middle;
@@ -1011,7 +1041,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 observation = observation with
                 {
                     Content = content[..lower],
-                    ContentTruncated = lower < originalContentLength
+                    ContentTruncated = contentOffset > 0 || lower < originalContentLength,
+                    NextContentOffset = contentOffset + lower < originalContentLength
+                        ? contentOffset + lower : null
                 };
                 serializedCharacters = JsonSerializer.Serialize(observation, JsonOptions).Length
                     + separatorCharacters;

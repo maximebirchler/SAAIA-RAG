@@ -37,7 +37,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(operation, gateway.Searches[1].Operation);
         using var first = JsonDocument.Parse(factory.Requests[2].Body);
         Assert.Equal("auto", first.RootElement.GetProperty("tool_choice").GetString());
-        Assert.Equal(3, first.RootElement.GetProperty("tools").GetArrayLength());
+        Assert.Equal(4, first.RootElement.GetProperty("tools").GetArrayLength());
+        Assert.Contains(first.RootElement.GetProperty("tools").EnumerateArray(), tool =>
+            tool.GetProperty("function").GetProperty("name").GetString() == "read_evidence");
         foreach (var tool in first.RootElement.GetProperty("tools").EnumerateArray())
         {
             var function = tool.GetProperty("function"); Assert.True(function.GetProperty("strict").GetBoolean());

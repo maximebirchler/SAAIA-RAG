@@ -87,6 +87,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 throw new AdvancedAnalysisProviderException(
                     "advanced_writer_claim_count_invalid");
             }
+            EnsureAnsweredClaimCoordinates(outcome, claims, request.Handoff.Load);
             if (outcome == "answered"
                 && claims
                     .Select(claim => NormalizeClaimDeduplicationKey(

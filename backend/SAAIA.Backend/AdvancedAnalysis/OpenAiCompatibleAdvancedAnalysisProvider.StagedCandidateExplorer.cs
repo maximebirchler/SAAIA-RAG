@@ -26,6 +26,19 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var navigatorCorrection = 0;
         var judgeRound = 0;
         var navigatorRound = 0;
+        var navigatorTurns = new List<NativeResearchTurn>();
+        IReadOnlyList<PromptEvidenceItem> rememberedNavigatorEvidence = [];
+        var navigationMemory = new CandidateNavigationMemory([], 0);
+        var navigationSinceLastJudge = 0;
+        string? navigatorBoundedReason = null;
+        var reserveNavigationUsed = false;
+        var reserveJudgePending = false;
+        var evidenceWindowReviewPending = false;
+        var nativeHistoryOmittedTurnCount = 0;
+        var capacityRepairAttempted = false;
+        var mergeBlockedAdmissions = 0;
+        var repairObservedAdmissionBound = 0;
+        IReadOnlySet<string>? repairCandidateEvidenceAllowlist = null;
 
         while (true)
         {
@@ -33,26 +46,71 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             var (_, observations) = await BuildStagedCandidateObservationsAsync(
                     request,
                     context,
-                    cancellationToken)
+                    cancellationToken,
+                    repairCandidateEvidenceAllowlist)
                 .ConfigureAwait(false);
+            context.CandidateInventoryAdmissionBlockedCount += mergeBlockedAdmissions + repairObservedAdmissionBound;
+            rememberedNavigatorEvidence = RememberCandidateNavigatorEvidence(
+                rememberedNavigatorEvidence,
+                observations);
+            navigationMemory = RememberCandidateNavigationWindows(navigationMemory, observations);
             var coverage = BuildCandidateExplorerCoverage(
                 request,
                 context.CandidateInventory);
-            if (coverage.Ready)
-            {
-                context.CandidateExplorerDossier = BuildStagedReadyDossier(
-                    coverage,
-                    "The staged Candidate Judge produced a complete distinct assignment.");
-                context.FocusSearches.Clear();
-                context.NativeTurn = null;
-                return;
-            }
-
             var judgeBatch = BuildCandidateJudgeBatch(
                 context.CandidateInventory,
                 observations);
             var remainingModelCalls = maximumCalls - completions.Count - reservedFinalCalls;
-            if (judgeBatch.Candidates.Count > 0 && remainingModelCalls > 0)
+            var toolBudget = context.Tools.Budget;
+            var documentaryHeadroom = context.ResourceLimit is null
+                                     && (toolBudget is null
+                                         || toolBudget.RemainingCalls > 0
+                                         && toolBudget.RemainingElapsedMilliseconds > 0
+                                         && toolBudget.RemainingEvidenceItems is not 0);
+            var canNavigate = remainingModelCalls >= 2
+                              && navigatorBoundedReason is null
+                              && (documentaryHeadroom
+                                  || observations.Any(item => item.NextContentOffset is not null));
+            var needsBodyIds = context.CandidateInventory.Where(item => item.Status == "needs_body")
+                .SelectMany(item => item.BodyEvidenceIds).ToHashSet(StringComparer.Ordinal);
+            var capacityRepairEvidence = observations.Where(item => item.EvidenceId is { } id
+                && needsBodyIds.Contains(id) && item.NextContentOffset is not null).ToArray();
+            var requestCapacityRepair = context.CandidateInventoryAdmissionBlockedCount > 0
+                                        && !capacityRepairAttempted && canNavigate
+                                        && capacityRepairEvidence.Length > 0;
+            var reserveMissing = coverage.Roles.Any(role =>
+                role.BodyVerifiedCount < role.ReserveTargetCount);
+            var requestReserveNavigation = coverage.Ready && reserveMissing
+                                           && !reserveNavigationUsed && canNavigate
+                                           && context.CandidateInventoryAdmissionBlockedCount == 0;
+            if (coverage.Ready && !requestReserveNavigation
+                               && !(reserveJudgePending && judgeBatch.Candidates.Count > 0
+                                    && remainingModelCalls > 0))
+            {
+                context.CandidateExplorerDossier = BuildStagedReadyDossier(
+                    coverage,
+                    reserveMissing
+                        ? "The Candidate Judge produced a complete distinct assignment. The optional reserve remains below target after the bounded reserve opportunity or available budget."
+                        : "The Candidate Judge produced a complete distinct assignment and the configured reserve targets.");
+                context.FocusSearches.Clear();
+                context.NativeTurn = null;
+                return;
+            }
+            // After the first qualification round, gather one further documentary
+            // batch before paying for a tiny Judge batch. Never postpone the last
+            // available qualification or repeatedly navigate without judging.
+            var deferSmallJudgeBatch = judgeRound > 0
+                                       && judgeBatch.Candidates.Count < 3
+                                       && navigationSinceLastJudge < 2
+                                       && !reserveJudgePending
+                                       && !evidenceWindowReviewPending
+                                       && context.CandidateInventoryAdmissionBlockedCount == 0
+                                       && coverage.MaximumAssignableCount + judgeBatch.Candidates.Count
+                                       < coverage.RequiredDistinctCount
+                                       && remainingModelCalls >= 3
+                                       && canNavigate;
+            if (judgeBatch.Candidates.Count > 0 && remainingModelCalls > 0
+                && !deferSmallJudgeBatch && !requestReserveNavigation)
             {
                 var completion = await CompleteJsonAsync(
                         request.JobId,
@@ -73,43 +131,80 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     context.CandidateInventory,
                     coverage,
                     judgeBatch);
+                var blockedRepairDiscoveries = 0;
+                if (capacityRepairAttempted)
+                {
+                    var retainedKeys = context.CandidateInventory.Select(item => item.Key)
+                        .ToHashSet(StringComparer.Ordinal);
+                    blockedRepairDiscoveries = updates.Count(item => !retainedKeys.Contains(item.Key));
+                    updates = updates.Where(item => retainedKeys.Contains(item.Key)).ToArray();
+                }
                 context.CandidateInventory = MergeCandidateInventory(
                     context.CandidateInventory,
-                    updates);
+                    updates,
+                    out var blockedJudgeAdmissions);
+                blockedJudgeAdmissions += blockedRepairDiscoveries;
+                mergeBlockedAdmissions += blockedJudgeAdmissions;
+                context.CandidateInventoryAdmissionBlockedCount += blockedJudgeAdmissions;
                 await SaveCandidateInventoryCheckpointAsync(
                         context,
                         cancellationToken)
                     .ConfigureAwait(false);
                 navigatorFeedback = null;
+                navigationSinceLastJudge = 0;
+                reserveJudgePending = false;
+                evidenceWindowReviewPending = false;
                 continue;
             }
 
-            var toolBudget = context.Tools.Budget;
-            var canNavigate = remainingModelCalls >= 2
-                              && context.ResourceLimit is null
-                              && (toolBudget is null
-                                  || toolBudget.RemainingCalls > 0
-                                  && toolBudget.RemainingElapsedMilliseconds > 0
-                                  && toolBudget.RemainingEvidenceItems is not 0);
-            if (!canNavigate)
+            if (context.CandidateInventoryAdmissionBlockedCount > 0 && !requestCapacityRepair)
             {
                 context.CandidateExplorerDossier = BuildStagedBoundedDossier(
                     coverage,
-                    "The staged pipeline preserved the final Writer/Critic calls before another complete Navigator-to-Judge cycle could run.");
+                    capacityRepairAttempted
+                        ? "The active inventory remains at admission capacity after its single local repair opportunity and the pending Judge queue. No further discovery or repair cycle will run. This is an operational capacity limit, not corpus absence."
+                        : "New canonical discoveries could not enter the bounded active candidate inventory after the pending Judge queue was discharged. This is an admission capacity limit, not corpus absence.");
                 context.NativeTurn = null;
                 return;
             }
 
-            var navigatorEvidence = BuildCandidateNavigatorEvidence(
-                observations,
-                context.CandidateInventory);
+            if (!canNavigate)
+            {
+                context.CandidateExplorerDossier = BuildStagedBoundedDossier(
+                    coverage,
+                    navigatorBoundedReason
+                    ?? "The staged pipeline preserved the final Writer/Critic calls before another complete Navigator-to-Judge cycle could run.");
+                context.NativeTurn = null;
+                return;
+            }
+
+            var navigatorEvidence = requestCapacityRepair
+                ? capacityRepairEvidence
+                : BuildCandidateNavigatorEvidence(rememberedNavigatorEvidence, context.CandidateInventory);
+            var navigatorHistory = BuildCandidateNavigatorHistory(
+                navigatorTurns, navigatorEvidence, out var omittedHistoryTurns);
+            nativeHistoryOmittedTurnCount += omittedHistoryTurns;
             var navigatorPrompt = BuildCandidateNavigatorUserPrompt(
                 request,
                 context,
                 coverage,
                 navigatorEvidence,
                 navigatorFeedback,
-                maximumCalls - completions.Count - reservedFinalCalls);
+                maximumCalls - completions.Count - reservedFinalCalls,
+                rememberedNavigatorEvidence,
+                documentaryHeadroom && !requestCapacityRepair,
+                navigationMemory,
+                nativeHistoryOmittedTurnCount,
+                requestCapacityRepair);
+            if (requestCapacityRepair)
+            {
+                capacityRepairAttempted = true;
+                repairObservedAdmissionBound = Math.Max(0,
+                    context.CandidateInventoryAdmissionBlockedCount - mergeBlockedAdmissions);
+                repairCandidateEvidenceAllowlist = context.CandidateInventory
+                    .SelectMany(item => item.BodyEvidenceIds.Concat(item.LocatorEvidenceIds))
+                    .ToHashSet(StringComparer.Ordinal);
+            }
             var navigator = await CompleteJsonAsync(
                     request.JobId,
                     $"candidate-navigator-{++navigatorRound}",
@@ -117,7 +212,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     navigatorPrompt,
                     Math.Clamp(_options.CandidateExplorerMaxTokens, 512, 16_384),
                     cancellationToken,
-                    allowNativeResearch: true)
+                    allowNativeResearch: true,
+                    nativeToolTurnMessages: navigatorHistory)
                 .ConfigureAwait(false);
             completions.Add(navigator);
 
@@ -125,6 +221,22 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             {
                 var terminalReason = ParseCandidateNavigatorTerminal(
                     navigator.Content);
+                if (requestCapacityRepair)
+                    terminalReason = "Admission capacity remains bounded after its single local repair opportunity: "
+                                     + terminalReason;
+                if (coverage.Ready)
+                {
+                    context.CandidateExplorerDossier = BuildStagedReadyDossier(
+                        coverage,
+                        "A complete distinct assignment was preserved; additional reserve navigation was bounded: " + terminalReason);
+                    context.NativeTurn = null;
+                    return;
+                }
+                if (judgeBatch.Candidates.Count > 0)
+                {
+                    navigatorBoundedReason = terminalReason;
+                    continue;
+                }
                 context.CandidateExplorerDossier = BuildStagedBoundedDossier(
                     coverage,
                     terminalReason);
@@ -133,16 +245,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }
 
             IReadOnlyList<AdvancedAnalysisSearchRequest> queries;
+            var evidenceReadCount = 0;
             try
             {
                 using var document = JsonDocument.Parse(UnwrapJson(navigator.Content));
                 if (!document.RootElement.TryGetProperty("queries", out var values)
-                    || values.ValueKind != JsonValueKind.Array
-                    || values.GetArrayLength() == 0)
+                    || values.ValueKind != JsonValueKind.Array)
                 {
                     throw new JsonException();
                 }
-                queries = ParseResearchReview(
+                queries = values.GetArrayLength() == 0 ? [] : ParseResearchReview(
                     JsonSerializer.Serialize(new
                     {
                         decision = "search_more",
@@ -151,17 +263,40 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     request,
                     context.AvailableCategories,
                     navigatorEvidence);
+                if (requestCapacityRepair && queries.Count > 0)
+                {
+                    context.CandidateExplorerDossier = BuildStagedBoundedDossier(coverage,
+                        "The single capacity repair opportunity requested a new documentary operation. It was not executed; only local canonical body windows were allowed. Admission capacity is not corpus absence.");
+                    context.NativeTurn = null;
+                    return;
+                }
                 EnsureResearchBatchFitsToolBudget(
                     context.Tools,
                     queries,
                     context.PreviouslyExecuted);
+                evidenceReadCount = ApplyEvidenceReadRequests(
+                    navigator.Content, navigatorEvidence, context);
+                if (queries.Count == 0 && !document.RootElement.TryGetProperty("evidenceReads", out _))
+                    throw new JsonException();
             }
             catch (AdvancedAnalysisProviderException error) when (
                 error.ResearchArgumentFeedback is { } feedback
-                && navigatorCorrection++ == 0)
+                && !requestCapacityRepair && navigatorCorrection++ == 0)
             {
+                if (navigator.NativeToolCallsJson is { } rejectedCalls)
+                    navigatorTurns.Add(new(rejectedCalls, null,
+                        new Dictionary<string, AdvancedAnalysisSearchObservation>(), feedback,
+                        navigator.NativeResponseOutputJson));
                 navigatorFeedback = BuildResearchArgumentFeedbackForPrompt(feedback);
                 continue;
+            }
+            catch (Exception error) when (requestCapacityRepair
+                && error is AdvancedAnalysisProviderException or JsonException or InvalidOperationException)
+            {
+                context.CandidateExplorerDossier = BuildStagedBoundedDossier(coverage,
+                    "The single local capacity repair opportunity supplied invalid arguments and made no documentary change. No retry or new discovery will run; admission capacity is not corpus absence.");
+                context.NativeTurn = null;
+                return;
             }
             catch (Exception error) when (error is JsonException or InvalidOperationException)
             {
@@ -169,15 +304,24 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     "advanced_candidate_navigator_protocol_invalid");
             }
 
-            var hasNewOperation = queries.Any(query =>
+            var hasNewOperation = evidenceReadCount > 0 || queries.Any(query =>
                 !context.PreviouslyExecuted.Contains(BuildSearchIdentity(query)));
             if (!hasNewOperation)
             {
+                if (requestCapacityRepair)
+                {
+                    context.CandidateExplorerDossier = BuildStagedBoundedDossier(coverage,
+                        "The single local capacity repair opportunity made no new canonical projection. Admission capacity remains bounded, not evidence of corpus absence.");
+                    context.NativeTurn = null;
+                    return;
+                }
                 if (navigatorCorrection++ > 0)
                 {
-                    context.CandidateExplorerDossier = BuildStagedBoundedDossier(
-                        coverage,
-                        "The Navigator repeated already executed operations after one bounded correction.");
+                    context.CandidateExplorerDossier = coverage.Ready
+                        ? BuildStagedReadyDossier(coverage,
+                            "A complete distinct assignment was preserved; optional reserve navigation repeated operations after one bounded correction.")
+                        : BuildStagedBoundedDossier(coverage,
+                            "The Navigator repeated already executed operations after one bounded correction.");
                     context.NativeTurn = null;
                     return;
                 }
@@ -186,6 +330,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     reasonCode = "search_already_executed",
                     instruction = "Choose a different exact title, offset, valid page window or source. The repeated operations will not run again."
                 };
+                if (navigator.NativeToolCallsJson is { } duplicateCalls)
+                    navigatorTurns.Add(new(duplicateCalls, queries,
+                        new Dictionary<string, AdvancedAnalysisSearchObservation>(),
+                        ResponseOutputItemsJson: navigator.NativeResponseOutputJson));
                 continue;
             }
 
@@ -208,6 +356,22 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     allowResourceLimitFeedback: true)
                 .ConfigureAwait(false);
             context.ResourceLimit ??= resourceLimit;
+            if (navigator.NativeToolCallsJson is { } executedCalls)
+                navigatorTurns.Add(new(executedCalls, queries, navigatorResults,
+                    ResponseOutputItemsJson: navigator.NativeResponseOutputJson,
+                    EvidenceReadsStored: evidenceReadCount > 0));
+            if (evidenceReadCount > 0)
+            {
+                evidenceWindowReviewPending = true;
+                await SaveCandidateInventoryCheckpointAsync(context, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            navigationSinceLastJudge++;
+            if (requestReserveNavigation)
+            {
+                reserveNavigationUsed = true;
+                reserveJudgePending = true;
+            }
             context.NativeTurn = null;
             var retryableLimit = navigatorResults.Values
                 .Select(result => result.ResourceLimit)
@@ -229,7 +393,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         BuildStagedCandidateObservationsAsync(
             AdvancedAnalysisProviderRequest request,
             SynthesisResearchContext context,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            IReadOnlySet<string>? candidateEvidenceAllowlist = null)
     {
         var evidence = FilterEvidenceToRequestedDocumentSet(
             request,
@@ -241,8 +406,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             context.RetrievalQueriesByEvidenceId,
             context.FocusSearches);
         var judgeFirstInventory = context.CandidateInventory
-            .OrderBy(item => item.Status == "body_verified"
-                             && item.TargetRoles.Count == 0
+            .OrderBy(item => item.Status == "awaiting_review"
+                             || item.Status == "body_verified" && item.TargetRoles.Count == 0
                 ? 0
                 : 1)
             .ThenBy(item => item.Key, StringComparer.Ordinal)
@@ -251,16 +416,23 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             evidence,
             judgeFirstInventory,
             focused);
+        focused = PrioritizeEvidenceReadWindows(evidence, focused, context.EvidenceReadWindows);
         var observations = BuildPromptEvidenceWithPersistentSourceKeys(
             request,
             evidence,
             context.RetrievalQueriesByEvidenceId,
             focused,
-            context.PromptSourceKeys);
+            context.PromptSourceKeys,
+            context.EvidenceReadWindows);
         var observedInventory = ObserveCandidateInventory(
             request,
             context.CandidateInventory,
-            observations);
+            candidateEvidenceAllowlist is null ? observations
+                : observations.Where(item => item.EvidenceId is { } id
+                    && candidateEvidenceAllowlist.Contains(id)).ToArray(),
+            out var blockedDiscoveryCount,
+            context.ObservedCandidateEvidenceIds);
+        context.CandidateInventoryAdmissionBlockedCount = blockedDiscoveryCount;
         if (JsonSerializer.Serialize(observedInventory, JsonOptions)
             != JsonSerializer.Serialize(context.CandidateInventory, JsonOptions))
         {

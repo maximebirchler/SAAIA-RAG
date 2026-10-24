@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "saaia.offline-remediation-validation.v1",
+  "solution": {
+    "failed": 0,
+    "productionCodeFrozenAfterRun": true,
+    "passed": 4907,
+    "skipped": 4
+  },
+  "providerAndCheckpointFinal": {
+    "passed": 384,
+    "failed": 0
+  },
+  "realPostgres": {
+    "engine": "16.14",
+    "isolationVerified": true,
+    "passed": 59,
+    "failed": 0
+  },
+  "realCheckpointV2Final": {
+    "passed": 1,
+    "failed": 0
+  },
+  "paidProviderCalls": 0,
+  "apiSpendUsd": 0,
+  "liveTerra": "NOT_EXECUTED",
+  "productStatus": "TESTE_NON_APPROUVE"
+}

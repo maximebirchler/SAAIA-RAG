@@ -110,6 +110,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            """ + (critic ? """
 
            Assess the prior candidate critically, using all current evidence.
+           Preserve each already supported selection, claim and substantive
+           citation unless its identity, suitability, factual content or placement
+           has a specific documentary defect. Apply corrections to the affected
+           units and retain unrelated valid units and their body evidence. A
+           fresh rewrite or different phrasing is not itself an improvement.
+           This preservation rule does not approve the candidate: assess every
+           unit independently and return an honest insufficiency whenever the
+           required corrected deliverable cannot be supported.
            Review each requested unit's actual selection, substantive source
            content, source-defined variants and conflicting details before
            returning a result. Verify that every atomic choice is concrete,
@@ -121,11 +129,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            Suitability is a separate test from documentary identity. Do not keep
            an item in a requested slot merely because it is a documented recipe,
            procedure or object. Determine whether it can ordinarily fulfill that
-           slot as a standalone choice. For meal planning, a sauce, coulis,
-           condiment, topping or accompaniment is not a standalone meal or snack
-           unless the evidence says it is served that way; a dessert is not an
-           ordinary breakfast merely because it is edible. Audit starters, side
-           dishes and light components by the same rule. First try reassigning
+           slot as a standalone choice at the level the user requested. Do not
+           mistake a component, auxiliary part, generic heading or open template
+           for an additional complete choice. You may judge ordinary role
+           suitability and propose a placement without requiring the source to
+           prescribe that placement. Do not demand an entire procedure when
+           only a concrete documented proposal is requested. First try reassigning
            the already supported distinct candidates across coordinates. If an
            incompatible placement cannot be replaced, return the smallest honest
            insufficiency. A failed replacement search is never a reason to repeat

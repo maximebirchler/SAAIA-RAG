@@ -11,7 +11,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         AdvancedAnalysisResearchArgumentFeedback? Rejection = null,
         string? ResponseOutputItemsJson = null,
         bool WorkspaceStored = false,
-        bool CandidateInventoryStored = false);
+        bool CandidateInventoryStored = false,
+        bool EvidenceReadsStored = false);
 
     private const string NativeResearchContract = """
         If further documentary facts are needed and research is allowed, choose
@@ -22,15 +23,26 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         Do not publish claims while calling functions. When ready, return the
         terminal JSON result required by the answer contract. Tool history is
         operational memory, never documentary evidence. Cite only visible evidence.
+        When an excerpt reports contentTruncated and nextContentOffset, use
+        read_evidence with that evidenceId and character offset to inspect another
+        exact window of its already revalidated canonical text. This does not
+        retrieve another document or establish the missing text without reading it.
+        sourceStructure contains ingested section/heading and neighboring-chunk
+        locators. Use them to orient research; they are metadata, not substantive
+        body proof or model-approved item identities.
         """;
 
     private object[]? BuildNativeResearchFunctions(string userPrompt)
     {
         using var document = JsonDocument.Parse(userPrompt);
         var root = document.RootElement;
-        if (!root.TryGetProperty("researchTools", out var research)
-            || !research.TryGetProperty("researchAllowed", out var allowed)
-            || allowed.ValueKind != JsonValueKind.True) return null;
+        if (!root.TryGetProperty("researchTools", out var research)) return null;
+        var researchAllowed = research.TryGetProperty("researchAllowed", out var allowed)
+                              && allowed.ValueKind == JsonValueKind.True;
+        var evidenceReadingAllowed = researchAllowed
+            || research.TryGetProperty("evidenceReadingAllowed", out var readingAllowed)
+            && readingAllowed.ValueKind == JsonValueKind.True;
+        if (!researchAllowed && !evidenceReadingAllowed) return null;
         var sources = root.GetProperty("evidence").EnumerateArray()
             .Select(e => ReadString(e, "sourceKey")).Where(s => !string.IsNullOrEmpty(s))
             .Distinct(StringComparer.Ordinal).ToArray();
@@ -43,17 +55,27 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         object Function(string name, string description, Dictionary<string, object> properties)
             => new { type = "function", function = new { name, description, strict = true,
                 parameters = new { type = "object", properties, required = properties.Keys.ToArray(), additionalProperties = false } } };
-        var functions = new List<object>
-        {
-            Function("search_corpus", "Semantic retrieval from the private indexed corpus. Scope to an observed source when needed; empty strings leave optional scopes empty.", new()
+        var functions = new List<object>();
+        if (researchAllowed)
+            functions.Add(Function("search_corpus", "Semantic retrieval from the private indexed corpus. Scope to an observed source when needed; empty strings leave optional scopes empty.", new()
             {
                 ["query"] = Text("Search wording chosen for the documentary fact."),
                 ["sourceKey"] = Choice(sources.Prepend(string.Empty).ToArray()),
                 ["category"] = Choice(categories), ["documentHint"] = Text("Empty when sourceKey is used."),
                 ["topK"] = Count(1, 60)
-            })
-        };
-        if (sources.Length > 0)
+            }));
+        var readableIds = root.GetProperty("evidence").EnumerateArray()
+            .Where(item => item.TryGetProperty("originalContentLength", out var size)
+                           && size.TryGetInt32(out var length) && length > 0)
+            .Select(item => ReadString(item, "evidenceId"))
+            .Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.Ordinal).ToArray();
+        if (readableIds.Length > 0)
+            functions.Add(Function("read_evidence", "Read an exact character window of an already revalidated canonical excerpt. Use nextContentOffset to inspect text omitted from its current projection. Evidence identity, source revision and original text remain unchanged. This consumes a model turn but no additional corpus retrieval.", new()
+            {
+                ["evidenceId"] = Choice(readableIds), ["offset"] = Count(0, int.MaxValue),
+                ["length"] = Count(256, 8_000)
+            }));
+        if (researchAllowed && sources.Length > 0)
         {
             functions.Add(Function("read_source", "Read a physical page window of an observed revision. Page bounds are inclusive; at most four pages per request. topK bounds every chunk intersecting the window: if the bounded result reports canonical_read_window_result_limit_exceeded, retry with a smaller window or a larger permitted topK instead of treating the source as absent. Useful for reading bodies located by contents or headings.", new()
             {
@@ -66,10 +88,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 ["offset"] = Count(0, 10_000), ["topK"] = Count(1, 60)
             }));
         }
-        if (root.GetProperty("evidence").GetArrayLength() > 0 && root.TryGetProperty("researchWorkspace", out var workspace)
+        if (researchAllowed && root.GetProperty("evidence").GetArrayLength() > 0 && root.TryGetProperty("researchWorkspace", out var workspace)
             && workspace.TryGetProperty("enabled", out var enabled) && enabled.ValueKind == JsonValueKind.True)
             functions.Add(BuildResearchWorkspaceFunction(root));
-        if (root.GetProperty("evidence").GetArrayLength() > 0
+        if (researchAllowed && root.GetProperty("evidence").GetArrayLength() > 0
             && root.TryGetProperty("candidateInventory", out var inventory)
             && inventory.TryGetProperty("enabled", out var inventoryEnabled)
             && inventoryEnabled.ValueKind == JsonValueKind.True)
@@ -89,6 +111,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var queries = new JsonArray();
         JsonNode? state = null;
         JsonNode? candidateInventoryUpdates = null;
+        var evidenceReads = new JsonArray();
         foreach (var call in calls.EnumerateArray())
         {
             var id = ReadString(call, "id");
@@ -96,6 +119,15 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 || !call.TryGetProperty("function", out var function) || function.ValueKind != JsonValueKind.Object)
                 throw new AdvancedAnalysisProviderException("advanced_native_tool_protocol_invalid");
             var name = ReadString(function, "name");
+            if (name == "read_evidence")
+            {
+                using var value = JsonDocument.Parse(ReadString(function, "arguments"));
+                _ = ParseEvidenceReadArguments(value.RootElement, prompt.RootElement, out _);
+                if (evidenceReads.Count >= 8)
+                    throw new AdvancedAnalysisProviderException("advanced_native_evidence_read_invalid");
+                evidenceReads.Add(JsonNode.Parse(value.RootElement.GetRawText()));
+                continue;
+            }
             if (name == "save_research_state")
             {
                 if (state is not null) throw new AdvancedAnalysisProviderException("advanced_native_workspace_invalid");
@@ -137,6 +169,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         if (state is not null) normalized["researchState"] = state;
         if (candidateInventoryUpdates is not null)
             normalized["candidateInventoryUpdates"] = candidateInventoryUpdates;
+        if (evidenceReads.Count > 0) normalized["evidenceReads"] = evidenceReads;
         return normalized.ToJsonString(JsonOptions);
     }
 
@@ -158,6 +191,26 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var documentaryInstructionWritten = false;
         foreach (var call in calls.RootElement.EnumerateArray())
         {
+            if (ReadString(call.GetProperty("function"), "name") == "read_evidence")
+            {
+                using var arguments = JsonDocument.Parse(ReadString(call.GetProperty("function"), "arguments"));
+                var id = ReadString(arguments.RootElement, "evidenceId");
+                var excerpt = visible.FirstOrDefault(item => item.EvidenceId == id);
+                var output = JsonSerializer.Serialize(new
+                {
+                    status = turn.Rejection is not null ? "batch_rejected_before_execution"
+                        : turn.EvidenceReadsStored ? "projected" : "not_changed",
+                    operation = "read_evidence", evidenceId = id,
+                    requestedWindow = arguments.RootElement.Clone(),
+                    currentContentOffset = excerpt?.ContentOffset,
+                    nextContentOffset = excerpt?.NextContentOffset,
+                    argumentFeedback = turn.Rejection,
+                    instruction = "Exact canonical text is in current user.evidence under this unchanged evidence ID. Only its current visible window is proof."
+                }, JsonOptions);
+                messages.Add(responses ? new { type = "function_call_output", call_id = ReadString(call, "id"), output }
+                    : (object)new { role = "tool", tool_call_id = ReadString(call, "id"), content = output });
+                continue;
+            }
             if (ReadString(call.GetProperty("function"), "name") == "save_research_state")
             {
                 var output = JsonSerializer.Serialize(new { status = turn.Rejection is not null ? "batch_rejected_before_execution"

@@ -105,10 +105,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                     query,
                     string.IsNullOrWhiteSpace(category) ? null : category,
                     topK,
-                    MaxPerDocument: request.Handoff.Load.StructuredLayout
+                    MaxPerDocument: request.Handoff.Load.StructuredLayout && observedSource is null
+                        && string.IsNullOrWhiteSpace(documentHint)
                         ? 8
                         : null,
-                    MaxPerPage: request.Handoff.Load.StructuredLayout
+                    MaxPerPage: request.Handoff.Load.StructuredLayout && observedSource is null
+                        && string.IsNullOrWhiteSpace(documentHint)
                         ? 2
                         : null,
                     DocId: observedSource?.SourceReference.DocId,
