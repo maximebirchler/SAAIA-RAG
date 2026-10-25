@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "saaia-winui-modal-keyboard-no-send-proof.v1",
+  "capturedAtUtc": "2026-10-25T16:12:53.9964483+00:00",
+  "readOnly": true,
+  "status": "PASSED",
+  "checkCount": 6,
+  "failedCheckCount": 0,
+  "windowStartUtc": "2026-10-25T16:07:02.0000000+00:00",
+  "sessionCount": 3,
+  "messageCount": 12,
+  "postRequestCount": 0,
+  "modelRequestCount": 0,
+  "checks": [
+    {
+      "name": "no_post_during_delay_and_modal_window",
+      "passed": true
+    },
+    {
+      "name": "no_model_call_during_delay_and_modal_window",
+      "passed": true
+    },
+    {
+      "name": "all_session_and_message_ids_unchanged",
+      "passed": true
+    },
+    {
+      "name": "all_message_contents_status_sources_unchanged",
+      "passed": true
+    },
+    {
+      "name": "all_proxy_faults_disarmed",
+      "passed": true
+    },
+    {
+      "name": "winui_client_closed",
+      "passed": true
+    }
+  ],
+  "apiSnapshot": "chat-store-snapshots/20261025T161253821Z-after-modal-keyboard-no-send.json",
+  "apiSnapshotSha256": "00A32FA10D3202E8DCE2D937697E5D2077D8CFA0E392EB2CFF5CC1BC7DA2B4D3",
+  "limits": "The draft, disabled composer, Ctrl+Enter and restored unchanged draft are established by native observations35–37; this proof independently establishes that no request or durable message resulted."
+}

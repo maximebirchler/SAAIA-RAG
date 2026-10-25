@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "saaia-winui-source-ambiguity-session-fixture.v1",
+  "startedAtUtc": "2026-10-25T16:13:32.9963291+00:00",
+  "state": "durable_single_assistant_verified",
+  "userId": "3a5bedd4-2bc1-4063-a677-025ebf648669",
+  "sessionId": "6f0e6d61-cbf2-45d5-a682-ad96cbf74a69",
+  "messageId": "e5f1fdf6-bf4a-43e2-af02-3f1fcbceee40",
+  "modelExecuted": false,
+  "competingRevisionIsSynthetic": true,
+  "pdfFilesModified": false,
+  "existingSessionsModified": false,
+  "canonical": {
+    "docPath": "Validation/Guide-Validation.pdf",
+    "sourceHash": "840c999b2bfe8305aee9fdddf05f01b1686f3ec92eeb76cfe5c5af9354672121",
+    "docId": "aca1a813-c593-59e5-bdf2-1cd12d1b8e40",
+    "revisionId": "7ac0ec90-3ddf-51ec-80b9-f65e8a81f79b",
+    "page": 2
+  },
+  "competing": {
+    "sourceHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "canonicalProvenanceClaimed": false,
+    "revisionId": "318dc921-a66f-4c27-a0fc-8c2ad7a9521a"
+  },
+  "contentSha256": "5b6b23bf16a9c1cb9ca70ea6e84e5795d11b8e335bac07f8e04cc33aaa69cdd0",
+  "sourcesJsonSha256": "7dc55c6e74281a95860588ca1480ea8561eeed3ec36c8ee974ff737d21ee41f3",
+  "expected": {
+    "canonicalCard": "exact_page2",
+    "competingCard": "safe_refusal_no_exact_hash",
+    "inlineLink": "refused_ambiguous_indexed_revision"
+  },
+  "nativeUiValidated": false,
+  "productStatus": "TESTE_NON_APPROUVE",
+  "finishedAtUtc": "2026-10-25T16:13:33.0296856+00:00"
+}

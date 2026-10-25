@@ -1,0 +1,1144 @@
+{
+  "schemaVersion": "saaia-winui-public-probe-integrity-review.v1",
+  "capturedAtUtc": "2026-10-25T16:30:28.2757815+00:00",
+  "status": "READ_ONLY_TRACE_INTEGRITY_VERIFIED_WITH_DECLARED_DIAGNOSTIC_LIMIT",
+  "executedActions": [
+    "Read existing local logs and evidence files",
+    "Parse existing probe JSON and compare identities, sequences, terminal outcomes and actual HTTP completion lines",
+    "Write this new evidence projection only"
+  ],
+  "requestsIssued": 0,
+  "testsExecuted": 0,
+  "nativeActionsPerformed": 0,
+  "sourceFilesModified": 0,
+  "generalBuild10": [
+    {
+      "trace": {
+        "traceId": "a5e082ac06ea53f7d34508e29be75e1e",
+        "eventCount": 36,
+        "firstSequence": 1,
+        "lastSequence": 36,
+        "sequenceContinuous": true,
+        "begins": 1,
+        "terminalEvents": 1,
+        "terminalOutcome": "cancelled",
+        "terminalReason": "user_cancelled",
+        "operations": [
+          {
+            "sequence": 1,
+            "operation": "turn.begin",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 2,
+            "operation": "chat.user.persistence",
+            "outcome": "success",
+            "reason": "server_acknowledged"
+          },
+          {
+            "sequence": 3,
+            "operation": "sources.parse",
+            "outcome": "skipped",
+            "reason": "empty_payload"
+          },
+          {
+            "sequence": 4,
+            "operation": "agent.turn.begin",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 5,
+            "operation": "agent.router.catalog_context.start",
+            "outcome": "success",
+            "reason": "semantic_native_router"
+          },
+          {
+            "sequence": 6,
+            "operation": "agent.router.catalog_context.end",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 7,
+            "operation": "agent.router.start",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 8,
+            "operation": "model.call",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 9,
+            "operation": "agent.router.native.classifier.completed",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 10,
+            "operation": "agent.router.native.start",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 11,
+            "operation": "model.call",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 12,
+            "operation": "agent.router.native.accepted",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 13,
+            "operation": "agent.router.end",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 14,
+            "operation": "agent.capability_boundary.decision",
+            "outcome": "success",
+            "reason": "within_local_boundary"
+          },
+          {
+            "sequence": 15,
+            "operation": "agent.documentary_defaults.skipped",
+            "outcome": "success",
+            "reason": "router_general_no_tools"
+          },
+          {
+            "sequence": 16,
+            "operation": "agent.source_backed_fallback.skipped",
+            "outcome": "success",
+            "reason": "router_general_no_tools"
+          },
+          {
+            "sequence": 17,
+            "operation": "agent.source_backed_fallback.skipped",
+            "outcome": "success",
+            "reason": "router_general_no_tools"
+          },
+          {
+            "sequence": 18,
+            "operation": "agent.documentary_defaults.skipped",
+            "outcome": "success",
+            "reason": "router_general_no_tools"
+          },
+          {
+            "sequence": 19,
+            "operation": "agent.router.legacy_structured_repair.skipped",
+            "outcome": "success",
+            "reason": "source_backed_agent_v2_owns_semantic_adaptation"
+          },
+          {
+            "sequence": 20,
+            "operation": "agent.tools.stage.start",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 21,
+            "operation": "agent.tools.stage.end",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 22,
+            "operation": "agent.source_backed_pipeline.canonical_retrieval.owner_confirmed",
+            "outcome": "success",
+            "reason": "canonical_pipeline_owns_post_tool_rag"
+          },
+          {
+            "sequence": 23,
+            "operation": "agent.writer.stage.start",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 24,
+            "operation": "agent.answer.stage.start",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 25,
+            "operation": "agent.writer.context",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 26,
+            "operation": "agent.writer.guard.coverage.start",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 27,
+            "operation": "agent.writer.guard.coverage.selection",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 28,
+            "operation": "agent.writer.evidence_inventory.selection",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 29,
+            "operation": "agent.writer.guard.insufficient_check.start",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 30,
+            "operation": "agent.writer.guard.insufficient_check.end",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 31,
+            "operation": "agent.writer.selected",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 32,
+            "operation": "agent.writer.candidate_adjudication.skipped",
+            "outcome": "success",
+            "reason": "not_applicable"
+          },
+          {
+            "sequence": 33,
+            "operation": "agent.writer.evidence_inventory.roster",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 34,
+            "operation": "agent.writer.llm.start",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 35,
+            "operation": "model.call",
+            "outcome": "cancelled",
+            "reason": "cancelled"
+          },
+          {
+            "sequence": 36,
+            "operation": "turn.end",
+            "outcome": "cancelled",
+            "reason": "user_cancelled"
+          }
+        ]
+      },
+      "guardSkipCount": 2,
+      "unexpectedDocumentaryOrAdvancedEvents": 0,
+      "modelCalls": [
+        {
+          "outcome": "success",
+          "reason": null,
+          "identifiers": {
+            "requestId": "llm-ad0b4ad077d1",
+            "provider": "local",
+            "model": "saaia-winui-fixture",
+            "role": "Router"
+          }
+        },
+        {
+          "outcome": "success",
+          "reason": null,
+          "identifiers": {
+            "requestId": "llm-e6f39582bc49",
+            "provider": "local",
+            "model": "saaia-winui-fixture",
+            "role": "Router"
+          }
+        },
+        {
+          "outcome": "cancelled",
+          "reason": "cancelled",
+          "identifiers": {
+            "requestId": "llm-1cccd2a2c6cf",
+            "provider": "local",
+            "model": "saaia-winui-fixture",
+            "role": "Writer"
+          }
+        }
+      ],
+      "correctionProbes": [
+        {
+          "schemaVersion": "saaia.client-probe.v1",
+          "traceId": "a5e082ac06ea53f7d34508e29be75e1e",
+          "turnId": "df565a99907a4266bc5f6f73f4529937",
+          "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+          "sequence": 16,
+          "atUtc": "2026-10-25T17:18:44.5996534+01:00",
+          "elapsedMilliseconds": 180,
+          "operation": "agent.source_backed_fallback.skipped",
+          "outcome": "success",
+          "reason": "router_general_no_tools",
+          "measurements": {},
+          "spanId": "9afbf31c61888a7a",
+          "parentSpanId": null,
+          "identifiers": {}
+        },
+        {
+          "schemaVersion": "saaia.client-probe.v1",
+          "traceId": "a5e082ac06ea53f7d34508e29be75e1e",
+          "turnId": "df565a99907a4266bc5f6f73f4529937",
+          "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+          "sequence": 17,
+          "atUtc": "2026-10-25T17:18:44.6007692+01:00",
+          "elapsedMilliseconds": 182,
+          "operation": "agent.source_backed_fallback.skipped",
+          "outcome": "success",
+          "reason": "router_general_no_tools",
+          "measurements": {},
+          "spanId": "9afbf31c61888a7a",
+          "parentSpanId": null,
+          "identifiers": {}
+        }
+      ]
+    },
+    {
+      "trace": {
+        "traceId": "dd866295069fa24df98c78c47b2bb02d",
+        "eventCount": 48,
+        "firstSequence": 1,
+        "lastSequence": 48,
+        "sequenceContinuous": true,
+        "begins": 1,
+        "terminalEvents": 1,
+        "terminalOutcome": "success",
+        "terminalReason": null,
+        "operations": [
+          {
+            "sequence": 1,
+            "operation": "turn.begin",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 2,
+            "operation": "chat.user.persistence",
+            "outcome": "success",
+            "reason": "server_acknowledged"
+          },
+          {
+            "sequence": 3,
+            "operation": "sources.parse",
+            "outcome": "skipped",
+            "reason": "empty_payload"
+          },
+          {
+            "sequence": 4,
+            "operation": "agent.turn.begin",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 5,
+            "operation": "agent.router.catalog_context.start",
+            "outcome": "success",
+            "reason": "semantic_native_router"
+          },
+          {
+            "sequence": 6,
+            "operation": "agent.router.catalog_context.end",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 7,
+            "operation": "agent.router.start",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 8,
+            "operation": "model.call",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 9,
+            "operation": "agent.router.native.classifier.completed",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 10,
+            "operation": "agent.router.native.start",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 11,
+            "operation": "model.call",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 12,
+            "operation": "agent.router.native.accepted",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 13,
+            "operation": "agent.router.end",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 14,
+            "operation": "agent.capability_boundary.decision",
+            "outcome": "success",
+            "reason": "within_local_boundary"
+          },
+          {
+            "sequence": 15,
+            "operation": "agent.documentary_defaults.skipped",
+            "outcome": "success",
+            "reason": "router_general_no_tools"
+          },
+          {
+            "sequence": 16,
+            "operation": "agent.source_backed_fallback.skipped",
+            "outcome": "success",
+            "reason": "router_general_no_tools"
+          },
+          {
+            "sequence": 17,
+            "operation": "agent.source_backed_fallback.skipped",
+            "outcome": "success",
+            "reason": "router_general_no_tools"
+          },
+          {
+            "sequence": 18,
+            "operation": "agent.documentary_defaults.skipped",
+            "outcome": "success",
+            "reason": "router_general_no_tools"
+          },
+          {
+            "sequence": 19,
+            "operation": "agent.router.legacy_structured_repair.skipped",
+            "outcome": "success",
+            "reason": "source_backed_agent_v2_owns_semantic_adaptation"
+          },
+          {
+            "sequence": 20,
+            "operation": "agent.tools.stage.start",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 21,
+            "operation": "agent.tools.stage.end",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 22,
+            "operation": "agent.source_backed_pipeline.canonical_retrieval.owner_confirmed",
+            "outcome": "success",
+            "reason": "canonical_pipeline_owns_post_tool_rag"
+          },
+          {
+            "sequence": 23,
+            "operation": "agent.writer.stage.start",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 24,
+            "operation": "agent.answer.stage.start",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 25,
+            "operation": "agent.writer.context",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 26,
+            "operation": "agent.writer.guard.coverage.start",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 27,
+            "operation": "agent.writer.guard.coverage.selection",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 28,
+            "operation": "agent.writer.evidence_inventory.selection",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 29,
+            "operation": "agent.writer.guard.insufficient_check.start",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 30,
+            "operation": "agent.writer.guard.insufficient_check.end",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 31,
+            "operation": "agent.writer.selected",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 32,
+            "operation": "agent.writer.candidate_adjudication.skipped",
+            "outcome": "success",
+            "reason": "not_applicable"
+          },
+          {
+            "sequence": 33,
+            "operation": "agent.writer.evidence_inventory.roster",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 34,
+            "operation": "agent.writer.llm.start",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 35,
+            "operation": "model.call",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 36,
+            "operation": "agent.writer.llm.end",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 37,
+            "operation": "agent.writer.post.start",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 38,
+            "operation": "agent.writer.post.language_check.start",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 39,
+            "operation": "agent.writer.language_check.skipped",
+            "outcome": "success",
+            "reason": "missing_language"
+          },
+          {
+            "sequence": 40,
+            "operation": "agent.writer.post.language_check.end",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 41,
+            "operation": "agent.writer.absolute_finalizer.skipped",
+            "outcome": "success",
+            "reason": "canonical_source_contract_owns_finalization"
+          },
+          {
+            "sequence": 42,
+            "operation": "agent.writer.post.end",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 43,
+            "operation": "agent.writer.stage.end",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 44,
+            "operation": "agent.answer.stage.end",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 45,
+            "operation": "agent.turn.final",
+            "outcome": "success",
+            "reason": null
+          },
+          {
+            "sequence": 46,
+            "operation": "sources.parse",
+            "outcome": "skipped",
+            "reason": "empty_payload"
+          },
+          {
+            "sequence": 47,
+            "operation": "sources.parse",
+            "outcome": "skipped",
+            "reason": "empty_payload"
+          },
+          {
+            "sequence": 48,
+            "operation": "turn.end",
+            "outcome": "success",
+            "reason": null
+          }
+        ]
+      },
+      "guardSkipCount": 2,
+      "unexpectedDocumentaryOrAdvancedEvents": 0,
+      "modelCalls": [
+        {
+          "outcome": "success",
+          "reason": null,
+          "identifiers": {
+            "requestId": "llm-dce2bfcf57f2",
+            "provider": "local",
+            "model": "saaia-winui-fixture",
+            "role": "Router"
+          }
+        },
+        {
+          "outcome": "success",
+          "reason": null,
+          "identifiers": {
+            "requestId": "llm-0f96f7ed2555",
+            "provider": "local",
+            "model": "saaia-winui-fixture",
+            "role": "Router"
+          }
+        },
+        {
+          "outcome": "success",
+          "reason": null,
+          "identifiers": {
+            "requestId": "llm-327387ddf60c",
+            "provider": "local",
+            "model": "saaia-winui-fixture",
+            "role": "Writer"
+          }
+        }
+      ],
+      "correctionProbes": [
+        {
+          "schemaVersion": "saaia.client-probe.v1",
+          "traceId": "dd866295069fa24df98c78c47b2bb02d",
+          "turnId": "d30b1046aa914425815bb78a23d30244",
+          "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+          "sequence": 16,
+          "atUtc": "2026-10-25T17:20:40.8090164+01:00",
+          "elapsedMilliseconds": 64,
+          "operation": "agent.source_backed_fallback.skipped",
+          "outcome": "success",
+          "reason": "router_general_no_tools",
+          "measurements": {},
+          "spanId": "4a74bc40f5ee3b2e",
+          "parentSpanId": null,
+          "identifiers": {}
+        },
+        {
+          "schemaVersion": "saaia.client-probe.v1",
+          "traceId": "dd866295069fa24df98c78c47b2bb02d",
+          "turnId": "d30b1046aa914425815bb78a23d30244",
+          "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+          "sequence": 17,
+          "atUtc": "2026-10-25T17:20:40.8095544+01:00",
+          "elapsedMilliseconds": 65,
+          "operation": "agent.source_backed_fallback.skipped",
+          "outcome": "success",
+          "reason": "router_general_no_tools",
+          "measurements": {},
+          "spanId": "4a74bc40f5ee3b2e",
+          "parentSpanId": null,
+          "identifiers": {}
+        }
+      ]
+    }
+  ],
+  "sourceAndAdvancedProfiles": [
+    {
+      "profile": "source-ambiguity",
+      "totalProbeEvents": 18,
+      "traces": [
+        {
+          "traceId": "1ce6434ce44d43eba78d1dc3cdf8ca94",
+          "eventCount": 5,
+          "firstSequence": 1,
+          "lastSequence": 5,
+          "sequenceContinuous": true,
+          "begins": 1,
+          "terminalEvents": 1,
+          "terminalOutcome": "success",
+          "terminalReason": "launch_accepted_page_unverified",
+          "operations": [
+            {
+              "sequence": 1,
+              "operation": "turn.begin",
+              "outcome": "success",
+              "reason": null
+            },
+            {
+              "sequence": 2,
+              "operation": "source.resolve",
+              "outcome": "success",
+              "reason": "source_hash_verified"
+            },
+            {
+              "sequence": 3,
+              "operation": "source.launch",
+              "outcome": "success",
+              "reason": "launch_accepted_page_unverified"
+            },
+            {
+              "sequence": 4,
+              "operation": "source.open",
+              "outcome": "success",
+              "reason": "launch_accepted_page_unverified"
+            },
+            {
+              "sequence": 5,
+              "operation": "turn.end",
+              "outcome": "success",
+              "reason": "launch_accepted_page_unverified"
+            }
+          ]
+        },
+        {
+          "traceId": "7c196d9555d2e91fec9a73a7f40c1218",
+          "eventCount": 3,
+          "firstSequence": 1,
+          "lastSequence": 3,
+          "sequenceContinuous": true,
+          "begins": 1,
+          "terminalEvents": 1,
+          "terminalOutcome": "success",
+          "terminalReason": null,
+          "operations": [
+            {
+              "sequence": 1,
+              "operation": "turn.begin",
+              "outcome": "success",
+              "reason": null
+            },
+            {
+              "sequence": 2,
+              "operation": "sources.parse",
+              "outcome": "success",
+              "reason": null
+            },
+            {
+              "sequence": 3,
+              "operation": "turn.end",
+              "outcome": "success",
+              "reason": null
+            }
+          ]
+        },
+        {
+          "traceId": "80af41cee4c34bdd6a9b923378dd3c9e",
+          "eventCount": 3,
+          "firstSequence": 1,
+          "lastSequence": 3,
+          "sequenceContinuous": true,
+          "begins": 1,
+          "terminalEvents": 1,
+          "terminalOutcome": "failed",
+          "terminalReason": "ambiguous_indexed_revision",
+          "operations": [
+            {
+              "sequence": 1,
+              "operation": "turn.begin",
+              "outcome": "success",
+              "reason": null
+            },
+            {
+              "sequence": 2,
+              "operation": "source.open",
+              "outcome": "failed",
+              "reason": "ambiguous_indexed_revision"
+            },
+            {
+              "sequence": 3,
+              "operation": "turn.end",
+              "outcome": "failed",
+              "reason": "ambiguous_indexed_revision"
+            }
+          ]
+        },
+        {
+          "traceId": "de64547c8b578d27258806df5fb5b46e",
+          "eventCount": 4,
+          "firstSequence": 1,
+          "lastSequence": 4,
+          "sequenceContinuous": true,
+          "begins": 1,
+          "terminalEvents": 1,
+          "terminalOutcome": "failed",
+          "terminalReason": "resolution_or_launch_failed",
+          "operations": [
+            {
+              "sequence": 1,
+              "operation": "turn.begin",
+              "outcome": "success",
+              "reason": null
+            },
+            {
+              "sequence": 2,
+              "operation": "source.resolve",
+              "outcome": "failed",
+              "reason": "exact_source_revision_unavailable"
+            },
+            {
+              "sequence": 3,
+              "operation": "source.open",
+              "outcome": "failed",
+              "reason": "resolution_or_launch_failed"
+            },
+            {
+              "sequence": 4,
+              "operation": "turn.end",
+              "outcome": "failed",
+              "reason": "resolution_or_launch_failed"
+            }
+          ]
+        },
+        {
+          "traceId": "faf06082e0d2637fd183e29b3776f915",
+          "eventCount": 3,
+          "firstSequence": 1,
+          "lastSequence": 3,
+          "sequenceContinuous": true,
+          "begins": 1,
+          "terminalEvents": 1,
+          "terminalOutcome": "success",
+          "terminalReason": null,
+          "operations": [
+            {
+              "sequence": 1,
+              "operation": "turn.begin",
+              "outcome": "success",
+              "reason": null
+            },
+            {
+              "sequence": 2,
+              "operation": "sources.parse",
+              "outcome": "success",
+              "reason": null
+            },
+            {
+              "sequence": 3,
+              "operation": "turn.end",
+              "outcome": "success",
+              "reason": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "profile": "advanced-terminal",
+      "totalProbeEvents": 20,
+      "traces": [
+        {
+          "traceId": "3e8a91d9e89a73e7b6c9375ab92dbab4",
+          "eventCount": 5,
+          "firstSequence": 1,
+          "lastSequence": 5,
+          "sequenceContinuous": true,
+          "begins": 1,
+          "terminalEvents": 1,
+          "terminalOutcome": "success",
+          "terminalReason": "launch_accepted_page_unverified",
+          "operations": [
+            {
+              "sequence": 1,
+              "operation": "turn.begin",
+              "outcome": "success",
+              "reason": null
+            },
+            {
+              "sequence": 2,
+              "operation": "source.resolve",
+              "outcome": "success",
+              "reason": "source_hash_verified"
+            },
+            {
+              "sequence": 3,
+              "operation": "source.launch",
+              "outcome": "success",
+              "reason": "launch_accepted_page_unverified"
+            },
+            {
+              "sequence": 4,
+              "operation": "source.open",
+              "outcome": "success",
+              "reason": "launch_accepted_page_unverified"
+            },
+            {
+              "sequence": 5,
+              "operation": "turn.end",
+              "outcome": "success",
+              "reason": "launch_accepted_page_unverified"
+            }
+          ]
+        },
+        {
+          "traceId": "553ce2002ad731f2016badb25641be27",
+          "eventCount": 3,
+          "firstSequence": 1,
+          "lastSequence": 3,
+          "sequenceContinuous": true,
+          "begins": 1,
+          "terminalEvents": 1,
+          "terminalOutcome": "success",
+          "terminalReason": null,
+          "operations": [
+            {
+              "sequence": 1,
+              "operation": "turn.begin",
+              "outcome": "success",
+              "reason": null
+            },
+            {
+              "sequence": 2,
+              "operation": "sources.parse",
+              "outcome": "success",
+              "reason": null
+            },
+            {
+              "sequence": 3,
+              "operation": "turn.end",
+              "outcome": "success",
+              "reason": null
+            }
+          ]
+        },
+        {
+          "traceId": "895d4fe362623a8301adc1b123c54f62",
+          "eventCount": 3,
+          "firstSequence": 1,
+          "lastSequence": 3,
+          "sequenceContinuous": true,
+          "begins": 1,
+          "terminalEvents": 1,
+          "terminalOutcome": "success",
+          "terminalReason": null,
+          "operations": [
+            {
+              "sequence": 1,
+              "operation": "turn.begin",
+              "outcome": "success",
+              "reason": null
+            },
+            {
+              "sequence": 2,
+              "operation": "sources.parse",
+              "outcome": "success",
+              "reason": null
+            },
+            {
+              "sequence": 3,
+              "operation": "turn.end",
+              "outcome": "success",
+              "reason": null
+            }
+          ]
+        },
+        {
+          "traceId": "8e415a6b07c45ec763cb63fabae9ae8e",
+          "eventCount": 3,
+          "firstSequence": 1,
+          "lastSequence": 3,
+          "sequenceContinuous": true,
+          "begins": 1,
+          "terminalEvents": 1,
+          "terminalOutcome": "success",
+          "terminalReason": null,
+          "operations": [
+            {
+              "sequence": 1,
+              "operation": "turn.begin",
+              "outcome": "success",
+              "reason": null
+            },
+            {
+              "sequence": 2,
+              "operation": "advanced.result.validation",
+              "outcome": "success",
+              "reason": null
+            },
+            {
+              "sequence": 3,
+              "operation": "turn.end",
+              "outcome": "success",
+              "reason": null
+            }
+          ]
+        },
+        {
+          "traceId": "8eecc7b236781f88e9c6aa14fedeb57a",
+          "eventCount": 3,
+          "firstSequence": 1,
+          "lastSequence": 3,
+          "sequenceContinuous": true,
+          "begins": 1,
+          "terminalEvents": 1,
+          "terminalOutcome": "success",
+          "terminalReason": null,
+          "operations": [
+            {
+              "sequence": 1,
+              "operation": "turn.begin",
+              "outcome": "success",
+              "reason": null
+            },
+            {
+              "sequence": 2,
+              "operation": "sources.parse",
+              "outcome": "success",
+              "reason": null
+            },
+            {
+              "sequence": 3,
+              "operation": "turn.end",
+              "outcome": "success",
+              "reason": null
+            }
+          ]
+        },
+        {
+          "traceId": "bda8c69c8106daed4c9a620f8eb7930d",
+          "eventCount": 3,
+          "firstSequence": 1,
+          "lastSequence": 3,
+          "sequenceContinuous": true,
+          "begins": 1,
+          "terminalEvents": 1,
+          "terminalOutcome": "success",
+          "terminalReason": null,
+          "operations": [
+            {
+              "sequence": 1,
+              "operation": "turn.begin",
+              "outcome": "success",
+              "reason": null
+            },
+            {
+              "sequence": 2,
+              "operation": "sources.parse",
+              "outcome": "success",
+              "reason": null
+            },
+            {
+              "sequence": 3,
+              "operation": "turn.end",
+              "outcome": "success",
+              "reason": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "publicCorrectionProbeContent": {
+    "probesChecked": 4,
+    "noQuestionAnswerDocumentContentOrSecretField": true,
+    "metadataBoundary": "Synthetic trace/turn/session/span identifiers, sequence and timing, fixed operation/outcome/reason; measurements and identifiers are empty for the four correction probes.",
+    "ragTraceReasonAndIntentVisible": true,
+    "exactFallbackEntryNotRetained": true,
+    "limitation": "In build10 the helper supplies entry, but RagTrace metadata allowlists omit it. Those public events show two skips and their policy reason, but cannot distinguish exact-item from documentary-probe by event payload alone. This corrects any broader statement that entry was observable in the earlier source review. A subsequently authorized source_step correction must be validated separately and is not retroactively attributed to build10."
+  },
+  "realAdvancedTransport": {
+    "validationTraceId": "8e415a6b07c45ec763cb63fabae9ae8e",
+    "actualGetThenPatch200": [
+      "Request completed: GET /advanced-analysis/jobs/08655291-6f0f-4d34-8f58-fa8a9dffd49b 200 request_id=00-8e415a6b07c45ec763cb63fabae9ae8e-98a402e88fd650d3-00 duration_ms=1.2534",
+      "Request completed: PATCH /chat/messages/f0e3aba3-2ef0-4f11-9257-0f92b6858116 200 request_id=00-8e415a6b07c45ec763cb63fabae9ae8e-8425d883c2494154-00 duration_ms=18.1901"
+    ],
+    "backendLinesAreCompletionLogsNotPacketCapture": true,
+    "canonicalValidation": {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "8e415a6b07c45ec763cb63fabae9ae8e",
+      "turnId": "3dc6ac86f71d47679981fa45924e4f40",
+      "sessionId": "36ab9c16-4bd0-4e48-a7b7-53a4be920436",
+      "sequence": 2,
+      "atUtc": "2026-10-25T17:23:10.4851668+01:00",
+      "elapsedMilliseconds": 26,
+      "operation": "advanced.result.validation",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "evidence": 1,
+        "claims": 1,
+        "visibleSources": 1
+      },
+      "spanId": "80c5b796aca51b7b",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    "providerEventCountWholeCampaign": 4,
+    "originalPreflightProviderEvents": 2,
+    "earlierFailedJ04ProviderEvents": 2,
+    "providerEventsSinceAdvancedNativeLaunch": 0,
+    "advancedNativeWindowStartUtc": "2026-10-25T16:23:09.0000000+00:00",
+    "durableStateBoundary": "Final SQL/API identity, revision, answer and sources are checked by the separate runtime projection referenced below; this review issues no database/API query."
+  },
+  "evidenceReferences": [
+    {
+      "path": "local-fixture/build10-original-phrase-stream-cancel-proof.json",
+      "sha256": "F2027EC6C349F2A9B7B21E7D9F543443D11C2F84E7CBBC2869E68DDED9D844C1"
+    },
+    {
+      "path": "local-fixture/build10-cancel-late-stability-proof.json",
+      "sha256": "EF7FE0ED7F4DA6A80B199C8E64E6FE9024AB0FACEE79A38F4761FA5FF3833445"
+    },
+    {
+      "path": "local-fixture/source-ambiguity-native-proof.json",
+      "sha256": "6AD6D96E3CE52B448838C5B26762A9A5D2E0FF6F87D1F54D71A3B7F73235DCAF"
+    },
+    {
+      "path": "local-fixture/advanced-terminal-final-state-proof.json",
+      "sha256": "D16AB560DF7F9FC91F9B737AFB14D870DBD8D7410FBC6953F682C5D4E83E1850"
+    }
+  ],
+  "scope": [
+    "Source launch probes intentionally say launch_accepted_page_unverified; native PDF page observations remain separate private visual evidence.",
+    "The preflight job, the controlled pending assistant seed, actual native GET/PATCH recovery, and restart persistence are distinct stages; no new advanced job creation is claimed for J06.",
+    "No new support export was performed. Earlier accepted W26 support-export coverage is retained with its original scope; this is a local-log review, not a new export acceptance.",
+    "Only the selected build10 turns and the isolated source-ambiguity/advanced-terminal profile logs were checked here; unrelated earlier attempts are not reclassified as successful."
+  ],
+  "visualMetadataFinding": {
+    "displayedText": "type contenu contenu",
+    "cause": "Single label/value pair: source_card.content_role translates to type contenu and content_role.content to contenu. Production advanced mapping sets ContentRole=content.",
+    "classification": "Minor product wording issue, reproducible outside this fixture; no duplicate source and no identity/hash corruption.",
+    "sourceModified": false
+  },
+  "productStatus": "TESTE_NON_APPROUVE"
+}

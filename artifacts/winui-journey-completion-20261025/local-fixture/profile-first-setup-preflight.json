@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "saaia-winui-journey-profile-preflight.v1",
+  "createdAtUtc": "2026-10-25T15:35:52.8198454+00:00",
+  "environmentRunId": "7d110010ee874d5398a9ca335b079fdd",
+  "profileName": "first-setup",
+  "profileRoot": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-journey-completion-20261025\\local-fixture\\runtime\\client-profiles\\first-setup",
+  "userId": "3a5bedd4-2bc1-4063-a677-025ebf648669",
+  "backendUrl": "http://127.0.0.1:5177",
+  "backendUrlAlternates": "",
+  "uiLanguage": "fr",
+  "uiTheme": "dark",
+  "autoConnect": true,
+  "backendKeyProtectedPresent": false,
+  "providerKeysPresent": false,
+  "privateBaseline": "runtime/client-profile-baselines/first-setup/before-setup",
+  "files": [
+    {
+      "name": "settings.json",
+      "bytes": 713,
+      "sha256": "97D1B8C023E8CBB3ECA722F11E863AA33EF9A780237C6D7AE916F6D9BE2E3ADB"
+    },
+    {
+      "name": "secure.json",
+      "bytes": 190,
+      "sha256": "2D1E860D54AD1B4C5506862C1F9D7A289BF285EC2F1B27859427CD5FDAD7C2D9"
+    }
+  ],
+  "clientStarted": false,
+  "primaryProfileModified": false,
+  "modelExecuted": false
+}

@@ -1,0 +1,109 @@
+{
+  "schemaVersion": "saaia-winui-journey-completion-tooling-offline.v1",
+  "capturedAtUtc": "2026-10-25T15:31:14.0285854+00:00",
+  "status": "OFFLINE_TOOLING_ACCEPTED_NATIVE_NOT_EXECUTED",
+  "pythonTests": {
+    "command": "python -m unittest discover -s tools/validation-winui -p test_journey_completion_tools.py -v",
+    "passed": 14,
+    "failed": 0,
+    "exitCode": 0,
+    "log": "tooling-offline-unittest.log",
+    "logSha256": "6DF51BC1045AEC94F466DD19E3CF488E3807DB3AD957FE88131AFC87459095C9"
+  },
+  "powerShellSyntax": [
+    {
+      "path": "tools/validation-winui/start-storage-proxy.ps1",
+      "errors": 0,
+      "errorTypes": []
+    },
+    {
+      "path": "tools/validation-winui/test-advanced-worker.ps1",
+      "errors": 0,
+      "errorTypes": []
+    },
+    {
+      "path": "tools/validation-winui/seed-source-ambiguity-session.ps1",
+      "errors": 0,
+      "errorTypes": []
+    }
+  ],
+  "toolingSourceBefore": [
+    {
+      "path": "tools/validation-winui/storage_proxy.py",
+      "sha256": "0B4808895BA4D585136A69A3CEF75287222E4FA56E4ECB82ADAE3BB0E123FBA2"
+    },
+    {
+      "path": "tools/validation-winui/start-storage-proxy.ps1",
+      "sha256": "3B4069693F3811BEABA088B3C9A4511E1222DBDB45C26F927952DC05FB75F7D9"
+    },
+    {
+      "path": "tools/validation-winui/fixture_http.py",
+      "sha256": "945EF91A3DE63A678E25E6A9E7C56B07E0CA20A25C49818F84D647792B07E8E8"
+    },
+    {
+      "path": "tools/validation-winui/test-advanced-worker.ps1",
+      "sha256": "F1B20D23CE30F66500E6844A0C225EA68DD493A653AA6463161AE8B4F2EEC495"
+    },
+    {
+      "path": "tools/validation-winui/seed-source-ambiguity-session.ps1",
+      "sha256": "0ED33F3B326D867F449BDEB6718D146B19148C144224705FC45A0757FB1C63EF"
+    },
+    {
+      "path": "tools/validation-winui/test_journey_completion_tools.py",
+      "sha256": "7866ECC9F41DFE28A980570E8ACD882A842E16E1BB2DBE58AA0BF796009F3055"
+    },
+    {
+      "path": "tools/validation-winui/journey-completion.md",
+      "sha256": "BEB6C9E98E4DC7E8D230DCDEAA6C13A3604CCD9408FD91B1CB6C74A83C5CAE41"
+    }
+  ],
+  "toolingSourceAfter": [
+    {
+      "path": "tools/validation-winui/storage_proxy.py",
+      "sha256": "0B4808895BA4D585136A69A3CEF75287222E4FA56E4ECB82ADAE3BB0E123FBA2"
+    },
+    {
+      "path": "tools/validation-winui/start-storage-proxy.ps1",
+      "sha256": "3B4069693F3811BEABA088B3C9A4511E1222DBDB45C26F927952DC05FB75F7D9"
+    },
+    {
+      "path": "tools/validation-winui/fixture_http.py",
+      "sha256": "945EF91A3DE63A678E25E6A9E7C56B07E0CA20A25C49818F84D647792B07E8E8"
+    },
+    {
+      "path": "tools/validation-winui/test-advanced-worker.ps1",
+      "sha256": "F1B20D23CE30F66500E6844A0C225EA68DD493A653AA6463161AE8B4F2EEC495"
+    },
+    {
+      "path": "tools/validation-winui/seed-source-ambiguity-session.ps1",
+      "sha256": "0ED33F3B326D867F449BDEB6718D146B19148C144224705FC45A0757FB1C63EF"
+    },
+    {
+      "path": "tools/validation-winui/test_journey_completion_tools.py",
+      "sha256": "7866ECC9F41DFE28A980570E8ACD882A842E16E1BB2DBE58AA0BF796009F3055"
+    },
+    {
+      "path": "tools/validation-winui/journey-completion.md",
+      "sha256": "BEB6C9E98E4DC7E8D230DCDEAA6C13A3604CCD9408FD91B1CB6C74A83C5CAE41"
+    }
+  ],
+  "toolingSourcesUnchangedDuringRun": true,
+  "priorFullProductUnit": {
+    "anchorPath": "artifacts/winui-delete-validation-20261025/full-unit-production-anchor.json",
+    "anchorSha256": "05E7402BF672C6D7248FF3BC1D83406055CB05E20454A64EC006E4B64C47BCA8",
+    "passed": 4923,
+    "sourceChangedDuringThatRun": false,
+    "originalCompleteFingerprint": "4CD01042C2943BF892544FBAFCF8CE1B3CF3B104341587ABA675E67802946EF0",
+    "productSourceCount": 1069,
+    "currentProductSourcesMatch": true,
+    "changedProductFiles": [],
+    "limit": "Tooling was edited after this earlier suite; its original complete source fingerprint is preserved, not asserted equal to the current tools."
+  },
+  "helperServicesStarted": 0,
+  "modelsInvoked": 0,
+  "nativeUiActions": 0,
+  "backendOrClientSourcesEditedForThisTooling": false,
+  "oldEvidenceModified": false,
+  "paidCalls": 0,
+  "productStatus": "TESTE_NON_APPROUVE"
+}

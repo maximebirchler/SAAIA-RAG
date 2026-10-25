@@ -1,0 +1,136 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="eb592527-b830-4862-a8e4-f4015ea3253d" name="maxim@MAXBI 2026-10-25 17:31:19" runUser="MAXBI\maxim" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-25T17:31:19.0594739+01:00" queuing="2026-10-25T17:31:19.0594740+01:00" start="2026-10-25T17:31:17.9593865+01:00" finish="2026-10-25T17:31:19.0639562+01:00" />
+  <TestSettings name="default" id="0e4129dc-3a6f-47b8-a8da-d1aa0cb67ac6">
+    <Deployment runDeploymentRoot="maxim_MAXBI_2026-10-25_17_31_19" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="e5b89913-1850-4632-be5c-59102a93c006" testId="774043e1-572f-7fb6-827c-b22c482294bb" testName="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: &quot;Bonjour, peux-tu afficher la réponse de contrôle d&quot;···)" computerName="MAXBI" duration="00:00:00.0373470" startTime="2026-10-25T17:31:18.9899863+01:00" endTime="2026-10-25T17:31:18.9899864+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e5b89913-1850-4632-be5c-59102a93c006">
+      <Output>
+        <StdOut>Native router calls=2; stream calls=1; HTTP requests=&#xD;
+Trace=[RAG_TRACE event=turn.begin trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=1 elapsed_ms=0 history=0 user_chars=63 planning=false]
+[RAG_TRACE event=router.catalog_context.start trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=2 elapsed_ms=2 reason="semantic_native_router" has_catalog_snapshot=true catalog_categories=0]
+[RAG_TRACE event=router.catalog_context.end trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=3 elapsed_ms=2 catalog_categories=0 ms=0]
+[RAG_TRACE event=router.start trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=4 elapsed_ms=2 planning=false chars=63]
+[RAG_TRACE event=router.native.classifier.completed trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=5 elapsed_ms=4 accepted=true prompt_tokens=null completion_tokens=null server_cache_tokens=null server_prompt_evaluated_tokens=null server_prompt_ms=null server_predicted_tokens=null server_predicted_ms=null ms=0]
+[RAG_TRACE event=router.native.start trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=6 elapsed_ms=5 history=0 user_chars=63 prompt_chars=147 prompt_tokens=null context_tokens=null prompt_compacted=false classifier_fallback_all_contracts=false timeout_ms=90000]
+[RAG_TRACE event=router.native.accepted trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=7 elapsed_ms=5 repair_attempted=false intent="chat.general" tools=[] has_source_mission=false source_plan_kind=null source_goal=null source_proof=null source_question_focus=null source_uses_focused_document=null source_atomic_evidence_count=null source_row_header=null source_rows=null source_columns=null source_requested_document=null source_named_reference_kind=null source_candidate_scopes=null prompt_tokens=null completion_tokens=null server_cache_tokens=null server_prompt_evaluated_tokens=null server_prompt_ms=null server_predicted_tokens=null server_predicted_ms=null ms=1]
+[RAG_TRACE event=router.end trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=8 elapsed_ms=6 intent="chat.general" mode="strict" confidence=null clarification=false tools=0 ms=3]
+[RAG_TRACE event=capability_boundary.decision trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=9 elapsed_ms=7 reason="within_local_boundary" answer_units=0 structured_threshold=6 multi_item_threshold=5]
+[RAG_TRACE event=documentary_defaults.skipped trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=10 elapsed_ms=7 reason="router_general_no_tools" intent="chat.general"]
+[RAG_TRACE event=source_backed_fallback.skipped trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=11 elapsed_ms=9 reason="router_general_no_tools" source_step="exact_item_fallback" intent="chat.general"]
+[RAG_TRACE event=source_backed_fallback.skipped trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=12 elapsed_ms=9 reason="router_general_no_tools" source_step="documentary_probe_fallback" intent="chat.general"]
+[RAG_TRACE event=documentary_defaults.skipped trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=13 elapsed_ms=10 reason="router_general_no_tools" intent="chat.general"]
+[RAG_TRACE event=router.legacy_structured_repair.skipped trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=14 elapsed_ms=10 reason="source_backed_agent_v2_owns_semantic_adaptation"]
+[RAG_TRACE event=tools.stage.start trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=15 elapsed_ms=11 intent="chat.general" tools=0]
+[RAG_TRACE event=tools.stage.end trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=16 elapsed_ms=11 intent="chat.general" items=0 ok=0 errors=0 ms=0]
+[RAG_TRACE event=source_backed_pipeline.canonical_retrieval.owner_confirmed trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=17 elapsed_ms=12 reason="canonical_pipeline_owns_post_tool_rag" intent="chat.general" tool_items=0]
+[RAG_TRACE event=writer.stage.start trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=18 elapsed_ms=13 intent="chat.general" buffer_output=false use_broad_synthesis=false avoid_raw_fallback=false route_through_writer=false require_broad_final=false]
+[RAG_TRACE event=answer.stage.start trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=19 elapsed_ms=14 intent="chat.general" mode="strict" tool_items=0 chars=63]
+[RAG_TRACE event=writer.context trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=20 elapsed_ms=15 general=true writer_tools=0 budget_tool_chars=5184 budget_brief_chars=930 budget_inventory_chars=1364]
+[RAG_TRACE event=writer.guard.coverage.start trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=21 elapsed_ms=23 raw_tool_items=0 writer_tool_items=0]
+[RAG_TRACE event=writer.guard.coverage.selection trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=22 elapsed_ms=23 has_raw_coverage=false has_writer_coverage=false ms=0]
+[RAG_TRACE event=writer.evidence_inventory.selection trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=23 elapsed_ms=24 trace_path="rag.writer.evidence_inventory" trace_step="select_tool_results" tool_items=0]
+[RAG_TRACE event=writer.guard.insufficient_check.start trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=24 elapsed_ms=24 tool_items=0]
+[RAG_TRACE event=writer.guard.insufficient_check.end trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=25 elapsed_ms=24 blocked=false answer_chars=0 ms=0]
+[RAG_TRACE event=writer.selected trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=26 elapsed_ms=25 intent="chat.general" broad=false avoid_raw=false route=false require_broad_final=false clean_brief=false]
+[RAG_TRACE event=writer.candidate_adjudication.skipped trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=27 elapsed_ms=25 reason="not_applicable" tool_items=0 ms=0]
+[RAG_TRACE event=writer.evidence_inventory.roster trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=28 elapsed_ms=26 trace_path="rag.writer.evidence_inventory" trace_step="build_roster" basis_tool_items=0 roster_chars=4 evidence_items=0 candidate_rejected=0 source_pages=0 candidate_adjudication_prompt_chars=4 source_reference_index_chars=1200]
+[RAG_TRACE event=writer.llm.start trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=29 elapsed_ms=29 intent="chat.general" prompt_chars=4515 clean_brief=false timeout_ms=0]
+[RAG_TRACE event=writer.llm.end trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=30 elapsed_ms=30 intent="chat.general" answer_chars=41]
+[RAG_TRACE event=writer.post.start trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=31 elapsed_ms=30 intent="chat.general" answer_chars=41 overflow_fallback=false]
+[RAG_TRACE event=writer.post.language_check.start trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=32 elapsed_ms=31 answer_chars=41]
+[RAG_TRACE event=writer.language_check.skipped trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=33 elapsed_ms=31 reason="already_target_language" answer_chars=41 ms=0]
+[RAG_TRACE event=writer.post.language_check.end trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=34 elapsed_ms=32 answer_chars=41 elapsed_ms=1]
+[RAG_TRACE event=writer.absolute_finalizer.skipped trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=35 elapsed_ms=32 reason="canonical_source_contract_owns_finalization" used_rag=false answer_chars=41 sources=0]
+[RAG_TRACE event=writer.post.end trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=36 elapsed_ms=33 intent="chat.general" answer_chars=41 sources=0 answer_source="unknown" ms=2]
+[RAG_TRACE event=writer.stage.end trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=37 elapsed_ms=33 intent="chat.general" answer_chars=41 sources=0 answer_source="unknown" ms=19]
+[RAG_TRACE event=answer.stage.end trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=38 elapsed_ms=34 intent="chat.general" answer_chars=41 sources=0 sources_payload=false]
+[RAG_TRACE event=turn.final trace_id=b36d94315e59ce6b9910aad0cdf4a3eb seq=39 elapsed_ms=35 outcome="success" reason=null planning=false intent="chat.general" answer_chars=41 sources_payload="none" tool_count=0 tools=[] total_ms=34]</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="8d347a62-d46e-4bc5-88f8-1e3a9cb354fa" testId="2e1e7abe-bd70-4b2b-a346-515014a2ca0d" testName="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_documentary_route_still_reaches_its_real_retrieval_branch" computerName="MAXBI" duration="00:00:00.2596090" startTime="2026-10-25T17:31:18.8660469+01:00" endTime="2026-10-25T17:31:18.8660570+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8d347a62-d46e-4bc5-88f8-1e3a9cb354fa">
+      <Output>
+        <StdOut>Documentary route reached retrieval: POST /rag/search</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="21f55a5c-31c1-49b7-a0a3-c1515a1ee512" testId="fc98f811-cfbb-66dc-787d-e58360fb46e1" testName="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: &quot;Comment vas-tu ?&quot;)" computerName="MAXBI" duration="00:00:00.0868010" startTime="2026-10-25T17:31:18.9525881+01:00" endTime="2026-10-25T17:31:18.9525882+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="21f55a5c-31c1-49b7-a0a3-c1515a1ee512">
+      <Output>
+        <StdOut>Native router calls=2; stream calls=1; HTTP requests=&#xD;
+Trace=[RAG_TRACE event=turn.begin trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=1 elapsed_ms=1 history=0 user_chars=16 planning=false]
+[RAG_TRACE event=router.catalog_context.start trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=2 elapsed_ms=2 reason="semantic_native_router" has_catalog_snapshot=true catalog_categories=0]
+[RAG_TRACE event=router.catalog_context.end trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=3 elapsed_ms=2 catalog_categories=0 ms=0]
+[RAG_TRACE event=router.start trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=4 elapsed_ms=3 planning=false chars=16]
+[RAG_TRACE event=router.native.classifier.completed trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=5 elapsed_ms=4 accepted=true prompt_tokens=null completion_tokens=null server_cache_tokens=null server_prompt_evaluated_tokens=null server_prompt_ms=null server_predicted_tokens=null server_predicted_ms=null ms=0]
+[RAG_TRACE event=router.native.start trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=6 elapsed_ms=5 history=0 user_chars=16 prompt_chars=100 prompt_tokens=null context_tokens=null prompt_compacted=false classifier_fallback_all_contracts=false timeout_ms=90000]
+[RAG_TRACE event=router.native.accepted trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=7 elapsed_ms=6 repair_attempted=false intent="chat.general" tools=[] has_source_mission=false source_plan_kind=null source_goal=null source_proof=null source_question_focus=null source_uses_focused_document=null source_atomic_evidence_count=null source_row_header=null source_rows=null source_columns=null source_requested_document=null source_named_reference_kind=null source_candidate_scopes=null prompt_tokens=null completion_tokens=null server_cache_tokens=null server_prompt_evaluated_tokens=null server_prompt_ms=null server_predicted_tokens=null server_predicted_ms=null ms=2]
+[RAG_TRACE event=router.end trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=8 elapsed_ms=7 intent="chat.general" mode="strict" confidence=null clarification=false tools=0 ms=3]
+[RAG_TRACE event=capability_boundary.decision trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=9 elapsed_ms=8 reason="within_local_boundary" answer_units=0 structured_threshold=6 multi_item_threshold=5]
+[RAG_TRACE event=documentary_defaults.skipped trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=10 elapsed_ms=9 reason="router_general_no_tools" intent="chat.general"]
+[RAG_TRACE event=source_backed_fallback.skipped trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=11 elapsed_ms=12 reason="router_general_no_tools" source_step="exact_item_fallback" intent="chat.general"]
+[RAG_TRACE event=source_backed_fallback.skipped trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=12 elapsed_ms=13 reason="router_general_no_tools" source_step="documentary_probe_fallback" intent="chat.general"]
+[RAG_TRACE event=documentary_defaults.skipped trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=13 elapsed_ms=13 reason="router_general_no_tools" intent="chat.general"]
+[RAG_TRACE event=router.legacy_structured_repair.skipped trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=14 elapsed_ms=14 reason="source_backed_agent_v2_owns_semantic_adaptation"]
+[RAG_TRACE event=tools.stage.start trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=15 elapsed_ms=14 intent="chat.general" tools=0]
+[RAG_TRACE event=tools.stage.end trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=16 elapsed_ms=18 intent="chat.general" items=0 ok=0 errors=0 ms=1]
+[RAG_TRACE event=source_backed_pipeline.canonical_retrieval.owner_confirmed trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=17 elapsed_ms=20 reason="canonical_pipeline_owns_post_tool_rag" intent="chat.general" tool_items=0]
+[RAG_TRACE event=writer.stage.start trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=18 elapsed_ms=25 intent="chat.general" buffer_output=false use_broad_synthesis=false avoid_raw_fallback=false route_through_writer=false require_broad_final=false]
+[RAG_TRACE event=answer.stage.start trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=19 elapsed_ms=28 intent="chat.general" mode="strict" tool_items=0 chars=16]
+[RAG_TRACE event=writer.context trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=20 elapsed_ms=32 general=true writer_tools=0 budget_tool_chars=5184 budget_brief_chars=930 budget_inventory_chars=1364]
+[RAG_TRACE event=writer.guard.coverage.start trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=21 elapsed_ms=35 raw_tool_items=0 writer_tool_items=0]
+[RAG_TRACE event=writer.guard.coverage.selection trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=22 elapsed_ms=36 has_raw_coverage=false has_writer_coverage=false ms=0]
+[RAG_TRACE event=writer.evidence_inventory.selection trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=23 elapsed_ms=36 trace_path="rag.writer.evidence_inventory" trace_step="select_tool_results" tool_items=0]
+[RAG_TRACE event=writer.guard.insufficient_check.start trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=24 elapsed_ms=37 tool_items=0]
+[RAG_TRACE event=writer.guard.insufficient_check.end trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=25 elapsed_ms=38 blocked=false answer_chars=0 ms=0]
+[RAG_TRACE event=writer.selected trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=26 elapsed_ms=40 intent="chat.general" broad=false avoid_raw=false route=false require_broad_final=false clean_brief=false]
+[RAG_TRACE event=writer.candidate_adjudication.skipped trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=27 elapsed_ms=41 reason="not_applicable" tool_items=0 ms=0]
+[RAG_TRACE event=writer.evidence_inventory.roster trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=28 elapsed_ms=44 trace_path="rag.writer.evidence_inventory" trace_step="build_roster" basis_tool_items=0 roster_chars=4 evidence_items=0 candidate_rejected=0 source_pages=0 candidate_adjudication_prompt_chars=4 source_reference_index_chars=1200]
+[RAG_TRACE event=writer.llm.start trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=29 elapsed_ms=48 intent="chat.general" prompt_chars=4262 clean_brief=false timeout_ms=0]
+[RAG_TRACE event=writer.llm.end trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=30 elapsed_ms=50 intent="chat.general" answer_chars=41]
+[RAG_TRACE event=writer.post.start trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=31 elapsed_ms=51 intent="chat.general" answer_chars=41 overflow_fallback=false]
+[RAG_TRACE event=writer.post.language_check.start trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=32 elapsed_ms=51 answer_chars=41]
+[RAG_TRACE event=writer.language_check.skipped trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=33 elapsed_ms=53 reason="already_target_language" answer_chars=41 ms=0]
+[RAG_TRACE event=writer.post.language_check.end trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=34 elapsed_ms=53 answer_chars=41 elapsed_ms=1]
+[RAG_TRACE event=writer.absolute_finalizer.skipped trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=35 elapsed_ms=57 reason="canonical_source_contract_owns_finalization" used_rag=false answer_chars=41 sources=0]
+[RAG_TRACE event=writer.post.end trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=36 elapsed_ms=58 intent="chat.general" answer_chars=41 sources=0 answer_source="unknown" ms=6]
+[RAG_TRACE event=writer.stage.end trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=37 elapsed_ms=59 intent="chat.general" answer_chars=41 sources=0 answer_source="unknown" ms=32]
+[RAG_TRACE event=answer.stage.end trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=38 elapsed_ms=61 intent="chat.general" answer_chars=41 sources=0 sources_payload=false]
+[RAG_TRACE event=turn.final trace_id=af8b0a2ca4d59901dee8764c130ec031 seq=39 elapsed_ms=63 outcome="success" reason=null planning=false intent="chat.general" answer_chars=41 sources_payload="none" tool_count=0 tools=[] total_ms=63]</StdOut>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: &quot;Bonjour, peux-tu afficher la réponse de contrôle d&quot;···)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="774043e1-572f-7fb6-827c-b22c482294bb">
+      <Execution id="e5b89913-1850-4632-be5c-59102a93c006" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests" name="Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: &quot;Comment vas-tu ?&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="fc98f811-cfbb-66dc-787d-e58360fb46e1">
+      <Execution id="21f55a5c-31c1-49b7-a0a3-c1515a1ee512" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests" name="Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_documentary_route_still_reaches_its_real_retrieval_branch" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="2e1e7abe-bd70-4b2b-a346-515014a2ca0d">
+      <Execution id="8d347a62-d46e-4bc5-88f8-1e3a9cb354fa" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests" name="Accepted_documentary_route_still_reaches_its_real_retrieval_branch" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="774043e1-572f-7fb6-827c-b22c482294bb" executionId="e5b89913-1850-4632-be5c-59102a93c006" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2e1e7abe-bd70-4b2b-a346-515014a2ca0d" executionId="8d347a62-d46e-4bc5-88f8-1e3a9cb354fa" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fc98f811-cfbb-66dc-787d-e58360fb46e1" executionId="21f55a5c-31c1-49b7-a0a3-c1515a1ee512" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Les résultats ne figurent pas dans une liste" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Tous les résultats chargés" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="3" executed="3" passed="3" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.27)&#xD;
+[xUnit.net 00:00:00.16]   Discovering: SAAIA.Client.ToolAgent.Tests&#xD;
+[xUnit.net 00:00:00.38]   Discovered:  SAAIA.Client.ToolAgent.Tests&#xD;
+[xUnit.net 00:00:00.38]   Starting:    SAAIA.Client.ToolAgent.Tests&#xD;
+[xUnit.net 00:00:00.79]   Finished:    SAAIA.Client.ToolAgent.Tests&#xD;
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

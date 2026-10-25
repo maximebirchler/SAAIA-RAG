@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "saaia-winui-short-stream-after-cancel-control.v1",
+  "preparedAtUtc": "2026-10-25T16:04:35.7426880+00:00",
+  "mode": "success",
+  "response": "TOUR DE CONTROLE APRES INTERRUPTION",
+  "chunkDelaySeconds": 0.01,
+  "delaySeconds": 0,
+  "controlSha256": "40CBBEE8042BB39BB4E30E105859DF27E10A580ACCA246E8DBB86BC52A6A876B",
+  "priorCancelledControlSha256": "C9426A1A9BA10E3BB9054DCCDCFDCDF7BE016F581E01540065A6067115FA49EE",
+  "chatRequestedByScript": false,
+  "productCodeModified": false
+}

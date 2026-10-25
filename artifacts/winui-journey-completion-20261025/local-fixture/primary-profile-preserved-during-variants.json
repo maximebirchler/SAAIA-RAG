@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "saaia-winui-journey-primary-profile-preserved.v1",
+  "capturedAtUtc": "2026-10-25T15:35:52.8506106+00:00",
+  "primaryFiles": [
+    {
+      "file": "settings.json",
+      "sha256": "97D1B8C023E8CBB3ECA722F11E863AA33EF9A780237C6D7AE916F6D9BE2E3ADB"
+    },
+    {
+      "file": "secure.json",
+      "sha256": "692CD85433F0A35288B441F9876D9AC793E0012871F20880A241DA810D0761B4"
+    }
+  ],
+  "preserved": true,
+  "namedProfiles": [
+    "first-setup",
+    "fallback-prefs"
+  ]
+}

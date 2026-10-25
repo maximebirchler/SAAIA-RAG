@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "saaia-winui-source-ambiguity-profile-preflight.v1",
+  "createdAtUtc": "2026-10-25T16:13:33.1141744+00:00",
+  "environmentRunId": "7d110010ee874d5398a9ca335b079fdd",
+  "profileName": "source-ambiguity",
+  "profileRoot": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-journey-completion-20261025\\local-fixture\\runtime\\client-profiles\\source-ambiguity",
+  "userId": "3a5bedd4-2bc1-4063-a677-025ebf648669",
+  "sessionId": "6f0e6d61-cbf2-45d5-a682-ad96cbf74a69",
+  "assistantMessageId": "e5f1fdf6-bf4a-43e2-af02-3f1fcbceee40",
+  "backendUrl": "http://127.0.0.1:5177",
+  "uiLanguage": "fr",
+  "uiTheme": "dark",
+  "sourceCardCount": 2,
+  "competingRevisionIsSynthetic": true,
+  "primaryProfileUnchanged": true,
+  "priorHistoryUnchanged": true,
+  "modelExecuted": false,
+  "clientLaunched": false,
+  "afterApi": "chat-store-snapshots/20261025T161333042Z-after-source-ambiguity-seed.json"
+}

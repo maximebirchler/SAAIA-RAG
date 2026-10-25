@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "saaia-winui-long-stream-control-proof.v1",
+  "preparedAtUtc": "2026-10-25T15:52:23.0982823+00:00",
+  "environmentRunId": "7d110010ee874d5398a9ca335b079fdd",
+  "provider": "deterministic_loopback_fixture",
+  "fixtureUrl": "http://127.0.0.1:18097",
+  "mode": "success",
+  "paragraphCount": 40,
+  "wordsPerParagraph": 20,
+  "responseCharacters": 5838,
+  "chunkDelaySeconds": 0.2,
+  "delaySeconds": 0,
+  "responseSha256": "4B927808B47868A2BAC613B97F6E1CB24C5927A514625B7107AE373CDD9FDF4A",
+  "controlSha256": "DCEB9DD0AF546949D4A81ED46E8AA662B90FB8268301F7BE09E579ECA7A4B391",
+  "originalControlSha256": "95BE5055FC91F39D5023E354577E96F2ABC592272A8E8930132AB27F7F960223",
+  "originalControlPrivatePath": "runtime/fixture-control-before-long-stream.json",
+  "modelExecuted": false,
+  "chatRequestedByScript": false,
+  "limits": "Deterministic text/timing fixture validates client deltas and scrolling, not LLM reasoning or throughput."
+}

@@ -1,0 +1,684 @@
+{
+  "schemaVersion": "saaia-winui-journey-completion-progress.v1",
+  "compiledAtUtc": "2026-10-25T16:19:26.7362633+00:00",
+  "status": "FOUR_SEQUENCES_OBSERVED_ONE_PENDING_BUILD10_RETEST_ONE_PLANNED",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "baseMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+  "baseToolingPlan": "../../tools/validation-winui/journey-completion.md",
+  "purpose": "Exécuter six séquences natives pour borner ou lever les dix statuts PARTIAL_OBSERVED de la campagne précédente.",
+  "authority": "Demande utilisateur de validation réelle WinUI ; aucun test Terra avant validation du parcours. Suppressions limitées aux discussions fictives déjà autorisées.",
+  "executionBoundary": "Native observations01-37 and durable proofs are projected. J05 keyboard scope is a locked loading transition, not an independently timed keypress before HTTP completion. J04 still awaits build10 native retest.",
+  "sequences": [
+    {
+      "id": "J01",
+      "title": "Configuration initiale, annulation et réparation d'authentification",
+      "covers": [
+        "W02",
+        "W04"
+      ],
+      "setup": [
+        "Profil client isolé neuf, clé initialement absente, utilisateur synthétique dédié.",
+        "Backend réel loopback ; clés valides/invalides synthétiques uniquement."
+      ],
+      "actions": [
+        "Ouvrir l'assistant initial, changer des valeurs sans appliquer puis fermer.",
+        "Comparer les paramètres non secrets et redémarrer le même profil ; vérifier conservation exacte de l'état précédemment appliqué.",
+        "Saisir une clé refusée, observer le refus, corriger la clé dans cette même instance et reconnecter."
+      ],
+      "checks": [
+        {
+          "id": "J01_CANCEL_PRESERVES",
+          "baseScenario": "W02",
+          "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+          "acceptance": "Annuler ne sauvegarde pas les modifications ; paramètres appliqués identiques avant/après et après redémarrage.",
+          "actualObservation": "URL changed from5177 to5199 without Apply; cancel returns to usable disconnected screen. Restart of the same profile restores5177 with no saved key. Both settings and secure files remain byte-identical.",
+          "nativeEvidence": [
+            "native-ui/01-first-setup-before-edit.json",
+            "native-ui/02-first-setup-edited-before-cancel.json",
+            "native-ui/03-first-setup-cancel-disconnected-usable.json",
+            "native-ui/04-first-setup-restart-original-values.json"
+          ],
+          "durableEvidence": [
+            "local-fixture/profile-first-setup-preflight.json",
+            "local-fixture/first-setup-after-open-before-edit-proof.json",
+            "local-fixture/first-setup-cancel-persistence-proof.json",
+            "client-launch-02-after-cancel.json"
+          ],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J01_SETUP_RECOVERS",
+          "baseScenario": "W02",
+          "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+          "acceptance": "Assistant annulé puis repris sans blocage ; connexion obtenue avec clé synthétique valide.",
+          "actualObservation": "Cancelled setup resumed, a valid synthetic key applied, then a connected empty session loaded. Restart connects directly to that same session without reopening setup.",
+          "nativeEvidence": [
+            "native-ui/03-first-setup-cancel-disconnected-usable.json",
+            "native-ui/06-first-setup-key-repaired-same-wizard.json",
+            "native-ui/07-first-setup-applied-connected.json",
+            "native-ui/08-first-setup-applied-restart-connected.json"
+          ],
+          "durableEvidence": [
+            "local-fixture/first-setup-auth-persistence-proof.json",
+            "client-launch-03-after-setup-applied.json"
+          ],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J01_KEY_REPAIR_SAME_INSTANCE",
+          "baseScenario": "W04",
+          "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+          "acceptance": "Refus effectivement observé, puis clé remplacée dans la même instance et connexion réussie sans ancien refus persistant.",
+          "actualObservation": "Real HTTP401 with deliberately invalid key; valid synthetic replacement in the same wizard returns Clé OK and connects. Protected key presence/equality was checked in memory only; no key or protected blob published.",
+          "nativeEvidence": [
+            "native-ui/05-first-setup-invalid-key-401.json",
+            "native-ui/06-first-setup-key-repaired-same-wizard.json",
+            "native-ui/07-first-setup-applied-connected.json"
+          ],
+          "durableEvidence": [
+            "local-fixture/first-setup-auth-persistence-proof.json"
+          ],
+          "diagnosticEvidence": []
+        }
+      ],
+      "evidence": [
+        "Captures/arbre natifs avant annulation, après annulation, après redémarrage et après réparation.",
+        "Empreintes/valeurs non secrètes des seuls paramètres du profil isolé ; aucune clé exportée.",
+        "Preuves HTTP de refus puis succès et ancrage de chaque lancement au DLL de production."
+      ],
+      "limits": [
+        "Les variantes403 et401 tardive restent UNIT_ONLY tant qu'une séquence native dédiée n'est pas exécutée.",
+        "Une clé masquée dans l'UI ne dispense pas de vérifier l'absence de secrets dans les preuves exportées."
+      ],
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "executionEvidence": [
+        "native-ui/01-first-setup-before-edit.json",
+        "native-ui/02-first-setup-edited-before-cancel.json",
+        "native-ui/03-first-setup-cancel-disconnected-usable.json",
+        "native-ui/04-first-setup-restart-original-values.json",
+        "native-ui/05-first-setup-invalid-key-401.json",
+        "native-ui/06-first-setup-key-repaired-same-wizard.json",
+        "native-ui/07-first-setup-applied-connected.json",
+        "native-ui/08-first-setup-applied-restart-connected.json",
+        "local-fixture/first-setup-after-open-before-edit-proof.json",
+        "local-fixture/first-setup-cancel-persistence-proof.json",
+        "local-fixture/first-setup-auth-persistence-proof.json",
+        "client-launch-01-first-setup.json",
+        "client-launch-02-after-cancel.json",
+        "client-launch-03-after-setup-applied.json"
+      ]
+    },
+    {
+      "id": "J02",
+      "title": "Persistance des alternatives, de la langue et du thème",
+      "covers": [
+        "W05",
+        "W25"
+      ],
+      "setup": [
+        "Profil isolé avec URL principale loopback indisponible et alternative loopback réelle.",
+        "Ordre initial des alternatives, langue et thème enregistrés dans les preuves sans secret."
+      ],
+      "actions": [
+        "Démarrer puis observer la bascule vers l'alternative ; appliquer langue et thème dans WinUI.",
+        "Fermer normalement, redémarrer le même profil et vérifier paramètres et état visibles.",
+        "Ouvrir les états représentatifs explicitement nommés : menus, paramètres et messages/cartes disponibles."
+      ],
+      "checks": [
+        {
+          "id": "J02_FALLBACK_ORDER_RESTART",
+          "baseScenario": "W05",
+          "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+          "acceptance": "Ordre sauvegardé inchangé et alternative effectivement utilisée au second démarrage.",
+          "actualObservation": "Primary5169 has no listener; alternate5177 handles successful inventory and same-session message reads on the second start. Persisted URL priority/order is unchanged. Proxy wire proves the alternate requests, not failed-primary packets.",
+          "nativeEvidence": [
+            "native-ui/09-fallback-first-start-connected.json",
+            "native-ui/10-fallback-preferences-before-change.json",
+            "native-ui/13-fallback-restart-english-light-connected.json"
+          ],
+          "durableEvidence": [
+            "local-fixture/profile-fallback-prefs-preflight.json",
+            "local-fixture/fallback-prefs-before-restart-proof.json",
+            "local-fixture/fallback-prefs-restart-proof.json",
+            "client-launch-05-fallback-preferences-restart.json"
+          ],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J02_SETTINGS_PERSIST_RESTART",
+          "baseScenario": "W25",
+          "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+          "acceptance": "Langue et thème appliqués survivent au redémarrage ; messages et contrôles utiles restent lisibles.",
+          "actualObservation": "English and Light applied in the real Settings dialog; same profile restarted with English controls and light appearance. Saved settings and selected session stay unchanged across restart.",
+          "nativeEvidence": [
+            "native-ui/10-fallback-preferences-before-change.json",
+            "native-ui/11-fallback-preferences-english-light-before-apply.json",
+            "native-ui/12-fallback-english-light-applied.json",
+            "native-ui/13-fallback-restart-english-light-connected.json"
+          ],
+          "durableEvidence": [
+            "local-fixture/fallback-prefs-before-restart-proof.json",
+            "local-fixture/fallback-prefs-restart-proof.json"
+          ],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J02_APPEARANCE_SAMPLE",
+          "baseScenario": "W25",
+          "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+          "acceptance": "Sous-ensemble de menus/cartes/états réellement inspectés énuméré dans l'observation, sans prétendre couvrir toutes les combinaisons.",
+          "actualObservation": "Observed sample: Settings dialog, main header controls, empty chat list/default title, composer placeholder and Send. English/Light readable after application and restart; no nonempty source cards or menu flyouts were exercised in this sample.",
+          "nativeEvidence": [
+            "native-ui/10-fallback-preferences-before-change.json",
+            "native-ui/11-fallback-preferences-english-light-before-apply.json",
+            "native-ui/12-fallback-english-light-applied.json",
+            "native-ui/13-fallback-restart-english-light-connected.json"
+          ],
+          "durableEvidence": [
+            "local-fixture/fallback-prefs-restart-proof.json"
+          ],
+          "diagnosticEvidence": []
+        }
+      ],
+      "evidence": [
+        "Captures natives des choix appliqués et du client après redémarrage.",
+        "Inventaire non secret des paramètres avant/après et journaux d'URL effective sans clé.",
+        "Manifestes de lancement et DLL identique au binaire accepté."
+      ],
+      "limits": [
+        "Aucune couverture de toutes les tailles, langues ou combinaisons d'états n'est déduite d'un seul redémarrage."
+      ],
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "executionEvidence": [
+        "native-ui/09-fallback-first-start-connected.json",
+        "native-ui/10-fallback-preferences-before-change.json",
+        "native-ui/11-fallback-preferences-english-light-before-apply.json",
+        "native-ui/12-fallback-english-light-applied.json",
+        "native-ui/13-fallback-restart-english-light-connected.json",
+        "local-fixture/profile-fallback-prefs-preflight.json",
+        "local-fixture/fallback-prefs-before-restart-proof.json",
+        "local-fixture/fallback-prefs-restart-proof.json",
+        "client-launch-04-fallback-preferences.json",
+        "client-launch-05-fallback-preferences-restart.json"
+      ]
+    },
+    {
+      "id": "J03",
+      "title": "Cas limites de renommage d'une discussion inactive",
+      "covers": [
+        "W08"
+      ],
+      "setup": [
+        "Deux discussions synthétiques aux IDs et messages différents ; la première demeure chargée."
+      ],
+      "actions": [
+        "Renommer l'inactive avec un titre vide et appliquer.",
+        "Renommer avec120caractères puis tenter un dépassement de la limite dans la vraie fenêtre.",
+        "Recharger l'inventaire et vérifier les titres durablement enregistrés."
+      ],
+      "checks": [
+        {
+          "id": "J03_EMPTY_TITLE",
+          "baseScenario": "W08",
+          "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+          "acceptance": "Titre vide remplacé par le titre par défaut localisé ; autre discussion toujours chargée.",
+          "actualObservation": "Empty inactive title saved as Nouvelle discussion; active witness and its messages/ID unchanged. Durable proof5/5.",
+          "nativeEvidence": [
+            "native-ui/14-rename-before-inactive-edit.json",
+            "native-ui/15-rename-empty-title-before-save.json",
+            "native-ui/16-rename-empty-becomes-default-active-preserved.json"
+          ],
+          "durableEvidence": [
+            "local-fixture/rename-empty-title-proof.json"
+          ],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J03_TITLE_120_LIMIT",
+          "baseScenario": "W08",
+          "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+          "acceptance": "Titre120 accepté ; saisie au-delà bornée, sans dépassement durable ni changement d'historique actif.",
+          "actualObservation": "UIA SetValue121 refused without a mutation. A distinct real native typing attempt of121characters accepted exactly119R+X=120; Y absent. Saved title exactly120 and active witness unchanged; durable proof7/7.",
+          "nativeEvidence": [
+            "native-ui/17-rename-121-native-input-limited-to120.json",
+            "native-ui/18-rename-120-saved-active-preserved.json"
+          ],
+          "durableEvidence": [
+            "local-fixture/rename-max-title-proof.json"
+          ],
+          "diagnosticEvidence": []
+        }
+      ],
+      "evidence": [
+        "Captures du dialogue et de la discussion active avant/après chaque renommage.",
+        "Titres/longueurs et IDs réels côté API/SQL, sans modifier directement les titres par le banc de preuve."
+      ],
+      "limits": [
+        "Aucune suppression ni appel de modèle nécessaire."
+      ],
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "executionEvidence": [
+        "native-ui/14-rename-before-inactive-edit.json",
+        "native-ui/15-rename-empty-title-before-save.json",
+        "native-ui/16-rename-empty-becomes-default-active-preserved.json",
+        "native-ui/17-rename-121-native-input-limited-to120.json",
+        "native-ui/18-rename-120-saved-active-preserved.json",
+        "local-fixture/rename-session-seed.json",
+        "local-fixture/rename-empty-title-proof.json",
+        "local-fixture/rename-max-title-proof.json",
+        "client-launch-06-primary-rename.json"
+      ]
+    },
+    {
+      "id": "J04",
+      "title": "Deltas visibles, navigation volontaire, annulation et nouveau tour",
+      "covers": [
+        "W15",
+        "W27"
+      ],
+      "setup": [
+        "Fournisseur HTTP déterministe loopback uniquement, modeplain/streaming avec fragments espacés.",
+        "Réponse assez longue pour permettre un défilement volontaire ; aucun modèle réel ou fournisseur payant."
+      ],
+      "actions": [
+        "Envoyer une question synthétique par le client et attendre plusieurs deltas réellement visibles.",
+        "Remonter volontairement l'historique, observer l'absence de saut forcé, puis utiliser le bouton Aller en bas.",
+        "Annuler pendant les deltas, observer l'arrêt stable du texte et le retour des contrôles.",
+        "Recharger l'interruption persistée puis effectuer un nouveau tour contrôlé."
+      ],
+      "checks": [
+        {
+          "id": "J04_VISIBLE_DELTAS",
+          "baseScenario": "W15",
+          "status": "OBSERVED_BUILD09_AWAITING_GENERAL_ROUTE_BUILD10_RETEST",
+          "acceptance": "Plusieurs fragments sont réellement affichés avant annulation.",
+          "actualObservation": "Real controlled deltas visible in attempts2 and3. Attempt1 had zero streaming requests and does not count.",
+          "nativeEvidence": [
+            "native-ui/20-stream-deltas-visible.json",
+            "native-ui/25-slow-stream-deltas-visible-before-navigation.json"
+          ],
+          "durableEvidence": [
+            "local-fixture/long-stream-attempt2-natural-completion-proof.json",
+            "local-fixture/long-stream-attempt3-cancel-persistence-proof.json"
+          ],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J04_CANCEL_STOPS_DELTAS",
+          "baseScenario": "W15",
+          "status": "OBSERVED_BUILD09_AWAITING_GENERAL_ROUTE_BUILD10_RETEST",
+          "acceptance": "Aucun nouveau fragment visible après la fin de l'annulation ; interruption durable et contrôles récupérés.",
+          "actualObservation": "Attempt3 cancelled after visible paragraphs: partial message5805c3fb persisted with1334characters/interrupted status; controls recovered. Its hash remained unchanged for146.97seconds in the later observation.",
+          "nativeEvidence": [
+            "native-ui/28-stream-cancel-requested-after-deltas.json",
+            "native-ui/29-stream-cancel-completed-controls-released.json",
+            "native-ui/30-stream-interruption-reloaded.json"
+          ],
+          "durableEvidence": [
+            "local-fixture/long-stream-attempt3-cancel-persistence-proof.json",
+            "local-fixture/long-stream-cancel-late-stability-proof.json"
+          ],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J04_NEXT_TURN_WORKS",
+          "baseScenario": "W15",
+          "status": "OBSERVED_BUILD09_AWAITING_GENERAL_ROUTE_BUILD10_RETEST",
+          "acceptance": "Un nouveau tour fonctionne sans fragment/annulation provenant de l'ancien propriétaire.",
+          "actualObservation": "After reloading the interruption, a short new streamed control answer completed; the earlier interrupted message remained unchanged.",
+          "nativeEvidence": [
+            "native-ui/30-stream-interruption-reloaded.json",
+            "native-ui/31-stream-next-turn-success-after-cancel.json"
+          ],
+          "durableEvidence": [
+            "local-fixture/long-stream-cancel-late-stability-proof.json",
+            "local-fixture/short-stream-after-cancel-control-proof.json"
+          ],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J04_USER_SCROLL_STABLE",
+          "baseScenario": "W27",
+          "status": "OBSERVED_BUILD09_AWAITING_GENERAL_ROUTE_BUILD10_RETEST",
+          "acceptance": "Le défilement volontaire vers le haut est respecté pendant les deltas.",
+          "actualObservation": "Attempt2 manual scroll to Vertical0 stayed there in two observations while text grew; no forced follow to the bottom.",
+          "nativeEvidence": [
+            "native-ui/21-stream-user-scrolled-up.json",
+            "native-ui/22-stream-scroll-at-top-with-new-deltas.json",
+            "native-ui/23-stream-manual-top-preserved.json"
+          ],
+          "durableEvidence": [
+            "local-fixture/long-stream-attempt2-natural-completion-proof.json"
+          ],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J04_JUMP_BOTTOM",
+          "baseScenario": "W27",
+          "status": "OBSERVED_BUILD09_AWAITING_GENERAL_ROUTE_BUILD10_RETEST",
+          "acceptance": "Le bouton Aller en bas ramène explicitement à la fin sans perdre l'accès à la saisie.",
+          "actualObservation": "Attempt2 bottom navigation observed after natural completion and is not an annulation proof. Attempt3 explicitly returned to the live tail while Annuler remained active.",
+          "nativeEvidence": [
+            "native-ui/24-stream-jump-bottom-after-completion.json",
+            "native-ui/26-slow-stream-jump-button-while-live.json",
+            "native-ui/27-slow-stream-jump-bottom-live.json"
+          ],
+          "durableEvidence": [
+            "local-fixture/long-stream-attempt3-cancel-persistence-proof.json"
+          ],
+          "diagnosticEvidence": []
+        }
+      ],
+      "evidence": [
+        "Captures/arbre natifs pendant les deltas, après scroll, au retour en bas, pendant et après annulation puis au tour suivant.",
+        "Journal fixture avec les requêtes/fragments de la même séquence, journal client corrélé et messages persistés avant/après.",
+        "Preuve que tous les appels restent loopback et déterministes."
+      ],
+      "limits": [
+        "La fixture valide protocole et parcours ; aucune qualité sémantique de modèle n'est inférée.",
+        "Les limites de tailles de fenêtre de l'ancienne matrice restent explicites."
+      ],
+      "status": "OBSERVED_BUILD09_AWAITING_GENERAL_ROUTE_BUILD10_RETEST",
+      "executionEvidence": [
+        "native-ui/19-stream-attempt-rejected-before-deltas.json",
+        "native-ui/20-stream-deltas-visible.json",
+        "native-ui/21-stream-user-scrolled-up.json",
+        "native-ui/22-stream-scroll-at-top-with-new-deltas.json",
+        "native-ui/23-stream-manual-top-preserved.json",
+        "native-ui/24-stream-jump-bottom-after-completion.json",
+        "native-ui/25-slow-stream-deltas-visible-before-navigation.json",
+        "native-ui/26-slow-stream-jump-button-while-live.json",
+        "native-ui/27-slow-stream-jump-bottom-live.json",
+        "native-ui/28-stream-cancel-requested-after-deltas.json",
+        "native-ui/29-stream-cancel-completed-controls-released.json",
+        "native-ui/30-stream-interruption-reloaded.json",
+        "native-ui/31-stream-next-turn-success-after-cancel.json",
+        "local-fixture/long-stream-attempt1-diagnosis.json",
+        "local-fixture/long-stream-attempt2-natural-completion-proof.json",
+        "local-fixture/long-stream-attempt3-cancel-persistence-proof.json",
+        "local-fixture/long-stream-cancel-late-stability-proof.json",
+        "local-fixture/short-stream-after-cancel-control-proof.json"
+      ]
+    },
+    {
+      "id": "J05",
+      "title": "Admission clavier pendant lecture lente et derrière un dialogue",
+      "covers": [
+        "W16"
+      ],
+      "setup": [
+        "Proxy storage owned avec un seul GETmessages retardé pour un UUID de session explicite.",
+        "Clés de contrôle : delayGetMessagesSessionId, delayGetMessagesRemaining=1 et delayGetMessagesSeconds≤30 ; autres injections désactivées."
+      ],
+      "actions": [
+        "Demander le chargement de la session ciblée, attendre la lecture réellement en cours puis tenter les actions clavier/contrôles prévus.",
+        "Pendant un dialogue de configuration ou paramètres, tenter un raccourci d'envoi/changement de discussion derrière le dialogue.",
+        "Fermer ou terminer l'opération et vérifier la récupération normale."
+      ],
+      "checks": [
+        {
+          "id": "J05_SLOW_GET_ADMISSION",
+          "baseScenario": "W16",
+          "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+          "acceptance": "Aucun envoi ou changement supplémentaire de session/mémoire avant fin du propriétaire de lecture.",
+          "actualObservation": "A targeted GET was delayed20s. During the loading transition the controls were visibly disabled; Ctrl+Enter did not create a message/model request. The keypress has no independent timestamp, so it is not asserted to precede HTTP completion.",
+          "nativeEvidence": [
+            "native-ui/32-slow-get-controls-locked.json",
+            "native-ui/33-slow-get-keyboard-remains-locked.json",
+            "native-ui/34-slow-get-finished-controls-restored.json"
+          ],
+          "durableEvidence": [
+            "local-fixture/get-message-delay-executed-proof.json",
+            "local-fixture/modal-keyboard-no-send-proof.json"
+          ],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J05_MODAL_KEYBOARD_ADMISSION",
+          "baseScenario": "W16",
+          "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+          "acceptance": "Les actions clavier derrière le dialogue ne lancent pas de tour ni ne changent l'identité chargée.",
+          "actualObservation": "With a real draft and Settings open, Ctrl+Enter did not submit; dialog stayed open, background composer disabled and draft preserved. Durable state and wire show no resulting POST/model call.",
+          "nativeEvidence": [
+            "native-ui/35-settings-overlay-draft-locked.json",
+            "native-ui/36-settings-overlay-keyboard-no-send.json",
+            "native-ui/37-overlay-closed-draft-preserved.json"
+          ],
+          "durableEvidence": [
+            "local-fixture/modal-keyboard-no-send-proof.json"
+          ],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J05_RECOVERY",
+          "baseScenario": "W16",
+          "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+          "acceptance": "Après libération, la discussion attendue est chargée et les contrôles fonctionnent sans doublon.",
+          "actualObservation": "Target session loaded after the delay with its own markers, controls restored. Closing Settings without Apply preserved the draft and restored composer/Send without an unexpected message.",
+          "nativeEvidence": [
+            "native-ui/34-slow-get-finished-controls-restored.json",
+            "native-ui/37-overlay-closed-draft-preserved.json"
+          ],
+          "durableEvidence": [
+            "local-fixture/get-message-delay-executed-proof.json",
+            "local-fixture/modal-keyboard-no-send-proof.json"
+          ],
+          "diagnosticEvidence": []
+        }
+      ],
+      "evidence": [
+        "Captures/arbre natifs pendant lecture et dialogue, avec actions effectivement tentées décrites.",
+        "Proxy : GETciblé unique retardé et contrôle consommé ; absence de POSTmessage/DELETE/job inattendu.",
+        "Snapshots durables et diagnostics d'admission avant/après."
+      ],
+      "limits": [
+        "Un bouton grisé seul ne prouve pas la tentative clavier ; les actions exécutées doivent être consignées explicitement.",
+        "HTTP delay17-37seconds and capture33 at42seconds do not establish the timestamp of the keypress. Root explicitly confirms there is no independent action timestamp; only the locked loading-transition scope is claimed.",
+        "Initial projection incorrectly counted request and completed events as two injections; accepted proof7/7 distinguishes phases and retains the rejected projection unchanged."
+      ],
+      "status": "PASS_OBSERVED_TRANSITION_SCOPE_WITH_TIMING_LIMIT",
+      "executionEvidence": [
+        "native-ui/32-slow-get-controls-locked.json",
+        "native-ui/33-slow-get-keyboard-remains-locked.json",
+        "native-ui/34-slow-get-finished-controls-restored.json",
+        "native-ui/35-settings-overlay-draft-locked.json",
+        "native-ui/36-settings-overlay-keyboard-no-send.json",
+        "native-ui/37-overlay-closed-draft-preserved.json",
+        "local-fixture/get-message-delay-armed-proof.json",
+        "local-fixture/get-message-delay-executed-proof.json",
+        "local-fixture/get-message-delay-projection-rejected-counted-both-phases.json",
+        "local-fixture/get-message-delay-disarmed-proof.json",
+        "local-fixture/modal-keyboard-no-send-proof.json"
+      ]
+    },
+    {
+      "id": "J06",
+      "title": "Ambiguïté de révision et sources d'un résultat avancé après redémarrage",
+      "covers": [
+        "W20",
+        "W21"
+      ],
+      "setup": [
+        "Documents synthétiques avec identité canonique connue et conflit de révision injecté explicitement comme fixture.",
+        "Worker backend réel ; modeprovider advanced_answered qui cite l'evidenceId réellement reçu pour une seule assertion ORION4826."
+      ],
+      "actions": [
+        "Préparer la session d'ambiguïté via seed-source-ambiguity-session.ps1, puis cliquer le lien concerné dans WinUI.",
+        "Vérifier l'absence d'ouverture arbitraire et le traitement explicite de l'ambiguïté.",
+        "Lancer un job avancé contrôlé avec source canonique, attendre son résultat terminal puis fermer et redémarrer le client.",
+        "Vérifier même job/message terminal, carte source persistée et ouverture du PDF de test à la bonne page."
+      ],
+      "checks": [
+        {
+          "id": "J06_AMBIGUOUS_REVISION",
+          "baseScenario": "W20",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Lien sans révision discriminante résolu par refus/choix explicite ; aucun homonyme ou révision arbitraire ouvert.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J06_ADVANCED_TERMINAL_SOURCE",
+          "baseScenario": "W21",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Résultat du vrai worker déterministe contient une source liée à l'identité canonique et le client affiche sa carte.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J06_TERMINAL_RESTART",
+          "baseScenario": "W21",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Après redémarrage, même job et même message terminal, sans duplication ni redéclenchement modèle/job.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J06_ADVANCED_SOURCE_OPEN",
+          "baseScenario": "W21",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Carte persistée ouvre le bon document synthétique et la bonne page, constatés dans le visualiseur.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        }
+      ],
+      "evidence": [
+        "Seed d'ambiguïté explicitement marqué synthétique, captures du lien et du refus/choix, événements source.open/resolve.",
+        "Job/message/source identités et hashes durables avant/après redémarrage ; journal worker/protocole.",
+        "Captures natives carte après redémarrage et visualiseur PDF limité au document synthétique ; preuve du nombre de jobs/messages inchangé."
+      ],
+      "limits": [
+        "L'identité concurrente synthétique ne constitue pas une vraie révision canonique ingérée.",
+        "Le fournisseuranswered est une fixture de protocole ; aucun succès Terra ou planning de repas n'est revendiqué.",
+        "Ne pas publier de capture du visualiseur incluant d'autres onglets ou données privées."
+      ],
+      "status": "PLAN_NON_EXECUTE",
+      "executionEvidence": []
+    }
+  ],
+  "passRule": [
+    "Chaque PASS requiert une observation native explicite de root et ses captures/arbres correspondants.",
+    "Relier cette observation aux preuves durables/protocole et au même profil/binaire ; les tests offline et une intention ne suffisent pas.",
+    "L'absence d'une action ou un simple état de bouton ne prouve pas une tentative clavier, un scroll, une annulation ou un redémarrage.",
+    "Conserver les échecs, corrections d'oracle et limites de couverture ; ne pas réécrire les anciennes preuves.",
+    "Distinguer PASS_OBSERVED (UI) et PASS_FIXTURE (protocole déterministe), UNIT_ONLY et NON_EXECUTE."
+  ],
+  "overallApprovalClaimed": false,
+  "paidCallsAuthorizedByThisPlan": false,
+  "terraExecuted": false,
+  "privacyReview": [
+    {
+      "publicProjection": "native-ui/01-first-setup-before-edit.json",
+      "originalStateBytesHashVerified": true,
+      "privateScreenshotHashesVerified": true,
+      "publicPngCount": 0,
+      "redactionScope": "Private example host/IP placeholders only; tested loopback fields retained."
+    },
+    {
+      "publicProjection": "native-ui/02-first-setup-edited-before-cancel.json",
+      "originalStateBytesHashVerified": true,
+      "privateScreenshotHashesVerified": true,
+      "publicPngCount": 0,
+      "redactionScope": "Private example host/IP placeholders only; tested loopback fields retained."
+    },
+    {
+      "publicProjection": "native-ui/04-first-setup-restart-original-values.json",
+      "originalStateBytesHashVerified": true,
+      "privateScreenshotHashesVerified": true,
+      "publicPngCount": 0,
+      "redactionScope": "Private example host/IP placeholders only; tested loopback fields retained."
+    },
+    {
+      "publicProjection": "native-ui/05-first-setup-invalid-key-401.json",
+      "originalStateBytesHashVerified": true,
+      "privateScreenshotHashesVerified": true,
+      "publicPngCount": 0,
+      "redactionScope": "Private example host/IP placeholders only; tested loopback fields retained."
+    },
+    {
+      "publicProjection": "native-ui/06-first-setup-key-repaired-same-wizard.json",
+      "originalStateBytesHashVerified": true,
+      "privateScreenshotHashesVerified": true,
+      "publicPngCount": 0,
+      "redactionScope": "Private example host/IP placeholders only; tested loopback fields retained."
+    }
+  ],
+  "observedCounts": {
+    "plannedChecksRemaining": 4,
+    "originalPartialScenariosCoveredWithinScope": [
+      "W02",
+      "W04",
+      "W05",
+      "W25",
+      "W08",
+      "W16"
+    ],
+    "completedSequences": 4,
+    "passedChecks": 11,
+    "failedChecks": 0,
+    "plannedSequencesRemaining": 1,
+    "sequencesObservedAwaitingProductRetest": 1,
+    "checksObservedAwaitingProductRetest": 5,
+    "earlierPartialScenariosObservedAwaitingRetest": [
+      "W15",
+      "W27"
+    ]
+  },
+  "deliveryCommit": "81c8028f6d71384351a6e9000e79bfc852859a20",
+  "additionalLimits": [
+    "Wizard observations01/02/04/05/06 cite public JSON projections only; their original screenshots remain private and are not published PNG references.",
+    "403 and late401 native variants remain unexecuted; existing unit-only coverage is not promoted.",
+    "No model or paid-provider result is claimed.",
+    "Observation09 description contains519? as a typo, explicitly corrected by observation10; tested endpoints are5169/5177 as shown by the profile and wire proofs.",
+    "first-setup and fallback-prefs are separate profiles sharing the same isolated test user/session by design; their data are not claimed to be independent user populations.",
+    "Appearance coverage is a declared UI sample, not all themes/states/source cards.",
+    "J04 remains pending the explicitly announced build10 routing correction retest despite successful build09 UI/cancellation observations.",
+    "The long response delays are injected fixture timings, not a local model latency measurement.",
+    "The deletion evidence package was corrected before publication; local rejected commit4472bb9 was never pushed, per root confirmation.",
+    "J06 remains PLAN_NON_EXECUTE in this snapshot.",
+    "J05 proves keyboard blocking during a visibly locked loading transition and modal, not a keypress independently timed while the HTTP GET itself was pending.",
+    "The20s delay is injected fixture time, not backend latency performance."
+  ],
+  "j02DurableCheckSummary": {
+    "finalRestartPassed": 8,
+    "beforeRestartPassed": 6,
+    "evidence": "local-fixture/fallback-prefs-restart-proof.json",
+    "failed": 0
+  },
+  "j04AttemptBoundaries": [
+    {
+      "evidence": "local-fixture/long-stream-attempt1-diagnosis.json",
+      "status": "REJECTED_NOT_STREAMING_VALIDATION",
+      "attempt": 1,
+      "fixtureCalls": 4,
+      "streamingRequests": 0
+    },
+    {
+      "evidence": "local-fixture/long-stream-attempt2-natural-completion-proof.json",
+      "status": "NATURAL_COMPLETION_SCROLL_OBSERVED_CANCEL_NOT_VALIDATED",
+      "attempt": 2
+    },
+    {
+      "evidence": "local-fixture/long-stream-attempt3-cancel-persistence-proof.json",
+      "status": "CANCELLATION_AFTER_VISIBLE_DELTAS_AND_LATE_STABILITY_OBSERVED_BUILD09",
+      "attempt": 3,
+      "lateStability": "local-fixture/long-stream-cancel-late-stability-proof.json"
+    }
+  ],
+  "pendingProductChange": {
+    "unitBoundary": "Historical4923 anchors build09. A separate stable ClientCore80+Client2396=2476 run validates the routing correction source; build10 native J04 retest still required.",
+    "change": "General-chat routing correction by another agent",
+    "productionRetest": "Build10 required before closing J04 against new product code",
+    "reportedBy": "root",
+    "latestClientUnitManifest": "final-core-client-unit-build10/manifest.json"
+  },
+  "publishedDeletionEvidenceCommit": "ccd0f8f7f54bac0ea92538199062326db305f761"
+}

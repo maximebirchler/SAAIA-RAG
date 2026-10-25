@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "saaia-winui-advanced-terminal-preparation-review.v1",
+  "capturedAtUtc": "2026-10-25T15:50:23.0360624+00:00",
+  "status": "WORKER_API_SQL_PDF_PROVEN_NATIVE_RESUME_PREPARED",
+  "sourceCommitBeforeAdditionalHelper": "81c8028f6d71384351a6e9000e79bfc852859a20",
+  "toolingAddedAfterEarlierOfflineProof": [
+    {
+      "path": "tools/validation-winui/prepare-advanced-terminal-resume.ps1",
+      "sha256": "41847CF7B57E34B504FDD67EC3A990C1AF0ED5523A3E19C7A6664B6715B2ABD1"
+    },
+    {
+      "path": "tools/validation-winui/journey-completion.md",
+      "sha256": "64F830DFAFE2C53B3C214A186353C5DDECA0ED7539F19DE7DDFF2DE819C7A7DD"
+    }
+  ],
+  "earlierOfflineProofUnmodified": "tooling-offline-acceptance.json",
+  "meaningfulHelperVerification": [
+    "PowerShell parser0errors",
+    "Plan branch passed without HTTP mutation",
+    "Execute created one acknowledged pending assistant/profile",
+    "Read-only SQL7of7 preparation checks"
+  ],
+  "realWorkerPreflightChecks": "12/12",
+  "productionSourcesChanged": false,
+  "profileName": "advanced-terminal",
+  "userId": "8824293c-0a7d-427a-9b63-f6f455835c77",
+  "sessionId": "36ab9c16-4bd0-4e48-a7b7-53a4be920436",
+  "jobId": "08655291-6f0f-4d34-8f58-fa8a9dffd49b",
+  "handoffId": "2e053aa2-c643-48af-8559-81acf6caf403",
+  "assistantMessageId": "f0e3aba3-2ef0-4f11-9257-0f92b6858116",
+  "pendingClientRevision": 1,
+  "actualTerminalJobRevision": 4,
+  "advancedProviderCallsBeforeNative": 2,
+  "jobCountBeforeNative": 1,
+  "messageCountBeforeNative": 1,
+  "nativeUiExecuted": false,
+  "nativeCreationRouteValidated": false,
+  "workerTerminalInjected": false,
+  "finalAnswerSeeded": false,
+  "finalSourcesSeeded": false,
+  "nativeInstruction": "Close the current client through UI, launch the named advanced-terminal profile with a unique evidence name, observe the real tracker replacing/PATCHing the same assistant from the existing terminal job. Then restart and compare the same identities/sources with unchanged job/provider counts.",
+  "references": [
+    {
+      "path": "advanced-answered-owned-launch.json",
+      "sha256": "91C1605695D175D5E5F7C11F5E9868199794014772C14FCADB2FF02F7447B857"
+    },
+    {
+      "path": "advanced-answered-independent-preflight-review.json",
+      "sha256": "7CBD13E7BDFCD780A33DF738597409832D37257BB79697C4C73A2DD34A0FDD7B"
+    },
+    {
+      "path": "advanced-terminal-before-native-baseline.json",
+      "sha256": "F536BCDCF90B51A687EF1A9B700ECFCDE3354A050353485608E4820B423B6A86"
+    },
+    {
+      "path": "local-fixture/advanced-answered-preflight.json",
+      "sha256": "07C2288E18A69C0236741999FBFBC5F4D4C52A9CB97C648FB55E1114BF495E87"
+    },
+    {
+      "path": "local-fixture/advanced-terminal-pending-fixture.json",
+      "sha256": "6D4BF42FB875833ABA9E69E33A28AE5C611A4A009AAC321D8A1D0508C5837B91"
+    }
+  ],
+  "productStatus": "TESTE_NON_APPROUVE"
+}

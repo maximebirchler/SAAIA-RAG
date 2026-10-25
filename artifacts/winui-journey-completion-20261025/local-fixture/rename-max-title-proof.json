@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "saaia-winui-rename-max-title-proof.v1",
+  "capturedAtUtc": "2026-10-25T15:52:23.0790932+00:00",
+  "readOnly": true,
+  "status": "PASSED",
+  "checkCount": 7,
+  "failedCheckCount": 0,
+  "inactiveSessionId": "52616ce3-3c4e-4d4f-9a64-bc577e4cb90f",
+  "activeSessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+  "actualLastSessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+  "persistedInactiveTitle": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRX",
+  "titleLength": 120,
+  "checks": [
+    {
+      "name": "title_has_exact120_characters",
+      "passed": true
+    },
+    {
+      "name": "title_is119R_plus_X_no_Y",
+      "passed": true
+    },
+    {
+      "name": "same_active_session_selected",
+      "passed": true
+    },
+    {
+      "name": "active_title_hash_unchanged",
+      "passed": true
+    },
+    {
+      "name": "no_messages_added_removed_or_changed",
+      "passed": true
+    },
+    {
+      "name": "no_sessions_added_or_removed",
+      "passed": true
+    },
+    {
+      "name": "two_successful_rename_writes_total",
+      "passed": true
+    }
+  ],
+  "renameWireResponses": [
+    {
+      "method": "PATCH",
+      "path": "/chat/sessions/52616ce3-3c4e-4d4f-9a64-bc577e4cb90f",
+      "phase": "completed",
+      "userMessageMatched": false,
+      "status": 200,
+      "action": "forward",
+      "turnId": null,
+      "atUtc": "2026-10-25T15:49:11Z"
+    },
+    {
+      "method": "PATCH",
+      "path": "/chat/sessions/52616ce3-3c4e-4d4f-9a64-bc577e4cb90f",
+      "phase": "completed",
+      "userMessageMatched": false,
+      "status": 200,
+      "action": "forward",
+      "turnId": null,
+      "atUtc": "2026-10-25T15:51:09Z"
+    }
+  ],
+  "apiSnapshot": "chat-store-snapshots/20261025T155222162Z-rename-max-title.json",
+  "apiSnapshotSha256": "857DB8FEE3E857062D87299A87E85B650D5676EFB233F13A367972165831A261",
+  "nativeInputNote": "UIA SetValue121 refused without a backend rename; separate real native typing accepted120characters. UI observations preserve the distinction."
+}

@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "saaia-winui-build11-advanced-ultimate-stability.v1",
+  "capturedAtUtc": "2026-10-25T16:37:01.3164674+00:00",
+  "readOnlySql": true,
+  "status": "PASSED",
+  "checkCount": 6,
+  "failedCheckCount": 0,
+  "lastAdvancedLaunch": {
+    "startedAtUtc": "2026-10-25T17:34:09.54427+01:00",
+    "pid": 37684,
+    "executable": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+    "assemblySha256": "A587B3A8B7F75C5EC2E7A39544831C54E1CDD147590D50DEC0543F70D2C83A7B",
+    "clientDataRoot": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-journey-completion-20261025\\local-fixture\\runtime\\client-profiles\\advanced-terminal",
+    "profileName": "advanced-terminal",
+    "documentsRoot": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-journey-completion-20261025\\local-fixture\\runtime\\documents",
+    "providerMode": "Local",
+    "externalPolicy": "ProductionLocal",
+    "inheritedProviderEnvironmentRemoved": true,
+    "purpose": "Launch only; no UI automation. Native interactions are performed separately through Computer Use."
+  },
+  "jobId": "08655291-6f0f-4d34-8f58-fa8a9dffd49b",
+  "jobRevision": 4,
+  "jobResultSha256": "65de8b74b707f6949fbee4dd69b20360a0e09381f6a6d59b75cc47bcee8c5d85",
+  "assistantMessageId": "f0e3aba3-2ef0-4f11-9257-0f92b6858116",
+  "assistantContentSha256": "c12a541f7da746c8c45d12335dbd7ed1c22b3edc10e3829d9afb6b6a60998f60",
+  "assistantSourcesJsonbSha256": "ced51bc8d84bec0e7c6d45165043d2080fd95620810fa9fc5da06cb9f2666011",
+  "providerEventsTotal": 4,
+  "providerEventsAfterLastLaunch": 0,
+  "globalCounts": {
+    "orphans": 0,
+    "sessions": 5,
+    "messages": 20,
+    "jobs": 2,
+    "activeJobs": 0
+  },
+  "checks": [
+    {
+      "name": "same_terminal_job_and_result_after_build11_restart",
+      "passed": true
+    },
+    {
+      "name": "same_single_message_content_and_sources_after_build11",
+      "passed": true
+    },
+    {
+      "name": "one_job_for_advanced_user_no_added_global_job",
+      "passed": true
+    },
+    {
+      "name": "no_provider_generation_after_build11_advanced_launch",
+      "passed": true
+    },
+    {
+      "name": "no_active_job_or_orphan_message",
+      "passed": true
+    },
+    {
+      "name": "no_winui_process_remaining",
+      "passed": true
+    }
+  ],
+  "nativeLabelLimit": "The new French label is established by native observation53; persisted content and sources are deliberately unchanged."
+}

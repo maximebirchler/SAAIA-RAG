@@ -1,0 +1,399 @@
+{
+  "schemaVersion": "saaia-winui-journey-completion-plan.v1",
+  "compiledAtUtc": "2026-10-25 15:30:44 UTC",
+  "status": "PLAN_NON_EXECUTE",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "baseMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+  "baseToolingPlan": "../../tools/validation-winui/journey-completion.md",
+  "purpose": "Exécuter six séquences natives pour borner ou lever les dix statuts PARTIAL_OBSERVED de la campagne précédente.",
+  "authority": "Demande utilisateur de validation réelle WinUI ; aucun test Terra avant validation du parcours. Suppressions limitées aux discussions fictives déjà autorisées.",
+  "executionBoundary": "Plan seulement : aucune action UI/runtime/modèle ne découle de ce fichier.",
+  "sequences": [
+    {
+      "id": "J01",
+      "title": "Configuration initiale, annulation et réparation d'authentification",
+      "covers": [
+        "W02",
+        "W04"
+      ],
+      "setup": [
+        "Profil client isolé neuf, clé initialement absente, utilisateur synthétique dédié.",
+        "Backend réel loopback ; clés valides/invalides synthétiques uniquement."
+      ],
+      "actions": [
+        "Ouvrir l'assistant initial, changer des valeurs sans appliquer puis fermer.",
+        "Comparer les paramètres non secrets et redémarrer le même profil ; vérifier conservation exacte de l'état précédemment appliqué.",
+        "Saisir une clé refusée, observer le refus, corriger la clé dans cette même instance et reconnecter."
+      ],
+      "checks": [
+        {
+          "id": "J01_CANCEL_PRESERVES",
+          "baseScenario": "W02",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Annuler ne sauvegarde pas les modifications ; paramètres appliqués identiques avant/après et après redémarrage.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J01_SETUP_RECOVERS",
+          "baseScenario": "W02",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Assistant annulé puis repris sans blocage ; connexion obtenue avec clé synthétique valide.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J01_KEY_REPAIR_SAME_INSTANCE",
+          "baseScenario": "W04",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Refus effectivement observé, puis clé remplacée dans la même instance et connexion réussie sans ancien refus persistant.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        }
+      ],
+      "evidence": [
+        "Captures/arbre natifs avant annulation, après annulation, après redémarrage et après réparation.",
+        "Empreintes/valeurs non secrètes des seuls paramètres du profil isolé ; aucune clé exportée.",
+        "Preuves HTTP de refus puis succès et ancrage de chaque lancement au DLL de production."
+      ],
+      "limits": [
+        "Les variantes403 et401 tardive restent UNIT_ONLY tant qu'une séquence native dédiée n'est pas exécutée.",
+        "Une clé masquée dans l'UI ne dispense pas de vérifier l'absence de secrets dans les preuves exportées."
+      ],
+      "status": "PLAN_NON_EXECUTE",
+      "executionEvidence": []
+    },
+    {
+      "id": "J02",
+      "title": "Persistance des alternatives, de la langue et du thème",
+      "covers": [
+        "W05",
+        "W25"
+      ],
+      "setup": [
+        "Profil isolé avec URL principale loopback indisponible et alternative loopback réelle.",
+        "Ordre initial des alternatives, langue et thème enregistrés dans les preuves sans secret."
+      ],
+      "actions": [
+        "Démarrer puis observer la bascule vers l'alternative ; appliquer langue et thème dans WinUI.",
+        "Fermer normalement, redémarrer le même profil et vérifier paramètres et état visibles.",
+        "Ouvrir les états représentatifs explicitement nommés : menus, paramètres et messages/cartes disponibles."
+      ],
+      "checks": [
+        {
+          "id": "J02_FALLBACK_ORDER_RESTART",
+          "baseScenario": "W05",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Ordre sauvegardé inchangé et alternative effectivement utilisée au second démarrage.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J02_SETTINGS_PERSIST_RESTART",
+          "baseScenario": "W25",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Langue et thème appliqués survivent au redémarrage ; messages et contrôles utiles restent lisibles.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J02_APPEARANCE_SAMPLE",
+          "baseScenario": "W25",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Sous-ensemble de menus/cartes/états réellement inspectés énuméré dans l'observation, sans prétendre couvrir toutes les combinaisons.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        }
+      ],
+      "evidence": [
+        "Captures natives des choix appliqués et du client après redémarrage.",
+        "Inventaire non secret des paramètres avant/après et journaux d'URL effective sans clé.",
+        "Manifestes de lancement et DLL identique au binaire accepté."
+      ],
+      "limits": [
+        "Aucune couverture de toutes les tailles, langues ou combinaisons d'états n'est déduite d'un seul redémarrage."
+      ],
+      "status": "PLAN_NON_EXECUTE",
+      "executionEvidence": []
+    },
+    {
+      "id": "J03",
+      "title": "Cas limites de renommage d'une discussion inactive",
+      "covers": [
+        "W08"
+      ],
+      "setup": [
+        "Deux discussions synthétiques aux IDs et messages différents ; la première demeure chargée."
+      ],
+      "actions": [
+        "Renommer l'inactive avec un titre vide et appliquer.",
+        "Renommer avec120caractères puis tenter un dépassement de la limite dans la vraie fenêtre.",
+        "Recharger l'inventaire et vérifier les titres durablement enregistrés."
+      ],
+      "checks": [
+        {
+          "id": "J03_EMPTY_TITLE",
+          "baseScenario": "W08",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Titre vide remplacé par le titre par défaut localisé ; autre discussion toujours chargée.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J03_TITLE_120_LIMIT",
+          "baseScenario": "W08",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Titre120 accepté ; saisie au-delà bornée, sans dépassement durable ni changement d'historique actif.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        }
+      ],
+      "evidence": [
+        "Captures du dialogue et de la discussion active avant/après chaque renommage.",
+        "Titres/longueurs et IDs réels côté API/SQL, sans modifier directement les titres par le banc de preuve."
+      ],
+      "limits": [
+        "Aucune suppression ni appel de modèle nécessaire."
+      ],
+      "status": "PLAN_NON_EXECUTE",
+      "executionEvidence": []
+    },
+    {
+      "id": "J04",
+      "title": "Deltas visibles, navigation volontaire, annulation et nouveau tour",
+      "covers": [
+        "W15",
+        "W27"
+      ],
+      "setup": [
+        "Fournisseur HTTP déterministe loopback uniquement, modeplain/streaming avec fragments espacés.",
+        "Réponse assez longue pour permettre un défilement volontaire ; aucun modèle réel ou fournisseur payant."
+      ],
+      "actions": [
+        "Envoyer une question synthétique par le client et attendre plusieurs deltas réellement visibles.",
+        "Remonter volontairement l'historique, observer l'absence de saut forcé, puis utiliser le bouton Aller en bas.",
+        "Annuler pendant les deltas, observer l'arrêt stable du texte et le retour des contrôles.",
+        "Recharger l'interruption persistée puis effectuer un nouveau tour contrôlé."
+      ],
+      "checks": [
+        {
+          "id": "J04_VISIBLE_DELTAS",
+          "baseScenario": "W15",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Plusieurs fragments sont réellement affichés avant annulation.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J04_CANCEL_STOPS_DELTAS",
+          "baseScenario": "W15",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Aucun nouveau fragment visible après la fin de l'annulation ; interruption durable et contrôles récupérés.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J04_NEXT_TURN_WORKS",
+          "baseScenario": "W15",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Un nouveau tour fonctionne sans fragment/annulation provenant de l'ancien propriétaire.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J04_USER_SCROLL_STABLE",
+          "baseScenario": "W27",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Le défilement volontaire vers le haut est respecté pendant les deltas.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J04_JUMP_BOTTOM",
+          "baseScenario": "W27",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Le bouton Aller en bas ramène explicitement à la fin sans perdre l'accès à la saisie.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        }
+      ],
+      "evidence": [
+        "Captures/arbre natifs pendant les deltas, après scroll, au retour en bas, pendant et après annulation puis au tour suivant.",
+        "Journal fixture avec les requêtes/fragments de la même séquence, journal client corrélé et messages persistés avant/après.",
+        "Preuve que tous les appels restent loopback et déterministes."
+      ],
+      "limits": [
+        "La fixture valide protocole et parcours ; aucune qualité sémantique de modèle n'est inférée.",
+        "Les limites de tailles de fenêtre de l'ancienne matrice restent explicites."
+      ],
+      "status": "PLAN_NON_EXECUTE",
+      "executionEvidence": []
+    },
+    {
+      "id": "J05",
+      "title": "Admission clavier pendant lecture lente et derrière un dialogue",
+      "covers": [
+        "W16"
+      ],
+      "setup": [
+        "Proxy storage owned avec un seul GETmessages retardé pour un UUID de session explicite.",
+        "Clés de contrôle : delayGetMessagesSessionId, delayGetMessagesRemaining=1 et delayGetMessagesSeconds≤30 ; autres injections désactivées."
+      ],
+      "actions": [
+        "Demander le chargement de la session ciblée, attendre la lecture réellement en cours puis tenter les actions clavier/contrôles prévus.",
+        "Pendant un dialogue de configuration ou paramètres, tenter un raccourci d'envoi/changement de discussion derrière le dialogue.",
+        "Fermer ou terminer l'opération et vérifier la récupération normale."
+      ],
+      "checks": [
+        {
+          "id": "J05_SLOW_GET_ADMISSION",
+          "baseScenario": "W16",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Aucun envoi ou changement supplémentaire de session/mémoire avant fin du propriétaire de lecture.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J05_MODAL_KEYBOARD_ADMISSION",
+          "baseScenario": "W16",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Les actions clavier derrière le dialogue ne lancent pas de tour ni ne changent l'identité chargée.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J05_RECOVERY",
+          "baseScenario": "W16",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Après libération, la discussion attendue est chargée et les contrôles fonctionnent sans doublon.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        }
+      ],
+      "evidence": [
+        "Captures/arbre natifs pendant lecture et dialogue, avec actions effectivement tentées décrites.",
+        "Proxy : GETciblé unique retardé et contrôle consommé ; absence de POSTmessage/DELETE/job inattendu.",
+        "Snapshots durables et diagnostics d'admission avant/après."
+      ],
+      "limits": [
+        "Un bouton grisé seul ne prouve pas la tentative clavier ; les actions exécutées doivent être consignées explicitement."
+      ],
+      "status": "PLAN_NON_EXECUTE",
+      "executionEvidence": []
+    },
+    {
+      "id": "J06",
+      "title": "Ambiguïté de révision et sources d'un résultat avancé après redémarrage",
+      "covers": [
+        "W20",
+        "W21"
+      ],
+      "setup": [
+        "Documents synthétiques avec identité canonique connue et conflit de révision injecté explicitement comme fixture.",
+        "Worker backend réel ; modeprovider advanced_answered qui cite l'evidenceId réellement reçu pour une seule assertion ORION4826."
+      ],
+      "actions": [
+        "Préparer la session d'ambiguïté via seed-source-ambiguity-session.ps1, puis cliquer le lien concerné dans WinUI.",
+        "Vérifier l'absence d'ouverture arbitraire et le traitement explicite de l'ambiguïté.",
+        "Lancer un job avancé contrôlé avec source canonique, attendre son résultat terminal puis fermer et redémarrer le client.",
+        "Vérifier même job/message terminal, carte source persistée et ouverture du PDF de test à la bonne page."
+      ],
+      "checks": [
+        {
+          "id": "J06_AMBIGUOUS_REVISION",
+          "baseScenario": "W20",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Lien sans révision discriminante résolu par refus/choix explicite ; aucun homonyme ou révision arbitraire ouvert.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J06_ADVANCED_TERMINAL_SOURCE",
+          "baseScenario": "W21",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Résultat du vrai worker déterministe contient une source liée à l'identité canonique et le client affiche sa carte.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J06_TERMINAL_RESTART",
+          "baseScenario": "W21",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Après redémarrage, même job et même message terminal, sans duplication ni redéclenchement modèle/job.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        },
+        {
+          "id": "J06_ADVANCED_SOURCE_OPEN",
+          "baseScenario": "W21",
+          "status": "PLAN_NON_EXECUTE",
+          "acceptance": "Carte persistée ouvre le bon document synthétique et la bonne page, constatés dans le visualiseur.",
+          "actualObservation": null,
+          "nativeEvidence": [],
+          "durableEvidence": [],
+          "diagnosticEvidence": []
+        }
+      ],
+      "evidence": [
+        "Seed d'ambiguïté explicitement marqué synthétique, captures du lien et du refus/choix, événements source.open/resolve.",
+        "Job/message/source identités et hashes durables avant/après redémarrage ; journal worker/protocole.",
+        "Captures natives carte après redémarrage et visualiseur PDF limité au document synthétique ; preuve du nombre de jobs/messages inchangé."
+      ],
+      "limits": [
+        "L'identité concurrente synthétique ne constitue pas une vraie révision canonique ingérée.",
+        "Le fournisseuranswered est une fixture de protocole ; aucun succès Terra ou planning de repas n'est revendiqué.",
+        "Ne pas publier de capture du visualiseur incluant d'autres onglets ou données privées."
+      ],
+      "status": "PLAN_NON_EXECUTE",
+      "executionEvidence": []
+    }
+  ],
+  "passRule": [
+    "Chaque PASS requiert une observation native explicite de root et ses captures/arbres correspondants.",
+    "Relier cette observation aux preuves durables/protocole et au même profil/binaire ; les tests offline et une intention ne suffisent pas.",
+    "L'absence d'une action ou un simple état de bouton ne prouve pas une tentative clavier, un scroll, une annulation ou un redémarrage.",
+    "Conserver les échecs, corrections d'oracle et limites de couverture ; ne pas réécrire les anciennes preuves.",
+    "Distinguer PASS_OBSERVED (UI) et PASS_FIXTURE (protocole déterministe), UNIT_ONLY et NON_EXECUTE."
+  ],
+  "overallApprovalClaimed": false,
+  "paidCallsAuthorizedByThisPlan": false,
+  "terraExecuted": false
+}

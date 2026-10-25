@@ -1,0 +1,110 @@
+{
+  "schemaVersion": "saaia-winui-initial-setup-auth-persistence-proof.v1",
+  "capturedAtUtc": "2026-10-25T15:42:25.4329642+00:00",
+  "readOnly": true,
+  "profileName": "first-setup",
+  "status": "PASSED",
+  "checkCount": 9,
+  "failedCheckCount": 0,
+  "lastSessionId": "063c46ae-aa08-46d5-8f9d-8ed9f2ab81b1",
+  "restartPid": 40468,
+  "restartStartedAtUtc": "2026-10-25T16:40:59.2629963+01:00",
+  "wireTimestampResolution": "Whole seconds; restart bounds rounded to seconds and ended before next profile launch",
+  "badKeyResponses": [
+    {
+      "method": "POST",
+      "path": "/chat/sessions",
+      "phase": "completed",
+      "userMessageMatched": false,
+      "status": 401,
+      "action": "forward",
+      "turnId": null,
+      "atUtc": "2026-10-25T15:40:00Z"
+    }
+  ],
+  "goodKeyResponses": [
+    {
+      "method": "POST",
+      "path": "/chat/sessions",
+      "phase": "completed",
+      "userMessageMatched": false,
+      "status": 200,
+      "action": "forward",
+      "turnId": null,
+      "atUtc": "2026-10-25T15:40:25Z"
+    },
+    {
+      "method": "POST",
+      "path": "/chat/sessions",
+      "phase": "completed",
+      "userMessageMatched": false,
+      "status": 200,
+      "action": "forward",
+      "turnId": null,
+      "atUtc": "2026-10-25T15:40:36Z"
+    }
+  ],
+  "restartResponses": [
+    {
+      "method": "GET",
+      "path": "/chat/sessions",
+      "phase": "completed",
+      "userMessageMatched": false,
+      "status": 200,
+      "action": "forward",
+      "turnId": null,
+      "atUtc": "2026-10-25T15:40:59Z"
+    },
+    {
+      "method": "GET",
+      "path": "/chat/sessions/063c46ae-aa08-46d5-8f9d-8ed9f2ab81b1/messages",
+      "phase": "completed",
+      "userMessageMatched": false,
+      "status": 200,
+      "action": "forward",
+      "turnId": null,
+      "atUtc": "2026-10-25T15:40:59Z"
+    }
+  ],
+  "protectedKeyVerifiedInMemoryOnly": true,
+  "keyOrProtectedBlobPublished": false,
+  "checks": [
+    {
+      "name": "backend_key_dpapi_present_and_matches_owned_fixture",
+      "passed": true
+    },
+    {
+      "name": "no_plaintext_or_paid_provider_key_persisted",
+      "passed": true
+    },
+    {
+      "name": "loopback_backend_and_autoconnect_persisted",
+      "passed": true
+    },
+    {
+      "name": "same_isolated_user",
+      "passed": true
+    },
+    {
+      "name": "one_bad_key_401_observed",
+      "passed": true
+    },
+    {
+      "name": "good_key_200_after_401_before_restart",
+      "passed": true
+    },
+    {
+      "name": "restart_has_no_401_or_403",
+      "passed": true
+    },
+    {
+      "name": "restart_inventory_200",
+      "passed": true
+    },
+    {
+      "name": "restart_same_session_messages_200",
+      "passed": true
+    }
+  ],
+  "limits": "UI wizard reuse, masked entry and localized labels are proved separately by native observations01–08."
+}

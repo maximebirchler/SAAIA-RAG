@@ -1,0 +1,180 @@
+{
+  "schemaVersion": "saaia-winui-catalog-validation.v1",
+  "productCodeModified": false,
+  "usedProductionSnapshotBuilder": true,
+  "passed": true,
+  "archiveScopedDocuments": {
+    "value": [
+      {
+        "documentRef": "doc_1438107414ae52a79d8b58eea4a50585",
+        "docId": "14381074-14ae-52a7-9d8b-58eea4a50585",
+        "docPath": "Archive/Guide-Validation.pdf",
+        "canonicalName": "Guide-Validation.pdf",
+        "categoryRef": "cat_001",
+        "categoryCanonicalName": "Archive",
+        "categoryPath": "Archive",
+        "pages": 1,
+        "sourceHash": "cc0b33e8f5ae1e29d13c5b3d6ee7ddda",
+        "docLanguage": null,
+        "profileLanguage": null,
+        "lastModifiedUtc": "2026-10-25T16:34:55.575557+01:00"
+      }
+    ],
+    "nextLink": null
+  },
+  "validationScopedDocuments": {
+    "value": [
+      {
+        "documentRef": "doc_aca1a813c59359e5bdf21cd12d1b8e40",
+        "docId": "aca1a813-c593-59e5-bdf2-1cd12d1b8e40",
+        "docPath": "Validation/Guide-Validation.pdf",
+        "canonicalName": "Guide-Validation.pdf",
+        "categoryRef": "cat_002",
+        "categoryCanonicalName": "Validation",
+        "categoryPath": "Validation",
+        "pages": 2,
+        "sourceHash": "8a053c4ea11d09d8ffbd4611cec8fe03",
+        "docLanguage": null,
+        "profileLanguage": null,
+        "lastModifiedUtc": "2026-10-25T16:34:55.575557+01:00"
+      }
+    ],
+    "nextLink": null
+  },
+  "refresh": {
+    "tenants": [
+      {
+        "tenantId": "77777777-7777-4777-8777-777777777777",
+        "success": true,
+        "message": "ok",
+        "docs": 2,
+        "nodes": 3,
+        "computedAtUtc": "2026-10-25T15:34:55.7757343Z"
+      }
+    ]
+  },
+  "reason": "Document SQL seed alone does not build catalog projections when periodic CatalogSnapshot is disabled.",
+  "existingDatabaseModified": false,
+  "uiValidation": false,
+  "categories": {
+    "value": [
+      {
+        "categoryRef": "cat_001",
+        "categoryPath": "Archive",
+        "canonicalName": "Archive",
+        "displayOrder": 1,
+        "documentCount": 1,
+        "directDocumentCount": 1,
+        "subfolderCount": 0,
+        "lastUpdatedUtc": "2026-10-25T16:34:55.775734+01:00",
+        "aliases": []
+      },
+      {
+        "categoryRef": "cat_002",
+        "categoryPath": "Validation",
+        "canonicalName": "Validation",
+        "displayOrder": 2,
+        "documentCount": 1,
+        "directDocumentCount": 1,
+        "subfolderCount": 0,
+        "lastUpdatedUtc": "2026-10-25T16:34:55.775734+01:00",
+        "aliases": []
+      }
+    ],
+    "nextLink": null
+  },
+  "documents": {
+    "value": [
+      {
+        "documentRef": "doc_1438107414ae52a79d8b58eea4a50585",
+        "docId": "14381074-14ae-52a7-9d8b-58eea4a50585",
+        "docPath": "Archive/Guide-Validation.pdf",
+        "canonicalName": "Guide-Validation.pdf",
+        "categoryRef": "cat_001",
+        "categoryCanonicalName": "Archive",
+        "categoryPath": "Archive",
+        "pages": 1,
+        "sourceHash": "cc0b33e8f5ae1e29d13c5b3d6ee7ddda",
+        "docLanguage": null,
+        "profileLanguage": null,
+        "lastModifiedUtc": "2026-10-25T16:34:55.575557+01:00"
+      },
+      {
+        "documentRef": "doc_aca1a813c59359e5bdf21cd12d1b8e40",
+        "docId": "aca1a813-c593-59e5-bdf2-1cd12d1b8e40",
+        "docPath": "Validation/Guide-Validation.pdf",
+        "canonicalName": "Guide-Validation.pdf",
+        "categoryRef": "cat_002",
+        "categoryCanonicalName": "Validation",
+        "categoryPath": "Validation",
+        "pages": 2,
+        "sourceHash": "8a053c4ea11d09d8ffbd4611cec8fe03",
+        "docLanguage": null,
+        "profileLanguage": null,
+        "lastModifiedUtc": "2026-10-25T16:34:55.575557+01:00"
+      }
+    ],
+    "nextLink": null
+  },
+  "performedAtUtc": "2026-10-25T15:34:55.9379851+00:00",
+  "stats": {
+    "scopePath": "",
+    "totalDocuments": 2,
+    "maxDepth": 1,
+    "totalNonEmptyFolders": 2,
+    "topLevelFolderCount": 2,
+    "leafFolderCount": 2,
+    "foldersByDepth": [
+      {
+        "depth": 1,
+        "folderCount": 2
+      }
+    ],
+    "documentsByDepth": [
+      {
+        "depth": 1,
+        "documentCount": 2
+      }
+    ],
+    "rootFolders": [
+      {
+        "path": "Archive",
+        "name": "Archive",
+        "totalDocuments": 1,
+        "directDocuments": 1,
+        "subfolderCount": 0
+      },
+      {
+        "path": "Validation",
+        "name": "Validation",
+        "totalDocuments": 1,
+        "directDocuments": 1,
+        "subfolderCount": 0
+      }
+    ],
+    "includesEmptyFolders": false,
+    "emptyFoldersKnown": false,
+    "folderTree": {
+      "name": "",
+      "path": "",
+      "docCount": 2,
+      "directDocCount": 0,
+      "children": [
+        {
+          "name": "Archive",
+          "path": "Archive",
+          "docCount": 1,
+          "directDocCount": 1,
+          "children": []
+        },
+        {
+          "name": "Validation",
+          "path": "Validation",
+          "docCount": 1,
+          "directDocCount": 1,
+          "children": []
+        }
+      ]
+    }
+  }
+}

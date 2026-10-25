@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "saaia-winui-delayed-get-load-proof.v1",
+  "capturedAtUtc": "2026-10-25T16:11:36.9075437+00:00",
+  "readOnly": true,
+  "status": "PASSED",
+  "checkCount": 7,
+  "failedCheckCount": 0,
+  "windowStartUtc": "2026-10-25T16:07:02.0000000+00:00",
+  "targetSessionId": "52616ce3-3c4e-4d4f-9a64-bc577e4cb90f",
+  "actualLastSessionId": "52616ce3-3c4e-4d4f-9a64-bc577e4cb90f",
+  "observedDelaySeconds": 20.0,
+  "postRequestCount": 0,
+  "modelRequestCount": 0,
+  "actualDelayRequestEvents": [
+    {
+      "method": "GET",
+      "path": "/chat/sessions/52616ce3-3c4e-4d4f-9a64-bc577e4cb90f/messages",
+      "userMessageMatched": false,
+      "action": "synthetic_message_load_delay",
+      "delaySeconds": 20.0,
+      "requestSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "traceparent": null,
+      "turnId": null,
+      "sessionId": null,
+      "messageGetSessionId": "52616ce3-3c4e-4d4f-9a64-bc577e4cb90f",
+      "atUtc": "2026-10-25T16:08:17Z"
+    }
+  ],
+  "actualCompletedGets": [
+    {
+      "method": "GET",
+      "path": "/chat/sessions/52616ce3-3c4e-4d4f-9a64-bc577e4cb90f/messages",
+      "phase": "completed",
+      "userMessageMatched": false,
+      "status": 200,
+      "action": "synthetic_message_load_delay",
+      "turnId": null,
+      "atUtc": "2026-10-25T16:08:37Z"
+    }
+  ],
+  "checks": [
+    {
+      "name": "exactly_one_targeted_delay_request",
+      "passed": true
+    },
+    {
+      "name": "one_targeted_get_completed_200",
+      "passed": true
+    },
+    {
+      "name": "observed_delay20_seconds_with_timestamp_resolution",
+      "passed": true
+    },
+    {
+      "name": "delay_counter_consumed_once",
+      "passed": true
+    },
+    {
+      "name": "no_post_request_in_observed_window",
+      "passed": true
+    },
+    {
+      "name": "no_model_request_in_observed_window",
+      "passed": true
+    },
+    {
+      "name": "last_session_is_loaded_target",
+      "passed": true
+    }
+  ],
+  "rejectedProjection": "get-message-delay-projection-rejected-counted-both-phases.json",
+  "rejectionReason": "Initial projection counted both request and completed events with the same action as two injections. Accepted projection distinguishes phases; raw wire evidence is unchanged.",
+  "limits": "HTTP timing and persistence prove this targeted request; native observations32–34 separately establish disabled/released controls and Ctrl+Enter handling."
+}

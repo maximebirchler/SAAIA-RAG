@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "saaia-native-journey-observation.v1",
+  "capturedAtUtc": "2026-10-25T16:23:27.310Z",
+  "description": "Le suivi natif a récupéré le résultat terminal du job réel isolé : code ORION4826, citation C1 et carte Guide-Validation.pdf p2 avec révision canonique. Le message initial était en attente ; aucun texte terminal injecté dans son stockage préparatoire.",
+  "window": {
+    "app": "process:C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+    "id": 115346306,
+    "title": "SAAIA"
+  },
+  "accessibility": {
+    "focused_element": "36 modifier (settable, string) Tape ta question... ID: InputBox",
+    "tree": "Window: \"SAAIA\", App: SAAIA.Client.WinUI.exe.\n\t0 fenêtre SAAIA Secondary Actions: Raise\n\t\t1 volet Non Client Input Sink Window\n\t\t2 volet AppWindow Custom Title Bar\n\t\t\t3 Bouton Minimize ID: Minimize\n\t\t\t4 Bouton Maximize ID: Maximize\n\t\t\t5 Bouton Close ID: Close\n\t\t6 volet\n\t\t\t7 volet\n\t\t\t\t8 image\n\t\t\t\t9 texte SAAIA\n\t\t\t\t10 bouton Discussions ID: ChatsToggleButton\n\t\t\t\t11 bouton Configuration ID: SetupButton\n\t\t\t\t12 bouton Aide ID: HeaderHelpButton\n\t\t\t\t\t13 texte ?\n\t\t\t\t14 bouton Paramètres ID: HeaderSettingsButton\n\t\t\t\t15 texte Discussions ID: ChatsHeaderText\n\t\t\t\t16 bouton Nouveau ID: NewChatButton\n\t\t\t\t17 liste ID: SessionsList\n\t\t\t\t\t18 élément de liste (selectable) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t19 texte Isolated worker protocol preflight\n\t\t\t\t\t\t20 texte 25.10 16:48\n\t\t\t\t\t\t21 bouton …\n\t\t\t\t22 volet ID: MessagesScroll\n\t\t\t\t\t23 liste ID: MessagesList\n\t\t\t\t\t\t24 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t25 image\n\t\t\t\t\t\t\t26 texte Résultat contrôlé du parcours avancé : le code ORION est 4826. [C1] ID: Rtb\n\t\t\t\t\t\t\t27 texte Sources ID: SourcesHeaderText\n\t\t\t\t\t\t\t28 texte Guide-Validation.pdf\n\t\t\t\t\t\t\t29 texte p. 2\n\t\t\t\t\t\t\t30 texte\n\t\t\t\t\t\t\t31 texte [advanced-evidence-3cee89eb4403b608079c34fb7a4b7496] | type contenu contenu | rév. 840c999b2b\n\t\t\t\t\t\t\t32 texte\n\t\t\t\t\t\t\t33 bouton Ouvrir\n\t\t\t\t\t\t\t34 bouton ID: CopyBtn\n\t\t\t\t\t\t\t35 texte 25.10 16:48\n\t\t\t\t36 modifier (settable, string) Tape ta question... ID: InputBox\n\t\t\t\t37 bouton (disabled) Envoyer ID: SendCancelButton\n\t\t38 barre de titre (settable, string) Value: SAAIA\n\t\t\t39 barre de menus Système ID: MenuBar\n\t\t\t\t40 élément de menu Système\n\t\t\t41 Bouton Réduire\n\t\t\t42 Bouton Agrandir\n\t\t\t43 Bouton Fermer\n\nThe focused UI element is 36 modifier (settable, string) Tape ta question... ID: InputBox."
+  },
+  "screenshots": [
+    "49-build10-advanced-terminal-resumed-0.png"
+  ]
+}

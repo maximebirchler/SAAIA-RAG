@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "saaia-winui-build10-original-phrase-stream-preparation.v1",
+  "preparedAtUtc": "2026-10-25T16:14:23.4874337+00:00",
+  "clientBuild": "production_build10",
+  "clientAssemblySha256": "579E5F02D869E1780D86248B67EE762405D8F156452068F14BF7F306CDCBEB7F",
+  "profileName": "primary",
+  "explicitlyPreparedLastSessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+  "previousLastSessionId": "52616ce3-3c4e-4d4f-9a64-bc577e4cb90f",
+  "profileChange": "Only owned primary LastSessionId switched to existing active witness as requested; private settings backup retained",
+  "backendUrl": "http://127.0.0.1:5177",
+  "uiLanguage": "fr",
+  "uiTheme": "dark",
+  "mode": "success",
+  "chunkDelaySeconds": 0.5,
+  "delaySeconds": 0,
+  "toolName": "submit_operational_route",
+  "toolArguments": {
+    "intent": "chat.general",
+    "toolName": "chat.general",
+    "toolArgs": {}
+  },
+  "responseCharacters": 5838,
+  "responseSha256": "4B927808B47868A2BAC613B97F6E1CB24C5927A514625B7107AE373CDD9FDF4A",
+  "controlSha256": "C9426A1A9BA10E3BB9054DCCDCFDCDF7BE016F581E01540065A6067115FA49EE",
+  "allStorageFaultsDisarmed": true,
+  "clientLaunched": false,
+  "chatRequestedByScript": false
+}

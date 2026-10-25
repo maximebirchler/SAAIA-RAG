@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "saaia-winui-fallback-preferences-restart-proof.v1",
+  "capturedAtUtc": "2026-10-25T15:46:59.8505916+00:00",
+  "readOnly": true,
+  "status": "PASSED",
+  "checkCount": 8,
+  "failedCheckCount": 0,
+  "restartPid": 13308,
+  "restartStartedAtUtc": "2026-10-25T16:45:11.9124921+01:00",
+  "wireWindowStart": "2026-10-25T15:45:11.0000000+00:00",
+  "wireWindowEndExclusive": "2026-10-25T15:45:21.0000000+00:00",
+  "backendUrl": "http://127.0.0.1:5169",
+  "backendUrlAlternates": "http://127.0.0.1:5177",
+  "uiLanguage": "en",
+  "uiTheme": "light",
+  "lastSessionId": "063c46ae-aa08-46d5-8f9d-8ed9f2ab81b1",
+  "checks": [
+    {
+      "name": "primary_url_unchanged_after_restart",
+      "passed": true
+    },
+    {
+      "name": "alternate_order_unchanged_after_restart",
+      "passed": true
+    },
+    {
+      "name": "english_light_persisted",
+      "passed": true
+    },
+    {
+      "name": "same_selected_session_after_restart",
+      "passed": true
+    },
+    {
+      "name": "primary_still_has_no_listener",
+      "passed": true
+    },
+    {
+      "name": "alternate_inventory_get_200",
+      "passed": true
+    },
+    {
+      "name": "alternate_same_session_get_200",
+      "passed": true
+    },
+    {
+      "name": "no_401_or_403_in_restart_window",
+      "passed": true
+    }
+  ],
+  "alternateWireResponses": [
+    {
+      "method": "GET",
+      "path": "/health",
+      "phase": "completed",
+      "userMessageMatched": false,
+      "status": 200,
+      "action": "forward",
+      "turnId": null,
+      "atUtc": "2026-10-25T15:45:12Z"
+    },
+    {
+      "method": "GET",
+      "path": "/chat/sessions",
+      "phase": "completed",
+      "userMessageMatched": false,
+      "status": 200,
+      "action": "forward",
+      "turnId": null,
+      "atUtc": "2026-10-25T15:45:12Z"
+    },
+    {
+      "method": "GET",
+      "path": "/chat/sessions/063c46ae-aa08-46d5-8f9d-8ed9f2ab81b1/messages",
+      "phase": "completed",
+      "userMessageMatched": false,
+      "status": 200,
+      "action": "forward",
+      "turnId": null,
+      "atUtc": "2026-10-25T15:45:12Z"
+    }
+  ],
+  "limits": "Primary refusal is independently observed by no listener at5169; the proxy wire proves the alternate requests, not a packet trace of the failed primary."
+}

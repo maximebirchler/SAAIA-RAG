@@ -1,0 +1,708 @@
+{
+  "schemaVersion": "saaia-winui-long-stream-cancel-persistence-proof.v1",
+  "capturedAtUtc": "2026-10-25T16:04:35.6176498+00:00",
+  "readOnly": true,
+  "status": "CANCELLED_WITH_PARTIAL_PERSISTED",
+  "checkCount": 5,
+  "failedCheckCount": 0,
+  "traceId": "f64a40485b5fd97992f81797752fbc42",
+  "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+  "assistantMessageId": "5805c3fb-4d99-4f01-a2f4-32b75fa3f826",
+  "assistantContentSha256": "259d9a7271003043fe09fef34b7524a99cfcb843ff8cd7563c087b84e3db4cdb",
+  "assistantContentCharacters": 1334,
+  "statusNote": "Generation interrompue.",
+  "actualStreamRequest": {
+    "atUtc": "2026-10-25T16:01:11Z",
+    "ordinal": 10,
+    "mode": "success",
+    "stream": true,
+    "requestSha256": "8eb8aeaecb03034b7b5028aa892174c5dc1f1016653a1d3451b11f5252843216",
+    "traceparent": "00-f64a40485b5fd97992f81797752fbc42-a262c8110e2282fd-00",
+    "turnId": null,
+    "sessionId": null,
+    "toolNames": []
+  },
+  "selectedProbes": [
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 1,
+      "atUtc": "2026-10-25T17:01:11.1240239+01:00",
+      "elapsedMilliseconds": 0,
+      "operation": "turn.begin",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {},
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 2,
+      "atUtc": "2026-10-25T17:01:11.1402739+01:00",
+      "elapsedMilliseconds": 16,
+      "operation": "chat.user.persistence",
+      "outcome": "success",
+      "reason": "server_acknowledged",
+      "measurements": {
+        "durationMs": 14,
+        "confirmationTimeoutMs": 30000
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 3,
+      "atUtc": "2026-10-25T17:01:11.1477216+01:00",
+      "elapsedMilliseconds": 23,
+      "operation": "sources.parse",
+      "outcome": "skipped",
+      "reason": "empty_payload",
+      "measurements": {},
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 4,
+      "atUtc": "2026-10-25T17:01:11.1501209+01:00",
+      "elapsedMilliseconds": 26,
+      "operation": "agent.turn.begin",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "history": 6,
+        "user_chars": 7
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 5,
+      "atUtc": "2026-10-25T17:01:11.1514973+01:00",
+      "elapsedMilliseconds": 27,
+      "operation": "agent.router.catalog_context.start",
+      "outcome": "success",
+      "reason": "semantic_native_router",
+      "measurements": {
+        "catalog_categories": 2
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 6,
+      "atUtc": "2026-10-25T17:01:11.1580697+01:00",
+      "elapsedMilliseconds": 34,
+      "operation": "agent.router.catalog_context.end",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "catalog_categories": 2,
+        "ms": 6
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 7,
+      "atUtc": "2026-10-25T17:01:11.1586262+01:00",
+      "elapsedMilliseconds": 34,
+      "operation": "agent.router.start",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "chars": 7
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 8,
+      "atUtc": "2026-10-25T17:01:11.1632719+01:00",
+      "elapsedMilliseconds": 39,
+      "operation": "model.call",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "durationMs": 2,
+        "timeToFirstTokenMs": null,
+        "inputTokens": 32,
+        "outputTokens": 12,
+        "cachedInputTokens": null,
+        "retryCount": 0
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {
+        "requestId": "llm-fa20a4064761",
+        "provider": "local",
+        "model": "saaia-winui-fixture",
+        "role": "Router"
+      }
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 9,
+      "atUtc": "2026-10-25T17:01:11.1637411+01:00",
+      "elapsedMilliseconds": 39,
+      "operation": "agent.router.native.classifier.completed",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "prompt_tokens": 32,
+        "completion_tokens": 12,
+        "ms": 3
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 10,
+      "atUtc": "2026-10-25T17:01:11.1644024+01:00",
+      "elapsedMilliseconds": 40,
+      "operation": "agent.router.native.start",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "history": 6,
+        "user_chars": 7,
+        "prompt_chars": 703,
+        "context_tokens": 4096,
+        "timeout_ms": 90000
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 11,
+      "atUtc": "2026-10-25T17:01:11.1664119+01:00",
+      "elapsedMilliseconds": 42,
+      "operation": "model.call",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "durationMs": 1,
+        "timeToFirstTokenMs": null,
+        "inputTokens": 32,
+        "outputTokens": 12,
+        "cachedInputTokens": null,
+        "retryCount": 0
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {
+        "requestId": "llm-5b9511460537",
+        "provider": "local",
+        "model": "saaia-winui-fixture",
+        "role": "Router"
+      }
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 12,
+      "atUtc": "2026-10-25T17:01:11.1668537+01:00",
+      "elapsedMilliseconds": 42,
+      "operation": "agent.router.native.accepted",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "prompt_tokens": 32,
+        "completion_tokens": 12,
+        "ms": 6
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 13,
+      "atUtc": "2026-10-25T17:01:11.1677051+01:00",
+      "elapsedMilliseconds": 43,
+      "operation": "agent.router.end",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "tools": 0,
+        "ms": 8
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 14,
+      "atUtc": "2026-10-25T17:01:11.168181+01:00",
+      "elapsedMilliseconds": 44,
+      "operation": "agent.capability_boundary.decision",
+      "outcome": "success",
+      "reason": "within_local_boundary",
+      "measurements": {
+        "answer_units": 0,
+        "structured_threshold": 6,
+        "multi_item_threshold": 5
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 15,
+      "atUtc": "2026-10-25T17:01:11.1686464+01:00",
+      "elapsedMilliseconds": 44,
+      "operation": "agent.documentary_defaults.skipped",
+      "outcome": "success",
+      "reason": "router_general_no_tools",
+      "measurements": {},
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 16,
+      "atUtc": "2026-10-25T17:01:11.1694348+01:00",
+      "elapsedMilliseconds": 45,
+      "operation": "agent.documentary_defaults.skipped",
+      "outcome": "success",
+      "reason": "router_general_no_tools",
+      "measurements": {},
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 17,
+      "atUtc": "2026-10-25T17:01:11.1698386+01:00",
+      "elapsedMilliseconds": 45,
+      "operation": "agent.router.legacy_structured_repair.skipped",
+      "outcome": "success",
+      "reason": "source_backed_agent_v2_owns_semantic_adaptation",
+      "measurements": {},
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 18,
+      "atUtc": "2026-10-25T17:01:11.1703793+01:00",
+      "elapsedMilliseconds": 46,
+      "operation": "agent.tools.stage.start",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "tools": 0
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 19,
+      "atUtc": "2026-10-25T17:01:11.1712394+01:00",
+      "elapsedMilliseconds": 47,
+      "operation": "agent.tools.stage.end",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "items": 0,
+        "ok": 0,
+        "errors": 0,
+        "ms": 0
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 20,
+      "atUtc": "2026-10-25T17:01:11.1716909+01:00",
+      "elapsedMilliseconds": 47,
+      "operation": "agent.source_backed_pipeline.canonical_retrieval.owner_confirmed",
+      "outcome": "success",
+      "reason": "canonical_pipeline_owns_post_tool_rag",
+      "measurements": {
+        "tool_items": 0
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 21,
+      "atUtc": "2026-10-25T17:01:11.1723532+01:00",
+      "elapsedMilliseconds": 48,
+      "operation": "agent.writer.stage.start",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {},
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 22,
+      "atUtc": "2026-10-25T17:01:11.1729267+01:00",
+      "elapsedMilliseconds": 48,
+      "operation": "agent.answer.stage.start",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "tool_items": 0,
+        "chars": 7
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 23,
+      "atUtc": "2026-10-25T17:01:11.173563+01:00",
+      "elapsedMilliseconds": 49,
+      "operation": "agent.writer.context",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "writer_tools": 0,
+        "budget_tool_chars": 21968,
+        "budget_brief_chars": 1500,
+        "budget_inventory_chars": 2200
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 24,
+      "atUtc": "2026-10-25T17:01:11.1740931+01:00",
+      "elapsedMilliseconds": 50,
+      "operation": "agent.writer.guard.coverage.start",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "raw_tool_items": 0,
+        "writer_tool_items": 0
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 25,
+      "atUtc": "2026-10-25T17:01:11.1744096+01:00",
+      "elapsedMilliseconds": 50,
+      "operation": "agent.writer.guard.coverage.selection",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "ms": 0
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 26,
+      "atUtc": "2026-10-25T17:01:11.1746952+01:00",
+      "elapsedMilliseconds": 50,
+      "operation": "agent.writer.evidence_inventory.selection",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "tool_items": 0
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 27,
+      "atUtc": "2026-10-25T17:01:11.1751033+01:00",
+      "elapsedMilliseconds": 51,
+      "operation": "agent.writer.guard.insufficient_check.start",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "tool_items": 0
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 28,
+      "atUtc": "2026-10-25T17:01:11.1754282+01:00",
+      "elapsedMilliseconds": 51,
+      "operation": "agent.writer.guard.insufficient_check.end",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "answer_chars": 0,
+        "ms": 0
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 29,
+      "atUtc": "2026-10-25T17:01:11.1759777+01:00",
+      "elapsedMilliseconds": 51,
+      "operation": "agent.writer.selected",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {},
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 30,
+      "atUtc": "2026-10-25T17:01:11.176353+01:00",
+      "elapsedMilliseconds": 52,
+      "operation": "agent.writer.candidate_adjudication.skipped",
+      "outcome": "success",
+      "reason": "not_applicable",
+      "measurements": {
+        "tool_items": 0,
+        "ms": 0
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 31,
+      "atUtc": "2026-10-25T17:01:11.1768157+01:00",
+      "elapsedMilliseconds": 52,
+      "operation": "agent.writer.evidence_inventory.roster",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "basis_tool_items": 0,
+        "roster_chars": 4,
+        "evidence_items": 0,
+        "candidate_rejected": 0,
+        "source_pages": 0,
+        "candidate_adjudication_prompt_chars": 4,
+        "source_reference_index_chars": 1200
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 32,
+      "atUtc": "2026-10-25T17:01:11.1775147+01:00",
+      "elapsedMilliseconds": 53,
+      "operation": "agent.writer.llm.start",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "prompt_chars": 5472,
+        "timeout_ms": 0
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 33,
+      "atUtc": "2026-10-25T17:02:38.1630732+01:00",
+      "elapsedMilliseconds": 87037,
+      "operation": "model.call",
+      "outcome": "cancelled",
+      "reason": "cancelled",
+      "measurements": {
+        "durationMs": 86982,
+        "timeToFirstTokenMs": null,
+        "inputTokens": null,
+        "outputTokens": null,
+        "cachedInputTokens": null,
+        "retryCount": 0
+      },
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {
+        "requestId": "llm-e90a3f910c01",
+        "provider": "local",
+        "model": "saaia-winui-fixture",
+        "role": "Writer"
+      }
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "f64a40485b5fd97992f81797752fbc42",
+      "turnId": "f1399b97f6b0491d859e73028008dc78",
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "sequence": 34,
+      "atUtc": "2026-10-25T17:02:38.2194389+01:00",
+      "elapsedMilliseconds": 87093,
+      "operation": "turn.end",
+      "outcome": "cancelled",
+      "reason": "user_cancelled",
+      "measurements": {},
+      "spanId": "054a5ded1e11df50",
+      "parentSpanId": null,
+      "identifiers": {}
+    }
+  ],
+  "checks": [
+    {
+      "name": "actual_stream_request",
+      "passed": true
+    },
+    {
+      "name": "turn_end_cancelled_by_user",
+      "passed": true
+    },
+    {
+      "name": "model_call_cancelled_probe",
+      "passed": true
+    },
+    {
+      "name": "partial_response_persisted",
+      "passed": true
+    },
+    {
+      "name": "interrupted_status_note_persisted",
+      "passed": true
+    }
+  ],
+  "lateStabilityScope": "Initial persistence capture; later reload and subsequent short turn will be compared separately without inventing a late completion.",
+  "limits": "Fixture text/timing only; cancellation and deltas are real client behaviour, semantic model quality is not evaluated."
+}

@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "saaia-winui-owned-stop-executed-proof.v1",
+  "capturedAtUtc": "2026-10-25T16:38:02.4886688+00:00",
+  "environmentRunId": "7d110010ee874d5398a9ca335b079fdd",
+  "status": "PASSED",
+  "ownerState": "stopped",
+  "ownerManifestSha256": "6D8658C5A34807DFFDDD6593A141A87A9813BE665753FE38D0A3DE872246DCC5",
+  "ownedPorts": [
+    {
+      "port": 5167,
+      "listeners": 0
+    },
+    {
+      "port": 5177,
+      "listeners": 0
+    },
+    {
+      "port": 5187,
+      "listeners": 0
+    },
+    {
+      "port": 18097,
+      "listeners": 0
+    },
+    {
+      "port": 18099,
+      "listeners": 0
+    },
+    {
+      "port": 58590,
+      "listeners": 0
+    }
+  ],
+  "ownedProcesses": [
+    {
+      "role": "postgres",
+      "pid": 22568,
+      "matchingOwnedIdentityStillAlive": false
+    },
+    {
+      "role": "fixture-http",
+      "pid": 37320,
+      "matchingOwnedIdentityStillAlive": false
+    },
+    {
+      "role": "backend-runner",
+      "pid": 42556,
+      "matchingOwnedIdentityStillAlive": false
+    },
+    {
+      "role": "storage-proxy",
+      "pid": 33656,
+      "matchingOwnedIdentityStillAlive": false
+    },
+    {
+      "role": "advanced-fixture-http",
+      "pid": 41860,
+      "matchingOwnedIdentityStillAlive": false
+    },
+    {
+      "role": "advanced-backend-runner",
+      "pid": 2448,
+      "matchingOwnedIdentityStillAlive": false
+    }
+  ],
+  "ownedChildrenVerifiedStoppedByStopTool": true,
+  "dataAndDocumentsAndEvidenceRetained": true,
+  "protectedPostgres5432SnapshotMatchesInitialPreflight": true,
+  "protectedPostgres5432BeforeAfterActualStopVerifiedByStopTool": true,
+  "protected5432IdentityDetailsReadable": [
+    false,
+    false
+  ],
+  "planRecord": "owned-stop-executed-journey.json",
+  "planRecordInterpretation": "Pre-execution ownership plan; actual outcome recorded by stopped manifest and this post-stop proof",
+  "runtimeFilesDeleted": false
+}

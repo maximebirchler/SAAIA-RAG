@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "saaia-winui-fallback-preferences-before-restart.v1",
+  "capturedAtUtc": "2026-10-25T15:45:32.6702368+00:00",
+  "readOnly": true,
+  "status": "PASSED",
+  "checkCount": 6,
+  "failedCheckCount": 0,
+  "backendUrl": "http://127.0.0.1:5169",
+  "backendUrlAlternates": "http://127.0.0.1:5177",
+  "uiLanguage": "en",
+  "uiTheme": "light",
+  "lastSessionId": "063c46ae-aa08-46d5-8f9d-8ed9f2ab81b1",
+  "checks": [
+    {
+      "name": "primary_endpoint_priority_preserved",
+      "passed": true
+    },
+    {
+      "name": "alternate_endpoint_order_preserved",
+      "passed": true
+    },
+    {
+      "name": "english_persisted",
+      "passed": true
+    },
+    {
+      "name": "light_persisted",
+      "passed": true
+    },
+    {
+      "name": "same_user_and_protected_backend_key",
+      "passed": true
+    },
+    {
+      "name": "primary_5169_unavailable_at_observation",
+      "passed": true
+    }
+  ],
+  "privateBaseline": "runtime/client-profile-baselines/fallback-prefs/after-apply-before-restart"
+}

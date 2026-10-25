@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "saaia-native-pdf-public-projection.v1",
+  "capturedAtUtc": "2026-10-25T16:22:21.291Z",
+  "originalPrivateState": "private-native-ui/47-build10-canonical-pdf-page2.raw.json",
+  "originalPrivateStateSha256": "81619015B2F05D45112C3A9566C6A230DF42A0BD347C4468C9CFD2C8D2C77FDF",
+  "projectionMethod": "Exact allowlisted fields from the existing root-captured native state. All browser chrome, other tabs, bookmarks, window metadata and screenshots are excluded.",
+  "documentUri": "file:///C:/Users/maxim/Desktop/ecom/AAA/SAAIA%20-%20RAG/artifacts/winui-journey-completion-20261025/local-fixture/runtime/documents/Validation/Guide-Validation.pdf#page=2",
+  "pageSelector": {
+    "automationId": "pageselector",
+    "name": "Numéro de page",
+    "value": "2"
+  },
+  "documentText": [
+    "VALIDATION WINUI - PAGE 2 - CODE ORION 4826"
+  ],
+  "screenshots": [],
+  "limits": [
+    "Text/selector/URI evidence only; this projection is not a new screenshot or interaction.",
+    "The complete original browser capture remains private because it includes unrelated browser tabs/bookmarks."
+  ]
+}

@@ -1,0 +1,2376 @@
+{
+  "schemaVersion": "saaia-winui-journey-public-evidence-selection.v1",
+  "preparedAtUtc": "2026-10-25T16:46:24.897821+00:00",
+  "status": "FROZEN_FOR_INDEPENDENT_COUNTERSCAN_NOT_STAGED",
+  "root": "artifacts/winui-journey-completion-20261025",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "selectionPurpose": "Explicit file allowlist for root review/staging; not a publication authorization for excluded private originals.",
+  "selectedFileCount": 269,
+  "manifestSelfIncludedInInventory": false,
+  "manifestMustBeAddedSeparately": true,
+  "inventorySha256": "A456A9649CA0CC759B211D56898898DF89BA69EE7EDCE4DA5287E2D7750413E9",
+  "selectedFiles": [
+    {
+      "path": "artifacts/winui-journey-completion-20261025/PLAN-VALIDATION-COMPLEMENTAIRE.md",
+      "bytes": 2753,
+      "sha256": "E4AE415D91F60336DEBB6EC0D1AAF823A6CCFD1FF08FB9CCE4673BDA1490B671",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/RAPPORT-FINAL-VALIDATION-CLIENT-WINUI-2026-10-25.md",
+      "bytes": 16587,
+      "sha256": "C78A7999185AF041178C1FB801846E394CD37A7D3EF44A1BE381886401683335",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/RAPPORT-INTEGRITE-SONDES-PUBLIQUES.md",
+      "bytes": 3093,
+      "sha256": "579246C399583572371C5DD50836FFC781EFE32733B5162E28A294E294737CF2",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/RAPPORT-ROUTE-GENERALE-ET-REPLIS.md",
+      "bytes": 4647,
+      "sha256": "733624A2FB6AC1D45DD5A51C8DE610051BA3AEF33316A4A8C63BFF4F165FD2A1",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/REVUE-FINALE-ROUTE-GENERALE-BUILD10.md",
+      "bytes": 5398,
+      "sha256": "F2E0AF7FC331CDD02BDE618C9683F80328BF508C26368DAFD9EDC8902D2B0F35",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/advanced-answered-independent-preflight-review.json",
+      "bytes": 3835,
+      "sha256": "7CBD13E7BDFCD780A33DF738597409832D37257BB79697C4C73A2DD34A0FDD7B",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/advanced-answered-owned-launch.json",
+      "bytes": 1953,
+      "sha256": "91C1605695D175D5E5F7C11F5E9868199794014772C14FCADB2FF02F7447B857",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/advanced-terminal-before-native-baseline.json",
+      "bytes": 3351,
+      "sha256": "F536BCDCF90B51A687EF1A9B700ECFCDE3354A050353485608E4820B423B6A86",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/advanced-terminal-preparation-review.json",
+      "bytes": 2932,
+      "sha256": "BAE629298473D903C46825F4089FDB72CF5110216FFD353F1ECDC87414E4AF73",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/client-launch-01-first-setup.json",
+      "bytes": 937,
+      "sha256": "3773E1803F5678DBD379B76634280D76F5B05C265116D60A11AB7DD6AB2B5F9D",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/client-launch-02-after-cancel.json",
+      "bytes": 937,
+      "sha256": "ACA73B492020A5490DCD2D5A15C2FB328762F7848094F8189B06447EE0FAF601",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/client-launch-03-after-setup-applied.json",
+      "bytes": 937,
+      "sha256": "A6CBC909B265F185E4E7201A623F62C072944E8506386A8B2186E338B03EE9F9",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/client-launch-04-fallback-preferences.json",
+      "bytes": 943,
+      "sha256": "0BF6FA4279640F48C395876250DA0C26ABA71B273047D94102EBBC85E006AC98",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/client-launch-05-fallback-preferences-restart.json",
+      "bytes": 943,
+      "sha256": "1AF0C8C4E3CB2BDAF407506051D5E94ADFEC985F669C724FE7B0CE7E2D03FFE6",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/client-launch-06-primary-rename.json",
+      "bytes": 916,
+      "sha256": "7D5DCBED5AE93A3823BFA395F51B9B7619BC19E5CA6DF91C03E1F4BD145E8EE7",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/client-launch-07-build10-general-route.json",
+      "bytes": 916,
+      "sha256": "AF460ACE97FD20E26BD32047D5A20D10A0585418AADE38075484A4F815B7B397",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/client-launch-08-build10-source-ambiguity.json",
+      "bytes": 947,
+      "sha256": "28618322D22D2FCBA44835DD1E28D25F2239491443D3B23D355D432684672E80",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/client-launch-09-build10-advanced-terminal.json",
+      "bytes": 949,
+      "sha256": "B5E3990DF8E19673844B8AA69CF7815EF2C8B0AF748434D98DD1DCFFB88F5698",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/client-launch-10-build10-advanced-terminal-restart.json",
+      "bytes": 949,
+      "sha256": "0FCEE20DBA0E3E6F1BAB31569133A4524878AA231F7E6F5D573F0B7271716897",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/client-launch-11-build11-final-general.json",
+      "bytes": 916,
+      "sha256": "232AB83F5F6F6D385A9E42A072A1660B4AC771B53AB3273675129F4112615D4F",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/client-launch-12-build11-final-source-label.json",
+      "bytes": 949,
+      "sha256": "DC72438F96D5499505E5BBBCC5F86C7DA7908AC04AEBD541114EE823BAF41E5C",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/execution-matrix-consolidated-build10.json",
+      "bytes": 48381,
+      "sha256": "4BDA7C14DDA87A23AFA564DCA8A9F82FD790FD699A92A6A3F0DAED8E74B4102D",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/execution-matrix-consolidated-final.json",
+      "bytes": 49723,
+      "sha256": "0CBCFB6152B078B58506E9ECCB018B327372B50CAD87761EC720751C6B0372FD",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-architecture.json",
+      "bytes": 259341,
+      "sha256": "424BBC390933DD8B6D41299847D29238E88C7B20F48EA960B1A6DFF16745D81C",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-causal-proof.json",
+      "bytes": 7583,
+      "sha256": "2788D1E999A5FE28468D3AD248FD5E743BCB8D93EF738D4D45DF46DE667BE4B6",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-green/Client-9b8abfcba4bc4654bad982b413005ed5.log",
+      "bytes": 1443,
+      "sha256": "E3DD42785A17805CE61AAC19F68E410E4BD923557A2E77681CB136633286266D",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-green/Client-9b8abfcba4bc4654bad982b413005ed5.trx",
+      "bytes": 21950,
+      "sha256": "AD9363BCF146A4CFF9772A026488F60CEDB8D924D7BA416C1327B7D2816F6C33",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-green/manifest.json",
+      "bytes": 5579,
+      "sha256": "D850A1E1627A233F2F6150A4A3BB7967E9642DB7DD3844C7F395D60ADB4570D9",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-green/source-files-9b8abfcba4bc4654bad982b413005ed5-after.json",
+      "bytes": 300403,
+      "sha256": "644E6C3C7E6303FC5BEFB4EDC9B497AFE4F0563500D318D332817889D58C782E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-green/source-files-9b8abfcba4bc4654bad982b413005ed5-before.json",
+      "bytes": 300403,
+      "sha256": "644E6C3C7E6303FC5BEFB4EDC9B497AFE4F0563500D318D332817889D58C782E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-neighbor-regressions/Client-36ebeb5ea6cf438c86e286e7bf3cd9ce.log",
+      "bytes": 709,
+      "sha256": "28B89158303D91A4DD15AC0D7271E23064440C16EE3594A5DD81C6B691E66747",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-neighbor-regressions/Client-36ebeb5ea6cf438c86e286e7bf3cd9ce.trx",
+      "bytes": 292129,
+      "sha256": "FD3435C63F9FA698644E78A5DA12249A87C7BA6C38B82B229348D2636545AB8A",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-neighbor-regressions/manifest.json",
+      "bytes": 53133,
+      "sha256": "0E7FE7B5D16759BE22A964CED63CB56BC090834320790F570EF2B863064E4AD4",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-neighbor-regressions/source-files-36ebeb5ea6cf438c86e286e7bf3cd9ce-after.json",
+      "bytes": 300403,
+      "sha256": "644E6C3C7E6303FC5BEFB4EDC9B497AFE4F0563500D318D332817889D58C782E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-neighbor-regressions/source-files-36ebeb5ea6cf438c86e286e7bf3cd9ce-before.json",
+      "bytes": 300403,
+      "sha256": "644E6C3C7E6303FC5BEFB4EDC9B497AFE4F0563500D318D332817889D58C782E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-red-confirmed/Client-09cc553cca284103975b4aef4f257bf6.log",
+      "bytes": 12089,
+      "sha256": "FD37A6A84116EC6BAB79C5BBD5CF5E0F8E16923E15A0D71697E82C8AB9540B91",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-red-confirmed/Client-09cc553cca284103975b4aef4f257bf6.trx",
+      "bytes": 27668,
+      "sha256": "C3336D7592A0F530B0396306F916A42747F1453254ADD96BE6C21DA51055D4EE",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-red-confirmed/manifest.json",
+      "bytes": 5579,
+      "sha256": "912D39FF8FE660658BBB7340F8FF4146DDE152A5EEAFC3FECCB21264878BE8A7",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-red-confirmed/source-files-09cc553cca284103975b4aef4f257bf6-after.json",
+      "bytes": 300403,
+      "sha256": "1A7B58F8D3985A48AC8F958C2EC773D8CABD8977CE26A2AC47FC2F83F396DEFE",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-red-confirmed/source-files-09cc553cca284103975b4aef4f257bf6-before.json",
+      "bytes": 300403,
+      "sha256": "1A7B58F8D3985A48AC8F958C2EC773D8CABD8977CE26A2AC47FC2F83F396DEFE",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-red/Client-5b27d412901f4eedae040e773da59700.log",
+      "bytes": 15330,
+      "sha256": "40DF7FE565871F105AB8A595C58D2A04557FDB8593988C9C149F73247DD01E99",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-red/Client-5b27d412901f4eedae040e773da59700.trx",
+      "bytes": 34770,
+      "sha256": "4F4F1F1368A97C7FE1E9ABBB83D2ED9C18D176B6F671E23BD4230E20AFB41FBD",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-red/manifest.json",
+      "bytes": 5905,
+      "sha256": "6AC6FFC20E25D02FC46277CDF654D6BF641F7EBA01E30025DF11F1CC1178A595",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-red/source-files-5b27d412901f4eedae040e773da59700-after.json",
+      "bytes": 300403,
+      "sha256": "4788B7B1DCAF068155794CC51D131A2976D1E25A51EA3DB145ED52C9A69E2F40",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/explicit-general-route-red/source-files-5b27d412901f4eedae040e773da59700-before.json",
+      "bytes": 300403,
+      "sha256": "4788B7B1DCAF068155794CC51D131A2976D1E25A51EA3DB145ED52C9A69E2F40",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/fallback-source-step-causal-proof.json",
+      "bytes": 5806,
+      "sha256": "9DA45EA9FEE2305F3449734F5DA0E11B4CBC531DED6C1A4BF3538AF6DE469383",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/fallback-source-step-green-console.log",
+      "bytes": 162,
+      "sha256": "BE6159C5387C91C4552C96D74831C17FC68935BE1301489DA2A467900E489A8C",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/fallback-source-step-green/Client-4856307a860247a7a3823cfe8b67c5a6.log",
+      "bytes": 1442,
+      "sha256": "72E47D500EED26F2EE2E7C940831C49632509D3DD4F3D8E24A9C58F822BD0020",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/fallback-source-step-green/Client-4856307a860247a7a3823cfe8b67c5a6.trx",
+      "bytes": 22266,
+      "sha256": "34B3AA3007C9141301ADC69D824E77E3000D9AA1C8BB3EE8B23114C2185655CA",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/fallback-source-step-green/manifest.json",
+      "bytes": 5579,
+      "sha256": "8D4E75C36752D65F64B26B2B7A39B8BE4AA35898A009406D5C049B96A06F9A02",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/fallback-source-step-green/source-files-4856307a860247a7a3823cfe8b67c5a6-after.json",
+      "bytes": 300403,
+      "sha256": "FFF1249FAF5D9E769987FA5AC37FBCC203FED41A933441BCC6EE0D724ADB813E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/fallback-source-step-green/source-files-4856307a860247a7a3823cfe8b67c5a6-before.json",
+      "bytes": 300403,
+      "sha256": "FFF1249FAF5D9E769987FA5AC37FBCC203FED41A933441BCC6EE0D724ADB813E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/fallback-source-step-red-console.log",
+      "bytes": 160,
+      "sha256": "7A32168C2401FCD8B0D3EC4D813F4BFC67E5F2C9C5138145153BD7344F7810DF",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/fallback-source-step-red/Client-0310846948c14e858eb84835768522a6.log",
+      "bytes": 19540,
+      "sha256": "9E9DFE8C4F1DFC418E7475A9889A0943B87F4FFF51A31A93D19321CA8C0AC758",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/fallback-source-step-red/Client-0310846948c14e858eb84835768522a6.trx",
+      "bytes": 42628,
+      "sha256": "C83294E7AF853DC545059E79E34148CA913605D4C21B705245A7C793C2BEF2BB",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/fallback-source-step-red/manifest.json",
+      "bytes": 5579,
+      "sha256": "AA207DB5A6ADF8D4033803F935BD54032150B808AA086C381E2B2436243AFC2F",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/fallback-source-step-red/source-files-0310846948c14e858eb84835768522a6-after.json",
+      "bytes": 300403,
+      "sha256": "0E64D61D2A91E8FBA7386E65DE1329AA5E4FDA149AE6C40E6F744C262520B748",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/fallback-source-step-red/source-files-0310846948c14e858eb84835768522a6-before.json",
+      "bytes": 300403,
+      "sha256": "0E64D61D2A91E8FBA7386E65DE1329AA5E4FDA149AE6C40E6F744C262520B748",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/final-build11-architecture.json",
+      "bytes": 259341,
+      "sha256": "C597A8582729F627B487CE724E568C7F33109549A1098E3523CDE4DF03CAFC2E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build10-console.log",
+      "bytes": 166,
+      "sha256": "C74331873CD6BFDE665C01DCD45E4DCB2879DFCB328DA1D27B1F4562D8B38514",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build10/Client-c3494605d2b54b53bdc9c6d4a6042329.log",
+      "bytes": 1444,
+      "sha256": "E5950EF9456879E33B6734683B0097A185916FA819C52B07420E17B9D4C23D23",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build10/Client-c3494605d2b54b53bdc9c6d4a6042329.trx",
+      "bytes": 3953981,
+      "sha256": "6C2E619C7015D3094A754FE956D4935A25B360D647000CAC9F4D9C48651A93D1",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build10/ClientCore-c3494605d2b54b53bdc9c6d4a6042329.log",
+      "bytes": 1081,
+      "sha256": "6FCE4C8961A5D641460BCC912AE8925393C15EDB4B6A8C84B88EF668DCC9C925",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build10/ClientCore-c3494605d2b54b53bdc9c6d4a6042329.trx",
+      "bytes": 125277,
+      "sha256": "832C462B8DE7AD47854B55C2E16D452C38221B9E503D52616D13C313F6CE3FA6",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build10/manifest.json",
+      "bytes": 691866,
+      "sha256": "BDA3C80C253F67C75C3EE31C98C818759BADDB71CEDA40CD176F0C2D0C5BF7BA",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build10/source-files-c3494605d2b54b53bdc9c6d4a6042329-after.json",
+      "bytes": 300403,
+      "sha256": "644E6C3C7E6303FC5BEFB4EDC9B497AFE4F0563500D318D332817889D58C782E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build10/source-files-c3494605d2b54b53bdc9c6d4a6042329-before.json",
+      "bytes": 300403,
+      "sha256": "644E6C3C7E6303FC5BEFB4EDC9B497AFE4F0563500D318D332817889D58C782E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build11-console.log",
+      "bytes": 166,
+      "sha256": "58C8A1649970767C6105BF15C2BCDBCAB159CF9EEBC6CBA5F21E253E6E3ABA00",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build11/Client-6a404badad534234b1b1b81e81091a80.log",
+      "bytes": 1444,
+      "sha256": "FC68C55314BF4A924B20ADF37FD5EB486D5B9E89F6B478DF2C3E830338DF3926",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build11/Client-6a404badad534234b1b1b81e81091a80.trx",
+      "bytes": 3954290,
+      "sha256": "A4568330AD2895E152E64FAA848B528210B0262C905361A53D658A317C506FBD",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build11/ClientCore-6a404badad534234b1b1b81e81091a80.log",
+      "bytes": 1081,
+      "sha256": "6F02A84144025CF1F410CC23F25B4B977D631F632EC62138AFAD4017B7532FAD",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build11/ClientCore-6a404badad534234b1b1b81e81091a80.trx",
+      "bytes": 125277,
+      "sha256": "CD5E96DC9071D776797A407709AE75253C7A4D40EEFB765B980AD2338DD5F187",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build11/manifest.json",
+      "bytes": 691866,
+      "sha256": "6A676F218F655D0606DEDEE3EF5BB7651200A97E7D2507A6D2ECD8695BC5A8D4",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build11/source-files-6a404badad534234b1b1b81e81091a80-after.json",
+      "bytes": 300403,
+      "sha256": "FFF1249FAF5D9E769987FA5AC37FBCC203FED41A933441BCC6EE0D724ADB813E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build11/source-files-6a404badad534234b1b1b81e81091a80-before.json",
+      "bytes": 300403,
+      "sha256": "FFF1249FAF5D9E769987FA5AC37FBCC203FED41A933441BCC6EE0D724ADB813E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/full-core-client-build10-production-anchor.json",
+      "bytes": 12737,
+      "sha256": "317BB7352FE2997C39B1C833E4186969F070C3DA1B4327708016D54CDC104049",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/full-core-client-build11-production-anchor.json",
+      "bytes": 12810,
+      "sha256": "09A3143A8DC069A35283483F6D0429F37306A0FD31F25D20B12E22A3BDF78D06",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/journey-completion-execution-final.json",
+      "bytes": 42488,
+      "sha256": "EDA854BD950D08BDBFC3E0F9943B7BD30D6504471111FB3AE2C1CE909EBC8DF2",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/journey-completion-plan.json",
+      "bytes": 18115,
+      "sha256": "E49389EADB350D16823204C81D492C7CF6703DA5F284E94EF86E602DA1562DCA",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/journey-completion-progress-01-j01.json",
+      "bytes": 23774,
+      "sha256": "631DA6278A63732FB6FC1110113504A2FAF47B2F1EFC5F012235D15FED315BCF",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/journey-completion-progress-02-j01-j02.json",
+      "bytes": 27140,
+      "sha256": "B7DB59D231E1C18B890E98CECA3CFE2BEFDAF3C61ED0B0B2CB495C72E184639D",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/journey-completion-progress-03-j03-j04-build09.json",
+      "bytes": 34129,
+      "sha256": "82D2D19557B6703EBF72D4E4FAAB8AB5A3BA0C67C47FAF29F88F3AD66B908CEF",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/journey-completion-progress-04-j05-transition-scope.json",
+      "bytes": 37295,
+      "sha256": "AE113BBE72522F253329D04FD3D7FDB25E6645DC1D2B1C09EC5AB378CBFE9AC8",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/journey-completion-progress-05-all-behavioral-build10.json",
+      "bytes": 42105,
+      "sha256": "25191C5E1244A352F9F9F20FB09ECD7DCE99F2AF6A422E78716F229D3128C712",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/advanced-answered-preflight.json",
+      "bytes": 3265,
+      "sha256": "07C2288E18A69C0236741999FBFBC5F4D4C52A9CB97C648FB55E1114BF495E87",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/advanced-fixture-events.jsonl",
+      "bytes": 1224,
+      "sha256": "C650D11CF2C3F8169D073093ED2B23C3CB391AB9A1C1F7C59968CFC428F03312",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/advanced-terminal-final-state-proof.json",
+      "bytes": 20844,
+      "sha256": "D16AB560DF7F9FC91F9B737AFB14D870DBD8D7410FBC6953F682C5D4E83E1850",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/advanced-terminal-pending-fixture.json",
+      "bytes": 1988,
+      "sha256": "6D4BF42FB875833ABA9E69E33A28AE5C611A4A009AAC321D8A1D0508C5837B91",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/advanced-worker.json",
+      "bytes": 6103,
+      "sha256": "B35D0F85F79B42D5BD3D22283E969AE4B89F068100B6CBDD24132DBE1397558F",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/build10-cancel-late-stability-proof.json",
+      "bytes": 32540,
+      "sha256": "EF7FE0ED7F4DA6A80B199C8E64E6FE9024AB0FACEE79A38F4761FA5FF3833445",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/build10-original-phrase-stream-cancel-proof.json",
+      "bytes": 26437,
+      "sha256": "F2027EC6C349F2A9B7B21E7D9F543443D11C2F84E7CBBC2869E68DDED9D844C1",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/build10-original-phrase-stream-preparation.json",
+      "bytes": 1215,
+      "sha256": "8BBDBF987F37CD1C2BC212E8CE9B2F518CA6F1F291E6368587652FAD84C98761",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/build10-short-after-cancel-control-proof.json",
+      "bytes": 528,
+      "sha256": "8B5A946A3C604A2B0511907BA5F0BD38FACD827E5DDE9DC5830B231299C0C959",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/build11-advanced-ultimate-stability-proof.json",
+      "bytes": 2602,
+      "sha256": "EC1609B21FBB3442B9CA8CC1C967B1261B5FBB48B043E4081A5ECC999FB11A2B",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/build11-final-control-preparation.json",
+      "bytes": 869,
+      "sha256": "F3D86CE2ED01D6CE41725DF1372CA913D3D2218A61C0884D4D49CDE4161E03BF",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/build11-final-native-probe-proof.json",
+      "bytes": 34306,
+      "sha256": "36FE429654F92F403C4BD16F450B0A0EC87BF1959D747B8BEA6E15D9FE374297",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/catalog-validation.json",
+      "bytes": 5233,
+      "sha256": "3DB3A2E23844D29B5DF4ABA6C4E43D00598607CE0309F6ACE7563565AD8CF2E2",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T153456802Z-journey-initial-empty.json",
+      "bytes": 966,
+      "sha256": "518D869831EE8B15C63B2FEE3A3B60AE704E2C6F5140F94D3796EAF7A06C007F",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T154225486Z-first-setup-after-restart.json",
+      "bytes": 1557,
+      "sha256": "C0E5C427434795874707077C6093756FA491ADB6273DB859E62D7315892C5BF4",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T154750053Z-before-rename-seed.json",
+      "bytes": 1557,
+      "sha256": "609FA9327AA5FC03B3346AE5EC1C9740853BF39CC32CBB3618B17B77B23351C3",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T154750191Z-after-rename-seed.json",
+      "bytes": 9503,
+      "sha256": "087701FE30E55619B5661EFFCE5A347E84B59DA38868C1CA3E36686A30AB4421",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T154945173Z-rename-empty-title.json",
+      "bytes": 9210,
+      "sha256": "55C4036823BB042791329A9C0C2714B1D736BEED82A76973395A35D0A14B3524",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T155222162Z-rename-max-title.json",
+      "bytes": 9211,
+      "sha256": "857DB8FEE3E857062D87299A87E85B650D5676EFB233F13A367972165831A261",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T155536470Z-long-stream-attempt1-not-streaming.json",
+      "bytes": 11821,
+      "sha256": "012A82680DCDAA09B1464BE7358DA966F5A5AACAD07296C73ECC61E8CBE7AAE4",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T160053144Z-long-stream-attempt2-natural-completion.json",
+      "bytes": 14808,
+      "sha256": "90CECBAA58C0E376067E4B9B102129BA65A5A42F65821AA325B5C2DB10A44D46",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T160435664Z-long-stream-attempt3-cancelled.json",
+      "bytes": 18117,
+      "sha256": "E09F537D2E29B05824BC61AFEA3853FBC3B2BC604B48AE9DDE2241A4DDD86DAD",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T160702645Z-short-stream-after-cancel.json",
+      "bytes": 21707,
+      "sha256": "19DE86EF692505B2F7FD9DCF516D5FF13ED48A3BD511ADBCD9B69DDA95C868EF",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T160702752Z-before-get-delay-upstream.json",
+      "bytes": 21156,
+      "sha256": "35DE593CEEDCD37F6A7FC2DC4498607B1B661B128C680541F6046C4BDDF7C2F8",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T161136990Z-after-get-delay-upstream.json",
+      "bytes": 21603,
+      "sha256": "87F1169FE444722D5AD95AACDBF8598A5B0540076E1A40F1A68C18411E5B6360",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T161253821Z-after-modal-keyboard-no-send.json",
+      "bytes": 21603,
+      "sha256": "00A32FA10D3202E8DCE2D937697E5D2077D8CFA0E392EB2CFF5CC1BC7DA2B4D3",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T161332798Z-before-source-ambiguity-seed.json",
+      "bytes": 21156,
+      "sha256": "3E62019AA63E471C5D8D5B9B77A897B88285D933032E51294A0114DD5CBC602E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T161333042Z-after-source-ambiguity-seed.json",
+      "bytes": 23853,
+      "sha256": "371599B2EC4CBE56D4C40D499F0104D663BEA0B1F9191874F61ED8C846D3F6E4",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T161423230Z-before-build10-original-phrase-stream.json",
+      "bytes": 23299,
+      "sha256": "5414946966BA87225F4FDD9C94A6B029B6BFE0F69DDA170807090A1564366139",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T162023633Z-build10-original-phrase-cancelled.json",
+      "bytes": 26599,
+      "sha256": "7DA072D40113F2FB91037DF2FCDA79C66DE3F3ABC960B56A34EC2FEF3A266AEB",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T162151245Z-build10-short-after-cancel.json",
+      "bytes": 30192,
+      "sha256": "C6D65D8AEB3499CADA9BC5C6A38A31BA70E876D8737BC3B2C42D9ACF43CA448C",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T162746730Z-after-source-ambiguity-native.json",
+      "bytes": 30086,
+      "sha256": "AAA681BD11882A06AA5EF510F53786A0B0F39F51254F20B414999425CCFABED5",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T163701383Z-journey-final-primary.json",
+      "bytes": 32679,
+      "sha256": "8B34630DD761D0DFE0420043C221314F216609218FEB546EB9C771D570CF158A",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/client-isolation.json",
+      "bytes": 530,
+      "sha256": "DCF9CE960F60BFA9E2144C9E8D5B0865E60EF4406D8B56F502B0827E0106D8E3",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/deletion-sql-snapshots/after-rename-seed.json",
+      "bytes": 3098,
+      "sha256": "AFD8F221B1D17BA55AEF604FCE096C3EAEC7458727CBC285EE110E47DE9AC969",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/deletion-sql-snapshots/before-rename-seed.json",
+      "bytes": 1140,
+      "sha256": "132AA912E26E2B85C9C00722B8ED0AD93BCC408726E43FA6798922CB2A8C2C97",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/deletion-sql-snapshots/final-advanced-native-owner-validation.json",
+      "bytes": 7464,
+      "sha256": "222D8A135A0185D79BFBCBC071AD1150E67B07FE6CA94662CDAB0863AF285421",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/deletion-sql-snapshots/rename-empty-title.json",
+      "bytes": 3098,
+      "sha256": "48E98AF2F046BF57CA13DC82574AA2302DAD4C7D6478E3AE1CF518D9BA918902",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/deletion-sql-snapshots/rename-max-title.json",
+      "bytes": 3099,
+      "sha256": "1057F76E1887735A7A7AD8FCCF77B25DFB8F4C0DA7C0A8DC1264FF4D50B964F3",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/document-seed-proof.json",
+      "bytes": 557,
+      "sha256": "61263D1485E6006387B3E107E060777401C2232944709B54304D7AE0D3628FB5",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/fallback-prefs-before-restart-proof.json",
+      "bytes": 1057,
+      "sha256": "1B544DB7DC8ACB9005E1266F51ABCEE4D059F848B56343AB6F4064AB36EAD9D3",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/fallback-prefs-restart-proof.json",
+      "bytes": 2345,
+      "sha256": "1599A4E6A765CDAA2768AFDB139FAE25529BB77C01DD2BFB73AC43557BAC7553",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/first-setup-after-open-before-edit-proof.json",
+      "bytes": 863,
+      "sha256": "CCDA880334472B53D57535ED46515F01336838679800033198B3560C768349C7",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/first-setup-auth-persistence-proof.json",
+      "bytes": 2933,
+      "sha256": "1CB6ADC1A2A4D2B4D099D81BF564F2AE8DDCF65178D3B30FBB5525BA53D64269",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/first-setup-cancel-persistence-proof.json",
+      "bytes": 1156,
+      "sha256": "954AFA82EE64437D5539D2E182EFFE000C6DEA91710877C358527A2987B9835F",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/fixture-events.jsonl",
+      "bytes": 8320,
+      "sha256": "E12E233333C5D3A972511B5EE2148875D39743D819A997EA469CA9FAE2AB3458",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/get-message-delay-armed-proof.json",
+      "bytes": 791,
+      "sha256": "7F91BC1CDAB0E38C9754487EB571ABBDC28E8C6E425054B546E1E87F179799BB",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/get-message-delay-disarmed-proof.json",
+      "bytes": 510,
+      "sha256": "444D4D3AD73D4C982C7BC34F6B1E93A85F37B120B93A1BE549AA5984B5B0923B",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/get-message-delay-executed-proof.json",
+      "bytes": 2497,
+      "sha256": "533D344AD9AD7EFEFEC2D9559977086755D4CCF80194FED9025E4F5F2F11164B",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/get-message-delay-projection-rejected-counted-both-phases.json",
+      "bytes": 2518,
+      "sha256": "0127C9CE63004ACCC42D2D9851220DEE38E3BAE124D112E751F9B8F2BB402855",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/long-stream-attempt1-diagnosis.json",
+      "bytes": 38680,
+      "sha256": "474FF6745422A62C8A43D06D59D66C856DFC24746B11C5D227C8E04E056D09D8",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/long-stream-attempt2-natural-completion-proof.json",
+      "bytes": 31051,
+      "sha256": "7A9A5EC5E2F323CD3102234F5226296D645785AB7FBE8CA3CB71599A06C367F3",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/long-stream-attempt3-cancel-persistence-proof.json",
+      "bytes": 23763,
+      "sha256": "DC3D16267129C310F754642A9B7D64FCA931A45561EFD0189A48E818C6B0B8DF",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/long-stream-cancel-late-stability-proof.json",
+      "bytes": 31257,
+      "sha256": "31170E71938475B1C3E027A3253EA8C9CE03061AF6E1EE9F33564618A6F17930",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/long-stream-control-proof.json",
+      "bytes": 975,
+      "sha256": "2CAA5626975512F3483895F03AE9B58D8076C06FBCCA856CFAE02596214AD7A2",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/modal-keyboard-no-send-proof.json",
+      "bytes": 1340,
+      "sha256": "BBDB487F068A54BAFC15D6A1603B57B0C093743106872BFDD58A7781ECC4C8D9",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/owned-stop-executed-journey.json",
+      "bytes": 5547,
+      "sha256": "24A9F9A39DD8C5C283A4424B603BEEE80648357F1B95707A60F27EE5583F9DC0",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/owned-stop-journey-final-proof.json",
+      "bytes": 1971,
+      "sha256": "54AB4B634E2B5FF2C245FDA9CAFFBA37C8505CCFA94E1937685226BF67AEF78D",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/owned-stop-plan-journey-final.json",
+      "bytes": 5546,
+      "sha256": "B2EF94E253A54B805B5BE8B756673D1B97A6577B4004A2896D3E58D983D44523",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/owned-stop-plan-journey-preflight.json",
+      "bytes": 4564,
+      "sha256": "59035C99925106C8BB6C29BF150306624734F20BA793C2CEA40743C093F65DBD",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/primary-profile-preserved-during-variants.json",
+      "bytes": 512,
+      "sha256": "A02AC05125B889394B269C0D126A88909768126FBE6639E27B0616E1322DCB8D",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/profile-fallback-prefs-preflight.json",
+      "bytes": 1179,
+      "sha256": "B75FC7A6E3BA4DDA0083AB22E96200CA6CBD50A8EB861F7D8255386DC68BC645",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/profile-first-setup-preflight.json",
+      "bytes": 1150,
+      "sha256": "CF42B60A19113DFB3C7284FA1FC945D935ABE54AF02C8E269A8A91C94341BB57",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/ready.json",
+      "bytes": 5264,
+      "sha256": "9CE7CC54A5402E1744AA7455337A84B7BC913AD4697A2C66DE2917E1FB0E1673",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/rename-empty-title-proof.json",
+      "bytes": 1090,
+      "sha256": "82BC25BE7B275D38F9C9A2EC4DAC0B46C4C057D396A024A577C8742A5A3B48AE",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/rename-max-title-proof.json",
+      "bytes": 2152,
+      "sha256": "898D00FA78158C5E7E28604EF7D5F9938DA980BF0AE74F869DC1CF3E56B9F26E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/rename-session-seed.json",
+      "bytes": 2462,
+      "sha256": "874FE8CAE9108BA9DE676B549CBD49A3CB46954B09E3AE34C8CC344B8131A847",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/short-stream-after-cancel-control-proof.json",
+      "bytes": 520,
+      "sha256": "443724CACCBF6F03F47D37B05302BCACAA59B301D19AF5FF7A5759E8BE6F763E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/source-ambiguity-native-proof.json",
+      "bytes": 15590,
+      "sha256": "6AD6D96E3CE52B448838C5B26762A9A5D2E0FF6F87D1F54D71A3B7F73235DCAF",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/source-ambiguity-profile-preflight.json",
+      "bytes": 951,
+      "sha256": "4FADA11E7DEF1A43018D5F72D3060F6BF744F57E7603F3A7156575FC06A86A1C",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/source-ambiguity-session-fixture.json",
+      "bytes": 1461,
+      "sha256": "30544D62B9069B5C17F4EEBE9181C3EEEC4CCF19ECEEA54FE3B570507DB9737E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/storage-proxy-events-journey-completion.jsonl",
+      "bytes": 41036,
+      "sha256": "44DAAE37EF2DBB9A109F10695009AE9DC8B29A97C06AA367C97DB8E9A0EAB986",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/storage-proxy-journey-completion.json",
+      "bytes": 843,
+      "sha256": "8F5FBAEA7B615E93BFF0BD7F1C71A8B7CB0D7DED46A5102978F26A0860EBE5EC",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/local-fixture/synthetic-documents.json",
+      "bytes": 548,
+      "sha256": "D027F5794EFBC4C2C380E8334A4C7CA6BD521DD2CA4BB25CE7166C95023E1DCA",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/01-first-setup-before-edit.json",
+      "bytes": 5080,
+      "sha256": "7B635E11512B4BCC65988061729DE3CE961DC283A2C85508310B81379DABCD30",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/02-first-setup-edited-before-cancel.json",
+      "bytes": 5063,
+      "sha256": "2CB6C09D35564A3DCF6468411FA1C45AD06D4E5E46A2C382529C9A4E424F2303",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/03-first-setup-cancel-disconnected-usable-0.png",
+      "bytes": 39484,
+      "sha256": "1391F30F6C12F0B8D3D01C8A1C4EE20201CE46FC5D787990D6BD750335E26F7E",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/03-first-setup-cancel-disconnected-usable.json",
+      "bytes": 2195,
+      "sha256": "CC60CC448C631569E45E0EF69B87E54C49FBAECDB5E3805608627ECACF9FB1ED",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/04-first-setup-restart-original-values.json",
+      "bytes": 5088,
+      "sha256": "D967052138C042CB2EA86D3AB49CB25C2AC59E50E1D5E751D87066607A8E4CE4",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/05-first-setup-invalid-key-401.json",
+      "bytes": 5247,
+      "sha256": "3327C8A7A844FBF63F9C3D141E460881C0860B7E341A32186A33E8BD28031C6E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/06-first-setup-key-repaired-same-wizard.json",
+      "bytes": 5303,
+      "sha256": "53B9C7CECEEDBDE380DEF689E0F1D5A63238FD0A95C46E812AD8975290A35FCD",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/07-first-setup-applied-connected-0.png",
+      "bytes": 45086,
+      "sha256": "CC5CF145ECBE5E318B569B6EEB17EDE4FAB6A2C9DA7297B9FFDC6A7FFA28E0AC",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/07-first-setup-applied-connected.json",
+      "bytes": 2103,
+      "sha256": "0836DDF60DDE45694C5F60FD048B60659C3AD224866E08C6919786650A9B233C",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/08-first-setup-applied-restart-connected-0.png",
+      "bytes": 45137,
+      "sha256": "7C3938C11DBC66AB9263DFA0D352D975A2A122BF54935E9647F97A5759821930",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/08-first-setup-applied-restart-connected.json",
+      "bytes": 2127,
+      "sha256": "A147CA72E921205ADB2B7F763BF34C12ED78B26EFA05690CD0351168DB846004",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/09-fallback-first-start-connected-0.png",
+      "bytes": 44727,
+      "sha256": "0BC594CB5C85C4A8C73D77E178B0D6250ECEFDAA2C30985837963D3E4F52EF99",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/09-fallback-first-start-connected.json",
+      "bytes": 2218,
+      "sha256": "150C538F9EB35CE849F2BB55BCB982C21ACBF912EAC73E09623B52B561BBFE57",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/10-fallback-preferences-before-change-0.png",
+      "bytes": 68440,
+      "sha256": "D260EC38E22EB2B95E20C4E871B63C15DCAD46FE2B141C74438484D433AC5C35",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/10-fallback-preferences-before-change.json",
+      "bytes": 3112,
+      "sha256": "1DAAD230C428CA6B7DD50A0D73C84FA7321E5CB9EB8E85CEE25A701EF708BF6E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/11-fallback-preferences-english-light-before-apply-0.png",
+      "bytes": 67789,
+      "sha256": "AE327EBDB72B4784260B219BF0F212D1A5959208D7E48ECA2CDCA71E68D9E11F",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/11-fallback-preferences-english-light-before-apply.json",
+      "bytes": 3946,
+      "sha256": "DB909AAD9B7B0232AE85A9036E34E0456FD009C13C389DCC0E19689D4B6C778D",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/12-fallback-english-light-applied-0.png",
+      "bytes": 46914,
+      "sha256": "3AD617D946FE3DADE01803380F288EDDD88EED4B26A9B3DB8665D0BA7DCD8E75",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/12-fallback-english-light-applied.json",
+      "bytes": 2084,
+      "sha256": "E5F078B16B779BF5DAD0F32AED9AAB8F9E9AA174E0736510B1A38461D1A58B97",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/13-fallback-restart-english-light-connected-0.png",
+      "bytes": 47031,
+      "sha256": "70E34576B4BBE4D1F51841BB4B45E1CF0F26204AF36C7BE1E85E203FF79C8354",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/13-fallback-restart-english-light-connected.json",
+      "bytes": 2088,
+      "sha256": "7C09276A1197DB4E36ED462C01339204310D8AEA97AA7AF303BA95176D8AAF93",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/14-rename-before-inactive-edit-0.png",
+      "bytes": 71682,
+      "sha256": "FA3C450F767CBD59904833BBF9D1E89FD7822AFB0585B14F5A2A1F97E7D48FCA",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/14-rename-before-inactive-edit.json",
+      "bytes": 3273,
+      "sha256": "8FF53290DCACAF5B60943AC273CCF2525A82960B52B5DDFB6249C909B99D8865",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/15-rename-empty-title-before-save-0.png",
+      "bytes": 77072,
+      "sha256": "3CB9C19282606D28979754F0FA42A6656D56BDD36606693A5B8AB2E5ABC8BCEB",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/15-rename-empty-title-before-save.json",
+      "bytes": 3626,
+      "sha256": "36B8A621E35FFF5F94E4BBA5B8D04227E6CC04502DFA511BB67CA49D41233ECE",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/16-rename-empty-becomes-default-active-preserved-0.png",
+      "bytes": 70951,
+      "sha256": "F956C8087ABBA99337FF9518F15F1AB79315EB5048631498A60E8E81BD5BD201",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/16-rename-empty-becomes-default-active-preserved.json",
+      "bytes": 3313,
+      "sha256": "9C85FFE72C85E78E570B8135887D9FBFEA7CDCC63623D31524B3501DC0B8E141",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/17-rename-121-native-input-limited-to120-0.png",
+      "bytes": 81228,
+      "sha256": "CE1EE7B2631B9B415145F46FA9C83E16688D1D4097ABEA97AB46378D7913DC83",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/17-rename-121-native-input-limited-to120.json",
+      "bytes": 3936,
+      "sha256": "7C78142CDFF0EA6848BA9710DAC70414AF739007A5C88326C0F7D043BE3DC21B",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/18-rename-120-saved-active-preserved-0.png",
+      "bytes": 71145,
+      "sha256": "F9DA100DD6DE9DA32E7CA20429C27C5E076E3D923CBE215DB0589EDFE0B00B44",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/18-rename-120-saved-active-preserved.json",
+      "bytes": 3419,
+      "sha256": "E6074D3A7C7F38D37498D8E820FC68D2F4F202F23F0948841DF62EF01F4CF1B5",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/19-stream-attempt-rejected-before-deltas-0.png",
+      "bytes": 86442,
+      "sha256": "A870F92B7864F1604E0A61B2917A58058EB735798B2724008F843CDB62545359",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/19-stream-attempt-rejected-before-deltas.json",
+      "bytes": 4069,
+      "sha256": "AABABEB1418C3EEEEC613DAC00483C12A97409EC3D71F78A13B5AACD3DC6E749",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/20-stream-deltas-visible-0.png",
+      "bytes": 103712,
+      "sha256": "D74EFD368910009B85CB5CD38A97582A183517970456063317A5485FE7A0159B",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/20-stream-deltas-visible.json",
+      "bytes": 5420,
+      "sha256": "FB88E5B66624C9643B4A5332C8BBA0D2540EFBC862841B0C7F1D6FF2E9299446",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/21-stream-user-scrolled-up-0.png",
+      "bytes": 91778,
+      "sha256": "B68DC3AE4246BE137E2F4D6D1303356DB200D8F10EEAD5AE4C091DB24E545D32",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/21-stream-user-scrolled-up.json",
+      "bytes": 6206,
+      "sha256": "26456A7B16FFD1B536E2C68EA97D03664D524AA4A08E004CDED998E87EFC1BE8",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/22-stream-scroll-at-top-with-new-deltas-0.png",
+      "bytes": 106179,
+      "sha256": "B59F8AFE6B548C9C0FDF0E91C480C33EFF2A6AD484B9DCF233C346BCF3EBAAF2",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/22-stream-scroll-at-top-with-new-deltas.json",
+      "bytes": 7617,
+      "sha256": "116F838DAB247154135CB4281B1D1061F606B74E59D65F109B85268F1227D9F6",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/23-stream-manual-top-preserved-0.png",
+      "bytes": 106179,
+      "sha256": "39303B2E4AECBC9D0F6E8EDE353C87446974DB9FEF396C5683F312FF03C111D2",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/23-stream-manual-top-preserved.json",
+      "bytes": 10776,
+      "sha256": "33BD7E69C00B829804B02EC4DF8526C7F2415A4D67CBE8B4792CB3C9FD5225DB",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/24-stream-jump-bottom-after-completion-0.png",
+      "bytes": 134438,
+      "sha256": "05FB2822E4D59731CC2E3B449582620ECE804083407DC116EA459AC70A95FEB4",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/24-stream-jump-bottom-after-completion.json",
+      "bytes": 10984,
+      "sha256": "CD69C8C852FB3675AF24C0D1777165611EA1047BE674B7E7CEC0EEC40F635937",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/25-slow-stream-deltas-visible-before-navigation-0.png",
+      "bytes": 116090,
+      "sha256": "DD9FAC430E74D98EB30C73BE736E0A2E043029C6DDA8799240508F9C3DBBFBE8",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/25-slow-stream-deltas-visible-before-navigation.json",
+      "bytes": 12112,
+      "sha256": "8BD88358FE0AB29AFE1F6D349DFB845F4D449A3B87A612CF27BE83A89B284FF3",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/26-slow-stream-jump-button-while-live-0.png",
+      "bytes": 114361,
+      "sha256": "414ADE314680244E430E77AB4FFBE9361E61AC7447DD1A656B7EB28FA0CC25A9",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/26-slow-stream-jump-button-while-live.json",
+      "bytes": 12590,
+      "sha256": "E0A4A3FF0015F5C15A18C008EFDC940CF61EA5EA55EEB6BD0888571DBF343777",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/27-slow-stream-jump-bottom-live-0.png",
+      "bytes": 119239,
+      "sha256": "4BEC3A86975E3E1605B8BA907B102A068E8DA4CAF74B774B5B8AB2D6F90D58D1",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/27-slow-stream-jump-bottom-live.json",
+      "bytes": 12525,
+      "sha256": "0EB8ADD775B4A6CAD090DC29E0DB462FFFFBB7F27028AAA7C44F39F28C3AA3DA",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/28-stream-cancel-requested-after-deltas-0.png",
+      "bytes": 122139,
+      "sha256": "1B4BC6A1B49F5D981CCE68EE449F7C15464D634488BE4230003D0BE478E70FB7",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/28-stream-cancel-requested-after-deltas.json",
+      "bytes": 12940,
+      "sha256": "DAF96333D42D5CDEAED9AF6BBAB40834486C27F606FC8709003E175EBEC59666",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/29-stream-cancel-completed-controls-released-0.png",
+      "bytes": 123417,
+      "sha256": "5FF2DBD35A922000CE2F9E7F55EFB4CF9E1B887B2E7C873959F0EF4B40E065C8",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/29-stream-cancel-completed-controls-released.json",
+      "bytes": 12459,
+      "sha256": "CF311EC678D109133D606A1C00450A05317EC41B6D532C008527A766607E4713",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/30-stream-interruption-reloaded-0.png",
+      "bytes": 123503,
+      "sha256": "937129666547CC8EBE6EB4405C9D1BA628B8F25E29F8096FE33B529C43F48A3D",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/30-stream-interruption-reloaded.json",
+      "bytes": 12470,
+      "sha256": "856F4299CADE3C051675F01A1DB618A315BB0017BAFAE8381A3C36383E37AED3",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/31-stream-next-turn-success-after-cancel-0.png",
+      "bytes": 107337,
+      "sha256": "A14A8B33A78A90289760BB5BDB97E7C947ADFF9A58CDC2C296A97BB0B859DDB0",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/31-stream-next-turn-success-after-cancel.json",
+      "bytes": 12957,
+      "sha256": "4DEFA2D25108AE8805766DC459E72FD27AB43AA6351349E86FE050B8BA1D7981",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/32-slow-get-controls-locked-0.png",
+      "bytes": 106147,
+      "sha256": "A3BF252A52278CA58F9A42BDCB66C9B8FC124A314D4C66B9A26702CF75B1870C",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/32-slow-get-controls-locked.json",
+      "bytes": 13347,
+      "sha256": "F0493CD2AB0C2DDE9AACF39B23F5408643A08F55CFDB7385A222CF83AA2EB3E6",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/33-slow-get-keyboard-remains-locked-0.png",
+      "bytes": 106128,
+      "sha256": "7DCA7391277C547490264D2B0AD9A5F3B091482FE1C6890EB60FD0D9F0AF80CA",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/33-slow-get-keyboard-remains-locked.json",
+      "bytes": 13027,
+      "sha256": "24D84A3AB900E2C7EE3C3A00317A1252A5FCD884404A09F4BF3F84AE1FDFB82D",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/34-slow-get-finished-controls-restored-0.png",
+      "bytes": 70953,
+      "sha256": "8E7F073087A6C56341D832E6D1595BC577FCB4107A84D12976F13DCBC45A6505",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/34-slow-get-finished-controls-restored.json",
+      "bytes": 3403,
+      "sha256": "6E6D92CACD19BDC6C44F6051C1FFC7E4C6D37883C7CBAC49516556CD6269E8FF",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/35-settings-overlay-draft-locked-0.png",
+      "bytes": 89938,
+      "sha256": "E25B838DF3CA5FBE89EA13C6662B7E005603BAA869585AD28800949808F3A7B6",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/35-settings-overlay-draft-locked.json",
+      "bytes": 4776,
+      "sha256": "DD767485E3546EE2BF77AD0909CED7F5C95B741BBB3603657A393A1D787F07D3",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/36-settings-overlay-keyboard-no-send-0.png",
+      "bytes": 89461,
+      "sha256": "FD18DA80A6A16CE762768077D95D1482630D3DE1B122551EB90667D3742F78FF",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/36-settings-overlay-keyboard-no-send.json",
+      "bytes": 4473,
+      "sha256": "E74FB7B50D5B7F5711D9884A17E6AAC28047AC7FE5408878E5C70F709F9157F9",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/37-overlay-closed-draft-preserved-0.png",
+      "bytes": 73451,
+      "sha256": "ABA5CA6FAD7B99D487666C4CA38CA19B8797E6DCA83E5563FD3FE4C627FDD29E",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/37-overlay-closed-draft-preserved.json",
+      "bytes": 3469,
+      "sha256": "D122221842C79E7557DFEC24B5695F122B68F7C15761125FCF93439B54F17578",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/38-build10-original-question-streaming-0.png",
+      "bytes": 100704,
+      "sha256": "C2E28EE7A97967A5FB1F8E91B3533589BB6B758B3FFF0D8D0A3AA7BF3FA9C389",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/38-build10-original-question-streaming.json",
+      "bytes": 13927,
+      "sha256": "AE2189550E434EF271658DFE30A9E95AE12E9C4B70090D02830BAD85278D6F9B",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/39-build10-manual-scroll-live-0.png",
+      "bytes": 110946,
+      "sha256": "59899B05007E457CC1270034E63ECFC593FFA3B174926EA0E0A76C2A9B0A892B",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/39-build10-manual-scroll-live.json",
+      "bytes": 14094,
+      "sha256": "F9D40BB11B58BABEBA02F2C8E7FB10D560D9B6916BE2E9B844C1F9673A874D28",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/40-build10-manual-scroll-still-stable-0.png",
+      "bytes": 110946,
+      "sha256": "59899B05007E457CC1270034E63ECFC593FFA3B174926EA0E0A76C2A9B0A892B",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/40-build10-manual-scroll-still-stable.json",
+      "bytes": 14208,
+      "sha256": "38D12F730B110CF06D2204A8208E6BF7FBFF2B10DF2C01754D710240994B1C5E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/41-build10-jump-bottom-live-0.png",
+      "bytes": 100613,
+      "sha256": "661D1B1702B74E39DD0E99D7503685711F2C907E95F9F281708032B9503CD88D",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/41-build10-jump-bottom-live.json",
+      "bytes": 14342,
+      "sha256": "61AC7C0AA6516E6545450DBACC5C2BC5BB1B1FB2340913B16760D1372D555674",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/42-build10-cancelled-partial-controls-restored-0.png",
+      "bytes": 104483,
+      "sha256": "C43DF4B6D6A5F933B0A29D976D26DCA8E4C55070584979204A3CEEDF8DBCD873",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/42-build10-cancelled-partial-controls-restored.json",
+      "bytes": 14244,
+      "sha256": "7F506079F313DEBA5662B339A8F172D67E7299006F4037C3DCD23BFEA515F848",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/43-build10-cancelled-partial-after-reload-0.png",
+      "bytes": 104488,
+      "sha256": "786D18607EA4E4711DD35846245DCD323A67BC5AFB3AB0FAD0072188B8B1CC87",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/43-build10-cancelled-partial-after-reload.json",
+      "bytes": 14300,
+      "sha256": "B6FA60469F6C2D1BAA6FD04F5F7A83D544A911A61A1568C5E07D79C38C7FC89E",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/44-build10-next-turn-after-cancel-0.png",
+      "bytes": 102602,
+      "sha256": "2707E4F8BF4E5485DEDE80DC1FA950830518AAB944EF2CE3D1E57526BC5A13CE",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/44-build10-next-turn-after-cancel.json",
+      "bytes": 14712,
+      "sha256": "820A1F511236212E8631313D1F4C163C0E829DCF6A53983005C5A514BFC88AAF",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/45-build10-ambiguous-reference-and-two-cards-0.png",
+      "bytes": 96728,
+      "sha256": "AD4B706A0230E82B3657F5A79426ACD0EA477B847B9C6AE4DB74E6B8BFA5D70D",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/45-build10-ambiguous-reference-and-two-cards.json",
+      "bytes": 4276,
+      "sha256": "CC3C46C707546EFE26A342718C92191C40ECD2B7FD7A6688FAB873A3A1D038E6",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/46-build10-ambiguous-inline-reference-refused-0.png",
+      "bytes": 82046,
+      "sha256": "2A4A215902287BE13CE65EB33CB89E79A457891F633A5EECF1DFAA6A30A85675",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/46-build10-ambiguous-inline-reference-refused.json",
+      "bytes": 4628,
+      "sha256": "52EB1736A83C33B13F78DEB34334BF60A7E97C8EE8077561283DBD610347968B",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/47-build10-canonical-pdf-page2-public-projection.json",
+      "bytes": 1128,
+      "sha256": "EC92241CA2DBDCFC4A29960E06DA8A66FE9D2B0CE8CC427B9E01D6F83EAD3683",
+      "kind": "public_projection"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/48-build10-missing-revision-refused-0.png",
+      "bytes": 97928,
+      "sha256": "CED01EC63FA4BF8F181088EC7CAA4214FBABD237B46EF49CA7CDBB3292F1C105",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/48-build10-missing-revision-refused.json",
+      "bytes": 5063,
+      "sha256": "3B525541F61BCA1874936D1020E803CA5D96A03A62495445E2F8FB75633B592C",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/48b-build10-missing-revision-caption-correction-0.png",
+      "bytes": 97928,
+      "sha256": "CED01EC63FA4BF8F181088EC7CAA4214FBABD237B46EF49CA7CDBB3292F1C105",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/48b-build10-missing-revision-caption-correction.json",
+      "bytes": 5150,
+      "sha256": "71DB99924C019A018836601E9160230A5EF9F2E0C9DC674BB167D78043C40380",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/49-build10-advanced-terminal-resumed-0.png",
+      "bytes": 58611,
+      "sha256": "C674D04B0BAF5E936C3D020D1D6C3FF29D9D29BD22885B628B7EFE6D1EFC58F6",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/49-build10-advanced-terminal-resumed.json",
+      "bytes": 2866,
+      "sha256": "211ED9BDFFF4D6FDFDFBE2CFC6B2B727C7F65DEBD5231A81ABE1B9B6FD2B95DE",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/50-build10-advanced-source-pdf-page2-public-projection.json",
+      "bytes": 1045,
+      "sha256": "BD3499A8EF1269E86F28B6464999A472345063D9CBBDC6D915C3A0F27059118B",
+      "kind": "public_projection"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/51-build10-advanced-terminal-after-restart-0.png",
+      "bytes": 58223,
+      "sha256": "7754671FA675B9ED09F71D63DC34335030EB5F3F891BC51C4D7EF9C220558863",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/51-build10-advanced-terminal-after-restart.json",
+      "bytes": 2766,
+      "sha256": "6416DF334DEB60798E2924BF5EF8EE637999A6CF28E333EB71CB892291B386D5",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/52-build11-general-final-control-0.png",
+      "bytes": 95431,
+      "sha256": "2D21039B77276B32ABCF9FF8B9421808BA0C7EA057F3EB335F52CA68ED56810B",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/52-build11-general-final-control.json",
+      "bytes": 15177,
+      "sha256": "F098CE84A707621FF3359CA67F048C08454B6EE2015AF7C6E48044FC5A27832C",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/53-build11-source-role-label-and-persisted-result-0.png",
+      "bytes": 57475,
+      "sha256": "D8F85838565A088F4D6B0AF2C4B83EFE2910148C5A4FBD93DCD2465DC33229F4",
+      "kind": "native_screenshot"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/53-build11-source-role-label-and-persisted-result.json",
+      "bytes": 2780,
+      "sha256": "49F1F5E7D62CB0AEB1A4F492945FBB85D3C5C89DD359770F476A7343EF4566CC",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/native-ui/observations.jsonl",
+      "bytes": 16685,
+      "sha256": "FFBE8EF6C25DF13554C6B29DBBA3E79960BAD8EBE5697D7E42420832E7F5D2E6",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/normal-profile-final-comparison.json",
+      "bytes": 1699,
+      "sha256": "ED1F65E76857C8B6AEC6F54D4D7E54D935CFF3BF417496A3D5AB15EB5A4F9447",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/production-client-build10.log",
+      "bytes": 543,
+      "sha256": "54FA2342B65015CF1DCE939CA0556AC39C134BC68ED69258F15BFD63025AA6B5",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/production-client-build11.log",
+      "bytes": 543,
+      "sha256": "91DF8C67F71781AD1C1820DF81E17F139B0A7535D33D17F62CC8E15B7EFCBF9B",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/public-probe-integrity-review.json",
+      "bytes": 37224,
+      "sha256": "80C261CF778887B222FA07AE3D5DD355B90BD851591EB4FA5D806717B9B1C1BC",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/review-public-probe-integrity.ps1",
+      "bytes": 10307,
+      "sha256": "6D9B7997CBA3B8461BA6260F5EA16AA01486DADF80C0407311041F560A66BD2D",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/tooling-offline-acceptance.json",
+      "bytes": 4226,
+      "sha256": "7585BEBC8627249A165F21ECBB79781DBAC13E6D4005920DA185B4C462DB3990",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/tooling-offline-unittest.log",
+      "bytes": 2598,
+      "sha256": "6DF51BC1045AEC94F466DD19E3CF488E3807DB3AD957FE88131AFC87459095C9",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/verify-core-client-build10-production-anchor.ps1",
+      "bytes": 13488,
+      "sha256": "CB4B5027AB51E0FD2CCBD70791370F327452AC0A21728ADA7ED3A10512C5BFC8",
+      "kind": "proof_or_report"
+    },
+    {
+      "path": "artifacts/winui-journey-completion-20261025/verify-core-client-build11-production-anchor.ps1",
+      "bytes": 13494,
+      "sha256": "3167AE93BA415E83CD67FFD5ADA03E382744F94982C6344790517497DA2B53CE",
+      "kind": "proof_or_report"
+    }
+  ],
+  "exclusionPolicy": {
+    "anySegment": [
+      "runtime",
+      "client-data",
+      "private*",
+      "secure*"
+    ],
+    "excludedNames": [
+      "advanced-backend.stderr.log",
+      "advanced-backend.stdout.log",
+      "backend.stderr.log",
+      "backend.stdout.log",
+      "environment.json",
+      "initdb.log",
+      "postgres-stop.log",
+      "settings.json"
+    ],
+    "excludedExtensions": "All except .json .jsonl .md .ps1 .trx .png .log; excludes ZIP/SQL/PDF/database and binary runtime data.",
+    "profilesAndPrivateBaselines": "Excluded by private/runtime/client-data boundaries; normal-profile-final-comparison is a hash/count-only summary.",
+    "edgeOriginals": "All originals in private-native-ui excluded; only minimal fields in public47/50 projections allowed.",
+    "environmentAndRawBackendLogs": "Excluded even outside runtime.",
+    "excludedReasonCounts": {
+      "private_runtime_client_data_or_secure_segment": 1630,
+      "raw_runtime_environment_backend_or_profile_file": 7
+    }
+  },
+  "secretScan": {
+    "status": "PASS",
+    "method": "Exact known values compared in memory in UTF8/UTF16LE and JSON escaped forms; no values or credential digests published.",
+    "fixtureSecretFileCount": 3,
+    "isolatedSecureProfileFileCount": 18,
+    "distinctSensitiveValueCount": 16,
+    "knownValueMatchCount": 0,
+    "limits": [
+      "Exact known-value scan does not replace independent review or visual inspection.",
+      "Public screenshots were reviewed by root as synthetic WinUI; private wizard/Edge screenshots are excluded."
+    ]
+  },
+  "referenceChecks": {
+    "status": "PASS",
+    "nativeScreenshotReferenceCount": 47,
+    "nativeScreenshotReferences": [
+      {
+        "observation": "native-ui/03-first-setup-cancel-disconnected-usable.json",
+        "path": "native-ui/03-first-setup-cancel-disconnected-usable-0.png",
+        "sha256": "1391F30F6C12F0B8D3D01C8A1C4EE20201CE46FC5D787990D6BD750335E26F7E"
+      },
+      {
+        "observation": "native-ui/07-first-setup-applied-connected.json",
+        "path": "native-ui/07-first-setup-applied-connected-0.png",
+        "sha256": "CC5CF145ECBE5E318B569B6EEB17EDE4FAB6A2C9DA7297B9FFDC6A7FFA28E0AC"
+      },
+      {
+        "observation": "native-ui/08-first-setup-applied-restart-connected.json",
+        "path": "native-ui/08-first-setup-applied-restart-connected-0.png",
+        "sha256": "7C3938C11DBC66AB9263DFA0D352D975A2A122BF54935E9647F97A5759821930"
+      },
+      {
+        "observation": "native-ui/09-fallback-first-start-connected.json",
+        "path": "native-ui/09-fallback-first-start-connected-0.png",
+        "sha256": "0BC594CB5C85C4A8C73D77E178B0D6250ECEFDAA2C30985837963D3E4F52EF99"
+      },
+      {
+        "observation": "native-ui/10-fallback-preferences-before-change.json",
+        "path": "native-ui/10-fallback-preferences-before-change-0.png",
+        "sha256": "D260EC38E22EB2B95E20C4E871B63C15DCAD46FE2B141C74438484D433AC5C35"
+      },
+      {
+        "observation": "native-ui/11-fallback-preferences-english-light-before-apply.json",
+        "path": "native-ui/11-fallback-preferences-english-light-before-apply-0.png",
+        "sha256": "AE327EBDB72B4784260B219BF0F212D1A5959208D7E48ECA2CDCA71E68D9E11F"
+      },
+      {
+        "observation": "native-ui/12-fallback-english-light-applied.json",
+        "path": "native-ui/12-fallback-english-light-applied-0.png",
+        "sha256": "3AD617D946FE3DADE01803380F288EDDD88EED4B26A9B3DB8665D0BA7DCD8E75"
+      },
+      {
+        "observation": "native-ui/13-fallback-restart-english-light-connected.json",
+        "path": "native-ui/13-fallback-restart-english-light-connected-0.png",
+        "sha256": "70E34576B4BBE4D1F51841BB4B45E1CF0F26204AF36C7BE1E85E203FF79C8354"
+      },
+      {
+        "observation": "native-ui/14-rename-before-inactive-edit.json",
+        "path": "native-ui/14-rename-before-inactive-edit-0.png",
+        "sha256": "FA3C450F767CBD59904833BBF9D1E89FD7822AFB0585B14F5A2A1F97E7D48FCA"
+      },
+      {
+        "observation": "native-ui/15-rename-empty-title-before-save.json",
+        "path": "native-ui/15-rename-empty-title-before-save-0.png",
+        "sha256": "3CB9C19282606D28979754F0FA42A6656D56BDD36606693A5B8AB2E5ABC8BCEB"
+      },
+      {
+        "observation": "native-ui/16-rename-empty-becomes-default-active-preserved.json",
+        "path": "native-ui/16-rename-empty-becomes-default-active-preserved-0.png",
+        "sha256": "F956C8087ABBA99337FF9518F15F1AB79315EB5048631498A60E8E81BD5BD201"
+      },
+      {
+        "observation": "native-ui/17-rename-121-native-input-limited-to120.json",
+        "path": "native-ui/17-rename-121-native-input-limited-to120-0.png",
+        "sha256": "CE1EE7B2631B9B415145F46FA9C83E16688D1D4097ABEA97AB46378D7913DC83"
+      },
+      {
+        "observation": "native-ui/18-rename-120-saved-active-preserved.json",
+        "path": "native-ui/18-rename-120-saved-active-preserved-0.png",
+        "sha256": "F9DA100DD6DE9DA32E7CA20429C27C5E076E3D923CBE215DB0589EDFE0B00B44"
+      },
+      {
+        "observation": "native-ui/19-stream-attempt-rejected-before-deltas.json",
+        "path": "native-ui/19-stream-attempt-rejected-before-deltas-0.png",
+        "sha256": "A870F92B7864F1604E0A61B2917A58058EB735798B2724008F843CDB62545359"
+      },
+      {
+        "observation": "native-ui/20-stream-deltas-visible.json",
+        "path": "native-ui/20-stream-deltas-visible-0.png",
+        "sha256": "D74EFD368910009B85CB5CD38A97582A183517970456063317A5485FE7A0159B"
+      },
+      {
+        "observation": "native-ui/21-stream-user-scrolled-up.json",
+        "path": "native-ui/21-stream-user-scrolled-up-0.png",
+        "sha256": "B68DC3AE4246BE137E2F4D6D1303356DB200D8F10EEAD5AE4C091DB24E545D32"
+      },
+      {
+        "observation": "native-ui/22-stream-scroll-at-top-with-new-deltas.json",
+        "path": "native-ui/22-stream-scroll-at-top-with-new-deltas-0.png",
+        "sha256": "B59F8AFE6B548C9C0FDF0E91C480C33EFF2A6AD484B9DCF233C346BCF3EBAAF2"
+      },
+      {
+        "observation": "native-ui/23-stream-manual-top-preserved.json",
+        "path": "native-ui/23-stream-manual-top-preserved-0.png",
+        "sha256": "39303B2E4AECBC9D0F6E8EDE353C87446974DB9FEF396C5683F312FF03C111D2"
+      },
+      {
+        "observation": "native-ui/24-stream-jump-bottom-after-completion.json",
+        "path": "native-ui/24-stream-jump-bottom-after-completion-0.png",
+        "sha256": "05FB2822E4D59731CC2E3B449582620ECE804083407DC116EA459AC70A95FEB4"
+      },
+      {
+        "observation": "native-ui/25-slow-stream-deltas-visible-before-navigation.json",
+        "path": "native-ui/25-slow-stream-deltas-visible-before-navigation-0.png",
+        "sha256": "DD9FAC430E74D98EB30C73BE736E0A2E043029C6DDA8799240508F9C3DBBFBE8"
+      },
+      {
+        "observation": "native-ui/26-slow-stream-jump-button-while-live.json",
+        "path": "native-ui/26-slow-stream-jump-button-while-live-0.png",
+        "sha256": "414ADE314680244E430E77AB4FFBE9361E61AC7447DD1A656B7EB28FA0CC25A9"
+      },
+      {
+        "observation": "native-ui/27-slow-stream-jump-bottom-live.json",
+        "path": "native-ui/27-slow-stream-jump-bottom-live-0.png",
+        "sha256": "4BEC3A86975E3E1605B8BA907B102A068E8DA4CAF74B774B5B8AB2D6F90D58D1"
+      },
+      {
+        "observation": "native-ui/28-stream-cancel-requested-after-deltas.json",
+        "path": "native-ui/28-stream-cancel-requested-after-deltas-0.png",
+        "sha256": "1B4BC6A1B49F5D981CCE68EE449F7C15464D634488BE4230003D0BE478E70FB7"
+      },
+      {
+        "observation": "native-ui/29-stream-cancel-completed-controls-released.json",
+        "path": "native-ui/29-stream-cancel-completed-controls-released-0.png",
+        "sha256": "5FF2DBD35A922000CE2F9E7F55EFB4CF9E1B887B2E7C873959F0EF4B40E065C8"
+      },
+      {
+        "observation": "native-ui/30-stream-interruption-reloaded.json",
+        "path": "native-ui/30-stream-interruption-reloaded-0.png",
+        "sha256": "937129666547CC8EBE6EB4405C9D1BA628B8F25E29F8096FE33B529C43F48A3D"
+      },
+      {
+        "observation": "native-ui/31-stream-next-turn-success-after-cancel.json",
+        "path": "native-ui/31-stream-next-turn-success-after-cancel-0.png",
+        "sha256": "A14A8B33A78A90289760BB5BDB97E7C947ADFF9A58CDC2C296A97BB0B859DDB0"
+      },
+      {
+        "observation": "native-ui/32-slow-get-controls-locked.json",
+        "path": "native-ui/32-slow-get-controls-locked-0.png",
+        "sha256": "A3BF252A52278CA58F9A42BDCB66C9B8FC124A314D4C66B9A26702CF75B1870C"
+      },
+      {
+        "observation": "native-ui/33-slow-get-keyboard-remains-locked.json",
+        "path": "native-ui/33-slow-get-keyboard-remains-locked-0.png",
+        "sha256": "7DCA7391277C547490264D2B0AD9A5F3B091482FE1C6890EB60FD0D9F0AF80CA"
+      },
+      {
+        "observation": "native-ui/34-slow-get-finished-controls-restored.json",
+        "path": "native-ui/34-slow-get-finished-controls-restored-0.png",
+        "sha256": "8E7F073087A6C56341D832E6D1595BC577FCB4107A84D12976F13DCBC45A6505"
+      },
+      {
+        "observation": "native-ui/35-settings-overlay-draft-locked.json",
+        "path": "native-ui/35-settings-overlay-draft-locked-0.png",
+        "sha256": "E25B838DF3CA5FBE89EA13C6662B7E005603BAA869585AD28800949808F3A7B6"
+      },
+      {
+        "observation": "native-ui/36-settings-overlay-keyboard-no-send.json",
+        "path": "native-ui/36-settings-overlay-keyboard-no-send-0.png",
+        "sha256": "FD18DA80A6A16CE762768077D95D1482630D3DE1B122551EB90667D3742F78FF"
+      },
+      {
+        "observation": "native-ui/37-overlay-closed-draft-preserved.json",
+        "path": "native-ui/37-overlay-closed-draft-preserved-0.png",
+        "sha256": "ABA5CA6FAD7B99D487666C4CA38CA19B8797E6DCA83E5563FD3FE4C627FDD29E"
+      },
+      {
+        "observation": "native-ui/38-build10-original-question-streaming.json",
+        "path": "native-ui/38-build10-original-question-streaming-0.png",
+        "sha256": "C2E28EE7A97967A5FB1F8E91B3533589BB6B758B3FFF0D8D0A3AA7BF3FA9C389"
+      },
+      {
+        "observation": "native-ui/39-build10-manual-scroll-live.json",
+        "path": "native-ui/39-build10-manual-scroll-live-0.png",
+        "sha256": "59899B05007E457CC1270034E63ECFC593FFA3B174926EA0E0A76C2A9B0A892B"
+      },
+      {
+        "observation": "native-ui/40-build10-manual-scroll-still-stable.json",
+        "path": "native-ui/40-build10-manual-scroll-still-stable-0.png",
+        "sha256": "59899B05007E457CC1270034E63ECFC593FFA3B174926EA0E0A76C2A9B0A892B"
+      },
+      {
+        "observation": "native-ui/41-build10-jump-bottom-live.json",
+        "path": "native-ui/41-build10-jump-bottom-live-0.png",
+        "sha256": "661D1B1702B74E39DD0E99D7503685711F2C907E95F9F281708032B9503CD88D"
+      },
+      {
+        "observation": "native-ui/42-build10-cancelled-partial-controls-restored.json",
+        "path": "native-ui/42-build10-cancelled-partial-controls-restored-0.png",
+        "sha256": "C43DF4B6D6A5F933B0A29D976D26DCA8E4C55070584979204A3CEEDF8DBCD873"
+      },
+      {
+        "observation": "native-ui/43-build10-cancelled-partial-after-reload.json",
+        "path": "native-ui/43-build10-cancelled-partial-after-reload-0.png",
+        "sha256": "786D18607EA4E4711DD35846245DCD323A67BC5AFB3AB0FAD0072188B8B1CC87"
+      },
+      {
+        "observation": "native-ui/44-build10-next-turn-after-cancel.json",
+        "path": "native-ui/44-build10-next-turn-after-cancel-0.png",
+        "sha256": "2707E4F8BF4E5485DEDE80DC1FA950830518AAB944EF2CE3D1E57526BC5A13CE"
+      },
+      {
+        "observation": "native-ui/45-build10-ambiguous-reference-and-two-cards.json",
+        "path": "native-ui/45-build10-ambiguous-reference-and-two-cards-0.png",
+        "sha256": "AD4B706A0230E82B3657F5A79426ACD0EA477B847B9C6AE4DB74E6B8BFA5D70D"
+      },
+      {
+        "observation": "native-ui/46-build10-ambiguous-inline-reference-refused.json",
+        "path": "native-ui/46-build10-ambiguous-inline-reference-refused-0.png",
+        "sha256": "2A4A215902287BE13CE65EB33CB89E79A457891F633A5EECF1DFAA6A30A85675"
+      },
+      {
+        "observation": "native-ui/48-build10-missing-revision-refused.json",
+        "path": "native-ui/48-build10-missing-revision-refused-0.png",
+        "sha256": "CED01EC63FA4BF8F181088EC7CAA4214FBABD237B46EF49CA7CDBB3292F1C105"
+      },
+      {
+        "observation": "native-ui/48b-build10-missing-revision-caption-correction.json",
+        "path": "native-ui/48b-build10-missing-revision-caption-correction-0.png",
+        "sha256": "CED01EC63FA4BF8F181088EC7CAA4214FBABD237B46EF49CA7CDBB3292F1C105"
+      },
+      {
+        "observation": "native-ui/49-build10-advanced-terminal-resumed.json",
+        "path": "native-ui/49-build10-advanced-terminal-resumed-0.png",
+        "sha256": "C674D04B0BAF5E936C3D020D1D6C3FF29D9D29BD22885B628B7EFE6D1EFC58F6"
+      },
+      {
+        "observation": "native-ui/51-build10-advanced-terminal-after-restart.json",
+        "path": "native-ui/51-build10-advanced-terminal-after-restart-0.png",
+        "sha256": "7754671FA675B9ED09F71D63DC34335030EB5F3F891BC51C4D7EF9C220558863"
+      },
+      {
+        "observation": "native-ui/52-build11-general-final-control.json",
+        "path": "native-ui/52-build11-general-final-control-0.png",
+        "sha256": "2D21039B77276B32ABCF9FF8B9421808BA0C7EA057F3EB335F52CA68ED56810B"
+      },
+      {
+        "observation": "native-ui/53-build11-source-role-label-and-persisted-result.json",
+        "path": "native-ui/53-build11-source-role-label-and-persisted-result-0.png",
+        "sha256": "D8F85838565A088F4D6B0AF2C4B83EFE2910148C5A4FBD93DCD2465DC33229F4"
+      }
+    ],
+    "privateProjectionProvenance": [
+      {
+        "publicProjection": "native-ui/01-first-setup-before-edit.json",
+        "originalHashMatches": true,
+        "privateScreenshotsHashMatches": true,
+        "originalExcluded": true,
+        "originalContentPublished": false
+      },
+      {
+        "publicProjection": "native-ui/02-first-setup-edited-before-cancel.json",
+        "originalHashMatches": true,
+        "privateScreenshotsHashMatches": true,
+        "originalExcluded": true,
+        "originalContentPublished": false
+      },
+      {
+        "publicProjection": "native-ui/04-first-setup-restart-original-values.json",
+        "originalHashMatches": true,
+        "privateScreenshotsHashMatches": true,
+        "originalExcluded": true,
+        "originalContentPublished": false
+      },
+      {
+        "publicProjection": "native-ui/05-first-setup-invalid-key-401.json",
+        "originalHashMatches": true,
+        "privateScreenshotsHashMatches": true,
+        "originalExcluded": true,
+        "originalContentPublished": false
+      },
+      {
+        "publicProjection": "native-ui/06-first-setup-key-repaired-same-wizard.json",
+        "originalHashMatches": true,
+        "privateScreenshotsHashMatches": true,
+        "originalExcluded": true,
+        "originalContentPublished": false
+      },
+      {
+        "publicProjection": "native-ui/47-build10-canonical-pdf-page2-public-projection.json",
+        "originalHashMatches": true,
+        "originalExcluded": true,
+        "originalContentPublished": false
+      },
+      {
+        "publicProjection": "native-ui/50-build10-advanced-source-pdf-page2-public-projection.json",
+        "originalHashMatches": true,
+        "originalExcluded": true,
+        "originalContentPublished": false
+      }
+    ],
+    "pairedArtifactHashReferenceCount": 58,
+    "pairedArtifactHashes": [
+      {
+        "from": "advanced-answered-independent-preflight-review.json",
+        "field": "preflightApiProofSha256",
+        "target": "artifacts/winui-journey-completion-20261025/local-fixture/advanced-answered-preflight.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "advanced-terminal-before-native-baseline.json",
+        "field": "pendingSeedProofSha256",
+        "target": "artifacts/winui-journey-completion-20261025/local-fixture/advanced-terminal-pending-fixture.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "advanced-terminal-preparation-review.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/advanced-answered-owned-launch.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "advanced-terminal-preparation-review.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/advanced-answered-independent-preflight-review.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "advanced-terminal-preparation-review.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/advanced-terminal-before-native-baseline.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "advanced-terminal-preparation-review.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/local-fixture/advanced-answered-preflight.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "advanced-terminal-preparation-review.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/local-fixture/advanced-terminal-pending-fixture.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "execution-matrix-consolidated-build10.json",
+        "field": "baseMatrixSha256",
+        "target": "artifacts/winui-journey-completion-20261025/../winui-validation-20261025/execution-matrix-final.json",
+        "matches": true,
+        "selectedInThisPackage": false
+      },
+      {
+        "from": "execution-matrix-consolidated-final.json",
+        "field": "baseMatrixSha256",
+        "target": "artifacts/winui-journey-completion-20261025/../winui-validation-20261025/execution-matrix-final.json",
+        "matches": true,
+        "selectedInThisPackage": false
+      },
+      {
+        "from": "explicit-general-route-causal-proof.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/explicit-general-route-red/manifest.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "explicit-general-route-causal-proof.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/explicit-general-route-red-confirmed/manifest.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "explicit-general-route-causal-proof.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/explicit-general-route-green/manifest.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "explicit-general-route-causal-proof.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/explicit-general-route-neighbor-regressions/manifest.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "explicit-general-route-causal-proof.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/explicit-general-route-architecture.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "explicit-general-route-causal-proof.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/explicit-general-route-red-confirmed/Client-09cc553cca284103975b4aef4f257bf6.trx",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "explicit-general-route-causal-proof.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/explicit-general-route-green/Client-9b8abfcba4bc4654bad982b413005ed5.trx",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "explicit-general-route-causal-proof.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/explicit-general-route-neighbor-regressions/Client-36ebeb5ea6cf438c86e286e7bf3cd9ce.trx",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "explicit-general-route-green/manifest.json",
+        "field": "trxSha256",
+        "target": "artifacts/winui-journey-completion-20261025/explicit-general-route-green/Client-9b8abfcba4bc4654bad982b413005ed5.trx",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "explicit-general-route-neighbor-regressions/manifest.json",
+        "field": "trxSha256",
+        "target": "artifacts/winui-journey-completion-20261025/explicit-general-route-neighbor-regressions/Client-36ebeb5ea6cf438c86e286e7bf3cd9ce.trx",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "explicit-general-route-red-confirmed/manifest.json",
+        "field": "trxSha256",
+        "target": "artifacts/winui-journey-completion-20261025/explicit-general-route-red-confirmed/Client-09cc553cca284103975b4aef4f257bf6.trx",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "explicit-general-route-red/manifest.json",
+        "field": "trxSha256",
+        "target": "artifacts/winui-journey-completion-20261025/explicit-general-route-red/Client-5b27d412901f4eedae040e773da59700.trx",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "fallback-source-step-causal-proof.json",
+        "field": "manifestSha256",
+        "target": "artifacts/winui-journey-completion-20261025/fallback-source-step-red/manifest.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "fallback-source-step-causal-proof.json",
+        "field": "manifestSha256",
+        "target": "artifacts/winui-journey-completion-20261025/fallback-source-step-green/manifest.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "fallback-source-step-green/manifest.json",
+        "field": "trxSha256",
+        "target": "artifacts/winui-journey-completion-20261025/fallback-source-step-green/Client-4856307a860247a7a3823cfe8b67c5a6.trx",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "fallback-source-step-red/manifest.json",
+        "field": "trxSha256",
+        "target": "artifacts/winui-journey-completion-20261025/fallback-source-step-red/Client-0310846948c14e858eb84835768522a6.trx",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "final-core-client-unit-build10/manifest.json",
+        "field": "trxSha256",
+        "target": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build10/ClientCore-c3494605d2b54b53bdc9c6d4a6042329.trx",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "final-core-client-unit-build10/manifest.json",
+        "field": "trxSha256",
+        "target": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build10/Client-c3494605d2b54b53bdc9c6d4a6042329.trx",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "final-core-client-unit-build11/manifest.json",
+        "field": "trxSha256",
+        "target": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build11/ClientCore-6a404badad534234b1b1b81e81091a80.trx",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "final-core-client-unit-build11/manifest.json",
+        "field": "trxSha256",
+        "target": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build11/Client-6a404badad534234b1b1b81e81091a80.trx",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "full-core-client-build10-production-anchor.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/verify-core-client-build10-production-anchor.ps1",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "full-core-client-build10-production-anchor.json",
+        "field": "manifestSha256",
+        "target": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build10/manifest.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "full-core-client-build10-production-anchor.json",
+        "field": "trxSha256",
+        "target": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build10/ClientCore-c3494605d2b54b53bdc9c6d4a6042329.trx",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "full-core-client-build10-production-anchor.json",
+        "field": "trxSha256",
+        "target": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build10/Client-c3494605d2b54b53bdc9c6d4a6042329.trx",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "full-core-client-build10-production-anchor.json",
+        "field": "manifestSha256",
+        "target": "artifacts/winui-delete-validation-20261025/final-unit/manifest.json",
+        "matches": true,
+        "selectedInThisPackage": false
+      },
+      {
+        "from": "full-core-client-build10-production-anchor.json",
+        "field": "preservedAnchorSha256",
+        "target": "artifacts/winui-delete-validation-20261025/full-unit-production-anchor.json",
+        "matches": true,
+        "selectedInThisPackage": false
+      },
+      {
+        "from": "full-core-client-build10-production-anchor.json",
+        "field": "trxSha256",
+        "target": "artifacts/winui-delete-validation-20261025/final-unit/Backend-144c5110c7394f288da4098296e610a5.trx",
+        "matches": true,
+        "selectedInThisPackage": false
+      },
+      {
+        "from": "full-core-client-build10-production-anchor.json",
+        "field": "trxSha256",
+        "target": "artifacts/winui-delete-validation-20261025/final-unit/Contracts-144c5110c7394f288da4098296e610a5.trx",
+        "matches": true,
+        "selectedInThisPackage": false
+      },
+      {
+        "from": "full-core-client-build10-production-anchor.json",
+        "field": "logSha256",
+        "target": "artifacts/winui-journey-completion-20261025/production-client-build10.log",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "full-core-client-build11-production-anchor.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/verify-core-client-build11-production-anchor.ps1",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "full-core-client-build11-production-anchor.json",
+        "field": "manifestSha256",
+        "target": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build11/manifest.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "full-core-client-build11-production-anchor.json",
+        "field": "trxSha256",
+        "target": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build11/ClientCore-6a404badad534234b1b1b81e81091a80.trx",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "full-core-client-build11-production-anchor.json",
+        "field": "trxSha256",
+        "target": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build11/Client-6a404badad534234b1b1b81e81091a80.trx",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "full-core-client-build11-production-anchor.json",
+        "field": "manifestSha256",
+        "target": "artifacts/winui-delete-validation-20261025/final-unit/manifest.json",
+        "matches": true,
+        "selectedInThisPackage": false
+      },
+      {
+        "from": "full-core-client-build11-production-anchor.json",
+        "field": "preservedAnchorSha256",
+        "target": "artifacts/winui-delete-validation-20261025/full-unit-production-anchor.json",
+        "matches": true,
+        "selectedInThisPackage": false
+      },
+      {
+        "from": "full-core-client-build11-production-anchor.json",
+        "field": "trxSha256",
+        "target": "artifacts/winui-delete-validation-20261025/final-unit/Backend-144c5110c7394f288da4098296e610a5.trx",
+        "matches": true,
+        "selectedInThisPackage": false
+      },
+      {
+        "from": "full-core-client-build11-production-anchor.json",
+        "field": "trxSha256",
+        "target": "artifacts/winui-delete-validation-20261025/final-unit/Contracts-144c5110c7394f288da4098296e610a5.trx",
+        "matches": true,
+        "selectedInThisPackage": false
+      },
+      {
+        "from": "full-core-client-build11-production-anchor.json",
+        "field": "logSha256",
+        "target": "artifacts/winui-journey-completion-20261025/production-client-build11.log",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "local-fixture/modal-keyboard-no-send-proof.json",
+        "field": "apiSnapshotSha256",
+        "target": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T161253821Z-after-modal-keyboard-no-send.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "local-fixture/rename-empty-title-proof.json",
+        "field": "apiSnapshotSha256",
+        "target": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T154945173Z-rename-empty-title.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "local-fixture/rename-max-title-proof.json",
+        "field": "apiSnapshotSha256",
+        "target": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T155222162Z-rename-max-title.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "local-fixture/source-ambiguity-native-proof.json",
+        "field": "apiSnapshotSha256",
+        "target": "artifacts/winui-journey-completion-20261025/local-fixture/chat-store-snapshots/20261025T162746730Z-after-source-ambiguity-native.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "native-ui/47-build10-canonical-pdf-page2-public-projection.json",
+        "field": "originalPrivateStateSha256",
+        "target": "artifacts/winui-journey-completion-20261025/private-native-ui/47-build10-canonical-pdf-page2.raw.json",
+        "matches": true,
+        "selectedInThisPackage": false
+      },
+      {
+        "from": "native-ui/50-build10-advanced-source-pdf-page2-public-projection.json",
+        "field": "originalPrivateStateSha256",
+        "target": "artifacts/winui-journey-completion-20261025/private-native-ui/50-build10-advanced-source-pdf-page2.raw.json",
+        "matches": true,
+        "selectedInThisPackage": false
+      },
+      {
+        "from": "public-probe-integrity-review.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/local-fixture/build10-original-phrase-stream-cancel-proof.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "public-probe-integrity-review.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/local-fixture/build10-cancel-late-stability-proof.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "public-probe-integrity-review.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/local-fixture/source-ambiguity-native-proof.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "public-probe-integrity-review.json",
+        "field": "sha256",
+        "target": "artifacts/winui-journey-completion-20261025/local-fixture/advanced-terminal-final-state-proof.json",
+        "matches": true,
+        "selectedInThisPackage": true
+      },
+      {
+        "from": "tooling-offline-acceptance.json",
+        "field": "logSha256",
+        "target": "artifacts/winui-journey-completion-20261025/tooling-offline-unittest.log",
+        "matches": true,
+        "selectedInThisPackage": true
+      }
+    ],
+    "issues": [],
+    "externalAndPrivateReferencePolicy": "Proofs intentionally reference prior published campaigns, source files/binaries and private originals. They are provenance references, not files included by this allowlist. Only screenshot references claimed public must be in selectedFiles."
+  },
+  "historicalBoundaries": [
+    "Rejected attempts and intermediate projections retained as historical evidence, not promoted to final green.",
+    "33 journeys form a multi-build coverage projection; no claim of33 full reruns on11.",
+    "Latest Client/Core2476 plus unchanged earlier Backend2430/Contracts20 forms4926 distinct cases across separate runs.",
+    "No Terra/paid-provider/meal-planning semantic acceptance.",
+    "Earlier deletion selection mistake excluded four client-data files before remote publication; current policy excludes every client-data segment."
+  ],
+  "gitCommandsExecutedByAuthor": false,
+  "stagingOrPushPerformedByAuthor": false
+}

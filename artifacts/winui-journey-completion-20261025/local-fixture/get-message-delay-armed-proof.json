@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "saaia-winui-get-message-delay-armed.v1",
+  "preparedAtUtc": "2026-10-25T16:07:02.7738852+00:00",
+  "proxyUrl": "http://127.0.0.1:5177",
+  "upstreamUrl": "http://127.0.0.1:5167",
+  "targetSessionId": "52616ce3-3c4e-4d4f-9a64-bc577e4cb90f",
+  "control": {
+    "failUserMessagesRemaining": 0,
+    "delayUserMessagesSeconds": 0,
+    "failGetMessagesRemaining": 0,
+    "failReadyRemaining": 0,
+    "delayGetMessagesSessionId": "52616ce3-3c4e-4d4f-9a64-bc577e4cb90f",
+    "delayGetMessagesRemaining": 1,
+    "delayGetMessagesSeconds": 20
+  },
+  "controlSha256": "4F162C70D8097DDE755AF05FCBB389D1C3A553D8BB39A0D491C13ECE0173D612",
+  "prebaselineRequestsUsedUpstreamOnly": true,
+  "proxyTargetReadRequestedByScript": false,
+  "productCodeModified": false
+}

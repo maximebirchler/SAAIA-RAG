@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "saaia-winui-delayed-get-load-proof.v1",
+  "capturedAtUtc": "2026-10-25T16:10:48.0280354+00:00",
+  "readOnly": true,
+  "status": "FAILED",
+  "checkCount": 7,
+  "failedCheckCount": 2,
+  "windowStartUtc": "2026-10-25T16:07:02.0000000+00:00",
+  "targetSessionId": "52616ce3-3c4e-4d4f-9a64-bc577e4cb90f",
+  "actualLastSessionId": "52616ce3-3c4e-4d4f-9a64-bc577e4cb90f",
+  "observedDelaySeconds": -1,
+  "postRequestCount": 0,
+  "modelRequestCount": 0,
+  "actualDelayEvents": [
+    {
+      "method": "GET",
+      "path": "/chat/sessions/52616ce3-3c4e-4d4f-9a64-bc577e4cb90f/messages",
+      "userMessageMatched": false,
+      "action": "synthetic_message_load_delay",
+      "delaySeconds": 20.0,
+      "requestSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "traceparent": null,
+      "turnId": null,
+      "sessionId": null,
+      "messageGetSessionId": "52616ce3-3c4e-4d4f-9a64-bc577e4cb90f",
+      "atUtc": "2026-10-25T16:08:17Z"
+    },
+    {
+      "method": "GET",
+      "path": "/chat/sessions/52616ce3-3c4e-4d4f-9a64-bc577e4cb90f/messages",
+      "phase": "completed",
+      "userMessageMatched": false,
+      "status": 200,
+      "action": "synthetic_message_load_delay",
+      "turnId": null,
+      "atUtc": "2026-10-25T16:08:37Z"
+    }
+  ],
+  "actualCompletedGets": [
+    {
+      "method": "GET",
+      "path": "/chat/sessions/52616ce3-3c4e-4d4f-9a64-bc577e4cb90f/messages",
+      "phase": "completed",
+      "userMessageMatched": false,
+      "status": 200,
+      "action": "synthetic_message_load_delay",
+      "turnId": null,
+      "atUtc": "2026-10-25T16:08:37Z"
+    }
+  ],
+  "checks": [
+    {
+      "name": "exactly_one_targeted_delay",
+      "passed": false
+    },
+    {
+      "name": "one_targeted_get_completed_200",
+      "passed": true
+    },
+    {
+      "name": "observed_delay20_seconds_with_timestamp_resolution",
+      "passed": false
+    },
+    {
+      "name": "delay_counter_consumed_once",
+      "passed": true
+    },
+    {
+      "name": "no_post_request_in_observed_window",
+      "passed": true
+    },
+    {
+      "name": "no_model_request_in_observed_window",
+      "passed": true
+    },
+    {
+      "name": "last_session_is_loaded_target",
+      "passed": true
+    }
+  ],
+  "limits": "HTTP timing and persistence prove this targeted request; disabled and released controls and Ctrl+Enter handling are established by separate native observations32–34."
+}

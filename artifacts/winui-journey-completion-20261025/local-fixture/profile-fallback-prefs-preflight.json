@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "saaia-winui-journey-profile-preflight.v1",
+  "createdAtUtc": "2026-10-25T15:35:52.8458268+00:00",
+  "environmentRunId": "7d110010ee874d5398a9ca335b079fdd",
+  "profileName": "fallback-prefs",
+  "profileRoot": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-journey-completion-20261025\\local-fixture\\runtime\\client-profiles\\fallback-prefs",
+  "userId": "3a5bedd4-2bc1-4063-a677-025ebf648669",
+  "backendUrl": "http://127.0.0.1:5169",
+  "backendUrlAlternates": "http://127.0.0.1:5177",
+  "uiLanguage": "fr",
+  "uiTheme": "dark",
+  "autoConnect": true,
+  "backendKeyProtectedPresent": true,
+  "providerKeysPresent": false,
+  "privateBaseline": "runtime/client-profile-baselines/fallback-prefs/before-setup",
+  "files": [
+    {
+      "name": "settings.json",
+      "bytes": 734,
+      "sha256": "98D12EF56FBA2384718C3A11880F435E5E52F5065FD3314D053B4025255C6546"
+    },
+    {
+      "name": "secure.json",
+      "bytes": 560,
+      "sha256": "166076DB1FB00F75B2E7087ADCD9FD3058A268A760713474F8C6E7B792A6FC24"
+    }
+  ],
+  "clientStarted": false,
+  "primaryProfileModified": false,
+  "modelExecuted": false
+}

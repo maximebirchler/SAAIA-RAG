@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "saaia-winui-get-delay-disarmed.v1",
+  "capturedAtUtc": "2026-10-25T16:11:37.1613956+00:00",
+  "control": {
+    "failUserMessagesRemaining": 0,
+    "delayUserMessagesSeconds": 0,
+    "failGetMessagesRemaining": 0,
+    "failReadyRemaining": 0,
+    "delayGetMessagesSessionId": "",
+    "delayGetMessagesRemaining": 0,
+    "delayGetMessagesSeconds": 0
+  },
+  "controlSha256": "84773B213DB6280805E13B8D1EF53421F140322FFE3B9F439CFF0889B89B6B02",
+  "backendDataModified": false
+}

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "saaia-native-journey-public-projection.v1",
+  "capturedAtUtc": "2026-10-25T15:39:55.368Z",
+  "description": "Même profil redémarré : assistant revient avec URL5177 initiale et clé absente, pas la valeur5199 annulée.",
+  "originalStateSha256": "8a27af96acf3c1ffd193aa6e48b92bef2fdddd6d8c19196d0b67b6d970ae7205",
+  "redactions": [
+    "Private example host/IP placeholders only; loopback test endpoints retained."
+  ],
+  "screenshots": [],
+  "privateScreenshots": [
+    {
+      "sha256": "83f79de230525658892ecb244b40e482512948c7080b50e9d8873e3a6876c845",
+      "privateFile": "04-first-setup-restart-original-values-0.png"
+    }
+  ],
+  "state": {
+    "window": {
+      "app": "process:C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+      "id": 7539244,
+      "title": "SAAIA"
+    },
+    "accessibility": {
+      "document_text": "--ctx-size 8192",
+      "focused_element": "20 modifier (disabled, settable, string) Tape ta question... ID: InputBox",
+      "tree": "Window: \"SAAIA\", App: SAAIA.Client.WinUI.exe.\n\t0 fenêtre SAAIA Secondary Actions: Raise\n\t\t1 volet Non Client Input Sink Window\n\t\t2 volet AppWindow Custom Title Bar\n\t\t\t3 Bouton Minimize ID: Minimize\n\t\t\t4 Bouton Maximize ID: Maximize\n\t\t\t5 Bouton Close ID: Close\n\t\t6 volet\n\t\t\t7 volet\n\t\t\t\t8 image\n\t\t\t\t9 texte SAAIA\n\t\t\t\t10 bouton Discussions ID: ChatsToggleButton\n\t\t\t\t11 bouton (disabled) Configuration ID: SetupButton\n\t\t\t\t12 bouton (disabled) Aide ID: HeaderHelpButton\n\t\t\t\t\t13 texte ?\n\t\t\t\t14 bouton (disabled) Paramètres ID: HeaderSettingsButton\n\t\t\t\t15 texte Discussions ID: ChatsHeaderText\n\t\t\t\t16 bouton (disabled) Nouveau ID: NewChatButton\n\t\t\t\t17 liste (disabled) ID: SessionsList\n\t\t\t\t18 volet ID: MessagesScroll\n\t\t\t\t\t19 liste ID: MessagesList\n\t\t\t\t20 modifier (disabled, settable, string) Tape ta question... ID: InputBox\n\t\t\t\t21 bouton (disabled) Envoyer ID: SendCancelButton\n\t\t\t\t22 image\n\t\t\t\t23 texte SAAIA\n\t\t\t\t24 texte Initialisation de l'application…\n\t\t\t\t25 ProgressRing Occupé(e)\n\t\t\t\t\t26 image ID: LottiePlayer\n\t\t\t\t27 texte Vérification de la configuration…\n\t\t\t\t28 volet\n\t\t\t\t\t29 texte Configuration initiale ID: HeroTitleText\n\t\t\t\t\t30 texte Connectez le client au serveur SAAIA et validez votre clé API. ID: HeroSubtitleText\n\t\t\t\t\t31 texte Serveur SAAIA ID: BackendSectionTitleText\n\t\t\t\t\t32 texte URL du serveur RAG. Le test vérifie qu'il répond. ID: BackendSectionNoteText\n\t\t\t\t\t33 modifier (settable, string) http://[exemple IP privee masque]:5122 Value: http://127.0.0.1:5177 ID: BackendUrlBox\n\t\t\t\t\t34 texte URLs alternatives (une par ligne, optionnel) ID: BackendAltLabelText\n\t\t\t\t\t35 texte Le client essaiera ces URLs si la principale ne répond pas. Pratique pour roamer entre Wifi (IP locale) et VPN (Tailscale). ID: BackendAltNoteText\n\t\t\t\t\t36 modifier (settable, string) https://[exemple de domaine prive masque] http://[exemple IP privee masque]:5122 ID: BackendUrlAlternatesBox\n\t\t\t\t\t37 bouton Tester /ready ID: TestReadyButton\n\t\t\t\t\t38 texte ID: ReadyStatusText\n\t\t\t\t\t39 texte Clé API ID: ApiKeySectionTitleText\n\t\t\t\t\t40 texte Clé fournie par l'intégrateur (commence par « saaia_ »). Stockée chiffrée localement. ID: ApiKeySectionNoteText\n\t\t\t\t\t41 modifier (settable, string) saaia_… ID: ApiKeyBox\n\t\t\t\t\t42 bouton Tester la clé API ID: TestApiKeyButton\n\t\t\t\t\t43 texte ID: ApiKeyStatusText\n\t\t\t\t\t44 texte Assistant local (intégrateur) ID: LlmSectionTitleText\n\t\t\t\t\t45 texte Réservé à l'intégrateur. Laissez tel quel si l'assistant local tourne déjà ailleurs (Docker, serveur distant). ID: LlmSectionNoteText\n\t\t\t\t\t46 case à cocher Activer l'assistant local ID: UseLocalLlmCheck\n\t\t\t\t\t47 texte Hôte ID: HostLabelText\n\t\t\t\t\t48 modifier (settable, string) 127.0.0.1 Value: 127.0.0.1 ID: HostBox\n\t\t\t\t\t49 texte Port ID: PortLabelText\n\t\t\t\t\t50 modifier (settable, string) 1234 Value: 18097 ID: PortBox\n\t\t\t\t\t51 texte ID modèle (OpenAI 'model') ID: ModelIdLabelText\n\t\t\t\t\t52 modifier (settable, string) model-id.gguf Value: saaia-winui-fixture ID: ModelIdBox\n\t\t\t\t\t53 texte Arguments supplémentaires (optionnel) ID: ExtraArgsLabelText\n\t\t\t\t\t54 modifier (settable, string) Value: --ctx-size 8192 ID: ExtraArgsBox\n\t\t\t\t\t55 bouton Tester /v1/models ID: TestModelsButton\n\t\t\t\t\t56 texte ID: LlmStatusText\n\t\t\t\t\t57 barre de défilement (settable, float) Vertical Value: 0 ID: VerticalScrollBar\n\t\t\t\t58 bouton Appliquer ID: WizardApplyButton\n\t\t\t\t59 bouton Annuler ID: WizardCancelButton\n\t\t60 barre de titre (settable, string) Value: SAAIA\n\t\t\t61 barre de menus Système ID: MenuBar\n\t\t\t\t62 élément de menu Système\n\t\t\t63 Bouton Réduire\n\t\t\t64 Bouton Agrandir\n\t\t\t65 Bouton Fermer\n\nDocument text: ```\n--ctx-size 8192\n```"
+    }
+  }
+}

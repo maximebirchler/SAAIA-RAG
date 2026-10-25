@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "saaia-winui-rename-empty-title-proof.v1",
+  "capturedAtUtc": "2026-10-25T15:49:46.0794322+00:00",
+  "readOnly": true,
+  "status": "PASSED",
+  "checkCount": 5,
+  "failedCheckCount": 0,
+  "inactiveSessionId": "52616ce3-3c4e-4d4f-9a64-bc577e4cb90f",
+  "activeSessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+  "actualLastSessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+  "persistedInactiveTitle": "Nouvelle discussion",
+  "checks": [
+    {
+      "name": "empty_title_becomes_french_default",
+      "passed": true
+    },
+    {
+      "name": "same_active_session_selected",
+      "passed": true
+    },
+    {
+      "name": "active_title_hash_unchanged",
+      "passed": true
+    },
+    {
+      "name": "no_messages_added_removed_or_changed",
+      "passed": true
+    },
+    {
+      "name": "no_sessions_added_or_removed",
+      "passed": true
+    }
+  ],
+  "apiSnapshot": "chat-store-snapshots/20261025T154945173Z-rename-empty-title.json",
+  "apiSnapshotSha256": "55C4036823BB042791329A9C0C2714B1D736BEED82A76973395A35D0A14B3524"
+}

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "saaia-winui-build11-final-control-preparation.v1",
+  "preparedAtUtc": "2026-10-25T16:32:18.6876471+00:00",
+  "profileName": "primary",
+  "lastSessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+  "lastSessionSettingNeededChange": false,
+  "response": "CONTROLE FINAL BUILD11",
+  "mode": "success",
+  "delaySeconds": 0,
+  "chunkDelaySeconds": 0.01,
+  "toolName": "submit_operational_route",
+  "toolArguments": {
+    "intent": "chat.general",
+    "toolName": "chat.general",
+    "toolArgs": {}
+  },
+  "controlSha256": "0270074675083A4A89F4A4FD2DD69C41C0E4430449B354263F9FA060518D7880",
+  "priorControlSha256": "58D4FF0521ED70DE2DB27F6ADBA7324B62580CCE3D7A8E58153BE69C366A0221",
+  "allStorageFaultsDisarmed": true,
+  "advancedTerminalJobAndProfileModified": false,
+  "clientLaunched": false,
+  "chatRequestedByScript": false
+}

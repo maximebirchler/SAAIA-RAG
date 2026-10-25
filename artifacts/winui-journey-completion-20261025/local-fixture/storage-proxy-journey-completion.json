@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "saaia-winui-storage-proxy.v1",
+  "controlPath": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-journey-completion-20261025\\local-fixture\\runtime\\storage-proxy-control-journey-completion.json",
+  "additionalFaults": [
+    "GET messages500",
+    "GET ready503",
+    "GET messages bounded delay for one explicit session UUID"
+  ],
+  "databaseModifiedForInjection": false,
+  "sourceSha256": "0B4808895BA4D585136A69A3CEF75287222E4FA56E4ECB82ADAE3BB0E123FBA2",
+  "instanceName": "journey-completion",
+  "proxyUrl": "http://127.0.0.1:5177",
+  "backendCodeModified": false,
+  "actualUserConfigurationModified": false,
+  "maximumMessageGetDelaySeconds": 30,
+  "upstreamUrl": "http://127.0.0.1:5167",
+  "maximumUserMessageDelaySeconds": 120,
+  "postFailuresScopedToUserMessages": true
+}

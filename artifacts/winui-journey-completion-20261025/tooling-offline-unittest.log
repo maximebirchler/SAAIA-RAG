@@ -1,0 +1,19 @@
+test_absent_or_multiple_writer_inputs_are_rejected (test_journey_completion_tools.AdvancedAnsweredFixtureTests.test_absent_or_multiple_writer_inputs_are_rejected) ... ok
+test_answer_cites_the_real_supplied_opaque_id_and_one_claim_marker (test_journey_completion_tools.AdvancedAnsweredFixtureTests.test_answer_cites_the_real_supplied_opaque_id_and_one_claim_marker) ... ok
+test_duplicate_matching_evidence_is_not_chosen_arbitrarily (test_journey_completion_tools.AdvancedAnsweredFixtureTests.test_duplicate_matching_evidence_is_not_chosen_arbitrarily) ... ok
+test_missing_evidence_identity_is_rejected (test_journey_completion_tools.AdvancedAnsweredFixtureTests.test_missing_evidence_identity_is_rejected) ... ok
+test_missing_homonym_or_truncated_evidence_never_fabricates_a_citation (test_journey_completion_tools.AdvancedAnsweredFixtureTests.test_missing_homonym_or_truncated_evidence_never_fabricates_a_citation) ... ok
+test_original_advanced_mode_remains_explicit_insufficiency_without_sources (test_journey_completion_tools.AdvancedAnsweredFixtureTests.test_original_advanced_mode_remains_explicit_insufficiency_without_sources) ... ok
+test_planner_uses_same_query_in_old_and_new_modes (test_journey_completion_tools.AdvancedAnsweredFixtureTests.test_planner_uses_same_query_in_old_and_new_modes) ... ok
+test_unsupported_count_or_structured_coordinates_fail_closed (test_journey_completion_tools.AdvancedAnsweredFixtureTests.test_unsupported_count_or_structured_coordinates_fail_closed) ... ok
+test_cdc_alias_requires_one_explicit_uuid (test_journey_completion_tools.MessageGetDelayTests.test_cdc_alias_requires_one_explicit_uuid) ... ok
+test_duration_and_counter_are_bounded (test_journey_completion_tools.MessageGetDelayTests.test_duration_and_counter_are_bounded) ... ok
+test_missing_disabled_or_invalid_controls_never_inject (test_journey_completion_tools.MessageGetDelayTests.test_missing_disabled_or_invalid_controls_never_inject) ... ok
+test_only_matching_get_consumes_a_single_bounded_delay (test_journey_completion_tools.MessageGetDelayTests.test_only_matching_get_consumes_a_single_bounded_delay) ... ok
+test_other_sessions_routes_and_mutations_do_not_consume (test_journey_completion_tools.MessageGetDelayTests.test_other_sessions_routes_and_mutations_do_not_consume) ... ok
+test_uuid_case_is_normalized_without_changing_unrelated_controls (test_journey_completion_tools.MessageGetDelayTests.test_uuid_case_is_normalized_without_changing_unrelated_controls) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.001s
+
+OK

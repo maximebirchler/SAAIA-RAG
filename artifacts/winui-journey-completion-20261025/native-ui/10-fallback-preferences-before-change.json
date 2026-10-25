@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "saaia-native-journey-observation.v1",
+  "capturedAtUtc": "2026-10-25T15:43:08.227Z",
+  "description": "Paramètres observés en Français/Sombre avant modification. Correction de la coquille519? dans description09 : primaire5169 indisponible, alternative5177 joignable selon profil préflight.",
+  "window": {
+    "app": "process:C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+    "id": 135531930,
+    "title": "SAAIA"
+  },
+  "accessibility": {
+    "focused_element": "24 modifier (disabled, settable, string) Tape ta question... ID: InputBox",
+    "tree": "Window: \"SAAIA\", App: SAAIA.Client.WinUI.exe.\n\t0 fenêtre SAAIA Secondary Actions: Raise\n\t\t1 volet Non Client Input Sink Window\n\t\t2 volet AppWindow Custom Title Bar\n\t\t\t3 Bouton Minimize ID: Minimize\n\t\t\t4 Bouton Maximize ID: Maximize\n\t\t\t5 Bouton Close ID: Close\n\t\t6 volet\n\t\t\t7 volet\n\t\t\t\t8 image\n\t\t\t\t9 texte SAAIA\n\t\t\t\t10 bouton Discussions ID: ChatsToggleButton\n\t\t\t\t11 bouton (disabled) Configuration ID: SetupButton\n\t\t\t\t12 bouton (disabled) Aide ID: HeaderHelpButton\n\t\t\t\t\t13 texte ?\n\t\t\t\t14 bouton (disabled) Paramètres ID: HeaderSettingsButton\n\t\t\t\t15 texte Discussions ID: ChatsHeaderText\n\t\t\t\t16 bouton (disabled) Nouveau ID: NewChatButton\n\t\t\t\t17 liste (disabled) ID: SessionsList\n\t\t\t\t\t18 élément de liste (selectable, disabled) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t19 texte Nouvelle discussion\n\t\t\t\t\t\t20 texte 25.10 16:40\n\t\t\t\t\t\t21 bouton (disabled) …\n\t\t\t\t22 volet ID: MessagesScroll\n\t\t\t\t\t23 liste ID: MessagesList\n\t\t\t\t24 modifier (disabled, settable, string) Tape ta question... ID: InputBox\n\t\t\t\t25 bouton (disabled) Envoyer ID: SendCancelButton\n\t\t\t\t38 volet\n\t\t\t\t\t39 texte Paramètres\n\t\t\t\t\t40 texte Réglages de base pour l'interface et l'assistant local.\n\t\t\t\t\t41 bouton Général\n\t\t\t\t\t42 bouton Options avancées\n\t\t\t\t\t43 texte Interface\n\t\t\t\t\t44 zone de liste modifiable Langue de l'interface\n\t\t\t\t\t45 zone de liste modifiable Apparence\n\t\t\t\t\t46 texte Ces réglages sont appliqués immédiatement après validation.\n\t\t\t\t\t47 texte Assistant\n\t\t\t\t\t48 bouton bascule Assistant local Activé\n\t\t\t\t\t49 zone de liste modifiable Qualité de recherche\n\t\t\t\t\t50 zone de liste modifiable Style de réponse\n\t\t\t\t\t51 zone de liste modifiable Longueur de réponse\n\t\t\t\t\t52 barre de défilement (settable, float) Vertical Value: 0 ID: VerticalScrollBar\n\t\t\t\t57 bouton Appliquer\n\t\t\t\t58 bouton Fermer\n\t\t32 barre de titre (settable, string) Value: SAAIA\n\t\t\t33 barre de menus Système ID: MenuBar\n\t\t\t\t34 élément de menu Système\n\t\t\t35 Bouton Réduire\n\t\t\t36 Bouton Agrandir\n\t\t\t37 Bouton Fermer\n\nThe focused UI element is 24 modifier (disabled, settable, string) Tape ta question... ID: InputBox."
+  },
+  "screenshots": [
+    "10-fallback-preferences-before-change-0.png"
+  ]
+}

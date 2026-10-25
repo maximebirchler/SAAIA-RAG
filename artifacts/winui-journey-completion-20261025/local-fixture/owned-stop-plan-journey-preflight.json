@@ -1,0 +1,148 @@
+{
+  "schemaVersion": "saaia-winui-owned-stop-plan.v2",
+  "capturedAtUtc": "2026-10-25T15:34:58.8524925+00:00",
+  "prevalidationPassed": true,
+  "whatIf": true,
+  "processesStopped": false,
+  "databaseStopped": false,
+  "ownedManifestMutated": false,
+  "sourceSha256": "C753E049C22633B5512075C7A839922D7F10BAD80CE0EB3306A1765227990BF1",
+  "manifestSha256": "3AB36243E3B88D80EFC712777E75A215F3CEEBB72DAEB59E499348617A60449E",
+  "services": [
+    {
+      "role": "backend-runner",
+      "instanceName": null,
+      "pid": 42556,
+      "startedAtUtc": "2026-10-25T15:34:24.4696671Z",
+      "port": 5167,
+      "active": true,
+      "executable": "pwsh.exe",
+      "identityVerified": true,
+      "childFirstThenWrapperFlush": true,
+      "workChild": {
+        "pid": 40124,
+        "startedAtUtc": "2026-10-25T15:34:24.7187266Z",
+        "executable": "dotnet.exe"
+      },
+      "directConsoleChildren": [
+        41600
+      ],
+      "plannedStop": "Exact child stop if alive; await wrapper exit and log flush, then verify listener absent"
+    },
+    {
+      "role": "storage-proxy",
+      "instanceName": "journey-completion",
+      "pid": 33656,
+      "startedAtUtc": "2026-10-25T15:34:56.2352481Z",
+      "port": 5177,
+      "active": true,
+      "executable": "python.exe",
+      "identityVerified": true,
+      "childFirstThenWrapperFlush": false,
+      "workChild": null,
+      "directConsoleChildren": [
+        42756
+      ],
+      "plannedStop": "Exact verified direct helper stop; verify listener absent"
+    },
+    {
+      "role": "fixture-http",
+      "instanceName": null,
+      "pid": 37320,
+      "startedAtUtc": "2026-10-25T15:34:24.3677644Z",
+      "port": 18097,
+      "active": true,
+      "executable": "python.exe",
+      "identityVerified": true,
+      "childFirstThenWrapperFlush": false,
+      "workChild": null,
+      "directConsoleChildren": [
+        36272
+      ],
+      "plannedStop": "Exact verified direct helper stop; verify listener absent"
+    }
+  ],
+  "postgres": {
+    "port": 58590,
+    "active": true,
+    "pidStartExecutableDataDirectoryAndPortVerified": true,
+    "stopMethod": "pg_ctl fast on verified owned data directory, last",
+    "verifiedDirectChildren": [
+      {
+        "pid": 13932,
+        "startedAtUtc": "2026-10-25T15:34:23.7784891Z",
+        "executable": "conhost.exe"
+      },
+      {
+        "pid": 41044,
+        "startedAtUtc": "2026-10-25T15:34:23.8268215Z",
+        "executable": "postgres.exe"
+      },
+      {
+        "pid": 37300,
+        "startedAtUtc": "2026-10-25T15:34:23.8363787Z",
+        "executable": "postgres.exe"
+      },
+      {
+        "pid": 42040,
+        "startedAtUtc": "2026-10-25T15:34:23.8394514Z",
+        "executable": "postgres.exe"
+      },
+      {
+        "pid": 7780,
+        "startedAtUtc": "2026-10-25T15:34:23.8571666Z",
+        "executable": "postgres.exe"
+      },
+      {
+        "pid": 38336,
+        "startedAtUtc": "2026-10-25T15:34:23.8593891Z",
+        "executable": "postgres.exe"
+      },
+      {
+        "pid": 5896,
+        "startedAtUtc": "2026-10-25T15:34:23.8619822Z",
+        "executable": "postgres.exe"
+      },
+      {
+        "pid": 4028,
+        "startedAtUtc": "2026-10-25T15:34:24.9099389Z",
+        "executable": "postgres.exe"
+      },
+      {
+        "pid": 40516,
+        "startedAtUtc": "2026-10-25T15:34:25.4186577Z",
+        "executable": "postgres.exe"
+      },
+      {
+        "pid": 14768,
+        "startedAtUtc": "2026-10-25T15:34:55.7600424Z",
+        "executable": "postgres.exe"
+      }
+    ],
+    "pid": 22568
+  },
+  "protected5432": [
+    {
+      "pid": 7844,
+      "address": "::",
+      "startedAtUtc": null,
+      "identityDetailsReadable": false,
+      "executable": null,
+      "pathSha256": null
+    },
+    {
+      "pid": 7844,
+      "address": "0.0.0.0",
+      "startedAtUtc": null,
+      "identityDetailsReadable": false,
+      "executable": null,
+      "pathSha256": null
+    }
+  ],
+  "normalUserProfileTouched": false,
+  "limits": [
+    "Prevalidation is a point-in-time read-only observation. Identity and ownership are rechecked immediately before every actual stop.",
+    "The operator must first close the isolated WinUI client and finish deliberate job tests. WhatIf does not close clients, change controls or stop anything.",
+    "First runtime wrappers buffered output; stop the verified work child first and let the wrapper flush. Never kill the wrapper tree."
+  ]
+}

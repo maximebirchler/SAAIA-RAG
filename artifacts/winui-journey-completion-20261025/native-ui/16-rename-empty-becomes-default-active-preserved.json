@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "saaia-native-journey-observation.v1",
+  "capturedAtUtc": "2026-10-25T15:49:22.805Z",
+  "description": "Titre vide enregistré devient Nouvelle discussion ; le témoin actif reste sélectionné avec ses deux messages et sa saisie, ancienne discussion vide présente.",
+  "window": {
+    "app": "process:C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+    "id": 38604238,
+    "title": "SAAIA"
+  },
+  "accessibility": {
+    "focused_element": "47 texte TEMOIN RENOMMAGE active / user / 7d110010ee874d5398a9ca335b079fdd - Message synthetique de controle, aucun modele execute.",
+    "tree": "Window: \"SAAIA\", App: SAAIA.Client.WinUI.exe.\n\t0 fenêtre SAAIA Secondary Actions: Raise\n\t\t1 volet Non Client Input Sink Window\n\t\t2 volet AppWindow Custom Title Bar\n\t\t\t3 Bouton Minimize ID: Minimize\n\t\t\t4 Bouton Maximize ID: Maximize\n\t\t\t5 Bouton Close ID: Close\n\t\t6 volet\n\t\t\t7 volet\n\t\t\t\t8 image\n\t\t\t\t9 texte SAAIA\n\t\t\t\t10 bouton Discussions ID: ChatsToggleButton\n\t\t\t\t11 bouton Configuration ID: SetupButton\n\t\t\t\t12 bouton Aide ID: HeaderHelpButton\n\t\t\t\t\t13 texte ?\n\t\t\t\t14 bouton Paramètres ID: HeaderSettingsButton\n\t\t\t\t15 texte Discussions ID: ChatsHeaderText\n\t\t\t\t16 bouton Nouveau ID: NewChatButton\n\t\t\t\t17 liste ID: SessionsList\n\t\t\t\t\t70 élément de liste (selectable) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t71 texte Nouvelle discussion\n\t\t\t\t\t\t72 texte 25.10 16:47\n\t\t\t\t\t\t73 bouton …\n\t\t\t\t\t74 élément de liste (selectable) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t75 texte TEMOIN RENOMMAGE - active\n\t\t\t\t\t\t76 texte 25.10 16:47\n\t\t\t\t\t\t77 bouton …\n\t\t\t\t\t78 élément de liste (selectable) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t79 texte Nouvelle discussion\n\t\t\t\t\t\t80 texte 25.10 16:40\n\t\t\t\t\t\t81 bouton …\n\t\t\t\t18 volet ID: MessagesScroll\n\t\t\t\t\t19 liste ID: MessagesList\n\t\t\t\t\t\t46 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t47 texte TEMOIN RENOMMAGE active / user / 7d110010ee874d5398a9ca335b079fdd - Message synthetique de controle, aucun modele execute.\n\t\t\t\t\t\t\t48 texte 25.10 16:47\n\t\t\t\t\t\t\t49 bouton ID: CopyBtn\n\t\t\t\t\t\t50 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t51 image\n\t\t\t\t\t\t\t52 texte TEMOIN RENOMMAGE active / assistant / 7d110010ee874d5398a9ca335b079fdd - Message synthetique de controle, aucun modele execute. ID: Rtb\n\t\t\t\t\t\t\t53 bouton ID: CopyBtn\n\t\t\t\t\t\t\t54 texte 25.10 16:47\n\t\t\t\t20 modifier (settable, string) Tape ta question... ID: InputBox\n\t\t\t\t21 bouton (disabled) Envoyer ID: SendCancelButton\n\t\t28 barre de titre (settable, string) Value: SAAIA\n\t\t\t29 barre de menus Système ID: MenuBar\n\t\t\t\t30 élément de menu Système\n\t\t\t31 Bouton Réduire\n\t\t\t32 Bouton Agrandir\n\t\t\t33 Bouton Fermer\n\nThe focused UI element is 47 texte TEMOIN RENOMMAGE active / user / 7d110010ee874d5398a9ca335b079fdd - Message synthetique de controle, aucun modele execute.."
+  },
+  "screenshots": [
+    "16-rename-empty-becomes-default-active-preserved-0.png"
+  ]
+}

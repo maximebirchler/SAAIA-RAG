@@ -1,0 +1,250 @@
+{
+  "schemaVersion": "saaia-core-client-build11-production-anchor.v1",
+  "capturedAtUtc": "2026-10-25T16:33:52.2195975+00:00",
+  "status": "INDEPENDENTLY_VERIFIED_SOURCE_TRX_AND_PRODUCTION_ANCHOR",
+  "verifier": {
+    "path": "artifacts/winui-journey-completion-20261025/verify-core-client-build11-production-anchor.ps1",
+    "sha256": "3167AE93BA415E83CD67FFD5ADA03E382744F94982C6344790517497DA2B53CE"
+  },
+  "currentCompleteSourceFingerprint": "3C8815B3E284BDA950D901B2EB72C02981EB590858877F058FEF7F9FA9FE0E09",
+  "currentCompleteSourceFileCount": 1658,
+  "latestRun": {
+    "manifest": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build11/manifest.json",
+    "manifestSha256": "6A676F218F655D0606DEDEE3EF5BB7651200A97E7D2507A6D2ECD8695BC5A8D4",
+    "runId": "6a404badad534234b1b1b81e81091a80",
+    "buildRequested": true,
+    "sourceChangedDuringRun": false,
+    "sourceBeforeAndAfterDigestsIndependentlyRecomputed": true,
+    "currentCompleteSourcesMatch": true,
+    "startedAtUtc": "2026-10-25T17:31:56.8579429+01:00",
+    "finishedAtUtc": "2026-10-25T17:32:19.4477093+01:00",
+    "passed": 2476,
+    "projects": [
+      {
+        "project": "ClientCore",
+        "passed": 80,
+        "failed": 0,
+        "notExecuted": 0,
+        "trx": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build11/ClientCore-6a404badad534234b1b1b81e81091a80.trx",
+        "trxSha256": "CD5E96DC9071D776797A407709AE75253C7A4D40EEFB765B980AD2338DD5F187",
+        "independentlyParsedTrxResultCount": 80,
+        "currentTestedAssemblies": [
+          {
+            "path": "client\\SAAIA.Client.Core.Tests\\bin\\Release\\net8.0\\SAAIA.Client.Core.dll",
+            "role": "local_product_dependency",
+            "sha256": "130C99629BDBFB106AF4A10A837681514B40C222A9C8B91FFA8F634156034A3D",
+            "currentBytesMatchExecutedAssembly": true
+          },
+          {
+            "path": "client\\SAAIA.Client.Core.Tests\\bin\\Release\\net8.0\\SAAIA.Client.Core.Tests.dll",
+            "role": "test_assembly",
+            "sha256": "E343D15391DBEAD1E704C9D890DC6826D0C75CAD04C469992CF5B34CD56DDB82",
+            "currentBytesMatchExecutedAssembly": true
+          },
+          {
+            "path": "client\\SAAIA.Client.Core.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+            "role": "local_product_dependency",
+            "sha256": "8547A8B0B4FD700E84D797EFAA183F17968EB28DB9FF02D5F03625C73E548DC6",
+            "currentBytesMatchExecutedAssembly": true
+          }
+        ]
+      },
+      {
+        "project": "Client",
+        "passed": 2396,
+        "failed": 0,
+        "notExecuted": 0,
+        "trx": "artifacts/winui-journey-completion-20261025/final-core-client-unit-build11/Client-6a404badad534234b1b1b81e81091a80.trx",
+        "trxSha256": "A4568330AD2895E152E64FAA848B528210B0262C905361A53D658A317C506FBD",
+        "independentlyParsedTrxResultCount": 2396,
+        "currentTestedAssemblies": [
+          {
+            "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.Core.dll",
+            "role": "local_product_dependency",
+            "sha256": "E86500B8BA30C9D24635A44D9D9EDB0301F1D73D3B6EE52B9BFE85517D3A14F9",
+            "currentBytesMatchExecutedAssembly": true
+          },
+          {
+            "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.ToolAgent.Tests.dll",
+            "role": "test_assembly",
+            "sha256": "D083F8AB5C47FE71AA991EA0E0D02CCCBBA8E5B8D617E54D512CE3E55E727121",
+            "currentBytesMatchExecutedAssembly": true
+          },
+          {
+            "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.WinUI.dll",
+            "role": "local_product_dependency",
+            "sha256": "48024D221C83B668010AC83D19710D3896307C6EFF7A59BC045C658DF0DD084E",
+            "currentBytesMatchExecutedAssembly": true
+          },
+          {
+            "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Contracts.dll",
+            "role": "local_product_dependency",
+            "sha256": "8547A8B0B4FD700E84D797EFAA183F17968EB28DB9FF02D5F03625C73E548DC6",
+            "currentBytesMatchExecutedAssembly": true
+          }
+        ]
+      }
+    ],
+    "sourceDrift": {
+      "changed": [],
+      "missing": [],
+      "added": []
+    }
+  },
+  "reusedEarlierResults": {
+    "manifest": "artifacts/winui-delete-validation-20261025/final-unit/manifest.json",
+    "manifestSha256": "816550A86DE376D9862DF71AE68217391C3E115E28B1180858E896B4F421A88B",
+    "preservedAnchor": "artifacts/winui-delete-validation-20261025/full-unit-production-anchor.json",
+    "preservedAnchorSha256": "05E7402BF672C6D7248FF3BC1D83406055CB05E20454A64EC006E4B64C47BCA8",
+    "runId": "144c5110c7394f288da4098296e610a5",
+    "originalRunPassed": 4923,
+    "reusedPassedOnly": 2450,
+    "projects": [
+      {
+        "project": "Backend",
+        "passed": 2430,
+        "failed": 0,
+        "notExecuted": 0,
+        "trx": "artifacts/winui-delete-validation-20261025/final-unit/Backend-144c5110c7394f288da4098296e610a5.trx",
+        "trxSha256": "35CD2E219157A6BEDCD7306CC20DE13D0B4A6F999583E0BA0B856A47E4BB85E8",
+        "independentlyParsedTrxResultCount": 2430,
+        "currentTestedAssemblies": [
+          {
+            "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.AdvancedValidationJobGuard.dll",
+            "role": "local_product_dependency",
+            "sha256": "7A4BAE69D35D5BBE504228ACCB5761805D5FA8EF560169308C15DDC209DAC778",
+            "currentBytesMatchExecutedAssembly": true
+          },
+          {
+            "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.dll",
+            "role": "local_product_dependency",
+            "sha256": "FEF8B7977EC4F4C61E6EBBB78AA11888265BF7FDAE9DD23230577E8947CA893A",
+            "currentBytesMatchExecutedAssembly": true
+          },
+          {
+            "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Backend.Tests.dll",
+            "role": "test_assembly",
+            "sha256": "BA45DCE4639D4D8F1E4AE16572BC6D5A7B60740BF7257631766E18301EF51C3B",
+            "currentBytesMatchExecutedAssembly": true
+          },
+          {
+            "path": "backend\\SAAIA.Backend.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+            "role": "local_product_dependency",
+            "sha256": "2C33F16EF85B056C164181549F2FF3235EFB05A106CFE8C1C8214A0ECF7037C1",
+            "currentBytesMatchExecutedAssembly": true
+          }
+        ]
+      },
+      {
+        "project": "Contracts",
+        "passed": 20,
+        "failed": 0,
+        "notExecuted": 0,
+        "trx": "artifacts/winui-delete-validation-20261025/final-unit/Contracts-144c5110c7394f288da4098296e610a5.trx",
+        "trxSha256": "E15FC29AB4C14C9BB5CDBE5629ACA3B41089B08784C868F560C090C6831D3EB1",
+        "independentlyParsedTrxResultCount": 20,
+        "currentTestedAssemblies": [
+          {
+            "path": "contracts\\SAAIA.Contracts.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.dll",
+            "role": "local_product_dependency",
+            "sha256": "2C33F16EF85B056C164181549F2FF3235EFB05A106CFE8C1C8214A0ECF7037C1",
+            "currentBytesMatchExecutedAssembly": true
+          },
+          {
+            "path": "contracts\\SAAIA.Contracts.Tests\\bin\\Release\\net8.0\\SAAIA.Contracts.Tests.dll",
+            "role": "test_assembly",
+            "sha256": "F3820A82A5E6038CF42072B6086A862EDDB440EA09424F467C5312EB055E4410",
+            "currentBytesMatchExecutedAssembly": true
+          }
+        ]
+      }
+    ],
+    "sourceDependencyScope": "backend/**, contracts/**, tools/SAAIA.AdvancedValidationJobGuard/**, tools/testing/**, shared Directory.Build/Packages files, config JSON, editorconfig; selected using the same source extensions as the original campaign",
+    "sourceFileCount": 623,
+    "sourceFingerprint": "209353A8459BBA31C933D51D2B99377D102A3F9B0E39973E4FC2998D573C78E4",
+    "currentSourceScopeUnchanged": true,
+    "sourceDrift": {
+      "changed": [],
+      "missing": [],
+      "added": []
+    },
+    "limitation": "These 2430 Backend and 20 Contracts tests were executed in the earlier full run, not re-executed after the client-only correction. Their source dependency scope and recorded tested DLL bytes are independently unchanged."
+  },
+  "sourceDeltaSinceEarlierFullRun": {
+    "changed": [
+      "client/SAAIA.Client.WinUI/Localization/LocalizedStrings.cs",
+      "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DocumentaryProbe.cs",
+      "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRagFallbacks.cs",
+      "tools/validation-winui/fixture_http.py",
+      "tools/validation-winui/start-storage-proxy.ps1",
+      "tools/validation-winui/storage_proxy.py",
+      "tools/validation-winui/test-advanced-worker.ps1"
+    ],
+    "missing": [],
+    "added": [
+      "client/SAAIA.Client.ToolAgent.Tests/ExplicitGeneralRouteFallbackTests.cs",
+      "tools/validation-winui/prepare-advanced-terminal-resume.ps1",
+      "tools/validation-winui/seed-source-ambiguity-session.ps1",
+      "tools/validation-winui/test_journey_completion_tools.py"
+    ]
+  },
+  "composedCoverage": {
+    "currentClientCore": 80,
+    "currentClient": 2396,
+    "reusedBackend": 2430,
+    "reusedContracts": 20,
+    "totalDistinctCasesAcrossProjectRuns": 4926,
+    "singleRun": false,
+    "explanation": "2476 newly re-executed Client/Core tests plus 2450 earlier Backend/Contracts tests retained under identical source scopes and recorded DLL bytes. The 163 targeted regressions and 3 new tests overlap the full client result and are not added."
+  },
+  "productionBuild11": {
+    "log": "production-client-build11.log",
+    "logSha256": "91DF8C67F71781AD1C1820DF81E17F139B0A7535D33D17F62CC8E15B7EFCBF9B",
+    "warnings": 0,
+    "errors": 0,
+    "elapsed": "00:00:21.56",
+    "currentProductionBinaries": [
+      {
+        "path": "backend/SAAIA.Backend/bin/Release/net8.0/SAAIA.Backend.dll",
+        "sha256": "FEF8B7977EC4F4C61E6EBBB78AA11888265BF7FDAE9DD23230577E8947CA893A",
+        "bytes": 7763456,
+        "lastWriteTimeUtc": "2026-10-25T15:20:20.2070147Z"
+      },
+      {
+        "path": "client/SAAIA.Client.WinUI/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/SAAIA.Client.WinUI.dll",
+        "sha256": "A587B3A8B7F75C5EC2E7A39544831C54E1CDD147590D50DEC0543F70D2C83A7B",
+        "bytes": 8181248,
+        "lastWriteTimeUtc": "2026-10-25T16:33:07.4790486Z"
+      },
+      {
+        "path": "client/SAAIA.Client.WinUI/bin/x64/Release/net8.0-windows10.0.19041.0/win-x64/SAAIA.Client.WinUI.exe",
+        "sha256": "88AC4FF739E155F77BA31DEEB6E58EF46E7E32E1802ED5372D513082A4A11F52",
+        "bytes": 256512,
+        "lastWriteTimeUtc": "2026-10-25T16:33:07.4890329Z"
+      },
+      {
+        "path": "client/SAAIA.Client.Core/bin/x64/Release/net8.0/SAAIA.Client.Core.dll",
+        "sha256": "AB923500BEF259E4465652E1E0C91DFE5F2D4062E8208E7DF4DE8F05B5B14A2C",
+        "bytes": 96768,
+        "lastWriteTimeUtc": "2026-10-25T16:32:47.0768011Z"
+      },
+      {
+        "path": "contracts/SAAIA.Contracts/bin/x64/Release/net8.0/SAAIA.Contracts.dll",
+        "sha256": "E07945AD2F7AEDAEE1610AAFED99D7CE3B0A5506D811FEA2CDA3FCD02E48E577",
+        "bytes": 151040,
+        "lastWriteTimeUtc": "2026-10-25T16:32:46.8835174Z"
+      }
+    ],
+    "sourceAnchor": "The production build11 source tree is identical to the complete stable latest unit inventory. AnyCPU testhooks DLLs and Release x64 native DLLs have different build configurations and are not claimed byte-identical.",
+    "nativeDllMatchesExpectedBuild11": true,
+    "backendRuntimeRunId": "7d110010ee874d5398a9ca335b079fdd",
+    "testedBackendMatchesCurrentProductionAndFixtureManifest": true
+  },
+  "limits": [
+    "This artifact performs file/TRX/source verification only; no tests, native UI or model calls are executed by the verifier.",
+    "Unit suites exclude IntegrationPg, LiveLocal and LivePaid; their results cannot substitute for native UI or paid-model acceptance.",
+    "Native build11 launch and real journey observations require their own process, screenshot, diagnostic and durable-state evidence.",
+    "Inventory verification uses the source selection of tools/test-project.ps1; excluded JSON fixtures, installed packages and untracked ignored files are not retroactively added to the original source fingerprint."
+  ],
+  "productStatus": "TESTE_NON_APPROUVE"
+}

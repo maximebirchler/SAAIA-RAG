@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "saaia-winui-deletion-sql-snapshot.v1",
+  "capturedAtUtc": "2026-10-25T15:52:23.0185032+00:00",
+  "environmentRunId": "7d110010ee874d5398a9ca335b079fdd",
+  "userId": "3a5bedd4-2bc1-4063-a677-025ebf648669",
+  "readOnly": true,
+  "transaction": "BEGIN READ ONLY",
+  "identityDataDirectoryAndLoopbackPortVerified": true,
+  "postgresPort": 58590,
+  "databaseSessionCount": 4,
+  "databaseMessageCount": 5,
+  "orphanMessageCount": 0,
+  "otherUserSessionCount": 1,
+  "advancedJobCount": 1,
+  "deleteAuditEvents": [
+    {
+      "auditId": "86aa6ecf-1837-453b-b878-d6cc8e94e909",
+      "atUtc": "2026-10-25T16:40:25.789242+01:00",
+      "targetSessionId": "e8fb4f2f-a5f1-4986-9b74-c59fea721cb1"
+    }
+  ],
+  "sessionCount": 3,
+  "sessions": [
+    {
+      "sessionId": "063c46ae-aa08-46d5-8f9d-8ed9f2ab81b1",
+      "titleSha256": "e6a6a99bbc631c362371e99c6c04e13f6c6ff677a2da7016c79bb098cc8b3a39",
+      "titleCharacters": 19,
+      "createdAt": "2026-10-25T16:40:36.810618+01:00",
+      "updatedAt": "2026-10-25T16:40:36.810618+01:00",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "sessionId": "ff07bcc8-8569-4b2c-b520-cf2f539dbb86",
+      "titleSha256": "e540989d092954cf482e29b3ccaf12b637a6679cb813ea3bde814b5a6df0be38",
+      "titleCharacters": 25,
+      "createdAt": "2026-10-25T16:47:50.137163+01:00",
+      "updatedAt": "2026-10-25T16:47:50.152718+01:00",
+      "messageCount": 2,
+      "messages": [
+        {
+          "messageId": "fbf7f521-018c-449c-ab6a-d7d2d33965ba",
+          "role": "user",
+          "contentSha256": "4d8fa7350d2f4c0ab801746100f5742d4658991619ee31d0babbd57b6fdeb473",
+          "contentCharacters": 122,
+          "createdAt": "2026-10-25T16:47:50.145538+01:00"
+        },
+        {
+          "messageId": "27f81799-4154-4340-aba6-df02dbe9eb0a",
+          "role": "assistant",
+          "contentSha256": "f130cea5d42f65d4e82f38542640851838ee30ef7e43cbe79ea73a17ca8c74aa",
+          "contentCharacters": 127,
+          "createdAt": "2026-10-25T16:47:50.152431+01:00"
+        }
+      ]
+    },
+    {
+      "sessionId": "52616ce3-3c4e-4d4f-9a64-bc577e4cb90f",
+      "titleSha256": "d414a2b08e85af8f595c7c37c8a16f90e3ac8fc6ceff2804a9ac93ebea188560",
+      "titleCharacters": 120,
+      "createdAt": "2026-10-25T16:47:50.159637+01:00",
+      "updatedAt": "2026-10-25T16:51:09.963619+01:00",
+      "messageCount": 2,
+      "messages": [
+        {
+          "messageId": "c9495701-8fbd-4244-bb8a-f6397aeec301",
+          "role": "user",
+          "contentSha256": "ecbf0ea974dfc62e677f6553aa76dbdd02bf1d899a2849edd73b6bbaa3ecf6c6",
+          "contentCharacters": 124,
+          "createdAt": "2026-10-25T16:47:50.161719+01:00"
+        },
+        {
+          "messageId": "0435bda7-4cd2-47e4-a9e0-68a78bcf4f25",
+          "role": "assistant",
+          "contentSha256": "fe3ad46909f43175ca22be3af5a476ecc2bcb7c40cc1326ed4dfd35f2cba9434",
+          "contentCharacters": 129,
+          "createdAt": "2026-10-25T16:47:50.164259+01:00"
+        }
+      ]
+    }
+  ]
+}

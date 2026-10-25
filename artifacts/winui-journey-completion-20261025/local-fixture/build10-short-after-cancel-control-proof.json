@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "saaia-winui-build10-short-after-cancel-control.v1",
+  "preparedAtUtc": "2026-10-25T16:20:23.7263866+00:00",
+  "response": "TOUR BUILD10 APRES INTERRUPTION",
+  "chunkDelaySeconds": 0.01,
+  "delaySeconds": 0,
+  "mode": "success",
+  "toolArguments": {
+    "intent": "chat.general",
+    "toolName": "chat.general",
+    "toolArgs": {}
+  },
+  "controlSha256": "58D4FF0521ED70DE2DB27F6ADBA7324B62580CCE3D7A8E58153BE69C366A0221",
+  "chatRequestedByScript": false,
+  "storageFaultsRearmed": false
+}

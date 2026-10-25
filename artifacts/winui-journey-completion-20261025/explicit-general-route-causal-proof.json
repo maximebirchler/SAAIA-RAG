@@ -1,0 +1,175 @@
+{
+  "schemaVersion": "saaia-explicit-general-route-fallback-causal-proof.v1",
+  "capturedAtUtc": "2026-10-25T16:08:28.9512902+00:00",
+  "status": "CAUSAL_RED_GREEN_AND_NEIGHBOR_REGRESSIONS_ACCEPTED_NATIVE_RETEST_PENDING",
+  "observedNativeTrigger": "Bonjour, peux-tu afficher la réponse de contrôle du streaming ?",
+  "exactNativeToolNoneAccepted": true,
+  "sourceRegexReadOnlyEvaluation": {
+    "pattern": "actionConnectorTarget",
+    "matched": true,
+    "rawTitle": "contrôle du streaming",
+    "causalLimit": "The title heuristic alone is not proof of documentary intent."
+  },
+  "causalRule": "Accepted LLM chat.general route with no tools bypassed lexical defaults but was later overridden by an exact-item or question-mark documentary fallback which did not consult the existing route-authority guard.",
+  "correction": "Reuse ShouldRespectLlmRouterGeneralWithoutTools at exact_item_fallback and documentary_probe_fallback; preserve LocalFallback and explicit documentary routes.",
+  "diagnosisProbe": {
+    "operation": "source_backed_fallback.skipped",
+    "reason": "router_general_no_tools",
+    "entries": [
+      "exact_item_fallback",
+      "documentary_probe_fallback"
+    ]
+  },
+  "red": {
+    "counts": {
+      "passed": 1,
+      "adapterReportedExecuted": 3,
+      "failed": 2,
+      "executed": 3,
+      "notExecuted": 0,
+      "total": 3
+    },
+    "sourceChangedDuringRun": false,
+    "cases": [
+      {
+        "duration": "00:00:00.0101275",
+        "outcome": "Failed",
+        "name": "SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: \"Bonjour, peux-tu afficher la réponse de contrôle d\"···)"
+      },
+      {
+        "duration": "00:00:00.2451547",
+        "outcome": "Passed",
+        "name": "SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_documentary_route_still_reaches_its_real_retrieval_branch"
+      },
+      {
+        "duration": "00:00:00.0187298",
+        "outcome": "Failed",
+        "name": "SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: \"Comment vas-tu ?\")"
+      }
+    ]
+  },
+  "green": {
+    "counts": {
+      "passed": 3,
+      "executed": 3,
+      "notExecuted": 0,
+      "total": 3,
+      "adapterReportedExecuted": 3,
+      "failed": 0
+    },
+    "sourceChangedDuringRun": false,
+    "cases": [
+      {
+        "name": "SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: \"Comment vas-tu ?\")",
+        "duration": "00:00:00.0572722",
+        "outcome": "Passed"
+      },
+      {
+        "name": "SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: \"Bonjour, peux-tu afficher la réponse de contrôle d\"···)",
+        "duration": "00:00:00.0296333",
+        "outcome": "Passed"
+      },
+      {
+        "name": "SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_documentary_route_still_reaches_its_real_retrieval_branch",
+        "duration": "00:00:00.3471875",
+        "outcome": "Passed"
+      }
+    ],
+    "sourceFingerprint": "9BC818B8741CB814190E3593CC3FB2AF3E44EFD8E73A5963A9A833B3B7AE02D5"
+  },
+  "behaviorAsserted": [
+    "Full RunAsync accepts native route through both stages with toolName none",
+    "General cases issue zero backend HTTP requests, create no advanced handoff and emit the two general writer deltas",
+    "A true documentary route still reaches its retrieval HTTP branch, where the test intentionally cancels",
+    "No source-backed semantic answer quality is claimed by the documentary admission control"
+  ],
+  "neighboringRegressions": {
+    "counts": {
+      "adapterReportedExecuted": 163,
+      "passed": 163,
+      "failed": 0,
+      "executed": 163,
+      "total": 163,
+      "notExecuted": 0
+    },
+    "sourceChangedDuringRun": false,
+    "sourceFingerprint": "9BC818B8741CB814190E3593CC3FB2AF3E44EFD8E73A5963A9A833B3B7AE02D5",
+    "noBuild": true,
+    "exactSameAssemblyHashesAsGreen": true,
+    "includesThreeNewCases": true,
+    "doNotSumOverlappingCounts": true
+  },
+  "initialExploratoryRun": {
+    "path": "explicit-general-route-red/manifest.json",
+    "failed": 3,
+    "passed": 1,
+    "inapplicableCase": "Pourquoi un document mentionne-t-il sa version ?",
+    "reason": "The deterministic shortcut answered before the router (zero native calls); this cannot demonstrate overriding an accepted route.",
+    "retained": true,
+    "excludedFromConfirmedRegressionSet": true
+  },
+  "unchangedNeighbor": {
+    "path": "document_version_traceability_fallback",
+    "reason": "No causal evidence that the tested wording reached this post-router branch; no correction based only on that exploratory case."
+  },
+  "architecture": {
+    "status": "passed",
+    "sourceCount": 1591,
+    "existingSizeReviewCount": 21,
+    "delta": "Two small existing product files plus one bounded test file; no MainWindow growth"
+  },
+  "sourceFiles": [
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.SourceBackedRagFallbacks.cs",
+      "sha256": "85AEA28EF8704FF1F26DF0B348660B2AC8AFF8385AA43E313CEBA5814443945D"
+    },
+    {
+      "path": "client/SAAIA.Client.WinUI/ToolAgent/ToolAgentOrchestrator.DocumentaryProbe.cs",
+      "sha256": "DB23CC8B144B9408584C0E3724B30B405F513DA2D64B69FBC0D4BA550375207C"
+    },
+    {
+      "path": "client/SAAIA.Client.ToolAgent.Tests/ExplicitGeneralRouteFallbackTests.cs",
+      "sha256": "87EB49614D314B30973FBFF0E501938BE27330A764B278F5EC2EB266A75DC420"
+    }
+  ],
+  "references": [
+    {
+      "path": "explicit-general-route-red/manifest.json",
+      "sha256": "6AC6FFC20E25D02FC46277CDF654D6BF641F7EBA01E30025DF11F1CC1178A595"
+    },
+    {
+      "path": "explicit-general-route-red-confirmed/manifest.json",
+      "sha256": "912D39FF8FE660658BBB7340F8FF4146DDE152A5EEAFC3FECCB21264878BE8A7"
+    },
+    {
+      "path": "explicit-general-route-green/manifest.json",
+      "sha256": "D850A1E1627A233F2F6150A4A3BB7967E9642DB7DD3844C7F395D60ADB4570D9"
+    },
+    {
+      "path": "explicit-general-route-neighbor-regressions/manifest.json",
+      "sha256": "0E7FE7B5D16759BE22A964CED63CB56BC090834320790F570EF2B863064E4AD4"
+    },
+    {
+      "path": "explicit-general-route-architecture.json",
+      "sha256": "424BBC390933DD8B6D41299847D29238E88C7B20F48EA960B1A6DFF16745D81C"
+    },
+    {
+      "path": "explicit-general-route-red-confirmed/Client-09cc553cca284103975b4aef4f257bf6.trx",
+      "sha256": "C3336D7592A0F530B0396306F916A42747F1453254ADD96BE6C21DA51055D4EE"
+    },
+    {
+      "path": "explicit-general-route-green/Client-9b8abfcba4bc4654bad982b413005ed5.trx",
+      "sha256": "AD9363BCF146A4CFF9772A026488F60CEDB8D924D7BA416C1327B7D2816F6C33"
+    },
+    {
+      "path": "explicit-general-route-neighbor-regressions/Client-36ebeb5ea6cf438c86e286e7bf3cd9ce.trx",
+      "sha256": "FD3435C63F9FA698644E78A5DA12249A87C7BA6C38B82B229348D2636545AB8A"
+    }
+  ],
+  "productionBuildPerformed": false,
+  "nativeRetestPerformed": false,
+  "fullClientCoreSuitePerformedByThisSubtask": false,
+  "testhooksProductionX64Separated": true,
+  "paidCalls": 0,
+  "productStatus": "TESTE_NON_APPROUVE"
+}

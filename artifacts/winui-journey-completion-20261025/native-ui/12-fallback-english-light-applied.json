@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "saaia-native-journey-observation.v1",
+  "capturedAtUtc": "2026-10-25T15:44:57.634Z",
+  "description": "Après Apply : fenêtre claire, Chats/New/Settings/Setup/Help/Send et placeholder anglais lisibles, même discussion et saisie active.",
+  "window": {
+    "app": "process:C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+    "id": 135531930,
+    "title": "SAAIA"
+  },
+  "accessibility": {
+    "focused_element": "24 modifier (settable, string) Type your question... ID: InputBox",
+    "tree": "Window: \"SAAIA\", App: SAAIA.Client.WinUI.exe.\n\t0 fenêtre SAAIA Secondary Actions: Raise\n\t\t1 volet Non Client Input Sink Window\n\t\t2 volet AppWindow Custom Title Bar\n\t\t\t3 Bouton Minimize ID: Minimize\n\t\t\t4 Bouton Maximize ID: Maximize\n\t\t\t5 Bouton Close ID: Close\n\t\t6 volet\n\t\t\t7 volet\n\t\t\t\t8 image\n\t\t\t\t9 texte SAAIA\n\t\t\t\t10 bouton Chats ID: ChatsToggleButton\n\t\t\t\t11 bouton Setup ID: SetupButton\n\t\t\t\t12 bouton Help ID: HeaderHelpButton\n\t\t\t\t\t13 texte ?\n\t\t\t\t14 bouton Settings ID: HeaderSettingsButton\n\t\t\t\t15 texte Chats ID: ChatsHeaderText\n\t\t\t\t16 bouton New ID: NewChatButton\n\t\t\t\t17 liste ID: SessionsList\n\t\t\t\t\t18 élément de liste (selectable) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t101 texte New chat\n\t\t\t\t\t\t102 texte 25.10 16:40\n\t\t\t\t\t\t103 bouton …\n\t\t\t\t22 volet ID: MessagesScroll\n\t\t\t\t\t23 liste ID: MessagesList\n\t\t\t\t24 modifier (settable, string) Type your question... ID: InputBox\n\t\t\t\t25 bouton (disabled) Send ID: SendCancelButton\n\t\t32 barre de titre (settable, string) Value: SAAIA\n\t\t\t33 barre de menus Système ID: MenuBar\n\t\t\t\t34 élément de menu Système\n\t\t\t35 Bouton Réduire\n\t\t\t36 Bouton Agrandir\n\t\t\t37 Bouton Fermer\n\nThe focused UI element is 24 modifier (settable, string) Type your question... ID: InputBox."
+  },
+  "screenshots": [
+    "12-fallback-english-light-applied-0.png"
+  ]
+}

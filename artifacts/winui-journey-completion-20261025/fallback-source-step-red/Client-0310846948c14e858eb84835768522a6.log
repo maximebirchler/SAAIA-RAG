@@ -1,0 +1,119 @@
+  SAAIA.Contracts -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\contracts\SAAIA.Contracts\bin\testhooks\AnyCPU\Release\SAAIA.Contracts.dll
+  SAAIA.Contracts -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\contracts\SAAIA.Contracts\bin\Release\net8.0\SAAIA.Contracts.dll
+  SAAIA.Client.Core -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.Core\bin\testhooks\AnyCPU\Release\SAAIA.Client.Core.dll
+  SAAIA.Client.WinUI -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.WinUI\bin\testhooks\AnyCPU\Release\SAAIA.Client.WinUI.dll
+  SAAIA.Client.ToolAgent.Tests -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll
+Série de tests pour C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll (.NETCoreApp,Version=v8.0)
+Version de VSTest 17.11.1 (x64)
+
+Démarrage de l'exécution de tests, patientez...
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+[xUnit.net 00:00:01.67]     SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: "Comment vas-tu ?") [FAIL]
+[xUnit.net 00:00:01.72]     SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: "Bonjour, peux-tu afficher la réponse de contrôle d"···) [FAIL]
+  Échoué SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: "Comment vas-tu ?") [118 ms]
+  Message d'erreur :
+   System.Collections.Generic.KeyNotFoundException : The given key 'source_step' was not present in the dictionary.
+  Arborescence des appels de procédure :
+     at System.Collections.Generic.Dictionary`2.get_Item(TKey key)
+   at SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.<>c.<Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks>b__2_3(ClientProbeEvent probe) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\ExplicitGeneralRouteFallbackTests.cs:line 57
+   at System.Linq.Enumerable.SelectArrayIterator`2.MoveNext()
+   at SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(String question) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\ExplicitGeneralRouteFallbackTests.cs:line 57
+--- End of stack trace from previous location ---
+  Messages de sortie standard :
+ Native router calls=2; stream calls=1; HTTP requests=
+ Trace=[RAG_TRACE event=turn.begin trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=1 elapsed_ms=1 history=0 user_chars=16 planning=false]
+[RAG_TRACE event=router.catalog_context.start trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=2 elapsed_ms=3 reason="semantic_native_router" has_catalog_snapshot=true catalog_categories=0]
+[RAG_TRACE event=router.catalog_context.end trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=3 elapsed_ms=4 catalog_categories=0 ms=0]
+[RAG_TRACE event=router.start trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=4 elapsed_ms=4 planning=false chars=16]
+[RAG_TRACE event=router.native.classifier.completed trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=5 elapsed_ms=6 accepted=true prompt_tokens=null completion_tokens=null server_cache_tokens=null server_prompt_evaluated_tokens=null server_prompt_ms=null server_predicted_tokens=null server_predicted_ms=null ms=0]
+[RAG_TRACE event=router.native.start trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=6 elapsed_ms=7 history=0 user_chars=16 prompt_chars=100 prompt_tokens=null context_tokens=null prompt_compacted=false classifier_fallback_all_contracts=false timeout_ms=90000]
+[RAG_TRACE event=router.native.accepted trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=7 elapsed_ms=9 repair_attempted=false intent="chat.general" tools=[] has_source_mission=false source_plan_kind=null source_goal=null source_proof=null source_question_focus=null source_uses_focused_document=null source_atomic_evidence_count=null source_row_header=null source_rows=null source_columns=null source_requested_document=null source_named_reference_kind=null source_candidate_scopes=null prompt_tokens=null completion_tokens=null server_cache_tokens=null server_prompt_evaluated_tokens=null server_prompt_ms=null server_predicted_tokens=null server_predicted_ms=null ms=2]
+[RAG_TRACE event=router.end trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=8 elapsed_ms=11 intent="chat.general" mode="strict" confidence=null clarification=false tools=0 ms=6]
+[RAG_TRACE event=capability_boundary.decision trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=9 elapsed_ms=12 reason="within_local_boundary" answer_units=0 structured_threshold=6 multi_item_threshold=5]
+[RAG_TRACE event=documentary_defaults.skipped trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=10 elapsed_ms=13 reason="router_general_no_tools" intent="chat.general"]
+[RAG_TRACE event=source_backed_fallback.skipped trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=11 elapsed_ms=19 reason="router_general_no_tools" intent="chat.general"]
+[RAG_TRACE event=source_backed_fallback.skipped trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=12 elapsed_ms=20 reason="router_general_no_tools" intent="chat.general"]
+[RAG_TRACE event=documentary_defaults.skipped trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=13 elapsed_ms=21 reason="router_general_no_tools" intent="chat.general"]
+[RAG_TRACE event=router.legacy_structured_repair.skipped trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=14 elapsed_ms=22 reason="source_backed_agent_v2_owns_semantic_adaptation"]
+[RAG_TRACE event=tools.stage.start trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=15 elapsed_ms=23 intent="chat.general" tools=0]
+[RAG_TRACE event=tools.stage.end trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=16 elapsed_ms=28 intent="chat.general" items=0 ok=0 errors=0 ms=2]
+[RAG_TRACE event=source_backed_pipeline.canonical_retrieval.owner_confirmed trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=17 elapsed_ms=31 reason="canonical_pipeline_owns_post_tool_rag" intent="chat.general" tool_items=0]
+[RAG_TRACE event=writer.stage.start trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=18 elapsed_ms=38 intent="chat.general" buffer_output=false use_broad_synthesis=false avoid_raw_fallback=false route_through_writer=false require_broad_final=false]
+[RAG_TRACE event=answer.stage.start trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=19 elapsed_ms=42 intent="chat.general" mode="strict" tool_items=0 chars=16]
+[RAG_TRACE event=writer.context trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=20 elapsed_ms=47 general=true writer_tools=0 budget_tool_chars=5184 budget_brief_chars=930 budget_inventory_chars=1364]
+[RAG_TRACE event=writer.guard.coverage.start trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=21 elapsed_ms=52 raw_tool_items=0 writer_tool_items=0]
+[RAG_TRACE event=writer.guard.coverage.selection trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=22 elapsed_ms=53 has_raw_coverage=false has_writer_coverage=false ms=1]
+[RAG_TRACE event=writer.evidence_inventory.selection trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=23 elapsed_ms=54 trace_path="rag.writer.evidence_inventory" trace_step="select_tool_results" tool_items=0]
+[RAG_TRACE event=writer.guard.insufficient_check.start trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=24 elapsed_ms=54 tool_items=0]
+[RAG_TRACE event=writer.guard.insufficient_check.end trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=25 elapsed_ms=55 blocked=false answer_chars=0 ms=0]
+[RAG_TRACE event=writer.selected trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=26 elapsed_ms=58 intent="chat.general" broad=false avoid_raw=false route=false require_broad_final=false clean_brief=false]
+[RAG_TRACE event=writer.candidate_adjudication.skipped trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=27 elapsed_ms=60 reason="not_applicable" tool_items=0 ms=0]
+[RAG_TRACE event=writer.evidence_inventory.roster trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=28 elapsed_ms=64 trace_path="rag.writer.evidence_inventory" trace_step="build_roster" basis_tool_items=0 roster_chars=4 evidence_items=0 candidate_rejected=0 source_pages=0 candidate_adjudication_prompt_chars=4 source_reference_index_chars=1200]
+[RAG_TRACE event=writer.llm.start trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=29 elapsed_ms=70 intent="chat.general" prompt_chars=4262 clean_brief=false timeout_ms=0]
+[RAG_TRACE event=writer.llm.end trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=30 elapsed_ms=73 intent="chat.general" answer_chars=41]
+[RAG_TRACE event=writer.post.start trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=31 elapsed_ms=74 intent="chat.general" answer_chars=41 overflow_fallback=false]
+[RAG_TRACE event=writer.post.language_check.start trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=32 elapsed_ms=75 answer_chars=41]
+[RAG_TRACE event=writer.language_check.skipped trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=33 elapsed_ms=77 reason="already_target_language" answer_chars=41 ms=0]
+[RAG_TRACE event=writer.post.language_check.end trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=34 elapsed_ms=77 answer_chars=41 elapsed_ms=2]
+[RAG_TRACE event=writer.absolute_finalizer.skipped trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=35 elapsed_ms=83 reason="canonical_source_contract_owns_finalization" used_rag=false answer_chars=41 sources=0]
+[RAG_TRACE event=writer.post.end trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=36 elapsed_ms=84 intent="chat.general" answer_chars=41 sources=0 answer_source="unknown" ms=9]
+[RAG_TRACE event=writer.stage.end trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=37 elapsed_ms=85 intent="chat.general" answer_chars=41 sources=0 answer_source="unknown" ms=46]
+[RAG_TRACE event=answer.stage.end trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=38 elapsed_ms=87 intent="chat.general" answer_chars=41 sources=0 sources_payload=false]
+[RAG_TRACE event=turn.final trace_id=05799273f2b20ceb12e99e1fe00cffdb seq=39 elapsed_ms=90 outcome="success" reason=null planning=false intent="chat.general" answer_chars=41 sources_payload="none" tool_count=0 tools=[] total_ms=89]
+
+
+  Échoué SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: "Bonjour, peux-tu afficher la réponse de contrôle d"···) [54 ms]
+  Message d'erreur :
+   System.Collections.Generic.KeyNotFoundException : The given key 'source_step' was not present in the dictionary.
+  Arborescence des appels de procédure :
+     at System.Collections.Generic.Dictionary`2.get_Item(TKey key)
+   at SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.<>c.<Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks>b__2_3(ClientProbeEvent probe) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\ExplicitGeneralRouteFallbackTests.cs:line 57
+   at System.Linq.Enumerable.SelectArrayIterator`2.MoveNext()
+   at SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(String question) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\ExplicitGeneralRouteFallbackTests.cs:line 57
+--- End of stack trace from previous location ---
+  Messages de sortie standard :
+ Native router calls=2; stream calls=1; HTTP requests=
+ Trace=[RAG_TRACE event=turn.begin trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=1 elapsed_ms=0 history=0 user_chars=63 planning=false]
+[RAG_TRACE event=router.catalog_context.start trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=2 elapsed_ms=2 reason="semantic_native_router" has_catalog_snapshot=true catalog_categories=0]
+[RAG_TRACE event=router.catalog_context.end trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=3 elapsed_ms=3 catalog_categories=0 ms=0]
+[RAG_TRACE event=router.start trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=4 elapsed_ms=4 planning=false chars=63]
+[RAG_TRACE event=router.native.classifier.completed trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=5 elapsed_ms=6 accepted=true prompt_tokens=null completion_tokens=null server_cache_tokens=null server_prompt_evaluated_tokens=null server_prompt_ms=null server_predicted_tokens=null server_predicted_ms=null ms=0]
+[RAG_TRACE event=router.native.start trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=6 elapsed_ms=7 history=0 user_chars=63 prompt_chars=147 prompt_tokens=null context_tokens=null prompt_compacted=false classifier_fallback_all_contracts=false timeout_ms=90000]
+[RAG_TRACE event=router.native.accepted trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=7 elapsed_ms=8 repair_attempted=false intent="chat.general" tools=[] has_source_mission=false source_plan_kind=null source_goal=null source_proof=null source_question_focus=null source_uses_focused_document=null source_atomic_evidence_count=null source_row_header=null source_rows=null source_columns=null source_requested_document=null source_named_reference_kind=null source_candidate_scopes=null prompt_tokens=null completion_tokens=null server_cache_tokens=null server_prompt_evaluated_tokens=null server_prompt_ms=null server_predicted_tokens=null server_predicted_ms=null ms=1]
+[RAG_TRACE event=router.end trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=8 elapsed_ms=10 intent="chat.general" mode="strict" confidence=null clarification=false tools=0 ms=5]
+[RAG_TRACE event=capability_boundary.decision trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=9 elapsed_ms=10 reason="within_local_boundary" answer_units=0 structured_threshold=6 multi_item_threshold=5]
+[RAG_TRACE event=documentary_defaults.skipped trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=10 elapsed_ms=11 reason="router_general_no_tools" intent="chat.general"]
+[RAG_TRACE event=source_backed_fallback.skipped trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=11 elapsed_ms=13 reason="router_general_no_tools" intent="chat.general"]
+[RAG_TRACE event=source_backed_fallback.skipped trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=12 elapsed_ms=14 reason="router_general_no_tools" intent="chat.general"]
+[RAG_TRACE event=documentary_defaults.skipped trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=13 elapsed_ms=15 reason="router_general_no_tools" intent="chat.general"]
+[RAG_TRACE event=router.legacy_structured_repair.skipped trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=14 elapsed_ms=15 reason="source_backed_agent_v2_owns_semantic_adaptation"]
+[RAG_TRACE event=tools.stage.start trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=15 elapsed_ms=16 intent="chat.general" tools=0]
+[RAG_TRACE event=tools.stage.end trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=16 elapsed_ms=17 intent="chat.general" items=0 ok=0 errors=0 ms=0]
+[RAG_TRACE event=source_backed_pipeline.canonical_retrieval.owner_confirmed trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=17 elapsed_ms=17 reason="canonical_pipeline_owns_post_tool_rag" intent="chat.general" tool_items=0]
+[RAG_TRACE event=writer.stage.start trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=18 elapsed_ms=20 intent="chat.general" buffer_output=false use_broad_synthesis=false avoid_raw_fallback=false route_through_writer=false require_broad_final=false]
+[RAG_TRACE event=answer.stage.start trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=19 elapsed_ms=21 intent="chat.general" mode="strict" tool_items=0 chars=63]
+[RAG_TRACE event=writer.context trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=20 elapsed_ms=23 general=true writer_tools=0 budget_tool_chars=5184 budget_brief_chars=930 budget_inventory_chars=1364]
+[RAG_TRACE event=writer.guard.coverage.start trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=21 elapsed_ms=34 raw_tool_items=0 writer_tool_items=0]
+[RAG_TRACE event=writer.guard.coverage.selection trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=22 elapsed_ms=35 has_raw_coverage=false has_writer_coverage=false ms=0]
+[RAG_TRACE event=writer.evidence_inventory.selection trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=23 elapsed_ms=36 trace_path="rag.writer.evidence_inventory" trace_step="select_tool_results" tool_items=0]
+[RAG_TRACE event=writer.guard.insufficient_check.start trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=24 elapsed_ms=36 tool_items=0]
+[RAG_TRACE event=writer.guard.insufficient_check.end trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=25 elapsed_ms=37 blocked=false answer_chars=0 ms=0]
+[RAG_TRACE event=writer.selected trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=26 elapsed_ms=38 intent="chat.general" broad=false avoid_raw=false route=false require_broad_final=false clean_brief=false]
+[RAG_TRACE event=writer.candidate_adjudication.skipped trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=27 elapsed_ms=38 reason="not_applicable" tool_items=0 ms=0]
+[RAG_TRACE event=writer.evidence_inventory.roster trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=28 elapsed_ms=39 trace_path="rag.writer.evidence_inventory" trace_step="build_roster" basis_tool_items=0 roster_chars=4 evidence_items=0 candidate_rejected=0 source_pages=0 candidate_adjudication_prompt_chars=4 source_reference_index_chars=1200]
+[RAG_TRACE event=writer.llm.start trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=29 elapsed_ms=43 intent="chat.general" prompt_chars=4515 clean_brief=false timeout_ms=0]
+[RAG_TRACE event=writer.llm.end trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=30 elapsed_ms=45 intent="chat.general" answer_chars=41]
+[RAG_TRACE event=writer.post.start trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=31 elapsed_ms=45 intent="chat.general" answer_chars=41 overflow_fallback=false]
+[RAG_TRACE event=writer.post.language_check.start trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=32 elapsed_ms=46 answer_chars=41]
+[RAG_TRACE event=writer.language_check.skipped trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=33 elapsed_ms=47 reason="already_target_language" answer_chars=41 ms=0]
+[RAG_TRACE event=writer.post.language_check.end trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=34 elapsed_ms=47 answer_chars=41 elapsed_ms=1]
+[RAG_TRACE event=writer.absolute_finalizer.skipped trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=35 elapsed_ms=48 reason="canonical_source_contract_owns_finalization" used_rag=false answer_chars=41 sources=0]
+[RAG_TRACE event=writer.post.end trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=36 elapsed_ms=49 intent="chat.general" answer_chars=41 sources=0 answer_source="unknown" ms=3]
+[RAG_TRACE event=writer.stage.end trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=37 elapsed_ms=49 intent="chat.general" answer_chars=41 sources=0 answer_source="unknown" ms=28]
+[RAG_TRACE event=answer.stage.end trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=38 elapsed_ms=50 intent="chat.general" answer_chars=41 sources=0 sources_payload=false]
+[RAG_TRACE event=turn.final trace_id=d410d0b84b28a92329ec0d6b52081a00 seq=39 elapsed_ms=51 outcome="success" reason=null planning=false intent="chat.general" answer_chars=41 sources_payload="none" tool_count=0 tools=[] total_ms=51]
+
+
+Fichier de résultats : C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\artifacts\winui-journey-completion-20261025\fallback-source-step-red\Client-0310846948c14e858eb84835768522a6.trx
+
+Échoué!  - échec :     2, réussite :     1, ignorée(s) :     0, total :     3, durée : 185 ms - SAAIA.Client.ToolAgent.Tests.dll (net8.0)

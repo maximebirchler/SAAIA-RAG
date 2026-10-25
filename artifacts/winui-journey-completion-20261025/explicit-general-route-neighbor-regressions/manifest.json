@@ -1,0 +1,927 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "36ebeb5ea6cf438c86e286e7bf3cd9ce",
+  "startedAtUtc": "2026-10-25T16:06:21.6613785+00:00",
+  "finishedAtUtc": "2026-10-25T16:06:24.4260668+00:00",
+  "gitCommit": "ccd0f8f7f54bac0ea92538199062326db305f761",
+  "gitDirty": true,
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~ExplicitGeneralRouteFallbackTests|FullyQualifiedName~ToolRouterPlanNormalizationTests|FullyQualifiedName~NativeRouterRuntimeModeTests|FullyQualifiedName~RagQueryNormalizationRegressionTests)",
+  "requestedProjects": [
+    "Client"
+  ],
+  "configuration": "Release",
+  "buildRequested": false,
+  "restoreRequested": false,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-25T16:06:22.6201511+00:00",
+    "sha256": "9BC818B8741CB814190E3593CC3FB2AF3E44EFD8E73A5963A9A833B3B7AE02D5",
+    "fileCount": 1658,
+    "inventory": "source-files-36ebeb5ea6cf438c86e286e7bf3cd9ce-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-25T16:06:25.0346409+00:00",
+    "sha256": "9BC818B8741CB814190E3593CC3FB2AF3E44EFD8E73A5963A9A833B3B7AE02D5",
+    "fileCount": 1658,
+    "inventory": "source-files-36ebeb5ea6cf438c86e286e7bf3cd9ce-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "passed",
+  "prerequisites": [],
+  "environment": {
+    "neutralizedVariableNames": [],
+    "clientDataIsolation": {
+      "source": "owned_campaign_output",
+      "requiredForClientTests": true,
+      "ownedRelativePath": "client-data",
+      "environmentRestored": true,
+      "rootId": "A71677F5CEEC90186BE50DDBAAD512F8E0051863EA611A356AFB161791C7DB34",
+      "enabled": true
+    }
+  },
+  "results": [
+    {
+      "project": "Client",
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj",
+      "status": "passed",
+      "exitCode": 0,
+      "trx": "Client-36ebeb5ea6cf438c86e286e7bf3cd9ce.trx",
+      "trxSha256": "FD3435C63F9FA698644E78A5DA12249A87C7BA6C38B82B229348D2636545AB8A",
+      "assemblies": [
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.Core.dll",
+          "role": "local_product_dependency",
+          "sha256": "20FD3D00662434CCA1A42E4666F79F84F2F70FF3677759FB9B4671E50E45D8FD",
+          "sizeBytes": 97280,
+          "lastWriteTimeUtc": "2026-10-25T16:05:23.3597008Z",
+          "capturedAtUtc": "2026-10-25T16:06:24.3954178+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.ToolAgent.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "7D10696AA1629976E35F15391B0D239CA8D9531CEB1B800ECE928C2C65BC5DB3",
+          "sizeBytes": 4765184,
+          "lastWriteTimeUtc": "2026-10-25T16:05:49.0955666Z",
+          "capturedAtUtc": "2026-10-25T16:06:24.4003930+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Client.WinUI.dll",
+          "role": "local_product_dependency",
+          "sha256": "1A782ECAB0379DE20D5BD4E9CE2E3ED64E2B16732B0B1828022F0A348D042B97",
+          "sizeBytes": 8235008,
+          "lastWriteTimeUtc": "2026-10-25T16:05:44.3909700Z",
+          "capturedAtUtc": "2026-10-25T16:06:24.4088149+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Release\\net8.0-windows10.0.19041.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "683939CC842926A74103F1C4B430D5231AB8E15BCA34E1A8B8CED61FBEF2F9E3",
+          "sizeBytes": 152064,
+          "lastWriteTimeUtc": "2026-10-25T16:05:22.8302122Z",
+          "capturedAtUtc": "2026-10-25T16:06:24.4096730+00:00"
+        }
+      ],
+      "counts": {
+        "adapterReportedExecuted": 163,
+        "passed": 163,
+        "failed": 0,
+        "executed": 163,
+        "total": 163,
+        "notExecuted": 0
+      },
+      "cases": [
+        {
+          "duration": "00:00:00.0030052",
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterRuntimeModeTests.Current_mode_reaches_both_router_stages_outside_truncated_history(setting: \"standard\", normalizedMode: \"standard\", corpusRequired: False)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001554",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Normalize_tool_args_preserves_rag_research_surface_flags",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0005664",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_answer_is_deterministic_and_localized(language: \"fr\", expectedHeader: \"J'ai trouvé 2 document(s) avec du contenu indexé s\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000045",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Normalize_router_intent_matches_v3_contract(rawIntent: \"documents.search\", expected: \"inventory.find\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0017379",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Native_named_document_route_carries_its_semantic_query_to_the_scoped_initial_action(routeTool: \"context\", expectedExternalTool: \"documents_context\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001610",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Rag_query_normalization_extracts_the_actual_topic(input: \"tu n'as aucun document qui parle de l'inertage ?\", expected: \"inertage\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0046518",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Explicit_document_file_reference_removes_generic_multilingual_wrappers(query: \"Abre el archivo Informe anual 2024.pdf y resúmelo.\", expected: \"Informe anual 2024.pdf\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000116",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_requests_are_not_treated_as_inventory_title_search(input: \"Cherche les documents qui correspondent a PumpManu\"···, expectedMatched: False, expectedTopic: \"\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0013946",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_extract_direct_item_title_from_natural_request(userMessage: \"Je fais les pizzas rigolotes avec 15 enfants, aide\"···, expectedTitle: \"pizzas rigolotes\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0271367",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_planning_normalization_compacts_noisy_router_exploration_queries",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0003297",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_probe_does_not_preempt_comparative_rag_requests(query: \"Quel dessert est le plus technique ?\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000127",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Standalone_topic_rag_does_not_force_retrieval_for_general_chat(input: \"bonjour\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0054652",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Broad_documentary_information_request_gets_expanded_rag_defaults",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0020748",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_force_ranking_request_to_focused_multi_search",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0009158",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_extract_direct_item_title_from_natural_request(userMessage: \"Je fais un atelier enfant, donne-moi les pizzas ri\"···, expectedTitle: \"pizzas rigolotes\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0009771",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_extract_direct_item_title_from_natural_request(userMessage: \"Combien de temps et quels ingrédients pour le grat\"···, expectedTitle: \"gratin dauphinois\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0003929",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Standalone_topic_rag_does_not_force_retrieval_for_general_chat(input: \"Dis simplement bonjour.\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000749",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Explicit_document_file_reference_removes_generic_multilingual_wrappers(query: \"Öffne die Datei Jahresbericht 2024.pdf und fasse s\"···, expected: \"Jahresbericht 2024.pdf\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000015",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Normalize_router_intent_matches_v3_contract(rawIntent: \"inventory.health\", expected: \"inventory.health\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0019817",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_force_comparative_request_to_focused_multi_search",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000961",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Sanitize_tool_calls_drops_client_side_admin_summary_submit",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0006029",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_answer_is_deterministic_and_localized(language: \"pt\", expectedHeader: \"Encontrei 2 documento(s) com conteudo indexado sob\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0059955",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Exact_passage_localization_is_outside_the_local_search_envelope(request: \"Localise le passage exact sur la concentration lim\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0011862",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_treat_wanted_named_item_as_precise_lookup",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0002953",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_do_not_treat_deictic_followup_as_exact_item_title",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0004418",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Exact_item_pre_router_shortcut_skips_structured_planning_requests",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0023520",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_respect_llm_general_without_tools(input: \"bonjour\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000210",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_requests_are_not_treated_as_inventory_title_search(input: \"Cerco consigli su una sonda per arrosti e sui live\"···, expectedMatched: True, expectedTopic: \"una sonda per arrosti e sui livelli di cottura\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0004740",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Normalize_multi_search_expands_comparative_queries_with_focused_subject",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0023309",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_add_typo_tolerant_queries_for_requested_recipe_titles",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0008537",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_extract_direct_item_title_from_natural_request(userMessage: \"Donne-moi la raclette suisse du corpus.\", expectedTitle: \"raclette suisse\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0030005",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_convert_version_traceability_search_to_multi_search",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0010457",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_preserves_an_explicit_known_category_scope",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0010935",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Canonical_agent_preserves_the_llm_source_backed_router_decision",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0006253",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_do_not_inject_retrieval_into_an_llm_source_mission",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0002148",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Explicit_document_file_reference_removes_generic_multilingual_wrappers(query: \"Find the file Annual Report 2024.pdf and summarize\"···, expected: \"Annual Report 2024.pdf\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0003286",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Source_backed_planning_with_deictic_variation_is_not_treated_as_missing_previous_item",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0069453",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_filters_lexically_unrelated_copyright_hits_before_rendering_sources",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000648",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Rag_query_normalization_repairs_replacement_accent_markers_in_delimited_user_demand",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000298",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Stored_summary_store_intent_routes_to_backoffice_generate",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0052248",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_content_requests_force_rag_even_when_router_stays_general(userMessage: \"Quelles recettes avec des lentilles corail existen\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0012503",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Normalize_live_summary_keeps_response_language_separate_from_document_language",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0025615",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_convert_broad_source_backed_menu_search_to_multi_search",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0011378",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Normalize_rag_tools_preserves_category_ref_scope(toolName: \"rag.multi_search\", jsonArgs: \"{\\\"queries\\\":[\\\"pressure valve\\\"],\\\"categoryRef\\\":\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0009134",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_extract_direct_item_title_from_natural_request(userMessage: \"Donne-moi la recette du fondant au chocolat en mod\"···, expectedTitle: \"fondant au chocolat\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0014229",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_extract_direct_item_title_from_natural_request(userMessage: \"Donne-moi la recette du coq au vin dans le livre i\"···, expectedTitle: \"coq au vin\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000279",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Standalone_topic_rag_respects_llm_general_without_tools_for_document_content_search",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0006462",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_extract_direct_item_title_from_natural_request(userMessage: \"C'est quoi la crêpe à Jo ?\", expectedTitle: \"crêpe à Jo\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0052542",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_convert_planning_rag_search_to_multi_search",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000220",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Normalize_tool_args_preserves_rag_mode_intent_for_backend_mapping(args: \"{\\\"query\\\":\\\"compare documents\\\",\\\"mode\\\":\\\"strict\"···, expectedMode: \"strict\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000415",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Complete_action_request_with_deictic_word_is_not_treated_as_missing_previous_item",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0043611",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_respect_llm_general_without_tools(input: \"Merci.\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001225",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Normalize_rag_tools_preserves_category_ref_scope(toolName: \"rag.search\", jsonArgs: \"{\\\"query\\\":\\\"pressure valve\\\",\\\"categoryRef\\\":\\\"ca\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0209472",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_answer_is_deterministic_and_localized(language: \"es\", expectedHeader: \"He encontrado 2 documento(s) con contenido indexad\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0009992",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Minimal_unstructured_router_json_uses_safe_model_defaults",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0289673",
+          "name": "SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: \"Bonjour, peux-tu afficher la réponse de contrôle d\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0016871",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Comparative_documentary_requests_count_separate_explicit_files",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001223",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_requests_are_not_treated_as_inventory_title_search(input: \"I am looking for advice about a roasting probe and\"···, expectedMatched: True, expectedTopic: \"a roasting probe and doneness levels\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001059",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Evidence_exploration_does_not_skip_when_llm_rag_tool_is_explicit",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000972",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Broadened_source_search_fallback_uses_original_intent_not_short_confirmation",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000285",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_requests_are_not_treated_as_inventory_title_search(input: \"Procuro conselhos sobre uma sonda de assar e os po\"···, expectedMatched: True, expectedTopic: \"uma sonda de assar e os pontos de cozedura\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0012691",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_widen_exact_item_card_multi_search_to_keep_linked_context",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0010211",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_extract_direct_item_title_from_natural_request(userMessage: \"Adapte la charlotte aux pêches pour 20 enfants.\", expectedTitle: \"charlotte aux pêches\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0005972",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_answer_is_deterministic_and_localized(language: \"en\", expectedHeader: \"I found 2 document(s) with indexed content about r\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0010149",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_clear_router_clarification_when_request_has_precise_source_target",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0002938",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Standalone_topic_detection_keeps_short_technical_topics_out_of_general_chat(input: \"qui es-tu\", expected: False)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000825",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Router_document_action_preserves_semantic_query_as_internal_hint(toolName: \"documents.context\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0011324",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_extract_direct_item_title_from_natural_request(userMessage: \"Calcule les quantités pour 10 bols de velouté.\", expectedTitle: \"velouté\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0007143",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_answer_is_deterministic_and_localized(language: \"it\", expectedHeader: \"Ho trovato 2 documento/i con contenuti indicizzati\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001906",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Rag_search_execution_preserves_delimited_user_demand_for_backend_ranking",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0039319",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Source_backed_action_queries_include_individual_user_terms_for_broad_recall",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000632",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Localized_strings_detect_mode_change(text: \"mode auto\", expectedMode: \"auto\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0004990",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Source_backed_planning_does_not_turn_countdown_cooking_into_weekly_days",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001503",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Explicit_document_file_reference_preserves_standalone_path_and_quoted_names(query: \"Open C:\\\\Docs\\\\Annual Report 2024.pdf and summariz\"···, expected: \"Annual Report 2024.pdf\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0002399",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Standalone_topic_detection_keeps_short_technical_topics_out_of_general_chat(input: \"ATEX\", expected: True)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0059949",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_merge_router_multi_search_with_robust_planning_queries",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0433657",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_widen_documentary_planning_when_document_scope_is_explicit",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001227",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_requests_are_not_treated_as_inventory_title_search(input: \"Cherche dans les documents si le controle SLA est \"···, expectedMatched: True, expectedTopic: \"controle SLA\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001919",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_rejects_natural_language_as_an_invented_category_scope",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0012544",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Comparative_retrieval_focus_removes_document_scope_noise_without_losing_original_query",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0006522",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_preserve_an_llm_owned_clarification",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0003349",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Normalize_tool_args_preserves_rag_document_and_page_scope",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0008867",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_do_not_widen_fragmentary_planning_words_without_documentary_intent",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0030588",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_extract_direct_item_title_from_natural_request(userMessage: \"Fondue chocolat pour un anniversaire de 18 enfants\"···, expectedTitle: \"Fondue chocolat\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0083627",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Native_named_document_route_carries_its_semantic_query_to_the_scoped_initial_action(routeTool: \"navigate\", expectedExternalTool: \"documents_navigation\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000269",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Explicit_document_file_reference_preserves_standalone_path_and_quoted_names(query: \"Open Questions.pdf\", expected: \"Open Questions.pdf\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0002278",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Rag_query_normalization_extracts_the_actual_topic(input: \"l'inertage précisément\", expected: \"inertage\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0004804",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_do_not_rewrite_llm_general_documentary_request",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0041927",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_convert_source_adaptation_request_to_focused_multi_search",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000852",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Standalone_topic_rag_still_forces_retrieval_for_document_content_search_when_router_fell_back",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001503",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_requests_are_not_treated_as_inventory_title_search(input: \"Je veux que tu me trouves les documents qui parlen\"···, expectedMatched: True, expectedTopic: \"inertage\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000220",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_requests_are_not_treated_as_inventory_title_search(input: \"Busco consejos sobre una sonda de asado y los punt\"···, expectedMatched: True, expectedTopic: \"una sonda de asado y los puntos de coccion\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0125615",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_widen_structured_weekly_planning_retrieval",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0010355",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_answer_suppresses_copyright_only_hits",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0012024",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_requests_are_not_treated_as_inventory_title_search(input: \"Cherche les documents qui mentionnent l'inertage\", expectedMatched: True, expectedTopic: \"inertage\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000553",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Explicit_document_file_reference_removes_generic_multilingual_wrappers(query: \"Apri il documento Rapporto annuale 2024.pdf e rias\"···, expected: \"Rapporto annuale 2024.pdf\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.1156772",
+          "name": "SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_documentary_route_still_reaches_its_real_retrieval_branch",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001800",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Exact_item_pre_router_shortcut_still_allows_precise_item_requests",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001043",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Localized_strings_detect_mode_change(text: \"Passe en mode strict\", expectedMode: \"strict\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0005826",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Standalone_topic_rag_does_not_force_retrieval_for_general_chat(input: \"Merci.\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0008166",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_answer_is_deterministic_and_localized(language: \"de\", expectedHeader: \"Ich habe 2 Dokument(e) mit indexiertem Inhalt zu r\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0008162",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Router_search_arguments_are_projected_without_semantic_expansion",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0033421",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_anchor_router_comparative_subqueries_to_focused_subject",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0002101",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Explicit_document_file_reference_excludes_the_request_wrapper",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0089253",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Detailed_weekly_meal_plan_exploration_covers_each_requested_meal_slot_before_query_budget_cutoff",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0010659",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_extract_direct_item_title_from_natural_request(userMessage: \"Tu peux me faire une fiche claire pour « Churros s\"···, expectedTitle: \"Churros sauce chocolat\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001124",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Generic_document_content_search_is_not_exact_passage_localization(request: \"Cherche les documents qui mentionnent VACUUM.\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0007718",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_probe_does_not_preempt_comparative_rag_requests(query: \"Compare la paella francaise/top 30 et celle du liv\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0054483",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_content_requests_force_rag_even_when_router_stays_general(userMessage: \"Menu dessert autour du chocolat : 4 options du plu\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0932116",
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterRuntimeModeTests.Current_mode_reaches_both_router_stages_outside_truncated_history(setting: \" STRICT \", normalizedMode: \"strict\", corpusRequired: True)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0005171",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Infer_intent_uses_documents_search_as_inventory_find",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000530",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Rag_query_normalization_extracts_delimited_user_demand",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0011041",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_content_requests_force_rag_even_when_router_stays_general(userMessage: \"Réponds en markdown avec une checklist pour cuisin\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000591",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Pure_deictic_followup_still_asks_for_the_missing_item",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000225",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Standalone_topic_detection_keeps_short_technical_topics_out_of_general_chat(input: \"l'inertage\", expected: True)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0085323",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Source_backed_action_queries_prioritize_delimited_user_demand_and_drop_wrapper_terms",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0088470",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Vague_weekly_meal_plan_initial_probes_avoid_filler_and_navigation_terms",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001002",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Normalize_tool_args_preserves_rag_mode_intent_for_backend_mapping(args: \"{\\\"query\\\":\\\"compare documents\\\"}\", expectedMode: \"auto\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001166",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Normalize_router_intent_matches_v3_contract(rawIntent: \"inventory.changed_since\", expected: \"inventory.changed_since\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0041388",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_repair_router_search_fragment_and_drop_sentence_category",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0002878",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Localized_strings_detect_mode_change(text: \"mets le mode standard\", expectedMode: \"standard\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000629",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Rag_query_normalization_extracts_the_actual_topic(input: \"Cherche dans les documents si le controle SLA est \"···, expected: \"controle SLA\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000299",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Standalone_topic_detection_keeps_short_technical_topics_out_of_general_chat(input: \"bonjour\", expected: False)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0010667",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_extract_direct_item_title_from_natural_request(userMessage: \"Je cherche la fondue au chocolat pour un groupe d'\"···, expectedTitle: \"fondue au chocolat\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0007538",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Sanitize_tool_calls_caps_rag_calls_to_five",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0007195",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Normalize_admin_summary_submit_does_not_promote_ui_language_to_docLanguage",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000742",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Explicit_document_file_reference_removes_generic_multilingual_wrappers(query: \"Ouvre le fichier Rapport annuel 2024.pdf et résume\"···, expected: \"Rapport annuel 2024.pdf\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0016637",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_content_requests_force_rag_even_when_router_stays_general(userMessage: \"Une recette française classique.\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000299",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Exact_passage_localization_is_outside_the_local_search_envelope(request: \"Montre-moi où dans le document ils parlent de la c\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0012623",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_selection_explanations_use_writer_when_sources_exist",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0022332",
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterRuntimeModeTests.Current_mode_reaches_both_router_stages_outside_truncated_history(setting: \"strict\", normalizedMode: \"strict\", corpusRequired: True)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0011360",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_preserve_explicit_llm_rag_even_for_short_phrase",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000374",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Clarification_payload_uses_the_user_clarification_as_retrieval_topic",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0464756",
+          "name": "SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: \"Comment vas-tu ?\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0032712",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Normalize_tool_args_preserves_categoryRef_and_changedSince_for_documents_list",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0031037",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Normalize_router_intent_matches_v3_contract(rawIntent: \"set_mode\", expected: \"meta.set_mode\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000749",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Explicit_document_file_reference_removes_generic_multilingual_wrappers(query: \"Abra o ficheiro Relatório anual 2024.pdf e resuma-\"···, expected: \"Relatório anual 2024.pdf\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0252662",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Detailed_weekly_meal_plan_initial_probe_keeps_user_supplied_content_kind_and_axes",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001762",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Broadened_source_search_payload_uses_previous_request_as_retrieval_topic",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0013473",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_extract_direct_item_title_from_natural_request(userMessage: \"Il me faut la tartiflette, ingrédients + étapes en\"···, expectedTitle: \"tartiflette\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001137",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Explicit_document_file_reference_preserves_standalone_path_and_quoted_names(query: \"Read \\\"Annual Report 2024.pdf\\\" and summarize it.\", expected: \"Annual Report 2024.pdf\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001286",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Rag_query_normalization_extracts_the_actual_topic(input: \"documents qui mentionnent de l'inertage\", expected: \"inertage\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0008481",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_extract_direct_item_title_from_natural_request(userMessage: \"Peux-tu me donner la recette de base des crêpes ?\", expectedTitle: \"crêpes\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0021530",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_expands_sparse_reason_requests",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0003140",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_respect_llm_general_without_tools(input: \"Dis simplement bonjour.\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0078927",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Router_json_repair_salvages_extra_closing_bracket_inside_tool_call_args",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0047738",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Normalize_tool_args_preserves_rag_mode_intent_for_backend_mapping(args: \"{\\\"query\\\":\\\"compare documents\\\",\\\"mode\\\":\\\"focuse\"···, expectedMode: \"focused\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0002262",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Exact_passage_localization_is_outside_the_local_search_envelope(request: \"Show me where in the document the oxygen limit is \"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0007254",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_extract_direct_item_title_from_natural_request(userMessage: \"Quelles vitesses/températures pour la sauce béarna\"···, expectedTitle: \"sauce béarnaise\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000353",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Evidence_exploration_respects_llm_general_without_tools",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0006920",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_extract_direct_item_title_from_natural_request(userMessage: \"Donne-moi la charlotte aux pêches.\", expectedTitle: \"charlotte aux pêches\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0503142",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_planning_defaults_use_compact_initial_probe_queries",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0046499",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_redirect_oriented_document_lists_to_rag",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0054951",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_replace_summary_plan_for_source_adaptation_request",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000346",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Normalize_tool_args_preserves_rag_mode_intent_for_backend_mapping(args: \"{\\\"query\\\":\\\"compare documents\\\",\\\"mode\\\":\\\"broad\\\"···, expectedMode: \"broad\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0032971",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Document_content_search_requests_are_not_treated_as_inventory_title_search(input: \"Ich suche Hinweise zu Bratenthermometer und Garstu\"···, expectedMatched: True, expectedTopic: \"Bratenthermometer und Garstufen\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000500",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Generic_document_content_search_is_not_exact_passage_localization(request: \"Quels documents parlent de la concentration limite\"···)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0021342",
+          "name": "SAAIA.Client.ToolAgent.Tests.NativeRouterRuntimeModeTests.Current_mode_reaches_both_router_stages_outside_truncated_history(setting: \"auto\", normalizedMode: \"auto\", corpusRequired: False)",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0035608",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Normalize_tool_args_preserves_categoryRef_for_documents_search",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001994",
+          "name": "SAAIA.Client.ToolAgent.Tests.RagQueryNormalizationRegressionTests.Rag_query_normalization_extracts_the_actual_topic(input: \"Je veux que tu me trouves les documents qui parlen\"···, expected: \"inertage\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0009366",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Router_document_action_preserves_semantic_query_as_internal_hint(toolName: \"documents.navigation\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000793",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Infer_intent_uses_documents_list_with_changedSince_as_inventory_changed_since",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0026112",
+          "name": "SAAIA.Client.ToolAgent.Tests.ToolRouterPlanNormalizationTests.Documentary_defaults_use_focused_topk_for_soft_choice_recommendations",
+          "outcome": "Passed"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "state": "not_applicable",
+    "reason": "Unit and PostgreSQL profiles do not invoke a model."
+  },
+  "corpus": {
+    "state": "synthetic_fixtures",
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed."
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "IntegrationPg",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

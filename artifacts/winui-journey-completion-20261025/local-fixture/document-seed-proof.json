@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "saaia-winui-journey-document-seed-proof.v1",
+  "capturedAtUtc": "2026-10-25T15:34:55.6509803+00:00",
+  "environmentRunId": "7d110010ee874d5398a9ca335b079fdd",
+  "ownedClusterPidDataPortVerified": true,
+  "source": "Synthetic generated PDF bytes and matching canonical SQL only",
+  "counts": {
+    "documents": 2,
+    "revisions": 2,
+    "chunks": 3,
+    "pages": 3
+  },
+  "sqlSha256": "F8D5F387572805D67CB29E9AE5CDB19EF63DBF999E05E21B91A4FD0DFE3F8EC4",
+  "realCorpusRead": false,
+  "existingDocumentsModified": false
+}

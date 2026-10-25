@@ -1,0 +1,603 @@
+{
+  "schemaVersion": "saaia-winui-advanced-terminal-final-state-proof.v1",
+  "capturedAtUtc": "2026-10-25T16:29:21.1748086+00:00",
+  "readOnlySql": true,
+  "status": "PASSED",
+  "environmentRunId": "7d110010ee874d5398a9ca335b079fdd",
+  "checkCount": 13,
+  "failedCheckCount": 0,
+  "nativeWindowStartUtc": "2026-10-25T16:23:09.0000000+00:00",
+  "nativeLaunches": [
+    {
+      "startedAtUtc": "2026-10-25T17:23:09.9084166+01:00",
+      "pid": 17196,
+      "executable": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+      "assemblySha256": "579E5F02D869E1780D86248B67EE762405D8F156452068F14BF7F306CDCBEB7F",
+      "clientDataRoot": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-journey-completion-20261025\\local-fixture\\runtime\\client-profiles\\advanced-terminal",
+      "profileName": "advanced-terminal",
+      "documentsRoot": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-journey-completion-20261025\\local-fixture\\runtime\\documents",
+      "providerMode": "Local",
+      "externalPolicy": "ProductionLocal",
+      "inheritedProviderEnvironmentRemoved": true,
+      "purpose": "Launch only; no UI automation. Native interactions are performed separately through Computer Use."
+    },
+    {
+      "startedAtUtc": "2026-10-25T17:23:55.7668307+01:00",
+      "pid": 41316,
+      "executable": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+      "assemblySha256": "579E5F02D869E1780D86248B67EE762405D8F156452068F14BF7F306CDCBEB7F",
+      "clientDataRoot": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-journey-completion-20261025\\local-fixture\\runtime\\client-profiles\\advanced-terminal",
+      "profileName": "advanced-terminal",
+      "documentsRoot": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-journey-completion-20261025\\local-fixture\\runtime\\documents",
+      "providerMode": "Local",
+      "externalPolicy": "ProductionLocal",
+      "inheritedProviderEnvironmentRemoved": true,
+      "purpose": "Launch only; no UI automation. Native interactions are performed separately through Computer Use."
+    }
+  ],
+  "state": {
+    "sessionCountForUser": 1,
+    "messageCountForSession": 1,
+    "assistantCountForSession": 1,
+    "jobCountForUser": 1,
+    "jobCountAllUsers": 2,
+    "jobsCreatedDuringNativeWindow": 0,
+    "jobs": [
+      {
+        "jobId": "08655291-6f0f-4d34-8f58-fa8a9dffd49b",
+        "userId": "8824293c-0a7d-427a-9b63-f6f455835c77",
+        "status": "succeeded",
+        "createdAt": "2026-10-25T16:41:04.537237+01:00"
+      },
+      {
+        "jobId": "1efc659c-ed0d-4b0f-a38d-965588fd951c",
+        "userId": "3a5bedd4-2bc1-4063-a677-025ebf648669",
+        "status": "failed",
+        "createdAt": "2026-10-25T16:52:51.897844+01:00"
+      }
+    ],
+    "job": {
+      "handoffId": "2e053aa2-c643-48af-8559-81acf6caf403",
+      "userId": "8824293c-0a7d-427a-9b63-f6f455835c77",
+      "providerCallCount": 2,
+      "status": "succeeded",
+      "sessionId": "36ab9c16-4bd0-4e48-a7b7-53a4be920436",
+      "resultSha256": "65de8b74b707f6949fbee4dd69b20360a0e09381f6a6d59b75cc47bcee8c5d85",
+      "revision": 4,
+      "jobId": "08655291-6f0f-4d34-8f58-fa8a9dffd49b"
+    },
+    "message": {
+      "sources": [
+        {
+          "docId": "aca1a813-c593-59e5-bdf2-1cd12d1b8e40",
+          "label": "Guide-Validation.pdf — p. 2",
+          "chunkId": "a0303851-13ee-5ddc-9aeb-fd084d56344e",
+          "docName": "Guide-Validation.pdf",
+          "docPath": "Validation/Guide-Validation.pdf",
+          "pageEnd": 2,
+          "anchorId": null,
+          "pageStart": 2,
+          "evidenceId": "advanced-evidence-3cee89eb4403b608079c34fb7a4b7496",
+          "revisionId": "7ac0ec90-3ddf-51ec-80b9-f65e8a81f79b",
+          "sourceHash": "840c999b2bfe8305aee9fdddf05f01b1686f3ec92eeb76cfe5c5af9354672121",
+          "contentCardId": null,
+          "contentSignals": {
+            "contentRole": "content"
+          }
+        }
+      ],
+      "advancedAnalysis": {
+        "jobId": "08655291-6f0f-4d34-8f58-fa8a9dffd49b",
+        "status": "succeeded",
+        "turnId": "3dc6ac86f71d47679981fa45924e4f40",
+        "traceId": "8e415a6b07c45ec763cb63fabae9ae8e",
+        "revision": 4,
+        "handoffId": "2e053aa2-c643-48af-8559-81acf6caf403",
+        "sessionId": "36ab9c16-4bd0-4e48-a7b7-53a4be920436",
+        "claimCount": 1,
+        "inputTokens": 64,
+        "providerKey": "winui-fixture-customer-server",
+        "attemptCount": 1,
+        "expiresAtUtc": "2026-10-26T16:41:04.537237+01:00",
+        "outputTokens": 24,
+        "updatedAtUtc": "2026-10-25T16:41:08.883029+01:00",
+        "evidenceCount": 1,
+        "lastErrorCode": null,
+        "originTraceId": "unavailable",
+        "providerModel": "saaia-winui-fixture",
+        "resultOutcome": "answered",
+        "schemaVersion": "saaia.advanced-analysis-client-state.v1",
+        "availableAtUtc": "2026-10-25T16:41:04.537237+01:00",
+        "cancelRequested": false,
+        "estimatedCostUsd": null,
+        "cachedInputTokens": null,
+        "providerCallCount": 2
+      },
+      "statusNote": null,
+      "contentSha256": "c12a541f7da746c8c45d12335dbd7ed1c22b3edc10e3829d9afb6b6a60998f60",
+      "contentCharacters": 67,
+      "messageId": "f0e3aba3-2ef0-4f11-9257-0f92b6858116",
+      "sourcesJsonbSha256": "ced51bc8d84bec0e7c6d45165043d2080fd95620810fa9fc5da06cb9f2666011",
+      "progressText": null
+    }
+  },
+  "providerEventCountNow": 4,
+  "providerEventsDuringNativeWindow": 0,
+  "providerEventsBeforeNative": [
+    {
+      "atUtc": "2026-10-25T15:41:06Z",
+      "ordinal": 1,
+      "mode": "advanced_answered",
+      "stream": false,
+      "requestSha256": "80ea3168de054b5b86f497435aa4976a3852dabdabd7f5ed6a1a38fa83b5c8bb",
+      "traceparent": "00-ed0e5be7c9d84dc7bc62972cba8993cb-32bef006be89b85a-00",
+      "turnId": null,
+      "sessionId": null,
+      "toolNames": []
+    },
+    {
+      "atUtc": "2026-10-25T15:41:08Z",
+      "ordinal": 2,
+      "mode": "advanced_answered",
+      "stream": false,
+      "requestSha256": "b1237414aedcc77922667a8f4a77bb4561cd36c252b3933797078a5dbc9a893a",
+      "traceparent": "00-ed0e5be7c9d84dc7bc62972cba8993cb-3e1832cfed9435a6-00",
+      "turnId": null,
+      "sessionId": null,
+      "toolNames": []
+    },
+    {
+      "atUtc": "2026-10-25T15:52:53Z",
+      "ordinal": 3,
+      "mode": "advanced_answered",
+      "stream": false,
+      "requestSha256": "b5b74abad4946cce04beb3e39f0dc2e417fc19e8df3d52bab9854f4f7ceb4fa0",
+      "traceparent": "00-2ac4fbbbb36484c97f28330c14250b39-e58b4b3c468dc736-00",
+      "turnId": null,
+      "sessionId": null,
+      "toolNames": []
+    },
+    {
+      "atUtc": "2026-10-25T15:52:55Z",
+      "ordinal": 4,
+      "mode": "advanced_answered",
+      "stream": false,
+      "requestSha256": "228ead3388cfcce1c2b9b9e255ddb04df9c2f59bada7c74c2048ef0ffa84d8b1",
+      "traceparent": "00-2ac4fbbbb36484c97f28330c14250b39-4312e1eb0b87ae79-00",
+      "turnId": null,
+      "sessionId": null,
+      "toolNames": []
+    }
+  ],
+  "providerStatus": {
+    "fixture": true,
+    "externalCalls": 0,
+    "requests": 4,
+    "chatRequests": 4
+  },
+  "providerCountInterpretation": "Baseline had2 preflight calls. Two later calls belong to the preserved failed J04 attempt2ac4fb… before the native advanced profile launches. No additional call occurred during native terminal recovery/restart.",
+  "selectedProbes": [
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "8e415a6b07c45ec763cb63fabae9ae8e",
+      "turnId": "3dc6ac86f71d47679981fa45924e4f40",
+      "sessionId": "36ab9c16-4bd0-4e48-a7b7-53a4be920436",
+      "sequence": 1,
+      "atUtc": "2026-10-25T17:23:10.45898+01:00",
+      "elapsedMilliseconds": 0,
+      "operation": "turn.begin",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {},
+      "spanId": "80c5b796aca51b7b",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "8e415a6b07c45ec763cb63fabae9ae8e",
+      "turnId": "3dc6ac86f71d47679981fa45924e4f40",
+      "sessionId": "36ab9c16-4bd0-4e48-a7b7-53a4be920436",
+      "sequence": 2,
+      "atUtc": "2026-10-25T17:23:10.4851668+01:00",
+      "elapsedMilliseconds": 26,
+      "operation": "advanced.result.validation",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "evidence": 1,
+        "claims": 1,
+        "visibleSources": 1
+      },
+      "spanId": "80c5b796aca51b7b",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "895d4fe362623a8301adc1b123c54f62",
+      "turnId": "d2d1b846285343da9657bcec8dae92b5",
+      "sessionId": null,
+      "sequence": 1,
+      "atUtc": "2026-10-25T17:23:10.4933117+01:00",
+      "elapsedMilliseconds": 0,
+      "operation": "turn.begin",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {},
+      "spanId": "59d3770e0b7500f2",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "895d4fe362623a8301adc1b123c54f62",
+      "turnId": "d2d1b846285343da9657bcec8dae92b5",
+      "sessionId": null,
+      "sequence": 2,
+      "atUtc": "2026-10-25T17:23:10.494707+01:00",
+      "elapsedMilliseconds": 1,
+      "operation": "sources.parse",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "received": 0,
+        "parsed": 0,
+        "visible": 0,
+        "unparsed": 0,
+        "missingIdentity": 0,
+        "duplicatesMerged": 0,
+        "unknownPage": 0,
+        "unknownSourceHash": 0
+      },
+      "spanId": "59d3770e0b7500f2",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "895d4fe362623a8301adc1b123c54f62",
+      "turnId": "d2d1b846285343da9657bcec8dae92b5",
+      "sessionId": null,
+      "sequence": 3,
+      "atUtc": "2026-10-25T17:23:10.4968862+01:00",
+      "elapsedMilliseconds": 3,
+      "operation": "turn.end",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {},
+      "spanId": "59d3770e0b7500f2",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "8eecc7b236781f88e9c6aa14fedeb57a",
+      "turnId": "57e08a0a1e9c4eb8a63197c7a5da2eec",
+      "sessionId": null,
+      "sequence": 1,
+      "atUtc": "2026-10-25T17:23:10.5094971+01:00",
+      "elapsedMilliseconds": 0,
+      "operation": "turn.begin",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {},
+      "spanId": "f3e01ee0aca3b39a",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "8eecc7b236781f88e9c6aa14fedeb57a",
+      "turnId": "57e08a0a1e9c4eb8a63197c7a5da2eec",
+      "sessionId": null,
+      "sequence": 2,
+      "atUtc": "2026-10-25T17:23:10.5206815+01:00",
+      "elapsedMilliseconds": 11,
+      "operation": "sources.parse",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "received": 1,
+        "parsed": 1,
+        "visible": 1,
+        "unparsed": 0,
+        "missingIdentity": 0,
+        "duplicatesMerged": 0,
+        "unknownPage": 0,
+        "unknownSourceHash": 0
+      },
+      "spanId": "f3e01ee0aca3b39a",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "8eecc7b236781f88e9c6aa14fedeb57a",
+      "turnId": "57e08a0a1e9c4eb8a63197c7a5da2eec",
+      "sessionId": null,
+      "sequence": 3,
+      "atUtc": "2026-10-25T17:23:10.5213083+01:00",
+      "elapsedMilliseconds": 11,
+      "operation": "turn.end",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {},
+      "spanId": "f3e01ee0aca3b39a",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "bda8c69c8106daed4c9a620f8eb7930d",
+      "turnId": "b25b0a9c6e704ed081e6e1cae5f32566",
+      "sessionId": null,
+      "sequence": 1,
+      "atUtc": "2026-10-25T17:23:10.5320852+01:00",
+      "elapsedMilliseconds": 0,
+      "operation": "turn.begin",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {},
+      "spanId": "0795b99e5cafb0ef",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "bda8c69c8106daed4c9a620f8eb7930d",
+      "turnId": "b25b0a9c6e704ed081e6e1cae5f32566",
+      "sessionId": null,
+      "sequence": 2,
+      "atUtc": "2026-10-25T17:23:10.532872+01:00",
+      "elapsedMilliseconds": 0,
+      "operation": "sources.parse",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "received": 1,
+        "parsed": 1,
+        "visible": 1,
+        "unparsed": 0,
+        "missingIdentity": 0,
+        "duplicatesMerged": 0,
+        "unknownPage": 0,
+        "unknownSourceHash": 0
+      },
+      "spanId": "0795b99e5cafb0ef",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "bda8c69c8106daed4c9a620f8eb7930d",
+      "turnId": "b25b0a9c6e704ed081e6e1cae5f32566",
+      "sessionId": null,
+      "sequence": 3,
+      "atUtc": "2026-10-25T17:23:10.5334234+01:00",
+      "elapsedMilliseconds": 1,
+      "operation": "turn.end",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {},
+      "spanId": "0795b99e5cafb0ef",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "8e415a6b07c45ec763cb63fabae9ae8e",
+      "turnId": "3dc6ac86f71d47679981fa45924e4f40",
+      "sessionId": "36ab9c16-4bd0-4e48-a7b7-53a4be920436",
+      "sequence": 3,
+      "atUtc": "2026-10-25T17:23:10.5582654+01:00",
+      "elapsedMilliseconds": 99,
+      "operation": "turn.end",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {},
+      "spanId": "80c5b796aca51b7b",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "3e8a91d9e89a73e7b6c9375ab92dbab4",
+      "turnId": "0c86b157e195421eb235258f023d1971",
+      "sessionId": null,
+      "sequence": 1,
+      "atUtc": "2026-10-25T17:23:27.4010929+01:00",
+      "elapsedMilliseconds": 0,
+      "operation": "turn.begin",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {},
+      "spanId": "aaaacaba3914416f",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "3e8a91d9e89a73e7b6c9375ab92dbab4",
+      "turnId": "0c86b157e195421eb235258f023d1971",
+      "sessionId": null,
+      "sequence": 2,
+      "atUtc": "2026-10-25T17:23:27.4075124+01:00",
+      "elapsedMilliseconds": 6,
+      "operation": "source.resolve",
+      "outcome": "success",
+      "reason": "source_hash_verified",
+      "measurements": {
+        "durationMs": 4
+      },
+      "spanId": "aaaacaba3914416f",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "3e8a91d9e89a73e7b6c9375ab92dbab4",
+      "turnId": "0c86b157e195421eb235258f023d1971",
+      "sessionId": null,
+      "sequence": 3,
+      "atUtc": "2026-10-25T17:23:27.4126699+01:00",
+      "elapsedMilliseconds": 11,
+      "operation": "source.launch",
+      "outcome": "success",
+      "reason": "launch_accepted_page_unverified",
+      "measurements": {},
+      "spanId": "aaaacaba3914416f",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "3e8a91d9e89a73e7b6c9375ab92dbab4",
+      "turnId": "0c86b157e195421eb235258f023d1971",
+      "sessionId": null,
+      "sequence": 4,
+      "atUtc": "2026-10-25T17:23:27.4137689+01:00",
+      "elapsedMilliseconds": 12,
+      "operation": "source.open",
+      "outcome": "success",
+      "reason": "launch_accepted_page_unverified",
+      "measurements": {
+        "durationMs": 12,
+        "requestedPage": 2,
+        "exactHashRequired": 1
+      },
+      "spanId": "aaaacaba3914416f",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "3e8a91d9e89a73e7b6c9375ab92dbab4",
+      "turnId": "0c86b157e195421eb235258f023d1971",
+      "sessionId": null,
+      "sequence": 5,
+      "atUtc": "2026-10-25T17:23:27.4141277+01:00",
+      "elapsedMilliseconds": 13,
+      "operation": "turn.end",
+      "outcome": "success",
+      "reason": "launch_accepted_page_unverified",
+      "measurements": {},
+      "spanId": "aaaacaba3914416f",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "553ce2002ad731f2016badb25641be27",
+      "turnId": "3abededf8986458f8aaebc5d3c04ec9a",
+      "sessionId": null,
+      "sequence": 1,
+      "atUtc": "2026-10-25T17:23:56.3174639+01:00",
+      "elapsedMilliseconds": 0,
+      "operation": "turn.begin",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {},
+      "spanId": "a1b3eff71c669bb4",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "553ce2002ad731f2016badb25641be27",
+      "turnId": "3abededf8986458f8aaebc5d3c04ec9a",
+      "sessionId": null,
+      "sequence": 2,
+      "atUtc": "2026-10-25T17:23:56.3353801+01:00",
+      "elapsedMilliseconds": 18,
+      "operation": "sources.parse",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {
+        "received": 1,
+        "parsed": 1,
+        "visible": 1,
+        "unparsed": 0,
+        "missingIdentity": 0,
+        "duplicatesMerged": 0,
+        "unknownPage": 0,
+        "unknownSourceHash": 0
+      },
+      "spanId": "a1b3eff71c669bb4",
+      "parentSpanId": null,
+      "identifiers": {}
+    },
+    {
+      "schemaVersion": "saaia.client-probe.v1",
+      "traceId": "553ce2002ad731f2016badb25641be27",
+      "turnId": "3abededf8986458f8aaebc5d3c04ec9a",
+      "sessionId": null,
+      "sequence": 3,
+      "atUtc": "2026-10-25T17:23:56.3384886+01:00",
+      "elapsedMilliseconds": 21,
+      "operation": "turn.end",
+      "outcome": "success",
+      "reason": null,
+      "measurements": {},
+      "spanId": "a1b3eff71c669bb4",
+      "parentSpanId": null,
+      "identifiers": {}
+    }
+  ],
+  "checks": [
+    {
+      "name": "same_single_user_session_and_assistant",
+      "passed": true
+    },
+    {
+      "name": "same_single_job_for_advanced_user",
+      "passed": true
+    },
+    {
+      "name": "job_terminal_identity_status_revision_unchanged",
+      "passed": true
+    },
+    {
+      "name": "job_result_sha256_unchanged",
+      "passed": true
+    },
+    {
+      "name": "job_provider_call_count_stays_two",
+      "passed": true
+    },
+    {
+      "name": "no_job_created_during_native_window_all_users",
+      "passed": true
+    },
+    {
+      "name": "no_provider_call_during_native_window",
+      "passed": true
+    },
+    {
+      "name": "same_message_upgraded_from_pending_to_terminal_revision4",
+      "passed": true
+    },
+    {
+      "name": "one_source_with_exact_canonical_identity",
+      "passed": true
+    },
+    {
+      "name": "answer_contains_ORION4826_and_C1",
+      "passed": true
+    },
+    {
+      "name": "api_reads_same_single_durable_message",
+      "passed": true
+    },
+    {
+      "name": "last_session_id_preserved_after_restart",
+      "passed": true
+    },
+    {
+      "name": "real_client_terminal_result_validation_probe",
+      "passed": true
+    }
+  ],
+  "wireProof": "Separate backend http.request records will be projected without auth or message bodies.",
+  "semanticLimit": "A real existing terminal job generated by a deterministic loopback provider is recovered by WinUI. This does not approve real model reasoning."
+}

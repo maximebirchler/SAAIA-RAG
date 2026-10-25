@@ -1,0 +1,212 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="6fe75a5a-79e5-40f0-82a9-920574aa6076" name="maxim@MAXBI 2026-10-25 17:04:07" runUser="MAXBI\maxim" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-25T17:04:07.7618597+01:00" queuing="2026-10-25T17:04:07.7618598+01:00" start="2026-10-25T17:04:05.6559363+01:00" finish="2026-10-25T17:04:07.7682493+01:00" />
+  <TestSettings name="default" id="48cd3246-4688-442e-97c3-2a560b3c6102">
+    <Deployment runDeploymentRoot="maxim_MAXBI_2026-10-25_17_04_07" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="c20b7a48-2d74-4b8c-8265-e6133c865820" testId="2e1e7abe-bd70-4b2b-a346-515014a2ca0d" testName="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_documentary_route_still_reaches_its_real_retrieval_branch" computerName="MAXBI" duration="00:00:00.4076434" startTime="2026-10-25T17:04:07.6308643+01:00" endTime="2026-10-25T17:04:07.6308739+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c20b7a48-2d74-4b8c-8265-e6133c865820">
+      <Output>
+        <StdOut>Documentary route reached retrieval: POST /rag/search</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e7cd50f3-1b40-4b98-8751-bfd3315ab599" testId="774043e1-572f-7fb6-827c-b22c482294bb" testName="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: &quot;Bonjour, peux-tu afficher la réponse de contrôle d&quot;···)" computerName="MAXBI" duration="00:00:00.0137433" startTime="2026-10-25T17:04:07.6999607+01:00" endTime="2026-10-25T17:04:07.6999608+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e7cd50f3-1b40-4b98-8751-bfd3315ab599">
+      <Output>
+        <StdOut>Native router calls=3; stream calls=0; HTTP requests=&#xD;
+Trace=[RAG_TRACE event=turn.begin trace_id=rag-20261025160407685-1a8be061 seq=1 elapsed_ms=0 history=0 user_chars=63 planning=false]
+[RAG_TRACE event=router.catalog_context.start trace_id=rag-20261025160407685-1a8be061 seq=2 elapsed_ms=1 reason="semantic_native_router" has_catalog_snapshot=true catalog_categories=0]
+[RAG_TRACE event=router.catalog_context.end trace_id=rag-20261025160407685-1a8be061 seq=3 elapsed_ms=2 catalog_categories=0 ms=0]
+[RAG_TRACE event=router.start trace_id=rag-20261025160407685-1a8be061 seq=4 elapsed_ms=2 planning=false chars=63]
+[RAG_TRACE event=router.native.classifier.completed trace_id=rag-20261025160407685-1a8be061 seq=5 elapsed_ms=4 accepted=true prompt_tokens=null completion_tokens=null server_cache_tokens=null server_prompt_evaluated_tokens=null server_prompt_ms=null server_predicted_tokens=null server_predicted_ms=null ms=0]
+[RAG_TRACE event=router.native.start trace_id=rag-20261025160407685-1a8be061 seq=6 elapsed_ms=4 history=0 user_chars=63 prompt_chars=147 prompt_tokens=null context_tokens=null prompt_compacted=false classifier_fallback_all_contracts=false timeout_ms=90000]
+[RAG_TRACE event=router.native.accepted trace_id=rag-20261025160407685-1a8be061 seq=7 elapsed_ms=5 repair_attempted=false intent="chat.general" tools=[] has_source_mission=false source_plan_kind=null source_goal=null source_proof=null source_question_focus=null source_uses_focused_document=null source_atomic_evidence_count=null source_row_header=null source_rows=null source_columns=null source_requested_document=null source_named_reference_kind=null source_candidate_scopes=null prompt_tokens=null completion_tokens=null server_cache_tokens=null server_prompt_evaluated_tokens=null server_prompt_ms=null server_predicted_tokens=null server_predicted_ms=null ms=1]
+[RAG_TRACE event=router.end trace_id=rag-20261025160407685-1a8be061 seq=8 elapsed_ms=5 intent="chat.general" mode="strict" confidence=null clarification=false tools=0 ms=3]
+[RAG_TRACE event=capability_boundary.decision trace_id=rag-20261025160407685-1a8be061 seq=9 elapsed_ms=6 reason="within_local_boundary" answer_units=0 structured_threshold=6 multi_item_threshold=5]
+[RAG_TRACE event=documentary_defaults.skipped trace_id=rag-20261025160407685-1a8be061 seq=10 elapsed_ms=6 reason="router_general_no_tools" intent="chat.general"]
+[RAG_TRACE event=source_backed_pipeline.active.start trace_id=rag-20261025160407685-1a8be061 seq=11 elapsed_ms=9 intent="rag.answer" allows_partial_answer=false]
+[RAG_TRACE event=source_backed_catalog_context.ready trace_id=rag-20261025160407685-1a8be061 seq=12 elapsed_ms=9 categories=0 ms=0]
+[RAG_TRACE event=source_backed_pipeline.document_identity.transported trace_id=rag-20261025160407685-1a8be061 seq=13 elapsed_ms=10 source_request_chars=63 mission_reference_chars=0 intake_reference_chars=0 mission_reference_has_directory=0 intake_reference_has_directory=0 uses_focused_document=0 llm_origin=1]
+[RAG_TRACE event=source_backed_agent_v2.active trace_id=rag-20261025160407685-1a8be061 seq=14 elapsed_ms=10 intent="rag.answer" max_turns=10 max_tool_calls=24 candidate_definition_enabled=true candidate_strategy_enabled=false candidate_audit_batch_size=6 maximum_cumulative_llm_tokens=12000 maximum_cumulative_llm_elapsed_ms=240000 cumulative_llm_terminal_reserve_tokens=4800 cumulative_llm_terminal_reserve_ms=60000 context_tokens=4096 configured_context_tokens=4096 runtime_context_tokens=null]
+[RAG_TRACE event=source_backed_pipeline.active.failed trace_id=rag-20261025160407685-1a8be061 seq=15 elapsed_ms=11 intent="rag.answer" reason="pipeline_execution_failed"]
+[RAG_TRACE event=source_backed_pipeline.error trace_id=rag-20261025160407685-1a8be061 seq=16 elapsed_ms=11 reason="pipeline_execution_failed"]
+[RAG_TRACE event=source_backed_pipeline.active.terminal trace_id=rag-20261025160407685-1a8be061 seq=17 elapsed_ms=11 intent="rag.answer" outcome="failed" reason="pipeline_execution_failed" answered=false]
+[RAG_TRACE event=turn.final trace_id=rag-20261025160407685-1a8be061 seq=18 elapsed_ms=12 outcome="failed" reason="pipeline_execution_failed" planning=false intent="rag.answer" answer_source="source_backed_pipeline_failed:exact_item_fallback:rag.answer" answer_chars=157 sources_payload="none" tool_count=0 tools=[] total_ms=12]</StdOut>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Values differ&#xD;
+Expected: 2&#xD;
+Actual:   3</Message>
+          <StackTrace>   at SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(String question) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\ExplicitGeneralRouteFallbackTests.cs:line 34&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="48fdd911-7176-4397-9d42-2ef88baf2289" testId="d5a97ba5-f4a4-4842-7311-14c073cdcad1" testName="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: &quot;Pourquoi un document mentionne-t-il sa version ?&quot;)" computerName="MAXBI" duration="00:00:00.0225384" startTime="2026-10-25T17:04:07.6859752+01:00" endTime="2026-10-25T17:04:07.6859754+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="48fdd911-7176-4397-9d42-2ef88baf2289">
+      <Output>
+        <StdOut>Native router calls=0; stream calls=0; HTTP requests=POST /rag/search,POST /rag/search&#xD;
+Trace=[RAG_TRACE event=turn.begin trace_id=rag-20261025160407663-c3c253c4 seq=1 elapsed_ms=0 history=0 user_chars=48 planning=false]
+[RAG_TRACE event=rag.search.start trace_id=rag-20261025160407663-c3c253c4 seq=2 elapsed_ms=4 top_k=8 mode="balanced" category=null requested_category=null rejected_category=null doc_id=null doc_path=null page_start=null page_end=null research_mode=null include_research_surfaces=null trust_category_scope=false source_backed_canonical=false disable_automatic_category_scoping=false timeout_ms=null]
+[RAG_TRACE event=rag.search.backend_metrics trace_id=rag-20261025160407663-c3c253c4 seq=3 elapsed_ms=7 available=false client_elapsed_ms=1 total_ms=null exact_ms=null sparse_phase_ms=null sparse_service_ms=null dense_phase_ms=null tei_ms=null qdrant_ms=null fusion_ms=null rerank_phase_ms=null rerank_service_ms=null selection_ms=null]
+[RAG_TRACE event=rag.search.end trace_id=rag-20261025160407663-c3c253c4 seq=4 elapsed_ms=10 hits=0 busy=false error=null ms=5]
+[RAG_TRACE event=rag.search.raw.start trace_id=rag-20261025160407663-c3c253c4 seq=5 elapsed_ms=12 top_k=8 mode="balanced" category=null]
+[RAG_TRACE event=rag.search.raw.end trace_id=rag-20261025160407663-c3c253c4 seq=6 elapsed_ms=12 hits=0 busy=false error=null ms=0]
+[RAG_TRACE event=turn.branch trace_id=rag-20261025160407663-c3c253c4 seq=7 elapsed_ms=20 intent="rag.search" answer_source="shortcut:rag.search" tools=["rag.search"]]
+[RAG_TRACE event=turn.final trace_id=rag-20261025160407663-c3c253c4 seq=8 elapsed_ms=21 outcome="success" reason=null planning=false intent="rag.search" answer_source="shortcut:rag.search" answer_chars=87 sources_payload="none" tool_count=1 tools=["rag.search"] total_ms=21]</StdOut>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Values differ&#xD;
+Expected: 2&#xD;
+Actual:   0</Message>
+          <StackTrace>   at SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(String question) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\ExplicitGeneralRouteFallbackTests.cs:line 34&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="2c5e3f9e-3b00-406e-a942-b12da0ca18fa" testId="fc98f811-cfbb-66dc-787d-e58360fb46e1" testName="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: &quot;Comment vas-tu ?&quot;)" computerName="MAXBI" duration="00:00:00.0246473" startTime="2026-10-25T17:04:07.6653434+01:00" endTime="2026-10-25T17:04:07.6653436+01:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2c5e3f9e-3b00-406e-a942-b12da0ca18fa">
+      <Output>
+        <StdOut>Native router calls=3; stream calls=0; HTTP requests=&#xD;
+Trace=[RAG_TRACE event=turn.begin trace_id=rag-20261025160407631-2a2e4961 seq=1 elapsed_ms=0 history=0 user_chars=16 planning=false]
+[RAG_TRACE event=router.catalog_context.start trace_id=rag-20261025160407631-2a2e4961 seq=2 elapsed_ms=1 reason="semantic_native_router" has_catalog_snapshot=true catalog_categories=0]
+[RAG_TRACE event=router.catalog_context.end trace_id=rag-20261025160407631-2a2e4961 seq=3 elapsed_ms=1 catalog_categories=0 ms=0]
+[RAG_TRACE event=router.start trace_id=rag-20261025160407631-2a2e4961 seq=4 elapsed_ms=1 planning=false chars=16]
+[RAG_TRACE event=router.native.classifier.completed trace_id=rag-20261025160407631-2a2e4961 seq=5 elapsed_ms=3 accepted=true prompt_tokens=null completion_tokens=null server_cache_tokens=null server_prompt_evaluated_tokens=null server_prompt_ms=null server_predicted_tokens=null server_predicted_ms=null ms=0]
+[RAG_TRACE event=router.native.start trace_id=rag-20261025160407631-2a2e4961 seq=6 elapsed_ms=3 history=0 user_chars=16 prompt_chars=100 prompt_tokens=null context_tokens=null prompt_compacted=false classifier_fallback_all_contracts=false timeout_ms=90000]
+[RAG_TRACE event=router.native.accepted trace_id=rag-20261025160407631-2a2e4961 seq=7 elapsed_ms=4 repair_attempted=false intent="chat.general" tools=[] has_source_mission=false source_plan_kind=null source_goal=null source_proof=null source_question_focus=null source_uses_focused_document=null source_atomic_evidence_count=null source_row_header=null source_rows=null source_columns=null source_requested_document=null source_named_reference_kind=null source_candidate_scopes=null prompt_tokens=null completion_tokens=null server_cache_tokens=null server_prompt_evaluated_tokens=null server_prompt_ms=null server_predicted_tokens=null server_predicted_ms=null ms=1]
+[RAG_TRACE event=router.end trace_id=rag-20261025160407631-2a2e4961 seq=8 elapsed_ms=5 intent="chat.general" mode="strict" confidence=null clarification=false tools=0 ms=3]
+[RAG_TRACE event=capability_boundary.decision trace_id=rag-20261025160407631-2a2e4961 seq=9 elapsed_ms=5 reason="within_local_boundary" answer_units=0 structured_threshold=6 multi_item_threshold=5]
+[RAG_TRACE event=documentary_defaults.skipped trace_id=rag-20261025160407631-2a2e4961 seq=10 elapsed_ms=6 reason="router_general_no_tools" intent="chat.general"]
+[RAG_TRACE event=source_backed_pipeline.active.start trace_id=rag-20261025160407631-2a2e4961 seq=11 elapsed_ms=12 intent="rag.answer" allows_partial_answer=false]
+[RAG_TRACE event=source_backed_catalog_context.ready trace_id=rag-20261025160407631-2a2e4961 seq=12 elapsed_ms=12 categories=0 ms=0]
+[RAG_TRACE event=source_backed_pipeline.document_identity.transported trace_id=rag-20261025160407631-2a2e4961 seq=13 elapsed_ms=13 source_request_chars=16 mission_reference_chars=0 intake_reference_chars=0 mission_reference_has_directory=0 intake_reference_has_directory=0 uses_focused_document=0 llm_origin=1]
+[RAG_TRACE event=source_backed_agent_v2.active trace_id=rag-20261025160407631-2a2e4961 seq=14 elapsed_ms=13 intent="rag.answer" max_turns=10 max_tool_calls=24 candidate_definition_enabled=true candidate_strategy_enabled=false candidate_audit_batch_size=6 maximum_cumulative_llm_tokens=12000 maximum_cumulative_llm_elapsed_ms=240000 cumulative_llm_terminal_reserve_tokens=4800 cumulative_llm_terminal_reserve_ms=60000 context_tokens=4096 configured_context_tokens=4096 runtime_context_tokens=null]
+[RAG_TRACE event=source_backed_pipeline.active.failed trace_id=rag-20261025160407631-2a2e4961 seq=15 elapsed_ms=17 intent="rag.answer" reason="pipeline_execution_failed"]
+[RAG_TRACE event=source_backed_pipeline.error trace_id=rag-20261025160407631-2a2e4961 seq=16 elapsed_ms=18 reason="pipeline_execution_failed"]
+[RAG_TRACE event=source_backed_pipeline.active.terminal trace_id=rag-20261025160407631-2a2e4961 seq=17 elapsed_ms=19 intent="rag.answer" outcome="failed" reason="pipeline_execution_failed" answered=false]
+[RAG_TRACE event=turn.final trace_id=rag-20261025160407631-2a2e4961 seq=18 elapsed_ms=22 outcome="failed" reason="pipeline_execution_failed" planning=false intent="rag.answer" answer_source="source_backed_pipeline_failed:documentary_probe_fallback:rag.answer" answer_chars=157 sources_payload="none" tool_count=0 tools=[] total_ms=21]</StdOut>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Values differ&#xD;
+Expected: 2&#xD;
+Actual:   3</Message>
+          <StackTrace>   at SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(String question) in C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\ExplicitGeneralRouteFallbackTests.cs:line 34&#xD;
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: &quot;Pourquoi un document mentionne-t-il sa version ?&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="d5a97ba5-f4a4-4842-7311-14c073cdcad1">
+      <Execution id="48fdd911-7176-4397-9d42-2ef88baf2289" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests" name="Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: &quot;Bonjour, peux-tu afficher la réponse de contrôle d&quot;···)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="774043e1-572f-7fb6-827c-b22c482294bb">
+      <Execution id="e7cd50f3-1b40-4b98-8751-bfd3315ab599" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests" name="Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: &quot;Comment vas-tu ?&quot;)" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="fc98f811-cfbb-66dc-787d-e58360fb46e1">
+      <Execution id="2c5e3f9e-3b00-406e-a942-b12da0ca18fa" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests" name="Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks" />
+    </UnitTest>
+    <UnitTest name="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_documentary_route_still_reaches_its_real_retrieval_branch" storage="c:\users\maxim\desktop\ecom\aaa\saaia - rag\client\saaia.client.toolagent.tests\bin\release\net8.0-windows10.0.19041.0\saaia.client.toolagent.tests.dll" id="2e1e7abe-bd70-4b2b-a346-515014a2ca0d">
+      <Execution id="c20b7a48-2d74-4b8c-8265-e6133c865820" />
+      <TestMethod codeBase="C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\bin\Release\net8.0-windows10.0.19041.0\SAAIA.Client.ToolAgent.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests" name="Accepted_documentary_route_still_reaches_its_real_retrieval_branch" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="2e1e7abe-bd70-4b2b-a346-515014a2ca0d" executionId="c20b7a48-2d74-4b8c-8265-e6133c865820" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="774043e1-572f-7fb6-827c-b22c482294bb" executionId="e7cd50f3-1b40-4b98-8751-bfd3315ab599" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d5a97ba5-f4a4-4842-7311-14c073cdcad1" executionId="48fdd911-7176-4397-9d42-2ef88baf2289" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fc98f811-cfbb-66dc-787d-e58360fb46e1" executionId="2c5e3f9e-3b00-406e-a942-b12da0ca18fa" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Les résultats ne figurent pas dans une liste" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Tous les résultats chargés" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="4" executed="4" passed="1" failed="3" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 8.0.27)&#xD;
+[xUnit.net 00:00:00.58]   Discovering: SAAIA.Client.ToolAgent.Tests&#xD;
+[xUnit.net 00:00:00.84]   Discovered:  SAAIA.Client.ToolAgent.Tests&#xD;
+[xUnit.net 00:00:00.85]   Starting:    SAAIA.Client.ToolAgent.Tests&#xD;
+[xUnit.net 00:00:01.31]       Assert.Equal() Failure: Values differ&#xD;
+[xUnit.net 00:00:01.31]       Expected: 2&#xD;
+[xUnit.net 00:00:01.31]       Actual:   3&#xD;
+[xUnit.net 00:00:01.31]       Stack Trace:&#xD;
+[xUnit.net 00:00:01.31]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\ExplicitGeneralRouteFallbackTests.cs(34,0): at SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(String question)&#xD;
+[xUnit.net 00:00:01.31]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:01.31]       Output:&#xD;
+[xUnit.net 00:00:01.31]         Native router calls=3; stream calls=0; HTTP requests=&#xD;
+[xUnit.net 00:00:01.31]         Trace=[RAG_TRACE event=turn.begin trace_id=rag-20261025160407631-2a2e4961 seq=1 elapsed_ms=0 history=0 user_chars=16 planning=false]
+[RAG_TRACE event=router.catalog_context.start trace_id=rag-20261025160407631-2a2e4961 seq=2 elapsed_ms=1 reason="semantic_native_router" has_catalog_snapshot=true catalog_categories=0]
+[RAG_TRACE event=router.catalog_context.end trace_id=rag-20261025160407631-2a2e4961 seq=3 elapsed_ms=1 catalog_categories=0 ms=0]
+[RAG_TRACE event=router.start trace_id=rag-20261025160407631-2a2e4961 seq=4 elapsed_ms=1 planning=false chars=16]
+[RAG_TRACE event=router.native.classifier.completed trace_id=rag-20261025160407631-2a2e4961 seq=5 elapsed_ms=3 accepted=true prompt_tokens=null completion_tokens=null server_cache_tokens=null server_prompt_evaluated_tokens=null server_prompt_ms=null server_predicted_tokens=null server_predicted_ms=null ms=0]
+[RAG_TRACE event=router.native.start trace_id=rag-20261025160407631-2a2e4961 seq=6 elapsed_ms=3 history=0 user_chars=16 prompt_chars=100 prompt_tokens=null context_tokens=null prompt_compacted=false classifier_fallback_all_contracts=false timeout_ms=90000]
+[RAG_TRACE event=router.native.accepted trace_id=rag-20261025160407631-2a2e4961 seq=7 elapsed_ms=4 repair_attempted=false intent="chat.general" tools=[] has_source_mission=false source_plan_kind=null source_goal=null source_proof=null source_question_focus=null source_uses_focused_document=null source_atomic_evidence_count=null source_row_header=null source_rows=null source_columns=null source_requested_document=null source_named_reference_kind=null source_candidate_scopes=null prompt_tokens=null completion_tokens=null server_cache_tokens=null server_prompt_evaluated_tokens=null server_prompt_ms=null server_predicted_tokens=null server_predicted_ms=null ms=1]
+[RAG_TRACE event=router.end trace_id=rag-20261025160407631-2a2e4961 seq=8 elapsed_ms=5 intent="chat.general" mode="strict" confidence=null clarification=false tools=0 ms=3]
+[RAG_TRACE event=capability_boundary.decision trace_id=rag-20261025160407631-2a2e4961 seq=9 elapsed_ms=5 reason="within_local_boundary" answer_units=0 structured_threshold=6 multi_item_threshold=5]
+[RAG_TRACE event=documentary_defaults.skipped trace_id=rag-20261025160407631-2a2e4961 seq=10 elapsed_ms=6 reason="router_general_no_tools" intent="chat.general"]
+[RAG_TRACE event=source_backed_pipeline.active.start trace_id=rag-20261025160407631-2a2e4961 seq=11 elapsed_ms=12 intent="rag.answer" allows_partial_answer=false]
+[RAG_TRACE event=source_backed_catalog_context.ready trace_id=rag-20261025160407631-2a2e4961 seq=12 elapsed_ms=12 categories=0 ms=0]
+[RAG_TRACE event=source_backed_pipeline.document_identity.transported trace_id=rag-20261025160407631-2a2e4961 seq=13 elapsed_ms=13 source_request_chars=16 mission_reference_chars=0 intake_reference_chars=0 mission_reference_has_directory=0 intake_reference_has_directory=0 uses_focused_document=0 llm_origin=1]
+[RAG_TRACE event=source_backed_agent_v2.active trace_id=rag-20261025160407631-2a2e4961 seq=14 elapsed_ms=13 intent="rag.answer" max_turns=10 max_tool_calls=24 candidate_definition_enabled=true candidate_strategy_enabled=false candidate_audit_batch_size=6 maximum_cumulative_llm_tokens=12000 maximum_cumulative_llm_elapsed_ms=240000 cumulative_llm_terminal_reserve_tokens=4800 cumulative_llm_terminal_reserve_ms=60000 context_tokens=4096 configured_context_tokens=4096 runtime_context_tokens=null]
+[RAG_TRACE event=source_backed_pipeline.active.failed trace_id=rag-20261025160407631-2a2e4961 seq=15 elapsed_ms=17 intent="rag.answer" reason="pipeline_execution_failed"]
+[RAG_TRACE event=source_backed_pipeline.error trace_id=rag-20261025160407631-2a2e4961 seq=16 elapsed_ms=18 reason="pipeline_execution_failed"]
+[RAG_TRACE event=source_backed_pipeline.active.terminal trace_id=rag-20261025160407631-2a2e4961 seq=17 elapsed_ms=19 intent="rag.answer" outcome="failed" reason="pipeline_execution_failed" answered=false]
+[RAG_TRACE event=turn.final trace_id=rag-20261025160407631-2a2e4961 seq=18 elapsed_ms=22 outcome="failed" reason="pipeline_execution_failed" planning=false intent="rag.answer" answer_source="source_backed_pipeline_failed:documentary_probe_fallback:rag.answer" answer_chars=157 sources_payload="none" tool_count=0 tools=[] total_ms=21]&#xD;
+[xUnit.net 00:00:01.33]       Assert.Equal() Failure: Values differ&#xD;
+[xUnit.net 00:00:01.33]       Expected: 2&#xD;
+[xUnit.net 00:00:01.33]       Actual:   0&#xD;
+[xUnit.net 00:00:01.33]       Stack Trace:&#xD;
+[xUnit.net 00:00:01.33]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\ExplicitGeneralRouteFallbackTests.cs(34,0): at SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(String question)&#xD;
+[xUnit.net 00:00:01.33]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:01.33]       Output:&#xD;
+[xUnit.net 00:00:01.33]         Native router calls=0; stream calls=0; HTTP requests=POST /rag/search,POST /rag/search&#xD;
+[xUnit.net 00:00:01.33]         Trace=[RAG_TRACE event=turn.begin trace_id=rag-20261025160407663-c3c253c4 seq=1 elapsed_ms=0 history=0 user_chars=48 planning=false]
+[RAG_TRACE event=rag.search.start trace_id=rag-20261025160407663-c3c253c4 seq=2 elapsed_ms=4 top_k=8 mode="balanced" category=null requested_category=null rejected_category=null doc_id=null doc_path=null page_start=null page_end=null research_mode=null include_research_surfaces=null trust_category_scope=false source_backed_canonical=false disable_automatic_category_scoping=false timeout_ms=null]
+[RAG_TRACE event=rag.search.backend_metrics trace_id=rag-20261025160407663-c3c253c4 seq=3 elapsed_ms=7 available=false client_elapsed_ms=1 total_ms=null exact_ms=null sparse_phase_ms=null sparse_service_ms=null dense_phase_ms=null tei_ms=null qdrant_ms=null fusion_ms=null rerank_phase_ms=null rerank_service_ms=null selection_ms=null]
+[RAG_TRACE event=rag.search.end trace_id=rag-20261025160407663-c3c253c4 seq=4 elapsed_ms=10 hits=0 busy=false error=null ms=5]
+[RAG_TRACE event=rag.search.raw.start trace_id=rag-20261025160407663-c3c253c4 seq=5 elapsed_ms=12 top_k=8 mode="balanced" category=null]
+[RAG_TRACE event=rag.search.raw.end trace_id=rag-20261025160407663-c3c253c4 seq=6 elapsed_ms=12 hits=0 busy=false error=null ms=0]
+[RAG_TRACE event=turn.branch trace_id=rag-20261025160407663-c3c253c4 seq=7 elapsed_ms=20 intent="rag.search" answer_source="shortcut:rag.search" tools=["rag.search"]]
+[RAG_TRACE event=turn.final trace_id=rag-20261025160407663-c3c253c4 seq=8 elapsed_ms=21 outcome="success" reason=null planning=false intent="rag.search" answer_source="shortcut:rag.search" answer_chars=87 sources_payload="none" tool_count=1 tools=["rag.search"] total_ms=21]&#xD;
+[xUnit.net 00:00:01.34]       Assert.Equal() Failure: Values differ&#xD;
+[xUnit.net 00:00:01.34]       Expected: 2&#xD;
+[xUnit.net 00:00:01.34]       Actual:   3&#xD;
+[xUnit.net 00:00:01.34]       Stack Trace:&#xD;
+[xUnit.net 00:00:01.34]         C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\client\SAAIA.Client.ToolAgent.Tests\ExplicitGeneralRouteFallbackTests.cs(34,0): at SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(String question)&#xD;
+[xUnit.net 00:00:01.35]         --- End of stack trace from previous location ---&#xD;
+[xUnit.net 00:00:01.35]       Output:&#xD;
+[xUnit.net 00:00:01.35]         Native router calls=3; stream calls=0; HTTP requests=&#xD;
+[xUnit.net 00:00:01.35]         Trace=[RAG_TRACE event=turn.begin trace_id=rag-20261025160407685-1a8be061 seq=1 elapsed_ms=0 history=0 user_chars=63 planning=false]
+[RAG_TRACE event=router.catalog_context.start trace_id=rag-20261025160407685-1a8be061 seq=2 elapsed_ms=1 reason="semantic_native_router" has_catalog_snapshot=true catalog_categories=0]
+[RAG_TRACE event=router.catalog_context.end trace_id=rag-20261025160407685-1a8be061 seq=3 elapsed_ms=2 catalog_categories=0 ms=0]
+[RAG_TRACE event=router.start trace_id=rag-20261025160407685-1a8be061 seq=4 elapsed_ms=2 planning=false chars=63]
+[RAG_TRACE event=router.native.classifier.completed trace_id=rag-20261025160407685-1a8be061 seq=5 elapsed_ms=4 accepted=true prompt_tokens=null completion_tokens=null server_cache_tokens=null server_prompt_evaluated_tokens=null server_prompt_ms=null server_predicted_tokens=null server_predicted_ms=null ms=0]
+[RAG_TRACE event=router.native.start trace_id=rag-20261025160407685-1a8be061 seq=6 elapsed_ms=4 history=0 user_chars=63 prompt_chars=147 prompt_tokens=null context_tokens=null prompt_compacted=false classifier_fallback_all_contracts=false timeout_ms=90000]
+[RAG_TRACE event=router.native.accepted trace_id=rag-20261025160407685-1a8be061 seq=7 elapsed_ms=5 repair_attempted=false intent="chat.general" tools=[] has_source_mission=false source_plan_kind=null source_goal=null source_proof=null source_question_focus=null source_uses_focused_document=null source_atomic_evidence_count=null source_row_header=null source_rows=null source_columns=null source_requested_document=null source_named_reference_kind=null source_candidate_scopes=null prompt_tokens=null completion_tokens=null server_cache_tokens=null server_prompt_evaluated_tokens=null server_prompt_ms=null server_predicted_tokens=null server_predicted_ms=null ms=1]
+[RAG_TRACE event=router.end trace_id=rag-20261025160407685-1a8be061 seq=8 elapsed_ms=5 intent="chat.general" mode="strict" confidence=null clarification=false tools=0 ms=3]
+[RAG_TRACE event=capability_boundary.decision trace_id=rag-20261025160407685-1a8be061 seq=9 elapsed_ms=6 reason="within_local_boundary" answer_units=0 structured_threshold=6 multi_item_threshold=5]
+[RAG_TRACE event=documentary_defaults.skipped trace_id=rag-20261025160407685-1a8be061 seq=10 elapsed_ms=6 reason="router_general_no_tools" intent="chat.general"]
+[RAG_TRACE event=source_backed_pipeline.active.start trace_id=rag-20261025160407685-1a8be061 seq=11 elapsed_ms=9 intent="rag.answer" allows_partial_answer=false]
+[RAG_TRACE event=source_backed_catalog_context.ready trace_id=rag-20261025160407685-1a8be061 seq=12 elapsed_ms=9 categories=0 ms=0]
+[RAG_TRACE event=source_backed_pipeline.document_identity.transported trace_id=rag-20261025160407685-1a8be061 seq=13 elapsed_ms=10 source_request_chars=63 mission_reference_chars=0 intake_reference_chars=0 mission_reference_has_directory=0 intake_reference_has_directory=0 uses_focused_document=0 llm_origin=1]
+[RAG_TRACE event=source_backed_agent_v2.active trace_id=rag-20261025160407685-1a8be061 seq=14 elapsed_ms=10 intent="rag.answer" max_turns=10 max_tool_calls=24 candidate_definition_enabled=true candidate_strategy_enabled=false candidate_audit_batch_size=6 maximum_cumulative_llm_tokens=12000 maximum_cumulative_llm_elapsed_ms=240000 cumulative_llm_terminal_reserve_tokens=4800 cumulative_llm_terminal_reserve_ms=60000 context_tokens=4096 configured_context_tokens=4096 runtime_context_tokens=null]
+[RAG_TRACE event=source_backed_pipeline.active.failed trace_id=rag-20261025160407685-1a8be061 seq=15 elapsed_ms=11 intent="rag.answer" reason="pipeline_execution_failed"]
+[RAG_TRACE event=source_backed_pipeline.error trace_id=rag-20261025160407685-1a8be061 seq=16 elapsed_ms=11 reason="pipeline_execution_failed"]
+[RAG_TRACE event=source_backed_pipeline.active.terminal trace_id=rag-20261025160407685-1a8be061 seq=17 elapsed_ms=11 intent="rag.answer" outcome="failed" reason="pipeline_execution_failed" answered=false]
+[RAG_TRACE event=turn.final trace_id=rag-20261025160407685-1a8be061 seq=18 elapsed_ms=12 outcome="failed" reason="pipeline_execution_failed" planning=false intent="rag.answer" answer_source="source_backed_pipeline_failed:exact_item_fallback:rag.answer" answer_chars=157 sources_payload="none" tool_count=0 tools=[] total_ms=12]&#xD;
+[xUnit.net 00:00:01.35]   Finished:    SAAIA.Client.ToolAgent.Tests&#xD;
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T17:04:07.6643601+01:00">
+        <Text>[xUnit.net 00:00:01.31]     SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: "Comment vas-tu ?") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T17:04:07.6859433+01:00">
+        <Text>[xUnit.net 00:00:01.33]     SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: "Pourquoi un document mentionne-t-il sa version ?") [FAIL]</Text>
+      </RunInfo>
+      <RunInfo computerName="MAXBI" outcome="Error" timestamp="2026-10-25T17:04:07.6999157+01:00">
+        <Text>[xUnit.net 00:00:01.34]     SAAIA.Client.ToolAgent.Tests.ExplicitGeneralRouteFallbackTests.Accepted_general_route_reaches_the_general_stream_without_documentary_fallbacks(question: "Bonjour, peux-tu afficher la réponse de contrôle d"···) [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

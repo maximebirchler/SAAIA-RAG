@@ -1,0 +1,890 @@
+{
+  "schemaVersion": "saaia-winui-consolidated-behavioral-validation.v1",
+  "compiledAtUtc": "2026-10-25T16:39:57.8785517+00:00",
+  "status": "33_JOURNEYS_EVIDENCED_WITH_DECLARED_MULTI_BUILD_SCOPES_FINAL11_CHECK_PASSED",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "globalApprovalClaimed": false,
+  "clientJourneysEvidenceCompleteWithinDeclaredScopes": true,
+  "baseMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+  "baseMatrixSha256": "1802176073E8D8E898F11F4CE7FCF6F8785CB2FECB5BE4F6095E05DD11CC38A8",
+  "complementMatrix": "journey-completion-execution-final.json",
+  "deletionMatrix": "../winui-delete-validation-20261025/delete-execution-matrix-final.json",
+  "scenarioCount": 33,
+  "inheritedUnchangedScopeCount": 21,
+  "earlierPartialScenariosSupplemented": 10,
+  "deletionScenariosSupplemented": 2,
+  "plannedComplementChecksObserved": 20,
+  "scenarios": [
+    {
+      "id": "W01",
+      "title": "Démarrage configuré",
+      "status": "PASS_OBSERVED",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "Vrai client Release et backend isolé : fenêtre utilisable, session correcte et résultat documentaire rechargé.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/01-connected-empty.json",
+        "../winui-validation-20261025/native-ui/27-latest-production-connected-local-qwen.json",
+        "../winui-validation-20261025/native-ui/69-manual-connected-build06.json"
+      ],
+      "limits": [],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W01",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W02",
+      "title": "Configuration initiale et annulation",
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "evidenceOrigin": "Six-sequence complement observed on builds09/10",
+      "observedScope": [
+        "URL changed from5177 to5199 without Apply; cancel returns to usable disconnected screen. Restart of the same profile restores5177 with no saved key. Both settings and secure files remain byte-identical.",
+        "Cancelled setup resumed, a valid synthetic key applied, then a connected empty session loaded. Restart connects directly to that same session without reopening setup."
+      ],
+      "plannedCheckIds": [
+        "J01_CANCEL_PRESERVES",
+        "J01_SETUP_RECOVERS"
+      ],
+      "nativeEvidence": [
+        "native-ui/01-first-setup-before-edit.json",
+        "native-ui/02-first-setup-edited-before-cancel.json",
+        "native-ui/03-first-setup-cancel-disconnected-usable.json",
+        "native-ui/04-first-setup-restart-original-values.json",
+        "native-ui/06-first-setup-key-repaired-same-wizard.json",
+        "native-ui/07-first-setup-applied-connected.json",
+        "native-ui/08-first-setup-applied-restart-connected.json"
+      ],
+      "durableEvidence": [
+        "client-launch-02-after-cancel.json",
+        "client-launch-03-after-setup-applied.json",
+        "local-fixture/first-setup-after-open-before-edit-proof.json",
+        "local-fixture/first-setup-auth-persistence-proof.json",
+        "local-fixture/first-setup-cancel-persistence-proof.json",
+        "local-fixture/profile-first-setup-preflight.json"
+      ],
+      "limits": [
+        "Exact settings/secure bytes and cancelled URL were checked; this does not exhaust every installation hardware/configuration variant."
+      ],
+      "historicalStatus": "PARTIAL_OBSERVED",
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "semanticApproval": false
+    },
+    {
+      "id": "W03",
+      "title": "Échec réseau au démarrage puis reprise",
+      "status": "PASS_OBSERVED",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "Panne réseau sur loopback puis vrai clic Réessayer : connexion et historique restaurés.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/41-backend-offline.json",
+        "../winui-validation-20261025/native-ui/42-offline-retry-recovered.json"
+      ],
+      "limits": [
+        "L’observation40, intitulée /ready503, montre une interface encore connectée ; elle n’est pas comptée comme échec de connexion."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W03",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W04",
+      "title": "Clé refusée et récupération",
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "evidenceOrigin": "Six-sequence complement observed on builds09/10",
+      "observedScope": [
+        "Real HTTP401 with deliberately invalid key; valid synthetic replacement in the same wizard returns Clé OK and connects. Protected key presence/equality was checked in memory only; no key or protected blob published."
+      ],
+      "plannedCheckIds": [
+        "J01_KEY_REPAIR_SAME_INSTANCE"
+      ],
+      "nativeEvidence": [
+        "native-ui/05-first-setup-invalid-key-401.json",
+        "native-ui/06-first-setup-key-repaired-same-wizard.json",
+        "native-ui/07-first-setup-applied-connected.json"
+      ],
+      "durableEvidence": [
+        "local-fixture/first-setup-auth-persistence-proof.json"
+      ],
+      "limits": [
+        "Native403 and late401 race remain unit-only, not newly observed."
+      ],
+      "historicalStatus": "PARTIAL_OBSERVED",
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "semanticApproval": false
+    },
+    {
+      "id": "W05",
+      "title": "URL principale inaccessible et alternative",
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "evidenceOrigin": "Six-sequence complement observed on builds09/10",
+      "observedScope": [
+        "Primary5169 has no listener; alternate5177 handles successful inventory and same-session message reads on the second start. Persisted URL priority/order is unchanged. Proxy wire proves the alternate requests, not failed-primary packets."
+      ],
+      "plannedCheckIds": [
+        "J02_FALLBACK_ORDER_RESTART"
+      ],
+      "nativeEvidence": [
+        "native-ui/09-fallback-first-start-connected.json",
+        "native-ui/10-fallback-preferences-before-change.json",
+        "native-ui/13-fallback-restart-english-light-connected.json"
+      ],
+      "durableEvidence": [
+        "client-launch-05-fallback-preferences-restart.json",
+        "local-fixture/fallback-prefs-before-restart-proof.json",
+        "local-fixture/fallback-prefs-restart-proof.json",
+        "local-fixture/profile-fallback-prefs-preflight.json"
+      ],
+      "limits": [
+        "Alternate HTTP requests are observed; primary unavailability is established by no-listener observation, not a failed-primary packet capture."
+      ],
+      "historicalStatus": "PARTIAL_OBSERVED",
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "semanticApproval": false
+    },
+    {
+      "id": "W06",
+      "title": "Absence de modèle local",
+      "status": "PASS_OBSERVED",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "Service du modèle local réellement absent : message final build08 clair, contrôles libérés, aucune source inventée. Correction de l’adresse via Configuration puis test /v1/models et nouveau tour Qwen réel : code4826/E2 et source exacte page2.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/73-missing-local-model-fails-safe-but-message-not-actionable.json",
+        "../winui-validation-20261025/native-ui/85-build07-local-model-error-explicit-message.json",
+        "../winui-validation-20261025/w06-independent-readonly-review.json",
+        "../winui-validation-20261025/native-ui/86-build08-local-model-unavailable-actionable-final.json",
+        "../winui-validation-20261025/native-ui/87-local-model-recovery-configuration-test.json",
+        "../winui-validation-20261025/native-ui/88-build08-qwen-answer-after-local-model-recovery.json"
+      ],
+      "limits": [
+        "Portée native : service HTTP local absent puis remis à disposition. Réinstallation, téléchargement et panne matérielle non exécutés."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W06",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W07",
+      "title": "Nouvelle discussion et aller-retour",
+      "status": "PASS_OBSERVED",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "Nouveau crée une discussion vide ; changements de discussion puis retours chargent les historiques correspondants.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/05-new-session.json",
+        "../winui-validation-20261025/native-ui/06-rename-inactive-keeps-active.json",
+        "../winui-validation-20261025/native-ui/11-interrupted-session-reloaded.json",
+        "../winui-validation-20261025/native-ui/38-session-load-retry-success.json",
+        "../winui-validation-20261025/native-ui/55-other-chat-during-background.json",
+        "../winui-validation-20261025/native-ui/58-advanced-origin-terminal.json"
+      ],
+      "limits": [
+        "L’observation11 repose sur accessibilité et journal sans PNG ; les autres changements possèdent des captures."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W07",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W08",
+      "title": "Renommer une discussion non active",
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "evidenceOrigin": "Six-sequence complement observed on builds09/10",
+      "observedScope": [
+        "Empty inactive title saved as Nouvelle discussion; active witness and its messages/ID unchanged. Durable proof5/5.",
+        "UIA SetValue121 refused without a mutation. A distinct real native typing attempt of121characters accepted exactly119R+X=120; Y absent. Saved title exactly120 and active witness unchanged; durable proof7/7."
+      ],
+      "plannedCheckIds": [
+        "J03_EMPTY_TITLE",
+        "J03_TITLE_120_LIMIT"
+      ],
+      "nativeEvidence": [
+        "native-ui/14-rename-before-inactive-edit.json",
+        "native-ui/15-rename-empty-title-before-save.json",
+        "native-ui/16-rename-empty-becomes-default-active-preserved.json",
+        "native-ui/17-rename-121-native-input-limited-to120.json",
+        "native-ui/18-rename-120-saved-active-preserved.json"
+      ],
+      "durableEvidence": [
+        "local-fixture/rename-empty-title-proof.json",
+        "local-fixture/rename-max-title-proof.json"
+      ],
+      "limits": [
+        "UIA SetValue121 rejection is separate from real native typing121 limited to120; no conflation."
+      ],
+      "historicalStatus": "PARTIAL_OBSERVED",
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "semanticApproval": false
+    },
+    {
+      "id": "W09",
+      "title": "Suppression annulée puis non active",
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "evidenceOrigin": "New deletion complement",
+      "observedScope": "Cancel preserved; actual inactive deletion removes only the target and keeps the loaded marker history.",
+      "evidence": [
+        "../winui-delete-validation-20261025/delete-execution-matrix-final.json"
+      ],
+      "limits": [
+        "A/B/C deletion marker seed had no source cards; nonempty-card preservation combined with deletion not directly observed."
+      ],
+      "historicalStatus": "AWAITING_CONFIRMATION",
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "semanticApproval": false
+    },
+    {
+      "id": "W10",
+      "title": "Suppression de la discussion courante et dernière",
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "evidenceOrigin": "New deletion complement",
+      "observedScope": "Active deletion loads survivor; last deletion creates distinct empty usable session. ACK/refresh500 recovery and restart are also validated.",
+      "evidence": [
+        "../winui-delete-validation-20261025/delete-execution-matrix-final.json"
+      ],
+      "limits": [
+        "A/B/C deletion marker seed had no source cards; nonempty-card preservation combined with deletion not directly observed."
+      ],
+      "historicalStatus": "AWAITING_CONFIRMATION",
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "semanticApproval": false
+    },
+    {
+      "id": "W11",
+      "title": "Chargement de discussion en échec",
+      "status": "PASS_OBSERVED",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "Un GET messages500 conserve historique et brouillon ; l’erreur devient visible aprèsW32 et un retry charge la bonne discussion.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/37-session-load-failure.json",
+        "../winui-validation-20261025/native-ui/38-session-load-retry-success.json",
+        "../winui-validation-20261025/native-ui/48-session-load-error-visible-fixed.json"
+      ],
+      "limits": [
+        "37 montre le défaut de feedback initial ;48 est le retest du correctif."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W11",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W12",
+      "title": "Saisie clavier et envoi unique",
+      "status": "PASS_FIXTURE",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "Deux Shift+Entrée restent dans la saisie ; Entrée produit un seul tour malgré répétition. Vrai client/backend et fournisseur déterministe.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/07-multiline-before-send.json",
+        "../winui-validation-20261025/native-ui/08-multiline-single-response.json"
+      ],
+      "limits": [
+        "L’accessibilité normalise les retours ; les actions opérateur et l’historique rechargé complètent la capture."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W12",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W13",
+      "title": "Envoi, progression, fin et rechargement",
+      "status": "PASS_OBSERVED",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "Envoi et fin dans le vrai client ; vraie réponse Qwen avec source ensuite rechargée au redémarrage et à la connexion manuelle.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/02-first-response.json",
+        "../winui-validation-20261025/native-ui/65-qwen-document-after-intake-fix.json",
+        "../winui-validation-20261025/native-ui/69-manual-connected-build06.json"
+      ],
+      "limits": [
+        "Un cas documentaire local ne définit pas la frontière complète du petit modèle et ne valide pas Terra."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W13",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W14",
+      "title": "Annulation pendant sauvegarde initiale",
+      "status": "PASS_FIXTURE",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "Annulation pendant POST retardé : admission conservée, aucun modèle ensuite ; état Annulation en cours désactivé et deadline30s observés.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/20-persistence-pending-gated.json",
+        "../winui-validation-20261025/native-ui/21-cancel-during-user-storage.json",
+        "../winui-validation-20261025/native-ui/22-storage-cancellation-settled.json",
+        "../winui-validation-20261025/native-ui/35-cancelling-confirmation.json",
+        "../winui-validation-20261025/native-ui/36-confirmation-deadline-return.json",
+        "../winui-validation-20261025/local-fixture-02/persistence-deadline-proof.json"
+      ],
+      "limits": [
+        "Retard injecté par proxy contrôlé ; client, backend et stockage réels.",
+        "La réponse perdue n’exclut pas le commit : le cas deadline a eu un commit tardif unique sans assistant."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W14",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W15",
+      "title": "Annulation pendant progression/streaming",
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "evidenceOrigin": "Six-sequence complement observed on builds09/10",
+      "observedScope": [
+        "Original previously rejected phrase now reaches a real controlled stream on build10 through the accepted general route, without semantic-plan/source-pipeline/advanced handoff.",
+        "After visible deltas, cancellation persists assistant3a13870a with644characters and interrupted status. Same hash/status retained after reload and87.62seconds; controls available.",
+        "After reloading the interrupted partial, a distinct streamed short turn completes TOUR BUILD10 APRES INTERRUPTION without overwriting the earlier partial."
+      ],
+      "plannedCheckIds": [
+        "J04_VISIBLE_DELTAS",
+        "J04_CANCEL_STOPS_DELTAS",
+        "J04_NEXT_TURN_WORKS"
+      ],
+      "nativeEvidence": [
+        "native-ui/38-build10-original-question-streaming.json",
+        "native-ui/42-build10-cancelled-partial-controls-restored.json",
+        "native-ui/43-build10-cancelled-partial-after-reload.json",
+        "native-ui/44-build10-next-turn-after-cancel.json"
+      ],
+      "durableEvidence": [
+        "local-fixture/build10-cancel-late-stability-proof.json",
+        "local-fixture/build10-original-phrase-stream-cancel-proof.json",
+        "local-fixture/build10-short-after-cancel-control-proof.json"
+      ],
+      "limits": [
+        "Provider and stream delays are controlled fixtures, not model quality/latency measurements.",
+        "Rejected initial attempt and naturally completed attempt are preserved separately from real cancellation."
+      ],
+      "historicalStatus": "PARTIAL_OBSERVED",
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "semanticApproval": false
+    },
+    {
+      "id": "W16",
+      "title": "Interdiction de mutation pendant tour ou chargement",
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "evidenceOrigin": "Six-sequence complement observed on builds09/10",
+      "observedScope": [
+        "A targeted GET was delayed20s. During the loading transition the controls were visibly disabled; Ctrl+Enter did not create a message/model request. The keypress has no independent timestamp, so it is not asserted to precede HTTP completion.",
+        "With a real draft and Settings open, Ctrl+Enter did not submit; dialog stayed open, background composer disabled and draft preserved. Durable state and wire show no resulting POST/model call.",
+        "Target session loaded after the delay with its own markers, controls restored. Closing Settings without Apply preserved the draft and restored composer/Send without an unexpected message."
+      ],
+      "plannedCheckIds": [
+        "J05_SLOW_GET_ADMISSION",
+        "J05_MODAL_KEYBOARD_ADMISSION",
+        "J05_RECOVERY"
+      ],
+      "nativeEvidence": [
+        "native-ui/32-slow-get-controls-locked.json",
+        "native-ui/33-slow-get-keyboard-remains-locked.json",
+        "native-ui/34-slow-get-finished-controls-restored.json",
+        "native-ui/35-settings-overlay-draft-locked.json",
+        "native-ui/36-settings-overlay-keyboard-no-send.json",
+        "native-ui/37-overlay-closed-draft-preserved.json"
+      ],
+      "durableEvidence": [
+        "local-fixture/get-message-delay-executed-proof.json",
+        "local-fixture/modal-keyboard-no-send-proof.json"
+      ],
+      "limits": [
+        "Ctrl+Enter is proved during a visibly locked loading transition and a modal; no independent timestamp proves that keypress preceded HTTP completion."
+      ],
+      "historicalStatus": "PARTIAL_OBSERVED",
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "semanticApproval": false
+    },
+    {
+      "id": "W17",
+      "title": "Erreur transport lors de sauvegarde utilisateur",
+      "status": "PASS_FIXTURE",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "POST500 avec brouillon conservé, avertissement visible, aucune fausse bulle ni modèle ; retry explicite et deadline indépendante vérifiés.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/10-storage-failure-before-fix.json",
+        "../winui-validation-20261025/native-ui/12-failed-draft-disappears-on-reload.json",
+        "../winui-validation-20261025/native-ui/19-retry-after-failure-succeeded.json",
+        "../winui-validation-20261025/native-ui/28-storage-failure-visible-warning.json",
+        "../winui-validation-20261025/native-ui/36-confirmation-deadline-return.json",
+        "../winui-validation-20261025/native-ui/51-new-endpoint-storage-failure-confirmed.json",
+        "../winui-validation-20261025/local-fixture-02/persistence-deadline-proof.json"
+      ],
+      "limits": [
+        "10/12 sont les échecs avant correctif, pas une acceptation.",
+        "ACK vide ou malformé : unités avec transport injecté, pas UI native.",
+        "Un renvoi manuel après réponse perdue peut dupliquer le message ; l’avertissement demande d’inspecter l’historique."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W17",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W18",
+      "title": "Sources visibles et sélection de message",
+      "status": "PASS_FIXTURE",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "Deux assistants contrôlés d’une même discussion conservent leurs cartes Validation/page2 et Archive/page1, y compris après clics successifs sur B puis A. Carte Qwen réelle et rechargement vérifiés séparément.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/59-source-card-page2-controlled.json",
+        "../winui-validation-20261025/native-ui/65-qwen-document-after-intake-fix.json",
+        "../winui-validation-20261025/native-ui/69-manual-connected-build06.json",
+        "../winui-validation-20261025/native-ui/77-two-messages-distinct-source-cards.json",
+        "../winui-validation-20261025/local-fixture-02/source-selection-two-message-readback-proof.json",
+        "../winui-validation-20261025/native-ui/78-two-messages-source-interaction-keeps-provenance.json"
+      ],
+      "limits": [
+        "Le test à deux messages est seedé sans modèle ; il prouve le rendu et la provenance attachée à chaque bulle.",
+        "Aucun panneau Sources séparé n’est exposé dans ce parcours : ne pas inventer d’interaction avec ce panneau.",
+        "Le seed a signalé un échec de contrôle JSON après stockage des deux messages ; échec préservé et vérification séparée en lecture seule, sans nouveau POST."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W18",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W19",
+      "title": "Ouverture source par carte et lien",
+      "status": "PASS_OBSERVED",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "Lien documentaire ouvert physiquement page1 ; carte contrôlée puis carte du vrai Qwen ouvertes page2 du bon PDF.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/25-two-distinct-document-links.json",
+        "../winui-validation-20261025/native-ui/26-pdf-link-page1.json",
+        "../winui-validation-20261025/native-ui/60-pdf-card-page2.json",
+        "../winui-validation-20261025/native-ui/66-qwen-real-source-pdf-page2.json"
+      ],
+      "limits": [
+        "Nom Unicode et espaces non exercés par Guide-Validation.pdf.",
+        "Captures du lecteur PDF privées exclues deGit ; page, marqueur, traces et empreintes conservés."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W19",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W20",
+      "title": "Source manquante et révision ambiguë",
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "evidenceOrigin": "Six-sequence complement observed on builds09/10",
+      "observedScope": [
+        "Inline reference without discriminating revision is refused as Référence ambiguë. Canonical card opens the actual test PDF; the fictitious competing revision is refused as Version citée indisponible without silent substitution."
+      ],
+      "plannedCheckIds": [
+        "J06_AMBIGUOUS_REVISION"
+      ],
+      "nativeEvidence": [
+        "native-ui/45-build10-ambiguous-reference-and-two-cards.json",
+        "native-ui/46-build10-ambiguous-inline-reference-refused.json",
+        "native-ui/47-build10-canonical-pdf-page2-public-projection.json",
+        "native-ui/48-build10-missing-revision-refused.json",
+        "native-ui/48b-build10-missing-revision-caption-correction.json"
+      ],
+      "durableEvidence": [
+        "local-fixture/source-ambiguity-native-proof.json",
+        "local-fixture/source-ambiguity-session-fixture.json"
+      ],
+      "limits": [
+        "Competing revision is a declared synthetic identity, not a newly ingested canonical revision.",
+        "Observation48 caption is corrected by48b; actual title Version citée indisponible."
+      ],
+      "historicalStatus": "PARTIAL_OBSERVED",
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "semanticApproval": false
+    },
+    {
+      "id": "W21",
+      "title": "Analyse avancée terminale et sources persistées",
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "evidenceOrigin": "Six-sequence complement observed on builds09/10",
+      "observedScope": [
+        "Native tracker loads actual terminal result of the real isolated worker into the same prepared pending assistant; ORION4826/C1 and one canonical source card displayed. Final answer/sources were not seeded.",
+        "After full close/restart, same job08655291 revision4, same assistantf0e3aba3 and canonical source persist. No extra job/provider call during the native window; existing unrelated failed job from rejected attempt1 remains historical.",
+        "Persisted advanced card opens exact Validation/Guide-Validation.pdf#page=2; native page selector2 and document marker ORION4826 observed. Public projection excludes other tabs/bookmarks."
+      ],
+      "plannedCheckIds": [
+        "J06_ADVANCED_TERMINAL_SOURCE",
+        "J06_TERMINAL_RESTART",
+        "J06_ADVANCED_SOURCE_OPEN"
+      ],
+      "nativeEvidence": [
+        "native-ui/49-build10-advanced-terminal-resumed.json",
+        "native-ui/50-build10-advanced-source-pdf-page2-public-projection.json",
+        "native-ui/51-build10-advanced-terminal-after-restart.json"
+      ],
+      "durableEvidence": [
+        "advanced-terminal-before-native-baseline.json",
+        "advanced-terminal-preparation-review.json",
+        "local-fixture/advanced-terminal-final-state-proof.json",
+        "public-probe-integrity-review.json"
+      ],
+      "limits": [
+        "Real job created through API/worker before UI; only a pending assistant was seeded. Native creation of that job is not validated in this sequence.",
+        "Deterministic provider validates protocol and sources, not complex planning semantics.",
+        "Restart request attribution partly uses ordered logs/IDs without per-line UTC; native51 and SQL independently corroborate state."
+      ],
+      "historicalStatus": "PARTIAL_OBSERVED",
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "semanticApproval": false
+    },
+    {
+      "id": "W22",
+      "title": "Reprise durable d’analyse avancée",
+      "status": "PASS_FIXTURE",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "Vrai processus fermé puis rouvert pendant le job du worker ; mêmejob/message, polling repris puis terminal unique sans nouveaujob.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/53-advanced-work-in-progress.json",
+        "../winui-validation-20261025/native-ui/54-advanced-resumed-after-restart.json",
+        "../winui-validation-20261025/native-ui/58-advanced-origin-terminal.json",
+        "../winui-validation-20261025/local-fixture-02/advanced-resume-proof.json",
+        "../winui-validation-20261025/trace-interruption-accounting.json",
+        "../winui-validation-20261025/support-resume-origin-visibility.json"
+      ],
+      "limits": [
+        "Fournisseur déterministe : aucune qualité sémantique ni planning de repas validé.",
+        "Trace d’origine interrompue volontairement déclarée sans terminal fabriqué ; vérificateur strict non réétiquetéPASS.",
+        "Export final primaire exécuté, mais son historique borné ne contient pas Configuration.originTraceId du tour de reprise antérieur. La corrélation d’origine demeure établie par SQL/sondes."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W22",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W23",
+      "title": "Analyse avancée et changement de discussion",
+      "status": "PASS_FIXTURE",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "DiscussionB distincte pendant puis après le job deA ; retourA correct et empreintes des autres historiques inchangées.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/55-other-chat-during-background.json",
+        "../winui-validation-20261025/native-ui/57-other-chat-after-background-completion.json",
+        "../winui-validation-20261025/native-ui/58-advanced-origin-terminal.json",
+        "../winui-validation-20261025/local-fixture-02/advanced-resume-proof.json"
+      ],
+      "limits": [
+        "Le fournisseur est une fixture ; aucune carte source avancée dans ce résultat."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W23",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W24",
+      "title": "Polling interrompu et révisions invalides",
+      "status": "PASS_FIXTURE",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "Vrai job du worker : deux GET503, révision régressive et mauvaise SessionId injectés ; refus des états invalides puis fin du même job sur une seule bulle. Preuves HTTP, sondes, SQL et empreintes corrélées.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/79-polling-http503-recovers-running.json",
+        "../winui-validation-20261025/native-ui/80-polling-regressive-revision-does-not-replace-valid-state.json",
+        "../winui-validation-20261025/native-ui/81-polling-session-mismatch-not-shown-as-result.json",
+        "../winui-validation-20261025/native-ui/82-polling-faults-final-same-job-terminal.json",
+        "../winui-validation-20261025/local-fixture-02/advanced-polling-faults-proof.json"
+      ],
+      "limits": [
+        "Les réponses GET fautives sont contrôlées ; le job final et le worker sont réels, avec fournisseur déterministe.",
+        "Les empreintes SQL prouvent l’état final, pas un audit historique de chaque écriture. Le rejet avant callback est vérifié dans le contrôle de flux.",
+        "Les autres contrats malformés non injectés visuellement restent des unités."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W24",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W25",
+      "title": "Paramètres, langue et apparence",
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "evidenceOrigin": "Six-sequence complement observed on builds09/10",
+      "observedScope": [
+        "English and Light applied in the real Settings dialog; same profile restarted with English controls and light appearance. Saved settings and selected session stay unchanged across restart.",
+        "Observed sample: Settings dialog, main header controls, empty chat list/default title, composer placeholder and Send. English/Light readable after application and restart; no nonempty source cards or menu flyouts were exercised in this sample."
+      ],
+      "plannedCheckIds": [
+        "J02_SETTINGS_PERSIST_RESTART",
+        "J02_APPEARANCE_SAMPLE"
+      ],
+      "nativeEvidence": [
+        "native-ui/10-fallback-preferences-before-change.json",
+        "native-ui/11-fallback-preferences-english-light-before-apply.json",
+        "native-ui/12-fallback-english-light-applied.json",
+        "native-ui/13-fallback-restart-english-light-connected.json"
+      ],
+      "durableEvidence": [
+        "local-fixture/fallback-prefs-before-restart-proof.json",
+        "local-fixture/fallback-prefs-restart-proof.json"
+      ],
+      "limits": [
+        "Theme/language coverage is the declared header/dialog/empty-chat sample, not every card/menu/state combination."
+      ],
+      "historicalStatus": "PARTIAL_OBSERVED",
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "semanticApproval": false
+    },
+    {
+      "id": "W26",
+      "title": "Export support depuis la vraie fenêtre",
+      "status": "PASS_OBSERVED",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "Export final build08 effectué depuis le vrai client primaire, boutons réactivés et ZIP créé :51 entrées,1007 sondes valides,14 contrôles de collecte/confidentialité réussis. Aucun marqueur connu de clé ou de texte détecté.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/14-support-export-result-initial.json",
+        "../winui-validation-20261025/native-ui/14b-support-export-result-clear.json",
+        "../winui-validation-20261025/native-ui/49-support-export-build04.json",
+        "../winui-validation-20261025/local-fixture-02/support-bundle-review-build04-accepted.json",
+        "../winui-validation-20261025/native-ui/89-build08-final-support-export-from-ui.json",
+        "../winui-validation-20261025/local-fixture-02/support-bundle-review-build08-final.json",
+        "../winui-validation-20261025/support-resume-origin-visibility.json"
+      ],
+      "limits": [
+        "Pièces optionnelles manquantes déclarées, distinctes d’un échec de collecte.",
+        "L’export final contient un seul tour récent ; Configuration.originTraceId du tour de reprise antérieur n’y est pas directement confirmé. La chaîne de reprise est prouvée par SQL et sondes séparément.",
+        "L’échec d’export et son réarmement ne sont pas exécutés nativement."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W26",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W27",
+      "title": "Redimensionnement et navigation/scroll",
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "evidenceOrigin": "Six-sequence complement observed on builds09/10",
+      "observedScope": [
+        "Manual scroll during build10 live stream stays at2722 in two observations while new deltas arrive; no forced return to tail.",
+        "Explicit Aller en bas returns to the current tail while generation and Annuler remain active; the jump button disappears."
+      ],
+      "plannedCheckIds": [
+        "J04_USER_SCROLL_STABLE",
+        "J04_JUMP_BOTTOM"
+      ],
+      "nativeEvidence": [
+        "native-ui/39-build10-manual-scroll-live.json",
+        "native-ui/40-build10-manual-scroll-still-stable.json",
+        "native-ui/41-build10-jump-bottom-live.json"
+      ],
+      "durableEvidence": [
+        "local-fixture/build10-original-phrase-stream-cancel-proof.json"
+      ],
+      "limits": [
+        "Old observed window sizes remain bounded; no claim about all widths or technical minimum.",
+        "Scrolling is exercised with controlled streaming, not measured local-model performance."
+      ],
+      "historicalStatus": "PARTIAL_OBSERVED",
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "semanticApproval": false
+    },
+    {
+      "id": "W28",
+      "title": "Aide et commande directe sans modèle",
+      "status": "PASS_FIXTURE",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "Aide/catalogue et recherche guidée réels : deux catégories et deux homonymes distingués sans réponseLLM.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/13-guided-catalog-result.json",
+        "../winui-validation-20261025/native-ui/23-guided-catalog-two-categories.json",
+        "../winui-validation-20261025/native-ui/24-guided-document-search.json",
+        "../winui-validation-20261025/native-ui/25-two-distinct-document-links.json"
+      ],
+      "limits": [
+        "Le premier zéro catégorie provenait d’un snapshot fixture non rafraîchi ;23 utilise la préparation corrigée.",
+        "Annulation d’une commande directe longue non observée."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W28",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W29",
+      "title": "Paramètres et configuration pendant une réponse",
+      "status": "PASS_OBSERVED",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "Ancienne ouverture Paramètres pendant un tour reproduite ; après correctif Paramètres et Configuration sont désactivés pendant admission/tour puis réactivés.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/03-settings-during-active-turn-before-fix.json",
+        "../winui-validation-20261025/native-ui/20-persistence-pending-gated.json",
+        "../winui-validation-20261025/native-ui/35-cancelling-confirmation.json",
+        "../winui-validation-20261025/native-ui/36-confirmation-deadline-return.json",
+        "../winui-validation-20261025/native-ui/53-advanced-work-in-progress.json"
+      ],
+      "limits": [
+        "La lease du dialogue et l’exclusion des envois clavier sont vérifiées en unité, sans séquence native exhaustive.",
+        "Aucune réparation ni aucun téléchargement lancés pour prouver ce blocage."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W29",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W30",
+      "title": "Connexion automatique désactivée et reprise visible",
+      "status": "PASS_OBSERVED",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "AutoConnectfalse respecté : état déconnecté clair, Configurer et Se connecter visibles ; clic manuel recharge historique/source. Retest build06.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/09-autoconnect-off-before-fix.json",
+        "../winui-validation-20261025/native-ui/16b-manual-connect-after-fix-clear.json",
+        "../winui-validation-20261025/native-ui/17-manual-connect-success.json",
+        "../winui-validation-20261025/native-ui/68-build06-manual-disconnected.json",
+        "../winui-validation-20261025/native-ui/69-manual-connected-build06.json"
+      ],
+      "limits": [
+        "09 est l’échec initial ;68/69 portent l’acceptation native finale."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W30",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W31",
+      "title": "Configuration appliquée et transport effectivement remplacé",
+      "status": "PASS_OBSERVED",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "Nouvel endpoint réellement utilisé après Appliquer. Sous AutoConnectfalse, la reconfiguration vers5159 échoue, vide l’ancien état, puis le retour5157 attend Se connecter et recharge le bon historique.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/32-configuration-applied.json",
+        "../winui-validation-20261025/native-ui/33-wizard-url-not-live.json",
+        "../winui-validation-20261025/native-ui/50-wizard-reconnected-fixed.json",
+        "../winui-validation-20261025/native-ui/51-new-endpoint-storage-failure-confirmed.json",
+        "../winui-validation-20261025/native-ui/69-manual-connected-build06.json",
+        "../winui-validation-20261025/w31-final-fix-proof.json",
+        "../winui-validation-20261025/native-ui/70-manual-reconfiguration-unreachable-clears-old-connection.json",
+        "../winui-validation-20261025/native-ui/71-manual-reconfiguration-restored-awaits-explicit-connect.json",
+        "../winui-validation-20261025/native-ui/72-manual-reconfiguration-recovery-connected.json"
+      ],
+      "limits": [
+        "Snapshots des trackers, révocation admin et réponses401 tardives : unités injectées, pas toutes les races reproduites nativement."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W31",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "W32",
+      "title": "Erreur de chargement visible sans perdre la discussion",
+      "status": "PASS_OBSERVED",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "Erreur de chargement500 visible dans InfoBar, ancien historique et brouillon préservés ; retry charge la bonne discussion.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/37-session-load-failure.json",
+        "../winui-validation-20261025/native-ui/38-session-load-retry-success.json",
+        "../winui-validation-20261025/native-ui/48-session-load-error-visible-fixed.json"
+      ],
+      "limits": [
+        "Les erreurs create/rename/delete partagent le renderer mais ne sont pas exécutées nativement.",
+        "Changement de langue d’une notice active : revue/contrat unitaire sans capture dédiée."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "W32",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    },
+    {
+      "id": "DOC_IDENTITY",
+      "title": "Identité documentaire de la mission jusqu’au PDF réel",
+      "status": "PASS_OBSERVED",
+      "evidenceOrigin": "Earlier sealed campaign inherited with its original scope",
+      "observedScope": "Adaptateur mission/intake corrigé causalement ; vrai Qwen répond4826 avecE2, documentValidation exact, hash source égal au PDF et page2 physiquement affichée.",
+      "evidence": [
+        "../winui-validation-20261025/native-ui/62-qwen-clarification-still-present-build05.json",
+        "../winui-validation-20261025/native-ui/65-qwen-document-after-intake-fix.json",
+        "../winui-validation-20261025/native-ui/66-qwen-real-source-pdf-page2.json",
+        "../winui-validation-20261025/native-qwen-document-path-causal-proof/proof.json",
+        "../winui-validation-20261025/document-intake-path-green/proof.json"
+      ],
+      "limits": [
+        "Un cas synthétique de question directe ; aucune frontière globale du petit modèle.",
+        "Aucun test Terra, RunPod ou planning de repas complexe.",
+        "Captures du lecteur PDF privées exclues deGit ; empreintes, marqueur, page et trace conservés."
+      ],
+      "historicalMatrix": "../winui-validation-20261025/execution-matrix-final.json",
+      "historicalScenarioId": "DOC_IDENTITY",
+      "reexecutedOnEveryLaterBinary": false,
+      "semanticApproval": false
+    }
+  ],
+  "binaryBoundary": {
+    "behavioralBuilds": [
+      "Earlier sealed campaign through08",
+      "Deletion/current complement09",
+      "General-route/source/advanced complement10"
+    ],
+    "build11DiagnosticAdjustment": "PASSED9/9 native probe/general response and6/6 advanced stability; captures52/53. Other behavior remains linked to its actual earlier binary.",
+    "currentBehavioralAnchor": "full-core-client-build11-production-anchor.json"
+  },
+  "testBoundary": {
+    "composedDistinctPassingCases": 4926,
+    "overlapNotAdded": [
+      "163 neighboring regressions",
+      "3 new routing tests",
+      "earlier targeted20 deletion tests"
+    ],
+    "composedCoverageIsSingleRun": false,
+    "latestClientCoreRunSingleRun": true,
+    "latestClientCoreRunPassed": 2476,
+    "unchangedEarlierBackendContractsReused": 2450,
+    "anchor": "full-core-client-build11-production-anchor.json"
+  },
+  "sourceDelivery": {
+    "correctedDeletionEvidence": "ccd0f8f7f54bac0ea92538199062326db305f761",
+    "remoteVerification": {
+      "verifiedBy": "root",
+      "status": "FOUR_COMMITS_CONFIRMED_REMOTE",
+      "commits": [
+        "81c8028f6d71384351a6e9000e79bfc852859a20",
+        "ccd0f8f7f54bac0ea92538199062326db305f761",
+        "c1e7b7a894103e26aa5f535df8fccf45181984f5",
+        "7943482b1a60909c61abd31652dca38feb91a601"
+      ],
+      "newJourneyArtifacts": "PACKAGE_COMMIT_PUSH_AFTER_INDEPENDENT_COUNTERSCAN_CONFIRMATION_AND_COMMIT_ID_IN_DELIVERY_MESSAGE",
+      "gitCommandsExecutedByProjectionAuthor": false
+    },
+    "deletionCode": "81c8028f6d71384351a6e9000e79bfc852859a20",
+    "routingCode": "c1e7b7a894103e26aa5f535df8fccf45181984f5",
+    "finalDiagnosticCode": "7943482b1a60909c61abd31652dca38feb91a601"
+  },
+  "interpretationBoundary": [
+    "33 is a journey coverage projection, not33 new tests rerun on the latest binary.",
+    "Passed scopes retain explicit limits: controlled providers, theme sample, transition keypress timing, advanced API-created seed and historical evidence reuse.",
+    "No Terra call, meal-planning acceptance, new-provider spend or global product approval is inferred.",
+    "Final11 native check passed;33journeys remain a multi-build evidence projection, not33fresh tests on11."
+  ],
+  "preservedRejectedEvidence": [
+    "native19 nonstream",
+    "native24 natural completion is not cancellation",
+    "native48 caption correction48b",
+    "get-message-delay-projection-rejected-counted-both-phases.json",
+    "earlier deletion selection rejected before remote publication"
+  ],
+  "finalBuild11": {
+    "assemblySha256": "A587B3A8B7F75C5EC2E7A39544831C54E1CDD147590D50DEC0543F70D2C83A7B",
+    "advancedStabilityProof": "local-fixture/build11-advanced-ultimate-stability-proof.json",
+    "roleLabelCorrected": true,
+    "nativeEvidence": [
+      "native-ui/52-build11-general-final-control.json",
+      "native-ui/53-build11-source-role-label-and-persisted-result.json"
+    ],
+    "sourceStepFieldsRetained": true,
+    "diagnosticProof": "local-fixture/build11-final-native-probe-proof.json",
+    "lastCodeCommit": "7943482"
+  },
+  "runtimeClosure": {
+    "issues": 0,
+    "status": "PASSED",
+    "normalProfile": "normal-profile-final-comparison.json",
+    "coveredFilesUnchanged": 556,
+    "proof": "local-fixture/owned-stop-journey-final-proof.json"
+  }
+}

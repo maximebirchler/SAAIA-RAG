@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "saaia-winui-initial-wizard-cancel-persistence-proof.v1",
+  "capturedAtUtc": "2026-10-25T15:38:47.0361131+00:00",
+  "readOnly": true,
+  "profileName": "first-setup",
+  "phase": "after_url_changed_then_cancelled_before_restart",
+  "status": "PASSED",
+  "files": [
+    {
+      "file": "settings.json",
+      "baselineSha256": "97D1B8C023E8CBB3ECA722F11E863AA33EF9A780237C6D7AE916F6D9BE2E3ADB",
+      "afterCancelSha256": "97D1B8C023E8CBB3ECA722F11E863AA33EF9A780237C6D7AE916F6D9BE2E3ADB",
+      "unchanged": true
+    },
+    {
+      "file": "secure.json",
+      "baselineSha256": "2D1E860D54AD1B4C5506862C1F9D7A289BF285EC2F1B27859427CD5FDAD7C2D9",
+      "afterCancelSha256": "2D1E860D54AD1B4C5506862C1F9D7A289BF285EC2F1B27859427CD5FDAD7C2D9",
+      "unchanged": true
+    }
+  ],
+  "actualBackendUrl": "http://127.0.0.1:5177",
+  "backendKeyProtectedPresent": false,
+  "contentPublished": false,
+  "privateCopy": "runtime/client-profile-baselines/first-setup/after-cancel",
+  "limits": "File persistence evidence; native UI observations separately establish the entered URL and recovered disconnected controls."
+}

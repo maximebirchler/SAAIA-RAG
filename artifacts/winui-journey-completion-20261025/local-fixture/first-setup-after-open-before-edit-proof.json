@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "saaia-winui-initial-wizard-after-open-baseline.v1",
+  "capturedAtUtc": "2026-10-25T15:37:46.9141407+00:00",
+  "phase": "assistant_open_before_any_ui_edit",
+  "profileName": "first-setup",
+  "readOnly": true,
+  "privateBaseline": "runtime/client-profile-baselines/first-setup/after-open-before-edit",
+  "settingsAndSecureUnchangedFromPreparation": true,
+  "files": [
+    {
+      "file": "settings.json",
+      "bytes": 713,
+      "sha256": "97D1B8C023E8CBB3ECA722F11E863AA33EF9A780237C6D7AE916F6D9BE2E3ADB",
+      "unchangedFromPreparedBaseline": true
+    },
+    {
+      "file": "secure.json",
+      "bytes": 190,
+      "sha256": "2D1E860D54AD1B4C5506862C1F9D7A289BF285EC2F1B27859427CD5FDAD7C2D9",
+      "unchangedFromPreparedBaseline": true
+    }
+  ],
+  "contentPublished": false,
+  "uiScreenshotPublished": false
+}

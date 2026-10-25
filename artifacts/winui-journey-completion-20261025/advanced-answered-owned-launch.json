@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "saaia-winui-advanced-answered-owned-launch.v1",
+  "capturedAtUtc": "2026-10-25T15:40:57.8078646+00:00",
+  "fixtureRunId": "7d110010ee874d5398a9ca335b079fdd",
+  "postgresPort": 58590,
+  "postgresPid": 22568,
+  "postgresDataDirectoryAndPidAndLoopbackVerified": true,
+  "advancedJobsBeforeLaunch": 0,
+  "backendUrl": "http://127.0.0.1:5187",
+  "providerUrl": "http://127.0.0.1:18099/v1",
+  "providerMode": "advanced_answered",
+  "providerIsControlledFixture": true,
+  "backendAssemblySha256": "FEF8B7977EC4F4C61E6EBBB78AA11888265BF7FDAE9DD23230577E8947CA893A",
+  "gitCommit": "81c8028f6d71384351a6e9000e79bfc852859a20",
+  "ownedProcesses": [
+    {
+      "path": "C:\\Users\\maxim\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+      "port": 18099,
+      "pid": 41860,
+      "startedAtUtc": "2026-10-25T15:40:56.4842413Z",
+      "name": "advanced-fixture-http"
+    },
+    {
+      "path": "C:\\Users\\maxim\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.exe",
+      "port": 5187,
+      "pid": 2448,
+      "startedAtUtc": "2026-10-25T15:40:56.5030004Z",
+      "name": "advanced-backend-runner"
+    }
+  ],
+  "environmentBeforeLaunchSha256": "3AB36243E3B88D80EFC712777E75A215F3CEEBB72DAEB59E499348617A60449E",
+  "environmentAfterLaunchSha256": "A30254C2BFB502B5A826957E6C67B3E1288840090E5DE89DF4A21BDF0E19B345",
+  "controlBeforeArmSha256": "3777375F2A228C19336722B579D09E811C3C70A8B930CC0960AFEB28F707DA60",
+  "controlAfterArmSha256": "FB69601062B8339A1E99029CFA839D5E787BB3BFB41E6036B7216C233E2F59E6",
+  "initialAdvancedWorkerManifestOutcome": "insufficient_documentation",
+  "limit": "advanced-worker.json describes the initial default control. This later proof records arming advanced_answered before any job creation.",
+  "nativeUiModified": false,
+  "paidCalls": 0,
+  "externalProviderUsed": false,
+  "productStatus": "TESTE_NON_APPROUVE"
+}

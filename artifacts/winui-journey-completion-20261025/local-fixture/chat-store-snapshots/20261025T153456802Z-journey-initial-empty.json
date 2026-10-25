@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "saaia-winui-chat-store-snapshot.v1",
+  "startedAtUtc": "2026-10-25T15:34:56.8028422+00:00",
+  "finishedAtUtc": "2026-10-25T15:34:56.8171402+00:00",
+  "environmentRunId": "7d110010ee874d5398a9ca335b079fdd",
+  "backendUrl": "http://127.0.0.1:5167",
+  "userId": "3a5bedd4-2bc1-4063-a677-025ebf648669",
+  "readOnly": true,
+  "contentMode": "sha256_utf8_exact_text_counts_only",
+  "sessionCount": 0,
+  "totalMessageCount": 0,
+  "totalUserMessages": 0,
+  "totalAssistantMessages": 0,
+  "sessionLimitReached": false,
+  "messageLimitReached": false,
+  "completeWithinApiLimits": true,
+  "consistency": "Read-only sequential HTTP observations; not an atomic database snapshot. Capture while the client is idle for comparisons.",
+  "repeatedContentInterpretation": "Repeated hashes can be legitimate repeated user requests; they are candidates for review, not an automatic duplicate verdict.",
+  "sessions": [],
+  "comparison": null
+}

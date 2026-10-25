@@ -1,0 +1,95 @@
+{
+  "expectedOutcome": "answered",
+  "jobId": "08655291-6f0f-4d34-8f58-fa8a9dffd49b",
+  "injectedTerminalState": false,
+  "externalCalls": 0,
+  "answeredCanonicalIdentityValidated": true,
+  "sessionId": "36ab9c16-4bd0-4e48-a7b7-53a4be920436",
+  "realWorker": true,
+  "providerIsDeterministicFixture": true,
+  "semanticApproval": false,
+  "passed": true,
+  "performedThroughUi": false,
+  "snapshots": [
+    {
+      "atUtc": "2026-10-25T15:41:04.5507695+00:00",
+      "revision": 1,
+      "status": "queued"
+    },
+    {
+      "atUtc": "2026-10-25T15:41:04.8687430+00:00",
+      "revision": 2,
+      "status": "running"
+    },
+    {
+      "atUtc": "2026-10-25T15:41:07.0907180+00:00",
+      "revision": 3,
+      "status": "running"
+    },
+    {
+      "atUtc": "2026-10-25T15:41:08.9887447+00:00",
+      "revision": 4,
+      "status": "succeeded"
+    }
+  ],
+  "userId": "8824293c-0a7d-427a-9b63-f6f455835c77",
+  "final": {
+    "jobId": "08655291-6f0f-4d34-8f58-fa8a9dffd49b",
+    "handoffId": "2e053aa2-c643-48af-8559-81acf6caf403",
+    "sessionId": "36ab9c16-4bd0-4e48-a7b7-53a4be920436",
+    "status": "succeeded",
+    "revision": 4,
+    "attemptCount": 1,
+    "cancelRequested": false,
+    "createdAtUtc": "2026-10-25T16:41:04.537237+01:00",
+    "updatedAtUtc": "2026-10-25T16:41:08.883029+01:00",
+    "availableAtUtc": "2026-10-25T16:41:04.537237+01:00",
+    "expiresAtUtc": "2026-10-26T16:41:04.537237+01:00",
+    "startedAtUtc": "2026-10-25T16:41:04.648873+01:00",
+    "finishedAtUtc": "2026-10-25T16:41:08.883029+01:00",
+    "providerKey": "winui-fixture-customer-server",
+    "providerModel": "saaia-winui-fixture",
+    "result": {
+      "claims": [
+        {
+          "text": "Le code de validation ORION est 4826.",
+          "claimId": "C1",
+          "evidenceIds": [
+            "advanced-evidence-3cee89eb4403b608079c34fb7a4b7496"
+          ],
+          "selectedItem": null
+        }
+      ],
+      "outcome": "answered",
+      "evidence": [
+        {
+          "docId": "aca1a813-c593-59e5-bdf2-1cd12d1b8e40",
+          "chunkId": "a0303851-13ee-5ddc-9aeb-fd084d56344e",
+          "docPath": "Validation/Guide-Validation.pdf",
+          "pageEnd": 2,
+          "anchorId": null,
+          "fileName": "Guide-Validation.pdf",
+          "pageStart": 2,
+          "evidenceId": "advanced-evidence-3cee89eb4403b608079c34fb7a4b7496",
+          "revisionId": "7ac0ec90-3ddf-51ec-80b9-f65e8a81f79b",
+          "sourceHash": "840c999b2bfe8305aee9fdddf05f01b1686f3ec92eeb76cfe5c5af9354672121",
+          "contentCardId": null
+        }
+      ],
+      "answerText": "Résultat contrôlé du parcours avancé : le code ORION est 4826. [C1]",
+      "inputTokens": 64,
+      "providerKey": "winui-fixture-customer-server",
+      "outputTokens": 24,
+      "providerModel": "saaia-winui-fixture",
+      "schemaVersion": "saaia.advanced-analysis-result.v1",
+      "selectionMode": "",
+      "completedAtUtc": "2026-10-25T16:41:08.877512+01:00",
+      "cacheWriteTokens": null,
+      "estimatedCostUsd": null,
+      "cachedInputTokens": null,
+      "providerCallCount": 2,
+      "elapsedMilliseconds": 4191
+    }
+  },
+  "schemaVersion": "saaia-winui-worker-preflight.v1"
+}
