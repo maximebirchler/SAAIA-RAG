@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "saaia-winui-delete-last-session-setting.v1",
+  "capturedAtUtc": "2026-10-25T15:08:06.1056575+00:00",
+  "phase": "after_delete_active_b",
+  "readOnly": true,
+  "actualLastSessionId": "21610341-a735-44f4-8a61-42843f5567aa",
+  "expectedLastSessionId": "21610341-a735-44f4-8a61-42843f5567aa",
+  "passed": true,
+  "settingsPath": "runtime/client-data/client/settings.json",
+  "settingsSha256": "BFA9A8841626D67E86A50CEDAC404ED24E618756A4E9DCB8E1E9A36425594F5F"
+}

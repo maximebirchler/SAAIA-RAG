@@ -1,0 +1,15 @@
+{
+  "proxyUrl": "http://127.0.0.1:5177",
+  "exactSessionAndUserRequired": true,
+  "databaseModifiedForInjection": false,
+  "schemaVersion": "saaia-winui-delete-refresh-proxy.v1",
+  "sourceSha256": "ABE9201542395BA3D5EFCE6BF4442FA309B3273F0A03F99CDA2D4AE8E3B228D3",
+  "actualUserConfigurationModified": false,
+  "allOtherRequestsForwarded": true,
+  "initiallyEnabled": false,
+  "instanceName": "delete-refresh-green",
+  "controlPath": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-delete-validation-20261025\\local-fixture-fixed\\runtime\\delete-refresh-control-delete-refresh-green.json",
+  "injection": "One GET /chat/sessions500 only after the target DELETE receives a real2xx",
+  "upstreamUrl": "http://127.0.0.1:5167",
+  "backendCodeModified": false
+}

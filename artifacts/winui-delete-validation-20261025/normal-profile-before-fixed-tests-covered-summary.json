@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "saaia-winui-normal-profile-baseline-summary.v1",
+  "capturedAtUtc": "2026-10-25T15:25:35.4728659+00:00",
+  "phase": "before_fixed_native_retest_completion",
+  "readOnly": true,
+  "scopes": [
+    "client",
+    "governance",
+    "llm-dev",
+    "logs"
+  ],
+  "fileCount": 556,
+  "privatePathsPublished": false,
+  "contentPublished": false,
+  "privateBaselineSha256": "EDA132CB1435B5709615C69F8FFBEDD26D4DACD7122E03D9354158A6EF8805FD",
+  "broaderAttempt": "Read-only full-root attempt stopped after discovering130072files(14.83GiB), mostly model/runtime cache. No complete baseline file was produced; no profile file was changed.",
+  "scopeLimit": "Only client/governance/llm-dev/logs, matching the556-file prior campaign scope; model binaries, caches and Windows credential store are not claimed."
+}

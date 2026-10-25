@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "saaia.winui.native-observation.v1",
+  "atUtc": "2026-10-25T15:17:45.448Z",
+  "name": "11-red-recovery-by-surviving-session",
+  "description": "Après la panne de rafraîchissement, sélectionner la discussion survivante réactive la saisie et efface le bandeau. La discussion D déjà supprimée reste néanmoins affichée à tort dans la liste.",
+  "window": {
+    "app": "process:C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+    "id": 7802244,
+    "title": "SAAIA"
+  },
+  "accessibility": {
+    "focused_element": "37 modifier (settable, string) Tape ta question... ID: InputBox",
+    "tree": "Window: \"SAAIA\", App: SAAIA.Client.WinUI.exe.\n\t0 fenêtre SAAIA Secondary Actions: Raise\n\t\t1 volet Non Client Input Sink Window\n\t\t2 volet AppWindow Custom Title Bar\n\t\t\t3 Bouton Minimize ID: Minimize\n\t\t\t4 Bouton Maximize ID: Maximize\n\t\t\t5 Bouton Close ID: Close\n\t\t6 volet\n\t\t\t7 volet\n\t\t\t\t8 image\n\t\t\t\t9 texte SAAIA\n\t\t\t\t10 bouton Discussions ID: ChatsToggleButton\n\t\t\t\t11 bouton Configuration ID: SetupButton\n\t\t\t\t12 bouton Aide ID: HeaderHelpButton\n\t\t\t\t\t13 texte ?\n\t\t\t\t14 bouton Paramètres ID: HeaderSettingsButton\n\t\t\t\t15 texte Discussions ID: ChatsHeaderText\n\t\t\t\t16 bouton Nouveau ID: NewChatButton\n\t\t\t\t17 liste ID: SessionsList\n\t\t\t\t\t18 élément de liste (selectable) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t19 texte TEST SUPPRESSION D - refresh panne\n\t\t\t\t\t\t20 texte 25.10 16:11\n\t\t\t\t\t\t21 bouton …\n\t\t\t\t\t22 élément de liste (selectable) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t23 texte Nouvelle discussion\n\t\t\t\t\t\t24 texte 25.10 16:09\n\t\t\t\t\t\t25 bouton …\n\t\t\t\t26 volet ID: MessagesScroll\n\t\t\t\t\t27 liste ID: MessagesList\n\t\t\t\t37 modifier (settable, string) Tape ta question... ID: InputBox\n\t\t\t\t38 bouton (disabled) Envoyer ID: SendCancelButton\n\t\t39 barre de titre (settable, string) Value: SAAIA\n\t\t\t40 barre de menus Système ID: MenuBar\n\t\t\t\t41 élément de menu Système\n\t\t\t42 Bouton Réduire\n\t\t\t43 Bouton Agrandir\n\t\t\t44 Bouton Fermer\n\nThe focused UI element is 37 modifier (settable, string) Tape ta question... ID: InputBox."
+  },
+  "screenshots": [
+    "11-red-recovery-by-surviving-session-0.png"
+  ]
+}

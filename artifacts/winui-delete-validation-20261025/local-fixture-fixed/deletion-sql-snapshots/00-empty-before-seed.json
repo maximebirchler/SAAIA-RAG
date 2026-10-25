@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "saaia-winui-deletion-sql-snapshot.v1",
+  "capturedAtUtc": "2026-10-25T15:23:27.3169838+00:00",
+  "environmentRunId": "ab115805927241e3bf8746cde32d4039",
+  "userId": "84ff6021-18f2-43df-bd34-59fbfbdd565d",
+  "readOnly": true,
+  "transaction": "BEGIN READ ONLY",
+  "identityDataDirectoryAndLoopbackPortVerified": true,
+  "postgresPort": 55961,
+  "databaseSessionCount": 0,
+  "databaseMessageCount": 0,
+  "orphanMessageCount": 0,
+  "otherUserSessionCount": 0,
+  "advancedJobCount": 0,
+  "deleteAuditEvents": [],
+  "sessionCount": 0,
+  "sessions": []
+}

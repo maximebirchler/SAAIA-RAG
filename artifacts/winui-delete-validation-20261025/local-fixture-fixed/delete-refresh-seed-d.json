@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "saaia-winui-delete-refresh-seed.v1",
+  "createdAtUtc": "2026-10-25T15:28:06.4601260+00:00",
+  "environmentRunId": "ab115805927241e3bf8746cde32d4039",
+  "case": "D",
+  "userId": "84ff6021-18f2-43df-bd34-59fbfbdd565d",
+  "sessionId": "512bca66-8f70-4e54-99a7-d0f4f0d82b32",
+  "sessionTitle": "TEST SUPPRESSION D - refresh panne",
+  "messages": [
+    {
+      "contentSha256": "d915acf292aa1171df1f873a6cf0d3e0caf5820cb611042c322573a4a59f1ece",
+      "messageId": "09611875-e20c-49ac-b890-f8a8199a41df",
+      "role": "user"
+    },
+    {
+      "contentSha256": "0bdc2c3975ade6d54a8abd329daab9fb7315039cfafcc324284e3a37f44ddf5e",
+      "messageId": "ea21b7c1-8ecc-40fa-b8b6-04ca6b369c7b",
+      "role": "assistant"
+    }
+  ],
+  "emptyWitnessSessionId": "398b311a-bcc1-4f11-afac-359560aa6e54",
+  "emptyWitnessUnchanged": true,
+  "seededThrough": "production_backend_isolated_loopback",
+  "modelExecuted": false,
+  "conversationsDeleted": false,
+  "uiAutomated": false
+}

@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "saaia-winui-delete-fixed-post-restart-proof.v1",
+  "capturedAtUtc": "2026-10-25T15:33:15.8605438+00:00",
+  "environmentRunId": "ab115805927241e3bf8746cde32d4039",
+  "readOnly": true,
+  "status": "PASSED",
+  "remainingSessionId": "398b311a-bcc1-4f11-afac-359560aa6e54",
+  "actualLastSessionId": "398b311a-bcc1-4f11-afac-359560aa6e54",
+  "sessionCount": 1,
+  "messageCount": 0,
+  "deleteAuditCount": 4,
+  "orphanCount": 0,
+  "fixtureStatus": {
+    "fixture": true,
+    "externalCalls": 0,
+    "requests": 2,
+    "chatRequests": 0
+  },
+  "modelProcessStarted": false,
+  "paidProviderConfigured": false,
+  "probeCount": 8,
+  "traceChecks": [
+    {
+      "traceId": "2bb08ab7f77283072b8054d037f70959",
+      "eventCount": 5,
+      "beginCount": 1,
+      "endCount": 1,
+      "complete": true
+    },
+    {
+      "traceId": "69c2c148b3f6f46f8833de883b718914",
+      "eventCount": 3,
+      "beginCount": 1,
+      "endCount": 1,
+      "complete": true
+    }
+  ],
+  "probeCaptureSha256": "8245BB4CC278E66B267B22C403B8FDF8CCB9BF57A6A9CF909EC65B73D728F7EA",
+  "limits": "Metadata traces are balanced; this check does not replace a full event schema and parent-span verifier. Native UI restart observation24 separately records the visible result."
+}

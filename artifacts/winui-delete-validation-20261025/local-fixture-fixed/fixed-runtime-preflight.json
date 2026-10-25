@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "saaia-winui-fixed-runtime-preflight.v1",
+  "capturedAtUtc": "2026-10-25T15:24:24.6123786+00:00",
+  "environmentRunId": "ab115805927241e3bf8746cde32d4039",
+  "userId": "84ff6021-18f2-43df-bd34-59fbfbdd565d",
+  "backendUrl": "http://127.0.0.1:5167",
+  "postgresPort": 55961,
+  "backendAssemblySha256": "FEF8B7977EC4F4C61E6EBBB78AA11888265BF7FDAE9DD23230577E8947CA893A",
+  "backendProductionAssemblyStillMatches": true,
+  "clientBuild": "production_build09",
+  "clientAssemblySha256": "7CCBEDB63AAE52E9CC0E89C3B7924C04AB0E1E39C81C269985F87BA76DAFE6FE",
+  "initialSessionId": "29d9da2e-067b-4603-a2db-3439e35b855b",
+  "modelProcessStarted": false,
+  "existingUserProfileModified": false
+}

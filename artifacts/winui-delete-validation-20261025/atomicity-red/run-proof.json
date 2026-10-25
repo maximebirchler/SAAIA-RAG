@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "saaia-delete-atomicity-integration-run.v1",
+  "capturedAtUtc": "2026-10-25T15:08:00.6706872+00:00",
+  "phase": "red_before_product_fix",
+  "fixtureRunId": "5339019b0db34d0cb098f11e055763ea",
+  "port": 52785,
+  "ownedPid": 3532,
+  "identityVerified": true,
+  "postgresUiDatabaseMutated": false,
+  "databaseInventoryBefore": [
+    "postgres",
+    "template0",
+    "template1"
+  ],
+  "databaseInventoryAfter": [
+    "postgres",
+    "template0",
+    "template1"
+  ],
+  "databasesCleaned": true,
+  "productOutput": "backend/SAAIA.Backend/bin/deletion-atomicity-red/net8.0",
+  "exitCode": 1
+}

@@ -1,0 +1,1972 @@
+{
+  "schemaVersion": "saaia-winui-delete-public-evidence-selection.v1",
+  "capturedAtUtc": "2026-10-25T15:52:31.9863104+00:00",
+  "status": "PUBLIC_SELECTION_VERIFIED_NO_GIT_MUTATION",
+  "root": "artifacts/winui-delete-validation-20261025",
+  "fileCount": 188,
+  "files": [
+    {
+      "path": "architecture-delete-refresh.json",
+      "bytes": 258851,
+      "sha256": "707501491C47AD73DB0B679BA4A9F404E17E53DD1E957005332E30CA524A9F0D",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/ready.json",
+      "bytes": 5263,
+      "sha256": "3EB7BF293A06686A870D2FE26E03B0808BFA4D68CE3A845EA535A543125D5DEF",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/chat-store-snapshots/20261025T152327532Z-delete-initial-three.json",
+      "bytes": 11790,
+      "sha256": "430B04D6F46BB621823BE3595D37D0A712DDDC08EB48DCED989780E9D6200AF0",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/chat-store-snapshots/20261025T152542542Z-delete-after-a.json",
+      "bytes": 8781,
+      "sha256": "36D1F1B75691C2C32E2D42946C876C9CD44A71618E215FE2BB3076202282135C",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/chat-store-snapshots/20261025T152656449Z-delete-after-b.json",
+      "bytes": 5315,
+      "sha256": "011DDEACFA177D30619DBA0ACF2786F4AD855D652F3C275406E15ACA8065D688",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/chat-store-snapshots/20261025T152730951Z-delete-after-c.json",
+      "bytes": 2489,
+      "sha256": "FC28B7A3C862EB3DB29DE20082C00A79CE1C93853354FB856117D756EA7018E8",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/chat-store-snapshots/20261025T152806536Z-delete-refresh-before-d-green.json",
+      "bytes": 5164,
+      "sha256": "78251716638C8BF2BE2AF76A3F75AF5A4FDD360A56980DBFE6334B79231918BE",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/chat-store-snapshots/20261025T152943002Z-delete-refresh-after-d-green.json",
+      "bytes": 2164,
+      "sha256": "F0687BC305B8CE000EF0091C1D90B0B596851B2952046DD0E2716E1FB1CB77CC",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/chat-store-snapshots/20261025T153315753Z-delete-fixed-final-restart.json",
+      "bytes": 1557,
+      "sha256": "DB5E5DA961453D6B98A9AAEA38E9434D6F96597804A550968D17779B2CE36A74",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/deletion-sql-snapshots/00-empty-before-seed.json",
+      "bytes": 589,
+      "sha256": "A5625695A30A15F34504FFA02AF8880ACF960D98D5E7F2FBBFF4F7E600B4E8CC",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/deletion-sql-snapshots/01-three-seeded.json",
+      "bytes": 3529,
+      "sha256": "7C8B4D43D83ABAD4AC7B0E0FDB21AEA2E9AB3A077E836BDB29B9AF6968EC0031",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/deletion-sql-snapshots/03-after-delete-a.json",
+      "bytes": 2743,
+      "sha256": "821B414528A07DB41989019EB61E59C5AEEC02A64BEFE02523E2915121FEFF47",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/deletion-sql-snapshots/04-after-delete-b.json",
+      "bytes": 1954,
+      "sha256": "62D9A8E3A860741A0E8F276C5F4248BD92F64BFA3802C0D6DA9274F2C5FECC42",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/deletion-sql-snapshots/05-after-delete-c.json",
+      "bytes": 1520,
+      "sha256": "98BDDFB3C75F10B22E4B9DBB54AF0291F4C1B278BDE30503D5F744EF4F5CE9C9",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/deletion-sql-snapshots/06-after-delete-d-refresh-failure-green.json",
+      "bytes": 1710,
+      "sha256": "9F2D1750B57B3E91B37E7586D4CA75F51C9294B1D9570014FE4B30C47CB43F51",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/deletion-sql-snapshots/07-fixed-final-after-ui-restart.json",
+      "bytes": 1710,
+      "sha256": "6AB8AC469BD8FF5F58BB7CC7969DDCF672A3442DAA21175A848E0156E2A82657",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/deletion-sql-snapshots/after-refresh-seed-d.json",
+      "bytes": 2499,
+      "sha256": "18AA7A31B05834DB041B2897F0FDE16E30D4213AE0C2AF097FB84A0BD25F2C33",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/deletion-sql-snapshots/before-refresh-seed-d.json",
+      "bytes": 1520,
+      "sha256": "EDDC3DE9B2F5ABF1027EE8B6E27A0C69B0431EEAB37DE26BF9FF1CBDD4400139",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "native-ui/01-three-sessions-active-B-0.png",
+      "bytes": 70343,
+      "sha256": "5DC3996614CFC527C441F201D88172699BD9E3F379F336FA61B5D1B6A1EAEDD3",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/01-three-sessions-active-B.json",
+      "bytes": 3310,
+      "sha256": "7C33F25CB6741929F2EFF50735518ECBEEE7099B19C877274F85F1519AF09506",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "local-fixture-fixed/owned-stop-plan-fixed-with-refresh-proxy.json",
+      "bytes": 4437,
+      "sha256": "460BDDA8502F918DE047532F88E48CBA8493E06BD6D9CD00287D4F6C887DBCFC",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/owned-stop-plan-fixed-preflight.json",
+      "bytes": 3938,
+      "sha256": "51015D2B73298E6A5719AF326838F655850F003F9EB7DBEB5DE72674705D73F8",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/owned-stop-fixed-final-proof.json",
+      "bytes": 1372,
+      "sha256": "CE82DA04ED499F0CBD0871926C1A57AC28A085960A6A482135ECE1B2B87AB4DA",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/owned-stop-executed-fixed.json",
+      "bytes": 4301,
+      "sha256": "16FE5C12334B42DF5BD49D66A98534953EE27C99E96C0C470A0F101A7AD9F972",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture/deletion-sql-snapshots/after-refresh-seed-d.json",
+      "bytes": 2497,
+      "sha256": "05009C999EADCF17CAF95C2368E41AFDA50AE262DE6566BEB27EC1D5A3398FD2",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/deletion-sql-snapshots/before-refresh-seed-d.json",
+      "bytes": 1520,
+      "sha256": "8EB2DE6FCF6D8E3FD9E3A89E9AF88CA58E59600DE269BA123E056F93622320E9",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture-fixed/client-isolation.json",
+      "bytes": 535,
+      "sha256": "6305D2305307759446EBEBFA8FCF409D6735E1EBF6355D37A86194318EE73A4D",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/delete-fixed-post-restart-proof.json",
+      "bytes": 1299,
+      "sha256": "087993AADF315F5C961823AA964F9259D4626C2C599CB18626BA886C3AE990C1",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/delete-refresh-armed-d-green.json",
+      "bytes": 515,
+      "sha256": "31C82A84D3F47545F5197CB8F4B2863634CD6370B61F9246E8C331C29E336F03",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/delete-refresh-events-delete-refresh-green.jsonl",
+      "bytes": 3173,
+      "sha256": "4F63483ADC3222FFECBE32A4E6BF4B2DC0A9C33C5FF9EC8453BDD479BA7E574E",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/delete-refresh-green-selected-probes.json",
+      "bytes": 3300,
+      "sha256": "001EB69368C7C05E7864FDE2F7ADAEA8B1D6E39F3E07690BE29D2C48322DDD8B",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/delete-refresh-green-state-proof.json",
+      "bytes": 3261,
+      "sha256": "14762FD1865980A32C8023E092ECB1CAD5FDB3A5100C3DBAD712A3C6B3812611",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/delete-refresh-profile-green.json",
+      "bytes": 721,
+      "sha256": "27DA4548A33455E59C592BD4B00F0F9246F8280C9DC1F876FC11F19EFB0E189C",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "native-ui/02-inactive-A-delete-confirmation-0.png",
+      "bytes": 77599,
+      "sha256": "A251525C5D39D4D6616DCD1F4635610B043BA96B36E1BC3FE78F1DD1B76548D5",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "local-fixture-fixed/delete-refresh-proxy-delete-refresh-green.json",
+      "bytes": 794,
+      "sha256": "16B49CB66E33739CDF2D26544618518A93EA6158425BDC0EBEE12E711F017571",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/deletion-seed.json",
+      "bytes": 3429,
+      "sha256": "DB5365D48A67CB9D67B34DD67DDC7D9A13EAB7A07758D34D6B4C656AAD439A4D",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/deletion-step-a-verification.json",
+      "bytes": 3912,
+      "sha256": "2EDD1B7948E4FFECD57B69E957A2D2BF25E096EBB636ECEDCAB22CDC666E78E4",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/deletion-step-b-verification.json",
+      "bytes": 3128,
+      "sha256": "E9C98FC493F91A4552A068750F3CDAB7D96A436AC1066209AA68FC630655DDC2",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/deletion-step-c-verification.json",
+      "bytes": 2621,
+      "sha256": "115B4B7BD2A29DFEB782D5FD01F4CFD02F77F1386EB482F9AEDAB03B92F783E2",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "bytes": 7480,
+      "sha256": "EF8B41C5DCF00E98BEF1AE7FBAB5806B2554911AEE2F674FBC005F7FF6F0F62F",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/fixed-runtime-preflight.json",
+      "bytes": 722,
+      "sha256": "8D2255E378E7F55707690728A4BCEBEE12DB5DBA5A1580E090BF29E63AFA9977",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/last-session-setting-after-b.json",
+      "bytes": 491,
+      "sha256": "539F01B2722E9ADCC7BCCE9F86FF7D68A2F1540A6E8835EAA544C10E3645C6BA",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/last-session-setting-after-c.json",
+      "bytes": 489,
+      "sha256": "5733CD480CCB0802F8B02CED43CD939397BA307D378D54C88B2B0D9B96B09C62",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/no-model-final.json",
+      "bytes": 426,
+      "sha256": "9ED4F65DC583119C03493DAEB34F0766D969682B33E1391A48C2850A64970351",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture-fixed/delete-refresh-seed-d.json",
+      "bytes": 1013,
+      "sha256": "44B12D1E894B4191B21D787C1C7997437E1A616686F92A2EE9B9120338309B90",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "local-fixture/deletion-sql-snapshots/07-red-final-after-ui-recovery.json",
+      "bytes": 1710,
+      "sha256": "374811B1466F074EA3BF7F6D655D6B97D195E5CE35ACA90A965A84BEE3FE8A9C",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "native-ui/02-inactive-A-delete-confirmation.json",
+      "bytes": 3719,
+      "sha256": "255ED4A9FF9A5B5F50A78126E1435D931BB40C935C1DB65D82AF9BB4B306169A",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/03-inactive-A-removed-B-preserved.json",
+      "bytes": 3109,
+      "sha256": "0E2CF16AACD8225F53FABB9E007DE9EC6D42B7B6D47A4DAC34FC30E9E9DFDB2F",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/15-fixed-active-B-confirmation-0.png",
+      "bytes": 75716,
+      "sha256": "77670169CE4036574A294316B1C38B83E8B904B023D556377D130B5417BA8869",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/15-fixed-active-B-confirmation.json",
+      "bytes": 3409,
+      "sha256": "1DD6DF9432FE04ED17F84AC0560A4DEDE5DD2A7969780E21DA9220DBF5163090",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/16-fixed-B-removed-C-loaded-0.png",
+      "bytes": 64420,
+      "sha256": "64CF53C756F54D0256CDD12ED1A8B26054DE6CA3B66CF3DEC1721BFF114A8540",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/16-fixed-B-removed-C-loaded.json",
+      "bytes": 2910,
+      "sha256": "724EAD0D71966161D712B64F198EBDED45CDB8C745BD4ED9A08D52B9D626893D",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/17-fixed-last-C-confirmation-0.png",
+      "bytes": 71756,
+      "sha256": "318A628C43E820219EA11406D36F378058371EA8931125679101C8F4851655B2",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/17-fixed-last-C-confirmation.json",
+      "bytes": 3192,
+      "sha256": "DA2920BA84ADCE7562E8BE3EF704DB52EE6A33C5CE22BD43FD18F596A4C8E9C3",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/18-fixed-last-C-removed-empty-replacement-0.png",
+      "bytes": 43756,
+      "sha256": "3F0FC93A27AB61D6C05C463C4E1A6CBD2F4B0DD464060A09B43CEE4E28405E41",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/18-fixed-last-C-removed-empty-replacement.json",
+      "bytes": 2216,
+      "sha256": "B080E7237FE92955CBE7EA4A2823E401407FD6EAAB9C715848E74A10E06F6099",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/19-fixed-replacement-composer-usable-0.png",
+      "bytes": 47778,
+      "sha256": "6D913B184765BE5BA25206C0255504EEA56CBEF959F5BAF62CC203288A91226B",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/19-fixed-replacement-composer-usable.json",
+      "bytes": 2291,
+      "sha256": "58AB71E46C39B5EA90368693938DFE2878545A03588DD8281197015477323B36",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/20-fixed-refresh-fault-before-D-delete-0.png",
+      "bytes": 66749,
+      "sha256": "1935ABD4A3A0E11AAE465E1D3AC1DF201486F1D7F7174A069DC50E6978204B7E",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/20-fixed-refresh-fault-before-D-delete.json",
+      "bytes": 3115,
+      "sha256": "41BD4B7DD4840F024D5542CEA88E78F65A744C62B53176BBCE3EFADD3E7D7324",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/21-fixed-D-delete-confirmation-0.png",
+      "bytes": 73132,
+      "sha256": "03CAD4F7648B615DE3520449DBD00924CE93224D948214F8119F640666CD371D",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/21-fixed-D-delete-confirmation.json",
+      "bytes": 3438,
+      "sha256": "869268999B0724BF1952162260CAEF6074C53717D46BF976BDC9212939D642A6",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/22-fixed-refresh-fault-D-absent-R-loaded-exact-notice-0.png",
+      "bytes": 56648,
+      "sha256": "C99BB412B0820F1C84CAC0FCCD7816BEF3B1E868E01E352EE59EA67CE12F4B2C",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/22-fixed-refresh-fault-D-absent-R-loaded-exact-notice.json",
+      "bytes": 2672,
+      "sha256": "A9F5DA9756BDD82B331B29E4A9F708625AADCA5009D4E4E4ADEDC8850C128E21",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/23-fixed-refresh-fault-composer-usable-0.png",
+      "bytes": 60983,
+      "sha256": "F62D709E3A35CE69969DEF79C9E536FE79300793E6D724264D3284CEDE637F9F",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/23-fixed-refresh-fault-composer-usable.json",
+      "bytes": 2715,
+      "sha256": "05E5E5A55415712E80A7CCC9BE62BEE3DE4E15E9F60862EDFCAA940640C00B5C",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/24-fixed-restart-R-only-no-warning-0.png",
+      "bytes": 44552,
+      "sha256": "B3B06AAAF5D23D6463ECA0A63E6FE4D76ECEB317C9FE087860155FC5E775B6CB",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/14-fixed-A-removed-B-preserved.json",
+      "bytes": 3110,
+      "sha256": "D8DBF8F2071548AA6651324875BD5D88D56ECC3E29C721496B8B3363585A29A2",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/14-fixed-A-removed-B-preserved-0.png",
+      "bytes": 67540,
+      "sha256": "4640F80AC5891375D55AF5EDBC300D65B85270AEF411BCCB9A8485A85A6D0C94",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/13-fixed-inactive-A-confirmation.json",
+      "bytes": 3622,
+      "sha256": "F3FB0293F4F015DAC7694359ADFAEB4CE611E3501C739DF31FC6EEC6D25BCB35",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/13-fixed-inactive-A-confirmation-0.png",
+      "bytes": 76811,
+      "sha256": "094B902502C1820446A2264A8DB07CBC0D3B2C06119CCB8F80CC16157D479FDA",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/04-active-B-delete-confirmation-0.png",
+      "bytes": 76443,
+      "sha256": "F3641C093F98DC03CEB9A6264E1C48EAA8AF9510E18CFF3A0785D97B4CEF6FB5",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/04-active-B-delete-confirmation.json",
+      "bytes": 3398,
+      "sha256": "BD1AB13B0CB5ACEF84A849AD004F9E5C0D1069962149FFBBAA09D538E67F4F55",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/05-active-B-removed-C-loaded-0.png",
+      "bytes": 65607,
+      "sha256": "1ECA400CC80F3A62B488F0314AAB2E7718C5E3588896F4BA943837B399CBBFA0",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/05-active-B-removed-C-loaded.json",
+      "bytes": 2922,
+      "sha256": "C81EBEFA029C032441774A58083EFD7D88AEEDBF93D1048439FF0E229F14912D",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/06-last-C-delete-confirmation-0.png",
+      "bytes": 72314,
+      "sha256": "DD1D706F28E4A4F94A57F8ED792D477EFC0F8FE2DA0363B159B1AC2F43C13001",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/06-last-C-delete-confirmation.json",
+      "bytes": 3257,
+      "sha256": "8A08F69711E9A07A8662BF4C25D032C6202ACBAE690735BF97AFB3D42B0E978C",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/07-last-C-removed-new-empty-session-0.png",
+      "bytes": 44469,
+      "sha256": "C972FDB74FE42FA5340F1F871DD3FF5A9AB10FBF2E8BD28D7495AB62B5DE99D0",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/07-last-C-removed-new-empty-session.json",
+      "bytes": 2165,
+      "sha256": "7A3C58598A9157F201CBACB6214B9BF94C7751DE79D4D716CD9B7B017E6C03D8",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/08-new-session-composer-enabled-0.png",
+      "bytes": 48864,
+      "sha256": "39FDF9149B6C6E55A8CEC6CE8D9D7C0B98122B4C9499F58B18037F0701BB7B6B",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/03-inactive-A-removed-B-preserved-0.png",
+      "bytes": 68067,
+      "sha256": "5F5F61BC5F480B673BF76132B785A6DD25DF82B4637F30C255756300CBF4D2A8",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/08-new-session-composer-enabled.json",
+      "bytes": 2346,
+      "sha256": "3DF1C584088DB894A6244A24D324FBEA37A33C604E33F2A118A9C268F1DC3D27",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/09-refresh-fault-before-delete-D.json",
+      "bytes": 3126,
+      "sha256": "44AF8D3D9B732B8F2647849B665FF5881703081464F8AE6E821E4672C794EBB8",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/10-refresh-fault-stale-deleted-D-and-wrong-error-0.png",
+      "bytes": 52249,
+      "sha256": "0137DED60E00EF8D0194B554E00A673CE6138E6D54420F2A95832ABCB28B6636",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/10-refresh-fault-stale-deleted-D-and-wrong-error.json",
+      "bytes": 2794,
+      "sha256": "83BAB8584D9B7C64B65DB3556753B0FCC673D3F4D43B957AD984DF1F7AE6CCC5",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/10b-refresh-fault-exact-banner-0.png",
+      "bytes": 52249,
+      "sha256": "0137DED60E00EF8D0194B554E00A673CE6138E6D54420F2A95832ABCB28B6636",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/10b-refresh-fault-exact-banner.json",
+      "bytes": 2769,
+      "sha256": "19F55B1225F1412E1AB328ED8AAE50E5D37E4C534E64E802F17B6B261AF70B2B",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/11-red-recovery-by-surviving-session-0.png",
+      "bytes": 47522,
+      "sha256": "A4034B3D7F42C561E86C2380D2255BB7D2F4D7E42C46E8C5951AACF51F5BF4B4",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/11-red-recovery-by-surviving-session.json",
+      "bytes": 2431,
+      "sha256": "81A0A71E854E585017264BB3EB61A9B7FBE8973401A893C9BDE3299B638BFFA9",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/12-fixed-three-sessions-active-B-0.png",
+      "bytes": 70316,
+      "sha256": "B407529A77CA7E528C14C089310ACED58F6DDCD14D08E15CEE6B5AE64FF90915",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/12-fixed-three-sessions-active-B.json",
+      "bytes": 3282,
+      "sha256": "67AB6A28ACF080686689D57EA64DBD3667EFB09CC2392FD5C51F177E0404179C",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "native-ui/09-refresh-fault-before-delete-D-0.png",
+      "bytes": 67032,
+      "sha256": "DDA100A3D64CA2030379CD754F0C09B95A809BF554B5C9793F27114E09624B72",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "local-fixture/deletion-sql-snapshots/06-after-delete-d-refresh-failure.json",
+      "bytes": 1710,
+      "sha256": "FFD9B300722664B4CE4BFD6B97DF9BB7DCF48691D3361A22738584A0E78171C2",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/deletion-sql-snapshots/05-after-delete-c.json",
+      "bytes": 1520,
+      "sha256": "992F944E510E818BFBB6F4110711C778DC5F5727BD00610E332CA30D51DBBFD9",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/deletion-sql-snapshots/04-after-delete-b.json",
+      "bytes": 1954,
+      "sha256": "00352B6074B774225FE78A2BE67773FE3E622BA2C3E3D4A1079C9CFA736A5DE9",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "atomicity-green/run-proof.json",
+      "bytes": 2576,
+      "sha256": "D7E2D3977C227FE5CEDAF12E7EBAE87365993BCB9880328E43079617E53786EE",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "atomicity-green/run.log",
+      "bytes": 1265,
+      "sha256": "D7D928F8C56F841056B64ABC9BA0E15C7CC1ED170B5EA6B7EC5A4D51E1E24338",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "atomicity-red/atomicity-red.trx",
+      "bytes": 12522,
+      "sha256": "73B649111DA90EF6027093443F66AFDC39B3A2FD14779A978DE8AF9AE413C9CD",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "atomicity-red/run-proof.json",
+      "bytes": 632,
+      "sha256": "40436831DDF236FB087AD1554CCCDFDB230E82A9A6758FCDB853D8645C64A53A",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "atomicity-red/run.log",
+      "bytes": 4409,
+      "sha256": "50AC98B0F0541BE342ADEC33F29CDB822C94A7E483A4DB1E2877D88CF5FB777A",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "client-delete-refresh-tests-01/Client-f6a426eb40964c0bbe55c3f68788ac66.log",
+      "bytes": 2619,
+      "sha256": "D36EAA9A1A41309F87114D5F85D6A86C38DD5CBFF33EBF9DF3DB2EBD25482562",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "client-delete-refresh-tests-01/Client-f6a426eb40964c0bbe55c3f68788ac66.trx",
+      "bytes": 36260,
+      "sha256": "1511871BD3B29B7FD4A2E7D6EC737131965A2E9B9A693746B04C16000947FCB6",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "client-delete-refresh-tests-01/manifest.json",
+      "bytes": 9996,
+      "sha256": "44100A308C4FA86EFD2C486AC63646CEB0C422724E47766756D33483ED0439DB",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "client-delete-refresh-tests-01/source-files-f6a426eb40964c0bbe55c3f68788ac66-after.json",
+      "bytes": 299721,
+      "sha256": "9136FBEFFE7B9636B489E087A7B7B085C119E6B1A85F75699BD684019F168449",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "client-delete-refresh-tests-01/source-files-f6a426eb40964c0bbe55c3f68788ac66-before.json",
+      "bytes": 299721,
+      "sha256": "9136FBEFFE7B9636B489E087A7B7B085C119E6B1A85F75699BD684019F168449",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "client-delete-refresh-tests-01/client-data/logs/client_startup.log",
+      "bytes": 17523,
+      "sha256": "29E43308D6221993C4CF820A5BE496F3AC5911871000B1D06C739832F9282A9E",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "client-delete-refresh-tests-02/Client-018f9d31e33c4756811a5eed82509609.log",
+      "bytes": 1433,
+      "sha256": "077F58752160B31C9A1EABA5F2AD43DE8DBA17E08B2D8489CB59C9E1661277D7",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "client-delete-refresh-tests-02/Client-018f9d31e33c4756811a5eed82509609.trx",
+      "bytes": 33946,
+      "sha256": "A465998341E9A771E54C08AC7FABE932BD2AEB1DBFDE60426C0AF645661E15B2",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "client-delete-refresh-tests-02/manifest.json",
+      "bytes": 9996,
+      "sha256": "6F657CDE2899CECAAEB7764002A47E7A2E0AAA56DC4B84EEC860F37F1164619C",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "client-delete-refresh-tests-02/source-files-018f9d31e33c4756811a5eed82509609-after.json",
+      "bytes": 299721,
+      "sha256": "B37ED3577A312292E829FB7EC33F9D338C3B2D94B5E900EF5A7CE76CA2B8D50D",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "client-delete-refresh-tests-02/source-files-018f9d31e33c4756811a5eed82509609-before.json",
+      "bytes": 299721,
+      "sha256": "B37ED3577A312292E829FB7EC33F9D338C3B2D94B5E900EF5A7CE76CA2B8D50D",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "client-delete-refresh-tests-02/client-data/logs/client_startup.log",
+      "bytes": 17526,
+      "sha256": "E26D5D01682E78354200D4FEE33189CCBC0FF2EB02F51C5E870760B1A24611B7",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "final-unit/Backend-144c5110c7394f288da4098296e610a5.log",
+      "bytes": 1201,
+      "sha256": "41712ABFACC2F8A977151DAEF1F1E432CBEC825954906A1630E20E0999DE6A70",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "final-unit/Backend-144c5110c7394f288da4098296e610a5.trx",
+      "bytes": 3759942,
+      "sha256": "35CD2E219157A6BEDCD7306CC20DE13D0B4A6F999583E0BA0B856A47E4BB85E8",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "atomicity-green/atomicity-green.trx",
+      "bytes": 12523,
+      "sha256": "258D4BE79B811BBE238E524A927C8AF26F45B1BC76C0E02C1A765D79DBB7A077",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "verify-full-unit-production-anchor.ps1",
+      "bytes": 7335,
+      "sha256": "9D10FA62A1B59923871F800F482522DA3F2E6ADD92E90FFDECF018A3D1AD20B9",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "REVUE-FINALE-CODE-ET-VARIANTES.md",
+      "bytes": 9781,
+      "sha256": "E4A099999398A548B0EB1D8198156E0AF9AA6E1D6921C951B5B77A1BB53EEA0B",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "RAPPORT-COMPLEMENT-SUPPRESSIONS-2026-10-25.md",
+      "bytes": 13458,
+      "sha256": "6AA36B7D89896ACEA6E6CD6E7C17389251F5E3124C3A71368796BCDEFB4EA628",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "atomicity-causal-proof.json",
+      "bytes": 6544,
+      "sha256": "F4F0492F1373C8F17980D6CD92EDB747CF2C8C2FD92E826A6078F8C55198DA1D",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "client-launch-01-delete.json",
+      "bytes": 914,
+      "sha256": "FE03789A1BDC4BF0FC4841DCDC261E08D11F0DC5EEE9A24EF1F84C4C71BFD8AB",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "client-launch-02-delete-refresh-red.json",
+      "bytes": 941,
+      "sha256": "73E384F70A9242D5953B4CD25BA545C7DD4769DD363CD07FDB508516F8004E93",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "client-launch-03-delete-fixed.json",
+      "bytes": 926,
+      "sha256": "0B4358F6680B9C1A01A699BB620A8F4975EA880758C2B1911DB7D4C1D8533705",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "client-launch-04-delete-refresh-green.json",
+      "bytes": 965,
+      "sha256": "B8AE5B78A24240ECB35928DAF6C3083813AFDF3B2C0532818C7AC208EFC7040A",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "client-launch-05-after-delete-refresh-restart.json",
+      "bytes": 964,
+      "sha256": "282C99E8CDCF98DCB976A17D3CF52DD011702C46A61252D02007D2D7A3482C4B",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "delete-execution-matrix-final.json",
+      "bytes": 8670,
+      "sha256": "AE83570E43CC48E150715A3F78A3C88321EDF38C98650E2265A58EDE5BCFC8A2",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "delete-execution-matrix-observed-red.json",
+      "bytes": 6177,
+      "sha256": "1B929D31E440E674297CD9DED825BF0F5D15EA108B88CDE254238ACC522F1212",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "delete-execution-matrix.json",
+      "bytes": 5885,
+      "sha256": "8CB66E480AF3089F53FDA1516B85B833909C2EBC074F6D726ECAC6F4802DD2F0",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "final-unit/Client-144c5110c7394f288da4098296e610a5.log",
+      "bytes": 1423,
+      "sha256": "F3787D7B43096EE73CCE4B5AE52DC0F8F1E87C79AED76E37FA3FC4EB045A693C",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "delete-refresh-tooling-check.json",
+      "bytes": 654,
+      "sha256": "909884D87E32599F2804FC6D416D4306DB122F22AEEA21EE69B03B079A0DC565",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "final-unit-console.log",
+      "bytes": 145,
+      "sha256": "AAD1E7D1A49A903A836057897AFACB1814A8B373137C9E9A35EA5AC4B49607FC",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "full-unit-production-anchor.json",
+      "bytes": 210992,
+      "sha256": "05E7402BF672C6D7248FF3BC1D83406055CB05E20454A64EC006E4B64C47BCA8",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "normal-profile-after-fixed-native-tests-comparison.json",
+      "bytes": 1699,
+      "sha256": "2A2C1ECD1260A854E51160BA0A8926EAD8E09E950DE61490375F2D310F7813A6",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "normal-profile-before-fixed-tests-covered-self-check.json",
+      "bytes": 1699,
+      "sha256": "2D71CA4E884164CF3BE1B072837906C9EAAEC100FF3D648EE9A1FF09B613557E",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "normal-profile-before-fixed-tests-covered-summary.json",
+      "bytes": 837,
+      "sha256": "2E16C06EB8E332C539AF44EE7A0EEB0E35DDD33C05F5B3435FFFFF8A992A96BA",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "normal-profile-since-prior-post-append-baseline.json",
+      "bytes": 1699,
+      "sha256": "899CFA4B4EF9904B9EEFFB54A3777F621E9641FEAF789CA40F8DC5E2903363E4",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "production-backend-build.log",
+      "bytes": 355,
+      "sha256": "D10E49471CE33AFFE50E7B91E443685717226AF2F6280BF427981240E32030A6",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "production-client-build09.log",
+      "bytes": 543,
+      "sha256": "8955346927250C27C5EE65A70F5EBE99101C4C9B01A63266B95A1FE317B31C40",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "RAPPORT-ATOMICITE-SUPPRESSION.md",
+      "bytes": 4051,
+      "sha256": "951DC523C1CD50B951DEA64F747A12ABBD70E1BDBA2E4962C84130DF4499E1E5",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "delete-source-review.md",
+      "bytes": 5314,
+      "sha256": "799CFA52B3201800819F868B30E57CC3A9850CACAD6CD62F4796FB811ADA8495",
+      "role": "structured_proof_report_or_anchor"
+    },
+    {
+      "path": "final-unit/Client-144c5110c7394f288da4098296e610a5.trx",
+      "bytes": 3933680,
+      "sha256": "39F59693653F0D905C09828B313C4D3DAEE00BFB57ED1C97D2F8669B5AD3BFF5",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "final-unit/ClientCore-144c5110c7394f288da4098296e610a5.log",
+      "bytes": 1061,
+      "sha256": "7EFDAF47FDFC7CD4FD629AFF0E6674CC10410BC12F067ACE06BD76A604A9A0EE",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "final-unit/ClientCore-144c5110c7394f288da4098296e610a5.trx",
+      "bytes": 125277,
+      "sha256": "0140FC1FF4DB9CEA89929B3BE8644DCAC6D532973BFDD8A9D7C7B82BDC63795C",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "local-fixture/owned-stop-executed-red.json",
+      "bytes": 4293,
+      "sha256": "B9F1E23D0FE96A28F4E8D61110EFC3394B863585F695C0F6645E78A03BCA2FB8",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/owned-stop-plan-preflight.json",
+      "bytes": 3936,
+      "sha256": "69BF258278DA3C590CC0AB217F8B11D1BA39C1EC3D14CEC9CC3F28549C375989",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/owned-stop-plan-red-final.json",
+      "bytes": 4292,
+      "sha256": "1EDFCE87DBE73A10A262985F453FF8EFF5514939183EC776FA3EBB19839824C4",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/owned-stop-plan-with-refresh-proxy.json",
+      "bytes": 4292,
+      "sha256": "F41A4BF5AB2AF799E010CCBB04FA7EE95AD1774DD2BACC069C7413A9FB661611",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/owned-stop-red-final-proof.json",
+      "bytes": 1369,
+      "sha256": "15BAC0C391DFC6FC06311790306317467BB29B355429B0AC908A0B506BCACBDA",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/ready.json",
+      "bytes": 5264,
+      "sha256": "621ECFBC808D7801D9561B972536163E46DB2BACB6EF30255707ED59DBCFEEEA",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "bytes": 8158,
+      "sha256": "4AE876B9E2CDCD2153F1037DFF19F50FF2030CD534CF54C48814C4D5BAD25DA1",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/tooling-empty-collection-proof.json",
+      "bytes": 1072,
+      "sha256": "9DF9FF0CB29F044B8A985A28C1B92BA4901AAE3A16B5307C5DE317ABD6E722AB",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/chat-store-snapshots/20261025T150321162Z-delete-initial-three.json",
+      "bytes": 11790,
+      "sha256": "9537AA64A94F90A57B435DE326514B8A5C1D681AC05F6AFD2A8D082413E991D5",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/no-model-final.json",
+      "bytes": 424,
+      "sha256": "3D2C5F8CCA454CEB2C4446C5CD5AE74B542743D6456DAA8F4C8C76F198403E05",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/chat-store-snapshots/20261025T150606266Z-delete-after-a.json",
+      "bytes": 8775,
+      "sha256": "BC38024B0E82A9942BD3A66D812A661E69D8640FF1910ABA36A3218D572FD82B",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/chat-store-snapshots/20261025T150936295Z-delete-after-c.json",
+      "bytes": 2483,
+      "sha256": "4821EE0E1BC9CAD88D7B20A435A8D3896DE1AEB1AC9161F232CA88EED1F8A9D3",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/chat-store-snapshots/20261025T151154265Z-delete-refresh-before-d.json",
+      "bytes": 5161,
+      "sha256": "0584D7FB33C0D085FB552D8EFB5898CC883D1E887F23A5CE9D5ED238F8E6E83F",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/chat-store-snapshots/20261025T151355273Z-delete-refresh-after-d.json",
+      "bytes": 2152,
+      "sha256": "AA48DB300A267D03A466C086FC6455B4CE1B5C1EBA2CE32D18D3AEF4C48F21A8",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/chat-store-snapshots/20261025T151813317Z-delete-red-final-recovery.json",
+      "bytes": 1557,
+      "sha256": "A10745474D138A1E669C7306D97877989E30946DF90A36A8E33C1509C0ED9E89",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/deletion-sql-snapshots/00-empty-before-seed.json",
+      "bytes": 561,
+      "sha256": "3EF736D42A972C3671B169D60D5070F953884D66EA622A1601260E2EB8214254",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/deletion-sql-snapshots/00b-partial-recovery-preflight.json",
+      "bytes": 1543,
+      "sha256": "0A3DFF4D75D99377A5367DB54C3B23C33E76B8DD1FB2CEF4DF29ECEAA3914501",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/deletion-sql-snapshots/01-three-seeded.json",
+      "bytes": 3501,
+      "sha256": "393823C71357DFEBEC56364041AE4C78235074DEE3F6A3ED3FF09CD35137C946",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/deletion-sql-snapshots/02-before-native-deletions.json",
+      "bytes": 3529,
+      "sha256": "2B280E04A5E2E9ADE96FEC4176DC3F0489FC0420C322497F228429F40537F050",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/deletion-sql-snapshots/03-after-delete-a.json",
+      "bytes": 2743,
+      "sha256": "A733B6DF283EA2F166B7AE4B2E70669623EBFE88BADC369CF3A9B43A59749BCA",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/chat-store-snapshots/20261025T150805938Z-delete-after-b.json",
+      "bytes": 5309,
+      "sha256": "BE0378BB7A346555445FE236CFF2D6B9DF7A130F595C8AD2635B1134842F0FA0",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "native-ui/24-fixed-restart-R-only-no-warning.json",
+      "bytes": 2173,
+      "sha256": "91658CD95167B3C030C9DC89918D010231BFF77DB3275216FEE716215451E57A",
+      "role": "native_ui_observation_root_reviewed"
+    },
+    {
+      "path": "local-fixture/no-model-baseline.json",
+      "bytes": 418,
+      "sha256": "C52A437D1682D0CAEC25A64333453BC4C8DD41E9E8A07CB337AC7F0DF2D4147A",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/last-session-setting-after-c.json",
+      "bytes": 489,
+      "sha256": "5E8EB8E32CFB5717384CDC48832E98DF167C06A237073C5A3E8744DD86A9EFED",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "final-unit/Contracts-144c5110c7394f288da4098296e610a5.log",
+      "bytes": 919,
+      "sha256": "3D54823A85862F18FFE10FC54CC352DB981620D42704B0D23131B9C37BE80043",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "final-unit/Contracts-144c5110c7394f288da4098296e610a5.trx",
+      "bytes": 31009,
+      "sha256": "E15FC29AB4C14C9BB5CDBE5629ACA3B41089B08784C868F560C090C6831D3EB1",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "final-unit/manifest.json",
+      "bytes": 1352912,
+      "sha256": "816550A86DE376D9862DF71AE68217391C3E115E28B1180858E896B4F421A88B",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "final-unit/source-files-144c5110c7394f288da4098296e610a5-after.json",
+      "bytes": 299721,
+      "sha256": "B37ED3577A312292E829FB7EC33F9D338C3B2D94B5E900EF5A7CE76CA2B8D50D",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "final-unit/source-files-144c5110c7394f288da4098296e610a5-before.json",
+      "bytes": 299721,
+      "sha256": "B37ED3577A312292E829FB7EC33F9D338C3B2D94B5E900EF5A7CE76CA2B8D50D",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "final-unit/client-data/client/secure.json",
+      "bytes": 188,
+      "sha256": "57DEE3573EBC89AAE4E0951E756E1FAC6C5902EEDA590D88C869FB5044773169",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "final-unit/client-data/logs/client_startup.log",
+      "bytes": 532739,
+      "sha256": "8091DCC433CE33F99D571912A5D7F010F3A72D8CB2E05060FA9889644D204A6A",
+      "role": "accepted_test_evidence"
+    },
+    {
+      "path": "local-fixture/atomicity-databases-cleanup-independent-proof.json",
+      "bytes": 409,
+      "sha256": "91ADE6F38F6E64A8DBAD1784596DE1050B0DF24031B371FA0B42C73812E794DE",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/client-isolation.json",
+      "bytes": 529,
+      "sha256": "71D167A6ACB788198DE21A78A6488BC3AFA217CABE5D90E001D842FBC1EC4F50",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/last-session-setting-red-recovery-r.json",
+      "bytes": 423,
+      "sha256": "79ED48C86CE0DBDB890E56CBF2E7CD51E7F39E583131487B04365B8120BBA213",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/delete-refresh-armed-d.json",
+      "bytes": 524,
+      "sha256": "F7F04F4C3E51B3DC17D4E4CFD346B26D0D49901069A05F898FB4886C07FFDB27",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/delete-refresh-profile.json",
+      "bytes": 703,
+      "sha256": "D246D7315E72DFAD1A7F0F597E53DE6812FB0B8F0E6E388591114E53602D72F3",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/delete-refresh-proxy-delete-refresh.json",
+      "bytes": 776,
+      "sha256": "7FEE9FE72BB65DE599FCD557B78EA6EA5BA70E6509C49F1D0402386BDE6AA963",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/delete-refresh-red-state-proof.json",
+      "bytes": 2424,
+      "sha256": "3A3201011073F6C38D50E9B94EE850445B58854AAC7F1CA67E662F1146E5D87E",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/delete-refresh-seed-d.json",
+      "bytes": 1013,
+      "sha256": "6DB0C762CC424BA13550B6DCA93C4D79A698508C0AEBC2034D5C943C6A0A79A4",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/deletion-seed.json",
+      "bytes": 3422,
+      "sha256": "879ED9B05DDF32C2F22F39891075F6FE45C051F6645422F18BC42F619A6F1156",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/deletion-step-a-verification.json",
+      "bytes": 3815,
+      "sha256": "8770C0769AC9BD84BAD26486DBF473F95E465EE64E890E85751AA76B88D97645",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/deletion-step-b-verification.json",
+      "bytes": 3031,
+      "sha256": "42B499BBE574E816BAE08E747071DC95DADD6C413FD563CA8422B1EBCA42E571",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/deletion-step-c-verification.json",
+      "bytes": 2621,
+      "sha256": "A64C0C689D84425F552600BD486D132B60DBB4A230022BFFD32F5256F0181476",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/last-session-setting-after-b.json",
+      "bytes": 491,
+      "sha256": "BE2EBE4147CBCE229075D796ADB0162DDC8FB83A4341AB80EED40BE537EF5074",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "local-fixture/delete-refresh-events-delete-refresh.jsonl",
+      "bytes": 2373,
+      "sha256": "2BCB4BB4AB11A2677F0D80685285A3204C3DAE6657F02BC3139BA95DCC11B454",
+      "role": "historical_or_red_evidence_preserved"
+    },
+    {
+      "path": "native-ui/observations.jsonl",
+      "bytes": 7563,
+      "sha256": "0E609E0439F9007DF139E4A27A3B06BA0DA87BB99DF87A9D586A169E5C568A5C",
+      "role": "native_ui_observation_root_reviewed"
+    }
+  ],
+  "selectionManifestNotIncludedInItsOwnHashInventory": true,
+  "policy": [
+    "Only structured public proof, reviewed native screenshots, test TRX/logs, reports and existing artifact verification script selected.",
+    "Exclude all runtime, private-user-profile/private-native-ui, owned environment manifests, raw backend/initdb/postgres-stop logs.",
+    "Preserve rejected RED cases and corrected descriptive notes as historical evidence.",
+    "This selection file is new; reports/projections and prior525proofs were not modified."
+  ],
+  "credentialScan": {
+    "unapprovedProviderKeyPatternMatches": 0,
+    "uniqueFixtureSecretValuesComparedInMemory": 4,
+    "testedEncodings": [
+      "UTF-8",
+      "UTF-16LE",
+      "XML-escaped UTF-8"
+    ],
+    "credentialMatches": 0,
+    "additionalUniqueProtectedOrCredentialStrings": 4,
+    "secretValuesOrHashesPublished": false,
+    "imageLimitation": "Binary string scan does not inspect pixels; root explicitly reviewed all selected synthetic WinUI captures01-24.",
+    "fixtures": 2
+  },
+  "nativeEvidence": {
+    "observationJsonCount": 25,
+    "screenshotReferencesVerified": 25,
+    "rootReviewAuthorization": "Root explicitly confirmed native01-24 show only synthetic WinUI and may be selected."
+  },
+  "referenceHashChecks": [
+    {
+      "source": "atomicity-causal-proof.json",
+      "target": "atomicity-red/atomicity-red.trx",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "atomicity-causal-proof.json",
+      "target": "atomicity-red/run.log",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "atomicity-causal-proof.json",
+      "target": "atomicity-red/run-proof.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "atomicity-causal-proof.json",
+      "target": "atomicity-green/atomicity-green.trx",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "atomicity-causal-proof.json",
+      "target": "atomicity-green/run.log",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "atomicity-causal-proof.json",
+      "target": "atomicity-green/run-proof.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "client-delete-refresh-tests-01/manifest.json",
+      "target": "client-delete-refresh-tests-01/Client-f6a426eb40964c0bbe55c3f68788ac66.trx",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "client-delete-refresh-tests-02/manifest.json",
+      "target": "client-delete-refresh-tests-02/Client-018f9d31e33c4756811a5eed82509609.trx",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "final-unit/manifest.json",
+      "target": "final-unit/Backend-144c5110c7394f288da4098296e610a5.trx",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "final-unit/manifest.json",
+      "target": "final-unit/Contracts-144c5110c7394f288da4098296e610a5.trx",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "final-unit/manifest.json",
+      "target": "final-unit/ClientCore-144c5110c7394f288da4098296e610a5.trx",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "final-unit/manifest.json",
+      "target": "final-unit/Client-144c5110c7394f288da4098296e610a5.trx",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/deletion-seed.json",
+      "target": "local-fixture/deletion-sql-snapshots/01-three-seeded.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/deletion-step-a-verification.json",
+      "target": "local-fixture/chat-store-snapshots/20261025T150606266Z-delete-after-a.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/deletion-step-a-verification.json",
+      "target": "local-fixture/deletion-sql-snapshots/03-after-delete-a.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/deletion-step-b-verification.json",
+      "target": "local-fixture/chat-store-snapshots/20261025T150805938Z-delete-after-b.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/deletion-step-b-verification.json",
+      "target": "local-fixture/deletion-sql-snapshots/04-after-delete-b.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/deletion-step-c-verification.json",
+      "target": "local-fixture/chat-store-snapshots/20261025T150936295Z-delete-after-c.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/deletion-step-c-verification.json",
+      "target": "local-fixture/deletion-sql-snapshots/05-after-delete-c.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/atomicity-databases-cleanup-independent-proof.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/chat-store-snapshots/20261025T150321162Z-delete-initial-three.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/chat-store-snapshots/20261025T150606266Z-delete-after-a.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/chat-store-snapshots/20261025T150805938Z-delete-after-b.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/chat-store-snapshots/20261025T150936295Z-delete-after-c.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/chat-store-snapshots/20261025T151154265Z-delete-refresh-before-d.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/chat-store-snapshots/20261025T151355273Z-delete-refresh-after-d.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/chat-store-snapshots/20261025T151813317Z-delete-red-final-recovery.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/client-isolation.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/delete-refresh-armed-d.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/delete-refresh-events-delete-refresh.jsonl",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/delete-refresh-profile.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/delete-refresh-proxy-delete-refresh.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/delete-refresh-red-state-proof.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/delete-refresh-seed-d.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/deletion-seed.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/deletion-sql-snapshots/00-empty-before-seed.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/deletion-sql-snapshots/00b-partial-recovery-preflight.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/deletion-sql-snapshots/01-three-seeded.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/deletion-sql-snapshots/02-before-native-deletions.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/deletion-sql-snapshots/03-after-delete-a.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/deletion-sql-snapshots/04-after-delete-b.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/deletion-sql-snapshots/05-after-delete-c.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/deletion-sql-snapshots/06-after-delete-d-refresh-failure.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/deletion-sql-snapshots/07-red-final-after-ui-recovery.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/deletion-sql-snapshots/after-refresh-seed-d.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/deletion-sql-snapshots/before-refresh-seed-d.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/deletion-step-a-verification.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/deletion-step-b-verification.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/deletion-step-c-verification.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/environment.json",
+      "recordedHashVerified": true,
+      "includedInSelection": false,
+      "exclusionReason": "Owned environment manifest excluded by publication policy."
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/last-session-setting-after-b.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/last-session-setting-after-c.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/last-session-setting-red-recovery-r.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/no-model-baseline.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/no-model-final.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/owned-stop-executed-red.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/owned-stop-plan-preflight.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/owned-stop-plan-red-final.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/owned-stop-plan-with-refresh-proxy.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/owned-stop-red-final-proof.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/ready.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/tooling-empty-collection-proof.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/delete-refresh-green-selected-probes.json",
+      "target": "local-fixture-fixed/runtime/probe-captures/delete-refresh-green-client.log",
+      "recordedHashVerified": true,
+      "includedInSelection": false,
+      "exclusionReason": "Private runtime counterpart retained locally, not packaged."
+    },
+    {
+      "source": "local-fixture-fixed/deletion-seed.json",
+      "target": "local-fixture-fixed/deletion-sql-snapshots/01-three-seeded.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/deletion-step-a-verification.json",
+      "target": "local-fixture-fixed/chat-store-snapshots/20261025T152542542Z-delete-after-a.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/deletion-step-a-verification.json",
+      "target": "local-fixture-fixed/deletion-sql-snapshots/03-after-delete-a.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/deletion-step-b-verification.json",
+      "target": "local-fixture-fixed/chat-store-snapshots/20261025T152656449Z-delete-after-b.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/deletion-step-b-verification.json",
+      "target": "local-fixture-fixed/deletion-sql-snapshots/04-after-delete-b.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/deletion-step-c-verification.json",
+      "target": "local-fixture-fixed/chat-store-snapshots/20261025T152730951Z-delete-after-c.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/deletion-step-c-verification.json",
+      "target": "local-fixture-fixed/deletion-sql-snapshots/05-after-delete-c.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/chat-store-snapshots/20261025T152327532Z-delete-initial-three.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/chat-store-snapshots/20261025T152542542Z-delete-after-a.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/chat-store-snapshots/20261025T152656449Z-delete-after-b.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/chat-store-snapshots/20261025T152730951Z-delete-after-c.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/chat-store-snapshots/20261025T152806536Z-delete-refresh-before-d-green.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/chat-store-snapshots/20261025T152943002Z-delete-refresh-after-d-green.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/chat-store-snapshots/20261025T153315753Z-delete-fixed-final-restart.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/client-isolation.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/delete-fixed-post-restart-proof.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/delete-refresh-armed-d-green.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/delete-refresh-events-delete-refresh-green.jsonl",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/delete-refresh-green-selected-probes.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/delete-refresh-green-state-proof.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/delete-refresh-profile-green.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/delete-refresh-proxy-delete-refresh-green.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/delete-refresh-seed-d.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/deletion-seed.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/deletion-sql-snapshots/00-empty-before-seed.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/deletion-sql-snapshots/01-three-seeded.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/deletion-sql-snapshots/03-after-delete-a.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/deletion-sql-snapshots/04-after-delete-b.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/deletion-sql-snapshots/05-after-delete-c.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/deletion-sql-snapshots/06-after-delete-d-refresh-failure-green.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/deletion-sql-snapshots/07-fixed-final-after-ui-restart.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/deletion-sql-snapshots/after-refresh-seed-d.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/deletion-sql-snapshots/before-refresh-seed-d.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/deletion-step-a-verification.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/deletion-step-b-verification.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/deletion-step-c-verification.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/environment.json",
+      "recordedHashVerified": true,
+      "includedInSelection": false,
+      "exclusionReason": "Owned environment manifest excluded by publication policy."
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/fixed-runtime-preflight.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/last-session-setting-after-b.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/last-session-setting-after-c.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/no-model-final.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/owned-stop-executed-fixed.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/owned-stop-fixed-final-proof.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/owned-stop-plan-fixed-preflight.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/owned-stop-plan-fixed-with-refresh-proxy.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/ready.json",
+      "recordedHashVerified": true,
+      "includedInSelection": true,
+      "exclusionReason": null
+    }
+  ],
+  "referenceHashCheckCount": 109,
+  "excludedHashedReferences": [
+    {
+      "source": "local-fixture/red-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture/environment.json",
+      "recordedHashVerified": true,
+      "includedInSelection": false,
+      "exclusionReason": "Owned environment manifest excluded by publication policy."
+    },
+    {
+      "source": "local-fixture-fixed/delete-refresh-green-selected-probes.json",
+      "target": "local-fixture-fixed/runtime/probe-captures/delete-refresh-green-client.log",
+      "recordedHashVerified": true,
+      "includedInSelection": false,
+      "exclusionReason": "Private runtime counterpart retained locally, not packaged."
+    },
+    {
+      "source": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+      "target": "local-fixture-fixed/environment.json",
+      "recordedHashVerified": true,
+      "includedInSelection": false,
+      "exclusionReason": "Owned environment manifest excluded by publication policy."
+    }
+  ],
+  "excludedCategoryCounts": {
+    "privateOrRuntime": 2782,
+    "rawRuntimeLogs": 8,
+    "nonEvidenceExtension": 0,
+    "environmentOwner": 2
+  },
+  "priorCampaign": {
+    "gitDiffAgainstHead": false,
+    "trackedFiles": 525,
+    "path": "artifacts/winui-validation-20261025",
+    "checkedReadOnly": true
+  },
+  "gitIndexOrHistoryModified": false,
+  "productStatus": "TESTE_NON_APPROUVE",
+  "limits": [
+    "Source/tooling commit81c8028 was delivered separately; this proof does not stage or commit these files.",
+    "Structured references to intentionally excluded local counterparts remain explicitly declared; the file is not falsely claimed to be packaged.",
+    "Binary hashes recorded historically by test manifests are not revalidated against overwritten current build output as though the historical DLL were still present.",
+    "No Terra or semantic approval is inferred."
+  ]
+}

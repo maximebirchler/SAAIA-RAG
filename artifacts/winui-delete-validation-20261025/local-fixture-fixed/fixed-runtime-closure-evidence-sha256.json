@@ -1,0 +1,205 @@
+{
+  "schemaVersion": "saaia-winui-delete-fixed-closure-evidence-hashes.v1",
+  "capturedAtUtc": "2026-10-25T15:33:40.5462882+00:00",
+  "environmentRunId": "ab115805927241e3bf8746cde32d4039",
+  "runtimeState": "stopped",
+  "scope": "Public structured fixture evidence outside runtime; raw backend/initdb logs and runtime private files excluded",
+  "fileCount": 39,
+  "files": [
+    {
+      "path": "chat-store-snapshots/20261025T152327532Z-delete-initial-three.json",
+      "bytes": 11790,
+      "sha256": "430B04D6F46BB621823BE3595D37D0A712DDDC08EB48DCED989780E9D6200AF0"
+    },
+    {
+      "path": "chat-store-snapshots/20261025T152542542Z-delete-after-a.json",
+      "bytes": 8781,
+      "sha256": "36D1F1B75691C2C32E2D42946C876C9CD44A71618E215FE2BB3076202282135C"
+    },
+    {
+      "path": "chat-store-snapshots/20261025T152656449Z-delete-after-b.json",
+      "bytes": 5315,
+      "sha256": "011DDEACFA177D30619DBA0ACF2786F4AD855D652F3C275406E15ACA8065D688"
+    },
+    {
+      "path": "chat-store-snapshots/20261025T152730951Z-delete-after-c.json",
+      "bytes": 2489,
+      "sha256": "FC28B7A3C862EB3DB29DE20082C00A79CE1C93853354FB856117D756EA7018E8"
+    },
+    {
+      "path": "chat-store-snapshots/20261025T152806536Z-delete-refresh-before-d-green.json",
+      "bytes": 5164,
+      "sha256": "78251716638C8BF2BE2AF76A3F75AF5A4FDD360A56980DBFE6334B79231918BE"
+    },
+    {
+      "path": "chat-store-snapshots/20261025T152943002Z-delete-refresh-after-d-green.json",
+      "bytes": 2164,
+      "sha256": "F0687BC305B8CE000EF0091C1D90B0B596851B2952046DD0E2716E1FB1CB77CC"
+    },
+    {
+      "path": "chat-store-snapshots/20261025T153315753Z-delete-fixed-final-restart.json",
+      "bytes": 1557,
+      "sha256": "DB5E5DA961453D6B98A9AAEA38E9434D6F96597804A550968D17779B2CE36A74"
+    },
+    {
+      "path": "client-isolation.json",
+      "bytes": 535,
+      "sha256": "6305D2305307759446EBEBFA8FCF409D6735E1EBF6355D37A86194318EE73A4D"
+    },
+    {
+      "path": "delete-fixed-post-restart-proof.json",
+      "bytes": 1299,
+      "sha256": "087993AADF315F5C961823AA964F9259D4626C2C599CB18626BA886C3AE990C1"
+    },
+    {
+      "path": "delete-refresh-armed-d-green.json",
+      "bytes": 515,
+      "sha256": "31C82A84D3F47545F5197CB8F4B2863634CD6370B61F9246E8C331C29E336F03"
+    },
+    {
+      "path": "delete-refresh-events-delete-refresh-green.jsonl",
+      "bytes": 3173,
+      "sha256": "4F63483ADC3222FFECBE32A4E6BF4B2DC0A9C33C5FF9EC8453BDD479BA7E574E"
+    },
+    {
+      "path": "delete-refresh-green-selected-probes.json",
+      "bytes": 3300,
+      "sha256": "001EB69368C7C05E7864FDE2F7ADAEA8B1D6E39F3E07690BE29D2C48322DDD8B"
+    },
+    {
+      "path": "delete-refresh-green-state-proof.json",
+      "bytes": 3261,
+      "sha256": "14762FD1865980A32C8023E092ECB1CAD5FDB3A5100C3DBAD712A3C6B3812611"
+    },
+    {
+      "path": "delete-refresh-profile-green.json",
+      "bytes": 721,
+      "sha256": "27DA4548A33455E59C592BD4B00F0F9246F8280C9DC1F876FC11F19EFB0E189C"
+    },
+    {
+      "path": "delete-refresh-proxy-delete-refresh-green.json",
+      "bytes": 794,
+      "sha256": "16B49CB66E33739CDF2D26544618518A93EA6158425BDC0EBEE12E711F017571"
+    },
+    {
+      "path": "delete-refresh-seed-d.json",
+      "bytes": 1013,
+      "sha256": "44B12D1E894B4191B21D787C1C7997437E1A616686F92A2EE9B9120338309B90"
+    },
+    {
+      "path": "deletion-seed.json",
+      "bytes": 3429,
+      "sha256": "DB5365D48A67CB9D67B34DD67DDC7D9A13EAB7A07758D34D6B4C656AAD439A4D"
+    },
+    {
+      "path": "deletion-sql-snapshots/00-empty-before-seed.json",
+      "bytes": 589,
+      "sha256": "A5625695A30A15F34504FFA02AF8880ACF960D98D5E7F2FBBFF4F7E600B4E8CC"
+    },
+    {
+      "path": "deletion-sql-snapshots/01-three-seeded.json",
+      "bytes": 3529,
+      "sha256": "7C8B4D43D83ABAD4AC7B0E0FDB21AEA2E9AB3A077E836BDB29B9AF6968EC0031"
+    },
+    {
+      "path": "deletion-sql-snapshots/03-after-delete-a.json",
+      "bytes": 2743,
+      "sha256": "821B414528A07DB41989019EB61E59C5AEEC02A64BEFE02523E2915121FEFF47"
+    },
+    {
+      "path": "deletion-sql-snapshots/04-after-delete-b.json",
+      "bytes": 1954,
+      "sha256": "62D9A8E3A860741A0E8F276C5F4248BD92F64BFA3802C0D6DA9274F2C5FECC42"
+    },
+    {
+      "path": "deletion-sql-snapshots/05-after-delete-c.json",
+      "bytes": 1520,
+      "sha256": "98BDDFB3C75F10B22E4B9DBB54AF0291F4C1B278BDE30503D5F744EF4F5CE9C9"
+    },
+    {
+      "path": "deletion-sql-snapshots/06-after-delete-d-refresh-failure-green.json",
+      "bytes": 1710,
+      "sha256": "9F2D1750B57B3E91B37E7586D4CA75F51C9294B1D9570014FE4B30C47CB43F51"
+    },
+    {
+      "path": "deletion-sql-snapshots/07-fixed-final-after-ui-restart.json",
+      "bytes": 1710,
+      "sha256": "6AB8AC469BD8FF5F58BB7CC7969DDCF672A3442DAA21175A848E0156E2A82657"
+    },
+    {
+      "path": "deletion-sql-snapshots/after-refresh-seed-d.json",
+      "bytes": 2499,
+      "sha256": "18AA7A31B05834DB041B2897F0FDE16E30D4213AE0C2AF097FB84A0BD25F2C33"
+    },
+    {
+      "path": "deletion-sql-snapshots/before-refresh-seed-d.json",
+      "bytes": 1520,
+      "sha256": "EDDC3DE9B2F5ABF1027EE8B6E27A0C69B0431EEAB37DE26BF9FF1CBDD4400139"
+    },
+    {
+      "path": "deletion-step-a-verification.json",
+      "bytes": 3912,
+      "sha256": "2EDD1B7948E4FFECD57B69E957A2D2BF25E096EBB636ECEDCAB22CDC666E78E4"
+    },
+    {
+      "path": "deletion-step-b-verification.json",
+      "bytes": 3128,
+      "sha256": "E9C98FC493F91A4552A068750F3CDAB7D96A436AC1066209AA68FC630655DDC2"
+    },
+    {
+      "path": "deletion-step-c-verification.json",
+      "bytes": 2621,
+      "sha256": "115B4B7BD2A29DFEB782D5FD01F4CFD02F77F1386EB482F9AEDAB03B92F783E2"
+    },
+    {
+      "path": "environment.json",
+      "bytes": 2551,
+      "sha256": "9DE5E1541983FEA9F33207A8321679BB195802CE32BC6DE480065D500536F7FD"
+    },
+    {
+      "path": "fixed-runtime-preflight.json",
+      "bytes": 722,
+      "sha256": "8D2255E378E7F55707690728A4BCEBEE12DB5DBA5A1580E090BF29E63AFA9977"
+    },
+    {
+      "path": "last-session-setting-after-b.json",
+      "bytes": 491,
+      "sha256": "539F01B2722E9ADCC7BCCE9F86FF7D68A2F1540A6E8835EAA544C10E3645C6BA"
+    },
+    {
+      "path": "last-session-setting-after-c.json",
+      "bytes": 489,
+      "sha256": "5733CD480CCB0802F8B02CED43CD939397BA307D378D54C88B2B0D9B96B09C62"
+    },
+    {
+      "path": "no-model-final.json",
+      "bytes": 426,
+      "sha256": "9ED4F65DC583119C03493DAEB34F0766D969682B33E1391A48C2850A64970351"
+    },
+    {
+      "path": "owned-stop-executed-fixed.json",
+      "bytes": 4301,
+      "sha256": "16FE5C12334B42DF5BD49D66A98534953EE27C99E96C0C470A0F101A7AD9F972"
+    },
+    {
+      "path": "owned-stop-fixed-final-proof.json",
+      "bytes": 1372,
+      "sha256": "CE82DA04ED499F0CBD0871926C1A57AC28A085960A6A482135ECE1B2B87AB4DA"
+    },
+    {
+      "path": "owned-stop-plan-fixed-preflight.json",
+      "bytes": 3938,
+      "sha256": "51015D2B73298E6A5719AF326838F655850F003F9EB7DBEB5DE72674705D73F8"
+    },
+    {
+      "path": "owned-stop-plan-fixed-with-refresh-proxy.json",
+      "bytes": 4437,
+      "sha256": "460BDDA8502F918DE047532F88E48CBA8493E06BD6D9CD00287D4F6C887DBCFC"
+    },
+    {
+      "path": "ready.json",
+      "bytes": 5263,
+      "sha256": "3EB7BF293A06686A870D2FE26E03B0808BFA4D68CE3A845EA535A543125D5DEF"
+    }
+  ]
+}

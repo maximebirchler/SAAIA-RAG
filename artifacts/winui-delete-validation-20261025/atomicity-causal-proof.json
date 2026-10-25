@@ -1,0 +1,159 @@
+{
+  "schemaVersion": "saaia-chat-delete-atomicity-causal-proof.v1",
+  "capturedAtUtc": "2026-10-25T15:13:20.9635351+00:00",
+  "status": "CAUSAL_RED_GREEN_PASSED",
+  "scope": "Direct production endpoint invocation against newly created PostgreSQL databases; native WinUI was not driven by this test.",
+  "cause": "Separate implicit transactions deleted child messages before parent failure and committed deletion before audit failure.",
+  "correction": "One tenant/user-scoped parent DELETE with FK cascades plus audit in one explicit transaction; acknowledge success only after commit.",
+  "schemaMigrationsRequired": false,
+  "cascadeMigrations": [
+    "005_chat_store.sql",
+    "065_advanced_analysis_jobs.sql"
+  ],
+  "red": {
+    "selected": 3,
+    "passed": 1,
+    "failed": 2,
+    "skipped": 0,
+    "results": [
+      {
+        "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Session_delete_cascades_only_owned_tenant_user_and_commits_one_audit",
+        "outcome": "Passed",
+        "error": null
+      },
+      {
+        "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Session_delete_failure_rolls_back_messages_jobs_and_session_without_success_audit(failAudit: True)",
+        "outcome": "Failed",
+        "error": "Assert.Equal() Failure: Values differ\r\nExpected: 3\r\nActual:   2"
+      },
+      {
+        "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Session_delete_failure_rolls_back_messages_jobs_and_session_without_success_audit(failAudit: False)",
+        "outcome": "Failed",
+        "error": "Assert.Equal() Failure: Values differ\r\nExpected: 3\r\nActual:   2"
+      }
+    ],
+    "observedFailureBoundaries": [
+      "Parent DELETE failure: three sessions remained but message count was two instead of three.",
+      "Audit INSERT failure: session count was two instead of three. Later RED assertions did not execute after the first failure."
+    ],
+    "compiledProductSha256": "EAF54C712B725456A2C4CB0B338F3F5A3B12D0FD21ABCB0F53D9034E2980DDE2",
+    "databasesCleaned": true
+  },
+  "green": {
+    "selected": 7,
+    "passed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "results": [
+      {
+        "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Message_routes_and_cdc_alias_preserve_tracking_fields_and_emit_audit",
+        "outcome": "Passed"
+      },
+      {
+        "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Session_delete_cascades_only_owned_tenant_user_and_commits_one_audit",
+        "outcome": "Passed"
+      },
+      {
+        "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Session_delete_failure_rolls_back_messages_jobs_and_session_without_success_audit(failAudit: False)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Tracking_route_projects_live_ingestion_job_state",
+        "outcome": "Passed"
+      },
+      {
+        "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Tracking_route_falls_back_to_message_metadata_when_job_is_gone",
+        "outcome": "Passed"
+      },
+      {
+        "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Session_delete_failure_rolls_back_messages_jobs_and_session_without_success_audit(failAudit: True)",
+        "outcome": "Passed"
+      },
+      {
+        "name": "SAAIA.Backend.Tests.ChatStoreEndpointsTests.Session_lifecycle_routes_preserve_user_scope_and_emit_audit",
+        "outcome": "Passed"
+      }
+    ],
+    "newFaultCases": 2,
+    "successfulScopeCase": 1,
+    "existingEndpointRegressionCases": 4,
+    "assertedFaultInvariants": [
+      "All three sessions preserved",
+      "All three messages preserved including exact target content",
+      "Advanced job preserved",
+      "Zero success delete audit",
+      "Unrelated tenant/user messages preserved"
+    ],
+    "successfulScopeInvariants": [
+      "Wrong user and wrong tenant return404 without mutations",
+      "Owned parent, message and advanced job cascade",
+      "Same session UUID in another tenant remains",
+      "Exactly one tenant/user audit committed",
+      "Repeat delete returns404 without second audit"
+    ],
+    "reportedNewCaseDatabases": [
+      "saaia_chat_771e073f5b0444169fc31c11e8e808b2",
+      "saaia_chat_c5e868488ec844a6b3e059c170ca0411",
+      "saaia_chat_b50c2182f73b4559921075692339fe3f"
+    ],
+    "databasesCleaned": true,
+    "sourceUnchangedDuringRun": true,
+    "normalBackendAssembliesUnchanged": true,
+    "compiled": [
+      {
+        "path": "backend/SAAIA.Backend/bin/deletion-atomicity-green/net8.0/SAAIA.Backend.dll",
+        "sha256": "339E5304D555EF6A74B60387C8E2E7F2187D335385B4D8BF326E5E33253187A2"
+      },
+      {
+        "path": "backend/SAAIA.Backend.Tests/bin/deletion-atomicity-green/net8.0/SAAIA.Backend.Tests.dll",
+        "sha256": "300A1CA99E513359A6087AEC321C6340D50C4AD286F8C2B222C6F6CEA1A23F39"
+      }
+    ]
+  },
+  "diagnostics": {
+    "operation": "chat.session.delete",
+    "fields": [
+      "commit_acknowledged",
+      "matched_session_count",
+      "failure_phase",
+      "exception_type"
+    ],
+    "commitAckMeaning": "False means commit was not acknowledged; it does not assert server rollback after a lost commit response.",
+    "documentOrMessageContentLogged": false,
+    "executedLiveEndpointOnNewBackend": false
+  },
+  "paidCalls": 0,
+  "protectedProfileAccess": false,
+  "postgresUiDatabaseMutated": false,
+  "sourceFiles": [
+    "backend/SAAIA.Backend/Endpoints/ChatStoreEndpoints.cs",
+    "backend/SAAIA.Backend.Tests/ChatStoreEndpointsTests.cs"
+  ],
+  "artifacts": [
+    {
+      "path": "atomicity-red/atomicity-red.trx",
+      "sha256": "73B649111DA90EF6027093443F66AFDC39B3A2FD14779A978DE8AF9AE413C9CD"
+    },
+    {
+      "path": "atomicity-red/run.log",
+      "sha256": "50AC98B0F0541BE342ADEC33F29CDB822C94A7E483A4DB1E2877D88CF5FB777A"
+    },
+    {
+      "path": "atomicity-red/run-proof.json",
+      "sha256": "40436831DDF236FB087AD1554CCCDFDB230E82A9A6758FCDB853D8645C64A53A"
+    },
+    {
+      "path": "atomicity-green/atomicity-green.trx",
+      "sha256": "258D4BE79B811BBE238E524A927C8AF26F45B1BC76C0E02C1A765D79DBB7A077"
+    },
+    {
+      "path": "atomicity-green/run.log",
+      "sha256": "D7D928F8C56F841056B64ABC9BA0E15C7CC1ED170B5EA6B7EC5A4D51E1E24338"
+    },
+    {
+      "path": "atomicity-green/run-proof.json",
+      "sha256": "D7E2D3977C227FE5CEDAF12E7EBAE87365993BCB9880328E43079617E53786EE"
+    }
+  ],
+  "productStatus": "TESTE_NON_APPROUVE"
+}

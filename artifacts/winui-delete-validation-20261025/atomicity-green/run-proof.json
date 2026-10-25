@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "saaia-delete-atomicity-integration-run.v1",
+  "capturedAtUtc": "2026-10-25T15:10:40.2554388+00:00",
+  "phase": "green_after_atomic_parent_delete_and_audit",
+  "fixtureRunId": "5339019b0db34d0cb098f11e055763ea",
+  "port": 52785,
+  "ownedPid": 3532,
+  "identityVerified": true,
+  "postgresUiDatabaseMutated": false,
+  "databaseInventoryBefore": [
+    "postgres",
+    "template0",
+    "template1"
+  ],
+  "databaseInventoryAfter": [
+    "postgres",
+    "template0",
+    "template1"
+  ],
+  "databasesCleaned": true,
+  "sourceBefore": [
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/ChatStoreEndpoints.cs",
+      "sha256": "E8EB63501A023AF7E5A9ADFCCB03056B8E18A6BC911E443CABC161B97AE94357"
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/ChatStoreEndpointsTests.cs",
+      "sha256": "D3DA35D3DA2C9E71EEB3464414B9E2580CCE36EFC64784F3041DAE5C0E0DE5E4"
+    }
+  ],
+  "sourceAfter": [
+    {
+      "path": "backend/SAAIA.Backend/Endpoints/ChatStoreEndpoints.cs",
+      "sha256": "E8EB63501A023AF7E5A9ADFCCB03056B8E18A6BC911E443CABC161B97AE94357"
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/ChatStoreEndpointsTests.cs",
+      "sha256": "D3DA35D3DA2C9E71EEB3464414B9E2580CCE36EFC64784F3041DAE5C0E0DE5E4"
+    }
+  ],
+  "sourceUnchangedDuringRun": true,
+  "normalAssembliesBefore": [
+    {
+      "path": "backend/SAAIA.Backend/bin/Debug/net8.0/SAAIA.Backend.dll",
+      "sha256": "6A54A912E4A1B2DDE622FF61FA7F42B23A72DDDD167ACACC8479CC23CBB5B4FC"
+    },
+    {
+      "path": "backend/SAAIA.Backend/bin/Release/net8.0/SAAIA.Backend.dll",
+      "sha256": "F3FC7D187A4ADC884D05AA7BBEEE110B5766917D678E8AA50CDF7FA016092546"
+    }
+  ],
+  "normalAssembliesAfter": [
+    {
+      "path": "backend/SAAIA.Backend/bin/Debug/net8.0/SAAIA.Backend.dll",
+      "sha256": "6A54A912E4A1B2DDE622FF61FA7F42B23A72DDDD167ACACC8479CC23CBB5B4FC"
+    },
+    {
+      "path": "backend/SAAIA.Backend/bin/Release/net8.0/SAAIA.Backend.dll",
+      "sha256": "F3FC7D187A4ADC884D05AA7BBEEE110B5766917D678E8AA50CDF7FA016092546"
+    }
+  ],
+  "normalAssembliesUnchanged": true,
+  "compiled": [
+    {
+      "path": "backend/SAAIA.Backend/bin/deletion-atomicity-green/net8.0/SAAIA.Backend.dll",
+      "sha256": "339E5304D555EF6A74B60387C8E2E7F2187D335385B4D8BF326E5E33253187A2"
+    },
+    {
+      "path": "backend/SAAIA.Backend.Tests/bin/deletion-atomicity-green/net8.0/SAAIA.Backend.Tests.dll",
+      "sha256": "300A1CA99E513359A6087AEC321C6340D50C4AD286F8C2B222C6F6CEA1A23F39"
+    }
+  ],
+  "exitCode": 0
+}

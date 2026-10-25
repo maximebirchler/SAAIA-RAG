@@ -1,0 +1,182 @@
+{
+  "schemaVersion": "saaia-winui-delete-validation-final.v1",
+  "compiledAtUtc": "2026-10-25T15:35:44.5178761+00:00",
+  "status": "DELETION_JOURNEYS_AND_REPRODUCED_FIX_VALIDATED_WITH_DECLARED_SCOPE",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "globalApprovalClaimed": false,
+  "authorization": {
+    "answer": "Oui, uniquement les discussions de test",
+    "source": "Direct user reply in this chat",
+    "scope": "Only synthetic campaign discussions in owned isolated local user/database."
+  },
+  "sourceDeliveryCommit": "81c8028f6d71384351a6e9000e79bfc852859a20",
+  "deliveryStatus": "Root confirmed source/tooling commit pushed and remote identical; evidence commit follows separately.",
+  "preservedHistory": [
+    "delete-execution-matrix.json",
+    "delete-execution-matrix-observed-red.json",
+    "delete-source-review.md",
+    "REVUE-FINALE-CODE-ET-VARIANTES.md",
+    "../winui-validation-20261025/execution-matrix-final.json"
+  ],
+  "nativeClientAssemblySha256": "7CCBEDB63AAE52E9CC0E89C3B7924C04AB0E1E39C81C269985F87BA76DAFE6FE",
+  "nativeLaunchAnchors": [
+    "client-launch-03-delete-fixed.json",
+    "client-launch-04-delete-refresh-green.json",
+    "client-launch-05-after-delete-refresh-restart.json"
+  ],
+  "productionBackendAssemblySha256": "FEF8B7977EC4F4C61E6EBBB78AA11888265BF7FDAE9DD23230577E8947CA893A",
+  "unitAnchor": "full-unit-production-anchor.json",
+  "finalUnitPassed": 4923,
+  "finalUnitFailed": 0,
+  "finalUnitNotExecuted": 0,
+  "productSourcesMatchAcceptedUnit": true,
+  "executedCases": [
+    {
+      "id": "W09_INACTIVE_DELETE",
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "actual": "A inactive removed; B stays loaded with its two unchanged marker messages, C remains and composer remains available.",
+      "nativeEvidence": [
+        "native-ui/12-fixed-three-sessions-active-B.json",
+        "native-ui/13-fixed-inactive-A-confirmation.json",
+        "native-ui/14-fixed-A-removed-B-preserved.json"
+      ],
+      "durableEvidence": [
+        "local-fixture-fixed/deletion-step-a-verification.json"
+      ],
+      "durableChecksPassed": 31,
+      "limits": [
+        "No source cards seeded; preservation of a nonempty source card during inactive deletion was not directly exercised.",
+        "Private agent memory was not directly inspected."
+      ]
+    },
+    {
+      "id": "W10_ACTIVE_DELETE",
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "actual": "Loaded B removed; surviving C automatically loads with only its own two markers. Saved LastSessionId becomes C.",
+      "nativeEvidence": [
+        "native-ui/15-fixed-active-B-confirmation.json",
+        "native-ui/16-fixed-B-removed-C-loaded.json"
+      ],
+      "durableEvidence": [
+        "local-fixture-fixed/deletion-step-b-verification.json",
+        "local-fixture-fixed/last-session-setting-after-b.json"
+      ],
+      "durableChecksPassed": 23,
+      "limits": [
+        "No nonempty source card existed; clearing such a card is code/unit coverage, not directly observed in this lot."
+      ]
+    },
+    {
+      "id": "W10_LAST_DELETE",
+      "status": "PASS_OBSERVED",
+      "actual": "Last C removed; a distinct default discussion R is created, selected, saved and empty. Entering an unsent draft enables Envoyer.",
+      "nativeEvidence": [
+        "native-ui/17-fixed-last-C-confirmation.json",
+        "native-ui/18-fixed-last-C-removed-empty-replacement.json",
+        "native-ui/19-fixed-replacement-composer-usable.json"
+      ],
+      "durableEvidence": [
+        "local-fixture-fixed/deletion-step-c-verification.json",
+        "local-fixture-fixed/last-session-setting-after-c.json"
+      ],
+      "durableChecksPassed": 17,
+      "replacementSessionId": "398b311a-bcc1-4f11-afac-359560aa6e54",
+      "limits": [
+        "No message was sent and no model generation is claimed."
+      ]
+    },
+    {
+      "id": "DELETE_SUCCEEDS_REFRESH_FAILS_GREEN",
+      "status": "PASS_NATIVE_WITH_CONTROLLED_FAULT",
+      "actual": "Real DELETE D200 followed by one inventory GET500: D absent immediately, known R automatically selected empty, composer available. Exact localized notice confirms deletion and distinguishes list refresh failure. Unsent draft enables Envoyer.",
+      "nativeEvidence": [
+        "native-ui/20-fixed-refresh-fault-before-D-delete.json",
+        "native-ui/21-fixed-D-delete-confirmation.json",
+        "native-ui/22-fixed-refresh-fault-D-absent-R-loaded-exact-notice.json",
+        "native-ui/23-fixed-refresh-fault-composer-usable.json"
+      ],
+      "durableEvidence": [
+        "local-fixture-fixed/delete-refresh-green-state-proof.json",
+        "local-fixture-fixed/delete-refresh-green-selected-probes.json",
+        "local-fixture-fixed/delete-refresh-events-delete-refresh-green.jsonl"
+      ],
+      "durableChecksPassed": 16,
+      "deletedSessionId": "512bca66-8f70-4e54-99a7-d0f4f0d82b32",
+      "survivingSessionId": "398b311a-bcc1-4f11-afac-359560aa6e54",
+      "actualLastSessionId": "398b311a-bcc1-4f11-afac-359560aa6e54",
+      "traceId": "2bb08ab7f77283072b8054d037f70959",
+      "notice": "Discussion supprimée, liste non actualisée",
+      "recoveryNoticeStarts": "La suppression est confirmée.",
+      "limits": [
+        "The GET500 is an explicitly controlled local fault; the DELETE and backend state are real.",
+        "The fallback survivor is empty; populated-survivor fallback is covered by targeted behavior tests, not this native fault sequence."
+      ]
+    },
+    {
+      "id": "DELETE_REFRESH_RESTART",
+      "status": "PASS_OBSERVED",
+      "actual": "Same profile restarted after the failure: R alone, selected and empty; no deleted discussion returns, no warning, composer available. Saved ID equals R.",
+      "nativeEvidence": [
+        "native-ui/24-fixed-restart-R-only-no-warning.json"
+      ],
+      "durableEvidence": [
+        "local-fixture-fixed/delete-fixed-post-restart-proof.json",
+        "client-launch-05-after-delete-refresh-restart.json"
+      ],
+      "replacementSessionId": "398b311a-bcc1-4f11-afac-359560aa6e54",
+      "probeCount": 8,
+      "balancedTraceCount": 2,
+      "limits": [
+        "Trace begin/end balance is not a full schema/parent-span verification.",
+        "No answer generation was executed after restart."
+      ]
+    }
+  ],
+  "sourceBasedIssues": [
+    {
+      "green": "local-fixture-fixed/delete-refresh-green-state-proof.json",
+      "status": "REPRODUCED_CORRECTED_AND_NATIVE_RETESTED",
+      "red": "delete-execution-matrix-observed-red.json",
+      "issue": "DELETE ACK followed by inventory failure leaves stale item and wrong deletion notice"
+    },
+    {
+      "integrationPassed": 7,
+      "integrationFailed": 0,
+      "status": "REPRODUCED_CORRECTED_INTEGRATION_TESTED_AND_NEW_BACKEND_USED_NATIVELY",
+      "redGreen": "atomicity-causal-proof.json",
+      "issue": "Backend deletion/messages/audit lacked one transaction"
+    }
+  ],
+  "independentProbeReview": {
+    "captureSha256Verified": true,
+    "traceId": "2bb08ab7f77283072b8054d037f70959",
+    "order": "turn.begin -> session.delete.acknowledged -> session.delete.refresh_failed -> session.delete.recovery(success) -> turn.end(degraded)",
+    "contentOrSecretAddedToProbes": false,
+    "selectedFiveEventsMatchOriginalCapturedTrace": true
+  },
+  "isolation": {
+    "chatRequests": 0,
+    "modelProcessStarted": false,
+    "paidProviderConfigured": false,
+    "normalProfileComparison": "normal-profile-after-fixed-native-tests-comparison.json",
+    "coveredProfileFiles": 556,
+    "noModelProof": "local-fixture-fixed/delete-fixed-post-restart-proof.json",
+    "coveredProfileUnchanged": 556,
+    "comparisonIssues": 0,
+    "externalCalls": 0
+  },
+  "closure": {
+    "dataAndEvidenceRetained": true,
+    "sealedStructuredFiles": 39,
+    "sealedHashesIndependentlyVerified": true,
+    "evidenceSeal": "local-fixture-fixed/fixed-runtime-closure-evidence-sha256.json",
+    "proof": "local-fixture-fixed/owned-stop-fixed-final-proof.json",
+    "status": "PASSED"
+  },
+  "remainingScope": [
+    "The ten earlier PARTIAL_OBSERVED scenarios are planned separately under ../winui-journey-completion-20261025/journey-completion-plan.json.",
+    "Source-card preservation combined with deletion was not natively exercised in the A/B/C/D marker-only seed.",
+    "Unit4923, targeted20, PostgreSQL7 and tool tests are distinct scopes with overlap; do not add them into a misleading final unique total.",
+    "No Terra planning test or semantic/product approval is inferred."
+  ]
+}

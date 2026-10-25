@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "saaia.winui.native-observation.v1",
+  "atUtc": "2026-10-25T15:28:55.934Z",
+  "name": "21-fixed-D-delete-confirmation",
+  "description": "Suppression autorisée de D seule ; R reste témoin. Le prochain GET inventaire recevra exactement un 500 après acquittement du DELETE.",
+  "window": {
+    "app": "process:C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+    "id": 1379720,
+    "title": "SAAIA"
+  },
+  "accessibility": {
+    "focused_element": "43 texte TEMOIN REFRESH D / user / ab115805927241e3bf8746cde32d4039 - Message synthetique de controle. Aucun modele execute.",
+    "tree": "Window: \"SAAIA\", App: SAAIA.Client.WinUI.exe.\n\t0 fenêtre SAAIA Secondary Actions: Raise\n\t\t1 volet Non Client Input Sink Window\n\t\t2 volet AppWindow Custom Title Bar\n\t\t\t3 Bouton Minimize ID: Minimize\n\t\t\t4 Bouton Maximize ID: Maximize\n\t\t\t5 Bouton Close ID: Close\n\t\t6 volet\n\t\t\t7 volet\n\t\t\t\t8 image\n\t\t\t\t9 texte SAAIA\n\t\t\t\t10 bouton Discussions ID: ChatsToggleButton\n\t\t\t\t11 bouton (disabled) Configuration ID: SetupButton\n\t\t\t\t12 bouton (disabled) Aide ID: HeaderHelpButton\n\t\t\t\t\t13 texte ?\n\t\t\t\t14 bouton (disabled) Paramètres ID: HeaderSettingsButton\n\t\t\t\t15 texte Discussions ID: ChatsHeaderText\n\t\t\t\t16 bouton (disabled) Nouveau ID: NewChatButton\n\t\t\t\t17 liste (disabled) ID: SessionsList\n\t\t\t\t\t34 élément de liste (selectable, disabled) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t35 texte TEST SUPPRESSION D - refresh panne\n\t\t\t\t\t\t36 texte 25.10 16:28\n\t\t\t\t\t\t37 bouton (disabled) …\n\t\t\t\t\t38 élément de liste (selectable, disabled) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t39 texte Nouvelle discussion\n\t\t\t\t\t\t40 texte 25.10 16:27\n\t\t\t\t\t\t41 bouton (disabled) …\n\t\t\t\t18 volet ID: MessagesScroll\n\t\t\t\t\t19 liste ID: MessagesList\n\t\t\t\t\t\t42 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t43 texte TEMOIN REFRESH D / user / ab115805927241e3bf8746cde32d4039 - Message synthetique de controle. Aucun modele execute.\n\t\t\t\t\t\t\t44 texte 25.10 16:28\n\t\t\t\t\t\t\t45 bouton ID: CopyBtn\n\t\t\t\t\t\t46 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t47 image\n\t\t\t\t\t\t\t48 texte TEMOIN REFRESH D / assistant / ab115805927241e3bf8746cde32d4039 - Message synthetique de controle. Aucun modele execute. ID: Rtb\n\t\t\t\t\t\t\t49 bouton ID: CopyBtn\n\t\t\t\t\t\t\t50 texte 25.10 16:28\n\t\t\t\t20 modifier (disabled, settable, string) Tape ta question... ID: InputBox\n\t\t\t\t21 bouton (disabled) Envoyer ID: SendCancelButton\n\t\t\t\t59 texte DISCUSSIONS\n\t\t\t\t60 texte Supprimer la discussion ?\n\t\t\t\t61 texte TEST SUPPRESSION D - refresh panne\n\t\t\t\t62 bouton Supprimer\n\t\t\t\t\t63 texte Supprimer\n\t\t\t\t64 bouton Fermer\n\t\t\t\t\t65 texte Fermer\n\t\t28 barre de titre (settable, string) Value: SAAIA\n\t\t\t29 barre de menus Système ID: MenuBar\n\t\t\t\t30 élément de menu Système\n\t\t\t31 Bouton Réduire\n\t\t\t32 Bouton Agrandir\n\t\t\t33 Bouton Fermer\n\nThe focused UI element is 43 texte TEMOIN REFRESH D / user / ab115805927241e3bf8746cde32d4039 - Message synthetique de controle. Aucun modele execute.."
+  },
+  "screenshots": [
+    "21-fixed-D-delete-confirmation-0.png"
+  ]
+}

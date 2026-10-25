@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "saaia-winui-delete-refresh-profile.v1",
+  "createdAtUtc": "2026-10-25T15:11:54.2347762+00:00",
+  "environmentRunId": "5339019b0db34d0cb098f11e055763ea",
+  "profileName": "delete-refresh",
+  "profileRoot": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-delete-validation-20261025\\local-fixture\\runtime\\client-profiles\\delete-refresh",
+  "userId": "46db7f31-b056-4acb-9bf0-cd8157d4c5c7",
+  "backendUrl": "http://127.0.0.1:5177",
+  "upstreamUrl": "http://127.0.0.1:5167",
+  "initialSessionId": "8fdb8bc0-64f8-477c-9a6e-6839a8db535c",
+  "controlSeed": "delete-refresh-seed-d.json",
+  "modelExecuted": false,
+  "existingProfileModified": false
+}

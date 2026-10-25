@@ -1,0 +1,141 @@
+{
+  "schemaVersion": "saaia-winui-chat-store-snapshot.v1",
+  "startedAtUtc": "2026-10-25T15:28:06.5364525+00:00",
+  "finishedAtUtc": "2026-10-25T15:28:06.5715898+00:00",
+  "environmentRunId": "ab115805927241e3bf8746cde32d4039",
+  "backendUrl": "http://127.0.0.1:5167",
+  "userId": "84ff6021-18f2-43df-bd34-59fbfbdd565d",
+  "readOnly": true,
+  "contentMode": "sha256_utf8_exact_text_counts_only",
+  "sessionCount": 2,
+  "totalMessageCount": 2,
+  "totalUserMessages": 1,
+  "totalAssistantMessages": 1,
+  "sessionLimitReached": false,
+  "messageLimitReached": false,
+  "completeWithinApiLimits": true,
+  "consistency": "Read-only sequential HTTP observations; not an atomic database snapshot. Capture while the client is idle for comparisons.",
+  "repeatedContentInterpretation": "Repeated hashes can be legitimate repeated user requests; they are candidates for review, not an automatic duplicate verdict.",
+  "sessions": [
+    {
+      "sessionId": "512bca66-8f70-4e54-99a7-d0f4f0d82b32",
+      "title": {
+        "sha256": "f17531adf81f7a63d10e0305ad3509a2798e92bb21e92264ace34cdb0f1e3881",
+        "characters": 34,
+        "newlineCount": 0,
+        "present": true
+      },
+      "createdAt": "2026-10-25T15:28:06.118272Z",
+      "updatedAt": "2026-10-25T15:28:06.128828Z",
+      "lastMessageAt": "2026-10-25T15:28:06.128828Z",
+      "messageCount": 2,
+      "userMessageCount": 1,
+      "assistantMessageCount": 1,
+      "messageLimitReached": false,
+      "repeatedContentGroups": [],
+      "messages": [
+        {
+          "ordinal": 1,
+          "messageId": "09611875-e20c-49ac-b890-f8a8199a41df",
+          "role": "user",
+          "createdAt": "2026-10-25T15:28:06.121951Z",
+          "content": {
+            "sha256": "d915acf292aa1171df1f873a6cf0d3e0caf5820cb611042c322573a4a59f1ece",
+            "characters": 115,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        },
+        {
+          "ordinal": 2,
+          "messageId": "ea21b7c1-8ecc-40fa-b8b6-04ca6b369c7b",
+          "role": "assistant",
+          "createdAt": "2026-10-25T15:28:06.128539Z",
+          "content": {
+            "sha256": "0bdc2c3975ade6d54a8abd329daab9fb7315039cfafcc324284e3a37f44ddf5e",
+            "characters": 120,
+            "newlineCount": 0,
+            "present": true
+          },
+          "statusNote": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "progressText": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "sources": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "trackingMetadata": {
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "characters": 0,
+            "newlineCount": 0,
+            "present": false
+          },
+          "intent": null,
+          "advancedJobId": null,
+          "advancedStatus": null,
+          "advancedRevision": null,
+          "advancedResultOutcome": null
+        }
+      ]
+    },
+    {
+      "sessionId": "398b311a-bcc1-4f11-afac-359560aa6e54",
+      "title": {
+        "sha256": "e6a6a99bbc631c362371e99c6c04e13f6c6ff677a2da7016c79bb098cc8b3a39",
+        "characters": 19,
+        "newlineCount": 0,
+        "present": true
+      },
+      "createdAt": "2026-10-25T15:27:07.784545Z",
+      "updatedAt": "2026-10-25T15:27:07.784545Z",
+      "lastMessageAt": null,
+      "messageCount": 0,
+      "userMessageCount": 0,
+      "assistantMessageCount": 0,
+      "messageLimitReached": false,
+      "repeatedContentGroups": [],
+      "messages": []
+    }
+  ],
+  "comparison": null
+}

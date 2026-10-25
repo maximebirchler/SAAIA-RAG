@@ -1,0 +1,212 @@
+{
+  "schemaVersion": "saaia-test-campaign-v1",
+  "runId": "f6a426eb40964c0bbe55c3f68788ac66",
+  "startedAtUtc": "2026-10-25T15:17:26.7917495+00:00",
+  "finishedAtUtc": "2026-10-25T15:18:02.9731924+00:00",
+  "gitCommit": "197bf0ba46bf0599c6a4a697200ec0b8cefdbc84",
+  "gitDirty": true,
+  "profile": "Unit",
+  "filter": "(Profile!=IntegrationPg&Profile!=LiveLocal&Profile!=LivePaid)&(FullyQualifiedName~SessionDeletionWorkflowTests|FullyQualifiedName~ComposerPersistenceNoticeTests)",
+  "requestedProjects": [
+    "Client"
+  ],
+  "configuration": "Debug",
+  "buildRequested": true,
+  "restoreRequested": false,
+  "sourceBefore": {
+    "capturedAtUtc": "2026-10-25T15:17:27.7693059+00:00",
+    "sha256": "FCD2D5BAF6E8EEFF8AF90F4079224663BC3D4AABDFA2A43D710CEBAD09F0EC63",
+    "fileCount": 1654,
+    "inventory": "source-files-f6a426eb40964c0bbe55c3f68788ac66-before.json"
+  },
+  "sourceAfter": {
+    "capturedAtUtc": "2026-10-25T15:18:03.7757230+00:00",
+    "sha256": "FCD2D5BAF6E8EEFF8AF90F4079224663BC3D4AABDFA2A43D710CEBAD09F0EC63",
+    "fileCount": 1654,
+    "inventory": "source-files-f6a426eb40964c0bbe55c3f68788ac66-after.json"
+  },
+  "sourceChangedDuringRun": false,
+  "provenanceLimit": "Binary hashes are captured after execution from TRX test paths and their local SAAIA dependencies. Source fingerprints do not prove that a previous no-build compilation used those sources.",
+  "state": "failed",
+  "prerequisites": [],
+  "environment": {
+    "neutralizedVariableNames": [],
+    "clientDataIsolation": {
+      "ownedRelativePath": "client-data",
+      "enabled": true,
+      "requiredForClientTests": true,
+      "environmentRestored": true,
+      "source": "owned_campaign_output",
+      "rootId": "8E06A846D25BD41F1D57D8D89C941B1492A580B9B026A0BCA630A2FCFB8959FF"
+    }
+  },
+  "results": [
+    {
+      "project": "Client",
+      "path": "client/SAAIA.Client.ToolAgent.Tests/SAAIA.Client.ToolAgent.Tests.csproj",
+      "status": "failed",
+      "exitCode": 1,
+      "trx": "Client-f6a426eb40964c0bbe55c3f68788ac66.trx",
+      "trxSha256": "1511871BD3B29B7FD4A2E7D6EC737131965A2E9B9A693746B04C16000947FCB6",
+      "assemblies": [
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Debug\\net8.0-windows10.0.19041.0\\SAAIA.Client.Core.dll",
+          "role": "local_product_dependency",
+          "sha256": "9C13FC7F005C7771554EE5928144ADDC595E04BE146E47576EAE1653BBE4A3D3",
+          "sizeBytes": 100864,
+          "lastWriteTimeUtc": "2026-10-25T15:17:29.4492421Z",
+          "capturedAtUtc": "2026-10-25T15:18:02.9363789+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Debug\\net8.0-windows10.0.19041.0\\SAAIA.Client.ToolAgent.Tests.dll",
+          "role": "test_assembly",
+          "sha256": "CDA2E67FBDE28C3A2C8821A3F6DB638CD86959A9DF118014290FF267FB9F8B62",
+          "sizeBytes": 5151744,
+          "lastWriteTimeUtc": "2026-10-25T15:18:00.5727762Z",
+          "capturedAtUtc": "2026-10-25T15:18:02.9428962+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Debug\\net8.0-windows10.0.19041.0\\SAAIA.Client.WinUI.dll",
+          "role": "local_product_dependency",
+          "sha256": "D067D1BF6A36975F7421C2FD8B1C30DC1591E93D025457A6AD5DD2355E5C327C",
+          "sizeBytes": 8804864,
+          "lastWriteTimeUtc": "2026-10-25T15:17:54.4764373Z",
+          "capturedAtUtc": "2026-10-25T15:18:02.9545735+00:00"
+        },
+        {
+          "path": "client\\SAAIA.Client.ToolAgent.Tests\\bin\\Debug\\net8.0-windows10.0.19041.0\\SAAIA.Contracts.dll",
+          "role": "local_product_dependency",
+          "sha256": "0C292436A9E5DC5DBF8AF8924DFBFB2897A99541E8498754795AB468E4B9871D",
+          "sizeBytes": 157184,
+          "lastWriteTimeUtc": "2026-10-25T15:17:28.8960507Z",
+          "capturedAtUtc": "2026-10-25T15:18:02.9557884+00:00"
+        }
+      ],
+      "counts": {
+        "executed": 20,
+        "notExecuted": 0,
+        "adapterReportedExecuted": 20,
+        "passed": 19,
+        "total": 20,
+        "failed": 1
+      },
+      "cases": [
+        {
+          "duration": "00:00:00.0000116",
+          "name": "SAAIA.Client.ToolAgent.Tests.SessionDeletionWorkflowTests.Confirmed_deletion_refresh_notice_is_localized_and_distinct_from_unconfirmed_storage(language: \"pt\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0014126",
+          "name": "SAAIA.Client.ToolAgent.Tests.SessionDeletionWorkflowTests.Compiled_ui_handler_uses_the_acknowledged_deletion_workflow_and_distinct_failure_notice",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0037739",
+          "name": "SAAIA.Client.ToolAgent.Tests.SessionDeletionWorkflowTests.Diagnostics_order_acknowledgement_before_refresh_failure_and_exclude_message_or_source_content",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000068",
+          "name": "SAAIA.Client.ToolAgent.Tests.SessionDeletionWorkflowTests.Confirmed_deletion_refresh_notice_is_localized_and_distinct_from_unconfirmed_storage(language: \"es\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.1045379",
+          "name": "SAAIA.Client.ToolAgent.Tests.ComposerPersistenceNoticeTests.Compiled_handlers_connect_failure_edit_and_session_changes_to_notice_lifecycle",
+          "outcome": "Failed"
+        },
+        {
+          "duration": "00:00:00.0056498",
+          "name": "SAAIA.Client.ToolAgent.Tests.SessionDeletionWorkflowTests.Inactive_delete_acknowledged_then_inventory_500_preserves_loaded_memory_and_removes_only_the_target",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001260",
+          "name": "SAAIA.Client.ToolAgent.Tests.ComposerPersistenceNoticeTests.Notice_persists_for_the_same_draft_until_confirmed",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000090",
+          "name": "SAAIA.Client.ToolAgent.Tests.SessionDeletionWorkflowTests.Confirmed_deletion_refresh_notice_is_localized_and_distinct_from_unconfirmed_storage(language: \"de\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0134275",
+          "name": "SAAIA.Client.ToolAgent.Tests.SessionDeletionWorkflowTests.Confirmed_deletion_refresh_notice_is_localized_and_distinct_from_unconfirmed_storage(language: \"en\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0017382",
+          "name": "SAAIA.Client.ToolAgent.Tests.SessionDeletionWorkflowTests.Failure_loading_a_known_survivor_cannot_turn_confirmed_deletion_into_a_failed_delete",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0001911",
+          "name": "SAAIA.Client.ToolAgent.Tests.SessionDeletionWorkflowTests.Confirmed_deletion_refresh_notice_is_localized_and_distinct_from_unconfirmed_storage(language: \"fr\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000413",
+          "name": "SAAIA.Client.ToolAgent.Tests.ComposerPersistenceNoticeTests.Late_failure_from_another_session_cannot_create_or_replace_current_notice",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0053082",
+          "name": "SAAIA.Client.ToolAgent.Tests.SessionDeletionWorkflowTests.Pending_delete_does_not_remove_the_session_or_attempt_refresh_before_the_real_acknowledgement",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000051",
+          "name": "SAAIA.Client.ToolAgent.Tests.SessionDeletionWorkflowTests.Confirmed_deletion_refresh_notice_is_localized_and_distinct_from_unconfirmed_storage(language: \"it\")",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0015594",
+          "name": "SAAIA.Client.ToolAgent.Tests.SessionDeletionWorkflowTests.Successful_refresh_does_not_run_the_fallback_recovery",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.1046070",
+          "name": "SAAIA.Client.ToolAgent.Tests.ComposerPersistenceNoticeTests.Session_change_clears_the_notice_and_returning_cannot_revive_it",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0016899",
+          "name": "SAAIA.Client.ToolAgent.Tests.SessionDeletionWorkflowTests.Active_delete_acknowledged_then_inventory_500_loads_the_known_survivor_with_its_own_memory",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0564283",
+          "name": "SAAIA.Client.ToolAgent.Tests.SessionDeletionWorkflowTests.Failure_with_no_known_survivor_keeps_the_deleted_id_absent_and_reports_no_loaded_session",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0000995",
+          "name": "SAAIA.Client.ToolAgent.Tests.ComposerPersistenceNoticeTests.Meaningful_draft_edit_clears_the_notice",
+          "outcome": "Passed"
+        },
+        {
+          "duration": "00:00:00.0025262",
+          "name": "SAAIA.Client.ToolAgent.Tests.SessionDeletionWorkflowTests.Failed_delete_keeps_the_entire_loaded_conversation_and_never_claims_acknowledgement",
+          "outcome": "Passed"
+        }
+      ]
+    }
+  ],
+  "model": {
+    "reason": "Unit and PostgreSQL profiles do not invoke a model.",
+    "state": "not_applicable"
+  },
+  "corpus": {
+    "reason": "IntegrationPg fixtures create isolated databases; no production corpus is assumed.",
+    "state": "synthetic_fixtures"
+  },
+  "validationProfilesSha256": "8E4B990BC0A828134E5FE0D8E7B2D82406B56D2A200D8D4D37516208E3D3201D",
+  "selectionPolicy": "TRX covers selected tests; excluded profiles were not executed.",
+  "excludedProfiles": [
+    "IntegrationPg",
+    "LiveLocal",
+    "LivePaid"
+  ]
+}

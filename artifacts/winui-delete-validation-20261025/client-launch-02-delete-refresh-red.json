@@ -1,0 +1,13 @@
+{
+  "startedAtUtc": "2026-10-25T15:12:27.0696424+00:00",
+  "pid": 23516,
+  "executable": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+  "assemblySha256": "B69435EFD628A9C7DA1F2A9677CA5D75AC4C3D3FE45A2E8A79208C8F675E16DA",
+  "clientDataRoot": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-delete-validation-20261025\\local-fixture\\runtime\\client-profiles\\delete-refresh",
+  "profileName": "delete-refresh",
+  "documentsRoot": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-delete-validation-20261025\\local-fixture\\runtime\\documents",
+  "providerMode": "Local",
+  "externalPolicy": "ProductionLocal",
+  "inheritedProviderEnvironmentRemoved": true,
+  "purpose": "Launch only; no UI automation. Native interactions are performed separately through Computer Use."
+}

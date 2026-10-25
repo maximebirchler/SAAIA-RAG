@@ -1,0 +1,225 @@
+{
+  "schemaVersion": "saaia-winui-delete-red-closure-evidence-hashes.v1",
+  "capturedAtUtc": "2026-10-25T15:18:55.2652983+00:00",
+  "environmentRunId": "5339019b0db34d0cb098f11e055763ea",
+  "runtimeState": "stopped",
+  "scope": "Public structured fixture evidence outside runtime; raw backend/initdb logs and runtime private files excluded",
+  "fileCount": 43,
+  "files": [
+    {
+      "path": "atomicity-databases-cleanup-independent-proof.json",
+      "bytes": 409,
+      "sha256": "91ADE6F38F6E64A8DBAD1784596DE1050B0DF24031B371FA0B42C73812E794DE"
+    },
+    {
+      "path": "chat-store-snapshots/20261025T150321162Z-delete-initial-three.json",
+      "bytes": 11790,
+      "sha256": "9537AA64A94F90A57B435DE326514B8A5C1D681AC05F6AFD2A8D082413E991D5"
+    },
+    {
+      "path": "chat-store-snapshots/20261025T150606266Z-delete-after-a.json",
+      "bytes": 8775,
+      "sha256": "BC38024B0E82A9942BD3A66D812A661E69D8640FF1910ABA36A3218D572FD82B"
+    },
+    {
+      "path": "chat-store-snapshots/20261025T150805938Z-delete-after-b.json",
+      "bytes": 5309,
+      "sha256": "BE0378BB7A346555445FE236CFF2D6B9DF7A130F595C8AD2635B1134842F0FA0"
+    },
+    {
+      "path": "chat-store-snapshots/20261025T150936295Z-delete-after-c.json",
+      "bytes": 2483,
+      "sha256": "4821EE0E1BC9CAD88D7B20A435A8D3896DE1AEB1AC9161F232CA88EED1F8A9D3"
+    },
+    {
+      "path": "chat-store-snapshots/20261025T151154265Z-delete-refresh-before-d.json",
+      "bytes": 5161,
+      "sha256": "0584D7FB33C0D085FB552D8EFB5898CC883D1E887F23A5CE9D5ED238F8E6E83F"
+    },
+    {
+      "path": "chat-store-snapshots/20261025T151355273Z-delete-refresh-after-d.json",
+      "bytes": 2152,
+      "sha256": "AA48DB300A267D03A466C086FC6455B4CE1B5C1EBA2CE32D18D3AEF4C48F21A8"
+    },
+    {
+      "path": "chat-store-snapshots/20261025T151813317Z-delete-red-final-recovery.json",
+      "bytes": 1557,
+      "sha256": "A10745474D138A1E669C7306D97877989E30946DF90A36A8E33C1509C0ED9E89"
+    },
+    {
+      "path": "client-isolation.json",
+      "bytes": 529,
+      "sha256": "71D167A6ACB788198DE21A78A6488BC3AFA217CABE5D90E001D842FBC1EC4F50"
+    },
+    {
+      "path": "delete-refresh-armed-d.json",
+      "bytes": 524,
+      "sha256": "F7F04F4C3E51B3DC17D4E4CFD346B26D0D49901069A05F898FB4886C07FFDB27"
+    },
+    {
+      "path": "delete-refresh-events-delete-refresh.jsonl",
+      "bytes": 2373,
+      "sha256": "2BCB4BB4AB11A2677F0D80685285A3204C3DAE6657F02BC3139BA95DCC11B454"
+    },
+    {
+      "path": "delete-refresh-profile.json",
+      "bytes": 703,
+      "sha256": "D246D7315E72DFAD1A7F0F597E53DE6812FB0B8F0E6E388591114E53602D72F3"
+    },
+    {
+      "path": "delete-refresh-proxy-delete-refresh.json",
+      "bytes": 776,
+      "sha256": "7FEE9FE72BB65DE599FCD557B78EA6EA5BA70E6509C49F1D0402386BDE6AA963"
+    },
+    {
+      "path": "delete-refresh-red-state-proof.json",
+      "bytes": 2424,
+      "sha256": "3A3201011073F6C38D50E9B94EE850445B58854AAC7F1CA67E662F1146E5D87E"
+    },
+    {
+      "path": "delete-refresh-seed-d.json",
+      "bytes": 1013,
+      "sha256": "6DB0C762CC424BA13550B6DCA93C4D79A698508C0AEBC2034D5C943C6A0A79A4"
+    },
+    {
+      "path": "deletion-seed.json",
+      "bytes": 3422,
+      "sha256": "879ED9B05DDF32C2F22F39891075F6FE45C051F6645422F18BC42F619A6F1156"
+    },
+    {
+      "path": "deletion-sql-snapshots/00-empty-before-seed.json",
+      "bytes": 561,
+      "sha256": "3EF736D42A972C3671B169D60D5070F953884D66EA622A1601260E2EB8214254"
+    },
+    {
+      "path": "deletion-sql-snapshots/00b-partial-recovery-preflight.json",
+      "bytes": 1543,
+      "sha256": "0A3DFF4D75D99377A5367DB54C3B23C33E76B8DD1FB2CEF4DF29ECEAA3914501"
+    },
+    {
+      "path": "deletion-sql-snapshots/01-three-seeded.json",
+      "bytes": 3501,
+      "sha256": "393823C71357DFEBEC56364041AE4C78235074DEE3F6A3ED3FF09CD35137C946"
+    },
+    {
+      "path": "deletion-sql-snapshots/02-before-native-deletions.json",
+      "bytes": 3529,
+      "sha256": "2B280E04A5E2E9ADE96FEC4176DC3F0489FC0420C322497F228429F40537F050"
+    },
+    {
+      "path": "deletion-sql-snapshots/03-after-delete-a.json",
+      "bytes": 2743,
+      "sha256": "A733B6DF283EA2F166B7AE4B2E70669623EBFE88BADC369CF3A9B43A59749BCA"
+    },
+    {
+      "path": "deletion-sql-snapshots/04-after-delete-b.json",
+      "bytes": 1954,
+      "sha256": "00352B6074B774225FE78A2BE67773FE3E622BA2C3E3D4A1079C9CFA736A5DE9"
+    },
+    {
+      "path": "deletion-sql-snapshots/05-after-delete-c.json",
+      "bytes": 1520,
+      "sha256": "992F944E510E818BFBB6F4110711C778DC5F5727BD00610E332CA30D51DBBFD9"
+    },
+    {
+      "path": "deletion-sql-snapshots/06-after-delete-d-refresh-failure.json",
+      "bytes": 1710,
+      "sha256": "FFD9B300722664B4CE4BFD6B97DF9BB7DCF48691D3361A22738584A0E78171C2"
+    },
+    {
+      "path": "deletion-sql-snapshots/07-red-final-after-ui-recovery.json",
+      "bytes": 1710,
+      "sha256": "374811B1466F074EA3BF7F6D655D6B97D195E5CE35ACA90A965A84BEE3FE8A9C"
+    },
+    {
+      "path": "deletion-sql-snapshots/after-refresh-seed-d.json",
+      "bytes": 2497,
+      "sha256": "05009C999EADCF17CAF95C2368E41AFDA50AE262DE6566BEB27EC1D5A3398FD2"
+    },
+    {
+      "path": "deletion-sql-snapshots/before-refresh-seed-d.json",
+      "bytes": 1520,
+      "sha256": "8EB2DE6FCF6D8E3FD9E3A89E9AF88CA58E59600DE269BA123E056F93622320E9"
+    },
+    {
+      "path": "deletion-step-a-verification.json",
+      "bytes": 3815,
+      "sha256": "8770C0769AC9BD84BAD26486DBF473F95E465EE64E890E85751AA76B88D97645"
+    },
+    {
+      "path": "deletion-step-b-verification.json",
+      "bytes": 3031,
+      "sha256": "42B499BBE574E816BAE08E747071DC95DADD6C413FD563CA8422B1EBCA42E571"
+    },
+    {
+      "path": "deletion-step-c-verification.json",
+      "bytes": 2621,
+      "sha256": "A64C0C689D84425F552600BD486D132B60DBB4A230022BFFD32F5256F0181476"
+    },
+    {
+      "path": "environment.json",
+      "bytes": 2519,
+      "sha256": "FE0002B2EE87D5AC25D006018B5320EBE2D1052969947D939C9FCE8574C0813D"
+    },
+    {
+      "path": "last-session-setting-after-b.json",
+      "bytes": 491,
+      "sha256": "BE2EBE4147CBCE229075D796ADB0162DDC8FB83A4341AB80EED40BE537EF5074"
+    },
+    {
+      "path": "last-session-setting-after-c.json",
+      "bytes": 489,
+      "sha256": "5E8EB8E32CFB5717384CDC48832E98DF167C06A237073C5A3E8744DD86A9EFED"
+    },
+    {
+      "path": "last-session-setting-red-recovery-r.json",
+      "bytes": 423,
+      "sha256": "79ED48C86CE0DBDB890E56CBF2E7CD51E7F39E583131487B04365B8120BBA213"
+    },
+    {
+      "path": "no-model-baseline.json",
+      "bytes": 418,
+      "sha256": "C52A437D1682D0CAEC25A64333453BC4C8DD41E9E8A07CB337AC7F0DF2D4147A"
+    },
+    {
+      "path": "no-model-final.json",
+      "bytes": 424,
+      "sha256": "3D2C5F8CCA454CEB2C4446C5CD5AE74B542743D6456DAA8F4C8C76F198403E05"
+    },
+    {
+      "path": "owned-stop-executed-red.json",
+      "bytes": 4293,
+      "sha256": "B9F1E23D0FE96A28F4E8D61110EFC3394B863585F695C0F6645E78A03BCA2FB8"
+    },
+    {
+      "path": "owned-stop-plan-preflight.json",
+      "bytes": 3936,
+      "sha256": "69BF258278DA3C590CC0AB217F8B11D1BA39C1EC3D14CEC9CC3F28549C375989"
+    },
+    {
+      "path": "owned-stop-plan-red-final.json",
+      "bytes": 4292,
+      "sha256": "1EDFCE87DBE73A10A262985F453FF8EFF5514939183EC776FA3EBB19839824C4"
+    },
+    {
+      "path": "owned-stop-plan-with-refresh-proxy.json",
+      "bytes": 4292,
+      "sha256": "F41A4BF5AB2AF799E010CCBB04FA7EE95AD1774DD2BACC069C7413A9FB661611"
+    },
+    {
+      "path": "owned-stop-red-final-proof.json",
+      "bytes": 1369,
+      "sha256": "15BAC0C391DFC6FC06311790306317467BB29B355429B0AC908A0B506BCACBDA"
+    },
+    {
+      "path": "ready.json",
+      "bytes": 5264,
+      "sha256": "621ECFBC808D7801D9561B972536163E46DB2BACB6EF30255707ED59DBCFEEEA"
+    },
+    {
+      "path": "tooling-empty-collection-proof.json",
+      "bytes": 1072,
+      "sha256": "9DF9FF0CB29F044B8A985A28C1B92BA4901AAE3A16B5307C5DE317ABD6E722AB"
+    }
+  ]
+}

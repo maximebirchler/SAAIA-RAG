@@ -1,0 +1,121 @@
+{
+  "schemaVersion": "saaia-winui-delete-refresh-green-state.v1",
+  "capturedAtUtc": "2026-10-25T15:30:32.4590635+00:00",
+  "environmentRunId": "ab115805927241e3bf8746cde32d4039",
+  "readOnly": true,
+  "status": "PASSED",
+  "checkCount": 16,
+  "failedCheckCount": 0,
+  "deletedSessionId": "512bca66-8f70-4e54-99a7-d0f4f0d82b32",
+  "emptyWitnessSessionId": "398b311a-bcc1-4f11-afac-359560aa6e54",
+  "actualLastSessionId": "398b311a-bcc1-4f11-afac-359560aa6e54",
+  "actualDelete": [
+    {
+      "method": "DELETE",
+      "path": "/chat/sessions/512bca66-8f70-4e54-99a7-d0f4f0d82b32",
+      "phase": "completed",
+      "status": 200,
+      "action": "forward",
+      "targetDeleteAcknowledged": true,
+      "atUtc": "2026-10-25T15:28:56Z"
+    }
+  ],
+  "actualInjectedFailure": [
+    {
+      "method": "GET",
+      "path": "/chat/sessions",
+      "phase": "completed",
+      "status": 500,
+      "action": "synthetic_inventory_failure_after_delete_ack",
+      "atUtc": "2026-10-25T15:28:56Z"
+    }
+  ],
+  "actualRecoveryLoad": [
+    {
+      "method": "GET",
+      "path": "/chat/sessions/398b311a-bcc1-4f11-afac-359560aa6e54/messages",
+      "phase": "completed",
+      "status": 200,
+      "action": "forward",
+      "targetDeleteAcknowledged": false,
+      "atUtc": "2026-10-25T15:28:56Z"
+    }
+  ],
+  "traceId": "2bb08ab7f77283072b8054d037f70959",
+  "control": {
+    "schemaVersion": "saaia-winui-delete-refresh-control.v1",
+    "enabled": false,
+    "state": "consumed",
+    "targetSessionId": "512bca66-8f70-4e54-99a7-d0f4f0d82b32",
+    "targetUserId": "84ff6021-18f2-43df-bd34-59fbfbdd565d",
+    "inventoryFailuresInjected": 1,
+    "deleteStatus": 200
+  },
+  "checks": [
+    {
+      "name": "exactly_one_remaining_empty_witness",
+      "passed": true
+    },
+    {
+      "name": "deleted_session_and_messages_absent",
+      "passed": true
+    },
+    {
+      "name": "zero_orphans_jobs_other_users",
+      "passed": true
+    },
+    {
+      "name": "four_delete_audits",
+      "passed": true
+    },
+    {
+      "name": "api_exactly_d_removed",
+      "passed": true
+    },
+    {
+      "name": "api_two_d_messages_removed",
+      "passed": true
+    },
+    {
+      "name": "api_no_added_or_changed_records",
+      "passed": true
+    },
+    {
+      "name": "one_actual_delete_200_before_failure",
+      "passed": true
+    },
+    {
+      "name": "one_inventory_failure_500",
+      "passed": true
+    },
+    {
+      "name": "control_consumed_once_disabled",
+      "passed": true
+    },
+    {
+      "name": "last_session_recovers_to_existing_r",
+      "passed": true
+    },
+    {
+      "name": "wire_recovery_load_r_succeeded",
+      "passed": true
+    },
+    {
+      "name": "five_probes_single_trace_single_turn",
+      "passed": true
+    },
+    {
+      "name": "probe_acknowledged_before_refresh_failure",
+      "passed": true
+    },
+    {
+      "name": "probe_recovery_success",
+      "passed": true
+    },
+    {
+      "name": "turn_ends_degraded_accurately",
+      "passed": true
+    }
+  ],
+  "limits": "Durable state, wire and metadata probe evidence only. Native UI observations separately prove the localized banner and usable composer."
+}

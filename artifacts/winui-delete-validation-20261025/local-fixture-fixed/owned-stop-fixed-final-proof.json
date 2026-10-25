@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "saaia-winui-owned-stop-executed-proof.v1",
+  "capturedAtUtc": "2026-10-25T15:33:40.3757565+00:00",
+  "environmentRunId": "ab115805927241e3bf8746cde32d4039",
+  "status": "PASSED",
+  "ownerState": "stopped",
+  "ownerManifestSha256": "9DE5E1541983FEA9F33207A8321679BB195802CE32BC6DE480065D500536F7FD",
+  "ownedPorts": [
+    {
+      "port": 5167,
+      "listeners": 0
+    },
+    {
+      "port": 5177,
+      "listeners": 0
+    },
+    {
+      "port": 18097,
+      "listeners": 0
+    },
+    {
+      "port": 55961,
+      "listeners": 0
+    }
+  ],
+  "ownedProcesses": [
+    {
+      "role": "postgres",
+      "pid": 13924,
+      "matchingOwnedIdentityStillAlive": false
+    },
+    {
+      "role": "fixture-http",
+      "pid": 16144,
+      "matchingOwnedIdentityStillAlive": false
+    },
+    {
+      "role": "backend-runner",
+      "pid": 9128,
+      "matchingOwnedIdentityStillAlive": false
+    },
+    {
+      "role": "delete-refresh-proxy",
+      "pid": 35156,
+      "matchingOwnedIdentityStillAlive": false
+    }
+  ],
+  "dataAndEvidenceRetained": true,
+  "protectedPostgres5432UnchangedVerifiedByStop": true,
+  "planRecord": "owned-stop-executed-fixed.json",
+  "planRecordInterpretation": "Pre-execution ownership plan; actual stop outcome is recorded by stopped owner manifest and this post-stop proof"
+}

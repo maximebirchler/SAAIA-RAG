@@ -1,0 +1,151 @@
+{
+  "schemaVersion": "saaia-winui-deletion-step-verification.v1",
+  "capturedAtUtc": "2026-10-25T15:25:42.7944181+00:00",
+  "environmentRunId": "ab115805927241e3bf8746cde32d4039",
+  "deletedThroughCase": "A",
+  "readOnly": true,
+  "status": "PASSED",
+  "checkCount": 31,
+  "failedCheckCount": 0,
+  "removedSessionIds": [
+    "d5deec59-c62a-4ebd-90d3-63296e5e65c9"
+  ],
+  "remainingSessionIds": [
+    "29d9da2e-067b-4603-a2db-3439e35b855b",
+    "3e3c9627-48b7-4cc1-aa20-2b1b9cfce40a"
+  ],
+  "emptyReplacementSessionId": null,
+  "apiSnapshot": "chat-store-snapshots/20261025T152542542Z-delete-after-a.json",
+  "apiSnapshotSha256": "36D1F1B75691C2C32E2D42946C876C9CD44A71618E215FE2BB3076202282135C",
+  "sqlSnapshot": "deletion-sql-snapshots/03-after-delete-a.json",
+  "sqlSnapshotSha256": "821B414528A07DB41989019EB61E59C5AEEC02A64BEFE02523E2915121FEFF47",
+  "checks": [
+    {
+      "name": "sql_session_ids_exact_remaining_set",
+      "passed": true
+    },
+    {
+      "name": "api_session_ids_exact_remaining_set",
+      "passed": true
+    },
+    {
+      "name": "sql_database_session_count",
+      "passed": true
+    },
+    {
+      "name": "sql_database_message_count",
+      "passed": true
+    },
+    {
+      "name": "sql_no_orphan_messages",
+      "passed": true
+    },
+    {
+      "name": "sql_no_other_user_sessions",
+      "passed": true
+    },
+    {
+      "name": "sql_no_advanced_jobs",
+      "passed": true
+    },
+    {
+      "name": "api_complete_within_limits",
+      "passed": true
+    },
+    {
+      "name": "api_message_count",
+      "passed": true
+    },
+    {
+      "name": "api_removed_sessions_exact",
+      "passed": true
+    },
+    {
+      "name": "api_removed_messages_exact",
+      "passed": true
+    },
+    {
+      "name": "api_no_added_sessions",
+      "passed": true
+    },
+    {
+      "name": "api_no_added_or_changed_messages",
+      "passed": true
+    },
+    {
+      "name": "sql_delete_audit_targets_exact",
+      "passed": true
+    },
+    {
+      "name": "sql_delete_audit_count_exact",
+      "passed": true
+    },
+    {
+      "name": "remaining_B_sql_title_hash_unchanged",
+      "passed": true
+    },
+    {
+      "name": "remaining_B_api_title_hash_unchanged",
+      "passed": true
+    },
+    {
+      "name": "remaining_B_sql_message_ids_exact",
+      "passed": true
+    },
+    {
+      "name": "remaining_B_api_message_ids_exact",
+      "passed": true
+    },
+    {
+      "name": "remaining_B_user_sql_content_and_role_unchanged",
+      "passed": true
+    },
+    {
+      "name": "remaining_B_user_api_content_and_role_unchanged",
+      "passed": true
+    },
+    {
+      "name": "remaining_B_assistant_sql_content_and_role_unchanged",
+      "passed": true
+    },
+    {
+      "name": "remaining_B_assistant_api_content_and_role_unchanged",
+      "passed": true
+    },
+    {
+      "name": "remaining_C_sql_title_hash_unchanged",
+      "passed": true
+    },
+    {
+      "name": "remaining_C_api_title_hash_unchanged",
+      "passed": true
+    },
+    {
+      "name": "remaining_C_sql_message_ids_exact",
+      "passed": true
+    },
+    {
+      "name": "remaining_C_api_message_ids_exact",
+      "passed": true
+    },
+    {
+      "name": "remaining_C_user_sql_content_and_role_unchanged",
+      "passed": true
+    },
+    {
+      "name": "remaining_C_user_api_content_and_role_unchanged",
+      "passed": true
+    },
+    {
+      "name": "remaining_C_assistant_sql_content_and_role_unchanged",
+      "passed": true
+    },
+    {
+      "name": "remaining_C_assistant_api_content_and_role_unchanged",
+      "passed": true
+    }
+  ],
+  "limits": [
+    "This verifies durable backend state and audit records after native UI actions. UI observations are recorded separately. It does not execute deletion, a model call or a client action."
+  ]
+}

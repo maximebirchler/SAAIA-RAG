@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "saaia-winui-delete-no-model-final.v1",
+  "capturedAtUtc": "2026-10-25T15:33:15.8671359+00:00",
+  "environmentRunId": "ab115805927241e3bf8746cde32d4039",
+  "fixtureStatus": {
+    "fixture": true,
+    "externalCalls": 0,
+    "requests": 2,
+    "chatRequests": 0
+  },
+  "modelProcessStarted": false,
+  "paidProviderConfigured": false,
+  "phase": "after_fixed_native_tests_before_owned_stop"
+}

@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "saaia-winui-deletion-sql-snapshot.v1",
+  "capturedAtUtc": "2026-10-25T15:11:27.1156362+00:00",
+  "environmentRunId": "5339019b0db34d0cb098f11e055763ea",
+  "userId": "46db7f31-b056-4acb-9bf0-cd8157d4c5c7",
+  "readOnly": true,
+  "transaction": "BEGIN READ ONLY",
+  "identityDataDirectoryAndLoopbackPortVerified": true,
+  "postgresPort": 52785,
+  "databaseSessionCount": 2,
+  "databaseMessageCount": 2,
+  "orphanMessageCount": 0,
+  "otherUserSessionCount": 0,
+  "advancedJobCount": 0,
+  "deleteAuditEvents": [
+    {
+      "auditId": "5dcb1c90-c86f-4562-abc9-a28aa3645c91",
+      "atUtc": "2026-10-25T16:05:46.110046+01:00",
+      "targetSessionId": "431bdcbb-6e8c-4bd1-8b8a-758c3205fffd"
+    },
+    {
+      "auditId": "3b89742d-ac1e-461f-8176-3701a1dc8f04",
+      "atUtc": "2026-10-25T16:07:30.262924+01:00",
+      "targetSessionId": "75eef5de-8c03-4286-87b2-00073cf4f36e"
+    },
+    {
+      "auditId": "23112b35-1e70-44dc-a554-019c5558b2d8",
+      "atUtc": "2026-10-25T16:09:05.041186+01:00",
+      "targetSessionId": "21610341-a735-44f4-8a61-42843f5567aa"
+    }
+  ],
+  "sessionCount": 2,
+  "sessions": [
+    {
+      "sessionId": "b8c76efe-9e37-4778-9fcf-8d32155fb85e",
+      "titleSha256": "e6a6a99bbc631c362371e99c6c04e13f6c6ff677a2da7016c79bb098cc8b3a39",
+      "titleCharacters": 19,
+      "createdAt": "2026-10-25T16:09:05.052415+01:00",
+      "updatedAt": "2026-10-25T16:09:05.052415+01:00",
+      "messageCount": 0,
+      "messages": []
+    },
+    {
+      "sessionId": "8fdb8bc0-64f8-477c-9a6e-6839a8db535c",
+      "titleSha256": "f17531adf81f7a63d10e0305ad3509a2798e92bb21e92264ace34cdb0f1e3881",
+      "titleCharacters": 34,
+      "createdAt": "2026-10-25T16:11:26.771005+01:00",
+      "updatedAt": "2026-10-25T16:11:26.78103+01:00",
+      "messageCount": 2,
+      "messages": [
+        {
+          "messageId": "e1d1356f-8708-4d88-ad2d-51bcdde7d4d5",
+          "role": "user",
+          "contentSha256": "630b97e8f2e85f33e308212fbaa23c6c02b3b73d2a1a20f0235a1146f5403f8d",
+          "contentCharacters": 115,
+          "createdAt": "2026-10-25T16:11:26.775084+01:00"
+        },
+        {
+          "messageId": "f9b2c46d-8853-4cea-a2c4-fb64bbfacdb1",
+          "role": "assistant",
+          "contentSha256": "89feb12e57f7eec0c0026d2d05914fab25c116efe5b301a10c44e56443fbde4e",
+          "contentCharacters": 120,
+          "createdAt": "2026-10-25T16:11:26.78076+01:00"
+        }
+      ]
+    }
+  ]
+}

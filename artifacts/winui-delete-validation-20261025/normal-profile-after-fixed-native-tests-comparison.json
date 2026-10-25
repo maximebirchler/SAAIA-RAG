@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "saaia-winui-user-profile-comparison.v1",
+  "startedAtUtc": "2026-10-25T15:33:39.0136454+00:00",
+  "finishedAtUtc": "2026-10-25T15:33:39.3766809+00:00",
+  "baselineInputSha256": "eda132cb1435b5709615c69f8ffbedd26d4dacd7122e03d9354158a6ef8805fd",
+  "profileRootId": "462915662756443f63f7bc80fd6921c04560449ca22c19e6651bce276914dc83",
+  "readOnly": true,
+  "contentPublished": false,
+  "privatePathsPublished": false,
+  "scopePolicy": "Exactly the top-level scopes represented in the supplied baseline; no claim about unrecorded profile locations.",
+  "baselineFiles": 556,
+  "currentFiles": 556,
+  "unchangedFiles": 556,
+  "changedOrMissingOrAddedFiles": 0,
+  "issueCount": 0,
+  "baselineTreeSha256": "64625d40510fb905dd5fa8f69fc9c03e1a563b8e1120ce1f1f177d36394be73c",
+  "currentTreeSha256": "64625d40510fb905dd5fa8f69fc9c03e1a563b8e1120ce1f1f177d36394be73c",
+  "coveredFilesUnchanged": true,
+  "scopes": [
+    {
+      "scope": "client",
+      "currentFiles": 1,
+      "baselineFiles": 1
+    },
+    {
+      "scope": "governance",
+      "currentFiles": 32,
+      "baselineFiles": 32
+    },
+    {
+      "scope": "llm-dev",
+      "currentFiles": 160,
+      "baselineFiles": 160
+    },
+    {
+      "scope": "logs",
+      "currentFiles": 363,
+      "baselineFiles": 363
+    }
+  ],
+  "changes": [],
+  "issues": [],
+  "limits": [
+    "Hash comparison proves the covered files at observation time, not every application setting or Windows credential store.",
+    "No process or profile file was stopped, changed, restored or deleted.",
+    "File timestamps are checked around hashing; the complete profile is not observed atomically."
+  ]
+}

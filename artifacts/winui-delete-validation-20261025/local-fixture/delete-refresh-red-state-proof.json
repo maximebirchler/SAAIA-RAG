@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "saaia-winui-delete-refresh-red-state.v1",
+  "capturedAtUtc": "2026-10-25T15:14:28.0231828+00:00",
+  "environmentRunId": "5339019b0db34d0cb098f11e055763ea",
+  "readOnly": true,
+  "durableStateStatus": "PASSED",
+  "checkCount": 11,
+  "failedCheckCount": 0,
+  "deletedSessionId": "8fdb8bc0-64f8-477c-9a6e-6839a8db535c",
+  "emptyWitnessSessionId": "b8c76efe-9e37-4778-9fcf-8d32155fb85e",
+  "actualLastSessionId": null,
+  "actualDelete": [
+    {
+      "method": "DELETE",
+      "path": "/chat/sessions/8fdb8bc0-64f8-477c-9a6e-6839a8db535c",
+      "phase": "completed",
+      "status": 200,
+      "action": "forward",
+      "targetDeleteAcknowledged": true,
+      "atUtc": "2026-10-25T15:13:01Z"
+    }
+  ],
+  "actualInjectedFailure": [
+    {
+      "method": "GET",
+      "path": "/chat/sessions",
+      "phase": "completed",
+      "status": 500,
+      "action": "synthetic_inventory_failure_after_delete_ack",
+      "atUtc": "2026-10-25T15:13:01Z"
+    }
+  ],
+  "control": {
+    "schemaVersion": "saaia-winui-delete-refresh-control.v1",
+    "enabled": false,
+    "state": "consumed",
+    "targetSessionId": "8fdb8bc0-64f8-477c-9a6e-6839a8db535c",
+    "targetUserId": "46db7f31-b056-4acb-9bf0-cd8157d4c5c7",
+    "inventoryFailuresInjected": 1,
+    "deleteStatus": 200
+  },
+  "checks": [
+    {
+      "name": "exactly_one_remaining_empty_witness",
+      "passed": true
+    },
+    {
+      "name": "deleted_session_and_messages_absent",
+      "passed": true
+    },
+    {
+      "name": "zero_orphans_jobs_other_users",
+      "passed": true
+    },
+    {
+      "name": "four_exact_delete_audit_targets",
+      "passed": true
+    },
+    {
+      "name": "api_exactly_d_removed",
+      "passed": true
+    },
+    {
+      "name": "api_two_d_messages_removed",
+      "passed": true
+    },
+    {
+      "name": "api_no_added_or_changed_records",
+      "passed": true
+    },
+    {
+      "name": "one_actual_delete_200_before_failure",
+      "passed": true
+    },
+    {
+      "name": "one_inventory_failure_500",
+      "passed": true
+    },
+    {
+      "name": "control_consumed_once_disabled",
+      "passed": true
+    },
+    {
+      "name": "last_session_cleared_after_delete_ack",
+      "passed": true
+    }
+  ],
+  "limits": "Durable state/wire evidence only. The user-visible defect is recorded by separate native UI observations."
+}

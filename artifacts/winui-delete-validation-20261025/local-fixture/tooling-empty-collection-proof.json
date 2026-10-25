@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "saaia-winui-empty-collection-tooling-proof.v1",
+  "capturedAtUtc": "2026-10-25T15:12:32.4136673+00:00",
+  "readOnly": true,
+  "mode": "Offline PowerShell array experiment using genuine empty SQL snapshot; no deletion or HTTP request executed",
+  "sourceSha256": "DBD623F5E57E7E76F33AC0A3F5FEDE8D966F7C9191E6FCFE333B9DEE6B4D59D6",
+  "originalEmptySnapshotSha256": "3EF736D42A972C3671B169D60D5070F953884D66EA622A1601260E2EB8214254",
+  "checkCount": 6,
+  "failedCheckCount": 0,
+  "checks": [
+    {
+      "name": "real_empty_sql_snapshot",
+      "passed": true
+    },
+    {
+      "name": "old_property_projection_yields_single_null",
+      "passed": true
+    },
+    {
+      "name": "corrected_session_projection_empty",
+      "passed": true
+    },
+    {
+      "name": "corrected_message_projection_empty",
+      "passed": true
+    },
+    {
+      "name": "no_false_added_null_session",
+      "passed": true
+    },
+    {
+      "name": "three_baseline_sessions_removed_in_empty_control",
+      "passed": true
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "saaia-winui-chat-store-snapshot.v1",
+  "startedAtUtc": "2026-10-25T15:09:36.2954091+00:00",
+  "finishedAtUtc": "2026-10-25T15:09:36.3892438+00:00",
+  "environmentRunId": "5339019b0db34d0cb098f11e055763ea",
+  "backendUrl": "http://127.0.0.1:5167",
+  "userId": "46db7f31-b056-4acb-9bf0-cd8157d4c5c7",
+  "readOnly": true,
+  "contentMode": "sha256_utf8_exact_text_counts_only",
+  "sessionCount": 1,
+  "totalMessageCount": 0,
+  "totalUserMessages": 0,
+  "totalAssistantMessages": 0,
+  "sessionLimitReached": false,
+  "messageLimitReached": false,
+  "completeWithinApiLimits": true,
+  "consistency": "Read-only sequential HTTP observations; not an atomic database snapshot. Capture while the client is idle for comparisons.",
+  "repeatedContentInterpretation": "Repeated hashes can be legitimate repeated user requests; they are candidates for review, not an automatic duplicate verdict.",
+  "sessions": [
+    {
+      "sessionId": "b8c76efe-9e37-4778-9fcf-8d32155fb85e",
+      "title": {
+        "sha256": "e6a6a99bbc631c362371e99c6c04e13f6c6ff677a2da7016c79bb098cc8b3a39",
+        "characters": 19,
+        "newlineCount": 0,
+        "present": true
+      },
+      "createdAt": "2026-10-25T15:09:05.052415Z",
+      "updatedAt": "2026-10-25T15:09:05.052415Z",
+      "lastMessageAt": null,
+      "messageCount": 0,
+      "userMessageCount": 0,
+      "assistantMessageCount": 0,
+      "messageLimitReached": false,
+      "repeatedContentGroups": [],
+      "messages": []
+    }
+  ],
+  "comparison": {
+    "addedMessageIds": [],
+    "baselinePath": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-delete-validation-20261025\\local-fixture\\chat-store-snapshots\\20261025T150321162Z-delete-initial-three.json",
+    "baselineSha256": "9537AA64A94F90A57B435DE326514B8A5C1D681AC05F6AFD2A8D082413E991D5",
+    "addedSessionIds": [
+      "b8c76efe-9e37-4778-9fcf-8d32155fb85e"
+    ],
+    "removedMessageIds": [
+      "b2f2d58b-28b3-445a-ba06-16bfac7db32c",
+      "d21846ac-11f9-466e-bb69-5a4ddaa356e7",
+      "c5070c29-a9f2-40e2-b8ec-ed64b7d9aa95",
+      "82a3c55b-9ea9-4ade-8ed5-e035c33ab6e5",
+      "2865f177-4bdc-49ba-b0f1-0daadc4f6908",
+      "2b49c9f2-42de-4b31-9654-f62ebcd6aa57"
+    ],
+    "removedSessionIds": [
+      "21610341-a735-44f4-8a61-42843f5567aa",
+      "75eef5de-8c03-4286-87b2-00073cf4f36e",
+      "431bdcbb-6e8c-4bd1-8b8a-758c3205fffd"
+    ],
+    "changedMessageIds": []
+  }
+}

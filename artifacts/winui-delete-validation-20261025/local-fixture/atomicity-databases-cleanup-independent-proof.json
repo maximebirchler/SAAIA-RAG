@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "saaia-winui-owned-pg-database-inventory.v1",
+  "capturedAtUtc": "2026-10-25T15:14:59.6991883+00:00",
+  "environmentRunId": "5339019b0db34d0cb098f11e055763ea",
+  "readOnly": true,
+  "ownedDataDirectoryVerified": true,
+  "postgresPort": 52785,
+  "databases": [
+    "postgres",
+    "template0",
+    "template1"
+  ],
+  "transientAtomicityDatabaseCount": 0,
+  "passed": true
+}

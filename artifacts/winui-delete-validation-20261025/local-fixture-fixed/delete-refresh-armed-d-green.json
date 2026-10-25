@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "saaia-winui-delete-refresh-armed.v1",
+  "capturedAtUtc": "2026-10-25T15:28:06.5203964+00:00",
+  "control": {
+    "schemaVersion": "saaia-winui-delete-refresh-control.v1",
+    "enabled": true,
+    "state": "waiting_for_delete_ack",
+    "targetSessionId": "512bca66-8f70-4e54-99a7-d0f4f0d82b32",
+    "targetUserId": "84ff6021-18f2-43df-bd34-59fbfbdd565d",
+    "inventoryFailuresInjected": 0
+  },
+  "note": "One real acknowledged targetD DELETE arms exactly one inventory GET500."
+}

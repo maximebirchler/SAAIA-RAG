@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "saaia-winui-chat-store-snapshot.v1",
+  "startedAtUtc": "2026-10-25T15:33:15.7532676+00:00",
+  "finishedAtUtc": "2026-10-25T15:33:15.8089223+00:00",
+  "environmentRunId": "ab115805927241e3bf8746cde32d4039",
+  "backendUrl": "http://127.0.0.1:5167",
+  "userId": "84ff6021-18f2-43df-bd34-59fbfbdd565d",
+  "readOnly": true,
+  "contentMode": "sha256_utf8_exact_text_counts_only",
+  "sessionCount": 1,
+  "totalMessageCount": 0,
+  "totalUserMessages": 0,
+  "totalAssistantMessages": 0,
+  "sessionLimitReached": false,
+  "messageLimitReached": false,
+  "completeWithinApiLimits": true,
+  "consistency": "Read-only sequential HTTP observations; not an atomic database snapshot. Capture while the client is idle for comparisons.",
+  "repeatedContentInterpretation": "Repeated hashes can be legitimate repeated user requests; they are candidates for review, not an automatic duplicate verdict.",
+  "sessions": [
+    {
+      "sessionId": "398b311a-bcc1-4f11-afac-359560aa6e54",
+      "title": {
+        "sha256": "e6a6a99bbc631c362371e99c6c04e13f6c6ff677a2da7016c79bb098cc8b3a39",
+        "characters": 19,
+        "newlineCount": 0,
+        "present": true
+      },
+      "createdAt": "2026-10-25T15:27:07.784545Z",
+      "updatedAt": "2026-10-25T15:27:07.784545Z",
+      "lastMessageAt": null,
+      "messageCount": 0,
+      "userMessageCount": 0,
+      "assistantMessageCount": 0,
+      "messageLimitReached": false,
+      "repeatedContentGroups": [],
+      "messages": []
+    }
+  ],
+  "comparison": null
+}

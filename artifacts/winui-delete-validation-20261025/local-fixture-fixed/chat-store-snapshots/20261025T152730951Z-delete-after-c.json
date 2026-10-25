@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "saaia-winui-chat-store-snapshot.v1",
+  "startedAtUtc": "2026-10-25T15:27:30.9513330+00:00",
+  "finishedAtUtc": "2026-10-25T15:27:30.9992097+00:00",
+  "environmentRunId": "ab115805927241e3bf8746cde32d4039",
+  "backendUrl": "http://127.0.0.1:5167",
+  "userId": "84ff6021-18f2-43df-bd34-59fbfbdd565d",
+  "readOnly": true,
+  "contentMode": "sha256_utf8_exact_text_counts_only",
+  "sessionCount": 1,
+  "totalMessageCount": 0,
+  "totalUserMessages": 0,
+  "totalAssistantMessages": 0,
+  "sessionLimitReached": false,
+  "messageLimitReached": false,
+  "completeWithinApiLimits": true,
+  "consistency": "Read-only sequential HTTP observations; not an atomic database snapshot. Capture while the client is idle for comparisons.",
+  "repeatedContentInterpretation": "Repeated hashes can be legitimate repeated user requests; they are candidates for review, not an automatic duplicate verdict.",
+  "sessions": [
+    {
+      "sessionId": "398b311a-bcc1-4f11-afac-359560aa6e54",
+      "title": {
+        "sha256": "e6a6a99bbc631c362371e99c6c04e13f6c6ff677a2da7016c79bb098cc8b3a39",
+        "characters": 19,
+        "newlineCount": 0,
+        "present": true
+      },
+      "createdAt": "2026-10-25T15:27:07.784545Z",
+      "updatedAt": "2026-10-25T15:27:07.784545Z",
+      "lastMessageAt": null,
+      "messageCount": 0,
+      "userMessageCount": 0,
+      "assistantMessageCount": 0,
+      "messageLimitReached": false,
+      "repeatedContentGroups": [],
+      "messages": []
+    }
+  ],
+  "comparison": {
+    "changedMessageIds": [],
+    "baselineSha256": "430B04D6F46BB621823BE3595D37D0A712DDDC08EB48DCED989780E9D6200AF0",
+    "removedMessageIds": [
+      "f5442e25-e301-4d04-aeaf-5cba72c96346",
+      "c3c69be3-8028-40fa-a553-b98e9d3ad198",
+      "d0719f12-e5b6-4dc6-9b21-2d692b14083d",
+      "7918bd30-d97d-4c48-a3dd-5d30c76451bb",
+      "798dc964-5564-489f-9d45-18b1dca89a97",
+      "b742418b-baec-4dcf-bb38-56ce417369de"
+    ],
+    "removedSessionIds": [
+      "3e3c9627-48b7-4cc1-aa20-2b1b9cfce40a",
+      "29d9da2e-067b-4603-a2db-3439e35b855b",
+      "d5deec59-c62a-4ebd-90d3-63296e5e65c9"
+    ],
+    "addedMessageIds": [],
+    "addedSessionIds": [
+      "398b311a-bcc1-4f11-afac-359560aa6e54"
+    ],
+    "baselinePath": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-delete-validation-20261025\\local-fixture-fixed\\chat-store-snapshots\\20261025T152327532Z-delete-initial-three.json"
+  }
+}

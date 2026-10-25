@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "saaia-winui-delete-validation.v1",
+  "status": "NOT_EXECUTED",
+  "scope": "Complement W09/W10, real WinUI deletion of campaign-only synthetic discussions in the isolated local fixture.",
+  "authorization": {
+    "source": "Direct user reply in this chat",
+    "answer": "Oui, uniquement les discussions de test",
+    "scope": "Only synthetic campaign discussions; no habitual user profile or other user data."
+  },
+  "previousEvidence": {
+    "immutableCampaign": "artifacts/winui-validation-20261025",
+    "cancelAlreadyObserved": "native-ui/39-delete-cancel.json",
+    "note": "The earlier sealed report accurately records the absence of authorization at that time; it must not be rewritten retroactively."
+  },
+  "scenarios": [
+    {
+      "id": "W09_INACTIVE_DELETE",
+      "status": "NOT_EXECUTED",
+      "preconditions": ["A is loaded with distinguishable messages and a source card.", "B is a separate synthetic campaign discussion."],
+      "action": "In the actual WinUI menu for B, choose Supprimer, inspect the target name, then confirm Supprimer.",
+      "acceptance": ["Only B disappears from the list and backend.", "A remains selected with the same ID, message IDs/content/source hashes and source-open identity.", "No new model call or advanced job is caused by deletion.", "Composer returns to an available state and no delete error is visible."],
+      "requiredEvidence": ["Fresh UI tree/capture showing A and B before deletion.", "Targeted delete confirmation dialog.", "Fresh UI tree/capture after deletion with A still loaded.", "Read-only before/after backend snapshots including all surviving message/source/tracking hashes.", "Actual wire DELETE B and success, no DELETE A.", "Owned profile LastSessionId still A; no secret values exported."],
+      "observations": []
+    },
+    {
+      "id": "W10_ACTIVE_DELETE",
+      "status": "NOT_EXECUTED",
+      "preconditions": ["B is the loaded synthetic discussion.", "Another synthetic discussion A remains."],
+      "action": "Confirm the actual WinUI deletion dialog for loaded B.",
+      "acceptance": ["B disappears from UI and backend; its messages disappear from the deleted session scope.", "A valid surviving discussion is loaded with its own ID and history.", "Deleted messages and source cards are absent from the current conversation.", "LastSessionId refers to the survivor and no longer B.", "Composer becomes available; no model or advanced job is automatically started."],
+      "requiredEvidence": ["Before UI showing the active B identity and content.", "Delete confirmation naming B.", "After UI showing the surviving selected conversation and its own content/sources.", "Read-only before/after backend snapshots confirming only authorized deletion.", "Actual wire DELETE B success followed by GET survivor messages.", "Owned profile LastSessionId equals the surviving loaded ID."],
+      "observations": []
+    },
+    {
+      "id": "W10_LAST_DELETE",
+      "status": "NOT_EXECUTED",
+      "preconditions": ["Use a fresh campaign-only user/profile whose entire session inventory is synthetic.", "Exactly one discussion remains before the action; do not remove historical campaign proofs to manufacture this state."],
+      "action": "Delete that final synthetic discussion through the actual WinUI confirmation.",
+      "acceptance": ["The old discussion ID is deleted.", "A fresh default discussion is created automatically with a distinct ID.", "The new discussion is selected with no old messages, sources or staged outbound message.", "Composer accepts a draft and remains usable; Envoyer stays disabled for an empty draft.", "Persisted LastSessionId equals the new ID and remains so on a restart if exercised.", "No model call or advanced job is needed to establish this UI/lifecycle result."],
+      "requiredEvidence": ["Before read-only backend snapshot proving exactly one session in the isolated user scope.", "Before/dialog/after native UI observations.", "Wire DELETE old ID, GET empty inventory, POST new session, GET new session messages.", "After read-only snapshot: exactly one new empty session and no deleted ID.", "Owned profile LastSessionId equals the new ID; draft usability observation without paid/model submission."],
+      "observations": []
+    }
+  ],
+  "diagnosticVariants": [
+    {
+      "id": "DELETE_SUCCEEDS_REFRESH_FAILS",
+      "status": "NOT_EXECUTED",
+      "sourceBasedRisk": "After a successful DELETE of the current session, local messages are cleared before RefreshSessionsAsync completes. If its GET sessions or POST replacement fails, the old sessions collection has not yet been cleared; a deleted item may remain visible until retry.",
+      "safeExpectation": "Localized delete error, no deleted conversation used for a model request, composer disabled while current ID is null, recoverable Nouveau/selection action.",
+      "note": "Concrete fault variant to reproduce, not a confirmed runtime defect."
+    },
+    {
+      "id": "DELETE_BACKEND_PARTIAL_FAILURE",
+      "status": "NOT_EXECUTED",
+      "sourceBasedRisk": "Backend DeleteSessionAsync issues DELETE chat_messages and DELETE chat_sessions separately without an explicit transaction in this method; a database failure between those statements can leave the session without its messages.",
+      "note": "Source review only; outside the three nominal UI acceptance cases and not reproduced here."
+    }
+  ],
+  "evidenceLimits": [
+    "Visual message/source preservation does not directly inspect private in-memory agent state. Source branches and compiled admission tests support that claim only within their scope.",
+    "Existing unit/architecture tests do not substitute for executing these destructive UI lifecycle paths.",
+    "No actual deletion, UI action, model request, build, runtime mutation or Git operation was executed by the author of this matrix."
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "modelId": "saaia-winui-fixture",
+  "clientDataRoot": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-delete-validation-20261025\\local-fixture-fixed\\runtime\\client-data",
+  "backendUrl": "http://127.0.0.1:5167",
+  "syntheticBackendKeyProtectedWithDpapi": true,
+  "schemaVersion": "saaia-winui-client-isolation.v1",
+  "userId": "84ff6021-18f2-43df-bd34-59fbfbdd565d",
+  "clientStarted": false,
+  "realUserConfigurationModified": false,
+  "providerKeysPresent": false,
+  "localModelPort": 18097
+}

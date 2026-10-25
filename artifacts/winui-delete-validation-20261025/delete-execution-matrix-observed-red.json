@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "saaia-winui-delete-validation-observed.v1",
+  "scope": "Native WinUI deletion complement W09/W10 and a bounded post-delete refresh failure. This projection supplements immutable earlier campaign evidence.",
+  "status": "NOMINAL_CASES_OBSERVED_REFRESH_DEFECT_REPRODUCED_FIX_AWAITS_NATIVE_RETEST",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "authorization": {
+    "source": "Direct user reply in the active chat",
+    "answer": "Oui, uniquement les discussions de test",
+    "observedScope": "Only the synthetic A/B/C/D discussions of an isolated local test user; no habitual profile or external server."
+  },
+  "executedCases": [
+    {
+      "id": "W09_INACTIVE_DELETE",
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "observedScope": "A deleted through WinUI while B stays selected with its two marker messages. C remains. Backend/API/SQL checks confirm only A and its messages disappear and survivor message identities/content remain unchanged.",
+      "nativeEvidence": ["native-ui/01-three-sessions-active-B.json", "native-ui/02-inactive-A-delete-confirmation.json", "native-ui/03-inactive-A-removed-B-preserved.json"],
+      "durableEvidence": ["local-fixture/deletion-step-a-verification.json"],
+      "durableChecksPassed": 30,
+      "durableChecksFailed": 0,
+      "limits": ["A/B/C contain no source cards. Preservation of a nonempty source card during deletion was NOT exercised in this lot.", "Private in-memory agent state was not directly inspected; observable history and durable identities were checked."]
+    },
+    {
+      "id": "W10_ACTIVE_DELETE",
+      "status": "PASS_OBSERVED_WITH_DECLARED_SCOPE",
+      "observedScope": "B deleted through WinUI while loaded. C is selected automatically with its own two marker messages; no B marker remains. The profile's saved session ID becomes C.",
+      "nativeEvidence": ["native-ui/04-active-B-delete-confirmation.json", "native-ui/05-active-B-removed-C-loaded.json"],
+      "durableEvidence": ["local-fixture/deletion-step-b-verification.json", "local-fixture/last-session-setting-after-b.json"],
+      "durableChecksPassed": 22,
+      "durableChecksFailed": 0,
+      "limits": ["No source cards were seeded, so removal of a nonempty source display is supported by code/tests but not directly observed here."]
+    },
+    {
+      "id": "W10_LAST_DELETE",
+      "status": "PASS_OBSERVED",
+      "observedScope": "Final discussion C deleted through WinUI. A distinct default discussion R is created automatically with zero messages, selected and persisted; entering a draft enables Envoyer. No send/model call was performed.",
+      "replacementSessionId": "b8c76efe-9e37-4778-9fcf-8d32155fb85e",
+      "nativeEvidence": ["native-ui/06-last-C-delete-confirmation.json", "native-ui/07-last-C-removed-new-empty-session.json", "native-ui/08-new-session-composer-enabled.json"],
+      "durableEvidence": ["local-fixture/deletion-step-c-verification.json", "local-fixture/last-session-setting-after-c.json"],
+      "durableChecksPassed": 17,
+      "durableChecksFailed": 0,
+      "limits": ["This establishes lifecycle and composer usability, not a generated answer in the replacement discussion."]
+    },
+    {
+      "id": "DELETE_SUCCEEDS_REFRESH_FAILS_RED",
+      "status": "FAIL_REPRODUCED_BUILD08",
+      "observedScope": "D really deleted with HTTP200, then exactly one GET /chat/sessions500 injected. D stays incorrectly in the visible list; history is empty and composer disabled. The exact alert is Suppression non confirmée, despite the acknowledged deletion. Selecting the surviving R recovers the composer but does not remove stale D from the list.",
+      "deletedSessionId": "8fdb8bc0-64f8-477c-9a6e-6839a8db535c",
+      "nativeEvidence": ["native-ui/09-refresh-fault-before-delete-D.json", "native-ui/10-refresh-fault-stale-deleted-D-and-wrong-error.json", "native-ui/10b-refresh-fault-exact-banner.json", "native-ui/11-red-recovery-by-surviving-session.json"],
+      "durableEvidence": ["local-fixture/delete-refresh-red-state-proof.json", "local-fixture/delete-refresh-events-delete-refresh.jsonl"],
+      "durableChecksPassed": 11,
+      "durableChecksFailed": 0,
+      "correctionOfPriorDescription": "Observation10's prose paraphrases the alert incorrectly. Its capture/tree and observation10b are authoritative: Suppression non confirmée. Observation10 is retained unchanged as historical evidence."
+    }
+  ],
+  "correctiveImplementation": {
+    "status": "IMPLEMENTED_TARGETED_TESTS_PASSED_NATIVE_RETEST_PENDING",
+    "changes": ["Remove the local session item immediately after real DELETE acknowledgement and before fallible inventory reads.", "Keep an inactive loaded conversation unchanged.", "On active deletion followed by refresh failure, attempt loading an already known surviving session.", "Show a localized confirmed-deletion/list-refresh-failure notice with another discussion or Nouveau as recovery, without claiming deletion is unconfirmed.", "Emit session.delete.acknowledged, session.delete.refresh_failed and explicit recovery outcome probes in a scoped session_delete diagnostic turn."],
+    "targetedTestManifest": "client-delete-refresh-tests-02/manifest.json",
+    "targetedPassed": 20,
+    "targetedFailed": 0,
+    "sourceChangedDuringRun": false,
+    "testedSourceFingerprint": "4CD01042C2943BF892544FBAFCF8CE1B3CF3B104341587ABA675E67802946EF0",
+    "firstRunLimit": "client-delete-refresh-tests-01 retained:19passed/1failed. The failing architecture guard did not inspect handler callbacks; it was updated to inspect the actual compiled callbacks and the subsequent run passed.",
+    "architectureEvidence": "architecture-delete-refresh.json",
+    "architectureStatus": "passed",
+    "mainWindowLines": 15319,
+    "mainWindowBudget": 15376
+  },
+  "nonExecutionBoundaries": ["No paid provider configured or called; fixture model chatRequests0 and externalCalls0.", "No Terra planning test, local model inference or semantic acceptance is claimed.", "Native corrected-build retest is still pending at the time of this projection.", "All initial draft source-card preconditions that were not actually seeded are explicitly bounded above."]
+}

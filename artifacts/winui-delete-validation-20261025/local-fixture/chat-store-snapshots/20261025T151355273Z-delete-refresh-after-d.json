@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "saaia-winui-chat-store-snapshot.v1",
+  "startedAtUtc": "2026-10-25T15:13:55.2733876+00:00",
+  "finishedAtUtc": "2026-10-25T15:13:55.3435283+00:00",
+  "environmentRunId": "5339019b0db34d0cb098f11e055763ea",
+  "backendUrl": "http://127.0.0.1:5167",
+  "userId": "46db7f31-b056-4acb-9bf0-cd8157d4c5c7",
+  "readOnly": true,
+  "contentMode": "sha256_utf8_exact_text_counts_only",
+  "sessionCount": 1,
+  "totalMessageCount": 0,
+  "totalUserMessages": 0,
+  "totalAssistantMessages": 0,
+  "sessionLimitReached": false,
+  "messageLimitReached": false,
+  "completeWithinApiLimits": true,
+  "consistency": "Read-only sequential HTTP observations; not an atomic database snapshot. Capture while the client is idle for comparisons.",
+  "repeatedContentInterpretation": "Repeated hashes can be legitimate repeated user requests; they are candidates for review, not an automatic duplicate verdict.",
+  "sessions": [
+    {
+      "sessionId": "b8c76efe-9e37-4778-9fcf-8d32155fb85e",
+      "title": {
+        "sha256": "e6a6a99bbc631c362371e99c6c04e13f6c6ff677a2da7016c79bb098cc8b3a39",
+        "characters": 19,
+        "newlineCount": 0,
+        "present": true
+      },
+      "createdAt": "2026-10-25T15:09:05.052415Z",
+      "updatedAt": "2026-10-25T15:09:05.052415Z",
+      "lastMessageAt": null,
+      "messageCount": 0,
+      "userMessageCount": 0,
+      "assistantMessageCount": 0,
+      "messageLimitReached": false,
+      "repeatedContentGroups": [],
+      "messages": []
+    }
+  ],
+  "comparison": {
+    "addedSessionIds": [],
+    "removedMessageIds": [
+      "e1d1356f-8708-4d88-ad2d-51bcdde7d4d5",
+      "f9b2c46d-8853-4cea-a2c4-fb64bbfacdb1"
+    ],
+    "changedMessageIds": [],
+    "baselinePath": "C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\artifacts\\winui-delete-validation-20261025\\local-fixture\\chat-store-snapshots\\20261025T151154265Z-delete-refresh-before-d.json",
+    "removedSessionIds": [
+      "8fdb8bc0-64f8-477c-9a6e-6839a8db535c"
+    ],
+    "baselineSha256": "0584D7FB33C0D085FB552D8EFB5898CC883D1E887F23A5CE9D5ED238F8E6E83F",
+    "addedMessageIds": []
+  }
+}

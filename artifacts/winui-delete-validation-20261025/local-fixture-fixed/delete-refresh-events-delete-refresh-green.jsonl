@@ -1,0 +1,16 @@
+{"method": "GET", "path": "/ready", "phase": "request", "requestSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "atUtc": "2026-10-25T15:28:05Z"}
+{"method": "GET", "path": "/ready", "phase": "completed", "status": 200, "action": "forward", "targetDeleteAcknowledged": false, "atUtc": "2026-10-25T15:28:05Z"}
+{"method": "GET", "path": "/chat/sessions", "phase": "request", "requestSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "atUtc": "2026-10-25T15:28:27Z"}
+{"method": "GET", "path": "/chat/sessions", "phase": "completed", "status": 200, "action": "forward", "targetDeleteAcknowledged": false, "atUtc": "2026-10-25T15:28:27Z"}
+{"method": "GET", "path": "/chat/sessions/512bca66-8f70-4e54-99a7-d0f4f0d82b32/messages", "phase": "request", "requestSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "atUtc": "2026-10-25T15:28:27Z"}
+{"method": "GET", "path": "/chat/sessions/512bca66-8f70-4e54-99a7-d0f4f0d82b32/messages", "phase": "completed", "status": 200, "action": "forward", "targetDeleteAcknowledged": false, "atUtc": "2026-10-25T15:28:27Z"}
+{"method": "DELETE", "path": "/chat/sessions/512bca66-8f70-4e54-99a7-d0f4f0d82b32", "phase": "request", "requestSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "atUtc": "2026-10-25T15:28:56Z"}
+{"method": "DELETE", "path": "/chat/sessions/512bca66-8f70-4e54-99a7-d0f4f0d82b32", "phase": "completed", "status": 200, "action": "forward", "targetDeleteAcknowledged": true, "atUtc": "2026-10-25T15:28:56Z"}
+{"method": "GET", "path": "/chat/sessions", "phase": "request", "requestSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "atUtc": "2026-10-25T15:28:56Z"}
+{"method": "GET", "path": "/chat/sessions", "phase": "completed", "status": 500, "action": "synthetic_inventory_failure_after_delete_ack", "atUtc": "2026-10-25T15:28:56Z"}
+{"method": "GET", "path": "/chat/sessions/398b311a-bcc1-4f11-afac-359560aa6e54/messages", "phase": "request", "requestSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "atUtc": "2026-10-25T15:28:56Z"}
+{"method": "GET", "path": "/chat/sessions/398b311a-bcc1-4f11-afac-359560aa6e54/messages", "phase": "completed", "status": 200, "action": "forward", "targetDeleteAcknowledged": false, "atUtc": "2026-10-25T15:28:56Z"}
+{"method": "GET", "path": "/chat/sessions", "phase": "request", "requestSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "atUtc": "2026-10-25T15:31:34Z"}
+{"method": "GET", "path": "/chat/sessions", "phase": "completed", "status": 200, "action": "forward", "targetDeleteAcknowledged": false, "atUtc": "2026-10-25T15:31:34Z"}
+{"method": "GET", "path": "/chat/sessions/398b311a-bcc1-4f11-afac-359560aa6e54/messages", "phase": "request", "requestSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "atUtc": "2026-10-25T15:31:34Z"}
+{"method": "GET", "path": "/chat/sessions/398b311a-bcc1-4f11-afac-359560aa6e54/messages", "phase": "completed", "status": 200, "action": "forward", "targetDeleteAcknowledged": false, "atUtc": "2026-10-25T15:31:34Z"}

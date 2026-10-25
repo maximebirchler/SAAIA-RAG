@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "saaia.winui.native-observation.v1",
+  "atUtc": "2026-10-25T15:27:07.678Z",
+  "name": "17-fixed-last-C-confirmation",
+  "description": "C est la seule discussion restante ; le dialogue cible exactement cette discussion fictive.",
+  "window": {
+    "app": "process:C:\\Users\\maxim\\Desktop\\ecom\\AAA\\SAAIA - RAG\\client\\SAAIA.Client.WinUI\\bin\\x64\\Release\\net8.0-windows10.0.19041.0\\win-x64\\SAAIA.Client.WinUI.exe",
+    "id": 149556066,
+    "title": "SAAIA"
+  },
+  "accessibility": {
+    "focused_element": "92 texte TEMOIN SUPPRESSION C / user / ab115805927241e3bf8746cde32d4039 - Message synthetique de controle. Aucun modele execute.",
+    "tree": "Window: \"SAAIA\", App: SAAIA.Client.WinUI.exe.\n\t0 fenêtre SAAIA Secondary Actions: Raise\n\t\t1 volet Non Client Input Sink Window\n\t\t2 volet AppWindow Custom Title Bar\n\t\t\t3 Bouton Minimize ID: Minimize\n\t\t\t4 Bouton Maximize ID: Maximize\n\t\t\t5 Bouton Close ID: Close\n\t\t6 volet\n\t\t\t7 volet\n\t\t\t\t8 image\n\t\t\t\t9 texte SAAIA\n\t\t\t\t10 bouton Discussions ID: ChatsToggleButton\n\t\t\t\t11 bouton (disabled) Configuration ID: SetupButton\n\t\t\t\t12 bouton (disabled) Aide ID: HeaderHelpButton\n\t\t\t\t\t13 texte ?\n\t\t\t\t14 bouton (disabled) Paramètres ID: HeaderSettingsButton\n\t\t\t\t15 texte Discussions ID: ChatsHeaderText\n\t\t\t\t16 bouton (disabled) Nouveau ID: NewChatButton\n\t\t\t\t17 liste (disabled) ID: SessionsList\n\t\t\t\t\t87 élément de liste (selectable, disabled) SAAIA.Client.WinUI.Models.ChatSessionItem\n\t\t\t\t\t\t88 texte TEST SUPPRESSION C - derniere\n\t\t\t\t\t\t89 texte 25.10 16:23\n\t\t\t\t\t\t90 bouton (disabled) …\n\t\t\t\t30 volet ID: MessagesScroll\n\t\t\t\t\t31 liste ID: MessagesList\n\t\t\t\t\t\t91 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t92 texte TEMOIN SUPPRESSION C / user / ab115805927241e3bf8746cde32d4039 - Message synthetique de controle. Aucun modele execute.\n\t\t\t\t\t\t\t93 texte 25.10 16:23\n\t\t\t\t\t\t\t94 bouton ID: CopyBtn\n\t\t\t\t\t\t95 élément de liste SAAIA.Client.WinUI.Models.ChatMessageItem\n\t\t\t\t\t\t\t37 image\n\t\t\t\t\t\t\t38 texte TEMOIN SUPPRESSION C / assistant / ab115805927241e3bf8746cde32d4039 - Message synthetique de controle. Aucun modele execute. ID: Rtb\n\t\t\t\t\t\t\t39 bouton ID: CopyBtn\n\t\t\t\t\t\t\t40 texte 25.10 16:23\n\t\t\t\t41 modifier (disabled, settable, string) Tape ta question... ID: InputBox\n\t\t\t\t42 bouton (disabled) Envoyer ID: SendCancelButton\n\t\t\t\t104 texte DISCUSSIONS\n\t\t\t\t105 texte Supprimer la discussion ?\n\t\t\t\t106 texte TEST SUPPRESSION C - derniere\n\t\t\t\t107 bouton Supprimer\n\t\t\t\t\t108 texte Supprimer\n\t\t\t\t109 bouton Fermer\n\t\t\t\t\t110 texte Fermer\n\t\t43 barre de titre (settable, string) Value: SAAIA\n\t\t\t44 barre de menus Système ID: MenuBar\n\t\t\t\t45 élément de menu Système\n\t\t\t46 Bouton Réduire\n\t\t\t47 Bouton Agrandir\n\t\t\t48 Bouton Fermer\n\nThe focused UI element is 92 texte TEMOIN SUPPRESSION C / user / ab115805927241e3bf8746cde32d4039 - Message synthetique de controle. Aucun modele execute.."
+  },
+  "screenshots": [
+    "17-fixed-last-C-confirmation-0.png"
+  ]
+}

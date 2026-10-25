@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "saaia-winui-deletion-sql-snapshot.v1",
+  "capturedAtUtc": "2026-10-25T15:26:56.4134376+00:00",
+  "environmentRunId": "ab115805927241e3bf8746cde32d4039",
+  "userId": "84ff6021-18f2-43df-bd34-59fbfbdd565d",
+  "readOnly": true,
+  "transaction": "BEGIN READ ONLY",
+  "identityDataDirectoryAndLoopbackPortVerified": true,
+  "postgresPort": 55961,
+  "databaseSessionCount": 1,
+  "databaseMessageCount": 2,
+  "orphanMessageCount": 0,
+  "otherUserSessionCount": 0,
+  "advancedJobCount": 0,
+  "deleteAuditEvents": [
+    {
+      "auditId": "9fd75491-9afb-40fc-ba48-6f8933d0372b",
+      "atUtc": "2026-10-25T16:25:16.619903+01:00",
+      "targetSessionId": "d5deec59-c62a-4ebd-90d3-63296e5e65c9"
+    },
+    {
+      "auditId": "fb28ec6d-65f4-4d82-8a10-1679a9739140",
+      "atUtc": "2026-10-25T16:26:14.313972+01:00",
+      "targetSessionId": "29d9da2e-067b-4603-a2db-3439e35b855b"
+    }
+  ],
+  "sessionCount": 1,
+  "sessions": [
+    {
+      "sessionId": "3e3c9627-48b7-4cc1-aa20-2b1b9cfce40a",
+      "titleSha256": "28567e6f79cbfafdf716f1f2dfc2eda90b4bafaf2f49062bf266f312b687c004",
+      "titleCharacters": 29,
+      "createdAt": "2026-10-25T16:23:27.472354+01:00",
+      "updatedAt": "2026-10-25T16:23:27.479306+01:00",
+      "messageCount": 2,
+      "messages": [
+        {
+          "messageId": "f5442e25-e301-4d04-aeaf-5cba72c96346",
+          "role": "user",
+          "contentSha256": "4950ecfeea6c3a6ea6d78c553d90bcbe1d320f2d8df80099447366465d70afa5",
+          "contentCharacters": 119,
+          "createdAt": "2026-10-25T16:23:27.475629+01:00"
+        },
+        {
+          "messageId": "c3c69be3-8028-40fa-a553-b98e9d3ad198",
+          "role": "assistant",
+          "contentSha256": "550addb370622a4c42baab63abf6b6d10cc0c539c7b44d0b07d6769821b35ff2",
+          "contentCharacters": 124,
+          "createdAt": "2026-10-25T16:23:27.478956+01:00"
+        }
+      ]
+    }
+  ]
+}

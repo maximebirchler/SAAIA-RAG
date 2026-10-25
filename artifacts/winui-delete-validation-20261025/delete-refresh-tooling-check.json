@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "saaia-winui-delete-refresh-tooling-check.v1",
+  "status": "PASS",
+  "checks": [
+    {
+      "command": "python -m unittest discover -s tools/validation-winui -p test_delete_refresh_proxy.py -v",
+      "scope": "Pure control-state tests; no network, UI, model, database or process started.",
+      "passed": 6,
+      "failed": 0,
+      "durationSecondsObserved": 0.044
+    },
+    {
+      "check": "PowerShell parser for tools/validation-winui/start-delete-refresh-proxy.ps1",
+      "parseErrors": 0
+    }
+  ],
+  "runtimeReproduction": "NOT_EXECUTED",
+  "productSourcesModified": false,
+  "existingCampaignArtifactsModified": false
+}
