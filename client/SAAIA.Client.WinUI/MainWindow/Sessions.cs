@@ -17,7 +17,8 @@ public sealed partial class MainWindow
         ConversationOperationWarning.Title = visible
             ? ClientUiText.Get("session.operation." + _conversationOperationFailure + ".failed", UiLang) : string.Empty;
         ConversationOperationWarning.Message = visible
-            ? ClientUiText.Get("session.operation.recovery", UiLang) : string.Empty;
+            ? ClientUiText.Get(_conversationOperationFailure == "delete_refresh"
+                ? "session.operation.delete_refresh.recovery" : "session.operation.recovery", UiLang) : string.Empty;
         ConversationOperationWarning.IsOpen = visible;
         ConversationOperationWarning.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -377,30 +378,55 @@ public sealed partial class MainWindow
             await overlay.Completion;
             if (!confirmed) return;
 
-            await _api.DeleteSessionAsync(s.SessionId, CancellationToken.None);
-
             var deletedCurrentSession = string.Equals(_sessionId, s.SessionId, StringComparison.OrdinalIgnoreCase);
             var preferredSessionId = deletedCurrentSession
                 ? _sessions.FirstOrDefault(x => !string.Equals(x.SessionId, s.SessionId, StringComparison.OrdinalIgnoreCase))?.SessionId
                 : _sessionId;
-            if (deletedCurrentSession)
+            var result = await Services.SessionDeletionWorkflow.ExecuteAsync(_api, s.SessionId,
+                commitAcknowledgedDeletion: () =>
+                {
+                    var deletedItem = FindSessionById(s.SessionId);
+                    if (deletedItem is not null) _sessions.Remove(deletedItem);
+                    if (deletedCurrentSession)
+                    {
+                        _sessionId = null;
+                        RefreshComposerPersistenceNoticeForSession();
+                        _agent?.ResetConversationState();
+                        ClearStagedOutboundMessage();
+                        _messages.Clear();
+                        SourcesCards.Items = new List<SourceCard>();
+                        SourcesBox.Text = string.Empty;
+                        SaveSettings();
+                    }
+                    SyncSessionSelectionVisual(_sessionId);
+                },
+                refreshAndLoad: async () =>
+                {
+                    await RefreshSessionsAsync(CancellationToken.None);
+                    var selectedAfterDelete = FindSessionById(preferredSessionId) ?? _sessions.FirstOrDefault();
+                    if (deletedCurrentSession && selectedAfterDelete is not null)
+                        await LoadSessionCoreAsync(selectedAfterDelete, CancellationToken.None, sessionChange);
+                    else
+                        SyncSessionSelectionVisual(_sessionId);
+                },
+                recoverFromKnownSessions: async () =>
+                {
+                    var knownSession = FindSessionById(preferredSessionId) ?? _sessions.FirstOrDefault();
+                    if (deletedCurrentSession && _sessionId is null && knownSession is not null)
+                        await LoadSessionCoreAsync(knownSession, CancellationToken.None, sessionChange);
+                    else
+                        SyncSessionSelectionVisual(_sessionId);
+                    return !string.IsNullOrWhiteSpace(_sessionId);
+                });
+            if (result.RefreshFailure is not null)
             {
-                _sessionId = null;
-                RefreshComposerPersistenceNoticeForSession();
-                _agent?.ResetConversationState();
-                ClearStagedOutboundMessage();
-                _messages.Clear();
-                SourcesCards.Items = new List<SourceCard>();
-                SourcesBox.Text = string.Empty;
-                SaveSettings();
+                ClientLog.Exception("Session.Delete.RefreshAfterAcknowledgement", result.RefreshFailure);
+                if (result.RecoveryFailure is not null)
+                    ClientLog.Exception("Session.Delete.RecoveryAfterAcknowledgement", result.RecoveryFailure);
+                SetConversationOperationFailure("delete_refresh");
+                Status(ClientUiText.Get("session.operation.delete_refresh.failed", lang));
+                return;
             }
-            await RefreshSessionsAsync(CancellationToken.None);
-            var selectedAfterDelete = FindSessionById(preferredSessionId) ?? _sessions.FirstOrDefault();
-
-            if (deletedCurrentSession && selectedAfterDelete is not null)
-                await LoadSessionCoreAsync(selectedAfterDelete, CancellationToken.None, sessionChange);
-            else
-                SyncSessionSelectionVisual(_sessionId);
 
             Status(ClientUiText.Get("session.delete.done", lang));
             SetConversationOperationFailure(null);

@@ -1,7 +1,8 @@
 """Loopback storage fault proxy for the owned synthetic WinUI backend only.
 
-The production backend is unchanged. Only POST chat messages with role=user
-can be delayed or rejected; controls never transmit content outside loopback.
+The production backend is unchanged. Controls can delay/reject user-message
+POSTs, reject message/readiness GETs, or delay a bounded number of message GETs
+for one explicit session UUID. Nothing is transmitted outside loopback.
 """
 import argparse
 import hashlib
@@ -10,12 +11,49 @@ import json
 import pathlib
 import threading
 import time
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 
 HOP_HEADERS = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
                "te", "trailer", "transfer-encoding", "upgrade", "content-length", "host"}
+
+
+def message_session_id(method, request_path):
+    """Only a single explicit session UUID can target a GET delay."""
+    if method != "GET":
+        return None
+    parsed = urlparse(request_path)
+    if parsed.path == "/chat/messages":
+        values = parse_qs(parsed.query).get("sessionId", [])
+        if len(values) != 1:
+            return None
+        value = values[0]
+    else:
+        pieces = parsed.path.split("/")
+        if len(pieces) != 5 or pieces[1:3] != ["chat", "sessions"] or pieces[4] != "messages":
+            return None
+        value = pieces[3]
+    try:
+        return str(uuid.UUID(value))
+    except (ValueError, AttributeError):
+        return None
+
+
+def consume_message_get_delay(control, method, request_path):
+    """Mutate only the bounded matching counter; caller owns the file lock."""
+    session = message_session_id(method, request_path)
+    try:
+        target = str(uuid.UUID(control.get("delayGetMessagesSessionId", "")))
+        remaining = min(10_000, max(0, int(control.get("delayGetMessagesRemaining", 0))))
+        delay = min(30, max(0, float(control.get("delayGetMessagesSeconds", 0))))
+    except (ValueError, TypeError, AttributeError):
+        return 0
+    if not session or session != target or remaining == 0 or delay == 0:
+        return 0
+    control["delayGetMessagesRemaining"] = remaining - 1
+    return delay
 
 
 class Proxy(BaseHTTPRequestHandler):
@@ -88,12 +126,20 @@ class Proxy(BaseHTTPRequestHandler):
                     delay = min(120, max(0, float(control.get("delayUserMessagesSeconds", 0))))
                     if delay:
                         action = "synthetic_storage_delay"
+                else:
+                    delay = consume_message_get_delay(control, self.command, self.path)
+                    if delay:
+                        action = "synthetic_message_load_delay"
+                        temporary = self.server.control.with_suffix(".tmp")
+                        temporary.write_text(json.dumps(control), encoding="utf-8")
+                        temporary.replace(self.server.control)
         event = {"method": self.command, "path": path, "userMessageMatched": matches,
                  "action": action, "delaySeconds": delay,
                  "requestSha256": hashlib.sha256(body).hexdigest(),
                  "traceparent": self.headers.get("traceparent"),
                  "turnId": self.headers.get("X-SAAIA-Turn-Id"),
-                 "sessionId": self.headers.get("X-SAAIA-Session-Id")}
+                 "sessionId": self.headers.get("X-SAAIA-Session-Id"),
+                 "messageGetSessionId": message_session_id(self.command, self.path)}
         self.emit(event)
         try:
             if action in ("synthetic_storage_failure", "synthetic_message_load_failure", "synthetic_readiness_failure"):

@@ -14,6 +14,56 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 
+def advanced_answered_content(body):
+    """One synthetic claim, citing an ID actually supplied by the real writer.
+
+    This is deliberately not a general answer generator. Unknown evidence,
+    layouts or requested counts fail instead of fabricating a source identity.
+    """
+    inputs = []
+    for message in body.get("messages", []):
+        if message.get("role") != "user" or not isinstance(message.get("content"), str):
+            continue
+        try:
+            candidate = json.loads(message["content"])
+        except (ValueError, TypeError):
+            continue
+        if isinstance(candidate, dict) and isinstance(candidate.get("evidence"), list):
+            inputs.append(candidate)
+    if len(inputs) != 1:
+        raise ValueError("advanced_answered_fixture_requires_one_writer_input")
+    writer = inputs[0]
+    load = writer.get("load", {})
+    count = load.get("answerUnitCount")
+    if type(count) is not int or count != 1 or load.get("structuredLayout") is not False or writer.get("claimCoordinates", []):
+        raise ValueError("advanced_answered_fixture_requires_one_unstructured_claim")
+    marker = "Code de validation ORION : 4826."
+    candidates = [item for item in writer["evidence"]
+                  if isinstance(item, dict) and isinstance(item.get("content"), str)
+                  and marker in item["content"]]
+    if len(candidates) != 1:
+        raise ValueError("advanced_answered_fixture_requires_unique_canonical_orion_evidence")
+    evidence_id = candidates[0].get("evidenceId")
+    if not isinstance(evidence_id, str) or not evidence_id.strip() or len(evidence_id) > 128:
+        raise ValueError("advanced_answered_fixture_evidence_id_missing")
+    return json.dumps({
+        "outcome": "answered",
+        "answerText": "Résultat contrôlé du parcours avancé : le code ORION est 4826. [C1]",
+        "claims": [{"claimId": "C1", "selectedItem": "", "text": "Le code de validation ORION est 4826.",
+                    "evidenceIds": [evidence_id]}]
+    }, ensure_ascii=False)
+
+
+def advanced_fixture_content(body, mode):
+    system = " ".join(str(m.get("content", "")) for m in body.get("messages", []) if m.get("role") == "system")
+    if "research planner" in system:
+        return json.dumps({"queries": [{"query": "ORION", "topK": 5}]})
+    if mode == "advanced_answered":
+        return advanced_answered_content(body)
+    return json.dumps({"outcome": "insufficient_documentation", "answerText":
+        "Validation synthétique du parcours avancé : le worker a terminé ses opérations. Ce résultat contrôlé ne constitue pas une validation sémantique du modèle.", "claims": []}, ensure_ascii=False)
+
+
 class Fixture(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     lock = threading.Lock()
@@ -93,13 +143,8 @@ class Fixture(BaseHTTPRequestHandler):
             if mode == "error":
                 return self.send_json({"error": {"message": "Erreur synthétique de validation WinUI", "type": "fixture_failure"}}, 503)
             content = control.get("response", "Réponse synthétique de validation WinUI. Aucun modèle payant utilisé.")
-            if mode == "advanced":
-                system = " ".join(str(m.get("content", "")) for m in body.get("messages", []) if m.get("role") == "system")
-                if "research planner" in system:
-                    content = json.dumps({"queries": [{"query": "ORION", "topK": 5}]})
-                else:
-                    content = json.dumps({"outcome": "insufficient_documentation", "answerText":
-                        "Validation synthétique du parcours avancé : le worker a terminé ses opérations. Ce résultat contrôlé ne constitue pas une validation sémantique du modèle.", "claims": []}, ensure_ascii=False)
+            if mode in ("advanced", "advanced_answered"):
+                content = advanced_fixture_content(body, mode)
             message = {"role": "assistant", "content": content}
             tools = body.get("tools", [])
             if tools and mode != "plain":

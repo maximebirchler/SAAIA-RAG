@@ -76,7 +76,7 @@ foreach($entry in @($entries|Where-Object name -ne 'postgres')){
         'fixture-http'{[int]$owner.fixturePort};'backend-runner'{[int]$owner.backendPort};'local-model-runner'{18088};'advanced-fixture-http'{18089};'advanced-backend-runner'{5137}
         default{throw 'Unknown helper role or missing port.'}
     }}
-    if($entry.name -notin @('fixture-http','backend-runner','local-model-runner','advanced-fixture-http','advanced-backend-runner','storage-proxy') -or $port -lt 1024 -or $port -in @(5432,[int]$owner.pgPort)){throw 'Invalid owned helper role or port.'}
+    if($entry.name -notin @('fixture-http','backend-runner','local-model-runner','advanced-fixture-http','advanced-backend-runner','storage-proxy','delete-refresh-proxy') -or $port -lt 1024 -or $port -in @(5432,[int]$owner.pgPort)){throw 'Invalid owned helper role or port.'}
     $active=Assert-Identity $entry
     $listeners=@(Get-PortListeners $port)
     $children=@();$workChild=$null

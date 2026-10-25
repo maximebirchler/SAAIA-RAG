@@ -86,12 +86,14 @@ $comparison = $null
 if ($BaselinePath) {
     $baseline = Get-Content -LiteralPath $BaselinePath -Raw | ConvertFrom-Json
     if ($baseline.schemaVersion -ne 'saaia-winui-chat-store-snapshot.v1' -or $baseline.userId -ne $clientUserId.ToString('D')) { throw 'Baseline does not describe the same isolated client user.' }
-    $beforeSessions = @($baseline.sessions.sessionId)
-    $currentSessions = @($sessions.sessionId)
-    $beforeMessages = @($baseline.sessions.messages | ForEach-Object { $_ })
-    $currentMessages = @($sessions.messages | ForEach-Object { $_ })
-    $beforeIds = @($beforeMessages.messageId)
-    $currentIds = @($currentMessages.messageId)
+    # Enumerating a missing property on an empty collection can yield a single
+    # null in PowerShell. Enumerate actual records so an empty store stays [].
+    $beforeSessions = @($baseline.sessions | ForEach-Object { $_.sessionId })
+    $currentSessions = @($sessions | ForEach-Object { $_.sessionId })
+    $beforeMessages = @($baseline.sessions | ForEach-Object { $_.messages } | ForEach-Object { $_ })
+    $currentMessages = @($sessions | ForEach-Object { $_.messages } | ForEach-Object { $_ })
+    $beforeIds = @($beforeMessages | ForEach-Object { $_.messageId })
+    $currentIds = @($currentMessages | ForEach-Object { $_.messageId })
     $changed = @($currentMessages | Where-Object {
         $candidate = $_
         $previous = $beforeMessages | Where-Object messageId -eq $candidate.messageId | Select-Object -First 1

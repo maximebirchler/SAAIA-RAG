@@ -1,6 +1,10 @@
 #requires -Version 7.4
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$OutputDirectory, [string]$ProofName = 'advanced-worker-preflight.json')
+param(
+    [Parameter(Mandatory)][string]$OutputDirectory,
+    [string]$ProofName = 'advanced-worker-preflight.json',
+    [ValidateSet('insufficient_documentation', 'answered')][string]$ExpectedOutcome = 'insufficient_documentation'
+)
 $ErrorActionPreference = 'Stop'
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 $owner = Get-Content -LiteralPath (Join-Path $output 'environment.json') -Raw | ConvertFrom-Json
@@ -33,9 +37,22 @@ do {
     if ($job.status -notin @('queued','running')) { break }
     if ([DateTimeOffset]::UtcNow -gt $deadline) { throw 'Owned worker preflight timed out.' }
 } while ($true)
+$answeredIdentityValid = $null
+if ($ExpectedOutcome -eq 'answered') {
+    $canonical = @(Get-Content -LiteralPath (Join-Path $output 'synthetic-documents.json') -Raw | ConvertFrom-Json | Where-Object docPath -eq 'Validation/Guide-Validation.pdf')
+    $sources = @($job.result.evidence)
+    $claims = @($job.result.claims)
+    $answeredIdentityValid = ($canonical.Count -eq 1 -and $sources.Count -eq 1 -and $claims.Count -eq 1 -and
+        $sources[0].docId -eq $canonical[0].docId -and $sources[0].revisionId -eq $canonical[0].revisionId -and
+        $sources[0].sourceHash -eq $canonical[0].sha256 -and $sources[0].docPath -ceq 'Validation/Guide-Validation.pdf' -and
+        $sources[0].pageStart -eq 2 -and $sources[0].pageEnd -eq 2 -and
+        @($claims[0].evidenceIds).Count -eq 1 -and $claims[0].evidenceIds[0] -ceq $sources[0].evidenceId -and
+        $claims[0].claimId -ceq 'C1' -and [regex]::Matches([string]$job.result.answerText, '\[C1\]').Count -eq 1)
+}
 $proof = @{ schemaVersion = 'saaia-winui-worker-preflight.v1'; performedThroughUi = $false; injectedTerminalState = $false; realWorker = $true;
     providerIsDeterministicFixture = $true; externalCalls = 0; semanticApproval = $false; jobId = $job.jobId; sessionId = $session.sessionId;
-    userId = $userId; snapshots = $snapshots; final = $job; passed = ($job.status -eq 'succeeded' -and $job.result.outcome -eq 'insufficient_documentation') }
+    userId = $userId; snapshots = $snapshots; final = $job; expectedOutcome = $ExpectedOutcome; answeredCanonicalIdentityValidated = $answeredIdentityValid;
+    passed = ($job.status -eq 'succeeded' -and $job.result.outcome -eq $ExpectedOutcome -and ($ExpectedOutcome -ne 'answered' -or $answeredIdentityValid)) }
 $proof | ConvertTo-Json -Depth 18 | Set-Content -LiteralPath $proofPath -Encoding utf8
 if (-not $proof.passed) { throw "Worker did not produce the expected controlled terminal outcome; see preflight evidence." }
-Write-Output 'Real worker API preflight passed with controlled insufficient_documentation; UI remains untested by this script.'
+Write-Output ('Real worker API preflight passed with controlled ' + $ExpectedOutcome + '; UI remains untested by this script.')

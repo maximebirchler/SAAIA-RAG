@@ -583,34 +583,55 @@ WHERE tenant_id=@tenant AND session_id=@sid AND user_id=@user_id;";
 
         using var _scope = log.BeginScope(new Dictionary<string, object> { { "user_id", userId } });
 
-        await using var conn = await ds.OpenConnectionAsync(ct);
+        using var operation = BackendDiagnostics.Start("chat.session.delete", log);
+        operation.Set("commit_acknowledged", false);
+        var phase = "connect";
+        try
+        {
+            await using var conn = await ds.OpenConnectionAsync(ct);
+            await using var tx = await conn.BeginTransactionAsync(ct);
 
-        const string delMsg = @"
-DELETE FROM chat_messages
-WHERE tenant_id=@tenant AND session_id=@sid
-  AND EXISTS (SELECT 1 FROM chat_sessions s WHERE s.tenant_id=@tenant AND s.session_id=@sid AND s.user_id=@user_id);";
-
-        await conn.ExecuteAsync(new CommandDefinition(delMsg, new { tenant = tenantId, sid = sessionId, user_id = userId }, cancellationToken: ct));
-
-        const string delSess = @"
+            // The session owns messages and advanced jobs through ON DELETE
+            // CASCADE. Delete that parent once and commit its audit atomically.
+            const string delSess = @"
 DELETE FROM chat_sessions
 WHERE tenant_id=@tenant AND session_id=@sid AND user_id=@user_id;";
 
-        var n = await conn.ExecuteAsync(new CommandDefinition(delSess, new { tenant = tenantId, sid = sessionId, user_id = userId }, cancellationToken: ct));
-        if (n == 0) return Results.NotFound();
+            phase = "delete";
+            var n = await conn.ExecuteAsync(new CommandDefinition(delSess,
+                new { tenant = tenantId, sid = sessionId, user_id = userId }, transaction: tx, cancellationToken: ct));
+            operation.Set("matched_session_count", n);
+            if (n == 0)
+            {
+                operation.Complete("skipped", "session_not_found");
+                return Results.NotFound();
+            }
 
-        await AuditWriter.WriteAsync(
-            conn,
-            tenantId,
-            actorApiKeyId,
-            actorIsAdmin,
-            action: "chat.session.delete",
-            target: sessionId.ToString(),
-            payload: new { userId },
-            ip: ctx.Connection.RemoteIpAddress?.ToString(),
-            ct: ct);
+            phase = "audit";
+            await AuditWriter.WriteAsync(
+                conn,
+                tenantId,
+                actorApiKeyId,
+                actorIsAdmin,
+                action: "chat.session.delete",
+                target: sessionId.ToString(),
+                payload: new { userId },
+                ip: ctx.Connection.RemoteIpAddress?.ToString(),
+                ct: ct,
+                tx: tx);
 
-        return Results.Ok(new { sessionId });
+            phase = "commit";
+            await tx.CommitAsync(ct);
+            operation.Set("commit_acknowledged", true);
+            operation.Complete();
+            return Results.Ok(new { sessionId });
+        }
+        catch (Exception ex)
+        {
+            operation.Set("failure_phase", phase);
+            operation.Fail(ex);
+            throw;
+        }
     }
 
     private static async Task<IResult> AddMessageAsync(

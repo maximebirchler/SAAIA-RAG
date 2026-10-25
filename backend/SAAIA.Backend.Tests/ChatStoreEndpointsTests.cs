@@ -12,11 +12,157 @@ using SAAIA.Backend.Db;
 using SAAIA.Backend.Endpoints;
 using SAAIA.Backend.Models;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace SAAIA.Backend.Tests;
 
 public sealed class ChatStoreEndpointsTests
 {
+    private readonly ITestOutputHelper _output;
+
+    public ChatStoreEndpointsTests(ITestOutputHelper output) => _output = output;
+
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileTheory("IntegrationPg")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Session_delete_failure_rolls_back_messages_jobs_and_session_without_success_audit(bool failAudit)
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
+
+        _output.WriteLine("Owned isolated database: {0}", db.DatabaseName);
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var fixture = await SeedDeletionFixtureAsync(ds);
+        await using var conn = await ds.OpenConnectionAsync();
+        // These triggers exist only in this test's newly created database. They
+        // make the two failure boundaries reproducible without timing a crash.
+        var triggerSql = failAudit
+            ? """
+CREATE FUNCTION fail_delete_audit() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.action = 'chat.session.delete' THEN
+    RAISE EXCEPTION 'controlled_delete_audit_failure';
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER fail_delete_audit BEFORE INSERT ON audit_events
+FOR EACH ROW EXECUTE FUNCTION fail_delete_audit();
+"""
+            : """
+CREATE FUNCTION fail_session_delete() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'controlled_session_delete_failure';
+END $$;
+CREATE TRIGGER fail_session_delete BEFORE DELETE ON chat_sessions
+FOR EACH ROW EXECUTE FUNCTION fail_session_delete();
+""";
+        await conn.ExecuteAsync(triggerSql);
+
+        var ctx = BuildUserContext(fixture.TenantId, Guid.NewGuid());
+        var failure = await Assert.ThrowsAsync<PostgresException>(() => InvokeEndpointAsync(
+            "DeleteSessionAsync", ctx, ds, CreateLogTagLogger(), fixture.SessionId, fixture.UserId));
+        Assert.Equal("P0001", failure.SqlState);
+        Assert.Equal(failAudit ? "controlled_delete_audit_failure" : "controlled_session_delete_failure", failure.MessageText);
+
+        Assert.Equal(3, await conn.ExecuteScalarAsync<int>("SELECT count(*) FROM chat_sessions;"));
+        Assert.Equal(3, await conn.ExecuteScalarAsync<int>("SELECT count(*) FROM chat_messages;"));
+        Assert.Equal(1, await conn.ExecuteScalarAsync<int>("SELECT count(*) FROM advanced_analysis_jobs;"));
+        Assert.Equal(0, await conn.ExecuteScalarAsync<int>("SELECT count(*) FROM audit_events WHERE action='chat.session.delete';"));
+        Assert.Equal("preserve target message", await conn.ExecuteScalarAsync<string>(
+            "SELECT content FROM chat_messages WHERE tenant_id=@tenant AND message_id=@message;",
+            new { tenant = fixture.TenantId, message = fixture.MessageId }));
+        Assert.Equal(2, await conn.ExecuteScalarAsync<int>(
+            "SELECT count(*) FROM chat_messages WHERE content='preserve unrelated message';"));
+    }
+
+    [Trait("Profile", "IntegrationPg")]
+    [ProfileFact("IntegrationPg")]
+    public async Task Session_delete_cascades_only_owned_tenant_user_and_commits_one_audit()
+    {
+        await using var db = await PostgresIntegrationDb.CreateAsync();
+        if (db is null)
+            throw new InvalidOperationException("IntegrationPg selected but isolated PostgreSQL fixture was not created.");
+
+        _output.WriteLine("Owned isolated database: {0}", db.DatabaseName);
+        await using var ds = NpgsqlDataSource.Create(db.ConnectionString);
+        var fixture = await SeedDeletionFixtureAsync(ds);
+        await using var conn = await ds.OpenConnectionAsync();
+
+        foreach (var (tenant, user) in new[]
+        {
+            (fixture.TenantId, "wrong-user"),
+            (Guid.NewGuid(), fixture.UserId)
+        })
+        {
+            var wrongScopeCtx = BuildUserContext(tenant, Guid.NewGuid());
+            var wrongScopeResult = await InvokeEndpointAsync(
+                "DeleteSessionAsync", wrongScopeCtx, ds, CreateLogTagLogger(), fixture.SessionId, user);
+            Assert.Equal(StatusCodes.Status404NotFound, await ExecuteStatusCodeAsync(wrongScopeResult, wrongScopeCtx));
+        }
+        Assert.Equal(3, await conn.ExecuteScalarAsync<int>("SELECT count(*) FROM chat_sessions;"));
+        Assert.Equal(3, await conn.ExecuteScalarAsync<int>("SELECT count(*) FROM chat_messages;"));
+        Assert.Equal(1, await conn.ExecuteScalarAsync<int>("SELECT count(*) FROM advanced_analysis_jobs;"));
+        Assert.Equal(0, await conn.ExecuteScalarAsync<int>("SELECT count(*) FROM audit_events WHERE action='chat.session.delete';"));
+
+        var ctx = BuildUserContext(fixture.TenantId, Guid.NewGuid());
+        var result = await InvokeEndpointAsync(
+            "DeleteSessionAsync", ctx, ds, CreateLogTagLogger(), fixture.SessionId, fixture.UserId);
+        using var json = await ExecuteAnonymousAsync(result, ctx);
+        Assert.Equal(fixture.SessionId, json.RootElement.GetProperty("sessionId").GetGuid());
+        Assert.Equal(2, await conn.ExecuteScalarAsync<int>("SELECT count(*) FROM chat_sessions;"));
+        Assert.Equal(2, await conn.ExecuteScalarAsync<int>("SELECT count(*) FROM chat_messages;"));
+        Assert.Equal(0, await conn.ExecuteScalarAsync<int>("SELECT count(*) FROM advanced_analysis_jobs;"));
+        Assert.Equal(2, await conn.ExecuteScalarAsync<int>(
+            "SELECT count(*) FROM chat_messages WHERE content='preserve unrelated message';"));
+        Assert.Equal(1, await conn.ExecuteScalarAsync<int>(
+            """
+SELECT count(*) FROM audit_events
+WHERE tenant_id=@tenant AND action='chat.session.delete' AND target=@target
+  AND payload_json::jsonb->>'userId'=@user;
+""", new { tenant = fixture.TenantId, target = fixture.SessionId.ToString(), user = fixture.UserId }));
+
+        var repeatedCtx = BuildUserContext(fixture.TenantId, Guid.NewGuid());
+        var repeated = await InvokeEndpointAsync(
+            "DeleteSessionAsync", repeatedCtx, ds, CreateLogTagLogger(), fixture.SessionId, fixture.UserId);
+        Assert.Equal(StatusCodes.Status404NotFound, await ExecuteStatusCodeAsync(repeated, repeatedCtx));
+        Assert.Equal(1, await conn.ExecuteScalarAsync<int>("SELECT count(*) FROM audit_events WHERE action='chat.session.delete';"));
+    }
+
+    private sealed record DeletionFixture(Guid TenantId, Guid SessionId, Guid MessageId, string UserId);
+
+    private static async Task<DeletionFixture> SeedDeletionFixtureAsync(NpgsqlDataSource ds)
+    {
+        var tenant = Guid.NewGuid();
+        var otherTenant = Guid.NewGuid();
+        var session = Guid.NewGuid();
+        var message = Guid.NewGuid();
+        const string user = "delete-test-user";
+        await SeedTenantAsync(ds, tenant);
+        await SeedTenantAsync(ds, otherTenant);
+        await using var conn = await ds.OpenConnectionAsync();
+        await conn.ExecuteAsync(
+            """
+INSERT INTO chat_sessions(tenant_id,user_id,session_id,title)
+VALUES(@tenant,@user,@session,'Target'),
+      (@tenant,'other-user',@otherSession,'Other user'),
+      (@otherTenant,@user,@session,'Same session id in other tenant');
+INSERT INTO chat_messages(tenant_id,session_id,message_id,role,content)
+VALUES(@tenant,@session,@message,'user','preserve target message'),
+      (@tenant,@otherSession,@otherMessage,'user','preserve unrelated message'),
+      (@otherTenant,@session,@foreignMessage,'user','preserve unrelated message');
+INSERT INTO advanced_analysis_jobs(job_id,tenant_id,user_id,session_id,handoff_id,schema_version,handoff,expires_at)
+VALUES(@job,@tenant,@user,@session,@handoff,'saaia.advanced-analysis-handoff.v1','{}'::jsonb,now()+interval '1 hour');
+""", new
+            {
+                tenant, otherTenant, session, message, user,
+                otherSession = Guid.NewGuid(), otherMessage = Guid.NewGuid(), foreignMessage = Guid.NewGuid(),
+                job = Guid.NewGuid(), handoff = Guid.NewGuid()
+            });
+        return new DeletionFixture(tenant, session, message, user);
+    }
+
     [Trait("Profile", "IntegrationPg")]
     [ProfileFact("IntegrationPg")]
     public async Task Session_lifecycle_routes_preserve_user_scope_and_emit_audit()
@@ -497,14 +643,17 @@ ON CONFLICT (tenant_id) DO NOTHING;
     {
         private readonly string _adminConnectionString;
         private readonly string _databaseName;
+        private readonly long _databaseOid;
 
         public string ConnectionString { get; }
+        public string DatabaseName => _databaseName;
 
-        private PostgresIntegrationDb(string adminConnectionString, string databaseName, string connectionString)
+        private PostgresIntegrationDb(string adminConnectionString, string databaseName, string connectionString, long databaseOid)
         {
             _adminConnectionString = adminConnectionString;
             _databaseName = databaseName;
             ConnectionString = connectionString;
+            _databaseOid = databaseOid;
         }
 
         public static async Task<PostgresIntegrationDb?> CreateAsync()
@@ -516,11 +665,15 @@ ON CONFLICT (tenant_id) DO NOTHING;
             var adminBuilder = new NpgsqlConnectionStringBuilder(baseConnectionString);
             var adminConnectionString = adminBuilder.ConnectionString;
             var databaseName = $"saaia_chat_{Guid.NewGuid():N}";
+            long databaseOid;
 
             await using (var adminConn = new NpgsqlConnection(adminConnectionString))
             {
                 await adminConn.OpenAsync();
                 await adminConn.ExecuteAsync($"CREATE DATABASE \"{databaseName}\";");
+                databaseOid = await adminConn.ExecuteScalarAsync<long>(
+                    "SELECT oid::bigint FROM pg_database WHERE datname=@databaseName AND pg_get_userbyid(datdba)=current_user;",
+                    new { databaseName });
             }
 
             var dbBuilder = new NpgsqlConnectionStringBuilder(baseConnectionString)
@@ -528,29 +681,38 @@ ON CONFLICT (tenant_id) DO NOTHING;
                 Database = databaseName
             };
 
-            var db = new PostgresIntegrationDb(adminConnectionString, databaseName, dbBuilder.ConnectionString);
+            var db = new PostgresIntegrationDb(adminConnectionString, databaseName, dbBuilder.ConnectionString, databaseOid);
             var migrationsDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "SAAIA.Backend", "Db", "Migrations"));
-            await DbMigrator.ApplyMigrationsAsync(db.ConnectionString, migrationsDir, CancellationToken.None);
+            try
+            {
+                await DbMigrator.ApplyMigrationsAsync(db.ConnectionString, migrationsDir, CancellationToken.None);
+            }
+            catch
+            {
+                await db.DisposeAsync();
+                throw;
+            }
             return db;
         }
 
         public async ValueTask DisposeAsync()
         {
-            try
-            {
-                await using var adminConn = new NpgsqlConnection(_adminConnectionString);
-                await adminConn.OpenAsync();
-                await adminConn.ExecuteAsync(
-                    $@"SELECT pg_terminate_backend(pid)
-                       FROM pg_stat_activity
-                       WHERE datname = '{_databaseName}'
-                         AND pid <> pg_backend_pid();");
-                await adminConn.ExecuteAsync($"DROP DATABASE IF EXISTS \"{_databaseName}\";");
-            }
-            catch
-            {
-                // Best-effort cleanup for optional integration tests.
-            }
+            const string prefix = "saaia_chat_";
+            if (!_databaseName.StartsWith(prefix, StringComparison.Ordinal)
+                || !Guid.TryParseExact(_databaseName[prefix.Length..], "N", out _))
+                throw new InvalidOperationException("Refusing cleanup outside the generated chat test database namespace.");
+
+            await using var adminConn = new NpgsqlConnection(_adminConnectionString);
+            await adminConn.OpenAsync();
+            var currentOid = await adminConn.ExecuteScalarAsync<long?>(
+                "SELECT oid::bigint FROM pg_database WHERE datname=@databaseName AND pg_get_userbyid(datdba)=current_user;",
+                new { databaseName = _databaseName });
+            if (currentOid != _databaseOid)
+                throw new InvalidOperationException("Refusing cleanup after test database ownership or identity changed.");
+            await adminConn.ExecuteAsync(
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=@databaseName AND pid<>pg_backend_pid();",
+                new { databaseName = _databaseName });
+            await adminConn.ExecuteAsync($"DROP DATABASE \"{_databaseName}\";");
         }
     }
 }

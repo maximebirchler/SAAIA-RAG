@@ -1,3 +1,4 @@
+using System.Reflection;
 using SAAIA.Client.WinUI;
 using SAAIA.Client.WinUI.Services;
 using Xunit;
@@ -60,7 +61,11 @@ public sealed class ComposerPersistenceNoticeTests
             call => call.DeclaringType == typeof(ComposerPersistenceNotice) && call.Name == "ObserveDraft");
         Assert.Contains(CompiledArchitectureContract.CallsForMethod(typeof(MainWindow), "LoadSessionCoreAsync"),
             call => call.Name == "RefreshComposerPersistenceNoticeForSession");
-        Assert.Contains(CompiledArchitectureContract.CallsForMethod(typeof(MainWindow), "SessionDelete_Click"),
+        var deletionCallbacks = typeof(MainWindow).GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic)
+            .SelectMany(type => type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+            .Where(method => method.Name.StartsWith("<SessionDelete_Click>", StringComparison.Ordinal))
+            .SelectMany(method => CompiledArchitectureContract.CallsForMethod(method.DeclaringType!, method.Name));
+        Assert.Contains(deletionCallbacks,
             call => call.Name == "RefreshComposerPersistenceNoticeForSession");
     }
 }

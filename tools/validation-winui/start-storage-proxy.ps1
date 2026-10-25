@@ -14,7 +14,7 @@ if (Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyCon
 $suffix = if ($InstanceName) { '-' + $InstanceName } else { '' }
 $controlPath = Join-Path $output ('runtime/storage-proxy-control' + $suffix + '.json')
 if (Test-Path -LiteralPath $controlPath) { throw 'Proxy evidence already exists; refusing overwrite.' }
-[IO.File]::WriteAllText($controlPath, '{"failUserMessagesRemaining":0,"delayUserMessagesSeconds":0,"failGetMessagesRemaining":0,"failReadyRemaining":0}')
+[IO.File]::WriteAllText($controlPath, '{"failUserMessagesRemaining":0,"delayUserMessagesSeconds":0,"failGetMessagesRemaining":0,"failReadyRemaining":0,"delayGetMessagesSessionId":"","delayGetMessagesRemaining":0,"delayGetMessagesSeconds":0}')
 $info = [Diagnostics.ProcessStartInfo]::new((Get-Command python).Source)
 $info.UseShellExecute = $false
 $info.CreateNoWindow = $true
@@ -32,6 +32,7 @@ do {
 @{ schemaVersion = 'saaia-winui-storage-proxy.v1'; proxyUrl = "http://127.0.0.1:$Port"; upstreamUrl = $owner.backendUrl;
     controlPath = $controlPath; postFailuresScopedToUserMessages = $true; backendCodeModified = $false; databaseModifiedForInjection = $false;
     instanceName = $InstanceName; sourceSha256 = (Get-FileHash -LiteralPath (Join-Path $PSScriptRoot 'storage_proxy.py')).Hash;
-    maximumUserMessageDelaySeconds = 120; additionalFaults = @('GET messages500', 'GET ready503');
+    maximumUserMessageDelaySeconds = 120; maximumMessageGetDelaySeconds = 30;
+    additionalFaults = @('GET messages500', 'GET ready503', 'GET messages bounded delay for one explicit session UUID');
     actualUserConfigurationModified = $false } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output ('storage-proxy' + $suffix + '.json')) -Encoding utf8
 Write-Output "Synthetic storage fault proxy ready on127.0.0.1:$Port."
