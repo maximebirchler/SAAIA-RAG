@@ -25,7 +25,7 @@ Depuis la racine du dépôt, utiliser un nouveau chemin pour chaque preuve :
   -OutputDirectory artifacts/ma-campagne/dry-run
 ```
 
-Le profil fige le backend de production déjà compilé, aucun build n’est déclenché. Si ce binaire change, régénérer une proposition dans un nouveau fichier. Les anciennes preuves de rejet restent conservées.
+Le profil fige le backend de production déjà compilé, aucun build n’est déclenché. Si ce binaire change, régénérer une proposition dans un nouveau fichier. Les anciennes preuves de rejet restent conservées. Le helper `tools/ingestion_gold/canonical_projection` doit aussi avoir été compilé par l’opérateur. Son mode `--native-paid-corpus` réutilise directement `PdfExtractor`, les extracteurs de sections/unités, `RetrievalChunkProjector` et `IngestionProjectionStage.ProjectIndex`. Il ne copie aucun algorithme d’indexation en Python. Le backend effectivement chargé par ce helper doit avoir le même hash que le profil ; le chemin explicite et cette compatibilité sont contrôlés avant toute clé payante. Aucun build/restore ou fallback vers l’ancien seed n’est lancé automatiquement.
 
 ## Vérifier localement le corpus avant toute clé
 
@@ -35,7 +35,8 @@ Le profil fige le backend de production déjà compilé, aucun build n’est dé
 & tools/validation-paid/Test-OwnedRealCorpus.ps1 `
   -ProfilePath artifacts/ma-campagne/proposition.json `
   -OutputDirectory artifacts/ma-campagne/preflight-local `
-  -PythonExecutable 'CHEMIN_ABSOLU_PYTHON_LOCAL_AVEC_PYPDF' `
+  -PythonExecutable 'CHEMIN_ABSOLU_PYTHON_LOCAL' `
+  -ProjectionAssemblyPath "$PWD/tools/ingestion_gold/canonical_projection/bin/Release/net8.0/SAAIA.IngestionGold.dll" `
   -SearchQuery 'bourguignon' -ExpectedPageNumber 5 `
   -ExpectedTextPatterns @('(?is)1[,.]5\s*l','(?is)4\s*personnes') `
   -ExecuteLocal
@@ -43,13 +44,13 @@ Le profil fige le backend de production déjà compilé, aucun build n’est dé
 
 Il crée un cluster PostgreSQL dédié et un contentRoot neufs, prépare les vraies pages, construit le catalogue via l’endpoint de production, exige un seul document, effectue `/rag/search` en canonical et `/documents/context` sur la page attendue, puis vérifie identités/hashes et texte. Il démarre ensuite la configuration avancée réelle avec **worker désactivé et clé synthétique explicite**, utilise le même constructeur de handoff que le runner payant, exige POST202, annule ce job, conserve son historique et prouve zéro job actif et zéro réservation/appel fournisseur. Les flags d’autorisation du handoff restent false : seule la configuration serveur les accorde. L’arrêt finally ne concerne que les services possédés ; PDF/DB/preuves sont conservés.
 
-La commande `python` ordinaire de la machine d’audit ne contient pas pypdf ; le Python fourni par le runtime Codex le contient. Fournir explicitement ce binaire ou un autre runtime de confiance déjà installé. Aucun script n’installe de dépendance par le réseau.
+Le transport SQL/Python utilise uniquement la bibliothèque standard ; l’extraction réelle est celle du backend compilé. `pypdf` reste optionnel pour générer les petits PDF des tests CLI. Fournir explicitement un Python de confiance déjà installé. Aucun script n’installe de dépendance par le réseau.
 
 ## Exécution payante ultérieure
 
-Le runner central `tools/test-project.ps1 -Profile LivePaid` accepte le schéma Luna local et conserve le dispatch historique Terra. Il transmet `PaidSecretStorePath` et `PaidPythonExecutable` uniquement à l’exécuteur autorisé. Les wrappers live historiques exigent maintenant les variables d’autorisation LivePaid et un budget/modèle explicites ; ils ne constituent pas une autorisation autonome.
+Le runner central `tools/test-project.ps1 -Profile LivePaid` accepte le schéma Luna local et conserve le dispatch historique Terra. Il transmet `PaidSecretStorePath`, `PaidPythonExecutable` et `PaidProjectionAssemblyPath` à l’exécuteur autorisé. L’entrée directe exige `-ProjectionAssemblyPath`. Les wrappers live historiques exigent maintenant les variables d’autorisation LivePaid et un budget/modèle explicites ; ils ne constituent pas une autorisation autonome.
 
-Le nouveau runner démarre un backend de production et un seul worker payant avec un seul job, aucune répétition/retry automatique, au maximum quatre appels logiques. Le client et le petit modèle local ne sont pas démarrés. Le pipeline testé est endpoints→worker→outils canoniques SQL→OpenAI→validation→persistance. Le seed reprend du vrai texte PDF, sans inventer les réponses attendues, mais ne valide pas l’ingestion ni l’OCR. Les services TEI/Qdrant sont des **substituts de protocole explicitement déclarés** : cela ne valide pas un index vectoriel ou son rappel.
+Le nouveau runner démarre un backend de production et un seul worker payant avec un seul job, aucune répétition/retry automatique, au maximum quatre appels logiques. Le client et le petit modèle local ne sont pas démarrés. Le pipeline testé est endpoints→worker→outils canoniques SQL→OpenAI→validation→persistance. Le seed transporte les projections natives réelles, candidats exacts normalisés, contexte documentaire, comptes de mots, checksums et liens entre unités/chunks. Les `TokenCount` sont ceux de production (comptes heuristiques de mots séparés par espaces), pas des tokens mesurés au tokenizer du modèle : le manifeste le précise et les conserve comme estimations. L’extraction native considère tout le PDF avant de limiter la projection et les voisins aux pages choisies. Le manifeste conserve le hash du helper, du backend chargé et du snapshot privé. **Cela ne valide pas le worker d’ingestion complet, Docling, l’OCR, les profils documentaires ou leur publication.** Les services TEI/Qdrant sont des **substituts de protocole explicitement déclarés** : Qdrant renvoie une liste vide, ce qui ne prouve aucun rappel vectoriel, même lorsque le protocole ne déclare pas d’erreur.
 
 La clé est déchiffrée DPAPI seulement après tous les gates Execute/autorisations. Elle reste dans l’environnement du seul processus backend et en mémoire, jamais dans un profil ou une preuve publique. Les réponses et prompts exacts sont sous `runtime/` et restent privés.
 
@@ -61,4 +62,4 @@ Le résultat public distingue : cas réellement exécuté, état terminal, sourc
 
 Les budgets/tarifs/chemin de ledger de production sont désormais explicites ; zéro/vide bloque la dépense. Les montants synthétiques des fixtures Unit restent des données de tests. Ne pas copier une configuration Unit ou un ancien plafond de 25 USD dans une campagne payante.
 
-Tests sans fournisseur : `Test-PaidGuards.ps1`, `Test-LunaDryRun.ps1`, et `test_paid_corpus.py`. Les tests CLI PDF utilisent le Python local explicite avec pypdf ; ils vérifient vrais octets/pages, mauvais hash et page sans texte/OCR manquant. Aucun de ces tests ne fait d’appel modèle, de build ou de démarrage de service.
+Tests sans fournisseur : `Test-PaidGuards.ps1`, `Test-LunaDryRun.ps1`, `Test-ProductionCorpusGuards.ps1` et `test_paid_corpus.py`. Les neuf contrats Python purs testent le transport sur objets synthétiques, sans prétendre valider l’ingestion. Les trois tests CLI supplémentaires exigent `SAAIA_PAID_PROJECTION_DLL` absolu vers le helper précompilé et `pypdf` local pour générer leur PDF ; sinon ils sont explicitement ignorés et ne comptent pas comme succès. Ils vérifient extraction native, vrais octets/pages, mauvais hash source/backend et page vide/OCR manquant. Aucun test ne fait d’appel modèle, de build ou de démarrage de service.

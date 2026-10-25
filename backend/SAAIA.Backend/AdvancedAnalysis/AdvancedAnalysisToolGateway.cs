@@ -28,7 +28,13 @@ internal sealed record AdvancedAnalysisSearchRequest(
     AdvancedAnalysisReadDiagnostic? ReadDiagnostic = null,
     int Offset = 0,
     AdvancedAnalysisFindDiagnostic? FindDiagnostic = null,
-    RagRetrievalDiagnosticsDto? RetrievalDiagnostic = null);
+    RagRetrievalDiagnosticsDto? RetrievalDiagnostic = null,
+    AdvancedAnalysisDocumentResolutionDiagnostic? DocumentResolution = null,
+    IReadOnlyList<string>? DegradedRetrievers = null);
+
+// A resolved path describes a search filter, never an evidence or read capability.
+internal sealed record AdvancedAnalysisDocumentResolutionDiagnostic(
+    string Status, int CandidateCount, string? ResolvedDocPath);
 
 internal sealed record AdvancedAnalysisFindDiagnostic(
     string Status, int ReturnedChunkCount, int? NextOffset);
@@ -48,7 +54,9 @@ internal sealed record AdvancedAnalysisSearchObservation(
     AdvancedAnalysisReadDiagnostic? ReadDiagnostic = null,
     AdvancedAnalysisFindDiagnostic? FindDiagnostic = null,
     AdvancedAnalysisResearchResourceLimit? ResourceLimit = null,
-    bool NotExecutedAfterResourceLimit = false);
+    bool NotExecutedAfterResourceLimit = false,
+    RagRetrievalDiagnosticsDto? RetrievalDiagnostic = null,
+    AdvancedAnalysisDocumentResolutionDiagnostic? DocumentResolution = null);
 
 internal sealed record AdvancedAnalysisResearchResourceLimit(string ReasonCode,
     int? MaximumEvidenceItems, int? ConsumedEvidenceItems, int? RequestedNewEvidenceItems,
@@ -372,6 +380,10 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
         Stopwatch? stopwatch = null;
         long? chargedElapsedMilliseconds = null;
         var requestForTrace = request;
+        using var probe = BackendDiagnostics.Start("advanced.research_tool",
+            _services?.GetService<ILoggerFactory>()?.CreateLogger("SAAIA.Backend.AdvancedAnalysis"));
+        probe.Set("job_id", _jobId);
+        probe.Set("operation", request.Operation);
         long ChargeElapsedOnce()
         {
             if (chargedElapsedMilliseconds is { } previous)
@@ -404,6 +416,9 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                 _services?.GetService<TeiWorkloadGovernor>(),
                 _services?.GetService<ILoggerFactory>()?.CreateLogger("SAAIA.Backend.Retrieval"));
             var effectiveDocPath = request.DocPath;
+            var documentResolution = new AdvancedAnalysisDocumentResolutionDiagnostic(
+                string.IsNullOrWhiteSpace(effectiveDocPath) ? "not_requested" : "explicit_path",
+                0, NormalizePath(effectiveDocPath));
             if (string.IsNullOrWhiteSpace(effectiveDocPath)
                 && !string.IsNullOrWhiteSpace(request.DocumentHint))
             {
@@ -417,10 +432,13 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                 effectiveDocPath = SelectStrongDocumentScope(
                     request.DocumentHint,
                     candidates);
+                documentResolution = DescribeDocumentResolution(
+                    request.DocumentHint, candidates, effectiveDocPath);
             }
             requestForTrace = request with
             {
-                DocPath = NormalizePath(effectiveDocPath)
+                DocPath = NormalizePath(effectiveDocPath),
+                DocumentResolution = documentResolution
             };
             IReadOnlyList<AdvancedAnalysisEvidenceReference> references;
             IReadOnlyList<string> degraded;
@@ -482,7 +500,11 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                     .ConfigureAwait(false);
                 references = BuildEvidenceReferences(response.Matches);
                 degraded = response.DegradedRetrievers ?? [];
-                requestForTrace = requestForTrace with { RetrievalDiagnostic = response.Diagnostics };
+                requestForTrace = requestForTrace with
+                {
+                    RetrievalDiagnostic = response.Diagnostics,
+                    DegradedRetrievers = degraded
+                };
             }
             if (_elapsedMilliseconds + stopwatch.ElapsedMilliseconds > _maximumElapsedMilliseconds)
                 throw new AdvancedAnalysisToolException("tool_time_limit_exceeded");
@@ -574,6 +596,11 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             // observation and durable replay. Trace persistence is measured by
             // its own operation and is not recursively charged into that row.
             var workElapsedMilliseconds = ChargeElapsedOnce();
+            probe.Set("document_resolution", requestForTrace.DocumentResolution?.Status);
+            probe.Set("document_candidates", requestForTrace.DocumentResolution?.CandidateCount);
+            probe.Set("evidence_count", observationEvidence.Count);
+            probe.Set("degraded_retriever_count", degraded.Count);
+            probe.Set("tool_call_number", callNumber);
             await PersistEventAsync(
                 "succeeded",
                 requestForTrace,
@@ -582,6 +609,7 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                 workElapsedMilliseconds,
                 errorCode: null,
                 cancellationToken).ConfigureAwait(false);
+            probe.Complete();
             return new AdvancedAnalysisSearchObservation(
                 request.Query.Trim(),
                 observationEvidence,
@@ -589,10 +617,14 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
                 workElapsedMilliseconds,
                 callNumber,
                 requestForTrace.ReadDiagnostic,
-                requestForTrace.FindDiagnostic);
+                requestForTrace.FindDiagnostic,
+                RetrievalDiagnostic: requestForTrace.RetrievalDiagnostic,
+                DocumentResolution: requestForTrace.DocumentResolution);
         }
         catch (Exception ex)
         {
+            probe.Fail(ex, ex is AdvancedAnalysisToolException diagnosticError
+                ? diagnosticError.ErrorCode : "retrieval_tool_failed");
             if (admitted)
             {
                 var workElapsedMilliseconds = ChargeElapsedOnce();
@@ -780,6 +812,15 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
             .ToArray();
         return strong.Length == 1 ? strong[0] : null;
     }
+
+    internal static AdvancedAnalysisDocumentResolutionDiagnostic DescribeDocumentResolution(
+        string documentHint, IReadOnlyList<string> candidates, string? resolvedDocPath)
+        => new(
+            resolvedDocPath is not null ? "resolved"
+                : CompactDocumentIdentity(documentHint).Length < 6 ? "hint_too_short"
+                : candidates.Count > 1 ? "ambiguous" : "no_match",
+            candidates.Count,
+            NormalizePath(resolvedDocPath));
 
     internal static async Task<IReadOnlyList<string>>
         ResolveDocumentScopeCandidatesAsync(
@@ -980,6 +1021,8 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
         string query,
         AdvancedAnalysisResolvedEvidence evidence)
     {
+        if (evidence.SourceStructure?.HasUnassignedPhysicalContext == true)
+            return evidence;
         if (!string.IsNullOrWhiteSpace(evidence.ExactTitle))
             return evidence;
         var title = ResolveLeadingCanonicalFindTitle(query, evidence.Content);
@@ -1007,6 +1050,8 @@ internal sealed partial class AdvancedAnalysisToolGateway : IAdvancedAnalysisToo
     private static AdvancedAnalysisResolvedEvidence PromoteLeadingCanonicalReadTitle(
         AdvancedAnalysisResolvedEvidence evidence)
     {
+        if (evidence.SourceStructure?.HasUnassignedPhysicalContext == true)
+            return evidence;
         if (!string.IsNullOrWhiteSpace(evidence.ExactTitle))
             return evidence;
         var signal = RetrievalContentClassifier.AnalyzeEvidenceContent(

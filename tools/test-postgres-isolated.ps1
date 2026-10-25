@@ -2,6 +2,7 @@
 [CmdletBinding()]
 param (
     [string]$PgBinPath = '',
+    [ValidateNotNullOrEmpty()][string]$PgLocale = 'English_United States.1252',
     [string]$OutputDirectory = '',
     [ValidateRange(0, 65535)][int]$Port = 0,
     [string]$Filter = '',
@@ -89,6 +90,7 @@ $manifest = [ordered]@{
     gitCommit = (& git -C $repo rev-parse HEAD)
     postgresVersion = $version
     postgresBinarySha256 = (Get-FileHash -LiteralPath $postgres -Algorithm SHA256).Hash
+    postgresLocaleRequested = $PgLocale
     port = $Port
     ownedCluster = $data
     verifiedDataDirectory = $false
@@ -126,7 +128,7 @@ function Save-OwnedProcessLogs($Owned, [string]$Name) {
 }
 
 try {
-    $init = Start-OwnedProcess (Join-Path $PgBinPath 'initdb.exe') @('-D', $data, '--username=saaia_test', '--encoding=UTF8', '--locale=C', '--auth=scram-sha-256', "--pwfile=$passwordFile")
+    $init = Start-OwnedProcess (Join-Path $PgBinPath 'initdb.exe') @('-D', $data, '--username=saaia_test', '--encoding=UTF8', "--locale=$PgLocale", '--auth=scram-sha-256', "--pwfile=$passwordFile")
     if (-not $init.process.WaitForExit(60000)) {
         $init.process.Kill($true)
         throw 'Isolated initdb timed out.'

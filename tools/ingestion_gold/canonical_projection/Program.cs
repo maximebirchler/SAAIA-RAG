@@ -4,6 +4,12 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using SAAIA.Contracts.DocumentIntelligence;
 
+if (args.Contains("--native-paid-corpus", StringComparer.Ordinal))
+{
+    NativePaidCorpusProjection.Run(args);
+    return;
+}
+
 var pdfPath = RequireArgument(args, "--pdf");
 var responsePath = RequireArgument(args, "--response");
 var outputPath = RequireArgument(args, "--output");

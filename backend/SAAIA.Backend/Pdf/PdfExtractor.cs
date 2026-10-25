@@ -127,19 +127,36 @@ static class PdfExtractor
         try
         {
             var words = page.GetWords()
-                .Select(static word => new PdfLayoutWord(
-                    word.Text,
-                    word.BoundingBox.Left,
-                    word.BoundingBox.Right,
-                    word.BoundingBox.Top,
-                    word.BoundingBox.Bottom))
+                .Select(ToLayoutWord)
                 .ToArray();
+            try
+            {
+                var completeWords = page.GetWords(
+                        UglyToad.PdfPig.DocumentLayoutAnalysis.WordExtractor.NearestNeighbourWordExtractor.Instance)
+                    .Select(ToLayoutWord)
+                    .ToArray();
+                words = SelectCompleteLayoutWords(words, completeWords, fallback);
+            }
+            catch
+            {
+                // The original geometry and source text remain available when
+                // the optional word segmenter cannot establish a complete page.
+            }
             return BuildLayoutAwareText(words, fallback);
         }
         catch
         {
             return fallback;
         }
+    }
+
+    private static PdfLayoutWord ToLayoutWord(UglyToad.PdfPig.Content.Word word)
+    {
+        var first = word.Letters.FirstOrDefault(static letter => !string.IsNullOrWhiteSpace(letter.Value));
+        return new(word.Text, word.BoundingBox.Left, word.BoundingBox.Right,
+            word.BoundingBox.Top, word.BoundingBox.Bottom,
+            first?.StartBaseLine.X, first?.StartBaseLine.Y,
+            first?.EndBaseLine.X, first?.EndBaseLine.Y);
     }
 
     private static PdfNativeLayoutExtraction ExtractNativeLayout(
@@ -158,20 +175,72 @@ static class PdfExtractor
         }
     }
 
+    internal static PdfLayoutWord[] SelectCompleteLayoutWords(
+        IReadOnlyList<PdfLayoutWord> original, IReadOnlyList<PdfLayoutWord> alternative, string sourceText)
+    {
+        var source = original.Where(static word => !string.IsNullOrWhiteSpace(word.Text)).ToArray();
+        var candidate = alternative.Where(static word => !string.IsNullOrWhiteSpace(word.Text)).ToArray();
+        if (candidate.Length == 0 || candidate.Any(static word => !HasUsableLayoutGeometry(word))
+            || !NonWhitespaceCharacters(source).SequenceEqual(NonWhitespaceCharacters(candidate))
+            || !PreservesRawLayoutCharacters(candidate, sourceText))
+            return source;
+
+        // Inclined native text can be split into individual letters by the
+        // default extractor. Prefer assembled words only after proving that
+        // every original character, including case, digits and punctuation,
+        // occurs exactly as often in the alternative segmentation.
+        return candidate.Count(IsSingleLetterLayoutWord) < source.Count(IsSingleLetterLayoutWord)
+            ? candidate : source;
+    }
+
+    private static bool IsSingleLetterLayoutWord(PdfLayoutWord word)
+        => word.Text.Trim() is { Length: 1 } text && char.IsLetter(text[0]);
+
+    private static IEnumerable<char> NonWhitespaceCharacters(IEnumerable<PdfLayoutWord> words)
+        => words.SelectMany(static word => word.Text).Where(static ch => !char.IsWhiteSpace(ch)).Order();
+
+    private static bool PreservesRawLayoutCharacters(IEnumerable<PdfLayoutWord> words, string sourceText)
+        => NonWhitespaceCharacters(words)
+            .SequenceEqual(sourceText.Where(static ch => !char.IsWhiteSpace(ch)).Order());
+
+    private static bool CoversRawLayoutCharacters(IEnumerable<PdfLayoutWord> words, string sourceText)
+    {
+        var remaining = words.SelectMany(static word => word.Text).Where(static ch => !char.IsWhiteSpace(ch))
+            .GroupBy(static ch => ch).ToDictionary(static group => group.Key, static group => group.Count());
+        foreach (var ch in sourceText.Where(static ch => !char.IsWhiteSpace(ch)))
+        {
+            if (!remaining.TryGetValue(ch, out var count) || count == 0)
+                return false;
+            remaining[ch] = count - 1;
+        }
+        return true;
+    }
+
+    private static bool HasUsableLayoutGeometry(PdfLayoutWord word)
+        => IsFinite(word.Left) && IsFinite(word.Right) && IsFinite(word.Top) && IsFinite(word.Bottom)
+            && word.Right >= word.Left && word.Top >= word.Bottom;
+
+    private static bool PreservesLayoutTokens(IEnumerable<PdfLayoutWord> words, string text)
+        => words.SelectMany(static word => SplitWords(PdfTextSanitizer.ForStorage(word.Text)))
+            .Order(StringComparer.Ordinal).SequenceEqual(SplitWords(text).Order(StringComparer.Ordinal));
+
     internal static string BuildLayoutAwareText(IReadOnlyList<PdfLayoutWord> words, string? fallback)
     {
         fallback ??= string.Empty;
         var usableWords = words
             .Where(static word =>
                 !string.IsNullOrWhiteSpace(word.Text)
-                && IsFinite(word.Left)
-                && IsFinite(word.Right)
-                && IsFinite(word.Top)
-                && IsFinite(word.Bottom)
-                && word.Right >= word.Left
-                && word.Top >= word.Bottom)
+                && HasUsableLayoutGeometry(word))
             .ToArray();
         if (usableWords.Length == 0)
+            return fallback;
+
+        if (usableWords.Length != words.Count(static word => !string.IsNullOrWhiteSpace(word.Text)))
+            return fallback;
+
+        // Raw aggregation may itself expose fewer characters than the word
+        // objects. Preserve all observed words, but never omit a raw source fact.
+        if (!string.IsNullOrWhiteSpace(fallback) && !CoversRawLayoutCharacters(usableWords, fallback))
             return fallback;
 
         var fallbackTokenCount = SplitWords(fallback).Count();
@@ -194,6 +263,9 @@ static class PdfExtractor
             medianWidth,
             wrapBackThreshold).Trim();
         if (reconstructed.Length == 0)
+            return fallback;
+
+        if (!PreservesLayoutTokens(usableWords, reconstructed))
             return fallback;
 
         if (!fallback.Contains('\n', StringComparison.Ordinal)
@@ -239,8 +311,8 @@ static class PdfExtractor
         var lines = new List<PdfLayoutLine>();
         foreach (var word in ordered)
         {
-            var line = lines.LastOrDefault();
-            if (line is null || Math.Abs(word.CenterY - line.CenterY) > sameLineTolerance)
+            var line = lines.LastOrDefault(candidate => BelongsToLayoutLine(candidate, word, sameLineTolerance));
+            if (line is null)
             {
                 lines.Add(new PdfLayoutLine([word]));
                 continue;
@@ -253,6 +325,42 @@ static class PdfExtractor
             line.Words.Sort(static (left, right) => left.Left.CompareTo(right.Left));
 
         return lines;
+    }
+
+    private static bool BelongsToLayoutLine(PdfLayoutLine line, PdfLayoutWord word, double tolerance)
+    {
+        if (TryGetLayoutBaseline(word, out var x, out var y, out var dx, out var dy))
+        {
+            foreach (var reference in line.Words)
+            {
+                if (!TryGetLayoutBaseline(reference, out var rx, out var ry, out var rdx, out var rdy))
+                    continue;
+                // Equal baselines remain a line when glyph bounding boxes rise
+                // along an inclined sentence. Different orientations do not mix.
+                return Math.Abs(dx * rdy - dy * rdx) <= 0.001d
+                    && dx * rdx + dy * rdy > 0d
+                    && Math.Abs((x - rx) * rdy - (y - ry) * rdx) <= tolerance;
+            }
+        }
+        return Math.Abs(word.CenterY - line.CenterY) <= tolerance;
+    }
+
+    private static bool TryGetLayoutBaseline(PdfLayoutWord word,
+        out double x, out double y, out double dx, out double dy)
+    {
+        x = y = dx = dy = 0d;
+        if (word.BaselineStartX is not { } sx || word.BaselineStartY is not { } sy
+            || word.BaselineEndX is not { } ex || word.BaselineEndY is not { } ey
+            || !IsFinite(sx) || !IsFinite(sy) || !IsFinite(ex) || !IsFinite(ey))
+            return false;
+        var length = Math.Sqrt((ex - sx) * (ex - sx) + (ey - sy) * (ey - sy));
+        if (!IsFinite(length) || length <= double.Epsilon)
+            return false;
+        x = sx;
+        y = sy;
+        dx = (ex - sx) / length;
+        dy = (ey - sy) / length;
+        return true;
     }
 
     private static IReadOnlyList<PdfLayoutSegment> SplitLineIntoSegments(
@@ -342,17 +450,22 @@ static class PdfExtractor
         var multiSegmentLineCount = segments
             .GroupBy(static segment => segment.LineIndex)
             .Count(static group => group.Count() >= 2);
-        if (multiSegmentLineCount < Math.Max(3, (int)Math.Ceiling(lineCount * 0.30d)))
+        // Three observed shared rows establish concurrent columns. A long
+        // neighboring paragraph must not dilute that local geometric evidence.
+        if (multiSegmentLineCount < 3)
             return false;
 
-        var columns = ClusterSegmentsIntoColumns(segments, medianWidth)
-            .Where(static column => column.Count >= 3)
+        // A spanning title must not widen a column's envelope until it
+        // absorbs the adjacent body. Stable left anchors establish columns;
+        // small regions still participate in the emitted reading order.
+        var columns = ClusterSegmentsByLeftAnchor(segments, Math.Clamp(medianWidth * 3.5d, 45.0d, 110.0d))
             .OrderBy(static column => column.Min(static segment => segment.Left))
             .ToArray();
-        if (columns.Length < 2)
+        var stableColumns = columns.Where(static column => column.Count >= 3).ToArray();
+        if (stableColumns.Length < 2)
             return false;
 
-        var columnSegmentCount = columns.Sum(static column => column.Count);
+        var columnSegmentCount = stableColumns.Sum(static column => column.Count);
         if (columnSegmentCount < Math.Ceiling(segments.Count * 0.60d))
             return false;
 
@@ -367,34 +480,6 @@ static class PdfExtractor
 
         text = builder.ToString();
         return !string.IsNullOrWhiteSpace(text);
-    }
-
-    private static List<List<PdfLayoutSegment>> ClusterSegmentsIntoColumns(
-        IReadOnlyList<PdfLayoutSegment> segments,
-        double medianWidth)
-    {
-        var tolerance = Math.Clamp(medianWidth * 3.5d, 45.0d, 110.0d);
-        var columns = new List<List<PdfLayoutSegment>>();
-        foreach (var segment in segments.OrderBy(static segment => segment.Left))
-        {
-            var column = columns
-                .Where(column => Math.Abs(segment.Left - column.Average(static item => item.Left)) <= tolerance
-                                 || segment.Left <= column.Max(static item => item.Right) + tolerance
-                                    && segment.Right >= column.Min(static item => item.Left) - tolerance)
-                .OrderBy(column => Math.Abs(segment.Left - column.Average(static item => item.Left)))
-                .FirstOrDefault();
-
-            if (column is null)
-            {
-                columns.Add([segment]);
-            }
-            else
-            {
-                column.Add(segment);
-            }
-        }
-
-        return columns;
     }
 
     private static string BuildLineOrderedText(
@@ -554,13 +639,13 @@ static class PdfExtractor
             return false;
 
         var columns = ClusterSegmentsByLeftAnchor(prefix, tolerance)
-            .Where(static column => column.Count >= 2)
             .OrderBy(static column => column.Min(static segment => segment.Left))
             .ToArray();
-        if (columns.Length < 2)
+        var stableColumns = columns.Where(static column => column.Count >= 2).ToArray();
+        if (stableColumns.Length < 2)
             return false;
 
-        var coveredSegmentCount = columns.Sum(static column => column.Count);
+        var coveredSegmentCount = stableColumns.Sum(static column => column.Count);
         if (coveredSegmentCount < Math.Ceiling(prefix.Count * 0.75d))
             return false;
 
@@ -602,7 +687,7 @@ static class PdfExtractor
         if (string.IsNullOrWhiteSpace(text))
             return false;
 
-        var normalized = NormalizeBoilerplateLine(text);
+        var normalized = NormalizeLayoutLine(text);
         if (normalized.Length is < 4 or > 140)
             return false;
         if (normalized.EndsWith(".", StringComparison.Ordinal)
@@ -691,92 +776,20 @@ static class PdfExtractor
         if (pages.Count == 0)
             return pages;
 
-        HashSet<string> repeated;
-        HashSet<string> repeatedPatterns;
-        if (pages.Count >= 3)
-        {
-            var pageLineSets = pages
-                .Select(static page => ExtractCandidateBoilerplateLines(page.Text).Distinct(StringComparer.OrdinalIgnoreCase).ToArray())
-                .ToArray();
-            repeated = pageLineSets
-                .SelectMany(static lines => lines)
-                .GroupBy(static line => line, StringComparer.OrdinalIgnoreCase)
-                .Where(group => group.Count() >= Math.Max(3, (int)Math.Ceiling(pages.Count * 0.35)))
-                .Select(static group => group.Key)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var pagePatternSets = pageLineSets
-                .Select(static lines => lines
-                    .Where(HasVariableBoilerplateMarker)
-                    .Select(NormalizeVariableBoilerplateLine)
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToArray())
-                .ToArray();
-            repeatedPatterns = pagePatternSets
-                .SelectMany(static lines => lines)
-                .GroupBy(static line => line, StringComparer.OrdinalIgnoreCase)
-                .Where(group => group.Count() >= Math.Max(3, (int)Math.Ceiling(pages.Count * 0.35)))
-                .Select(static group => group.Key)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        }
-        else
-        {
-            repeated = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            repeatedPatterns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        }
-
+        // Text and physical page identity cannot establish that a repeated
+        // fact, warning, heading or caption is useless. Keep all such content,
+        // regardless of its numeric form. Only whole-line explicit counters
+        // matching the physical page can be removed with this information.
         var pageCount = pages.Max(static page => page.PageNumber);
         return pages
-            .Select(page => (page.PageNumber, Text: RemoveRepeatedLines(page.Text, page.PageNumber, pageCount, repeated, repeatedPatterns), page.ImageCount))
+            .Select(page => (page.PageNumber, Text: RemoveEstablishedPageCounterLines(page.Text, page.PageNumber, pageCount), page.ImageCount))
             .ToArray();
     }
 
-    private static IEnumerable<string> ExtractCandidateBoilerplateLines(string text)
-    {
-        foreach (var line in SplitLikelyLines(text))
-        {
-            var normalized = NormalizeBoilerplateLine(line);
-            if (normalized.Length is < 8 or > 260)
-                continue;
-
-            var tokenCount = SplitWords(normalized).Count();
-            if (tokenCount is < 2 or > 24)
-                continue;
-            if (tokenCount > 12 && !LooksLikeExtendedBoilerplateLine(normalized))
-                continue;
-
-            yield return normalized;
-        }
-    }
-
-    private static bool LooksLikeExtendedBoilerplateLine(string normalized)
-    {
-        var layoutMarkerCount = normalized.Count(static ch =>
-            ch is '=' or '|' or '\u00a9' or '\u2022' or '+' or '*' or '\u00ae');
-        if (layoutMarkerCount >= 2)
-            return true;
-
-        if (System.Text.RegularExpressions.Regex.IsMatch(
-                normalized,
-                @"\b(?:page|edition|revision|revisions|copyright|document|section|chapter)\b",
-                System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.IgnoreCase))
-        {
-            var letters = normalized.Where(char.IsLetter).ToArray();
-            if (letters.Length >= 12)
-            {
-                var uppercase = letters.Count(char.IsUpper);
-                return uppercase >= Math.Ceiling(letters.Length * 0.35);
-            }
-        }
-
-        return false;
-    }
-
-    private static string RemoveRepeatedLines(
+    private static string RemoveEstablishedPageCounterLines(
         string text,
         int pageNumber,
-        int pageCount,
-        ISet<string> repeated,
-        ISet<string> repeatedPatterns)
+        int pageCount)
     {
         var sourceText = text ?? string.Empty;
         var sourceLines = sourceText
@@ -800,23 +813,19 @@ static class PdfExtractor
         }
 
         if (lines.Count <= 1)
-        {
-            var normalized = NormalizeBoilerplateLine(sourceText);
-            return IsRepeatedBoilerplateLine(normalized, repeated, repeatedPatterns) ? string.Empty : sourceText;
-        }
+            return sourceText;
 
-        var lineTexts = lines.Select(static line => line.Text).ToArray();
         var builder = new StringBuilder();
         var pendingEmptyLines = 0;
+        var removedCounter = false;
         for (var index = 0; index < lines.Count; index++)
         {
             var line = lines[index];
-            var normalized = NormalizeBoilerplateLine(line.Text);
-            var remove = IsRepeatedBoilerplateLine(normalized, repeated, repeatedPatterns)
-                         || IsLocalPageMarkerLine(normalized, pageNumber, pageCount, index, lines.Count)
-                         || IsFloatingStandaloneNumericMarkerLine(normalized, index, lineTexts);
+            var normalized = NormalizeLayoutLine(line.Text);
+            var remove = IsEstablishedPageCounterLine(normalized, pageNumber, pageCount, index, lines.Count);
             if (remove)
             {
+                removedCounter = true;
                 pendingEmptyLines = Math.Max(pendingEmptyLines, line.EmptyLinesBefore);
                 continue;
             }
@@ -830,47 +839,26 @@ static class PdfExtractor
             pendingEmptyLines = 0;
         }
 
-        return builder.ToString().Trim();
+        return removedCounter ? builder.ToString().Trim() : sourceText;
     }
 
-    private static IEnumerable<string> SplitLikelyLines(string text)
-        => (text ?? string.Empty)
-            .Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Replace('\r', '\n')
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-    private static string NormalizeBoilerplateLine(string line)
+    private static string NormalizeLayoutLine(string line)
         => System.Text.RegularExpressions.Regex.Replace(line ?? string.Empty, @"\s+", " ").Trim();
 
-    private static bool IsRepeatedBoilerplateLine(string normalized, ISet<string> repeated, ISet<string> repeatedPatterns)
-        => repeated.Contains(normalized)
-           || (HasVariableBoilerplateMarker(normalized)
-               && repeatedPatterns.Contains(NormalizeVariableBoilerplateLine(normalized)));
-
-    private static bool HasVariableBoilerplateMarker(string line)
-        => !string.IsNullOrWhiteSpace(line)
-           && line.Any(char.IsDigit);
-
-    private static string NormalizeVariableBoilerplateLine(string line)
-        => System.Text.RegularExpressions.Regex.Replace(NormalizeBoilerplateLine(line), @"\d+", "#");
-
-    private static bool IsLocalPageMarkerLine(string line, int pageNumber, int pageCount, int index, int lineCount)
+    private static bool IsEstablishedPageCounterLine(string line, int pageNumber, int pageCount, int index, int lineCount)
     {
         if (lineCount <= 1 || index > 1 && index < lineCount - 2)
             return false;
 
-        var normalized = NormalizeBoilerplateLine(line)
+        var normalized = NormalizeLayoutLine(line)
             .Trim('-', '\u2010', '\u2011', '\u2012', '\u2013', '\u2014', ' ')
             .ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(normalized))
             return false;
 
-        if (int.TryParse(normalized, out var simpleNumber))
-            return simpleNumber == pageNumber;
-
         var pagePattern = pageCount > 0
-            ? $@"^(?:page|p\.?)?\s*0*{pageNumber}\s*(?:/|of|sur|de)\s*0*{pageCount}$"
-            : $@"^(?:page|p\.?)?\s*0*{pageNumber}$";
+            ? $@"^(?:page|p\.)\s*0*{pageNumber}\s*(?:/|of|sur|de)\s*0*{pageCount}$"
+            : $@"^(?:page|p\.)\s*0*{pageNumber}$";
         if (System.Text.RegularExpressions.Regex.IsMatch(normalized, pagePattern, System.Text.RegularExpressions.RegexOptions.CultureInvariant))
             return true;
 
@@ -878,38 +866,6 @@ static class PdfExtractor
         return System.Text.RegularExpressions.Regex.IsMatch(normalized, singlePagePattern, System.Text.RegularExpressions.RegexOptions.CultureInvariant);
     }
 
-    private static bool IsFloatingStandaloneNumericMarkerLine(string line, int index, IReadOnlyList<string> lines)
-    {
-        if (lines.Count < 5 || index <= 0 || index >= lines.Count - 1)
-            return false;
-
-        var normalized = NormalizeBoilerplateLine(line)
-            .Trim('-', '\u2010', '\u2011', '\u2012', '\u2013', '\u2014', ' ');
-        if (normalized.Length is < 2 or > 4)
-            return false;
-        if (!normalized.All(char.IsDigit))
-            return false;
-
-        var previous = NormalizeBoilerplateLine(lines[index - 1]);
-        var next = NormalizeBoilerplateLine(lines[index + 1]);
-        if (!LooksLikeProseOrInstructionLine(previous) || !LooksLikeProseOrInstructionLine(next))
-            return false;
-
-        return true;
-    }
-
-    private static bool LooksLikeProseOrInstructionLine(string line)
-    {
-        if (string.IsNullOrWhiteSpace(line) || line.Length < 8)
-            return false;
-
-        var letterCount = line.Count(char.IsLetter);
-        if (letterCount < 6)
-            return false;
-
-        var tokenCount = SplitWords(line).Count();
-        return tokenCount >= 3;
-    }
 }
 
 sealed record WordToken(string Word, int Page);
@@ -918,7 +874,11 @@ internal readonly record struct PdfLayoutWord(
     double Left,
     double Right,
     double Top,
-    double Bottom)
+    double Bottom,
+    double? BaselineStartX = null,
+    double? BaselineStartY = null,
+    double? BaselineEndX = null,
+    double? BaselineEndY = null)
 {
     public double Width => Math.Max(0d, Right - Left);
     public double Height => Math.Max(0d, Top - Bottom);

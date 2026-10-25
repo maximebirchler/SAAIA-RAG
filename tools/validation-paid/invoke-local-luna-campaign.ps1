@@ -2,7 +2,8 @@
 [CmdletBinding()]
 param([Parameter(Mandatory)][string]$ProfilePath, [Parameter(Mandatory)][string]$OutputDirectory,
     [switch]$Execute, [switch]$AuthorizePaid, [switch]$AuthorizeCorpusTransmission,
-    [decimal]$PaidCapUsd=0, [string]$SecretStorePath='', [string]$PythonExecutable='')
+    [decimal]$PaidCapUsd=0, [string]$SecretStorePath='', [string]$PythonExecutable='',
+    [string]$ProjectionAssemblyPath='')
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'PaidCampaign.Common.ps1')
 . (Join-Path $PSScriptRoot 'PaidLedger.ps1')
@@ -20,14 +21,14 @@ if ((Get-FileHash -LiteralPath $backend -Algorithm SHA256).Hash -ine $profile.ex
 if ($Execute) {
     Assert-LunaExecuteAuthorization -Profile $profile -AuthorizePaid:$AuthorizePaid `
         -AuthorizeCorpusTransmission:$AuthorizeCorpusTransmission -PaidCapUsd $PaidCapUsd
+    $ProjectionAssemblyPath=Assert-ProductionCorpusProjectionAssembly -Path $ProjectionAssemblyPath `
+        -ExpectedBackendSha256 $profile.execution.backendAssemblySha256
     if (-not [IO.Path]::IsPathFullyQualified($SecretStorePath) -or -not (Test-Path -LiteralPath $SecretStorePath -PathType Leaf)) {
         throw 'An explicit existing DPAPI store path is required after authorization. No secret was read.'
     }
     if (-not [IO.Path]::IsPathFullyQualified($PythonExecutable) -or -not (Test-Path -LiteralPath $PythonExecutable -PathType Leaf)) {
-        throw 'Provide an explicit trusted local Python with pypdf; no package download or runtime fallback is allowed.'
+        throw 'Provide an explicit trusted local Python; corpus transport uses only its standard library.'
     }
-    & $PythonExecutable -B -c 'import pypdf'
-    if($LASTEXITCODE -ne 0){throw 'The selected local Python lacks pypdf. No secret was read or service started.'}
 }
 [IO.Directory]::CreateDirectory($output) | Out-Null
 $proof=[ordered]@{schemaVersion='saaia-local-paid-result.v1';startedAtUtc=[DateTimeOffset]::UtcNow.ToString('o');
@@ -37,7 +38,7 @@ $proof=[ordered]@{schemaVersion='saaia-local-paid-result.v1';startedAtUtc=[DateT
     pricing=$profile.pricing;expectedModel='gpt-5.6-luna';
     providerUsageLedgerSha256=$null;state='prepared';productStatus='TESTE_NON_APPROUVE';semanticApproval='PENDING';
     limits=@('TEI/Qdrant are deterministic loopback protocol substitutes; canonical SQL retrieval and original PDF text are real.',
-        'PDF extraction is seeded for this focused test; this does not validate ingestion, OCR or vector recall.',
+        'Production native PDF extraction/structure/exact/contextual projection is reused; SQL publication is a fixture and does not validate full worker ingestion, OCR, Docling, profiles or vector recall.',
         'The single backend job does not validate local-client routing or native UI. No client or local model is launched.');
     cleanup=@{zeroActiveJobs=$false;workerQuiescentBeforeStop=$false;ownedEnvironmentStopped=$false;errors=@()}}
 if (-not $Execute) {
@@ -51,6 +52,7 @@ $fixture=Join-Path $output 'local-fixture'
 $job=$null; $userId=[Guid]::NewGuid().ToString('D'); $headers=$null; $paidUrl=$null; $key=$null; $plain=$null; $failure=$null
 try {
     $proof.executed=$true; $proof.state='running'
+    $proof.productionProjectionAssemblySha256=(Get-FileHash -LiteralPath $ProjectionAssemblyPath -Algorithm SHA256).Hash
     # The only credential acquisition point is below every explicit Execute/auth gate.
     Add-Type -AssemblyName System.Security
     $secret=Get-Content -LiteralPath $SecretStorePath -Raw|ConvertFrom-Json
@@ -63,9 +65,16 @@ try {
         -BackendPort $profile.execution.backendPort -FixturePort $profile.execution.fixturePort -NoBuild
     $null=Get-OwnedPaidEnvironment $fixture
     & $PythonExecutable -B (Join-Path $PSScriptRoot 'prepare_real_corpus.py') --output $fixture `
-        --pdf (Join-Path $repo $profile.corpus.path) --sha256 $profile.corpus.sha256 --pages ($profile.corpus.pageNumbers -join ',')
+        --pdf (Join-Path $repo $profile.corpus.path) --sha256 $profile.corpus.sha256 --pages ($profile.corpus.pageNumbers -join ',') `
+        --projection-dll $ProjectionAssemblyPath --backend-sha256 $profile.execution.backendAssemblySha256
     if ($LASTEXITCODE -ne 0) { throw 'Real corpus extraction failed; no paid job submitted.' }
+    $projectionManifest=Get-Content -LiteralPath (Join-Path $fixture 'real-corpus-manifest.json') -Raw|ConvertFrom-Json
+    $proof.corpusProjection=@{productionProjectionReused=$projectionManifest.productionProjectionReused;
+        backendAssemblySha256=$projectionManifest.backendAssemblySha256;projectionAssemblySha256=$projectionManifest.projectionAssemblySha256;
+        projectionSnapshotSha256=$projectionManifest.projectionSnapshotSha256;counts=$projectionManifest.projectionCounts;
+        boundaries=$projectionManifest.projectionBoundaries;vectorIndexIsProtocolSubstitute=$true;ingestionValidated=$false}
     $null=Invoke-OwnedPaidSql -OutputDirectory $fixture -SeedRealCorpus
+    $proof.corpusTextConformance=Get-OwnedPaidCorpusTextConformance -OutputDirectory $fixture
     $owner=Get-OwnedPaidEnvironment $fixture
     $private=Get-Content -LiteralPath (Join-Path $fixture 'runtime/fixture-secrets.json') -Raw|ConvertFrom-Json
     $headers=@{'X-Api-Key'=$private.apiKey;'X-Admin-Key'=$private.apiKey;'X-SAAIA-Turn-Id'=('paid-'+[Guid]::NewGuid().ToString('N'))}

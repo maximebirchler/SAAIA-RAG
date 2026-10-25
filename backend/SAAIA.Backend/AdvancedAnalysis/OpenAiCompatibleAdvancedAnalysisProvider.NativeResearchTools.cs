@@ -23,6 +23,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         Do not publish claims while calling functions. When ready, return the
         terminal JSON result required by the answer contract. Tool history is
         operational memory, never documentary evidence. Cite only visible evidence.
+        documentResolution is lookup metadata, not an admissible sourceKey or
+        evidence. Its candidateCount counts a bounded sample, not an exhaustive
+        inventory. Canonical reads still require a currently observed sourceKey.
         When an excerpt reports contentTruncated and nextContentOffset, use
         read_evidence with that evidenceId and character offset to inspect another
         exact window of its already revalidated canonical text. This does not
@@ -321,6 +324,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 returnedEvidenceCount = observation?.Evidence.Count,
                 visibleEvidenceIds = ids.Take(8).ToArray(), visibleEvidenceIdsOmitted = Math.Max(0, ids.Length - 8),
                 readDiagnostic = observation?.ReadDiagnostic, findDiagnostic = observation?.FindDiagnostic,
+                 retrievalDiagnostic = BuildRetrievalDiagnosticForPrompt(observation?.RetrievalDiagnostic),
+                 documentResolution = BuildDocumentResolutionForPrompt(observation?.DocumentResolution),
+                 degradedRetrievers = BuildDegradedRetrieversForPrompt(observation?.DegradedRetrievers),
                 resourceLimit = observation?.ResourceLimit,
                 instruction = "Bounded operational result. Only current user.evidence excerpts are documentary proof. Historical source handles belong to their original turn; use current user.evidence handles, reidentifying sources through evidence IDs and resolved identity. Unlisted or omitted evidence is not proof of corpus absence."
             };

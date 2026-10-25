@@ -973,13 +973,13 @@ Annex D Spacing requirements ........ 204
     }
 
     [Fact]
-    public void ProjectStructureAware_excludes_short_metadata_schedule_cards_from_retrieval_windows()
+    public void ProjectStructureAware_preserves_factual_schedule_metadata_beside_its_substantive_body()
     {
         var sections = new[]
         {
             new ExtractedDocumentSection(0, "Document", 1, 12, 12, null, null)
         };
-        const string metadataOnly =
+        const string factualMetadata =
             "Preparation : 1 hour Duration : 3 h 30 Cost tier Intermediate";
         const string substantive =
             "Validated operating method The technician inspects the module, records the result, confirms the release evidence, and stores the signed checklist with the equipment file.";
@@ -990,12 +990,12 @@ Annex D Spacing requirements ........ 204
                 0,
                 12,
                 12,
-                metadataOnly,
-                metadataOnly.Length,
-                metadataOnly.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
+                factualMetadata,
+                factualMetadata.Length,
+                factualMetadata.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
                 [12],
                 0,
-                metadataOnly.Length),
+                factualMetadata.Length),
             new ExtractedDocumentUnit(
                 14,
                 0,
@@ -1005,8 +1005,8 @@ Annex D Spacing requirements ........ 204
                 substantive.Length,
                 substantive.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length,
                 [12],
-                metadataOnly.Length + 2,
-                metadataOnly.Length + 2 + substantive.Length)
+                factualMetadata.Length + 2,
+                factualMetadata.Length + 2 + substantive.Length)
         };
 
         var projected = RetrievalChunkProjector.ProjectStructureAware(
@@ -1016,15 +1016,19 @@ Annex D Spacing requirements ........ 204
             overlapWords: 0,
             minWords: 12);
 
-        Assert.DoesNotContain(projected, chunk => chunk.Text.Contains("Duration : 3 h 30", StringComparison.Ordinal));
-        Assert.Contains(projected, chunk =>
+        var published = projected.Where(IngestionWorker.ShouldPublishRetrievalChunk).ToArray();
+        Assert.Contains(published, chunk => chunk.SourceUnitOrdinals?.Contains(13) == true
+            && chunk.Text.Contains(factualMetadata, StringComparison.Ordinal));
+        Assert.Contains(published, chunk =>
             chunk.SourceUnitOrdinals is not null
-            && chunk.SourceUnitOrdinals.SequenceEqual([14])
-            && chunk.Text.Contains("Validated operating method", StringComparison.Ordinal));
+            && chunk.SourceUnitOrdinals.Contains(14)
+            && chunk.Text.Contains(substantive, StringComparison.Ordinal));
+        var context = ContextualTextProjector.Project("Documents/equipment.pdf", sections, units, published);
+        Assert.Contains(context, entry => entry.Text.Contains(factualMetadata, StringComparison.Ordinal));
     }
 
     [Fact]
-    public void ProjectStructureAware_excludes_low_substance_standalone_fragments_from_retrieval_windows()
+    public void ProjectStructureAware_preserves_lexical_source_context_while_excluding_counters_and_bare_layout_fragments()
     {
         var sections = new[]
         {
@@ -1059,12 +1063,15 @@ Annex D Spacing requirements ........ 204
             minWords: 25);
 
         var chunk = Assert.Single(projected);
-        Assert.Equal([24], chunk.SourceUnitOrdinals);
+        Assert.Equal([20, 24], chunk.SourceUnitOrdinals);
+        Assert.True(IngestionWorker.ShouldPublishRetrievalChunk(chunk));
         Assert.Contains("Operational validation method", chunk.Text, StringComparison.Ordinal);
-        Assert.DoesNotContain("Sel", chunk.Text, StringComparison.Ordinal);
+        Assert.Contains("Sel", chunk.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("31", chunk.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("2 units", chunk.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("For", chunk.Text, StringComparison.Ordinal);
+        var context = ContextualTextProjector.Project("Documents/equipment.pdf", sections, units, projected);
+        Assert.Contains(context, entry => entry.Text.Contains("Sel", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -1397,7 +1404,7 @@ Annex D Spacing requirements ........ 204
     }
 
     [Fact]
-    public void ProjectStructureAware_keeps_clean_short_title_with_body_without_inline_index_metadata()
+    public void ProjectStructureAware_preserves_clean_short_titles_and_reliable_metadata_with_each_body()
     {
         const string firstTitle =
             "Alpha Beta Module [Index: ] MCRC01072833_BO_Alpha_Beta_Module-010 MCRC01072992_SE_Alpha_Beta_Module-007";
@@ -1446,14 +1453,17 @@ Annex D Spacing requirements ........ 204
             minWords: 25);
 
         Assert.DoesNotContain(projected, chunk => chunk.Text.Contains("MCRC010", StringComparison.Ordinal));
-        Assert.DoesNotContain(projected, chunk => chunk.Text.Contains("classificationCategory", StringComparison.Ordinal));
         Assert.Contains(projected, chunk =>
             chunk.Text.Contains("Alpha Beta Module", StringComparison.Ordinal)
             && chunk.Text.Contains("Inspect the module", StringComparison.Ordinal)
+            && chunk.Text.Contains("classification", StringComparison.Ordinal)
+            && chunk.Text.Contains("4 items", StringComparison.Ordinal)
             && !chunk.Text.Contains("Gamma Delta Module", StringComparison.Ordinal));
         Assert.Contains(projected, chunk =>
             chunk.Text.Contains("Gamma Delta Module", StringComparison.Ordinal)
             && chunk.Text.Contains("Calibrate the panel", StringComparison.Ordinal)
+            && chunk.Text.Contains("classification", StringComparison.Ordinal)
+            && chunk.Text.Contains("2 items", StringComparison.Ordinal)
             && !chunk.Text.Contains("Alpha Beta Module", StringComparison.Ordinal));
     }
 

@@ -107,11 +107,12 @@ internal static partial class RetrievalChunkProjector
                     var startsStructuredBoundary = window.Count > 0
                         && (LooksLikeHighSignalUnit(candidate)
                             || LooksLikeStructuredItemBoundaryUnit(candidate)
-                            || LooksLikeShortStandaloneTitleBoundaryUnit(candidate)
+                            || LooksLikeWindowTitleBoundary(sectionUnits, cursor)
                             || LooksLikePostFooterStructuredBodyBoundary(window[^1], candidate));
                     if (startsStructuredBoundary)
                     {
-                        if (ShouldAppendDanglingStructuredContinuation(
+                        if (CanAttachShortContextLead(window, sectionUnits, cursor, tokenTotal + candidateTokens, maxWords)
+                            || ShouldAppendDanglingStructuredContinuation(
                                 window[^1],
                                 candidate,
                                 tokenTotal,
@@ -192,7 +193,7 @@ internal static partial class RetrievalChunkProjector
                     && cursor < sectionUnits.Count
                     && (LooksLikeHighSignalUnit(sectionUnits[cursor])
                         || LooksLikeStructuredItemBoundaryUnit(sectionUnits[cursor])
-                        || LooksLikeShortStandaloneTitleBoundaryUnit(sectionUnits[cursor])
+                        || LooksLikeWindowTitleBoundary(sectionUnits, cursor)
                         || LooksLikePostFooterStructuredBodyBoundary(sectionUnits[Math.Max(start, cursor - 1)], sectionUnits[cursor])
                         || HasMissingPageGap(sectionUnits[Math.Max(start, cursor - 1)], sectionUnits[cursor])
                         || LooksLikeCompleteNewPageBoundary(sectionUnits[Math.Max(start, cursor - 1)], sectionUnits[cursor])))
@@ -205,6 +206,7 @@ internal static partial class RetrievalChunkProjector
         AddHighSignalUnitChunks(chunks, windowUnits, maxWords, ref chunkIndex);
         AddFooterTitledItemWindowChunks(chunks, windowUnits, maxWords, ref chunkIndex);
         AddUncoveredSubstantiveUnitChunks(chunks, windowUnits, maxWords, minWords, ref chunkIndex);
+        AddPhysicalPageContextChunks(chunks, orderedUnits, maxWords, ref chunkIndex);
 
         if (chunks.Count == 0)
         {
@@ -239,16 +241,15 @@ internal static partial class RetrievalChunkProjector
     {
         var reliableUnits = orderedUnits
             .Where(ExtractionQualityPolicy.ShouldUseUnitForRetrievalWindow)
-            .Where(unit => !LooksLikeLowSubstanceStandaloneUnit(unit, minWords))
             .ToList();
+        reliableUnits = KeepSubstantiveWindowContext(reliableUnits, minWords);
         if (reliableUnits.Count > 0)
             return reliableUnits;
 
         var targetedFallbackUnits = orderedUnits
             .Where(ExtractionQualityPolicy.ShouldUseUnitForProfileCards)
-            .Where(unit => !LooksLikeLowSubstanceStandaloneUnit(unit, minWords))
             .ToList();
-        return targetedFallbackUnits;
+        return KeepSubstantiveWindowContext(targetedFallbackUnits, minWords);
     }
 
     private static void AddHighSignalUnitChunks(
@@ -583,11 +584,7 @@ internal static partial class RetrievalChunkProjector
             .Count;
 
     private static int CountStructuredQuantityUnitEvidence(string text)
-        => Regex.Matches(
-                text,
-                @"\b\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|mm|cm|m|km|nm|bar|pa|kpa|mpa|v|kv|a|ma|w|kw|hz|rpm|pct|percent|pourcent|deg|degrees?|degres?|c|f|units?|unites?|items?|elements?|entries?|parts?|pieces?|pages?|s|sec|secs|secondes?|seconds?|min|mins?|minutes?|h|hr|hrs?|hours?)\b",
-                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
-            .Count;
+        => StructuredQuantityUnitEvidenceRegex().Matches(text).Count;
 
     private static bool WindowContainsHighSignalUnit(IReadOnlyList<ExtractedDocumentUnit> window)
         => window.Any(LooksLikeHighSignalUnit);
@@ -632,6 +629,7 @@ internal static partial class RetrievalChunkProjector
 
         return WindowContainsHighSignalUnit(window)
             || WindowLooksLikeShortTitleWithStructuredBody(window)
+            || WindowHasMeaningfulShortContext(window)
             || WindowLooksLikeSubstantiveShortBoundaryLead(window, minWords);
     }
 
@@ -639,7 +637,7 @@ internal static partial class RetrievalChunkProjector
     {
         if (window.Count is < 2 or > 3)
             return false;
-        if (!LooksLikeShortStandaloneTitleBoundaryUnit(window[0]))
+        if (!LooksLikeWindowTitleBoundary(window, 0))
             return false;
 
         var bodyText = InsertStructuralBoundarySpaces(string.Join(ChunkSeparator, window.Skip(1).Select(static unit => unit.Text)));
@@ -684,7 +682,7 @@ internal static partial class RetrievalChunkProjector
             return false;
         if (text.Any(static ch => ch is '.' or '!' or '?' or '\u2026' or '\u2022' or ':'))
             return false;
-        if (CountStructuredQuantityUnitEvidence(text) > 0)
+        if (CountStructuredQuantityUnitEvidence(text) > 0 || CountOrStepMarkerRegex().IsMatch(text))
             return false;
         if (GenericStructuredCueLeadRegex().IsMatch(text))
             return false;

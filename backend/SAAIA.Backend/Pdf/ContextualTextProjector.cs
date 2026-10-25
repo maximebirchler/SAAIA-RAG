@@ -122,6 +122,11 @@ internal static class ContextualTextProjector
 
         sb.AppendLine("source_metadata:");
         sb.Append("document_name: ").Append(fileName).AppendLine();
+        if (string.Equals(chunk.ChunkType, RetrievalChunkProjector.PhysicalPageContextChunkType, StringComparison.Ordinal))
+        {
+            sb.AppendLine("context_scope: physical_page");
+            sb.AppendLine("section_association: not_asserted");
+        }
         if (!string.IsNullOrWhiteSpace(sectionTitle))
             sb.Append("section_title: ").Append(sectionTitle).AppendLine();
         if (!string.IsNullOrWhiteSpace(headingPath))

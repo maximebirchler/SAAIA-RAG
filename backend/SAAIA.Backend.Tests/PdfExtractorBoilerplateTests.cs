@@ -1,9 +1,113 @@
 using Xunit;
+using UglyToad.PdfPig.Core;
+using UglyToad.PdfPig.Content;
+using UglyToad.PdfPig.Fonts.Standard14Fonts;
+using UglyToad.PdfPig.Writer;
 
 namespace SAAIA.Backend.Tests;
 
 public sealed class PdfExtractorBoilerplateTests
 {
+    [Theory]
+    [InlineData("Disconnect power before maintenance")]
+    [InlineData("Reference capacity ½ litre")]
+    public void RemoveRepeatedPageBoilerplate_preserves_repeated_operational_text_without_pagination_proof(string fact)
+    {
+        var labels = new[] { "Alpha", "Bravo", "Charlie", "Delta" };
+        var pages = Enumerable.Range(1, labels.Length).Select(number =>
+            (PageNumber: number,
+             Text: $"Page {number} of 4\n{labels[number - 1]} inspection\n"
+                 + fact + "\n"
+                 + $"Distinct observation {labels[number - 1]} remains available.",
+             ImageCount: 0)).ToArray();
+
+        var cleaned = PdfExtractor.RemoveRepeatedPageBoilerplate(pages);
+
+        foreach (var page in cleaned)
+        {
+            Assert.Contains(fact, page.Text, StringComparison.Ordinal);
+            Assert.DoesNotContain($"Page {page.PageNumber} of 4", page.Text, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void RemoveRepeatedPageBoilerplate_preserves_identical_numeric_facts_and_variable_measurements()
+    {
+        var labels = new[] { "Alpha", "Bravo", "Charlie", "Delta" };
+        var pages = Enumerable.Range(1, labels.Length).Select(number =>
+            (PageNumber: number,
+             Text: $"Page {number} of 4\n{labels[number - 1]} technical section\n"
+                 + "Rated pressure 4 bar\n"
+                 + $"Measured pressure {number + 5} bar\n"
+                 + "Tolerance 0.25 mm\n"
+                 + $"Unique observation {labels[number - 1]} stays available.\nINTERNAL COPY",
+             ImageCount: 0)).ToArray();
+
+        var cleaned = PdfExtractor.RemoveRepeatedPageBoilerplate(pages);
+
+        for (var index = 0; index < cleaned.Count; index++)
+        {
+            Assert.Contains("Rated pressure 4 bar", cleaned[index].Text, StringComparison.Ordinal);
+            Assert.Contains($"Measured pressure {index + 6} bar", cleaned[index].Text, StringComparison.Ordinal);
+            Assert.Contains("Tolerance 0.25 mm", cleaned[index].Text, StringComparison.Ordinal);
+            Assert.DoesNotContain($"Page {index + 1} of 4", cleaned[index].Text, StringComparison.Ordinal);
+            Assert.Contains("INTERNAL COPY", cleaned[index].Text, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Extract_preserves_repeated_ascii_numeric_facts_and_warnings_in_real_pdf_bytes()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"saaia-numeric-facts-{Guid.NewGuid():N}.pdf");
+        try
+        {
+            var labels = new[] { "Alpha", "Bravo", "Charlie", "Delta" };
+            var builder = new PdfDocumentBuilder();
+            var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+            for (var number = 1; number <= labels.Length; number++)
+            {
+                var page = builder.AddPage(PageSize.A4);
+                var lines = new[]
+                {
+                    $"Page {number} of 4", $"TECHNICAL SHEET {labels[number - 1]}",
+                    "Rated pressure 4 bar", $"Measured pressure {number + 5} bar", "Tolerance 0.25 mm",
+                    "Disconnect power before maintenance", "Reference capacity 1/2 litre",
+                    $"Distinct useful observation {labels[number - 1]} remains available as source evidence."
+                };
+                for (var line = 0; line < lines.Length; line++)
+                    page.AddText(lines[line], 11, new PdfPoint(40, 800 - line * 35), font);
+            }
+            File.WriteAllBytes(path, builder.Build());
+
+            // Standard14 gives this portable fixture ASCII coverage only.
+            // Unicode fractions are covered by the separate pure text theory,
+            // not claimed as generated-PDF glyph coverage. Establish the raw
+            // font mapping before attributing a loss to production cleanup.
+            using (var raw = UglyToad.PdfPig.PdfDocument.Open(path))
+            {
+                foreach (var page in raw.GetPages())
+                    Assert.Contains("Reference capacity 1/2 litre", page.Text, StringComparison.Ordinal);
+            }
+
+            var extracted = PdfExtractor.Extract(path);
+
+            Assert.Equal(4, extracted.Pages.Count);
+            foreach (var page in extracted.Pages)
+            {
+                Assert.Contains("Rated pressure 4 bar", page.Text, StringComparison.Ordinal);
+                Assert.Contains($"Measured pressure {page.PageNumber + 5} bar", page.Text, StringComparison.Ordinal);
+                Assert.Contains("Tolerance 0.25 mm", page.Text, StringComparison.Ordinal);
+                Assert.Contains("Disconnect power before maintenance", page.Text, StringComparison.Ordinal);
+                Assert.Contains("Reference capacity 1/2 litre", page.Text, StringComparison.Ordinal);
+                Assert.DoesNotContain($"Page {page.PageNumber} of 4", page.Text, StringComparison.Ordinal);
+            }
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
     [Fact]
     public void BuildLayoutAwareText_reconstructs_line_and_paragraph_breaks_from_positioned_words()
     {
@@ -167,7 +271,7 @@ public sealed class PdfExtractorBoilerplateTests
     }
 
     [Fact]
-    public void LayoutAwareText_allows_repeated_boilerplate_cleanup_after_flat_pdf_text()
+    public void LayoutAwareText_preserves_repeated_headings_and_removes_only_explicit_page_counters()
     {
         var pages = Enumerable.Range(1, 3)
             .Select(pageNumber =>
@@ -199,7 +303,7 @@ public sealed class PdfExtractorBoilerplateTests
 
         var cleaned = PdfExtractor.RemoveRepeatedPageBoilerplate(pages);
 
-        Assert.All(cleaned, page => Assert.DoesNotContain("ACME REPORT", page.Text, StringComparison.Ordinal));
+        Assert.All(cleaned, page => Assert.Contains("ACME REPORT", page.Text, StringComparison.Ordinal));
         Assert.All(cleaned, page => Assert.DoesNotContain("Page ", page.Text, StringComparison.Ordinal));
         Assert.Contains(cleaned, page => page.Text.Contains("First useful evidence", StringComparison.Ordinal));
         Assert.Contains(cleaned, page => page.Text.Contains("Third useful evidence", StringComparison.Ordinal));
@@ -220,7 +324,7 @@ public sealed class PdfExtractorBoilerplateTests
     }
 
     [Fact]
-    public void RemoveRepeatedPageBoilerplate_removes_repeated_short_lines_without_domain_terms()
+    public void RemoveRepeatedPageBoilerplate_preserves_repeated_headers_without_proof_they_are_useless()
     {
         var pages = new List<(int PageNumber, string Text, int ImageCount)>
         {
@@ -232,13 +336,13 @@ public sealed class PdfExtractorBoilerplateTests
 
         var cleaned = PdfExtractor.RemoveRepeatedPageBoilerplate(pages);
 
-        Assert.All(cleaned, page => Assert.DoesNotContain("ACME CONFIDENTIAL DRAFT", page.Text, StringComparison.Ordinal));
+        Assert.All(cleaned, page => Assert.Contains("ACME CONFIDENTIAL DRAFT", page.Text, StringComparison.Ordinal));
         Assert.Contains(cleaned, page => page.Text.Contains("First page useful technical text.", StringComparison.Ordinal));
         Assert.Contains(cleaned, page => page.Text.Contains("Fourth page useful technical text.", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void RemoveRepeatedPageBoilerplate_removes_long_repeated_layout_legend_lines()
+    public void RemoveRepeatedPageBoilerplate_preserves_repeated_layout_legends_that_may_explain_the_document()
     {
         const string legend = "Shaded text = Revisions, A = Text deletions and figure/table revisions. += Section deletions. N = New material.";
         var pages = new List<(int PageNumber, string Text, int ImageCount)>
@@ -251,13 +355,13 @@ public sealed class PdfExtractorBoilerplateTests
 
         var cleaned = PdfExtractor.RemoveRepeatedPageBoilerplate(pages);
 
-        Assert.All(cleaned, page => Assert.DoesNotContain("Shaded text = Revisions", page.Text, StringComparison.Ordinal));
+        Assert.All(cleaned, page => Assert.Contains(legend, page.Text, StringComparison.Ordinal));
         Assert.Contains(cleaned, page => page.Text.Contains("First useful paragraph", StringComparison.Ordinal));
         Assert.Contains(cleaned, page => page.Text.Contains("Closing content stays available.", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void RemoveRepeatedPageBoilerplate_removes_variable_page_number_lines()
+    public void RemoveRepeatedPageBoilerplate_preserves_headers_even_when_they_include_a_page_number()
     {
         var pages = new List<(int PageNumber, string Text, int ImageCount)>
         {
@@ -269,7 +373,7 @@ public sealed class PdfExtractorBoilerplateTests
 
         var cleaned = PdfExtractor.RemoveRepeatedPageBoilerplate(pages);
 
-        Assert.All(cleaned, page => Assert.DoesNotContain("ACME CONFIDENTIAL", page.Text, StringComparison.Ordinal));
+        Assert.All(cleaned, page => Assert.Contains($"ACME CONFIDENTIAL - page {page.PageNumber}", page.Text, StringComparison.Ordinal));
         Assert.Contains(cleaned, page => page.Text.Contains("Second page useful technical text.", StringComparison.Ordinal));
     }
 
@@ -291,7 +395,7 @@ public sealed class PdfExtractorBoilerplateTests
     }
 
     [Fact]
-    public void RemoveRepeatedPageBoilerplate_removes_standalone_page_markers_at_edges()
+    public void RemoveRepeatedPageBoilerplate_removes_explicit_pagination_and_preserves_uncertain_numeric_edges()
     {
         var pages = new List<(int PageNumber, string Text, int ImageCount)>
         {
@@ -302,15 +406,28 @@ public sealed class PdfExtractorBoilerplateTests
         var cleaned = PdfExtractor.RemoveRepeatedPageBoilerplate(pages);
 
         Assert.DoesNotContain("Page 1 of 2", cleaned[0].Text, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("\n1", cleaned[0].Text, StringComparison.Ordinal);
-        Assert.DoesNotContain("2 / 2", cleaned[1].Text, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("- 2 -", cleaned[1].Text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\n1", cleaned[0].Text, StringComparison.Ordinal);
+        Assert.Contains("2 / 2", cleaned[1].Text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("- 2 -", cleaned[1].Text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Installation notes stay searchable.", cleaned[0].Text, StringComparison.Ordinal);
         Assert.Contains("Operational checklist stays searchable.", cleaned[1].Text, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void RemoveRepeatedPageBoilerplate_removes_floating_numeric_page_markers_between_prose()
+    public void RemoveRepeatedPageBoilerplate_preserves_page_labels_with_different_physical_identity_or_body_position()
+    {
+        var pages = new[]
+        {
+            (PageNumber: 1, Text: "Page 99 of 200\nFirst content line.\nSecond content line.\nPage 1\nThird content line.\nFourth content line.\nClosing content.", ImageCount: 0)
+        };
+
+        var cleaned = PdfExtractor.RemoveRepeatedPageBoilerplate(pages);
+
+        Assert.Equal(pages[0].Text, Assert.Single(cleaned).Text);
+    }
+
+    [Fact]
+    public void RemoveRepeatedPageBoilerplate_preserves_uncertain_standalone_numeric_values_between_prose()
     {
         var pages = new List<(int PageNumber, string Text, int ImageCount)>
         {
@@ -325,7 +442,9 @@ public sealed class PdfExtractorBoilerplateTests
 
         var cleaned = PdfExtractor.RemoveRepeatedPageBoilerplate(pages);
 
-        Assert.DoesNotContain("\n235\n", cleaned[0].Text, StringComparison.Ordinal);
+        // A number between prose is not proof of pagination; it may be a
+        // table value or an operational result. Only established counters go.
+        Assert.Contains("\n235\n", cleaned[0].Text, StringComparison.Ordinal);
         Assert.Contains("Prepare the module", cleaned[0].Text, StringComparison.Ordinal);
         Assert.Contains("Continue the procedure", cleaned[0].Text, StringComparison.Ordinal);
     }

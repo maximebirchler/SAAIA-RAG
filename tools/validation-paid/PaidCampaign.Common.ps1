@@ -1,5 +1,21 @@
 #requires -Version 7.4
 # Pure guards: no secret, process or network access in this file.
+function Assert-ProductionCorpusProjectionAssembly {
+    param([Parameter(Mandatory)][string]$Path,[Parameter(Mandatory)][string]$ExpectedBackendSha256)
+    if(-not [IO.Path]::IsPathFullyQualified($Path) -or -not(Test-Path -LiteralPath $Path -PathType Leaf) -or
+        [IO.Path]::GetFileName($Path) -cne 'SAAIA.IngestionGold.dll'){
+        throw 'An explicit precompiled SAAIA.IngestionGold.dll is required. No build/restore fallback or secret access.'
+    }
+    $folder=Split-Path -Parent $Path
+    $loadedBackend=Join-Path $folder 'SAAIA.Backend.dll'
+    if(-not(Test-Path -LiteralPath $loadedBackend -PathType Leaf) -or
+        -not(Test-Path -LiteralPath (Join-Path $folder 'SAAIA.IngestionGold.runtimeconfig.json') -PathType Leaf) -or
+        (Get-FileHash -LiteralPath $loadedBackend -Algorithm SHA256).Hash -ine $ExpectedBackendSha256){
+        throw 'The helper backend differs from the frozen campaign backend or its runtime config is missing.'
+    }
+    return [IO.Path]::GetFullPath($Path)
+}
+
 function ConvertTo-PaidUtcStamp {
     param([object]$Value)
     if ($Value -is [DateTime] -and $Value.Kind -eq [DateTimeKind]::Utc) { return [DateTimeOffset]$Value }
@@ -128,4 +144,55 @@ function New-LunaCampaignHandoff {
         # Client-supplied true flags are rejected by the production endpoint.
         dataPolicy=@{externalProviderContentAuthorized=$false;externalProviderMetadataAuthorized=$false;authorizationSource='server_controlled'}
     }
+}
+
+function Get-CanonicalWholeChunkReadCheck {
+    param([Parameter(Mandatory)][object]$Context,[Parameter(Mandatory)][object]$Identity,
+        [Parameter(Mandatory)][int]$ExpectedPhysicalPage)
+    $sourcePages=0L;$reportedPages=0L
+    $sourceBoundsValid=([long]::TryParse([string]$Identity.sourcePageCount,[ref]$sourcePages) -and $sourcePages -gt 0 -and
+        [long]::TryParse([string]$Context.document.pageCount,[ref]$reportedPages) -and $reportedPages -eq $sourcePages -and
+        $ExpectedPhysicalPage -ge 1 -and $ExpectedPhysicalPage -le $sourcePages)
+    $expectedHash=([string]$Identity.sourceSha256 -replace '^sha256:','')
+    $identityExact=($expectedHash -match '^[a-fA-F0-9]{64}$' -and
+        -not [string]::IsNullOrWhiteSpace($Identity.docId) -and -not [string]::IsNullOrWhiteSpace($Identity.revisionId) -and
+        $Context.document.docId -eq $Identity.docId -and $Context.document.revisionId -eq $Identity.revisionId -and
+        ([string]$Context.document.sourceHash -replace '^sha256:','') -ieq $expectedHash)
+    $items=@($Context.items);$overlap=($items.Count -gt 0);$ranges=[Collections.Generic.List[object]]::new()
+    foreach($item in $items){
+        $first=0L;$last=0L
+        $valid=([long]::TryParse([string]$item.pageStart,[ref]$first) -and
+            [long]::TryParse([string]$item.pageEnd,[ref]$last) -and $first -ge 1 -and $last -ge $first -and $last -le $sourcePages)
+        if(-not $valid){$sourceBoundsValid=$false}
+        if(-not $valid -or $first -gt $ExpectedPhysicalPage -or $last -lt $ExpectedPhysicalPage){$overlap=$false}
+        $ranges.Add(@{pageStart=$item.pageStart;pageEnd=$item.pageEnd})
+    }
+    $found=($Context.found -is [bool] -and $Context.found)
+    return [ordered]@{documentIdentityExact=$identityExact;sourceBoundsValid=$sourceBoundsValid;
+        allWholeChunksOverlapRequestedPhysicalPage=$overlap;wholeChunkOverlapVerified=($found -and $identityExact -and $sourceBoundsValid -and $overlap);
+        requestedPhysicalPage=$ExpectedPhysicalPage;sourcePageCount=$sourcePages;chunkCount=$items.Count;returnedWholeChunkRanges=@($ranges);
+        windowSemantics='whole_canonical_chunks_overlapping_requested_physical_page_not_sliced_page_text'}
+}
+
+function Get-PhysicalPagePatternCheck {
+    param([Parameter(Mandatory)][object]$Projection,[Parameter(Mandatory)][object]$Identity,
+        [Parameter(Mandatory)][int]$ExpectedPhysicalPage,[Parameter(Mandatory)][string[]]$ExpectedTextPatterns)
+    $pages=@($Projection.pages|Where-Object{$_.pageNumber -eq $ExpectedPhysicalPage})
+    $manifestPages=@($Identity.pages|Where-Object{$_.pageNumber -eq $ExpectedPhysicalPage})
+    $sourceHash=([string]$Identity.sourceSha256 -replace '^sha256:','')
+    $identityExact=($sourceHash -match '^[a-fA-F0-9]{64}$' -and
+        ([string]$Projection.sourceSha256 -replace '^sha256:','') -ieq $sourceHash -and
+        $Projection.sourcePageCount -eq $Identity.sourcePageCount)
+    $inSourceBounds=($ExpectedPhysicalPage -ge 1 -and $ExpectedPhysicalPage -le $Identity.sourcePageCount)
+    $text=if($pages.Count -eq 1){[string]$pages[0].text}else{''}
+    $hash=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($text)))
+    $pageTextHashExact=($pages.Count -eq 1 -and $manifestPages.Count -eq 1 -and
+        $hash -ieq [string]$manifestPages[0].textSha256)
+    $matched=if($pages.Count -eq 1){@($ExpectedTextPatterns|Where-Object{$text -match $_}).Count}else{0}
+    return [ordered]@{physicalPageNumber=$ExpectedPhysicalPage;matchingPhysicalPageCount=$pages.Count;sourceIdentityExact=$identityExact;
+        physicalPageInSourceBounds=$inSourceBounds;
+        physicalPageTextHashExact=$pageTextHashExact;physicalPageTextSha256=$hash;
+        expectedPatternCount=$ExpectedTextPatterns.Count;physicalPagePatternsMatched=$matched;
+        passed=($identityExact -and $inSourceBounds -and $pageTextHashExact -and $ExpectedTextPatterns.Count -gt 0 -and $matched -eq $ExpectedTextPatterns.Count);
+        textSemantics='original_native_projection_exact_physical_page_text_no_neighboring_chunks'}
 }

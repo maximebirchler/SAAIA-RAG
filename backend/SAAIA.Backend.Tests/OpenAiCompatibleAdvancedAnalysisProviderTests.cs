@@ -1152,6 +1152,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             Completion("""
                 {"decision":"search_more","queries":[{"query":"encas pause recettes titres","category":"","topK":20}]}
                 """),
+            Completion("""{"decision":"ready","queries":[]}"""),
             Completion("""
                 {"outcome":"answered","answerText":"Proposition : granola documenté [C1].","claims":[{"claimId":"C1","text":"Le granola est documenté.","evidenceIds":["E1"]}]}
                 """));
@@ -1170,11 +1171,19 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             CancellationToken.None);
 
         Assert.Equal("answered", result.Outcome);
-        Assert.Equal(3, result.ProviderCallCount);
+        Assert.Equal(4, result.ProviderCallCount);
         Assert.Equal(
             ["recettes collation goûter", "encas pause recettes titres"],
             gateway.Searches.Select(static item => item.Query).ToArray());
-        Assert.Equal(3, factory.Requests.Count);
+        Assert.Equal(4, factory.Requests.Count);
+        using var secondReviewRequest = JsonDocument.Parse(factory.Requests[2].Body);
+        using var secondReview = JsonDocument.Parse(secondReviewRequest.RootElement
+            .GetProperty("messages")[1].GetProperty("content").GetString()!);
+        Assert.Equal(2, secondReview.RootElement.GetProperty("priorSearches").GetArrayLength());
+        Assert.Contains(secondReview.RootElement.GetProperty("observations").EnumerateArray(),
+            item => item.GetProperty("evidenceId").GetString() == "E1"
+                && item.GetProperty("retrievedFor").EnumerateArray()
+                    .Any(query => query.GetString() == "encas pause recettes titres"));
         Assert.Contains("search_corpus", factory.Requests[1].Body,
             StringComparison.Ordinal);
         Assert.Contains("source_chunk", factory.Requests[1].Body,
@@ -1341,7 +1350,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             .ExecuteAsync(BuildNamedDocumentRequest(), gateway, CancellationToken.None);
         var followup = Assert.Single(gateway.Searches, item => item.Query == "reference exact function");
         Assert.Equal("NIST_CSF_2_0.pdf", followup.DocumentHint);
-        Assert.Equal(3, gateway.Searches.Count);
+        Assert.Equal(2, gateway.Searches.Count);
     }
 
     [Fact]
@@ -2417,10 +2426,11 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             CancellationToken.None);
 
         Assert.Equal("answered", result.Outcome);
+        Assert.Equal(2, gateway.Searches.Count);
         Assert.Contains(gateway.Searches,
-            search => search.Query.Contains("15281", StringComparison.Ordinal));
+            search => search.Query == "inertage oxygène");
         Assert.Contains(gateway.Searches,
-            search => search.Query.Contains("60079", StringComparison.Ordinal));
+            search => search.Query == "gaz de protection pression débit alarme");
         Assert.Contains(gateway.Searches,
             search => search.DocumentHint?.Contains(
                 "15281",
@@ -2475,8 +2485,12 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         Assert.Equal(2, result.ProviderCallCount);
     }
 
-    [Fact]
-    public async Task No_revalidated_evidence_returns_deterministic_insufficient_without_writer_call()
+    [Theory]
+    [InlineData("fr", false)]
+    [InlineData("fr", true)]
+    [InlineData("en", false)]
+    [InlineData("en", true)]
+    public async Task No_revalidated_evidence_returns_deterministic_insufficient_without_writer_call(string language, bool namedDocument)
     {
         using var factory = new QueuedHttpClientFactory(
             Completion("""
@@ -2486,13 +2500,18 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         var gateway = new RecordingToolGateway();
 
         var result = await provider.ExecuteAsync(
-            BuildRequest(),
+            namedDocument ? BuildNamedDocumentRequest(language) : BuildRequest(language: language),
             gateway,
             CancellationToken.None);
 
         Assert.Equal("insufficient_documentation", result.Outcome);
-        Assert.Contains("pas assez de preuves", result.AnswerText,
+        Assert.Contains(language == "en" ? "could not retrieve" : "pas pu retrouver", result.AnswerText,
             StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(language == "en" ? "does not contain" : "ne contient pas", result.AnswerText,
+            StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(language == "en" ? "contains no" : "documentation disponible", result.AnswerText,
+            StringComparison.OrdinalIgnoreCase);
+        if (namedDocument) Assert.Contains("NIST_CSF_2_0.pdf", result.AnswerText, StringComparison.Ordinal);
         Assert.Empty(result.Claims);
         Assert.Single(factory.Requests);
         Assert.Single(gateway.Searches);
@@ -3680,7 +3699,8 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
         int answerUnitCount = 1,
         string atomicEvidenceMode = "one_per_cell",
         string selectionPolicy = "distinct",
-        string atomicEvidenceType = "documented_preparation")
+        string atomicEvidenceType = "documented_preparation",
+        string language = "fr")
         => new(
             Guid.NewGuid(),
             Guid.NewGuid(),
@@ -3690,7 +3710,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 HandoffId = Guid.NewGuid(),
                 CreatedAtUtc = DateTimeOffset.UtcNow,
                 RequestText = "Construis un planning de repas 5 x 4 sourcé.",
-                Language = "fr",
+                Language = language,
                 OriginIntent = "structured_answer",
                 ReasonCode = "advanced_capacity_required",
                 TransferStage = "pre_retrieval",
@@ -3818,7 +3838,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             [],
             []);
 
-    private static AdvancedAnalysisProviderRequest BuildNamedDocumentRequest()
+    private static AdvancedAnalysisProviderRequest BuildNamedDocumentRequest(string language = "fr")
         => new(
             Guid.NewGuid(),
             Guid.NewGuid(),
@@ -3828,7 +3848,7 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
                 HandoffId = Guid.NewGuid(),
                 CreatedAtUtc = DateTimeOffset.UtcNow,
                 RequestText = "Extrais un point de NIST_CSF_2_0.pdf.",
-                Language = "fr",
+                Language = language,
                 OriginIntent = "structured_answer",
                 ReasonCode = "advanced_capacity_required",
                 TransferStage = "pre_retrieval",
@@ -4012,9 +4032,9 @@ public sealed partial class OpenAiCompatibleAdvancedAnalysisProviderTests
             cancellationToken.ThrowIfCancellationRequested();
             Searches.Add(request);
             var found = new List<AdvancedAnalysisResolvedEvidence>();
-            if (request.Query.Contains("15281", StringComparison.Ordinal))
+            if (request.DocumentHint?.Contains("15281", StringComparison.Ordinal) == true)
                 found.Add(fdEvidence);
-            if (request.Query.Contains("60079", StringComparison.Ordinal))
+            if (request.DocumentHint?.Contains("60079", StringComparison.Ordinal) == true)
                 found.Add(iecEvidence);
             foreach (var item in found)
             {

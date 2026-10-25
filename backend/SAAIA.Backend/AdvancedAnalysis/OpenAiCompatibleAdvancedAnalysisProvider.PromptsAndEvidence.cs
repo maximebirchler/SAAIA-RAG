@@ -20,6 +20,13 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         content is the current window; retained prefix/history windows preserve
         context. They are not contiguous text. Unread gaps and omitted windows
         establish no fact; do not reconstruct words or requirements across gaps.
+        When sourceStructure.contextScope is physical_page or
+        physical_page_window and sectionAssociation is not_asserted, only
+        physical co-location is established. Do not infer that a marginal value
+        or qualifier belongs to a neighboring subject or title without other
+        canonical support. These structural flags are not documentary facts or
+        headings. If that association matters and remains ambiguous, use the
+        available research tools within budget to inspect supporting source text.
         """;
 
     private const string CandidateEvidenceUsePolicy = """
@@ -64,7 +71,11 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         adding {"operation":"read_source","sourceKey":"exact observed sourceKey",
         "pageStart":61,"pageEnd":62,"topK":60} to queries in the same non-final
         search_more or research_required object. query is unnecessary for this
-        operation. Copy a sourceKey from current observations. Use their
+        operation. Copy a sourceKey from current observations.
+        documentResolution is lookup metadata, not a sourceKey or proof. Its
+        candidateCount describes a bounded lookup sample, never an exhaustive
+        document inventory. Resolution alone does not authorize this operation.
+        Use the current observations'
         physicalPageStart/physicalPageEnd coordinates, which are one-based physical
         document pages and can differ from printed page labels or index numbers.
         sourceOverview gives the actual indexed physical page range and chunk
@@ -112,7 +123,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         new
         {
             name = "search_corpus", operation = "search_corpus",
-            query = "required semantic corpus retrieval phrase",
+            query = "short distinctive content terms, not the full user question or filename",
             category = "exact allowed category or empty", topK = "integer from 1 to 60",
             documentHint = "optional known filename fragment or document identifier; no invented filename",
             sourceKey = "optional exact observed sourceKey; leave documentHint empty when supplied"
@@ -155,6 +166,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            for an identifying filename fragment or formal document identifier;
            the backend resolves it only against indexed tenant documents and
            applies a file scope only for one strong match. Never invent a filename.
+            Canonical sparse retrieval can require all query terms. Prefer a few
+            distinctive content words or a heading, not the whole question or a
+            checklist of every requested fact. Preserve the full user goal while
+            using complementary short queries to find its supporting passages.
            The orchestrator
            executes every search_corpus query you request and returns revalidated
            source evidence. You may receive a later turn with the observations and
@@ -203,14 +218,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            Indexes locate candidates; they do not replace the item's actual
            content when selecting usable options for a proposed deliverable.
            When the user explicitly names documents, emit at least one focused
-           query per document. Retain that document's complete identifier in the
-           query and add only the subject terms needed to answer the request.
+            query per document. Put the known document identifier in documentHint,
+            separately from the compact answer-bearing subject terms in query.
+            Do not add a filename to the content query: it need not occur in the
+            indexed source text. The backend validates the document identity.
            For a bounded named-item collection with mandatory qualifiers, search
            for both a scope statement and at least the requested number of item
            names covered by that same source. When a result reveals a promising
            scope-bearing collection title, use that exact title with compact terms
            such as contents, index, headings or examples to expose more candidates.
-           Shape: {"selectionMode":"distinct_named_items|repeatable_named_items|content_claims|empty for non-structured","queries":[{"query":"...","category":"... or empty","topK":20}]}.
+            Shape: {"selectionMode":"distinct_named_items|repeatable_named_items|content_claims|empty for non-structured","queries":[{"query":"compact subject terms","category":"... or empty","documentHint":"known identifier or empty","topK":20}]}.
            """ + "\n" + DocumentaryDataBoundary;
 
     private static string BuildResearchReviewSystemPrompt()
@@ -229,11 +246,26 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
            call the tool again by returning
            {"decision":"search_more","queries":[{"query":"...","category":"... or empty","topK":20}]}.
            Use targeted reformulations, alternate terminology and distinguishing
-           context. Categories are filing buckets, not subject guarantees. When
+           context. Canonical sparse retrieval can require all query terms. After
+           an empty result, try fewer distinctive terms or an alternate spelling
+           rather than adding every requested qualifier to one long query. Preserve
+           the complete user goal; shorter retrieval text does not relax it.
+           Categories are filing buckets, not subject guarantees. When
            observations are irrelevant, remove a category inferred from the subject
            and search across the corpus, preserving explicit user scope constraints.
            Use documentHint to identify a known document; its identity is validated
-           by the backend. Do not repeat an identical search with identical filters.
+           by the backend. Keep that identifier separate from compact subject terms
+           in query; do not make a filename an extra required content term.
+           Do not repeat an identical search with identical filters.
+           priorSearches includes bounded operational retrieval diagnostics,
+           documentResolution and degradedRetrievers. A resolved document path is
+           metadata, never an observed sourceKey or documentary proof. No matches,
+           an ambiguous identity or a degraded retriever do not prove corpus absence.
+           Zero candidates also do not certify index availability or exhaustive
+           semantic coverage. Resolution alone does not authorize read_source or
+           find_source_text: both require a sourceKey from current observations.
+           Only current observations supply admissible source handles and facts.
+           Continue within researchBudget; those limits do not authorize more calls.
            To follow an observed candidate inside its actual source, copy its
            opaque sourceKey into the search request and leave documentHint empty.
            The backend resolves that handle only against these observations;
@@ -316,7 +348,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         AdvancedAnalysisProviderRequest request,
         IReadOnlyList<PromptEvidenceItem> evidence,
         IReadOnlyList<AdvancedAnalysisSearchRequest> priorSearches,
-        IReadOnlyList<string> availableCategories)
+        IReadOnlyList<string> availableCategories,
+        int remainingReviewCallsAfterThisTurn,
+        int reservedSynthesisCalls,
+        AdvancedAnalysisToolBudget? documentaryBudget)
         => JsonSerializer.Serialize(new
         {
             request = request.Handoff.RequestText,
@@ -331,6 +366,12 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 .ToArray(),
             priorSearches = BuildPriorSearchesForPrompt(priorSearches, evidence),
             maximumFollowUpQueries = ResolveMaximumPlanQueries(request),
+            researchBudget = new
+            {
+                remainingReviewCallsAfterThisTurn = Math.Max(0, remainingReviewCallsAfterThisTurn),
+                reservedSynthesisCalls,
+                documentaryBudget
+            },
             availableCategories,
             observations = evidence
         }, JsonOptions);
@@ -668,6 +709,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             search.Operation,
             search.ReadDiagnostic,
             search.FindDiagnostic, search.Offset,
+             retrievalDiagnostic = BuildRetrievalDiagnosticForPrompt(search.RetrievalDiagnostic),
+             documentResolution = BuildDocumentResolutionForPrompt(search.DocumentResolution),
+             degradedRetrievers = BuildDegradedRetrieversForPrompt(search.DegradedRetrievers),
             sourceKey = observations.FirstOrDefault(observation =>
                 (!string.IsNullOrWhiteSpace(search.DocId)
                  && string.Equals(search.DocId, observation.SourceReference.DocId, StringComparison.OrdinalIgnoreCase))
@@ -793,22 +837,50 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
 
     private sealed record PromptEvidenceStructure(
         string? SectionTitle, string? HeadingPath, bool HasPreviousChunk, bool HasNextChunk,
-        bool MetadataTruncated);
+        bool MetadataTruncated)
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ChunkType { get; init; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ChunkComposition { get; init; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ContextScope { get; init; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? SectionAssociation { get; init; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public bool MetadataOmitted { get; init; }
+    }
 
     private static PromptEvidenceStructure BuildPromptEvidenceStructure(
-        AdvancedAnalysisEvidenceStructure structure)
+        AdvancedAnalysisEvidenceStructure structure, int physicalPageStart, int physicalPageEnd)
     {
         const int maximumSectionTitle = 240;
         const int maximumHeadingPath = 500;
         static string? Bound(string? value, int maximum)
             => value is { Length: > 0 } && value.Length > maximum ? value[..maximum] : value;
+        static string? Code(string? value, int maximum)
+            => value is { Length: > 0 } && value.Length <= maximum
+                && value.All(ch => char.IsAsciiLetterOrDigit(ch) || ch is '_' or '-' or '.') ? value : null;
+        var chunkType = Code(structure.ChunkType, 96);
+        var composition = Code(structure.ChunkComposition, 120);
+        var physicalContext = structure.HasUnassignedPhysicalContext;
         return new PromptEvidenceStructure(
-            Bound(structure.SectionTitle, maximumSectionTitle),
-            Bound(structure.HeadingPath, maximumHeadingPath),
+            physicalContext ? null : Bound(structure.SectionTitle, maximumSectionTitle),
+            physicalContext ? null : Bound(structure.HeadingPath, maximumHeadingPath),
             !string.IsNullOrWhiteSpace(structure.PreviousChunkId),
             !string.IsNullOrWhiteSpace(structure.NextChunkId),
             structure.SectionTitle?.Length > maximumSectionTitle
-                || structure.HeadingPath?.Length > maximumHeadingPath);
+                || structure.HeadingPath?.Length > maximumHeadingPath
+                || structure.ChunkType?.Length > 96 || structure.ChunkComposition?.Length > 120)
+        {
+            ChunkType = chunkType,
+            ChunkComposition = composition,
+            ContextScope = physicalContext ? physicalPageStart == physicalPageEnd
+                ? "physical_page" : "physical_page_window" : null,
+            SectionAssociation = physicalContext ? "not_asserted" : null,
+            MetadataOmitted = !string.IsNullOrEmpty(structure.ChunkType) && chunkType is null
+                || !string.IsNullOrEmpty(structure.ChunkComposition) && composition is null
+        };
     }
 
     private sealed record StructuredClaimCoordinate(
@@ -1146,7 +1218,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             {
                 ContentOffset = contentOffset,
                 SourceStructure = item.SourceStructure is { } structure
-                    ? BuildPromptEvidenceStructure(structure) : null,
+                    ? BuildPromptEvidenceStructure(structure, item.Reference.PageStart, item.Reference.PageEnd) : null,
                 SupportingContentWindows = BuildSupportingEvidenceWindows(
                     canonicalContent, contentOffset, content.Length, requestedWindow),
                 NextContentOffset = contentOffset + content.Length < originalContentLength

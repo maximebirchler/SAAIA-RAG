@@ -19,7 +19,15 @@ internal sealed record AdvancedAnalysisEvidenceStructure(
     string? SectionTitle,
     string? HeadingPath,
     string? PreviousChunkId,
-    string? NextChunkId);
+    string? NextChunkId)
+{
+    public string? ChunkType { get; init; }
+    public string? ChunkComposition { get; init; }
+    public bool ContainsUnassignedPhysicalContext { get; init; }
+
+    internal bool HasUnassignedPhysicalContext => ContainsUnassignedPhysicalContext
+        || string.Equals(ChunkType, RetrievalChunkProjector.PhysicalPageContextChunkType, StringComparison.Ordinal);
+}
 
 internal sealed record AdvancedAnalysisSourceOverview(
     int FirstIndexedPhysicalPage,

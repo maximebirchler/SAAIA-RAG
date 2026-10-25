@@ -16,6 +16,7 @@ param (
     [decimal]$PaidCapUsd = 0,
     [string]$PaidSecretStorePath = '',
     [string]$PaidPythonExecutable = '',
+    [string]$PaidProjectionAssemblyPath = '',
     [ValidateSet('Free', 'Tier1', 'Tier2', 'Tier3', 'Tier4', 'Tier5')][string]$ObservedOrganizationTier = 'Free',
     [string]$TierObservedAtUtc = ''
 )
@@ -286,7 +287,8 @@ try {
                 & (Join-Path $PSScriptRoot 'validation-paid/invoke-local-luna-campaign.ps1') `
                     -ProfilePath $CampaignProfilePath -OutputDirectory $campaignDirectory -Execute `
                     -AuthorizePaid:$AuthorizePaid -AuthorizeCorpusTransmission:$AuthorizeCorpusTransmission `
-                    -PaidCapUsd $PaidCapUsd -SecretStorePath $PaidSecretStorePath -PythonExecutable $PaidPythonExecutable
+                    -PaidCapUsd $PaidCapUsd -SecretStorePath $PaidSecretStorePath -PythonExecutable $PaidPythonExecutable `
+                    -ProjectionAssemblyPath $PaidProjectionAssemblyPath
                 $executionProof = Get-Content -LiteralPath (Join-Path $campaignDirectory 'campaign-result.json') -Raw | ConvertFrom-Json
                 if (-not $executionProof.executed -or -not $executionProof.completed -or
                     -not $executionProof.cleanup.zeroActiveJobs -or -not $executionProof.cleanup.ownedEnvironmentStopped) {

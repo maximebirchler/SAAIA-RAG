@@ -240,10 +240,14 @@ internal static partial class DocumentSectionExtractor
         level = 1;
         var normalized = NormalizeWhitespace(line);
         var words = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (!LooksLikeMixedCaseContextualTitleCandidate(normalized, words))
+        if (LooksLikeNavigationHeadingTitle(normalized)
+            || !LooksLikeMixedCaseContextualTitleCandidate(normalized, words))
             return false;
 
-        if (CountStructuredMetadataLinesBefore(lines, index, maxLookback: 5) < 2)
+        // A source title at the physical page's start can be established by
+        // its following structured body. Metadata in another column may be
+        // rendered later; it need not precede a genuine page-leading title.
+        if (index != 0 && CountStructuredMetadataLinesBefore(lines, index, maxLookback: 5) < 2)
             return false;
 
         return HasStructuredBodyAfterContextualHeading(lines, index);

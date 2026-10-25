@@ -115,6 +115,7 @@ ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS checksum_status text NOT 
             }
             startup.Set("applied_migrations", applied);
             startup.Set("legacy_baselines", baselined);
+            await DatabaseTextSearchDiagnostics.ObserveAsync(conn, logger, ct);
             startup.Complete();
         }
         catch (Exception ex) { startup.Fail(ex); throw; }

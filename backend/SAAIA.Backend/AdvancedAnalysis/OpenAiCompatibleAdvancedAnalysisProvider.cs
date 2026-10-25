@@ -149,7 +149,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                 var reviewRound = 0;
                 var reviewArgumentRecovery = 0;
                 AdvancedAnalysisResearchArgumentFeedback? reviewArgumentFeedback = null;
-                while (completions.Count < maximumCalls - reservedFinalCalls)
+                while (completions.Count < maximumCalls - reservedFinalCalls
+                    && HasDocumentaryResearchBudget(tools.Budget))
                 {
                     reviewRound++;
                     var currentEvidence = FilterEvidenceToRequestedDocumentSet(
@@ -159,7 +160,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                         request, currentEvidence, retrievalQueriesByEvidenceId,
                         PrioritizeFocusedEvidenceForPrompt(currentEvidence, retrievalQueriesByEvidenceId,
                             priorSearches.Where(IsSourceScopedResearch).TakeLast(20).ToArray()));
-                    var reviewUserPrompt = BuildResearchReviewUserPrompt(request, observations, priorSearches, availableCategories);
+                    var reviewUserPrompt = BuildResearchReviewUserPrompt(
+                        request, observations, priorSearches, availableCategories,
+                        maximumCalls - completions.Count - reservedFinalCalls - 1,
+                        reservedFinalCalls, tools.Budget);
                     if (reviewArgumentFeedback is not null)
                     {
                         var payload = JsonNode.Parse(reviewUserPrompt)!.AsObject();
@@ -193,6 +197,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                     reviewArgumentFeedback = null;
                     if (followUpQueries.Count == 0)
                         break;
+                    var executedBeforeFollowUp = previouslyExecuted.Count;
                     await ExecuteSearchBatchAsync(
                             tools,
                             followUpQueries,
@@ -202,11 +207,10 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
                             retrievalQueriesByEvidenceId,
                             cancellationToken)
                         .ConfigureAwait(false);
-                    if (!RequiresDistinctStructuredSelection(
-                            request.Handoff.Load))
-                    {
+                    // A repeated batch has no new observation to review. It must
+                    // not consume the remaining model budget in an identical loop.
+                    if (previouslyExecuted.Count == executedBeforeFollowUp)
                         break;
-                    }
                 }
             }
 
@@ -582,10 +586,14 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
             }
             if (observationsBySearch is not null)
                 observationsBySearch[BuildSearchIdentity(planned)] = observation;
-            if(observation.ReadDiagnostic is not null)
-                priorSearches[searchIndex]=planned with {ReadDiagnostic=observation.ReadDiagnostic};
-            if (observation.FindDiagnostic is not null)
-                priorSearches[searchIndex] = planned with { FindDiagnostic = observation.FindDiagnostic };
+            priorSearches[searchIndex] = planned with
+            {
+                ReadDiagnostic = observation.ReadDiagnostic,
+                FindDiagnostic = observation.FindDiagnostic,
+                RetrievalDiagnostic = observation.RetrievalDiagnostic,
+                DocumentResolution = observation.DocumentResolution,
+                DegradedRetrievers = observation.DegradedRetrievers
+            };
             if (observation.Evidence.Count == 0)
                 continue;
 
@@ -1230,16 +1238,16 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider :
         {
             return request.Handoff.Language.Trim().ToLowerInvariant() switch
             {
-                "en" => $"The available documentation contains no revalidated evidence from \"{requestedDocument}\" that can answer this request.",
-                "de" => $"Die verfügbare Dokumentation enthält keine erneut validierten Belege aus \"{requestedDocument}\", die diese Anfrage beantworten können.",
-                _ => $"La documentation disponible ne contient pas de preuve revalidée exploitable dans « {requestedDocument} » pour répondre à cette demande."
+                "en" => $"I could not retrieve a verified documentary passage from \"{requestedDocument}\" that answers this request.",
+                "de" => $"Ich konnte keine verifizierte Dokumentpassage aus \"{requestedDocument}\" finden, mit der sich diese Anfrage beantworten lässt.",
+                _ => $"Je n’ai pas pu retrouver de passage documentaire vérifié dans « {requestedDocument} » permettant de répondre à cette demande."
             };
         }
         return request.Handoff.Language.Trim().ToLowerInvariant() switch
         {
-            "en" => "The available documentation does not contain enough revalidated evidence to answer this request.",
-            "de" => "Die verfügbare Dokumentation enthält nicht genügend erneut validierte Belege für diese Anfrage.",
-            _ => "La documentation disponible ne contient pas assez de preuves revalidées pour répondre à cette demande."
+            "en" => "I could not retrieve a verified documentary passage that answers this request.",
+            "de" => "Ich konnte keine verifizierte Dokumentpassage finden, mit der sich diese Anfrage beantworten lässt.",
+            _ => "Je n’ai pas pu retrouver de passage documentaire vérifié permettant de répondre à cette demande."
         };
     }
 

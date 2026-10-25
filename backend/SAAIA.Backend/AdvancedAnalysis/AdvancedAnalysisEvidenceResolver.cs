@@ -81,6 +81,8 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                     "evidence_identity_duplicate");
             }
 
+            var physicalContext = row.ContainsUnassignedPhysicalContext
+                || string.Equals(row.ChunkType, RetrievalChunkProjector.PhysicalPageContextChunkType, StringComparison.Ordinal);
             resolved.Add(new AdvancedAnalysisResolvedEvidence(
                 new AdvancedAnalysisResultEvidence
                 {
@@ -97,11 +99,16 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                     ContentCardId = NullIfBlank(row.ContentCardId)
                 },
                 content,
-                NullIfBlank(row.ExactTitle),
+                physicalContext ? null : NullIfBlank(row.ExactTitle),
                 SourceStructure: row.SectionTitle is not null || row.HeadingPath is not null
                     || row.PreviousChunkId is not null || row.NextChunkId is not null
-                    ? new AdvancedAnalysisEvidenceStructure(row.SectionTitle, row.HeadingPath,
-                        row.PreviousChunkId, row.NextChunkId) : null));
+                    || row.ChunkType is not null || row.ChunkComposition is not null || physicalContext
+                    ? new AdvancedAnalysisEvidenceStructure(physicalContext ? null : row.SectionTitle,
+                        physicalContext ? null : row.HeadingPath, row.PreviousChunkId, row.NextChunkId)
+                    {
+                        ChunkType = row.ChunkType, ChunkComposition = row.ChunkComposition,
+                        ContainsUnassignedPhysicalContext = row.ContainsUnassignedPhysicalContext
+                    } : null));
         }
 
         if (resolved.Count > 0)
@@ -242,7 +249,9 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                   rc.metadata->>'sectionTitle' AS "SectionTitle",
                   rc.metadata->>'headingPath' AS "HeadingPath",
                   rc.metadata->>'prevChunkId' AS "PreviousChunkId",
-                  rc.metadata->>'nextChunkId' AS "NextChunkId"
+                  rc.metadata->>'nextChunkId' AS "NextChunkId",
+                  rc.metadata->>'chunkType' AS "ChunkType",
+                  rc.metadata->>'chunkComposition' AS "ChunkComposition"
                 FROM retrieval_chunks rc
                 JOIN document_revisions dr
                   ON dr.tenant_id=rc.tenant_id
@@ -285,7 +294,9 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                   cc.title AS "ExactTitle",
                   cc.title AS "Content",
                   (cc.metadata->'evidence')::text AS "EvidenceJson",
-                  card_source.text_content AS "CardCanonicalContent"
+                  card_source.text_content AS "CardCanonicalContent",
+                  card_source.metadata->>'chunkType' AS "ChunkType",
+                  card_source.metadata->>'chunkComposition' AS "ChunkComposition"
                 FROM document_profile_content_cards cc
                 JOIN document_revisions dr
                   ON dr.tenant_id=cc.tenant_id
@@ -325,7 +336,9 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                   cc.title AS "ExactTitle",
                   COALESCE(rc.text_content, cc.title) AS "Content",
                   (cc.metadata->'evidence')::text AS "EvidenceJson",
-                  card_source.text_content AS "CardCanonicalContent"
+                  card_source.text_content AS "CardCanonicalContent",
+                  COALESCE(rc.metadata->>'chunkType',card_source.metadata->>'chunkType') AS "ChunkType",
+                  COALESCE(rc.metadata->>'chunkComposition',card_source.metadata->>'chunkComposition') AS "ChunkComposition"
                 FROM document_source_anchors sa
                 JOIN document_revisions dr
                   ON dr.tenant_id=sa.tenant_id
@@ -377,7 +390,9 @@ internal sealed class AdvancedAnalysisEvidenceResolver
                   sa.anchor_id AS "AnchorId",
                   NULL::text AS "ContentCardId",
                   NULL::text AS "ExactTitle",
-                  rc.text_content AS "Content"
+                  rc.text_content AS "Content",
+                  rc.metadata->>'chunkType' AS "ChunkType",
+                  rc.metadata->>'chunkComposition' AS "ChunkComposition"
                 FROM document_revisions dr
                 JOIN documents d
                   ON d.tenant_id=dr.tenant_id
@@ -418,6 +433,10 @@ internal sealed class AdvancedAnalysisEvidenceResolver
             PageEnd = rows.Max(static row => row.PageEnd),
             ChunkId = null,
             AnchorId = null,
+            ChunkType = rows.Count == 1 ? first.ChunkType : null,
+            ChunkComposition = rows.Count == 1 ? first.ChunkComposition : null,
+            ContainsUnassignedPhysicalContext = rows.Any(row =>
+                string.Equals(row.ChunkType, RetrievalChunkProjector.PhysicalPageContextChunkType, StringComparison.Ordinal)),
             Content = string.Join(
                 "\n\n",
                 rows.Select(static row => row.Content)
@@ -511,6 +530,9 @@ internal sealed class AdvancedAnalysisEvidenceResolver
         public string? HeadingPath { get; init; }
         public string? PreviousChunkId { get; init; }
         public string? NextChunkId { get; init; }
+        public string? ChunkType { get; init; }
+        public string? ChunkComposition { get; init; }
+        public bool ContainsUnassignedPhysicalContext { get; init; }
     }
 }
 

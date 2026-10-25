@@ -56,6 +56,8 @@ internal static class IngestionProjectionStage
             probe.Set("pages", request.Extraction.Pages.Count);
             probe.Set("sections", sections.Count);
             probe.Set("units", units.Count);
+            probe.Set("page_text_characters", request.Extraction.Pages.Sum(page => (long)page.Text.Length));
+            probe.Set("unit_text_characters", units.Sum(unit => (long)unit.Text.Length));
             probe.Set("canonical_ms", canonicalMilliseconds);
             probe.Set("section_ms", sectionMilliseconds);
             probe.Set("unit_ms", unitMilliseconds);
@@ -81,9 +83,37 @@ internal static class IngestionProjectionStage
             var contextualMilliseconds = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds;
             probe.Set("exact_entries", exact.Count);
             probe.Set("contextual_entries", contextual.Count);
+            probe.Set("input_units", units.Count);
+            probe.Set("input_retrieval_chunks", chunks.Count);
+            var publishedChunks = chunks.Where(IngestionWorker.ShouldPublishRetrievalChunk).ToArray();
+            probe.Set("published_retrieval_chunks", publishedChunks.Length);
+            RecordSourceUnitCoverage(probe, "projected", units, chunks);
+            RecordSourceUnitCoverage(probe, "published", units, publishedChunks);
             probe.Complete();
             return new(exact, contextual, exactMilliseconds, contextualMilliseconds);
         }
         catch (Exception exception) { probe.Fail(exception); throw; }
+    }
+
+    private static void RecordSourceUnitCoverage(BackendDiagnostics.Operation probe, string projection,
+        IReadOnlyList<ExtractedDocumentUnit> units, IReadOnlyList<ProjectedRetrievalChunk> chunks)
+    {
+        var sourceOrdinals = units.Select(unit => unit.Ordinal).ToHashSet();
+        var referencedOrdinals = chunks.SelectMany(chunk => chunk.SourceUnitOrdinals ?? []).ToHashSet();
+        // Rich/legacy chunks may not carry native unit provenance. Never
+        // report zero coverage when that relationship is simply unknown.
+        // An empty chunk set, however, has known zero represented units.
+        var coverageAvailable = sourceOrdinals.Count == units.Count
+            && chunks.All(chunk => chunk.SourceUnitOrdinals is { Count: > 0 })
+            && referencedOrdinals.IsSubsetOf(sourceOrdinals);
+        probe.Set(projection + "_source_unit_coverage_available", coverageAvailable);
+        if (coverageAvailable)
+        {
+            probe.Set(projection + "_represented_source_units", referencedOrdinals.Count);
+            probe.Set(projection + "_unrepresented_source_units", units.Count - referencedOrdinals.Count);
+            probe.Set(projection + "_source_unit_characters", units.Sum(unit => (long)unit.Text.Length));
+            probe.Set(projection + "_represented_source_unit_characters", units
+                .Where(unit => referencedOrdinals.Contains(unit.Ordinal)).Sum(unit => (long)unit.Text.Length));
+        }
     }
 }

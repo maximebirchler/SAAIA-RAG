@@ -296,11 +296,9 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (queries.Count == 0)
                 throw new JsonException();
             var documents = GetRequestedDocumentIdentifiers(request);
-            return documents.Count == 0 ? queries : queries.Select(planned => planned with
-            {
-                DocumentHint = string.IsNullOrWhiteSpace(planned.DocId)
-                    ? ResolveRequiredDocumentHint(planned, documents) : planned.DocumentHint
-            }).ToArray();
+            return documents.Count == 0 ? queries : queries
+                .Select(planned => ScopePlannedDocumentSearch(planned, documents))
+                .ToArray();
         }
         catch (JsonException)
         {
@@ -626,18 +624,23 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
         var maximumQueries = ResolveMaximumPlanQueries(request);
         var result = new List<AdvancedAnalysisSearchRequest>(maximumQueries);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var scopedQueries = plannedQueries
+            .Select(planned => ScopePlannedDocumentSearch(planned, documents))
+            .ToArray();
         foreach (var document in documents)
         {
+            // Prefer the model's focused content query. A mechanical full
+            // question must not displace it or duplicate a document it covers.
+            var planned = scopedQueries.FirstOrDefault(query => string.Equals(
+                query.DocumentHint, document, StringComparison.OrdinalIgnoreCase));
             var context = BuildDocumentQueryContext(
                 request.Handoff.RequestText,
                 document,
                 documents);
-            var query = NormalizeCorpusSearchQuery(
-                string.Join(' ', document, context));
-            if (query.Length == 0)
+            if (planned is null && context.Length == 0)
                 continue;
-            var required = new AdvancedAnalysisSearchRequest(
-                query,
+            var required = planned ?? new AdvancedAnalysisSearchRequest(
+                context,
                 Category: null,
                 TopK: Math.Clamp(
                     Math.Max(20, load.AtomicEvidenceCount * 4),
@@ -650,12 +653,8 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             if (result.Count >= maximumQueries)
                 return result;
         }
-        foreach (var planned in plannedQueries)
+        foreach (var scopedPlanned in scopedQueries)
         {
-            var scopedPlanned = planned with
-            {
-                DocumentHint = ResolveRequiredDocumentHint(planned, documents)
-            };
             if (!seen.Add(BuildSearchIdentity(scopedPlanned)))
                 continue;
             result.Add(scopedPlanned);
@@ -663,6 +662,41 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
                 break;
         }
         return result;
+    }
+
+    private static AdvancedAnalysisSearchRequest ScopePlannedDocumentSearch(
+        AdvancedAnalysisSearchRequest planned,
+        IReadOnlyList<string> documents)
+    {
+        if (!string.IsNullOrWhiteSpace(planned.DocId))
+            return planned;
+        var documentHint = ResolveRequiredDocumentHint(planned, documents);
+        if (string.IsNullOrWhiteSpace(documentHint))
+            return planned;
+        var contentQuery = RemoveDocumentIdentifiers(planned.Query, documents);
+        return planned with
+        {
+            DocumentHint = documentHint,
+            // Keep identifier-only discovery possible, but never require a
+            // filename as an extra conjunct of an answer-bearing content query.
+            Query = contentQuery.Length == 0 ? planned.Query : contentQuery
+        };
+    }
+
+    private static string RemoveDocumentIdentifiers(
+        string query,
+        IReadOnlyList<string> documents)
+    {
+        foreach (var document in documents)
+        {
+            var tokens = Regex.Matches(document, @"[\p{L}\p{N}]+")
+                .Select(static token => Regex.Escape(token.Value));
+            var pattern = @"(?<![\p{L}\p{N}])" + string.Join(@"[^\p{L}\p{N}]*", tokens)
+                + @"(?![\p{L}\p{N}])";
+            query = Regex.Replace(query, pattern, " ",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        }
+        return NormalizeCorpusSearchQuery(query);
     }
 
     private static string? ResolveRequiredDocumentHint(
@@ -761,15 +795,7 @@ internal sealed partial class OpenAiCompatibleAdvancedAnalysisProvider
             }
             segment = source[start..end];
         }
-        foreach (var candidate in allDocuments)
-        {
-            segment = Regex.Replace(
-                segment,
-                Regex.Escape(candidate),
-                " ",
-                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-        }
-        return NormalizeCorpusSearchQuery(segment);
+        return RemoveDocumentIdentifiers(segment, allDocuments);
     }
 
     private static IReadOnlyList<string> GetRequestedDocumentIdentifiers(

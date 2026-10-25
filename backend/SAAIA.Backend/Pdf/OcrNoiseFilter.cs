@@ -44,25 +44,13 @@ internal static partial class OcrNoiseFilter
         if (LooksLikeDamagedMetadataPrefix(text))
             return true;
 
-        if (LooksLikeShortMetadataResidue(text))
-            return true;
-
-        if (LooksLikeNoisyMetadataOnlyLine(text))
-            return true;
-
-        if (LooksLikeShortMetadataScheduleOnlyLine(text))
-            return true;
-
-        if (LooksLikeShortStandaloneLayoutMetadataOnlyLine(text))
-            return true;
+        // Labels, qualifications and schedules can be the evidence being sought.
+        // Their short length, units or decorative markers do not establish OCR damage.
 
         if (LooksLikeShortBrokenProseFragment(text))
             return true;
 
         if (LooksLikeShortBrokenHeaderFooterFragment(text))
-            return true;
-
-        if (LooksLikeShortPageHeaderFooterFragment(text))
             return true;
 
         if (text.Length < 32)
@@ -96,10 +84,7 @@ internal static partial class OcrNoiseFilter
             return string.Empty;
 
         var normalized = Regex.Replace(text, @"\s+", " ").Trim();
-        normalized = RemoveLeadingNoisyMetadataSupplement(normalized);
-        normalized = RemoveLeadingShortLayoutPrefixBeforeStructuredLabels(normalized);
         normalized = RemoveInlineIndexReferenceTail(normalized);
-        normalized = RemoveTrailingDecorativeMetadataScheduleSupplement(normalized);
         if (string.IsNullOrWhiteSpace(normalized))
             return string.Empty;
 
@@ -113,25 +98,34 @@ internal static partial class OcrNoiseFilter
 
             var prefix = normalized[..match.Index].Trim();
             var suffix = normalized[match.Index..].Trim();
-            var suffixStartsWithNoisyMetadata = NoisyMetadataLeadMarkerRegex().IsMatch(suffix);
-            if (match.Index >= normalized.Length - 32 && !suffixStartsWithNoisyMetadata)
+            if (match.Index >= normalized.Length - 32)
                 continue;
 
-            if (prefix.Length < 40 || suffix.Length < 32 && !suffixStartsWithNoisyMetadata)
+            if (prefix.Length < 40 || suffix.Length < 32)
+                continue;
+
+            // A label only locates a possible supplement. Deletion requires an
+            // independent damage signal; the marker itself is still source text.
+            var suffixIsProbableNoise = LooksLikeProbableNoiseText(suffix);
+            var suffixHasOcrDamage = suffixIsProbableNoise
+                || LooksLikeDamagedLayoutSupplement(suffix)
+                || LooksLikeMetadataLayoutDamagedSupplement(suffix);
+            if (!suffixHasOcrDamage)
                 continue;
 
             if (!EndsLikeCompleteContentBeforeSupplement(prefix))
             {
-                if (suffixStartsWithNoisyMetadata
-                    && (LooksLikePreservableTechnicalFigureOrChartText(prefix)
-                        || LooksLikePreservableTechnicalReferenceText(prefix)
-                        || LooksLikePreservableStructuredContentText(prefix)))
+                if (!suffixIsProbableNoise)
+                    continue;
+
+                if (LooksLikePreservableTechnicalFigureOrChartText(prefix)
+                    || LooksLikePreservableTechnicalReferenceText(prefix)
+                    || LooksLikePreservableStructuredContentText(prefix))
                 {
                     return prefix;
                 }
 
-                if (suffixStartsWithNoisyMetadata
-                    || LooksLikeProbableNoiseText(suffix) && LooksLikeFragmentBeforeNoisyMetadata(prefix))
+                if (LooksLikeFragmentBeforeDamagedSupplement(prefix))
                 {
                     return string.Empty;
                 }
@@ -139,38 +133,10 @@ internal static partial class OcrNoiseFilter
                 continue;
             }
 
-            if (suffixStartsWithNoisyMetadata
-                || LooksLikeProbableNoiseText(suffix)
-                || LooksLikeDamagedLayoutSupplement(suffix)
-                || LooksLikeMetadataLayoutDamagedSupplement(suffix))
-                return prefix;
+            return prefix;
         }
 
         return RemoveTrailingDamagedFragmentAfterCompleteContent(normalized);
-    }
-
-    private static string RemoveTrailingDecorativeMetadataScheduleSupplement(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text) || text.Length < 32)
-            return text;
-
-        for (var index = text.Length - 2; index >= 16; index--)
-        {
-            var ch = text[index];
-            if (ch is not ('.' or '!' or '?' or '\u2026'))
-                continue;
-            if (ch == '.' && LooksLikeInlineSingleLetterAbbreviationPeriod(text, index))
-                continue;
-
-            var prefix = text[..(index + 1)].Trim();
-            var suffix = text[(index + 1)..].Trim();
-            if (prefix.Length < 16 || suffix.Length is < 12 or > 180)
-                continue;
-            if (LooksLikeShortStandaloneLayoutMetadataOnlyLine(suffix))
-                return prefix;
-        }
-
-        return text;
     }
 
     internal static string RemoveInlineIndexReferenceTail(string? text)
@@ -278,9 +244,6 @@ internal static partial class OcrNoiseFilter
     {
         if (string.IsNullOrWhiteSpace(text) || text.Length < 240)
             return false;
-        if (NoisyMetadataLeadMarkerRegex().IsMatch(text))
-            return false;
-
         var tokens = TokenRegex().Matches(text)
             .Select(static match => TrimToken(match.Value))
             .Where(static token => token.Length >= 2)
@@ -326,7 +289,7 @@ internal static partial class OcrNoiseFilter
     {
         if (string.IsNullOrWhiteSpace(text) || text.Length < 160)
             return false;
-        if (LooksLikeSpacedLetterRunNoise(text) || NoisyMetadataLeadMarkerRegex().IsMatch(text))
+        if (LooksLikeSpacedLetterRunNoise(text))
             return false;
 
         var tokens = TokenRegex().Matches(text)
@@ -367,7 +330,7 @@ internal static partial class OcrNoiseFilter
     {
         if (string.IsNullOrWhiteSpace(text) || text.Length < 120)
             return false;
-        if (LooksLikeSpacedLetterRunNoise(text) || NoisyMetadataLeadMarkerRegex().IsMatch(text))
+        if (LooksLikeSpacedLetterRunNoise(text))
             return false;
 
         var tokens = TokenRegex().Matches(text)
@@ -403,9 +366,6 @@ internal static partial class OcrNoiseFilter
     {
         if (string.IsNullOrWhiteSpace(text) || text.Length < 180)
             return false;
-        if (NoisyMetadataLeadMarkerRegex().IsMatch(text))
-            return false;
-
         var tokens = TokenRegex().Matches(text)
             .Select(static match => TrimToken(match.Value))
             .Where(static token => token.Length >= 2)
@@ -464,7 +424,7 @@ internal static partial class OcrNoiseFilter
     {
         if (string.IsNullOrWhiteSpace(text) || text.Length < 180)
             return false;
-        if (LooksLikeSpacedLetterRunNoise(text) || NoisyMetadataLeadMarkerRegex().IsMatch(text))
+        if (LooksLikeSpacedLetterRunNoise(text))
             return false;
 
         var tokens = TokenRegex().Matches(text)
@@ -516,7 +476,7 @@ internal static partial class OcrNoiseFilter
     {
         if (string.IsNullOrWhiteSpace(text) || text.Length < 140)
             return false;
-        if (LooksLikeSpacedLetterRunNoise(text) || NoisyMetadataLeadMarkerRegex().IsMatch(text))
+        if (LooksLikeSpacedLetterRunNoise(text))
             return false;
 
         var tokens = TokenRegex().Matches(text)
@@ -575,7 +535,7 @@ internal static partial class OcrNoiseFilter
     {
         if (string.IsNullOrWhiteSpace(text) || text.Length < 160)
             return false;
-        if (LooksLikeSpacedLetterRunNoise(text) || NoisyMetadataLeadMarkerRegex().IsMatch(text))
+        if (LooksLikeSpacedLetterRunNoise(text))
             return false;
 
         var tokens = TokenRegex().Matches(text)
@@ -913,9 +873,7 @@ internal static partial class OcrNoiseFilter
     {
         if (string.IsNullOrWhiteSpace(text) || text.Length is < 24 or > 180)
             return false;
-        if (NoisyMetadataLeadMarkerRegex().IsMatch(text)
-            || TrailingSupplementStartRegex().IsMatch($" {text}")
-            || LooksLikeSymbolDamagedShortSupplement(text))
+        if (LooksLikeSymbolDamagedShortSupplement(text))
         {
             return false;
         }
@@ -949,9 +907,7 @@ internal static partial class OcrNoiseFilter
     {
         if (string.IsNullOrWhiteSpace(text) || text.Length is < 48 or > 260)
             return false;
-        if (NoisyMetadataLeadMarkerRegex().IsMatch(text)
-            || TrailingSupplementStartRegex().IsMatch($" {text}")
-            || LooksLikeSymbolDamagedShortSupplement(text))
+        if (LooksLikeSymbolDamagedShortSupplement(text))
         {
             return false;
         }
@@ -991,20 +947,7 @@ internal static partial class OcrNoiseFilter
         return letterCount >= 8 && digitCount <= Math.Max(12, letterCount);
     }
 
-    private static string RemoveLeadingNoisyMetadataSupplement(string text)
-    {
-        var match = LeadingNoisyMetadataSupplementRegex().Match(text);
-        if (!match.Success)
-            return text;
-
-        var body = match.Groups["body"].Value.Trim();
-        if (body.Length < 32 || LooksLikeProbableNoiseText(body))
-            return string.Empty;
-
-        return body;
-    }
-
-    private static bool LooksLikeFragmentBeforeNoisyMetadata(string prefix)
+    private static bool LooksLikeFragmentBeforeDamagedSupplement(string prefix)
     {
         var normalized = Regex.Replace(prefix, @"\s+", " ").Trim();
         if (normalized.Length is < 12 or > 260)
@@ -1053,164 +996,6 @@ internal static partial class OcrNoiseFilter
         return shortSuspiciousTokens >= 3
             || BrokenSpacedDigitRegex().IsMatch(normalized)
             || BrokenDigitLetterRunRegex().IsMatch(normalized);
-    }
-
-    private static bool LooksLikeNoisyMetadataOnlyLine(string text)
-    {
-        var normalized = Regex.Replace(text, @"\s+", " ").Trim();
-        if (normalized.Length is < 40 or > 160)
-            return false;
-
-        var metadataLabelCount = ShortMetadataLabelRegex().Matches(normalized).Count;
-        var startsWithNoisyMetadataMarker = NoisyMetadataLeadMarkerRegex().IsMatch(normalized);
-        if (metadataLabelCount < 2 && !startsWithNoisyMetadataMarker)
-            return false;
-
-        if (!startsWithNoisyMetadataMarker
-            && normalized.Any(static ch => ch is '.' or '!' or '?' or '\u2022'))
-        {
-            return false;
-        }
-
-        var rawTokens = TokenRegex().Matches(normalized)
-            .Select(static match => TrimToken(match.Value))
-            .Where(static token => token.Length > 0)
-            .ToArray();
-        var tokens = rawTokens
-            .Select(static token => token.ToLowerInvariant())
-            .Where(static token => token.Length >= 2)
-            .ToArray();
-        if (tokens.Length is < 5 or > 60)
-            return false;
-
-        var shortSuspiciousTokens = tokens.Count(static token =>
-            token.Length <= 3
-            && ContainsLatinLetter(token)
-            && !CommonWords.Contains(token));
-        var uppercaseShortMarkers = rawTokens.Count(static token =>
-            token.Length <= 4
-            && token.Any(IsLatinLetter)
-            && token.Where(IsLatinLetter).All(char.IsUpper)
-            && !CommonWords.Contains(token.ToLowerInvariant()));
-        var mixedLetterDigitTokens = tokens.Count(ContainsLatinLettersAndDigits);
-        var noisySymbolCount = normalized.Count(static ch => ch is '&' or '|' or '\u00ae' or '\u00a9');
-
-        return shortSuspiciousTokens >= 2
-            || startsWithNoisyMetadataMarker && uppercaseShortMarkers >= 1
-            || uppercaseShortMarkers >= 2
-            || mixedLetterDigitTokens >= 1 && shortSuspiciousTokens >= 1
-            || noisySymbolCount >= 1 && shortSuspiciousTokens >= 1;
-    }
-
-    private static bool LooksLikeShortMetadataScheduleOnlyLine(string text)
-    {
-        var normalized = Regex.Replace(text, @"\s+", " ").Trim();
-        if (normalized.Length is < 32 or > 180)
-            return false;
-        normalized = normalized.TrimEnd('.');
-        if (normalized.Any(static ch => ch is '.' or '!' or '?' or '\u2022'))
-            return false;
-
-        var metadataLabelCount = ShortMetadataLabelRegex().Matches(normalized).Count;
-        if (metadataLabelCount < 2)
-            return false;
-
-        var durationMatches = MetadataScheduleValueRegex().Matches(normalized);
-        if (durationMatches.Count == 0)
-            return false;
-
-        var lastDuration = durationMatches[^1];
-        var tail = normalized[(lastDuration.Index + lastDuration.Length)..].Trim();
-        var tailTokens = TokenRegex().Matches(tail)
-            .Select(static match => TrimToken(match.Value))
-            .Where(static token => token.Length > 0)
-            .ToArray();
-        if (tailTokens.Length < 3)
-            return false;
-        if (!tailTokens.Any(static token => token.Length == 1 && token.Any(IsLatinLetter)))
-            return false;
-
-        var tokens = TokenRegex().Matches(normalized)
-            .Select(static match => TrimToken(match.Value))
-            .Where(static token => token.Length > 0)
-            .ToArray();
-        if (tokens.Length is < 5 or > 32)
-            return false;
-
-        var longContentTokens = tokens.Count(static token =>
-            token.Length >= 7
-            && token.Any(IsLatinLetter)
-            && !CommonWords.Contains(token));
-
-        return longContentTokens <= Math.Max(4, tokens.Length / 3);
-    }
-
-    private static bool LooksLikeShortStandaloneLayoutMetadataOnlyLine(string text)
-    {
-        var normalized = Regex.Replace(text, @"\s+", " ").Trim().TrimEnd('.');
-        if (normalized.Length is < 16 or > 220)
-            return false;
-        if (normalized.Any(static ch => ch is '.' or '!' or '?' or '\u2026'))
-            return false;
-
-        var durationMatches = MetadataScheduleValueRegex().Matches(normalized);
-        if (durationMatches.Count == 0)
-            return false;
-
-        var hasDecorativeLayoutMarker = normalized.Any(static ch => ch is '\u2022' or '*' or '|');
-        var labelCount = ShortMetadataLabelRegex().Matches(normalized).Count;
-        if (!hasDecorativeLayoutMarker && (labelCount > 0 || durationMatches.Count < 2))
-            return false;
-
-        var tokens = TokenRegex().Matches(normalized)
-            .Select(static match => TrimToken(match.Value))
-            .Where(static token => token.Length > 0)
-            .ToArray();
-        if (tokens.Length is < 4 or > 32)
-            return false;
-
-        var longContentTokens = tokens.Count(static token =>
-            token.Count(IsLatinLetter) >= 4
-            && !IsStandaloneLayoutMetadataValueToken(token));
-
-        if (durationMatches.Count >= 2)
-            return longContentTokens <= (hasDecorativeLayoutMarker ? 4 : 2);
-
-        return hasDecorativeLayoutMarker && tokens.Length <= 14 && longContentTokens <= 2;
-    }
-
-    private static bool IsStandaloneLayoutMetadataValueToken(string token)
-    {
-        var normalized = token.Trim(' ', '-', ':', ';', ',', '.', '|', '/', '\\', '(', ')', '*', '\u2022')
-            .ToLowerInvariant();
-        if (normalized.Length == 0)
-            return true;
-        if (CommonWords.Contains(normalized))
-            return true;
-        if (normalized.All(static ch => char.IsDigit(ch) || ch is ',' or '.'))
-            return true;
-
-        return StandaloneLayoutMetadataValueTokenRegex().IsMatch(normalized);
-    }
-
-    private static bool LooksLikeShortMetadataResidue(string text)
-    {
-        var rawTokens = TokenRegex().Matches(text)
-            .Select(static match => TrimToken(match.Value))
-            .Where(static token => token.Length > 0)
-            .ToArray();
-        if (rawTokens.Length is < 2 or > 5)
-            return false;
-
-        var normalizedTokens = rawTokens.Select(static token => token.ToLowerInvariant()).ToArray();
-        var commonWordCount = normalizedTokens.Count(CommonWords.Contains);
-        var uppercaseShortMarkers = rawTokens.Count(static token =>
-            token.Length <= 4
-            && token.Any(IsLatinLetter)
-            && token.Where(IsLatinLetter).All(char.IsUpper)
-            && !CommonWords.Contains(token.ToLowerInvariant()));
-
-        return uppercaseShortMarkers >= 1 && commonWordCount >= 1;
     }
 
     private static bool LooksLikeShortBrokenProseFragment(string text)
@@ -1350,49 +1135,6 @@ internal static partial class OcrNoiseFilter
             && tokens.Length <= 4
             && tokens[0] == "e"
             && tokens.Any(LooksLikeGluedInitialIOrLToken);
-    }
-
-    private static string RemoveLeadingShortLayoutPrefixBeforeStructuredLabels(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return string.Empty;
-
-        var normalized = text.Trim();
-        var cleaned = LeadingShortLayoutPrefixBeforeStructuredLabelsRegex()
-            .Replace(normalized, string.Empty, 1)
-            .TrimStart();
-        return cleaned.Length == 0 ? normalized : cleaned;
-    }
-
-    private static bool LooksLikeShortPageHeaderFooterFragment(string text)
-    {
-        var normalized = Regex.Replace(text, @"\s+", " ").Trim();
-        if (normalized.Length is < 8 or > 55)
-            return false;
-        if (!char.IsDigit(normalized[^1]))
-            return false;
-        if (normalized.Any(static ch => ch is '.' or '!' or '?' or '\u2022'))
-            return false;
-
-        var tokens = TokenRegex().Matches(normalized)
-            .Select(static match => TrimToken(match.Value))
-            .Where(static token => token.Length > 0)
-            .ToArray();
-        if (tokens.Length is < 3 or > 8)
-            return false;
-
-        var letterTokens = tokens.Where(ContainsLatinLetter).ToArray();
-        if (letterTokens.Length < 3)
-            return false;
-
-        var letters = normalized.Where(IsLatinLetter).ToArray();
-        if (letters.Length < 8)
-            return false;
-
-        var uppercaseRatio = letters.Count(char.IsUpper) / (double)letters.Length;
-        var digitCount = normalized.Count(char.IsDigit);
-        return uppercaseRatio >= 0.70
-            && digitCount is >= 1 and <= 4;
     }
 
     private static bool LooksLikeShortBrokenHeaderFooterFragment(string text)
@@ -1712,23 +1454,8 @@ internal static partial class OcrNoiseFilter
     [GeneratedRegex(@"(?:^|\s)[\p{L}][\p{L}\p{N}'\u2019\u2018\-]{0,18}\s*[:;]", RegexOptions.CultureInvariant)]
     private static partial Regex ShortMetadataLabelRegex();
 
-    [GeneratedRegex(@"\b\d+(?:[,.]\d+)?\s*(?:s|sec|secs|secondes?|seconds?|min|mins?|minutes?|h|hr|hrs?|heures?|hours?|j|jr|jours?|d|days?|dias?)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
-    private static partial Regex MetadataScheduleValueRegex();
-
-    [GeneratedRegex(@"^(?:s|sec|secs|secondes?|seconds?|min|mins?|minutes?|h|hr|hrs?|heures?|hours?|j|jr|jours?|d|days?|dias?|time|temps|total|duration|dur[e\u00e9]e|prep|preparation|pr[e\u00e9]paration|rest|pause|easy|facile|simple|medium|moyen|hard|difficile|cheap|cher|cost)$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
-    private static partial Regex StandaloneLayoutMetadataValueTokenRegex();
-
     [GeneratedRegex(@"\s+(?:[\u00ae\u00a9]\s*,?\s*)?(?:['\u2018\u2019]\s*)?(?:[A-Z]{1,4}[\)\]\}]?\s+)?(?:preparation|pr[e\u00e9]paration|duration|dur[e\u00e9]e|time|temps)\s*[:;]", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex TrailingSupplementStartRegex();
-
-    [GeneratedRegex(@"^[^\p{L}\p{N}]*(?:['\u2018\u2019]\s*)?(?:[A-Z]{1,4}[\)\]\}]?\s+)?(?:preparation|pr[e\u00e9]paration|duration|dur[e\u00e9]e|time|temps)\s*[:;].{8,180}?\b(?:ESA|QI|ER|Q|NE|N|O|D)\b.{0,120}?(?<body>\s+(?:Pour|For|Quant|Why|Pourquoi|[A-Z\u00c0-\u00de][\p{Ll}\u00df-\u00ff]{2,})\b.+)$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
-    private static partial Regex LeadingNoisyMetadataSupplementRegex();
-
-    [GeneratedRegex(@"^[^\p{L}\p{N}]*(?:['\u2018\u2019]\s*)?[A-Z]{1,4}[\)\]\}]?\s+(?:preparation|pr[e\u00e9]paration|duration|dur[e\u00e9]e|time|temps)\s*[:;]", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
-    private static partial Regex NoisyMetadataLeadMarkerRegex();
-
-    [GeneratedRegex(@"^[^\p{L}\p{N}]*\p{Lu}{2,4}\s+(?=\p{Lu}[\p{Lu}\p{Mn}'\u2019\-]{4,24}\s+\p{Lu}[\p{Lu}\p{Mn}'\u2019\-]{4,24}\s*(?:[:;\u2022\-]|\p{Lu}\p{Ll}|\p{N}))", RegexOptions.CultureInvariant)]
-    private static partial Regex LeadingShortLayoutPrefixBeforeStructuredLabelsRegex();
 
     [GeneratedRegex(@"^\d+(?:[,.]\d+)?\s*(?:g|kg|mg|ml|cl|l|oz|lb|mm|cm|m|km|nm|bar|pa|kpa|mpa|v|kv|a|ma|w|kw|hz|rpm|pct|percent|pourcent|deg|degrees?|degres?|c|f|units?|unites?|items?|elements?|entries?|parts?|pieces?|pages?|s|sec|secs|secondes?|seconds?|min|mins?|minutes?|h|hr|hrs?|hours?)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex LeadingStructuredQuantityContinuationRegex();

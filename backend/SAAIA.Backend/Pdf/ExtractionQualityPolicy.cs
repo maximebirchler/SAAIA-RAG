@@ -3,6 +3,11 @@ using System.Text.RegularExpressions;
 internal static partial class ExtractionQualityPolicy
 {
     public static bool ShouldRestrictUnitToTargetedReferences(ExtractedDocumentUnit unit)
+        => RequiresExtractionQualityRestriction(unit)
+            || LooksLikeShortIndexOrClassificationMetadata(unit.Text, unit.TokenCount)
+            || LooksLikeShortStandaloneMetadataScheduleCard(unit.Text, unit.TokenCount);
+
+    private static bool RequiresExtractionQualityRestriction(ExtractedDocumentUnit unit)
     {
         if (unit.ExtractionQualitySignals is { Count: > 0 }
             && unit.ExtractionQualitySignals.Any(static signal =>
@@ -20,12 +25,6 @@ internal static partial class ExtractionQualityPolicy
             return true;
         }
 
-        if (LooksLikeShortIndexOrClassificationMetadata(unit.Text, unit.TokenCount))
-            return true;
-
-        if (LooksLikeShortStandaloneMetadataScheduleCard(unit.Text, unit.TokenCount))
-            return true;
-
         return unit.ExtractionTextSparse && unit.TokenCount < 20;
     }
 
@@ -39,7 +38,9 @@ internal static partial class ExtractionQualityPolicy
     }
 
     public static bool ShouldUseUnitForRetrievalWindow(ExtractedDocumentUnit unit)
-        => !ShouldRestrictUnitToTargetedReferences(unit);
+        // Reliable metadata can qualify the surrounding substantive evidence even
+        // when it should not produce its own profile card or standalone candidate.
+        => !RequiresExtractionQualityRestriction(unit);
 
     public static bool IsPageUnreliableForEmbeddedCards(ExtractedPdfPage page)
     {

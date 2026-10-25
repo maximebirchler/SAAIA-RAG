@@ -5,6 +5,9 @@ param(
     [int]$BackendPort = 5127,
     [int]$FixturePort = 18087,
     [string]$PgBinPath = '',
+    # Windows PostgreSQL's C locale treats Unicode punctuation as letters.
+    # Keep -PgLocale C available only for deliberate negative diagnostics.
+    [ValidateNotNullOrEmpty()][string]$PgLocale = 'English_United States.1252',
     [switch]$NoBuild
 )
 $ErrorActionPreference = 'Stop'
@@ -41,6 +44,7 @@ $passwordFile = Join-Path $runtime 'bootstrap-password.txt'
 $owner = [ordered]@{ schemaVersion = 'saaia-winui-local-runtime.v1'; runId = $runId; state = 'starting';
     startedAtUtc = [DateTimeOffset]::UtcNow.ToString('o'); outputDirectory = $output; postgresDataDirectory = $data;
     postgresBinDirectory = $PgBinPath; pgPort = $pgPort; backendPort = $BackendPort; fixturePort = $FixturePort;
+    postgresLocaleRequested = $PgLocale;
     backendUrl = "http://127.0.0.1:$BackendPort"; fixtureUrl = "http://127.0.0.1:$FixturePort";
     clientDataRoot = (Join-Path $runtime 'client-data'); documentsRoot = (Join-Path $runtime 'documents');
     processes = @(); externalCallsPossible = $false; existingDatabaseModified = $false;
@@ -73,7 +77,7 @@ try {
         & dotnet build (Join-Path $repo 'backend/SAAIA.Backend/SAAIA.Backend.csproj') -c Release --no-restore *> (Join-Path $output 'backend-build.log')
         if ($LASTEXITCODE -ne 0) { throw 'Backend build failed; inspect backend-build.log.' }
     }
-    & (Join-Path $PgBinPath 'initdb.exe') -D $data --username=saaia_winui --encoding=UTF8 --locale=C --auth=scram-sha-256 "--pwfile=$passwordFile" *> (Join-Path $output 'initdb.log')
+    & (Join-Path $PgBinPath 'initdb.exe') -D $data --username=saaia_winui --encoding=UTF8 "--locale=$PgLocale" --auth=scram-sha-256 "--pwfile=$passwordFile" *> (Join-Path $output 'initdb.log')
     if ($LASTEXITCODE -ne 0) { throw 'Isolated initdb failed.' }
     Remove-Item -LiteralPath $passwordFile
     # postgres owns its dedicated log file and never opens a visible console.

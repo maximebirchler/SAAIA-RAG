@@ -68,9 +68,6 @@ internal static partial class DocumentUnitExtractor
                     continue;
                 }
 
-                if (LooksLikeStandaloneStructuredMetadataUnit(normalized))
-                    continue;
-
                 candidates.Add(new CandidateDocumentUnit(
                     SectionOrdinal: ResolveSectionForParagraph(sections, page.PageNumber, paragraph.StartLine)?.Ordinal,
                     PageStart: page.PageNumber,
@@ -133,8 +130,10 @@ internal static partial class DocumentUnitExtractor
             };
         }
 
-        var filteredCandidates = RemoveRepeatedShortLayoutUnits(candidates, pages.Count);
-        filteredCandidates = MergeBoundarySoftHyphenatedCandidates(filteredCandidates);
+        // Short metadata, qualifications and repeated operational facts are
+        // still evidence. Neither their shape nor repeated position proves
+        // they are useless; preserve them through materialization.
+        var filteredCandidates = MergeBoundarySoftHyphenatedCandidates(candidates);
         filteredCandidates = AddWholePageFallbackCandidatesForUncoveredPages(
             filteredCandidates,
             pages,
@@ -174,9 +173,6 @@ internal static partial class DocumentUnitExtractor
             {
                 continue;
             }
-
-            if (LooksLikeStandaloneStructuredMetadataUnit(text))
-                continue;
 
             units.Add(new ExtractedDocumentUnit(
                 Ordinal: units.Count,
@@ -225,9 +221,6 @@ internal static partial class DocumentUnitExtractor
         {
             return false;
         }
-
-        if (LooksLikeStandaloneStructuredMetadataUnit(text))
-            return false;
 
         candidate = new CandidateDocumentUnit(
             SectionOrdinal: ResolveSectionForParagraph(
@@ -327,28 +320,6 @@ internal static partial class DocumentUnitExtractor
             .ToArray();
     }
 
-    private static IReadOnlyList<CandidateDocumentUnit> RemoveRepeatedShortLayoutUnits(
-        IReadOnlyList<CandidateDocumentUnit> candidates,
-        int pageCount)
-    {
-        if (candidates.Count < 4 || pageCount < 2)
-            return candidates;
-
-        var repeatedLayoutKeys = candidates
-            .Where(IsRepeatedShortLayoutUnitCandidate)
-            .GroupBy(static unit => NormalizeRepeatedLayoutKey(unit.Text), StringComparer.Ordinal)
-            .Where(group => ShouldDropRepeatedShortLayoutGroup(group, pageCount))
-            .Select(static group => group.Key)
-            .ToHashSet(StringComparer.Ordinal);
-
-        if (repeatedLayoutKeys.Count == 0)
-            return candidates;
-
-        return candidates
-            .Where(unit => !repeatedLayoutKeys.Contains(NormalizeRepeatedLayoutKey(unit.Text)))
-            .ToArray();
-    }
-
     private static IReadOnlyList<CandidateDocumentUnit> MergeBoundarySoftHyphenatedCandidates(
         IReadOnlyList<CandidateDocumentUnit> candidates)
     {
@@ -443,75 +414,6 @@ internal static partial class DocumentUnitExtractor
             .Distinct(StringComparer.Ordinal)
             .ToArray();
     }
-
-    private static bool IsRepeatedShortLayoutUnitCandidate(CandidateDocumentUnit unit)
-    {
-        if (unit.TokenCount is <= 0 or > 5)
-            return false;
-
-        var text = unit.Text.Trim();
-        if (text.Length is < 3 or > 90)
-            return false;
-
-        if (SentenceEndRegex().IsMatch(text))
-            return false;
-
-        var letterOrDigitCount = text.Count(static ch => char.IsLetterOrDigit(ch));
-        if (letterOrDigitCount < 3)
-            return false;
-
-        var tokens = text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-        if (tokens.Length == 0)
-            return false;
-
-        if (tokens.Any(static token => token.Length >= 14 && token.Any(char.IsDigit) && token.Any(char.IsLetter)))
-            return false;
-
-        return true;
-    }
-
-    private static bool LooksLikeStandaloneStructuredMetadataUnit(string text)
-    {
-        var normalized = NormalizeLine(text);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return false;
-
-        var tokenCount = CountTokens(normalized);
-        if (tokenCount is < 3 or > 24)
-            return false;
-
-        if (normalized.Contains('\u2022', StringComparison.Ordinal)
-            || normalized.Any(static ch => ch is '.' or '!' or '?' or '\u2026'))
-        {
-            return false;
-        }
-
-        return StructuredMetadataSignalRegex().Matches(normalized).Count >= 2;
-    }
-
-    private static bool ShouldDropRepeatedShortLayoutGroup(
-        IGrouping<string, CandidateDocumentUnit> group,
-        int pageCount)
-    {
-        if (string.IsNullOrWhiteSpace(group.Key))
-            return false;
-
-        var units = group.ToArray();
-        var distinctPages = units.Select(static unit => unit.PageStart).Distinct().Count();
-        var minimumOccurrences = pageCount >= 10 ? 3 : 2;
-        if (units.Length < minimumOccurrences || distinctPages < minimumOccurrences)
-            return false;
-
-        var lineNumbers = units.Select(static unit => unit.StartLine).Distinct().Order().ToArray();
-        var stableLine = lineNumbers.Length <= 2 || lineNumbers[^1] - lineNumbers[0] <= 2;
-        if (stableLine)
-            return true;
-
-        return units.Length >= Math.Max(5, pageCount / 3);
-    }
-
-    private static string NormalizeRepeatedLayoutKey(string text)
-        => Regex.Replace(text.ToLowerInvariant(), @"\s+", " ").Trim();
 
     private static ExtractedDocumentSection? ResolveSectionForParagraph(
         IReadOnlyList<ExtractedDocumentSection> sections,
@@ -1463,9 +1365,6 @@ internal static partial class DocumentUnitExtractor
     private static int CountTokens(string text)
         => text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
 
-    [GeneratedRegex(@"[\.!?;:]\s*$", RegexOptions.CultureInvariant)]
-    private static partial Regex SentenceEndRegex();
-
     [GeneratedRegex(@"(?<![\p{L}\p{N}])(?:\d{4}\s+Edition\s+)?(?:(?:(?:Shaded|Deleted|Deletec|Deleti\w*|Jeleti)\s+text\s*=\s*Revisi\w*|(?:A|\u00c0|4)\s*=\s*Text\s+deleti\w*(?:\s+and\s+figure\s*/\s*table\s+revisions?)?|(?:A|\u00c0|4)\s*=\s*Text\s+deletion:?\s*s\s+and\s+figure\s*/\s*table\s+revisions?|:?\s*s\s+and\s+figure\s*/\s*table\s+revisions?|(?:\*|\+|e|\u00b0|\u00ae)?\s*=\s*Section\s+deletions?|N\s*=\s*New\s+material)[\.,;]?\s*)+(?:\d{4}\s+Edition)?", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex InlineRevisionLegendRegex();
 
@@ -1531,9 +1430,6 @@ internal static partial class DocumentUnitExtractor
 
     [GeneratedRegex(@"(?:^|\s)(?:[\u2022*]\s*|\-\s+|\u2013\s+|\u2014\s+)(?=\S)", RegexOptions.CultureInvariant)]
     private static partial Regex StructuralListMarkerRegex();
-
-    [GeneratedRegex(@"\b(?:preparation|pr[e\u00e9]paration|duration|dur[e\u00e9]e|time|temps|difficulty|difficult[e\u00e9]|level|niveau|facile|easy|interm[e\u00e9]diaire|medium|difficile|hard|assez\s+cher|pas\s+cher|bon\s+march[e\u00e9]|cheap|expensive|\d{1,3}\s*(?:min|minutes?|h|hr|hrs?|hours?|heures?))\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
-    private static partial Regex StructuredMetadataSignalRegex();
 
     private sealed record ParagraphBlock(string[] Lines, int StartLine, int EndLine);
     private sealed record DocumentParagraph(string Text, int StartLine, int EndLine);

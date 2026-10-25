@@ -3,6 +3,7 @@
 param([Parameter(Mandatory)][string]$ProfilePath,[Parameter(Mandatory)][string]$OutputDirectory,
     [Parameter(Mandatory)][string]$PythonExecutable,[Parameter(Mandatory)][string]$SearchQuery,
     [Parameter(Mandatory)][int]$ExpectedPageNumber,[Parameter(Mandatory)][string[]]$ExpectedTextPatterns,
+    [string]$ProjectionAssemblyPath='',
     [switch]$ExecuteLocal)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'PaidCampaign.Common.ps1')
@@ -16,6 +17,10 @@ if(-not $root.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase) -or (Tes
 if($ExpectedPageNumber -notin @($p.corpus.pageNumbers) -or -not $ExpectedTextPatterns.Count){throw 'The expected real page and text patterns must be explicitly selected.'}
 $dll=Join-Path $repo 'backend/SAAIA.Backend/bin/Release/net8.0/SAAIA.Backend.dll'
 if((Get-FileHash -LiteralPath $dll).Hash -ine $p.execution.backendAssemblySha256){throw 'Regenerate the proposed profile after the backend build is stable.'}
+if($ExecuteLocal){
+    $ProjectionAssemblyPath=Assert-ProductionCorpusProjectionAssembly -Path $ProjectionAssemblyPath -ExpectedBackendSha256 $p.execution.backendAssemblySha256
+    if(-not[IO.Path]::IsPathFullyQualified($PythonExecutable) -or -not(Test-Path -LiteralPath $PythonExecutable -PathType Leaf)){throw 'An explicit trusted local Python is required.'}
+}
 [IO.Directory]::CreateDirectory($root)|Out-Null
 $proof=[ordered]@{schemaVersion='saaia-owned-real-corpus-preflight.v1';executed=$false;passed=$false;providerCalls=0;paidSecretsRead=0;
     profileSha256=(Get-FileHash -LiteralPath $ProfilePath).Hash;backendAssemblySha256=$p.execution.backendAssemblySha256;
@@ -30,15 +35,20 @@ if(-not $ExecuteLocal){
 $fixture=Join-Path $root 'local-fixture'
 $admissionUrl=$null;$admissionJob=$null;$userId=[Guid]::NewGuid().ToString('D');$headers=$null
 try{
-    & $PythonExecutable -B -c 'import pypdf'
-    if($LASTEXITCODE -ne 0){throw 'Choose a trusted local Python with pypdf; no downloads are performed.'}
     $proof.executed=$true
+    $proof.productionProjectionAssemblySha256=(Get-FileHash -LiteralPath $ProjectionAssemblyPath -Algorithm SHA256).Hash
     & (Join-Path $repo 'tools/validation-winui/start-environment.ps1') -OutputDirectory $fixture -BackendPort $p.execution.backendPort -FixturePort $p.execution.fixturePort -NoBuild
     $owner=Get-OwnedPaidEnvironment $fixture
-    & $PythonExecutable -B (Join-Path $PSScriptRoot 'prepare_real_corpus.py') --output $fixture --pdf (Join-Path $repo $p.corpus.path) --sha256 $p.corpus.sha256 --pages ($p.corpus.pageNumbers -join ',')
+    & $PythonExecutable -B (Join-Path $PSScriptRoot 'prepare_real_corpus.py') --output $fixture --pdf (Join-Path $repo $p.corpus.path) --sha256 $p.corpus.sha256 --pages ($p.corpus.pageNumbers -join ',') `
+        --projection-dll $ProjectionAssemblyPath --backend-sha256 $p.execution.backendAssemblySha256
     if($LASTEXITCODE -ne 0){throw 'Real PDF text extraction failed.'}
     $null=Invoke-OwnedPaidSql -OutputDirectory $fixture -SeedRealCorpus
+    $proof.corpusTextConformance=Get-OwnedPaidCorpusTextConformance -OutputDirectory $fixture
     $identity=Get-Content -LiteralPath (Join-Path $fixture 'real-corpus-manifest.json') -Raw|ConvertFrom-Json
+    $proof.corpusProjection=@{productionProjectionReused=$identity.productionProjectionReused;
+        backendAssemblySha256=$identity.backendAssemblySha256;projectionAssemblySha256=$identity.projectionAssemblySha256;
+        projectionSnapshotSha256=$identity.projectionSnapshotSha256;counts=$identity.projectionCounts;
+        boundaries=$identity.projectionBoundaries;vectorIndexIsProtocolSubstitute=$true;ingestionValidated=$false}
     $private=Get-Content -LiteralPath (Join-Path $fixture 'runtime/fixture-secrets.json') -Raw|ConvertFrom-Json
     $headers=@{'X-Api-Key'=$private.apiKey;'X-Admin-Key'=$private.apiKey}
     $null=Invoke-RestMethod -Method Post -Uri ($owner.backendUrl+'/admin/catalog/snapshot/refresh') -Headers $headers -TimeoutSec 20
@@ -52,13 +62,21 @@ try{
     $proof.catalogDocumentCount=@($catalog.value).Count
     $proof.canonicalSearchHitCount=@($search.items).Count
     $proof.canonicalReadFound=[bool]$context.found
-    $proof.canonicalReadExactIdentity=($context.document.docId -eq $identity.docId -and $context.document.revisionId -eq $identity.revisionId -and
-        ([string]$context.document.sourceHash -replace '^sha256:','') -ieq $identity.sourceSha256 -and
-        @($context.items|Where-Object{$_.pageStart -ne $ExpectedPageNumber -or $_.pageEnd -ne $ExpectedPageNumber}).Count -eq 0)
-    $proof.expectedTextPatternsMatched=@($ExpectedTextPatterns|Where-Object{$text -match $_}).Count
-    $proof.readTextSha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($text)))
+    $readCheck=Get-CanonicalWholeChunkReadCheck -Context $context -Identity $identity -ExpectedPhysicalPage $ExpectedPageNumber
+    $proof.canonicalReadExactIdentity=$readCheck.documentIdentityExact
+    $proof.canonicalReadWholeChunkOverlapVerified=$readCheck.wholeChunkOverlapVerified
+    $proof.canonicalReadWholeChunkWindow=$readCheck
+    $projectionFile=Join-Path $fixture 'runtime/native-corpus-projection.private.json'
+    $proof.nativeProjectionSnapshotHashExact=((Get-FileHash -LiteralPath $projectionFile).Hash -ieq $identity.projectionSnapshotSha256)
+    $nativeProjection=Get-Content -LiteralPath $projectionFile -Raw|ConvertFrom-Json -Depth 100
+    $proof.originalPhysicalPage=Get-PhysicalPagePatternCheck -Projection $nativeProjection -Identity $identity `
+        -ExpectedPhysicalPage $ExpectedPageNumber -ExpectedTextPatterns $ExpectedTextPatterns
+    $proof.wholeChunkContextPatternsMatched=@($ExpectedTextPatterns|Where-Object{$text -match $_}).Count
+    $proof.wholeChunkContextTextSha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($text)))
     $proof.passed=($proof.catalogDocumentCount -eq 1 -and $proof.canonicalSearchHitCount -gt 0 -and $proof.canonicalReadFound -and
-        $proof.canonicalReadExactIdentity -and $proof.expectedTextPatternsMatched -eq $ExpectedTextPatterns.Count)
+        $proof.canonicalReadExactIdentity -and $proof.canonicalReadWholeChunkOverlapVerified -and
+        $proof.nativeProjectionSnapshotHashExact -and $proof.originalPhysicalPage.passed -and
+        $proof.wholeChunkContextPatternsMatched -eq $ExpectedTextPatterns.Count)
     if(-not $proof.passed){throw 'Canonical PDF search/read failed before admission validation.'}
     # Same provider/config/entitlement and payload as the real runner, but no
     # worker and no real key: job admission must be proven before any paid test.

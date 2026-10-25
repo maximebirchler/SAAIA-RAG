@@ -15,6 +15,7 @@
 *.props     text eol=lf
 *.targets   text eol=lf
 *.txt       text eol=lf
+*.py        text eol=lf
 
 # Windows-specific scripts -> CRLF
 *.cmd       text eol=crlf
@@ -46,3 +47,4 @@ artifacts/winui-validation-20261025/** -text
 artifacts/winui-delete-validation-20261025/** -text
 artifacts/winui-journey-completion-20261025/** -text
 artifacts/global-audit-paid-20261025/** -text
+artifacts/luna-live-20261025/** -text
