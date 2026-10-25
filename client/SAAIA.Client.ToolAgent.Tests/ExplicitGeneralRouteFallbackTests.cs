@@ -26,9 +26,18 @@ public sealed class ExplicitGeneralRouteFallbackTests(ITestOutputHelper output)
         var memory = WarmMemory();
         var agent = new ToolAgentOrchestrator(api, llm, memory, new AppSettings { ActiveMode = "strict" });
         var deltas = new List<string>();
+        var previousContentMode = Environment.GetEnvironmentVariable("SAAIA_DIAGNOSTIC_CONTENT");
         try
         {
-            var result = await agent.RunAsync([], question, timeout.Token, onDelta: deltas.Add);
+            Environment.SetEnvironmentVariable("SAAIA_DIAGNOSTIC_CONTENT", "false");
+            (string finalAnswer, object? sourcesPayload) result;
+            string traceId;
+            using (var turn = ClientDiagnostics.Journal.BeginTurn(independent: true))
+            {
+                traceId = ClientDiagnostics.Journal.CurrentTraceId!;
+                result = await agent.RunAsync([], question, timeout.Token, onDelta: deltas.Add);
+                turn.Complete();
+            }
 
             Assert.Equal(2, llm.NativeCalls);
             Assert.Equal(1, llm.StreamCalls);
@@ -40,9 +49,30 @@ public sealed class ExplicitGeneralRouteFallbackTests(ITestOutputHelper output)
             Assert.Empty(memory.LastToolNames);
             Assert.DoesNotContain(memory.Execution.LastRagTraceEvents,
                 trace => trace.Contains("source_backed_pipeline.active.start", StringComparison.Ordinal));
+
+            var expectedSteps = new[] { "exact_item_fallback", "documentary_probe_fallback" };
+            var record = Assert.Single(ClientDiagnostics.Journal.Last(64), item => item.TraceId == traceId);
+            var skippedProbes = record.Events
+                .Where(probe => probe.Operation == "agent.source_backed_fallback.skipped").ToArray();
+            Assert.Equal(expectedSteps, skippedProbes.Select(probe => probe.Identifiers["source_step"]));
+            Assert.All(skippedProbes, probe =>
+            {
+                Assert.Equal("router_general_no_tools", probe.Reason);
+                Assert.Single(probe.Identifiers);
+                Assert.Empty(probe.Measurements);
+            });
+            var skippedTraces = memory.Execution.LastRagTraceEvents
+                .Where(trace => trace.Contains("event=source_backed_fallback.skipped ", StringComparison.Ordinal)).ToArray();
+            Assert.Equal(expectedSteps.Length, skippedTraces.Length);
+            for (var index = 0; index < expectedSteps.Length; index++)
+                Assert.Contains($"source_step=\"{expectedSteps[index]}\"", skippedTraces[index], StringComparison.Ordinal);
+            var publicCorrectionProbes = JsonSerializer.Serialize(skippedProbes) + string.Join("\n", skippedTraces);
+            Assert.DoesNotContain(question, publicCorrectionProbes, StringComparison.Ordinal);
+            Assert.DoesNotContain("query=", publicCorrectionProbes, StringComparison.Ordinal);
         }
         finally
         {
+            Environment.SetEnvironmentVariable("SAAIA_DIAGNOSTIC_CONTENT", previousContentMode);
             output.WriteLine("Native router calls={0}; stream calls={1}; HTTP requests={2}",
                 llm.NativeCalls, llm.StreamCalls, string.Join(",", handler.Requests));
             output.WriteLine("Trace={0}", string.Join("\n", memory.Execution.LastRagTraceEvents));

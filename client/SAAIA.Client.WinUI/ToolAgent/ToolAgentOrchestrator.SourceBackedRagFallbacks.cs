@@ -105,7 +105,7 @@ public sealed partial class ToolAgentOrchestrator
         // Lexical recovery still applies to an unreliable/local fallback. It
         // cannot reinterpret a general route already accepted from the LLM.
         EmitRagTrace("source_backed_fallback.skipped",
-            ("reason", "router_general_no_tools"), ("entry", entryPoint), ("intent", plan.Intent));
+            ("reason", "router_general_no_tools"), ("source_step", entryPoint), ("intent", plan.Intent));
         return true;
     }
 

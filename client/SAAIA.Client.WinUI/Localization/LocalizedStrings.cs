@@ -1042,12 +1042,12 @@ internal static class LocalizedStrings
             },
             ["source_card.content_role"] = new(StringComparer.OrdinalIgnoreCase)
             {
-                ["fr"] = "type contenu",
-                ["en"] = "content type",
-                ["es"] = "tipo contenido",
-                ["pt"] = "tipo conteúdo",
-                ["de"] = "Inhaltstyp",
-                ["it"] = "tipo contenuto"
+                ["fr"] = "rôle",
+                ["en"] = "role",
+                ["es"] = "función",
+                ["pt"] = "função",
+                ["de"] = "Rolle",
+                ["it"] = "ruolo"
             },
             ["source_card.content_density"] = new(StringComparer.OrdinalIgnoreCase)
             {
