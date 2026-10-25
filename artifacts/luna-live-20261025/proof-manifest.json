@@ -1,0 +1,323 @@
+{
+  "schemaVersion": "saaia-public-evidence.v1",
+  "sourceCommit": "292db837e64538fcdd3ec32b68ace01ddaa3fba3",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "coverage": "Prior Luna/native projection and SQL conformance; not a full ingestion/OCR validation",
+  "files": [
+    {
+      "path": "artifacts/luna-live-20261025/architecture-final-v4.json",
+      "sha256": "AE0641BD828426C2A4FD26A81DFC983AD7C5BAC64B6E18EE8AAB6B26D478D18C",
+      "bytes": 265201
+    },
+    {
+      "path": "artifacts/luna-live-20261025/availability-model-get-v1.json",
+      "sha256": "BFBB1F331D9B24DFFAFEC1A6693F94C9C142E422DD0632FA5FF322C0FA6C2A7F",
+      "bytes": 1024
+    },
+    {
+      "path": "artifacts/luna-live-20261025/corpus-sql-text-conformance-guard.md",
+      "sha256": "44A446EBE6502C444D96B4D89764A1F1EF6C07B45FB4258206A0770553C56148",
+      "bytes": 3081
+    },
+    {
+      "path": "artifacts/luna-live-20261025/document-unit-retention-correction-v1.md",
+      "sha256": "99DC8A6C9B9477597C06509B2B8EEEA97E10AFF76C82EE03DE37B448BA6EA1B8",
+      "bytes": 3242
+    },
+    {
+      "path": "artifacts/luna-live-20261025/extraction-quality-context-correction-v1.md",
+      "sha256": "CD466D2C32EB8DE44A600F478EFA012FB4ADDD0119D9876970971FA123BDBA55",
+      "bytes": 2892
+    },
+    {
+      "path": "artifacts/luna-live-20261025/guards-storage-v3/checks.json",
+      "sha256": "8460AAEC11596D387605C007683C08936DC134A13BDCCF27B738D4F3F6E13EDA",
+      "bytes": 6349
+    },
+    {
+      "path": "artifacts/luna-live-20261025/luna-comparison-authorized-case-03.json",
+      "sha256": "F6678DD28CA2085BE857F57377FE52EFE24BF7518C9FCA2829D1182F29D2212B",
+      "bytes": 2877
+    },
+    {
+      "path": "artifacts/luna-live-20261025/luna-comparison-proposed-case-04.json",
+      "sha256": "73AE337E16905A11A51B7FF4F52D0233F86B8165D276EEDB93B16E4BF9550DEE",
+      "bytes": 2530
+    },
+    {
+      "path": "artifacts/luna-live-20261025/luna-native-authorized-case-02.json",
+      "sha256": "2950771107DF96CA304600006783B1289D1C901BE236C4BA85E9C552447C546A",
+      "bytes": 2651
+    },
+    {
+      "path": "artifacts/luna-live-20261025/native-corpus-harness-resolution-v1.md",
+      "sha256": "582994DDDDCCCB3EB737FC38EC995A54F29E02348F9EED331097D93743310F6F",
+      "bytes": 5001
+    },
+    {
+      "path": "artifacts/luna-live-20261025/native-fidelity-final-v2.json",
+      "sha256": "99913729A2A8C539DCBD632B1358CD4425B5D12AA2F297B003210F087BBBF851",
+      "bytes": 4213
+    },
+    {
+      "path": "artifacts/luna-live-20261025/native-preflight-v3/corpus-preflight.json",
+      "sha256": "EB85C777B219C8BC3FB65FE3C31796E1E43CA4DFDD0F95C5644560EB042B0836",
+      "bytes": 5983
+    },
+    {
+      "path": "artifacts/luna-live-20261025/native-preflight-v3/local-fixture/corpus-text-conformance.json",
+      "sha256": "E26DDE3368D6295C0D7177D7F7D6D015EBF0282FA6D6DD0A50E552E5EC851A4D",
+      "bytes": 1887
+    },
+    {
+      "path": "artifacts/luna-live-20261025/native-preflight-v3/local-fixture/text-parser-conformance.json",
+      "sha256": "83189FE215C4683DD2E306B20FF26A015CF4CC7F4DCC15BD45E8492A2BC04690",
+      "bytes": 636
+    },
+    {
+      "path": "artifacts/luna-live-20261025/ocr-format-retention-correction-v4.md",
+      "sha256": "82984F4AFDD39BBDC6FB0AC61188DB7053E59170C0B0AEFE9CD5759E46132BB6",
+      "bytes": 2025
+    },
+    {
+      "path": "artifacts/luna-live-20261025/ocr-metadata-marker-deletion-audit.md",
+      "sha256": "F092C87541B7ECF6C6FA7F84526E1F50ED470DB6991486252A2BD982251FE82F",
+      "bytes": 3840
+    },
+    {
+      "path": "artifacts/luna-live-20261025/ocr-metadata-retention-correction-v1.md",
+      "sha256": "B28A0A2E1E2BF7894B9269E300806190546A3F3AF78EA89C4D89278A33520F61",
+      "bytes": 3587
+    },
+    {
+      "path": "artifacts/luna-live-20261025/ocr-prefix-retention-correction-v2.md",
+      "sha256": "DA95D11AF13F5743DB89A746C3352B0CC307AA6EB179E297CF700E0B436E9B72",
+      "bytes": 1925
+    },
+    {
+      "path": "artifacts/luna-live-20261025/ocr-suffix-retention-correction-v3.md",
+      "sha256": "66F4E49518EFEA4755FC3496340F2C48CE77FA8D0CD58D2E7F6001FE64BCCE36",
+      "bytes": 2247
+    },
+    {
+      "path": "artifacts/luna-live-20261025/pdf-content-retention-correction-v1.md",
+      "sha256": "0022BEAC24A7E100C5ABB093CE567A834F1425A397252E0F689484A8FBA148BE",
+      "bytes": 3330
+    },
+    {
+      "path": "artifacts/luna-live-20261025/pdf-content-retention-correction-v2.md",
+      "sha256": "736B75E34EF1668FBCE93A5EB8DC53D1E01D30300BF75ABB8E6C290A1EAEC9C3",
+      "bytes": 4165
+    },
+    {
+      "path": "artifacts/luna-live-20261025/pdf-fixture-fraction-encoding-v1.md",
+      "sha256": "17DB8B2AFBA6E89373E75A9F4F5E047EEF53BCA4D16A4E21EBD63FC860C9657F",
+      "bytes": 1495
+    },
+    {
+      "path": "artifacts/luna-live-20261025/pdf-layout-retention-correction-v1.md",
+      "sha256": "261982083F1FA049E790C7D38E9A670854ED5D33EB22BB20D41913BA0A8B13D4",
+      "bytes": 9749
+    },
+    {
+      "path": "artifacts/luna-live-20261025/pdf-layout-retention-correction-v2.md",
+      "sha256": "28810018ECD187038AC8CAD7240735370E026336254B7871FE2DFC959A44208D",
+      "bytes": 8942
+    },
+    {
+      "path": "artifacts/luna-live-20261025/pdf-page-leading-heading-correction-v1.md",
+      "sha256": "D1EB581090EBBF142050084AE0D9EE1D5C69B4D8D04927622E37DF746AF9BFA0",
+      "bytes": 5477
+    },
+    {
+      "path": "artifacts/luna-live-20261025/physical-context-and-coverage-resolution.md",
+      "sha256": "860B58986AF5FC70662BC36F0349A9D59816A550505B9B7AC319902752B6B006",
+      "bytes": 8426
+    },
+    {
+      "path": "artifacts/luna-live-20261025/physical-metadata-transport-resolution.md",
+      "sha256": "BBCAB7F81BFA556A116646FEB4A57544C1CAD0D8F61419761CC0147F9EB1ADEB",
+      "bytes": 4802
+    },
+    {
+      "path": "artifacts/luna-live-20261025/plan.md",
+      "sha256": "28AA8E4D7796A22ACA23F9FD28E37041D532282A2277E3ED634777EF82AA237C",
+      "bytes": 5578
+    },
+    {
+      "path": "artifacts/luna-live-20261025/postgres-unicode-root-cause.md",
+      "sha256": "846BD463451FBF597D14B029F004546F7C232DDCAE63AD378305A7AF5460DEB0",
+      "bytes": 5699
+    },
+    {
+      "path": "artifacts/luna-live-20261025/python-transport-green-v3.log",
+      "sha256": "8B9FCA367FBA61B076E1197FFCBC340A61A89DE64CFD2B5849BDF7F09554F734",
+      "bytes": 2099
+    },
+    {
+      "path": "artifacts/luna-live-20261025/RAPPORT-CAMPAGNE.md",
+      "sha256": "F82624A9BEF41DEDF02F21F20A7FE68469895E692B09F8EF0CCF7DCE22F82ABC",
+      "bytes": 16241
+    },
+    {
+      "path": "artifacts/luna-live-20261025/real-case-01/campaign-result.json",
+      "sha256": "57B9957AC6E4C2206523B132B364CDEA138E4A9CF9CEF9F56341CB846E30D0BD",
+      "bytes": 3248
+    },
+    {
+      "path": "artifacts/luna-live-20261025/real-case-01/prompt-and-tool-review.md",
+      "sha256": "1C902F4FF128CD3803EDAA61C2BB6715FBD4D61674350907AFFF451E8819D90F",
+      "bytes": 14145
+    },
+    {
+      "path": "artifacts/luna-live-20261025/real-case-01/provider-research-feedback-resolution.md",
+      "sha256": "24082E7C7B7051B42DDBDA6059EE14BE908CAF6D0D99E85976CED1D572206A7E",
+      "bytes": 9449
+    },
+    {
+      "path": "artifacts/luna-live-20261025/real-case-02/campaign-result.json",
+      "sha256": "12D729DA0518C385EF365078277636BC98F2C136717EE50F9ABC80D0055F637C",
+      "bytes": 4494
+    },
+    {
+      "path": "artifacts/luna-live-20261025/real-case-02/semantic-review.md",
+      "sha256": "C3F7927948C7BBB3911A6F3DAE79106CAB0733CE900E969D8E16575C719BDC1B",
+      "bytes": 7465
+    },
+    {
+      "path": "artifacts/luna-live-20261025/real-case-03/campaign-result.json",
+      "sha256": "0204BD99078FC690725E81D58D69E10EC412989D95E54BE856F2E40817A7B0CB",
+      "bytes": 4533
+    },
+    {
+      "path": "artifacts/luna-live-20261025/run-storage-negative-control.ps1",
+      "sha256": "BFBC13DFB260ECCD29CE54F4987B9F563B9CB7B810CE92E14B5E5B9A25AA82E5",
+      "bytes": 4823
+    },
+    {
+      "path": "artifacts/luna-live-20261025/sql-byte-retention-correction-v1.md",
+      "sha256": "CB3AED023799F16ABADA7298B0782E1A2C18AF034B47B2AE52917C5500F939BC",
+      "bytes": 7146
+    },
+    {
+      "path": "artifacts/luna-live-20261025/storage-negative-control-v2/local-fixture/corpus-text-conformance.json",
+      "sha256": "91E08753FE46395FD09613A21611C465FDCA7069287F24AA921C3AB0248F834A",
+      "bytes": 1938
+    },
+    {
+      "path": "artifacts/luna-live-20261025/storage-negative-control-v2/result.json",
+      "sha256": "56920E013D151C585661A4BFE1F0B6F6B14401961D67C4628EDA4CF684FA7AB9",
+      "bytes": 340
+    },
+    {
+      "path": "artifacts/luna-live-20261025/tests/postgres-final-v3/manifest.json",
+      "sha256": "A756192B485C5024175F9C2DF82498B2359660F9F16B98A4044C41CFDF7BBA36",
+      "bytes": 913
+    },
+    {
+      "path": "artifacts/luna-live-20261025/tests/postgres-final-v3/tests/Backend-57458ce847c24a37b878f77d03fcde7a.log",
+      "sha256": "F2E80576E18D711585ACD2B05BF75A86EB719DA67AF4192AD03C48A67FF47574",
+      "bytes": 1275
+    },
+    {
+      "path": "artifacts/luna-live-20261025/tests/postgres-final-v3/tests/Backend-57458ce847c24a37b878f77d03fcde7a.trx",
+      "sha256": "931DD4C1A2EB15A58E6FCAB887D1035316A346AFFD4BB713AE81F804450C84D6",
+      "bytes": 423027
+    },
+    {
+      "path": "artifacts/luna-live-20261025/tests/postgres-final-v3/tests/manifest.json",
+      "sha256": "753D38884C492E1BFD53397A0E213EFBF9B7207B1803EE0850C005914AD334B5",
+      "bytes": 74889
+    },
+    {
+      "path": "artifacts/luna-live-20261025/tests/postgres-final-v3/tests/source-files-57458ce847c24a37b878f77d03fcde7a-after.json",
+      "sha256": "0652A24296DBB9366DF933A6BE97FC8BC14AD96084E38C301DA81EA6D97278DF",
+      "bytes": 308606
+    },
+    {
+      "path": "artifacts/luna-live-20261025/tests/postgres-final-v3/tests/source-files-57458ce847c24a37b878f77d03fcde7a-before.json",
+      "sha256": "0652A24296DBB9366DF933A6BE97FC8BC14AD96084E38C301DA81EA6D97278DF",
+      "bytes": 308606
+    },
+    {
+      "path": "artifacts/luna-live-20261025/tests/unit-final-v7/Backend-36176b6f4145468caf09155f07310a2a.log",
+      "sha256": "2868AFE99049DD2D6C49707905443CC5353CE679C82EBC5D12BF5B8FCFCD2B13",
+      "bytes": 1196
+    },
+    {
+      "path": "artifacts/luna-live-20261025/tests/unit-final-v7/Backend-36176b6f4145468caf09155f07310a2a.trx",
+      "sha256": "E817F40639061AE93805112C9E784D66E273785A980238F1F093AB5F64093A96",
+      "bytes": 4005478
+    },
+    {
+      "path": "artifacts/luna-live-20261025/tests/unit-final-v7/Client-36176b6f4145468caf09155f07310a2a.log",
+      "sha256": "F31D1696E56A232198FC3F48343058613388ADC35C552781807D64BB49420E72",
+      "bytes": 1552
+    },
+    {
+      "path": "artifacts/luna-live-20261025/tests/unit-final-v7/Client-36176b6f4145468caf09155f07310a2a.trx",
+      "sha256": "631352205B869CDB1753CE9D2C4A381FAA2BFD1DBD32448B0B5261EEFCD292EA",
+      "bytes": 3992732
+    },
+    {
+      "path": "artifacts/luna-live-20261025/tests/unit-final-v7/ClientCore-36176b6f4145468caf09155f07310a2a.log",
+      "sha256": "8BEC53680212DF4D57FF46B8D89CAD416F4D250F01F8E15EC087C9F43537E5C3",
+      "bytes": 1055
+    },
+    {
+      "path": "artifacts/luna-live-20261025/tests/unit-final-v7/ClientCore-36176b6f4145468caf09155f07310a2a.trx",
+      "sha256": "41CED928680B677575E66EBA4896569FD6CB06A5DC5C31D4CA780018DB4AD54D",
+      "bytes": 128343
+    },
+    {
+      "path": "artifacts/luna-live-20261025/tests/unit-final-v7/Contracts-36176b6f4145468caf09155f07310a2a.log",
+      "sha256": "BA13FB0AE6E58DCF987E25FA90C484E8FC4AF7C254690F8D7D20A1952AAC226F",
+      "bytes": 914
+    },
+    {
+      "path": "artifacts/luna-live-20261025/tests/unit-final-v7/Contracts-36176b6f4145468caf09155f07310a2a.trx",
+      "sha256": "C0737EDCD5EB3747704DBBFF70F3F7E4688F66AC1F34CB709B21257B04282BF5",
+      "bytes": 31009
+    },
+    {
+      "path": "artifacts/luna-live-20261025/tests/unit-final-v7/manifest.json",
+      "sha256": "C6CADFEE5F33CA3243751A6BFE18F36E0FC9B6ECE5708ABA1EE298F82543727A",
+      "bytes": 1404928
+    },
+    {
+      "path": "artifacts/luna-live-20261025/tests/unit-final-v7/source-files-36176b6f4145468caf09155f07310a2a-after.json",
+      "sha256": "0652A24296DBB9366DF933A6BE97FC8BC14AD96084E38C301DA81EA6D97278DF",
+      "bytes": 308606
+    },
+    {
+      "path": "artifacts/luna-live-20261025/tests/unit-final-v7/source-files-36176b6f4145468caf09155f07310a2a-before.json",
+      "sha256": "0652A24296DBB9366DF933A6BE97FC8BC14AD96084E38C301DA81EA6D97278DF",
+      "bytes": 308606
+    },
+    {
+      "path": "artifacts/luna-live-20261025/unit-v4-contract-reconciliation.md",
+      "sha256": "58E63BEC7F4CD1D33839DBC7169EA1A67E2A62632046F1C5D8ABFA7D9F2FCA7F",
+      "bytes": 2650
+    },
+    {
+      "path": "artifacts/luna-live-20261025/unit-v5-ocr-contract-reconciliation.md",
+      "sha256": "79A3EE1D2A9328032ED408C0609F6EB0BA4AA7A4ED4E812B7241841FC6A19784",
+      "bytes": 1609
+    },
+    {
+      "path": "artifacts/luna-live-20261025/validated-source-files.json",
+      "sha256": "5E200E005B73D97C659A83161CF6E13446AAFE5D9B7A92798D722D22E4121024",
+      "bytes": 15543
+    },
+    {
+      "path": "artifacts/luna-live-20261025/verify-native-fidelity.ps1",
+      "sha256": "6D2298113BC06FFBFDC17E3C427869ADFD8C900BF02BA3848776C40DA9F2EC92",
+      "bytes": 4493
+    },
+    {
+      "path": "artifacts/luna-live-20261025/whole-chunk-preflight-contract.md",
+      "sha256": "35633A27024663B611514511247956120D55CBAF03417391CFB5083004E4C3A3",
+      "bytes": 2497
+    }
+  ]
+}

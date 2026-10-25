@@ -1,0 +1,167 @@
+{
+  "schemaVersion": "saaia-owned-real-corpus-preflight.v1",
+  "executed": true,
+  "passed": true,
+  "providerCalls": 0,
+  "paidSecretsRead": 0,
+  "profileSha256": "73AE337E16905A11A51B7FF4F52D0233F86B8165D276EEDB93B16E4BF9550DEE",
+  "backendAssemblySha256": "72F31CC9CA0AF0B3657D9E0CECC49C9B56B2D147EACE63804D7B714F42E31F93",
+  "realPdf": true,
+  "ingestionValidated": false,
+  "vectorIndexIsProtocolSubstitute": true,
+  "expectedPageNumber": 5,
+  "expectedTextPatternCount": 2,
+  "cleanup": {
+    "ownedEnvironmentStopped": true,
+    "zeroActiveJobs": true,
+    "totalJobsPreserved": 1
+  },
+  "state": "passed_local_canonical_tools",
+  "admission": {
+    "durableReservationStarts": 0,
+    "payloadSha256": "EB9C8E173C23AFFE5DAE10EBF84FD22BFEE29E2939ADB5ACD5FB5B7BBB06AE32",
+    "noProviderExecutionProofLimit": "Worker disabled in production config; queued job canceled; zero provider ledger starts/terminals. No packet capture.",
+    "http202": true,
+    "providerKeyIsSynthetic": true,
+    "statusBeforeCancel": "queued",
+    "logicalTerminalLedgerRows": 0,
+    "providerHttpAttemptsInLedger": 0,
+    "workerEnabled": false,
+    "noProviderExecution": true,
+    "tested": true,
+    "canceled": true,
+    "jobId": "253a7539-3f0f-4ace-a398-84e87a153c70"
+  },
+  "productionProjectionAssemblySha256": "57611E9BFD731F9602DF2011984044764758801DA0CBE08315D2176259696F3F",
+  "corpusTextConformance": {
+    "schemaVersion": "saaia.paid-corpus-text-conformance.v1",
+    "manifestSha256": "0E50F22328DB0126A0A9738E5C84E57C0529E1D2BC4DEEB2557DF6C91B196D29",
+    "checksumAlgorithm": "sha256_utf8",
+    "passed": true,
+    "countMismatchTableCount": 0,
+    "checksumMismatchRowCount": 0,
+    "malformedRowCount": 0,
+    "scopedIdentityMismatchRowCount": 0,
+    "tables": [
+      {
+        "name": "document_units",
+        "textField": "text_content",
+        "expectedCount": 133,
+        "actualCount": 133,
+        "scopedCount": 133,
+        "checksumMismatchCount": 0,
+        "malformedCount": 0,
+        "countMatches": true,
+        "checksumMatches": true
+      },
+      {
+        "name": "retrieval_chunks",
+        "textField": "text_content",
+        "expectedCount": 8,
+        "actualCount": 8,
+        "scopedCount": 8,
+        "checksumMismatchCount": 0,
+        "malformedCount": 0,
+        "countMatches": true,
+        "checksumMatches": true
+      },
+      {
+        "name": "contextual_text_entries",
+        "textField": "text_content",
+        "expectedCount": 8,
+        "actualCount": 8,
+        "scopedCount": 8,
+        "checksumMismatchCount": 0,
+        "malformedCount": 0,
+        "countMatches": true,
+        "checksumMatches": true
+      },
+      {
+        "name": "exact_match_entries",
+        "textField": "normalized_text",
+        "expectedCount": 169,
+        "actualCount": 169,
+        "scopedCount": 169,
+        "checksumMismatchCount": 0,
+        "malformedCount": 0,
+        "countMatches": true,
+        "checksumMatches": true
+      }
+    ],
+    "limits": [
+      "Checks stored text bytes against stored production checksums and counts against the frozen corpus manifest.",
+      "Exact-entry checksum contract covers normalized_text; no checksum claim is made for its display text.",
+      "Read-only SQL conformance does not validate ingestion, retrieval ranking, vectors or answer quality."
+    ]
+  },
+  "corpusProjection": {
+    "projectionSnapshotSha256": "c3be151b89fee3abc808803aaf11d9b28931f966c2b471293d052482280bb86f",
+    "ingestionValidated": false,
+    "productionProjectionReused": true,
+    "projectionAssemblySha256": "57611e9bfd731f9602df2011984044764758801da0cbe08315d2176259696f3f",
+    "counts": {
+      "sections": 5,
+      "units": 133,
+      "retrievalChunks": 8,
+      "exactEntries": 169,
+      "contextualEntries": 8
+    },
+    "backendAssemblySha256": "72F31CC9CA0AF0B3657D9E0CECC49C9B56B2D147EACE63804D7B714F42E31F93",
+    "boundaries": {
+      "productionProjectionReused": true,
+      "entireSourceNativeExtraction": true,
+      "sectionAndNeighborContextLimitedToSelectedPages": true,
+      "ingestionWorkerExecuted": false,
+      "doclingExecuted": false,
+      "ocrExecuted": false,
+      "vectorsIndexed": false,
+      "documentProfilesProjected": false,
+      "additionalLayoutSurfacesAreDiagnosticsOnly": true
+    },
+    "vectorIndexIsProtocolSubstitute": true
+  },
+  "catalogDocumentCount": 1,
+  "canonicalSearchHitCount": 3,
+  "canonicalReadFound": true,
+  "canonicalReadExactIdentity": true,
+  "canonicalReadWholeChunkOverlapVerified": true,
+  "canonicalReadWholeChunkWindow": {
+    "documentIdentityExact": true,
+    "sourceBoundsValid": true,
+    "allWholeChunksOverlapRequestedPhysicalPage": true,
+    "wholeChunkOverlapVerified": true,
+    "requestedPhysicalPage": 5,
+    "sourcePageCount": 36,
+    "chunkCount": 3,
+    "returnedWholeChunkRanges": [
+      {
+        "pageStart": 5,
+        "pageEnd": 5
+      },
+      {
+        "pageStart": 5,
+        "pageEnd": 5
+      },
+      {
+        "pageStart": 5,
+        "pageEnd": 5
+      }
+    ],
+    "windowSemantics": "whole_canonical_chunks_overlapping_requested_physical_page_not_sliced_page_text"
+  },
+  "nativeProjectionSnapshotHashExact": true,
+  "originalPhysicalPage": {
+    "physicalPageNumber": 5,
+    "matchingPhysicalPageCount": 1,
+    "sourceIdentityExact": true,
+    "physicalPageInSourceBounds": true,
+    "physicalPageTextHashExact": true,
+    "physicalPageTextSha256": "7CC2394195D0178B2FE4AC8AF31E51C26696E6D9D10875D077B6DBB6DBC4B993",
+    "expectedPatternCount": 2,
+    "physicalPagePatternsMatched": 2,
+    "passed": true,
+    "textSemantics": "original_native_projection_exact_physical_page_text_no_neighboring_chunks"
+  },
+  "wholeChunkContextPatternsMatched": 2,
+  "wholeChunkContextTextSha256": "BC18B75494AB16EBB1910D9AA767619507A7B1C59F49A03C837E7CB0F72AD76D"
+}

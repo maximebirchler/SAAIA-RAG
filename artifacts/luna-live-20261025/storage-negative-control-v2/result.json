@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "saaia-storage-negative-control.v1",
+  "passed": true,
+  "providerCalls": 0,
+  "paidSecretsRead": 0,
+  "expectedModifiedRows": 1,
+  "observedModifiedRows": 1,
+  "guardRejected": true,
+  "jobsAfterGuard": 0,
+  "ownedEnvironmentStopped": true,
+  "checksumMismatchRowCount": 1,
+  "countMismatchTableCount": 0
+}

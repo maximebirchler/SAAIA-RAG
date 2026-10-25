@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "saaia-local-openai-paid-campaign.v1",
+  "campaignId": "8dd5dadcfb4c4475badd9a14092b66dc",
+  "provider": {
+    "model": "gpt-5.6-luna",
+    "mode": "OpenAI",
+    "reasoningEffort": "none",
+    "baseUrl": "https://api.openai.com/v1"
+  },
+  "budget": {
+    "priorCampaignCostUsd": 0.00678686,
+    "authorizedUsd": 0.5,
+    "hardStopUsd": 0.5,
+    "maximumCostPerJobUsd": 0.49321314
+  },
+  "pricing": {
+    "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+    "observedAtUtc": "2026-10-25T19:15:28Z",
+    "observationBasis": "Official model/pricing documentation verified by the parent operator for the 2026-10-25T19:15:28Z availability probe; none reasoning support verified. Not fetched by this script.",
+    "outputUsdPerMillion": 1.2,
+    "inputUsdPerMillion": 0.2,
+    "cachedInputUsdPerMillion": 0.02,
+    "cacheWriteUsdPerMillion": 0.2
+  },
+  "execution": {
+    "maximumJobs": 1,
+    "maximumCallsPerJob": 4,
+    "writerMaxTokens": 1024,
+    "maximumHttpAttempts": 1,
+    "fixturePort": 18107,
+    "timeoutSeconds": 120,
+    "maximumJobAttempts": 1,
+    "backendPort": 5157,
+    "backendAssemblySha256": "72F31CC9CA0AF0B3657D9E0CECC49C9B56B2D147EACE63804D7B714F42E31F93",
+    "paidBackendPort": 5158,
+    "plannerMaxTokens": 512,
+    "repetitions": 1
+  },
+  "corpus": {
+    "sha256": "AA11E234FB3336EE76644958E888D83565E25BA875264BA75F7CE22B32D25C18",
+    "pageNumbers": [
+      2,
+      5,
+      6,
+      7
+    ],
+    "path": "out/remote-deploy/30-recettes-preferees-des-francais.pdf"
+  },
+  "case": {
+    "question": "Dans ce PDF de recettes, compare les durées de cuisson indiquées pour le bœuf bourguignon et la tartiflette. Donne les deux durées, leur différence et cite les pages correspondantes, en un court paragraphe.",
+    "expectedOutcome": "answered",
+    "expectedAnswerDescription": "Bœuf bourguignon : 2 h 45 minutes page physique 5. Tartiflette : 20 minutes page physique 6. Différence : 2 h 25 minutes. Les deux faits doivent être étayés par leurs pages respectives ; les métadonnées de contexte physique doivent réellement parvenir au modèle sans devenir une association de section affirmée."
+  },
+  "spendAuthorization": {
+    "status": "PROPOSED",
+    "authorizedAtUtc": null,
+    "basis": null
+  },
+  "boundaries": {
+    "vectorRetrievalValidated": false,
+    "clientProviderMustRemain": "Local",
+    "teiQdrantAreProtocolSubstitutes": true,
+    "ingestionValidated": false
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "schemaVersion": "saaia-real-native-fidelity-witness.v1",
+  "observedAtUtc": "2026-10-25T22:42:39.0182771Z",
+  "sourceSha256": "AA11E234FB3336EE76644958E888D83565E25BA875264BA75F7CE22B32D25C18",
+  "backendAssemblySha256": "72f31cc9ca0af0b3657d9e0cecc49c9b56b2d147eace63804d7b714f42e31f93",
+  "projectionSnapshotSha256": "C3BE151B89FEE3ABC808803AAF11D9B28931F966C2B471293D052482280BB86F",
+  "witnessScriptSha256": "6D2298113BC06FFBFDC17E3C427869ADFD8C900BF02BA3848776C40DA9F2EC92",
+  "providerCalls": 0,
+  "predicateCount": 14,
+  "failedPredicateCount": 0,
+  "passed": true,
+  "limits": [
+    "Selected physical pages and specified facts only; not exhaustive semantic equality or full worker ingestion.",
+    "Exact physical-page bounds are required for units and chunks; neighboring pages cannot satisfy a predicate.",
+    "No source text, credentials or document bytes are copied to this public proof."
+  ],
+  "checks": [
+    {
+      "id": "p5-servings",
+      "physicalPage": 5,
+      "rawSourceText": true,
+      "selectedPageText": true,
+      "extractedUnit": true,
+      "publishedChunk": true,
+      "publishedContext": true
+    },
+    {
+      "id": "p5-wine-quantity",
+      "physicalPage": 5,
+      "rawSourceText": true,
+      "selectedPageText": true,
+      "extractedUnit": true,
+      "publishedChunk": true,
+      "publishedContext": true
+    },
+    {
+      "id": "p5-preparation-duration",
+      "physicalPage": 5,
+      "rawSourceText": true,
+      "selectedPageText": true,
+      "extractedUnit": true,
+      "publishedChunk": true,
+      "publishedContext": true
+    },
+    {
+      "id": "p5-cooking-duration",
+      "physicalPage": 5,
+      "rawSourceText": true,
+      "selectedPageText": true,
+      "extractedUnit": true,
+      "publishedChunk": true,
+      "publishedContext": true
+    },
+    {
+      "id": "p5-cost-qualification",
+      "physicalPage": 5,
+      "rawSourceText": true,
+      "selectedPageText": true,
+      "extractedUnit": true,
+      "publishedChunk": true,
+      "publishedContext": true
+    },
+    {
+      "id": "p5-difficulty",
+      "physicalPage": 5,
+      "rawSourceText": true,
+      "selectedPageText": true,
+      "extractedUnit": true,
+      "publishedChunk": true,
+      "publishedContext": true
+    },
+    {
+      "id": "p5-tilted-note-sentence",
+      "physicalPage": 5,
+      "rawSourceText": true,
+      "selectedPageText": true,
+      "extractedUnit": true,
+      "publishedChunk": true,
+      "publishedContext": true
+    },
+    {
+      "id": "p5-tilted-note-cut-order",
+      "physicalPage": 5,
+      "rawSourceText": true,
+      "selectedPageText": true,
+      "extractedUnit": true,
+      "publishedChunk": true,
+      "publishedContext": true
+    },
+    {
+      "id": "p5-tilted-note-wine-advice",
+      "physicalPage": 5,
+      "rawSourceText": true,
+      "selectedPageText": true,
+      "extractedUnit": true,
+      "publishedChunk": true,
+      "publishedContext": true
+    },
+    {
+      "id": "p5-warning",
+      "physicalPage": 5,
+      "rawSourceText": true,
+      "selectedPageText": true,
+      "extractedUnit": true,
+      "publishedChunk": true,
+      "publishedContext": true
+    },
+    {
+      "id": "p6-preparation-duration",
+      "physicalPage": 6,
+      "rawSourceText": true,
+      "selectedPageText": true,
+      "extractedUnit": true,
+      "publishedChunk": true,
+      "publishedContext": true
+    },
+    {
+      "id": "p6-cooking-duration",
+      "physicalPage": 6,
+      "rawSourceText": true,
+      "selectedPageText": true,
+      "extractedUnit": true,
+      "publishedChunk": true,
+      "publishedContext": true
+    },
+    {
+      "id": "p7-cooking-duration",
+      "physicalPage": 7,
+      "rawSourceText": true,
+      "selectedPageText": true,
+      "extractedUnit": true,
+      "publishedChunk": true,
+      "publishedContext": true
+    },
+    {
+      "id": "p7-qualification-note",
+      "physicalPage": 7,
+      "rawSourceText": true,
+      "selectedPageText": true,
+      "extractedUnit": true,
+      "publishedChunk": true,
+      "publishedContext": true
+    }
+  ]
+}

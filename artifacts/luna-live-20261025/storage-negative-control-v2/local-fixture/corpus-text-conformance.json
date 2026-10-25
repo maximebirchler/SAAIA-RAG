@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "saaia.paid-corpus-text-conformance.v1",
+  "manifestSha256": "867687FD8E34B54EECE76EDFC7BB36A4E7C7B189824FA06F935E386F28F5F024",
+  "checksumAlgorithm": "sha256_utf8",
+  "passed": false,
+  "countMismatchTableCount": 0,
+  "checksumMismatchRowCount": 1,
+  "malformedRowCount": 0,
+  "scopedIdentityMismatchRowCount": 0,
+  "tables": [
+    {
+      "name": "document_units",
+      "textField": "text_content",
+      "expectedCount": 133,
+      "actualCount": 133,
+      "scopedCount": 133,
+      "checksumMismatchCount": 0,
+      "malformedCount": 0,
+      "countMatches": true,
+      "checksumMatches": true
+    },
+    {
+      "name": "retrieval_chunks",
+      "textField": "text_content",
+      "expectedCount": 8,
+      "actualCount": 8,
+      "scopedCount": 8,
+      "checksumMismatchCount": 1,
+      "malformedCount": 0,
+      "countMatches": true,
+      "checksumMatches": false
+    },
+    {
+      "name": "contextual_text_entries",
+      "textField": "text_content",
+      "expectedCount": 8,
+      "actualCount": 8,
+      "scopedCount": 8,
+      "checksumMismatchCount": 0,
+      "malformedCount": 0,
+      "countMatches": true,
+      "checksumMatches": true
+    },
+    {
+      "name": "exact_match_entries",
+      "textField": "normalized_text",
+      "expectedCount": 169,
+      "actualCount": 169,
+      "scopedCount": 169,
+      "checksumMismatchCount": 0,
+      "malformedCount": 0,
+      "countMatches": true,
+      "checksumMatches": true
+    }
+  ],
+  "limits": [
+    "Checks stored text bytes against stored production checksums and counts against the frozen corpus manifest.",
+    "Exact-entry checksum contract covers normalized_text; no checksum claim is made for its display text.",
+    "Read-only SQL conformance does not validate ingestion, retrieval ranking, vectors or answer quality."
+  ],
+  "failureCode": "stored_corpus_text_mismatch"
+}

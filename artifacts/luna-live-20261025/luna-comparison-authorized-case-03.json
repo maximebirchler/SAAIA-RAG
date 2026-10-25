@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "saaia-local-openai-paid-campaign.v1",
+  "campaignId": "2ec0837888754182a27d4e16f5ba64af",
+  "provider": {
+    "mode": "OpenAI",
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "none",
+    "baseUrl": "https://api.openai.com/v1"
+  },
+  "budget": {
+    "maximumCostPerJobUsd": 0.4961696,
+    "priorCampaignCostUsd": 0.0038304,
+    "authorizedUsd": 0.5,
+    "hardStopUsd": 0.5
+  },
+  "pricing": {
+    "observationBasis": "Official model/pricing documentation verified by the parent operator for the 2026-10-25T19:15:28Z availability probe; none reasoning support verified. Not fetched by this script.",
+    "cacheWriteUsdPerMillion": 0.2,
+    "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+    "observedAtUtc": "2026-10-25T19:15:28Z",
+    "cachedInputUsdPerMillion": 0.02,
+    "outputUsdPerMillion": 1.2,
+    "inputUsdPerMillion": 0.2
+  },
+  "execution": {
+    "paidBackendPort": 5158,
+    "maximumCallsPerJob": 4,
+    "maximumJobAttempts": 1,
+    "backendAssemblySha256": "A2B1FCB6B175E5F6A5CE6F9338E952ABDC9038FED83DA306FF93F75F3EBF90D1",
+    "plannerMaxTokens": 512,
+    "repetitions": 1,
+    "timeoutSeconds": 120,
+    "writerMaxTokens": 1024,
+    "backendPort": 5157,
+    "fixturePort": 18107,
+    "maximumJobs": 1,
+    "maximumHttpAttempts": 1
+  },
+  "corpus": {
+    "sha256": "AA11E234FB3336EE76644958E888D83565E25BA875264BA75F7CE22B32D25C18",
+    "path": "out/remote-deploy/30-recettes-preferees-des-francais.pdf",
+    "pageNumbers": [
+      2,
+      5,
+      6,
+      7
+    ]
+  },
+  "case": {
+    "expectedOutcome": "answered",
+    "expectedAnswerDescription": "Bœuf bourguignon : 2 h 45 minutes page physique 5. Tartiflette : 20 minutes page physique 6. Différence : 2 h 25 minutes. Les deux faits doivent être étayés par leurs pages respectives.",
+    "question": "Dans ce PDF de recettes, compare les durées de cuisson indiquées pour le bœuf bourguignon et la tartiflette. Donne les deux durées, leur différence et cite les pages correspondantes, en un court paragraphe."
+  },
+  "spendAuthorization": {
+    "basis": "Standing explicit user authorization for the existing OpenAI credits and autonomous tests up to 5.6. Second bounded semantic case after offline 5098 PASS, PostgreSQL 273 PASS, real canonical preflight and 14/14 selected-source fidelity. Luna only, cumulative USD 0.50 cap including all prior USD 0.0038304; no purchase or automatic upgrade. Previously authorized SAAIA corpus transmission, same original PDF/pages/backend as the successful factual trial.",
+    "authorizedAtUtc": "2026-10-25T22:27:11.1537102Z",
+    "status": "AUTHORIZED"
+  },
+  "boundaries": {
+    "ingestionValidated": false,
+    "clientProviderMustRemain": "Local",
+    "teiQdrantAreProtocolSubstitutes": true,
+    "vectorRetrievalValidated": false
+  }
+}

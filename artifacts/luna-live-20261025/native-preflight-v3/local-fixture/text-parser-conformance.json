@@ -1,0 +1,29 @@
+{
+  "checks": [
+    {
+      "name": "accent_distinction",
+      "passed": true
+    },
+    {
+      "name": "conjunction",
+      "passed": true
+    },
+    {
+      "name": "unicode_case",
+      "passed": true
+    },
+    {
+      "name": "unicode_punctuation",
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "schemaVersion": "saaia.pg-text-parser-conformance.v1",
+  "serverVersion": "PostgreSQL 16.14, compiled by Visual C++ build 1944, 64-bit",
+  "databaseLocale": {
+    "lcCtype": "English_United States.1252",
+    "provider": "c",
+    "icuLocale": null,
+    "lcCollate": "English_United States.1252"
+  }
+}

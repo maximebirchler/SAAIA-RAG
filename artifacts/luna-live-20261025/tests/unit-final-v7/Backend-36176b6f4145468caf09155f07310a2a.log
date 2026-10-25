@@ -1,0 +1,12 @@
+  SAAIA.Contracts -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\contracts\SAAIA.Contracts\bin\Release\net8.0\SAAIA.Contracts.dll
+  SAAIA.AdvancedValidationJobGuard -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\tools\SAAIA.AdvancedValidationJobGuard\bin\Release\net8.0\SAAIA.AdvancedValidationJobGuard.dll
+  SAAIA.Backend -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend\bin\Release\net8.0\SAAIA.Backend.dll
+  SAAIA.Backend.Tests -> C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll
+Série de tests pour C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\backend\SAAIA.Backend.Tests\bin\Release\net8.0\SAAIA.Backend.Tests.dll (.NETCoreApp,Version=v8.0)
+Version de VSTest 17.11.1 (x64)
+
+Démarrage de l'exécution de tests, patientez...
+Au total, 1 fichiers de test ont correspondu au modèle spécifié.
+Fichier de résultats : C:\Users\maxim\Desktop\ecom\AAA\SAAIA - RAG\artifacts\luna-live-20261025\tests\unit-final-v7\Backend-36176b6f4145468caf09155f07310a2a.trx
+
+Réussi!  - échec :     0, réussite :  2583, ignorée(s) :     0, total :  2583, durée : 23 s - SAAIA.Backend.Tests.dll (net8.0)

@@ -1,0 +1,17 @@
+test_blank_or_ocr_only_page_fails_without_inventing_text (__main__.NativePdfCliContracts.test_blank_or_ocr_only_page_fails_without_inventing_text) ... ok
+test_native_extraction_uses_original_bytes_and_physical_page (__main__.NativePdfCliContracts.test_native_extraction_uses_original_bytes_and_physical_page) ... ok
+test_pdf_or_backend_changed_after_freeze_has_no_seed (__main__.NativePdfCliContracts.test_pdf_or_backend_changed_after_freeze_has_no_seed) ... ok
+test_duplicate_empty_oversized_invalid_and_nul_pages_are_rejected (__main__.RealCorpusTransportContracts.test_duplicate_empty_oversized_invalid_and_nul_pages_are_rejected) ... ok
+test_extractor_candidates_context_and_token_counts_are_transported_not_recomputed (__main__.RealCorpusTransportContracts.test_extractor_candidates_context_and_token_counts_are_transported_not_recomputed) ... ok
+test_frozen_source_backend_path_and_projection_schema_are_enforced (__main__.RealCorpusTransportContracts.test_frozen_source_backend_path_and_projection_schema_are_enforced) ... ok
+test_missing_context_duplicate_ordinals_and_dangling_links_are_rejected (__main__.RealCorpusTransportContracts.test_missing_context_duplicate_ordinals_and_dangling_links_are_rejected) ... ok
+test_modified_projected_text_or_checksum_is_rejected (__main__.RealCorpusTransportContracts.test_modified_projected_text_or_checksum_is_rejected) ... ok
+test_original_hash_full_page_count_and_selected_pages_preserved (__main__.RealCorpusTransportContracts.test_original_hash_full_page_count_and_selected_pages_preserved) ... ok
+test_path_or_owner_injection_is_rejected (__main__.RealCorpusTransportContracts.test_path_or_owner_injection_is_rejected) ... ok
+test_source_text_and_quotes_are_not_replaced_with_an_expected_answer (__main__.RealCorpusTransportContracts.test_source_text_and_quotes_are_not_replaced_with_an_expected_answer) ... ok
+test_unique_identity_per_owned_run (__main__.RealCorpusTransportContracts.test_unique_identity_per_owned_run) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 7.447s
+
+OK

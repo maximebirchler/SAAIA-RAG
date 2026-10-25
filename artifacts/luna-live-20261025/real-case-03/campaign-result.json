@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "saaia-local-paid-result.v1",
+  "startedAtUtc": "2026-10-25T22:27:11.3124609+00:00",
+  "profileSha256": "F6678DD28CA2085BE857F57377FE52EFE24BF7518C9FCA2829D1182F29D2212B",
+  "executed": true,
+  "completed": true,
+  "model": "gpt-5.6-luna",
+  "incrementalCapUsd": 0.5,
+  "priorCampaignCostUsd": 0.0038304,
+  "backendAssemblySha256": "A2B1FCB6B175E5F6A5CE6F9338E952ABDC9038FED83DA306FF93F75F3EBF90D1",
+  "secretRead": true,
+  "logicalTerminalLedgerRows": 4,
+  "pricing": {
+    "observationBasis": "Official model/pricing documentation verified by the parent operator for the 2026-10-25T19:15:28Z availability probe; none reasoning support verified. Not fetched by this script.",
+    "cacheWriteUsdPerMillion": 0.2,
+    "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+    "observedAtUtc": "2026-10-25T19:15:28Z",
+    "cachedInputUsdPerMillion": 0.02,
+    "outputUsdPerMillion": 1.2,
+    "inputUsdPerMillion": 0.2
+  },
+  "expectedModel": "gpt-5.6-luna",
+  "providerUsageLedgerSha256": "A2A1E9AC8231FDD9CADF30DBAB72A01843507F6A7CAA5F56E837033BFD262330",
+  "state": "completed_requires_semantic_review",
+  "productStatus": "TESTE_NON_APPROUVE",
+  "semanticApproval": "PENDING",
+  "limits": [
+    "TEI/Qdrant are deterministic loopback protocol substitutes; canonical SQL retrieval and original PDF text are real.",
+    "Production native PDF extraction/structure/exact/contextual projection is reused; SQL publication is a fixture and does not validate full worker ingestion, OCR, Docling, profiles or vector recall.",
+    "The single backend job does not validate local-client routing or native UI. No client or local model is launched."
+  ],
+  "cleanup": {
+    "zeroActiveJobs": true,
+    "errors": [],
+    "workerQuiescentBeforeStop": true,
+    "observedJobCount": 1,
+    "ownedEnvironmentStopped": true
+  },
+  "productionProjectionAssemblySha256": "BFB84EEC216C60D96F97A20730F43C3465531912A035524C049E940B44671D38",
+  "corpusProjection": {
+    "counts": {
+      "sections": 5,
+      "units": 133,
+      "retrievalChunks": 8,
+      "exactEntries": 169,
+      "contextualEntries": 8
+    },
+    "vectorIndexIsProtocolSubstitute": true,
+    "boundaries": {
+      "productionProjectionReused": true,
+      "entireSourceNativeExtraction": true,
+      "sectionAndNeighborContextLimitedToSelectedPages": true,
+      "ingestionWorkerExecuted": false,
+      "doclingExecuted": false,
+      "ocrExecuted": false,
+      "vectorsIndexed": false,
+      "documentProfilesProjected": false,
+      "additionalLayoutSurfacesAreDiagnosticsOnly": true
+    },
+    "productionProjectionReused": true,
+    "projectionAssemblySha256": "bfb84eec216c60d96f97a20730f43c3465531912a035524c049e940b44671d38",
+    "backendAssemblySha256": "A2B1FCB6B175E5F6A5CE6F9338E952ABDC9038FED83DA306FF93F75F3EBF90D1",
+    "ingestionValidated": false,
+    "projectionSnapshotSha256": "f372a3f63ceb1c4aa631e3ea09efb191e59a9791b50702fb61d4bfb73dfc6daf"
+  },
+  "jobId": "e226a078-b14b-4f33-949e-fb99c4d14f1b",
+  "userId": "65ac4af8-a87a-46f8-a2d6-ea965fa0d4a9",
+  "sessionId": "5e25dcdb-fd1a-4586-8fe1-8691a6851d38",
+  "terminalStatus": "succeeded",
+  "outcome": "answered",
+  "canonicalSourceVerified": true,
+  "toolEventCount": 5,
+  "toolNames": [
+    "source_backed_canonical_read",
+    "source_backed_canonical_search"
+  ],
+  "financial": {
+    "schemaVersion": "saaia-paid-ledger-summary.v1",
+    "capturedAtUtc": "2026-10-25T22:27:32.3956752+00:00",
+    "logicalTerminalLedgerRows": 4,
+    "durableReservationStarts": 4,
+    "unsettledReservationCount": 0,
+    "terminalEstimatedCostUsd": 0.00295646,
+    "unsettledReservedUsd": 0.0,
+    "priorCampaignCostUsd": 0.0038304,
+    "totalBoundedCampaignCostUsd": 0.00678686,
+    "authorizedIncrementalCapUsd": 0.5,
+    "withinAuthorizedCap": true,
+    "httpAttemptsInTerminalRows": 4,
+    "httpAttemptPolicyViolations": 0,
+    "requestedModelMismatchCount": 0,
+    "observedModels": [
+      "gpt-5.6-luna"
+    ],
+    "observedModelMismatchCount": 0,
+    "observedExpectedFamily": true,
+    "settledUpperBoundChargeCount": 0,
+    "state": "SETTLED_LOCAL_ESTIMATE",
+    "providerBalanceKnown": false,
+    "providerInvoiceReconciled": false,
+    "ledgerSha256": "A2A1E9AC8231FDD9CADF30DBAB72A01843507F6A7CAA5F56E837033BFD262330",
+    "reservationsSha256": "361C35B4FD60CCB1E7BA52E953543A72613B576AFA971BC85386CA169DBE9216"
+  },
+  "endedAtUtc": "2026-10-25T22:27:38.0633905+00:00"
+}

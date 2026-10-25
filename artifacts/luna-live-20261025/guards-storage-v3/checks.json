@@ -1,0 +1,236 @@
+{
+  "schemaVersion": "saaia-paid-offline-checks.v1",
+  "providerCalls": 0,
+  "checks": [
+    {
+      "name": "read-only SQL file preserves exact Unicode as UTF8 without BOM",
+      "passed": true
+    },
+    {
+      "name": "actual owned Query branch uses a SQL file instead of a Unicode command argument",
+      "passed": true
+    },
+    {
+      "name": "SQL process keeps Unicode JSON stdout separate from PostgreSQL-style notices",
+      "passed": true
+    },
+    {
+      "name": "paid worker accepts a complete typed parser conformance proof",
+      "passed": true
+    },
+    {
+      "name": "paid worker rejects malformed punctuation despite a forged global success",
+      "passed": true
+    },
+    {
+      "name": "paid worker rejects a missing parser check replaced by a duplicate",
+      "passed": true
+    },
+    {
+      "name": "paid worker rejects an untyped string success marker",
+      "passed": true
+    },
+    {
+      "name": "stored corpus bytes and exact normalized text can satisfy all four table checks",
+      "passed": true
+    },
+    {
+      "name": "corpus mismatch fails closed: changed stored text checksum",
+      "passed": true
+    },
+    {
+      "name": "corpus mismatch fails closed: missing seeded row",
+      "passed": true
+    },
+    {
+      "name": "corpus mismatch fails closed: foreign revision despite matching global count",
+      "passed": true
+    },
+    {
+      "name": "corpus mismatch fails closed: null or malformed checksum",
+      "passed": true
+    },
+    {
+      "name": "malformed corpus observation is rejected: string count",
+      "passed": true
+    },
+    {
+      "name": "malformed corpus observation is rejected: missing table",
+      "passed": true
+    },
+    {
+      "name": "malformed corpus observation is rejected: duplicate table",
+      "passed": true
+    },
+    {
+      "name": "malformed corpus observation is rejected: exact-entry checksum on display text",
+      "passed": true
+    },
+    {
+      "name": "malformed corpus observation is rejected: negative count",
+      "passed": true
+    },
+    {
+      "name": "malformed corpus observation is rejected: impossible mismatch count",
+      "passed": true
+    },
+    {
+      "name": "zero exact candidates do not hide mandatory nonempty corpus tables",
+      "passed": true
+    },
+    {
+      "name": "owned corpus guard uses read-only SQL and writes a content-free immutable success proof",
+      "passed": true
+    },
+    {
+      "name": "an earlier corpus proof cannot be silently replaced",
+      "passed": true
+    },
+    {
+      "name": "an observed text checksum mismatch blocks admission with a durable failed proof",
+      "passed": true
+    },
+    {
+      "name": "failed checksum proof retains counts without exposing corpus text",
+      "passed": true
+    },
+    {
+      "name": "malformed SQL observations block admission",
+      "passed": true
+    },
+    {
+      "name": "malformed SQL payload is never copied into the public failure proof",
+      "passed": true
+    },
+    {
+      "name": "corpus text gate precedes worker and job admission in Test-OwnedRealCorpus.ps1",
+      "passed": true
+    },
+    {
+      "name": "corpus text gate precedes worker and job admission in invoke-local-luna-campaign.ps1",
+      "passed": true
+    },
+    {
+      "name": "proposed profile validates without key or authorization",
+      "passed": true
+    },
+    {
+      "name": "Terra forbidden",
+      "passed": true
+    },
+    {
+      "name": "reasoning budget must be explicitly none for the first factual case",
+      "passed": true
+    },
+    {
+      "name": "nonofficial endpoint forbidden",
+      "passed": true
+    },
+    {
+      "name": "incremental cap cannot exceed authorization",
+      "passed": true
+    },
+    {
+      "name": "previous probe cost counts against job cap",
+      "passed": true
+    },
+    {
+      "name": "provider retries forbidden",
+      "passed": true
+    },
+    {
+      "name": "job retries forbidden",
+      "passed": true
+    },
+    {
+      "name": "second job forbidden",
+      "passed": true
+    },
+    {
+      "name": "production PG port forbidden",
+      "passed": true
+    },
+    {
+      "name": "port collisions forbidden",
+      "passed": true
+    },
+    {
+      "name": "frozen source hash enforced",
+      "passed": true
+    },
+    {
+      "name": "secret-bearing profile forbidden",
+      "passed": true
+    },
+    {
+      "name": "actual submission payload leaves external authorization to the server",
+      "passed": true
+    },
+    {
+      "name": "Execute rejects proposed authorization",
+      "passed": true
+    },
+    {
+      "name": "Execute rejects missing transmission authorization",
+      "passed": true
+    },
+    {
+      "name": "Execute rejects a cap below profile",
+      "passed": true
+    },
+    {
+      "name": "all explicit authorization gates can validate purely offline",
+      "passed": true
+    },
+    {
+      "name": "false adapter counters cannot hide a true skip",
+      "passed": true
+    },
+    {
+      "name": "empty TRX cannot pass",
+      "passed": true
+    },
+    {
+      "name": "TRX plus exact result case passes",
+      "passed": true
+    },
+    {
+      "name": "missing selected case fails",
+      "passed": true
+    },
+    {
+      "name": "duplicate result cases fail",
+      "passed": true
+    },
+    {
+      "name": "a result artifact is mandatory despite passed TRX",
+      "passed": true
+    },
+    {
+      "name": "unsettled durable reservation remains financially reserved",
+      "passed": true
+    },
+    {
+      "name": "terminal settles matching reservation without charging it twice",
+      "passed": true
+    },
+    {
+      "name": "ambiguous timeout charge is labeled uncertain even when locally settled",
+      "passed": true
+    },
+    {
+      "name": "observed Terra does not match the allowed Luna identity",
+      "passed": true
+    },
+    {
+      "name": "duplicate request settlement cannot yield a public success",
+      "passed": true
+    },
+    {
+      "name": "schema-valid JSON without a valid cost is rejected",
+      "passed": true
+    }
+  ],
+  "servicesStarted": 0,
+  "secretsRead": 0
+}

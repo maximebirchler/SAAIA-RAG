@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "saaia-local-openai-paid-campaign.v1",
+  "campaignId": "a17d393bb85148dba237a74a718f2e61",
+  "provider": {
+    "model": "gpt-5.6-luna",
+    "reasoningEffort": "none",
+    "mode": "OpenAI",
+    "baseUrl": "https://api.openai.com/v1"
+  },
+  "budget": {
+    "authorizedUsd": 0.5,
+    "hardStopUsd": 0.5,
+    "priorCampaignCostUsd": 0.0009242,
+    "maximumCostPerJobUsd": 0.4990758
+  },
+  "pricing": {
+    "inputUsdPerMillion": 0.2,
+    "cachedInputUsdPerMillion": 0.02,
+    "outputUsdPerMillion": 1.2,
+    "observedAtUtc": "2026-10-25T19:15:28Z",
+    "cacheWriteUsdPerMillion": 0.2,
+    "observationBasis": "Official model/pricing documentation verified by the parent operator for the 2026-10-25T19:15:28Z availability probe; none reasoning support verified. Not fetched by this script.",
+    "sourceUrl": "https://developers.openai.com/api/docs/models/gpt-5.6-luna"
+  },
+  "execution": {
+    "maximumJobAttempts": 1,
+    "backendAssemblySha256": "A2B1FCB6B175E5F6A5CE6F9338E952ABDC9038FED83DA306FF93F75F3EBF90D1",
+    "fixturePort": 18107,
+    "backendPort": 5157,
+    "timeoutSeconds": 120,
+    "repetitions": 1,
+    "plannerMaxTokens": 512,
+    "writerMaxTokens": 1024,
+    "paidBackendPort": 5158,
+    "maximumCallsPerJob": 4,
+    "maximumHttpAttempts": 1,
+    "maximumJobs": 1
+  },
+  "corpus": {
+    "sha256": "AA11E234FB3336EE76644958E888D83565E25BA875264BA75F7CE22B32D25C18",
+    "path": "out/remote-deploy/30-recettes-preferees-des-francais.pdf",
+    "pageNumbers": [
+      2,
+      5,
+      6,
+      7
+    ]
+  },
+  "case": {
+    "expectedAnswerDescription": "Réponse étayée par la page physique 5 du PDF original : 4 personnes et 1,5 litre de vin rouge.",
+    "question": "Dans la recette du bœuf bourguignon, pour combien de personnes les ingrédients sont-ils prévus et quelle quantité de vin rouge faut-il ?",
+    "expectedOutcome": "answered"
+  },
+  "spendAuthorization": {
+    "basis": "User explicitly authorized the existing OpenAI credits, a paid model no higher than 5.6 and autonomous execution (latest: fais le toi meme, tu as carte blanche). This bounded Luna-only campaign spends at most USD 0.50 cumulatively, including the first USD 0.0009242 trial; no purchase or provider/model upgrade. Real-corpus transmission is within the previously authorized SAAIA OpenAI trial.",
+    "authorizedAtUtc": "2026-10-25T22:23:54.4872068Z",
+    "status": "AUTHORIZED"
+  },
+  "boundaries": {
+    "teiQdrantAreProtocolSubstitutes": true,
+    "ingestionValidated": false,
+    "vectorRetrievalValidated": false,
+    "clientProviderMustRemain": "Local"
+  }
+}
