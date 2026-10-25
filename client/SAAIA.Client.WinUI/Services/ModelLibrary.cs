@@ -25,7 +25,7 @@ internal sealed record LocalModelInfo(
 internal static class ModelLibrary
 {
     public static string ModelsDir =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "Models");
+        Path.Combine(ClientDataPaths.Root, "Models");
 
     private static string ManifestPath => Path.Combine(ModelsDir, "models.json");
 

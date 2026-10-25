@@ -14,6 +14,16 @@ public sealed partial class MainWindow
 
     private async Task ShowSetupWizardAsync()
     {
+        using var configurationChange = _conversationActivity.TryBeginSessionChange();
+        if (configurationChange is null)
+        {
+            ClientDiagnostics.Report("configuration.open", "skipped", "conversation_busy");
+            return;
+        }
+        UpdateUiState(_isGenerating);
+        var connectAfterConfiguration = false;
+        var wasConnected = IsConnected;
+
         try
         {
             _userId = SecureLocalStore.GetOrCreateUserId();
@@ -53,14 +63,23 @@ public sealed partial class MainWindow
                 ApplyUserModeVisibility();
                 Status(LocalRuntimeText("Configuration enregistrée.", "Setup saved.", "Configuración guardada.", "Configuração guardada.", "Einrichtung gespeichert.", "Configurazione salvata.", UiLang));
 
-                if ((_appSettings?.AutoConnect ?? false) && _agent is null && !NeedsSetupWizard())
-                    await ConnectAsync();
+                connectAfterConfiguration = ClientConnectionPolicy.ShouldReconnectAfterConfiguration(
+                    wasConnected, _appSettings?.AutoConnect ?? false, NeedsSetupWizard());
             }
         }
         catch (Exception ex)
         {
             Status(LocalRuntimeText("Assistant de configuration en échec : ", "Setup wizard failed: ", "Error del asistente de configuración: ", "Falha no assistente de configuração: ", "Setup-Assistent fehlgeschlagen: ", "Procedura guidata non riuscita: ", UiLang) + ex.Message);
         }
+        finally
+        {
+            configurationChange.Dispose();
+            UpdateUiState(_isGenerating);
+        }
+
+        // Connect owns its own admission; do not keep the configuration lease while entering it.
+        if (connectAfterConfiguration)
+            await ConnectAsync();
     }
 
 
@@ -673,6 +692,8 @@ public sealed partial class MainWindow
     }
     private async void SetupWizard_Click(object sender, RoutedEventArgs e)
     {
+        if (_isGenerating || _isLoadingSession)
+            return;
         await ShowSetupWizardAsync();
     }
 
@@ -688,6 +709,10 @@ public sealed partial class MainWindow
         if (sessionChange is null) return;
         UpdateUiState(_isGenerating);
         _lastConnectErrorMessage = null;
+        var previouslyConnected = IsConnected;
+        var preferredSessionId = _sessionId;
+        var previousConnection = _api.CreateConnectionSnapshot();
+        ResetConnectionSurface();
         // Declared outside the try so the catch can include "(192.168.1.75:5122)" in the
         // localized error message — context that's invaluable for debugging which URL failed.
         string backendUrl = "";
@@ -731,7 +756,10 @@ public sealed partial class MainWindow
                 }
             }
 
+            _api.ClearAdminSessionKey();
             _api.Configure(backendUrl, ApiKeyBox.Password, _userId);
+            _sessionId = !previouslyConnected || previousConnection.HasSameConnection(_api)
+                ? preferredSessionId : null;
 
             // Select exactly one provider/model for the run. The default config
             // is Local; external DEV/BENCH modes require an explicit policy and
@@ -791,6 +819,7 @@ public sealed partial class MainWindow
             UpdateUiState(isGenerating: false);
             ApplyResponsiveLayout(Root.ActualWidth);
             StartLocalLlmWarmupAfterBackendConnect();
+            HideStartupOverlay();
 
         }
         catch (Exception ex)
@@ -799,18 +828,40 @@ public sealed partial class MainWindow
             // "Pas connecté au serveur" red-cross overlay. Without this, the agent stays
             // wired to the previously-configured (unreachable) URL and the UI looks fine
             // even though no backend call ever succeeds.
-            _agent = null;
-            _lastConnectErrorMessage = ClassifyConnectError(ex, backendUrl, UiLang);
+            ResetConnectionSurface();
+            _lastConnectErrorMessage = ConnectionErrorClassifier.Classify(ex, backendUrl, UiLang);
             ClientLog.Exception($"Backend connect failed: {backendUrl}", ex);
             Status(LocalRuntimeText("Connexion en échec : ", "Connect failed: ", "Error de conexión: ", "Falha na ligação: ", "Verbindung fehlgeschlagen: ", "Connessione non riuscita: ", UiLang) + _lastConnectErrorMessage);
             UpdateUiState(isGenerating: false);
             ApplyResponsiveLayout(Root.ActualWidth);
+            ShowStartupOverlayError(ClientUiText.Get("startup.error.not_connected", UiLang), _lastConnectErrorMessage);
         }
         finally
         {
             sessionChange.Dispose();
             UpdateUiState(_isGenerating);
         }
+    }
+
+    private void ResetConnectionSurface()
+    {
+        StopAdvancedAnalysisTrackers();
+        StopDirectCommandTrackers();
+        CloseAdminJobsWindow();
+        CloseAdminConsoleWindow();
+        _agent?.ResetConversationState();
+        _agent = null;
+        _llmProvider = null;
+        _sessionId = null;
+        _messages.Clear();
+        _sessions.Clear();
+        ClearStagedOutboundMessage();
+        InputBox.Text = string.Empty;
+        RefreshComposerPersistenceNoticeForSession();
+        SetConversationOperationFailure(null);
+        SourcesCards.Items = new List<SourceCard>();
+        SourcesBox.Text = string.Empty;
+        SyncSessionSelectionVisual();
     }
 
     private void StartLocalLlmWarmupAfterBackendConnect()
@@ -843,95 +894,6 @@ public sealed partial class MainWindow
         }
     }
 
-    // Turn a raw .NET network exception into a localized, actionable one-liner.
-    // Recognises the most common Windows socket / HTTP error patterns and falls
-    // back to the original message (with URL appended) when nothing matches.
-    private static string ClassifyConnectError(Exception ex, string url, string lang)
-    {
-        var raw = ex?.Message ?? "";
-        var lower = raw.ToLowerInvariant();
-        var host = string.IsNullOrWhiteSpace(url) ? "" : $" ({url})";
-
-        bool Has(params string[] needles)
-        {
-            foreach (var n in needles)
-                if (lower.Contains(n, StringComparison.Ordinal)) return true;
-            return false;
-        }
-
-        // Timeout (TaskCanceledException + Windows socket "did not properly respond after a period of time").
-        if (ex is TaskCanceledException || Has("timed out", "did not properly respond after a period of time", "operation has timed out"))
-        {
-            return lang switch
-            {
-                "en" => $"The server did not respond within the timeout{host}.",
-                "es" => $"El servidor no respondió dentro del tiempo límite{host}.",
-                "pt" => $"O servidor não respondeu dentro do tempo limite{host}.",
-                "de" => $"Der Server hat innerhalb des Timeouts nicht geantwortet{host}.",
-                "it" => $"Il server non ha risposto entro il timeout{host}.",
-                _ => $"Le serveur n'a pas répondu dans les temps{host}."
-            };
-        }
-
-        // Connection refused (active rejection by the server).
-        if (Has("actively refused", "connection refused", "no connection could be made"))
-        {
-            return lang switch
-            {
-                "en" => $"Connection refused by the server{host}.",
-                "es" => $"Conexión rechazada por el servidor{host}.",
-                "pt" => $"Ligação recusada pelo servidor{host}.",
-                "de" => $"Verbindung vom Server abgelehnt{host}.",
-                "it" => $"Connessione rifiutata dal server{host}.",
-                _ => $"Connexion refusée par le serveur{host}."
-            };
-        }
-
-        // DNS resolution failure.
-        if (Has("no such host", "name or service not known", "name resolution"))
-        {
-            return lang switch
-            {
-                "en" => $"Hostname could not be resolved{host}.",
-                "es" => $"No se pudo resolver el nombre del host{host}.",
-                "pt" => $"Não foi possível resolver o nome do host{host}.",
-                "de" => $"Hostname konnte nicht aufgelöst werden{host}.",
-                "it" => $"Impossibile risolvere il nome host{host}.",
-                _ => $"Nom d'hôte introuvable{host}."
-            };
-        }
-
-        // Network unreachable (often: VPN down, route missing).
-        if (Has("network is unreachable", "no route to host", "network unreachable"))
-        {
-            return lang switch
-            {
-                "en" => $"Network unreachable — check your VPN/Wifi{host}.",
-                "es" => $"Red inaccesible — comprueba tu VPN/Wifi{host}.",
-                "pt" => $"Rede inacessível — verifica a tua VPN/Wifi{host}.",
-                "de" => $"Netzwerk nicht erreichbar — VPN/Wifi prüfen{host}.",
-                "it" => $"Rete non raggiungibile — controlla la tua VPN/Wifi{host}.",
-                _ => $"Réseau injoignable — vérifie ton VPN/Wifi{host}."
-            };
-        }
-
-        // TLS/SSL issues.
-        if (Has("ssl", "tls", "certificate"))
-        {
-            return lang switch
-            {
-                "en" => $"TLS/certificate problem{host}: {raw}",
-                "es" => $"Problema TLS/certificado{host}: {raw}",
-                "pt" => $"Problema TLS/certificado{host}: {raw}",
-                "de" => $"TLS-/Zertifikatsproblem{host}: {raw}",
-                "it" => $"Problema TLS/certificato{host}: {raw}",
-                _ => $"Problème TLS/certificat{host} : {raw}"
-            };
-        }
-
-        // Fallback: keep raw message (still in English) but at least append URL for context.
-        return string.IsNullOrEmpty(host) ? raw : $"{raw}{host}";
-    }
 
     private async Task RefreshSessionsAsync(CancellationToken ct)
     {

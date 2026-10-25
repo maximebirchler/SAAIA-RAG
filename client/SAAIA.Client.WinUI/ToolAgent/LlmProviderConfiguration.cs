@@ -56,10 +56,7 @@ internal sealed class LlmProviderConfiguration
         var ledgerPath = Environment.GetEnvironmentVariable("SAAIA_OPENAI_USAGE_LEDGER_PATH");
         if (string.IsNullOrWhiteSpace(ledgerPath))
         {
-            ledgerPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "SAAIA",
-                "llm-dev",
+            ledgerPath = Path.Combine(ClientDataPaths.Root, "llm-dev",
                 "openai-terra-usage.jsonl");
         }
 

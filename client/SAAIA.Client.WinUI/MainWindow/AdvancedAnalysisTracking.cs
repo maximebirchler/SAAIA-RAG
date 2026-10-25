@@ -12,8 +12,10 @@ public sealed partial class MainWindow
         string sessionId,
         ChatMessageItem message,
         object? sources,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ApiClient? persistenceApi = null)
     {
+        var api = persistenceApi ?? _api.CreateConnectionSnapshot();
         var persistenceClock = System.Diagnostics.Stopwatch.StartNew();
         await _advancedAnalysisPersistenceGate.WaitAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -22,7 +24,7 @@ public sealed partial class MainWindow
             ChatMessageItem? persisted;
             if (string.IsNullOrWhiteSpace(message.MessageId))
             {
-                persisted = await _api.AddMessageAsync(
+                persisted = await api.AddMessageAsync(
                         sessionId,
                         "assistant",
                         message.Content ?? string.Empty,
@@ -42,7 +44,7 @@ public sealed partial class MainWindow
             }
             else
             {
-                persisted = await _api.PatchMessageWithSourcesAsync(
+                persisted = await api.PatchMessageWithSourcesAsync(
                         message.MessageId,
                         message.Content ?? string.Empty,
                         sources,
@@ -71,8 +73,10 @@ public sealed partial class MainWindow
         string outcome,
         string? answer,
         object? sources,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ApiClient? persistenceApi = null)
     {
+        var api = persistenceApi ?? _api.CreateConnectionSnapshot();
         if (!Guid.TryParse(sessionId, out var parsedSessionId)
             || parsedSessionId != job.SessionId)
             throw new InvalidDataException("Advanced-analysis snapshot session mismatch.");
@@ -94,7 +98,8 @@ public sealed partial class MainWindow
                 message.ProgressText = null;
             }
 
-            if (string.Equals(_sessionId, sessionId, StringComparison.OrdinalIgnoreCase))
+            if (api.HasSameConnection(_api)
+                && string.Equals(_sessionId, sessionId, StringComparison.OrdinalIgnoreCase))
             {
                 SourcesCards.Items = SourceCardParser.Parse(pretty);
                 SourcesBox.Text = pretty;
@@ -108,7 +113,8 @@ public sealed partial class MainWindow
                 sessionId,
                 message,
                 sources,
-                CancellationToken.None)
+                CancellationToken.None,
+                api)
             .ConfigureAwait(false);
 
         ClientLog.Info(
@@ -159,6 +165,7 @@ public sealed partial class MainWindow
         AdvancedAnalysisPersistedState initialState,
         CancellationTokenSource cancellation)
     {
+        var api = _api.CreateConnectionSnapshot();
         using var diagnosticTurn = ClientDiagnostics.Journal.BeginTurn(initialState.SessionId.ToString("D"), "advanced_resume", independent: true);
         try
         {
@@ -168,7 +175,7 @@ public sealed partial class MainWindow
                 ["originTraceId"] = initialState.OriginTraceId ?? "unavailable",
                 ["jobId"] = initialState.JobId.ToString("D"), ["operation"] = "advanced_resume"
             });
-            var analysisClient = new AdvancedAnalysisClientService(_api);
+            var analysisClient = new AdvancedAnalysisClientService(api);
 
             while (!cancellation.IsCancellationRequested)
             {
@@ -193,7 +200,8 @@ public sealed partial class MainWindow
                                     snapshot.Outcome,
                                     snapshot.FinalAnswer,
                                     snapshot.SourcesPayload,
-                                    token)
+                                    token,
+                                    api)
                                 .ConfigureAwait(false);
                         })
                     .ConfigureAwait(false);

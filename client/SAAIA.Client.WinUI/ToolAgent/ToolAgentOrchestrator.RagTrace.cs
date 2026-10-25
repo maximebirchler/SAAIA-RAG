@@ -65,9 +65,14 @@ public sealed partial class ToolAgentOrchestrator
             : eventName.Contains(".cancel", StringComparison.OrdinalIgnoreCase) ? "cancelled"
             : eventName.Contains(".retry", StringComparison.OrdinalIgnoreCase)
                 || eventName.Contains(".reject", StringComparison.OrdinalIgnoreCase) ? "degraded" : "success";
-        ClientDiagnostics.Journal.Emit("agent." + eventName, outcome, measurements: fields
+        var reason = fields.FirstOrDefault(field => field.Key == "reason").Value as string;
+        ClientDiagnostics.Journal.Emit("agent." + eventName, outcome,
+            reason: IsSafeMetadataTraceValue(reason) ? reason : null, measurements: fields
             .Where(field => field.Value is int or long)
-            .GroupBy(field => field.Key).ToDictionary(group => group.Key, group => (long?)Convert.ToInt64(group.Last().Value)));
+            .GroupBy(field => field.Key).ToDictionary(group => group.Key, group => (long?)Convert.ToInt64(group.Last().Value)),
+            identifiers: fields.Where(field => IsSourceTraceMetadataField(field.Key)
+                    && field.Value is string && IsSafeMetadataTraceValue(field.Value))
+                .GroupBy(field => field.Key).ToDictionary(group => group.Key, group => (string)group.Last().Value!));
         var traceId = EnsureRagTraceId();
         var seq = Interlocked.Increment(ref _ragTraceSequence);
         var elapsedMs = _ragTraceTurnStopwatch.IsRunning
@@ -152,9 +157,13 @@ public sealed partial class ToolAgentOrchestrator
 
     private static bool IsMetadataTraceField(string key)
         => key.EndsWith("_id", StringComparison.OrdinalIgnoreCase)
+           || IsSourceTraceMetadataField(key)
            || key is "intent" or "kind" or "outcome" or "status" or "reason" or "reject_reason"
                or "reason_before" or "reason_after" or "answer_source" or "sources_payload"
                or "trace_path" or "trace_step" or "tool" or "tools" or "route" or "mode";
+
+    private static bool IsSourceTraceMetadataField(string key)
+        => key is "source_event" or "source_step" or "source_status" or "source_reason";
 
     private static bool IsSafeMetadataTraceValue(object? value)
         => value switch

@@ -93,7 +93,7 @@ public sealed class Bug139CanonicalNamedReferenceTransportTests
     }
 
     [Fact]
-    public void Bug139_LlmMissionDocumentUsesOnlyMechanicalBasenameNormalization()
+    public void Bug139_LlmMissionDocumentKeepsItsCanonicalPathIdentity()
     {
         var plan = LlmMission(
             namedReferenceKind: "document",
@@ -105,7 +105,7 @@ public sealed class Bug139CanonicalNamedReferenceTransportTests
                 "Summarize the explicitly selected artifact.",
                 plan);
 
-        Assert.Equal("Canonical_Safety_Standard.pdf", transported);
+        Assert.Equal(@"C:\tenant\published\Canonical_Safety_Standard.pdf", transported);
     }
 
     [Fact]
@@ -160,7 +160,7 @@ public sealed class Bug139CanonicalNamedReferenceTransportTests
                 "Continue with the selected artifact.",
                 plan);
 
-        Assert.Equal("Archive_Manual.pdf", transported);
+        Assert.Equal(@"C:\legacy\Archive_Manual.pdf", transported);
     }
 
     [Fact]

@@ -85,6 +85,6 @@ public sealed partial class ToolAgentOrchestrator
             return null;
         }
 
-        return Path.GetFileName(document);
+        return NativeRouting.ExplicitDocumentPath.PreserveUniquePath(sourceRequest, document);
     }
 }

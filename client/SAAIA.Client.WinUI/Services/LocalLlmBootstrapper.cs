@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -404,9 +404,7 @@ internal sealed class LocalLlmBootstrapper
             var candidates = GetModelCandidates(gpu, s.ModelId);
             var picked = await PickFirstReachableSpecAsync(candidates, ct).ConfigureAwait(false) ?? candidates.First();
 
-            var modelsDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "SAAIA", "Models");
+            var modelsDir = Path.Combine(ClientDataPaths.Root, "Models");
 
             var desiredPath = Path.Combine(modelsDir, picked.File);
 
@@ -433,9 +431,7 @@ internal sealed class LocalLlmBootstrapper
         if (promoted is null)
             return;
 
-        var modelsDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "SAAIA", "Models");
+        var modelsDir = Path.Combine(ClientDataPaths.Root, "Models");
         var promotedPath = Path.Combine(modelsDir, promoted.File);
 
         // Preserve a working legacy installation when the promoted artifact is neither
@@ -488,9 +484,7 @@ internal sealed class LocalLlmBootstrapper
             return false;
         }
 
-        var managedModelsDir = Path.GetFullPath(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "SAAIA", "Models"));
+        var managedModelsDir = Path.GetFullPath(Path.Combine(ClientDataPaths.Root, "Models"));
         var selectedDirectory = Path.GetDirectoryName(Path.GetFullPath(s.ModelPath));
         return string.Equals(selectedDirectory, managedModelsDir, StringComparison.OrdinalIgnoreCase);
     }
@@ -574,9 +568,7 @@ internal sealed class LocalLlmBootstrapper
             if (!string.IsNullOrWhiteSpace(s.ModelPath) && File.Exists(s.ModelPath))
                 return;
 
-            var modelsDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "SAAIA", "Models");
+            var modelsDir = Path.Combine(ClientDataPaths.Root, "Models");
 
             if (!Directory.Exists(modelsDir))
                 return;

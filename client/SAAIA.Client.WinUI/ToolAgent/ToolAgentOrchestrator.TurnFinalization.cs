@@ -16,7 +16,8 @@ public sealed partial class ToolAgentOrchestrator
         string? routerIntent,
         IEnumerable<string>? toolNames,
         IEnumerable<string>? reasoningTracePublic,
-        bool clearPendingClarification = true)
+        bool clearPendingClarification = true,
+        string? terminalFailureReason = null)
     {
         rememberedUserMessage ??= string.Empty;
         finalAnswer ??= string.Empty;
@@ -59,8 +60,12 @@ public sealed partial class ToolAgentOrchestrator
         ClientDiagnostics.Journal.Phase("tools", _lastToolsMs);
         ClientDiagnostics.Journal.Phase("writer", _lastWriterMs);
         ClientDiagnostics.Journal.Phase("critic", _lastCriticMs);
+        if (terminalFailureReason is not null)
+            ClientDiagnostics.Journal.ReportTerminalFailure(terminalFailureReason);
         EmitRagTrace(
             "turn.final",
+            ("outcome", terminalFailureReason is null ? "success" : "failed"),
+            ("reason", terminalFailureReason),
             ("planning", LooksLikeAnyDocumentaryPlanningRequest(rememberedUserMessage)),
             ("intent", routerIntent),
             ("answer_source", _lastAnswerSource),

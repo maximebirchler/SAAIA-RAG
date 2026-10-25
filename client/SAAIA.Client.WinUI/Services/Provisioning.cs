@@ -26,9 +26,11 @@ internal static class Provisioning
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "SAAIA", FileName);
 
     private static string LocalAppDataPath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", FileName);
+        Path.Combine(ClientDataPaths.Root, FileName);
 
-    private static string[] CandidatePaths => new[] { ProgramDataPath, LocalAppDataPath };
+    private static string[] CandidatePaths => ClientDataPaths.IsIsolated
+        ? new[] { LocalAppDataPath }
+        : new[] { ProgramDataPath, LocalAppDataPath };
 
     private sealed record UiDto(bool? ShowAdvanced, bool? AutoConnect);
 
@@ -251,7 +253,7 @@ internal static class Provisioning
 
             // Sensible default: script deployed by infra install.
             if (string.IsNullOrWhiteSpace(installScriptPath))
-                installScriptPath = Path.Combine(@"C:\SAAIA", "deploy", "install-llm.ps1");
+                installScriptPath = Path.Combine(ClientDataPaths.IsIsolated ? ClientDataPaths.Root : @"C:\SAAIA", "deploy", "install-llm.ps1");
 
             return true;
         }

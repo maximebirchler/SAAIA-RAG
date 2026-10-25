@@ -108,7 +108,7 @@ internal static class DocumentLauncher
             ? DocumentPathResolver.ResolveExactRevision(docPath, sourceHash)
             : DocumentPathResolver.Resolve(docPath, sourceHash));
         ClientDiagnostics.Journal.Emit("source.resolve", string.IsNullOrWhiteSpace(resolved) ? "failed" : "success",
-            string.IsNullOrWhiteSpace(resolved) ? "matching_local_file_not_found"
+            string.IsNullOrWhiteSpace(resolved) ? requireExactSourceHash ? "exact_source_revision_unavailable" : "matching_local_file_not_found"
                 : requireExactSourceHash ? "source_hash_verified" : "identity_unverified",
             new System.Collections.Generic.Dictionary<string, long?> { ["durationMs"] = resolutionClock.ElapsedMilliseconds });
         if (string.IsNullOrWhiteSpace(resolved))
@@ -134,8 +134,16 @@ internal static class DocumentLauncher
             return new OpenDocumentResult(
                 Success: false,
                 ResolvedPath: null,
-                ErrorTitle: DT("Fichier introuvable", "File not found", "Archivo no encontrado", "Ficheiro não encontrado", "Datei nicht gefunden", "File non trovato"),
-                ErrorMessage: details);
+                ErrorTitle: requireExactSourceHash
+                    ? DT("Version citée indisponible", "Cited version unavailable", "Versión citada no disponible", "Versão citada indisponível", "Zitierte Version nicht verfügbar", "Versione citata non disponibile")
+                    : DT("Fichier introuvable", "File not found", "Archivo no encontrado", "Ficheiro não encontrado", "Datei nicht gefunden", "File non trovato"),
+                ErrorMessage: (requireExactSourceHash ? DT(
+                    "La version citée du document n'est pas disponible sur ce poste. Actualisez vos documents ou contactez l'administrateur.\n\n",
+                    "The cited document version is not available on this computer. Refresh your documents or contact the administrator.\n\n",
+                    "La versión citada del documento no está disponible en este equipo. Actualiza los documentos o contacta con el administrador.\n\n",
+                    "A versão citada do documento não está disponível neste computador. Atualize os documentos ou contacte o administrador.\n\n",
+                    "Die zitierte Dokumentversion ist auf diesem Gerät nicht verfügbar. Aktualisieren Sie die Dokumente oder wenden Sie sich an den Administrator.\n\n",
+                    "La versione citata del documento non è disponibile su questo computer. Aggiorna i documenti o contatta l'amministratore.\n\n") : string.Empty) + details);
         }
 
         try

@@ -8,6 +8,19 @@ namespace SAAIA.Client.WinUI;
 
 public sealed partial class MainWindow
 {
+    private void StopDirectCommandTrackers()
+    {
+        CancellationTokenSource[] cancellations;
+        lock (_directCommandTrackerGate)
+        {
+            cancellations = _directCommandTrackers.ToArray();
+            _directCommandTrackers.Clear();
+            _activeDirectCommandTrackers.Clear();
+        }
+        foreach (var cancellation in cancellations)
+            try { cancellation.Cancel(); } catch (ObjectDisposedException) { }
+    }
+
     private void StartDirectCommandJobTrackingLoop(ActiveDirectCommandTrackerState state)
     {
         if (state.IsTerminal || state.TrackingLoopStarted || state.Cancellation.IsCancellationRequested)
@@ -316,14 +329,14 @@ public sealed partial class MainWindow
         };
         return true;
     }
-    private async Task<JsonElement> TryLoadTrackedAdminJobSnapshotAsync(string jobId, CancellationToken ct)
+    private async Task<JsonElement> TryLoadTrackedAdminJobSnapshotAsync(ApiClient api, string jobId, CancellationToken ct)
     {
         JsonElement direct = default;
         var hasDirect = false;
 
         try
         {
-            direct = await _api.AdminJobGetAsync(jobId, ct).ConfigureAwait(false);
+            direct = await api.AdminJobGetAsync(jobId, ct).ConfigureAwait(false);
             hasDirect = true;
             if (IsTrackedJobSnapshotInformative(direct))
                 return direct;
@@ -334,7 +347,7 @@ public sealed partial class MainWindow
 
         try
         {
-            var listed = await _api.AdminJobsListAsync("ingestion", 100, 0, null, null, null, null, ct).ConfigureAwait(false);
+            var listed = await api.AdminJobsListAsync("ingestion", 100, 0, null, null, null, null, ct).ConfigureAwait(false);
             if (listed.ValueKind == JsonValueKind.Object && listed.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
             {
                 foreach (var item in items.EnumerateArray())
@@ -365,7 +378,7 @@ public sealed partial class MainWindow
     private static bool IsAdminTrackingAccessUnavailable(HttpRequestException ex)
         => ex.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
 
-    private async Task<JsonElement> TryLoadTrackedJobSnapshotAsync(ActiveDirectCommandTrackerState state, CancellationToken ct)
+    private async Task<JsonElement> TryLoadTrackedJobSnapshotAsync(ActiveDirectCommandTrackerState state, ApiClient requestApi, CancellationToken ct)
     {
         HttpRequestException? messageTrackingError = null;
 
@@ -373,7 +386,7 @@ public sealed partial class MainWindow
         {
             try
             {
-                return await _api.ChatMessageTrackingAsync(state.MessageId!, ct).ConfigureAwait(false);
+                return await requestApi.ChatMessageTrackingAsync(state.MessageId!, ct).ConfigureAwait(false);
             }
             catch (HttpRequestException ex)
             {
@@ -383,8 +396,8 @@ public sealed partial class MainWindow
             }
         }
 
-        if (_api.HasAdminKey)
-            return await TryLoadTrackedAdminJobSnapshotAsync(state.Job.JobId, ct).ConfigureAwait(false);
+        if (requestApi.HasAdminKey)
+            return await TryLoadTrackedAdminJobSnapshotAsync(requestApi, state.Job.JobId, ct).ConfigureAwait(false);
 
         if (messageTrackingError is not null)
             throw messageTrackingError;
@@ -399,7 +412,7 @@ public sealed partial class MainWindow
 
         try
         {
-            var isIndexed = await _api.DocumentsCatalogIsIndexedAsync(state.Job.DocId, ct).ConfigureAwait(false);
+            var isIndexed = await state.Api.DocumentsCatalogIsIndexedAsync(state.Job.DocId, ct).ConfigureAwait(false);
             if (!isIndexed)
                 return false;
 
@@ -553,15 +566,19 @@ public sealed partial class MainWindow
 
     private async Task<bool> RefreshTrackedJobStateNowAsync(ActiveDirectCommandTrackerState state, CancellationToken ct, bool persist)
     {
+        if (!state.Api.HasSameConnection(_api)) return false;
+        state.Api.SynchronizeAdminSession(_api);
+        var requestApi = state.Api.CreateConnectionSnapshot();
         try
         {
-            var snapshot = await TryLoadTrackedJobSnapshotAsync(state, ct).ConfigureAwait(false);
+            var snapshot = await TryLoadTrackedJobSnapshotAsync(state, requestApi, ct).ConfigureAwait(false);
             ApplyTrackedJobSnapshotState(state, snapshot, hadTrackingError: false);
             if (persist)
                 await ApplyTrackedJobStateToUiAndPersistAsync(state, ct).ConfigureAwait(false);
             else
                 await RunOnUiThreadAsync(() =>
                 {
+                    if (!state.Api.HasSameConnection(_api)) return;
                     var msg = state.Message;
                     if (msg is null && string.Equals(_sessionId, state.SessionId, StringComparison.OrdinalIgnoreCase))
                     {
@@ -579,7 +596,8 @@ public sealed partial class MainWindow
         }
         catch (HttpRequestException ex) when (IsAdminTrackingAccessUnavailable(ex))
         {
-            _api.ClearAdminSessionKey();
+            state.Api.TryInvalidateAdminSession(requestApi);
+            _api.TryInvalidateAdminSession(requestApi);
             ClientLog.Warn($"Tracked job refresh lost admin session for jobId={state.Job.JobId}: {ex.Message}");
         }
         catch (Exception ex)
@@ -631,7 +649,8 @@ public sealed partial class MainWindow
             {
                 state.TrackingLoopStarted = false;
                 _directCommandTrackers.Remove(state.Cancellation);
-                if (state.IsTerminal)
+                if (state.IsTerminal && _activeDirectCommandTrackers.TryGetValue(state.Job.JobId, out var active)
+                    && ReferenceEquals(active, state))
                     _activeDirectCommandTrackers.Remove(state.Job.JobId);
             }
             state.Cancellation.Dispose();
@@ -642,6 +661,7 @@ public sealed partial class MainWindow
     {
         await RunOnUiThreadAsync(() =>
         {
+            if (!state.Api.HasSameConnection(_api)) return;
             var msg = state.Message;
             if (msg is null && string.Equals(_sessionId, state.SessionId, StringComparison.OrdinalIgnoreCase))
             {
@@ -673,7 +693,7 @@ public sealed partial class MainWindow
 
         try
         {
-            await _api.PatchMessageAsync(state.MessageId!, content, statusNote, progressText, meta, ct).ConfigureAwait(false);
+            await state.Api.PatchMessageAsync(state.MessageId!, content, statusNote, progressText, meta, ct).ConfigureAwait(false);
             state.LastPersistedAtUtc = now;
             state.LastPersistedContent = content;
             state.LastPersistedStatusNote = statusNote;

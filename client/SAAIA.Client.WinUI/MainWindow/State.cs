@@ -32,6 +32,7 @@ public sealed partial class MainWindow
     private bool _setupAutoPrompted;
     private string? _pendingOutboundWireText;
     private string? _pendingOutboundDisplayText;
+    private readonly Services.ComposerPersistenceNotice _composerPersistenceNotice = new();
 
     private int _secretAdminClickCount;
     private DateTimeOffset _secretAdminFirstClickUtc = DateTimeOffset.MinValue;
@@ -46,6 +47,7 @@ public sealed partial class MainWindow
         public required DirectCommandTrackedJob Job { get; init; }
         public required string? SessionId { get; set; }
         public required CancellationTokenSource Cancellation { get; init; }
+        public required ApiClient Api { get; init; }
         public string? MessageId { get; set; }
         public ChatMessageItem? Message { get; set; }
         public string? LastContent { get; set; }

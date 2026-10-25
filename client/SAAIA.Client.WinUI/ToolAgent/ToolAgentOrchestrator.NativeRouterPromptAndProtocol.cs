@@ -343,6 +343,19 @@ public sealed partial class ToolAgentOrchestrator
             questionFocus = "content";
         var requestedDocumentName = NormalizeNativeRouterOptionalReference(
             ReadNativeRouterString(arguments, "document"));
+        EmitRagTrace("router.native.document_identity.input",
+            ("source_request_chars", sourceRequest.Length),
+            ("announced_reference_chars", requestedDocumentName.Length),
+            ("announced_reference_has_directory", requestedDocumentName.IndexOfAny(['/', '\\']) >= 0 ? 1 : 0),
+            ("uses_focused_document", useFocusedDocument ? 1 : 0));
+        var completeDocumentReference = NativeRouting.ExplicitDocumentPath.PreserveUniquePath(sourceRequest, requestedDocumentName);
+        if (!string.Equals(completeDocumentReference, requestedDocumentName, StringComparison.Ordinal))
+        {
+            EmitRagTrace("router.native.document_identity.explicit_path_preserved",
+                ("announced_reference_chars", requestedDocumentName.Length),
+                ("explicit_reference_chars", completeDocumentReference.Length));
+            requestedDocumentName = completeDocumentReference;
+        }
         var namedReferenceKind = ReadNativeRouterString(
             arguments,
             "namedReferenceKind");
@@ -895,9 +908,9 @@ public sealed partial class ToolAgentOrchestrator
             UsesFocusedDocument = useFocusedDocument,
             NamedReferenceKind = namedReferenceKind,
             RequestedDocumentName = requestedDocumentName.Length > 0
-                ? Path.GetFileName(requestedDocumentName)
+                ? requestedDocumentName
                 : docPath.Length > 0
-                    ? Path.GetFileName(docPath)
+                    ? docPath
                     : string.Empty,
             BoundedNamedDocumentExtraction =
                 normalizedBoundedNamedValueExtraction,

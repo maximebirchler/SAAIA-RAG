@@ -102,13 +102,7 @@ public sealed partial class ToolAgentOrchestrator
                     onProgress,
                     options.MaximumWorkingEvidenceItems),
                 options,
-                traceSink: trace => EmitRagTrace(
-                    "source_backed_agent_v2.step",
-                    ("source_trace_id", trace.TraceId),
-                    ("source_seq", trace.Sequence),
-                    ("source_step", trace.Step.ToString()),
-                    ("source_event", trace.EventName),
-                    ("source_fields", FormatSourceBackedPipelineTraceFields(trace.Fields))),
+                traceSink: trace => EmitRagTrace("source_backed_agent_v2.step", SourceBackedTraceMetadata(trace)),
                 namedDocumentResolver: new SourceBackedNamedDocumentResolver(
                     new ApiClientSourceBackedNamedDocumentCatalogClient(_api),
                     new ApiClientSourceBackedNamedDocumentIdentityHydrator(_api)));

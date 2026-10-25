@@ -95,6 +95,15 @@ public static class SourceBackedTerminalAnswer
             "Le fonti consultate non bastano per produrre una risposta affidabile e documentata.");
     }
 
+    public static string BuildLocalModelUnavailable(string language)
+        => Pick(language,
+            "L'assistant local est indisponible. Vérifiez que le modèle local est démarré, puis réessayez votre question. Si le problème persiste, contactez votre intégrateur.",
+            "The local assistant is unavailable. Check that the local model is running, then retry your question. If the problem persists, contact your integrator.",
+            "El asistente local no está disponible. Comprueba que el modelo local esté iniciado y vuelve a intentar la pregunta. Si el problema persiste, contacta con tu integrador.",
+            "O assistente local está indisponível. Verifica se o modelo local está iniciado e tenta novamente a pergunta. Se o problema persistir, contacta o teu integrador.",
+            "Der lokale Assistent ist nicht verfügbar. Prüfe, ob das lokale Modell läuft, und stelle deine Frage erneut. Wenn das Problem fortbesteht, wende dich an deinen Integrator.",
+            "L'assistente locale non è disponibile. Verifica che il modello locale sia avviato e riprova la domanda. Se il problema persiste, contatta il tuo integratore.");
+
     public static string BuildFailure(string language)
         => Pick(language,
             "Le pipeline source-backed n'a pas pu terminer sa verification. Je prefere m'arreter plutot que de laisser un ancien chemin produire une reponse non verifiee.",

@@ -637,6 +637,7 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <!-- Scroll + list -->
@@ -676,8 +677,28 @@
                                 Style="{StaticResource AppSecondaryButtonStyle}"/>
                     </Grid>
 
+                    <StackPanel Grid.Row="2">
+                    <InfoBar x:Name="ConversationOperationWarning"
+                             AutomationProperties.AutomationId="ConversationOperationWarning"
+                             AutomationProperties.LiveSetting="Assertive"
+                             IsOpen="False"
+                             IsClosable="False"
+                             Severity="Error"
+                             Visibility="Collapsed"
+                             Margin="0,10,0,0" />
+                    <InfoBar
+                             x:Name="ComposerPersistenceWarning"
+                             AutomationProperties.AutomationId="ComposerPersistenceWarning"
+                             AutomationProperties.LiveSetting="Assertive"
+                             IsOpen="False"
+                             IsClosable="False"
+                             Severity="Warning"
+                             Visibility="Collapsed"
+                             Margin="0,10,0,0" />
+                    </StackPanel>
+
                     <!-- INPUT (inside chat panel) -->
-                    <Grid Grid.Row="2" Margin="0,10,0,0" ColumnSpacing="10">
+                    <Grid Grid.Row="3" Margin="0,10,0,0" ColumnSpacing="10">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>

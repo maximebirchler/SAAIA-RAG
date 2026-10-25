@@ -15,7 +15,7 @@ namespace SAAIA.Client.WinUI.Services;
 internal static class ExportService
 {
     public static string ExportsDir =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "exports");
+        Path.Combine(ClientDataPaths.Root, "exports");
 
     public static string Create(string format, string fileName, string content)
     {

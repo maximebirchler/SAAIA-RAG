@@ -8,6 +8,11 @@ internal static class ClientUiText
     private static readonly Dictionary<string, Dictionary<string, string>> Catalog = new(StringComparer.OrdinalIgnoreCase)
     {
         ["status.ready"] = Multi("Prêt.", "Ready.", "Listo.", "Pronto.", "Bereit.", "Pronto."),
+        ["session.operation.load.failed"] = Multi("Impossible de charger la discussion", "Could not load the conversation", "No se pudo cargar la conversación", "Não foi possível carregar a conversa", "Unterhaltung konnte nicht geladen werden", "Impossibile caricare la conversazione"),
+        ["session.operation.create.failed"] = Multi("Création de discussion non confirmée", "Conversation creation not confirmed", "Creación de conversación no confirmada", "Criação da conversa não confirmada", "Erstellung der Unterhaltung nicht bestätigt", "Creazione della conversazione non confermata"),
+        ["session.operation.rename.failed"] = Multi("Renommage non confirmé", "Rename not confirmed", "Cambio de nombre no confirmado", "Alteração de nome não confirmada", "Umbenennung nicht bestätigt", "Rinomina non confermata"),
+        ["session.operation.delete.failed"] = Multi("Suppression non confirmée", "Deletion not confirmed", "Eliminación no confirmada", "Eliminação não confirmada", "Löschung nicht bestätigt", "Eliminazione non confermata"),
+        ["session.operation.recovery"] = Multi("Vérifiez l'historique, puis réessayez. Votre saisie est conservée.", "Check the history, then try again. Your draft is preserved.", "Comprueba el historial y vuelve a intentarlo. Tu borrador se conserva.", "Verifique o histórico e tente novamente. O rascunho foi conservado.", "Verlauf prüfen und erneut versuchen. Ihr Entwurf bleibt erhalten.", "Controlla la cronologia e riprova. La bozza è conservata."),
         ["status.settings_applied"] = Multi("Paramètres appliqués.", "Settings applied.", "Configuración aplicada.", "Definições aplicadas.", "Einstellungen angewendet.", "Impostazioni applicate."),
         ["status.settings_failed"] = Multi("Échec des paramètres : ", "Settings failed: ", "Error de configuración: ", "Falha nas definições: ", "Einstellungsfehler: ", "Errore impostazioni: "),
         ["status.help_busy"] = Multi("Une réponse est déjà en cours.", "A reply is already in progress.", "Ya hay una respuesta en curso.", "Já existe uma resposta em curso.", "Eine Antwort läuft bereits.", "È già in corso una risposta."),
@@ -187,6 +192,7 @@ internal static class ClientUiText
         ["button.setup"] = Multi("Configuration", "Setup", "Configuración", "Configuração", "Einrichtung", "Configurazione"),
         ["button.send"] = Multi("Envoyer", "Send", "Enviar", "Enviar", "Senden", "Invia"),
         ["button.cancel"] = Multi("Annuler", "Cancel", "Cancelar", "Cancelar", "Abbrechen", "Annulla"),
+        ["button.cancelling"] = Multi("Annulation en cours…", "Cancelling…", "Cancelando…", "A cancelar…", "Abbruch läuft…", "Annullamento in corso…"),
         ["button.save"] = Multi("Enregistrer", "Save", "Guardar", "Guardar", "Speichern", "Salva"),
         ["button.jump_bottom"] = Multi("Aller en bas", "Jump to bottom", "Ir abajo", "Ir para baixo", "Nach unten", "Vai in basso"),
         ["button.search"] = Multi("Rechercher", "Search", "Buscar", "Pesquisar", "Suchen", "Cerca"),
@@ -227,6 +233,10 @@ internal static class ClientUiText
         ["startup.error.not_connected"] = Multi("Pas connecté au serveur", "Not connected to the server", "Sin conexión al servidor", "Não ligado ao servidor", "Nicht mit dem Server verbunden", "Non connesso al server"),
         ["startup.retry"] = Multi("Réessayer", "Retry", "Reintentar", "Tentar novamente", "Erneut versuchen", "Riprova"),
         ["startup.configure"] = Multi("Configurer", "Configure", "Configurar", "Configurar", "Konfigurieren", "Configura"),
+        ["startup.connect"] = Multi("Se connecter", "Connect", "Conectar", "Ligar", "Verbinden", "Connetti"),
+        ["startup.manual.title"] = Multi("Client déconnecté", "Client disconnected", "Cliente desconectado", "Cliente desligado", "Client nicht verbunden", "Client disconnesso"),
+        ["startup.manual.detail"] = Multi("La connexion automatique est désactivée. Connectez-vous lorsque vous êtes prêt.", "Automatic connection is disabled. Connect when you are ready.", "La conexión automática está desactivada. Conéctate cuando quieras.", "A ligação automática está desativada. Liga quando estiveres pronto.", "Die automatische Verbindung ist deaktiviert. Verbinden Sie sich, wenn Sie bereit sind.", "La connessione automatica è disattivata. Connettiti quando sei pronto."),
+        ["startup.manual.setup_required"] = Multi("Configurez l'accès au serveur pour vous connecter.", "Configure server access to connect.", "Configura el acceso al servidor para conectarte.", "Configura o acesso ao servidor para ligar.", "Konfigurieren Sie den Serverzugang, um sich zu verbinden.", "Configura l'accesso al server per connetterti."),
         ["status.init_failed"] = Multi("Échec de l'initialisation : ", "Init failed: ", "Error de inicialización: ", "Falha na inicialização: ", "Initialisierung fehlgeschlagen: ", "Errore di inizializzazione: "),
 
         ["dialog.close"] = Multi("Fermer", "Close", "Cerrar", "Fechar", "Schließen", "Chiudi"),

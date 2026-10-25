@@ -28,6 +28,12 @@ public sealed partial class MainWindow
                 return;
             }
 
+            if (_agent is null)
+            {
+                ShowStartupOverlayDisconnected();
+                return;
+            }
+
             HideStartupOverlay();
         }
         catch (Exception ex)
@@ -43,6 +49,46 @@ public sealed partial class MainWindow
     // failure here so the startup overlay can show something better than "Initialisation…".
     private string? _lastConnectErrorMessage;
     private string? GetLastConnectErrorMessage() => _lastConnectErrorMessage;
+
+    private async Task ConnectFromStartupOverlayAsync()
+    {
+        if (_isGenerating || _isLoadingSession)
+            return;
+
+        try
+        {
+            ShowStartupOverlay(
+                ClientUiText.Get("startup.subtitle", _appSettings.UiLanguage),
+                ClientUiText.Get("startup.status.connecting", _appSettings.UiLanguage));
+            if (NeedsSetupWizard())
+            {
+                await ShowSetupWizardAsync();
+                if (NeedsSetupWizard())
+                {
+                    ShowStartupOverlayDisconnected();
+                    return;
+                }
+            }
+
+            // This explicit user action also works when automatic connection is disabled.
+            if (_agent is null)
+                await ConnectAsync();
+
+            if (_agent is null)
+                ShowStartupOverlayError(
+                    ClientUiText.Get("startup.error.not_connected", _appSettings.UiLanguage),
+                    GetLastConnectErrorMessage() ?? ClientUiText.Get("startup.subtitle", _appSettings.UiLanguage));
+            else
+                HideStartupOverlay();
+        }
+        catch (Exception exception)
+        {
+            ClientLog.Exception("Startup.ManualConnect", exception);
+            ShowStartupOverlayError(
+                ClientUiText.Get("startup.error.not_connected", _appSettings.UiLanguage),
+                exception.Message);
+        }
+    }
 
 
     private void Status(string s)
@@ -111,6 +157,10 @@ public sealed partial class MainWindow
         InputBox.IsEnabled = IsConnected && !conversationBusy && !string.IsNullOrWhiteSpace(_sessionId);
         if (HeaderHelpButton is not null)
             HeaderHelpButton.IsEnabled = !conversationBusy;
+        if (HeaderSettingsButton is not null)
+            HeaderSettingsButton.IsEnabled = !conversationBusy;
+        if (SetupButton is not null)
+            SetupButton.IsEnabled = !conversationBusy;
         RefreshAdminJobsUiVisibility();
         if (HeaderAdminConsoleButton is not null)
             HeaderAdminConsoleButton.IsEnabled = !conversationBusy && _api.HasAdminKey;

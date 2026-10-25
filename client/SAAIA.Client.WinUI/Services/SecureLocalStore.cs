@@ -33,7 +33,7 @@ public static class SecureLocalStore
     private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("SAAIA.Client.WinUI|CDC-v2.7");
 
     private static string StoreDir =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "client");
+        Path.Combine(ClientDataPaths.Root, "client");
 
     private static string StorePath => Path.Combine(StoreDir, "secure.json");
 
@@ -47,23 +47,26 @@ public static class SecureLocalStore
     public static string GetOrCreateUserId()
     {
         // 1) Packaged LocalSettings
-        try
+        if (ClientDataPaths.UsePackagedSettings)
         {
-            var ls = ApplicationData.Current.LocalSettings;
-
-            if (ls.Values.TryGetValue(UserIdKey, out var existingObj) && existingObj is string existing)
+            try
             {
-                if (Guid.TryParse(existing, out _))
-                    return existing;
-            }
+                var ls = ApplicationData.Current.LocalSettings;
 
-            var uid = Guid.NewGuid().ToString();
-            ls.Values[UserIdKey] = uid;
-            return uid;
-        }
-        catch (Exception ex)
-        {
-            ClientLog.Warn($"SecureLocalStore: LocalSettings unavailable, using file store. ({ex.GetType().Name}: {ex.Message})");
+                if (ls.Values.TryGetValue(UserIdKey, out var existingObj) && existingObj is string existing)
+                {
+                    if (Guid.TryParse(existing, out _))
+                        return existing;
+                }
+
+                var uid = Guid.NewGuid().ToString();
+                ls.Values[UserIdKey] = uid;
+                return uid;
+            }
+            catch (Exception ex)
+            {
+                ClientLog.Warn($"SecureLocalStore: LocalSettings unavailable, using file store. ({ex.GetType().Name}: {ex.Message})");
+            }
         }
 
         // 2) File store
@@ -83,34 +86,37 @@ public static class SecureLocalStore
     public static string? GetServerApiKey()
     {
         // 1) Packaged LocalSettings
-        try
+        if (ClientDataPaths.UsePackagedSettings)
         {
-            var ls = ApplicationData.Current.LocalSettings;
-
-            // Migration : si un apiKey en clair existe, on le migre vers DPAPI une seule fois.
-            if (ls.Values.TryGetValue(LegacyServerApiKeyPlainKey, out var legacyObj) && legacyObj is string legacy && !string.IsNullOrWhiteSpace(legacy))
+            try
             {
-                SetServerApiKey(legacy);
-                ls.Values.Remove(LegacyServerApiKeyPlainKey);
-                return legacy;
+                var ls = ApplicationData.Current.LocalSettings;
+
+                // Migration : si un apiKey en clair existe, on le migre vers DPAPI une seule fois.
+                if (ls.Values.TryGetValue(LegacyServerApiKeyPlainKey, out var legacyObj) && legacyObj is string legacy && !string.IsNullOrWhiteSpace(legacy))
+                {
+                    SetServerApiKey(legacy);
+                    ls.Values.Remove(LegacyServerApiKeyPlainKey);
+                    return legacy;
+                }
+
+                var fromLocalSettings = UnprotectFromLocalSettings(ls, ServerApiKeyProtectedKey);
+                if (!string.IsNullOrWhiteSpace(fromLocalSettings))
+                    return fromLocalSettings;
+
+                var fromFileStore = GetServerApiKeyFromFileStore();
+                if (!string.IsNullOrWhiteSpace(fromFileStore))
+                {
+                    ProtectToLocalSettings(ls, ServerApiKeyProtectedKey, fromFileStore);
+                    return fromFileStore;
+                }
+
+                return null;
             }
-
-            var fromLocalSettings = UnprotectFromLocalSettings(ls, ServerApiKeyProtectedKey);
-            if (!string.IsNullOrWhiteSpace(fromLocalSettings))
-                return fromLocalSettings;
-
-            var fromFileStore = GetServerApiKeyFromFileStore();
-            if (!string.IsNullOrWhiteSpace(fromFileStore))
+            catch (Exception ex)
             {
-                ProtectToLocalSettings(ls, ServerApiKeyProtectedKey, fromFileStore);
-                return fromFileStore;
+                ClientLog.Warn($"SecureLocalStore: LocalSettings unavailable, using file store. ({ex.GetType().Name}: {ex.Message})");
             }
-
-            return null;
-        }
-        catch (Exception ex)
-        {
-            ClientLog.Warn($"SecureLocalStore: LocalSettings unavailable, using file store. ({ex.GetType().Name}: {ex.Message})");
         }
 
         // 2) File store
@@ -133,16 +139,19 @@ public static class SecureLocalStore
     public static void SetServerApiKey(string? apiKey)
     {
         // 1) Packaged LocalSettings
-        try
+        if (ClientDataPaths.UsePackagedSettings)
         {
-            var ls = ApplicationData.Current.LocalSettings;
-            ProtectToLocalSettings(ls, ServerApiKeyProtectedKey, apiKey);
-            SetServerApiKeyInFileStore(apiKey);
-            return;
-        }
-        catch (Exception ex)
-        {
-            ClientLog.Warn($"SecureLocalStore: LocalSettings unavailable, using file store. ({ex.GetType().Name}: {ex.Message})");
+            try
+            {
+                var ls = ApplicationData.Current.LocalSettings;
+                ProtectToLocalSettings(ls, ServerApiKeyProtectedKey, apiKey);
+                SetServerApiKeyInFileStore(apiKey);
+                return;
+            }
+            catch (Exception ex)
+            {
+                ClientLog.Warn($"SecureLocalStore: LocalSettings unavailable, using file store. ({ex.GetType().Name}: {ex.Message})");
+            }
         }
 
         // 2) File store
@@ -199,27 +208,30 @@ public static class SecureLocalStore
         Func<FileDto, string?> selectProtectedValue,
         Func<FileDto, string?, FileDto> updateProtectedValue)
     {
-        try
+        if (ClientDataPaths.UsePackagedSettings)
         {
-            var localSettings = ApplicationData.Current.LocalSettings;
-            var fromLocalSettings = UnprotectFromLocalSettings(localSettings, localSettingsKey);
-            if (!string.IsNullOrWhiteSpace(fromLocalSettings))
-                return fromLocalSettings;
-
-            var fromFileStore = GetProtectedSecretFromFileStore(
-                selectProtectedValue,
-                updateProtectedValue);
-            if (!string.IsNullOrWhiteSpace(fromFileStore))
+            try
             {
-                ProtectToLocalSettings(localSettings, localSettingsKey, fromFileStore);
-                return fromFileStore;
-            }
+                var localSettings = ApplicationData.Current.LocalSettings;
+                var fromLocalSettings = UnprotectFromLocalSettings(localSettings, localSettingsKey);
+                if (!string.IsNullOrWhiteSpace(fromLocalSettings))
+                    return fromLocalSettings;
 
-            return null;
-        }
-        catch (Exception ex)
-        {
-            ClientLog.Warn($"SecureLocalStore: LocalSettings unavailable, using file store. ({ex.GetType().Name}: {ex.Message})");
+                var fromFileStore = GetProtectedSecretFromFileStore(
+                    selectProtectedValue,
+                    updateProtectedValue);
+                if (!string.IsNullOrWhiteSpace(fromFileStore))
+                {
+                    ProtectToLocalSettings(localSettings, localSettingsKey, fromFileStore);
+                    return fromFileStore;
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                ClientLog.Warn($"SecureLocalStore: LocalSettings unavailable, using file store. ({ex.GetType().Name}: {ex.Message})");
+            }
         }
 
         return GetProtectedSecretFromFileStore(selectProtectedValue, updateProtectedValue);
@@ -230,16 +242,19 @@ public static class SecureLocalStore
         string? plainValue,
         Func<FileDto, string?, FileDto> updateProtectedValue)
     {
-        try
+        if (ClientDataPaths.UsePackagedSettings)
         {
-            var localSettings = ApplicationData.Current.LocalSettings;
-            ProtectToLocalSettings(localSettings, localSettingsKey, plainValue);
-            SetProtectedSecretInFileStore(plainValue, updateProtectedValue);
-            return;
-        }
-        catch (Exception ex)
-        {
-            ClientLog.Warn($"SecureLocalStore: LocalSettings unavailable, using file store. ({ex.GetType().Name}: {ex.Message})");
+            try
+            {
+                var localSettings = ApplicationData.Current.LocalSettings;
+                ProtectToLocalSettings(localSettings, localSettingsKey, plainValue);
+                SetProtectedSecretInFileStore(plainValue, updateProtectedValue);
+                return;
+            }
+            catch (Exception ex)
+            {
+                ClientLog.Warn($"SecureLocalStore: LocalSettings unavailable, using file store. ({ex.GetType().Name}: {ex.Message})");
+            }
         }
 
         SetProtectedSecretInFileStore(plainValue, updateProtectedValue);

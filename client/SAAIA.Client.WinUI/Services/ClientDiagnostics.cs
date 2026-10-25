@@ -73,6 +73,7 @@ internal static class ClientDiagnostics
         var metadata = new System.Collections.Generic.Dictionary<string, string>
         {
             ["clientVersion"] = typeof(ClientDiagnostics).Assembly.GetName().Version?.ToString() ?? "unknown",
+            ["isolatedProfile"] = ClientDataPaths.IsIsolated.ToString(),
             ["mode"] = settings.ActiveMode ?? "auto",
             ["quality"] = settings.RagQualityPreset ?? "balanced",
             ["localEnabled"] = settings.UseLocalLlm.ToString(),

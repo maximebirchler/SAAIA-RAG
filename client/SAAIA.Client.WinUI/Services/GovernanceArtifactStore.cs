@@ -91,7 +91,7 @@ internal static class GovernanceArtifactStore
     // Backend API path segments may remain kebab-case; do not mix both conventions
     // in the same context.
     public static string DefaultRoot =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "governance");
+        Path.Combine(ClientDataPaths.Root, "governance");
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {

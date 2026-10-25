@@ -184,15 +184,18 @@ public sealed partial class ToolAgentOrchestrator
         Action<string>? onDelta,
         Action<string>? onProgress)
     {
-        var terminalAnswer = SourceBackedTerminalAnswer.BuildFailure(language);
+        var reason = exception is LocalLlmUnavailableException
+            ? LocalLlmUnavailableException.ReasonCode : "pipeline_execution_failed";
+        var terminalAnswer = exception is LocalLlmUnavailableException
+            ? SourceBackedTerminalAnswer.BuildLocalModelUnavailable(language)
+            : SourceBackedTerminalAnswer.BuildFailure(language);
         _mem.LastSourcesUsed = new List<ToolMemory.SourceRef>();
         _mem.LastToolNames = new List<string>();
         _mem.LastRagQueries = new List<string>();
-        var errorMessage = FormatPipelineErrorForTrace(exception);
         EmitRagTrace(
             "source_backed_pipeline.error",
             ("error_type", exception.GetType().Name),
-            ("error_message", errorMessage));
+            ("reason", reason));
         _lastAnswerSource = $"source_backed_pipeline_failed:{entryPoint}:{pipelineIntent}";
 
         await EmitDeterministicTextAsync(terminalAnswer, onDelta, ct).ConfigureAwait(false);
@@ -203,7 +206,9 @@ public sealed partial class ToolAgentOrchestrator
             ("entry", entryPoint),
             ("decision", "pipeline_failure"),
             ("error_type", exception.GetType().Name),
-            ("error_message", errorMessage));
+            ("outcome", "failed"),
+            ("reason", reason),
+            ("answered", false));
 
         var finalized = FinalizeAndReturn(
             swTotalPipeline,
@@ -212,7 +217,8 @@ public sealed partial class ToolAgentOrchestrator
             null,
             pipelineIntent,
             _mem.LastToolNames,
-            _mem.LastReasoningTracePublic);
+            _mem.LastReasoningTracePublic,
+            terminalFailureReason: reason);
         return (true, finalized.finalAnswer, finalized.sourcesPayload);
     }
 

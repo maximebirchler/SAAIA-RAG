@@ -112,6 +112,14 @@ $manifest = [ordered]@{
     prerequisites = @()
     environment = @{
         neutralizedVariableNames = $cleared
+        clientDataIsolation = @{
+            requiredForClientTests = $true
+            enabled = $false
+            source = 'not_selected'
+            rootId = $null
+            ownedRelativePath = $null
+            environmentRestored = $null
+        }
     }
 
     results = $results
@@ -285,6 +293,25 @@ try {
             }
         }
     } else {
+        if (@($Projects | Where-Object { $_ -in @('Client', 'ClientCore') }).Count -gt 0) {
+            $explicitClientRoot = [Environment]::GetEnvironmentVariable('SAAIA_CLIENT_DATA_ROOT', 'Process')
+            $hasExplicitClientRoot = -not [string]::IsNullOrWhiteSpace($explicitClientRoot)
+            if ($hasExplicitClientRoot -and -not [IO.Path]::IsPathFullyQualified($explicitClientRoot)) {
+                throw 'Client test isolation requires an absolute SAAIA_CLIENT_DATA_ROOT; no test was executed.'
+            }
+            $clientRoot = if ($hasExplicitClientRoot) {
+                [IO.Path]::GetFullPath($explicitClientRoot)
+            } else {
+                [IO.Path]::GetFullPath((Join-Path $outDir 'client-data'))
+            }
+            if (-not $PlanOnly) { [IO.Directory]::CreateDirectory($clientRoot) | Out-Null }
+            Set-ScopedEnvironment 'SAAIA_CLIENT_DATA_ROOT' $clientRoot
+            $manifest.environment.clientDataIsolation.enabled = $true
+            $manifest.environment.clientDataIsolation.source = if ($hasExplicitClientRoot) { 'explicit_environment' } else { 'owned_campaign_output' }
+            $manifest.environment.clientDataIsolation.rootId = [Convert]::ToHexString(
+                [Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($clientRoot.ToLowerInvariant())))
+            $manifest.environment.clientDataIsolation.ownedRelativePath = if ($hasExplicitClientRoot) { $null } else { 'client-data' }
+        }
         foreach ($project in $Projects) {
             $path = Join-Path $repo $projectPaths[$project]
             if (-not (Test-Path -LiteralPath $path)) {
@@ -381,6 +408,11 @@ try {
 } finally {
     foreach ($name in $previous.Keys) {
         [Environment]::SetEnvironmentVariable($name, $previous[$name], 'Process')
+    }
+    if ($previous.ContainsKey('SAAIA_CLIENT_DATA_ROOT')) {
+        $manifest.environment.clientDataIsolation.environmentRestored = [string]::Equals(
+            [Environment]::GetEnvironmentVariable('SAAIA_CLIENT_DATA_ROOT', 'Process'),
+            $previous['SAAIA_CLIENT_DATA_ROOT'], [StringComparison]::Ordinal)
     }
 
     $manifest.finishedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')

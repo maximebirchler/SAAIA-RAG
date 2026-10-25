@@ -2,6 +2,26 @@ namespace SAAIA.Client.WinUI;
 
 public sealed partial class MainWindow
 {
+    private string? _conversationOperationFailure;
+
+    private void SetConversationOperationFailure(string? operation)
+    {
+        _conversationOperationFailure = operation;
+        RenderConversationOperationFailure();
+    }
+
+    private void RenderConversationOperationFailure()
+    {
+        if (ConversationOperationWarning is null) return;
+        var visible = _conversationOperationFailure is not null;
+        ConversationOperationWarning.Title = visible
+            ? ClientUiText.Get("session.operation." + _conversationOperationFailure + ".failed", UiLang) : string.Empty;
+        ConversationOperationWarning.Message = visible
+            ? ClientUiText.Get("session.operation.recovery", UiLang) : string.Empty;
+        ConversationOperationWarning.IsOpen = visible;
+        ConversationOperationWarning.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     private ChatSessionItem? FindSessionById(string? sessionId)
         => string.IsNullOrWhiteSpace(sessionId)
             ? null
@@ -129,6 +149,7 @@ public sealed partial class MainWindow
 
         // Replace the selected session and its memory together after a successful read.
         _sessionId = requestedSessionId;
+        RefreshComposerPersistenceNoticeForSession();
         SaveSettings();
         SyncSessionSelectionVisual(_sessionId);
         try
@@ -171,6 +192,7 @@ public sealed partial class MainWindow
 
 
         Status(ClientUiText.Format("status.loaded_session", _appSettings.UiLanguage, _sessionId ?? string.Empty));
+        SetConversationOperationFailure(null);
         SyncSessionSelectionVisual(_sessionId);
     }
 
@@ -190,6 +212,7 @@ public sealed partial class MainWindow
                 {
                     ClientLog.Exception("Session.Load", exception);
                     SyncSessionSelectionVisual(_sessionId);
+                    SetConversationOperationFailure("load");
                     Status(exception.Message);
                 }
             }
@@ -226,6 +249,8 @@ public sealed partial class MainWindow
         }
         catch (Exception ex)
         {
+            ClientLog.Exception("Session.Create", ex);
+            SetConversationOperationFailure("create");
             Status(ClientUiText.Get("status.new_chat_failed", _appSettings.UiLanguage) + ex.Message);
         }
         finally
@@ -295,9 +320,12 @@ public sealed partial class MainWindow
             await RefreshSessionsAsync(CancellationToken.None);
             SyncSessionSelectionVisual(_sessionId);
             Status(ClientUiText.Get("session.rename.done", lang));
+            SetConversationOperationFailure(null);
         }
         catch (Exception ex)
         {
+            ClientLog.Exception("Session.Rename", ex);
+            SetConversationOperationFailure("rename");
             Status(ClientUiText.Get("session.rename.failed", _appSettings.UiLanguage) + ex.Message);
         }
         finally
@@ -358,6 +386,7 @@ public sealed partial class MainWindow
             if (deletedCurrentSession)
             {
                 _sessionId = null;
+                RefreshComposerPersistenceNoticeForSession();
                 _agent?.ResetConversationState();
                 ClearStagedOutboundMessage();
                 _messages.Clear();
@@ -374,9 +403,12 @@ public sealed partial class MainWindow
                 SyncSessionSelectionVisual(_sessionId);
 
             Status(ClientUiText.Get("session.delete.done", lang));
+            SetConversationOperationFailure(null);
         }
         catch (Exception ex)
         {
+            ClientLog.Exception("Session.Delete", ex);
+            SetConversationOperationFailure("delete");
             Status(ClientUiText.Get("session.delete.failed", _appSettings.UiLanguage) + ex.Message);
         }
         finally

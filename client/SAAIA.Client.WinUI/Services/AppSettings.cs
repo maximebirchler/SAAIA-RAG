@@ -193,7 +193,7 @@ internal sealed class AppSettings
     public string LlmBaseUrl => $"http://{Host}:{Port}/v1";
 
     private static string SettingsDir =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "client");
+        Path.Combine(ClientDataPaths.Root, "client");
 
     private static string SettingsPath => Path.Combine(SettingsDir, "settings.json");
 
@@ -232,53 +232,56 @@ internal sealed class AppSettings
         var s = new AppSettings();
 
         // 1) Try packaged LocalSettings
-        try
+        if (ClientDataPaths.UsePackagedSettings)
         {
-            var ls = ApplicationData.Current.LocalSettings;
+            try
+            {
+                var ls = ApplicationData.Current.LocalSettings;
 
-            s.BackendUrl = (ls.Values[KBackendUrl] as string) ?? s.BackendUrl;
-            s.BackendUrlAlternates = (ls.Values[KBackendUrlAlternates] as string) ?? s.BackendUrlAlternates;
-            s.ShowAdvancedUi = (ls.Values[KShowAdvancedUi] as bool?) ?? s.ShowAdvancedUi;
-            s.AutoConnect = (ls.Values[KAutoConnect] as bool?) ?? s.AutoConnect;
-            s.UiLanguage = (ls.Values[KUiLanguage] as string) ?? s.UiLanguage;
-            s.UiTheme = NormalizeUiTheme(ls.Values[KUiTheme] as string);
-            s.ProvisioningHash = (ls.Values[KProvisioningHash] as string) ?? s.ProvisioningHash;
-            s.LlmAutoInstallAttemptedHash = (ls.Values[KLlmAutoInstallAttemptedHash] as string) ?? s.LlmAutoInstallAttemptedHash;
-            s.LlmMode = (ls.Values[KLlmMode] as string) ?? s.LlmMode;
+                s.BackendUrl = (ls.Values[KBackendUrl] as string) ?? s.BackendUrl;
+                s.BackendUrlAlternates = (ls.Values[KBackendUrlAlternates] as string) ?? s.BackendUrlAlternates;
+                s.ShowAdvancedUi = (ls.Values[KShowAdvancedUi] as bool?) ?? s.ShowAdvancedUi;
+                s.AutoConnect = (ls.Values[KAutoConnect] as bool?) ?? s.AutoConnect;
+                s.UiLanguage = (ls.Values[KUiLanguage] as string) ?? s.UiLanguage;
+                s.UiTheme = NormalizeUiTheme(ls.Values[KUiTheme] as string);
+                s.ProvisioningHash = (ls.Values[KProvisioningHash] as string) ?? s.ProvisioningHash;
+                s.LlmAutoInstallAttemptedHash = (ls.Values[KLlmAutoInstallAttemptedHash] as string) ?? s.LlmAutoInstallAttemptedHash;
+                s.LlmMode = (ls.Values[KLlmMode] as string) ?? s.LlmMode;
 
-            s.UseLocalLlm = (ls.Values[KUseLocalLlm] as bool?) ?? s.UseLocalLlm;
-            s.ManageLocalLlmProcess = (ls.Values[KManageLocalLlmProcess] as bool?) ?? s.ManageLocalLlmProcess;
-            s.AutoStartOnConnect = (ls.Values[KAutoStart] as bool?) ?? s.AutoStartOnConnect;
-            s.EagerLoad = (ls.Values[KEagerLoad] as bool?) ?? s.AutoStartOnConnect;
+                s.UseLocalLlm = (ls.Values[KUseLocalLlm] as bool?) ?? s.UseLocalLlm;
+                s.ManageLocalLlmProcess = (ls.Values[KManageLocalLlmProcess] as bool?) ?? s.ManageLocalLlmProcess;
+                s.AutoStartOnConnect = (ls.Values[KAutoStart] as bool?) ?? s.AutoStartOnConnect;
+                s.EagerLoad = (ls.Values[KEagerLoad] as bool?) ?? s.AutoStartOnConnect;
 
-            s.LlamaExePath = (ls.Values[KExePath] as string) ?? s.LlamaExePath;
-            s.ModelPath = (ls.Values[KModelPath] as string) ?? s.ModelPath;
+                s.LlamaExePath = (ls.Values[KExePath] as string) ?? s.LlamaExePath;
+                s.ModelPath = (ls.Values[KModelPath] as string) ?? s.ModelPath;
 
-            s.Host = (ls.Values[KHost] as string) ?? s.Host;
-            s.Port = (ls.Values[KPort] as int?) ?? s.Port;
+                s.Host = (ls.Values[KHost] as string) ?? s.Host;
+                s.Port = (ls.Values[KPort] as int?) ?? s.Port;
 
-            s.ModelId = (ls.Values[KModelId] as string) ?? s.ModelId;
-            s.ExtraArgs = (ls.Values[KExtraArgs] as string) ?? s.ExtraArgs;
-            s.StartupTimeoutSeconds = (ls.Values[KStartupTimeoutSec] as int?) ?? s.StartupTimeoutSeconds;
+                s.ModelId = (ls.Values[KModelId] as string) ?? s.ModelId;
+                s.ExtraArgs = (ls.Values[KExtraArgs] as string) ?? s.ExtraArgs;
+                s.StartupTimeoutSeconds = (ls.Values[KStartupTimeoutSec] as int?) ?? s.StartupTimeoutSeconds;
 
-            s.UbatchSize = (ls.Values[KUbatchSize] as int?) ?? s.UbatchSize;
-            s.ThreadsBatch = (ls.Values[KThreadsBatch] as int?) ?? s.ThreadsBatch;
-            s.FlashAttn = ParseFlashAttn(ls.Values[KFlashAttn] as string);
-            s.QualifiedProfile = ParseQualifiedProfile(ls.Values[KQualifiedProfile] as string);
-            s.QualifiedProfile = NormalizeQualifiedProfileForCurrentReference(s.QualifiedProfile);
+                s.UbatchSize = (ls.Values[KUbatchSize] as int?) ?? s.UbatchSize;
+                s.ThreadsBatch = (ls.Values[KThreadsBatch] as int?) ?? s.ThreadsBatch;
+                s.FlashAttn = ParseFlashAttn(ls.Values[KFlashAttn] as string);
+                s.QualifiedProfile = ParseQualifiedProfile(ls.Values[KQualifiedProfile] as string);
+                s.QualifiedProfile = NormalizeQualifiedProfileForCurrentReference(s.QualifiedProfile);
 
-            s.LlmTemperature = (ls.Values[KLlmTemperature] as double?) ?? s.LlmTemperature;
-            s.LlmMaxOutputTokens = (ls.Values[KLlmMaxOutputTokens] as int?) ?? s.LlmMaxOutputTokens;
-            s.RagQualityPreset = (ls.Values[KRagQualityPreset] as string) ?? s.RagQualityPreset;
+                s.LlmTemperature = (ls.Values[KLlmTemperature] as double?) ?? s.LlmTemperature;
+                s.LlmMaxOutputTokens = (ls.Values[KLlmMaxOutputTokens] as int?) ?? s.LlmMaxOutputTokens;
+                s.RagQualityPreset = (ls.Values[KRagQualityPreset] as string) ?? s.RagQualityPreset;
 
-            s.LastSessionId = (ls.Values[KLastSessionId] as string) ?? s.LastSessionId;
+                s.LastSessionId = (ls.Values[KLastSessionId] as string) ?? s.LastSessionId;
 
-            return s;
-        }
-        catch (Exception ex)
-        {
-            // Expected in unpackaged context.
-            ClientLog.Warn($"AppSettings: LocalSettings unavailable, falling back to file. ({ex.GetType().Name}: {ex.Message})");
+                return s;
+            }
+            catch (Exception ex)
+            {
+                // Expected in unpackaged context.
+                ClientLog.Warn($"AppSettings: LocalSettings unavailable, falling back to file. ({ex.GetType().Name}: {ex.Message})");
+            }
         }
 
         // 2) File fallback
@@ -387,62 +390,65 @@ internal sealed class AppSettings
     public void Save()
     {
         // 1) Try packaged LocalSettings
-        try
+        if (ClientDataPaths.UsePackagedSettings)
         {
-            var ls = ApplicationData.Current.LocalSettings;
+            try
+            {
+                var ls = ApplicationData.Current.LocalSettings;
 
-            ls.Values[KBackendUrl] = BackendUrl ?? ClientDefaults.BackendBaseUrl;
-            ls.Values[KBackendUrlAlternates] = BackendUrlAlternates ?? "";
-            ls.Values[KShowAdvancedUi] = ShowAdvancedUi;
-            ls.Values[KAutoConnect] = AutoConnect;
-            ls.Values[KUiLanguage] = string.IsNullOrWhiteSpace(UiLanguage) ? "fr" : UiLanguage;
-            ls.Values[KUiTheme] = NormalizeUiTheme(UiTheme);
-            if (string.IsNullOrWhiteSpace(ProvisioningHash)) ls.Values.Remove(KProvisioningHash);
-            else ls.Values[KProvisioningHash] = ProvisioningHash;
+                ls.Values[KBackendUrl] = BackendUrl ?? ClientDefaults.BackendBaseUrl;
+                ls.Values[KBackendUrlAlternates] = BackendUrlAlternates ?? "";
+                ls.Values[KShowAdvancedUi] = ShowAdvancedUi;
+                ls.Values[KAutoConnect] = AutoConnect;
+                ls.Values[KUiLanguage] = string.IsNullOrWhiteSpace(UiLanguage) ? "fr" : UiLanguage;
+                ls.Values[KUiTheme] = NormalizeUiTheme(UiTheme);
+                if (string.IsNullOrWhiteSpace(ProvisioningHash)) ls.Values.Remove(KProvisioningHash);
+                else ls.Values[KProvisioningHash] = ProvisioningHash;
 
-            if (string.IsNullOrWhiteSpace(LlmAutoInstallAttemptedHash)) ls.Values.Remove(KLlmAutoInstallAttemptedHash);
-            else ls.Values[KLlmAutoInstallAttemptedHash] = LlmAutoInstallAttemptedHash;
+                if (string.IsNullOrWhiteSpace(LlmAutoInstallAttemptedHash)) ls.Values.Remove(KLlmAutoInstallAttemptedHash);
+                else ls.Values[KLlmAutoInstallAttemptedHash] = LlmAutoInstallAttemptedHash;
 
-            ls.Values[KLlmMode] = string.IsNullOrWhiteSpace(LlmMode) ? "embedded" : LlmMode;
+                ls.Values[KLlmMode] = string.IsNullOrWhiteSpace(LlmMode) ? "embedded" : LlmMode;
 
-            ls.Values[KUseLocalLlm] = UseLocalLlm;
-            ls.Values[KManageLocalLlmProcess] = ManageLocalLlmProcess;
-            ls.Values[KAutoStart] = AutoStartOnConnect;
-            ls.Values[KEagerLoad] = EagerLoad;
+                ls.Values[KUseLocalLlm] = UseLocalLlm;
+                ls.Values[KManageLocalLlmProcess] = ManageLocalLlmProcess;
+                ls.Values[KAutoStart] = AutoStartOnConnect;
+                ls.Values[KEagerLoad] = EagerLoad;
 
-            ls.Values[KExePath] = LlamaExePath ?? "";
-            ls.Values[KModelPath] = ModelPath ?? "";
+                ls.Values[KExePath] = LlamaExePath ?? "";
+                ls.Values[KModelPath] = ModelPath ?? "";
 
-            ls.Values[KHost] = Host ?? "127.0.0.1";
-            ls.Values[KPort] = Port;
+                ls.Values[KHost] = Host ?? "127.0.0.1";
+                ls.Values[KPort] = Port;
 
-            ls.Values[KModelId] = ModelId ?? ClientDefaults.LlmModel;
-            ls.Values[KExtraArgs] = ExtraArgs ?? "";
-            ls.Values[KStartupTimeoutSec] = StartupTimeoutSeconds;
+                ls.Values[KModelId] = ModelId ?? ClientDefaults.LlmModel;
+                ls.Values[KExtraArgs] = ExtraArgs ?? "";
+                ls.Values[KStartupTimeoutSec] = StartupTimeoutSeconds;
 
-            ls.Values[KUbatchSize] = UbatchSize;
-            ls.Values[KThreadsBatch] = ThreadsBatch;
-            if (FlashAttn is null) ls.Values.Remove(KFlashAttn);
-            else ls.Values[KFlashAttn] = FlashAttn.Value ? "on" : "off";
-            if (QualifiedProfile is null) ls.Values.Remove(KQualifiedProfile);
-            else ls.Values[KQualifiedProfile] = JsonSerializer.Serialize(QualifiedProfile, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                ls.Values[KUbatchSize] = UbatchSize;
+                ls.Values[KThreadsBatch] = ThreadsBatch;
+                if (FlashAttn is null) ls.Values.Remove(KFlashAttn);
+                else ls.Values[KFlashAttn] = FlashAttn.Value ? "on" : "off";
+                if (QualifiedProfile is null) ls.Values.Remove(KQualifiedProfile);
+                else ls.Values[KQualifiedProfile] = JsonSerializer.Serialize(QualifiedProfile, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
-            ls.Values.Remove("llm.strictMode");
-            ls.Values[KLlmTemperature] = LlmTemperature;
-            ls.Values[KLlmMaxOutputTokens] = LlmMaxOutputTokens;
-            ls.Values[KRagQualityPreset] = RagQualityPreset ?? "balanced";
+                ls.Values.Remove("llm.strictMode");
+                ls.Values[KLlmTemperature] = LlmTemperature;
+                ls.Values[KLlmMaxOutputTokens] = LlmMaxOutputTokens;
+                ls.Values[KRagQualityPreset] = RagQualityPreset ?? "balanced";
 
-            if (string.IsNullOrWhiteSpace(LastSessionId))
-                ls.Values.Remove(KLastSessionId);
-            else
-                ls.Values[KLastSessionId] = LastSessionId;
+                if (string.IsNullOrWhiteSpace(LastSessionId))
+                    ls.Values.Remove(KLastSessionId);
+                else
+                    ls.Values[KLastSessionId] = LastSessionId;
 
-            return;
-        }
-        catch (Exception ex)
-        {
-            // Expected in unpackaged context.
-            ClientLog.Warn($"AppSettings: LocalSettings unavailable, writing to file. ({ex.GetType().Name}: {ex.Message})");
+                return;
+            }
+            catch (Exception ex)
+            {
+                // Expected in unpackaged context.
+                ClientLog.Warn($"AppSettings: LocalSettings unavailable, writing to file. ({ex.GetType().Name}: {ex.Message})");
+            }
         }
 
         // 2) File fallback

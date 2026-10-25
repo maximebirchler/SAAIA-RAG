@@ -44,6 +44,7 @@ public sealed partial class ApiClient
     private string _baseUrl = "http://localhost:5122";
     private string _apiKey = "";
     private string _adminKey = "";
+    private long _adminSessionRevision;
     private string _userId = "";
     private readonly object _documentsTreeCacheGate = new();
     private readonly Dictionary<string, DocumentsTreeCacheEntry> _documentsTreeCache = new(StringComparer.Ordinal);
@@ -56,7 +57,7 @@ public sealed partial class ApiClient
         public JsonElement Payload { get; init; }
     }
 
-    private readonly record struct ApiClientConfigSnapshot(string BaseUrl, string ApiKey, string AdminKey, string UserId);
+    private readonly record struct ApiClientConfigSnapshot(string BaseUrl, string ApiKey, string AdminKey, string UserId, long AdminSessionRevision);
 
     public void Configure(string baseUrl, string apiKey, string userId, string? adminKey = null)
     {
@@ -69,7 +70,10 @@ public sealed partial class ApiClient
             _userId = (userId ?? "").Trim();
 
             if (adminKey is not null)
+            {
                 _adminKey = adminKey.Trim();
+                _adminSessionRevision++;
+            }
         }
 
         lock (_documentsTreeCacheGate)
@@ -83,6 +87,7 @@ public sealed partial class ApiClient
         lock (_configGate)
         {
             _adminKey = (adminKey ?? "").Trim();
+            _adminSessionRevision++;
         }
     }
 
@@ -91,6 +96,7 @@ public sealed partial class ApiClient
         lock (_configGate)
         {
             _adminKey = string.Empty;
+            _adminSessionRevision++;
         }
     }
 
@@ -163,7 +169,7 @@ public sealed partial class ApiClient
     {
         lock (_configGate)
         {
-            return new ApiClientConfigSnapshot(_baseUrl, _apiKey, _adminKey, _userId);
+            return new ApiClientConfigSnapshot(_baseUrl, _apiKey, _adminKey, _userId, _adminSessionRevision);
         }
     }
 
@@ -173,6 +179,7 @@ public sealed partial class ApiClient
         {
             var previous = _adminKey;
             _adminKey = (adminKey ?? string.Empty).Trim();
+            _adminSessionRevision++;
             return previous;
         }
     }
@@ -424,7 +431,7 @@ public sealed partial class ApiClient
         resp.EnsureSuccessStatusCode();
     }
 
-    public async Task<ChatMessageItem?> AddMessageAsync(string sessionId, string role, string content, object? sources, CancellationToken ct, string? statusNote = null, string? progressText = null, ChatTrackingMeta? trackingMeta = null)
+    public async Task<ChatMessageItem?> AddMessageAsync(string sessionId, string role, string content, object? sources, CancellationToken ct, string? statusNote = null, string? progressText = null, ChatTrackingMeta? trackingMeta = null, bool requireDurableAcknowledgement = false)
     {
         var snapshot = GetConfigSnapshot();
         string? sourcesJson = null;
@@ -451,9 +458,15 @@ public sealed partial class ApiClient
 
         var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(json))
+        {
+            if (requireDurableAcknowledgement)
+                throw new System.IO.InvalidDataException("message_acknowledgement_missing");
             return null;
+        }
 
         using var doc = JsonDocument.Parse(json);
+        if (requireDurableAcknowledgement)
+            ValidateDurableMessageAcknowledgement(doc.RootElement, sessionId, snapshot.UserId, role, content);
         return ParseChatMessage(doc.RootElement);
     }
 

@@ -160,13 +160,19 @@ public sealed partial class MainWindow
         var hasSession = !string.IsNullOrWhiteSpace(_sessionId);
         var hasText = !string.IsNullOrWhiteSpace(InputBox?.Text);
 
-        var showCancelState = _isGenerating && !_isCancellingGeneration;
-        var canInvoke = IsConnected && hasSession && !_isLoadingSession && (showCancelState || (!_isGenerating && hasText));
-        SendCancelButton.IsEnabled = true;
-        SendCancelButton.IsHitTestVisible = canInvoke;
-        SendCancelButton.Opacity = canInvoke ? 1d : 0.96d;
-        SendCancelIcon.Glyph = showCancelState ? "" : "";
-        var label = showCancelState ? ClientUiText.Get("button.cancel", _appSettings.UiLanguage) : ClientUiText.Get("button.send", _appSettings.UiLanguage);
+        var action = SAAIA.Client.Core.Conversation.ComposerActionState.Resolve(
+            IsConnected, hasSession, _isLoadingSession, _isGenerating, _isCancellingGeneration, hasText);
+        var showCancelState = action.Kind == SAAIA.Client.Core.Conversation.ComposerActionKind.Cancel;
+        SendCancelButton.IsEnabled = action.IsEnabled;
+        SendCancelButton.IsHitTestVisible = action.IsEnabled;
+        SendCancelButton.Opacity = action.IsEnabled ? 1d : 0.65d;
+        SendCancelIcon.Glyph = action.Kind == SAAIA.Client.Core.Conversation.ComposerActionKind.Send ? "" : "";
+        var label = ClientUiText.Get(action.Kind switch
+        {
+            SAAIA.Client.Core.Conversation.ComposerActionKind.Cancel => "button.cancel",
+            SAAIA.Client.Core.Conversation.ComposerActionKind.Cancelling => "button.cancelling",
+            _ => "button.send"
+        }, _appSettings.UiLanguage);
         ToolTipService.SetToolTip(SendCancelButton, label);
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(SendCancelButton, label);
 
@@ -176,7 +182,7 @@ public sealed partial class MainWindow
         SolidColorBrush hover;
         SolidColorBrush pressed;
 
-        if (showCancelState)
+        if (showCancelState && action.IsEnabled)
         {
             background = light ? UiBrush(0xC0, 0x56, 0x5E) : UiBrush(0x91, 0x41, 0x48);
             border = light ? UiBrush(0xD3, 0x66, 0x6E) : UiBrush(0xA7, 0x51, 0x59);
@@ -184,7 +190,7 @@ public sealed partial class MainWindow
             hover = light ? UiBrush(0xD3, 0x66, 0x6E) : UiBrush(0xA7, 0x51, 0x59);
             pressed = light ? UiBrush(0xA5, 0x46, 0x4D) : UiBrush(0x77, 0x35, 0x3B);
         }
-        else if (hasText)
+        else if (action.IsEnabled)
         {
             background = light ? UiBrush(0x5E, 0x7A, 0x97) : UiBrush(0x3A, 0x84, 0xD8);
             border = light ? UiBrush(0x6B, 0x87, 0xA4) : UiBrush(0x56, 0xA7, 0xE7);

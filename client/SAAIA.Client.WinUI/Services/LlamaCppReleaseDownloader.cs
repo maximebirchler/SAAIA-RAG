@@ -29,7 +29,7 @@ internal sealed class LlamaCppReleaseDownloader
 
     public static string RuntimeRoot =>
         RuntimeRootOverride
-        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "llm", "runtime");
+        ?? Path.Combine(ClientDataPaths.Root, "llm", "runtime");
 
     internal static string? RuntimeRootOverride { get; set; }
 

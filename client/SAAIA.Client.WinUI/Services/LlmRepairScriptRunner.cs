@@ -26,6 +26,13 @@ internal static class LlmRepairScriptRunner
         if (!string.IsNullOrWhiteSpace(overridePath))
             candidates.Add(overridePath);
 
+        if (ClientDataPaths.IsIsolated)
+        {
+            candidates.Add(Path.Combine(ClientDataPaths.Root, "deploy", "install-llm.ps1"));
+            candidates.Add(Path.Combine(ClientDataPaths.Root, "install-llm.ps1"));
+            return candidates.Find(File.Exists);
+        }
+
         // Most stable production locations
         candidates.Add(Path.Combine(DefaultInstallRoot, "deploy", "install-llm.ps1"));
         candidates.Add(Path.Combine(DefaultInstallRoot, "install-llm.ps1"));

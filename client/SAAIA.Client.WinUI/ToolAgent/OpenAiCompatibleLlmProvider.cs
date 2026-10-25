@@ -175,7 +175,8 @@ internal abstract class OpenAiCompatibleLlmProviderBase : ILlmProvider
         }
         catch (Exception ex)
         {
-            decimal? cost = reservation is null ? null : _budget!.Fail(reservation, NormalizeErrorCode(ex));
+            var failure = ClassifyTransportFailure(ex);
+            decimal? cost = reservation is null ? null : _budget!.Fail(reservation, NormalizeErrorCode(failure));
             EmitMetrics(
                 reservation,
                 role,
@@ -185,7 +186,8 @@ internal abstract class OpenAiCompatibleLlmProviderBase : ILlmProvider
                 cost,
                 success: false,
                 retryCount: 0,
-                NormalizeErrorCode(ex));
+                NormalizeErrorCode(failure));
+            if (!ReferenceEquals(failure, ex)) throw failure;
             throw;
         }
 
@@ -333,7 +335,8 @@ internal abstract class OpenAiCompatibleLlmProviderBase : ILlmProvider
         }
         catch (Exception ex)
         {
-            var errorCode = NormalizeErrorCode(ex);
+            var failure = ClassifyTransportFailure(ex);
+            var errorCode = NormalizeErrorCode(failure);
             decimal? cost = reservation is null ? null : _budget!.Fail(reservation, errorCode);
             EmitMetrics(
                 reservation,
@@ -345,6 +348,7 @@ internal abstract class OpenAiCompatibleLlmProviderBase : ILlmProvider
                 success: false,
                 retryCount: 0,
                 errorCode);
+            if (!ReferenceEquals(failure, ex)) throw failure;
             throw;
         }
 
@@ -461,9 +465,14 @@ internal abstract class OpenAiCompatibleLlmProviderBase : ILlmProvider
             structuredContract: null);
     }
 
+    private Exception ClassifyTransportFailure(Exception exception)
+        => Descriptor.Mode == LlmProviderMode.Local && exception is HttpRequestException http
+            && exception is not LocalLlmUnavailableException ? new LocalLlmUnavailableException(http) : exception;
+
     private static string NormalizeErrorCode(Exception exception)
         => exception switch
         {
+            LocalLlmUnavailableException => LocalLlmUnavailableException.ReasonCode,
             LlmProviderRequestTimeoutException => "timeout",
             OperationCanceledException => "cancelled",
             HttpRequestException { StatusCode: HttpStatusCode.Unauthorized } => "http_401",

@@ -18,7 +18,7 @@ internal static class UserPrefsStore
 
     private static string FilePath =>
         FilePathOverrideForTests
-        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "user-prefs.bin");
+        ?? Path.Combine(ClientDataPaths.Root, "user-prefs.bin");
 
     public static UserPrefs Load()
     {

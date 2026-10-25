@@ -14,6 +14,8 @@ public sealed partial class MainWindow
     private Button? _startupOverlayRetryButton;
     private Button? _startupOverlaySetupButton;
     private StackPanel? _startupOverlayActionsRow;
+    private enum StartupOverlayMode { Loading, Disconnected, Error }
+    private StartupOverlayMode _startupOverlayMode;
 
     private Grid? _dialogOverlayHost;
     private Border? _dialogOverlaySmoke;
@@ -90,8 +92,7 @@ public sealed partial class MainWindow
         };
         _startupOverlayRetryButton.Click += async (_, __) =>
         {
-            HideStartupOverlay();
-            await InitializeUserModeAsync();
+            await ConnectFromStartupOverlayAsync();
         };
 
         // Secondary "Configurer" button: opens the setup wizard so the user can fix the
@@ -215,6 +216,8 @@ public sealed partial class MainWindow
             return;
 
         var wasVisible = _startupOverlay?.Visibility == Visibility.Visible;
+        var previousMode = _startupOverlayMode;
+        var previousTitle = _startupOverlayTitleText?.Text ?? ClientUiText.Get("startup.title", _appSettings.UiLanguage);
         var previousSubtitle = _startupOverlaySubtitleText?.Text ?? ClientUiText.Get("startup.subtitle", _appSettings.UiLanguage);
         var previousStatus = _startupOverlayStatusText?.Text ?? ClientUiText.Get("startup.status.initializing", _appSettings.UiLanguage);
 
@@ -243,10 +246,12 @@ public sealed partial class MainWindow
         {
             HideStartupOverlay();
         }
+        else if (previousMode == StartupOverlayMode.Error)
+            ShowStartupOverlayError(previousTitle, previousSubtitle);
+        else if (previousMode == StartupOverlayMode.Disconnected)
+            ShowStartupOverlayDisconnected();
         else
-        {
             ShowStartupOverlay(previousSubtitle, previousStatus);
-        }
     }
 
     private void ShowStartupOverlay(string subtitle, string status)
@@ -256,6 +261,7 @@ public sealed partial class MainWindow
             return;
 
         _startupOverlay.Visibility = Visibility.Visible;
+        _startupOverlayMode = StartupOverlayMode.Loading;
 
         // Reset to "loading" mode in case we're re-entering after a previous error.
         if (_startupOverlayTitleText is not null)
@@ -280,7 +286,7 @@ public sealed partial class MainWindow
 
     // Switch the startup overlay into an error state: red cross instead of brand,
     // "Pas connecté au serveur" title, the error message as the status, and a retry
-    // button that re-runs InitializeUserModeAsync.
+    // button that explicitly reconnects, even when automatic connection is disabled.
     private void ShowStartupOverlayError(string title, string detail)
     {
         EnsureStartupOverlay();
@@ -288,6 +294,7 @@ public sealed partial class MainWindow
             return;
 
         _startupOverlay.Visibility = Visibility.Visible;
+        _startupOverlayMode = StartupOverlayMode.Error;
 
         if (_startupOverlayTitleText is not null)
             _startupOverlayTitleText.Text = title;
@@ -306,6 +313,27 @@ public sealed partial class MainWindow
             _startupOverlayStatusText.Text = string.Empty;
         if (_startupOverlayRetryButton is not null)
             _startupOverlayRetryButton.Content = ClientUiText.Get("startup.retry", _appSettings.UiLanguage);
+        if (_startupOverlaySetupButton is not null)
+            _startupOverlaySetupButton.Content = ClientUiText.Get("startup.configure", _appSettings.UiLanguage);
+        if (_startupOverlayActionsRow is not null)
+            _startupOverlayActionsRow.Visibility = Visibility.Visible;
+    }
+
+    private void ShowStartupOverlayDisconnected()
+    {
+        ShowStartupOverlay(
+            ClientUiText.Get(NeedsSetupWizard() ? "startup.manual.setup_required" : "startup.manual.detail", _appSettings.UiLanguage),
+            string.Empty);
+        _startupOverlayMode = StartupOverlayMode.Disconnected;
+        if (_startupOverlayTitleText is not null)
+            _startupOverlayTitleText.Text = ClientUiText.Get("startup.manual.title", _appSettings.UiLanguage);
+        if (_startupOverlayRing is not null)
+        {
+            _startupOverlayRing.IsActive = false;
+            _startupOverlayRing.Visibility = Visibility.Collapsed;
+        }
+        if (_startupOverlayRetryButton is not null)
+            _startupOverlayRetryButton.Content = ClientUiText.Get("startup.connect", _appSettings.UiLanguage);
         if (_startupOverlaySetupButton is not null)
             _startupOverlaySetupButton.Content = ClientUiText.Get("startup.configure", _appSettings.UiLanguage);
         if (_startupOverlayActionsRow is not null)

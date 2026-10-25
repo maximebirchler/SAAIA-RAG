@@ -22,6 +22,8 @@ public sealed partial class MainWindow
 
     private void InputBox_TextChanged(object sender, TextChangedEventArgs e)
     {
+        _composerPersistenceNotice.ObserveDraft(_sessionId, InputBox?.Text);
+        RenderComposerPersistenceNotice();
         if (!Services.StagedOutboundMessageState.ShouldRetainPendingAfterTextChange(
                 _pendingOutboundWireText,
                 _pendingOutboundDisplayText,
@@ -31,6 +33,30 @@ public sealed partial class MainWindow
         }
 
         UpdateSendCancelButtonVisualState();
+    }
+
+    private void RenderComposerPersistenceNotice()
+    {
+        if (ComposerPersistenceWarning is null) return;
+        var visible = _composerPersistenceNotice.IsVisibleFor(_sessionId);
+        ComposerPersistenceWarning.Title = LocalRuntimeText(
+            "Enregistrement non confirmé", "Storage not confirmed", "Guardado no confirmado",
+            "Armazenamento não confirmado", "Speicherung nicht bestätigt", "Salvataggio non confermato", UiLang);
+        ComposerPersistenceWarning.Message = LocalRuntimeText(
+            "Votre saisie est conservée. Vérifiez l'historique avant de réessayer : le message a peut-être déjà été enregistré.",
+            "Your draft is preserved. Check the history before retrying: the message may already have been saved.",
+            "Se conserva el texto. Revisa el historial antes de reintentar: puede que el mensaje ya se haya guardado.",
+            "O texto foi preservado. Verifica o histórico antes de tentar novamente: a mensagem pode já ter sido guardada.",
+            "Dein Entwurf bleibt erhalten. Prüfe vor dem erneuten Versuch den Verlauf: Die Nachricht könnte bereits gespeichert sein.",
+            "La bozza è conservata. Controlla la cronologia prima di riprovare: il messaggio potrebbe essere già stato salvato.", UiLang);
+        ComposerPersistenceWarning.IsOpen = visible;
+        ComposerPersistenceWarning.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void RefreshComposerPersistenceNoticeForSession()
+    {
+        _composerPersistenceNotice.ObserveSession(_sessionId);
+        RenderComposerPersistenceNotice();
     }
 
     private void InputBox_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -497,8 +523,6 @@ public sealed partial class MainWindow
             UpdateJumpButton();
 
             UpdateUiState(isGenerating: true);
-            InputBox.Text = string.Empty;
-            ClearStagedOutboundMessage();
 
             var tailBefore = _messages.ToList();
             Services.ClientLog.Info(
@@ -508,11 +532,22 @@ public sealed partial class MainWindow
                 $"displayChars={shownText.Length}|" +
                 $"tail={tailBefore.Count}");
 
-            var userMsg = new ChatMessageItem { Role = "user", Content = shownText, CreatedAt = DateTime.UtcNow };
-            _messages.Add(userMsg);
-            ScrollToBottom(force: true);
-            await _api.AddMessageAsync(turnSessionId, "user", shownText, null, CancellationToken.None);
-            turnCancellationToken.ThrowIfCancellationRequested();
+            await Services.InitialMessagePersistence.PersistBeforeGenerationAsync(_api, turnSessionId, shownText,
+                saved =>
+                {
+                    // Until the server acknowledges this write, the complete composer
+                    // and staged wire/display pair stay available for recovery.
+                    _composerPersistenceNotice.Confirmed(turnSessionId);
+                    RenderComposerPersistenceNotice();
+                    InputBox.Text = string.Empty;
+                    ClearStagedOutboundMessage();
+                    _messages.Add(new ChatMessageItem
+                    {
+                        Role = "user", Content = shownText, MessageId = saved?.MessageId,
+                        CreatedAt = saved?.CreatedAt ?? DateTime.UtcNow
+                    });
+                    ScrollToBottom(force: true);
+                }, turnCancellationToken);
 
             await MaybeAutoTitleAsync(shownText);
             turnCancellationToken.ThrowIfCancellationRequested();
@@ -667,6 +702,20 @@ public sealed partial class MainWindow
 
             diagnosticTurn.Complete(wasCancelled ? "cancelled" : "success", wasCancelled ? "user_cancelled" : null);
             ClearStatus();
+        }
+        catch (Services.InitialMessagePersistenceUnconfirmedException ex)
+        {
+            diagnosticTurn.Complete("failed", "user_message_persistence_unconfirmed");
+            Services.ClientLog.Exception("Chat.InitialMessagePersistence", ex);
+            _composerPersistenceNotice.ReportUnconfirmed(turnSessionId, _sessionId, InputBox.Text);
+            RenderComposerPersistenceNotice();
+            Status(LocalRuntimeText(
+                "Enregistrement du message non confirmé. Votre saisie est conservée. Vérifiez l'historique avant de réessayer.",
+                "Message storage was not confirmed. Your draft is preserved. Check the chat history before retrying.",
+                "No se confirmó el guardado del mensaje. Se conserva el texto. Revisa el historial antes de reintentar.",
+                "O armazenamento da mensagem não foi confirmado. O texto foi preservado. Verifica o histórico antes de tentar novamente.",
+                "Die Speicherung wurde nicht bestätigt. Dein Entwurf bleibt erhalten. Prüfe den Verlauf vor einem erneuten Versuch.",
+                "Il salvataggio del messaggio non è stato confermato. La bozza è conservata. Controlla la cronologia prima di riprovare.", UiLang));
         }
         catch (OperationCanceledException)
         {

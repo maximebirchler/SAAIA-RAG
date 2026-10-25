@@ -229,7 +229,7 @@ internal sealed class LlamaCppProcessManager
 
         StopMatchingRuntimeProcesses(exePath);
 
-        var logsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "logs");
+        var logsDir = Path.Combine(ClientDataPaths.Root, "logs");
         Directory.CreateDirectory(logsDir);
         var logPath = Path.Combine(logsDir, $"llama-server_{DateTime.Now:yyyyMMdd_HHmmss}.log");
 

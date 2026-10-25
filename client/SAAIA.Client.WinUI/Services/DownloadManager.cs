@@ -36,7 +36,7 @@ internal sealed class DownloadManager
     }
 
     private static string SaaiaRoot =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA");
+        ClientDataPaths.Root;
 
     private static string DownloadsDir => Path.Combine(SaaiaRoot, "downloads");
 

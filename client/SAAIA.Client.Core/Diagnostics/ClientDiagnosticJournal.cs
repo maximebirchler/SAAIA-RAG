@@ -137,8 +137,21 @@ public sealed class ClientDiagnosticJournal
         catch { Interlocked.Increment(ref _collectorFailures); }
     }
 
+    /// <summary>Records an unrecovered terminal failure; intermediate failed calls must not use this method.</summary>
+    public void ReportTerminalFailure(string reason)
+    {
+        var state = _current.Value;
+        if (state is null) return;
+        lock (state.Gate)
+            if (!state.Finalized)
+                state.TerminalFailureReason ??= BoundToken(reason, "terminal_execution_failed", state);
+    }
+
     private void Finish(TurnState state, string outcome, string? reason)
     {
+        lock (state.Gate)
+            if (outcome == "success" && state.TerminalFailureReason is { } failure)
+                (outcome, reason) = ("failed", failure);
         EmitForState(state, "turn.end", outcome, reason);
         lock (state.Gate)
         {
@@ -251,6 +264,7 @@ public sealed class ClientDiagnosticJournal
         internal int OmittedMetadata;
         internal int TruncatedMetadata;
         internal volatile bool Finalized;
+        internal string? TerminalFailureReason;
     }
 
     public sealed class TurnScope : IDisposable

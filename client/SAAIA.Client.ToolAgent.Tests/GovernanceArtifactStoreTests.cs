@@ -1006,11 +1006,7 @@ public sealed class GovernanceArtifactStoreTests
     [Fact]
     public void Retired_model_migration_only_recognizes_unknown_artifacts_in_managed_directory()
     {
-        var managedPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "SAAIA",
-            "Models",
-            "retired-model.gguf");
+        var managedPath = Path.Combine(ModelLibrary.ModelsDir, "retired-model.gguf");
 
         Assert.True(LocalLlmBootstrapper.IsRetiredManagedModelSelection(new AppSettings
         {
@@ -1027,6 +1023,17 @@ public sealed class GovernanceArtifactStoreTests
             ModelId = ClientDefaults.LlmModel,
             ModelPath = Path.Combine(Path.GetDirectoryName(managedPath)!, ClientDefaults.LlmModel)
         }));
+
+        var normalProfileModels = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "Models");
+        if (!string.Equals(Path.GetFullPath(ModelLibrary.ModelsDir), Path.GetFullPath(normalProfileModels), StringComparison.OrdinalIgnoreCase))
+        {
+            Assert.False(LocalLlmBootstrapper.IsRetiredManagedModelSelection(new AppSettings
+            {
+                ModelId = "retired-model.gguf",
+                ModelPath = Path.Combine(normalProfileModels, "retired-model.gguf")
+            }));
+        }
     }
 
     [Fact]

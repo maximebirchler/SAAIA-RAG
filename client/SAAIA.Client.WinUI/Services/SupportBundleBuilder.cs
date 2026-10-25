@@ -22,7 +22,7 @@ internal static class SupportBundleBuilder
     private static readonly AsyncLocal<BundleCollection?> Collection = new();
 
     public static string SupportDir =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SAAIA", "support");
+        Path.Combine(ClientDataPaths.Root, "support");
 
     public static async Task<string> BuildAsync(
         AppSettings settings,
@@ -71,11 +71,11 @@ internal static class SupportBundleBuilder
             }
 
             // 4) Models manifest if exists
-            var modelsJson = Path.Combine(GetLocalAppDataRoot(localAppDataRoot), "SAAIA", "Models", "models.json");
+            var modelsJson = Path.Combine(GetDataRoot(localAppDataRoot), "Models", "models.json");
             CopyIfExists(modelsJson, Path.Combine(staging, "models.json"));
 
             // 5) Downloads manifest if exists
-            var dlManifest = Path.Combine(GetLocalAppDataRoot(localAppDataRoot), "SAAIA", "downloads", "manifest.json");
+            var dlManifest = Path.Combine(GetDataRoot(localAppDataRoot), "downloads", "manifest.json");
             CopyIfExists(dlManifest, Path.Combine(staging, "downloads.manifest.json"));
 
             // 5a) Local governance artifacts when present
@@ -86,18 +86,18 @@ internal static class SupportBundleBuilder
             Directory.CreateDirectory(llmDir);
 
             // Produced by infra/scripts/llm/install-llm.ps1 (Option B)
-            CopyIfExists(Path.Combine(@"C:\SAAIA", "deploy", "docker-compose.llm.yml"), Path.Combine(llmDir, "docker-compose.llm.yml"));
-            CopyIfExists(Path.Combine(@"C:\SAAIA", "deploy", "llm.install.json"), Path.Combine(llmDir, "llm.install.json"));
-            CopyIfExists(Path.Combine(@"C:\SAAIA", "deploy", "install-llm.log"), Path.Combine(llmDir, "install-llm.log"));
+            CopyIfExists(Path.Combine(ClientDataPaths.IsIsolated ? ClientDataPaths.Root : @"C:\SAAIA", "deploy", "docker-compose.llm.yml"), Path.Combine(llmDir, "docker-compose.llm.yml"));
+            CopyIfExists(Path.Combine(ClientDataPaths.IsIsolated ? ClientDataPaths.Root : @"C:\SAAIA", "deploy", "llm.install.json"), Path.Combine(llmDir, "llm.install.json"));
+            CopyIfExists(Path.Combine(ClientDataPaths.IsIsolated ? ClientDataPaths.Root : @"C:\SAAIA", "deploy", "install-llm.log"), Path.Combine(llmDir, "install-llm.log"));
 
             // Embedded runtime (M6): include lightweight marker files (not the whole runtime folder)
             try
             {
                 CopyIfExists(
-                    Path.Combine(GetLocalAppDataRoot(localAppDataRoot), "SAAIA", "llm", "runtime", "active-runtime.json"),
+                    Path.Combine(GetDataRoot(localAppDataRoot), "llm", "runtime", "active-runtime.json"),
                     Path.Combine(llmDir, "active-runtime.json"));
                 CopyIfExists(
-                    Path.Combine(GetLocalAppDataRoot(localAppDataRoot), "SAAIA", "llm", "runtime", "active-runtime.json.sha256"),
+                    Path.Combine(GetDataRoot(localAppDataRoot), "llm", "runtime", "active-runtime.json.sha256"),
                     Path.Combine(llmDir, "active-runtime.json.sha256"));
                 CopyIfExists(
                     ResolveGovernancePath(GovernanceArtifactStore.RuntimeEventLogFile, localAppDataRoot),
@@ -150,7 +150,7 @@ internal static class SupportBundleBuilder
 
 
             // 6) Logs (last 40)
-            var logsDir = Path.Combine(GetLocalAppDataRoot(localAppDataRoot), "SAAIA", "logs");
+            var logsDir = Path.Combine(GetDataRoot(localAppDataRoot), "logs");
             if (Directory.Exists(logsDir))
             {
                 var outLogs = Path.Combine(staging, "logs");
@@ -197,7 +197,7 @@ internal static class SupportBundleBuilder
                 injected: probeWriter is not null).ConfigureAwait(false);
 
             await WriteCollectedProbeAsync(Path.Combine(staging, "llm_models.json"),
-                () => new Uri(new Uri(settings.LlmBaseUrl.TrimEnd('/')), "models"), writeProbe,
+                () => new Uri(new Uri(settings.LlmBaseUrl.TrimEnd('/') + "/"), "models"), writeProbe,
                 injected: probeWriter is not null).ConfigureAwait(false);
 
             // 8b) Agent runtime diagnostics (optional but enabled by default)
@@ -340,15 +340,15 @@ internal static class SupportBundleBuilder
     }
 
     private static string LocalClientDir(string? localAppDataRoot = null) =>
-        Path.Combine(GetLocalAppDataRoot(localAppDataRoot), "SAAIA", "client");
+        Path.Combine(GetDataRoot(localAppDataRoot), "client");
 
-    private static string GetLocalAppDataRoot(string? localAppDataRoot = null)
+    private static string GetDataRoot(string? localAppDataRoot = null)
         => string.IsNullOrWhiteSpace(localAppDataRoot)
-            ? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
-            : localAppDataRoot;
+            ? ClientDataPaths.Root
+            : Path.Combine(localAppDataRoot, "SAAIA");
 
     private static string ResolveGovernancePath(string fileName, string? localAppDataRoot = null)
-        => Path.Combine(GetLocalAppDataRoot(localAppDataRoot), "SAAIA", "governance", fileName);
+        => Path.Combine(GetDataRoot(localAppDataRoot), "governance", fileName);
 
     private static void CopyOptionalGovernanceArtifacts(string staging, string? localAppDataRoot = null)
     {

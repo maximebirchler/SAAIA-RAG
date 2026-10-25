@@ -9,6 +9,56 @@ namespace SAAIA.Client.Core.Tests;
 public sealed class ClientDiagnosticJournalTests
 {
     [Fact]
+    public void Terminal_failure_in_borrowed_agent_cannot_be_overwritten_by_outer_success()
+    {
+        var journal = new ClientDiagnosticJournal();
+        using (var ui = journal.BeginTurn("session"))
+        {
+            using (var agent = journal.BeginTurn())
+            {
+                journal.ReportTerminalFailure("local_model_unavailable");
+                agent.Complete();
+            }
+            Assert.Empty(journal.Last());
+            ui.Complete();
+        }
+        var record = Assert.Single(journal.Last());
+        Assert.Equal("failed", record.Outcome);
+        Assert.Equal("local_model_unavailable", record.Reason);
+        Assert.Equal("failed", record.Events.Last().Outcome);
+        using (var next = journal.BeginTurn()) next.Complete();
+        Assert.Equal("success", journal.Last().Last().Outcome);
+    }
+
+    [Theory]
+    [InlineData("model.call", "failed", "recovered_transport_failure")]
+    [InlineData("evidence.judge", "success", "insufficient_documentation")]
+    public void Recoverable_call_and_expected_insufficiency_do_not_mark_a_successful_turn_failed(string operation, string outcome, string reason)
+    {
+        var journal = new ClientDiagnosticJournal();
+        using (var turn = journal.BeginTurn())
+        {
+            journal.Emit(operation, outcome, reason);
+            turn.Complete();
+        }
+        Assert.Equal("success", Assert.Single(journal.Last()).Outcome);
+    }
+
+    [Fact]
+    public void Explicit_user_cancellation_keeps_its_outcome_after_a_reported_failure()
+    {
+        var journal = new ClientDiagnosticJournal();
+        using (var turn = journal.BeginTurn())
+        {
+            journal.ReportTerminalFailure("local_model_unavailable");
+            turn.Complete("cancelled", "user_cancelled");
+        }
+        var record = Assert.Single(journal.Last());
+        Assert.Equal("cancelled", record.Outcome);
+        Assert.Equal("user_cancelled", record.Reason);
+    }
+
+    [Fact]
     public void Completed_turn_history_survives_new_orchestrators_and_honors_last_n()
     {
         var journal = new ClientDiagnosticJournal(capacity: 3);

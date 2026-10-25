@@ -16,22 +16,11 @@ internal static class ClientLog
     private const long MaximumLogBytes = 10L * 1024 * 1024;
     private const int RetainedLogCount = 3;
     private static readonly object _lock = new();
-    private static string? _logDir;
     private static int _handlersRegistered;
     private static long _failedWrites;
     public static long FailedWrites => Interlocked.Read(ref _failedWrites);
 
-    public static string LogDirectory
-    {
-        get
-        {
-            _logDir ??= Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "SAAIA",
-                "logs");
-            return _logDir;
-        }
-    }
+    public static string LogDirectory => Path.Combine(ClientDataPaths.Root, "logs");
 
     public static string StartupLogPath => Path.Combine(LogDirectory, "client_startup.log");
 

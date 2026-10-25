@@ -63,7 +63,7 @@ public sealed partial class ToolAgentOrchestrator
             if (mission.UsesFocusedDocument)
             {
                 return !string.IsNullOrWhiteSpace(missionDocument)
-                    ? Path.GetFileName(missionDocument.Trim())
+                    ? missionDocument.Trim()
                     : ResolveSourceBackedRequestedDocumentFromToolCalls(
                         routerPlan);
             }
@@ -76,7 +76,7 @@ public sealed partial class ToolAgentOrchestrator
             {
                 return string.IsNullOrWhiteSpace(missionDocument)
                     ? null
-                    : Path.GetFileName(missionDocument.Trim());
+                    : missionDocument.Trim();
             }
 
             return null;
@@ -105,7 +105,7 @@ public sealed partial class ToolAgentOrchestrator
         var legacyMissionDocument =
             mission?.RequestedDocumentName;
         if (!string.IsNullOrWhiteSpace(legacyMissionDocument))
-            return Path.GetFileName(legacyMissionDocument.Trim());
+            return legacyMissionDocument.Trim();
 
         return ResolveSourceBackedRequestedDocumentFromToolCalls(routerPlan);
     }
@@ -139,7 +139,7 @@ public sealed partial class ToolAgentOrchestrator
                     continue;
                 }
 
-                return Path.GetFileName(property.GetString()!.Trim());
+                return property.GetString()!.Trim();
             }
         }
 

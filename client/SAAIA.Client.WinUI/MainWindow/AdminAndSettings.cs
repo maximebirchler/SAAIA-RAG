@@ -228,6 +228,14 @@ public sealed partial class MainWindow
 
     private async void UserSettings_Click(object sender, RoutedEventArgs e)
     {
+        using var settingsChange = _conversationActivity.TryBeginSessionChange();
+        if (settingsChange is null)
+        {
+            ClientDiagnostics.Report("settings.open", "skipped", "conversation_busy");
+            return;
+        }
+        UpdateUiState(_isGenerating);
+
         try
         {
             // Reload settings (they might have been provisioned or edited externally)
@@ -267,6 +275,11 @@ public sealed partial class MainWindow
         {
             ClientLog.Exception("Settings.Open", ex);
             Status(ClientUiText.Get("status.settings_failed", _appSettings.UiLanguage) + FormatLocalLlmUserActionError(ex, _appSettings.UiLanguage));
+        }
+        finally
+        {
+            settingsChange.Dispose();
+            UpdateUiState(_isGenerating);
         }
     }
 

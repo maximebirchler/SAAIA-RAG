@@ -139,6 +139,16 @@ public sealed partial class ToolAgentOrchestrator
                 ("ms", catalogContextSw.ElapsedMilliseconds));
         }
 
+        var requestedDocumentName = ResolveSourceBackedRequestedDocumentName(effectiveUserMessage, routerPlan);
+        var missionDocumentName = routerPlan.SourceBackedMission?.RequestedDocumentName ?? string.Empty;
+        EmitRagTrace("source_backed_pipeline.document_identity.transported",
+            ("source_request_chars", effectiveUserMessage.Length),
+            ("mission_reference_chars", missionDocumentName.Length),
+            ("intake_reference_chars", requestedDocumentName?.Length ?? 0),
+            ("mission_reference_has_directory", missionDocumentName.IndexOfAny(['/', '\\']) >= 0 ? 1 : 0),
+            ("intake_reference_has_directory", requestedDocumentName?.IndexOfAny(['/', '\\']) >= 0 ? 1 : 0),
+            ("uses_focused_document", routerPlan.SourceBackedMission?.UsesFocusedDocument == true ? 1 : 0),
+            ("llm_origin", routerPlan.Origin == RouterPlanOrigin.Llm ? 1 : 0));
         var intake = new SourceBackedIntake(
             effectiveUserMessage,
             pipelineIntent,
@@ -150,9 +160,7 @@ public sealed partial class ToolAgentOrchestrator
             BuildSourceBackedMemoryContext(),
             QuestionFocus: NullIfBlankSourceBackedMissionValue(
                 routerPlan.SourceBackedMission?.QuestionFocus),
-            RequestedDocumentName: ResolveSourceBackedRequestedDocumentName(
-                effectiveUserMessage,
-                routerPlan),
+            RequestedDocumentName: requestedDocumentName,
             InitialToolCalls: BuildSourceBackedRouterInitialActions(routerPlan),
             InitialSemanticMission:
             BuildSourceBackedRouterSemanticMission(routerPlan),
@@ -214,7 +222,8 @@ public sealed partial class ToolAgentOrchestrator
                 "source_backed_pipeline.active.failed",
                 ("intent", pipelineIntent),
                 ("entry", entryPoint),
-                ("error", ex.Message));
+                ("reason", ex is LocalLlmUnavailableException
+                    ? LocalLlmUnavailableException.ReasonCode : "pipeline_execution_failed"));
             return await CompleteFailedSourceBackedPipelineAsync(
                 displayUserMessage,
                 pipelineIntent,

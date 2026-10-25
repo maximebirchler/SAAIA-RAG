@@ -67,6 +67,8 @@ public sealed partial class MainWindow
         TrySoftUi("ApplyUiLanguage.LocalLlmSaveButton", () => LocalLlmSaveButton.Content = ClientUiText.Get("button.save", lang));
         TrySoftUi("ApplyUiLanguage.LocalLlmRuntimeDiagnosticsButton", () => LocalLlmRuntimeDiagnosticsButton.Content = ClientUiText.Get("button.runtime_diagnostics", lang));
         TrySoftUi("ApplyUiLanguage.ApplyLocalizedDefaultSessionTitles", ApplyLocalizedDefaultSessionTitles);
+        TrySoftUi("ApplyUiLanguage.ComposerPersistenceNotice", RenderComposerPersistenceNotice);
+        TrySoftUi("ApplyUiLanguage.ConversationOperationFailure", RenderConversationOperationFailure);
 
         UpdateUiState(_isGenerating);
     }
@@ -908,6 +910,7 @@ public sealed partial class MainWindow
                     Job = trackedJob,
                     SessionId = sessionId,
                     Cancellation = cts,
+                    Api = _api.CreateConnectionSnapshot(),
                     MessageId = assistantMsg.MessageId,
                     Message = assistantMsg,
                     LastPersistedTerminal = assistantMsg.TrackingMeta?.IsTerminal == true
